@@ -1260,7 +1260,8 @@
 }
 
 .needs-you-list .decision-context,
-.needs-you-list .decision-recommendation {
+.needs-you-list .decision-recommendation,
+.needs-you-list .gate-facts-line {
   margin-top: 6px;
   font: var(--type-body-sm);
   color: var(--fg-2);
@@ -1334,8 +1335,26 @@
   color: var(--danger-fg);
 }
 
-.gate-facts + .card-attachments {
-  margin-top: 12px;
+.gate-facts-line {
+  margin-bottom: 0;
+}
+
+.gate-window-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gate-window {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gate-window .gate-question {
+  font-weight: 600;
+  font-size: var(--text-md);
 }
 
 /* Sticky at both edges and empty, so the bar costs the column no room; its margin takes back the gap. */
@@ -2259,10 +2278,11 @@
 /* The Planner's Pipeline proposal, at the rail's foot and centred. */
 .pipeline-proposal {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 12px;
+  padding: 0 16px 12px;
   text-align: center;
 }
 
@@ -2271,6 +2291,10 @@
   margin: 0;
   font: var(--type-body-sm);
   line-height: 1.55;
+}
+
+.pipeline-proposal-name {
+  font-weight: 600;
 }
 
 .pipeline-proposal-actions {

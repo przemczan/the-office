@@ -1,29 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import type { Role, Task, TaskChanges, TaskStages } from "@the-office/contracts";
-import { Badge } from "@the-office/ui";
-import type { ReactNode } from "react";
+import type { Role, Task, TaskStages } from "@the-office/contracts";
+import { Badge, Button } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { attachmentQueries } from "../../api/work.ts";
-import { CardAttachments, CardColumns } from "../../shell/attachments/card-attachments.tsx";
 import { clockOf } from "../../shell/time.ts";
-import { GateActions } from "../../shell/work/gate-actions.tsx";
-import type { WaitingGate } from "../../shell/work/gate-words.ts";
+import { ContinueRefused, useContinuingAtGate } from "../../shell/work/gate-actions.tsx";
+import { continueLabel, type WaitingGate } from "../../shell/work/gate-words.ts";
 import {
   definitionOfDoneFact,
+  gateFactsLine,
+  gateHeading,
   gateQuestion,
-  linesChanged,
-  picturesOfThisRound,
   testsBeforeGate,
-  testsFact,
 } from "./gate-card-words.ts";
-import { RECORD_ELEMENT_ID } from "./record-tab.ts";
+import { GateWindow } from "./gate-window.tsx";
 
 /**
- * The Gate the Task waits at, in the Needs you card (spec §4): what the work came to in four facts
- * and the pictures of this round, beside Continue, Send back and Drop. The rest is elsewhere on the
- * page: the Stages' results on the rail, the diff and each test's result in Changes, the other
- * Attachments in their tab.
+ * The Gate the Task waits at, in the Needs you card (spec §4): what it waits for, a line of its
+ * facts, Continue and Show details. Everything else at the Gate is in its window.
  */
 export function GateCard({
   task,
@@ -36,99 +30,51 @@ export function GateCard({
   readonly waiting: WaitingGate;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const continuing = useContinuingAtGate(task, waiting);
+  const changes = useQuery(projectQueries.taskChanges(task.projectId, task.id)).data;
   const stages = taskStages.stages ?? [];
-  const attachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
-  const pictures = picturesOfThisRound(attachments ?? [], stages);
   const reachedAt = stages
     .find(({ stage }) => stage.key === waiting.gate.key)
     ?.runs.at(-1)?.startedAt;
   return (
     <section className="message needs-you-gate" aria-label={`Gate · ${waiting.gate.name}`}>
-      <CardColumns
-        side={
-          <>
-            <GateFacts task={task} taskStages={taskStages} waiting={waiting} />
-            {pictures.length > 0 && <CardAttachments title="Screenshots" attachments={pictures} />}
-          </>
-        }
-      >
-        <div className="message-by">
-          <Badge tone="accent">Gate</Badge>
-          {waiting.gate.name}
-          {reachedAt !== undefined && <span className="gate-place">{clockOf(reachedAt)}</span>}
-        </div>
-        <div className="message-text gate-question">{gateQuestion(waiting)}</div>
-        <GateActions task={task} waiting={waiting} roles={roles} alongside={<OpenChanges />} />
-      </CardColumns>
+      <div className="message-by">
+        <Badge tone="accent">Gate</Badge>
+        {gateHeading(waiting)}
+        {reachedAt !== undefined && <span className="gate-place">{clockOf(reachedAt)}</span>}
+      </div>
+      <div className="message-text gate-question">{gateQuestion(waiting)}</div>
+      <p className="gate-facts-line">
+        {gateFactsLine(
+          changes?.files.length,
+          testsBeforeGate(taskStages.testResults, stages, waiting),
+          definitionOfDoneFact(task, taskStages.definitionOfDoneMet),
+        )}
+      </p>
+      <div className="gate-actions">
+        <Button
+          variant="accent"
+          loading={continuing.isPending}
+          disabled={continuing.isPending}
+          onClick={() => continuing.mutate()}
+        >
+          {continueLabel(waiting)}
+        </Button>
+        <Button variant="secondary" onClick={() => setDetailsOpen(true)}>
+          Show details
+        </Button>
+      </div>
+      {continuing.error && <ContinueRefused error={continuing.error} />}
+      {detailsOpen && (
+        <GateWindow
+          task={task}
+          taskStages={taskStages}
+          waiting={waiting}
+          roles={roles}
+          onClose={() => setDetailsOpen(false)}
+        />
+      )}
     </section>
-  );
-}
-
-function GateFacts({
-  task,
-  taskStages,
-  waiting,
-}: {
-  readonly task: Task;
-  readonly taskStages: TaskStages;
-  readonly waiting: WaitingGate;
-}): ReactNode {
-  const changes = useQuery(projectQueries.taskChanges(task.projectId, task.id)).data;
-  const checks = testsBeforeGate(taskStages.testResults, taskStages.stages ?? [], waiting);
-  return (
-    <dl className="gate-facts">
-      <GateFact label="Files changed">{changes?.files.length ?? "–"}</GateFact>
-      <GateFact label="Lines">{changes ? <LinesFact changes={changes} /> : "–"}</GateFact>
-      <GateFact label="Tests" failed={checks.some(({ state }) => state === "failed")}>
-        {testsFact(checks)}
-      </GateFact>
-      <GateFact label="Definition of Done">
-        {definitionOfDoneFact(task, taskStages.definitionOfDoneMet)}
-      </GateFact>
-    </dl>
-  );
-}
-
-function GateFact({
-  label,
-  failed = false,
-  children,
-}: {
-  readonly label: string;
-  readonly failed?: boolean;
-  readonly children: ReactNode;
-}): ReactNode {
-  return (
-    <div className={`gate-fact${failed ? " gate-fact-failed" : ""}`}>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
-
-function LinesFact({ changes }: { readonly changes: TaskChanges }): ReactNode {
-  const { added, removed } = linesChanged(changes.files);
-  return (
-    <>
-      <span className="changes-added">+{added}</span>{" "}
-      <span className="changes-removed">−{removed}</span>
-    </>
-  );
-}
-
-/** The Changes tab, brought into view: the card may have pushed it below the fold. */
-function OpenChanges(): ReactNode {
-  return (
-    <Link
-      className="link-button"
-      from="/tasks/$taskId"
-      to="."
-      search={(shown) => ({ ...shown, recordTab: "changes" })}
-      onClick={() => {
-        document.getElementById(RECORD_ELEMENT_ID)?.scrollIntoView({ block: "start" });
-      }}
-    >
-      Open Changes
-    </Link>
   );
 }

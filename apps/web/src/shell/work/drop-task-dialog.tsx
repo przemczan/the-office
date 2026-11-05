@@ -19,16 +19,7 @@ export function DropTaskDialog({
   readonly drop?: () => Promise<unknown>;
   readonly onClose: () => void;
 }): ReactNode {
-  const queryClient = useQueryClient();
-  const showToast = useToast();
-  const dropping = useMutation({
-    mutationFn: drop,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries(taskQueries.list());
-      showToast("Task dropped.");
-      onClose();
-    },
-  });
+  const dropping = useDroppingTask(drop, onClose);
   return (
     <Dialog
       title={`Drop ${task.title}?`}
@@ -46,11 +37,32 @@ export function DropTaskDialog({
         </>
       }
     >
-      {dropping.error && <RefusalAlert title="The Task can't be dropped" error={dropping.error} />}
+      <WhatDroppingDoes error={dropping.error} />
+    </Dialog>
+  );
+}
+
+export function useDroppingTask(drop: () => Promise<unknown>, onDropped: () => void) {
+  const queryClient = useQueryClient();
+  const showToast = useToast();
+  return useMutation({
+    mutationFn: drop,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(taskQueries.list());
+      showToast("Task dropped.");
+      onDropped();
+    },
+  });
+}
+
+export function WhatDroppingDoes({ error }: { readonly error: Error | null }): ReactNode {
+  return (
+    <>
+      {error && <RefusalAlert title="The Task can't be dropped" error={error} />}
       <p className="dialog-text">
         It moves to Done as dropped and stays readable there; a dropped Task can't be picked up
         again.
       </p>
-    </Dialog>
+    </>
   );
 }

@@ -1358,11 +1358,21 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
   await page.goto(`/tasks/${task.id}`);
 
-  const gate = page.getByRole("region", { name: "Screenshots" });
+  await page
+    .getByRole("region", { name: "Gate · UI acceptance" })
+    .getByRole("button", { name: "Show details" })
+    .click();
+  const gateWindow = page.getByRole("dialog", { name: /UI acceptance/ });
+  const gate = gateWindow.getByRole("region", { name: "Screenshots" });
   await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
-  await expect(gate.getByRole("button", { name: "View second-look.png" })).toBeVisible();
-  await gate.scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
+  // The picture viewer is the one window that opens on another, and Esc closes it first.
+  await gate.getByRole("button", { name: "View second-look.png" }).click();
+  await expect(page.getByRole("heading", { name: "second-look.png" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "second-look.png" })).toHaveCount(0);
+  await gateWindow.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(gateWindow).toHaveCount(0);
 
   await page.getByRole("tab", { name: "Attachments" }).click();
   const attachments = page.getByRole("region", { name: "Attachments", exact: true });

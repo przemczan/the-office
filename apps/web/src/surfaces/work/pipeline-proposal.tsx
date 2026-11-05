@@ -42,7 +42,8 @@ export function PipelineProposal({
       aria-label="Pipeline proposal"
     >
       <p>
-        <Badge tone="warning">Proposed by {planner}</Badge> {proposedName}
+        <Badge tone="warning">Proposed by {planner}</Badge>{" "}
+        <span className="pipeline-proposal-name">{proposedName}</span>
         {same && " (the one it follows)"}: {proposed.reason}
       </p>
       <div className="pipeline-proposal-actions">

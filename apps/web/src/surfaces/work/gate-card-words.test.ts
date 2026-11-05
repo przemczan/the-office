@@ -1,6 +1,7 @@
 import type {
   Attachment,
   ChangedFile,
+  Stage,
   StageRun,
   TaskStage,
   TestResult,
@@ -10,6 +11,8 @@ import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   definitionOfDoneFact,
+  gateFactsLine,
+  gateHeading,
   gateQuestion,
   linesChanged,
   picturesOfThisRound,
@@ -45,6 +48,38 @@ describe("gateQuestion", () => {
 
   it("says the work finishes at the last Stage", () => {
     expect(gateQuestion({ next: undefined })).toBe("Look at the changes and let the work finish");
+  });
+});
+
+describe("gateHeading", () => {
+  const gate = { name: "UI acceptance" } as Stage;
+
+  it("names the Stage the Gate stands before", () => {
+    expect(gateHeading({ gate, next: { name: "Publish" } as Stage })).toBe("Before Publish");
+  });
+
+  it("names the Gate itself when it is the last Stage", () => {
+    expect(gateHeading({ gate, next: undefined })).toBe("UI acceptance");
+  });
+});
+
+describe("gateFactsLine", () => {
+  it("reads the files, the tests and the Definition of Done in a line", () => {
+    expect(gateFactsLine(3, [aResult("passed")], "2 of 3")).toBe(
+      "3 files changed · tests passed · Definition of Done 2 of 3",
+    );
+  });
+
+  it("counts one file and one failed test in the singular", () => {
+    expect(gateFactsLine(1, [aResult("failed")], "0 of 1")).toBe(
+      "1 file changed · 1 test failed · Definition of Done 0 of 1",
+    );
+  });
+
+  it("leaves the files out until they are known", () => {
+    expect(gateFactsLine(undefined, [], "0 of 1")).toBe(
+      "tests not run · Definition of Done 0 of 1",
+    );
   });
 });
 

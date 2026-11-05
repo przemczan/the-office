@@ -17,32 +17,30 @@ import { DropTaskDialog } from "./drop-task-dialog.tsx";
 import {
   continueLabel,
   defaultSendBackTarget,
+  SEND_BACK_WITH_NOTES,
   sendBackWords,
   type WaitingGate,
 } from "./gate-words.ts";
 
-/**
- * What the user does at the Gate a Task waits at: Continue, Send back with notes, or Drop. The same
- * in the Task's Needs you card, on Now and in the Needs you panel.
- */
 /** Bordered as the buttons beside it, in the colour of what can't be undone. */
 const DROP_LOOK = { color: "var(--danger-fg)" } as const;
 
+/**
+ * What the user does at the Gate a Task waits at, on Now and in the Needs you panel: Continue, Send
+ * back with notes, or Drop. A Task's own page has the same actions in its Gate's window.
+ */
 export function GateActions({
   task,
   waiting,
   roles,
-  alongside,
 }: {
   readonly task: Task;
   readonly waiting: WaitingGate;
   readonly roles: readonly Role[] | undefined;
-  /** Another way on from the Gate, in the same row. */
-  readonly alongside?: ReactNode;
 }): ReactNode {
   const [sendingBack, setSendingBack] = useState(false);
   const [dropping, setDropping] = useState(false);
-  const continuing = useGateAction(task, () => continueAtGate(task.id), continueToast(waiting));
+  const continuing = useContinuingAtGate(task, waiting);
   const busy = continuing.isPending;
   return (
     <>
@@ -55,7 +53,6 @@ export function GateActions({
         >
           {continueLabel(waiting)}
         </Button>
-        {alongside}
         {waiting.sendBackTargets.length > 0 && (
           <Button
             variant="secondary"
@@ -63,7 +60,7 @@ export function GateActions({
             disabled={busy}
             onClick={() => setSendingBack(!sendingBack)}
           >
-            {sendingBack ? "Cancel" : "Send back with notes…"}
+            {sendingBack ? "Cancel" : SEND_BACK_WITH_NOTES}
           </Button>
         )}
         <Button
@@ -75,9 +72,7 @@ export function GateActions({
           Drop
         </Button>
       </div>
-      {continuing.error && (
-        <RefusalAlert title="The Task didn't continue" error={continuing.error} />
-      )}
+      {continuing.error && <ContinueRefused error={continuing.error} />}
       {dropping && (
         <DropTaskDialog
           task={task}
@@ -97,7 +92,10 @@ export function GateActions({
   );
 }
 
-/** The earlier Stage to send the work back to, the last Agent Stage by default, and the feedback. */
+export function ContinueRefused({ error }: { readonly error: Error }): ReactNode {
+  return <RefusalAlert title="The Task didn't continue" error={error} />;
+}
+
 function SendBackForm({
   task,
   targets,
@@ -109,8 +107,54 @@ function SendBackForm({
   readonly roles: readonly Role[] | undefined;
   readonly onSent: () => void;
 }): ReactNode {
-  const [stageKey, setStageKey] = useState(defaultSendBackTarget(targets)?.key ?? "");
-  const [feedback, setFeedback] = useState("");
+  const sending = useSendingBack(task, targets, roles, onSent);
+  return (
+    <form
+      className="gate-send-back"
+      aria-label="Send back"
+      onSubmit={(event) => {
+        event.preventDefault();
+        sending.send();
+      }}
+    >
+      <SendBackFields sending={sending} />
+      <div className="gate-actions">
+        <Button
+          variant="primary"
+          type="submit"
+          loading={sending.isPending}
+          disabled={!sending.written}
+        >
+          Send back
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Send back as it is being written, for its fields and the action that sends it, wherever each sits. */
+export interface SendingBack {
+  readonly targets: readonly Stage[];
+  readonly stageKey: string;
+  readonly chooseStage: (stageKey: string) => void;
+  readonly feedback: string;
+  readonly writeFeedback: (feedback: string) => void;
+  readonly words: ReturnType<typeof sendBackWords>;
+  /** There is feedback to send. */
+  readonly written: boolean;
+  readonly isPending: boolean;
+  readonly error: Error | null;
+  readonly send: () => void;
+}
+
+export function useSendingBack(
+  task: Task,
+  targets: readonly Stage[],
+  roles: readonly Role[] | undefined,
+  onSent: () => void,
+): SendingBack {
+  const [stageKey, chooseStage] = useState(defaultSendBackTarget(targets)?.key ?? "");
+  const [feedback, writeFeedback] = useState("");
   const target = targets.find(({ key }) => key === stageKey);
   const words = sendBackWords(target, personOf(target, roles));
   const sending = useGateAction(
@@ -118,23 +162,31 @@ function SendBackForm({
     () => sendBackFromGate(task.id, { stageKey, feedback }),
     words.sent,
   );
-  const canSend = !sending.isPending && feedback.trim() !== "";
-  const send = (): void => sending.mutate(undefined, { onSuccess: onSent });
+  return {
+    targets,
+    stageKey,
+    chooseStage,
+    feedback,
+    writeFeedback,
+    words,
+    written: feedback.trim() !== "",
+    isPending: sending.isPending,
+    error: sending.error,
+    send: () => sending.mutate(undefined, { onSuccess: onSent }),
+  };
+}
+
+/** The earlier Stage to send the work back to, the last Agent Stage by default, and the feedback. */
+export function SendBackFields({ sending }: { readonly sending: SendingBack }): ReactNode {
+  const { targets, words } = sending;
   return (
-    <form
-      className="gate-send-back"
-      aria-label="Send back"
-      onSubmit={(event) => {
-        event.preventDefault();
-        send();
-      }}
-    >
+    <div className="gate-send-back-fields">
       {targets.length > 1 && (
         <Select
           label="Send back to"
-          value={stageKey}
+          value={sending.stageKey}
           options={targets.map(({ key, name }) => ({ value: key, label: name }))}
-          onChange={setStageKey}
+          onChange={sending.chooseStage}
         />
       )}
       {words.scriptNote && <p className="gate-script-note">{words.scriptNote}</p>}
@@ -142,25 +194,20 @@ function SendBackForm({
         label="Your feedback"
         rows={3}
         placeholder={words.placeholder}
-        value={feedback}
-        onChange={setFeedback}
-        canSend={canSend}
+        value={sending.feedback}
+        onChange={sending.writeFeedback}
+        canSend={sending.written && !sending.isPending}
         busyReason={undefined}
-        onSend={send}
+        onSend={sending.send}
+        autoFocus
       />
-      <div className="gate-actions">
-        <Button
-          variant="primary"
-          type="submit"
-          loading={sending.isPending}
-          disabled={feedback.trim() === ""}
-        >
-          Send back
-        </Button>
-      </div>
       {sending.error && <RefusalAlert title="The work wasn't sent back" error={sending.error} />}
-    </form>
+    </div>
   );
+}
+
+export function useContinuingAtGate(task: Task, waiting: WaitingGate) {
+  return useGateAction(task, () => continueAtGate(task.id), continueToast(waiting));
 }
 
 function continueToast({ next }: WaitingGate): string {

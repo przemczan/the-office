@@ -43,6 +43,8 @@ export function defaultSendBackTarget(targets: readonly Stage[]): Stage | undefi
   return targets.findLast(({ kind }) => kind === "agent") ?? targets.at(-1);
 }
 
+export const SEND_BACK_WITH_NOTES = "Send back with notes…";
+
 /**
  * What the send-back form says for its target: who changes what, or, beside a Script Stage, that it
  * can't read the feedback and only runs again.

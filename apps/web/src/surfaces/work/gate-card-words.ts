@@ -10,6 +10,11 @@ export function gateQuestion({ next }: Pick<WaitingGate, "next">): string {
     : "Look at the changes and let the work finish";
 }
 
+/** What the card and the window are headed with: the Stage the Gate stands before, or, last, itself. */
+export function gateHeading({ gate, next }: Pick<WaitingGate, "gate" | "next">): string {
+  return next ? `Before ${next.name}` : gate.name;
+}
+
 /** The lines the Task changed; a binary file has none to count. */
 export function linesChanged(files: readonly ChangedFile[]): {
   readonly added: number;
@@ -49,6 +54,25 @@ export function definitionOfDoneFact(
   met: readonly number[],
 ): string {
   return `${reportedMetCount(definitionOfDone, met)} of ${definitionOfDone.length}`;
+}
+
+/** The card's line of what the window shows as facts; the files are left out until they are known. */
+export function gateFactsLine(
+  filesChanged: number | undefined,
+  checks: readonly TestResult[],
+  definitionOfDone: string,
+): string {
+  const files =
+    filesChanged === undefined
+      ? []
+      : [`${filesChanged} ${filesChanged === 1 ? "file" : "files"} changed`];
+  return [...files, testsWords(checks), `Definition of Done ${definitionOfDone}`].join(" · ");
+}
+
+function testsWords(checks: readonly TestResult[]): string {
+  const failed = checks.filter(({ state }) => state === "failed").length;
+  if (failed > 0) return `${failed} ${failed === 1 ? "test" : "tests"} failed`;
+  return `tests ${testsFact(checks).toLowerCase()}`;
 }
 
 /** The pictures of the current round; the rest of the round's Attachments stay in the tab. */

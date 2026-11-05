@@ -1548,10 +1548,9 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
     (beforeReadyBox?.y ?? 0) + (beforeReadyBox?.height ?? 0),
   );
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await showPalette(page, "dark");
   await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-planning.png") });
-  await page.emulateMedia({ colorScheme: "light" });
+  await showPalette(page, "light");
 
   // Mark Ready waits for every line of "Before Ready", read-only, each unmet line saying where it
   // is settled, and each ticks as it is met.
@@ -2043,13 +2042,14 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
     await expect(rail.getByText("At UI acceptance: waiting on you")).toBeVisible();
     await expect(page.getByRole("region", { name: "Needs you" })).toContainText("a Gate");
-    // Only the checks before the Gate count: the Build after it hasn't had its turn.
-    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Passed");
-    await expect(gate.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
-      "of 1",
+    // The card says what it waits for and a line of its facts. Only the checks before the Gate
+    // count: the Build after it hasn't had its turn.
+    await expect(gate).toContainText("Before Build");
+    await expect(gate).toContainText(
+      /\d+ files? changed · tests passed · Definition of Done \d of 1/,
     );
-    await expect(gate.locator(".gate-fact", { hasText: "Files changed" })).toBeVisible();
-    await expect(gate.locator(".gate-fact", { hasText: "Lines" })).toContainText("+");
+    await expect(gate.getByRole("button", { name: "Continue to Build" })).toBeVisible();
+    await expect(gate.getByRole("button", { name: "Drop", exact: true })).toHaveCount(0);
 
     // Out of view the slim bar counts the Gate and asks what its card asks.
     const slimBar = page.getByRole("group", { name: "Needs you, out of view" });
@@ -2072,7 +2072,21 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await showPalette(page, "light");
 
     await page.setViewportSize({ width: 1600, height: 900 });
-    const attachments = gate.getByRole("region", { name: "Screenshots" });
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-gate.png") });
+    await showPalette(page, "light");
+
+    // Show details has the four facts, this round's pictures and every action in its bar.
+    const details = page.getByRole("dialog", { name: /Before Build/ });
+    await gate.getByRole("button", { name: "Show details" }).click();
+    await expect(details.locator(".gate-fact", { hasText: "Tests" })).toContainText("Passed");
+    await expect(details.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
+      "of 1",
+    );
+    await expect(details.locator(".gate-fact", { hasText: "Files changed" })).toBeVisible();
+    await expect(details.locator(".gate-fact", { hasText: "Lines" })).toContainText("+");
+    const attachments = details.getByRole("region", { name: "Screenshots" });
     await expect(attachments).toHaveCount(0);
     // A screenshot, as Work attaches the ones an Agent lists, shows as a picture.
     const uploaded = await page.request.post(
@@ -2082,10 +2096,14 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     expect(uploaded.status()).toBe(201);
     await expect(attachments.getByRole("button", { name: "View settings.png" })).toBeVisible();
     await expect(acceptance.getByText("Waiting on you", { exact: true })).toBeVisible();
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-window.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-gate-window.png") });
+    await showPalette(page, "light");
 
     // The diff is a click away, in the Changes tab, brought into view.
-    await gate.getByRole("link", { name: "Open Changes" }).click();
+    await details.getByRole("link", { name: "Open Changes" }).click();
+    await expect(details).toHaveCount(0);
     await expect(page).toHaveURL(/recordTab=changes/);
     await expect(page.getByRole("region", { name: "Files changed" })).toBeInViewport();
 
@@ -2096,18 +2114,33 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(onNow.getByRole("link", { name: "Open Changes" })).toBeVisible();
     await page.goto(`/tasks/${taskId}`);
 
-    await gate.getByRole("button", { name: "Send back with notes…" }).click();
-    const sendBack = gate.getByRole("form", { name: "Send back" });
-    const feedback = sendBack.getByLabel("Your feedback");
-    // Shift+Enter breaks the line, as in every message field; Enter sends.
+    // Send back's notes open over the bar, whose actions become Send back and Cancel.
+    await gate.getByRole("button", { name: "Show details" }).click();
+    const continueInWindow = details.getByRole("button", { name: "Continue to Build" });
+    const sendBackWithNotes = details.getByRole("button", { name: "Send back with notes…" });
+    await sendBackWithNotes.click();
+    await expect(continueInWindow).toHaveCount(0);
+    await details.getByRole("button", { name: "Cancel" }).click();
+    await expect(continueInWindow).toBeVisible();
+    await sendBackWithNotes.click();
+    const sendBack = details.getByRole("button", { name: "Send back", exact: true });
+    const feedback = details.getByLabel("Your feedback");
+    await expect(feedback).toBeFocused();
+    await expect(sendBack).toBeDisabled();
+    // Shift+Enter breaks the line, as in every message field.
     await feedback.fill("Call it Save.");
     await feedback.press("Shift+Enter");
     await expect(feedback).toHaveValue("Call it Save.\n");
     await feedback.fill(GATE_FEEDBACK);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-send-back.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-gate-send-back.png") });
+    await showPalette(page, "light");
     // In the background, the next Gate's Notification goes to the desktop instead.
     await focusTab(page, false);
-    await feedback.press("Enter");
+    await sendBack.click();
     await expect(page.getByText("Sent back to Adam.")).toBeVisible();
+    await expect(details).toHaveCount(0);
     await expect
       .poll(() => desktopShown(page))
       .toContainEqual({
@@ -2215,7 +2248,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
 });
 
 // After the test above: a Task's Done here would collapse with that one's, which it reads as a toast.
-test("a Task's Needs you card continues past a Gate and drops the Task at one", async ({
+test("a Gate's card and window continue past it, and the window drops the Task", async ({
   page,
 }) => {
   const repository = await createTemporaryRepository();
@@ -2223,31 +2256,57 @@ test("a Task's Needs you card continues past a Gate and drops the Task at one", 
     const project = await addedProject(page, repository, "Looked at", "LA", PASSING_COMMANDS);
     const needsYou = page.getByRole("region", { name: "Needs you" });
     const gate = page.getByRole("region", { name: "Gate · First look" });
+    const details = page.getByRole("dialog", { name: /Before Build/ });
+    // No Agent reported the Definition of Done met, so the walk asks before the Task can end. It
+    // must end here: a run outliving the repository would fail on the next test's page.
+    const markDone = async (): Promise<void> => {
+      await needsYou.getByRole("button", { name: "Mark the Task Done" }).click();
+      await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
+    };
 
     const continued = await readyTask(page, project.id, "Goes on past the look");
     await seedGateFirst(page, continued);
     await page.goto(`/tasks/${continued}`);
     await page.getByRole("button", { name: "Start", exact: true }).click();
     // Build comes after the Gate, so nothing has checked the code yet.
-    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Not run");
-    await expect(gate.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
+    await expect(gate).toContainText("tests not run · Definition of Done 0 of 1");
+    await gate.getByRole("button", { name: "Show details" }).click();
+    await expect(details.locator(".gate-fact", { hasText: "Tests" })).toContainText("Not run");
+    await expect(details.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
       "0 of 1",
     );
-    await expect(gate.getByRole("button", { name: "Send back with notes…" })).toHaveCount(0);
-    await gate.getByRole("button", { name: "Continue to Build" }).click();
+    await expect(details.getByRole("button", { name: "Send back with notes…" })).toHaveCount(0);
+    await details.getByRole("button", { name: "Continue to Build" }).click();
     await expect(page.getByText("Continuing to Build.")).toBeVisible();
+    await expect(details).toHaveCount(0);
     await expect(gate).toHaveCount(0);
-    // No Agent reported the Definition of Done met, so the walk asks before the Task can end. It
-    // must end here: a run outliving the repository would fail on the next test's page.
-    await needsYou.getByRole("button", { name: "Mark the Task Done" }).click();
-    await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
+    await markDone();
+
+    const continuedFromCard = await readyTask(page, project.id, "Goes on from the card");
+    await seedGateFirst(page, continuedFromCard);
+    await page.goto(`/tasks/${continuedFromCard}`);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await gate.getByRole("button", { name: "Continue to Build" }).click();
+    await expect(gate).toHaveCount(0);
+    await markDone();
 
     const dropped = await readyTask(page, project.id, "Ends at the look");
     await seedGateFirst(page, dropped);
     await page.goto(`/tasks/${dropped}`);
     await page.getByRole("button", { name: "Start", exact: true }).click();
-    await gate.getByRole("button", { name: "Drop", exact: true }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Drop the Task" }).click();
+    // Drop asks first over the bar, as no window opens on another.
+    await gate.getByRole("button", { name: "Show details" }).click();
+    const drop = details.getByRole("button", { name: "Drop", exact: true });
+    await drop.click();
+    await expect(details).toContainText("Drop Ends at the look?");
+    await expect(details.getByRole("button", { name: "Continue to Build" })).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-drop.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-gate-drop.png") });
+    await showPalette(page, "light");
+    await drop.click();
+    await expect(details).toHaveCount(0);
     await expect(gate).toHaveCount(0);
     await expect(page.locator(".task-head").getByText("Dropped")).toBeVisible();
     await expect(needsYou).toHaveText("This Task was dropped.");
@@ -2630,8 +2689,11 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     // The turn took them all, and the Stage went on to its Gate.
     await expect(implementChapter.getByText("Lands at the next safe point")).toHaveCount(0);
     const gate = page.getByRole("region", { name: "Gate · UI acceptance" });
-    await gate.getByRole("button", { name: "Drop", exact: true }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Drop the Task" }).click();
+    await gate.getByRole("button", { name: "Show details" }).click();
+    const drop = page.getByRole("dialog").getByRole("button", { name: "Drop", exact: true });
+    await drop.click();
+    await expect(page.getByRole("dialog")).toContainText("a dropped Task can't be picked up");
+    await drop.click();
     await expect(page.getByRole("region", { name: "Needs you" })).toContainText(
       "This Task was dropped",
     );
