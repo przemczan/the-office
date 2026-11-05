@@ -110,24 +110,37 @@
 
 /* ---- the log */
 .message-list {
+  --turn-gutter: var(--space-10);
+
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-5);
   min-height: 0;
-  padding: 14px 16px;
+  padding: var(--space-5) var(--space-5) var(--space-6);
   overflow: auto;
+  background: var(--surface);
 }
 
-/* A chapter of a timeline, which does the scrolling. */
+/* What belongs to a turn lines up with its words; only The Office's own lines take the whole width. */
+.message-list > :not(.turn, .message-office, .message-log-line, .message-details-hidden) {
+  margin-left: var(--turn-gutter);
+}
+
+/* A tool line belongs to the turn before it, so it sits nearer than the next turn does. */
+.turn + .tool-calls {
+  margin-top: calc(-1 * var(--space-3));
+}
+
+/* A chapter of a timeline, which does the scrolling and paints the surface. */
 .message-list.in-timeline {
   flex: none;
-  gap: 12px;
   padding: 12px;
   overflow: visible;
+  background: none;
 }
 
-.in-timeline .message {
+.message-list .message {
   max-width: none;
 }
 
@@ -164,39 +177,57 @@
 }
 
 .turn {
+  display: grid;
+  grid-template-columns: var(--turn-gutter) minmax(0, 1fr);
   min-width: 0;
-  font: var(--type-body-sm);
-  line-height: 1.55;
+  font: var(--type-body);
+  line-height: 1.6;
   color: var(--fg-1);
 }
 
-.turn.mine {
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: var(--surface-sunken);
+.turn-body {
+  min-width: 0;
 }
 
 .turn-by {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 2px;
+  min-width: 0;
+  margin-bottom: var(--space-px);
   font: var(--type-caption);
-  color: var(--fg-3);
+  color: var(--fg-2);
 }
 
 .turn-author {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  font: var(--type-body-sm);
   font-weight: 600;
   color: var(--fg-1);
 }
 
+.turn-author svg {
+  flex: none;
+}
+
+.labelled .turn-author {
+  font: var(--type-caption);
+  font-weight: 500;
+  color: var(--fg-2);
+}
+
 .turn-messages {
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
   min-width: 0;
+}
+
+.turn .message-text {
+  max-width: 72ch;
 }
 
 .tool-calls {
@@ -226,7 +257,7 @@
   gap: 4px;
   margin-top: 4px;
   font: var(--type-caption);
-  color: var(--fg-3);
+  color: var(--fg-2);
 }
 
 .message-delivery.not-delivered {

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Message, MessageDelivery } from "@the-office/contracts";
-import { Icon, TextButton } from "@the-office/ui";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Avatar, Icon, TextButton } from "@the-office/ui";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
@@ -27,6 +27,12 @@ const NO_LOG_LINES: readonly LogLine[] = [];
 
 /** How far from the end a reader still counts as following it. */
 const FOLLOWING_DISTANCE_PX = 40;
+
+/** The gray of the Avatar's own tints: its tint comes from the name, and the user isn't a person. */
+const YOUR_AVATAR_COLOURS: CSSProperties = {
+  background: "var(--gray-100)",
+  color: "var(--gray-700)",
+};
 
 /** How to read a Handover note whole, when somewhere else holds it. */
 export type HandoverNoteReader = (note: string) => (() => void) | undefined;
@@ -190,9 +196,10 @@ function Turn({
   const [opening] = messages;
   return (
     <TurnFrame
-      mine={opening.kind === "user"}
+      avatar={opening.kind === "user" ? <YourAvatar /> : <Avatar name={personName} size="xs" />}
       by={<TurnAuthor opening={opening} personName={personName} />}
       at={opening.at}
+      labelled={opening.kind === "user" && opening.handoverNoteFrom !== null}
     >
       {messages.map((message) => (
         <div key={message.id}>
@@ -218,24 +225,37 @@ function TurnAuthor({
   return <HandoverNoteFrom roleKey={opening.handoverNoteFrom} />;
 }
 
+function YourAvatar(): ReactNode {
+  return <Avatar name="You" size="xs" style={YOUR_AVATAR_COLOURS} />;
+}
+
+/** A row of the log: the avatar on the left, the name and the time over what was said. */
 function TurnFrame({
-  mine,
+  avatar,
   by,
   at,
+  labelled = false,
   children,
 }: {
-  readonly mine: boolean;
+  readonly avatar: ReactNode;
   readonly by: ReactNode;
   readonly at: string;
+  /** The name carries a note on what the turn is, so it reads quieter than a plain name. */
+  readonly labelled?: boolean;
   readonly children: ReactNode;
 }): ReactNode {
   return (
-    <div className={mine ? "turn mine" : "turn"}>
-      <div className="turn-by">
-        <span className="turn-author">{by}</span>
-        <span>{clockOf(at)}</span>
+    <div className={labelled ? "turn labelled" : "turn"}>
+      <div className="turn-avatar" aria-hidden="true">
+        {avatar}
       </div>
-      <div className="turn-messages">{children}</div>
+      <div className="turn-body">
+        <div className="turn-by">
+          <span className="turn-author">{by}</span>
+          <span>{clockOf(at)}</span>
+        </div>
+        <div className="turn-messages">{children}</div>
+      </div>
     </div>
   );
 }
@@ -327,7 +347,12 @@ function MessageItem({
       return <DecisionInThread decision={message.decision} personName={personName} />;
     case "decision-answer":
       return (
-        <TurnFrame mine by="You · answering the Decision" at={message.at}>
+        <TurnFrame
+          avatar={<YourAvatar />}
+          by="You · answering the Decision"
+          at={message.at}
+          labelled
+        >
           <div className="message-text">
             <MarkdownText text={answerWords(message.answer, message.decision)} />
           </div>

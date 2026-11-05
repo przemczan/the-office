@@ -12,7 +12,7 @@ The user can always read a tool call's whole command, however narrow the window.
 
 - [x] A tool call keeps its whole text, line breaks included. Check: `tool-activity.test.ts`, with a command over 200 characters and one of several lines.
 - [x] Every command shows whole at any width: it wraps, and only a very long one scrolls in its place. The line beside "is working" wraps too. Check: a web test, and a screenshot at 380px of a command over 200 characters.
-- [ ] A turn has its avatar, name and time on the left; the user's avatar is neutral. Neighbouring messages still join into one turn. Check: `message-list-kinds.test.tsx`.
+- [x] A turn has its avatar, name and time on the left; the user's avatar is neutral. Neighbouring messages still join into one turn. Check: `message-list-kinds.test.tsx`.
 - [ ] The Thread sits on the plain surface, its text is 14px, and there is more space between turns than within one. Check: screenshots against the mock.
 - [ ] Neighbouring tool calls fold to one line with their count and the latest call, and open to every call. Details hides them as today. Check: a web test.
 - [ ] The Office's lines lose their dashed boxes: a day or a run sits on a hairline, the others are small centred notes. A Thread that spans days has a day line. Check: a web test of the day line, and `message-list.test.tsx`.
@@ -49,22 +49,27 @@ With the user, 2026-11-05.
 ## Steps
 
 - [x] 1. Whole commands: the service keeps the text, and today's tool lines and the "is working" line wrap. It goes first so the fix reaches the user before the redesign. Read: `conversations/domain/tool-activity.ts`, `message-list.tsx` (`ToolCalls`, `ToolCallWords`, `Working`), `conversation.css` (`.message-summary`, `.message-answering`).
-- [ ] 2. Rows: turns with their avatar, the plain surface, the text and the spacing. Read: `message-list.tsx` (`Turn`, `TurnFrame`), `conversation.css` (`.turn`), `Avatar` in `packages/ui`.
+- [x] 2. Rows: turns with their avatar, the plain surface, the text and the spacing. Read: `message-list.tsx` (`Turn`, `TurnFrame`), `conversation.css` (`.turn`), `Avatar` in `packages/ui`.
 - [ ] 3. Tool calls fold; the Office's lines, the day line, the strips and the centred column. Read: `message-groups.ts`, `message-list.tsx` (`MessageItem`, `ContextLine`), `apps/web/e2e/people.e2e.ts` near `.message-office`.
 - [ ] 4. Close: the screenshots against the mock, spec 4, the UI rules, the click-through, and `npm run verify:linux`.
 
 ## State
 
-Step 1 is built. `toolActivitySummary` keeps the whole text, trimmed at its ends only. `.message-summary` shows it with `pre-wrap` and `overflow-wrap: anywhere`, scrolling past 320px; `.tool-calls .message-line` and `.message-answering` wrap, so a long command takes the row below at full width. The check is the e2e test "a tool call's command shows whole…" in `work.e2e.ts`, at 380px, which also writes `light-380-whole-commands.png` and `light-380-whole-command-working.png`.
+Steps 1 and 2 are built. A tool call keeps its whole text; `.message-summary` shows it with `pre-wrap` and `overflow-wrap: anywhere`, scrolling past 320px, and `.tool-calls .message-line` and `.message-answering` wrap. The check is the e2e test "a tool call's command shows whole…" in `work.e2e.ts`. `.message-summary` also serves refusals, so a refusal's reason wraps already; its box still waits for step 3's test.
 
-`.message-summary` also serves refusals, so a refusal's reason wraps already; its box in the Definition of Done still waits for step 3's test.
+A turn is a row: `TurnFrame` takes its `avatar`, `by`, `at` and `labelled` (a name carrying a note, as "You · answering the Decision", reads quieter). `YourAvatar` is the `Avatar` with the gray of its own tints, through `style`. `.turn` is a grid of `--turn-gutter` (`--space-10`, set on `.message-list`) and the words, 14px at line height 1.6, `.message-text` at 72ch. Turns stand `--space-5` apart, messages within one `--space-2`. `.message-list` paints `--surface`, but a chapter paints its own.
 
-Trap for step 3: the fold is the one-line place, so it adds the CSS that collapses the line breaks, as `.message-summary` no longer does. The e2e test and `message-list-kinds.test.tsx` read `.tool-calls .message-summary` on neighbouring calls, so they must open the fold first.
+Every direct child of `.message-list` lines up with a turn's words by that gutter, cards included, unless the `:not()` rule names it as The Office's own (`.message-office`, `.message-log-line`, `.message-details-hidden`). Cards in a list take the whole column; `.message`'s 92% stays for the cards outside a Thread, as the Gate card in Needs you.
 
-The Rows design is in the mock; its `DESIGNS.rows` and the `[data-design="rows"]` rules are what to compare against, not CSS to copy.
+Values chosen against the mock, for tokens: 20px between turns (mock 18), a 40px gutter (mock 38). The avatar is `xs`, 20px, as the mock's.
 
-Traps: the `Avatar` tints by name, so the user's neutral one needs a way to ask for it; it lives in `design-system/components/core/Avatar.jsx`, which stays as exported (build defaults), so that way is its `style` prop or a wrapper in `packages/ui`. `.message-office` and `.turn-by` are used by tests, including `people.e2e.ts`. `MessageList` serves every Thread, so a change shows on the Task page, the Stage history, people's chats and the drawer at once.
+Looked at on a throwaway page holding the real `MessageList` and CSS, at 380 and 900px in Light and Dark and inside a chapter: no sideways scroll, and it reads as the mock. Not yet looked at in the running app, so the plain surface's box waits for step 4.
+
+Open, for the user at step 4: the Task page's Threads are still chapters, boxes on the sunken timeline, which the mock doesn't draw. The words sit on the plain surface inside them, so they stayed. Margins between paragraphs in a turn are `.markdown-text`'s 6px (mock 0.6em), left as it serves every screen.
+
+Traps for step 3: the fold is the one-line place, so it adds the CSS that collapses the line breaks, as `.message-summary` no longer does. The e2e test and `message-list-kinds.test.tsx` read `.tool-calls .message-summary` on neighbouring calls, so they must open the fold first. `.turn + .tool-calls` pulls a tool line up to its turn. The mock's "is working" line has the person's avatar; `Working` doesn't yet. `.message-office` is used by `people.e2e.ts` and `message-list.test.tsx`; a new class for the Office's lines joins the `:not()` rule.
 
 ## Progress
 
 - 2026-11-05 · step 1: a tool call keeps its whole text, and tool lines and the line beside "is working" wrap, scrolling past 320px; next, step 2, Rows.
+- 2026-11-05 · step 2: a turn is a row with its avatar, name and time, the user's avatar neutral; the Thread sits on the plain surface at 14px, turns further apart than messages; next, step 3, the fold and the Office's lines.

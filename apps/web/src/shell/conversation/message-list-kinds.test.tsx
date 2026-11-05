@@ -3,6 +3,7 @@ import type { Decision, Message, MessageDelivery, Proposal } from "@the-office/c
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
+import { clockOf } from "../time.ts";
 import { contextLabel } from "./context-words.ts";
 import { MessageList } from "./message-list.tsx";
 
@@ -144,6 +145,37 @@ describe("MessageList's kinds", () => {
     expect(
       [...log.querySelectorAll(".message-delivery")].map(({ textContent }) => textContent),
     ).toEqual(["Delivered", "Lands at the next safe point"]);
+  });
+
+  it("gives the user's turn and the person's the same row: avatar, name and time", () => {
+    const log = shownLog([written("a", "Mine", "delivered"), fromPerson("b", "Theirs")]);
+    const rows = [...log.querySelectorAll(".turn")].map((turn) => [
+      turn.querySelector(".turn-avatar")?.textContent,
+      turn.querySelector(".turn-author")?.textContent,
+      turn.querySelector(".turn-by")?.textContent?.endsWith(clockOf(at)),
+    ]);
+    expect(rows).toEqual([
+      ["Y", "You", true],
+      ["J", "Jan", true],
+    ]);
+  });
+
+  it("keeps the tint for people: the user's avatar is neutral, on all the user's turns", () => {
+    const [answer] = EVERY_KIND["decision-answer"];
+    const log = shownLog([written("a", "Mine", "delivered"), fromPerson("b", "Theirs"), answer]);
+    const backgrounds = [...log.querySelectorAll<HTMLElement>(".turn-avatar > span")].map(
+      ({ style }) => style.background,
+    );
+    expect(backgrounds[0]).toBe("var(--gray-100)");
+    expect(backgrounds[1]).not.toBe("var(--gray-100)");
+    expect(backgrounds[2]).toBe("var(--gray-100)");
+  });
+
+  it("joins neighbouring messages into one turn under one avatar", () => {
+    const log = shownLog([fromPerson("a", "First"), fromPerson("b", "Second")]);
+    expect(log.querySelectorAll(".turn")).toHaveLength(1);
+    expect(log.querySelectorAll(".turn-avatar")).toHaveLength(1);
+    expect(log.querySelectorAll(".turn .message-text")).toHaveLength(2);
   });
 
   it("shows a tool call's whole command, line breaks included", () => {
