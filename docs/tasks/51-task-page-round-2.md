@@ -1,6 +1,6 @@
 # 51 · The Task page, round 2
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -43,7 +43,7 @@ Every window in the app follows the new [UI rules](../spec/4.1-ui-rules.md): thr
 - [x] Controls on the Task page that copy a `packages/ui` component are that component. Check: a list in the State of what was swapped and what stays bespoke and why.
 - [x] Every action in [Kept from task 48](#kept-from-task-48) works in its new place. Check: the existing e2e tests, moved to the new layout, pass.
 - [x] The design README says round 2 was adopted. Check: read it.
-- [ ] `npm run verify` and `npm run verify:linux` pass.
+- [x] `npm run verify` and `npm run verify:linux` pass.
 
 ## Read first
 
@@ -207,20 +207,4 @@ Traps for the build:
 
 ## Progress
 
-- 2026-11-05 · step 0: the user settled every open item as proposed; spec 2.1, 2.4, 2.5 and 4, the glossary and the (local) click-through describe round 2; next is step 1, `Dialog`'s sizes and frame.
-- 2026-11-05 · step 1: `Dialog` takes the three sizes and spec 4.1's frame (the bar with Close on the right, a step over the bar), the old shape kept until step 6; a later fresh session's Brief settled; next is step 2a, the service's Description, Mark Ready from Backlog and Make a plan.
-- 2026-11-05 · step 2a: the Description (contract, column 0089, `PUT /tasks/:id/description`, the Brief), Mark Ready from Backlog, Make a plan (`POST /tasks/:id/make-a-plan`, the Planner starting at once) and the checklist's labels; next is step 2b, the web.
-- 2026-11-05 · step 2a follow-up: the Description in every Agent Stage's Brief (`descriptionSection`, shared with the Planner's through Work's `TaskRecords`), and an Idea's notes as the shaped Task's Description; spec 2.1 and 2.5 say so; next is step 2b, the web.
-- 2026-11-05 · step 2b: the Description in "+ Task" (the first medium window) and above the Plan, Confirm on the blocks, Before Ready read-only with links, Mark Ready and Make a plan in Backlog, the Pipeline proposal in the rail, square loop-backs; next is step 3, the layout and Needs you.
-- 2026-11-05 · step 3a: Needs you and Before Ready first in the record's column, stacked; a Decision answered in place one answer per line, or with Attachments by Accept or in its large window (`DecisionOnTask`, `RadioList`); `Dialog` on the body, Esc to the topmost; next is step 3b, the Gate's card and window.
-- 2026-11-05 · step 3b: the Gate's card (what it waits for, a line of facts, Continue, Show details) and its large window, with Send back's notes and Drop's confirmation as steps over the bar; the rail's Pipeline proposal in one centred row; next is step 4a, each command's output kept on its run.
-- 2026-11-05 · step 4a: each command's last 64 KB kept with a line saying how much was cut (`wholeOutputOf`, column `stage_runs.command_outputs`, 0090), read per run from `GET /tasks/:id/stage-runs/:runId/command-outputs`; next is step 4b, the Stage history window.
-- 2026-11-05 · step 4b: the Stage history as a large window of one height: the Pipeline in small, the runs list, Summary, a read-only Thread tab, a Project command's output, `taskThread` naming a run; next is step 4c, the Thread tab.
-- 2026-11-05 · step 4c: the Stage history's Thread tab follows live, takes a barge-in with its draft kept, has the Details switch on its row and a read-only foot, a new `stage-run.thread-opened` event naming a running run's Thread; a Handover note shows its first lines and "Read it in full"; next is step 5a, a person's Thread on a Task.
-- 2026-11-05 · after step 4c: Esc closed the window under the picture viewer (each window now reads whether it is topmost in the key press's capture phase); Base checkouts refresh 8 Projects at once, and the chat test's two fresh-session answers wait 15s; next is step 5.
-- 2026-11-05 · step 5a: a person's Thread on a Task (own session, record Brief once, read-only tools, out of Stage budgets), the conversation's tabs and find-or-open routes, `cacheWarmUntil`; next is step 5b, the web's tabs.
-- 2026-11-05 · step 5b: the conversation is a tab per person, each with their Thread and composer, a Consultation above it (live, read-only, from its start), the first message opening a Thread, Make a plan in the Planner's; Stage Threads only in the Stage history; the user's three answers in spec and task; next is 5c, the cache mark, the control, the banner and a tab's count.
-- 2026-11-05 · step 5c: the To line's cache mark, Auto, Continue and Start fresh as a control on every Thread, the banner to the running Stage's history, a count of unseen messages per tab, a tab's first Brief from its own route; the mark bounded by the cache's hour, spec 2.5 quoting the mock's words; the conversation's DoD box is ticked; next is step 6, every other window to the rules.
-- 2026-11-05 · step 6a: the 16 windows of Settings, People and Projects take their size and the bar with Close (4 small, 9 medium, 3 large), Cancel, Later and Not now gone, `description` in the body; next is 6b, the shell's and work's windows, then `Dialog`'s old branch.
-- 2026-11-05 · step 6b: the last 10 windows take their size and the bar with Close (2 small, 6 medium, 2 large), Cancel gone, and `Dialog`'s old branch is deleted, `size` required; next is step 7, the Task page's near-copies of `packages/ui`.
-- 2026-11-05 · step 7: near-copies swapped (`Badge`, `Card`, `danger-ghost`, new `FoldButton` and `TextButton`), one Esc closes only the topmost thing, panels included, the Attachment viewer is spec 4.1's exception, the design README says adopted; next is `verify`, `verify:linux` and the user's answer on `ChatModal`.
+The log is in [archive/51-task-page-round-2.md](archive/51-task-page-round-2.md).
