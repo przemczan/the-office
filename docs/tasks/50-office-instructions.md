@@ -47,7 +47,7 @@ Chosen while writing this file, for the user to review (spec 2.2 and 4 already n
 
 ## Steps
 
-- [ ] 1a. Service, the store alone: a versioned table and a port in Conversations, and an application service answering the current version and a version by its number, as `RoleCards` does. Nothing uses it yet. Commit.
+- [x] 1a. Service, the store alone: a versioned table and a port in Conversations, and an application service answering the current version and a version by its number, as `RoleCards` does. Nothing uses it yet. Commit.
   Read: `people/application/role-cards.ts`, `people/adapters/postgres/roles.schema.ts`, `application/context-policy-settings.ts`, `adapters/postgres/postgres-conversations-settings.ts`.
 - [ ] 1b. Service, the sessions: the version recorded on the session beside `cardVersion` (a field of the Thread's stored session, `threads.schema.ts` l. 32, and of `ThreadSession`), sessions already stored holding none. `personInstructions` and its callers take the text; `thread-runner.ts` (resume about l. 398, `place.instructions(card)` l. 502) and `stage-threads.ts` (l. 264, 372, 528) pass it. A session with no Project, such as a chat, is told what wins in words that still hold. Commit.
   Read: `conversations/domain/session-instructions.ts`, `application/session-places.ts`, `domain/thread.ts`, `domain/thread-changes.ts`.
@@ -64,13 +64,17 @@ Chosen while writing this file, for the user to review (spec 2.2 and 4 already n
 
 ## State
 
-Nothing is built yet. Spec 2.2, 3 and 4, the Glossary and coverage carry the user's answers of 2026-11-06.
+The store is built in Conversations and nothing uses it yet: `OfficeInstructions` (`application/office-instructions.ts`) answers `current()`, `forResumedSession(version)` and `save(text)`, over `OfficeInstructionsRepository` and the table `office_instructions_versions`. It is a provider of the module, not exported. Spec 2.2, 3 and 4, the Glossary and coverage carry the user's answers of 2026-11-06.
 
 Traps:
 
+- Version 0 means none and is never stored (a check holds it): `forResumedSession(0)` answers `NO_OFFICE_INSTRUCTIONS`, any other unknown number throws `OfficeInstructionsVersionNotFound`. A stored session with no version resumes with 0.
+- Every test file shares the table, so a test that saves a text binds `OfficeInstructionsRepositoryForTests`; the Postgres repository's test rolls back all it saves, so the table stays empty for the others.
+- The repository's `update` takes a change of the current version, inside its lock; step 5's refusal of a stale `from` can go there.
 - An Agent Stage's own `AGENT_STAGE_INSTRUCTIONS` is only what the person does in a Stage: its session is built in `stage-threads.ts` by `workThreadInstructions`, so the text enters there, not in `agent-stage-runner.ts`.
 - `global-instructions` is a Skill in the running Office's library, not in this repository.
 
 ## Progress
 
 - 2026-11-06 · The file written with the user's four answers; the spec, the Glossary and coverage changed; step 1 is next.
+- 2026-11-06 · step 1a: the versioned store in Conversations (`OfficeInstructions`, its repository and table), used by nothing yet; step 1b is next.

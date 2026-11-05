@@ -16,6 +16,7 @@ import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
+import { PostgresOfficeInstructionsRepository } from "./adapters/postgres/postgres-office-instructions-repository.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
 import { SizeThresholdProposals } from "./adapters/proposals/size-threshold-proposals.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
@@ -36,6 +37,7 @@ import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { LinkCards } from "./application/link-cards.js";
 import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
 import { MentionedRecords } from "./application/mentioned-records.js";
+import { OfficeInstructions } from "./application/office-instructions.js";
 import { ProposalAppliers } from "./application/proposal-appliers.js";
 import { ProposalService } from "./application/proposal-service.js";
 import { ProjectCommandProposals } from "./application/project-command-proposals.js";
@@ -55,6 +57,7 @@ import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
 import { WorkRecords } from "./application/work-records.js";
 import { ConversationsSettings } from "./ports/conversations-settings.js";
+import { OfficeInstructionsRepository } from "./ports/office-instructions-repository.js";
 import { ProjectBases } from "./ports/project-bases.js";
 import { ThreadRepository } from "./ports/thread-repository.js";
 
@@ -83,9 +86,11 @@ export class ConversationsModule {
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
         { provide: ProjectBases, useExisting: projectBases },
         { provide: ConversationsSettings, useClass: PostgresConversationsSettings },
+        { provide: OfficeInstructionsRepository, useClass: PostgresOfficeInstructionsRepository },
         { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
         { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
         ContextPolicySettingsService,
+        OfficeInstructions,
         ThreadService,
         Briefs,
         TaskThreadSetups,
