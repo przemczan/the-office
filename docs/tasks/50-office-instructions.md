@@ -39,7 +39,7 @@ With the user, 2026-11-06:
 - **New sessions only,** as a Role card: versioned, each session recording its version, so a resume keeps its cached prompt.
 - **A Proposal:** they join the Office settings the Office Manager can draft.
 
-Chosen while writing this file, for the user to review:
+Chosen while writing this file, for the user to review (spec 2.2 and 4 already name the page):
 
 - Conversations owns them, beside the size threshold and `session-instructions.ts`: both session starts are there, so no other module changes.
 - At most 20,000 characters (about 5k tokens, in every session), checked in the contract.
@@ -47,16 +47,18 @@ Chosen while writing this file, for the user to review:
 
 ## Steps
 
-- [ ] 1. Service, the text and the sessions. A versioned table and a port in Conversations, an application service giving a new session the current version and a resumed one its recorded version (as `RoleCards` does), the version recorded on the session beside `cardVersion`, with sessions already stored holding none. `personInstructions` and its callers take the text; `thread-runner.ts` (`place.instructions(card)`, resume at about l. 398) and `stage-threads.ts` (l. 264, 372, 528) pass it. Commit.
-  Read: `conversations/domain/session-instructions.ts`, `application/session-places.ts`, `people/application/role-cards.ts`, `adapters/postgres/threads.schema.ts`, `application/context-policy-settings.ts` and `adapters/postgres/postgres-conversations-settings.ts` for the settings pattern.
+- [ ] 1a. Service, the store alone: a versioned table and a port in Conversations, and an application service answering the current version and a version by its number, as `RoleCards` does. Nothing uses it yet. Commit.
+  Read: `people/application/role-cards.ts`, `people/adapters/postgres/roles.schema.ts`, `application/context-policy-settings.ts`, `adapters/postgres/postgres-conversations-settings.ts`.
+- [ ] 1b. Service, the sessions: the version recorded on the session beside `cardVersion` (a field of the Thread's stored session, `threads.schema.ts` l. 32, and of `ThreadSession`), sessions already stored holding none. `personInstructions` and its callers take the text; `thread-runner.ts` (resume about l. 398, `place.instructions(card)` l. 502) and `stage-threads.ts` (l. 264, 372, 528) pass it. A session with no Project, such as a chat, is told what wins in words that still hold. Commit.
+  Read: `conversations/domain/session-instructions.ts`, `application/session-places.ts`, `domain/thread.ts`, `domain/thread-changes.ts`.
 - [ ] 2. Service and contract, the route: `GET`/`PUT /api/settings/office-instructions` and its contract with the 20,000-character limit; the same text makes no new version. Commit.
   Read: `adapters/http/size-threshold.controller.ts`, `packages/contracts/src/MAP.md`.
 - [ ] 3. Web, the page: Settings › Office instructions, its nav entry and route, and the e2e test. Commit.
   Read: `apps/web/src/surfaces/settings/MAP.md`, `office-limits/office-limits-section.tsx`, [UI rules](../spec/4.1-ui-rules.md), `apps/web/e2e/MAP.md`.
-- [ ] 4. Service, the Proposal: `"office-instructions"` joins `OFFICE_SETTINGS`, and `ProposedSettingChange` takes each setting's own value type; its `from` and `to` are numbers today, in the domain, the contract and `propose_office_setting`. Registered as `size-threshold-proposals.ts` is, refusing a text that no longer matches `from`. Commit.
+- [ ] 4. Contract and web, the Proposal's card: an `office-instructions` member of the change union (`packages/contracts/src/conversations.ts` l. 321-323) with string `from` and `to`, the number members untouched; `proposal-card.tsx` shows the whole new text. The service never sends it yet, so this stays green alone. Commit.
+  Read: `apps/web/src/shell/conversation/proposal-card.tsx` from l. 72, the part on `shell/conversation/` in `apps/web/src/MAP.md`.
+- [ ] 5. Service, the Proposal: `"office-instructions"` joins `OFFICE_SETTINGS`; `ProposedSettingChange` takes each setting's own value type in the domain, `proposal-appliers.ts` and `propose_office_setting`. Registered as `size-threshold-proposals.ts` is, refusing a text that no longer matches `from`. Commit.
   Read: `domain/proposal.ts`, `adapters/proposals/size-threshold-proposals.ts`, `application/proposal-appliers.ts`, `adapters/office-tools/proposal-office-tools.ts`.
-- [ ] 5. Web, the Proposal's card: the whole new text, in the card the Office settings use. Commit.
-  Read: the Proposal cards in `apps/web/src/MAP.md`, the part on `shell/conversation/`.
 - [ ] 6. The check on the Test Project, then the user's go-ahead for the running Office: the Skill's text moves in and the Skill goes. Commit.
   Read: [the Test Project](test-project.md), `apps/service/docs/testing.md` on live checks.
 
