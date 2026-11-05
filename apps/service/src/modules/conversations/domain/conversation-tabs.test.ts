@@ -81,14 +81,38 @@ describe("a Task's conversation tabs", () => {
     });
   });
 
-  it("gives no tab to a Consultant the user answered before, or who hasn't answered", () => {
+  it("gives a Consultant a tab as soon as the Consultation starts, listed after those answered", () => {
+    const answered = aDecision({
+      answer: { kind: "free-answer", text: "Keep it.", answeredAt: LATER, answeredBy: "cto" },
+    });
+    const waiting = aDecision({ putTo: "cto" });
+
+    const [, cto] = conversationTabs(
+      PLANNER,
+      [aConsultation("waiting", "cto", waiting.id), aConsultation("answered", "cto", answered.id)],
+      [answered, waiting],
+    );
+
+    expect(cto?.consultations).toEqual([
+      expect.objectContaining({ threadId: "answered", note: "Keep it.", answeredAt: LATER }),
+      {
+        threadId: "waiting",
+        decisionId: waiting.id,
+        question: waiting.question,
+        note: undefined,
+        answeredAt: undefined,
+      },
+    ]);
+  });
+
+  it("gives no tab to a Consultant the user answered before, or who passed it on", () => {
     const taken = aDecision({ answer: { kind: "option", option: 0, answeredAt: LATER } });
-    const waiting = aDecision();
+    const passedOn = aDecision({ putTo: "cto" });
 
     const tabs = conversationTabs(
       PLANNER,
-      [aConsultation("taken", "cto", taken.id), aConsultation("waiting", "cfo", waiting.id)],
-      [taken, waiting],
+      [aConsultation("taken", "cfo", taken.id), aConsultation("passed", "cfo", passedOn.id)],
+      [taken, passedOn],
     );
 
     expect(tabs.map(({ roleKey }) => roleKey)).toEqual([PLANNER]);

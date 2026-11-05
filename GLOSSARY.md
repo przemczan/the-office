@@ -127,7 +127,7 @@ One author's neighbouring messages in a Thread, shown together under one name.
 _Avoid_: Bubble
 
 **Consultation**:
-A Thread on a Task in which an Agent asks a Consultant for an answer, or for approval of a call past a Hard switch; the user can read, join or take it over.
+A Thread on a Task in which an Agent asks a Consultant for an answer, or for approval of a call past a Hard switch; the user can read it or take it over, but not join it.
 _Avoid_: Delegation, escalation (for this), handoff
 
 **Mention**:

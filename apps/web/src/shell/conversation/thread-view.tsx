@@ -3,7 +3,6 @@ import type { Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { homeThreadsQuery, renameThread, threadQueries } from "../../api/conversations.ts";
-import { roleQueries } from "../../api/people.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { AllowChangesBar } from "./allow-changes.tsx";
 import { ContextBar } from "./context-bar.tsx";
@@ -50,7 +49,7 @@ export function ThreadView({
   );
 }
 
-/** What was said in a Thread, under a Consultation's note. */
+/** What was said in a Thread. */
 export function ThreadLog({
   thread,
   personName,
@@ -74,9 +73,6 @@ export function ThreadLog({
   const details = useDetails();
   return (
     <>
-      {thread.consultation !== null && (
-        <ConsultationNote askerRoleKey={thread.consultation.askerRoleKey} />
-      )}
       <MessageList
         messages={messages.data ?? []}
         personName={personName}
@@ -89,24 +85,6 @@ export function ThreadLog({
         {...(logLines && { logLines })}
       />
     </>
-  );
-}
-
-/**
- * What a Consultation is, for the user reading it live: they may write in it, or answer the
- * Decision in the Task's Needs you to take it over. The Office's own Decision, put to the CTO
- * first, holds the Task's Pipeline instead.
- */
-function ConsultationNote({ askerRoleKey }: { readonly askerRoleKey: string | null }): ReactNode {
-  const roles = useQuery(roleQueries.list()).data;
-  const asker = roles?.find(({ key }) => key === askerRoleKey)?.card.name ?? askerRoleKey;
-  return (
-    <p className="thread-consultation" role="note">
-      <Icon name="users" size={12} />
-      {asker === null
-        ? "The Office asks first here; the Task's Pipeline waits on this answer. Choose this Thread in To to join; answer the Decision in Needs you to take it over."
-        : `${asker} waits on this answer. Choose this Thread in To to join; answer the Decision in Needs you to take it over.`}
-    </p>
   );
 }
 

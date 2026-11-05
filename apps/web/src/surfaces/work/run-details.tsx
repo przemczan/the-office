@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
 import { Avatar, Badge, Button, Icon, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -299,7 +300,17 @@ function RunThread({
           />
         </div>
       ) : (
-        <ReadOnlyNote reason={runThreadClosedWords(run)} />
+        <div className="run-thread-closed">
+          <ReadOnlyNote reason={runThreadClosedWords(run)} />
+          <Link
+            from="/tasks/$taskId"
+            to="."
+            search={(shown) => ({ ...shown, taskThread: thread.roleKey })}
+            resetScroll={false}
+          >
+            Ask {personName} about it
+          </Link>
+        </div>
       )}
     </div>
   );

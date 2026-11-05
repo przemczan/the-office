@@ -6,6 +6,7 @@ import {
   proposalListSchema,
   proposalSchema,
   sizeThresholdSchema,
+  taskConversationSchema,
   threadListSchema,
   threadSchema,
   threadWebEventSchema,
@@ -44,6 +45,17 @@ export const threadQueries = {
       queryKey: [...THREADS, "task", taskId],
       queryFn: ({ signal }) =>
         getFromApi(`/tasks/${encodeURIComponent(taskId)}/threads`, threadListSchema, signal),
+    }),
+  /** Who has a tab in the Task's conversation; under the Threads' key, as their events change it. */
+  conversationOnTask: (taskId: string) =>
+    queryOptions({
+      queryKey: [...THREADS, "task", taskId, "conversation"],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/tasks/${encodeURIComponent(taskId)}/conversation`,
+          taskConversationSchema,
+          signal,
+        ),
     }),
   onInitiative: (initiativeId: string) =>
     queryOptions({
@@ -159,6 +171,16 @@ export function takeTheLiftBack(threadId: string): Promise<FireAlarmLifts> {
 
 export function startChatThread(roleKey: string): Promise<Thread> {
   return sendToApi("POST", `/chats/${encodeURIComponent(roleKey)}/threads`, {}, threadSchema);
+}
+
+/** Finds or opens the person's one Thread on the Task. */
+export function openPersonsThread(taskId: string, roleKey: string): Promise<Thread> {
+  return sendToApi(
+    "POST",
+    `/tasks/${encodeURIComponent(taskId)}/conversation/${encodeURIComponent(roleKey)}/thread`,
+    {},
+    threadSchema,
+  );
 }
 
 /**

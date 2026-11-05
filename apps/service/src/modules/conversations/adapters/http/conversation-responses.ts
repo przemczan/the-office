@@ -69,9 +69,10 @@ export function toTaskConversationResponse(tabs: readonly ConversationTab[]): Ta
       roleKey,
       threadId: threadId ?? null,
       stageRunning,
-      consultations: consultations.map(({ answeredAt, ...consultation }) => ({
+      consultations: consultations.map(({ note, answeredAt, ...consultation }) => ({
         ...consultation,
-        answeredAt: answeredAt.toISOString(),
+        note: note ?? null,
+        answeredAt: answeredAt?.toISOString() ?? null,
       })),
     })),
   };

@@ -575,20 +575,13 @@
 }
 
 .decision-consultation,
-.decision-passed-on,
-.thread-consultation {
+.decision-passed-on {
   display: flex;
   align-items: flex-start;
   gap: 6px;
   margin: 8px 0 0;
   font: var(--type-caption);
   color: var(--fg-2);
-}
-
-.thread-consultation {
-  margin: 0;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* ---- Allow changes: the Caretaker's Thread reads only, or a banner says changes are allowed */
@@ -618,8 +611,7 @@
 }
 
 .decision-consultation svg,
-.decision-passed-on svg,
-.thread-consultation svg {
+.decision-passed-on svg {
   flex: none;
   margin-top: 2px;
 }

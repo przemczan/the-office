@@ -1,14 +1,14 @@
 import { answerWords, type Decision } from "./decision.js";
 import { isPersonsThread, type Thread } from "./thread.js";
 
-/** A Consultation a Consultant answered on the Task. */
+/** A Consultation on the Task, from the moment it starts. */
 export interface TabConsultation {
   readonly threadId: string;
   readonly decisionId: string;
   readonly question: string;
-  /** The Consultant's answer, in words. */
-  readonly note: string;
-  readonly answeredAt: Date;
+  /** The Consultant's answer, in words; undefined while the Consultation waits on them. */
+  readonly note: string | undefined;
+  readonly answeredAt: Date | undefined;
 }
 
 /** One person's tab in a Task's conversation (spec §2.4). */
@@ -17,14 +17,14 @@ export interface ConversationTab {
   /** Their one Thread on the Task; undefined until it is opened. */
   readonly threadId: string | undefined;
   readonly stageRunning: boolean;
-  /** In the order answered. */
+  /** In the order answered, then those still waiting on the Consultant. */
   readonly consultations: readonly TabConsultation[];
 }
 
 /**
  * The Task's tabs, from its Threads and the Decisions its Consultations were opened for: the
  * Planner, then each person who ran an Agent Stage in the order they first worked, then each
- * Consultant who answered a Decision on the Task.
+ * Consultant of a Decision on the Task, from the moment the Consultation starts.
  */
 export function conversationTabs(
   planner: string,
@@ -34,7 +34,7 @@ export function conversationTabs(
   const oldestFirst = threads.toSorted(
     (one, other) => one.startedAt.getTime() - other.startedAt.getTime(),
   );
-  const consultations = answeredConsultations(oldestFirst, decisions);
+  const consultations = consultationsOfConsultants(oldestFirst, decisions);
   const people = new Set([
     planner,
     ...oldestFirst.filter(({ stageThread }) => stageThread).map(({ roleKey }) => roleKey),
@@ -53,15 +53,18 @@ export function conversationTabs(
   });
 }
 
-/** Each Consultation its Consultant answered themselves, in the order answered. */
-function answeredConsultations(
+/**
+ * Each Consultation waiting on its Consultant or answered by them, in the order answered, waiting
+ * ones last. One the user took over, or the Consultant passed on, is no longer theirs.
+ */
+function consultationsOfConsultants(
   threads: readonly Thread[],
   decisions: readonly Decision[],
 ): readonly { readonly roleKey: string; readonly consultation: TabConsultation }[] {
   return threads
     .flatMap(({ id, roleKey, consultation }) => {
       const decision = decisions.find((candidate) => candidate.id === consultation?.decisionId);
-      if (decision?.answer?.answeredBy !== roleKey) return [];
+      if (!decision || !isConsultantsOwn(decision, roleKey)) return [];
       const { answer } = decision;
       return [
         {
@@ -70,14 +73,22 @@ function answeredConsultations(
             threadId: id,
             decisionId: decision.id,
             question: decision.question,
-            note: answerWords(decision, answer),
-            answeredAt: answer.answeredAt,
+            note: answer && answerWords(decision, answer),
+            answeredAt: answer?.answeredAt,
           },
         },
       ];
     })
     .toSorted(
       (one, other) =>
-        one.consultation.answeredAt.getTime() - other.consultation.answeredAt.getTime(),
+        answeredTime(one.consultation.answeredAt) - answeredTime(other.consultation.answeredAt),
     );
+}
+
+function isConsultantsOwn({ answer, putTo }: Decision, roleKey: string): boolean {
+  return answer ? answer.answeredBy === roleKey : putTo === roleKey;
+}
+
+function answeredTime(answeredAt: Date | undefined): number {
+  return answeredAt?.getTime() ?? Number.POSITIVE_INFINITY;
 }

@@ -75,13 +75,13 @@ async function seedThread(
   const threadId = crypto.randomUUID();
   await queryOfficeDatabase(
     `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
-     values ($1, 'task', $2, 'developer', $3, 'waiting', $4, now())`,
+     values ($1, 'task', $2, 'planner', $3, 'waiting', $4, now())`,
     [threadId, taskId, title, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
   );
   for (const message of messages) {
     await queryOfficeDatabase(
       `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
-      [crypto.randomUUID(), threadId, { roleKey: "developer", ...message }],
+      [crypto.randomUUID(), threadId, { roleKey: "planner", ...message }],
     );
   }
 }
@@ -98,22 +98,12 @@ async function titlesIn(page: Page, state: string, titles: readonly string[]): P
   return shown.filter((title) => titles.includes(title));
 }
 
-test("the conversation's foot stays in the window beside the record, and a chapter of only tool activity says so", async ({
+test("the conversation's foot stays in the window beside the record, and a Thread of only tool activity says so", async ({
   page,
 }) => {
   const project = await addedProject(page, "Conversation fit", "CF");
   const task = await createdTask(page, project, "A long conversation");
   const words = "Enough words to take a line or two in the column, as a real log would read.";
-  await seedThread(
-    task.id,
-    "Reading",
-    Array.from({ length: 3 }, (_, index) => ({
-      kind: "tool-activity",
-      tool: "Read",
-      summary: `Read file ${index}`,
-    })),
-  );
-  await seedThread(task.id, "Nothing yet", []);
   await seedThread(
     task.id,
     "Long",
@@ -135,8 +125,17 @@ test("the conversation's foot stays in the window beside the record, and a chapt
   await expect.poll(async () => (await conversation.boundingBox())?.height).toBeGreaterThan(300);
 
   const hidden = "Tool activity is hidden. Turn on Details to see it.";
-  await conversation.getByRole("button", { name: "Reading" }).first().click();
-  await conversation.getByRole("button", { name: "Nothing yet" }).first().click();
+  const toolsOnly = await createdTask(page, project, "Only tool activity");
+  await seedThread(
+    toolsOnly.id,
+    "Reading",
+    Array.from({ length: 3 }, (_, index) => ({
+      kind: "tool-activity",
+      tool: "Read",
+      summary: `Read file ${index}`,
+    })),
+  );
+  await page.goto(`/tasks/${toolsOnly.id}`);
   await expect(conversation.getByText(hidden)).toHaveCount(1);
   await conversation.getByRole("group", { name: "Details" }).getByRole("switch").click();
   await expect(conversation.getByText("Read file 0")).toBeVisible();

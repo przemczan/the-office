@@ -117,14 +117,14 @@ export const threadSchema = z.object({
 });
 export type Thread = z.infer<typeof threadSchema>;
 
-/** A Consultation a Consultant answered on the Task, shown above their Thread in their tab. */
+/** A Consultation on the Task, shown above the Consultant's Thread in their tab. */
 export const tabConsultationSchema = z.object({
   threadId: z.uuid(),
   decisionId: z.uuid(),
   question: z.string(),
-  /** The Consultant's answer, in words. */
-  note: z.string(),
-  answeredAt: z.iso.datetime(),
+  /** The Consultant's answer, in words; null while the Consultation waits on them. */
+  note: z.string().nullable(),
+  answeredAt: z.iso.datetime().nullable(),
 });
 export type TabConsultation = z.infer<typeof tabConsultationSchema>;
 

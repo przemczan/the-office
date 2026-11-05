@@ -39,7 +39,7 @@ import { TokenCount, TokenMeter } from "../../shell/token-count.tsx";
  */
 export function TaskPage(): ReactNode {
   const { taskId } = useParams({ from: "/tasks/$taskId" });
-  const { taskThread, recordTab } = useSearch({ from: "/tasks/$taskId" });
+  const { taskThread, decision, recordTab } = useSearch({ from: "/tasks/$taskId" });
   const task = useQuery(taskQueries.one(taskId));
   const projects = useQuery(projectQueries.list());
   const pipelines = useQuery(pipelineQueries.list());
@@ -63,6 +63,7 @@ export function TaskPage(): ReactNode {
         pipeline={pipeline}
         threads={threads.data}
         taskThread={taskThread}
+        decisionId={decision}
         recordTab={recordTab}
       />
     </div>
@@ -78,17 +79,19 @@ function TaskBody({
   pipeline,
   threads,
   taskThread,
+  decisionId,
   recordTab,
 }: {
   readonly task: Task;
   readonly pipeline: Pipeline | undefined;
   readonly threads: readonly Thread[] | undefined;
   readonly taskThread: string | undefined;
+  readonly decisionId: string | undefined;
   readonly recordTab: RecordTab | undefined;
 }): ReactNode {
-  const stageHistory = useStageHistory(task.id, taskThread);
+  const stageHistory = useStageHistory(task.id, taskThread, decisionId);
   return (
-    <ConversationDrawerProvider>
+    <ConversationDrawerProvider onLinkToDecisionCard={stageHistory.hide}>
       <PipelineRail
         task={task}
         pipeline={pipeline}
@@ -104,12 +107,7 @@ function TaskBody({
           </div>
           <RecordTabContent task={task} shown={recordTab} />
         </div>
-        <TaskConversation
-          task={task}
-          threads={threads}
-          asked={stageHistory.askedThread}
-          onShowStage={stageHistory.show}
-        />
+        <TaskConversation task={task} threads={threads} asked={stageHistory.askedThread} />
       </div>
     </ConversationDrawerProvider>
   );

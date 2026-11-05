@@ -70,11 +70,6 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-gate-sent-back"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"Renamed the button Save.","handoverNote":"The button reads Save.","definitionOfDoneMet":[1]},"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
 {"step":"end"}
-{"step":"start","brief":{"id":"brief-consult-join","text":"Adam joins the Consultation"}}
-{"step":"event","event":{"kind":"text","text":"Yes: the rollback runs in the tests.","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-consult-join"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
-{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
-{"step":"end"}
 {"step":"start","brief":{"id":"brief-consult-take-over","text":"Jan takes the user's answer"}}
 {"step":"event","event":{"kind":"text","text":"Then the migration goes first.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-consult-take-over"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
@@ -99,6 +94,20 @@
 {"step":"start","brief":{"id":"brief-running-planner","text":"Jan takes a message on a running Task"}}
 {"step":"event","event":{"kind":"text","text":"The Plan already covers the header row.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-running-planner"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-asking-adam","text":"Adam takes a question in his own Thread"}}
+{"step":"event","event":{"kind":"text","text":"The export writes these columns.\n\n- Column 1 keeps its place.\n- Column 2 keeps its place.\n- Column 3 keeps its place.\n- Column 4 keeps its place.\n- Column 5 keeps its place.\n- Column 6 keeps its place.\n- Column 7 keeps its place.\n- Column 8 keeps its place.\n- Column 9 keeps its place.\n- Column 10 keeps its place.\n- Column 11 keeps its place.\n- Column 12 keeps its place.\n- Column 13 keeps its place.\n- Column 14 keeps its place.\n- Column 15 keeps its place.\n- Column 16 keeps its place.\n- Column 17 keeps its place.\n- Column 18 keeps its place.\n- Column 19 keeps its place.\n- Column 20 keeps its place.\n- Column 21 keeps its place.\n- Column 22 keeps its place.\n- Column 23 keeps its place.\n- Column 24 keeps its place.\n- Column 25 keeps its place.\n- Column 26 keeps its place.\n- Column 27 keeps its place.\n- Column 28 keeps its place.\n- Column 29 keeps its place.\n- Column 30 keeps its place.\n- Column 31 keeps its place.\n- Column 32 keeps its place.\n- Column 33 keeps its place.\n- Column 34 keeps its place.\n- Column 35 keeps its place.\n- Column 36 keeps its place.\n- Column 37 keeps its place.\n- Column 38 keeps its place.\n- Column 39 keeps its place.\n- Column 40 keeps its place.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-asking-adam"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"asking-adam-order","text":"A message the user writes in a person's Thread"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"The order stays as it is.","withinToolCall":null}}
+{"step":"event","event":{"kind":"text","text":"Nothing else moves.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["asking-adam-order"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"asking-adam-drawer","text":"A message the user writes in a person's Thread"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"Heard from the drawer too.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["asking-adam-drawer"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-mention","text":"A new chat Thread mentioning a Task"}}

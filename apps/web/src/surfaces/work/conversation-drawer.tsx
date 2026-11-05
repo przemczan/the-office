@@ -15,7 +15,6 @@ import { DecisionCardLinkContext } from "../../shell/conversation/decision-card.
 import { drawerMoveOn, type DrawerAddress } from "./conversation-drawer-address.ts";
 import { useConversationFit } from "./conversation-fit.ts";
 import { newMessagesWords } from "./new-messages.ts";
-import { bringChapterIntoView } from "./use-timeline-scroll.ts";
 
 const DRAWER_WINDOW_WIDTH_PX = 900;
 const NARROW_WINDOW_QUERY = `(max-width: ${DRAWER_WINDOW_WIDTH_PX}px)`;
@@ -39,8 +38,11 @@ const ConversationDrawerContext = createContext<ConversationDrawer | undefined>(
  * from it. Keyed by record, so it starts closed on the next one.
  */
 export function ConversationDrawerProvider({
+  onLinkToDecisionCard,
   children,
 }: {
+  /** What else lies over a Decision's card and clears as a link leaves for it. */
+  readonly onLinkToDecisionCard?: () => void;
   readonly children: ReactNode;
 }): ReactNode {
   const narrow = useNarrowWindow();
@@ -53,7 +55,14 @@ export function ConversationDrawerProvider({
   );
   return (
     <ConversationDrawerContext value={value}>
-      <DecisionCardLinkContext value={value.close}>{children}</DecisionCardLinkContext>
+      <DecisionCardLinkContext
+        value={() => {
+          value.close();
+          onLinkToDecisionCard?.();
+        }}
+      >
+        {children}
+      </DecisionCardLinkContext>
     </ConversationDrawerContext>
   );
 }
@@ -62,15 +71,6 @@ export function useConversationDrawer(): ConversationDrawer {
   const drawer = useContext(ConversationDrawerContext);
   if (drawer === undefined) throw new Error("No ConversationDrawerProvider above this component");
   return drawer;
-}
-
-/** For a link the user follows to a Thread: followed again it changes no address. */
-export function useBringThreadIntoView(): (threadId: string) => void {
-  const { show } = useConversationDrawer();
-  return (threadId) => {
-    show();
-    bringChapterIntoView(threadId);
-  };
 }
 
 /** Moves the drawer for what the address gains; `address` is undefined until it can be judged. */

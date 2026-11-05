@@ -200,7 +200,6 @@ function InitiativeConversation({
   }
   return (
     <ThreadTimeline
-      record="Initiative"
       threads={threads}
       asked={initiativeThread}
       onAsked={(threadId) => {

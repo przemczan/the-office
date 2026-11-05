@@ -10,3 +10,8 @@ export function roleName(roleKey: string, roles: readonly Role[] | undefined): s
   const role = roles?.find(({ key }) => key === roleKey);
   return role ? personName(role) : roleKey;
 }
+
+/** The person in the Role, "Ada"; the key itself when the Role is unknown or unread. */
+export function roleFirstName(roleKey: string, roles: readonly Role[] | undefined): string {
+  return roles?.find(({ key }) => key === roleKey)?.card.name ?? roleKey;
+}

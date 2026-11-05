@@ -17,17 +17,9 @@ export interface TimelineScroll {
   readonly follow: (threadId?: string) => void;
 }
 
-/** The chapter's element id, for `bringChapterIntoView` and the landing here. */
+/** The chapter's element id, for the landing here. */
 export function chapterElementId(threadId: string): string {
   return `chapter-${threadId}`;
-}
-
-/**
- * Brings a Thread's chapter into view, the page around it too, for a link the user follows. The
- * address alone can't: a link followed again leaves it as it was.
- */
-export function bringChapterIntoView(threadId: string): void {
-  document.getElementById(chapterElementId(threadId))?.scrollIntoView({ block: "start" });
 }
 
 /**

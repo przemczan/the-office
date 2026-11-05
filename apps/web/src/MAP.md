@@ -17,7 +17,7 @@
 ### api/
 
 - `api-client.ts`: ApiError, shouldRetry, getFromApi, sendToApi, deleteFromApiReturning, sendFileToApi, sendToApiWithNoAnswer, deleteFromApi
-- `conversations.ts`: threadQueries, sizeThresholdQuery, changeSizeThreshold, decisionQueries, proposalQueries, applyProposal, declineProposal, fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack, startChatThread, sendMessage, renameThread, chooseContextOverride, allowChanges, switchChangesOff, answerDecision, threadEventInvalidations, threadEventCacheUpdates, homeThreadsQuery
+- `conversations.ts`: threadQueries, sizeThresholdQuery, changeSizeThreshold, decisionQueries, proposalQueries, applyProposal, declineProposal, fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack, startChatThread, openPersonsThread, sendMessage, renameThread, chooseContextOverride, allowChanges, switchChangesOff, answerDecision, threadEventInvalidations, threadEventCacheUpdates, homeThreadsQuery
 - `engine.ts`: engineSettingsQuery, changeEngineSettings, engineRemovalQuery, removeEngine, engineAccountQuery, startEngineSignIn, enterEngineSignInCode, pasteEngineToken, signOutOfEngine, engineEventInvalidations
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
@@ -47,7 +47,7 @@
 - `menu-placement.ts`: Box, Size, Placement, menuPlacement
 - `page-heading.tsx`: PageHeading, usePageHeadingState, PageHeadingProvider, usePageHeading
 - `palette-menu.tsx`: PaletteMenu
-- `person-name.ts`: personName, roleName
+- `person-name.ts`: personName, roleName, roleFirstName
 - `person-tag.tsx`: PersonTag, NamedTag
 - `project-chip.tsx`: ProjectChip
 - `project-mark.tsx`: ProjectMark

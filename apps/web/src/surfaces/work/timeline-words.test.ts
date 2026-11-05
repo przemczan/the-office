@@ -3,9 +3,7 @@ import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   chapterPlace,
-  chapterStanding,
   chapterWork,
-  chaptersStartingOpen,
   foldedLine,
   threadsInOrder,
   withChapterOpen,
@@ -16,18 +14,8 @@ function aThread(id: string, startedAt: string, fields: Partial<Thread> = {}): T
   return { id, startedAt, tokens: NO_TOKENS, ...fields } as Thread;
 }
 
-function aRun(threadId: string | null, startedAt: string, handoverNote: string | null): StageRun {
-  return {
-    threadId,
-    startedAt,
-    outcome: {
-      status: "failed",
-      error: "No.",
-      budgetReached: null,
-      interrupted: null,
-      handoverNote,
-    },
-  } as StageRun;
+function aRun(threadId: string | null, id: string, number: number): StageRun {
+  return { id, number, threadId, outcome: null } as StageRun;
 }
 
 function aStage(name: string, runs: StageRun[]): TaskStage {
@@ -48,103 +36,62 @@ describe("threadsInOrder", () => {
 });
 
 describe("which chapters start unfolded", () => {
-  it("is the Thread the user is on and those holding an open Decision", () => {
-    expect([...chaptersStartingOpen("on", new Set(["waiting"]))]).toEqual(["on", "waiting"]);
-    expect([...chaptersStartingOpen(undefined, new Set())]).toEqual([]);
-  });
-
   it("leaves every other Thread folded", () => {
-    const folds = withChaptersStarted(new Map(), chaptersStartingOpen("on", new Set()));
+    const folds = withChaptersStarted(new Map(), new Set(["on"]));
     expect(folds.get("on")).toBe(true);
     expect(folds.get("other")).toBeUndefined();
   });
 
-  it("keeps a chapter open once its Decision is answered, so nothing folds under the reader", () => {
-    const opened = withChaptersStarted(new Map(), new Set(["on", "waiting"]));
+  it("keeps a chapter open once the user moved on, so nothing folds under the reader", () => {
+    const opened = withChaptersStarted(new Map(), new Set(["on", "before"]));
     const after = withChaptersStarted(opened, new Set(["on"]));
     expect(after).toBe(opened);
-    expect(after.get("waiting")).toBe(true);
+    expect(after.get("before")).toBe(true);
   });
 
-  it("keeps a chapter the user folded folded, though its Decision still waits", () => {
-    const folded = withChapterOpen(new Map(), "waiting", false);
-    expect(withChaptersStarted(folded, new Set(["waiting"])).get("waiting")).toBe(false);
+  it("keeps a chapter the user folded folded", () => {
+    const folded = withChapterOpen(new Map(), "on", false);
+    expect(withChaptersStarted(folded, new Set(["on"])).get("on")).toBe(false);
   });
 });
 
 describe("chapterWork", () => {
-  it("takes every Stage a Thread ran in and the latest Handover note of its runs", () => {
+  it("takes the latest of a Thread's runs, across Stages", () => {
     const stages = [
-      aStage("Implement", [
-        aRun("spanning", "2026-11-04T10:00:00.000Z", "First note."),
-        aRun("other", "2026-11-04T10:10:00.000Z", "Not this Thread's."),
-      ]),
-      aStage("Tests", [aRun(null, "2026-11-04T10:20:00.000Z", null)]),
-      aStage("Fix", [aRun("spanning", "2026-11-04T10:30:00.000Z", "Latest note.")]),
+      aStage("Implement", [aRun("spanning", "first", 1), aRun("other", "not-this", 2)]),
+      aStage("Tests", [aRun(null, "a-command", 1)]),
+      aStage("Fix", [aRun("spanning", "latest", 3)]),
     ];
     expect(chapterWork(stages, "spanning")).toEqual({
-      stages: [
-        { key: "implement", name: "Implement" },
-        { key: "fix", name: "Fix" },
-      ],
-      handoverNote: "Latest note.",
-      runNumber: undefined,
-      outcome: "Failed",
-      why: undefined,
+      runNumber: 3,
+      runId: "latest",
       finishedRuns: [],
     });
   });
 
   it("finds nothing for a Consultation, which has no run", () => {
-    const stages = [aStage("Implement", [aRun("asker", "2026-11-04T10:00:00.000Z", "Note.")])];
+    const stages = [aStage("Implement", [aRun("asker", "run", 1)])];
     expect(chapterWork(stages, "consultation")).toEqual({
-      stages: [],
-      handoverNote: undefined,
       runNumber: undefined,
-      outcome: undefined,
-      why: undefined,
+      runId: undefined,
       finishedRuns: [],
     });
   });
 });
 
 describe("foldedLine", () => {
-  const thread = aThread("one", "2026-11-04T10:00:00.000Z", {
-    tokens: { ...NO_TOKENS, input: 12_000, cacheRead: 900_000 },
-  });
-
-  it("counts tokens without cache reads, then the Handover note on one line, as plain words", () => {
-    expect(foldedLine(thread, "## Redirect\n\n- It keeps `next`.\n- **Tested**.")).toBe(
-      "12k tokens · Redirect It keeps next. Tested.",
-    );
-  });
-
-  it("is only the tokens without a Handover note", () => {
-    expect(foldedLine(thread, undefined)).toBe("12k tokens");
+  it("counts tokens without cache reads", () => {
+    const thread = aThread("one", "2026-11-04T10:00:00.000Z", {
+      tokens: { ...NO_TOKENS, input: 12_000, cacheRead: 900_000 },
+    });
+    expect(foldedLine(thread)).toBe("12k tokens");
   });
 });
 
-describe("how a chapter reads", () => {
-  const thread = aThread("implement", "2026-11-04T10:00:00.000Z", {
-    title: "Implement",
-    stageThread: true,
-    consultation: null,
-  });
-
-  it("says where the work is and why it came back", () => {
-    const carriedFailure = { stageKey: "tests", round: 1, rounds: 2 };
-    const run = { number: 3, threadId: "implement", carriedFailure, outcome: null } as StageRun;
-    const work = chapterWork([aStage("Implement", [run]), aStage("Tests", [])], "implement");
+describe("chapterPlace", () => {
+  it("says which run of the Thread", () => {
+    const thread = aThread("implement", "2026-11-04T10:00:00.000Z", { title: "Implement" });
+    const work = chapterWork([aStage("Implement", [aRun("implement", "run", 3)])], "implement");
     expect(chapterPlace(thread, work)).toBe("Implement, run 3");
-    expect(work.why).toBe("Tests failed, round 1 of 2");
-    expect(chapterStanding(thread, work, true)).toBe("Running");
-  });
-
-  it("reads a Planning Thread by its Plan", () => {
-    const planning = { ...thread, title: "Planning", stageThread: false };
-    const work = chapterWork([], "planning");
-    expect(chapterPlace(planning, work)).toBe("Planning");
-    expect(chapterStanding(planning, work, true)).toBe("Plan confirmed");
-    expect(chapterStanding(planning, work, false)).toBeUndefined();
   });
 });

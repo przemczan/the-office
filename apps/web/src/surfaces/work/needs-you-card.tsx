@@ -14,7 +14,7 @@ import { clockOf } from "../../shell/time.ts";
 import { waitingGateOf, type WaitingGate } from "../../shell/work/gate-words.ts";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { BeforeReady } from "./before-ready.tsx";
-import { useBringThreadIntoView } from "./conversation-drawer.tsx";
+import { useConversationDrawer } from "./conversation-drawer.tsx";
 import { GateCard } from "./gate-card.tsx";
 import { gateQuestion } from "./gate-card-words.ts";
 import {
@@ -161,7 +161,7 @@ function WaitingDecision({
   readonly stages: readonly TaskStage[];
 }): ReactNode {
   const thread = useQuery(threadQueries.one(decision.threadId)).data;
-  const bringThreadIntoView = useBringThreadIntoView();
+  const drawer = useConversationDrawer();
   const personName = roles?.find(({ key }) => key === decision.roleKey)?.card.name ?? "The Office";
   const work = thread && chapterWork(stages, thread.id);
   return (
@@ -174,7 +174,7 @@ function WaitingDecision({
       place={
         thread &&
         work && (
-          // A Stage's Thread is read at its run, in the Stage history; any other in the conversation.
+          // A Stage's Thread is read at its run, in the Stage history; any other in its person's tab.
           <Link
             className="needs-you-place"
             from="/tasks/$taskId"
@@ -182,10 +182,11 @@ function WaitingDecision({
             search={(shown) => ({ ...shown, taskThread: work.runId ?? thread.id })}
             resetScroll={false}
             onClick={() => {
-              if (work.runId === undefined) bringThreadIntoView(thread.id);
+              if (work.runId === undefined) drawer.show();
             }}
           >
-            in {chapterPlace(thread, work) || "its Thread"} · {clockOf(decision.askedAt)}
+            in {work.runId === undefined ? `${personName}'s Thread` : chapterPlace(thread, work)} ·{" "}
+            {clockOf(decision.askedAt)}
           </Link>
         )
       }
