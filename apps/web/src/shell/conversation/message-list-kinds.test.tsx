@@ -35,7 +35,9 @@ const contextLine: Extract<Message, { kind: "context" }> = {
 };
 
 /** One of each kind, with words it must show: a kind added to the contract fails to compile here. */
-const EVERY_KIND: { readonly [Kind in Message["kind"]]: readonly [Message, string] } = {
+const EVERY_KIND: {
+  readonly [Kind in Message["kind"]]: readonly [Extract<Message, { kind: Kind }>, string];
+} = {
   user: [
     { at, id: "1", kind: "user", text: "Mine", delivery: "delivered", handoverNoteFrom: null },
     "Mine",
@@ -115,6 +117,8 @@ function written(id: string, text: string, delivery: MessageDelivery): Message {
   return { at, id, kind: "user", text, delivery, handoverNoteFrom: null };
 }
 
+const LONG_COMMAND = `npm run build &&\n  ${"node scripts/deploy.ts --verbose ".repeat(8)}`;
+
 describe("MessageList's kinds", () => {
   it("renders every message kind, none lost to the grouping", () => {
     const every = Object.values(EVERY_KIND);
@@ -140,6 +144,12 @@ describe("MessageList's kinds", () => {
     expect(
       [...log.querySelectorAll(".message-delivery")].map(({ textContent }) => textContent),
     ).toEqual(["Delivered", "Lands at the next safe point"]);
+  });
+
+  it("shows a tool call's whole command, line breaks included", () => {
+    const [toolCall] = EVERY_KIND["tool-activity"];
+    const log = shownLog([{ ...toolCall, summary: LONG_COMMAND }]);
+    expect(log.querySelector(".tool-calls .message-summary")?.textContent).toBe(LONG_COMMAND);
   });
 });
 
@@ -173,6 +183,16 @@ describe("MessageList with Details off", () => {
   it("shows the latest tool line beside is working", () => {
     const working = shownLog([toolCall], { details: false, answering: true });
     expect(working.querySelector(".message-answering")?.textContent).toContain("Read");
+  });
+
+  it("shows the whole command beside is working", () => {
+    const working = shownLog([{ ...toolCall, summary: LONG_COMMAND }], {
+      details: false,
+      answering: true,
+    });
+    expect(working.querySelector(".message-answering .message-summary")?.textContent).toBe(
+      LONG_COMMAND,
+    );
   });
 
   it("leaves the tool line to the log with Details on", () => {

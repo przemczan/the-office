@@ -1,12 +1,9 @@
 /** The input fields that say what a tool call is about, in the order they are looked for. */
 const SUBJECT_FIELDS = ["file_path", "pattern", "command", "url", "query", "path", "description"];
 
-/** Long enough for a path or a command; the log shows one line. */
-const SUMMARY_LENGTH = 200;
-
 /**
- * What a tool call read, ran or looked up, in a line for the Thread's log; a path inside the
- * session's folder reads from there.
+ * What a tool call read, ran or looked up, whole and with its line breaks, for the Thread's log; a
+ * path inside the session's folder reads from there.
  */
 export function toolActivitySummary(input: unknown, folder: string): string {
   if (typeof input !== "object" || input === null) return "";
@@ -15,12 +12,11 @@ export function toolActivitySummary(input: unknown, folder: string): string {
     (value): value is string => typeof value === "string" && value.trim() !== "",
   );
   if (subject === undefined) return "";
-  const line = withinFolder(subject.replace(/\s+/g, " ").trim(), folder);
-  return line.length > SUMMARY_LENGTH ? `${line.slice(0, SUMMARY_LENGTH - 1)}…` : line;
+  return withinFolder(subject.trim(), folder);
 }
 
-function withinFolder(line: string, folder: string): string {
-  if (!line.startsWith(folder)) return line;
-  const inside = line.slice(folder.length).replace(/^[\\/]+/, "");
-  return inside === "" ? line : inside;
+function withinFolder(subject: string, folder: string): string {
+  if (!subject.startsWith(folder)) return subject;
+  const inside = subject.slice(folder.length).replace(/^[\\/]+/, "");
+  return inside === "" ? subject : inside;
 }

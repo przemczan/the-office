@@ -86,6 +86,22 @@ async function seedThread(
   }
 }
 
+/** An element's words, its height, and how far they run past it. Runs in the browser. */
+function sizeOf(shown: Element): {
+  words: string | null;
+  height: number;
+  overflow: { across: number; down: number };
+} {
+  return {
+    words: shown.textContent,
+    height: shown.clientHeight,
+    overflow: {
+      across: shown.scrollWidth - shown.clientWidth,
+      down: shown.scrollHeight - shown.clientHeight,
+    },
+  };
+}
+
 function column(page: Page, state: string): Locator {
   return page.getByRole("region", { name: state, exact: true });
 }
@@ -140,6 +156,67 @@ test("the conversation's foot stays in the window beside the record, and a Threa
   await conversation.getByRole("group", { name: "Details" }).getByRole("switch").click();
   await expect(conversation.getByText("Read file 0")).toBeVisible();
   await expect(conversation.getByText(hidden)).toHaveCount(0);
+});
+
+test("a tool call's command shows whole in a narrow window, and only a very long one scrolls", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Whole commands", "WC");
+  const task = await createdTask(page, project, "Commands to read");
+  const severalLines = "git status\ngit log --oneline -5";
+  const veryLong = Array.from({ length: 80 }, (_, line) => `echo line ${line}`).join("\n");
+  const unbroken = `npx vitest run ${"apps/service/src/a.test.ts,".repeat(12)}`;
+  await seedThread(
+    task.id,
+    "Commands",
+    [severalLines, veryLong, unbroken].map((summary) => ({
+      kind: "tool-activity",
+      tool: "Bash",
+      summary,
+    })),
+  );
+  await page.setViewportSize({ width: 380, height: 800 });
+  await page.goto(`/tasks/${task.id}`);
+  const handle = page.getByRole("button", { name: /^Conversation/ });
+  await handle.click();
+  const conversation = page.getByRole("complementary", { name: "Conversation" });
+  const details = conversation.getByRole("group", { name: "Details" }).getByRole("switch");
+  await details.click();
+
+  const commands = conversation.locator(".tool-calls .message-summary");
+  await expect(commands).toHaveCount(3);
+  const [lines, scrolling, wrapped] = await Promise.all(
+    (await commands.all()).map((command) => command.evaluate(sizeOf)),
+  );
+  expect([lines?.words, scrolling?.words, wrapped?.words]).toEqual([
+    severalLines,
+    veryLong,
+    unbroken,
+  ]);
+  expect(lines?.overflow).toEqual({ across: 0, down: 0 });
+  expect(wrapped?.overflow).toEqual({ across: 0, down: 0 });
+  expect(wrapped?.height).toBeGreaterThan(lines?.height ?? Infinity);
+  expect(scrolling?.overflow.across).toBe(0);
+  expect(scrolling?.overflow.down).toBeGreaterThan(0);
+  expect(scrolling?.height).toBe(320);
+  await commands.last().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-whole-commands.png") });
+
+  // With Details off the latest command shows beside "is working", wrapped just the same.
+  await queryOfficeDatabase(`update threads set state = 'answering' where home_id = $1`, [task.id]);
+  try {
+    await page.reload();
+    await handle.click();
+    await details.click();
+    const working = conversation.locator(".message-answering .message-summary");
+    const beside = await working.evaluate(sizeOf);
+    expect(beside.words).toBe(unbroken);
+    expect(beside.overflow).toEqual({ across: 0, down: 0 });
+    expect(beside.height).toBeGreaterThan(lines?.height ?? Infinity);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-whole-command-working.png") });
+  } finally {
+    await queryOfficeDatabase(`update threads set state = 'waiting' where home_id = $1`, [task.id]);
+  }
 });
 
 test("the user captures an Idea from Now in a few keystrokes", async ({ page }) => {

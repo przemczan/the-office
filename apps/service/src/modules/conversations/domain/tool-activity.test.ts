@@ -18,7 +18,7 @@ describe("a tool call's line in the log", () => {
       "/elsewhere/README.md",
     );
     expect(toolActivitySummary({ pattern: "deploy", path: "/bases/admin" }, FOLDER)).toBe("deploy");
-    expect(toolActivitySummary({ command: "git log\n  --oneline -5" }, FOLDER)).toBe(
+    expect(toolActivitySummary({ command: "git log --oneline -5" }, FOLDER)).toBe(
       "git log --oneline -5",
     );
     expect(toolActivitySummary({ url: "https://example.com", prompt: "Summarize" }, FOLDER)).toBe(
@@ -26,9 +26,18 @@ describe("a tool call's line in the log", () => {
     );
   });
 
-  it("is empty for a call with nothing to name, and cut when long", () => {
+  it("is empty for a call with nothing to name", () => {
     expect(toolActivitySummary({ todos: [] }, FOLDER)).toBe("");
     expect(toolActivitySummary(undefined, FOLDER)).toBe("");
-    expect(toolActivitySummary({ command: "x".repeat(300) }, FOLDER)).toHaveLength(200);
+  });
+
+  it("keeps a command over 200 characters whole", () => {
+    const command = `npx vitest run ${"apps/service/src/a.test.ts ".repeat(20)}--reporter=dot`;
+    expect(toolActivitySummary({ command }, FOLDER)).toBe(command);
+  });
+
+  it("keeps a command's line breaks, leaving out only the space around it", () => {
+    const command = "git log \\\n  --oneline -5\n\ngit status";
+    expect(toolActivitySummary({ command: `\n  ${command}\n` }, FOLDER)).toBe(command);
   });
 });

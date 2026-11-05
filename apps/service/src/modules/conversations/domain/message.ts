@@ -92,7 +92,7 @@ interface ToolActivity {
   readonly roleKey: string;
   /** The engine's name for the tool, or an Office tool's. */
   readonly tool: string;
-  /** What it did, in a line, such as the file it read. */
+  /** What it did, whole, such as the file it read or the command it ran, line breaks included. */
   readonly summary: string;
 }
 

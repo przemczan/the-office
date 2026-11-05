@@ -248,24 +248,36 @@
   color: var(--fg-3);
 }
 
+/* Beside the first line, however many the words beside it take. */
 .message-line svg {
   flex: none;
-  align-self: center;
+  align-self: flex-start;
+  margin-top: calc((1lh - 12px) / 2);
 }
 
 .message-tool {
   flex: none;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-weight: 500;
   color: var(--fg-2);
 }
 
+/* Shown whole at any width, line breaks kept; only a very long one scrolls in its place. */
 .message-summary {
   min-width: 0;
-  overflow: hidden;
+  max-height: 320px;
+  overflow: auto;
   font: var(--type-mono);
   font-size: 11px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A command too long for the rest of the row takes the row below, at the full width. */
+.tool-calls .message-line,
+.message-answering {
+  flex-wrap: wrap;
 }
 
 .message-line.refused,
@@ -341,7 +353,7 @@
 /* From the moment a turn starts, so the user sees the person is at it before their first words. */
 .message-answering {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
   min-width: 0;
   font: var(--type-caption);
@@ -351,7 +363,10 @@
 .message-answering-dots {
   display: inline-flex;
   flex: none;
+  align-self: flex-start;
+  align-items: center;
   gap: 6px;
+  height: 1lh;
 }
 
 .message-answering-dots i {
@@ -374,12 +389,6 @@
   margin: 0;
   font: var(--type-body-sm);
   color: var(--fg-3);
-}
-
-.message-answering .message-summary {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 @media (prefers-reduced-motion: reduce) {
