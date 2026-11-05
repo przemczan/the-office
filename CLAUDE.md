@@ -12,6 +12,7 @@ Load only what the current step needs: whatever a session reads stays in its con
 4. In the click-through, grep the function the task names and read only its range, never a whole file.
 5. Read the rest only when the step needs it:
    - the [glossary](GLOSSARY.md), when naming something new;
+   - the [UI rules](docs/spec/4.1-ui-rules.md), before building or changing anything the user sees;
    - a section from [the spec's index](docs/spec/README.md), when the cited sections leave a question open;
    - the [module template](apps/service/docs/module-template.md), when adding a module or a kind of file a module doesn't have yet, or when a boundary lint error is unclear; [testing](apps/service/docs/testing.md), before a kind of test the module doesn't have yet or a live check;
    - [build defaults](docs/tasks/build-defaults.md); [the Test Project](docs/tasks/test-project.md), for a check on it; [coverage](docs/tasks/coverage.md), when slicing or closing a tier;

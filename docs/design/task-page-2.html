@@ -5625,10 +5625,7 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         fitConversation();
       }).observe($("viewport"));
       $("scroller").addEventListener("scroll", fitConversation, { passive: true });
-      for (const dialog of [$("lightbox"), $("history-modal"), $("details-modal")])
-        dialog.addEventListener("click", (event) => {
-          if (event.target === event.currentTarget) event.currentTarget.close();
-        });
+      // A window closes by Esc, its X or Close, never by a press on the backdrop (spec 4.1).
 
       view.palette = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       document.documentElement.dataset.theme = view.palette;
