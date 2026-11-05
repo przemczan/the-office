@@ -57,7 +57,7 @@ export function GateWindow({
   const sending = useSendingBack(task, waiting.sendBackTargets, roles, onClose);
   const dropping = useDroppingTask(() => dropAtGate(task.id), onClose);
   const attachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
-  const pictures = picturesOfThisRound(attachments ?? [], taskStages.stages ?? []);
+  const pictures = picturesOfThisRound(attachments ?? [], taskStages.stages ?? [], waiting);
   const busy = continuing.isPending;
   const cancelStep = (): void => setStep(undefined);
   const steps: Record<GateStep, DialogStep> = {

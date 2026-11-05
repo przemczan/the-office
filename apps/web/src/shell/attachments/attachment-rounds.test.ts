@@ -1,7 +1,12 @@
 import type { Attachment, Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../token-words.ts";
-import { attachmentRounds, roundName, type AttachmentRound } from "./attachment-rounds.ts";
+import {
+  attachmentRounds,
+  attachmentsOfGateRun,
+  roundName,
+  type AttachmentRound,
+} from "./attachment-rounds.ts";
 
 const TASK_ID = "6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 
@@ -155,5 +160,76 @@ describe("attachmentRounds", () => {
       { name: "Before the work started", sentBackWith: undefined, attachments: ["mock-up.png"] },
       { name: "Round 1", sentBackWith: null, attachments: ["shot.png"] },
     ]);
+  });
+});
+
+function namesOf(attachments: readonly Attachment[]): string[] {
+  return attachments.map(({ name }) => name);
+}
+
+describe("attachmentsOfGateRun", () => {
+  const workStart = aRun("2026-11-04T09:00:00.000Z", "2026-11-04T09:30:00.000Z");
+  const firstRun = {
+    ...aRun("2026-11-04T10:00:00.000Z", "2026-11-04T11:00:00.000Z", { kind: "continue" }),
+    number: 2,
+  };
+  // As every Gate's run, it ended on reaching the Gate, and goes on waiting for the user.
+  const secondRun = {
+    ...aRun("2026-11-04T12:00:00.000Z", "2026-11-04T12:00:00.100Z"),
+    number: 4,
+  };
+  const gate: TaskStage = {
+    stage: look,
+    state: "waiting-on-you",
+    tokens: NO_TOKENS,
+    wentBack: null,
+    runs: [firstRun, secondRun],
+  };
+  const stages: TaskStage[] = [{ ...gate, stage: implement, runs: [workStart] }, gate];
+
+  it("gives a first run what was added from the start of the work until it ended", () => {
+    const attachments = [
+      anImage("before the work", "2026-11-04T08:59:59.000Z"),
+      anImage("as the work started", "2026-11-04T09:00:00.000Z"),
+      anImage("as it ended", "2026-11-04T11:00:00.000Z"),
+      anImage("after", "2026-11-04T11:00:01.000Z"),
+    ];
+
+    expect(namesOf(attachmentsOfGateRun(attachments, stages, gate, firstRun))).toEqual([
+      "as the work started",
+      "as it ended",
+    ]);
+  });
+
+  it("gives a later run what came after the previous one ended, though that was a Continue", () => {
+    const attachments = [
+      anImage("the first run's", "2026-11-04T11:00:00.000Z"),
+      anImage("between the two", "2026-11-04T11:30:00.000Z"),
+    ];
+
+    expect(namesOf(attachmentsOfGateRun(attachments, stages, gate, secondRun))).toEqual([
+      "between the two",
+    ]);
+  });
+
+  it("keeps adding to a run while it waits, in the order they were added", () => {
+    const attachments = [
+      anImage("just now", "2026-11-05T09:00:00.000Z"),
+      anImage("earlier today", "2026-11-05T08:00:00.000Z"),
+    ];
+
+    expect(namesOf(attachmentsOfGateRun(attachments, stages, gate, secondRun))).toEqual([
+      "earlier today",
+      "just now",
+    ]);
+  });
+
+  it("keeps every kind of Attachment", () => {
+    const notes = {
+      ...anImage("notes", "2026-11-04T11:30:00.000Z"),
+      kind: "document",
+    } as Attachment;
+
+    expect(attachmentsOfGateRun([notes], stages, gate, secondRun)).toEqual([notes]);
   });
 });

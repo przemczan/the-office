@@ -1,5 +1,5 @@
 import type { Attachment, ChangedFile, Task, TaskStage, TestResult } from "@the-office/contracts";
-import { attachmentRounds } from "../../shell/attachments/attachment-rounds.ts";
+import { attachmentsOfGateRun } from "../../shell/attachments/attachment-rounds.ts";
 import type { WaitingGate } from "../../shell/work/gate-words.ts";
 import { reportedMetCount } from "./planning-words.ts";
 
@@ -75,11 +75,16 @@ function testsWords(checks: readonly TestResult[]): string {
   return `tests ${testsFact(checks).toLowerCase()}`;
 }
 
-/** The pictures of the current round; the rest of the round's Attachments stay in the tab. */
+/** The pictures of the run the Gate waits in; its other Attachments stay in the tab. */
 export function picturesOfThisRound(
   attachments: readonly Attachment[],
   taskStages: readonly TaskStage[],
+  { gate }: Pick<WaitingGate, "gate">,
 ): Attachment[] {
-  const thisRound = attachmentRounds(attachments, taskStages).at(-1)?.attachments ?? [];
-  return thisRound.filter(({ kind }) => kind === "image");
+  const gateStage = taskStages.find(({ stage }) => stage.key === gate.key);
+  const waitingRun = gateStage?.runs.at(-1);
+  if (gateStage === undefined || waitingRun?.gateAction !== null) return [];
+  return attachmentsOfGateRun(attachments, taskStages, gateStage, waitingRun).filter(
+    ({ kind }) => kind === "image",
+  );
 }

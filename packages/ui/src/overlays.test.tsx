@@ -2,12 +2,19 @@ import { act, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Dialog, Drawer, useCloseOnEscape } from "./index.ts";
+import { Dialog, Drawer, Tooltip, useCloseOnEscape } from "./index.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+// jsdom has no layout, so nothing ever resizes.
+globalThis.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
 
 let page: HTMLDivElement;
 let root: Root;
@@ -285,6 +292,131 @@ describe("useCloseOnEscape", () => {
     pressEscape();
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+function trigger(): HTMLElement {
+  const found = document.querySelector<HTMLElement>("button[data-trigger]");
+  if (found === null) throw new Error("No trigger on the page");
+  return found;
+}
+
+function tooltip(): HTMLElement | null {
+  return document.querySelector('[role="tooltip"]');
+}
+
+function hover(): void {
+  act(() => {
+    trigger().dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  });
+}
+
+function scroll(selector: string): void {
+  act(() => {
+    document.querySelector(selector)?.dispatchEvent(new Event("scroll"));
+  });
+}
+
+function tooltipOn(open?: boolean): ReactNode {
+  return (
+    <Tooltip content="All the tokens" open={open}>
+      <button type="button" data-trigger>
+        Tokens
+      </button>
+    </Tooltip>
+  );
+}
+
+describe("Tooltip", () => {
+  it("shows on hover and goes when the pointer leaves", () => {
+    show(tooltipOn());
+    expect(tooltip()).toBeNull();
+
+    hover();
+    expect(tooltip()?.textContent).toBe("All the tokens");
+
+    act(() => {
+      trigger().dispatchEvent(
+        new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body }),
+      );
+    });
+    expect(tooltip()).toBeNull();
+  });
+
+  it("shows on focus and goes on blur", () => {
+    show(tooltipOn());
+
+    act(() => trigger().focus());
+    expect(tooltip()).not.toBeNull();
+
+    act(() => trigger().blur());
+    expect(tooltip()).toBeNull();
+  });
+
+  it("sits on the body, placed, not inside its trigger", () => {
+    show(tooltipOn());
+    hover();
+
+    expect(tooltip()?.parentElement).toBe(document.body);
+    expect(tooltip()?.style.visibility).toBe("");
+    expect(tooltip()?.style.left).not.toBe("");
+  });
+
+  it("follows `open` over the pointer", () => {
+    show(tooltipOn(false));
+    hover();
+    expect(tooltip()).toBeNull();
+
+    show(tooltipOn(true));
+    expect(tooltip()).not.toBeNull();
+  });
+
+  it("closes when what holds the trigger scrolls, and stays for any other scroller", () => {
+    show(
+      <>
+        <div data-scroller>{tooltipOn()}</div>
+        <div data-log />
+      </>,
+    );
+    hover();
+
+    scroll("[data-log]");
+    expect(tooltip()).not.toBeNull();
+
+    scroll("[data-scroller]");
+    expect(tooltip()).toBeNull();
+  });
+
+  it("closes when the window resizes", () => {
+    show(tooltipOn());
+    hover();
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(tooltip()).toBeNull();
+  });
+
+  it("goes with its trigger", () => {
+    show(tooltipOn());
+    hover();
+
+    show(null);
+    expect(tooltip()).toBeNull();
+  });
+
+  it("shows over a window without becoming what Escape closes", () => {
+    const onClose = vi.fn<() => void>();
+    show(
+      <Dialog size="small" title="Usage" onClose={onClose}>
+        {tooltipOn()}
+      </Dialog>,
+    );
+    hover();
+
+    expect(tooltip()?.parentElement).toBe(document.body);
+    pressEscape(trigger());
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });
 

@@ -5,6 +5,9 @@ import { Avatar, Badge, Button, Icon, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { attachmentQueries } from "../../api/work.ts";
+import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
+import { attachmentsOfGateRun, oneRound } from "../../shell/attachments/attachment-rounds.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
@@ -69,6 +72,15 @@ export function RunDetails({
         <div className="run-details-body">
           {summary}
           {stage.kind === "script" && <CommandLog taskId={taskId} run={run} />}
+          {stage.kind === "gate" && (
+            <GateRunAttachments
+              key={run.id}
+              taskId={taskId}
+              stages={stages}
+              gate={taskStage}
+              run={run}
+            />
+          )}
         </div>
       </section>
     );
@@ -197,6 +209,29 @@ function RunSummary({
         stage.kind === "agent" && outcome && <p className="task-quiet">No Handover note.</p>
       )}
     </div>
+  );
+}
+
+/** What this run of a Gate had to show, of every kind; a run with none says nothing. */
+function GateRunAttachments({
+  taskId,
+  stages,
+  gate,
+  run,
+}: {
+  readonly taskId: string;
+  readonly stages: readonly TaskStage[];
+  readonly gate: TaskStage;
+  readonly run: StageRun;
+}): ReactNode {
+  const attachments = useQuery(attachmentQueries.of({ kind: "task", taskId })).data ?? [];
+  const ofThisRun = attachmentsOfGateRun(attachments, stages, gate, run);
+  if (ofThisRun.length === 0) return null;
+  return (
+    <section className="run-attachments" aria-label="Attachments">
+      <p className="overline">Attachments</p>
+      <AttachmentGallery rounds={oneRound(ofThisRun)} />
+    </section>
   );
 }
 

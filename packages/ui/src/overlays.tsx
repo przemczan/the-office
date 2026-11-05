@@ -4,8 +4,18 @@
 // design-system/ stays as exported, hence the wrapper rather than an edit there. The conversation's
 // drawer on the Task and Initiative pages is the exception, closing on a press outside: a side view
 // with its draft kept, not a window, and built apart from these
-// (apps/web/src/surfaces/work/conversation-drawer.tsx).
-import { useEffect, useId, useRef, type MouseEvent, type ReactNode, type RefObject } from "react";
+// (apps/web/src/surfaces/work/conversation-drawer.tsx). `Tooltip` is built here too: the design
+// system's sits inside its trigger, where anything clipping or stacking around it covers it.
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { Button } from "../../../design-system/components/core/Button.jsx";
 import { Icon } from "../../../design-system/components/core/Icon.jsx";
@@ -14,6 +24,12 @@ import {
   Drawer as DesignSystemDrawer,
   type DrawerProps,
 } from "../../../design-system/components/overlays/Drawer.jsx";
+import {
+  tooltipPlace,
+  TOOLTIP_WINDOW_MARGIN_PX,
+  type TooltipPlace,
+  type TooltipSide,
+} from "./tooltip-place.ts";
 
 /** A step before an action, opened over the bar: its confirming action and Cancel replace the bar's actions. */
 export interface DialogStep {
@@ -151,6 +167,105 @@ export function useCloseOnEscape(
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [open, onClose, element]);
+}
+
+export interface TooltipProps {
+  readonly content: ReactNode;
+  /** Where it prefers to sit; it takes the opposite side when only that has the room. */
+  readonly side?: TooltipSide;
+  readonly children: ReactNode;
+  /** Holds it open or closed, whatever the pointer and focus do. */
+  readonly open?: boolean;
+}
+
+/** Words on hover or focus of `children`, over everything, kept within the window. */
+export function Tooltip({ content, side = "top", children, open }: TooltipProps): ReactNode {
+  const [pointedAt, setPointedAt] = useState(false);
+  const trigger = useRef<HTMLSpanElement>(null);
+  useCloseOnTriggerMove(pointedAt, setPointedAt, trigger);
+  return (
+    <span
+      ref={trigger}
+      className="tooltip-trigger"
+      onMouseEnter={() => setPointedAt(true)}
+      onMouseLeave={() => setPointedAt(false)}
+      onFocus={() => setPointedAt(true)}
+      onBlur={() => setPointedAt(false)}
+    >
+      {children}
+      {(open ?? pointedAt) && <TooltipBody content={content} side={side} trigger={trigger} />}
+    </span>
+  );
+}
+
+/**
+ * On the body and fixed, so nothing around the trigger clips it. It opens hidden, as where it goes
+ * depends on its size.
+ */
+function TooltipBody({
+  content,
+  side,
+  trigger,
+}: {
+  readonly content: ReactNode;
+  readonly side: TooltipSide;
+  readonly trigger: RefObject<HTMLElement | null>;
+}): ReactNode {
+  const body = useRef<HTMLSpanElement>(null);
+  const [place, setPlace] = useState<TooltipPlace>();
+  useLayoutEffect(() => {
+    const [from, shown] = [trigger.current, body.current];
+    if (from === null || shown === null) return;
+    const placeIt = (): void => {
+      const { clientWidth: width, clientHeight: height } = document.documentElement;
+      const size = shown.getBoundingClientRect();
+      setPlace(tooltipPlace(from.getBoundingClientRect(), size, side, { width, height }));
+    };
+    placeIt();
+    // What it shows can change size while it is open, as a live token count does.
+    const resizing = new ResizeObserver(placeIt);
+    resizing.observe(shown);
+    return () => resizing.disconnect();
+  }, [side, trigger]);
+  return createPortal(
+    <span
+      ref={body}
+      role="tooltip"
+      className="tooltip"
+      style={{
+        ...(place ?? { visibility: "hidden" }),
+        maxWidth: `calc(100vw - ${2 * TOOLTIP_WINDOW_MARGIN_PX}px)`,
+      }}
+    >
+      {content}
+    </span>,
+    document.body,
+  );
+}
+
+/**
+ * A tooltip doesn't follow its trigger, so it closes once the trigger moves: on a scroll of what
+ * holds the trigger, a live log elsewhere on the page leaving it be, and when the window resizes.
+ */
+function useCloseOnTriggerMove(
+  pointedAt: boolean,
+  setPointedAt: (pointedAt: boolean) => void,
+  trigger: RefObject<HTMLElement | null>,
+): void {
+  useEffect(() => {
+    if (!pointedAt) return;
+    const closeOnScroll = ({ target }: Event): void => {
+      if (target instanceof Node && target.contains(trigger.current)) setPointedAt(false);
+    };
+    const closeOnResize = (): void => setPointedAt(false);
+    // Scroll events don't bubble, so only the capture phase hears every scroller.
+    window.addEventListener("scroll", closeOnScroll, { capture: true, passive: true });
+    window.addEventListener("resize", closeOnResize);
+    return () => {
+      window.removeEventListener("scroll", closeOnScroll, { capture: true });
+      window.removeEventListener("resize", closeOnResize);
+    };
+  }, [pointedAt, setPointedAt, trigger]);
 }
 
 function KeepOpenOnBackdropPress({

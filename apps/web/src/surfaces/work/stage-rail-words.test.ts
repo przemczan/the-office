@@ -4,6 +4,7 @@ import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   currentStageIndex,
   railScrollLeft,
+  loopBackEnds,
   loopBackPath,
   loopBacks,
   loopBackWords,
@@ -13,6 +14,7 @@ import {
   stagesOnRail,
   stageWorkerWords,
   stoppedAtCurrentStage,
+  type LoopBack,
 } from "./stage-rail-words.ts";
 import { stageNamesOf, STAGE_STATE_WORDS } from "./stage-words.ts";
 
@@ -325,6 +327,51 @@ describe("loopBacks", () => {
     ]);
   });
 
+  it("gives each arc the lowest height free of the arcs it overlaps", () => {
+    // The work of Task 2a6dd41c: each failing Stage went back, the last twice, to 4 and then to 2.
+    const eight = ["a", "b", "c", "d", "e", "f", "g", "h"].map((key) =>
+      aTaskStage({ ...implement, key, name: key }),
+    );
+    const trips: readonly (readonly [from: number, to: number])[] = [
+      [1, 0],
+      [3, 2],
+      [5, 4],
+      [7, 4],
+      [7, 2],
+    ];
+    const stages = eight.map((taskStage, index) => ({
+      ...taskStage,
+      runs: trips.flatMap(([from, to], trip) => [
+        ...(index === from ? [aRun({ number: trip * 2 + 1 })] : []),
+        ...(index === to
+          ? [aRun({ number: trip * 2 + 2, carriedFailure: carried(eight[from]!.stage.key, 1) })]
+          : []),
+      ]),
+    }));
+
+    expect(
+      loopBacks(stages).map(({ fromIndex, toIndex, level }) => [fromIndex, toIndex, level]),
+    ).toEqual([
+      [1, 0, 0],
+      [3, 2, 0],
+      [5, 4, 0],
+      [7, 4, 1],
+      [7, 2, 2],
+    ]);
+  });
+
+  it("keeps an arc leaving a Stage at the height of one landing there, as they don't overlap", () => {
+    const stages = [
+      aTaskStage(implement, { runs: [aRun({ number: 5, carriedFailure: carried("tests", 1) })] }),
+      aTaskStage(tests, {
+        runs: [aRun({ number: 3, carriedFailure: carried("review", 1) }), aRun({ number: 4 })],
+      }),
+      aTaskStage(review, { runs: [aRun({ number: 2 })] }),
+    ];
+
+    expect(loopBacks(stages).map(({ level }) => level)).toEqual([0, 0]);
+  });
+
   it("draws nothing for a Stage run again in place, or for a Stage no longer on the rail", () => {
     const stages = [
       aTaskStage(implement, {
@@ -364,13 +411,50 @@ describe("loopBackPath", () => {
     });
   });
 
-  it("draws a longer loop higher, landing further out, so the two nest", () => {
+  it("draws a longer loop higher, landing on the same spot as the shorter", () => {
     const shorter = loopBackPath({ fromIndex: 2, toIndex: 1, level: 0 }, 4, 58);
     const longer = loopBackPath({ fromIndex: 3, toIndex: 1, level: 1 }, 4, 58);
 
     expect(longer.top).toBeLessThan(shorter.top);
     expect(longer.top + longer.height).toBe(shorter.top + shorter.height);
-    expect(longer.landsOn).toEqual({ share: 37.5, offset: -6 });
-    expect(shorter.landsOn).toEqual({ share: 37.5, offset: 6 });
+    expect(longer.landsOn).toEqual(shorter.landsOn);
+  });
+});
+
+function loop(fromIndex: number, toIndex: number, level: number): LoopBack {
+  return {
+    from: `stage-${fromIndex}`,
+    to: `stage-${toIndex}`,
+    fromIndex,
+    toIndex,
+    count: 1,
+    rounds: 3,
+    level,
+  };
+}
+
+describe("loopBackEnds", () => {
+  it("gives each loop its own ends while they share no spot", () => {
+    const ends = loopBackEnds([loop(1, 0, 0), loop(3, 2, 0)], 4, 42);
+
+    expect(ends.map(({ key }) => key)).toEqual(["leaves-1", "lands-0", "leaves-3", "lands-2"]);
+  });
+
+  it("draws one line for the loops landing on a Stage, as high as the highest", () => {
+    const [low, high] = [loop(2, 1, 0), loop(3, 1, 1)];
+    const { top, height } = loopBackPath(high, 4, 58);
+
+    expect(loopBackEnds([high, low], 4, 58).filter(({ kind }) => kind === "lands")).toEqual([
+      { key: "lands-1", kind: "lands", place: { share: 37.5, offset: 6 }, top, height },
+    ]);
+  });
+
+  it("draws one line for the loops leaving a Stage, as high as the highest", () => {
+    const [low, high] = [loop(3, 2, 0), loop(3, 0, 1)];
+    const { top, height } = loopBackPath(high, 4, 58);
+
+    expect(loopBackEnds([low, high], 4, 58).filter(({ kind }) => kind === "leaves")).toEqual([
+      { key: "leaves-3", kind: "leaves", place: { share: 12.5, offset: 4 }, top, height },
+    ]);
   });
 });

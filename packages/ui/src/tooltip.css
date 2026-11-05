@@ -1,0 +1,20 @@
+/* `relative` as the design system's had it: a trigger keeps sitting above a card's stretched link. */
+.tooltip-trigger {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-tooltip);
+  width: max-content;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-inverse);
+  box-shadow: var(--shadow-2);
+  font: 500 12px/1.35 var(--font-sans);
+  color: var(--fg-inverse);
+  pointer-events: none;
+}

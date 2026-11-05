@@ -88,7 +88,7 @@
 - `attachment-chips.tsx`: AttachmentChips, DocumentDialog
 - `attachment-gallery.tsx`: AttachmentGallery
 - `attachment-picker.tsx`: AttachmentPicker
-- `attachment-rounds.ts`: AttachmentRound, attachmentRounds, oneRound, roundName
+- `attachment-rounds.ts`: AttachmentRound, attachmentRounds, attachmentsOfGateRun, oneRound, roundName
 - `attachment-viewer.tsx`: ViewedImage, AttachmentViewer
 - `card-attachments.tsx`: CardColumns, CardAttachments
 - `pending-attachment.ts`: PendingAttachment, attach, pendingName

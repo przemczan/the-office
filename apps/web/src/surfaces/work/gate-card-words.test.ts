@@ -150,29 +150,49 @@ describe("definitionOfDoneFact", () => {
 });
 
 describe("picturesOfThisRound", () => {
-  const sentBackAt = "2026-11-04T11:00:00.000Z";
+  const gate: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
   const stages: TaskStage[] = [
     {
-      stage: { kind: "gate", key: "look", name: "Look", optional: false },
+      stage: gate,
       state: "waiting-on-you",
       tokens: NO_TOKENS,
       wentBack: null,
       runs: [
         {
+          number: 1,
           startedAt: "2026-11-04T10:00:00.000Z",
-          endedAt: sentBackAt,
-          gateAction: { kind: "send-back", stageKey: "implement", feedback: "Bigger." },
+          endedAt: "2026-11-04T11:00:00.000Z",
+          gateAction: { kind: "continue" },
+        } as StageRun,
+        {
+          number: 3,
+          startedAt: "2026-11-04T11:45:00.000Z",
+          endedAt: "2026-11-04T11:45:00.100Z",
+          gateAction: null,
         } as StageRun,
       ],
     },
   ];
 
-  it("keeps the current round's pictures, without its other Attachments or the earlier rounds", () => {
+  it("keeps the waiting run's pictures, without its other Attachments or an earlier run's", () => {
     const attachments = [
       anAttachment({ id: "before", kind: "image", addedAt: "2026-11-04T10:30:00.000Z" }),
       anAttachment({ id: "picture", kind: "image", addedAt: "2026-11-04T11:30:00.000Z" }),
       anAttachment({ id: "notes", kind: "document", addedAt: "2026-11-04T11:31:00.000Z" }),
+      anAttachment({ id: "while-it-waits", kind: "image", addedAt: "2026-11-04T13:00:00.000Z" }),
     ];
-    expect(picturesOfThisRound(attachments, stages).map(({ id }) => id)).toEqual(["picture"]);
+    expect(picturesOfThisRound(attachments, stages, { gate }).map(({ id }) => id)).toEqual([
+      "picture",
+      "while-it-waits",
+    ]);
+  });
+
+  it("has none once the Gate waits no more", () => {
+    const attachments = [
+      anAttachment({ id: "picture", kind: "image", addedAt: "2026-11-04T11:30:00.000Z" }),
+    ];
+    const ended = stages.map((taskStage) => ({ ...taskStage, runs: taskStage.runs.slice(0, 1) }));
+
+    expect(picturesOfThisRound(attachments, ended, { gate })).toEqual([]);
   });
 });

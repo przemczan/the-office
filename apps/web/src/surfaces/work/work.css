@@ -851,17 +851,22 @@
   color: var(--fg-3);
 }
 
-/* Square: up, across and down by the box's borders, its box shares of the rail's width. */
+/* Square, by borders, in shares of the rail's width: each arc's line across, and one line per spot
+   up from a Stage, which arcs share, so no two dash patterns lie on one line. */
 .pipeline-rail-arc {
   position: absolute;
-  border: 1.5px dashed var(--danger);
-  border-bottom: 0;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-top: 1.5px dashed var(--danger);
   pointer-events: none;
 }
 
-/* The arrowhead, on the end where the work landed. */
-.pipeline-rail-arc::after {
+.pipeline-rail-arc-end {
+  position: absolute;
+  border-left: 1.5px dashed var(--danger);
+  pointer-events: none;
+}
+
+/* The arrowhead, one on each spot where work landed. */
+.pipeline-rail-arc-lands::after {
   content: "";
   position: absolute;
   bottom: -3px;
@@ -1200,6 +1205,17 @@
 .run-label {
   margin: 0;
   font-weight: 600;
+}
+
+.run-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.run-attachments .overline {
+  margin: 0;
 }
 
 .run-handover-note {
@@ -1854,10 +1870,6 @@
   align-items: center;
   gap: 6px 12px;
   min-width: 0;
-}
-
-.before-ready-line > span {
-  flex: 1 1 200px;
 }
 
 /* A link to where a line is settled, in the line's words. */

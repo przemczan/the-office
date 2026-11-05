@@ -56,13 +56,21 @@ With the user, 2026-11-05.
 
 ## Steps
 
-- [ ] 1. The small page fixes: the rail's loop-backs, Before Ready's line, a Gate run's Attachments, the Tooltip. Read: `stage-rail-words.ts`, `pipeline-rail.tsx`, `before-ready.tsx`, `run-details.tsx`, `gate-window.tsx`, `packages/ui/src/overlays.tsx`.
+- [x] 1. The small page fixes: the rail's loop-backs, Before Ready's line, a Gate run's Attachments, the Tooltip. Read: `stage-rail-words.ts`, `pipeline-rail.tsx`, `before-ready.tsx`, `run-details.tsx`, `gate-window.tsx`, `packages/ui/src/overlays.tsx`.
 - [ ] 2. Save apart from Confirm, in the service and on the page, with the spec and the glossary. Read: `planning-changes.ts`, `planning-service.ts`, `task-states.ts`, `planning-parts.tsx`, spec 2.1.
 - [ ] 3. Needs you on Now: the same cards, moved to the shell, with spec 4. Read: `needs-you-feed.tsx`, `gate-card.tsx`, `gate-window.tsx`, `needs-you-card.tsx`.
 - [ ] 4. Close: the Definition of Done's checks, `npm run verify:linux`.
 
 ## State
 
-Nothing built yet. The stages of Task 2a6dd41c, from the running Office, show the rail's fault: five loop-backs get five levels, and `loopBackPath` moves each landing by its level, so two arcs into one Stage land apart.
+Step 1 is built; the Definition of Done's boxes wait for step 4, though the checks of the rail, Before Ready, a Gate's run and the Tooltip passed here.
+
+- **Rail:** `loopBacks` gives each arc the lowest height free of those it overlaps; a landing depends only on the Stage. Each arc draws its line across, and `loopBackEnds` one line and arrowhead per spot.
+- **Gate run's Attachments:** `attachmentsOfGateRun` in `attachment-rounds.ts` is the one rule, used by `run-details.tsx` and by `picturesOfThisRound` for the run the Gate waits in. So the Gate's window no longer follows the send-back rounds; `attachmentRounds` still groups the Attachments tab. Trap: a Gate's run ends the moment the Task reaches it (`GATE_REACHED`) and the user's act has no time of its own, so "while it waits" is `gateAction === null`, and something added during a wait moves to the Gate's next run once the user acts.
+- **Tooltip:** in `packages/ui/src/overlays.tsx`, placed by `tooltip-place.ts`, styled in `tooltip.css`, on the body at `--z-tooltip`. `design-system/` keeps its Tooltip, as it keeps Dialog: its bundle, card and UI kit use it, and that folder stays as exported.
+
+For step 3: `gate-card.tsx`, `gate-window.tsx` and `gate-card-words.ts` still stand in `apps/web/src/surfaces/work/`; `picturesOfThisRound` takes the waiting Gate as its third argument. Step 2 changes the Proposed badge beside Confirm.
 
 ## Progress
+
+- 2026-11-05 · step 1: the rail's loop-backs land on one spot at the lowest free height, Before Ready's words follow their line, a Gate's run shows its Attachments, and the Tooltip draws on the body from `packages/ui`; next, step 2: Save apart from Confirm.

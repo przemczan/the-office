@@ -143,10 +143,12 @@ export {
   Dialog,
   Drawer,
   isTopmost,
+  Tooltip,
   useCloseOnEscape,
   type DialogProps,
   type DialogSize,
   type DialogStep,
+  type TooltipProps,
 } from "./overlays.tsx";
 export { FoldButton } from "./fold-button.tsx";
 export { LinkButton } from "./link-button.tsx";
@@ -157,4 +159,3 @@ export {
   type MenuItem,
   type MenuProps,
 } from "../../../design-system/components/overlays/Menu.jsx";
-export { Tooltip, type TooltipProps } from "../../../design-system/components/overlays/Tooltip.jsx";

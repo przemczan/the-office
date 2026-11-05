@@ -21,6 +21,7 @@ import { focusStage, stageElementId } from "./stage-selection.ts";
 import { StageWorker } from "./stage-worker.tsx";
 import {
   currentStageIndex,
+  loopBackEnds,
   loopBackPath,
   loopBacks,
   loopBackWords,
@@ -30,6 +31,7 @@ import {
   railStateWords,
   stagesOnRail,
   type LoopBack,
+  type LoopBackEnd,
   type RailPlace,
 } from "./stage-rail-words.ts";
 import type { ShownStage } from "./use-stage-history.ts";
@@ -44,9 +46,9 @@ const MARKER_TOP_PX = 14;
 /** From a marker's top to the top of the line through its centre. */
 const LINE_FROM_MARKER_TOP_PX = 11;
 
-/** The room over the markers once there are arcs: what they start from, and what each adds. */
+/** The room over the markers once there are arcs: what they start from, and what each height adds. */
 const ARC_ROOM_PX = 26;
-const ARC_ROOM_PER_LOOP_PX = 16;
+const ARC_ROOM_PER_LEVEL_PX = 16;
 
 /** Where the Task is: every Stage, in order, from its library Pipeline until it has its own copy. */
 export function PipelineRail({
@@ -157,8 +159,9 @@ function StageTrack({
   const reached = Math.max(current, 0);
   const firstMarker = 50 / stages.length;
   const loops = loopBacks(stages);
+  const arcHeights = Math.max(0, ...loops.map(({ level }) => level + 1));
   const markerTop =
-    loops.length > 0 ? ARC_ROOM_PX + loops.length * ARC_ROOM_PER_LOOP_PX : MARKER_TOP_PX;
+    arcHeights > 0 ? ARC_ROOM_PX + arcHeights * ARC_ROOM_PER_LEVEL_PX : MARKER_TOP_PX;
   // A Stage edited away since it was selected leaves nothing selected.
   const selected = stages.find(({ stage }) => stage.key === shown?.stageKey);
 
@@ -217,6 +220,9 @@ function StageTrack({
                 onSelect={() => onSelect(loop.from)}
               />
             ))}
+            {loopBackEnds(loops, stages.length, markerTop).map((end) => (
+              <LoopBackArcEnd key={end.key} end={end} />
+            ))}
           </div>
         </div>
         {proposal}
@@ -270,8 +276,8 @@ function useCurrentStageInView(
 }
 
 /**
- * A loop-back from the failing Stage to where the work went back, drawn square by its box's borders
- * so the corners keep their radius at any width; its mark selects the failing Stage.
+ * The line across of a loop-back from the failing Stage to where the work went back, between two
+ * `LoopBackArcEnd`s it may share with other loop-backs; its mark selects the failing Stage.
  */
 function LoopBackArc({
   loop,
@@ -286,18 +292,10 @@ function LoopBackArc({
   readonly names: StageNames;
   readonly onSelect: () => void;
 }): ReactNode {
-  const path = loopBackPath(loop, stageCount, markerTop);
+  const { top, landsOn, leaves } = loopBackPath(loop, stageCount, markerTop);
   const words = loopBackWords(loop, names);
   return (
-    <div
-      className="pipeline-rail-arc"
-      style={{
-        top: path.top,
-        height: path.height,
-        left: cssOf(path.landsOn),
-        right: cssOf(path.leaves),
-      }}
-    >
+    <div className="pipeline-rail-arc" style={{ top, left: cssOf(landsOn), right: cssOf(leaves) }}>
       <button
         type="button"
         className="pipeline-rail-arc-mark"
@@ -308,6 +306,17 @@ function LoopBackArc({
         ↺ {loop.count} of {loop.rounds}
       </button>
     </div>
+  );
+}
+
+function LoopBackArcEnd({ end }: { readonly end: LoopBackEnd }): ReactNode {
+  const { kind, place, top, height } = end;
+  const across = kind === "lands" ? { left: cssOf(place) } : { right: cssOf(place) };
+  return (
+    <span
+      className={`pipeline-rail-arc-end pipeline-rail-arc-${kind}`}
+      style={{ top, height, ...across }}
+    />
   );
 }
 

@@ -114,7 +114,7 @@ export interface LoopBack {
   readonly count: number;
   /** How many it may, with any rounds the user allowed since. */
   readonly rounds: number;
-  /** Shorter loops sit under the longer ones they may span, from 0. */
+  /** The lowest height, from 0, free of the loops it overlaps; a shorter one sits under a longer. */
   readonly level: number;
 }
 
@@ -144,13 +144,30 @@ export function loopBacks(stages: readonly TaskStage[]): readonly LoopBack[] {
       rounds: carriedFailure.rounds,
     });
   });
-  return [...loops.values()]
-    .toSorted((one, other) => spanOf(one) - spanOf(other))
-    .map((loop, level) => ({ ...loop, level }));
+  return withLevels([...loops.values()]);
 }
 
-function spanOf({ fromIndex, toIndex }: Pick<LoopBack, "fromIndex" | "toIndex">): number {
+type RailSpan = Pick<LoopBack, "fromIndex" | "toIndex">;
+
+/** Shortest first, so a loop that spans another is placed after it and goes over it. */
+function withLevels(loops: readonly Omit<LoopBack, "level">[]): LoopBack[] {
+  const placed: LoopBack[] = [];
+  for (const loop of loops.toSorted((one, other) => spanOf(one) - spanOf(other))) {
+    const taken = placed.filter((other) => overlap(loop, other)).map(({ level }) => level);
+    let level = 0;
+    while (taken.includes(level)) level += 1;
+    placed.push({ ...loop, level });
+  }
+  return placed;
+}
+
+function spanOf({ fromIndex, toIndex }: RailSpan): number {
   return fromIndex - toIndex;
+}
+
+/** One leaving a Stage the other lands on doesn't overlap it: it goes up before the Stage's centre. */
+function overlap(one: RailSpan, other: RailSpan): boolean {
+  return one.toIndex < other.fromIndex && other.toIndex < one.fromIndex;
 }
 
 /** How far above a marker a loop-back's ends sit. */
@@ -160,10 +177,9 @@ const ARC_END_ABOVE_MARKER_PX = 2;
 const ARC_HEIGHT_PX = 22;
 const ARC_LEVEL_PX = 16;
 
-/** Where a loop-back's ends sit from their Stages' centres; a higher one lands further out, so they nest. */
+/** Where a loop-back's ends sit from their Stages' centres, whatever its height. */
 const ARC_LEAVES_BEFORE_PX = 4;
 const ARC_LANDS_AFTER_PX = 6;
-const ARC_LANDING_STEP_PX = 12;
 
 /**
  * A loop-back's square path over the rail: up from the failing Stage, across at its level's height
@@ -174,7 +190,7 @@ const ARC_LANDING_STEP_PX = 12;
 export interface LoopBackPath {
   /** Where it goes up, from the rail's right: a little before the failing Stage's centre. */
   readonly leaves: RailPlace;
-  /** Where it comes down, from the rail's left: by the earlier Stage's centre, further out the higher it is. */
+  /** Where it comes down, from the rail's left: a little after the earlier Stage's centre. */
   readonly landsOn: RailPlace;
   readonly top: number;
   readonly height: number;
@@ -193,13 +209,42 @@ export function loopBackPath(
 ): LoopBackPath {
   const centreOf = (index: number): number => ((index + 0.5) * 100) / stageCount;
   const height = ARC_HEIGHT_PX + level * ARC_LEVEL_PX;
-  const landing = ARC_LANDS_AFTER_PX - level * ARC_LANDING_STEP_PX;
   return {
     leaves: { share: 100 - centreOf(fromIndex), offset: ARC_LEAVES_BEFORE_PX },
-    landsOn: { share: centreOf(toIndex), offset: landing },
+    landsOn: { share: centreOf(toIndex), offset: ARC_LANDS_AFTER_PX },
     top: markerTop - ARC_END_ABOVE_MARKER_PX - height,
     height,
   };
+}
+
+/** A line from a Stage up to the arcs there, shared by all that leave or land at that spot. */
+export interface LoopBackEnd {
+  readonly key: string;
+  readonly kind: "leaves" | "lands";
+  /** From the rail's right where it leaves, from its left where it lands, as in `LoopBackPath`. */
+  readonly place: RailPlace;
+  readonly top: number;
+  readonly height: number;
+}
+
+/**
+ * One line per spot, as high as the highest arc there. Each arc drawing its own would lay two dash
+ * patterns on one line, which reads as solid or ragged.
+ */
+export function loopBackEnds(
+  loops: readonly LoopBack[],
+  stageCount: number,
+  markerTop: number,
+): LoopBackEnd[] {
+  const ends = new Map<string, LoopBackEnd>();
+  for (const loop of loops.toSorted((one, other) => one.level - other.level)) {
+    const { leaves, landsOn, top, height } = loopBackPath(loop, stageCount, markerTop);
+    const leaving = `leaves-${loop.fromIndex}`;
+    const landing = `lands-${loop.toIndex}`;
+    ends.set(leaving, { key: leaving, kind: "leaves", place: leaves, top, height });
+    ends.set(landing, { key: landing, kind: "lands", place: landsOn, top, height });
+  }
+  return [...ends.values()];
 }
 
 /** What a loop-back's mark says in full. */

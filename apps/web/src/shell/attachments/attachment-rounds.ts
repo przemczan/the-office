@@ -26,9 +26,7 @@ export function attachmentRounds(
   taskStages: readonly TaskStage[],
 ): AttachmentRound[] {
   const runs = taskStages.flatMap((taskStage) => taskStage.runs);
-  // Before any run, everything belongs to the first round.
-  const workStartedAt =
-    runs.length === 0 ? -Infinity : Math.min(...runs.map(({ startedAt }) => Date.parse(startedAt)));
+  const workStartedAt = workStartOf(taskStages);
   const sendBacks = runs.flatMap(sendBackOf).toSorted((a, b) => a.endedAt - b.endedAt);
   const inOrder = attachments.toSorted((a, b) => Date.parse(a.addedAt) - Date.parse(b.addedAt));
   const beforeWork = inOrder.filter(({ addedAt }) => Date.parse(addedAt) < workStartedAt);
@@ -53,6 +51,34 @@ export function attachmentRounds(
     : rounds;
 }
 
+/**
+ * What a Gate's run has to show: what was added after the Gate's previous run ended, or from the
+ * start of the work for its first, until this run ended, or until now while it waits. A Gate's run
+ * ends the moment the Task reaches it, so one that waits has ended too: what tells them apart is the
+ * user's Gate action. That action can be Continue, which starts no round, so a Gate's runs don't
+ * follow `attachmentRounds`.
+ */
+export function attachmentsOfGateRun(
+  attachments: readonly Attachment[],
+  taskStages: readonly TaskStage[],
+  gate: Pick<TaskStage, "runs">,
+  run: Pick<StageRun, "number" | "endedAt" | "gateAction">,
+): Attachment[] {
+  const previousEnds = gate.runs.flatMap(({ number, endedAt }) =>
+    number < run.number && endedAt !== null ? [Date.parse(endedAt)] : [],
+  );
+  const previousEnd = previousEnds.length > 0 ? Math.max(...previousEnds) : undefined;
+  const workStart = workStartOf(taskStages);
+  const until =
+    run.gateAction === null || run.endedAt === null ? Infinity : Date.parse(run.endedAt);
+  return attachments
+    .filter(({ addedAt }) => {
+      const time = Date.parse(addedAt);
+      return (previousEnd === undefined ? time >= workStart : time > previousEnd) && time <= until;
+    })
+    .toSorted((a, b) => Date.parse(a.addedAt) - Date.parse(b.addedAt));
+}
+
 /** Attachments that have no rounds, as an Idea's or an Initiative's: all in one. */
 export function oneRound(attachments: readonly Attachment[]): AttachmentRound[] {
   return [{ kind: "round", number: 1, sentBackWith: null, attachments }];
@@ -61,6 +87,14 @@ export function oneRound(attachments: readonly Attachment[]): AttachmentRound[] 
 /** "Round 2", or "Before the work started". */
 export function roundName(round: AttachmentRound): string {
   return round.kind === "round" ? `Round ${round.number}` : "Before the work started";
+}
+
+/** When the first run started, in milliseconds since the epoch; before any run, all time counts. */
+function workStartOf(taskStages: readonly TaskStage[]): number {
+  const starts = taskStages.flatMap(({ runs }) =>
+    runs.map(({ startedAt }) => Date.parse(startedAt)),
+  );
+  return starts.length === 0 ? -Infinity : Math.min(...starts);
 }
 
 interface SendBack {
