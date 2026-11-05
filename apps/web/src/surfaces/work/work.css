@@ -690,10 +690,6 @@
   color: var(--fg-3);
 }
 
-.stage-mark-small {
-  --stage-mark-size: 18px;
-}
-
 .stage-mark svg {
   stroke-width: 3;
 }
@@ -940,43 +936,49 @@
   display: flex;
   flex: none;
   overflow-x: auto;
-  margin: 0;
-  padding: 2px 0 4px;
+  margin: 0 0 8px;
+  padding: 0;
   list-style: none;
 }
 
 .pipeline-in-small li {
-  position: relative;
-  flex: 1 0 96px;
+  flex: 1 0 84px;
   min-width: 0;
-}
-
-/* The line from this Stage's mark to the next one's, under both. */
-.pipeline-in-small li:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  width: 100%;
-  height: 2px;
-  background: var(--border-strong);
 }
 
 .pipeline-in-small-stage {
   position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
   width: 100%;
-  padding: 6px 4px;
+  padding: 4px 6px 6px;
   border: 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: none;
   cursor: pointer;
   font-size: var(--text-xs);
   color: var(--fg-2);
+}
+
+/* The line between the marks, inside each Stage so its background stays behind the line. */
+.pipeline-in-small-stage::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--border);
+}
+
+.pipeline-in-small li:first-child .pipeline-in-small-stage::before {
+  left: 50%;
+}
+
+.pipeline-in-small li:last-child .pipeline-in-small-stage::before {
+  right: 50%;
 }
 
 .pipeline-in-small-stage:hover {
@@ -985,9 +987,12 @@
 
 .pipeline-in-small-stage[aria-pressed="true"] {
   background: var(--surface-selected);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent);
   font-weight: 600;
   color: var(--fg-1);
+}
+
+.pipeline-in-small-stage[aria-pressed="true"] .stage-mark {
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
 .pipeline-in-small-stage:focus-visible {
@@ -1004,7 +1009,7 @@
 
 .stage-history-line {
   flex: none;
-  margin: 8px 0 12px;
+  margin: 4px 0 12px;
   font-size: var(--text-sm);
   color: var(--fg-2);
 }
@@ -1012,28 +1017,31 @@
 .stage-history-panes {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 14px;
   min-height: 0;
 }
 
 .stage-history-runs {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
   min-height: 0;
   margin: 0;
-  padding: 0 4px 2px 0;
+  padding: 0 4px 2px 20px;
+  /* The line is a background, as a border would clip the dots that sit on it. */
+  background: linear-gradient(var(--border), var(--border)) 5px 0 / 2px 100% no-repeat local;
   list-style: none;
 }
 
 .stage-history-run {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-left: 3px solid var(--run-tone, var(--border-strong));
   border-radius: var(--radius-lg);
@@ -1044,12 +1052,27 @@
   color: var(--fg-1);
 }
 
+/* The run's dot on the line. */
+.stage-history-run::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: -22px;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--run-tone, var(--border-strong));
+  border-radius: 50%;
+  background: var(--run-dot, var(--surface));
+}
+
 .stage-history-run:hover {
   background: var(--surface-hover);
 }
 
 .stage-history-run[aria-pressed="true"] {
   background: var(--surface-selected);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .stage-history-run:focus-visible {
@@ -1059,14 +1082,17 @@
 
 .stage-history-run-success {
   --run-tone: var(--success);
+  --run-dot: var(--success);
 }
 
 .stage-history-run-danger {
   --run-tone: var(--danger);
+  --run-dot: var(--danger);
 }
 
 .stage-history-run-warning {
   --run-tone: var(--warning);
+  --run-dot: var(--warning);
 }
 
 .stage-history-run-accent {
@@ -1079,13 +1105,15 @@
 
 .stage-history-run-line {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   align-items: center;
   font-size: var(--text-sm);
 }
 
 .stage-history-run-line strong,
 .run-details-head strong {
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -1114,25 +1142,30 @@
 .run-details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  overflow: hidden;
   min-width: 0;
   min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
 }
 
 .run-details-head {
   display: flex;
   flex: none;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  gap: 6px 10px;
   align-items: center;
-  font-size: var(--text-sm);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
 }
 
 .run-details-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 14px 18px 18px;
 }
 
 .run-tabs {
@@ -1140,6 +1173,7 @@
   flex: none;
   align-items: center;
   gap: 12px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1152,7 +1186,7 @@
 
 .run-thread-foot {
   flex: none;
-  padding-top: 10px;
+  padding: 8px 12px;
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -1163,9 +1197,18 @@
 
 .run-thread-closed {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+}
+
+.run-thread-closed .thread-read-only {
+  padding: 0;
+  border-top: 0;
 }
 
 .run-thread-to {

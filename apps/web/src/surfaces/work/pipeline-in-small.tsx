@@ -34,7 +34,7 @@ export function PipelineInSmall({
               title={`${name}: ${railStateWords(taskStage, names)}`}
               onClick={() => onSelect(key)}
             >
-              <StageMark taskStage={taskStage} small />
+              <StageMark taskStage={taskStage} />
               <span className="pipeline-in-small-name">{name}</span>
             </button>
           </li>
