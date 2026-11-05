@@ -13,11 +13,13 @@ export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
 };
 
 /**
- * Where a Task may go from each state. Work only moves forward; Waiting on you and Paused are
- * side states of In progress and move among themselves; Dropped is open until the Task ends.
+ * Where a Task may go from each state. Work only moves forward; Planning is optional, so a Task
+ * whose Plan and Definition of Done the user wrote goes from Backlog to Ready (spec §2.1); Waiting
+ * on you and Paused are side states of In progress and move among themselves; Dropped is open
+ * until the Task ends.
  */
 const NEXT_STATES: Readonly<Record<TaskState, readonly TaskState[]>> = {
-  backlog: ["planning", "dropped"],
+  backlog: ["planning", "ready", "dropped"],
   planning: ["ready", "dropped"],
   ready: ["in-progress", "dropped"],
   "in-progress": ["waiting-on-you", "paused", "done", "dropped"],
@@ -55,7 +57,7 @@ export interface ReadinessLine {
 /**
  * Ready requires a Plan and a Definition of Done, each confirmed by the user, no Pipeline proposal
  * left open (the user takes or declines it, keeping the Pipeline the Task follows) and no Decision
- * on the Task waiting (spec §2.1). The one list of conditions: the refusals and the checklist
+ * on the Task open (spec §2.1). The one list of conditions: the refusals and the checklist
  * both come from it.
  */
 export function readinessLines(task: Task, openDecisions: number): ReadinessLine[] {
@@ -68,14 +70,14 @@ export function readinessLines(task: Task, openDecisions: number): ReadinessLine
     },
     {
       part: "pipeline",
-      label: "Pipeline taken or declined",
+      label: "Pipeline chosen",
       problems: task.proposedPipeline
         ? ["Take or decline the proposed Pipeline before the Task can be Ready."]
         : [],
     },
     {
       part: "decisions",
-      label: "No Decision waiting",
+      label: "No Decision open",
       problems: openDecisionProblems(openDecisions),
     },
   ];

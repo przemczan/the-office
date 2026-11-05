@@ -65,6 +65,7 @@ export const tasks = pgTable(
       .default(sql`'{}'`),
     /** Compared in code as plain strings; never sorted by Postgres, whose collation differs. */
     order: text("order_key").notNull(),
+    description: text("description").notNull().default(""),
     plan: text("plan").notNull(),
     planConfirmed: boolean("plan_confirmed").notNull().default(false),
     filesToChange: text("files_to_change")

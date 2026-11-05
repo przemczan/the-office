@@ -20,6 +20,7 @@ import {
 } from "../domain/task-changes.js";
 import { addDependency, removeDependency } from "../domain/task-dependencies.js";
 import { TaskResumed } from "../domain/task-events.js";
+import { changeDescription } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
@@ -98,6 +99,11 @@ export class TaskService {
 
   async changePriority(id: string, priority: Priority): Promise<Task> {
     return this.update(id, (task) => changePriority(task, priority));
+  }
+
+  /** The user's Description, until the Task starts. */
+  async changeDescription(id: string, description: string): Promise<Task> {
+    return this.update(id, (task) => changeDescription(task, description));
   }
 
   /** Sets the Task's Tags, in any state: the user's or the Planner's. */

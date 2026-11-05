@@ -43,6 +43,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     priority: "normal",
     tags: [],
     order: "a0",
+    description: "",
     plan: "",
     planConfirmed: false,
     filesToChange: [],

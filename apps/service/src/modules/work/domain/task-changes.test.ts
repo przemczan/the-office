@@ -56,6 +56,22 @@ describe("createTask", () => {
     });
   });
 
+  it("keeps the user's Description, trimmed", () => {
+    const { task } = createTask(
+      "task-9",
+      {
+        title: "Fix the login redirect",
+        description: "  After signing in, land on the page I came from.\n",
+        projectId: "admin-panel",
+        priority: "normal",
+      },
+      setting,
+      createdAt,
+    );
+
+    expect(task.description).toBe("After signing in, land on the page I came from.");
+  });
+
   it("refuses a Task without a title", () => {
     expect(() =>
       createTask(

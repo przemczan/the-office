@@ -15,6 +15,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
   return {
     id,
     title: `Task ${id}`,
+    description: "",
     projectId: "firmware",
     priority: "normal",
     tags: [],

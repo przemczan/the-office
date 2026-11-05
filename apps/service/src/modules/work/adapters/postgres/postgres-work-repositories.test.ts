@@ -58,7 +58,12 @@ async function createdTask(projectId: string, fields: Partial<Task> = {}): Promi
   const { task } = await tasks.create((takenOrders) =>
     createTask(
       randomUUID(),
-      { title: fields.title ?? "A Task", projectId, priority: fields.priority ?? "normal" },
+      {
+        title: fields.title ?? "A Task",
+        description: fields.description,
+        projectId,
+        priority: fields.priority ?? "normal",
+      },
       {
         pipelineId: "full",
         order: orderAfter(takenOrders),
@@ -83,7 +88,10 @@ async function boardOf(projectId: string): Promise<string[]> {
 describe("PostgresTaskRepository", () => {
   it("keeps a Task as created, each new one last on the board", async () => {
     const projectId = aProjectId();
-    const first = await createdTask(projectId, { title: "First" });
+    const first = await createdTask(projectId, {
+      title: "First",
+      description: "Land on the page I came from.",
+    });
     await createdTask(projectId, { title: "Second" });
 
     await expect(tasks.find(first.id)).resolves.toEqual(first);

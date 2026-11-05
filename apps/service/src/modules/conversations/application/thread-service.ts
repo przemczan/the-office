@@ -26,6 +26,11 @@ export interface InitiativeThreadOpening extends InitiativeThreadStart {
   readonly opening: string;
 }
 
+/** A Thread The Office opens on a Task, such as Make a plan's, and what it asks the person first. */
+export interface TaskThreadStarting extends TaskThreadStart {
+  readonly opening: string;
+}
+
 /**
  * The Conversations use cases: Threads in their homes, and The Office's log of each. Each change is
  * saved first and its event published after, so nothing hears of a change that wasn't kept.
@@ -61,6 +66,15 @@ export class ThreadService {
     await this.repository.add(thread);
     await this.events.publish(event);
     return thread;
+  }
+
+  /**
+   * Opens a Thread on a Task, such as its planning Thread on Make a plan, where the person starts
+   * on `opening` at once, in a new session with the Task's Brief. Refused when nobody fills the Role.
+   */
+  async startOnTask({ opening, ...start }: TaskThreadStarting): Promise<Thread> {
+    await this.refuseUnlessFilled(start.roleKey);
+    return this.openWith(startTaskThread(randomUUID(), start, new Date()), opening);
   }
 
   /**

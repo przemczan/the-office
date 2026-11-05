@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { THE_USER, type Author } from "../domain/author.js";
-import { PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
+import { MAKE_A_PLAN_OPENING, PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
 import {
   confirmDefinitionOfDone,
   confirmPipeline,
@@ -32,10 +32,15 @@ import { IdeaService } from "./idea-service.js";
 
 /**
  * Planning a Task as a conversation with the Planner (spec §2.1): its own worktree on the freshly
- * fetched base branch, and a planning Thread where the Planner starts on the user's first message,
- * so a Plan the user writes alone costs no model call. The Planner proposes the Plan, the Definition of Done and a Pipeline; the user confirms them and marks the
- * Task Ready.
+ * fetched base branch, and a planning Thread. Plan with… opens it for the user's first message, so
+ * a Plan the user writes alone costs no model call; Make a plan has the Planner start at once from
+ * the record. The Planner proposes the Plan, the Definition of Done and a Pipeline; the user
+ * confirms them and marks the Task Ready. Planning is optional: the user may write and confirm
+ * both parts in Backlog and mark the Task Ready from there.
  */
+
+/** How the Planner joins the planning Thread: on the user's first message, or at once. */
+type PlannerJoins = "on-first-message" | "at-once";
 @Injectable()
 export class PlanningService {
   constructor(
@@ -50,11 +55,21 @@ export class PlanningService {
   ) {}
 
   /**
-   * Backlog → Planning: the Task's branch and worktree, then its planning Thread with the Planner.
-   * A Task in Planning already stays as it is, with its Thread; refused with the reason from any
-   * other state, or while nobody is the Planner.
+   * Plan with…: Backlog → Planning, the Planner waiting for the user's first message. A Task in
+   * Planning already stays as it is, with its Thread; refused with the reason from any other
+   * state, or while nobody is the Planner.
    */
   async plan(taskId: string): Promise<Task> {
+    return this.startPlanning(taskId, "on-first-message");
+  }
+
+  /** Make a plan: as Plan with…, but the Planner starts at once from the title and Description. */
+  async makeAPlan(taskId: string): Promise<Task> {
+    return this.startPlanning(taskId, "at-once");
+  }
+
+  /** Backlog → Planning: the Task's branch and worktree, then its planning Thread. */
+  private async startPlanning(taskId: string, plannerJoins: PlannerJoins): Promise<Task> {
     const task = await this.tasks.find(taskId);
     if (!task) throw new TaskNotFound(taskId);
     if (task.state === "planning") return task;
@@ -72,7 +87,7 @@ export class PlanningService {
     // Another call moved it first, and opened its Thread.
     if (!event) return planning;
     await this.events.publish(event);
-    await this.openPlanningThread(taskId);
+    await this.openPlanningThread(taskId, plannerJoins);
     return planning;
   }
 
@@ -80,9 +95,12 @@ export class PlanningService {
    * The Task's planning Thread with the Planner; when it can't be opened, the move to Planning is
    * undone and refused with the reason, so a Task is never in Planning without its Thread.
    */
-  private async openPlanningThread(taskId: string): Promise<void> {
+  private async openPlanningThread(taskId: string, plannerJoins: PlannerJoins): Promise<void> {
+    const opening = { taskId, roleKey: PLANNER, title: PLANNING_THREAD_TITLE };
     try {
-      await this.threads.openOnTask({ taskId, roleKey: PLANNER, title: PLANNING_THREAD_TITLE });
+      await (plannerJoins === "at-once"
+        ? this.threads.startOnTask({ ...opening, opening: MAKE_A_PLAN_OPENING })
+        : this.threads.openOnTask(opening));
     } catch (error) {
       const { event } = await this.tasks.update(taskId, undoPlanningMove);
       if (event) await this.events.publish(event);
@@ -131,7 +149,7 @@ export class PlanningService {
   }
 
   /**
-   * Planning → Ready, refused with the reasons until the Plan and Definition of Done are confirmed,
+   * Mark Ready, from Backlog or Planning: refused with the reasons until the Plan and Definition of Done are confirmed,
    * the Pipeline proposal is answered and no Decision on the Task is open.
    */
   async markReady(taskId: string): Promise<Task> {

@@ -35,7 +35,7 @@ import { SessionPeople } from "./session-people.js";
 import { SessionInitiatives } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
 import { TaskDecisions } from "./task-decisions.js";
-import { TaskThreads, type TaskThreadOpening } from "./task-threads.js";
+import { TaskThreads, type TaskThreadOpening, type TaskThreadStarting } from "./task-threads.js";
 import { TaskTokens, type EngineIdTokens } from "./task-tokens.js";
 import { UsageHistory } from "./usage-history.js";
 import { ModelPrices } from "./model-prices.js";
@@ -255,15 +255,25 @@ export class SessionInitiativesForTests extends SessionInitiatives {
   }
 }
 
-/** Keeps each Thread opened on a Task, without a session; or fails, once `failure` is set. */
+/**
+ * Keeps each Thread opened on a Task, waiting for the user, and each started with an opening,
+ * without a session; or fails, once `failure` is set.
+ */
 @Injectable()
 export class TaskThreadsForTests extends TaskThreads {
   readonly opened: TaskThreadOpening[] = [];
+  readonly started: TaskThreadStarting[] = [];
   failure: Error | undefined;
 
   async openOnTask(opening: TaskThreadOpening): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;
     this.opened.push(opening);
+    return { id: crypto.randomUUID() };
+  }
+
+  async startOnTask(starting: TaskThreadStarting): Promise<{ readonly id: string }> {
+    if (this.failure) throw this.failure;
+    this.started.push(starting);
     return { id: crypto.randomUUID() };
   }
 }

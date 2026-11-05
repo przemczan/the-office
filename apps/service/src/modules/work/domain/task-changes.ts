@@ -133,7 +133,7 @@ export function undoPlanningMove(task: Task): TaskChange<TaskStateChanged> | und
 }
 
 /**
- * Mark Ready: Planning → Ready, refused with every reason, those of the Task's record and the
+ * Mark Ready: Backlog or Planning → Ready, refused with every reason, those of the Task's record and the
  * Decisions on it still open. Undefined when the Task is Ready already.
  */
 export function markTaskReady(

@@ -19,6 +19,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { ProviderOverride } from "../../../../../test/test-application.js";
 import { FIRST_CLAUDE_CODE_ENGINE, UsageWindowsRead } from "../../../engine/index.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { MAKE_A_PLAN_OPENING } from "../../domain/planning.js";
 import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { FireAlarmService } from "../../application/fire-alarm-service.js";
@@ -129,6 +130,15 @@ describe("POST /api/tasks", () => {
     expect(webEventsOf(work)).toEqual([{ type: "task.created", taskId: task.id }]);
   });
 
+  it("keeps the user's Description, trimmed, and none when left out", async () => {
+    const described = await create({ description: " Land on the page I came from. " });
+    const plain = await create();
+
+    expect(described.description).toBe("Land on the page I came from.");
+    expect(plain.description).toBe("");
+    expect(await readTask(described.id)).toEqual(described);
+  });
+
   it("keeps the Tags given, normalized", async () => {
     const task = await create({ tags: ["Login", " auth flow"] });
 
@@ -182,6 +192,37 @@ describe("PUT /api/tasks/:id/priority", () => {
 
     expect(taskSchema.parse(await response.json()).priority).toBe("low");
     expect(webEventsOf(work)).toEqual([{ type: "task.priority-changed", taskId: task.id }]);
+  });
+});
+
+describe("PUT /api/tasks/:id/description", () => {
+  it("rewrites the Description, trimmed, and announces it", async () => {
+    const task = await create({ description: "Land on the page I came from." });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/description`, {
+      description: " Land on the page I came from, with its filters. ",
+    });
+
+    expect(taskSchema.parse(await response.json()).description).toBe(
+      "Land on the page I came from, with its filters.",
+    );
+    expect(webEventsOf(work)).toEqual([{ type: "task.description-changed", taskId: task.id }]);
+  });
+
+  it("refuses once the Task has ended, keeping the Description it had", async () => {
+    const task = await create({ description: "Land on the page I came from." });
+    await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/description`, {
+      description: "Something else.",
+    });
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "A Task keeps its Description once it has started.",
+    ]);
+    expect((await readTask(task.id)).description).toBe("Land on the page I came from.");
   });
 });
 
@@ -424,6 +465,39 @@ describe("POST /api/tasks/:id/planning", () => {
   });
 });
 
+describe("POST /api/tasks/:id/make-a-plan", () => {
+  it("moves the Task to Planning with the Planner starting at once from the record", async () => {
+    const task = await create({ description: "Land on the page I came from." });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`);
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).state).toBe("planning");
+    expect(work.app.get(ProjectWorktreesForTests).opened).toContain(`${projectId}/${task.id}`);
+    const threads = work.app.get(TaskThreadsForTests);
+    expect(threads.started).toEqual([
+      { taskId: task.id, roleKey: "planner", title: "Planning", opening: MAKE_A_PLAN_OPENING },
+    ]);
+    expect(threads.opened).toEqual([]);
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.state-changed", taskId: task.id, from: "backlog", to: "planning" },
+    ]);
+  });
+
+  it("moves the Task back to Backlog, naming why, when the Planner can't start", async () => {
+    const task = await create();
+    work.app.get(TaskThreadsForTests).failure = new Error("The engine is signed out.");
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`);
+
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "The planning Thread couldn't be opened: The engine is signed out.",
+    ]);
+    expect((await readTask(task.id)).state).toBe("backlog");
+  });
+});
+
 /** A Task in Planning, with what the Planner proposed onto it. */
 async function proposedTask(): Promise<Task> {
   const task = await create();
@@ -571,6 +645,46 @@ describe("POST /api/tasks/:id/ready", () => {
     expect(webEventsOf(work)).toEqual([
       { type: "task.state-changed", taskId: task.id, from: "planning", to: "ready" },
     ]);
+  });
+});
+
+describe("POST /api/tasks/:id/ready from Backlog", () => {
+  it("marks Ready a Task whose Plan and Definition of Done the user wrote, without Planning", async () => {
+    const task = await create();
+    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: ["Mine."],
+    });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).state).toBe("ready");
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.state-changed", taskId: task.id, from: "backlog", to: "ready" },
+    ]);
+    expect(work.app.get(TaskThreadsForTests).opened).toEqual([]);
+  });
+
+  it("is refused with the reasons until both parts are written and no Decision is open", async () => {
+    const task = await create();
+    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+
+    const noDefinitionOfDone = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: ["Mine."],
+    });
+    work.app.get(TaskDecisionsForTests).open.set(task.id, 1);
+    const decisionOpen = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+
+    expect(workRefusalSchema.parse(await noDefinitionOfDone.json()).reasons).toEqual([
+      "A Task needs a Definition of Done before it can be Ready.",
+    ]);
+    expect(workRefusalSchema.parse(await decisionOpen.json()).reasons).toEqual([
+      "Answer the open Decision before the Task can be Ready.",
+    ]);
+    expect((await readTask(task.id)).state).toBe("backlog");
   });
 });
 

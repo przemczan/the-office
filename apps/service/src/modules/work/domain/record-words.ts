@@ -6,6 +6,7 @@ import { initiativeProjectIds } from "./initiative-changes.js";
 import { confirmationWords } from "./planning.js";
 import { stateChangeLines, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
+import { NO_DESCRIPTION } from "./task-description.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 
 /**
@@ -31,6 +32,9 @@ export function taskRecordText(
           `- Proposed Pipeline ${task.proposedPipeline.pipelineId}, not yet confirmed by the user: ${task.proposedPipeline.reason}`,
         ]
       : []),
+    "",
+    "Description:",
+    task.description === "" ? NO_DESCRIPTION : task.description,
     "",
     task.plan === "" ? "Plan:" : `Plan, ${confirmationWords(task.planConfirmed)}:`,
     task.plan === "" ? "No Plan yet." : task.plan,

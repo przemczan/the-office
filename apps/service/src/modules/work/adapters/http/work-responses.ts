@@ -60,6 +60,7 @@ export function toTaskResponse(task: Task): TaskResponse {
   return {
     id: task.id,
     title: task.title,
+    description: task.description,
     projectId: task.projectId,
     state: task.state,
     pausedByAlarm: task.pausedByAlarm,

@@ -6,6 +6,11 @@ export interface TaskThreadOpening {
   readonly title: string;
 }
 
+/** A Thread The Office opens on a Task with what it asks the person first. */
+export interface TaskThreadStarting extends TaskThreadOpening {
+  readonly opening: string;
+}
+
 /** The Threads on Tasks, which the Conversations module keeps; the composition root binds it. */
 export abstract class TaskThreads {
   /**
@@ -13,4 +18,7 @@ export abstract class TaskThreads {
    * session with the Task's Brief.
    */
   abstract openOnTask(opening: TaskThreadOpening): Promise<{ readonly id: string }>;
+
+  /** Opens the Thread; the person starts on `opening` at once, with the Task's Brief. */
+  abstract startOnTask(starting: TaskThreadStarting): Promise<{ readonly id: string }>;
 }

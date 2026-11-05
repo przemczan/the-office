@@ -36,6 +36,7 @@ describe("a planning Brief", () => {
       [
         "You are planning a Task with the user, in the Task's planning Thread.",
         "## The Task\n\nFix the login redirect (Task task-1), in the Project Admin panel.",
+        "## What the user wants, in their own words\n\nNone: the title is all there is.",
         "## Where you work\n\nThe Task's worktree, at /office/worktrees/admin-panel/task-1 on the branch office/task-1, which started from the freshly fetched main.",
         '## Where it came from\n\nThe Idea "Export usage as CSV". Its notes:\n\nMonthly, per Project, for the accountant.',
         "## Attachments\n\nRead one with read_attachment, by its id.\n\n- CSV format notes (link to https://example.com/csv) · Attachment attachment-1",
@@ -43,6 +44,14 @@ describe("a planning Brief", () => {
         "## The Pipelines\n\nThe Task follows Full (full) until the user confirms another. Propose the one its Definition of Done needs with propose_pipeline:",
         "- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
       ].join("\n\n"),
+    );
+  });
+
+  it("carries the user's Description", () => {
+    const task = aTask({ description: "After signing in, land on the page I came from." });
+
+    expect(planningBrief({ ...RECORD, task })).toContain(
+      "## The Task\n\nFix the login redirect (Task task-1), in the Project Admin panel.\n\n## What the user wants, in their own words\n\nAfter signing in, land on the page I came from.",
     );
   });
 

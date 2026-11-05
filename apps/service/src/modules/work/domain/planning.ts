@@ -2,11 +2,19 @@ import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
 import type { Idea } from "./idea.js";
 import type { Task } from "./task.js";
+import { NO_DESCRIPTION } from "./task-description.js";
 
 /** The Role that plans Tasks, by the key a hired Planner keeps (spec §2.2). */
 export const PLANNER = "planner";
 
 export const PLANNING_THREAD_TITLE = "Planning";
+
+/**
+ * What Make a plan asks the Planner first: the user has written nothing, so the Planner plans
+ * from the record in the Brief (spec §2.1).
+ */
+export const MAKE_A_PLAN_OPENING =
+  "Plan this Task from its title and its Description in your Brief: the user has nothing more to add yet. Read what you need in the worktree, then write the Plan, the Definition of Done and the Pipeline that fits, for the user to confirm. Open a Decision only for a choice that is the user's to make.";
 
 /**
  * What the Planner does in a Task's planning Thread, after their card's instructions. The same for
@@ -44,8 +52,8 @@ export interface PlanningRecord {
 }
 
 /**
- * A planning Thread's Brief (spec §2.5): the Task's title, where it came from, its Attachments, the
- * Project's commands, the Pipelines to propose from, and the Plan and Definition of Done once
+ * A planning Thread's Brief (spec §2.5): the Task's title and Description, where it came from, its
+ * Attachments, the Project's commands, the Pipelines to propose from, and the Plan and Definition of Done once
  * written, each marked proposed or confirmed.
  */
 export function planningBrief({
@@ -59,6 +67,7 @@ export function planningBrief({
   return [
     "You are planning a Task with the user, in the Task's planning Thread.",
     `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${project.name}.`,
+    descriptionSection(task),
     `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${project.baseBranch}.`,
     originSection(idea),
     attachmentsSection(attachments),
@@ -73,6 +82,11 @@ export function planningBrief({
   ]
     .filter((section) => section !== undefined)
     .join("\n\n");
+}
+
+function descriptionSection({ description }: Task): string {
+  const words = description === "" ? NO_DESCRIPTION : description;
+  return `## What the user wants, in their own words\n\n${words}`;
 }
 
 function filesToChangeLines({ filesToChange }: Task): string {

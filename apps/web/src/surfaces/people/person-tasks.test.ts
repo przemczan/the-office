@@ -35,6 +35,7 @@ function aTask(fields: Partial<Task>): Task {
   return {
     id: "6f1c2c0e-2f0a-4f39-9a49-5d8b0c1e2a33",
     title: "Fix the login redirect",
+    description: "",
     projectId: "admin-panel",
     priority: "normal",
     tags: [],

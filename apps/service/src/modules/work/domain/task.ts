@@ -33,6 +33,8 @@ export interface Task {
   readonly tags: readonly string[];
   /** Its place in the board's manual order, a key compared as plain strings (manual-order.ts). */
   readonly order: string;
+  /** What the user wants, in their own words; empty when the title is all there is. */
+  readonly description: string;
   /** How it will be done; empty until planned. */
   readonly plan: string;
   /** Whether the user confirmed the Plan as it stands; the Planner's writing leaves it proposed. */
@@ -87,12 +89,17 @@ export interface ProposedPipeline {
 }
 
 /** What creating a Task takes from whoever asks; The Office sets the rest. */
-export type NewTask = Pick<Task, "title" | "projectId" | "priority"> & Partial<Pick<Task, "tags">>;
+export type NewTask = Pick<Task, "title" | "projectId" | "priority"> &
+  Partial<Pick<Task, "description" | "tags">>;
 
-/** A new Task as given, trimmed, with its Tags normalized: none when none were given. */
+/**
+ * A new Task as given, trimmed, with its Tags normalized: no Description and no Tags when none
+ * were given.
+ */
 export function trimmedNewTask(task: NewTask): Required<NewTask> {
   return {
     title: task.title.trim(),
+    description: (task.description ?? "").trim(),
     projectId: task.projectId,
     priority: task.priority,
     tags: normalizedTags(task.tags ?? []),

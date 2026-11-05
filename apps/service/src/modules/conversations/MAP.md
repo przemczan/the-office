@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThreadSetup, InitiativeThreadSource, FireAlarmInThreads, ThreadsFireAlarm, InterruptedAnswers, ProposalAppliers, ProposalApplier, SettingProposalApplier, StageDecisions, StageDecisionRequest, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, ThreadService, InitiativeThreadOpening, WorkRecords, WorkRecordSource, ConversationsModule, DecisionAnswered, DecisionOpened, DecisionReopened, TokensCounted, TurnEnded, ProposalService, PipelineStage, ProposedInitiativeChange, ProposedPipelineChange, ProposedProject, ProposedSettingChange, LIST_PIPELINES_TOOL, PROPOSE_LIBRARY_PIPELINE_TOOL, PROPOSE_PROJECT_TOOL, ProposalRefused
+DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThreadSetup, InitiativeThreadSource, FireAlarmInThreads, ThreadsFireAlarm, InterruptedAnswers, ProposalAppliers, ProposalApplier, SettingProposalApplier, StageDecisions, StageDecisionRequest, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, ThreadService, InitiativeThreadOpening, TaskThreadStarting, WorkRecords, WorkRecordSource, ConversationsModule, DecisionAnswered, DecisionOpened, DecisionReopened, TokensCounted, TurnEnded, ProposalService, PipelineStage, ProposedInitiativeChange, ProposedPipelineChange, ProposedProject, ProposedSettingChange, LIST_PIPELINES_TOOL, PROPOSE_LIBRARY_PIPELINE_TOOL, PROPOSE_PROJECT_TOOL, ProposalRefused
 
 ## Domain events
 
@@ -136,7 +136,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `task-tokens.ts`: EngineIdTokens, TaskTokens
 - `thread-contexts.ts`: ThreadReading, ThreadContexts
 - `thread-runner.ts`: Answerer, ThreadRunner
-- `thread-service.ts`: InitiativeThreadOpening, ThreadService
+- `thread-service.ts`: InitiativeThreadOpening, TaskThreadStarting, ThreadService
 - `work-records.ts`: WorkRecordSource, WorkRecords
 - Tests: briefs.test.ts, consultations.test.ts, devops-proposals.test.ts, devops-skill-sources.test.ts, held-calls.test.ts, link-cards.test.ts, openai-compatible-api-test-project-check.test.ts, proposal-service.test.ts, session-memory.test.ts, stage-threads.test.ts, thread-runner.test.ts
 

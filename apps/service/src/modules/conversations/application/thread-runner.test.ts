@@ -1010,11 +1010,42 @@ describe("a Thread on a Task", () => {
     ]);
   });
 
+  it("starts at once on The Office's opening, briefed from the Task's record, as Make a plan does", async () => {
+    const taskId = randomUUID();
+    await startWith(started(...aTurn("brief", "I'll read the sign-in first.")));
+
+    const opened = await threads.startOnTask({
+      taskId,
+      roleKey,
+      title: "Planning",
+      opening: "Plan this Task from its title and its Description.",
+    });
+    const log = await answered(opened.id, 2);
+
+    expect(opened).toMatchObject({ home: { kind: "task", taskId }, title: "Planning" });
+    const [session] = engine.sessions;
+    const brief = session?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toBe(
+      `You are planning the Task ${taskId}.\n\n## What to do now\n\nPlan this Task from its title and its Description.`,
+    );
+    expect(exchanges(log)).toEqual([
+      { kind: "person", roleKey, text: "I'll read the sign-in first." },
+    ]);
+  });
+
   it("refuses to open a Thread with a Role nobody fills", async () => {
     await startWith();
 
     await expect(
       threads.openOnTask({ taskId: randomUUID(), roleKey: "nobody", title: "Planning" }),
+    ).rejects.toThrow(ThreadRefused);
+    await expect(
+      threads.startOnTask({
+        taskId: randomUUID(),
+        roleKey: "nobody",
+        title: "Planning",
+        opening: "Plan it.",
+      }),
     ).rejects.toThrow(ThreadRefused);
     expect(engine.sessions).toHaveLength(0);
   });

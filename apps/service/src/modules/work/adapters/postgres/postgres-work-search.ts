@@ -14,7 +14,7 @@ import { toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
  */
 
 const taskVector = sql`setweight(${searchVectorOf(tasks.title)}, 'A')
-  || ${searchVectorOf(sql`${tasks.plan} || ' '
+  || ${searchVectorOf(sql`${tasks.description} || ' ' || ${tasks.plan} || ' '
     || array_to_string(${tasks.definitionOfDone}, ' ') || ' '
     || array_to_string(${tasks.tags}, ' ')`)}`;
 

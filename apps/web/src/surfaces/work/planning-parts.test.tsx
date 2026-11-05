@@ -14,6 +14,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const RUNNING_TASK: Task = {
   id: "00000000-0000-4000-8000-000000000001",
   title: "Sign-in keeps the page",
+  description: "",
   projectId: "firmware",
   priority: "normal",
   tags: [],

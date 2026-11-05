@@ -1530,7 +1530,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const beforeReady = page.getByRole("region", { name: "Before Ready" });
   const readinessLine = (label: string): Locator =>
     beforeReady.getByRole("listitem").filter({ hasText: label });
-  const proposedPipeline = readinessLine("Pipeline taken or declined");
+  const proposedPipeline = readinessLine("Pipeline chosen");
   await expect(plan.getByText("Proposed by Jan")).toBeVisible();
   await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
   await expect(proposedPipeline.getByText(/A small change with tests/)).toBeVisible();
@@ -1545,7 +1545,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(readinessLine("Plan confirmed")).toContainText(
     "Confirm the Plan before the Task can be Ready.",
   );
-  await expect(readinessLine("No Decision waiting")).toContainText(
+  await expect(readinessLine("No Decision open")).toContainText(
     "Answer the open Decision before the Task can be Ready.",
   );
   await expect(beforeReady.locator(".task-checklist-met")).toHaveCount(0);
@@ -1571,12 +1571,12 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   ).toBeVisible();
   await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
-  await expect(readinessLine("Pipeline taken or declined")).not.toHaveClass(/task-checklist-met/);
+  await expect(readinessLine("Pipeline chosen")).not.toHaveClass(/task-checklist-met/);
   await expect(proposedPipeline.getByLabel("Another Pipeline")).toContainText("Document");
   await proposedPipeline.getByRole("button", { name: "Use Quick fix" }).click();
   await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
   await expect(page.getByText(/A small change with tests/)).toHaveCount(0);
-  await expect(readinessLine("Pipeline taken or declined")).toHaveClass(/task-checklist-met/);
+  await expect(readinessLine("Pipeline chosen")).toHaveClass(/task-checklist-met/);
   await expect(markReady).toBeDisabled();
 
   await decision.getByRole("button", { name: "Keep the query string" }).click();
@@ -1584,7 +1584,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(decision).toHaveCount(0);
   await expect(inThread).toContainText("Answered: Keep the query string");
   await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
-  await expect(readinessLine("No Decision waiting")).toHaveClass(/task-checklist-met/);
+  await expect(readinessLine("No Decision open")).toHaveClass(/task-checklist-met/);
 
   await expect(markReady).toBeEnabled();
   await markReady.click();

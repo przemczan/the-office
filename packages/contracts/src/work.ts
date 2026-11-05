@@ -84,6 +84,8 @@ export type Priority = z.infer<typeof prioritySchema>;
 /** What creating a Task takes (POST /tasks); it starts in Backlog. */
 export const newTaskSchema = z.object({
   title: z.string(),
+  /** What the user wants, in their own words (spec §2.1); none when left out. */
+  description: z.string().default(""),
   projectId: z.string(),
   priority: prioritySchema,
   /** Free-form words to find it by; the service keeps each lower-case, once. None when left out. */
@@ -179,6 +181,10 @@ export const projectOnboardingListSchema = z.array(projectOnboardingSchema);
 /** PUT /tasks/:id/priority */
 export const priorityChangeSchema = z.object({ priority: prioritySchema });
 export type PriorityChange = z.infer<typeof priorityChangeSchema>;
+
+/** PUT /tasks/:id/description: the Description as the user rewrote it; empty leaves none. */
+export const descriptionChangeSchema = z.object({ description: z.string() });
+export type DescriptionChange = z.infer<typeof descriptionChangeSchema>;
 
 /** PUT /tasks/:id/tags: the Task's Tags as they should be. */
 export const tagsChangeSchema = z.object({ tags: z.array(z.string()) });
@@ -590,6 +596,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("task.moved-up-in-queue"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.description-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.tags-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),
   webEventSchema.extend({

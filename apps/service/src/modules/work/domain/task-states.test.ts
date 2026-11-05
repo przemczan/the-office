@@ -10,6 +10,7 @@ import { aPlannedTask, aTask } from "./work.fixtures.js";
 /** Spec §2.1, written out here apart from the rules so that a change to either shows. */
 const ALLOWED: readonly string[] = [
   "backlog → planning",
+  "backlog → ready",
   "backlog → dropped",
   "planning → ready",
   "planning → dropped",
@@ -109,6 +110,32 @@ describe("changeTaskState", () => {
     expect(markTaskReady(aPlannedTask({ state: "ready" }), 1)).toBeUndefined();
   });
 
+  it("marks a Task Ready from Backlog once the user wrote and confirmed both parts", () => {
+    const written = aPlannedTask({ state: "backlog" });
+
+    const change = markTaskReady(written, 0);
+
+    expect(change?.task.state).toBe("ready");
+    expect(change?.event).toMatchObject({ from: "backlog", to: "ready" });
+  });
+
+  it("refuses Mark Ready from Backlog with every reason, as from Planning", () => {
+    expect(() => markTaskReady(aTask({ state: "backlog" }), 0)).toThrow(
+      new TaskRefused([
+        "A Task needs a Plan before it can be Ready.",
+        "A Task needs a Definition of Done before it can be Ready.",
+      ]),
+    );
+    expect(() =>
+      markTaskReady(aPlannedTask({ state: "backlog", definitionOfDoneConfirmed: false }), 1),
+    ).toThrow(
+      new TaskRefused([
+        "Confirm the Definition of Done before the Task can be Ready.",
+        "Answer the open Decision before the Task can be Ready.",
+      ]),
+    );
+  });
+
   it("refuses Ready with a Plan of spaces only", () => {
     expect(() => changeTaskState(aPlannedTask({ plan: "  " }), "ready", THE_USER)).toThrow(
       new TaskRefused(["A Task needs a Plan before it can be Ready."]),
@@ -125,8 +152,8 @@ describe("the Before Ready checklist", () => {
     expect(lines.map(({ label }) => label)).toEqual([
       "Plan confirmed",
       "Definition of Done confirmed",
-      "Pipeline taken or declined",
-      "No Decision waiting",
+      "Pipeline chosen",
+      "No Decision open",
     ]);
     expect(lines.every(({ problems }) => problems.length === 0)).toBe(true);
   });

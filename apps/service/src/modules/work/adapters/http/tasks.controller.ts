@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import {
   definitionOfDoneChangeSchema,
+  descriptionChangeSchema,
   newDependencySchema,
   newTaskSchema,
   pipelineChangeSchema,
@@ -23,6 +24,7 @@ import {
   tagsChangeSchema,
   taskPlacementSchema,
   type DefinitionOfDoneChange,
+  type DescriptionChange,
   type NewDependency,
   type NewTask,
   type PipelineChange,
@@ -85,6 +87,15 @@ export class TasksController {
     return toTaskResponse(await this.tasks.changePriority(id, priority));
   }
 
+  /** The user's Description, until the Task starts. */
+  @Put(":id/description")
+  async changeDescription(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(descriptionChangeSchema)) { description }: DescriptionChange,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.changeDescription(id, description));
+  }
+
   @Put(":id/tags")
   async changeTags(
     @Param("id", ParseUUIDPipe) id: string,
@@ -123,11 +134,24 @@ export class TasksController {
     return toTaskResponse(await this.tasks.removeDependency(id, blockerId));
   }
 
-  /** Plan with the Planner: the Task moves to Planning, and its planning Thread opens. */
+  /**
+   * Plan with…: the Task moves to Planning, and its planning Thread opens for the user's first
+   * message.
+   */
   @Post(":id/planning")
   @HttpCode(HttpStatus.OK)
   async plan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
     return toTaskResponse(await this.planning.plan(id));
+  }
+
+  /**
+   * Make a plan: the Task moves to Planning, and the Planner starts at once from its title and
+   * Description.
+   */
+  @Post(":id/make-a-plan")
+  @HttpCode(HttpStatus.OK)
+  async makeAPlan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.makeAPlan(id));
   }
 
   /** The user's Plan, confirmed: the proposed one as shown, or their edit of it. */
@@ -158,7 +182,10 @@ export class TasksController {
     return toTaskResponse(await this.planning.confirmPipeline(id, pipelineId));
   }
 
-  /** Mark Ready: refused with the reasons until the Plan and Definition of Done are confirmed. */
+  /**
+   * Mark Ready, from Backlog or Planning: refused with the reasons until the Plan and Definition of
+   * Done are confirmed, no Pipeline proposal is open and no Decision is.
+   */
   @Post(":id/ready")
   @HttpCode(HttpStatus.OK)
   async markReady(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
