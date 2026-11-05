@@ -13,6 +13,7 @@ const HARD_SWITCHES: FollowedHardSwitches = {
 
 const task: BriefTask = {
   title: "Rename a device",
+  descriptionSection: "## What the user wants, in their own words\n\nLet me name my devices.",
   plan: "",
   definitionOfDone: [],
   attachmentLines: [],
@@ -56,6 +57,7 @@ describe("agentStageRecord", () => {
     expect(record).toBe(
       [
         "## The Task\n\nRename a device, in the Project Admin panel.",
+        "## What the user wants, in their own words\n\nLet me name my devices.",
         "## Where you work\n\nThe Task's worktree, at /worktrees/task on the branch office/task, which started from main.\n\nScreenshots go in .office/screenshots/ there: git ignores it, and The Office keeps it as you leave it across test runs.",
         "## Attachments\n\nNone.",
         "## Commands you may run\n\nYou may run read-only git (git status, git diff) only.",

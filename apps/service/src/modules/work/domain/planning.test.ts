@@ -55,6 +55,18 @@ describe("a planning Brief", () => {
     );
   });
 
+  it("quotes the Idea's notes only once the Description differs from them", () => {
+    const notes = "Monthly, per Project, for the accountant.";
+    const shaped = planningBrief({ ...RECORD, task: aTask({ description: notes }) });
+    const edited = planningBrief({ ...RECORD, task: aTask({ description: "Yearly too." }) });
+
+    expect(shaped).toContain(
+      '## Where it came from\n\nThe Idea "Export usage as CSV", whose notes are the Description.',
+    );
+    expect(shaped.split(notes)).toHaveLength(2);
+    expect(edited).toContain(`The Idea "Export usage as CSV". Its notes:\n\n${notes}`);
+  });
+
   it("says when the Task came from no Idea and has no Attachment", () => {
     const brief = planningBrief({ ...RECORD, idea: undefined, attachments: [] });
 

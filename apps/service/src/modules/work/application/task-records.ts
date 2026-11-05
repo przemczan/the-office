@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { attachmentLines } from "../domain/attachment.js";
 import { taskRecordText } from "../domain/record-words.js";
 import type { Task } from "../domain/task.js";
+import { descriptionSection } from "../domain/task-description.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
 import { AttachmentService } from "./attachment-service.js";
@@ -9,6 +10,8 @@ import { TaskService } from "./task-service.js";
 
 /** A Task's record, as a session working on the Task reads it. */
 export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfDone"> {
+  /** The Description, as the section of a Brief the Planner's has too. */
+  readonly descriptionSection: string;
   /** Each of its Attachments, as a line of a Brief; none when it has none. */
   readonly attachmentLines: readonly string[];
   readonly project: Pick<
@@ -42,6 +45,7 @@ export class TaskRecords {
     ]);
     return {
       title: task.title,
+      descriptionSection: descriptionSection(task.description),
       plan: task.plan,
       definitionOfDone: task.definitionOfDone,
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),

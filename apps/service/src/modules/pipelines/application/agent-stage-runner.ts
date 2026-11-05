@@ -319,6 +319,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     return agentStageRecord({
       task: {
         title: task.title,
+        descriptionSection: task.descriptionSection,
         plan: task.plan,
         definitionOfDone: task.definitionOfDone,
         attachmentLines: task.attachmentLines,

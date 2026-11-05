@@ -27,6 +27,7 @@ afterAll(async () => {
 async function aTask(projectId: string): Promise<string> {
   const created = await sendJson(work, "POST", "/tasks", {
     title: "Rename a device",
+    description: "Let me name each device as I call it.",
     projectId,
     priority: "normal",
   });
@@ -47,6 +48,8 @@ describe("TaskRecords", () => {
 
     expect(record).toEqual({
       title: "Rename a device",
+      descriptionSection:
+        "## What the user wants, in their own words\n\nLet me name each device as I call it.",
       plan: "",
       definitionOfDone: [],
       attachmentLines: [`- Mockup (link to https://example.com/mockup) · Attachment ${link.id}`],

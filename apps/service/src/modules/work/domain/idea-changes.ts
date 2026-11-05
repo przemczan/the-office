@@ -51,8 +51,8 @@ export interface Shaping {
 }
 
 /**
- * Makes a new Idea a Task in Backlog in the chosen Project, named after it and naming it as its
- * origin; the Idea takes that Project. Its Attachments move with it (moveAttachment).
+ * Makes a new Idea a Task in Backlog in the chosen Project, named after it, its notes the Task's
+ * Description, and naming it as its origin; the Idea takes that Project. Its Attachments move with it (moveAttachment).
  */
 export function shapeIdeaIntoTask(
   idea: Idea,
@@ -63,7 +63,7 @@ export function shapeIdeaIntoTask(
   refuseShaping(idea);
   const taskCreated = createTask(
     task.id,
-    { title: idea.title, projectId: task.projectId, priority: "normal" },
+    { title: idea.title, description: idea.notes, projectId: task.projectId, priority: "normal" },
     { ...setting, originIdeaId: idea.id, initiativeId: undefined },
     at,
   );

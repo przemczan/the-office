@@ -2,7 +2,7 @@ import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
 import type { Idea } from "./idea.js";
 import type { Task } from "./task.js";
-import { NO_DESCRIPTION } from "./task-description.js";
+import { descriptionSection } from "./task-description.js";
 
 /** The Role that plans Tasks, by the key a hired Planner keeps (spec §2.2). */
 export const PLANNER = "planner";
@@ -67,9 +67,9 @@ export function planningBrief({
   return [
     "You are planning a Task with the user, in the Task's planning Thread.",
     `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${project.name}.`,
-    descriptionSection(task),
+    descriptionSection(task.description),
     `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${project.baseBranch}.`,
-    originSection(idea),
+    originSection(idea, task.description),
     attachmentsSection(attachments),
     `## The Project's commands\n\n${commandLines(project.commands).join("\n")}`,
     pipelinesSection(task, pipelines),
@@ -82,11 +82,6 @@ export function planningBrief({
   ]
     .filter((section) => section !== undefined)
     .join("\n\n");
-}
-
-function descriptionSection({ description }: Task): string {
-  const words = description === "" ? NO_DESCRIPTION : description;
-  return `## What the user wants, in their own words\n\n${words}`;
 }
 
 function filesToChangeLines({ filesToChange }: Task): string {
@@ -126,8 +121,12 @@ export function confirmationWords(confirmed: boolean): string {
   return confirmed ? "confirmed by the user" : "proposed, not yet confirmed by the user";
 }
 
-function originSection(idea: Idea | undefined): string {
+/** The Idea's notes are left out when they are the Description still, which the Brief has already. */
+function originSection(idea: Idea | undefined, description: string): string {
   if (!idea) return "## Where it came from\n\nThe Task was created as it is, from no Idea.";
+  if (idea.notes !== "" && idea.notes === description) {
+    return `## Where it came from\n\nThe Idea "${idea.title}", whose notes are the Description.`;
+  }
   const notes = idea.notes === "" ? "It has no notes." : idea.notes;
   return `## Where it came from\n\nThe Idea "${idea.title}". Its notes:\n\n${notes}`;
 }

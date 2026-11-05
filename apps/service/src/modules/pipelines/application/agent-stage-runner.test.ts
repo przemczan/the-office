@@ -94,6 +94,9 @@ describe("AgentStageRunner", () => {
     });
     const record = request?.record ?? "";
     expect(record).toContain("## The Task\n\nRename a device, in the Project Admin panel.");
+    expect(record).toContain(
+      "## What the user wants, in their own words\n\nLet me name each device as I call it.",
+    );
     expect(record).toContain("## The Plan\n\nAdd a rename dialog to the device page.");
     expect(record).toContain(
       "## The Definition of Done\n\n1. The new name shows on the list\n2. The rename persists",

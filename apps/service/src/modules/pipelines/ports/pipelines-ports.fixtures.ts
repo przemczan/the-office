@@ -161,6 +161,8 @@ export class StartedTasksForTests extends StartedTasks {
 export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
   return {
     title: "Rename a device",
+    descriptionSection:
+      "## What the user wants, in their own words\n\nLet me name each device as I call it.",
     plan: "Add a rename dialog to the device page.",
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
     attachmentLines: ["- mockup.png (image, image/png, 2048 bytes) · Attachment a-1"],

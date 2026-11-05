@@ -1,6 +1,8 @@
 /** A started Task's record, as an Agent Stage works from it. */
 export interface TaskRecord {
   readonly title: string;
+  /** The Description, as a section of the Brief: Work words it as the Planner's has it. */
+  readonly descriptionSection: string;
   readonly plan: string;
   readonly definitionOfDone: readonly string[];
   /** Each of the Task's Attachments, as a line of a Brief; none when it has none. */

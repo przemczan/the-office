@@ -13,6 +13,8 @@ export const AGENT_STAGE_INSTRUCTIONS =
 /** The Task's record, as an Agent Stage's Brief has it. */
 export interface BriefTask {
   readonly title: string;
+  /** The Description, worded as a section by Work. */
+  readonly descriptionSection: string;
   readonly plan: string;
   readonly definitionOfDone: readonly string[];
   /** Each of the Task's Attachments, as a line of the Brief. */
@@ -47,8 +49,8 @@ export interface AgentStageRecord {
 }
 
 /**
- * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title, Plan and
- * Definition of Done, where the session works, the earlier Stages' results with their Handover
+ * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title,
+ * Description, Plan and Definition of Done, where the session works, the earlier Stages' results with their Handover
  * notes, the diff so far, the Attachments, the commands the Agent may run and the Hard switches it
  * follows. Conversations adds
  * the answered Decisions; transcripts are never handed over.
@@ -62,6 +64,7 @@ export function agentStageRecord({
 }: AgentStageRecord): string {
   return sections([
     `## The Task\n\n${task.title}, in the Project ${task.projectName}.`,
+    task.descriptionSection,
     `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, which started from ${task.baseBranch}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
     task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
     task.definitionOfDone.length === 0
