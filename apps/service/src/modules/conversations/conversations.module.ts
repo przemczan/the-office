@@ -5,6 +5,7 @@ import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { FireAlarmLiftsController } from "./adapters/http/fire-alarm-lifts.controller.js";
+import { OfficeInstructionsController } from "./adapters/http/office-instructions.controller.js";
 import { ProposalsController } from "./adapters/http/proposals.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
 import { ThreadsController } from "./adapters/http/threads.controller.js";
@@ -80,6 +81,7 @@ export class ConversationsModule {
         DecisionsController,
         ProposalsController,
         SizeThresholdController,
+        OfficeInstructionsController,
         FireAlarmLiftsController,
       ],
       providers: [

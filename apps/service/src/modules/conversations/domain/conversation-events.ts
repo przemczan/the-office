@@ -148,3 +148,10 @@ export class SizeThresholdChanged extends DomainEvent {
     super();
   }
 }
+
+/** A new version of the Office instructions was saved; sessions started from now on get it. */
+export class OfficeInstructionsChanged extends DomainEvent {
+  constructor(readonly version: number) {
+    super();
+  }
+}

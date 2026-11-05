@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeInstructionsVersionNotFound } from "../domain/office-instructions-version-not-found.js";
 import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructions-repository.fixtures.js";
 import { OfficeInstructions } from "./office-instructions.js";
 
 function officeInstructions(): OfficeInstructions {
-  return new OfficeInstructions(new OfficeInstructionsRepositoryForTests());
+  return new OfficeInstructions(new OfficeInstructionsRepositoryForTests(), new EventBus());
 }
 
 describe("OfficeInstructions", () => {

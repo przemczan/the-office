@@ -1,4 +1,6 @@
 import { Injectable } from "@nestjs/common";
+import { EventBus } from "../../../platform/events/event-bus.js";
+import { OfficeInstructionsChanged } from "../domain/conversation-events.js";
 import { OfficeInstructionsVersionNotFound } from "../domain/office-instructions-version-not-found.js";
 import {
   NO_OFFICE_INSTRUCTIONS,
@@ -14,7 +16,10 @@ import { OfficeInstructionsRepository } from "../ports/office-instructions-repos
  */
 @Injectable()
 export class OfficeInstructions {
-  constructor(private readonly repository: OfficeInstructionsRepository) {}
+  constructor(
+    private readonly repository: OfficeInstructionsRepository,
+    private readonly events: EventBus,
+  ) {}
 
   /** Version 0 with no text until one is saved. */
   current(): Promise<OfficeInstructionsVersion> {
@@ -29,8 +34,15 @@ export class OfficeInstructions {
     return saved;
   }
 
-  /** The current text again makes no new version. Answers the current version. */
-  save(text: string): Promise<OfficeInstructionsVersion> {
-    return this.repository.update((current) => versionAfter(current, text), new Date());
+  /** The current text again makes no new version and announces nothing. Answers the current one. */
+  async save(text: string): Promise<OfficeInstructionsVersion> {
+    let changed = false;
+    const saved = await this.repository.update((current) => {
+      const next = versionAfter(current, text);
+      changed = next !== undefined;
+      return next;
+    }, new Date());
+    if (changed) await this.events.publish(new OfficeInstructionsChanged(saved.version));
+    return saved;
   }
 }

@@ -8,6 +8,7 @@ import {
   DeliveryMarked,
   DecisionReopened,
   MessagesLogged,
+  OfficeInstructionsChanged,
   ProposalApplied,
   ProposalDeclined,
   ProposalDrafted,
@@ -27,7 +28,8 @@ type WebEventOf<Type extends ThreadWebEvent["type"]> = Omit<
 /**
  * Every Conversations event reaches the web, naming the Thread and its home, so open pages refetch;
  * a count of tokens carries them, for the pages to show without refetching. A new size threshold
- * names no Thread: every label may change.
+ * names no Thread: every label may change. Nor do new Office instructions, which only Settings and
+ * a Proposal's card show.
  */
 @Injectable()
 export class ThreadWebEvents implements OnModuleInit {
@@ -101,6 +103,10 @@ export class ThreadWebEvents implements OnModuleInit {
       (): WebEventOf<"context-policy.size-threshold-changed"> => ({
         type: "context-policy.size-threshold-changed",
       }),
+    );
+    this.forwarding.forward(
+      OfficeInstructionsChanged,
+      (): WebEventOf<"office-instructions.changed"> => ({ type: "office-instructions.changed" }),
     );
   }
 }

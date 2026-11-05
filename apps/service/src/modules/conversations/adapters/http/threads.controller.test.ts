@@ -7,6 +7,8 @@ import {
   decisionListSchema,
   fireAlarmLiftsSchema,
   messageListSchema,
+  OFFICE_INSTRUCTIONS_MAX_CHARACTERS,
+  officeInstructionsSchema,
   proposalSchema,
   sizeThresholdSchema,
   firstBriefSchema,
@@ -60,6 +62,7 @@ import { ThreadWebEvents } from "../websocket/thread-web-events.js";
 import { DecisionsController } from "./decisions.controller.js";
 import { FireAlarmLiftsController } from "./fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./proposals.controller.js";
+import { OfficeInstructionsController } from "./office-instructions.controller.js";
 import { SizeThresholdController } from "./size-threshold.controller.js";
 import { ThreadsController } from "./threads.controller.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
@@ -116,6 +119,7 @@ beforeEach(async () => {
       DecisionsController,
       ProposalsController,
       SizeThresholdController,
+      OfficeInstructionsController,
       FireAlarmLiftsController,
     ],
     providers: [
@@ -901,6 +905,77 @@ describe("/api/settings/size-threshold", () => {
     const refused = await send("PUT", "/settings/size-threshold", { sizeThreshold });
 
     expect(refused.status).toBe(400);
+    expect(published).toEqual([]);
+  });
+});
+
+describe("/api/settings/office-instructions", () => {
+  const path = "/settings/office-instructions";
+
+  async function saved(): Promise<string> {
+    return officeInstructionsSchema.parse(await (await get(path)).json()).officeInstructions;
+  }
+
+  async function save(officeInstructions: string): Promise<Response> {
+    return send("PUT", path, { officeInstructions });
+  }
+
+  it("reads empty until a text is saved", async () => {
+    expect(await saved()).toBe("");
+  });
+
+  it("keeps a saved text as a new version and announces it", async () => {
+    const changed = await save("Write in plain words.");
+
+    expect(changed.status).toBe(200);
+    expect(officeInstructionsSchema.parse(await changed.json())).toEqual({
+      officeInstructions: "Write in plain words.",
+    });
+    expect(await saved()).toBe("Write in plain words.");
+    await expect(app.get(OfficeInstructions).current()).resolves.toEqual({
+      version: 1,
+      text: "Write in plain words.",
+    });
+    expect(webEvents()).toEqual([{ type: "office-instructions.changed" }]);
+  });
+
+  it("makes no new version and announces nothing for the same text", async () => {
+    await save("Write in plain words.");
+    published.length = 0;
+
+    const again = await save("  Write in plain words.\n");
+
+    expect(again.status).toBe(200);
+    await expect(app.get(OfficeInstructions).current()).resolves.toMatchObject({ version: 1 });
+    expect(published).toEqual([]);
+  });
+
+  it("trims the ends of a text and keeps its own lines", async () => {
+    await save("\n  First line.\n\n  Second line.  \n");
+
+    expect(await saved()).toBe("First line.\n\n  Second line.");
+  });
+
+  it("saves a blank text as empty", async () => {
+    await save("Write in plain words.");
+
+    await save(" \n\t ");
+
+    expect(await saved()).toBe("");
+    await expect(app.get(OfficeInstructions).current()).resolves.toEqual({ version: 2, text: "" });
+  });
+
+  it("takes a text at the limit, counted without the spaces around it", async () => {
+    const atTheLimit = await save(` ${"x".repeat(OFFICE_INSTRUCTIONS_MAX_CHARACTERS)} `);
+
+    expect(atTheLimit.status).toBe(200);
+  });
+
+  it("refuses a text over the limit", async () => {
+    const refused = await save("x".repeat(OFFICE_INSTRUCTIONS_MAX_CHARACTERS + 1));
+
+    expect(refused.status).toBe(400);
+    expect(await saved()).toBe("");
     expect(published).toEqual([]);
   });
 });

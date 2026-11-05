@@ -31,6 +31,7 @@ const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
 const PROPOSALS = ["proposals"] as const;
 const SIZE_THRESHOLD = ["settings", "size-threshold"] as const;
+const OFFICE_INSTRUCTIONS = ["settings", "office-instructions"] as const;
 
 export const threadQueries = {
   /** The person's chat, the newest Thread first. */
@@ -259,6 +260,7 @@ export const threadEventInvalidations: Readonly<
   "thread.proposal-applied": () => [THREADS, PROPOSALS],
   "thread.proposal-declined": () => [THREADS, PROPOSALS],
   "context-policy.size-threshold-changed": () => [SIZE_THRESHOLD, THREADS],
+  "office-instructions.changed": () => [OFFICE_INSTRUCTIONS],
 };
 
 /**

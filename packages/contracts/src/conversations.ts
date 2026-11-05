@@ -620,13 +620,25 @@ export const sizeThresholdSchema = z.object({
 });
 export type SizeThreshold = z.infer<typeof sizeThresholdSchema>;
 
+/** About 5k tokens, which every session carries. */
+export const OFFICE_INSTRUCTIONS_MAX_CHARACTERS = 20_000;
+
+/**
+ * The text every new session gets (spec §2.2). Trimmed, so a blank text saves as empty and adds
+ * nothing to a session; the lines inside it stay as written.
+ */
+export const officeInstructionsSchema = z.object({
+  officeInstructions: z.string().trim().max(OFFICE_INSTRUCTIONS_MAX_CHARACTERS),
+});
+export type OfficeInstructions = z.infer<typeof officeInstructionsSchema>;
+
 const threadWebEventFields = { threadId: z.uuid(), home: homeSchema };
 const decisionWebEventFields = { ...threadWebEventFields, decisionId: z.uuid() };
 const proposalWebEventFields = { ...threadWebEventFields, proposalId: z.uuid() };
 
 /**
  * The Conversations events the web receives; each names the Thread and its home, but the size
- * threshold's change, which touches every Thread's label.
+ * threshold's change, which touches every Thread's label, and the Office instructions' change.
  */
 export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.started"), ...threadWebEventFields }),
@@ -664,5 +676,6 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
     ...proposalWebEventFields,
   }),
   webEventSchema.extend({ type: z.literal("context-policy.size-threshold-changed") }),
+  webEventSchema.extend({ type: z.literal("office-instructions.changed") }),
 ]);
 export type ThreadWebEvent = z.infer<typeof threadWebEventSchema>;

@@ -51,7 +51,7 @@ Chosen while writing this file, for the user to review (spec 2.2 and 4 already n
   Read: `people/application/role-cards.ts`, `people/adapters/postgres/roles.schema.ts`, `application/context-policy-settings.ts`, `adapters/postgres/postgres-conversations-settings.ts`.
 - [x] 1b. Service, the sessions: the version recorded on the session beside `cardVersion` (a field of the Thread's stored session, `threads.schema.ts` l. 32, and of `ThreadSession`), sessions already stored holding none. `personInstructions` and its callers take the text; `thread-runner.ts` (resume about l. 398, `place.instructions(card)` l. 502) and `stage-threads.ts` (l. 264, 372, 528) pass it. A session with no Project, such as a chat, is told what wins in words that still hold. Commit.
   Read: `conversations/domain/session-instructions.ts`, `application/session-places.ts`, `domain/thread.ts`, `domain/thread-changes.ts`.
-- [ ] 2. Service and contract, the route: `GET`/`PUT /api/settings/office-instructions` and its contract with the 20,000-character limit; the same text makes no new version. Commit.
+- [x] 2. Service and contract, the route: `GET`/`PUT /api/settings/office-instructions` and its contract with the 20,000-character limit; the same text makes no new version. Commit.
   Read: `adapters/http/size-threshold.controller.ts`, `packages/contracts/src/MAP.md`.
 - [ ] 3. Web, the page: Settings › Office instructions, its nav entry and route, and the e2e test. Commit.
   Read: `apps/web/src/surfaces/settings/MAP.md`, `office-limits/office-limits-section.tsx`, [UI rules](../spec/4.1-ui-rules.md), `apps/web/e2e/MAP.md`.
@@ -64,7 +64,7 @@ Chosen while writing this file, for the user to review (spec 2.2 and 4 already n
 
 ## State
 
-The Office instructions reach every session; nothing can save a text yet but a test. `OfficeInstructions` (`application/office-instructions.ts`, a provider of the module, not exported) answers `current()`, `forResumedSession(version)` and `save(text)`, over `OfficeInstructionsRepository` and the table `office_instructions_versions`. `personInstructions` (`domain/session-instructions.ts`) puts them after who the person is, under `## Office instructions` with a fixed lead-in, and closes them with `## Your Role's instructions`; left empty it adds neither, so a session's prompt stays as it was. Every kind of session takes a `SessionPerson` (`card`, `officeInstructions`). `ThreadRunner.moveFor` and `StageThreads.startIn`/`continueIn` read the text and record `ThreadSession.officeInstructionsVersion`. Spec 2.2, 3 and 4, the Glossary and coverage carry the user's answers of 2026-11-06.
+The Office instructions reach every session, and `GET`/`PUT /api/settings/office-instructions` (`OfficeInstructionsController`) reads and saves them; no page shows them yet. The contract is `officeInstructionsSchema` (`{ officeInstructions }`, trimmed, then at most `OFFICE_INSTRUCTIONS_MAX_CHARACTERS`). `OfficeInstructions` (`application/office-instructions.ts`, a provider of the module, not exported) answers `current()`, `forResumedSession(version)` and `save(text)`, over `OfficeInstructionsRepository` and the table `office_instructions_versions`; `save` publishes `OfficeInstructionsChanged` when a new version was made, which reaches the web as `office-instructions.changed`. `personInstructions` (`domain/session-instructions.ts`) puts them after who the person is, under `## Office instructions` with a fixed lead-in, and closes them with `## Your Role's instructions`; left empty it adds neither, so a session's prompt stays as it was. Every kind of session takes a `SessionPerson` (`card`, `officeInstructions`). `ThreadRunner.moveFor` and `StageThreads.startIn`/`continueIn` read the text and record `ThreadSession.officeInstructionsVersion`. Spec 2.2, 3 and 4, the Glossary and coverage carry the user's answers of 2026-11-06.
 
 For the user to review: the `## Your Role's instructions` heading was not in the step; without it the Role's words read as part of the section they overrule.
 
@@ -74,8 +74,10 @@ Traps:
 
 - Version 0 means none and is never stored (a check holds it): `forResumedSession(0)` answers `NO_OFFICE_INSTRUCTIONS`, any other unknown number throws `OfficeInstructionsVersionNotFound`.
 - Every test file shares the table, so a test that saves a text binds `OfficeInstructionsRepositoryForTests`; the Postgres repository's test rolls back all it saves, so the table stays empty for the others. A test assembling the runners by hand provides `OfficeInstructions`.
-- Only an exact `""` counts as empty: step 2's contract decides what a blank text saves as, or a text of spaces would give an empty section.
-- The repository's `update` takes a change of the current version, inside its lock; step 5's refusal of a stale `from` can go there.
+- Only an exact `""` counts as empty, and only the contract trims: step 5's Proposal must parse its text with `officeInstructionsSchema`, or a text of spaces gives an empty section.
+- Step 3: the PUT answers the trimmed text, so the page shows what came back. `apps/web/src/api/conversations.ts` already has the `OFFICE_INSTRUCTIONS` query key, which the event makes stale; the query and the save function are the page's to add, under that key.
+- The contract's type `OfficeInstructions` shares its name with the service class; the controller imports it as `OfficeInstructionsText`.
+- The repository's `update` takes a change of the current version, inside its lock; step 5's refusal of a stale `from` can go there, and must still publish `OfficeInstructionsChanged`.
 - `global-instructions` is a Skill in the running Office's library, not in this repository.
 
 ## Progress
@@ -83,3 +85,4 @@ Traps:
 - 2026-11-06 · The file written with the user's four answers; the spec, the Glossary and coverage changed; step 1 is next.
 - 2026-11-06 · step 1a: the versioned store in Conversations (`OfficeInstructions`, its repository and table), used by nothing yet; step 1b is next.
 - 2026-11-06 · step 1b: every session gets the Office instructions before its Role's, a session records the version and a resume runs with it, both session starts; step 2 is next.
+- 2026-11-06 · step 2: `GET`/`PUT /api/settings/office-instructions`, its contract with the 20,000-character limit, and the `office-instructions.changed` event for a new version; step 3 is next.
