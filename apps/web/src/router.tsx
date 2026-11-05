@@ -36,7 +36,7 @@ import { boardFiltersOf } from "./surfaces/work/board-filters.ts";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
 import { InitiativePage } from "./surfaces/work/initiative-page.tsx";
 import { InitiativesList } from "./surfaces/work/initiatives-list.tsx";
-import { recordTabOf, type RecordTab } from "./surfaces/work/record-tab.ts";
+import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
 

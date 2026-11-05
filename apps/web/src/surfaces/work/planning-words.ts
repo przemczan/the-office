@@ -1,5 +1,5 @@
 import type { Task } from "@the-office/contracts";
-import { NOT_STARTED } from "../../shell/work/work-words.ts";
+import { NOT_STARTED, reportedMetCount } from "../../shell/work/work-words.ts";
 import { firstLine, withoutMarkdownMarks } from "./stage-words.ts";
 
 /** The Definition of Done as the user writes it, one statement per line; blank lines say nothing. */
@@ -10,15 +10,10 @@ export function statementsOf(text: string): string[] {
     .filter((line) => line !== "");
 }
 
-/** How many of the statements are among the numbers Reported met, counted from 1. */
 /** What a changing Save does to a Ready Task, said before it happens. */
 export function leavesReadyWords(queued: boolean): string {
   const move = queued ? "takes this Task out of the queue and moves it" : "moves this Task";
   return `Saving a change ${move} to Backlog, to confirm and mark Ready again.`;
-}
-
-export function reportedMetCount(statements: readonly string[], met: readonly number[]): number {
-  return statements.filter((_, index) => met.includes(index + 1)).length;
 }
 
 /** The Definition of Done's folded line: where it stands before Start, Reported met from then on. */

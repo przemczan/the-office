@@ -1,6 +1,6 @@
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { reportedMetCount } from "./planning-words.ts";
+import { reportedMetCount } from "../../shell/work/work-words.ts";
 
 /**
  * The statements by their numbers. Once the Task has started, each Reported met is marked: `met` is

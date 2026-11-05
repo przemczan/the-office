@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Attachment, Decision, Role } from "@the-office/contracts";
+import type { Attachment, Decision, Role, Thread } from "@the-office/contracts";
 import { Badge, Button, Dialog, RadioList, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { AttachmentGallery } from "../attachments/attachment-gallery.tsx";
 import { oneRound } from "../attachments/attachment-rounds.ts";
@@ -23,15 +24,35 @@ import {
 } from "./decision-card.tsx";
 import { decisionDetailsWords } from "./decision-words.ts";
 
+/** What a Decision's Thread says of its card, wherever the card shows. */
+export function useDecisionThread(
+  decision: Decision,
+  roles: readonly Role[] | undefined,
+): {
+  readonly thread: Thread | undefined;
+  readonly card: Pick<DecisionCardProps, "personName" | "answering" | "followUps">;
+} {
+  const thread = useQuery(threadQueries.one(decision.threadId)).data;
+  return {
+    thread,
+    card: {
+      personName: roles?.find(({ key }) => key === decision.roleKey)?.card.name ?? "The Office",
+      answering: thread?.state === "answering",
+      followUps: thread?.stageThread === false,
+    },
+  };
+}
+
 /**
- * An open Decision on its Task's page (spec §4). With nothing to look at it is answered in place,
- * each answer on its own line. With Attachments it shows the recommended answer to accept, and
- * everything else, pictures included, in its details window.
+ * An open Decision where the user answers it, on its Task's page, on Now and in the Needs you panel
+ * (spec §4). With nothing to look at it is answered in place, each answer on its own line. With
+ * Attachments it shows the recommended answer to accept, and everything else, pictures included, in
+ * its details window.
  */
 export function DecisionOnTask(props: DecisionCardProps): ReactNode {
   const attachments = useNamedAttachments(props.decision);
   if (attachments === undefined) return null;
-  if (attachments.length === 0) return <DecisionCard {...props} answersOnLines />;
+  if (attachments.length === 0) return <DecisionCard {...props} />;
   return <DecisionToLookAt {...props} attachments={attachments} />;
 }
 

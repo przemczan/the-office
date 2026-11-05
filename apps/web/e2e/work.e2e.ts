@@ -1068,16 +1068,20 @@ test("a Decision with Attachments is accepted on its card, or answered in its de
   await page.keyboard.press("Escape");
   await expect(details).toHaveCount(0);
 
-  // Over the Needs you panel, one Esc closes the viewer alone and the next the panel.
+  // The Needs you panel shows the same card: over it, each Esc closes what is on top.
   await page
     .getByRole("status", { name: "Status strip" })
     .getByRole("button", { name: /needs? you/ })
     .click();
   const panel = page.getByRole("dialog").filter({ hasText: "oldest first" });
-  await panel.getByRole("button", { name: "View wider.png" }).click();
+  await panel.getByRole("button", { name: "Open details" }).click();
+  await details.getByRole("button", { name: "View wider.png" }).click();
   await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: "wider.png" })).toHaveCount(0);
+  await expect(details).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(details).toHaveCount(0);
   await expect(panel).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);

@@ -1,0 +1,51 @@
+/* ---- the cards of what waits on the user: in the Task's Needs you card, on Now and in the Needs you panel */
+/* A card of its own under the head, read at a glance; in a Thread it stays a short form. */
+.needs-you-list .message {
+  max-width: none;
+  padding: 14px 16px;
+  font: var(--type-body-sm);
+}
+
+.needs-you-list .message-by {
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-bottom: 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.needs-you-list .message-by .person-tag {
+  font-weight: 500;
+  color: var(--fg-1);
+}
+
+.needs-you-list .decision-question,
+.needs-you-list .gate-question {
+  margin-top: 10px;
+  font-weight: 600;
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+.needs-you-list .decision-context,
+.needs-you-list .decision-recommendation,
+.needs-you-list .gate-facts-line {
+  margin-top: 6px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.needs-you-list .decision-options {
+  margin-top: 12px;
+}
+
+.needs-you-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.needs-you-time {
+  margin-left: auto;
+  color: var(--fg-3);
+}

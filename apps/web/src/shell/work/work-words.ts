@@ -67,6 +67,11 @@ export function authorName(author: Author, roles: readonly Role[] | undefined): 
 }
 
 /** The Projects an Idea is in, for the Project filter: none when it is Office-wide. */
+/** How many of the statements are among the numbers Reported met, counted from 1. */
+export function reportedMetCount(statements: readonly string[], met: readonly number[]): number {
+  return statements.filter((_, index) => met.includes(index + 1)).length;
+}
+
 export function projectIdsOfIdea(idea: Pick<Idea, "projectId">): string[] {
   return idea.projectId === null ? [] : [idea.projectId];
 }

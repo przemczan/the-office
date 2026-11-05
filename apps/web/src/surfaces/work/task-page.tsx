@@ -21,7 +21,7 @@ import { PipelineRail } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { PullRequestButton } from "./pull-request-button.tsx";
-import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "./record-tab.ts";
+import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "../../shell/work/record-tab.ts";
 import { RunControls } from "./run-controls.tsx";
 import { useStageHistory } from "./use-stage-history.ts";
 import { StartButton } from "./start-action.tsx";

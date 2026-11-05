@@ -3,7 +3,6 @@ import {
   definitionOfDoneSummary,
   descriptionSummary,
   planSummary,
-  reportedMetCount,
   statementsOf,
 } from "./planning-words.ts";
 
@@ -14,12 +13,6 @@ describe("statementsOf", () => {
     );
 
     expect(statementsOf(text)).toEqual(["Sign-in returns to the page it left.", "The tests pass."]);
-  });
-});
-
-describe("reportedMetCount", () => {
-  it("counts only the numbers that are statements", () => {
-    expect(reportedMetCount(["One.", "Two."], [2, 5])).toBe(1);
   });
 });
 

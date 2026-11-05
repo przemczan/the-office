@@ -1,25 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { NeedsYouItem, Project, Role, Task } from "@the-office/contracts";
-import { Avatar, Badge } from "@the-office/ui";
+import type { Decision, NeedsYouItem, Project, Role, Task } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
-import { DecisionCard } from "../conversation/decision-card.tsx";
+import { DecisionOnTask, useDecisionThread } from "../conversation/decision-on-task.tsx";
 import { EmptyCard, ItemCard } from "../item-card.tsx";
 import { ProjectChip } from "../project-chip.tsx";
 import { InOtherProjectsNote } from "../project-filter/in-other-projects-note.tsx";
 import type { Narrowed } from "../project-filter/project-filter-choices.ts";
-import { GateActions } from "../work/gate-actions.tsx";
+import { clockOf } from "../time.ts";
+import { GateCard } from "../work/gate-card.tsx";
 import { waitingGateOf } from "../work/gate-words.ts";
+import { NeedsYouList } from "../work/needs-you-list.tsx";
 import "./notifications.css";
 
 /**
- * What waits on the user, oldest first, each answered where it shows (spec §1): a Decision with its
- * options, a Gate with Continue, Send back and Drop. The same on Now and in the Needs you panel.
+ * What waits on the user, oldest first, each answered where it shows (spec §4): the Task page's
+ * Decision and Gate cards, under the Task's title and Project, as nothing around them says which
+ * Task it is. The same on Now and in the Needs you panel.
  */
 export function NeedsYouFeed({
   needsYou,
@@ -69,61 +71,65 @@ function WaitingDecision({
   const decision = useQuery(decisionQueries.open()).data?.find(({ id }) => id === decisionId);
   const task = useQuery(taskQueries.one(taskId)).data;
   if (!decision || !task) return null;
-  const asker = roles?.find(({ key }) => key === decision.roleKey);
   return (
     <ItemCard edge="decision" label={`Decision on ${task.title}`}>
-      {asker && <Avatar name={asker.card.name} size="sm" />}
-      <div className="needs-you-item">
-        <TaskHeading task={task} projects={projects} />
-        <DecisionCard
-          decision={decision}
-          personName={asker?.card.name ?? "The Office"}
-          answering={false}
-          followUps={false}
-        />
-      </div>
+      <OnTask task={task} projects={projects}>
+        <AskedDecision decision={decision} roles={roles} />
+      </OnTask>
     </ItemCard>
+  );
+}
+
+/** When it was asked stands for the place on the Task's page, which needs the page around it. */
+function AskedDecision({
+  decision,
+  roles,
+}: {
+  readonly decision: Decision;
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  const { card } = useDecisionThread(decision, roles);
+  return (
+    <DecisionOnTask
+      decision={decision}
+      {...card}
+      place={<span className="needs-you-time">{clockOf(decision.askedAt)}</span>}
+    />
   );
 }
 
 function WaitingGate({ taskId, projects, roles }: ItemProps): ReactNode {
   const task = useQuery(taskQueries.one(taskId)).data;
-  const taskStages = useQuery(pipelineQueries.taskStages(taskId)).data?.stages;
-  const waiting = taskStages && waitingGateOf(taskStages);
-  if (!task || !waiting) return null;
+  const taskStages = useQuery(pipelineQueries.taskStages(taskId)).data;
+  const waiting = taskStages?.stages ? waitingGateOf(taskStages.stages) : undefined;
+  if (!task || !taskStages || !waiting) return null;
   return (
     <ItemCard edge="gate" label={`Gate: ${task.title}`}>
-      <div className="needs-you-item">
-        <TaskHeading task={task} projects={projects} badge={<Badge tone="info">Gate</Badge>} />
-        <div className="needs-you-sub">
-          {waiting.gate.name}
-          {waiting.next && ` · before ${waiting.next.name}`} ·{" "}
-          <Link to="/tasks/$taskId" params={{ taskId }} search={{ recordTab: "changes" }}>
-            Open Changes
-          </Link>
-        </div>
-        <GateActions task={task} waiting={waiting} roles={roles} />
-      </div>
+      <OnTask task={task} projects={projects}>
+        <GateCard task={task} taskStages={taskStages} waiting={waiting} roles={roles} />
+      </OnTask>
     </ItemCard>
   );
 }
 
-function TaskHeading({
+function OnTask({
   task,
   projects,
-  badge,
+  children,
 }: {
   readonly task: Task;
   readonly projects: readonly Project[] | undefined;
-  readonly badge?: ReactNode;
+  readonly children: ReactNode;
 }): ReactNode {
   return (
-    <div className="needs-you-heading">
-      {badge}
-      <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="needs-you-title">
-        {task.title}
-      </Link>
-      <ProjectChip projectId={task.projectId} projects={projects} />
+    <div className="needs-you-item">
+      <div className="needs-you-heading">
+        <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="needs-you-title">
+          {task.title}
+        </Link>
+        <ProjectChip projectId={task.projectId} projects={projects} />
+      </div>
+      <NeedsYouList>{children}</NeedsYouList>
     </div>
   );
 }

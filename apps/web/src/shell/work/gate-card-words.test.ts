@@ -8,7 +8,7 @@ import type {
   TestResultState,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { NO_TOKENS } from "../../shell/token-words.ts";
+import { NO_TOKENS } from "../token-words.ts";
 import {
   definitionOfDoneFact,
   gateFactsLine,

@@ -23,17 +23,3 @@
 .needs-you-title:hover {
   text-decoration: underline;
 }
-
-.needs-you-sub {
-  font: var(--type-body-sm);
-  color: var(--fg-2);
-}
-
-/* A Decision's own card sits in the item without the Thread's frame. */
-.needs-you-item .decision-card {
-  margin: 0;
-}
-
-.needs-you-item .gate-actions {
-  margin-top: 0;
-}

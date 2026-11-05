@@ -1,7 +1,7 @@
 import type { Attachment, ChangedFile, Task, TaskStage, TestResult } from "@the-office/contracts";
-import { attachmentsOfGateRun } from "../../shell/attachments/attachment-rounds.ts";
-import type { WaitingGate } from "../../shell/work/gate-words.ts";
-import { reportedMetCount } from "./planning-words.ts";
+import { attachmentsOfGateRun } from "../attachments/attachment-rounds.ts";
+import type { WaitingGate } from "./gate-words.ts";
+import { reportedMetCount } from "./work-words.ts";
 
 /** What the Gate asks of the user, as the card and its slim bar say it. */
 export function gateQuestion({ next }: Pick<WaitingGate, "next">): string {

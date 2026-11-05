@@ -2166,14 +2166,27 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(page).toHaveURL(/recordTab=changes/);
     await expect(page.getByRole("region", { name: "Files changed" })).toBeInViewport();
 
-    // The Gate waits on Now too, with its actions.
+    // The Gate waits on Now too: the Task page's card, under the Task's title and Project.
     await page.goto("/");
     const onNow = page.getByRole("article", { name: "Gate: Settings keep their changes" });
-    await expect(onNow.getByRole("button", { name: "Continue to Build" })).toBeVisible();
-    await expect(onNow.getByRole("link", { name: "Open Changes" })).toBeVisible();
-    await page.goto(`/tasks/${taskId}`);
+    await expect(onNow.locator(".needs-you-heading")).toHaveText(
+      "Settings keep their changesSTSettings",
+    );
+    await expect(gate.getByRole("button", { name: "Continue to Build" })).toBeVisible();
+    await expect(gate).toContainText("Definition of Done");
+    await expect(gate.getByRole("button", { name: "Drop" })).toHaveCount(0);
+    await expect(gate.getByRole("button", { name: "Send back with notes…" })).toHaveCount(0);
 
-    // Send back's notes open over the bar, whose actions become Send back and Cancel.
+    // Its window goes from here to the Task's Changes.
+    await gate.getByRole("button", { name: "Show details" }).click();
+    await details.getByRole("link", { name: "Open Changes" }).click();
+    await expect(details).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?recordTab=changes$`));
+    await expect(page.getByRole("region", { name: "Files changed" })).toBeVisible();
+
+    // Send back's notes open over the bar, whose actions become Send back and Cancel. On Now as on
+    // the Task's page.
+    await page.goto("/");
     await gate.getByRole("button", { name: "Show details" }).click();
     const continueInWindow = details.getByRole("button", { name: "Continue to Build" });
     const sendBackWithNotes = details.getByRole("button", { name: "Send back with notes…" });
@@ -2210,6 +2223,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await focusTab(page, true);
 
     // Implement ran again in a fresh session, briefed with the feedback, using no round.
+    await page.goto(`/tasks/${taskId}`);
     await expect(gate).toBeVisible();
     await expect(implement.getByText("Done", { exact: true })).toBeVisible();
     await expect(implement).toContainText("2 runs · ");
@@ -2273,6 +2287,29 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await waiting.screenshot({ path: path.join(SCREENSHOTS, "dark-gate-actions.png") });
     await page.emulateMedia({ colorScheme: "light" });
     await waiting.screenshot({ path: path.join(SCREENSHOTS, "light-gate-actions.png") });
+
+    // The Gate's window opens over the panel. Writing in it leaves the panel be, and Esc closes the
+    // window alone.
+    await waiting.getByRole("button", { name: "Show details" }).click();
+    await details.getByRole("button", { name: "Send back with notes…" }).click();
+    await details.getByLabel("Your feedback").fill("Not yet.");
+    await expect(panel).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(details).toHaveCount(0);
+    await expect(panel).toBeVisible();
+
+    // Open Changes goes to the Task and closes the panel.
+    await waiting.getByRole("button", { name: "Show details" }).click();
+    await details.getByRole("link", { name: "Open Changes" }).click();
+    await expect(details).toHaveCount(0);
+    await expect(panel).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?recordTab=changes$`));
+
+    await page.goto("/projects");
+    await page
+      .getByRole("status", { name: "Status strip" })
+      .getByRole("button", { name: /needs? you/ })
+      .click();
     await waiting.getByRole("button", { name: "Continue to Build" }).click();
     await expect(page.getByText("Continuing to Build.")).toBeVisible();
     await expect(waiting).toHaveCount(0);
@@ -2358,6 +2395,34 @@ test("a Gate's card and window continue past it, and the window drops the Task",
     await gate.getByRole("button", { name: "Continue to Build" }).click();
     await expect(gate).toHaveCount(0);
     await markDone();
+
+    // From Now, continuing in the window closes it, and the card goes.
+    const continuedFromNow = await readyTask(page, project.id, "Goes on from Now");
+    await seedGateFirst(page, continuedFromNow);
+    await page.goto(`/tasks/${continuedFromNow}`);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(gate).toBeVisible();
+    await page.goto("/");
+    await gate.getByRole("button", { name: "Show details" }).click();
+    await details.getByRole("button", { name: "Continue to Build" }).click();
+    await expect(details).toHaveCount(0);
+    await expect(gate).toHaveCount(0);
+    await page.goto(`/tasks/${continuedFromNow}`);
+    await markDone();
+
+    // Dropping in the window on Now does the same.
+    const droppedFromNow = await readyTask(page, project.id, "Ends from Now");
+    await seedGateFirst(page, droppedFromNow);
+    await page.goto(`/tasks/${droppedFromNow}`);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(gate).toBeVisible();
+    await page.goto("/");
+    await gate.getByRole("button", { name: "Show details" }).click();
+    await details.getByRole("button", { name: "Drop", exact: true }).click();
+    await expect(details).toContainText("Drop Ends from Now?");
+    await details.getByRole("button", { name: "Drop", exact: true }).click();
+    await expect(details).toHaveCount(0);
+    await expect(gate).toHaveCount(0);
 
     const dropped = await readyTask(page, project.id, "Ends at the look");
     await seedGateFirst(page, dropped);

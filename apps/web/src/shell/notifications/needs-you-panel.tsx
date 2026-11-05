@@ -6,8 +6,8 @@ import { useNeedsYou } from "./use-needs-you.ts";
 import { useNeedsYouPanel } from "./use-needs-you-panel.ts";
 
 /**
- * Decisions and Gates over any page, opened from the status strip (spec §4), each answered there
- * as on Now.
+ * Decisions and Gates over any page, opened from the status strip (spec §4), the same cards as on
+ * Now, answered there.
  */
 export function NeedsYouPanel(): ReactNode {
   const panel = useNeedsYouPanel();

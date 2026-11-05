@@ -3,20 +3,21 @@ import { Link, useSearch } from "@tanstack/react-router";
 import type { Decision, Role, Task, TaskStage, TaskStages } from "@the-office/contracts";
 import { Badge, Button, Icon } from "@the-office/ui";
 import { useEffect, useState, type ReactNode } from "react";
-import { decisionQueries, threadQueries } from "../../api/conversations.ts";
+import { decisionQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
 import { bringDecisionCardIntoView } from "../../shell/conversation/decision-card.tsx";
-import { DecisionOnTask } from "../../shell/conversation/decision-on-task.tsx";
+import { DecisionOnTask, useDecisionThread } from "../../shell/conversation/decision-on-task.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { clockOf } from "../../shell/time.ts";
+import { GateCard } from "../../shell/work/gate-card.tsx";
+import { gateQuestion } from "../../shell/work/gate-card-words.ts";
 import { waitingGateOf, type WaitingGate } from "../../shell/work/gate-words.ts";
+import { NeedsYouList } from "../../shell/work/needs-you-list.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { BeforeReady } from "./before-ready.tsx";
 import { useConversationDrawer } from "./conversation-drawer.tsx";
-import { GateCard } from "./gate-card.tsx";
-import { gateQuestion } from "./gate-card-words.ts";
 import {
   NEEDS_YOU_ELEMENT_ID,
   needsYouClearWords,
@@ -119,7 +120,7 @@ function WhatWaits({
           {needsYouSummary(decisions, waiting !== undefined)}
         </span>
       </header>
-      <div className="needs-you-list">
+      <NeedsYouList>
         {decisions.map((decision) => (
           <WaitingDecision
             key={decision.id}
@@ -131,7 +132,7 @@ function WhatWaits({
         {waiting && (
           <GateCard task={task} taskStages={taskStages} waiting={waiting} roles={roles} />
         )}
-      </div>
+      </NeedsYouList>
     </section>
   );
   return (
@@ -164,16 +165,13 @@ function WaitingDecision({
   readonly roles: readonly Role[] | undefined;
   readonly stages: readonly TaskStage[];
 }): ReactNode {
-  const thread = useQuery(threadQueries.one(decision.threadId)).data;
+  const { thread, card } = useDecisionThread(decision, roles);
   const drawer = useConversationDrawer();
-  const personName = roles?.find(({ key }) => key === decision.roleKey)?.card.name ?? "The Office";
   const work = thread && chapterWork(stages, thread.id);
   return (
     <DecisionOnTask
       decision={decision}
-      personName={personName}
-      answering={thread?.state === "answering"}
-      followUps={thread?.stageThread === false}
+      {...card}
       landing
       place={
         thread &&
@@ -189,8 +187,9 @@ function WaitingDecision({
               if (work.runId === undefined) drawer.show();
             }}
           >
-            in {work.runId === undefined ? `${personName}'s Thread` : chapterPlace(thread, work)} ·{" "}
-            {clockOf(decision.askedAt)}
+            in{" "}
+            {work.runId === undefined ? `${card.personName}'s Thread` : chapterPlace(thread, work)}{" "}
+            · {clockOf(decision.askedAt)}
           </Link>
         )
       }

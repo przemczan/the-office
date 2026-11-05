@@ -532,7 +532,8 @@
   margin-left: auto;
 }
 
-.needs-you-place + .decision-copy-link {
+.needs-you-place + .decision-copy-link,
+.needs-you-time + .decision-copy-link {
   margin-left: 0;
 }
 
@@ -594,17 +595,12 @@
   margin-top: 2px;
 }
 
+/* Each answer a line of its own, the recommended one marked. */
 .decision-options {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 6px;
   margin-top: 10px;
-}
-
-/* Answered in place on the Task's page: each answer a line of its own, the recommended one marked. */
-.decision-options.on-lines {
-  flex-direction: column;
-  flex-wrap: nowrap;
 }
 
 .decision-option-words {

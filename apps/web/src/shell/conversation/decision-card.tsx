@@ -11,7 +11,6 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { attachmentQueries } from "../../api/work.ts";
-import { CardAttachments, CardColumns } from "../attachments/card-attachments.tsx";
 import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
@@ -21,12 +20,11 @@ import { MessageField } from "./message-field.tsx";
 import "./conversation.css";
 
 /**
- * An open Decision whole (spec §2.4): the question, what they found, the options with the one
- * recommended, a free answer, and the Attachments it names beside them. It shows where the user answers it: on Now, in the Needs you
- * panel and in the Task's Needs you card. Follow-ups are ordinary messages in its Thread, and leave
- * it open, except in a Stage Thread, where The Office sends the messages once no Stage runs.
- * Nothing is answered while the person is still answering. The Office's own Decisions about the
- * Task's Pipeline show the same way, as The Office's.
+ * An open Decision with nothing to look at, whole (spec §2.4): the question, what they found, each
+ * answer on its own line with the recommended one marked, and a free answer. Follow-ups are
+ * ordinary messages in its Thread, and leave it open, except in a Stage Thread, where The Office
+ * sends the messages once no Stage runs. Nothing is answered while the person is still answering.
+ * The Office's own Decisions about the Task's Pipeline show the same way, as The Office's.
  */
 export function DecisionCard({
   decision,
@@ -35,30 +33,14 @@ export function DecisionCard({
   followUps,
   place,
   landing = false,
-  answersOnLines = false,
-}: DecisionCardProps & {
-  /** Each answer on a line of its own, the recommended one marked, as on the Task's page. */
-  readonly answersOnLines?: boolean;
-}): ReactNode {
+}: DecisionCardProps): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
-  const attachments = useNamedAttachments(decision);
   return (
     <DecisionFrame
       decision={decision}
       personName={personName}
       elementId={landing ? decisionCardElementId(decision.id) : undefined}
       place={place}
-      side={
-        attachments !== undefined &&
-        attachments.length > 0 && (
-          <CardAttachments
-            title={
-              attachments.every(({ kind }) => kind === "image") ? "Screenshots" : "Attachments"
-            }
-            attachments={attachments}
-          />
-        )
-      }
     >
       <DecisionDetail decision={decision} roles={roles} />
       <OpenDecision
@@ -67,7 +49,6 @@ export function DecisionCard({
         answering={answering}
         followUps={followUps}
         roles={roles}
-        answersOnLines={answersOnLines}
       />
     </DecisionFrame>
   );
@@ -80,7 +61,7 @@ export interface DecisionCardProps {
   readonly answering: boolean;
   /** The user can ask the person something first in the Thread. */
   readonly followUps: boolean;
-  /** Where it was asked, when the card shows beside its Thread on the Task's page. */
+  /** Where or when it was asked, in the card's first line. */
   readonly place?: ReactNode;
   /** The card a link to the Decision lands on: the page's, not the panel's open over it. */
   readonly landing?: boolean;
@@ -177,15 +158,12 @@ export function DecisionFrame({
   personName,
   elementId,
   place,
-  side,
   children,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly elementId?: string | undefined;
   readonly place?: ReactNode;
-  /** What to look at beside the Decision. */
-  readonly side?: ReactNode;
   readonly children: ReactNode;
 }): ReactNode {
   const copyLink = useCopyRecordLink();
@@ -197,31 +175,29 @@ export function DecisionFrame({
       aria-label={`Decision: ${decision.question}`}
       aria-current={linkedTo || undefined}
     >
-      <CardColumns side={side}>
-        <div className="message-by">
-          <Badge tone="warning">Decision</Badge>
-          <AskerTag decision={decision} personName={personName} />
-          {place}
-          <IconButton
-            className="decision-copy-link"
-            icon={<Icon name="link" size={12} />}
-            label="Copy link"
-            size="xs"
-            onClick={() =>
-              copyLink({
-                kind: "decision",
-                taskId: decision.taskId,
-                threadId: decision.threadId,
-                decisionId: decision.id,
-              })
-            }
-          />
-        </div>
-        <div className="message-text decision-question">
-          <MarkdownText text={decision.question} />
-        </div>
-        {children}
-      </CardColumns>
+      <div className="message-by">
+        <Badge tone="warning">Decision</Badge>
+        <AskerTag decision={decision} personName={personName} />
+        {place}
+        <IconButton
+          className="decision-copy-link"
+          icon={<Icon name="link" size={12} />}
+          label="Copy link"
+          size="xs"
+          onClick={() =>
+            copyLink({
+              kind: "decision",
+              taskId: decision.taskId,
+              threadId: decision.threadId,
+              decisionId: decision.id,
+            })
+          }
+        />
+      </div>
+      <div className="message-text decision-question">
+        <MarkdownText text={decision.question} />
+      </div>
+      {children}
     </section>
   );
 }
@@ -273,14 +249,12 @@ function OpenDecision({
   answering,
   followUps,
   roles,
-  answersOnLines,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
   readonly followUps: boolean;
   readonly roles: readonly Role[] | undefined;
-  readonly answersOnLines: boolean;
 }): ReactNode {
   const [freeAnswer, setFreeAnswer] = useState("");
   const answeringDecision = useAnswering(decision);
@@ -296,21 +270,16 @@ function OpenDecision({
   return (
     <>
       <ConsultationNote decision={decision} roles={roles} />
-      <div
-        className={`decision-options${answersOnLines ? " on-lines" : ""}`}
-        role="group"
-        aria-label="Options"
-      >
+      <div className="decision-options" role="group" aria-label="Options">
         {decision.options.map((option, index) => (
           <Button
             key={option}
             variant={index === recommended ? "primary" : "secondary"}
             disabled={busy}
             title={waitHint}
-            fullWidth={answersOnLines}
-            style={answersOnLines ? ANSWER_ON_A_LINE : undefined}
+            fullWidth
+            style={ANSWER_ON_A_LINE}
             iconRight={
-              answersOnLines &&
               index === recommended && (
                 // Marked to the eye; the recommendation under the answers says it in words.
                 <span className="decision-option-tag" aria-hidden="true">
@@ -320,7 +289,7 @@ function OpenDecision({
             }
             onClick={() => answeringDecision.mutate({ kind: "option", option: index })}
           >
-            {answersOnLines ? <span className="decision-option-words">{option}</span> : option}
+            <span className="decision-option-words">{option}</span>
           </Button>
         ))}
       </div>

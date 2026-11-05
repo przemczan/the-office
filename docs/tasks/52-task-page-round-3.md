@@ -58,12 +58,12 @@ With the user, 2026-11-05.
 
 - [x] 1. The small page fixes: the rail's loop-backs, Before Ready's line, a Gate run's Attachments, the Tooltip. Read: `stage-rail-words.ts`, `pipeline-rail.tsx`, `before-ready.tsx`, `run-details.tsx`, `gate-window.tsx`, `packages/ui/src/overlays.tsx`.
 - [x] 2. Save apart from Confirm, in the service and on the page, with the spec and the glossary. Read: `planning-changes.ts`, `planning-service.ts`, `task-states.ts`, `planning-parts.tsx`, spec 2.1.
-- [ ] 3. Needs you on Now: the same cards, moved to the shell, with spec 4. Read: `needs-you-feed.tsx`, `gate-card.tsx`, `gate-window.tsx`, `needs-you-card.tsx`.
+- [x] 3. Needs you on Now: the same cards, moved to the shell, with spec 4. Read: `needs-you-feed.tsx`, `gate-card.tsx`, `gate-window.tsx`, `needs-you-card.tsx`.
 - [ ] 4. Close: the Definition of Done's checks, `npm run verify:linux`.
 
 ## State
 
-Steps 1 and 2 are built; the Definition of Done's boxes wait for step 4, though their checks passed here.
+Steps 1 to 3 are built; the Definition of Done's boxes wait for step 4, though their checks passed here.
 
 - **Rail:** `loopBacks` gives each arc the lowest height free of those it overlaps; a landing depends only on the Stage.
 - **Gate run's Attachments:** `attachmentsOfGateRun` in `attachment-rounds.ts` is the one rule, used by `run-details.tsx` and by `picturesOfThisRound` for the run the Gate waits in. Trap: "while it waits" is `gateAction === null`, as a Gate's run ends the moment the Task reaches it.
@@ -75,9 +75,13 @@ Steps 1 and 2 are built; the Definition of Done's boxes wait for step 4, though 
 
 The live checks (`*-test-project-check.test.ts`) now call Confirm after Save; they type-check but weren't run, as they cost quota.
 
-For step 3: `gate-card.tsx`, `gate-window.tsx` and `gate-card-words.ts` still stand in `apps/web/src/surfaces/work/`; `picturesOfThisRound` takes the waiting Gate as its third argument.
+- **Needs you on Now:** `GateCard`, `GateWindow`, `gate-card-words.ts`, `record-tab.ts` and `reportedMetCount` are in `shell/work/`, `NeedsYouList` holds the cards' shared look, and `needs-you-feed.tsx` puts them under the Task's title and Project chip. `GateActions`, `card-attachments.tsx` and the short form of an open Decision are gone. On Now a Decision shows when it was asked, not where. Open Changes from Now or the panel lands on the Task with the tab chosen, not scrolled to it, as the page isn't there yet to scroll.
+- Each waiting Gate on Now reads its Task's changes, one git diff in the service; each Decision its Thread, again on every `thread.*` event.
+
+For step 4: the checks above, and `npm run verify:linux`.
 
 ## Progress
 
 - 2026-11-05 · step 1: the rail's loop-backs land on one spot at the lowest free height, Before Ready's words follow their line, a Gate's run shows its Attachments, and the Tooltip draws on the body from `packages/ui`; next, step 2: Save apart from Confirm.
 - 2026-11-05 · step 2: Save is apart from Confirm in the service and on the page, a changing Save unconfirms and moves a Ready Task to Backlog and out of the queue, the badge reads Not confirmed, with spec 2.1 and 4, the glossary and the click-through; next, step 3: Needs you on Now.
+- 2026-11-05 · step 3: Now and the Needs you panel show the Task page's Decision and Gate cards under the Task's title and Project, moved to the shell with the Gate's window, with spec 2.4 and 4 and the click-through; next, step 4: close.

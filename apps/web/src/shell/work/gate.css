@@ -1,0 +1,85 @@
+/* ---- a Gate: its card and its window */
+.gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.gate-send-back-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gate-script-note {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--warning-fg);
+}
+
+/* The Gate reads as a Decision does beside it. */
+.message.gate-card {
+  max-width: 100%;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
+}
+
+.gate-question {
+  font-weight: 500;
+}
+
+.gate-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+/* The value reads first, though a term comes before its description in the markup. */
+.gate-fact {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.gate-fact dt {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.gate-fact dd {
+  margin: 0 0 2px;
+  font: var(--type-card-title);
+  color: var(--fg-1);
+}
+
+.gate-fact-failed dd {
+  color: var(--danger-fg);
+}
+
+.gate-facts-line {
+  margin-bottom: 0;
+}
+
+.gate-window-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gate-window {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gate-window .gate-question {
+  font-weight: 600;
+  font-size: var(--text-md);
+}

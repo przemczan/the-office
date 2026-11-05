@@ -3,9 +3,8 @@ import type { Role, Task, TaskStages } from "@the-office/contracts";
 import { Badge, Button } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { clockOf } from "../../shell/time.ts";
-import { ContinueRefused, useContinuingAtGate } from "../../shell/work/gate-actions.tsx";
-import { continueLabel, type WaitingGate } from "../../shell/work/gate-words.ts";
+import { clockOf } from "../time.ts";
+import { ContinueRefused, useContinuingAtGate } from "./gate-actions.tsx";
 import {
   definitionOfDoneFact,
   gateFactsLine,
@@ -14,10 +13,13 @@ import {
   testsBeforeGate,
 } from "./gate-card-words.ts";
 import { GateWindow } from "./gate-window.tsx";
+import { continueLabel, type WaitingGate } from "./gate-words.ts";
+import "./gate.css";
 
 /**
- * The Gate the Task waits at, in the Needs you card (spec §4): what it waits for, a line of its
- * facts, Continue and Show details. Everything else at the Gate is in its window.
+ * The Gate a Task waits at, in the Task's Needs you card, on Now and in the Needs you panel (spec
+ * §4): what it waits for, a line of its facts, Continue and Show details. Everything else at the
+ * Gate is in its window.
  */
 export function GateCard({
   task,
@@ -38,11 +40,11 @@ export function GateCard({
     .find(({ stage }) => stage.key === waiting.gate.key)
     ?.runs.at(-1)?.startedAt;
   return (
-    <section className="message needs-you-gate" aria-label={`Gate · ${waiting.gate.name}`}>
+    <section className="message gate-card" aria-label={`Gate · ${waiting.gate.name}`}>
       <div className="message-by">
         <Badge tone="accent">Gate</Badge>
         {gateHeading(waiting)}
-        {reachedAt !== undefined && <span className="gate-place">{clockOf(reachedAt)}</span>}
+        {reachedAt !== undefined && <span className="needs-you-time">{clockOf(reachedAt)}</span>}
       </div>
       <div className="message-text gate-question">{gateQuestion(waiting)}</div>
       <p className="gate-facts-line">

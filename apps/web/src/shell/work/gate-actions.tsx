@@ -1,127 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Role, Stage, Task, TaskStages } from "@the-office/contracts";
-import { Button, Select } from "@the-office/ui";
+import { Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import {
-  continueAtGate,
-  dropAtGate,
-  pipelineQueries,
-  sendBackFromGate,
-} from "../../api/pipelines.ts";
+import { continueAtGate, pipelineQueries, sendBackFromGate } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
 import { MessageField } from "../conversation/message-field.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
-import "./gate-actions.css";
-import { DropTaskDialog } from "./drop-task-dialog.tsx";
-import {
-  continueLabel,
-  defaultSendBackTarget,
-  SEND_BACK_WITH_NOTES,
-  sendBackWords,
-  type WaitingGate,
-} from "./gate-words.ts";
-
-/**
- * What the user does at the Gate a Task waits at, on Now and in the Needs you panel: Continue, Send
- * back with notes, or Drop. A Task's own page has the same actions in its Gate's window.
- */
-export function GateActions({
-  task,
-  waiting,
-  roles,
-}: {
-  readonly task: Task;
-  readonly waiting: WaitingGate;
-  readonly roles: readonly Role[] | undefined;
-}): ReactNode {
-  const [sendingBack, setSendingBack] = useState(false);
-  const [dropping, setDropping] = useState(false);
-  const continuing = useContinuingAtGate(task, waiting);
-  const busy = continuing.isPending;
-  return (
-    <>
-      <div className="gate-actions">
-        <Button
-          variant="accent"
-          loading={continuing.isPending}
-          disabled={busy}
-          onClick={() => continuing.mutate()}
-        >
-          {continueLabel(waiting)}
-        </Button>
-        {waiting.sendBackTargets.length > 0 && (
-          <Button
-            variant="secondary"
-            aria-expanded={sendingBack}
-            disabled={busy}
-            onClick={() => setSendingBack(!sendingBack)}
-          >
-            {sendingBack ? "Cancel" : SEND_BACK_WITH_NOTES}
-          </Button>
-        )}
-        <Button variant="danger-ghost" disabled={busy} onClick={() => setDropping(true)}>
-          Drop
-        </Button>
-      </div>
-      {continuing.error && <ContinueRefused error={continuing.error} />}
-      {dropping && (
-        <DropTaskDialog
-          task={task}
-          drop={() => dropAtGate(task.id)}
-          onClose={() => setDropping(false)}
-        />
-      )}
-      {sendingBack && (
-        <SendBackForm
-          task={task}
-          targets={waiting.sendBackTargets}
-          roles={roles}
-          onSent={() => setSendingBack(false)}
-        />
-      )}
-    </>
-  );
-}
+import { defaultSendBackTarget, sendBackWords, type WaitingGate } from "./gate-words.ts";
 
 export function ContinueRefused({ error }: { readonly error: Error }): ReactNode {
   return <RefusalAlert title="The Task didn't continue" error={error} />;
-}
-
-function SendBackForm({
-  task,
-  targets,
-  roles,
-  onSent,
-}: {
-  readonly task: Task;
-  readonly targets: readonly Stage[];
-  readonly roles: readonly Role[] | undefined;
-  readonly onSent: () => void;
-}): ReactNode {
-  const sending = useSendingBack(task, targets, roles, onSent);
-  return (
-    <form
-      className="gate-send-back"
-      aria-label="Send back"
-      onSubmit={(event) => {
-        event.preventDefault();
-        sending.send();
-      }}
-    >
-      <SendBackFields sending={sending} />
-      <div className="gate-actions">
-        <Button
-          variant="primary"
-          type="submit"
-          loading={sending.isPending}
-          disabled={!sending.written}
-        >
-          Send back
-        </Button>
-      </div>
-    </form>
-  );
 }
 
 /** Send back as it is being written, for its fields and the action that sends it, wherever each sits. */

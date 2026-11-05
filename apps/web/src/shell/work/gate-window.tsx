@@ -1,26 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useMatch } from "@tanstack/react-router";
 import type { Role, Task, TaskChanges, TaskStages } from "@the-office/contracts";
 import { Badge, Button, Dialog, type DialogStep } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { dropAtGate } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries } from "../../api/work.ts";
-import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
-import { oneRound } from "../../shell/attachments/attachment-rounds.ts";
-import { useDroppingTask, WhatDroppingDoes } from "../../shell/work/drop-task-dialog.tsx";
+import { AttachmentGallery } from "../attachments/attachment-gallery.tsx";
+import { oneRound } from "../attachments/attachment-rounds.ts";
+import { useDroppingTask, WhatDroppingDoes } from "./drop-task-dialog.tsx";
 import {
   ContinueRefused,
   SendBackFields,
   useContinuingAtGate,
   useSendingBack,
   type SendingBack,
-} from "../../shell/work/gate-actions.tsx";
-import {
-  continueLabel,
-  SEND_BACK_WITH_NOTES,
-  type WaitingGate,
-} from "../../shell/work/gate-words.ts";
+} from "./gate-actions.tsx";
 import {
   definitionOfDoneFact,
   gateHeading,
@@ -30,6 +25,7 @@ import {
   testsBeforeGate,
   testsFact,
 } from "./gate-card-words.ts";
+import { continueLabel, SEND_BACK_WITH_NOTES, type WaitingGate } from "./gate-words.ts";
 import { RECORD_ELEMENT_ID } from "./record-tab.ts";
 
 type GateStep = "send-back" | "drop";
@@ -100,7 +96,7 @@ export function GateWindow({
           >
             {continueLabel(waiting)}
           </Button>
-          <OpenChanges onOpen={onClose} />
+          <OpenChanges taskId={task.id} onOpen={onClose} />
           {waiting.sendBackTargets.length > 0 && (
             <Button variant="secondary" disabled={busy} onClick={() => setStep("send-back")}>
               {SEND_BACK_WITH_NOTES}
@@ -195,17 +191,35 @@ function LinesFact({ changes }: { readonly changes: TaskChanges }): ReactNode {
   );
 }
 
-/** The Changes tab, brought into view: the card may have pushed it below the fold. */
-function OpenChanges({ onOpen }: { readonly onOpen: () => void }): ReactNode {
+/**
+ * The Task's Changes tab, wherever the window opened; leaving the panel out of the address closes
+ * it. On the Task's own page the tab is brought into view: the card may have pushed it below the
+ * fold.
+ */
+function OpenChanges({
+  taskId,
+  onOpen,
+}: {
+  readonly taskId: string;
+  readonly onOpen: () => void;
+}): ReactNode {
+  const onItsPage =
+    useMatch({ from: "/tasks/$taskId", shouldThrow: false })?.params.taskId === taskId;
   return (
     <Link
       className="link-button"
-      from="/tasks/$taskId"
-      to="."
-      search={(shown) => ({ ...shown, recordTab: "changes" })}
+      to="/tasks/$taskId"
+      params={{ taskId }}
+      search={(shown) =>
+        onItsPage
+          ? { ...shown, recordTab: "changes", needsYou: undefined }
+          : { recordTab: "changes" }
+      }
       onClick={() => {
         onOpen();
-        document.getElementById(RECORD_ELEMENT_ID)?.scrollIntoView({ block: "start" });
+        if (onItsPage) {
+          document.getElementById(RECORD_ELEMENT_ID)?.scrollIntoView({ block: "start" });
+        }
       }}
     >
       Open Changes

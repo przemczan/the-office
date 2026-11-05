@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { taskStateWords } from "./work-words.ts";
+import { reportedMetCount, taskStateWords } from "./work-words.ts";
 
 describe("taskStateWords", () => {
   it("reads a Paused Task by what holds it", () => {
@@ -18,5 +18,11 @@ describe("taskStateWords", () => {
     expect(taskStateWords("in-progress", { stopped: true })).toBe("In progress");
     expect(taskStateWords("dropped", { stopped: true })).toBe("Dropped");
     expect(taskStateWords("waiting-on-you", { pausedByAlarm: true })).toBe("Waiting on you");
+  });
+});
+
+describe("reportedMetCount", () => {
+  it("counts only the numbers that are statements", () => {
+    expect(reportedMetCount(["One.", "Two."], [2, 5])).toBe(1);
   });
 });

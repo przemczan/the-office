@@ -6,20 +6,15 @@ import { dropTask, taskQueries } from "../../api/work.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 
-/**
- * Dropping is the Task's exit: it can't come back. `drop` is how, such as at a Gate; by default
- * the Task's own Drop.
- */
+/** Dropping is the Task's exit: it can't come back. */
 export function DropTaskDialog({
   task,
-  drop = () => dropTask(task.id),
   onClose,
 }: {
   readonly task: Task;
-  readonly drop?: () => Promise<unknown>;
   readonly onClose: () => void;
 }): ReactNode {
-  const dropping = useDroppingTask(drop, onClose);
+  const dropping = useDroppingTask(() => dropTask(task.id), onClose);
   return (
     <Dialog
       size="small"
@@ -38,6 +33,7 @@ export function DropTaskDialog({
   );
 }
 
+/** `drop` is how: the Task's own Drop, or the one at a Gate. */
 export function useDroppingTask(drop: () => Promise<unknown>, onDropped: () => void) {
   const queryClient = useQueryClient();
   const showToast = useToast();
