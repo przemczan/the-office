@@ -29,6 +29,7 @@ const SESSION: ThreadSession = {
   roleKey: "planner",
   engineId: "claude-code",
   cardVersion: 1,
+  officeInstructionsVersion: 0,
   startedAt: AT,
   lastCallAt: AT,
   contextTokens: 34_000,

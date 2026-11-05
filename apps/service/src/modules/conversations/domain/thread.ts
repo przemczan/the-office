@@ -56,6 +56,8 @@ export interface ThreadSession {
   readonly roleKey: string;
   /** The Role card version it started with, which a resume runs with again. */
   readonly cardVersion: number;
+  /** The Office instructions' version it started with, which a resume runs with again. */
+  readonly officeInstructionsVersion: number;
   /** The engine it runs on, the only one that can resume it. */
   readonly engineId: EngineId;
   readonly startedAt: Date;

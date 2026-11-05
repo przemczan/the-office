@@ -8,10 +8,10 @@ The user writes one text in Settings, for general guidelines, and every person's
 
 ## Definition of Done
 
-- [ ] Every session gets the Office instructions after who the person is and before their Role's instructions: a chat, the Caretaker's chat, a Task or Initiative Thread, a Consultation and an Agent Stage. Check: `session-instructions.test.ts`, and a service test of each of the two session starts (`thread-runner.ts`, `stage-threads.ts`).
-- [ ] Left empty, they add nothing, not even the heading. Check: `session-instructions.test.ts`.
-- [ ] The session is told that its Role's instructions and the Project's `CLAUDE.md` win where they disagree. Check: `session-instructions.test.ts`.
-- [ ] A change reaches new sessions only: a session records the version it started with and a resume runs with that version. A session from before this task resumes with none. Check: a service test of each session start, resuming across a change.
+- [x] Every session gets the Office instructions after who the person is and before their Role's instructions: a chat, the Caretaker's chat, a Task or Initiative Thread, a Consultation and an Agent Stage. Check: `session-instructions.test.ts`, and a service test of each of the two session starts (`thread-runner.ts`, `stage-threads.ts`).
+- [x] Left empty, they add nothing, not even the heading. Check: `session-instructions.test.ts`.
+- [x] The session is told that its Role's instructions and the Project's `CLAUDE.md` win where they disagree. Check: `session-instructions.test.ts`.
+- [x] A change reaches new sessions only: a session records the version it started with and a resume runs with that version. A session from before this task resumes with none. Check: a service test of each session start, resuming across a change.
 - [ ] Settings › Office instructions shows the text, saves a change and says who gets it and when. Saving the same text makes no new version. Check: a service test of the route; a web test; an e2e test that saves a text and reads it after a reload.
 - [ ] The Office Manager drafts a change with `propose_office_setting`; the card shows the whole new text, and applying it saves a version. A text changed since the draft is refused with the reason, so an edit in Settings is never overwritten. Check: service tests of the Proposal; a web test of the card.
 - [ ] Each engine gets the text. Check: a test on the scripted engine adapter and one on the OpenAI-compatible API engine's fake server; the Test Project check of the last step for Claude Code.
@@ -49,7 +49,7 @@ Chosen while writing this file, for the user to review (spec 2.2 and 4 already n
 
 - [x] 1a. Service, the store alone: a versioned table and a port in Conversations, and an application service answering the current version and a version by its number, as `RoleCards` does. Nothing uses it yet. Commit.
   Read: `people/application/role-cards.ts`, `people/adapters/postgres/roles.schema.ts`, `application/context-policy-settings.ts`, `adapters/postgres/postgres-conversations-settings.ts`.
-- [ ] 1b. Service, the sessions: the version recorded on the session beside `cardVersion` (a field of the Thread's stored session, `threads.schema.ts` l. 32, and of `ThreadSession`), sessions already stored holding none. `personInstructions` and its callers take the text; `thread-runner.ts` (resume about l. 398, `place.instructions(card)` l. 502) and `stage-threads.ts` (l. 264, 372, 528) pass it. A session with no Project, such as a chat, is told what wins in words that still hold. Commit.
+- [x] 1b. Service, the sessions: the version recorded on the session beside `cardVersion` (a field of the Thread's stored session, `threads.schema.ts` l. 32, and of `ThreadSession`), sessions already stored holding none. `personInstructions` and its callers take the text; `thread-runner.ts` (resume about l. 398, `place.instructions(card)` l. 502) and `stage-threads.ts` (l. 264, 372, 528) pass it. A session with no Project, such as a chat, is told what wins in words that still hold. Commit.
   Read: `conversations/domain/session-instructions.ts`, `application/session-places.ts`, `domain/thread.ts`, `domain/thread-changes.ts`.
 - [ ] 2. Service and contract, the route: `GET`/`PUT /api/settings/office-instructions` and its contract with the 20,000-character limit; the same text makes no new version. Commit.
   Read: `adapters/http/size-threshold.controller.ts`, `packages/contracts/src/MAP.md`.
@@ -64,17 +64,22 @@ Chosen while writing this file, for the user to review (spec 2.2 and 4 already n
 
 ## State
 
-The store is built in Conversations and nothing uses it yet: `OfficeInstructions` (`application/office-instructions.ts`) answers `current()`, `forResumedSession(version)` and `save(text)`, over `OfficeInstructionsRepository` and the table `office_instructions_versions`. It is a provider of the module, not exported. Spec 2.2, 3 and 4, the Glossary and coverage carry the user's answers of 2026-11-06.
+The Office instructions reach every session; nothing can save a text yet but a test. `OfficeInstructions` (`application/office-instructions.ts`, a provider of the module, not exported) answers `current()`, `forResumedSession(version)` and `save(text)`, over `OfficeInstructionsRepository` and the table `office_instructions_versions`. `personInstructions` (`domain/session-instructions.ts`) puts them after who the person is, under `## Office instructions` with a fixed lead-in, and closes them with `## Your Role's instructions`; left empty it adds neither, so a session's prompt stays as it was. Every kind of session takes a `SessionPerson` (`card`, `officeInstructions`). `ThreadRunner.moveFor` and `StageThreads.startIn`/`continueIn` read the text and record `ThreadSession.officeInstructionsVersion`. Spec 2.2, 3 and 4, the Glossary and coverage carry the user's answers of 2026-11-06.
+
+For the user to review: the `## Your Role's instructions` heading was not in the step; without it the Role's words read as part of the section they overrule.
+
+Each engine: `session.options.instructions` on the scripted engine shows the text in both runners' tests, and `openai-compatible-api-engine.test.ts` already proves `instructions` reach the system message, so that box waits only on the Claude Code check of the last step.
 
 Traps:
 
-- Version 0 means none and is never stored (a check holds it): `forResumedSession(0)` answers `NO_OFFICE_INSTRUCTIONS`, any other unknown number throws `OfficeInstructionsVersionNotFound`. A stored session with no version resumes with 0.
-- Every test file shares the table, so a test that saves a text binds `OfficeInstructionsRepositoryForTests`; the Postgres repository's test rolls back all it saves, so the table stays empty for the others.
+- Version 0 means none and is never stored (a check holds it): `forResumedSession(0)` answers `NO_OFFICE_INSTRUCTIONS`, any other unknown number throws `OfficeInstructionsVersionNotFound`.
+- Every test file shares the table, so a test that saves a text binds `OfficeInstructionsRepositoryForTests`; the Postgres repository's test rolls back all it saves, so the table stays empty for the others. A test assembling the runners by hand provides `OfficeInstructions`.
+- Only an exact `""` counts as empty: step 2's contract decides what a blank text saves as, or a text of spaces would give an empty section.
 - The repository's `update` takes a change of the current version, inside its lock; step 5's refusal of a stale `from` can go there.
-- An Agent Stage's own `AGENT_STAGE_INSTRUCTIONS` is only what the person does in a Stage: its session is built in `stage-threads.ts` by `workThreadInstructions`, so the text enters there, not in `agent-stage-runner.ts`.
 - `global-instructions` is a Skill in the running Office's library, not in this repository.
 
 ## Progress
 
 - 2026-11-06 · The file written with the user's four answers; the spec, the Glossary and coverage changed; step 1 is next.
 - 2026-11-06 · step 1a: the versioned store in Conversations (`OfficeInstructions`, its repository and table), used by nothing yet; step 1b is next.
+- 2026-11-06 · step 1b: every session gets the Office instructions before its Role's, a session records the version and a resume runs with it, both session starts; step 2 is next.

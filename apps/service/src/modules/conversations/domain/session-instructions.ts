@@ -3,21 +3,28 @@ import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Decision, type DecisionAnswer } from "./decision.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
-export interface SessionPersonCard {
+interface SessionPersonCard {
   readonly name: string;
   readonly title: string;
   readonly responsibilities: string;
   readonly instructions: string;
 }
 
+/** Who a session is for: the person's card, and the Office instructions' text it runs with. */
+export interface SessionPerson {
+  readonly card: SessionPersonCard;
+  /** Empty when there are none. */
+  readonly officeInstructions: string;
+}
+
 /**
- * A chat session's standing instructions: who the person is, their card's instructions, and that a
- * chat only reads (spec §2.4, §6). The same for every session of a card version, so they stay in
- * the cached prefix.
+ * A chat session's standing instructions: who the person is, the Office instructions, their card's
+ * instructions, and that a chat only reads (spec §2.4, §6). The same for every session of a card
+ * version and an Office instructions version, so they stay in the cached prefix.
  */
-export function chatInstructions(card: SessionPersonCard, roleKey: string): string {
+export function chatInstructions(person: SessionPerson, roleKey: string): string {
   return [
-    ...personInstructions(card),
+    ...personInstructions(person),
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.`,
     // Devops reached for Grep on the repository it onboarded, refused outside its folders (task 33's run).
     ...(roleKey === DEVOPS ? [READ_REPOSITORY_RULE] : []),
@@ -35,12 +42,9 @@ export const ALLOW_CHANGES_ADVICE =
  * The standing instructions of the Caretaker's chat (spec §2.4): it reads as any chat does until
  * the user allows changes in the Thread; then it reaches the whole workstation but secrets.
  */
-export function caretakerChatInstructions(
-  card: SessionPersonCard,
-  changesAllowed: boolean,
-): string {
+export function caretakerChatInstructions(person: SessionPerson, changesAllowed: boolean): string {
   return [
-    ...personInstructions(card),
+    ...personInstructions(person),
     changesAllowed
       ? "The user allowed changes in this Thread: you work in their home folder, and you may read and edit any file and run any command on the workstation, The Office's data folder and every git command included. Their secrets stay refused: SSH keys, the Claude, GitHub CLI and AWS credentials, browser profiles, the Office identity and the database credentials. Say what you are about to change before you change it, and prefer what can be undone. The engine's own Edit and Write may still refuse .git, .claude and .mcp.json: change those with a command."
       : `This Thread only reads until the user allows changes: you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and read The Office's records with its tools. Diagnose first; to change a file or run a command that changes something, ${lowerFirst(ALLOW_CHANGES_ADVICE)}`,
@@ -52,22 +56,32 @@ function lowerFirst(text: string): string {
 }
 
 /**
- * The standing instructions of a session on a Task or an Initiative: who the person is, their
- * card's instructions, and what they do in the Thread, as the module keeping Work words it.
+ * The standing instructions of a session on a Task or an Initiative: who the person is, the Office
+ * instructions, their card's instructions, and what they do in the Thread, as the module keeping
+ * Work words it.
  */
-export function workThreadInstructions(card: SessionPersonCard, inTheThread: string): string {
-  return [...personInstructions(card), inTheThread].join("\n\n");
+export function workThreadInstructions(person: SessionPerson, inTheThread: string): string {
+  return [...personInstructions(person), inTheThread].join("\n\n");
 }
 
+/**
+ * Fixed words, so the cached prefix changes only with the text. "A Project's own" holds for a
+ * session with no single Project too, such as a chat.
+ */
+const OFFICE_INSTRUCTIONS_LEAD_IN =
+  "The user's general guidelines for everyone in The Office. Where they disagree, your Role's instructions and a Project's own CLAUDE.md win.";
+
 function personInstructions({
-  name,
-  title,
-  responsibilities,
-  instructions,
-}: SessionPersonCard): string[] {
+  card: { name, title, responsibilities, instructions },
+  officeInstructions,
+}: SessionPerson): string[] {
+  const whoTheyAre = `You are ${name}, the ${title} in The Office, where people like you work with the user on their Projects. ${responsibilities}`;
+  if (officeInstructions === "") return [whoTheyAre, instructions];
   return [
-    `You are ${name}, the ${title} in The Office, where people like you work with the user on their Projects. ${responsibilities}`,
-    instructions,
+    whoTheyAre,
+    `## Office instructions\n\n${OFFICE_INSTRUCTIONS_LEAD_IN}\n\n${officeInstructions}`,
+    // Closes the section above, or the Role's words would read as part of what they overrule.
+    `## Your Role's instructions\n\n${instructions}`,
   ];
 }
 
@@ -208,12 +222,13 @@ export const CONSULTATION_OFFICE_TOOLS = [
 ] as const;
 
 /**
- * The standing instructions of a Consultant in a Consultation: who they are, their card's
- * instructions, and that they answer one Agent's question on a Task, reading and changing nothing.
+ * The standing instructions of a Consultant in a Consultation: who they are, the Office
+ * instructions, their card's instructions, and that they answer one Agent's question on a Task,
+ * reading and changing nothing.
  */
-export function consultationInstructions(card: SessionPersonCard): string {
+export function consultationInstructions(person: SessionPerson): string {
   return [
-    ...personInstructions(card),
+    ...personInstructions(person),
     "You are in a Consultation: another person of The Office, working a Task, asked for your answer, and the user may read along or join. You change no file. Read what you need, using the Task's record, then give your answer with the answer_consultation tool: one of their options, or your own words. Say plainly why when you decline a call; pass an approval on, to the person your authority names or to the user, only when the call isn't yours to decide. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.",
   ].join("\n\n");
 }

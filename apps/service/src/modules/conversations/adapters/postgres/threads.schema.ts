@@ -38,6 +38,8 @@ export interface ThreadSessionRow {
   readonly full: boolean;
   /** Absent on sessions saved before Allow changes: none had changes allowed. */
   readonly changesAllowed?: boolean;
+  /** Absent on sessions saved before the Office instructions: they resume with none. */
+  readonly officeInstructionsVersion?: number;
 }
 
 /**

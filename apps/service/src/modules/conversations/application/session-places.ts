@@ -10,7 +10,7 @@ import {
   chatInstructions,
   consultationInstructions,
   workThreadInstructions,
-  type SessionPersonCard,
+  type SessionPerson,
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
@@ -49,7 +49,7 @@ export interface SessionPlace {
   readonly brief: Brief;
   /** What its engine calls are tagged with, beside the Thread and the person. */
   readonly span: Readonly<Record<string, string>>;
-  instructions(card: SessionPersonCard): string;
+  instructions(person: SessionPerson): string;
   /** Readies the folder as a session opens on it. */
   ready(): Promise<void>;
 }
@@ -102,10 +102,10 @@ export class SessionPlaces {
       refusalAdvice: undefined,
       brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },
-      instructions: (card) =>
+      instructions: (person) =>
         thread.consultation
-          ? consultationInstructions(card)
-          : workThreadInstructions(card, setup.instructions),
+          ? consultationInstructions(person)
+          : workThreadInstructions(person, setup.instructions),
       // The module keeping Tasks made the worktree before it opened the Thread.
       ready: () => Promise.resolve(),
     };
@@ -124,7 +124,7 @@ export class SessionPlaces {
       ...chat,
       workstation: false,
       refusalAdvice: undefined,
-      instructions: (card) => chatInstructions(card, thread.roleKey),
+      instructions: (person) => chatInstructions(person, thread.roleKey),
     };
   }
 
@@ -137,7 +137,7 @@ export class SessionPlaces {
         ...this.basesPlace(thread),
         workstation: false,
         refusalAdvice: ALLOW_CHANGES_ADVICE,
-        instructions: (card) => caretakerChatInstructions(card, false),
+        instructions: (person) => caretakerChatInstructions(person, false),
       };
     }
     return {
@@ -146,7 +146,7 @@ export class SessionPlaces {
       project: undefined,
       workstation: true,
       refusalAdvice: undefined,
-      instructions: (card) => caretakerChatInstructions(card, true),
+      instructions: (person) => caretakerChatInstructions(person, true),
       ready: () => Promise.resolve(),
     };
   }
@@ -167,7 +167,7 @@ export class SessionPlaces {
       refusalAdvice: undefined,
       brief: await this.briefs.forInitiativeThread(thread, setup),
       span: { "office.initiative": initiativeId },
-      instructions: (card) => workThreadInstructions(card, setup.instructions),
+      instructions: (person) => workThreadInstructions(person, setup.instructions),
     };
   }
 

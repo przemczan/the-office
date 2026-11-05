@@ -57,7 +57,11 @@ import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
+import { storedBeforeOfficeInstructions } from "../domain/thread.fixtures.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
+import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructions-repository.fixtures.js";
+import { OfficeInstructionsRepository } from "../ports/office-instructions-repository.js";
+import { OfficeInstructions } from "./office-instructions.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
@@ -163,6 +167,8 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
+      OfficeInstructions,
       ContextPolicySettingsService,
       Briefs,
       sessionMemoryProvider(),
@@ -258,6 +264,20 @@ const resumed = (...steps: Step[]): SessionScript => [
   ...steps,
   { step: "end" },
 ];
+
+/** The same person's next Stage, going on in the Thread `first` ran in. */
+function theNextStage(
+  roleKey: string,
+  first: { readonly stageThread: { readonly threadId: string } },
+): StageThreadRequest {
+  return aStage({
+    roleKey,
+    stageName: "Review & fix",
+    declared: "continue",
+    previousThreadId: first.stageThread.threadId,
+    work: "## The Stage: Review & fix",
+  });
+}
 
 async function threadOf(id: string): Promise<Thread> {
   const thread = await repository.find(id);
@@ -502,6 +522,76 @@ describe("StageThreads", () => {
       { kind: "handover-note", roleKey: ada, text: "Reviewed." },
     ]);
     expect(forgotten).toEqual([]);
+  });
+
+  describe("the Office instructions", () => {
+    it("starts a Stage's session with the current text, before the Role's and the Stage's instructions", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      const ada = aPerson("Ada");
+      await app.get(OfficeInstructions).save("Answer in plain words.");
+
+      const { stageThread } = await aStageRun(aStage({ roleKey: ada }));
+
+      const instructions = engine.sessions[0]?.options.instructions ?? "";
+      expect(instructions).toMatch(
+        /^You are Ada[\s\S]*## Office instructions[\s\S]*Answer in plain words\.[\s\S]*## Your Role's instructions[\s\S]*You work a Stage\.$/,
+      );
+      expect((await threadOf(stageThread.threadId)).session?.officeInstructionsVersion).toBe(1);
+    });
+
+    it("goes on across a change with the version the session recorded", async () => {
+      await startWith(
+        started(...aTurn({ status: "done" })),
+        resumed(...aTurn({ status: "done" }, "Reviewing.")),
+      );
+      const ada = aPerson("Ada");
+      await app.get(OfficeInstructions).save("Answer in plain words.");
+      const first = await aStageRun(aStage({ roleKey: ada }));
+      await app.get(OfficeInstructions).save("Answer in French.");
+
+      await aStageRun(theNextStage(ada, first), "Reviewed.");
+
+      const [opened, resumedSession] = engine.sessions;
+      expect(resumedSession?.id).toBe(opened?.id);
+      expect(opened?.options.instructions).toContain("Answer in plain words.");
+      expect(resumedSession?.options.instructions).toBe(opened?.options.instructions);
+    });
+
+    it("goes on with none in a session stored without a version", async () => {
+      await startWith(
+        started(...aTurn({ status: "done" })),
+        resumed(...aTurn({ status: "done" }, "Reviewing.")),
+      );
+      const ada = aPerson("Ada");
+      await app.get(OfficeInstructions).save("Answer in plain words.");
+      const first = await aStageRun(aStage({ roleKey: ada }));
+      await repository.update(first.stageThread.threadId, storedBeforeOfficeInstructions);
+
+      await aStageRun(theNextStage(ada, first), "Reviewed.");
+
+      const resumedSession = engine.sessions[1];
+      expect(resumedSession?.id).toBe(engine.sessions[0]?.id);
+      expect(resumedSession?.options.instructions).not.toContain("Office instructions");
+      expect(resumedSession?.options.instructions).not.toContain("Answer in plain words.");
+    });
+
+    it("gives a Stage declared fresh the new text, and records its version", async () => {
+      await startWith(started(...aTurn({ status: "done" })), started(...aTurn({ status: "done" })));
+      const ada = aPerson("Ada");
+      await app.get(OfficeInstructions).save("Answer in plain words.");
+      const first = await aStageRun(aStage({ roleKey: ada }));
+      await app.get(OfficeInstructions).save("Answer in French.");
+
+      const second = await aStageRun(
+        aStage({ roleKey: ada, previousThreadId: first.stageThread.threadId }),
+      );
+
+      const instructions = engine.sessions[1]?.options.instructions;
+      expect(instructions).toContain("Answer in French.");
+      expect(instructions).not.toContain("Answer in plain words.");
+      const { session } = await threadOf(second.stageThread.threadId);
+      expect(session?.officeInstructionsVersion).toBe(2);
+    });
   });
 
   it("lets the Context policy decide when a Stage runs again after its question", async () => {

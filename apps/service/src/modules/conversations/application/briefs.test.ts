@@ -99,6 +99,7 @@ const A_SESSION = {
   id: randomUUID(),
   roleKey: "planner",
   cardVersion: 1,
+  officeInstructionsVersion: 0,
   engineId: "claude-code",
   startedAt: new Date("2026-10-25T09:00:00.000Z"),
   lastCallAt: new Date("2026-10-25T09:05:00.000Z"),

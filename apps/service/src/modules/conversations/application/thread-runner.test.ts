@@ -68,7 +68,11 @@ import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
+import { storedBeforeOfficeInstructions } from "../domain/thread.fixtures.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
+import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructions-repository.fixtures.js";
+import { OfficeInstructionsRepository } from "../ports/office-instructions-repository.js";
+import { OfficeInstructions } from "./office-instructions.js";
 import { FireAlarmLifts, HELD_BY_THE_FIRE_ALARM } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
@@ -230,6 +234,8 @@ async function startOn(
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
+      OfficeInstructions,
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
@@ -414,6 +420,17 @@ async function cooled(threadId: string, contextTokens: number): Promise<void> {
     };
     return { thread: cooledThread, logged: [], event: new TurnEnded(cooledThread, new Date()) };
   });
+}
+
+/** A Thread whose session answered once under the Office instructions `text`, then cooled. */
+async function cooledAfterAnswering(text: string): Promise<Thread> {
+  await app.get(OfficeInstructions).save(text);
+  const thread = await threads.startInChat(roleKey);
+  await runner.send(thread.id, "Hello.");
+  await answered(thread.id, 3);
+  await runner.onModuleDestroy();
+  await cooled(thread.id, 12_000);
+  return thread;
 }
 
 /** Any Brief's text, as a line keeps it. */
@@ -664,6 +681,84 @@ describe("continuing a Thread", () => {
     expect(resumed?.options).toMatchObject({
       engine: { id: FIRST_CLAUDE_CODE_ENGINE.id },
       model: "claude-haiku-5-5",
+    });
+  });
+
+  describe("the Office instructions", () => {
+    const RESUMED: SessionScript = [
+      { step: "resume" },
+      sent("m-2"),
+      ...aTurn("m-2", "Back again."),
+    ];
+
+    it("starts a session with the current text and records its version", async () => {
+      await startWith(started(...aTurn("brief", "Hello.")));
+      await app.get(OfficeInstructions).save("An older text.");
+      await app.get(OfficeInstructions).save("Answer in plain words.");
+
+      const thread = await threads.startInChat(roleKey);
+      await runner.send(thread.id, "Hello.");
+      await answered(thread.id, 3);
+
+      const instructions = engine.sessions[0]?.options.instructions;
+      expect(instructions).toContain("Answer in plain words.");
+      expect(instructions).not.toContain("An older text.");
+      expect((await threads.read(thread.id)).session?.officeInstructionsVersion).toBe(2);
+    });
+
+    it("starts a session with none while none are saved, recording version 0", async () => {
+      await startWith(started(...aTurn("brief", "Hello.")));
+
+      const thread = await threads.startInChat(roleKey);
+      await runner.send(thread.id, "Hello.");
+      await answered(thread.id, 3);
+
+      expect(engine.sessions[0]?.options.instructions).not.toContain("Office instructions");
+      expect((await threads.read(thread.id)).session?.officeInstructionsVersion).toBe(0);
+    });
+
+    it("resumes a session across a change with the version it recorded", async () => {
+      await startWith(started(...aTurn("brief", "Hello.")), RESUMED);
+      const thread = await cooledAfterAnswering("Answer in plain words.");
+      await app.get(OfficeInstructions).save("Answer in French.");
+
+      await runner.send(thread.id, "Still there?");
+      await answered(thread.id, 6);
+
+      const [first, resumed] = engine.sessions;
+      expect(resumed?.id).toBe(first?.id);
+      expect(first?.options.instructions).toContain("Answer in plain words.");
+      expect(resumed?.options.instructions).toBe(first?.options.instructions);
+    });
+
+    it("resumes a session stored without a version with none", async () => {
+      await startWith(started(...aTurn("brief", "Hello.")), RESUMED);
+      const thread = await cooledAfterAnswering("Answer in plain words.");
+      await repository.update(thread.id, storedBeforeOfficeInstructions);
+
+      await runner.send(thread.id, "Still there?");
+      await answered(thread.id, 6);
+
+      const [first, resumed] = engine.sessions;
+      expect(resumed?.id).toBe(first?.id);
+      expect(resumed?.options.instructions).not.toContain("Office instructions");
+      expect(resumed?.options.instructions).not.toContain("Answer in plain words.");
+    });
+
+    it("gives a fresh session the new text and records its version", async () => {
+      await startWith(started(...aTurn("brief", "Hello.")), started(...aTurn("brief", "Oui.")));
+      const thread = await cooledAfterAnswering("Answer in plain words.");
+      await cooled(thread.id, 80_000);
+      await app.get(OfficeInstructions).save("Answer in French.");
+
+      await runner.send(thread.id, "Still there?");
+      await answered(thread.id, 6);
+
+      const [first, fresh] = engine.sessions;
+      expect(fresh?.id).not.toBe(first?.id);
+      expect(fresh?.options.instructions).toContain("Answer in French.");
+      expect(fresh?.options.instructions).not.toContain("Answer in plain words.");
+      expect((await threads.read(thread.id)).session?.officeInstructionsVersion).toBe(2);
     });
   });
 

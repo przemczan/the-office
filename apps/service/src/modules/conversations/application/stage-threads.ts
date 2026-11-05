@@ -29,6 +29,7 @@ import {
   roleOfficeTools,
   sessionOfficeTools,
   workThreadInstructions,
+  type SessionPerson,
 } from "../domain/session-instructions.js";
 import {
   addTokens,
@@ -63,6 +64,7 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { OfficeInstructions } from "./office-instructions.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
@@ -204,6 +206,7 @@ export class StageThreads {
     private readonly settings: ContextPolicySettingsService,
     private readonly memory: SessionMemory,
     private readonly approvalHolds: ApprovalHolds,
+    private readonly officeInstructions: OfficeInstructions,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -371,6 +374,10 @@ export class StageThreads {
     const session = previous.session;
     if (!session) throw new Error(`Thread ${previous.id} has no session to continue.`);
     const role = await this.roleCards.forResumedSession(session.roleKey, session.cardVersion);
+    const office = await this.officeInstructions.forResumedSession(
+      session.officeInstructionsVersion,
+    );
+    const person = { ...role, officeInstructions: office.text };
     await this.change(previous.id, (latest) =>
       beginStageWork(
         latest,
@@ -387,7 +394,7 @@ export class StageThreads {
       leftOut = servers.leftOut;
       return this.engine.resume(
         session.id,
-        this.settingsOf(previous.id, session, request, role, applying, skills, servers.servers),
+        this.settingsOf(previous.id, session, request, person, applying, skills, servers.servers),
       );
     });
     const work = { id: randomUUID(), text: request.work };
@@ -429,9 +436,15 @@ export class StageThreads {
     );
     await this.repository.add(thread);
     await this.events.publish(event);
+    const office = await this.officeInstructions.current();
     const session = freshSession(
       randomUUID(),
-      { ...role, engineId: applying.engineId, changesAllowed: false },
+      {
+        ...role,
+        officeInstructionsVersion: office.version,
+        engineId: applying.engineId,
+        changesAllowed: false,
+      },
       now,
     );
     await this.change(thread.id, (latest) =>
@@ -466,7 +479,7 @@ export class StageThreads {
           thread.id,
           session,
           request,
-          role,
+          { ...role, officeInstructions: office.text },
           applying,
           skills,
           servers.servers,
@@ -519,7 +532,7 @@ export class StageThreads {
     threadId: string,
     { id, engineId }: ThreadSession,
     request: StageThreadRequest,
-    { roleKey, card }: SessionRole,
+    { roleKey, card, officeInstructions }: SessionRole & Pick<SessionPerson, "officeInstructions">,
     applying: EngineModel,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
     mcpServers: SessionSettings["mcpServers"],
@@ -530,7 +543,10 @@ export class StageThreads {
       folder: request.folder,
       environment: request.environment,
       effort: request.effort ?? card.effort,
-      instructions: workThreadInstructions(card, request.session.instructions),
+      instructions: workThreadInstructions(
+        { card, officeInstructions },
+        request.session.instructions,
+      ),
       skills: {
         folder: skills.folder,
         names: skills.names,

@@ -1,5 +1,7 @@
+import { TurnEnded } from "./conversation-events.js";
 import type { Message } from "./message.js";
-import { NO_TOKENS, type Thread } from "./thread.js";
+import { NO_TOKENS, type Thread, type ThreadSession } from "./thread.js";
+import type { ThreadChange } from "./thread-changes.js";
 
 /** A Thread in the Planner's chat with nothing said yet. */
 export function aThread(fields: Partial<Thread> = {}): Thread {
@@ -19,6 +21,13 @@ export function aThread(fields: Partial<Thread> = {}): Thread {
     consultation: undefined,
     ...fields,
   };
+}
+
+/** Takes the version off the Thread's session, as one stored before the Office instructions. */
+export function storedBeforeOfficeInstructions(thread: Thread): ThreadChange<TurnEnded> {
+  const session = { ...thread.session, officeInstructionsVersion: undefined };
+  const stored: Thread = { ...thread, session: session as unknown as ThreadSession };
+  return { thread: stored, logged: [], event: new TurnEnded(stored, new Date()) };
 }
 
 /** What the user wrote in `thread`. */

@@ -252,15 +252,20 @@ export function freshSession(
   {
     roleKey,
     cardVersion,
+    officeInstructionsVersion,
     engineId,
     changesAllowed,
-  }: Pick<ThreadSession, "roleKey" | "cardVersion" | "engineId" | "changesAllowed">,
+  }: Pick<
+    ThreadSession,
+    "roleKey" | "cardVersion" | "officeInstructionsVersion" | "engineId" | "changesAllowed"
+  >,
   startedAt: Date,
 ): ThreadSession {
   return {
     id,
     roleKey,
     cardVersion,
+    officeInstructionsVersion,
     engineId,
     startedAt,
     lastCallAt: undefined,

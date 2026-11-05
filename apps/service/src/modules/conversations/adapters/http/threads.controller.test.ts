@@ -65,6 +65,9 @@ import { ThreadsController } from "./threads.controller.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
 import { ConversationsSettings } from "../../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../../ports/conversations-settings.fixtures.js";
+import { OfficeInstructionsRepositoryForTests } from "../../ports/office-instructions-repository.fixtures.js";
+import { OfficeInstructionsRepository } from "../../ports/office-instructions-repository.js";
+import { OfficeInstructions } from "../../application/office-instructions.js";
 import { FireAlarmInThreads } from "../../application/fire-alarm-in-threads.js";
 import { FireAlarmLifts } from "../../application/fire-alarm-lifts.js";
 import { ApprovalHolds } from "../../application/approval-holds.js";
@@ -121,6 +124,8 @@ beforeEach(async () => {
       { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       { provide: ProjectBases, useValue: bases },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
+      OfficeInstructions,
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
@@ -552,6 +557,7 @@ describe("a Decision", () => {
         id: sessionId,
         roleKey,
         cardVersion: 1,
+        officeInstructionsVersion: 0,
         engineId: "claude-code",
         startedAt: new Date(),
         lastCallAt: new Date(),
@@ -758,6 +764,7 @@ async function withSession(
       id: sessionId,
       roleKey,
       cardVersion: 1,
+      officeInstructionsVersion: 0,
       engineId: "claude-code",
       startedAt: new Date(),
       lastCallAt: new Date(),

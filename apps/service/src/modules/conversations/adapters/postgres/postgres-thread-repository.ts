@@ -4,6 +4,7 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Decision } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
+import { NO_OFFICE_INSTRUCTIONS } from "../../domain/office-instructions.js";
 import type { Proposal, ProposalStatus } from "../../domain/proposal.js";
 import type { ProposalChange } from "../../domain/proposal-changes.js";
 import { ProposalNotFound } from "../../domain/proposal-not-found.js";
@@ -336,6 +337,7 @@ function toSession(row: ThreadSessionRow): ThreadSession {
     lastCallAt: row.lastCallAt === null ? undefined : new Date(row.lastCallAt),
     startContextTokens: row.startContextTokens ?? undefined,
     changesAllowed: row.changesAllowed ?? false,
+    officeInstructionsVersion: row.officeInstructionsVersion ?? NO_OFFICE_INSTRUCTIONS.version,
   };
 }
 

@@ -12,9 +12,11 @@ import { describe, expect, it } from "vitest";
 import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import {
   CHANGE_ROLE_TOOL,
+  caretakerChatInstructions,
   CHAT_OFFICE_TOOLS,
   chatInstructions,
   chatOfficeTools,
+  consultationInstructions,
   LIST_PIPELINES_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
   POST_LINK_CARD_TOOL,
@@ -30,22 +32,101 @@ import {
   READ_SKILL_UPDATE_TOOL,
   roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
+  workThreadInstructions,
 } from "./session-instructions.js";
 
 describe("chatInstructions", () => {
-  const card = { name: "Nina", title: "Devops", responsibilities: "", instructions: "" };
+  const nina = {
+    card: { name: "Nina", title: "Devops", responsibilities: "", instructions: "" },
+    officeInstructions: "",
+  };
 
   it("tells Devops to read a repository that is not a Project yet only with its tool", () => {
-    expect(chatInstructions(card, DEVOPS)).toContain(
+    expect(chatInstructions(nina, DEVOPS)).toContain(
       `Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}`,
     );
-    expect(chatInstructions(card, "planner")).not.toContain(READ_REPOSITORY_TOOL);
+    expect(chatInstructions(nina, "planner")).not.toContain(READ_REPOSITORY_TOOL);
   });
 
   it("tells Devops to onboard a repository on a host by its Repository URL", () => {
-    expect(chatInstructions(card, DEVOPS)).toContain(
+    expect(chatInstructions(nina, DEVOPS)).toContain(
       "onboarded by that URL: The Office clones it when the user applies the Proposal.",
     );
+  });
+});
+
+describe("the Office instructions in a session's standing instructions", () => {
+  const card = {
+    name: "Ada",
+    title: "Developer",
+    responsibilities: "Builds what a Task asks for.",
+    instructions: "Write the test first.",
+  };
+  const whoTheyAre =
+    "You are Ada, the Developer in The Office, where people like you work with the user on their Projects. Builds what a Task asks for.";
+
+  describe.each([
+    {
+      kind: "a chat",
+      standing: (officeInstructions: string) =>
+        chatInstructions({ card, officeInstructions }, "developer"),
+      theRest: "In your chat you read and answer",
+    },
+    {
+      kind: "the Caretaker's chat, only reading",
+      standing: (officeInstructions: string) =>
+        caretakerChatInstructions({ card, officeInstructions }, false),
+      theRest: "This Thread only reads until the user allows changes",
+    },
+    {
+      kind: "the Caretaker's chat with changes allowed",
+      standing: (officeInstructions: string) =>
+        caretakerChatInstructions({ card, officeInstructions }, true),
+      theRest: "The user allowed changes in this Thread",
+    },
+    {
+      kind: "a Task or Initiative Thread, or an Agent Stage",
+      standing: (officeInstructions: string) =>
+        workThreadInstructions({ card, officeInstructions }, "You work a Stage."),
+      theRest: "You work a Stage.",
+    },
+    {
+      kind: "a Consultation",
+      standing: (officeInstructions: string) =>
+        consultationInstructions({ card, officeInstructions }),
+      theRest: "You are in a Consultation",
+    },
+  ])("in $kind", ({ standing, theRest }) => {
+    it("come after who the person is and before their Role's instructions and the rest", () => {
+      const text = standing("Answer in plain words.");
+
+      const places = [
+        whoTheyAre,
+        "## Office instructions",
+        "Answer in plain words.",
+        "## Your Role's instructions",
+        "Write the test first.",
+        theRest,
+      ].map((part) => text.indexOf(part));
+
+      expect(places).not.toContain(-1);
+      expect(places).toEqual(places.toSorted((first, second) => first - second));
+    });
+
+    it("say that the Role's instructions and a Project's own CLAUDE.md win where they disagree", () => {
+      expect(standing("Answer in plain words.")).toContain(
+        "Where they disagree, your Role's instructions and a Project's own CLAUDE.md win.",
+      );
+    });
+
+    it("add nothing when empty, not even the heading", () => {
+      const text = standing("");
+
+      expect(text.startsWith(`${whoTheyAre}\n\nWrite the test first.\n\n${theRest}`)).toBe(true);
+      expect(text).not.toContain("Office instructions");
+      expect(text).not.toContain("## Your Role's instructions");
+      expect(text).not.toContain("CLAUDE.md");
+    });
   });
 });
 

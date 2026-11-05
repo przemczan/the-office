@@ -28,6 +28,9 @@ import { chatOfficeTools, POST_LINK_CARD_TOOL } from "../domain/session-instruct
 import { startStageThread } from "../domain/thread-changes.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
+import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructions-repository.fixtures.js";
+import { OfficeInstructionsRepository } from "../ports/office-instructions-repository.js";
+import { OfficeInstructions } from "./office-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
@@ -148,6 +151,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: sessionMcpServersStandIn().service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
+      OfficeInstructions,
       ContextPolicySettingsService,
       ThreadService,
       Briefs,

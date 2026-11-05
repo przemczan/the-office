@@ -56,6 +56,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { MentionedRecords } from "./mentioned-records.js";
+import { OfficeInstructions } from "./office-instructions.js";
 import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { StageThreads } from "./stage-threads.js";
@@ -77,6 +78,8 @@ interface Answer {
   readonly briefed: string;
   readonly decision: ContextDecision;
   readonly role: SessionRole;
+  /** The text of the Office instructions' version the session runs with. */
+  readonly officeInstructions: string;
   /** The model the engine cascade gives now, which a resumed session takes too. */
   readonly model: string;
   /** The session the move replaces, which can't be resumed any more. */
@@ -136,6 +139,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly mentionedRecords: MentionedRecords,
     private readonly fireAlarmLifts: FireAlarmLifts,
     private readonly approvalHolds: ApprovalHolds,
+    private readonly officeInstructions: OfficeInstructions,
   ) {}
 
   /**
@@ -241,7 +245,8 @@ export class ThreadRunner implements OnModuleDestroy {
     const thread = await this.threadOf(threadId);
     const current = await this.personOf(thread);
     const place = await this.places.of(thread);
-    const { decision, role, model, newSession } = await this.moveFor(thread, current, place, now);
+    const { newSession, ...move } = await this.moveFor(thread, current, place, now);
+    const { decision } = move;
     const answering = await this.change(threadId, (latest) =>
       begin(
         latest,
@@ -252,9 +257,7 @@ export class ThreadRunner implements OnModuleDestroy {
     this.answerInBackground(answering, {
       said: { id: randomUUID(), text: opening },
       briefed: openingMessage(place.brief.text, opening),
-      decision,
-      role,
-      model,
+      ...move,
       replaced: undefined,
       place,
       answers: undefined,
@@ -278,12 +281,8 @@ export class ThreadRunner implements OnModuleDestroy {
   ): Promise<Thread> {
     const opened = await this.places.of(thread);
     const place = { ...opened, brief: briefWithMentionedRecords(opened.brief, mentioned) };
-    const { decision, role, model, newSession } = await this.moveFor(
-      thread,
-      current,
-      place,
-      new Date(),
-    );
+    const { newSession, ...move } = await this.moveFor(thread, current, place, new Date());
+    const { decision } = move;
     const answering = await this.change(thread.id, (latest) =>
       begin(latest, {
         personName: current.card.name,
@@ -295,9 +294,7 @@ export class ThreadRunner implements OnModuleDestroy {
     this.answerInBackground(answering, {
       said: newSession ? said : { ...said, text: withMentionedRecords(said.text, mentioned) },
       briefed: briefedMessage(place.brief.text, said.text),
-      decision,
-      role,
-      model,
+      ...move,
       replaced: newSession ? thread.session : undefined,
       place,
       answers,
@@ -364,7 +361,8 @@ export class ThreadRunner implements OnModuleDestroy {
   /**
    * The Context policy's move for the Thread's next message, the session it opens, if any, and the
    * model it runs on: the engine cascade's for the Thread's Project, where it has one. A resumed
-   * session keeps its engine; a changed engine starts the Thread fresh.
+   * session keeps its engine, card version and Office instructions; a changed engine starts the
+   * Thread fresh.
    */
   private async moveFor(
     thread: Thread,
@@ -374,6 +372,7 @@ export class ThreadRunner implements OnModuleDestroy {
   ): Promise<{
     readonly decision: ContextDecision;
     readonly role: SessionRole;
+    readonly officeInstructions: string;
     readonly model: string;
     readonly newSession: ThreadSession | undefined;
   }> {
@@ -397,14 +396,28 @@ export class ThreadRunner implements OnModuleDestroy {
     const role = resumed
       ? await this.roleCards.forResumedSession(resumed.roleKey, resumed.cardVersion)
       : current;
+    const office = resumed
+      ? await this.officeInstructions.forResumedSession(resumed.officeInstructionsVersion)
+      : await this.officeInstructions.current();
     const newSession = resumed
       ? undefined
       : freshSession(
           randomUUID(),
-          { ...current, engineId: applying.engineId, changesAllowed: place.workstation },
+          {
+            ...current,
+            officeInstructionsVersion: office.version,
+            engineId: applying.engineId,
+            changesAllowed: place.workstation,
+          },
           now,
         );
-    return { decision, role, model: applying.model, newSession };
+    return {
+      decision,
+      role,
+      officeInstructions: office.text,
+      model: applying.model,
+      newSession,
+    };
   }
 
   /**
@@ -421,7 +434,7 @@ export class ThreadRunner implements OnModuleDestroy {
 
   private async answer(
     thread: Thread,
-    { said, briefed, decision, role, model, replaced, place }: Answer,
+    { said, briefed, decision, role, officeInstructions, model, replaced, place }: Answer,
   ): Promise<void> {
     const session = thread.session;
     if (!session) throw new Error(`Thread ${thread.id} answers with no session.`);
@@ -444,7 +457,7 @@ export class ThreadRunner implements OnModuleDestroy {
         this.settingsOf(
           thread,
           session,
-          { role, model },
+          { role, officeInstructions, model },
           { skills, mcpServers: servers.servers },
           place,
         ),
@@ -471,7 +484,7 @@ export class ThreadRunner implements OnModuleDestroy {
         settings: this.settingsOf(
           thread,
           session,
-          { role, model },
+          { role, officeInstructions, model },
           { skills, mcpServers: servers.servers },
           place,
         ),
@@ -489,7 +502,11 @@ export class ThreadRunner implements OnModuleDestroy {
   private settingsOf(
     thread: Thread,
     { id, engineId }: ThreadSession,
-    { role: { roleKey, card }, model }: { readonly role: SessionRole; readonly model: string },
+    {
+      role: { roleKey, card },
+      officeInstructions,
+      model,
+    }: Pick<Answer, "role" | "officeInstructions" | "model">,
     { skills, mcpServers }: Pick<SessionSettings, "skills" | "mcpServers">,
     place: SessionPlace,
   ): SessionSettings {
@@ -499,7 +516,7 @@ export class ThreadRunner implements OnModuleDestroy {
       folder: place.folder,
       environment: place.environment,
       effort: card.effort,
-      instructions: place.instructions(card),
+      instructions: place.instructions({ card, officeInstructions }),
       skills: skills && {
         folder: skills.folder,
         names: skills.names,
