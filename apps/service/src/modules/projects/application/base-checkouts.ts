@@ -9,6 +9,12 @@ import { ProjectRepository } from "../ports/project-repository.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
 
+/**
+ * A chat session's first answer waits for the refresh, so Projects refresh side by side, a few at
+ * a time so a long list doesn't start all its git processes at once.
+ */
+const REFRESHED_AT_ONCE = 8;
+
 /** A Project's base branch as a chat session reads it. */
 export interface BaseCheckout {
   readonly projectId: string;
@@ -54,19 +60,26 @@ export class BaseCheckouts {
    */
   async refresh(): Promise<readonly BaseCheckout[]> {
     await mkdir(this.folder, { recursive: true });
+    const projects = await this.projects.list();
     const refreshed: BaseCheckout[] = [];
-    for (const project of await this.projects.list()) {
-      const checkout = this.checkoutOf(project);
-      try {
-        await this.checkOut(project, checkout.folder);
-      } catch (error) {
-        this.logger.warn(
-          `${project.name}'s base branch wasn't checked out afresh at ${checkout.folder}: ${String(error)}`,
-        );
-      }
-      if (await exists(checkout.folder)) refreshed.push(checkout);
+    for (let start = 0; start < projects.length; start += REFRESHED_AT_ONCE) {
+      const batch = projects.slice(start, start + REFRESHED_AT_ONCE);
+      const checkouts = await Promise.all(batch.map((project) => this.refreshed(project)));
+      refreshed.push(...checkouts.filter((checkout) => checkout !== undefined));
     }
     return refreshed;
+  }
+
+  private async refreshed(project: Project): Promise<BaseCheckout | undefined> {
+    const checkout = this.checkoutOf(project);
+    try {
+      await this.checkOut(project, checkout.folder);
+    } catch (error) {
+      this.logger.warn(
+        `${project.name}'s base branch wasn't checked out afresh at ${checkout.folder}: ${String(error)}`,
+      );
+    }
+    return (await exists(checkout.folder)) ? checkout : undefined;
   }
 
   private checkoutOf(project: Project): BaseCheckout {

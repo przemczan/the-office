@@ -962,6 +962,12 @@ function detailsSwitch(place: Locator) {
   return place.getByRole("group", { name: "Details" }).getByRole("switch");
 }
 
+/**
+ * A session opened while the other files run answers late: it first refreshes every Project's base
+ * checkout, and their git processes took over 4s when measured, with most of the machine in use.
+ */
+const WHILE_THE_OTHER_FILES_RUN = { timeout: 15_000 };
+
 // The engine replays e2e/sessions.jsonl: the Planner's first session, then a fresh one.
 test("the user chats with the Planner, who reads but changes nothing", async ({ page }) => {
   await page.goto("/people");
@@ -974,7 +980,9 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await chat.getByLabel("Message").fill("Read the deploy workflow.");
   await chat.getByLabel("Message").press("Enter");
 
-  await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
+  await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible(
+    WHILE_THE_OTHER_FILES_RUN,
+  );
   // Details starts off: the tool call and the context line hide, the refusal never does.
   await expect(chat.getByText("This session only reads: changes happen on Tasks.")).toBeVisible();
   await expect(detailsSwitch(chat)).toHaveAttribute("aria-checked", "false");
@@ -995,7 +1003,9 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await chat.getByLabel("Message").fill("And the tests?");
   await chat.getByLabel("Message").press("Enter");
 
-  await expect(chat.getByText("The tests run with npm test.")).toBeVisible();
+  await expect(chat.getByText("The tests run with npm test.")).toBeVisible(
+    WHILE_THE_OTHER_FILES_RUN,
+  );
   await expect(chat.getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
   await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 21k context");
 

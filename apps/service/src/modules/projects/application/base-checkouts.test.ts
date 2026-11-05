@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
@@ -13,6 +13,7 @@ import {
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
+import { Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { BaseCheckouts } from "./base-checkouts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
@@ -36,6 +37,28 @@ class ListedProjects extends ProjectRepository {
 
 function notUsed(): never {
   throw new Error("Not used by base checkouts.");
+}
+
+/** Holds each fetch until `expected` have started, then fails them, the first one last. */
+class FetchesThatMeet extends Worktrees {
+  private readonly started: (() => void)[] = [];
+
+  constructor(
+    private readonly expected: number,
+    git: Git,
+    commands: ProjectCommandRunner,
+    officeData: OfficeDataDirectory,
+  ) {
+    super(git, commands, officeData);
+  }
+
+  override freshBase(): Promise<never> {
+    return new Promise((_, reject) => {
+      this.started.push(() => reject(new Error("No origin.")));
+      if (this.started.length < this.expected) return;
+      for (const fail of this.started.toReversed()) fail();
+    });
+  }
 }
 
 // Real git on a temporary repository whose main tracks its origin's.
@@ -123,5 +146,24 @@ describe("BaseCheckouts", () => {
 
     expect(refreshed.map(({ projectId }) => projectId)).toEqual(["admin-panel"]);
     expect(gitIn(before?.folder ?? "", "rev-parse", "HEAD")).toBe(head);
+  });
+
+  it("refreshes Projects side by side, and answers them in their order", async () => {
+    const officeData = new OfficeDataDirectory(join(repository.folder, "side-by-side-office-data"));
+    const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
+    const commands = new ProjectCommandRunner(new ShellCommandRunner());
+    const sideBySide = new BaseCheckouts(
+      new ListedProjects([aProject({ id: "first" }), aProject({ id: "second" })]),
+      git,
+      new FetchesThatMeet(2, git, commands, officeData),
+      commands,
+      officeData,
+    );
+    await mkdir(join(sideBySide.folder, "first"), { recursive: true });
+    await mkdir(join(sideBySide.folder, "second"), { recursive: true });
+
+    const refreshed = await sideBySide.refresh();
+
+    expect(refreshed.map(({ projectId }) => projectId)).toEqual(["first", "second"]);
   });
 });

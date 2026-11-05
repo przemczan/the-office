@@ -1,4 +1,5 @@
-import { act, type ReactNode } from "react";
+import { act, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dialog, Drawer } from "./index.ts";
@@ -201,4 +202,34 @@ describe("Dialog's frame", () => {
     expect(onCloseOver).toHaveBeenCalledOnce();
     expect(onCloseUnder).not.toHaveBeenCalled();
   });
+
+  // A real key press lets React commit between two listeners, which flushSync stands in for here.
+  // Showing the windows again moves the one under to listen last, as any re-render of it does.
+  it("stays open when the window over it closes on the same Escape, before its turn", () => {
+    const onCloseUnder = vi.fn<() => void>();
+    const windows = (): ReactNode => <WindowWithViewer onCloseUnder={() => onCloseUnder()} />;
+    show(windows());
+    show(windows());
+
+    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+
+    expect(document.querySelectorAll("[role=dialog]")).toHaveLength(1);
+    expect(onCloseUnder).not.toHaveBeenCalled();
+  });
 });
+
+function WindowWithViewer({ onCloseUnder }: { readonly onCloseUnder: () => void }): ReactNode {
+  const [viewing, setViewing] = useState(true);
+  return (
+    <Dialog size="large" title="Decision" onClose={onCloseUnder}>
+      {viewing && (
+        <Dialog
+          title="today.png"
+          onClose={() => {
+            flushSync(() => setViewing(false));
+          }}
+        />
+      )}
+    </Dialog>
+  );
+}

@@ -138,13 +138,24 @@ function useCloseOnEscape(
   onClose: () => void,
   frame: RefObject<HTMLDivElement | null>,
 ): void {
+  // Read in the capture phase, before any window handles the key: the browser lets React commit
+  // between two listeners, so the window over this one can be gone by the time this one's turn
+  // comes, and which turn comes first changes with every re-render, as `onClose` does.
+  const topmostAtKeyPress = useRef(false);
   useEffect(() => {
     if (!open) return;
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape" && isInTopmostWindow(frame.current)) onClose();
+    const noteWhetherTopmost = (): void => {
+      topmostAtKeyPress.current = isInTopmostWindow(frame.current);
     };
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === "Escape" && topmostAtKeyPress.current) onClose();
+    };
+    window.addEventListener("keydown", noteWhetherTopmost, { capture: true });
     window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", noteWhetherTopmost, { capture: true });
+      window.removeEventListener("keydown", closeOnEscape);
+    };
   }, [open, onClose, frame]);
 }
 
