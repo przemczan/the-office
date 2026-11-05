@@ -7,10 +7,8 @@ import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
-import {
-  bringDecisionCardIntoView,
-  DecisionCard,
-} from "../../shell/conversation/decision-card.tsx";
+import { bringDecisionCardIntoView } from "../../shell/conversation/decision-card.tsx";
+import { DecisionOnTask } from "../../shell/conversation/decision-on-task.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { waitingGateOf, type WaitingGate } from "../../shell/work/gate-words.ts";
@@ -30,10 +28,10 @@ import { chapterPlace, chapterWork } from "./timeline-words.ts";
 import { useInView } from "./use-in-view.ts";
 
 /**
- * What waits on the user on this Task, under the rail and answered there (spec §4): its Decisions,
- * those with a Consultant marked and not counted, and the Gate it waits at. Before Ready holds
- * this place, beside any Decision, in Planning and in Backlog once a part is written. Otherwise it
- * says where the Task stands.
+ * What waits on the user on this Task, first in the record's column and answered there (spec §4):
+ * its Decisions, those with a Consultant marked and not counted, and the Gate it waits at. Before
+ * Ready holds this place, after any Decision, in Planning and in Backlog once a part is written.
+ * Otherwise it says where the Task stands.
  */
 export function NeedsYouCard({ task }: { readonly task: Task }): ReactNode {
   const decisions = useQuery(decisionQueries.unanswered(task.id)).data;
@@ -142,9 +140,9 @@ function WhatWaits({
         />
       )}
       {beforeReady ? (
-        <div className="needs-you-beside">
-          {beforeReady}
+        <div className="needs-you-then-before-ready">
           {needsYou}
+          {beforeReady}
         </div>
       ) : (
         needsYou
@@ -166,7 +164,7 @@ function WaitingDecision({
   const bringThreadIntoView = useBringThreadIntoView();
   const personName = roles?.find(({ key }) => key === decision.roleKey)?.card.name ?? "The Office";
   return (
-    <DecisionCard
+    <DecisionOnTask
       decision={decision}
       personName={personName}
       answering={thread?.state === "answering"}

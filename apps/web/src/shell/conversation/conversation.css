@@ -601,6 +601,87 @@
   margin-top: 10px;
 }
 
+/* Answered in place on the Task's page: each answer a line of its own, the recommended one marked. */
+.decision-options.on-lines {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
+.decision-option-words {
+  flex: 1;
+  min-width: 0;
+}
+
+.decision-option-tag {
+  flex: none;
+  font: var(--type-caption);
+  opacity: 0.85;
+}
+
+/* A Decision with Attachments: the recommended answer to accept, beside the way to its details. */
+.decision-boxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.decision-box {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.decision-box-overline {
+  font: var(--type-overline);
+  color: var(--fg-3);
+}
+
+.decision-box-main {
+  margin: 4px 0 0;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.decision-box-words {
+  flex: 1;
+  margin: 4px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.decision-box-foot {
+  margin-top: 10px;
+}
+
+.decision-window-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.decision-window {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.decision-window .decision-question {
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
+.decision-window .decision-context,
+.decision-window .decision-recommendation,
+.decision-window .decision-hint {
+  margin: 0;
+  font: var(--type-body-sm);
+}
+
 .decision-free-answer {
   display: flex;
   align-items: flex-end;

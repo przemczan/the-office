@@ -1152,7 +1152,7 @@
   }
 }
 
-/* ---- Needs you: what waits on the user, under the rail, and its slim bar while out of view */
+/* ---- Needs you: what waits on the user, first in the record's column, and its slim bar while out of view */
 .needs-you-clear {
   display: flex;
   align-items: center;
@@ -1209,17 +1209,11 @@
   gap: 4px 12px;
 }
 
-/* Before Ready and what waits share the row when there is room for both to read. */
-.needs-you-beside {
+/* What waits first, then Before Ready under it, each the record's width. */
+.needs-you-then-before-ready {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.needs-you-beside > * {
-  flex: 1 1 420px;
-  min-width: 0;
+  flex-direction: column;
+  gap: var(--record-column-gap);
 }
 
 .needs-you-summary {
@@ -1344,14 +1338,14 @@
   margin-top: 12px;
 }
 
-/* Sticky at both edges and empty, so the bar costs the page no room; its margin takes back the gap. */
+/* Sticky at both edges and empty, so the bar costs the column no room; its margin takes back the gap. */
 .needs-you-bar-place {
   position: sticky;
   top: 8px;
   bottom: 56px;
   z-index: 15;
   height: 0;
-  margin-bottom: calc(-1 * var(--task-page-gap));
+  margin-bottom: calc(-1 * var(--record-column-gap));
 }
 
 .needs-you-bar {
@@ -1388,11 +1382,20 @@
   align-items: start;
 }
 
+/* Stretched to the row, so the slim bar, which sticks only inside it, stays while the conversation
+   beside it runs longer than the record. */
 .task-record-column {
+  --record-column-gap: 12px;
+
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-self: stretch;
+  gap: var(--record-column-gap);
   min-width: 0;
+}
+
+.task-record-tabs {
+  scroll-margin-top: 16px;
 }
 
 .task-record {
@@ -2209,11 +2212,6 @@
     top: 12px;
     min-height: 320px;
     max-height: none;
-  }
-
-  /* Clear of the slim bar, which may show whenever the card holds something. */
-  .task-page:has(.needs-you-card) .task-conversation {
-    top: 60px;
   }
 }
 

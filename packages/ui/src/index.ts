@@ -141,6 +141,7 @@ export { Topbar, type TopbarProps } from "../../../design-system/components/navi
 export { type DrawerProps } from "../../../design-system/components/overlays/Drawer.jsx";
 export { Dialog, Drawer, type DialogProps, type DialogSize, type DialogStep } from "./overlays.tsx";
 export { LinkButton } from "./link-button.tsx";
+export { RadioList, type RadioListOption, type RadioListProps } from "./radio-list.tsx";
 export {
   Menu,
   type MenuItem,

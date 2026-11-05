@@ -17,3 +17,15 @@ export function namedAttachments(
     taskAttachments.filter((attachment) => attachment.id === id),
   );
 }
+
+/** What a Decision's details window holds, in short: "2 answers · 5 Attachments". */
+export function decisionDetailsWords(
+  { options }: Pick<Decision, "options">,
+  attachments: readonly Attachment[],
+): string {
+  return `${counted(options.length, "answer", "answers")} · ${counted(attachments.length, "Attachment", "Attachments")}`;
+}
+
+function counted(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}

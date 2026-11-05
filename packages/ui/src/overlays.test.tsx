@@ -32,7 +32,7 @@ function pressOn(element: Element | null | undefined): void {
 }
 
 const backdrop = (): Element | null | undefined =>
-  page.querySelector("[role=dialog]")?.parentElement;
+  document.querySelector("[role=dialog]")?.parentElement;
 
 // The design system's Button carries its own <style>, which isn't part of its name.
 const nameOf = (button: Element): string =>
@@ -44,9 +44,9 @@ const nameOf = (button: Element): string =>
     .trim();
 
 const button = (scope: string, name: string): Element | undefined =>
-  [...page.querySelectorAll(`${scope} button`)].find((candidate) => nameOf(candidate) === name);
+  [...document.querySelectorAll(`${scope} button`)].find((candidate) => nameOf(candidate) === name);
 
-const barButtons = (): string[] => [...page.querySelectorAll(".dialog-bar button")].map(nameOf);
+const barButtons = (): string[] => [...document.querySelectorAll(".dialog-bar button")].map(nameOf);
 
 describe.each([
   ["Dialog", (onClose: () => void) => <Dialog title="Remove Project" onClose={onClose} />],
@@ -89,7 +89,7 @@ describe("Dialog's frame", () => {
     const onClose = vi.fn<() => void>();
     show(<Dialog size="medium" title="New Task" onClose={onClose} />);
 
-    const dialog = page.querySelector("[role=dialog]");
+    const dialog = document.querySelector("[role=dialog]");
     const title = dialog?.querySelector(".dialog-head h2");
     expect(title?.textContent).toBe("New Task");
     expect(dialog?.getAttribute("aria-labelledby")).toBe(title?.id);
@@ -130,19 +130,21 @@ describe("Dialog's frame", () => {
       </Dialog>,
     );
 
-    expect(page.querySelector(".dialog-body")?.textContent).toBe("Waits for your review");
+    expect(document.querySelector(".dialog-body")?.textContent).toBe("Waits for your review");
   });
 
   it.each(["small", "medium", "large"] as const)("takes its size: %s", (size) => {
     show(<Dialog size={size} title="Drop" onClose={() => {}} />);
 
-    expect(page.querySelector("[role=dialog]")?.className).toBe(`dialog-frame ${size}`);
+    expect(document.querySelector("[role=dialog]")?.className).toBe(`dialog-frame ${size}`);
   });
 
   it("keeps one height when large and asked to", () => {
     show(<Dialog size="large" keepsHeight title="Stage history" onClose={() => {}} />);
 
-    expect(page.querySelector("[role=dialog]")?.className).toBe("dialog-frame large keeps-height");
+    expect(document.querySelector("[role=dialog]")?.className).toBe(
+      "dialog-frame large keeps-height",
+    );
   });
 
   it("opens a step over the bar, whose actions and Cancel take the place of the bar's", () => {
@@ -161,7 +163,7 @@ describe("Dialog's frame", () => {
       />,
     );
 
-    expect(page.querySelector(".dialog-step textarea")).not.toBeNull();
+    expect(document.querySelector(".dialog-step textarea")).not.toBeNull();
     expect(barButtons()).toEqual(["Send back", "Cancel", "Close"]);
 
     pressOn(button(".dialog-bar", "Cancel"));
@@ -175,7 +177,28 @@ describe("Dialog's frame", () => {
 
     act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
 
-    expect(page.querySelector("[role=dialog]")).toBeNull();
+    expect(document.querySelector("[role=dialog]")).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("sits on the body, over the whole page, not where it was opened", () => {
+    show(<Dialog size="small" title="Drop" onClose={() => undefined} />);
+
+    expect(document.querySelector("[role=dialog]")?.closest("body > *")).not.toBe(page);
+  });
+
+  it("leaves Escape to a window opened over it, such as the picture viewer", () => {
+    const onCloseUnder = vi.fn<() => void>();
+    const onCloseOver = vi.fn<() => void>();
+    show(
+      <Dialog size="large" title="Decision" onClose={onCloseUnder}>
+        <Dialog title="today.png" onClose={onCloseOver} />
+      </Dialog>,
+    );
+
+    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+
+    expect(onCloseOver).toHaveBeenCalledOnce();
+    expect(onCloseUnder).not.toHaveBeenCalled();
   });
 });

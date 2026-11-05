@@ -1526,7 +1526,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const record = page.getByRole("region", { name: "Record" });
   const plan = record.getByRole("region", { name: "Plan", exact: true });
   const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
-  // In Planning Before Ready holds the card's place, beside the open Decision.
+  // In Planning Before Ready holds the card's place, under the open Decision.
   const beforeReady = page.getByRole("region", { name: "Before Ready" });
   const readinessLine = (label: string): Locator =>
     beforeReady.getByRole("listitem").filter({ hasText: label });
@@ -1539,7 +1539,14 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(proposedPipeline.getByText(/A small change with tests/)).toBeVisible();
   const beforeReadyBox = await beforeReady.boundingBox();
   const needsYouBox = await needsYou.boundingBox();
-  expect(needsYouBox?.y).toBe(beforeReadyBox?.y);
+  // Both in the record's column, above its tabs: what waits first, Before Ready under it.
+  const overviewTabBox = await page.getByRole("tab", { name: "Overview" }).boundingBox();
+  expect(beforeReadyBox?.x).toBe(needsYouBox?.x);
+  expect(beforeReadyBox?.width).toBe(needsYouBox?.width);
+  expect(beforeReadyBox?.y).toBeGreaterThan((needsYouBox?.y ?? 0) + (needsYouBox?.height ?? 0));
+  expect(overviewTabBox?.y).toBeGreaterThan(
+    (beforeReadyBox?.y ?? 0) + (beforeReadyBox?.height ?? 0),
+  );
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");

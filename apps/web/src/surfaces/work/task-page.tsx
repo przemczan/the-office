@@ -95,10 +95,12 @@ function TaskBody({
         selectedKey={selectedStageKey}
         onSelect={setSelectedStageKey}
       />
-      <NeedsYouCard task={task} />
       <div className="task-columns">
-        <div className="task-record-column" id={RECORD_ELEMENT_ID}>
-          <RecordTabs task={task} shown={recordTab} />
+        <div className="task-record-column">
+          <NeedsYouCard task={task} />
+          <div id={RECORD_ELEMENT_ID} className="task-record-tabs">
+            <RecordTabs task={task} shown={recordTab} />
+          </div>
           <RecordTabContent task={task} shown={recordTab} />
         </div>
         <TaskConversation

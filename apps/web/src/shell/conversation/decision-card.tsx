@@ -35,16 +35,10 @@ export function DecisionCard({
   followUps,
   place,
   landing = false,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-  readonly answering: boolean;
-  /** The user can ask the person something first in the Thread. */
-  readonly followUps: boolean;
-  /** Where it was asked, when the card shows beside its Thread on the Task's page. */
-  readonly place?: ReactNode;
-  /** The card a link to the Decision lands on: the page's, not the panel's open over it. */
-  readonly landing?: boolean;
+  answersOnLines = false,
+}: DecisionCardProps & {
+  /** Each answer on a line of its own, the recommended one marked, as on the Task's page. */
+  readonly answersOnLines?: boolean;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   const attachments = useNamedAttachments(decision);
@@ -55,6 +49,7 @@ export function DecisionCard({
       elementId={landing ? decisionCardElementId(decision.id) : undefined}
       place={place}
       side={
+        attachments !== undefined &&
         attachments.length > 0 && (
           <CardAttachments
             title={
@@ -71,18 +66,34 @@ export function DecisionCard({
         personName={personName}
         answering={answering}
         followUps={followUps}
-        consultantName={decision.putTo === null ? undefined : consultantName(decision.putTo, roles)}
+        roles={roles}
+        answersOnLines={answersOnLines}
       />
     </DecisionFrame>
   );
 }
 
-function useNamedAttachments(decision: Decision): readonly Attachment[] {
+/** What every form of an open Decision the user answers is given. */
+export interface DecisionCardProps {
+  readonly decision: Decision;
+  readonly personName: string;
+  readonly answering: boolean;
+  /** The user can ask the person something first in the Thread. */
+  readonly followUps: boolean;
+  /** Where it was asked, when the card shows beside its Thread on the Task's page. */
+  readonly place?: ReactNode;
+  /** The card a link to the Decision lands on: the page's, not the panel's open over it. */
+  readonly landing?: boolean;
+}
+
+/** The Attachments the Decision names that the Task still holds; undefined until they are read. */
+export function useNamedAttachments(decision: Decision): readonly Attachment[] | undefined {
   const { data } = useQuery({
     ...attachmentQueries.of({ kind: "task", taskId: decision.taskId }),
     enabled: decision.attachmentIds.length > 0,
   });
-  return namedAttachments(decision, data ?? []);
+  if (decision.attachmentIds.length === 0) return [];
+  return data && namedAttachments(decision, data);
 }
 
 /**
@@ -132,7 +143,7 @@ export function bringDecisionCardIntoView(decisionId: string): void {
   document.getElementById(decisionCardElementId(decisionId))?.scrollIntoView({ block: "start" });
 }
 
-function decisionCardElementId(decisionId: string): string {
+export function decisionCardElementId(decisionId: string): string {
   return `decision-card-${decisionId}`;
 }
 
@@ -161,7 +172,7 @@ function LinkToDecisionCard({ decision }: { readonly decision: Decision }): Reac
  * What every form of a Decision has: who asked, the question, and its link, which mentions it in a
  * chat and opens the Task's page at it, marked.
  */
-function DecisionFrame({
+export function DecisionFrame({
   decision,
   personName,
   elementId,
@@ -215,7 +226,7 @@ function DecisionFrame({
   );
 }
 
-function AskerTag({
+export function AskerTag({
   decision: { roleKey },
   personName,
 }: {
@@ -230,7 +241,7 @@ function AskerTag({
 }
 
 /** What the person found, and who passed the Decision on. */
-function DecisionDetail({
+export function DecisionDetail({
   decision,
   roles,
 }: {
@@ -261,23 +272,21 @@ function OpenDecision({
   personName,
   answering,
   followUps,
-  consultantName: consulted,
+  roles,
+  answersOnLines,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
   readonly followUps: boolean;
-  /** The Consultant the Decision waits on, in a Consultation; undefined when it waits on the user. */
-  readonly consultantName: string | undefined;
+  readonly roles: readonly Role[] | undefined;
+  readonly answersOnLines: boolean;
 }): ReactNode {
   const [freeAnswer, setFreeAnswer] = useState("");
   const answeringDecision = useAnswering(decision);
   const busy = answering || answeringDecision.isPending;
   const recommended = decision.recommendation.option;
-  const byTheOffice = decision.roleKey === null;
-  const waitHint = answering
-    ? `${personName} is still answering. Answer once they finish.`
-    : undefined;
+  const waitHint = stillAnsweringHint(answering, personName);
   const canSendFreeAnswer = !busy && freeAnswer.trim() !== "";
   const sendFreeAnswer = (): void =>
     answeringDecision.mutate(
@@ -286,29 +295,36 @@ function OpenDecision({
     );
   return (
     <>
-      {consulted !== undefined && (
-        <p className="decision-consultation" role="note">
-          <Icon name="users" size={12} />
-          Waiting on {consulted} in a Consultation. Answer here to take it over.
-        </p>
-      )}
-      <div className="decision-options" role="group" aria-label="Options">
+      <ConsultationNote decision={decision} roles={roles} />
+      <div
+        className={`decision-options${answersOnLines ? " on-lines" : ""}`}
+        role="group"
+        aria-label="Options"
+      >
         {decision.options.map((option, index) => (
           <Button
             key={option}
             variant={index === recommended ? "primary" : "secondary"}
             disabled={busy}
             title={waitHint}
+            fullWidth={answersOnLines}
+            style={answersOnLines ? ANSWER_ON_A_LINE : undefined}
+            iconRight={
+              answersOnLines &&
+              index === recommended && (
+                // Marked to the eye; the recommendation under the answers says it in words.
+                <span className="decision-option-tag" aria-hidden="true">
+                  Recommended
+                </span>
+              )
+            }
             onClick={() => answeringDecision.mutate({ kind: "option", option: index })}
           >
-            {option}
+            {answersOnLines ? <span className="decision-option-words">{option}</span> : option}
           </Button>
         ))}
       </div>
-      <p className="decision-recommendation">
-        {askerName(decision, personName)} recommends “{decision.options[recommended]}”:{" "}
-        <MarkdownText text={decision.recommendation.reason} inline />
-      </p>
+      <Recommendation decision={decision} personName={personName} />
       <form
         className="decision-free-answer"
         onSubmit={(event) => {
@@ -330,16 +346,82 @@ function OpenDecision({
           Answer
         </Button>
       </form>
-      {followUps && !byTheOffice && (
-        <p className="decision-hint">
-          A question first? Ask {personName} in the Thread; the Decision stays open.
-        </p>
-      )}
-      {answeringDecision.error && (
-        <RefusalAlert title="The answer wasn't sent" error={answeringDecision.error} />
-      )}
+      <FollowUpsHint decision={decision} personName={personName} followUps={followUps} />
+      {answeringDecision.error && <AnswerRefused error={answeringDecision.error} />}
     </>
   );
+}
+
+/** The design system's Button holds its label on one centred line; an answer may be a sentence. */
+const ANSWER_ON_A_LINE = {
+  justifyContent: "flex-start",
+  height: "auto",
+  minHeight: 32,
+  paddingBlock: 6,
+  whiteSpace: "normal",
+  textAlign: "left",
+  lineHeight: 1.35,
+} as const;
+
+/** In a Consultation, whom the Decision waits on, and that answering takes it over. */
+export function ConsultationNote({
+  decision,
+  roles,
+}: {
+  readonly decision: Decision;
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  if (decision.putTo === null) return null;
+  return (
+    <p className="decision-consultation" role="note">
+      <Icon name="users" size={12} />
+      Waiting on {consultantName(decision.putTo, roles)} in a Consultation. Answer here to take it
+      over.
+    </p>
+  );
+}
+
+export function Recommendation({
+  decision,
+  personName,
+}: {
+  readonly decision: Decision;
+  readonly personName: string;
+}): ReactNode {
+  return (
+    <p className="decision-recommendation">
+      {askerName(decision, personName)} recommends “
+      {decision.options[decision.recommendation.option]}”:{" "}
+      <MarkdownText text={decision.recommendation.reason} inline />
+    </p>
+  );
+}
+
+/** Follow-ups are messages in the person's Thread, which the user writes only outside a Stage. */
+export function FollowUpsHint({
+  decision,
+  personName,
+  followUps,
+}: {
+  readonly decision: Decision;
+  readonly personName: string;
+  readonly followUps: boolean;
+}): ReactNode {
+  if (!followUps || decision.roleKey === null) return null;
+  return (
+    <p className="decision-hint">
+      A question first? Ask {personName} in the Thread; the Decision stays open.
+    </p>
+  );
+}
+
+export function AnswerRefused({ error }: { readonly error: Error }): ReactNode {
+  return <RefusalAlert title="The answer wasn't sent" error={error} />;
+}
+
+/** Why the answers wait: nothing is answered while the person is still answering. */
+export function stillAnsweringHint(answering: boolean, personName: string): string | undefined {
+  return answering ? `${personName} is still answering. Answer once they finish.` : undefined;
 }
 
 /** A Consultant's name from the Role they fill; the key itself when the Role is gone. */
@@ -353,7 +435,7 @@ function askerName(decision: Decision, personName: string): string {
 }
 
 /** Answers the Decision; the asking person takes it in the Thread, which answers with its state. */
-function useAnswering(decision: Decision): UseMutationResult<Thread, Error, DecisionAnswer> {
+export function useAnswering(decision: Decision): UseMutationResult<Thread, Error, DecisionAnswer> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (answer: DecisionAnswer) => answerDecision(decision.id, answer),

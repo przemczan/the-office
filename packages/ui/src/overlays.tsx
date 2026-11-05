@@ -5,7 +5,8 @@
 // exported, hence the wrapper rather than an edit there. The conversation's drawer on the Task and
 // Initiative pages is the exception, closing on a press outside: a side view with its draft kept,
 // not a window, and built apart from these (apps/web/src/surfaces/work/conversation-drawer.tsx).
-import { useEffect, useId, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type MouseEvent, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "../../../design-system/components/core/Button.jsx";
 import { Icon } from "../../../design-system/components/core/Icon.jsx";
 import { IconButton } from "../../../design-system/components/core/IconButton.jsx";
@@ -83,11 +84,15 @@ function DialogFrame({
   onClose,
 }: DialogFrameProps & DialogFrameSizeProps): ReactNode {
   const titleId = useId();
-  useCloseOnEscape(open, onClose);
+  const frame = useRef<HTMLDivElement>(null);
+  useCloseOnEscape(open, onClose, frame);
   if (!open) return null;
-  return (
+  // On the body, so a window opened from inside a card is over the whole page and takes none of the
+  // card's styles.
+  return createPortal(
     <div className="dialog-backdrop">
       <div
+        ref={frame}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -116,19 +121,30 @@ function DialogFrame({
           </Button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
-function useCloseOnEscape(open: boolean, onClose: () => void): void {
+/**
+ * Escape closes the window, unless one opened over it, such as the picture viewer, which closes
+ * first. The one over it comes later in the document.
+ */
+function useCloseOnEscape(
+  open: boolean,
+  onClose: () => void,
+  frame: RefObject<HTMLDivElement | null>,
+): void {
   useEffect(() => {
     if (!open) return;
     const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      const windows = document.querySelectorAll('[aria-modal="true"]');
+      if (windows[windows.length - 1] === frame.current) onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [open, onClose]);
+  }, [open, onClose, frame]);
 }
 
 function KeepOpenOnBackdropPress({

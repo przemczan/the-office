@@ -389,6 +389,7 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
     "Write it on the Definition of Done",
   );
   await expect(markReady).toHaveCount(0);
+  await expectNeedsYouInTheRecordColumn(page, beforeReady);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-backlog-parts.png") });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
@@ -540,8 +541,9 @@ async function seedDecision(
   task: Task,
   question: string,
   attachmentIds: readonly string[] = [],
-): Promise<void> {
+): Promise<SeededDecision> {
   const threadId = crypto.randomUUID();
+  const decisionId = crypto.randomUUID();
   await queryOfficeDatabase(
     `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
      values ($1, 'task', $2, 'developer', 'Implement', 'waiting', $3, now())`,
@@ -550,8 +552,55 @@ async function seedDecision(
   await queryOfficeDatabase(
     `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
      values ($1, $2, $3, 'developer', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', $5, now())`,
-    [crypto.randomUUID(), threadId, task.id, question, JSON.stringify(attachmentIds)],
+    [decisionId, threadId, task.id, question, JSON.stringify(attachmentIds)],
   );
+  return { threadId, decisionId };
+}
+
+/**
+ * Needs you, or Before Ready in its place, sits above the record's tabs, as wide as the record; the
+ * conversation has its own column beside them on a wide page, and comes after them below 1281px.
+ */
+async function expectNeedsYouInTheRecordColumn(page: Page, block: Locator): Promise<void> {
+  const blockBox = await block.boundingBox();
+  const tabBox = await page.getByRole("tab", { name: "Overview" }).boundingBox();
+  const recordBox = await page.getByRole("region", { name: "Record" }).boundingBox();
+  const conversationBox = await page
+    .getByRole("complementary", { name: "Conversation" })
+    .boundingBox();
+  if (!blockBox || !tabBox || !recordBox || !conversationBox) throw new Error("Not on the page");
+  expect(blockBox.y + blockBox.height).toBeLessThanOrEqual(tabBox.y);
+  expect(blockBox.x).toBeCloseTo(recordBox.x, 0);
+  expect(blockBox.width).toBeCloseTo(recordBox.width, 0);
+  if ((page.viewportSize()?.width ?? 0) > 1280) {
+    expect(conversationBox.x).toBeGreaterThan(blockBox.x + blockBox.width);
+    expect(conversationBox.y).toBeCloseTo(blockBox.y, 0);
+  } else {
+    expect(conversationBox.y).toBeGreaterThan(recordBox.y);
+  }
+}
+
+interface SeededDecision {
+  readonly threadId: string;
+  readonly decisionId: string;
+}
+
+/**
+ * Catches the answers to a seeded Decision before they reach the service, where the asking
+ * person's session would take them (and the scripted engine's sessions belong to people.e2e.ts),
+ * and answers as the service does, with the Thread. The answers sent are returned as they come.
+ */
+async function catchAnswers(
+  page: Page,
+  { threadId, decisionId }: SeededDecision,
+): Promise<readonly unknown[]> {
+  const thread: unknown = await (await page.request.get(`/api/threads/${threadId}`)).json();
+  const answers: unknown[] = [];
+  await page.route(`**/api/decisions/${decisionId}/answer`, async (route) => {
+    answers.push(route.request().postDataJSON());
+    await route.fulfill({ json: thread });
+  });
+  return answers;
 }
 
 test("the Project filter narrows Needs you, the status strip and the Projects list, until Show all projects", async ({
@@ -873,7 +922,51 @@ async function attachedImage(
   return attachmentSchema.parse(await response.json());
 }
 
-test("a Decision's card shows the Attachments it names: pictures with the viewer, others as chips", async ({
+test("a Decision with nothing to look at is answered in place, by an answer's line or in your own words", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Decisions in place", "DI");
+  const task = await createdTask(page, project, "Pick an export format");
+  const byLine = await seedDecision(task, "Export as CSV or as JSON?");
+  const inOwnWords = await seedDecision(task, "Keep the old export too?");
+  const answersByLine = await catchAnswers(page, byLine);
+  const answersInOwnWords = await catchAnswers(page, inOwnWords);
+
+  await page.goto(`/tasks/${task.id}`);
+  const needsYou = page.getByRole("region", { name: "Needs you" });
+  const first = needsYou.getByRole("region", { name: "Decision: Export as CSV or as JSON?" });
+  const second = needsYou.getByRole("region", { name: "Decision: Keep the old export too?" });
+  // Each answer on a line of its own, the recommended one first, then its reason and your own words.
+  const yes = first.getByRole("button", { name: "Yes", exact: true });
+  const no = first.getByRole("button", { name: "No", exact: true });
+  await expect(yes).toContainText("Recommended");
+  await expect(no).not.toContainText("Recommended");
+  const yesBox = await yes.boundingBox();
+  const noBox = await no.boundingBox();
+  expect(noBox?.y).toBeGreaterThan((yesBox?.y ?? 0) + (yesBox?.height ?? 0) - 1);
+  expect(noBox?.width).toBe(yesBox?.width);
+  await expect(first.getByText("recommends “Yes”: It is simpler.")).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-in-place.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-decision-in-place.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+  await expectNeedsYouInTheRecordColumn(page, needsYou);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await expectNeedsYouInTheRecordColumn(page, needsYou);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1100-decision-in-place.png") });
+  await page.setViewportSize({ width: 1600, height: 900 });
+
+  await no.click();
+  await expect.poll(() => answersByLine).toEqual([{ kind: "option", option: 1 }]);
+  await second.getByLabel("Your answer").fill("Keep it for a release, then remove it.");
+  await second.getByRole("button", { name: "Answer", exact: true }).click();
+  await expect
+    .poll(() => answersInOwnWords)
+    .toEqual([{ kind: "free-answer", text: "Keep it for a release, then remove it." }]);
+});
+
+test("a Decision with Attachments is accepted on its card, or answered in its details window", async ({
   page,
 }) => {
   const project = await addedProject(page, "Decision pictures", "DP");
@@ -890,35 +983,91 @@ test("a Decision's card shows the Attachments it names: pictures with the viewer
   const { id: linkId } = attachmentSchema.parse(await link.json());
   const notNamed = await attachedImage(page, task, "not-named.png", aPng([10, 10, 10]));
   const question = "Which look should the export take?";
-  await seedDecision(task, question, [...pictures.map(({ id }) => id), removed.id, linkId]);
+  const seeded = await seedDecision(task, question, [
+    ...pictures.map(({ id }) => id),
+    removed.id,
+    linkId,
+  ]);
   expect((await page.request.delete(`/api/attachments/${removed.id}`)).status()).toBe(204);
+  const answers = await catchAnswers(page, seeded);
 
+  // The card: its question, the recommended answer with Accept, and the way to its details.
   await page.goto(`/tasks/${task.id}`);
   const card = page
     .getByRole("region", { name: "Needs you" })
     .getByRole("region", { name: `Decision: ${question}` });
-  const attachments = card.getByRole("region", { name: "Attachments" });
-  await expect(attachments).toContainText("Attachments · 5");
-  await expect(attachments.getByRole("button", { name: /^View / })).toHaveCount(4);
-  await expect(attachments.getByRole("link", { name: "The brand guide" })).toBeVisible();
-  await expect(attachments.getByRole("button", { name: `View ${notNamed.name}` })).toHaveCount(0);
-  await expect(attachments.getByRole("button", { name: "View removed.png" })).toHaveCount(0);
-  // Beside the question on the page's full width, at the one screenshot size.
-  const size = await attachments.getByRole("button", { name: "View today.png" }).boundingBox();
+  const recommended = card.getByRole("region", { name: "Recommended answer" });
+  await expect(recommended).toContainText("Yes");
+  await expect(recommended).toContainText("It is simpler.");
+  await expect(card.getByRole("region", { name: "Details" })).toContainText(
+    "2 answers · 5 Attachments",
+  );
+  await expect(card.getByRole("button", { name: /^View / })).toHaveCount(0);
+  await expect(card.getByText("Both work.")).toHaveCount(0);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-decision-with-attachments.png"),
+  });
+  await recommended.getByRole("button", { name: "Accept" }).click();
+  await expect.poll(() => answers).toEqual([{ kind: "option", option: 0 }]);
+
+  // The window: the context, the Attachments it names, every answer with the recommended one
+  // picked, and your own words.
+  await card.getByRole("button", { name: "Open details" }).click();
+  const details = page.getByRole("dialog", { name: /^Decision/ });
+  await expect(details).toContainText(question);
+  await expect(details).toContainText("Both work.");
+  const answerChoices = details.getByRole("radiogroup", { name: "Answers" });
+  await expect(answerChoices.getByRole("radio", { name: /^Yes/ })).toBeChecked();
+  await expect(answerChoices.getByRole("radio", { name: "In your own words" })).not.toBeChecked();
+  await expect(details.getByRole("button", { name: /^View / })).toHaveCount(4);
+  await expect(details.getByRole("link", { name: "The brand guide" })).toBeVisible();
+  await expect(details.getByRole("button", { name: `View ${notNamed.name}` })).toHaveCount(0);
+  await expect(details.getByRole("button", { name: "View removed.png" })).toHaveCount(0);
+  const size = await details.getByRole("button", { name: "View today.png" }).boundingBox();
   expect(size).toMatchObject({ width: 160, height: 100 });
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-attachments.png") });
+  const frame = await details.boundingBox();
+  expect(frame?.width).toBe(1180);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-window.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-decision-window.png") });
+  await page.emulateMedia({ colorScheme: "light" });
 
-  await attachments.getByRole("button", { name: "View wider.png" }).click();
-  const viewer = page.getByRole("dialog");
-  await expect(viewer).toContainText("2 of 4");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-viewer.png") });
+  // The picture viewer opens over the window, and Esc closes the viewer alone.
+  await details.getByRole("button", { name: "View wider.png" }).click();
+  await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
+  await expect(page.getByText("2 of 4")).toBeVisible();
   await page.keyboard.press("ArrowRight");
-  await expect(viewer.getByRole("heading", { name: "taller.png" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "taller.png" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(viewer).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "taller.png" })).toHaveCount(0);
+  await expect(details).toBeVisible();
 
-  await card.getByRole("button", { name: "Yes", exact: true }).click();
-  await expect(page.getByRole("region", { name: `Decision: ${question}` })).toHaveCount(0);
+  // Picking another answer, then Answer in the bar.
+  await answerChoices.getByRole("radio", { name: "No", exact: true }).check();
+  await details.getByRole("button", { name: "Answer", exact: true }).click();
+  await expect
+    .poll(() => answers)
+    .toEqual([
+      { kind: "option", option: 0 },
+      { kind: "option", option: 1 },
+    ]);
+  await expect(details).toHaveCount(0);
+
+  // In your own words: Answer waits for them.
+  await card.getByRole("button", { name: "Open details" }).click();
+  await answerChoices.getByRole("radio", { name: "In your own words" }).check();
+  const answer = details.getByRole("button", { name: "Answer", exact: true });
+  await expect(answer).toBeDisabled();
+  await details.getByLabel("Your answer").fill("Take today's look, a little wider.");
+  await answer.click();
+  await expect
+    .poll(() => answers.at(-1))
+    .toEqual({
+      kind: "free-answer",
+      text: "Take today's look, a little wider.",
+    });
+  await expect(details).toHaveCount(0);
 });
 
 /** A moment of the morning a test's fixed Stage runs happened in. */
