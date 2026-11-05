@@ -111,18 +111,14 @@
 /* ---- the log */
 .message-list {
   --turn-gutter: var(--space-10);
-  --thread-column: 720px;
   --thread-edge: var(--space-5);
-
-  /* Centred at reading width in a large window, the edge's width in a narrow one. */
-  --thread-side: max(var(--thread-edge), calc((100% - var(--thread-column)) / 2));
 
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: var(--space-5);
   min-height: 0;
-  padding: var(--space-5) var(--thread-side) var(--space-6);
+  padding: var(--space-5) var(--thread-edge) var(--space-6);
   overflow: auto;
   background: var(--surface);
 }
@@ -142,7 +138,7 @@
   --thread-edge: var(--space-3);
 
   flex: none;
-  padding: var(--space-3) var(--thread-side);
+  padding: var(--space-3) var(--thread-edge);
   overflow: visible;
   background: none;
 }
@@ -231,10 +227,6 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   min-width: 0;
-}
-
-.turn .message-text {
-  max-width: 72ch;
 }
 
 .turn .message-text :not(pre) > code {

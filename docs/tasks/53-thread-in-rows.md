@@ -17,7 +17,7 @@ The user can always read a tool call's whole command, however narrow the window.
 - [x] Neighbouring tool calls fold to one line with their count and the latest call, and open to every call. Details hides them as today. Check: a web test.
 - [x] The Office's lines lose their dashed boxes: a day or a run sits on a hairline, the others are small centred notes. A Thread that spans days has a day line. Check: a web test of the day line, and `message-list.test.tsx`.
 - [x] A failure and an MCP server that didn't start show as a tinted strip; a refusal's reason wraps. Check: `message-list-kinds.test.tsx`.
-- [x] In a large window the Thread stays in a centred column at reading width. Check: a screenshot of the Stage history.
+- [x] In a large window the Thread takes the whole width of its block. Check: a screenshot of the Stage history at 1600px.
 - [ ] The app matches the Rows mock in Light and Dark, at 380, 620 and 900px, on the Task page, the Stage history, a person's chat and the drawer. Check: screenshots, fed the mock's messages.
 - [x] Spec 4, the UI rules and the click-through say what changed. Check: read each changed line against [What was settled](#what-was-settled).
 
@@ -39,6 +39,7 @@ With the user, 2026-11-05.
 
 - **Rows**, over Chat and Bubbles. The user's and the person's turns differ by their avatar and name only.
 - **The whole command** shows at any width, with no way for it to stay hidden.
+- **The whole width:** after step 4 the user dropped the centred column: a Thread fills its block however wide the window. Long text outside a Thread keeps its reading width.
 
 **Chosen while planning, for the user to review**
 
@@ -52,14 +53,15 @@ With the user, 2026-11-05.
 - [x] 2. Rows: turns with their avatar, the plain surface, the text and the spacing. Read: `message-list.tsx` (`Turn`, `TurnFrame`), `conversation.css` (`.turn`), `Avatar` in `packages/ui`.
 - [x] 3. Tool calls fold; the Office's lines, the day line, the strips and the centred column. Read: `message-groups.ts`, `message-list.tsx` (`MessageItem`, `ContextLine`), `apps/web/e2e/people.e2e.ts` near `.message-office`.
 - [x] 4. Close: the screenshots against the mock, spec 4, the UI rules, the click-through, and `npm run verify:linux`.
+- [x] 5. The whole width: the Thread's column and its text's 72ch go, in the app, the UI rules and the click-through. Read: `conversation.css` (`.message-list`, `.turn`).
 
 ## State
 
-Steps 1 to 4 are built; `npm run verify:linux` and closing are left. Two DoD boxes stay open on one question for the user (below).
+Steps 1 to 5 are built; `npm run verify:linux` and closing are left. Two DoD boxes stay open on one question for the user (below).
 
-A tool call keeps its whole text; `.message-summary` shows it with `pre-wrap`, scrolling past 320px. A Turn is a row: `TurnFrame` takes its `avatar`, `by`, `at` and `labelled`; `.turn` is a grid of `--turn-gutter` and the words, 14px, `.message-text` at 72ch, Turns `--space-5` apart, messages within one `--space-2`. `ToolCalls`: a lone call is a plain line, two or more are `ToolCallFold`. `.message-office` is a centred note, `.message-log-line` sits on a hairline (`withDayLines`), `.message-notice` is the strip. `--thread-side` centres a 720px column.
+A tool call keeps its whole text; `.message-summary` shows it with `pre-wrap`, scrolling past 320px. A Turn is a row: `TurnFrame` takes its `avatar`, `by`, `at` and `labelled`; `.turn` is a grid of `--turn-gutter` and the words, 14px, Turns `--space-5` apart, messages within one `--space-2`. `ToolCalls`: a lone call is a plain line, two or more are `ToolCallFold`. `.message-office` is a centred note, `.message-log-line` sits on a hairline (`withDayLines`), `.message-notice` is the strip. The Thread fills its block, inset by `--thread-edge`; since step 5 the mock's column is a chosen difference.
 
-Step 4 compared the running app, fed the mock's messages, with the mock: Light and Dark at 380, 620 and 900px on a person's chat, the Stage history and the drawer, and the Task page at 1100 and 1600px (at 900px and below it is the drawer), the Stage history at 1400px too. Sizes, colours, spacing and the column match on the chat and the Stage history. Fixed: code in a Turn, as `.turn .message-text` now draws it (`--neutral-subtle`, the block's border and 12px), which read darker than the plain surface in Dark.
+Step 4 compared the running app, fed the mock's messages, with the mock: Light and Dark at 380, 620 and 900px on a person's chat, the Stage history and the drawer, and the Task page at 1100 and 1600px (at 900px and below it is the drawer), the Stage history at 1400px too. Sizes, colours and spacing match on the chat and the Stage history. Fixed: code in a Turn, as `.turn .message-text` now draws it (`--neutral-subtle`, the block's border and 12px), which read darker than the plain surface in Dark.
 
 Chosen differences: a lone call has no fold; a Context line keeps the word "Brief"; the Brief's box stays at 320px (mock 240); 20px between Turns (mock 18), a 40px gutter (mock 38), strip padding 8 by 12px (mock 8 by 10); paragraphs in a Turn are `.markdown-text`'s 6px (mock 0.6em).
 
@@ -77,3 +79,4 @@ The click-through shows Turns as rows; it has no tool calls, times or Office run
 - 2026-11-05 · step 2: a turn is a row with its avatar, name and time, the user's avatar neutral; the Thread sits on the plain surface at 14px, turns further apart than messages; next, step 3, the fold and the Office's lines.
 - 2026-11-05 · step 3: neighbouring tool calls fold, The Office's lines lose their boxes, a Thread that spans days has day lines, failures are tinted strips, the Thread keeps a centred column and "is working" its avatar; next, step 4, the close.
 - 2026-11-05 · step 4: compared the running app with the Rows mock on the chat, the Stage history, the Task page and the drawer, fixed code in a Turn, and spec 4, the UI rules and the click-through say what changed; next, verify:linux and the user's answer on the Task page's chapters.
+- 2026-11-05 · step 5: the Thread fills its block at any width, its column and the text's 72ch gone, as the user asked; next, verify:linux and the user's answer on the Task page's chapters.
