@@ -47,6 +47,7 @@ import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
 import { StageThreads } from "./application/stage-threads.js";
+import { TaskConversations } from "./application/task-conversations.js";
 import { TaskTokens } from "./application/task-tokens.js";
 import { TaskThreadSetups } from "./application/task-thread-setups.js";
 import { ThreadContexts } from "./application/thread-contexts.js";
@@ -94,6 +95,7 @@ export class ConversationsModule {
         SessionMemory,
         SessionPlaces,
         ThreadContexts,
+        TaskConversations,
         ThreadRunner,
         InterruptedAnswers,
         DecisionService,

@@ -302,6 +302,7 @@ async function anAnsweredDecision(taskId: string, roleKey: string): Promise<void
         move: "fresh",
         reason: "new-thread",
         cacheWarm: false,
+        cacheWarmUntil: undefined,
         contextTokens: 0,
         briefTokens: 1,
         alternatives: [],
@@ -647,7 +648,7 @@ describe("StageThreads", () => {
     expect((await threadOf(stageThread.threadId)).state).toBe("waiting");
   });
 
-  it("tells each turn's tokens, which count toward all of the Task's", async () => {
+  it("tells each turn's tokens, which count toward the Task's budgets", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const request = aStage({ roleKey: aPerson("Ada") });
     await anAnsweredDecision(request.taskId, aPerson("Jan"));
@@ -655,9 +656,8 @@ describe("StageThreads", () => {
     const { turn } = await aStageRun(request);
 
     expect(turn.tokens).toEqual(USAGE);
-    // Every Thread on the Task counts, without cache reads; the planning Thread here never had a
-    // turn, so adds none.
-    expect(await app.get(TaskTokens).tokensSoFar(request.taskId)).toBe(3 + 120 + 26_000);
+    // Counted without cache reads.
+    expect(await app.get(TaskTokens).budgetTokensSoFar(request.taskId)).toBe(3 + 120 + 26_000);
     // The Stage Threads alone, by the engine id their sessions spend on.
     expect(await app.get(TaskTokens).stageTokensSoFar(request.taskId)).toEqual([
       { engineId: "claude-code", tokens: 3 + 120 + 26_000 },

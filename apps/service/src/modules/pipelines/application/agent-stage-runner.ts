@@ -9,7 +9,7 @@ import {
   agentStageWork,
   type AnsweredQuestion,
   type CarriedRound,
-  type EarlierResult,
+  earlierResults,
   type HeldRun,
 } from "../domain/agent-stage-brief.js";
 import { allowedCommands, type AllowedCommands } from "../domain/allowed-commands.js";
@@ -377,7 +377,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     run,
     earlierRuns,
   }: StageWork<"agent">): Promise<StageOutcome | undefined> {
-    const used = await this.usage.tokensSoFar(run.taskId);
+    const used = await this.usage.budgetTokensSoFar(run.taskId);
     const reached = budgetReached(stage, earlierRuns, used);
     return reached && budgetOutcome(stage.name, reached);
   }
@@ -501,17 +501,6 @@ function stageOf(stages: readonly Stage[], key: string): Stage | undefined {
  * The ended runs before this one, with their Stages' names, in the order they ran. A Gate's are
  * left out: it did no work, and feedback it sent back has its own section.
  */
-function earlierResults(
-  stages: readonly Stage[],
-  earlierRuns: readonly StageRun[],
-): EarlierResult[] {
-  return earlierRuns.flatMap(({ stageKey, outcome }) => {
-    const stage = stageOf(stages, stageKey);
-    if (!stage || stage.kind === "gate" || !outcome) return [];
-    return [{ stageName: stage.name, kind: stage.kind, outcome }];
-  });
-}
-
 /**
  * The session the Stage asks of its Stage Thread: one that runs again in its own Thread, after its
  * Agent's question was answered or its run was held, continues there as the Context policy decides;

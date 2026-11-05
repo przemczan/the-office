@@ -66,10 +66,13 @@ beforeAll(async () => {
         instructions: "You shape the Initiative.",
         officeTools: [],
         record: recordOf(initiativeId),
+        asking: false,
         sessionRefusal: undefined,
       }),
   });
   app.get(TaskThreadSetups).provide({
+    planner: "planner",
+    readyForPersonsThread: () => Promise.resolve(undefined),
     setUp: ({ taskId }: TaskThreadRequest) =>
       Promise.resolve({
         projectId: "admin-panel",
@@ -79,6 +82,7 @@ beforeAll(async () => {
         instructions: "You plan the Task.",
         officeTools: [],
         brief: recordOf(taskId),
+        asking: false,
         sessionRefusal: undefined,
       }),
   });

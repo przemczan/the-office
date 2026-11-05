@@ -14,6 +14,7 @@ function aThread(fields: Partial<Thread>): Thread {
       move: "fresh",
       reason: "new-thread",
       cacheWarm: false,
+      cacheWarmUntil: null,
       contextTokens: 0,
       briefTokens: 3_000,
       alternatives: [],

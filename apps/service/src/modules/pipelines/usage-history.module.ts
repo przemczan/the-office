@@ -1,17 +1,25 @@
 import { Module } from "@nestjs/common";
 import { EngineModule } from "../engine/index.js";
 import { PostgresStageRunRepository } from "./adapters/postgres/postgres-stage-run-repository.js";
+import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-stages-repository.js";
+import { StageResultWords } from "./application/stage-result-words.js";
 import { UsageHistory } from "./application/usage-history.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
+import { TaskStagesRepository } from "./ports/task-stages-repository.js";
 
 /**
- * The Stage runs' history alone, for Work's Usage estimates: the rest of Pipelines calls Work, so
- * Work must not import PipelinesModule. PipelinesModule writes its runs through the repository
- * exported here.
+ * The Stage runs' history alone, for Work's Usage estimates and the Briefs of people's Threads on
+ * Tasks: the rest of Pipelines calls Work, so Work must not import PipelinesModule. PipelinesModule
+ * writes its runs and each Task's Stages through the repositories exported here.
  */
 @Module({
   imports: [EngineModule],
-  providers: [{ provide: StageRunRepository, useClass: PostgresStageRunRepository }, UsageHistory],
-  exports: [UsageHistory, StageRunRepository],
+  providers: [
+    { provide: StageRunRepository, useClass: PostgresStageRunRepository },
+    { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },
+    StageResultWords,
+    UsageHistory,
+  ],
+  exports: [StageResultWords, StageRunRepository, TaskStagesRepository, UsageHistory],
 })
 export class UsageHistoryModule {}

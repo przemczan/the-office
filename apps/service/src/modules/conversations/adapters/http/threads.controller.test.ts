@@ -9,6 +9,7 @@ import {
   messageListSchema,
   proposalSchema,
   sizeThresholdSchema,
+  taskConversationSchema,
   threadListSchema,
   threadRefusalSchema,
   threadSchema,
@@ -37,6 +38,7 @@ import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
 import { InitiativeThreadSetups } from "../../application/initiative-thread-setups.js";
+import { TaskConversations } from "../../application/task-conversations.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { AllowChanges } from "../../application/allow-changes.js";
@@ -140,10 +142,13 @@ beforeEach(async () => {
       ProposalAppliers,
       ProposalService,
       LinkCards,
+      TaskConversations,
       ThreadWebEvents,
     ],
   }));
   app.get(TaskThreadSetups).provide({
+    planner: "planner",
+    readyForPersonsThread: () => Promise.resolve(undefined),
     setUp: ({ taskId }) =>
       Promise.resolve({
         folder: join(officeData, "worktrees", taskId),
@@ -153,6 +158,7 @@ beforeEach(async () => {
         instructions: "On this Task you plan.",
         officeTools: [],
         brief: "The Task's record.",
+        asking: false,
         sessionRefusal: undefined,
       }),
   });
@@ -279,6 +285,65 @@ describe("a Task's conversation", () => {
       older.id,
     ]);
     expect(threadListSchema.parse(await elsewhere.json())).toEqual([]);
+  });
+
+  it("has a tab for the Planner, each person of a Stage and each Consultant who answered", async () => {
+    const taskId = randomUUID();
+    const home = { kind: "task", taskId } as const;
+    const repository = app.get(ThreadRepository);
+    const oscar = aPerson("Oscar", false);
+    const stageThread = aThread({ id: randomUUID(), home, roleKey: oscar, stageThread: true });
+    await repository.add({ ...stageThread, state: "answering" });
+
+    const tabs = await get(`/tasks/${taskId}/conversation`);
+
+    expect(taskConversationSchema.parse(await tabs.json()).tabs).toEqual([
+      { roleKey: "planner", threadId: null, stageRunning: false, consultations: [] },
+      { roleKey: oscar, threadId: null, stageRunning: true, consultations: [] },
+    ]);
+  });
+
+  it("opens a person's one Thread on the Task, briefed as a new session and never a Stage's", async () => {
+    const taskId = randomUUID();
+    const home = { kind: "task", taskId } as const;
+    const oscar = aPerson("Oscar", false);
+    await app
+      .get(ThreadRepository)
+      .add(aThread({ id: randomUUID(), home, roleKey: oscar, stageThread: true }));
+    const path = `/tasks/${taskId}/conversation/${oscar}/thread`;
+
+    const [opened, again] = await Promise.all([send("POST", path), send("POST", path)]);
+
+    expect(opened.status).toBe(201);
+    const thread = threadSchema.parse(await opened.json());
+    expect(thread).toMatchObject({
+      roleKey: oscar,
+      stageThread: false,
+      consultation: null,
+      title: "Asking Oscar",
+      context: { move: "fresh", reason: "new-thread", cacheWarm: false, cacheWarmUntil: null },
+    });
+    expect(threadSchema.parse(await again.json()).id).toBe(thread.id);
+    const tabs = await get(`/tasks/${taskId}/conversation`);
+    expect(taskConversationSchema.parse(await tabs.json()).tabs[1]?.threadId).toBe(thread.id);
+  });
+
+  it("says when a Thread's warm cache goes cold, for the To line to count down", async () => {
+    const { thread } = await withSession(() => ({ kind: "task", taskId: randomUUID() }));
+
+    const read = threadSchema.parse(await (await get(`/threads/${thread.id}`)).json());
+
+    expect(read.context.cacheWarm).toBe(true);
+    expect(Date.parse(read.context.cacheWarmUntil ?? "")).toBeGreaterThan(Date.now());
+  });
+
+  it("refuses a Thread for someone with no tab on the Task", async () => {
+    const opened = await send(
+      "POST",
+      `/tasks/${randomUUID()}/conversation/${aPerson("Oscar", false)}/thread`,
+    );
+
+    expect(opened.status).toBe(422);
   });
 
   it("lists a person's Threads on every Task, for their Work tab", async () => {

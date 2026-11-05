@@ -8,8 +8,10 @@ import {
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
   type Thread as ThreadResponse,
+  type TaskConversation,
 } from "@the-office/contracts";
 import type { ThreadReading } from "../../application/thread-contexts.js";
+import type { ConversationTab } from "../../domain/conversation-tabs.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
@@ -31,6 +33,7 @@ export function toThreadResponse(
       move: context.move,
       reason: context.reason,
       cacheWarm: context.cacheWarm,
+      cacheWarmUntil: context.cacheWarmUntil?.toISOString() ?? null,
       contextTokens: context.contextTokens,
       briefTokens: context.briefTokens ?? null,
       alternatives: context.alternatives.map(({ override, tokens }) => ({ override, tokens })),
@@ -60,6 +63,20 @@ export interface CardRecords {
  * answer's line also the answer it gave, which a Decision opened again no longer holds. A
  * Proposal's card shows the Proposal as it is now, and a Link card whether its person was let go.
  */
+export function toTaskConversationResponse(tabs: readonly ConversationTab[]): TaskConversation {
+  return {
+    tabs: tabs.map(({ roleKey, threadId, stageRunning, consultations }) => ({
+      roleKey,
+      threadId: threadId ?? null,
+      stageRunning,
+      consultations: consultations.map(({ answeredAt, ...consultation }) => ({
+        ...consultation,
+        answeredAt: answeredAt.toISOString(),
+      })),
+    })),
+  };
+}
+
 export function toMessageResponse(
   { threadId: _threadId, at, ...message }: Message,
   { decisions, proposals, letGo }: CardRecords,

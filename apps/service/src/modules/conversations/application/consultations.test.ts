@@ -194,6 +194,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     });
   }
   app.get(TaskThreadSetups).provide({
+    planner: "planner",
+    readyForPersonsThread: () => Promise.resolve(undefined),
     setUp: ({ taskId }) =>
       Promise.resolve({
         folder: join(officeData, "worktrees", taskId),
@@ -203,6 +205,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         instructions: "On this Task you build.",
         officeTools: ["read_task", CONSULT_TOOL],
         brief: `You work on the Task ${taskId}.`,
+        asking: false,
         sessionRefusal: undefined,
       }),
   });

@@ -44,6 +44,7 @@ import type { ContextDecision } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
+import { aThread } from "../domain/thread.fixtures.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -57,6 +58,7 @@ import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
+import { TaskTokens } from "./task-tokens.js";
 import { ThreadContexts } from "./thread-contexts.js";
 import { AllowChanges } from "./allow-changes.js";
 import { StageThreads } from "./stage-threads.js";
@@ -103,6 +105,8 @@ const NO_SESSION_REASON = "This Task is Done, so its conversation can't go on.";
 const PLAN_IT = "Let's plan the export.";
 /** Tasks whose setup says no session can work on them (Done: Publish removed the worktree). */
 const tasksWithoutSessions = new Set<string>();
+/** Tasks whose Threads are people's, only read, as the Work module sets them up. */
+const tasksAsked = new Set<string>();
 /** The records of Tasks and Ideas as the Work module words them, by id. */
 const workRecords = new Map<string, string>();
 
@@ -265,9 +269,11 @@ async function startOn(
   }
   // As the Work module sets up its Tasks' Threads.
   app.get(TaskThreadSetups).provide({
-    setUp: ({ taskId }) =>
+    planner: "planner",
+    readyForPersonsThread: () => Promise.resolve(undefined),
+    setUp: ({ taskId, firstSession }) =>
       Promise.resolve({
-        ...taskSetup(taskId),
+        ...(tasksAsked.has(taskId) ? askingSetup(taskId, firstSession) : taskSetup(taskId)),
         sessionRefusal: tasksWithoutSessions.has(taskId) ? NO_SESSION_REASON : undefined,
       }),
   });
@@ -278,6 +284,7 @@ async function startOn(
         instructions: "On this Initiative you shape.",
         officeTools: ["read_task"],
         record: `You are shaping the Initiative ${initiativeId}.`,
+        asking: false,
         sessionRefusal: undefined,
       }),
   });
@@ -305,7 +312,19 @@ function taskSetup(taskId: string): TaskThreadSetup {
     instructions: "On this Task you plan.",
     officeTools: ["read_task", OPEN_DECISION_TOOL],
     brief: `You are planning the Task ${taskId}.`,
+    asking: false,
     sessionRefusal: undefined,
+  };
+}
+
+/** What a person's Thread on the Task works with in these tests. */
+function askingSetup(taskId: string, firstSession: boolean): TaskThreadSetup {
+  return {
+    ...taskSetup(taskId),
+    instructions: "On this Task you are asked.",
+    officeTools: ["read_task"],
+    brief: firstSession ? `The record of the Task ${taskId}.` : undefined,
+    asking: true,
   };
 }
 
@@ -1129,6 +1148,87 @@ describe("a Thread on an Initiative", () => {
     ]);
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
     await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBe(initiativeId);
+  });
+});
+
+/** A person's own Thread on a Task of its own, waiting for the user's first message. */
+async function aPersonsThread(): Promise<Thread> {
+  const taskId = randomUUID();
+  tasksAsked.add(taskId);
+  return threads.openOnTask({ taskId, roleKey, title: "Asking Ada" });
+}
+
+describe("a person's Thread on a Task", () => {
+  it("starts its own session from the record, only reading, with nothing that waits", async () => {
+    await startWith(started(...aTurn("brief", "It reads the session cookie.")));
+    const thread = await aPersonsThread();
+
+    await runner.send(thread.id, "Why the cookie?");
+    await answered(thread.id, 3);
+
+    const [session] = engine.sessions;
+    const brief = session?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toContain("The record of the Task");
+    expect(session?.options).toMatchObject({
+      profile: { edit: false, run: { kind: "read-only-git" } },
+    });
+    expect(session?.options.instructions).toMatch(/On this Task you are asked\.$/);
+    expect(session?.options.officeTools.map(({ name }) => name)).toEqual(["read_task"]);
+  });
+
+  it("briefs a later fresh session from the Thread alone, never the record again", async () => {
+    await startWith(
+      started(...aTurn("brief", "It reads the session cookie.")),
+      started(...aTurn("brief", "Still the cookie.")),
+    );
+    const thread = await aPersonsThread();
+    await runner.send(thread.id, "Why the cookie?");
+    await answered(thread.id, 3);
+    await threads.chooseOverride(thread.id, "start-fresh");
+
+    await runner.send(thread.id, "And now?");
+    await answered(thread.id, 6);
+
+    const brief = engine.sessions[1]?.received[0];
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    expect(text).toContain("You are continuing your Thread on a Task");
+    expect(text).toContain("Why the cookie?");
+    expect(text).not.toContain("The record of the Task");
+  });
+
+  it("answers beside the person's running Stage, and its tokens stay out of the budget", async () => {
+    await startWith(started(...aTurn("brief", "It reads the session cookie.")));
+    const thread = await aPersonsThread();
+    const home = thread.home;
+    await repository.add(
+      aThread({ id: randomUUID(), home, roleKey, stageThread: true, state: "answering" }),
+    );
+
+    await runner.send(thread.id, "Why the cookie?");
+    await answered(thread.id, 3);
+
+    expect((await threads.read(thread.id)).tokens).not.toEqual(NO_TOKENS);
+    const taskId = home.kind === "task" ? home.taskId : "";
+    await expect(new TaskTokens(repository).budgetTokensSoFar(taskId)).resolves.toBe(0);
+  });
+
+  it("swaps the Planner's running session's tools once the Task is Ready", async () => {
+    await startWith(started(...aTurn("brief", "Planned.")), [
+      { step: "resume" },
+      sent("m-2"),
+      ...aTurn("m-2", "It was planned so."),
+    ]);
+    const opened = await planningThread();
+    await runner.send(opened.id, PLAN_IT);
+    await answered(opened.id, 3);
+    tasksAsked.add(opened.home.kind === "task" ? opened.home.taskId : "");
+
+    await runner.send(opened.id, "Why so?");
+    await answered(opened.id, 5);
+
+    const [first, resumed] = engine.sessions;
+    expect(resumed?.id).toBe(first?.id);
+    expect(resumed?.options.officeTools.map(({ name }) => name)).toEqual(["read_task"]);
   });
 });
 

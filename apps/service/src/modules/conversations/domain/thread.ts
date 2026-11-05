@@ -32,6 +32,14 @@ export function addTokens(total: TokenTotals, turn: TokenTotals): TokenTotals {
   };
 }
 
+/**
+ * A person's own Thread on a Task, for asking them about it (spec §2.4): neither a Stage's nor a
+ * Consultation's. The Planner's is the Planning Thread.
+ */
+export function isPersonsThread({ home, stageThread, consultation }: Thread): boolean {
+  return home.kind === "task" && !stageThread && !consultation;
+}
+
 /** The Thread's tokens as the user sees them: its ended turns and the running turn's so far. */
 export function tokensSoFar({ tokens, runningTurnTokens }: Thread): TokenTotals {
   return addTokens(tokens, runningTurnTokens);

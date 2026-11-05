@@ -5,6 +5,7 @@ import type { Task } from "./task.js";
 import { descriptionSection } from "./task-description.js";
 
 /** The Role that plans Tasks, by the key a hired Planner keeps (spec §2.2). */
+
 export const PLANNER = "planner";
 
 export const PLANNING_THREAD_TITLE = "Planning";
@@ -73,15 +74,22 @@ export function planningBrief({
     attachmentsSection(attachments),
     `## The Project's commands\n\n${commandLines(project.commands).join("\n")}`,
     pipelinesSection(task, pipelines),
+    ...planSections(task),
+  ]
+    .filter((section) => section !== undefined)
+    .join("\n\n");
+}
+
+/** The Plan and the Definition of Done once written, each marked proposed or confirmed. */
+export function planSections(task: Task): readonly (string | undefined)[] {
+  return [
     task.plan === ""
       ? undefined
       : `## The Plan, ${confirmationWords(task.planConfirmed)}\n\n${task.plan}${filesToChangeLines(task)}`,
     task.definitionOfDone.length === 0
       ? undefined
       : `## The Definition of Done, ${confirmationWords(task.definitionOfDoneConfirmed)}\n\n${task.definitionOfDone.map((statement) => `- ${statement}`).join("\n")}`,
-  ]
-    .filter((section) => section !== undefined)
-    .join("\n\n");
+  ];
 }
 
 function filesToChangeLines({ filesToChange }: Task): string {
@@ -89,7 +97,7 @@ function filesToChangeLines({ filesToChange }: Task): string {
   return `\n\nFiles to change:\n${filesToChange.map((path) => `- ${path}`).join("\n")}`;
 }
 
-function attachmentsSection(attachments: readonly Attachment[]): string {
+export function attachmentsSection(attachments: readonly Attachment[]): string {
   const lines = attachmentLines(attachments).join("\n");
   if (attachments.length === 0) return `## Attachments\n\n${lines}`;
   return `## Attachments\n\nRead one with read_attachment, by its id.\n\n${lines}`;

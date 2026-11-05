@@ -46,6 +46,7 @@ import {
   TaskTokensForTests,
   ModelPricesForTests,
   ProjectWorktreesForTests,
+  StageResultsForTests,
   UsageHistoryForTests,
 } from "../ports/work-ports.fixtures.js";
 import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
@@ -144,6 +145,7 @@ const STAND_INS = [
   KnownEngineCascadeForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,
+  StageResultsForTests,
   UsageHistoryForTests,
   ModelPricesForTests,
   AccountWindowsForTests,
@@ -212,6 +214,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         taskDecisions: DecisionService,
         proposalDrafts: ProposalService,
         usageHistory: UsageHistoryForTests,
+        stageResults: StageResultsForTests,
         modelPrices: ModelPricesForTests,
         accountWindows: AccountWindowsForTests,
         accountWindowRatios: AccountWindowRatiosForTests,

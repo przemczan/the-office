@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { isPersonsThread, type Thread } from "../domain/thread.js";
 
 /** A Thread on a Task, as the module keeping Tasks sets its session up. */
 export interface TaskThreadRequest {
@@ -6,6 +7,21 @@ export interface TaskThreadRequest {
   readonly taskId: string;
   /** Who answers in it, by the key of the Role they fill. */
   readonly roleKey: string;
+  /** A person's own Thread on the Task, not a Stage's or a Consultation's (spec §2.4). */
+  readonly personsThread: boolean;
+  /** No session ran in the Thread yet. */
+  readonly firstSession: boolean;
+}
+
+/** What the module keeping Tasks is asked about the Thread on `taskId`. */
+export function taskThreadRequest(thread: Thread, taskId: string): TaskThreadRequest {
+  return {
+    threadId: thread.id,
+    taskId,
+    roleKey: thread.roleKey,
+    personsThread: isPersonsThread(thread),
+    firstSession: thread.session === undefined,
+  };
 }
 
 /** What a session of a Thread on a Task works with, from the Task's record. */
@@ -24,8 +40,16 @@ export interface TaskThreadSetup {
    */
   readonly instructions: string;
   readonly officeTools: readonly string[];
-  /** The Task's record as a new session picks it up (spec §2.5): never a transcript. */
-  readonly brief: string;
+  /**
+   * The Task's record as a new session picks it up (spec §2.5): never a transcript. Undefined for a
+   * later session of a person's Thread, which the Context policy briefs from the Thread alone.
+   */
+  readonly brief: string | undefined;
+  /**
+   * The person is only asked about the Task (spec §2.4): their session opens nothing that waits, so
+   * it gets no tool a held call would need a Decision for.
+   */
+  readonly asking: boolean;
   /**
    * Why no session can work on the Task any more, such as once its worktree is removed, in the
    * UI's words. The Thread stays readable; a session is refused.
@@ -35,7 +59,14 @@ export interface TaskThreadSetup {
 
 /** Sets up the sessions of Threads on Tasks. */
 export interface TaskThreadSource {
+  /** The Role that plans Tasks, whose tab comes first, by its key. */
+  readonly planner: string;
   setUp(thread: TaskThreadRequest): Promise<TaskThreadSetup>;
+  /**
+   * Readies the Task for a person's Thread to open on it, its worktree above all; why it can't
+   * have one, in the UI's words.
+   */
+  readyForPersonsThread(taskId: string): Promise<string | undefined>;
 }
 
 /**
@@ -54,7 +85,19 @@ export class TaskThreadSetups {
 
   /** Asked as each session starts, after every module has registered. */
   async of(thread: TaskThreadRequest): Promise<TaskThreadSetup> {
+    return this.registered().setUp(thread);
+  }
+
+  planner(): string {
+    return this.registered().planner;
+  }
+
+  readyForPersonsThread(taskId: string): Promise<string | undefined> {
+    return this.registered().readyForPersonsThread(taskId);
+  }
+
+  private registered(): TaskThreadSource {
     if (!this.source) throw new Error("No module sets up the sessions of Threads on Tasks.");
-    return this.source.setUp(thread);
+    return this.source;
   }
 }

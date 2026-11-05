@@ -94,6 +94,7 @@ describe("a Thread on a Task", () => {
       move: "fresh",
       reason: "new-thread",
       cacheWarm: false,
+      cacheWarmUntil: undefined,
       contextTokens: 0,
       briefTokens: 900,
       alternatives: [],

@@ -18,6 +18,7 @@ function aStageThread(id: string, tokens: TokenTotals): Thread {
       move: "fresh",
       reason: "new-thread",
       cacheWarm: false,
+      cacheWarmUntil: null,
       contextTokens: 0,
       briefTokens: null,
       alternatives: [],

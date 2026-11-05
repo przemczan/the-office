@@ -28,6 +28,7 @@ import {
   SessionTasksForTests,
   TaskDecisionsForTests,
   TaskThreadsForTests,
+  StageResultsForTests,
   UsageHistoryForTests,
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
@@ -76,6 +77,7 @@ export async function startWorkApplication(
         taskDecisions: TaskDecisionsForTests,
         proposalDrafts: ProposalDraftsForTests,
         usageHistory: UsageHistoryForTests,
+        stageResults: StageResultsForTests,
         modelPrices: ModelPricesForTests,
         accountWindows: AccountWindowsForTests,
         accountWindowRatios: AccountWindowRatiosForTests,

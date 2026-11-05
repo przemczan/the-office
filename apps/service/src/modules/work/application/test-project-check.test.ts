@@ -42,6 +42,7 @@ import {
   PipelineLibraryModule,
   UsageHistory,
   UsageHistoryModule,
+  StageResultWords,
 } from "../../pipelines/index.js";
 import {
   BaseCheckouts,
@@ -138,6 +139,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 taskDecisions: DecisionService,
                 proposalDrafts: ProposalService,
                 usageHistory: UsageHistory,
+                stageResults: StageResultWords,
                 modelPrices: ModelPrices,
                 accountWindows: UsageWindowState,
                 accountWindowRatios: UsageWindowSamples,

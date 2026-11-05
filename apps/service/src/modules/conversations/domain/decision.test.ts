@@ -48,6 +48,7 @@ const WARM: ContextDecision = {
   move: "resume",
   reason: "cache-warm",
   cacheWarm: true,
+  cacheWarmUntil: undefined,
   contextTokens: 34_000,
   briefTokens: undefined,
   alternatives: [],

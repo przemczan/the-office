@@ -1,0 +1,66 @@
+import { Injectable } from "@nestjs/common";
+import { RoleCards } from "../../people/index.js";
+import { conversationTabs, type ConversationTab } from "../domain/conversation-tabs.js";
+import type { Decision } from "../domain/decision.js";
+import type { Thread } from "../domain/thread.js";
+import { ThreadNotFound } from "../domain/thread-not-found.js";
+import { ThreadRefused } from "../domain/thread-refused.js";
+import { ThreadRepository } from "../ports/thread-repository.js";
+import { TaskThreadSetups } from "./task-thread-setups.js";
+import { ThreadService } from "./thread-service.js";
+
+/** A Task's conversation: one tab per person, each with their one Thread on it (spec §2.4). */
+@Injectable()
+export class TaskConversations {
+  /** Threads being opened, so two calls for one tab open one Thread. */
+  private readonly opening = new Map<string, Promise<Thread>>();
+
+  constructor(
+    private readonly repository: ThreadRepository,
+    private readonly threads: ThreadService,
+    private readonly roleCards: RoleCards,
+    private readonly taskThreads: TaskThreadSetups,
+  ) {}
+
+  async tabs(taskId: string): Promise<readonly ConversationTab[]> {
+    const threads = await this.repository.listIn({ kind: "task", taskId });
+    const decisions = await this.consultedDecisions(threads);
+    return conversationTabs(this.taskThreads.planner(), threads, decisions);
+  }
+
+  /**
+   * The person's Thread on the Task, opened the first time: refused for someone with no tab, and
+   * by the module keeping Tasks once the Task has ended or before it can have one.
+   */
+  async openThread(taskId: string, roleKey: string): Promise<Thread> {
+    const key = `${taskId}/${roleKey}`;
+    const running = this.opening.get(key);
+    if (running) return running;
+    const opened = this.findOrOpen(taskId, roleKey).finally(() => this.opening.delete(key));
+    this.opening.set(key, opened);
+    return opened;
+  }
+
+  private async findOrOpen(taskId: string, roleKey: string): Promise<Thread> {
+    const tab = (await this.tabs(taskId)).find((candidate) => candidate.roleKey === roleKey);
+    if (!tab) throw new ThreadRefused(["This person has no tab on this Task."]);
+    if (tab.threadId !== undefined) return this.existing(tab.threadId);
+    const refusal = await this.taskThreads.readyForPersonsThread(taskId);
+    if (refusal !== undefined) throw new ThreadRefused([refusal]);
+    const person = await this.roleCards.find(roleKey);
+    if (!person) throw new ThreadRefused(["Nobody fills this Thread's Role any more."]);
+    return this.threads.openOnTask({ taskId, roleKey, title: `Asking ${person.card.name}` });
+  }
+
+  private async existing(threadId: string): Promise<Thread> {
+    const thread = await this.repository.find(threadId);
+    if (!thread) throw new ThreadNotFound(threadId);
+    return thread;
+  }
+
+  private async consultedDecisions(threads: readonly Thread[]): Promise<readonly Decision[]> {
+    const ids = threads.flatMap(({ consultation }) => consultation?.decisionId ?? []);
+    const decisions = await Promise.all(ids.map((id) => this.repository.decision(id)));
+    return decisions.filter((decision) => decision !== undefined);
+  }
+}

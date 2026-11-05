@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   freshChatThreadBrief,
+  freshPersonsThreadBrief,
   initiativeThreadBrief,
   newChatThreadBrief,
   taskThreadBrief,
@@ -11,7 +12,7 @@ import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { InitiativeThreadSetups, type InitiativeThreadSetup } from "./initiative-thread-setups.js";
 import { SessionMemory } from "./session-memory.js";
-import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
+import { taskThreadRequest, TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 
 /** Assembles each new session's Brief from the record, with no model call (spec §2.5). */
 @Injectable()
@@ -33,11 +34,7 @@ export class Briefs {
       case "task":
         return this.forTaskThread(
           thread,
-          await this.taskThreads.of({
-            threadId: thread.id,
-            taskId: home.taskId,
-            roleKey: thread.roleKey,
-          }),
+          await this.taskThreads.of(taskThreadRequest(thread, home.taskId)),
         );
       case "initiative":
         return this.forInitiativeThread(
@@ -53,19 +50,25 @@ export class Briefs {
 
   /**
    * As `forThread`, from the setup the session is about to start with: the Task's record with the
-   * Decisions answered on the Task and the one the Thread waits on.
+   * Decisions answered on the Task and the one the Thread waits on. A later session of a person's
+   * Thread has no record: its Brief is the Context policy's, from the Thread's own log.
    */
   async forTaskThread(thread: Thread, setup: TaskThreadSetup): Promise<Brief> {
     if (thread.home.kind !== "task") throw new Error(`Thread ${thread.id} is not on a Task.`);
+    const memory = await this.memory.forBrief(thread.roleKey, {
+      kind: "project",
+      projectId: setup.projectId,
+    });
+    if (setup.brief === undefined) {
+      const log = await this.repository.messages(thread.id);
+      return freshPersonsThreadBrief({ title: thread.title, log, memory });
+    }
     return taskThreadBrief({
       record: setup.brief,
       continuing: thread.session !== undefined,
       answered: await this.repository.answeredOn(thread.home.taskId),
       open: thread.openDecision,
-      memory: await this.memory.forBrief(thread.roleKey, {
-        kind: "project",
-        projectId: setup.projectId,
-      }),
+      memory,
     });
   }
 

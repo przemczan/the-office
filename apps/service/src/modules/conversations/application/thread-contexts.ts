@@ -6,7 +6,7 @@ import type { Thread } from "../domain/thread.js";
 import { AllowChanges } from "./allow-changes.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
-import { TaskThreadSetups } from "./task-thread-setups.js";
+import { taskThreadRequest, TaskThreadSetups } from "./task-thread-setups.js";
 
 /** The Brief of a Thread's next session, and the Project the engine cascade is asked in. */
 interface ThreadBrief {
@@ -78,11 +78,7 @@ export class ThreadContexts {
     if (home.kind !== "task") {
       return { brief: await this.briefs.forThread(thread), projectId: undefined };
     }
-    const setup = await this.taskThreads.of({
-      threadId: thread.id,
-      taskId: home.taskId,
-      roleKey: thread.roleKey,
-    });
+    const setup = await this.taskThreads.of(taskThreadRequest(thread, home.taskId));
     return { brief: await this.briefs.forTaskThread(thread, setup), projectId: setup.projectId };
   }
 }

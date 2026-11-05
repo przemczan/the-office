@@ -30,6 +30,7 @@ import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { NewProjects, type AddedProject } from "./new-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
+import { StageResults, type TaskStageResults } from "./stage-results.js";
 import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
 import { SessionPeople } from "./session-people.js";
 import { SessionInitiatives } from "./session-initiatives.js";
@@ -97,6 +98,10 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
   failure: Error | undefined;
   /** Where every Project's worktrees are; a test sets a real folder to put files in them. */
   folder = "/worktrees";
+  /** What each Task's commits changed, as a test sets it. */
+  readonly changes = new Map<string, string>();
+  /** Set to make reading the changes fail with it, as with no worktree on disk. */
+  changesFailure: Error | undefined;
 
   async open(projectId: string, taskId: string): Promise<TaskWorktree> {
     if (this.failure) throw this.failure;
@@ -111,6 +116,21 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
       environment: { PROJECT: projectId },
       screenshotsFolder: ".office/screenshots",
     };
+  }
+
+  async changesSoFar(_projectId: string, taskId: string): Promise<string | undefined> {
+    if (this.changesFailure) throw this.changesFailure;
+    return this.changes.get(taskId);
+  }
+}
+
+/** Each Task's Stage results, as a test sets them; none for any other Task. */
+@Injectable()
+export class StageResultsForTests extends StageResults {
+  readonly results = new Map<string, TaskStageResults>();
+
+  async of(taskId: string, roleKey: string): Promise<TaskStageResults> {
+    return this.results.get(`${taskId}/${roleKey}`) ?? { lines: [], handoverNotes: [] };
   }
 }
 
@@ -403,6 +423,7 @@ const PORTS = [
   KnownProjectsForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,
+  StageResultsForTests,
   KnownPeopleForTests,
   KnownEngineCascadeForTests,
   SessionPeopleForTests,

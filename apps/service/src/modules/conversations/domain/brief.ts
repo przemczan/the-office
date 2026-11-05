@@ -140,6 +140,31 @@ export function freshChatThreadBrief({
   ]);
 }
 
+/**
+ * A person's Thread on a Task's Brief when it continues in a fresh session (spec §2.5): as a chat's,
+ * from the Thread alone. The record was the first session's, and the session reads the Task's
+ * worktree, so no Project is listed.
+ */
+export function freshPersonsThreadBrief({
+  title,
+  log,
+  memory,
+}: {
+  readonly title: string | undefined;
+  /** The Thread's log so far, oldest first. */
+  readonly log: readonly Message[];
+  readonly memory: BriefMemory;
+}): Brief {
+  const note = log.findLast((message) => message.kind === "handover-note");
+  return briefOf([
+    "You are continuing your Thread on a Task with the user, in a fresh session: the earlier session's context is gone, and this Brief is what you pick up from. You read the Task's worktree and change nothing in it.",
+    title === undefined ? undefined : `## The Thread\n\n${title}`,
+    note && `## Your Handover note\n\n${note.text}`,
+    exchangesSection(log),
+    memorySection(memory),
+  ]);
+}
+
 /** What a Brief for a Thread on a Task is assembled from. */
 export interface TaskThreadRecord {
   /** The Task's record, as the module keeping Tasks words it. */

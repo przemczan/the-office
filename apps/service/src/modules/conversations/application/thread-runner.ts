@@ -99,6 +99,8 @@ interface LiveSession {
   readonly roleKey: string;
   /** Where it works, which its tool calls are summed up against. */
   readonly folder: string;
+  /** The Office tools it started with: a running session can't change them. */
+  readonly officeTools: readonly string[];
   /** The person writes their Handover note in the turn running now; the session ends after it. */
   handingOver: boolean;
   idle: NodeJS.Timeout | undefined;
@@ -139,7 +141,7 @@ export class ThreadRunner implements OnModuleDestroy {
   /**
    * Logs the user's message and has the person answer it; the answer comes into the log as it is
    * written. Into a Stage Thread while its Stage runs, the message lands at the next safe point
-   * instead (barge-in). Refused while the person is still answering anywhere else, when nobody
+   * instead (barge-in). Refused while the person is still answering in this Thread, when nobody
    * fills their Role any more, or in a chat, when their Chat is off. The session gets the record
    * of each Task, Idea or Decision the message mentions with it; the log keeps the message as
    * written, with whose Handover note it started from (`handoverNoteFrom`) when a Link card gave it.
@@ -424,7 +426,9 @@ export class ThreadRunner implements OnModuleDestroy {
     const session = thread.session;
     if (!session) throw new Error(`Thread ${thread.id} answers with no session.`);
     const live = this.live.get(thread.id);
-    if (decision.move === "resume" && live?.session.id === session.id) {
+    // Once the Task is Ready the Planner's tools change (spec §2.4): that takes a resume.
+    const sameTools = live?.officeTools.join() === place.officeTools.join();
+    if (decision.move === "resume" && live?.session.id === session.id && sameTools) {
       if (live.idle) clearTimeout(live.idle);
       live.session.send(said, "later");
       return;
@@ -445,7 +449,7 @@ export class ThreadRunner implements OnModuleDestroy {
           place,
         ),
       );
-      this.watch(thread.id, role.roleKey, place.folder, opened);
+      this.watch(thread.id, role.roleKey, place, opened);
       opened.send({ ...said, text: withLeftOutServers(said.text, servers.leftOut) }, "later");
       return;
     }
@@ -477,7 +481,7 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.forget(session.id);
       throw error;
     }
-    this.watch(thread.id, role.roleKey, place.folder, opened);
+    this.watch(thread.id, role.roleKey, place, opened);
     // Only once the new session runs: until then the Thread may go back to the one it replaces.
     if (replaced) await this.forget(replaced.id);
   }
@@ -513,11 +517,7 @@ export class ThreadRunner implements OnModuleDestroy {
       },
       workstation: place.workstation,
       refusalAdvice: place.refusalAdvice,
-      officeTools: sessionOfficeTools(
-        place.officeTools,
-        card,
-        thread.home.kind === "task" && !thread.consultation,
-      ),
+      officeTools: sessionOfficeTools(place.officeTools, card, place.callsCanWait),
       mcpServers,
       outputSchema: undefined,
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
@@ -532,11 +532,17 @@ export class ThreadRunner implements OnModuleDestroy {
   }
 
   /** Reads the session's events into the log until it ends. */
-  private watch(threadId: string, roleKey: string, folder: string, session: EngineSession): void {
+  private watch(
+    threadId: string,
+    roleKey: string,
+    { folder, officeTools }: Pick<SessionPlace, "folder" | "officeTools">,
+    session: EngineSession,
+  ): void {
     const live: LiveSession = {
       session,
       roleKey,
       folder,
+      officeTools,
       handingOver: false,
       idle: undefined,
       ending: false,

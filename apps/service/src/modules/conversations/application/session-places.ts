@@ -18,7 +18,7 @@ import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js
 import { ProjectBases } from "../ports/project-bases.js";
 import { Briefs } from "./briefs.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
-import { TaskThreadSetups } from "./task-thread-setups.js";
+import { taskThreadRequest, TaskThreadSetups } from "./task-thread-setups.js";
 
 /** Where a Thread's session works and what it is given, which its home decides. */
 export interface SessionPlace {
@@ -32,6 +32,8 @@ export interface SessionPlace {
     | { readonly id: string; readonly folder: string; readonly useProjectSkills: boolean }
     | undefined;
   readonly officeTools: readonly string[];
+  /** A held call has a Thread to wait in: a Stage's, or the Planner's in Planning. */
+  readonly callsCanWait: boolean;
   /**
    * The session reaches the whole workstation but secrets, from the home folder: the Caretaker's
    * Thread with changes allowed (spec §2.4). Every other session only reads.
@@ -78,11 +80,7 @@ export class SessionPlaces {
   }
 
   private async task(thread: Thread, taskId: string): Promise<SessionPlace> {
-    const setup = await this.taskThreads.of({
-      threadId: thread.id,
-      taskId,
-      roleKey: thread.roleKey,
-    });
+    const setup = await this.taskThreads.of(taskThreadRequest(thread, taskId));
     if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
       folder: setup.folder,
@@ -93,6 +91,7 @@ export class SessionPlaces {
         useProjectSkills: setup.useProjectSkills,
       },
       officeTools: thread.consultation ? CONSULTATION_OFFICE_TOOLS : setup.officeTools,
+      callsCanWait: !thread.consultation && !setup.asking,
       workstation: false,
       refusalAdvice: undefined,
       brief: await this.briefs.forTaskThread(thread, setup),
@@ -109,6 +108,7 @@ export class SessionPlaces {
   private async chat(thread: Thread): Promise<SessionPlace> {
     const chat = {
       officeTools: chatOfficeTools(thread.roleKey),
+      callsCanWait: false,
       brief: await this.briefs.forThread(thread),
       span: {},
     };
@@ -125,7 +125,7 @@ export class SessionPlaces {
   /** The Caretaker reads as any chat does until the user allows changes in the Thread. */
   private async caretakerPlace(
     thread: Thread,
-  ): Promise<Omit<SessionPlace, "officeTools" | "brief" | "span">> {
+  ): Promise<Omit<SessionPlace, "officeTools" | "callsCanWait" | "brief" | "span">> {
     if (!(await this.changesAllowed.isAllowed(thread.id))) {
       return {
         ...this.basesPlace(thread),
@@ -156,6 +156,7 @@ export class SessionPlaces {
     return {
       ...this.basesPlace(thread),
       officeTools: setup.officeTools,
+      callsCanWait: false,
       workstation: false,
       refusalAdvice: undefined,
       brief: await this.briefs.forInitiativeThread(thread, setup),

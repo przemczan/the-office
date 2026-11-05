@@ -65,11 +65,24 @@ describe("the Context policy", () => {
     });
   });
 
+  it("says when a warm cache goes cold, and nothing once it has or with no session", () => {
+    const settings = { ...DEFAULT_CONTEXT_POLICY_SETTINGS, cacheLifetimeMs: 10 * MINUTE };
+
+    expect(decideContext(aContinuation(4, 1_000), settings).cacheWarmUntil).toEqual(
+      new Date(NOW.getTime() + 6 * MINUTE),
+    );
+    expect(decideContext(aContinuation(10, 1_000), settings).cacheWarmUntil).toBeUndefined();
+    expect(
+      decideContext({ ...aContinuation(1, 1_000), session: undefined }).cacheWarmUntil,
+    ).toBeUndefined();
+  });
+
   it("resumes while the cache is warm, whatever the context, offering to start fresh", () => {
     expect(decideContext(aContinuation(59, 120_000))).toEqual({
       move: "resume",
       reason: "cache-warm",
       cacheWarm: true,
+      cacheWarmUntil: new Date(NOW.getTime() + MINUTE),
       contextTokens: 120_000,
       briefTokens: undefined,
       alternatives: [{ override: "start-fresh", tokens: 3_000 }],

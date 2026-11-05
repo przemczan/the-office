@@ -7,7 +7,6 @@ import { PipelineLibraryController } from "./adapters/http/pipeline-library.cont
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
-import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-stages-repository.js";
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js";
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
@@ -41,7 +40,6 @@ import { TaskRecords } from "./ports/task-records.js";
 import { TaskScreenshots } from "./ports/task-screenshots.js";
 import { TaskThreadSessions } from "./ports/task-thread-sessions.js";
 import { TaskUsage } from "./ports/task-usage.js";
-import { TaskStagesRepository } from "./ports/task-stages-repository.js";
 import { UsageHistoryModule } from "./usage-history.module.js";
 
 export interface PipelinesModuleOptions {
@@ -102,7 +100,6 @@ export class PipelinesModule {
       ],
       controllers: [TaskStagesController, TaskGateController, PipelineLibraryController],
       providers: [
-        { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },
         { provide: StartedTasks, useExisting: startedTasks },
         { provide: TaskRecords, useExisting: taskRecords },
         { provide: KnownPeople, useExisting: knownPeople },

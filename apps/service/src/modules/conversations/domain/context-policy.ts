@@ -103,6 +103,8 @@ export interface ContextDecision {
   readonly reason: ContextReason;
   /** Whether the session's prompt cache is still warm; false without a session. */
   readonly cacheWarm: boolean;
+  /** When the warm cache goes cold, which the UI counts down to; undefined while it isn't warm. */
+  readonly cacheWarmUntil: Date | undefined;
   /** The session's context now; 0 without a session. */
   readonly contextTokens: number;
   /** The Brief's estimate when the move needs one. */
@@ -154,12 +156,14 @@ export function decideContext(
       reason: "changes-switched",
     };
   }
-  const cacheWarm = isWarm(session.lastCallAt, continuation.now, settings);
+  const cacheWarmUntil = warmUntil(session.lastCallAt, continuation.now, settings);
+  const cacheWarm = cacheWarmUntil !== undefined;
   const { move, reason } = choose(continuation, addedTokens(session), cacheWarm, settings);
   return {
     move,
     reason,
     cacheWarm,
+    cacheWarmUntil,
     contextTokens: session.contextTokens,
     briefTokens: move === "fresh" ? briefTokens : undefined,
     alternatives: [
@@ -202,14 +206,23 @@ function addedTokens({
   return Math.max(0, contextTokens - (startContextTokens ?? contextTokens));
 }
 
-function isWarm(
+/** When the prompt cache of a call ended at `lastCallAt` goes cold; undefined once it has. */
+function warmUntil(
   lastCallAt: Date | undefined,
   now: Date,
   { cacheLifetimeMs }: ContextPolicySettings,
-): boolean {
-  return lastCallAt !== undefined && now.getTime() - lastCallAt.getTime() < cacheLifetimeMs;
+): Date | undefined {
+  if (lastCallAt === undefined) return undefined;
+  const until = lastCallAt.getTime() + cacheLifetimeMs;
+  return now.getTime() < until ? new Date(until) : undefined;
 }
 
 function withoutSession(briefTokens: number): Omit<ContextDecision, "move" | "reason"> {
-  return { cacheWarm: false, contextTokens: 0, briefTokens, alternatives: [] };
+  return {
+    cacheWarm: false,
+    cacheWarmUntil: undefined,
+    contextTokens: 0,
+    briefTokens,
+    alternatives: [],
+  };
 }

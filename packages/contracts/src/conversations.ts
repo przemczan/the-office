@@ -65,6 +65,8 @@ export const threadContextSchema = z.object({
   move: contextMoveSchema,
   reason: contextReasonSchema,
   cacheWarm: z.boolean(),
+  /** When the warm cache goes cold, which the UI counts down to; null while it isn't warm. */
+  cacheWarmUntil: z.iso.datetime().nullable(),
   contextTokens: z.number().int().nonnegative(),
   /** The Brief's estimate when the move starts a session with one. */
   briefTokens: z.number().int().nonnegative().nullable(),
@@ -114,6 +116,36 @@ export const threadSchema = z.object({
   changesAllowed: z.boolean().nullable(),
 });
 export type Thread = z.infer<typeof threadSchema>;
+
+/** A Consultation a Consultant answered on the Task, shown above their Thread in their tab. */
+export const tabConsultationSchema = z.object({
+  threadId: z.uuid(),
+  decisionId: z.uuid(),
+  question: z.string(),
+  /** The Consultant's answer, in words. */
+  note: z.string(),
+  answeredAt: z.iso.datetime(),
+});
+export type TabConsultation = z.infer<typeof tabConsultationSchema>;
+
+/** One person's tab in a Task's conversation (spec §2.4). */
+export const conversationTabSchema = z.object({
+  roleKey: z.string(),
+  /** Their one Thread on the Task; null until it is opened. */
+  threadId: z.uuid().nullable(),
+  /** Their Stage runs now: the tab has a live dot and leads to the Stage history. */
+  stageRunning: z.boolean(),
+  /** In the order answered; none for anyone who answered no Decision on the Task. */
+  consultations: z.array(tabConsultationSchema),
+});
+export type ConversationTab = z.infer<typeof conversationTabSchema>;
+
+/**
+ * GET /tasks/:taskId/conversation: the Planner, then each person who ran an Agent Stage in the
+ * order they first worked, then each Consultant who answered a Decision on the Task.
+ */
+export const taskConversationSchema = z.object({ tabs: z.array(conversationTabSchema) });
+export type TaskConversation = z.infer<typeof taskConversationSchema>;
 
 /** GET /chats/:roleKey/threads: the newest started first. */
 export const threadListSchema = z.array(threadSchema);

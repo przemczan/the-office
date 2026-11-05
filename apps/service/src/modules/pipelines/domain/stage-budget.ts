@@ -15,7 +15,8 @@ export function stageBudget(stage: AgentStage, runs: readonly StageRun[]): numbe
 
 /**
  * Whether the Task's tokens so far have reached the Stage's budget (spec §2.3: checked before
- * every engine call, against all of the Task's usage); undefined while they haven't.
+ * every engine call, against all of the Task's Stages' usage; a person's Thread never counts, spec
+ * §2.4); undefined while they haven't.
  */
 export function budgetReached(
   stage: AgentStage,

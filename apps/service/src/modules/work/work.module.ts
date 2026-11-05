@@ -32,7 +32,7 @@ import { FireAlarmForThreads } from "./adapters/conversations/fire-alarm-for-thr
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
-import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
+import { TaskThreadRecords } from "./adapters/conversations/task-thread-records.js";
 import { ProjectProposals } from "./adapters/conversations/project-proposals.js";
 import { ShapingThreadSetup } from "./adapters/conversations/shaping-thread-setup.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
@@ -89,6 +89,7 @@ import { DayUsage } from "./ports/day-usage.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { NewProjects } from "./ports/new-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
+import { StageResults } from "./ports/stage-results.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { SavedViewRepository } from "./ports/saved-view-repository.js";
 import { SessionPeople } from "./ports/session-people.js";
@@ -127,6 +128,7 @@ export interface WorkModuleOptions {
   readonly taskDecisions: Type<TaskDecisions>;
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly usageHistory: Type<UsageHistory>;
+  readonly stageResults: Type<StageResults>;
   readonly modelPrices: Type<ModelPrices>;
   readonly accountWindows: Type<AccountWindows>;
   readonly accountWindowRatios: Type<AccountWindowRatios>;
@@ -157,6 +159,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     taskDecisions,
     proposalDrafts,
     usageHistory,
+    stageResults,
     modelPrices,
     accountWindows,
     accountWindowRatios,
@@ -208,6 +211,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: TaskDecisions, useExisting: taskDecisions },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: UsageHistory, useExisting: usageHistory },
+        { provide: StageResults, useExisting: stageResults },
         { provide: ModelPrices, useExisting: modelPrices },
         { provide: AccountWindows, useExisting: accountWindows },
         { provide: AccountWindowRatios, useExisting: accountWindowRatios },
@@ -238,7 +242,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         ShapingOfficeTools,
         AttachmentOfficeTools,
         OnboardingOfficeTools,
-        PlanningThreadSetup,
+        TaskThreadRecords,
         ShapingThreadSetup,
         MentionedWorkRecords,
         OfficeLimitProposals,

@@ -4,5 +4,5 @@
  */
 export abstract class TaskUsage {
   /** All of the Task's tokens so far, input, output and cache writes: cache reads are left out. */
-  abstract tokensSoFar(taskId: string): Promise<number>;
+  abstract budgetTokensSoFar(taskId: string): Promise<number>;
 }

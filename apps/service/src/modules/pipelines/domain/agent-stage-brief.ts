@@ -1,7 +1,13 @@
 import type { AllowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
-import { STAGE_KIND_NAMES, type AgentStage, type StageKind } from "./stage.js";
-import type { CarriedFailure, SentBack, StageInterruption, StageOutcome } from "./stage-run.js";
+import { STAGE_KIND_NAMES, type AgentStage, type Stage, type StageKind } from "./stage.js";
+import type {
+  CarriedFailure,
+  SentBack,
+  StageInterruption,
+  StageOutcome,
+  StageRun,
+} from "./stage-run.js";
 
 /**
  * What an Agent does in a Stage Thread, after their card's instructions: the same for every Stage
@@ -212,18 +218,35 @@ function whyAgain(stage: Pick<AgentStage, "key">, carried: CarriedRound): string
   return `## Why this Stage runs again\n\n${why}${guidance}`;
 }
 
-function earlierResultWords({ stageName, kind, outcome }: EarlierResult): string {
+function earlierResultWords(result: EarlierResult): string {
+  const { handoverNote } = result.outcome;
+  const note = handoverNote === undefined ? "" : `\n  Handover note: ${handoverNote}`;
+  return `${stageResultWords(result)}${note}`;
+}
+
+/** A Stage run's result as a line of a Brief, without its Handover note. */
+export function stageResultWords({ stageName, kind, outcome }: EarlierResult): string {
   const name = `- ${stageName} (${STAGE_KIND_NAMES[kind]})`;
-  const note =
-    outcome.handoverNote === undefined ? "" : `\n  Handover note: ${outcome.handoverNote}`;
   switch (outcome.status) {
     case "done":
-      return `${name}: done. ${outcome.summary}${note}`;
+      return `${name}: done. ${outcome.summary}`;
     case "needs-decision":
-      return `${name}: asked the user "${outcome.question}"${note}`;
+      return `${name}: asked the user "${outcome.question}"`;
     case "failed":
-      return `${name}: failed. ${outcome.error}${note}`;
+      return `${name}: failed. ${outcome.error}`;
   }
+}
+
+/** The runs that ended with a result, in the order given; a Gate's has none to brief with. */
+export function earlierResults(
+  stages: readonly Stage[],
+  runs: readonly StageRun[],
+): EarlierResult[] {
+  return runs.flatMap(({ stageKey, outcome }) => {
+    const stage = stages.find(({ key }) => key === stageKey);
+    if (!stage || stage.kind === "gate" || !outcome) return [];
+    return [{ stageName: stage.name, kind: stage.kind, outcome }];
+  });
 }
 
 function attachmentsSection(lines: readonly string[]): string {

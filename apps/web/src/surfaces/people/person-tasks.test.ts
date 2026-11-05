@@ -70,6 +70,7 @@ function aThreadOn(taskId: string, fields: Partial<Thread>): Thread {
       move: "resume",
       reason: "cache-warm",
       cacheWarm: true,
+      cacheWarmUntil: null,
       contextTokens: 32_000,
       briefTokens: null,
       alternatives: [],

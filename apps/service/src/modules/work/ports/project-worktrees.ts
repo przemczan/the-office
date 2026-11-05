@@ -18,4 +18,7 @@ export abstract class ProjectWorktrees {
 
   /** Where the Task's worktree is, without running git. */
   abstract find(projectId: string, taskId: string): Promise<TaskWorktree>;
+
+  /** A few lines of what the Task's commits changed; undefined while they change nothing. */
+  abstract changesSoFar(projectId: string, taskId: string): Promise<string | undefined>;
 }

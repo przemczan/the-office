@@ -416,7 +416,7 @@ export class TaskUsageForTests extends TaskUsage {
   /** Tells of each read, as the runner checks a budget before an engine call. */
   observe: ((taskId: string) => void) | undefined = undefined;
 
-  tokensSoFar(taskId: string): Promise<number> {
+  budgetTokensSoFar(taskId: string): Promise<number> {
     this.observe?.(taskId);
     return Promise.resolve(this.tokens.get(taskId) ?? 0);
   }

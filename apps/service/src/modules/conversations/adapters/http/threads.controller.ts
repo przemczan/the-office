@@ -22,18 +22,24 @@ import {
   type NewMessage,
   type Thread as ThreadResponse,
   type ThreadTitle,
+  type TaskConversation as TaskConversationResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
+import { TaskConversations } from "../../application/task-conversations.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
 import type { Mention } from "../../domain/mention.js";
 import type { Thread } from "../../domain/thread.js";
-import { toMessageResponse, toThreadResponse } from "./conversation-responses.js";
+import {
+  toMessageResponse,
+  toTaskConversationResponse,
+  toThreadResponse,
+} from "./conversation-responses.js";
 import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
 
 @Controller()
@@ -47,6 +53,7 @@ export class ThreadsController {
     private readonly proposals: ProposalService,
     private readonly linkCards: LinkCards,
     private readonly allowChanges: AllowChanges,
+    private readonly taskConversations: TaskConversations,
   ) {}
 
   @Get("chats/:roleKey/threads")
@@ -65,6 +72,23 @@ export class ThreadsController {
   async listOnTask(@Param("taskId", ParseUUIDPipe) taskId: string): Promise<ThreadResponse[]> {
     const threads = await this.threads.listOnTask(taskId);
     return Promise.all(threads.map((thread) => this.toResponse(thread)));
+  }
+
+  /** Who has a tab in the Task's conversation, each with their Thread and their Consultations. */
+  @Get("tasks/:taskId/conversation")
+  async conversation(
+    @Param("taskId", ParseUUIDPipe) taskId: string,
+  ): Promise<TaskConversationResponse> {
+    return toTaskConversationResponse(await this.taskConversations.tabs(taskId));
+  }
+
+  /** The person's one Thread on the Task, opened the first time their tab asks for it. */
+  @Post("tasks/:taskId/conversation/:roleKey/thread")
+  async openPersonsThread(
+    @Param("taskId", ParseUUIDPipe) taskId: string,
+    @Param("roleKey") roleKey: string,
+  ): Promise<ThreadResponse> {
+    return this.toResponse(await this.taskConversations.openThread(taskId, roleKey));
   }
 
   @Get("initiatives/:initiativeId/threads")
