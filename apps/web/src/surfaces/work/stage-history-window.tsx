@@ -111,6 +111,11 @@ export function StageHistoryWindow({
               names={names}
               now={now}
               onTab={(tab) => setRunTabs(new Map(runTabs).set(shownRun.id, tab))}
+              onReadSummary={({ stageKey, runId }) => {
+                setPickedRuns(new Map(pickedRuns).set(stageKey, runId));
+                setRunTabs(new Map(runTabs).set(runId, "summary"));
+                if (stageKey !== stage.key) onSelect(stageKey);
+              }}
               onClose={onClose}
             />
           </div>

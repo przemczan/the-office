@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { NewMessage, Thread } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { sendMessage, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { AlarmNote } from "../fire-alarm/alarm-note.tsx";
@@ -15,13 +15,16 @@ import { takesMessages } from "./thread-writing.ts";
 /**
  * Writing in a Thread: the composer with whatever waits to go in it, or why nothing more can be
  * written. A chat keys it by the Thread's id, as the composer owns the draft once it has read it;
- * the timeline doesn't, so its draft goes with the To line. Only chats' Threads have one waiting.
+ * the timeline doesn't, so its draft goes with the To line. A chat's Thread may have one waiting, and
+ * a composer that `keepsDraft` leaves its own there, for when it comes back.
  */
 export function ThreadComposer({
   thread,
   personName,
   readOnlyReason,
   autoFocus = true,
+  placeholder,
+  keepsDraft = false,
   onDrafting,
   onSent,
 }: {
@@ -31,6 +34,10 @@ export function ThreadComposer({
   readonly readOnlyReason?: string | undefined;
   /** Focus scrolls the page, so a composer that isn't the page's whole point leaves it out. */
   readonly autoFocus?: boolean;
+  /** The words of a place that already says when a message lands. */
+  readonly placeholder?: string;
+  /** The composer goes as the user looks elsewhere, and what they wrote mustn't go with it. */
+  readonly keepsDraft?: boolean;
   readonly onDrafting?: (drafting: boolean) => void;
   readonly onSent?: (threadId: string) => void;
 }): ReactNode {
@@ -40,6 +47,10 @@ export function ThreadComposer({
   const [handoverNote] = useState(() => handoverNotes.waitingIn(threadId));
   const threadDrafts = useThreadDrafts();
   const [startingDraft] = useState(() => threadDrafts.waitingIn(threadId));
+  const leaveDraft = useCallback(
+    (draft: string) => threadDrafts.leave(threadId, draft),
+    [threadDrafts, threadId],
+  );
   const queryClient = useQueryClient();
   const sending = useMutation({
     mutationFn: (message: NewMessage) => sendMessage(threadId, message),
@@ -64,9 +75,10 @@ export function ThreadComposer({
       {readOnlyReason === undefined ? (
         <Composer
           placeholder={
-            stageRunning
+            placeholder ??
+            (stageRunning
               ? `Write to ${personName}… (lands at the next safe point)`
-              : `Write to ${personName}…`
+              : `Write to ${personName}…`)
           }
           busy={(answering && !stageRunning) || closed}
           busyHint={
@@ -80,6 +92,7 @@ export function ThreadComposer({
           startingDraft={startingDraft}
           autoFocus={autoFocus}
           onDrafting={onDrafting}
+          onDraftChange={keepsDraft ? leaveDraft : undefined}
           onSend={(text, fromNote) =>
             sending.mutateAsync({
               text,

@@ -155,6 +155,36 @@
   background: var(--info-subtle);
 }
 
+/* The note reads whole where the link leads, so its headings run on here as text. */
+.handover-note-start {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.handover-note-start :is(h1, h2, h3, h4) {
+  margin: 0;
+  font-size: inherit;
+}
+
+.handover-note-read {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-2);
+  font: var(--type-body-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.handover-note-read:hover {
+  color: var(--text-link-hover);
+}
+
 .turn {
   min-width: 0;
   font: var(--type-body-sm);

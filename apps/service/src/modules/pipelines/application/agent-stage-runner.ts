@@ -2,6 +2,7 @@ import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EngineModels, NoEngineListed, READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
 import { narrowedPermissionProfile } from "../../people/index.js";
+import { EventBus } from "../../../platform/events/event-bus.js";
 import {
   AGENT_STAGE_INSTRUCTIONS,
   agentStageRecord,
@@ -36,6 +37,7 @@ import {
   STAGE_RESULT_SCHEMA,
   type StageResultReading,
 } from "../domain/stage-result.js";
+import { StageRunThreadOpened } from "../domain/stage-run-events.js";
 import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
@@ -105,6 +107,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly usage: TaskUsage,
     private readonly screenshots: TaskScreenshots,
     private readonly engineModels: EngineModels,
+    private readonly events: EventBus,
   ) {}
 
   onModuleInit(): void {
@@ -176,6 +179,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         engineName,
         model,
       });
+      await this.events.publish(
+        new StageRunThreadOpened(work.run.taskId, work.run.id, work.run.stageKey),
+      );
       const result = await this.resultOf(work, thread);
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();

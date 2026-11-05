@@ -25,6 +25,12 @@ import { ProposalCard } from "./proposal-card.tsx";
 
 const NO_LOG_LINES: readonly LogLine[] = [];
 
+/** How far from the end a reader still counts as following it. */
+const FOLLOWING_DISTANCE_PX = 40;
+
+/** How to read a Handover note whole, when somewhere else holds it. */
+export type HandoverNoteReader = (note: string) => (() => void) | undefined;
+
 /**
  * The Office's log of a Thread (spec §2.4): the user's messages and the person's, what the person
  * did with tools, what was refused, and The Office's own lines, never shown as a person's.
@@ -36,7 +42,9 @@ export function MessageList({
   stageThread,
   details,
   inTimeline = false,
+  leavesReaderBe = false,
   logLines = NO_LOG_LINES,
+  handoverNoteReader,
 }: {
   readonly messages: readonly Message[];
   readonly personName: string;
@@ -48,19 +56,26 @@ export function MessageList({
   readonly details: boolean;
   /** One chapter of a timeline, which scrolls and lands on a linked card itself. */
   readonly inTimeline?: boolean;
+  /** A reader who scrolled up stays there as the log grows, but for what they send themselves. */
+  readonly leavesReaderBe?: boolean;
   /** What isn't a message but belongs in the log by its time. */
   readonly logLines?: readonly LogLine[];
+  /** A note it can lead to shows its first lines here; any other shows whole. */
+  readonly handoverNoteReader?: HandoverNoteReader | undefined;
 }): ReactNode {
   const list = useRef<HTMLDivElement>(null);
   const shownLinkedTo = useRef(false);
+  const readerScrolledUp = useRef(false);
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
   // A Decision's link opens the list at its card instead, once. Only the list scrolls, never the page
   // around it, so scrollIntoView, which scrolls every scrolling ancestor, is left out.
   const visible = visibleMessages(messages, details);
   const lines = visible.length + (answering ? 1 : 0);
+  const endsWithUsersMessage = visible.at(-1)?.kind === "user";
   useEffect(() => {
     const scroller = list.current;
     if (inTimeline || lines === 0 || scroller === null) return;
+    if (readerScrolledUp.current && !endsWithUsersMessage) return;
     const linkedTo = shownLinkedTo.current
       ? null
       : scroller.querySelector(".decision-card.linked-to");
@@ -73,12 +88,16 @@ export function MessageList({
     } else {
       scroller.scrollTop = scroller.scrollHeight;
     }
-  }, [inTimeline, lines]);
+  }, [inTimeline, lines, endsWithUsersMessage]);
   return (
     <div
       className={inTimeline ? "message-list in-timeline" : "message-list"}
       aria-live="polite"
       ref={list}
+      onScroll={({ currentTarget: { scrollHeight, scrollTop, clientHeight } }) => {
+        readerScrolledUp.current =
+          leavesReaderBe && scrollHeight - scrollTop - clientHeight > FOLLOWING_DISTANCE_PX;
+      }}
     >
       {withLogLines(groupedMessages(visible), logLines).map((piece) =>
         piece.kind === "line" ? (
@@ -91,6 +110,7 @@ export function MessageList({
             group={piece}
             personName={personName}
             stageThread={stageThread}
+            handoverNoteReader={handoverNoteReader}
           />
         ),
       )}
@@ -134,10 +154,12 @@ function GroupItem({
   group,
   personName,
   stageThread,
+  handoverNoteReader,
 }: {
   readonly group: MessageGroup;
   readonly personName: string;
   readonly stageThread: boolean;
+  readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
   switch (group.kind) {
     case "turn":
@@ -145,7 +167,13 @@ function GroupItem({
     case "tool-calls":
       return <ToolCalls calls={group.messages} />;
     case "alone":
-      return <MessageItem message={group.message} personName={personName} />;
+      return (
+        <MessageItem
+          message={group.message}
+          personName={personName}
+          handoverNoteReader={handoverNoteReader}
+        />
+      );
   }
 }
 
@@ -237,22 +265,20 @@ function ToolCallWords({ call: { tool, summary } }: { readonly call: ToolCall })
 function MessageItem({
   message,
   personName,
+  handoverNoteReader,
 }: {
   readonly message: Extract<MessageGroup, { kind: "alone" }>["message"];
   readonly personName: string;
+  readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
   switch (message.kind) {
     case "handover-note":
       return (
-        <div className="message handover-note">
-          <div className="message-by">
-            <Icon name="sticky-note" size={12} />
-            Handover note · {personName}
-          </div>
-          <div className="message-text">
-            <MarkdownText text={message.text} />
-          </div>
-        </div>
+        <HandoverNoteItem
+          text={message.text}
+          personName={personName}
+          readInFull={handoverNoteReader?.(message.text)}
+        />
       );
     case "refusal":
       return (
@@ -316,6 +342,34 @@ function MessageItem({
     case "office-status":
       return <OfficeStatusCard card={message} />;
   }
+}
+
+/** A Handover note in the stream: its first lines when it reads whole elsewhere (spec 4.1). */
+function HandoverNoteItem({
+  text,
+  personName,
+  readInFull,
+}: {
+  readonly text: string;
+  readonly personName: string;
+  readonly readInFull: (() => void) | undefined;
+}): ReactNode {
+  return (
+    <div className="message handover-note">
+      <div className="message-by">
+        <Icon name="sticky-note" size={12} />
+        Handover note · {personName}
+      </div>
+      <div className={readInFull ? "message-text handover-note-start" : "message-text"}>
+        <MarkdownText text={text} />
+      </div>
+      {readInFull && (
+        <button type="button" className="handover-note-read" onClick={readInFull}>
+          Read it in full
+        </button>
+      )}
+    </div>
+  );
 }
 
 /** The user sent the Handover note a Link card gave them, edited or not: its writer, named. */

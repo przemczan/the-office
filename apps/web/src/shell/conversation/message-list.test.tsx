@@ -48,6 +48,83 @@ it("scrolls only the list to its end as a message comes or the person starts to 
   act(() => root.unmount());
 });
 
+it("leaves a reader who scrolled up where they are, until they send something themselves", () => {
+  const page = document.createElement("div");
+  const root = createRoot(page);
+  const at = "2026-11-01T10:00:00.000Z";
+  const messages: Message[] = [{ at, id: "1", kind: "person", roleKey: "developer", text: "One" }];
+  const show = (): void =>
+    act(() =>
+      root.render(
+        <MessageList
+          messages={[...messages]}
+          personName="Jan"
+          answering={false}
+          stageThread
+          details
+          leavesReaderBe
+        />,
+      ),
+    );
+  show();
+  const list = page.querySelector<HTMLElement>(".message-list");
+  if (list === null) throw new Error("No message list.");
+  Object.defineProperty(list, "scrollHeight", { get: () => 1000 });
+
+  list.scrollTop = 100;
+  act(() => void list.dispatchEvent(new Event("scroll")));
+  messages.push({ at, id: "2", kind: "person", roleKey: "developer", text: "Two" });
+  show();
+  expect(list.scrollTop).toBe(100);
+
+  messages.push({
+    at,
+    id: "3",
+    kind: "user",
+    text: "Three",
+    handoverNoteFrom: null,
+    delivery: "waiting",
+  });
+  show();
+  expect(list.scrollTop).toBe(1000);
+  act(() => root.unmount());
+});
+
+it("shows a Handover note's first lines and the way to it when it reads whole elsewhere", () => {
+  const page = document.createElement("div");
+  const root = createRoot(page);
+  const at = "2026-11-01T10:00:00.000Z";
+  const messages: Message[] = [
+    { at, id: "1", kind: "handover-note", roleKey: "developer", text: "Held by a run" },
+    { at, id: "2", kind: "handover-note", roleKey: "developer", text: "Held by no run" },
+  ];
+  const read: string[] = [];
+  act(() =>
+    root.render(
+      <MessageList
+        messages={messages}
+        personName="Jan"
+        answering={false}
+        stageThread
+        details
+        handoverNoteReader={(note) =>
+          note === "Held by a run" ? () => void read.push(note) : undefined
+        }
+      />,
+    ),
+  );
+
+  const [held, alone] = page.querySelectorAll(".handover-note");
+  expect(held?.querySelector(".handover-note-start")).not.toBeNull();
+  expect(alone?.querySelector(".handover-note-start")).toBeNull();
+  expect(alone?.querySelector("button")).toBeNull();
+  const readInFull = held?.querySelector("button");
+  expect(readInFull?.textContent).toBe("Read it in full");
+  act(() => readInFull?.click());
+  expect(read).toEqual(["Held by a run"]);
+  act(() => root.unmount());
+});
+
 it("shows the person working from the moment a turn starts, before any output", () => {
   const page = document.createElement("div");
   const root = createRoot(page);

@@ -287,6 +287,12 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     taskId: z.uuid(),
     stageKey: z.string(),
   }),
+  /** Saved after the run started, so what shows a running run reads it again for its Thread. */
+  webEventSchema.extend({
+    type: z.literal("stage-run.thread-opened"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
+  }),
   webEventSchema.extend({
     type: z.literal("stage-run.ended"),
     taskId: z.uuid(),

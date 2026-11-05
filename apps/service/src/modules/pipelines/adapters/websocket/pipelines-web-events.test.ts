@@ -47,6 +47,7 @@ describe("Pipelines' web events", () => {
       });
     expect(webEvents).toEqual([
       { type: "stage-run.started", taskId, stageKey: "implement" },
+      { type: "stage-run.thread-opened", taskId, stageKey: "implement" },
       { type: "stage-run.ended", taskId, stageKey: "implement", status: "done" },
       { type: "stage-run.started", taskId, stageKey: "tests" },
       { type: "stage-run.ended", taskId, stageKey: "tests", status: "failed" },
@@ -59,6 +60,7 @@ describe("Pipelines' web events", () => {
         rounds: 2,
       },
       { type: "stage-run.started", taskId, stageKey: "implement" },
+      { type: "stage-run.thread-opened", taskId, stageKey: "implement" },
       { type: "stage-run.ended", taskId, stageKey: "implement", status: "done" },
       { type: "stage-run.started", taskId, stageKey: "tests" },
       { type: "stage-run.ended", taskId, stageKey: "tests", status: "done" },

@@ -1893,11 +1893,32 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
     "next is checked against the Office's own pages.",
   ]);
   await expect(handoverNote.locator("code")).toHaveText("next");
-  // The run's Thread is its other tab, read here.
-  await history.getByRole("tab", { name: "Thread" }).click();
+  await expect(history.getByRole("group", { name: "Details" })).toHaveCount(0);
+  // The run's Thread is its other tab, read here, with the Details switch on the tab's row.
+  const threadTab = history.getByRole("tab", { name: "Thread" });
+  await threadTab.click();
   await expect(
     history.getByText("Signing in now returns to the page it started from."),
   ).toBeVisible();
+  await expect(history.getByRole("group", { name: "Details" })).toBeVisible();
+  await expect(newestRun.getByRole("note")).toHaveText(
+    "This run has ended, so its Thread is read-only.",
+  );
+  await expect(newestRun.getByLabel("Message")).toHaveCount(0);
+  // Its Handover note shows its first lines, and reads whole in the run's Summary.
+  const noteInThread = newestRun.locator(".message.handover-note").last();
+  await expect(noteInThread).toContainText("Handover note");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-run-thread-ended.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await motionSettled(page);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-run-thread-ended.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+  await noteInThread.getByRole("button", { name: "Read it in full" }).click();
+  await expect(history.getByRole("tab", { name: "Summary" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(handoverNote.getByRole("listitem")).toHaveCount(2);
   const closeHistory = history.getByRole("button", { name: "Close", exact: true });
   await closeHistory.click();
 
@@ -2521,11 +2542,35 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     await expect(composer).toHaveAttribute("placeholder", /lands at the next safe point/);
     await expect.poll(fromTheEnd).toBeLessThan(40);
 
-    // A barge-in lands at the next safe point, and waits to be taken until the turn ends.
-    await composer.fill("Keep the header row");
-    await composer.press("Enter");
-    await expect(implementChapter.getByText("Keep the header row")).toBeVisible();
-    await expect(implementChapter.getByText("Lands at the next safe point")).toBeVisible();
+    // A barge-in from the Stage history lands at the next safe point, and waits to be taken until
+    // the turn ends. The window opens on the running Thread, which follows live, and a draft stays
+    // as the user reads the Summary.
+    const pipelineRail = page.getByRole("region", { name: /^Pipeline · / });
+    const implementOnRail = pipelineRail.getByRole("button", { name: "Implement", exact: true });
+    await implementOnRail.click();
+    const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+    const runningRun = history.getByRole("region", { name: "Run 1", exact: true });
+    await expect(runningRun.getByText("I am reading the export's columns.")).toBeVisible();
+    await expect(runningRun).toContainText(": lands at the next safe point");
+    const bargeIn = runningRun.getByLabel("Message");
+    await expect(bargeIn).toHaveAttribute("placeholder", /while the Stage runs/);
+    await bargeIn.fill("Keep the header row");
+    await history.getByRole("tab", { name: "Summary" }).click();
+    await history.getByRole("tab", { name: "Thread" }).click();
+    await expect(bargeIn).toHaveValue("Keep the header row");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-run-thread-live.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await motionSettled(page);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-run-thread-live.png") });
+    await page.emulateMedia({ colorScheme: "light" });
+    await bargeIn.press("Enter");
+    await expect(bargeIn).toHaveValue("");
+    await expect(runningRun.getByText("Keep the header row")).toBeVisible();
+    await expect(
+      runningRun.getByText("Lands at the next safe point", { exact: true }),
+    ).toBeVisible();
+    await expect(runningRun.getByText("I will keep the CSV's header row.")).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(implementChapter.getByText("I will keep the CSV's header row.")).toBeVisible();
     await expect.poll(fromTheEnd).toBeLessThan(40);
     await expect(page.locator(".task-head").getByText("Running")).toBeVisible();
@@ -2667,12 +2712,9 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
 
     // A chapter's way to the rail closes the drawer and opens the Stage's history, and focus lands
     // on the Stage as the window closes.
-    const pipelineRail = page.getByRole("region", { name: /^Pipeline · / });
-    const implementOnRail = pipelineRail.getByRole("button", { name: "Implement", exact: true });
     await handle.click();
     await implementChapter.getByRole("button", { name: "Show Implement on the rail" }).click();
     await expect(conversation).toBeHidden();
-    const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
     await expect(history).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(implementOnRail).toBeFocused();

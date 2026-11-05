@@ -24,6 +24,7 @@ export function Composer({
   onSend,
   onLeaveNoteOut,
   onDrafting,
+  onDraftChange,
 }: {
   readonly placeholder: string;
   /** A message can't be sent now; a draft can still be written. */
@@ -42,6 +43,8 @@ export function Composer({
   readonly onLeaveNoteOut?: () => void;
   /** Hears whether anything is written, as a draft mustn't change hands unseen. */
   readonly onDrafting?: (drafting: boolean) => void;
+  /** Hears the draft itself, for a composer that may go and come back. */
+  readonly onDraftChange?: ((draft: string) => void) | undefined;
 }): ReactNode {
   const [draft, setDraft] = useState(prefilledNote?.text ?? startingDraft ?? "");
   const [noteKept, setNoteKept] = useState(prefilledNote !== undefined);
@@ -50,6 +53,7 @@ export function Composer({
   const mentions = useMentions(draft, setDraft);
   const drafting = draft.trim() !== "";
   useEffect(() => onDrafting?.(drafting), [drafting, onDrafting]);
+  useEffect(() => onDraftChange?.(draft), [draft, onDraftChange]);
   const canSend = !busy && !sending && drafting;
   const send = async (): Promise<void> => {
     if (!canSend) return;

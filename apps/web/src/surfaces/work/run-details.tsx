@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
-import { Badge, Button, Icon, Tabs } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { Avatar, Badge, Button, Icon, Tabs } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
+import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
+import { takesMessages } from "../../shell/conversation/thread-writing.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { TokenFigure } from "../../shell/token-count.tsx";
@@ -16,8 +19,11 @@ import {
   commandTimeWords,
   gateChoiceWords,
   runBadge,
+  runOfHandoverNote,
   runResultText,
+  runThreadClosedWords,
   runTimeWords,
+  type RunPlace,
   type RunTab,
 } from "./stage-history-words.ts";
 import { stageWorkerWords } from "./stage-rail-words.ts";
@@ -35,6 +41,7 @@ export function RunDetails({
   names,
   now,
   onTab,
+  onReadSummary,
   onClose,
 }: {
   readonly taskId: string;
@@ -46,6 +53,7 @@ export function RunDetails({
   readonly names: StageNames;
   readonly now: Date;
   readonly onTab: (tab: RunTab) => void;
+  readonly onReadSummary: (run: RunPlace) => void;
   readonly onClose: () => void;
 }): ReactNode {
   const { stage, state } = taskStage;
@@ -68,21 +76,29 @@ export function RunDetails({
   return (
     <section className="run-details" aria-label={`Run ${run.number}`}>
       {head}
-      <Tabs
-        tabs={[
-          { value: "summary", label: "Summary" },
-          { value: "thread", label: <>Thread{isLive && <span className="live-dot" />}</> },
-        ]}
-        value={tab}
-        onChange={(value) => onTab(value === "thread" ? "thread" : "summary")}
-      />
+      <div className="run-tabs">
+        <Tabs
+          style={{ flex: 1, borderBottom: 0 }}
+          tabs={[
+            { value: "summary", label: "Summary" },
+            { value: "thread", label: <>Thread{isLive && <span className="live-dot" />}</> },
+          ]}
+          value={tab}
+          onChange={(value) => onTab(value === "thread" ? "thread" : "summary")}
+        />
+        {/* Details hides tool activity, which only the Thread has. */}
+        {tab === "thread" && <DetailsSwitch />}
+      </div>
       {tab === "summary" ? (
         <div className="run-details-body">{summary}</div>
       ) : (
         <RunThread
+          key={run.threadId}
           threadId={run.threadId}
+          run={run}
           personName={stageWorkerWords(taskStage, roles)}
           stages={stages}
+          onReadSummary={onReadSummary}
         />
       )}
     </section>
@@ -231,23 +247,60 @@ function CommandLog({
   );
 }
 
+/**
+ * The run's Thread, following live. While its Stage runs it takes a message at the next safe point
+ * (barge-in); a draft the Stage ended under stays, its composer saying why it can't go.
+ */
 function RunThread({
   threadId,
+  run,
   personName,
   stages,
+  onReadSummary,
 }: {
   readonly threadId: string;
+  readonly run: StageRun;
   readonly personName: string;
   readonly stages: readonly TaskStage[];
+  readonly onReadSummary: (run: RunPlace) => void;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId)).data;
-  return thread ? (
+  const [drafting, setDrafting] = useState(false);
+  if (!thread) return null;
+  const handoverNoteReader = (note: string): (() => void) | undefined => {
+    const place = runOfHandoverNote(stages, threadId, note);
+    return place && (() => onReadSummary(place));
+  };
+  return (
     <div className="run-thread">
       <ThreadLog
         thread={thread}
         personName={personName}
+        leavesReaderBe
         logLines={chapterWork(stages, threadId).finishedRuns}
+        handoverNoteReader={handoverNoteReader}
       />
+      {takesMessages(thread) || drafting ? (
+        <div className="run-thread-foot">
+          <p className="run-thread-to">
+            To <Avatar name={personName} size="xs" />
+            <span>
+              <strong>{personName}</strong>
+              {thread.title !== null && `, in ${thread.title}`}: lands at the next safe point
+            </span>
+          </p>
+          <ThreadComposer
+            thread={thread}
+            personName={personName}
+            placeholder={`Write to ${personName} while the Stage runs…`}
+            autoFocus={false}
+            keepsDraft
+            onDrafting={setDrafting}
+          />
+        </div>
+      ) : (
+        <ReadOnlyNote reason={runThreadClosedWords(run)} />
+      )}
     </div>
-  ) : null;
+  );
 }

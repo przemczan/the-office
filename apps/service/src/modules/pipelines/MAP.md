@@ -34,7 +34,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 ## Domain events
 
 - `domain/pipeline-library-events.ts`: PipelineAdded, PipelineSaved, PipelineRemoved
-- `domain/stage-run-events.ts`: StageRunStarted, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
+- `domain/stage-run-events.ts`: StageRunStarted, StageRunThreadOpened, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `domain/task-stages-events.ts`: TaskStagesMade, TaskStagesEdited, TaskStagesReset
 
 ## HTTP routes (under `/api`)
@@ -156,7 +156,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 - `stage-progress.ts`: StageState, WentBack, StageProgress, TaskProgress, stagesProgress
 - `stage-result.ts`: STAGE_RESULT_SCHEMA, StageResultReading, readStageResult, screenshotsRefused, correctionMessage
 - `stage-run-changes.ts`: NewStageRun, startStageRun, endStageRun
-- `stage-run-events.ts`: StageRunStarted, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
+- `stage-run-events.ts`: StageRunStarted, StageRunThreadOpened, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `stage-run.fixtures.ts`: aStageRun
 - `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, AskedInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
 - `stage-staffing.ts`: RoleFilling, staffingProblems

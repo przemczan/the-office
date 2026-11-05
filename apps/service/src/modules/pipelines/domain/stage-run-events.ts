@@ -12,6 +12,17 @@ export class StageRunStarted extends DomainEvent {
   }
 }
 
+/** An Agent Stage's run has its Thread, so it can be read and written to while it works. */
+export class StageRunThreadOpened extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly runId: string,
+    readonly stageKey: string,
+  ) {
+    super();
+  }
+}
+
 /** A Stage run ended done, needing a Decision, or failed. */
 export class StageRunEnded extends DomainEvent {
   constructor(

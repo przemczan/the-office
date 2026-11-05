@@ -141,6 +141,35 @@ export function openingRunTab({ outcome }: StageRun): RunTab {
   return outcome === null ? "thread" : "summary";
 }
 
+/** Why a run's Thread has no composer: one whose Stage is held may still go on. */
+export function runThreadClosedWords({ outcome }: StageRun): string {
+  return outcome === null
+    ? "This run isn't going on now, so its Thread takes no message."
+    : "This run has ended, so its Thread is read-only.";
+}
+
+/** A run, wherever it stands in the Pipeline. */
+export interface RunPlace {
+  readonly stageKey: string;
+  readonly runId: string;
+}
+
+/** The run that handed a note on: one Thread can hold several runs, even of different Stages. */
+export function runOfHandoverNote(
+  stages: readonly TaskStage[],
+  threadId: string,
+  note: string,
+): RunPlace | undefined {
+  for (const { stage, runs } of stages) {
+    const run = runs.findLast(
+      ({ threadId: runThreadId, outcome }) =>
+        runThreadId === threadId && outcome?.handoverNote === note,
+    );
+    if (run) return { stageKey: stage.key, runId: run.id };
+  }
+  return undefined;
+}
+
 /** "Briefed with what failed in Tests, round 1 of 3". */
 export function carriedFailureWords(
   { stageKey, round, rounds }: NonNullable<StageRun["carriedFailure"]>,

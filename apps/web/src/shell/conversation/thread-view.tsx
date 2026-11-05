@@ -10,7 +10,7 @@ import { ContextBar } from "./context-bar.tsx";
 import { useDetails } from "./details-store.ts";
 import { DetailsSwitch } from "./details-switch.tsx";
 import type { LogLine } from "./message-groups.ts";
-import { MessageList } from "./message-list.tsx";
+import { MessageList, type HandoverNoteReader } from "./message-list.tsx";
 import { ThreadComposer } from "./thread-composer.tsx";
 import { threadTitle } from "./thread-title.ts";
 import "./conversation.css";
@@ -55,14 +55,20 @@ export function ThreadLog({
   thread,
   personName,
   inTimeline = false,
+  leavesReaderBe = false,
   logLines,
+  handoverNoteReader,
 }: {
   readonly thread: Thread;
   readonly personName: string;
   /** The log is a chapter of a timeline, which does the scrolling. */
   readonly inTimeline?: boolean;
+  /** A reader who scrolled up stays there as the log grows. */
+  readonly leavesReaderBe?: boolean;
   /** What isn't a message but belongs in the log by its time. */
   readonly logLines?: readonly LogLine[];
+  /** Where a Handover note reads whole, when not here. */
+  readonly handoverNoteReader?: HandoverNoteReader;
 }): ReactNode {
   const messages = useQuery(threadQueries.messages(thread.id));
   const details = useDetails();
@@ -78,6 +84,8 @@ export function ThreadLog({
         stageThread={thread.stageThread}
         details={details.on}
         inTimeline={inTimeline}
+        leavesReaderBe={leavesReaderBe}
+        handoverNoteReader={handoverNoteReader}
         {...(logLines && { logLines })}
       />
     </>

@@ -120,7 +120,7 @@
 - `mention-words.ts`: MENTION_KINDS, MentionKind, Mentionable, MentionQuery, MENTIONS_SHOWN, mentionQueryAt, mentionables, matchingMentionables, withMentionLinks
 - `message-field.tsx`: MessageField
 - `message-groups.ts`: TurnMessage, ToolCall, MessageGroup, LogLine, LogPiece, withLogLines, groupedMessages
-- `message-list.tsx`: MessageList
+- `message-list.tsx`: HandoverNoteReader, MessageList
 - `message-visibility.ts`: visibleMessages, onlyDetailsWouldShow, latestToolCall
 - `office-status-card.tsx`: OfficeStatusCard
 - `office-status-words.ts`: waitingWords, pausedWords

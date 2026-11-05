@@ -9,7 +9,9 @@ import {
   openingRunTab,
   runBadge,
   runGist,
+  runOfHandoverNote,
   runResultText,
+  runThreadClosedWords,
   runTimeWords,
   stageHistoryLine,
 } from "./stage-history-words.ts";
@@ -95,6 +97,43 @@ describe("stageHistoryLine", () => {
 
   it("says a Gate waits for the user", () => {
     expect(stageHistoryLine(aTaskStage(look), roles, names)).toBe("Gate · waits for you");
+  });
+});
+
+describe("runThreadClosedWords", () => {
+  it("says an ended run's Thread is read-only, and only a held one that it may go on", () => {
+    expect(runThreadClosedWords(aRun({ outcome: done({ summary: "", handoverNote: null }) }))).toBe(
+      "This run has ended, so its Thread is read-only.",
+    );
+    expect(runThreadClosedWords(aRun({ outcome: null }))).toBe(
+      "This run isn't going on now, so its Thread takes no message.",
+    );
+  });
+});
+
+const noted = (id: string, threadId: string, handoverNote: string): StageRun =>
+  aRun({ id, threadId, outcome: done({ summary: "", handoverNote }) });
+
+describe("runOfHandoverNote", () => {
+  const stages = [
+    aTaskStage(implement, { runs: [noted("first", "a", "Old"), noted("second", "a", "New")] }),
+    aTaskStage(tests, { runs: [noted("third", "a", "Tests' note"), noted("fourth", "b", "Old")] }),
+  ];
+
+  it("finds the run in the Thread that handed the note on, in whichever Stage", () => {
+    expect(runOfHandoverNote(stages, "a", "New")).toEqual({
+      stageKey: implement.key,
+      runId: "second",
+    });
+    expect(runOfHandoverNote(stages, "a", "Tests' note")).toEqual({
+      stageKey: tests.key,
+      runId: "third",
+    });
+  });
+
+  it("leaves another Thread's run out, and a note no run kept", () => {
+    expect(runOfHandoverNote(stages, "b", "Old")?.runId).toBe("fourth");
+    expect(runOfHandoverNote(stages, "b", "New")).toBeUndefined();
   });
 });
 

@@ -1,9 +1,10 @@
 import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
 
 /**
- * The drafts waiting in new Threads' composers, by Thread id: asking someone from a page, such as
- * Devops about a Project's commands, leaves one as it opens the Thread, and the composer takes it as
- * its draft. They live only in this page: the user edits and sends the message themselves.
+ * The drafts waiting in Threads' composers, by Thread id: asking someone from a page, such as Devops
+ * about a Project's commands, leaves one as it opens the Thread, a composer that comes and goes
+ * leaves its own, and the composer takes it as its draft. They live only in this page: the user
+ * edits and sends the message themselves.
  */
 export interface ThreadDrafts {
   leave(threadId: string, text: string): void;
