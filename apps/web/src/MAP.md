@@ -103,9 +103,10 @@
 ### shell/conversation/
 
 - `allow-changes.tsx`: AllowChangesBar
+- `cache-mark.tsx`: useCacheState, CacheMark
 - `composer.tsx`: PrefilledNote, Composer
 - `context-bar.tsx`: ContextBar
-- `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, tokensShort, contextDetail, contextLabel
+- `context-words.ts`: MOVE_WORDS, ContextChoice, CONTEXT_CHOICES, overrideOf, contextChoiceOf, CacheState, cacheStateAt, startsASessionWords, offersAChoice, contextChoiceWords, tokensShort, contextDetail, contextLabel
 - `decision-card.tsx`: DecisionCard, DecisionCardProps, useNamedAttachments, DecisionInThread, bringDecisionCardIntoView, decisionCardElementId, DecisionCardLinkContext, DecisionFrame, AskerTag, DecisionDetail, ConsultationNote, Recommendation, FollowUpsHint, AnswerRefused, stillAnsweringHint, useAnswering
 - `decision-on-task.tsx`: DecisionOnTask
 - `decision-words.ts`: answerWords, namedAttachments, decisionDetailsWords

@@ -4,6 +4,7 @@ import {
   newMessagesWords,
   NO_NEW_MESSAGES,
   withArrivals,
+  withArrivalsByThread,
   withNewMessagesRead,
   type NewMessages,
   type WatchedLog,
@@ -29,6 +30,48 @@ const log = (
 function watching(messages: readonly Message[]): NewMessages {
   return withArrivals(NO_NEW_MESSAGES, [log(messages)], false);
 }
+
+describe("withArrivalsByThread", () => {
+  const seen = withArrivalsByThread(
+    new Map(),
+    [log([said("a")], false, "jan"), log([said("b")], true, "adam")],
+    false,
+  );
+
+  it("counts what lands out of view in each Thread on its own", () => {
+    const now = withArrivalsByThread(
+      seen,
+      [log([said("a"), said("c"), said("d")], false, "jan"), log([said("b")], true, "adam")],
+      false,
+    );
+    expect(now.get("jan")?.count).toBe(2);
+    expect(now.get("adam")?.count).toBe(0);
+  });
+
+  it("reads one Thread and leaves another's count", () => {
+    const landed = withArrivalsByThread(
+      seen,
+      [log([said("a"), said("c")], false, "jan"), log([said("b"), said("d")], false, "adam")],
+      false,
+    );
+    const now = withArrivalsByThread(
+      landed,
+      [log([said("a"), said("c")], true, "jan"), log([said("b"), said("d")], false, "adam")],
+      false,
+    );
+    expect(now.get("jan")?.count).toBe(0);
+    expect(now.get("adam")?.count).toBe(1);
+  });
+
+  it("gives back what it was given while nothing changed", () => {
+    const now = withArrivalsByThread(
+      seen,
+      [log([said("a")], false, "jan"), log([said("b")], true, "adam")],
+      false,
+    );
+    expect(now).toBe(seen);
+  });
+});
 
 describe("withArrivals", () => {
   it("counts nothing a Thread already holds when it starts being watched", () => {

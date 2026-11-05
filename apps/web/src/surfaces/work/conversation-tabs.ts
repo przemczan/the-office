@@ -31,14 +31,32 @@ export function stagesWorkedOn(
   threads: readonly Thread[],
   roleKey: string,
 ): string[] {
-  const own = new Set(
+  const own = stageThreadsOf(threads, roleKey);
+  return stages
+    .filter(({ runs }) => runs.some(({ threadId }) => threadId !== null && own.has(threadId)))
+    .map(({ stage }) => stage.name);
+}
+
+/** The Stage the person is working on now, whose run goes on in one of their Stage Threads. */
+export function stageRunningFor(
+  stages: readonly TaskStage[],
+  threads: readonly Thread[],
+  roleKey: string,
+): TaskStage | undefined {
+  const own = stageThreadsOf(threads, roleKey);
+  return stages.find(({ runs }) =>
+    runs.some(
+      ({ threadId, endedAt }) => endedAt === null && threadId !== null && own.has(threadId),
+    ),
+  );
+}
+
+function stageThreadsOf(threads: readonly Thread[], roleKey: string): ReadonlySet<string> {
+  return new Set(
     threads
       .filter((thread) => thread.roleKey === roleKey && thread.stageThread)
       .map(({ id }) => id),
   );
-  return stages
-    .filter(({ runs }) => runs.some(({ threadId }) => threadId !== null && own.has(threadId)))
-    .map(({ stage }) => stage.name);
 }
 
 /** Under the person's name: what they did on the Task. */

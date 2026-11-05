@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ConversationTab, TabConsultation, Task } from "@the-office/contracts";
+import type { ConversationTab, TabConsultation, Task, ThreadContext } from "@the-office/contracts";
 import { Avatar } from "@the-office/ui";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { openPersonsThread, sendMessage, threadQueries } from "../../api/conversations.ts";
+import { CacheMark } from "../../shell/conversation/cache-mark.tsx";
 import { Composer } from "../../shell/conversation/composer.tsx";
 import { ContextBar } from "../../shell/conversation/context-bar.tsx";
+import { startsASessionWords } from "../../shell/conversation/context-words.ts";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { useThreadDrafts } from "../../shell/conversation/thread-drafts.tsx";
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
@@ -155,7 +157,13 @@ export function TabFoot({
   if (tab.threadId === null || firstMessage.isPending || firstMessage.isError) {
     // Backlog has no Thread to open: Planning opens it.
     return task.state === "backlog" ? null : (
-      <FirstMessage firstMessage={firstMessage} personName={personName} personLabel={personLabel} />
+      <FirstMessage
+        task={task}
+        roleKey={tab.roleKey}
+        firstMessage={firstMessage}
+        personName={personName}
+        personLabel={personLabel}
+      />
     );
   }
   return (
@@ -194,16 +202,21 @@ function useFirstMessage(taskId: string, roleKey: string, onSent: () => void) {
 }
 
 function FirstMessage({
+  task,
+  roleKey,
   firstMessage,
   personName,
   personLabel,
 }: {
+  readonly task: Task;
+  readonly roleKey: string;
   readonly firstMessage: ReturnType<typeof useFirstMessage>;
   readonly personName: string;
   readonly personLabel: string;
 }): ReactNode {
   const { draftKey, error, mutateAsync } = firstMessage;
   const threadDrafts = useThreadDrafts();
+  const firstBrief = useQuery(threadQueries.firstBrief(task.id, roleKey)).data;
   const [startingDraft] = useState(() => threadDrafts.waitingIn(draftKey));
   const leaveDraft = useCallback(
     (draft: string) => threadDrafts.leave(draftKey, draft),
@@ -222,6 +235,13 @@ function FirstMessage({
         onDraftChange={leaveDraft}
         onSend={(text) => mutateAsync(text)}
       />
+      {firstBrief && (
+        <div className="context-bar">
+          <span className="context-label" aria-label="Context">
+            {startsASessionWords(firstBrief.tokens)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -229,13 +249,17 @@ function FirstMessage({
 function ToLine({
   personName,
   personLabel,
+  context,
 }: {
   readonly personName: string;
   readonly personLabel: string;
+  /** The Thread's; a tab with no Thread has no cache to mark. */
+  readonly context?: ThreadContext;
 }): ReactNode {
   return (
     <div className="timeline-to">
       <span aria-hidden="true">To</span>
+      {context && <CacheMark context={context} />}
       <span className="timeline-to-shown">
         <Avatar name={personName} size="xs" />
         <strong>{personLabel}</strong>
@@ -265,7 +289,7 @@ function WritingInTab({
   if (!thread) return null;
   return (
     <div className="timeline-foot">
-      <ToLine personName={personName} personLabel={personLabel} />
+      <ToLine personName={personName} personLabel={personLabel} context={thread.context} />
       <ThreadComposer
         thread={thread}
         personName={personName}

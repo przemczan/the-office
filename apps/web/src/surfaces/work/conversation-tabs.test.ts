@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   emptyThreadWords,
   firstTab,
+  stageRunningFor,
   stagesWorkedOn,
   tabAsked,
   tabLine,
@@ -18,6 +19,10 @@ function thread(id: string, roleKey: string, stageThread = false): Thread {
 
 function stageOf(name: string, threadId: string | null): TaskStage {
   return { stage: { name }, runs: [{ threadId }] } as unknown as TaskStage;
+}
+
+function stageWithRun(name: string, threadId: string, endedAt: string | null): TaskStage {
+  return { stage: { name }, runs: [{ threadId, endedAt }] } as unknown as TaskStage;
 }
 
 describe("tabAsked", () => {
@@ -69,6 +74,26 @@ describe("stagesWorkedOn", () => {
       thread("three", "developer", true),
     ];
     expect(stagesWorkedOn(stages, threads, "developer")).toEqual(["Implement", "Fix"]);
+  });
+});
+
+describe("stageRunningFor", () => {
+  const threads = [thread("one", "developer", true), thread("two", "reviewer", true)];
+
+  it("is the Stage whose run goes on in the person's Stage Thread", () => {
+    const stages = [
+      stageWithRun("Implement", "one", "2026-11-05T10:00:00.000Z"),
+      stageWithRun("Review", "two", null),
+    ];
+    expect(stageRunningFor(stages, threads, "reviewer")?.stage.name).toBe("Review");
+  });
+
+  it("is none once their runs ended, or while another person's Stage runs", () => {
+    const stages = [
+      stageWithRun("Implement", "one", "2026-11-05T10:00:00.000Z"),
+      stageWithRun("Review", "two", null),
+    ];
+    expect(stageRunningFor(stages, threads, "developer")).toBeUndefined();
   });
 });
 

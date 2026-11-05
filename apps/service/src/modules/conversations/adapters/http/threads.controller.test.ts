@@ -9,6 +9,7 @@ import {
   messageListSchema,
   proposalSchema,
   sizeThresholdSchema,
+  firstBriefSchema,
   taskConversationSchema,
   threadListSchema,
   threadRefusalSchema,
@@ -335,6 +336,25 @@ describe("a Task's conversation", () => {
 
     expect(read.context.cacheWarm).toBe(true);
     expect(Date.parse(read.context.cacheWarmUntil ?? "")).toBeGreaterThan(Date.now());
+  });
+
+  it("says what a tab's first message would start on, opening nothing", async () => {
+    const taskId = randomUUID();
+    const home = { kind: "task", taskId } as const;
+    const repository = app.get(ThreadRepository);
+    const oscar = aPerson("Oscar", false);
+    await repository.add(aThread({ id: randomUUID(), home, roleKey: oscar, stageThread: true }));
+
+    const read = await get(`/tasks/${taskId}/conversation/${oscar}/brief`);
+
+    expect(firstBriefSchema.parse(await read.json()).tokens).toBeGreaterThan(0);
+    expect(await repository.listIn(home)).toHaveLength(1);
+  });
+
+  it("gives no Brief for someone with no tab on the Task", async () => {
+    const read = await get(`/tasks/${randomUUID()}/conversation/${aPerson("Oscar", false)}/brief`);
+
+    expect(read.status).toBe(422);
   });
 
   it("refuses a Thread for someone with no tab on the Task", async () => {

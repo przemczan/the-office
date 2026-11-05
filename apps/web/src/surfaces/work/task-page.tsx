@@ -107,7 +107,12 @@ function TaskBody({
           </div>
           <RecordTabContent task={task} shown={recordTab} />
         </div>
-        <TaskConversation task={task} threads={threads} asked={stageHistory.askedThread} />
+        <TaskConversation
+          task={task}
+          threads={threads}
+          onShowStage={stageHistory.show}
+          asked={stageHistory.askedThread}
+        />
       </div>
     </ConversationDrawerProvider>
   );

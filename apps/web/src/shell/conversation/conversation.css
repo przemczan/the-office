@@ -69,40 +69,31 @@
   color: var(--fg-2);
 }
 
-.context-label {
+.context-choice {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
-}
-
-.context-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid var(--info-border);
-  border-radius: 999px;
-  background: var(--info-subtle);
-  font: 500 11px/1 var(--font-sans);
-  color: var(--info-fg);
-}
-
-.context-pill.resume {
-  border-color: var(--success-border);
-  background: var(--success-subtle);
-  color: var(--success-fg);
 }
 
 .context-tokens {
   color: var(--fg-3);
 }
 
-.context-actions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
+.cache-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: 500 11px/1 var(--font-mono);
+}
+
+.cache-mark.warm {
+  color: var(--warning-fg);
+}
+
+.cache-mark.cold {
+  color: var(--info-fg);
 }
 
 .context-dot {

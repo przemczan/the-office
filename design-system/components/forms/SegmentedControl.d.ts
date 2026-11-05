@@ -1,5 +1,5 @@
 import * as React from 'react';
-export interface SegmentedOption{value: string;label: React.ReactNode;icon?: React.ReactNode;}
+export interface SegmentedOption{value: string;label: React.ReactNode;icon?: React.ReactNode;title?: string;}
 export interface SegmentedControlProps{
   /** 2–5 short options */
   options?: (string|SegmentedOption)[];

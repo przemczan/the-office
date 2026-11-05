@@ -6,8 +6,11 @@ import type { Thread } from "../domain/thread.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { Briefs } from "./briefs.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadService } from "./thread-service.js";
+
+const NO_TAB = "This person has no tab on this Task.";
 
 /** A Task's conversation: one tab per person, each with their one Thread on it (spec §2.4). */
 @Injectable()
@@ -20,12 +23,23 @@ export class TaskConversations {
     private readonly threads: ThreadService,
     private readonly roleCards: RoleCards,
     private readonly taskThreads: TaskThreadSetups,
+    private readonly briefs: Briefs,
   ) {}
 
   async tabs(taskId: string): Promise<readonly ConversationTab[]> {
     const threads = await this.repository.listIn({ kind: "task", taskId });
     const decisions = await this.consultedDecisions(threads);
     return conversationTabs(this.taskThreads.planner(), threads, decisions);
+  }
+
+  /**
+   * What the first session of a Thread still to be opened would take, in tokens. Apart from the
+   * tabs: it reads the Task's diff, and the tabs are read again at every Thread event.
+   */
+  async firstBriefTokens(taskId: string, roleKey: string): Promise<number> {
+    const tabs = await this.tabs(taskId);
+    if (!tabs.some((tab) => tab.roleKey === roleKey)) throw new ThreadRefused([NO_TAB]);
+    return (await this.briefs.forPersonsFirstSession(taskId, roleKey)).tokens;
   }
 
   /**
@@ -43,7 +57,7 @@ export class TaskConversations {
 
   private async findOrOpen(taskId: string, roleKey: string): Promise<Thread> {
     const tab = (await this.tabs(taskId)).find((candidate) => candidate.roleKey === roleKey);
-    if (!tab) throw new ThreadRefused(["This person has no tab on this Task."]);
+    if (!tab) throw new ThreadRefused([NO_TAB]);
     if (tab.threadId !== undefined) return this.existing(tab.threadId);
     const refusal = await this.taskThreads.readyForPersonsThread(taskId);
     if (refusal !== undefined) throw new ThreadRefused([refusal]);

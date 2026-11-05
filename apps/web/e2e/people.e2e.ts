@@ -955,7 +955,7 @@ function chatWith(page: Page, name: string) {
 }
 
 function contextLabel(page: Page) {
-  return chatWith(page, "Jan").getByLabel("Context");
+  return chatWith(page, "Jan").getByLabel("Context", { exact: true });
 }
 
 /** The Details switch of a chat or the Task page's conversation. */
@@ -976,10 +976,10 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   const chat = chatWith(page, "Jan");
   await expect(chat.getByText("No threads with Jan yet.")).toBeVisible();
   await chat.getByRole("button", { name: "New thread" }).first().click();
-  await expect(contextLabel(page)).toContainText(/Fresh · new Thread · brief ~\d/);
+  await expect(contextLabel(page)).toHaveText(/^Starts a session with a Brief ~[\d.]+k? tokens$/);
 
-  await chat.getByLabel("Message").fill("Read the deploy workflow.");
-  await chat.getByLabel("Message").press("Enter");
+  await chat.getByRole("textbox", { name: "Message" }).fill("Read the deploy workflow.");
+  await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
   await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible(
     WHILE_THE_OTHER_FILES_RUN,
@@ -993,22 +993,32 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await expect(chat.getByText(/deploy-production\.yml$/)).toBeVisible();
   await expect(chat.locator(".message-office").first()).toBeVisible();
   await expect(chat.getByRole("heading", { name: "Read the deploy workflow" })).toBeVisible();
-  await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 32k context");
+  await expect(contextLabel(page)).toHaveText(
+    /^Continues · cache warm, \d+ min left · 32k context$/,
+  );
   await expect(chat.getByText("32k tokens in this Thread")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-chat.png") });
 
-  await chat.getByRole("button", { name: /^Start fresh · ~\d/ }).click();
-  await expect(contextLabel(page)).toContainText(/Fresh · you chose it · brief ~\d/);
-  await expect(chat.getByRole("button", { name: "Auto" })).toBeVisible();
-  await expect(chat.getByRole("button", { name: "Continue anyway · ~32k" })).toBeVisible();
-  await chat.getByLabel("Message").fill("And the tests?");
-  await chat.getByLabel("Message").press("Enter");
+  // Each choice says what it would do and its cost, and the one taken says so beside it.
+  const startFresh = chat.getByRole("tab", { name: "Start fresh" });
+  await expect(startFresh).toHaveAttribute("title", /^Starts fresh · Brief ~[\d.]+k? tokens$/);
+  await startFresh.click();
+  await expect(startFresh).toHaveAttribute("aria-selected", "true");
+  await expect(contextLabel(page)).toHaveText(/^Starts fresh · Brief ~[\d.]+k? tokens$/);
+  await expect(chat.getByRole("tab", { name: "Continue" })).toHaveAttribute(
+    "title",
+    /^Continues · cache warm, \d+ min left · 32k context$/,
+  );
+  await chat.getByRole("textbox", { name: "Message" }).fill("And the tests?");
+  await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
   await expect(chat.getByText("The tests run with npm test.")).toBeVisible(
     WHILE_THE_OTHER_FILES_RUN,
   );
   await expect(chat.getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
-  await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 21k context");
+  await expect(contextLabel(page)).toHaveText(
+    /^Continues · cache warm, \d+ min left · 21k context$/,
+  );
 
   // The browser remembers the switch.
   await page.reload();
@@ -1028,11 +1038,13 @@ test("a Thread is renamed, and an old one stays readable and continues", async (
   await expect(chat.getByRole("heading", { name: "New thread" })).toBeVisible();
   await chat.getByRole("button", { name: /^Deploys/ }).click();
   await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
-  await chat.getByLabel("Message").fill("Thanks.");
-  await chat.getByLabel("Message").press("Enter");
+  await chat.getByRole("textbox", { name: "Message" }).fill("Thanks.");
+  await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
   await expect(chat.getByText("You're welcome.")).toBeVisible();
-  await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 21k context");
+  await expect(contextLabel(page)).toHaveText(
+    /^Continues · cache warm, \d+ min left · 21k context$/,
+  );
 
   await page.reload();
   await expect(chatWith(page, "Jan").getByText("You're welcome.")).toBeVisible();
@@ -1512,7 +1524,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
     "true",
   );
   // Jan starts on the user's first message, not as the Task moves to Planning.
-  const message = conversation.getByLabel("Message");
+  const message = conversation.getByRole("textbox", { name: "Message" });
   await message.fill("Signing in should bring me back to the page I was on.");
   await message.press("Enter");
   const needsYou = page.getByRole("region", { name: "Needs you" });
@@ -1812,7 +1824,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   const adamTab = conversation.getByRole("tab", { name: /Adam/ });
   await expect(janTab).toHaveAttribute("aria-selected", "true");
   await expect(adamTab).toBeVisible();
-  await expect(conversation.getByLabel("Context")).toBeVisible();
+  await expect(conversation.getByLabel("Context", { exact: true })).toBeVisible();
   await expect(
     conversation.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` }),
   ).toHaveCount(0);
@@ -1916,7 +1928,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(newestRun.getByRole("note")).toHaveText(
     "This run has ended, so its Thread is read-only.",
   );
-  await expect(newestRun.getByLabel("Message")).toHaveCount(0);
+  await expect(newestRun.getByRole("textbox", { name: "Message" })).toHaveCount(0);
   // Its Handover note shows its first lines, and reads whole in the run's Summary.
   const noteInThread = newestRun.locator(".message.handover-note").last();
   await expect(noteInThread).toContainText("Handover note");
@@ -1942,7 +1954,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(history).toHaveCount(0);
   await expect(adamTab).toHaveAttribute("aria-selected", "true");
   await expect(conversation).toContainText("Worked on Implement");
-  await expect(conversation.getByLabel("Message")).toHaveAttribute(
+  await expect(conversation.getByRole("textbox", { name: "Message" })).toHaveAttribute(
     "placeholder",
     /Ask Adam anything/,
   );
@@ -2354,7 +2366,7 @@ test("a Gate's card and window continue past it, and the window drops the Task",
     await expect(page.locator(".task-head").getByText("Dropped")).toBeVisible();
     await expect(needsYou).toHaveText("This Task was dropped.");
     await expect(page.getByText("This Task was dropped, so you can read")).toBeVisible();
-    await expect(page.getByLabel("Message")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
   } finally {
     await repository.remove();
   }
@@ -2483,7 +2495,7 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     });
     await expect(live).toContainText("I read the migration: it is reversible.");
     await expect(live.getByRole("textbox")).toHaveCount(0);
-    await expect(conversation.getByLabel("Message")).toHaveAttribute(
+    await expect(conversation.getByRole("textbox", { name: "Message" })).toHaveAttribute(
       "placeholder",
       /Ask Adam anything/,
     );
@@ -2542,7 +2554,7 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
       name: `Consultation: ${ANSWERED_CONSULTATION_QUESTION}`,
     });
     await expect(answered).toContainText(CONSULTATION_OPTION);
-    await expect(conversation.getByLabel("Message")).toHaveAttribute(
+    await expect(conversation.getByRole("textbox", { name: "Message" })).toHaveAttribute(
       "placeholder",
       /Ask Adam anything/,
     );
@@ -2572,10 +2584,13 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     await page.goto(`/tasks/${taskId}`);
 
     const conversation = page.getByRole("complementary", { name: "Conversation" });
-    const composer = conversation.getByLabel("Message");
+    const composer = conversation.getByRole("textbox", { name: "Message" });
     const timeline = conversation.locator(".timeline");
     const janTab = conversation.getByRole("tab", { name: /Jan/ });
     const adamTab = conversation.getByRole("tab", { name: /Adam/ });
+    const peopleTabs = conversation.locator(".conversation-tabs").getByRole("tab");
+    const cacheMark = conversation.locator(".timeline-to").getByRole("img");
+    const contextWords = conversation.getByLabel("Context", { exact: true });
     const fromTheEnd = (): Promise<number> =>
       timeline.evaluate((view) => view.scrollHeight - view.scrollTop - view.clientHeight);
     const threadsOnTask = async (): Promise<readonly Thread[]> =>
@@ -2583,7 +2598,7 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
 
     // The person gets a tab as their Stage starts, with a live dot, and the tab shown stays.
     await expect(janTab).toHaveAttribute("aria-selected", "true");
-    await expect(conversation.getByRole("tab")).toHaveCount(1);
+    await expect(peopleTabs).toHaveCount(1);
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await expect(adamTab).toContainText("working now");
     await expect(janTab).toHaveAttribute("aria-selected", "true");
@@ -2597,18 +2612,22 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     expect((await threadsOnTask()).filter(({ roleKey }) => roleKey === "developer")).toHaveLength(
       1,
     );
+    // With no session yet there is no cache to mark, and the words say what the first message does.
+    await expect(contextWords).toHaveText(/^Starts a session with a Brief ~[\d.]+k? tokens$/);
+    await expect(cacheMark).toHaveCount(0);
+    await expect(conversation).toContainText(
+      "Adam is working on Implement now. To write into that work, open its Stage history.",
+    );
 
     // A barge-in from the Stage history lands at the next safe point, and waits to be taken until
     // the turn ends. The window opens on the running Thread, which follows live, and a draft stays
     // as the user reads the Summary.
-    const pipelineRail = page.getByRole("region", { name: /^Pipeline · / });
-    const implementOnRail = pipelineRail.getByRole("button", { name: "Implement", exact: true });
-    await implementOnRail.click();
+    await conversation.getByRole("button", { name: "Open the Stage history" }).click();
     const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
     const runningRun = history.getByRole("region", { name: "Run 1", exact: true });
     await expect(runningRun.getByText("I am reading the export's columns.")).toBeVisible();
     await expect(runningRun).toContainText(": lands at the next safe point");
-    const bargeIn = runningRun.getByLabel("Message");
+    const bargeIn = runningRun.getByRole("textbox", { name: "Message" });
     await expect(bargeIn).toHaveAttribute("placeholder", /while the Stage runs/);
     await bargeIn.fill("Keep the header row");
     await history.getByRole("tab", { name: "Summary" }).click();
@@ -2660,6 +2679,14 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     await composer.press("Enter");
     await expect(conversation.getByText("Column 40 keeps its place.")).toBeVisible();
     await expect.poll(fromTheEnd).toBeLessThan(40);
+    // The session is warm now: the To line counts its cache down, before the person's name.
+    await expect(cacheMark).toHaveAccessibleName(/^Cache warm: \d+ min left/);
+    await expect(cacheMark).toHaveText(/^\d+m$/);
+    await expect(contextWords).toHaveText(/^Continues · cache warm, \d+ min left · 30k context$/);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-conversation-warm.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-conversation-warm.png") });
+    await showPalette(page, "light");
     const adamsThread = (await threadsOnTask()).find(
       ({ roleKey, stageThread }) => roleKey === "developer" && !stageThread,
     );
@@ -2695,6 +2722,64 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     await expect(newMessages).toHaveCount(0);
     await expect(conversation.getByText("Nothing else moves.")).toBeVisible();
     expect(await scrollTopOf(pageScroller)).toBe(pageAt);
+
+    // A tab counts what landed in its Thread while another was shown, until it is looked at.
+    await janTab.click();
+    await sendToAdam("Does the tab count this?");
+    await expect(adamTab).toHaveText(/2$/);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-tab-count.png") });
+    await adamTab.click();
+    await expect(adamTab).not.toHaveText(/\d$/);
+
+    // The control takes the next message's choice, and Auto gives it back.
+    const startFresh = conversation.getByRole("tab", { name: "Start fresh" });
+    await startFresh.click();
+    await expect(contextWords).toHaveText(/^Starts fresh · Brief ~[\d.]+k? tokens$/);
+    await conversation.getByRole("tab", { name: "Auto" }).click();
+    await expect(contextWords).toHaveText(/^Continues · cache warm/);
+
+    // Once the cache has cooled the mark is cold, and the words say what the next message costs.
+    const adamsThreadRead = `**/api/threads/${adamsThread.id}`;
+    await page.route(adamsThreadRead, async (route) => {
+      const response = await route.fetch();
+      const thread = threadSchema.parse(await response.json());
+      await route.fulfill({
+        response,
+        json: {
+          ...thread,
+          context: {
+            ...thread.context,
+            move: "fresh",
+            reason: "cache-expired",
+            cacheWarm: false,
+            cacheWarmUntil: null,
+            contextTokens: 48_000,
+            briefTokens: 3_000,
+            alternatives: [{ override: "continue-anyway", tokens: 48_000 }],
+          },
+        },
+      });
+    });
+    await page.reload();
+    await expect(cacheMark).toHaveAccessibleName(/^Cache cold/);
+    await expect(contextWords).toHaveText(
+      "Starts fresh · cache cold, 48k context · Brief ~3k tokens",
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-conversation-cold.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-conversation-cold.png") });
+    await showPalette(page, "light");
+    await expect(conversation.getByRole("tab", { name: "Continue" })).toHaveAttribute(
+      "title",
+      "Continues anyway · cache cold, so the 48k context is read again in full",
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-cache-cold.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-cache-cold.png") });
+    await showPalette(page, "light");
+    await page.unroute(adamsThreadRead);
+    await page.reload();
+    await expect(cacheMark).toHaveAccessibleName(/^Cache warm/);
 
     // Full width the conversation is a column, with no way to close it.
     const closeDrawer = page.getByRole("button", { name: "Close the conversation" });
@@ -2847,7 +2932,7 @@ test("the user mentions a Task with @ in a chat, and the person is briefed with 
     const { id: threadId } = threadSchema.parse(await (await starting).json());
     // Typed only once the new Thread shows: its composer starts with an empty draft.
     await expect(page).toHaveURL(new RegExp(`thread=${threadId}`));
-    const message = chat.getByLabel("Message");
+    const message = chat.getByRole("textbox", { name: "Message" });
     await message.fill("Is ");
     await message.pressSequentially("@invoices");
     await expect(chat.getByRole("option", { name: /Export the invoices as CSV/ })).toBeVisible();
@@ -3066,12 +3151,12 @@ test("the user asks Nina from a Project's Commands and a library Pipeline, and a
     // Asked from the Commands or the Pipeline, Nina's chat opens on a new Thread with the question.
     await page.goto(`/projects/${project.id}`);
     await page.getByRole("button", { name: "Ask Nina to propose a change" }).click();
-    await expect(nina.getByLabel("Message")).toHaveValue(
+    await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you propose a change to the commands of ${project.name}? `,
     );
     await page.goto(`/settings/pipelines/${pipeline.id}`);
     await page.getByRole("button", { name: "Ask Nina", exact: true }).click();
-    await expect(nina.getByLabel("Message")).toHaveValue(
+    await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you propose a change to the ${pipeline.name} Pipeline? `,
     );
     const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
@@ -3164,7 +3249,7 @@ test("the user asks Nina to onboard a Project, applies her Proposal and finds it
 
     await page.goto("/projects");
     await page.getByRole("button", { name: "Ask Nina to onboard one" }).click();
-    await expect(nina.getByLabel("Message")).toHaveValue(
+    await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       "Can you onboard a new Project? The repository is ",
     );
     const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
@@ -3225,7 +3310,7 @@ test("Nina's Proposal to onboard a repository by its Repository URL shows the UR
 
   await page.goto("/projects");
   await page.getByRole("button", { name: "Ask Nina to onboard one" }).click();
-  await expect(nina.getByLabel("Message")).toHaveValue(
+  await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
     "Can you onboard a new Project? The repository is ",
   );
   const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
@@ -3275,7 +3360,7 @@ test("the user asks Nina to install a skill from a source, applies her Proposal 
     await dialog.getByLabel("Source").fill(source.url);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skills-install.png") });
     await dialog.getByRole("button", { name: "Ask Nina to install it" }).click();
-    await expect(nina.getByLabel("Message")).toHaveValue(
+    await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you install the skills from ${source.url}?`,
     );
     const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
@@ -3367,7 +3452,7 @@ test("the user sees a skill's update, asks Nina, reads her Proposal's diff and a
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("Version v1.0.0");
     await dialog.getByRole("button", { name: "Ask Nina to propose it" }).click();
-    await expect(nina.getByLabel("Message")).toHaveValue(
+    await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you propose the update of ${name} to v1.1.0?`,
     );
     const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
@@ -3507,7 +3592,7 @@ test("the user opens a Thread from Marta's Link card, edits the Handover note an
   await expect(chat.getByRole("heading", { name: "New thread" })).toBeVisible();
   const prefilled = chat.getByRole("note").filter({ hasText: "Handover note from" });
   await expect(prefilled).toContainText("Handover note from Marta · Office Manager, prefilled");
-  const message = chat.getByLabel("Message");
+  const message = chat.getByRole("textbox", { name: "Message" });
   await expect(message).toHaveValue(note);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-handover-note-prefilled.png") });
   await message.fill(`${note} Marta thinks the CSV part can ship first.`);
@@ -3746,7 +3831,7 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await expect(outcome.getByRole("button", { name: "Edit" })).toHaveCount(0);
 
     // Once it is active, Bob's change is a Proposal the user applies.
-    const message = conversation.getByLabel("Message");
+    const message = conversation.getByRole("textbox", { name: "Message" });
     await message.fill("The API should export it too");
     await message.press("Enter");
     const proposal = conversation.getByRole("region", {
@@ -3805,7 +3890,7 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
 
     // The page has no rail, no tabs and no Needs you card, only the timeline's one Details switch.
     await expect(page.getByRole("region", { name: /^Pipeline · / })).toHaveCount(0);
-    await expect(page.getByRole("tab")).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Overview" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Needs you" })).toHaveCount(0);
     await expect(detailsSwitch(conversation)).toHaveCount(1);
 

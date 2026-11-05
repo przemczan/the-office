@@ -3,7 +3,6 @@ import { isPersonsThread, type Thread } from "../domain/thread.js";
 
 /** A Thread on a Task, as the module keeping Tasks sets its session up. */
 export interface TaskThreadRequest {
-  readonly threadId: string;
   readonly taskId: string;
   /** Who answers in it, by the key of the Role they fill. */
   readonly roleKey: string;
@@ -16,7 +15,6 @@ export interface TaskThreadRequest {
 /** What the module keeping Tasks is asked about the Thread on `taskId`. */
 export function taskThreadRequest(thread: Thread, taskId: string): TaskThreadRequest {
   return {
-    threadId: thread.id,
     taskId,
     roleKey: thread.roleKey,
     personsThread: isPersonsThread(thread),

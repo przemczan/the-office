@@ -1,21 +1,26 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ContextOverride, Thread } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { SegmentedControl } from "@the-office/ui";
+import { useEffect, type ReactNode } from "react";
 import { chooseContextOverride, threadQueries } from "../../api/conversations.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
-import {
-  contextDetail,
-  MOVE_WORDS,
-  OVERRIDE_HINTS,
-  OVERRIDE_WORDS,
-  tokensShort,
-} from "./context-words.ts";
 import { TokenCount } from "../token-count.tsx";
+import { useCacheState } from "./cache-mark.tsx";
+import {
+  CONTEXT_CHOICES,
+  contextChoiceOf,
+  contextChoiceWords,
+  contextLabel,
+  offersAChoice,
+  overrideOf,
+  startsASessionWords,
+  type CacheState,
+  type ContextChoice,
+} from "./context-words.ts";
 
 /**
- * The Thread's context label (spec §2.5): what the next message does to its session and why, the
- * Thread's tokens, and what the user may choose instead, with its estimated cost.
+ * Under the composer (spec §2.5): what the next message does to the Thread's session and what it
+ * costs, the Thread's tokens, and Auto, Continue and Start fresh, each saying the same of itself.
  */
 export function ContextBar({
   thread,
@@ -30,45 +35,45 @@ export function ContextBar({
     onSuccess: (chosen) => queryClient.setQueryData(threadQueries.one(chosen.id).queryKey, chosen),
   });
   const { context } = thread;
+  const cache = useCacheState(context);
+  // The service's move was read while the cache was warm: what it does now is read again.
+  const cooled = cache.kind === "cold" && context.cacheWarmUntil !== null;
+  useEffect(() => {
+    if (cooled) void queryClient.invalidateQueries(threadQueries.one(thread.id));
+  }, [cooled, queryClient, thread.id]);
+  const chosen = contextChoiceOf(context.override);
+  const wordsOf = (choice: ContextChoice): string =>
+    contextChoiceWords(context, choice, cache, personName);
   return (
     <div className="context-bar">
-      <div className="context-label" aria-label="Context">
-        <span className={`context-pill ${context.move}`}>
-          <Icon name={context.move === "resume" ? "zap" : "sparkles"} size={12} />
-          {MOVE_WORDS[context.move]}
+      <div className="context-choice">
+        {offersAChoice(context) && (
+          <SegmentedControl
+            size="sm"
+            value={chosen}
+            options={CONTEXT_CHOICES.map(({ value, label }) => ({
+              value,
+              label,
+              title: wordsOf(value),
+            }))}
+            onChange={(value) => choosing.mutate(overrideOf(value as ContextChoice))}
+          />
+        )}
+        <span className="context-label" aria-label="Context">
+          {offersAChoice(context) ? wordsOf(chosen) : noChoiceWords(thread, cache, personName)}
         </span>
-        {/* The pill shows the break; the label still reads whole, as the log's lines do. */}
-        <span className="visually-hidden"> · </span>
-        <span>{contextDetail(context, personName)}</span>
       </div>
       <span className="context-tokens">
         <TokenCount tokens={thread.tokens} label="tokens in this Thread" />
       </span>
-      <span className="context-actions">
-        {context.alternatives.map(({ override, tokens: cost }) => (
-          <Button
-            key={override}
-            size="sm"
-            variant="secondary"
-            title={OVERRIDE_HINTS[override]}
-            loading={choosing.isPending && choosing.variables === override}
-            onClick={() => choosing.mutate(override)}
-          >
-            {OVERRIDE_WORDS[override]} · ~{tokensShort(cost)}
-          </Button>
-        ))}
-        {context.override !== null && (
-          <Button
-            size="sm"
-            variant="ghost"
-            title="Back to the Context policy's choice"
-            onClick={() => choosing.mutate(null)}
-          >
-            Auto
-          </Button>
-        )}
-      </span>
       {choosing.error && <RefusalAlert title="That didn't change" error={choosing.error} />}
     </div>
   );
+}
+
+/** A Thread with no session to choose about says what the next message starts. */
+function noChoiceWords({ context }: Thread, cache: CacheState, personName: string): string {
+  return cache.kind === "none" && context.reason === "new-thread" && context.briefTokens !== null
+    ? startsASessionWords(context.briefTokens)
+    : contextLabel(context, personName);
 }

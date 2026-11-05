@@ -22,6 +22,7 @@ import {
   type NewMessage,
   type Thread as ThreadResponse,
   type ThreadTitle,
+  type FirstBrief,
   type TaskConversation as TaskConversationResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -80,6 +81,15 @@ export class ThreadsController {
     @Param("taskId", ParseUUIDPipe) taskId: string,
   ): Promise<TaskConversationResponse> {
     return toTaskConversationResponse(await this.taskConversations.tabs(taskId));
+  }
+
+  /** What a tab with no Thread says the first message would start on; looking opens nothing. */
+  @Get("tasks/:taskId/conversation/:roleKey/brief")
+  async firstBrief(
+    @Param("taskId", ParseUUIDPipe) taskId: string,
+    @Param("roleKey") roleKey: string,
+  ): Promise<FirstBrief> {
+    return { tokens: await this.taskConversations.firstBriefTokens(taskId, roleKey) };
   }
 
   /** The person's one Thread on the Task, opened the first time their tab asks for it. */

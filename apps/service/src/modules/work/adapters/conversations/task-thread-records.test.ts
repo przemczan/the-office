@@ -38,7 +38,7 @@ function planningRequest(taskId: string): TaskThreadRequest {
 }
 
 function aPersonsThread(taskId: string, roleKey: string, firstSession = true): TaskThreadRequest {
-  return { threadId: randomUUID(), taskId, roleKey, personsThread: true, firstSession };
+  return { taskId, roleKey, personsThread: true, firstSession };
 }
 
 async function aTaskIn(state: TaskState): Promise<Task> {

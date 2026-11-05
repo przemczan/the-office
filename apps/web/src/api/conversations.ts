@@ -6,6 +6,7 @@ import {
   proposalListSchema,
   proposalSchema,
   sizeThresholdSchema,
+  firstBriefSchema,
   taskConversationSchema,
   threadListSchema,
   threadSchema,
@@ -54,6 +55,17 @@ export const threadQueries = {
         getFromApi(
           `/tasks/${encodeURIComponent(taskId)}/conversation`,
           taskConversationSchema,
+          signal,
+        ),
+    }),
+  /** Not under the Threads' key: it reads the Task's diff, and Thread events come by the dozen. */
+  firstBrief: (taskId: string, roleKey: string) =>
+    queryOptions({
+      queryKey: ["first-brief", taskId, roleKey],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/tasks/${encodeURIComponent(taskId)}/conversation/${encodeURIComponent(roleKey)}/brief`,
+          firstBriefSchema,
           signal,
         ),
     }),

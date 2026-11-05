@@ -66,6 +66,30 @@ export function withNewMessagesRead(
     : now;
 }
 
+/** What landed out of view in each Thread on its own, as a tab counts only its Thread's. */
+export type NewMessagesByThread = ReadonlyMap<string, NewMessages>;
+
+/** As `withArrivals` and `withNewMessagesRead`, each Thread apart: reading one leaves the others. */
+export function withArrivalsByThread(
+  before: NewMessagesByThread,
+  logs: readonly WatchedLog[],
+  details: boolean,
+): NewMessagesByThread {
+  const after = new Map<string, NewMessages>();
+  for (const log of logs) {
+    const was = before.get(log.threadId) ?? NO_NEW_MESSAGES;
+    const landed = withArrivals(was, [log], details);
+    after.set(
+      log.threadId,
+      withNewMessagesRead(landed, () => log.inView),
+    );
+  }
+  const unchanged =
+    after.size === before.size &&
+    [...after].every(([threadId, now]) => before.get(threadId) === now);
+  return unchanged ? before : after;
+}
+
 export function newMessagesWords(count: number): string {
   return `${count} new ${count === 1 ? "message" : "messages"}`;
 }
@@ -79,21 +103,41 @@ export function useNewMessages(
   inView: (threadId: string) => boolean,
 ): NewMessages {
   const details = useDetails().on;
+  const watchedLogs = useWatchedLogs(threadIds, inView);
+  const [before, setBefore] = useState(NO_NEW_MESSAGES);
+  // Both a log landing and the reader coming into view change this, here, before it is drawn.
+  const now = withNewMessagesRead(withArrivals(before, watchedLogs, details), inView);
+  if (now !== before) setBefore(now);
+  return now;
+}
+
+/** As `useNewMessages`, a count for each Thread. */
+export function useNewMessagesByThread(
+  threadIds: readonly string[],
+  inView: (threadId: string) => boolean,
+): NewMessagesByThread {
+  const details = useDetails().on;
+  const watchedLogs = useWatchedLogs(threadIds, inView);
+  const [before, setBefore] = useState<NewMessagesByThread>(new Map());
+  const now = withArrivalsByThread(before, watchedLogs, details);
+  if (now !== before) setBefore(now);
+  return now;
+}
+
+function useWatchedLogs(
+  threadIds: readonly string[],
+  inView: (threadId: string) => boolean,
+): readonly WatchedLog[] {
   const watched = [...new Set(threadIds)];
   const logs = useQueries({
     queries: watched.map((threadId) => threadQueries.messages(threadId)),
     combine: dataOfEach,
   });
-  const [before, setBefore] = useState(NO_NEW_MESSAGES);
-  const watchedLogs = watched.map((threadId, index) => ({
+  return watched.map((threadId, index) => ({
     threadId,
     messages: logs[index],
     inView: inView(threadId),
   }));
-  // Both a log landing and the reader coming into view change this, here, before it is drawn.
-  const now = withNewMessagesRead(withArrivals(before, watchedLogs, details), inView);
-  if (now !== before) setBefore(now);
-  return now;
 }
 
 function dataOfEach(

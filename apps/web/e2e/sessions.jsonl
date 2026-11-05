@@ -105,6 +105,10 @@
 {"step":"event","event":{"kind":"text","text":"Nothing else moves.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["asking-adam-order"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"asking-adam-tab","text":"A message the user writes in a person's Thread"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"Counted in my tab.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["asking-adam-tab"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"send","message":{"id":"asking-adam-drawer","text":"A message the user writes in a person's Thread"},"priority":"later"}
 {"step":"event","event":{"kind":"text","text":"Heard from the drawer too.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["asking-adam-drawer"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}

@@ -72,6 +72,24 @@ export class Briefs {
     });
   }
 
+  /** What the first session of the person's Thread would start on, before the Thread is opened. */
+  async forPersonsFirstSession(taskId: string, roleKey: string): Promise<Brief> {
+    const setup = await this.taskThreads.of({
+      taskId,
+      roleKey,
+      personsThread: true,
+      firstSession: true,
+    });
+    if (setup.brief === undefined) throw new Error(`Task ${taskId} gave no first session's Brief.`);
+    return taskThreadBrief({
+      record: setup.brief,
+      continuing: false,
+      answered: await this.repository.answeredOn(taskId),
+      open: undefined,
+      memory: await this.memory.forBrief(roleKey, { kind: "project", projectId: setup.projectId }),
+    });
+  }
+
   /** As `forThread`, from the setup the session is about to start with: the Initiative's record. */
   async forInitiativeThread(thread: Thread, setup: InitiativeThreadSetup): Promise<Brief> {
     return initiativeThreadBrief({

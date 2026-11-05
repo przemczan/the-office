@@ -22,11 +22,12 @@ import {
 import {
   emptyThreadWords,
   firstTab,
+  stageRunningFor,
   stagesWorkedOn,
   tabAsked,
   tabLine,
 } from "./conversation-tabs.ts";
-import { newMessagesWords, useNewMessages } from "./new-messages.ts";
+import { newMessagesWords, useNewMessagesByThread } from "./new-messages.ts";
 import { TabFoot, TabLog } from "./person-tab.tsx";
 import { useTimelineScroll } from "./use-timeline-scroll.ts";
 
@@ -38,11 +39,14 @@ export function TaskConversation({
   task,
   threads,
   asked,
+  onShowStage,
 }: {
   readonly task: Task;
   readonly threads: readonly Thread[] | undefined;
   /** What the address names, unless it is a Stage run. */
   readonly asked: string | undefined;
+  /** Opens the Stage's history. */
+  readonly onShowStage: (stageKey: string) => void;
 }): ReactNode {
   const tabs = useQuery(threadQueries.conversationOnTask(task.id)).data?.tabs;
   const decisions = useQuery(decisionQueries.unanswered(task.id)).data;
@@ -64,7 +68,9 @@ export function TaskConversation({
   if (holding !== held) setHeld(holding);
   const shown = tabs?.find(({ roleKey }) => roleKey === holding) ?? tabs?.[0];
   if (!tabs || !threads || !shown) return null;
-  return <PeopleTabs task={task} threads={threads} tabs={tabs} shown={shown} />;
+  return (
+    <PeopleTabs task={task} threads={threads} tabs={tabs} shown={shown} onShowStage={onShowStage} />
+  );
 }
 
 function PeopleTabs({
@@ -72,11 +78,13 @@ function PeopleTabs({
   threads,
   tabs,
   shown,
+  onShowStage,
 }: {
   readonly task: Task;
   readonly threads: readonly Thread[];
   readonly tabs: readonly ConversationTab[];
   readonly shown: ConversationTab;
+  readonly onShowStage: (stageKey: string) => void;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   const stages = useQuery(pipelineQueries.taskStages(task.id)).data?.stages;
@@ -85,10 +93,13 @@ function PeopleTabs({
   const drawer = useConversationDrawer();
   const outOfSight = drawer.narrow && !drawer.open;
   const { roleKey, threadId } = shown;
-  const newMessages = useNewMessages(
-    threadId === null ? [] : [threadId],
-    (watched) => !outOfSight && follows(watched),
+  const newMessages = useNewMessagesByThread(
+    tabs.flatMap((tab) => tab.threadId ?? []),
+    (watched) => watched === threadId && !outOfSight && follows(watched),
   );
+  const unseenIn = (tab: ConversationTab): number =>
+    tab.threadId === null ? 0 : (newMessages.get(tab.threadId)?.count ?? 0);
+  const unseenHere = unseenIn(shown);
   const personName = roleFirstName(roleKey, roles);
   const pick = (picked: string): void => {
     void navigate({
@@ -98,15 +109,19 @@ function PeopleTabs({
     });
   };
   const workedOn = stagesWorkedOn(stages ?? [], threads, roleKey);
+  const stageRunning = shown.stageRunning
+    ? stageRunningFor(stages ?? [], threads, roleKey)
+    : undefined;
   const isPlanner = roleKey === tabs[0]?.roleKey;
   const readOnlyReason = ENDED_TASK_CONVERSATION_WORDS[task.state];
   return (
-    <ConversationPanel unread={newMessages.count}>
+    <ConversationPanel unread={tabs.reduce((sum, tab) => sum + unseenIn(tab), 0)}>
       <div className="conversation-tabs">
         <Tabs
           tabs={tabs.map((tab) => ({
             value: tab.roleKey,
             label: <TabLabel name={roleFirstName(tab.roleKey, roles)} working={tab.stageRunning} />,
+            count: unseenIn(tab) > 0 ? unseenIn(tab) : undefined,
           }))}
           value={roleKey}
           onChange={pick}
@@ -120,6 +135,16 @@ function PeopleTabs({
         </div>
         <DetailsSwitch />
       </header>
+      {stageRunning && (
+        <WorkingNow
+          personName={personName}
+          stageName={stageRunning.stage.name}
+          onOpen={() => {
+            drawer.close();
+            onShowStage(stageRunning.stage.key);
+          }}
+        />
+      )}
       <div className="timeline-view">
         <div className="timeline" ref={scroller}>
           <div className="timeline-chapters" ref={chapters}>
@@ -134,10 +159,10 @@ function PeopleTabs({
             />
           </div>
         </div>
-        {newMessages.threadId !== undefined && (
+        {unseenHere > 0 && (
           <div className="timeline-new-messages">
             <Button size="sm" onClick={() => follow()}>
-              {newMessagesWords(newMessages.count)}
+              {newMessagesWords(unseenHere)}
             </Button>
           </div>
         )}
@@ -152,6 +177,29 @@ function PeopleTabs({
         onSent={() => follow()}
       />
     </ConversationPanel>
+  );
+}
+
+/** The composer writes in the person's own Thread, so this leads to the work itself. */
+function WorkingNow({
+  personName,
+  stageName,
+  onOpen,
+}: {
+  readonly personName: string;
+  readonly stageName: string;
+  readonly onOpen: () => void;
+}): ReactNode {
+  return (
+    <div className="working-now">
+      <span className="live-dot" aria-hidden="true" />
+      <span className="working-now-words">
+        {personName} is working on {stageName} now. To write into that work, open its Stage history.
+      </span>
+      <button type="button" className="working-now-link" onClick={onOpen}>
+        Open the Stage history
+      </button>
+    </div>
   );
 }
 

@@ -147,6 +147,10 @@ export type ConversationTab = z.infer<typeof conversationTabSchema>;
 export const taskConversationSchema = z.object({ tabs: z.array(conversationTabSchema) });
 export type TaskConversation = z.infer<typeof taskConversationSchema>;
 
+/** GET /tasks/:taskId/conversation/:roleKey/brief: what a tab with no Thread would start on. */
+export const firstBriefSchema = z.object({ tokens: z.number().int().nonnegative() });
+export type FirstBrief = z.infer<typeof firstBriefSchema>;
+
 /** GET /chats/:roleKey/threads: the newest started first. */
 export const threadListSchema = z.array(threadSchema);
 

@@ -34,6 +34,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `POST /chats/:roleKey/threads`: ThreadsController.startInChat
 - `GET /tasks/:taskId/threads`: ThreadsController.listOnTask
 - `GET /tasks/:taskId/conversation`: ThreadsController.conversation
+- `GET /tasks/:taskId/conversation/:roleKey/brief`: ThreadsController.firstBrief
 - `POST /tasks/:taskId/conversation/:roleKey/thread`: ThreadsController.openPersonsThread
 - `GET /initiatives/:initiativeId/threads`: ThreadsController.listOnInitiative
 - `GET /roles/:roleKey/task-threads`: ThreadsController.listOnTasksWith

@@ -2251,6 +2251,43 @@
   white-space: nowrap;
 }
 
+.working-now {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-1-5) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--accent-subtle);
+  font-size: var(--text-xs);
+}
+
+.working-now-words {
+  flex: 1;
+  min-width: 0;
+}
+
+.working-now-link {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-2);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.working-now-link:hover {
+  color: var(--text-link-hover);
+}
+
+.working-now-link:focus-visible {
+  outline: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
+}
+
 .tab-consultation {
   margin: var(--space-3);
   padding: var(--space-3);
@@ -2338,28 +2375,6 @@
   border-bottom: 0;
   font-size: 11px;
   color: var(--fg-3);
-}
-
-.timeline-foot .context-label {
-  gap: 4px;
-}
-
-.timeline-foot .context-pill {
-  height: auto;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-}
-
-/* !important: the design system's Icon sets its display inline. */
-.timeline-foot .context-pill svg {
-  display: none !important;
-}
-
-.timeline-foot .context-pill::after {
-  content: " ·";
 }
 
 .timeline-foot .thread-read-only {
