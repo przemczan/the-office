@@ -324,10 +324,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           // The user confirms what is shown and marks the Task Ready.
           const proposal = task.proposedPipeline;
           if (!proposal) throw new Error("No Pipeline is proposed any more.");
-          await api("PUT", `/tasks/${shaped.id}/plan`, { plan: task.plan });
-          await api("PUT", `/tasks/${shaped.id}/definition-of-done`, {
-            definitionOfDone: task.definitionOfDone,
-          });
+          await api("POST", `/tasks/${shaped.id}/plan/confirm`);
+          await api("POST", `/tasks/${shaped.id}/definition-of-done/confirm`);
           await api("PUT", `/tasks/${shaped.id}/pipeline`, { pipelineId: proposal.pipelineId });
           const ready = taskSchema.parse(await api("POST", `/tasks/${shaped.id}/ready`));
           expect(ready).toMatchObject({

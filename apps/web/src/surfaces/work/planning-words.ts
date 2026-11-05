@@ -11,6 +11,12 @@ export function statementsOf(text: string): string[] {
 }
 
 /** How many of the statements are among the numbers Reported met, counted from 1. */
+/** What a changing Save does to a Ready Task, said before it happens. */
+export function leavesReadyWords(queued: boolean): string {
+  const move = queued ? "takes this Task out of the queue and moves it" : "moves this Task";
+  return `Saving a change ${move} to Backlog, to confirm and mark Ready again.`;
+}
+
 export function reportedMetCount(statements: readonly string[], met: readonly number[]): number {
   return statements.filter((_, index) => met.includes(index + 1)).length;
 }

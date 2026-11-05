@@ -154,23 +154,37 @@ export class TasksController {
     return toTaskResponse(await this.planning.makeAPlan(id));
   }
 
-  /** The user's Plan, confirmed: the proposed one as shown, or their edit of it. */
+  /** Save: the user's Plan, unconfirmed once changed; a change moves a Ready Task to Backlog. */
   @Put(":id/plan")
-  async confirmPlan(
+  async savePlan(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(planChangeSchema)) change: PlanChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.confirmPlan(id, change));
+    return toTaskResponse(await this.planning.savePlan(id, change));
   }
 
-  /** The user's Definition of Done, confirmed, as with the Plan. */
+  /** Confirm: the Plan as it reads. */
+  @Post(":id/plan/confirm")
+  @HttpCode(HttpStatus.OK)
+  async confirmPlan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.confirmPlan(id));
+  }
+
+  /** Save, as with the Plan. */
   @Put(":id/definition-of-done")
-  async confirmDefinitionOfDone(
+  async saveDefinitionOfDone(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(definitionOfDoneChangeSchema))
     { definitionOfDone }: DefinitionOfDoneChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.confirmDefinitionOfDone(id, definitionOfDone));
+    return toTaskResponse(await this.planning.saveDefinitionOfDone(id, definitionOfDone));
+  }
+
+  /** Confirm: the Definition of Done as it reads. */
+  @Post(":id/definition-of-done/confirm")
+  @HttpCode(HttpStatus.OK)
+  async confirmDefinitionOfDone(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.confirmDefinitionOfDone(id));
   }
 
   /** The Task's Pipeline, set by the user: the proposed one confirmed, or another. */

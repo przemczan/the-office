@@ -512,6 +512,8 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       expect((await send("POST", `/tasks/${task.id}/planning`)).status).toBe(200);
       await send("PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
       await send("PUT", `/tasks/${task.id}/definition-of-done`, { definitionOfDone: ["Mine."] });
+      await send("POST", `/tasks/${task.id}/plan/confirm`);
+      await send("POST", `/tasks/${task.id}/definition-of-done/confirm`);
       await send("PUT", `/tasks/${task.id}/pipeline`, { pipelineId });
       expect((await send("POST", `/tasks/${task.id}/ready`)).status).toBe(200);
       return task;

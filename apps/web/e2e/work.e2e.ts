@@ -385,7 +385,9 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await expect(markReady).toHaveCount(0);
   await plan.getByRole("button", { name: "Edit" }).click();
   await plan.getByRole("textbox", { name: "Plan" }).fill("Pass the board's filters to the export.");
-  await plan.getByRole("button", { name: "Save and confirm" }).click();
+  await plan.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(plan.getByText("Not confirmed", { exact: true })).toBeVisible();
+  await plan.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Plan confirmed")).toHaveClass(/task-checklist-met/);
   await expect(readinessLine("Definition of Done confirmed")).toContainText(
@@ -409,7 +411,8 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await definitionOfDone
     .getByRole("textbox")
     .fill("The export holds only the filtered Tasks.\nThe tests pass.");
-  await definitionOfDone.getByRole("button", { name: "Save and confirm" }).click();
+  await definitionOfDone.getByRole("button", { name: "Save", exact: true }).click();
+  await definitionOfDone.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
 

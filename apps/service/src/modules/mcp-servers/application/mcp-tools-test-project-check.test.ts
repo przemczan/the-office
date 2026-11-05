@@ -268,6 +268,8 @@ async function plannedByTheUser(api: Api, projectId: string): Promise<string> {
       "No file is changed.",
     ],
   });
+  await api("POST", `/tasks/${taskId}/plan/confirm`);
+  await api("POST", `/tasks/${taskId}/definition-of-done/confirm`);
   await api("PUT", `/tasks/${taskId}/pipeline`, { pipelineId: "quick-fix" });
   expect(taskSchema.parse(await api("POST", `/tasks/${taskId}/ready`)).state).toBe("ready");
   return taskId;

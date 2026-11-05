@@ -55,7 +55,7 @@ export interface PlanningRecord {
 /**
  * A planning Thread's Brief (spec §2.5): the Task's title and Description, where it came from, its
  * Attachments, the Project's commands, the Pipelines to propose from, and the Plan and Definition of Done once
- * written, each marked proposed or confirmed.
+ * written, each marked confirmed or not.
  */
 export function planningBrief({
   task,
@@ -80,7 +80,7 @@ export function planningBrief({
     .join("\n\n");
 }
 
-/** The Plan and the Definition of Done once written, each marked proposed or confirmed. */
+/** The Plan and the Definition of Done once written, each marked confirmed or not. */
 export function planSections(task: Task): readonly (string | undefined)[] {
   return [
     task.plan === ""
@@ -126,7 +126,7 @@ function pipelinesSection(task: Task, pipelines: readonly PlanningPipeline[]): s
 
 /** Whether a part of the Task is the user's word yet, as an Agent reads it. */
 export function confirmationWords(confirmed: boolean): string {
-  return confirmed ? "confirmed by the user" : "proposed, not yet confirmed by the user";
+  return confirmed ? "confirmed by the user" : "not yet confirmed by the user";
 }
 
 /** The Idea's notes are left out when they are the Description still, which the Brief has already. */

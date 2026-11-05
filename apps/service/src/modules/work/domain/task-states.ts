@@ -13,10 +13,11 @@ export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
 };
 
 /**
- * Where a Task may go from each state. Work only moves forward; Planning is optional, so a Task
- * whose Plan and Definition of Done the user wrote goes from Backlog to Ready (spec §2.1); Waiting
- * on you and Paused are side states of In progress and move among themselves; Dropped is open
- * until the Task ends.
+ * Where a Task may be moved from each state. Work only moves forward; Planning is optional, so a
+ * Task whose Plan and Definition of Done the user wrote goes from Backlog to Ready (spec §2.1);
+ * Waiting on you and Paused are side states of In progress and move among themselves; Dropped is
+ * open until the Task ends. Nobody moves a Task back from Ready, so that isn't here: only saving a
+ * change to its Plan or Definition of Done moves it to Backlog (`planning-changes.ts`).
  */
 const NEXT_STATES: Readonly<Record<TaskState, readonly TaskState[]>> = {
   backlog: ["planning", "ready", "dropped"],

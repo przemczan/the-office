@@ -14,6 +14,7 @@ import {
   type NewTask,
   type StartCheck,
   type Task,
+  type PlanChange,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderOverride } from "../../../../../test/test-application.js";
@@ -529,20 +530,20 @@ describe("the Planner's proposals on the record", () => {
 });
 
 describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
-  it("confirms the proposed Plan as shown, an edited Definition of Done and the proposed Pipeline", async () => {
+  it("saves a Definition of Done without confirming it, then confirms both parts and the proposed Pipeline", async () => {
     const task = await proposedTask();
     work.published.length = 0;
 
-    const confirmedPlan = await sendJson(work, "PUT", `/tasks/${task.id}/plan`, {
-      plan: "Keep the requested path through the sign-in.",
-    });
-    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+    const saved = await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
       definitionOfDone: ["Signing in returns to the page asked for.", "No redirect loop."],
     });
+    const confirmedPlan = await sendJson(work, "POST", `/tasks/${task.id}/plan/confirm`);
+    await sendJson(work, "POST", `/tasks/${task.id}/definition-of-done/confirm`);
     const confirmedPipeline = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, {
       pipelineId: "full",
     });
 
+    expect(taskSchema.parse(await saved.json()).definitionOfDoneConfirmed).toBe(false);
     expect(confirmedPlan.status).toBe(200);
     expect(taskSchema.parse(await confirmedPipeline.json())).toMatchObject({
       planConfirmed: true,
@@ -552,6 +553,7 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
       proposedPipeline: null,
     });
     expect(webEventsOf(work)).toEqual([
+      { type: "task.definition-of-done-saved", taskId: task.id },
       { type: "task.plan-confirmed", taskId: task.id },
       { type: "task.definition-of-done-confirmed", taskId: task.id },
       { type: "task.pipeline-confirmed", taskId: task.id, pipelineId: "full" },
@@ -581,6 +583,48 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
     expect(malformed.status).toBe(400);
     expect((await readTask(task.id)).planConfirmed).toBe(false);
   });
+
+  it("changes nothing for a Save of the same words, its confirmation included", async () => {
+    const task = await readyTask();
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+
+    expect(taskSchema.parse(await response.json())).toMatchObject({
+      state: "ready",
+      planConfirmed: true,
+    });
+    expect(work.published).toEqual([]);
+  });
+
+  it("moves a Ready Task to Backlog on a changing Save, by the user", async () => {
+    const task = await readyTask();
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: ["Mine, and more."],
+    });
+
+    expect(taskSchema.parse(await response.json())).toMatchObject({
+      state: "backlog",
+      definitionOfDoneConfirmed: false,
+      planConfirmed: true,
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.definition-of-done-saved", taskId: task.id },
+      { type: "task.state-changed", taskId: task.id, from: "ready", to: "backlog" },
+    ]);
+    const changes = await work.app.get(TaskRepository).stateChangesOf(task.id);
+    expect(changes.at(-1)).toMatchObject({
+      from: "ready",
+      to: "backlog",
+      by: { kind: "user" },
+    });
+
+    await sendJson(work, "POST", `/tasks/${task.id}/definition-of-done/confirm`);
+    const again = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    expect(taskSchema.parse(await again.json()).state).toBe("ready");
+  });
 });
 
 describe("POST /api/tasks/:id/ready", () => {
@@ -606,10 +650,7 @@ describe("POST /api/tasks/:id/ready", () => {
 
   it("refuses a confirmed Task while a planning Decision is open", async () => {
     const task = await proposedTask();
-    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
-    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
-      definitionOfDone: ["Mine."],
-    });
+    await saveAndConfirmParts(task.id);
     await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
     work.app.get(TaskDecisionsForTests).open.set(task.id, 1);
 
@@ -624,10 +665,7 @@ describe("POST /api/tasks/:id/ready", () => {
 
   it("refuses a confirmed Task while its Pipeline proposal is open, and marks it Ready once kept", async () => {
     const task = await proposedTask();
-    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
-    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
-      definitionOfDone: ["Mine."],
-    });
+    await saveAndConfirmParts(task.id);
 
     const proposed = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
     expect(proposed.status).toBe(422);
@@ -651,10 +689,7 @@ describe("POST /api/tasks/:id/ready", () => {
 describe("POST /api/tasks/:id/ready from Backlog", () => {
   it("marks Ready a Task whose Plan and Definition of Done the user wrote, without Planning", async () => {
     const task = await create();
-    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
-    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
-      definitionOfDone: ["Mine."],
-    });
+    await saveAndConfirmParts(task.id);
     work.published.length = 0;
 
     const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
@@ -670,11 +705,13 @@ describe("POST /api/tasks/:id/ready from Backlog", () => {
   it("is refused with the reasons until both parts are written and no Decision is open", async () => {
     const task = await create();
     await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+    await sendJson(work, "POST", `/tasks/${task.id}/plan/confirm`);
 
     const noDefinitionOfDone = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
     await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
       definitionOfDone: ["Mine."],
     });
+    await sendJson(work, "POST", `/tasks/${task.id}/definition-of-done/confirm`);
     work.app.get(TaskDecisionsForTests).open.set(task.id, 1);
     const decisionOpen = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
 
@@ -688,12 +725,20 @@ describe("POST /api/tasks/:id/ready from Backlog", () => {
   });
 });
 
-async function readyTask(): Promise<Task> {
-  const task = await proposedTask();
-  await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
-  await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+const MY_PLAN: PlanChange = { plan: "Mine." };
+
+async function saveAndConfirmParts(taskId: string, writing: PlanChange = MY_PLAN): Promise<void> {
+  await sendJson(work, "PUT", `/tasks/${taskId}/plan`, writing);
+  await sendJson(work, "PUT", `/tasks/${taskId}/definition-of-done`, {
     definitionOfDone: ["Mine."],
   });
+  await sendJson(work, "POST", `/tasks/${taskId}/plan/confirm`);
+  await sendJson(work, "POST", `/tasks/${taskId}/definition-of-done/confirm`);
+}
+
+async function readyTask(writing: PlanChange = MY_PLAN): Promise<Task> {
+  const task = await proposedTask();
+  await saveAndConfirmParts(task.id, writing);
   await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
   await sendJson(work, "POST", `/tasks/${task.id}/ready`);
   return task;
@@ -782,11 +827,12 @@ describe("Start", () => {
   });
 
   it("warns of an Overlap with a started Task of the Project, refusing Start until the user starts anyway", async () => {
-    const first = await readyTask();
-    await confirmFilesToChange(first.id, ["src/auth"]);
+    const first = await readyTask({ ...MY_PLAN, filesToChange: ["src/auth"] });
     await start(first.id);
-    const second = await readyTask();
-    const confirmed = await confirmFilesToChange(second.id, ["./src/auth/login.ts", "README.md"]);
+    const second = await readyTask({
+      ...MY_PLAN,
+      filesToChange: ["./src/auth/login.ts", "README.md"],
+    });
     const overlap = {
       taskId: first.id,
       title: first.title,
@@ -800,10 +846,7 @@ describe("Start", () => {
     });
     if (anyway.ok) startedIds.push(second.id);
 
-    expect(confirmed).toMatchObject({
-      filesToChange: ["src/auth/login.ts", "README.md"],
-      planConfirmed: true,
-    });
+    expect((await readTask(second.id)).filesToChange).toEqual(["src/auth/login.ts", "README.md"]);
     expect(check).toEqual({ ...nothing, overlaps: [overlap] });
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
       `"${first.title}" is in progress and expects to change src/auth/login.ts too: start anyway, or queue behind it.`,
@@ -812,12 +855,27 @@ describe("Start", () => {
   });
 
   it("finds no Overlap for a Plan with no files to change", async () => {
-    const first = await readyTask();
-    await confirmFilesToChange(first.id, ["src"]);
+    const first = await readyTask({ ...MY_PLAN, filesToChange: ["src"] });
     await start(first.id);
     const second = await readyTask();
 
     expect(await startCheck(second.id)).toEqual(nothing);
+  });
+
+  it("refuses a Save and a Confirm once the Task has started", async () => {
+    const task = await readyTask();
+    await start(task.id);
+
+    const saved = await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Edited." });
+    const confirmed = await sendJson(work, "POST", `/tasks/${task.id}/plan/confirm`);
+
+    expect(workRefusalSchema.parse(await saved.json()).reasons).toEqual([
+      "A Task keeps its Plan once it has started.",
+    ]);
+    expect(workRefusalSchema.parse(await confirmed.json()).reasons).toEqual([
+      "A Task keeps its Plan once it has started.",
+    ]);
+    expect((await readTask(task.id)).plan).toBe("Mine.");
   });
 
   it("pauses, stops and resumes a started Task, announcing each", async () => {
@@ -886,16 +944,6 @@ describe("Start", () => {
   });
 });
 
-/** The user confirms the Task's Plan with these files to change. */
-async function confirmFilesToChange(taskId: string, filesToChange: string[]): Promise<Task> {
-  const response = await sendJson(work, "PUT", `/tasks/${taskId}/plan`, {
-    plan: "Mine.",
-    filesToChange,
-  });
-  expect(response.status).toBe(200);
-  return taskSchema.parse(await response.json());
-}
-
 async function requestStart(taskId: string): Promise<Response> {
   return sendJson(work, "POST", `/tasks/${taskId}/start`);
 }
@@ -914,8 +962,8 @@ describe("The queue", () => {
     for (const id of ownIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
   });
 
-  async function ownReadyTask(): Promise<Task> {
-    const task = await readyTask();
+  async function ownReadyTask(writing: PlanChange = MY_PLAN): Promise<Task> {
+    const task = await readyTask(writing);
     ownIds.push(task.id);
     return task;
   }
@@ -933,6 +981,25 @@ describe("The queue", () => {
     const queue = queueSchema.parse(await (await sendJson(work, "GET", "/queue")).json());
     return queue.map(({ taskId }) => taskId).filter((taskId) => ownIds.includes(taskId));
   }
+
+  it("takes a queued Task out of the queue when a changing Save moves it to Backlog", async () => {
+    await deskTaken();
+    const queued = await ownReadyTask();
+    await requestStart(queued.id);
+    expect(await ownQueue()).toEqual([queued.id]);
+    work.published.length = 0;
+
+    await sendJson(work, "PUT", `/tasks/${queued.id}/plan`, { plan: "Edited." });
+
+    expect(await ownQueue()).toEqual([]);
+    expect((await readTask(queued.id)).state).toBe("backlog");
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.left-queue",
+      taskId: queued.id,
+      why: "left-ready",
+      refusals: [],
+    });
+  });
 
   it("queues a Task only the limit holds, and starts it by itself once the started one is Done", async () => {
     const first = await deskTaken();
@@ -998,11 +1065,9 @@ describe("The queue", () => {
   });
 
   it("queues a Task behind the one it overlaps, though a desk is free, until that one is Done", async () => {
-    const first = await ownReadyTask();
-    await confirmFilesToChange(first.id, ["src/auth"]);
+    const first = await ownReadyTask({ ...MY_PLAN, filesToChange: ["src/auth"] });
     await requestStart(first.id);
-    const second = await ownReadyTask();
-    await confirmFilesToChange(second.id, ["src/auth/login.ts"]);
+    const second = await ownReadyTask({ ...MY_PLAN, filesToChange: ["src/auth/login.ts"] });
     const behind = `Queued behind "${first.title}" until it is Done or Dropped.`;
 
     const response = await sendJson(work, "POST", `/tasks/${second.id}/start`, {
@@ -1313,9 +1378,7 @@ describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
 
 /** A Ready Task on the Project's default Pipeline whose Plan carries the Planner's token estimate. */
 async function estimatedTask(estimatedTokens: number): Promise<Task> {
-  const task = await readyTask();
-  await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine.", estimatedTokens });
-  return task;
+  return readyTask({ ...MY_PLAN, estimatedTokens });
 }
 
 describe("Usage estimates", () => {

@@ -344,6 +344,8 @@ async function planWithThePlanner(
       "No other file is changed, and npm test passes.",
     ],
   });
+  await api("POST", `/tasks/${taskId}/plan/confirm`);
+  await api("POST", `/tasks/${taskId}/definition-of-done/confirm`);
   await api("PUT", `/tasks/${taskId}/pipeline`, { pipelineId: "quick-fix" });
   const ready = taskSchema.parse(await api("POST", `/tasks/${taskId}/ready`));
   expect(ready.state).toBe("ready");

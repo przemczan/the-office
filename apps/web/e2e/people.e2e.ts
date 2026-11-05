@@ -1560,7 +1560,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const proposedPipeline = page
     .getByRole("region", { name: /^Pipeline · / })
     .getByRole("region", { name: "Pipeline proposal" });
-  await expect(plan.getByText("Proposed by Jan")).toBeVisible();
+  await expect(plan.getByText("Not confirmed")).toBeVisible();
   await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
   await expect(proposedPipeline.getByText(/A small change with tests/)).toBeVisible();
   const beforeReadyBox = await beforeReady.boundingBox();
@@ -1604,15 +1604,18 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await definitionOfDone.getByRole("button", { name: "Confirm" }).click();
   await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
-  // A part stays editable, and the user's own words are confirmed as they are saved.
+  // A part stays editable; a changing Save leaves it unconfirmed, and the Task in Planning.
   await definitionOfDone.getByRole("button", { name: "Edit" }).click();
   await definitionOfDone
     .getByRole("textbox")
     .fill("Signing in returns to the page and its query string.\nThe tests pass.");
-  await definitionOfDone.getByRole("button", { name: "Save and confirm" }).click();
+  await definitionOfDone.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
     definitionOfDone.getByText("Signing in returns to the page and its query string."),
   ).toBeVisible();
+  await expect(definitionOfDone.getByText("Not confirmed", { exact: true })).toBeVisible();
+  await expect(readinessLine("Definition of Done confirmed")).not.toHaveClass(/task-checklist-met/);
+  await definitionOfDone.getByRole("button", { name: "Confirm" }).click();
   await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
   await expect(readinessLine("Pipeline chosen")).not.toHaveClass(/task-checklist-met/);
@@ -2056,10 +2059,12 @@ async function readyTask(page: Page, projectId: string, title: string): Promise<
       page.request.put(`/api/tasks/${id}/plan`, {
         data: { plan: "Add a button that keeps them." },
       }),
+    () => page.request.post(`/api/tasks/${id}/plan/confirm`),
     () =>
       page.request.put(`/api/tasks/${id}/definition-of-done`, {
         data: { definitionOfDone: ["The settings page keeps its changes."] },
       }),
+    () => page.request.post(`/api/tasks/${id}/definition-of-done/confirm`),
     () => page.request.put(`/api/tasks/${id}/pipeline`, { data: { pipelineId: "quick-fix" } }),
     () => page.request.post(`/api/tasks/${id}/ready`),
   ];

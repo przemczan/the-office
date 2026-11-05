@@ -57,20 +57,27 @@ With the user, 2026-11-05.
 ## Steps
 
 - [x] 1. The small page fixes: the rail's loop-backs, Before Ready's line, a Gate run's Attachments, the Tooltip. Read: `stage-rail-words.ts`, `pipeline-rail.tsx`, `before-ready.tsx`, `run-details.tsx`, `gate-window.tsx`, `packages/ui/src/overlays.tsx`.
-- [ ] 2. Save apart from Confirm, in the service and on the page, with the spec and the glossary. Read: `planning-changes.ts`, `planning-service.ts`, `task-states.ts`, `planning-parts.tsx`, spec 2.1.
+- [x] 2. Save apart from Confirm, in the service and on the page, with the spec and the glossary. Read: `planning-changes.ts`, `planning-service.ts`, `task-states.ts`, `planning-parts.tsx`, spec 2.1.
 - [ ] 3. Needs you on Now: the same cards, moved to the shell, with spec 4. Read: `needs-you-feed.tsx`, `gate-card.tsx`, `gate-window.tsx`, `needs-you-card.tsx`.
 - [ ] 4. Close: the Definition of Done's checks, `npm run verify:linux`.
 
 ## State
 
-Step 1 is built; the Definition of Done's boxes wait for step 4, though the checks of the rail, Before Ready, a Gate's run and the Tooltip passed here.
+Steps 1 and 2 are built; the Definition of Done's boxes wait for step 4, though their checks passed here.
 
-- **Rail:** `loopBacks` gives each arc the lowest height free of those it overlaps; a landing depends only on the Stage. Each arc draws its line across, and `loopBackEnds` one line and arrowhead per spot.
-- **Gate run's Attachments:** `attachmentsOfGateRun` in `attachment-rounds.ts` is the one rule, used by `run-details.tsx` and by `picturesOfThisRound` for the run the Gate waits in. So the Gate's window no longer follows the send-back rounds; `attachmentRounds` still groups the Attachments tab. Trap: a Gate's run ends the moment the Task reaches it (`GATE_REACHED`) and the user's act has no time of its own, so "while it waits" is `gateAction === null`, and something added during a wait moves to the Gate's next run once the user acts.
-- **Tooltip:** in `packages/ui/src/overlays.tsx`, placed by `tooltip-place.ts`, styled in `tooltip.css`, on the body at `--z-tooltip`. `design-system/` keeps its Tooltip, as it keeps Dialog: its bundle, card and UI kit use it, and that folder stays as exported.
+- **Rail:** `loopBacks` gives each arc the lowest height free of those it overlaps; a landing depends only on the Stage.
+- **Gate run's Attachments:** `attachmentsOfGateRun` in `attachment-rounds.ts` is the one rule, used by `run-details.tsx` and by `picturesOfThisRound` for the run the Gate waits in. Trap: "while it waits" is `gateAction === null`, as a Gate's run ends the moment the Task reaches it.
+- **Tooltip:** in `packages/ui/src/overlays.tsx`, on the body at `--z-tooltip`. `design-system/` keeps its own, as that folder stays as exported.
+- **Save and Confirm:** `PUT /tasks/:id/plan` and `/definition-of-done` are Save (`savePlan`, `saveDefinitionOfDone`, events `TaskPlanSaved`, `TaskDefinitionOfDoneSaved`); `POST .../confirm` takes the part as it reads, with no body. Ready → Backlog isn't in `NEXT_STATES`: `savedPart` makes the move in the same transaction, by the user, and its `TaskStateChanged` rides on the saved event as `leftReady`, published by `PlanningService.save`. The queue lets the Task go by that event, with no code of its own. `leftReady` and not "sent back": that is a Gate's word.
+- New glossary entries: **Save** and **Confirm** of a part. The badge is **Not confirmed**; the Planner's tools and Brief say the same.
 
-For step 3: `gate-card.tsx`, `gate-window.tsx` and `gate-card-words.ts` still stand in `apps/web/src/surfaces/work/`; `picturesOfThisRound` takes the waiting Gate as its third argument. Step 2 changes the Proposed badge beside Confirm.
+**Open question for the user:** a Task planned once and moved back to Backlog keeps its planning Thread. Plan with… and Make a plan then open a second one, and `conversationTabs` shows the oldest, so with Make a plan the Planner works in a Thread the page doesn't show (what they write still lands on the Task). Not fixed: the settled rules don't say whether planning again reuses the Thread.
+
+The live checks (`*-test-project-check.test.ts`) now call Confirm after Save; they type-check but weren't run, as they cost quota.
+
+For step 3: `gate-card.tsx`, `gate-window.tsx` and `gate-card-words.ts` still stand in `apps/web/src/surfaces/work/`; `picturesOfThisRound` takes the waiting Gate as its third argument.
 
 ## Progress
 
 - 2026-11-05 · step 1: the rail's loop-backs land on one spot at the lowest free height, Before Ready's words follow their line, a Gate's run shows its Attachments, and the Tooltip draws on the body from `packages/ui`; next, step 2: Save apart from Confirm.
+- 2026-11-05 · step 2: Save is apart from Confirm in the service and on the page, a changing Save unconfirms and moves a Ready Task to Backlog and out of the queue, the badge reads Not confirmed, with spec 2.1 and 4, the glossary and the click-through; next, step 3: Needs you on Now.

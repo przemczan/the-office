@@ -329,22 +329,32 @@ export function makeAPlan(id: string): Promise<Task> {
 }
 
 /**
- * A Plan as the user confirms it: its words and files to change, always sent whole. The Planner's
+ * A Plan as the user saves it: its words and files to change, always sent whole. The Planner's
  * token estimate, which the Task page doesn't edit, is kept by leaving it out.
  */
-export type PlanConfirmation = Required<Omit<PlanChange, "estimatedTokens">>;
+export type PlanSaving = Required<Omit<PlanChange, "estimatedTokens">>;
 
-/** The user's Plan, confirmed: the proposed one exactly as shown, or their edit of it. */
-export function confirmPlan(id: string, plan: PlanConfirmation): Promise<Task> {
+/** Save: a change leaves the Plan unconfirmed, and moves a Ready Task to Backlog. */
+export function savePlan(id: string, plan: PlanSaving): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/plan`, plan, taskSchema);
 }
 
-/** The user's Definition of Done, confirmed, as with the Plan. */
-export function confirmDefinitionOfDone(
+/** Confirm: the Plan as it reads. */
+export function confirmPlan(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/plan/confirm`, {}, taskSchema);
+}
+
+/** Save, as with the Plan. */
+export function saveDefinitionOfDone(
   id: string,
   definitionOfDone: readonly string[],
 ): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/definition-of-done`, { definitionOfDone }, taskSchema);
+}
+
+/** Confirm: the Definition of Done as it reads. */
+export function confirmDefinitionOfDone(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/definition-of-done/confirm`, {}, taskSchema);
 }
 
 /** Sets the Task's Pipeline: the proposed one to confirm it, or another; either ends the proposal. */
@@ -465,8 +475,10 @@ export const workEventInvalidations: Readonly<
   "task.dependency-added": () => [TASKS],
   "task.dependency-removed": () => [TASKS],
   "task.plan-proposed": () => [TASKS],
+  "task.plan-saved": () => [TASKS],
   "task.plan-confirmed": () => [TASKS],
   "task.definition-of-done-proposed": () => [TASKS],
+  "task.definition-of-done-saved": () => [TASKS],
   "task.definition-of-done-confirmed": () => [TASKS],
   "task.pipeline-proposed": () => [TASKS],
   "task.pipeline-confirmed": () => [TASKS],

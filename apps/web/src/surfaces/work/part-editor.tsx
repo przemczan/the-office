@@ -1,12 +1,15 @@
 import { Button, Icon, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 
-/** The user's own version of a record's text part, such as a Task's Plan or an Initiative's outcome. */
+/**
+ * The user's own version of a record's text part, such as a Task's Plan or an Initiative's outcome.
+ * `note` is what saving does beyond the words, read beside Save.
+ */
 export function PartEditor({
   label,
   hint,
   initial,
-  saveLabel,
+  note,
   saving,
   onSave,
   onCancel,
@@ -14,7 +17,7 @@ export function PartEditor({
   readonly label: string;
   readonly hint: string;
   readonly initial: string;
-  readonly saveLabel: string;
+  readonly note?: ReactNode;
   readonly saving: boolean;
   readonly onSave: (text: string) => void;
   readonly onCancel: () => void;
@@ -38,11 +41,12 @@ export function PartEditor({
       />
       <div className="task-part-actions">
         <Button size="sm" type="submit" loading={saving} iconLeft={<Icon name="check" size={14} />}>
-          {saveLabel}
+          Save
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
+        {note}
       </div>
     </form>
   );

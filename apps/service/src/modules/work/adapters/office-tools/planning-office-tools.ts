@@ -22,7 +22,7 @@ export const WRITE_TAGS = "write_tags";
 export const DOCUMENT_READ_LIMIT = 60_000;
 
 const PROPOSED =
-  "It shows on the Task as proposed until the user confirms or edits it; end your turn when you want them to look at it.";
+  "It shows on the Task as not confirmed until the user confirms it; end your turn when you want them to look at it.";
 
 /**
  * The Office tools the Planner plans a Task with, in a Thread on it (spec §2.1, §2.3): each writes

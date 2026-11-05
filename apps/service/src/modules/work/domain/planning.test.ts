@@ -80,7 +80,7 @@ describe("a planning Brief", () => {
     const brief = planningBrief({ ...RECORD, task: aPlannedTask({ planConfirmed: false }) });
 
     expect(brief).toMatch(
-      /## The Plan, proposed, not yet confirmed by the user\n\nKeep the requested path through the sign-in\.\n\n## The Definition of Done, confirmed by the user\n\n- Signing in returns the user to the page they asked for\.$/,
+      /## The Plan, not yet confirmed by the user\n\nKeep the requested path through the sign-in\.\n\n## The Definition of Done, confirmed by the user\n\n- Signing in returns the user to the page they asked for\.$/,
     );
   });
 

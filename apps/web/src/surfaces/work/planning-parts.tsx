@@ -12,8 +12,10 @@ import {
   changeDescription,
   confirmDefinitionOfDone,
   confirmPlan,
+  saveDefinitionOfDone,
+  savePlan,
   taskQueries,
-  type PlanConfirmation,
+  type PlanSaving,
 } from "../../api/work.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -26,8 +28,10 @@ import {
   descriptionSummary,
   NO_DESCRIPTION,
   planSummary,
+  leavesReadyWords,
   statementsOf,
 } from "./planning-words.ts";
+import { useQueued } from "./queue-parts.tsx";
 import { recordBlockElementId, type PartBlock } from "./record-blocks.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold, type Fold } from "./record-folds.ts";
@@ -73,7 +77,6 @@ export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
           label="Description"
           hint="What you want, in your own words, in Markdown. The title alone is enough to plan from."
           initial={task.description}
-          saveLabel="Save"
           saving={changing.isPending}
           onSave={(text) => changing.mutate(text, { onSuccess: () => setEditing(false) })}
           onCancel={() => setEditing(false)}
@@ -90,20 +93,22 @@ export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
 }
 
 /**
- * The Plan and the Definition of Done, written by the Planner or the user, are proposed until the
- * user confirms them as shown or saves an edit; both stay editable until the Task starts. They
- * start open while the Task is in Planning, where the user reads them.
+ * The Plan and the Definition of Done, written by the Planner or the user, are not confirmed until
+ * the user confirms them as they read; both stay editable until the Task starts, and saving a change
+ * leaves the part unconfirmed. They start open while the Task is in Planning, where the user reads
+ * them.
  */
 interface PartProps {
   readonly task: Task;
-  /** The Planner's name, who proposes it. */
+  /** The Planner's name, for the words of a part not written yet. */
   readonly planner: string;
 }
 
 export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
-  const confirming = useRecordChange(task, (statements: readonly string[]) =>
-    confirmDefinitionOfDone(task.id, statements),
+  const saving = useRecordChange(task, (statements: readonly string[]) =>
+    saveDefinitionOfDone(task.id, statements),
   );
+  const confirming = useRecordChange<void>(task, () => confirmDefinitionOfDone(task.id));
   const [editing, setEditing] = useState(false);
   const fold = usePartFold(task, "definition-of-done");
   const reportedMet = useQuery(pipelineQueries.taskStages(task.id)).data?.definitionOfDoneMet ?? [];
@@ -123,11 +128,10 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
           !editing && (
             <PartActions
               task={task}
-              planner={planner}
               written={written}
               confirmed={task.definitionOfDoneConfirmed}
               confirming={confirming.isPending}
-              onConfirm={() => confirming.mutate(task.definitionOfDone)}
+              onConfirm={() => confirming.mutate()}
               onEdit={() => {
                 fold.open();
                 setEditing(true);
@@ -137,18 +141,21 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
         )
       }
     >
+      {saving.error && (
+        <RefusalAlert title="The Definition of Done wasn't saved" error={saving.error} />
+      )}
       {confirming.error && (
-        <RefusalAlert title="The Definition of Done wasn't saved" error={confirming.error} />
+        <RefusalAlert title="The Definition of Done wasn't confirmed" error={confirming.error} />
       )}
       {editing ? (
         <PartEditor
           label="Definition of Done"
           hint="One statement per line: what must be true when the Task is done."
           initial={task.definitionOfDone.join("\n")}
-          saveLabel="Save and confirm"
-          saving={confirming.isPending}
+          note={<LeavesReadyNote task={task} />}
+          saving={saving.isPending}
           onSave={(text) =>
-            confirming.mutate(statementsOf(text), { onSuccess: () => setEditing(false) })
+            saving.mutate(statementsOf(text), { onSuccess: () => setEditing(false) })
           }
           onCancel={() => setEditing(false)}
         />
@@ -168,7 +175,8 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
 }
 
 export function PlanBlock({ task, planner }: PartProps): ReactNode {
-  const confirming = useRecordChange(task, (plan: PlanConfirmation) => confirmPlan(task.id, plan));
+  const saving = useRecordChange(task, (plan: PlanSaving) => savePlan(task.id, plan));
+  const confirming = useRecordChange<void>(task, () => confirmPlan(task.id));
   const [editing, setEditing] = useState(false);
   const fold = usePartFold(task, "plan");
   const written = task.plan !== "";
@@ -183,13 +191,10 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
         !editing && (
           <PartActions
             task={task}
-            planner={planner}
             written={written}
             confirmed={task.planConfirmed}
             confirming={confirming.isPending}
-            onConfirm={() =>
-              confirming.mutate({ plan: task.plan, filesToChange: [...task.filesToChange] })
-            }
+            onConfirm={() => confirming.mutate()}
             onEdit={() => {
               fold.open();
               setEditing(true);
@@ -198,12 +203,15 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
         )
       }
     >
-      {confirming.error && <RefusalAlert title="The Plan wasn't saved" error={confirming.error} />}
+      {saving.error && <RefusalAlert title="The Plan wasn't saved" error={saving.error} />}
+      {confirming.error && (
+        <RefusalAlert title="The Plan wasn't confirmed" error={confirming.error} />
+      )}
       {editing ? (
         <PlanEditor
           task={task}
-          saving={confirming.isPending}
-          onSave={(plan) => confirming.mutate(plan, { onSuccess: () => setEditing(false) })}
+          saving={saving.isPending}
+          onSave={(plan) => saving.mutate(plan, { onSuccess: () => setEditing(false) })}
           onCancel={() => setEditing(false)}
         />
       ) : written ? (
@@ -264,7 +272,7 @@ function FilesToChange({ files }: { readonly files: readonly string[] }): ReactN
   );
 }
 
-/** The user's own Plan and the files it expects to change, saved and confirmed together. */
+/** The user's own Plan and the files it expects to change, saved together. */
 function PlanEditor({
   task,
   saving,
@@ -273,7 +281,7 @@ function PlanEditor({
 }: {
   readonly task: Task;
   readonly saving: boolean;
-  readonly onSave: (plan: PlanConfirmation) => void;
+  readonly onSave: (plan: PlanSaving) => void;
   readonly onCancel: () => void;
 }): ReactNode {
   const [plan, setPlan] = useState(task.plan);
@@ -303,23 +311,30 @@ function PlanEditor({
       />
       <div className="task-part-actions">
         <Button size="sm" type="submit" loading={saving} iconLeft={<Icon name="check" size={14} />}>
-          Save and confirm
+          Save
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
+        <LeavesReadyNote task={task} />
       </div>
     </form>
   );
 }
 
+/** Beside Save while the Task is Ready: a change leaves a part unconfirmed, so it can't stay Ready. */
+function LeavesReadyNote({ task }: { readonly task: Task }): ReactNode {
+  const queued = useQueued(task.id) !== undefined;
+  if (task.state !== "ready") return null;
+  return <p className="task-part-note">{leavesReadyWords(queued)}</p>;
+}
+
 /**
- * Where a part stands, with Confirm beside a proposed one before Ready, and Edit while the Task
- * hasn't started. Confirm takes the part exactly as it reads; Edit confirms the user's own words.
+ * Where a part stands, with Confirm beside an unconfirmed one before Ready, and Edit while the
+ * Task hasn't started. Confirm takes the part exactly as it reads.
  */
 function PartActions({
   task,
-  planner,
   written,
   confirmed,
   confirming,
@@ -327,7 +342,6 @@ function PartActions({
   onEdit,
 }: {
   readonly task: Task;
-  readonly planner: string;
   readonly written: boolean;
   readonly confirmed: boolean;
   readonly confirming: boolean;
@@ -343,7 +357,7 @@ function PartActions({
           <Badge tone="success">Confirmed</Badge>
         ) : (
           <>
-            <Badge tone="warning">Proposed by {planner}</Badge>
+            <Badge tone="warning">Not confirmed</Badge>
             {confirmable && (
               <Button size="sm" loading={confirming} onClick={onConfirm}>
                 Confirm

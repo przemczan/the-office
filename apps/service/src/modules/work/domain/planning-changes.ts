@@ -1,22 +1,27 @@
+import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { THE_USER } from "./author.js";
 import { filesToChangeProblems, normalizedFilesToChange } from "./files-to-change.js";
 import type { ProposedPipeline, Task } from "./task.js";
-import type { TaskChange } from "./task-changes.js";
+import { withStateChange, type TaskChange } from "./task-changes.js";
 import {
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
+  TaskDefinitionOfDoneSaved,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
   TaskPlanConfirmed,
   TaskPlanProposed,
+  TaskPlanSaved,
+  TaskStateChanged,
 } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 
 /*
  * The Planner proposes the Plan, the Definition of Done and a Pipeline on a Task in Planning; the
- * user confirms each, as proposed or edited, until the Task starts (spec §2.1, §2.3). The Planner
- * writing again makes a part proposed again; the same words change nothing. The Plan's files to
- * change go with it: written, proposed and confirmed together.
+ * user saves their own words until the Task starts, and confirms each part as it reads (spec §2.1,
+ * §2.3). Writing a part again, by either, leaves it unconfirmed; the same words change nothing. The
+ * Plan's files to change go with it: written, saved and confirmed together.
  */
 
 /** A Plan as written: its words, the files it expects to change and its token estimate. */
@@ -41,18 +46,23 @@ export function proposePlan(
   };
 }
 
-/** The user's Plan: the proposed one confirmed, or their own edit of it. */
-export function confirmPlan(
-  task: Task,
-  writing: PlanWriting,
-): TaskChange<TaskPlanConfirmed> | undefined {
+/** The user's Plan. Changing it leaves it unconfirmed, and a Ready Task goes back to Backlog. */
+export function savePlan(task: Task, writing: PlanWriting): TaskChange<TaskPlanSaved> | undefined {
   const written = writtenPlan(task, writing);
-  refuseWith([...confirmingProblems(task, "Plan"), ...writtenPlanProblems(written)]);
-  if (samePlan(task, written) && task.planConfirmed) return undefined;
-  return {
-    task: { ...task, ...written, planConfirmed: true },
-    event: new TaskPlanConfirmed(task.id),
-  };
+  refuseWith([...changingProblems(task, "Plan"), ...writtenPlanProblems(written)]);
+  if (samePlan(task, written)) return undefined;
+  return savedPart(
+    task,
+    { ...task, ...written, planConfirmed: false },
+    (leftReady) => new TaskPlanSaved(task.id, leftReady),
+  );
+}
+
+/** Confirm takes the Plan as it reads. */
+export function confirmPlan(task: Task): TaskChange<TaskPlanConfirmed> | undefined {
+  refuseWith([...changingProblems(task, "Plan"), ...planProblems(task.plan)]);
+  if (task.planConfirmed) return undefined;
+  return { task: { ...task, planConfirmed: true }, event: new TaskPlanConfirmed(task.id) };
 }
 
 type WrittenPlan = Pick<Task, "plan" | "filesToChange" | "estimatedTokens">;
@@ -100,23 +110,58 @@ export function proposeDefinitionOfDone(
   };
 }
 
-/** The user's Definition of Done: the proposed one confirmed, or their own edit of it. */
-export function confirmDefinitionOfDone(
+/** The user's Definition of Done, under the Plan's rules. */
+export function saveDefinitionOfDone(
   task: Task,
   statements: readonly string[],
-): TaskChange<TaskDefinitionOfDoneConfirmed> | undefined {
+): TaskChange<TaskDefinitionOfDoneSaved> | undefined {
   const trimmed = statements.map((statement) => statement.trim());
   refuseWith([
-    ...confirmingProblems(task, "Definition of Done"),
+    ...changingProblems(task, "Definition of Done"),
     ...definitionOfDoneProblems(trimmed),
   ]);
-  if (sameStatements(trimmed, task.definitionOfDone) && task.definitionOfDoneConfirmed) {
-    return undefined;
-  }
+  if (sameStatements(trimmed, task.definitionOfDone)) return undefined;
+  return savedPart(
+    task,
+    { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: false },
+    (leftReady) => new TaskDefinitionOfDoneSaved(task.id, leftReady),
+  );
+}
+
+/** Confirm takes the Definition of Done as it reads. */
+export function confirmDefinitionOfDone(
+  task: Task,
+): TaskChange<TaskDefinitionOfDoneConfirmed> | undefined {
+  refuseWith([
+    ...changingProblems(task, "Definition of Done"),
+    ...definitionOfDoneProblems(task.definitionOfDone),
+  ]);
+  if (task.definitionOfDoneConfirmed) return undefined;
   return {
-    task: { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: true },
+    task: { ...task, definitionOfDoneConfirmed: true },
     event: new TaskDefinitionOfDoneConfirmed(task.id),
   };
+}
+
+/**
+ * The user's change to a part, unconfirmed by now. Ready needs both parts confirmed, so a Ready
+ * Task goes back to Backlog in the same save: nothing can start it in between. Moved here rather
+ * than by `changeTaskState`, as nobody may ask for this move on its own.
+ */
+function savedPart<Event extends DomainEvent>(
+  task: Task,
+  saved: Task,
+  announced: (leftReady: TaskStateChanged | undefined) => Event,
+): TaskChange<Event> {
+  if (task.state !== "ready") return { task: saved, event: announced(undefined) };
+  return withStateChange(
+    {
+      task: { ...saved, state: "backlog" },
+      event: announced(new TaskStateChanged(task.id, "ready", "backlog")),
+    },
+    task,
+    THE_USER,
+  );
 }
 
 /** That the Pipeline is in the library is checked by the caller. */
@@ -144,7 +189,7 @@ export function confirmPipeline(
   task: Task,
   pipelineId: string,
 ): TaskChange<TaskPipelineConfirmed> | undefined {
-  refuseWith(confirmingProblems(task, "Pipeline"));
+  refuseWith(changingProblems(task, "Pipeline"));
   if (task.pipelineId === pipelineId && task.proposedPipeline === undefined) return undefined;
   return {
     task: { ...task, pipelineId, proposedPipeline: undefined },
@@ -159,7 +204,7 @@ function proposingProblems(task: Task, part: string): string[] {
   ];
 }
 
-function confirmingProblems(task: Task, part: string): string[] {
+function changingProblems(task: Task, part: string): string[] {
   if (NOT_STARTED_STATES.includes(task.state)) return [];
   return [`A Task keeps its ${part} once it has started.`];
 }

@@ -10,6 +10,8 @@ import {
   proposeDefinitionOfDone,
   proposePipeline,
   proposePlan,
+  saveDefinitionOfDone,
+  savePlan,
   type PlanWriting,
 } from "../domain/planning-changes.js";
 import type { ProposedPipeline, Task } from "../domain/task.js";
@@ -19,6 +21,7 @@ import {
   undoPlanningMove,
   type TaskChange,
 } from "../domain/task-changes.js";
+import type { TaskDefinitionOfDoneSaved, TaskPlanSaved } from "../domain/task-events.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { readinessLines, stateChangeProblems, type ReadinessLine } from "../domain/task-states.js";
@@ -35,7 +38,7 @@ import { IdeaService } from "./idea-service.js";
  * fetched base branch, and a planning Thread. Plan with… opens it for the user's first message, so
  * a Plan the user writes alone costs no model call; Make a plan has the Planner start at once from
  * the record. The Planner proposes the Plan, the Definition of Done and a Pipeline; the user
- * confirms them and marks the Task Ready. Planning is optional: the user may write and confirm
+ * confirms them and marks the Task Ready. Planning is optional: the user may save and confirm
  * both parts in Backlog and mark the Task Ready from there.
  */
 
@@ -120,18 +123,28 @@ export class PlanningService {
     return this.update(taskId, (task) => proposePlan(task, writing));
   }
 
-  /** The user's Plan, confirmed: the proposed one as it is, or their edit of it. */
-  async confirmPlan(taskId: string, writing: PlanWriting): Promise<Task> {
-    return this.update(taskId, (task) => confirmPlan(task, writing));
+  /** The user's Plan: unconfirmed once changed, and a Ready Task goes back to Backlog. */
+  async savePlan(taskId: string, writing: PlanWriting): Promise<Task> {
+    return this.save(taskId, (task) => savePlan(task, writing));
+  }
+
+  /** The Plan, confirmed as it reads. */
+  async confirmPlan(taskId: string): Promise<Task> {
+    return this.update(taskId, confirmPlan);
   }
 
   async proposeDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {
     return this.update(taskId, (task) => proposeDefinitionOfDone(task, statements));
   }
 
-  /** The user's Definition of Done, confirmed: the proposed one as it is, or their edit of it. */
-  async confirmDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {
-    return this.update(taskId, (task) => confirmDefinitionOfDone(task, statements));
+  /** The user's Definition of Done, under the Plan's rules. */
+  async saveDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {
+    return this.save(taskId, (task) => saveDefinitionOfDone(task, statements));
+  }
+
+  /** The Definition of Done, confirmed as it reads. */
+  async confirmDefinitionOfDone(taskId: string): Promise<Task> {
+    return this.update(taskId, confirmDefinitionOfDone);
   }
 
   async proposePipeline(taskId: string, proposal: ProposedPipeline): Promise<Task> {
@@ -170,6 +183,17 @@ export class PlanningService {
   ): Promise<Task> {
     const { task, event } = await this.tasks.update(taskId, change);
     if (event) await this.events.publish(event);
+    return task;
+  }
+
+  /** As `update`, then the move back to Backlog a save made on a Ready Task. */
+  private async save<Event extends TaskPlanSaved | TaskDefinitionOfDoneSaved>(
+    taskId: string,
+    change: (task: Task) => TaskChange<Event> | undefined,
+  ): Promise<Task> {
+    const { task, event } = await this.tasks.update(taskId, change);
+    if (event) await this.events.publish(event);
+    if (event?.leftReady) await this.events.publish(event.leftReady);
     return task;
   }
 

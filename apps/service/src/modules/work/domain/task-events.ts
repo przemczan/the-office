@@ -61,7 +61,20 @@ export class TaskPlanProposed extends DomainEvent {
   }
 }
 
-/** The user confirmed the Plan, as proposed or as they edited it. */
+/**
+ * The user changed the Plan, which leaves it unconfirmed. `leftReady` is the move it made on a
+ * Ready Task, published after this event: one save, so a failure can't leave the Task changed and Ready.
+ */
+export class TaskPlanSaved extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly leftReady: TaskStateChanged | undefined,
+  ) {
+    super();
+  }
+}
+
+/** The user confirmed the Plan as it reads. */
 export class TaskPlanConfirmed extends DomainEvent {
   constructor(readonly taskId: string) {
     super();
@@ -70,6 +83,16 @@ export class TaskPlanConfirmed extends DomainEvent {
 
 export class TaskDefinitionOfDoneProposed extends DomainEvent {
   constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+/** As `TaskPlanSaved`, for the Definition of Done. */
+export class TaskDefinitionOfDoneSaved extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly leftReady: TaskStateChanged | undefined,
+  ) {
     super();
   }
 }

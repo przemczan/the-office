@@ -170,7 +170,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
 const NOTHING_TO_ASK_IN_BACKLOG =
   "This Task is in Backlog: nothing is written here until Make a plan or Plan with… starts Planning.";
 
-/** The Planner plans until the Task is Ready; a Task never moves back to Planning. */
+/** The Planner plans until the Task is Ready, and again if a Save moves it to Backlog. */
 function plansIt({ state }: Task, roleKey: string): boolean {
   return roleKey === PLANNER && (state === "backlog" || state === "planning");
 }

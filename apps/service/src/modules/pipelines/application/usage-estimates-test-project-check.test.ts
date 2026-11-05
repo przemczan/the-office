@@ -291,6 +291,8 @@ async function readyTask(
   await api("PUT", `/tasks/${taskId}/definition-of-done`, {
     definitionOfDone: task.definitionOfDone,
   });
+  await api("POST", `/tasks/${taskId}/plan/confirm`);
+  await api("POST", `/tasks/${taskId}/definition-of-done/confirm`);
   await api("PUT", `/tasks/${taskId}/pipeline`, { pipelineId: "quick-fix" });
   const check = stagesCheckSchema.parse(
     await api("POST", `/tasks/${taskId}/stages/check`, { stages }),

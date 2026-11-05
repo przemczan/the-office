@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { THE_USER } from "./author.js";
 import {
   confirmDefinitionOfDone,
   confirmPipeline,
@@ -6,15 +7,21 @@ import {
   proposeDefinitionOfDone,
   proposePipeline,
   proposePlan,
+  saveDefinitionOfDone,
+  savePlan,
 } from "./planning-changes.js";
 import {
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
+  TaskDefinitionOfDoneSaved,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
   TaskPlanConfirmed,
   TaskPlanProposed,
+  TaskPlanSaved,
+  TaskStateChanged,
 } from "./task-events.js";
+import { changeTaskState } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
 import { aPlannedTask, aTask } from "./work.fixtures.js";
 
@@ -88,47 +95,101 @@ describe("proposePlan", () => {
   });
 });
 
-describe("confirmPlan", () => {
-  it("confirms the proposed Plan as it is", () => {
-    const proposed = aPlannedTask({ planConfirmed: false });
+describe("savePlan", () => {
+  it("writes the user's Plan without confirming it, before planning too", () => {
+    const change = savePlan(aTask(), { plan: "  Mine.  " });
 
-    const change = confirmPlan(proposed, { plan: proposed.plan });
-
-    expect(change?.task).toMatchObject({ plan: proposed.plan, planConfirmed: true });
-    expect(change?.event).toBeInstanceOf(TaskPlanConfirmed);
-    expect(change?.event).toMatchObject({ taskId: "task-1" });
+    expect(change?.task).toMatchObject({ plan: "Mine.", planConfirmed: false, state: "backlog" });
+    expect(change?.event).toBeInstanceOf(TaskPlanSaved);
+    expect(change?.event).toMatchObject({ taskId: "task-1", leftReady: undefined });
+    expect(change?.stateChange).toBeUndefined();
   });
 
-  it("takes the user's edit as confirmed, before planning and while Ready too", () => {
-    expect(confirmPlan(aTask(), { plan: "Mine." })?.task).toMatchObject({
-      plan: "Mine.",
-      planConfirmed: true,
+  it("leaves a confirmed Plan unconfirmed once changed, and the Task in Planning", () => {
+    const task = aPlannedTask({ state: "planning" });
+
+    expect(savePlan(task, { plan: "Edited." })?.task).toMatchObject({
+      plan: "Edited.",
+      planConfirmed: false,
+      state: "planning",
+      definitionOfDoneConfirmed: true,
     });
-    expect(confirmPlan(aPlannedTask({ state: "ready" }), { plan: "Edited." })?.task.plan).toBe(
-      "Edited.",
-    );
   });
 
-  it("changes nothing when the Plan is already confirmed as it is", () => {
+  it("changes nothing for the same Plan, in the part's confirmation either way", () => {
+    const confirmed = aPlannedTask();
+    const unconfirmed = aPlannedTask({ planConfirmed: false });
+
+    expect(savePlan(confirmed, { plan: ` ${confirmed.plan} ` })).toBeUndefined();
+    expect(savePlan(unconfirmed, { plan: unconfirmed.plan })).toBeUndefined();
+    expect(savePlan(aPlannedTask({ state: "ready" }), { plan: confirmed.plan })).toBeUndefined();
+  });
+
+  it("counts a change to the files to change, refusing one outside the repository", () => {
     const task = aPlannedTask();
 
-    expect(confirmPlan(task, { plan: task.plan })).toBeUndefined();
-  });
-
-  it("confirms the files to change with the Plan, refusing one outside the repository", () => {
-    const task = aPlannedTask({ planConfirmed: false });
-
     expect(
-      confirmPlan(task, { plan: task.plan, filesToChange: ["src/login.ts"] })?.task,
-    ).toMatchObject({ filesToChange: ["src/login.ts"], planConfirmed: true });
-    expect(() => confirmPlan(task, { plan: task.plan, filesToChange: ["../secrets"] })).toThrow(
+      savePlan(task, { plan: task.plan, filesToChange: ["src/login.ts"] })?.task,
+    ).toMatchObject({ filesToChange: ["src/login.ts"], planConfirmed: false });
+    expect(() => savePlan(task, { plan: task.plan, filesToChange: ["../secrets"] })).toThrow(
       new TaskRefused(["Files to change stay inside the repository: ../secrets."]),
     );
   });
 
+  it("moves a Ready Task to Backlog, keeping the move as the user's", () => {
+    const change = savePlan(aPlannedTask({ state: "ready" }), { plan: "Edited." });
+
+    expect(change?.task).toMatchObject({
+      plan: "Edited.",
+      planConfirmed: false,
+      state: "backlog",
+      definitionOfDoneConfirmed: true,
+    });
+    expect(change?.event.leftReady).toBeInstanceOf(TaskStateChanged);
+    expect(change?.event.leftReady).toMatchObject({
+      taskId: "task-1",
+      from: "ready",
+      to: "backlog",
+    });
+    expect(change?.stateChange).toMatchObject({
+      from: "ready",
+      to: "backlog",
+      by: { kind: "user" },
+    });
+  });
+
+  it("is the only way back from Ready: nobody can ask for that move", () => {
+    expect(() => changeTaskState(aPlannedTask({ state: "ready" }), "backlog", THE_USER)).toThrow(
+      new TaskRefused(["A Task in Ready can't move to Backlog."]),
+    );
+  });
+
   it("refuses once the Task has started, and an empty Plan", () => {
-    expect(() => confirmPlan(aPlannedTask({ state: "in-progress" }), { plan: "" })).toThrow(
+    expect(() => savePlan(aPlannedTask({ state: "in-progress" }), { plan: "" })).toThrow(
       new TaskRefused(["A Task keeps its Plan once it has started.", "The Plan can't be empty."]),
+    );
+  });
+});
+
+describe("confirmPlan", () => {
+  it("confirms the Plan as it reads", () => {
+    const unconfirmed = aPlannedTask({ planConfirmed: false, filesToChange: ["src/login.ts"] });
+
+    const change = confirmPlan(unconfirmed);
+
+    expect(change?.task).toEqual({ ...unconfirmed, planConfirmed: true });
+    expect(change?.event).toBeInstanceOf(TaskPlanConfirmed);
+    expect(change?.event).toMatchObject({ taskId: "task-1" });
+  });
+
+  it("changes nothing when the Plan is already confirmed", () => {
+    expect(confirmPlan(aPlannedTask())).toBeUndefined();
+  });
+
+  it("refuses a Plan not written, and once the Task has started", () => {
+    expect(() => confirmPlan(aTask())).toThrow(new TaskRefused(["The Plan can't be empty."]));
+    expect(() => confirmPlan(aPlannedTask({ state: "in-progress" }))).toThrow(
+      new TaskRefused(["A Task keeps its Plan once it has started."]),
     );
   });
 });
@@ -169,29 +230,69 @@ describe("proposeDefinitionOfDone", () => {
   });
 });
 
-describe("confirmDefinitionOfDone", () => {
-  it("confirms the statements the user gives", () => {
-    const change = confirmDefinitionOfDone(aPlannedTask({ definitionOfDoneConfirmed: false }), [
-      "Signing in returns the user to the page they asked for.",
-      "The old redirect is gone.",
-    ]);
+describe("saveDefinitionOfDone", () => {
+  it("writes the statements, trimmed, without confirming them", () => {
+    const change = saveDefinitionOfDone(aPlannedTask({ state: "planning" }), [" Mine. "]);
 
     expect(change?.task).toMatchObject({
-      definitionOfDone: [
-        "Signing in returns the user to the page they asked for.",
-        "The old redirect is gone.",
-      ],
-      definitionOfDoneConfirmed: true,
+      definitionOfDone: ["Mine."],
+      definitionOfDoneConfirmed: false,
+      state: "planning",
+      planConfirmed: true,
     });
+    expect(change?.event).toBeInstanceOf(TaskDefinitionOfDoneSaved);
+    expect(change?.event).toMatchObject({ taskId: "task-1", leftReady: undefined });
+  });
+
+  it("changes nothing for the same statements, in the part's confirmation either way", () => {
+    const confirmed = aPlannedTask();
+    const unconfirmed = aPlannedTask({ definitionOfDoneConfirmed: false });
+
+    expect(saveDefinitionOfDone(confirmed, [...confirmed.definitionOfDone])).toBeUndefined();
+    expect(saveDefinitionOfDone(unconfirmed, [...unconfirmed.definitionOfDone])).toBeUndefined();
+  });
+
+  it("moves a Ready Task to Backlog, keeping the move as the user's", () => {
+    const change = saveDefinitionOfDone(aPlannedTask({ state: "ready" }), ["Mine."]);
+
+    expect(change?.task).toMatchObject({
+      state: "backlog",
+      definitionOfDoneConfirmed: false,
+      planConfirmed: true,
+    });
+    expect(change?.event.leftReady).toMatchObject({ from: "ready", to: "backlog" });
+    expect(change?.stateChange).toMatchObject({ to: "backlog", by: { kind: "user" } });
+  });
+
+  it("refuses no statements, and once the Task has started", () => {
+    expect(() => saveDefinitionOfDone(aPlannedTask(), [])).toThrow(
+      new TaskRefused(["A Definition of Done needs at least one statement."]),
+    );
+    expect(() => saveDefinitionOfDone(aPlannedTask({ state: "done" }), ["One."])).toThrow(
+      new TaskRefused(["A Task keeps its Definition of Done once it has started."]),
+    );
+  });
+});
+
+describe("confirmDefinitionOfDone", () => {
+  it("confirms the statements as they read", () => {
+    const unconfirmed = aPlannedTask({ definitionOfDoneConfirmed: false });
+
+    const change = confirmDefinitionOfDone(unconfirmed);
+
+    expect(change?.task).toEqual({ ...unconfirmed, definitionOfDoneConfirmed: true });
     expect(change?.event).toBeInstanceOf(TaskDefinitionOfDoneConfirmed);
     expect(change?.event).toMatchObject({ taskId: "task-1" });
   });
 
-  it("changes nothing when already confirmed as it is, and refuses once started", () => {
+  it("changes nothing when already confirmed, and refuses one not written or once started", () => {
     const task = aPlannedTask();
 
-    expect(confirmDefinitionOfDone(task, [...task.definitionOfDone])).toBeUndefined();
-    expect(() => confirmDefinitionOfDone({ ...task, state: "done" }, ["One."])).toThrow(
+    expect(confirmDefinitionOfDone(task)).toBeUndefined();
+    expect(() => confirmDefinitionOfDone(aTask())).toThrow(
+      new TaskRefused(["A Definition of Done needs at least one statement."]),
+    );
+    expect(() => confirmDefinitionOfDone({ ...task, state: "done" })).toThrow(
       new TaskRefused(["A Task keeps its Definition of Done once it has started."]),
     );
   });

@@ -28,12 +28,14 @@ import {
   TaskDependencyAdded,
   TaskDependencyRemoved,
   TaskDefinitionOfDoneProposed,
+  TaskDefinitionOfDoneSaved,
   TaskHeldAtAllClear,
   TaskPaused,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
   TaskPlanConfirmed,
   TaskPlanProposed,
+  TaskPlanSaved,
   TaskPriorityChanged,
   TaskDescriptionChanged,
   TaskTagsChanged,
@@ -217,6 +219,10 @@ export class WorkWebEvents implements OnModuleInit {
       type: "task.plan-proposed",
       taskId: event.taskId,
     }));
+    this.forwarding.forward(TaskPlanSaved, (event): WebEventOf<"task.plan-saved"> => ({
+      type: "task.plan-saved",
+      taskId: event.taskId,
+    }));
     this.forwarding.forward(TaskPlanConfirmed, (event): WebEventOf<"task.plan-confirmed"> => ({
       type: "task.plan-confirmed",
       taskId: event.taskId,
@@ -225,6 +231,13 @@ export class WorkWebEvents implements OnModuleInit {
       TaskDefinitionOfDoneProposed,
       (event): WebEventOf<"task.definition-of-done-proposed"> => ({
         type: "task.definition-of-done-proposed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskDefinitionOfDoneSaved,
+      (event): WebEventOf<"task.definition-of-done-saved"> => ({
+        type: "task.definition-of-done-saved",
         taskId: event.taskId,
       }),
     );

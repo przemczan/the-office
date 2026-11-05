@@ -610,8 +610,10 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     blockerId: z.uuid(),
   }),
   webEventSchema.extend({ type: z.literal("task.plan-proposed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.plan-saved"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-confirmed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.definition-of-done-proposed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.definition-of-done-saved"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.definition-of-done-confirmed"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.pipeline-proposed"),

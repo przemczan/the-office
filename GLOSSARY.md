@@ -62,6 +62,14 @@ _Avoid_: Using "plan" for an Initiative or for the Description
 A Task's plain-language statement of what must be true when it is done; the Task ends when it is met.
 _Avoid_: Acceptance criteria, DoD (in the UI)
 
+**Save** (a Plan or a Definition of Done):
+The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task to Backlog; the same words change nothing.
+_Avoid_: Save and confirm
+
+**Confirm** (a Plan or a Definition of Done):
+The user taking the part as it reads, the only way it becomes confirmed; a part not confirmed yet shows **Not confirmed**, whoever wrote it.
+_Avoid_: Proposed (for a part's badge), approve
+
 **Tag**:
 A free-form word on a Task, set by the user or the Planner, to find and filter Tasks by.
 _Avoid_: Label, category; "tag" for a Mention

@@ -86,7 +86,7 @@ describe("write_plan", () => {
     const result = await call(WRITE_PLAN, { plan: "Keep the requested path through the sign-in." });
 
     expect(result).toEqual({
-      text: "Wrote the Plan onto the Task. It shows on the Task as proposed until the user confirms or edits it; end your turn when you want them to look at it.",
+      text: "Wrote the Plan onto the Task. It shows on the Task as not confirmed until the user confirms it; end your turn when you want them to look at it.",
       isError: false,
     });
     expect(await current()).toMatchObject({

@@ -253,16 +253,12 @@ test("Start warns of an Overlap with a Task in progress, naming it and the files
     [inProgress.id],
   );
   const task = await readyTask(page, project, "Keep the redirect after sign-in");
-
-  await page.goto(`/tasks/${task.id}`);
-  const plan = page.getByRole("region", { name: "Plan" });
-  await plan.getByRole("button", { name: "Edit" }).click();
-  await plan.getByLabel("Files to change").fill("./src/auth/login.ts\nREADME.md");
-  await plan.getByRole("button", { name: "Save and confirm" }).click();
-  await expect(plan.getByRole("region", { name: "Files to change" })).toHaveText(
-    /src\/auth\/login\.ts\s*README\.md/,
+  await queryOfficeDatabase(
+    `update tasks set files_to_change = '{src/auth/login.ts,README.md}' where id = $1`,
+    [task.id],
   );
 
+  await page.goto(`/tasks/${task.id}`);
   const overlap = page.getByRole("note", { name: "Overlap" });
   await expect(overlap).toHaveText(
     "Overlap: “Rework the sign-in” is in progress and expects to change src/auth/login.ts too.",

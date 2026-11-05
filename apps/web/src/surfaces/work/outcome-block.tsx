@@ -48,7 +48,6 @@ export function OutcomeBlock({ initiative }: { readonly initiative: Initiative }
           label="Outcome"
           hint="What must be true once the Initiative is done, in Markdown."
           initial={initiative.outcome}
-          saveLabel="Save"
           saving={writing.isPending}
           onSave={(outcome) => writing.mutate(outcome, { onSuccess: () => setEditing(false) })}
           onCancel={() => setEditing(false)}

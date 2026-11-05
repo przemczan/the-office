@@ -165,6 +165,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           await api("PUT", `/tasks/${taskId}/definition-of-done`, {
             definitionOfDone: DEFINITION_OF_DONE,
           });
+          await api("POST", `/tasks/${taskId}/plan/confirm`);
+          await api("POST", `/tasks/${taskId}/definition-of-done/confirm`);
           await api("PUT", `/tasks/${taskId}/pipeline`, { pipelineId: "quick-fix" });
           expect(taskSchema.parse(await api("POST", `/tasks/${taskId}/ready`)).state).toBe("ready");
           const planned = threadSchema.parse(await api("GET", `/threads/${planningThread.id}`));
