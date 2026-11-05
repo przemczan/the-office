@@ -76,7 +76,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 51 | [The Task page, round 2: the user's notes on task 48's page, with task 49](51-task-page-round-2.md) | Work and the Task page | done |
 | 52 | [The Task page, round 3: the user's notes on task 51's page](52-task-page-round-3.md) | Work and the Task page | done |
 | 53 | [The Thread in Rows, and whole commands](53-thread-in-rows.md) | Conversations | done |
-| 50 | Office instructions: general guidelines for everyone | Settings | todo |
+| 50 | [Office instructions: general guidelines for everyone](50-office-instructions.md) | Settings | in progress |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |
 | 40 | Stage templates in the Pipeline library | Projects | todo |

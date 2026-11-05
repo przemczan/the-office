@@ -240,6 +240,10 @@ _Avoid_: Persona, profile, agent type
 Everything that defines a Role: its person's name and title, responsibilities, instructions, effort, Role override, capabilities (shared memory, chat, Consultant), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
 
+**Office instructions**:
+The one text of general guidelines the user writes in Settings, which every person's session gets with their Role's instructions; a Role's instructions and a Project's `CLAUDE.md` win where they disagree.
+_Avoid_: Global instructions, guidelines, house rules, agents.md
+
 **Engine**:
 What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch, or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
 _Avoid_: Provider, backend, account (as the thing picked), engine id
