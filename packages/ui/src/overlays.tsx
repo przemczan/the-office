@@ -126,10 +126,13 @@ function DialogFrame({
   );
 }
 
-/**
- * Escape closes the window, unless one opened over it, such as the picture viewer, which closes
- * first. The one over it comes later in the document.
- */
+/** Whether nothing is open over this part of a window, such as the picture viewer, which comes later in the document. */
+export function isInTopmostWindow(element: Element | null): boolean {
+  const windows = document.querySelectorAll('[aria-modal="true"]');
+  return windows[windows.length - 1]?.contains(element) ?? false;
+}
+
+/** Escape closes the window, unless one opened over it, which closes first. */
 function useCloseOnEscape(
   open: boolean,
   onClose: () => void,
@@ -138,9 +141,7 @@ function useCloseOnEscape(
   useEffect(() => {
     if (!open) return;
     const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      const windows = document.querySelectorAll('[aria-modal="true"]');
-      if (windows[windows.length - 1] === frame.current) onClose();
+      if (event.key === "Escape" && isInTopmostWindow(frame.current)) onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);

@@ -1,0 +1,253 @@
+import { useQuery } from "@tanstack/react-query";
+import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
+import { Badge, Button, Icon, Tabs } from "@the-office/ui";
+import type { ReactNode } from "react";
+import { threadQueries } from "../../api/conversations.ts";
+import { pipelineQueries } from "../../api/pipelines.ts";
+import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
+import { MarkdownText } from "../../shell/markdown-text.tsx";
+import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { TokenFigure } from "../../shell/token-count.tsx";
+import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
+import { bringIntoView } from "./record-blocks.ts";
+import {
+  carriedFailureWords,
+  commandMarkWords,
+  commandTimeWords,
+  gateChoiceWords,
+  runBadge,
+  runResultText,
+  runTimeWords,
+  type RunTab,
+} from "./stage-history-words.ts";
+import { stageWorkerWords } from "./stage-rail-words.ts";
+import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
+import { chapterWork } from "./timeline-words.ts";
+
+/** Everything about the run picked in the Stage history. */
+export function RunDetails({
+  taskId,
+  stages,
+  taskStage,
+  run,
+  tab,
+  roles,
+  names,
+  now,
+  onTab,
+  onClose,
+}: {
+  readonly taskId: string;
+  readonly stages: readonly TaskStage[];
+  readonly taskStage: TaskStage;
+  readonly run: StageRun;
+  readonly tab: RunTab;
+  readonly roles: readonly Role[] | undefined;
+  readonly names: StageNames;
+  readonly now: Date;
+  readonly onTab: (tab: RunTab) => void;
+  readonly onClose: () => void;
+}): ReactNode {
+  const { stage, state } = taskStage;
+  const summary = (
+    <RunSummary taskStage={taskStage} run={run} roles={roles} names={names} onClose={onClose} />
+  );
+  const head = <RunHead taskStage={taskStage} run={run} now={now} />;
+  if (stage.kind !== "agent" || run.threadId === null) {
+    return (
+      <section className="run-details" aria-label={`Run ${run.number}`}>
+        {head}
+        <div className="run-details-body">
+          {summary}
+          {stage.kind === "script" && <CommandLog taskId={taskId} run={run} />}
+        </div>
+      </section>
+    );
+  }
+  const isLive = run.outcome === null && state === "running";
+  return (
+    <section className="run-details" aria-label={`Run ${run.number}`}>
+      {head}
+      <Tabs
+        tabs={[
+          { value: "summary", label: "Summary" },
+          { value: "thread", label: <>Thread{isLive && <span className="live-dot" />}</> },
+        ]}
+        value={tab}
+        onChange={(value) => onTab(value === "thread" ? "thread" : "summary")}
+      />
+      {tab === "summary" ? (
+        <div className="run-details-body">{summary}</div>
+      ) : (
+        <RunThread
+          threadId={run.threadId}
+          personName={stageWorkerWords(taskStage, roles)}
+          stages={stages}
+        />
+      )}
+    </section>
+  );
+}
+
+function RunHead({
+  taskStage,
+  run,
+  now,
+}: {
+  readonly taskStage: TaskStage;
+  readonly run: StageRun;
+  readonly now: Date;
+}): ReactNode {
+  const { session, tokens, outcome } = run;
+  const badge = runBadge(run, taskStage.state);
+  return (
+    <div className="run-details-head">
+      <strong>Run {run.number}</strong>
+      <Badge tone={badge.tone} dot={taskStage.state === "running" && outcome === null}>
+        {badge.words}
+      </Badge>
+      <span className="stage-history-facts">
+        {runTimeWords(run, now)}
+        {countedTokens(tokens) > 0 && (
+          <>
+            {" · "}
+            <TokenFigure tokens={tokens} /> tokens
+          </>
+        )}
+        {session && ` · ${SESSION_WORDS[session]}`}
+      </span>
+    </div>
+  );
+}
+
+/** What a run came to and handed on, at reading width: a Handover note often has its own headings. */
+function RunSummary({
+  taskStage,
+  run,
+  roles,
+  names,
+  onClose,
+}: {
+  readonly taskStage: TaskStage;
+  readonly run: StageRun;
+  readonly roles: readonly Role[] | undefined;
+  readonly names: StageNames;
+  readonly onClose: () => void;
+}): ReactNode {
+  const { stage, state } = taskStage;
+  const { carriedFailure, sentBack, gateAction, outcome } = run;
+  const result = runResultText(taskStage, run);
+  return (
+    <div className="run-summary">
+      {carriedFailure && (
+        <p className="run-carried">
+          <Icon name="rotate-ccw" size={12} /> {carriedFailureWords(carriedFailure, names)}
+        </p>
+      )}
+      {sentBack && (
+        <div>
+          <p className="run-label">Sent back from {names(sentBack.gateKey)}</p>
+          <MarkdownText text={sentBack.feedback} />
+        </div>
+      )}
+      {result !== undefined && <MarkdownText text={result} />}
+      {stage.kind === "gate" && state === "waiting-on-you" && outcome === null && (
+        <div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              onClose();
+              bringIntoView(NEEDS_YOU_ELEMENT_ID);
+            }}
+          >
+            Answer it in Needs you
+          </Button>
+        </div>
+      )}
+      {gateAction && (
+        <div>
+          <p className="run-label">{gateChoiceWords(gateAction, names)}</p>
+          {gateAction.kind === "send-back" && <MarkdownText text={gateAction.feedback} />}
+        </div>
+      )}
+      {outcome?.handoverNote ? (
+        <section className="run-handover-note" aria-label="Handover note">
+          <p className="overline">Handover note · {stageWorkerWords(taskStage, roles)}</p>
+          <MarkdownText text={outcome.handoverNote} />
+        </section>
+      ) : (
+        stage.kind === "agent" && outcome && <p className="task-quiet">No Handover note.</p>
+      )}
+    </div>
+  );
+}
+
+/** Each command the run started, with what it printed, which is read only for the run picked. */
+function CommandLog({
+  taskId,
+  run,
+}: {
+  readonly taskId: string;
+  readonly run: StageRun;
+}): ReactNode {
+  const hasCommands = run.commandRuns.length > 0;
+  const outputs = useQuery({
+    ...pipelineQueries.commandOutputs(taskId, run.id),
+    enabled: hasCommands,
+  });
+  if (!hasCommands) {
+    return (
+      <p className="task-quiet">
+        {run.outcome === null ? "No command has ended yet." : "No commands ran."}
+      </p>
+    );
+  }
+  return (
+    <div className="command-log">
+      <p className="overline">Log</p>
+      {outputs.error && <RefusalAlert title="The output wasn't read" error={outputs.error} />}
+      {run.commandRuns.map((commandRun, place) => {
+        const output = outputs.data?.outputs[place];
+        return (
+          // A run's commands never change or reorder, and the same one can run twice.
+          <section key={place} aria-label={commandRun.commandLine}>
+            <div className="command-log-head">
+              <code>{commandRun.commandLine}</code>
+              <span className={`command-log-${commandRun.outcome}`}>
+                {commandMarkWords(commandRun)}
+              </span>
+              <span className="command-log-time">{commandTimeWords(commandRun)}</span>
+            </div>
+            {output !== undefined && (
+              <pre className="command-log-output">
+                {output === "" ? "Printed nothing." : output}
+              </pre>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function RunThread({
+  threadId,
+  personName,
+  stages,
+}: {
+  readonly threadId: string;
+  readonly personName: string;
+  readonly stages: readonly TaskStage[];
+}): ReactNode {
+  const thread = useQuery(threadQueries.one(threadId)).data;
+  return thread ? (
+    <div className="run-thread">
+      <ThreadLog
+        thread={thread}
+        personName={personName}
+        logLines={chapterWork(stages, threadId).finishedRuns}
+      />
+    </div>
+  ) : null;
+}

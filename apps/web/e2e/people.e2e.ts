@@ -1838,6 +1838,18 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(onTheCard).toBeInViewport();
   await page.setViewportSize({ width: 1600, height: 1000 });
 
+  // The card names the run it was asked in, and its link opens the Stage history there, every time.
+  const stageHistory = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+  for (const followed of ["first", "again"]) {
+    await onTheCard.getByRole("link", { name: /^in Implement, run 1/ }).click();
+    await expect(
+      stageHistory.getByRole("region", { name: "Run 1", exact: true }),
+      followed,
+    ).toBeVisible();
+    await stageHistory.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(stageHistory, followed).toHaveCount(0);
+  }
+
   await page.goto("/work");
   const card = page
     .getByRole("region", { name: "In progress", exact: true })
@@ -1870,17 +1882,24 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(implement.getByText("Done", { exact: true })).toBeVisible();
   await expect(implement).toContainText("2 runs · ");
   await rail.getByRole("button", { name: "Implement", exact: true }).click();
-  const history = rail.getByRole("region", { name: "Stage history: Implement" });
-  const newestRun = history.locator(".stage-history-run").first();
+  const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+  const newestRun = history.getByRole("region", { name: "Run 2", exact: true });
   await expect(newestRun).toContainText("continued session");
   // The Handover note is Markdown: its heading and list show as such, not as one long line.
-  const handoverNote = newestRun.locator(".stage-history-note");
+  const handoverNote = newestRun.getByRole("region", { name: "Handover note" });
   await expect(handoverNote.getByText("Redirect", { exact: true })).toBeVisible();
   await expect(handoverNote.getByRole("listitem")).toHaveText([
     "The redirect keeps the path and the query string.",
     "next is checked against the Office's own pages.",
   ]);
   await expect(handoverNote.locator("code")).toHaveText("next");
+  // The run's Thread is its other tab, read here.
+  await history.getByRole("tab", { name: "Thread" }).click();
+  await expect(
+    history.getByText("Signing in now returns to the page it started from."),
+  ).toBeVisible();
+  const closeHistory = history.getByRole("button", { name: "Close", exact: true });
+  await closeHistory.click();
 
   // Every Thread is a chapter, in the order they started.
   await expect(conversation.locator(".chapter-toggle").first()).toHaveAccessibleName(
@@ -1897,25 +1916,17 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await foldImplement();
   await expect(implementChapter.locator(".chapter-line")).toHaveText(/tokens · Redirect/);
 
-  // The history reaches a run's Thread, however many times the reader folds it and comes back,
-  // unfolding it and scrolling the timeline to it.
-  const openThread = history.getByRole("link", { name: "Open its Thread" }).first();
-  await openThread.click();
-  await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
-  // The chapter's end, where its newest messages are: taller than the timeline, its head is above.
-  await expect(implementChapter).toBeInViewport();
-  await foldImplement();
-  await openThread.click();
+  await implementToggle.click();
   await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
 
-  // The chapter's head comes back to the rail: a link followed selects its Stage, however often,
-  // and leaves the rail's keys working with focus on it.
+  // The chapter's head comes back to the rail: a link followed opens its Stage's history, however
+  // often, and focus lands on the Stage as the window closes.
   const toTheRail = implementChapter.getByRole("button", { name: "Show Implement on the rail" });
   const implementOnRail = rail.getByRole("button", { name: "Implement", exact: true });
-  await implementOnRail.click();
-  await expect(history).toHaveCount(0);
   await toTheRail.click();
   await expect(history).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(history).toHaveCount(0);
   await expect(implementOnRail).toBeFocused();
   await toTheRail.click();
   await expect(history).toBeVisible();
@@ -2157,10 +2168,13 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(implement.getByText("Done", { exact: true })).toBeVisible();
     await expect(implement).toContainText("2 runs · ");
     await rail.getByRole("button", { name: "Implement", exact: true }).click();
-    const implementHistory = rail.getByRole("region", { name: "Stage history: Implement" });
-    await expect(implementHistory.locator(".stage-history-run")).toHaveCount(2);
+    const implementHistory = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+    await expect(
+      implementHistory.getByRole("list", { name: "Runs" }).getByRole("listitem"),
+    ).toHaveCount(2);
     await expect(implementHistory).toContainText("Sent back from UI acceptance");
-    await expect(implementHistory.locator(".stage-history-carried")).toHaveCount(0);
+    await expect(implementHistory).not.toContainText("Briefed with what failed");
+    await page.keyboard.press("Escape");
     // The Thread shows the Brief, not the Stage's work, which the run was briefed from.
     const own = taskStagesSchema.parse(
       await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
@@ -2223,9 +2237,9 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       .toBeLessThan(unreadBefore);
     await expect(gate).toHaveCount(0);
     await rail.getByRole("button", { name: "UI acceptance", exact: true }).click();
-    await expect(rail.getByRole("region", { name: "Stage history: UI acceptance" })).toContainText(
-      "You continued",
-    );
+    const gateHistory = page.getByRole("dialog", { name: /^Stage history: UI acceptance/ });
+    await expect(gateHistory).toContainText("You continued");
+    await page.keyboard.press("Escape");
     await expect(page.locator(".task-head-title").getByText("Done", { exact: true })).toBeVisible();
     // Publish removed the worktree, so its conversations are read-only, with the reason.
     const finishedConversation = page.getByRole("complementary", { name: "Conversation" });
@@ -2651,21 +2665,16 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     await expect(handle).toHaveAccessibleName("Conversation");
     await page.keyboard.press("Escape");
 
-    // A run's way to its Thread opens the drawer, followed again too; a chapter's way to the rail
-    // closes it and leaves focus on the Stage.
+    // A chapter's way to the rail closes the drawer and opens the Stage's history, and focus lands
+    // on the Stage as the window closes.
     const pipelineRail = page.getByRole("region", { name: /^Pipeline · / });
     const implementOnRail = pipelineRail.getByRole("button", { name: "Implement", exact: true });
-    await implementOnRail.click();
-    const openItsThread = page.getByRole("link", { name: "Open its Thread" }).first();
-    for (const followed of ["first", "again"]) {
-      await openItsThread.click();
-      await expect(conversation, followed).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(conversation, followed).toBeHidden();
-    }
-    await openItsThread.click();
+    await handle.click();
     await implementChapter.getByRole("button", { name: "Show Implement on the rail" }).click();
     await expect(conversation).toBeHidden();
+    const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+    await expect(history).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(implementOnRail).toBeFocused();
 
     // A window that widens shows the column again, with no dimming left when it narrows.

@@ -4,8 +4,7 @@ export function stageElementId(stageKey: string): string {
 }
 
 /**
- * Moves focus to a Stage on the rail, which scrolls it into view and is where the rail hears its
- * arrow keys and Esc.
+ * Moves focus back to a Stage on the rail as its history closes, which scrolls it into view.
  */
 export function focusStage(stageKey: string): void {
   document.getElementById(stageElementId(stageKey))?.focus();

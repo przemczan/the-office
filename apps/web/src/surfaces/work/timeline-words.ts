@@ -11,6 +11,8 @@ export interface ChapterWork {
   readonly handoverNote: string | undefined;
   /** The number of its latest run. */
   readonly runNumber: number | undefined;
+  /** The latest run's id, as the address names it. */
+  readonly runId: string | undefined;
   /** How its latest run stands. */
   readonly outcome: "Running" | "Failed" | "Done" | undefined;
   /** What sent its first run here, when that was a failure or a Gate. */
@@ -37,6 +39,7 @@ const NO_CHAPTER_WORK: ChapterWork = {
   stages: [],
   handoverNote: undefined,
   runNumber: undefined,
+  runId: undefined,
   outcome: undefined,
   why: undefined,
   finishedRuns: [],
@@ -105,6 +108,7 @@ export function chapterWork(stages: readonly TaskStage[], threadId: string): Cha
     handoverNote:
       runs.findLast(({ run }) => run.outcome?.handoverNote)?.run.outcome?.handoverNote ?? undefined,
     runNumber: latest?.number,
+    runId: latest?.id,
     outcome: latest && runOutcome(latest),
     why: runs[0] && whyItRan(runs[0].run, names),
     finishedRuns: runs.flatMap(({ name, run }) =>

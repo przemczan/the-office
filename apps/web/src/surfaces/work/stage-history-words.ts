@@ -13,12 +13,16 @@ import {
   gateActionWords,
   STAGE_STATE_WORDS,
   stageRule,
+  withoutMarkdownMarks,
   type StageNames,
 } from "./stage-words.ts";
 
 /** The words of a Stage's history: what the Stage is, and each of its runs. */
 
 type CommandRun = StageRun["commandRuns"][number];
+
+/** The tabs of an Agent run's details. */
+export type RunTab = "summary" | "thread";
 
 const COMMAND_OUTCOME_WORDS: Readonly<Record<CommandRun["outcome"], string>> = {
   passed: "passed",
@@ -120,6 +124,21 @@ export function runResultText({ stage, state }: TaskStage, run: StageRun): strin
         ? `The Task ${budgetWords(outcome.budgetReached)}.`
         : outcome.error;
   }
+}
+
+/** A run in the Stage history's list says what it came to in plain words, whatever else it holds. */
+export function runGist(taskStage: TaskStage, run: StageRun, names: StageNames): string {
+  const { gateAction, outcome } = run;
+  const text =
+    runResultText(taskStage, run) ??
+    (gateAction ? gateChoiceWords(gateAction, names) : undefined) ??
+    (outcome?.status === "done" ? outcome.summary : "");
+  return text.split("\n").map(withoutMarkdownMarks).join(" ");
+}
+
+/** An ended run opens on what it handed on, a running one on its Thread. */
+export function openingRunTab({ outcome }: StageRun): RunTab {
+  return outcome === null ? "thread" : "summary";
 }
 
 /** "Briefed with what failed in Tests, round 1 of 3". */

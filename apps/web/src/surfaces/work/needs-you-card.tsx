@@ -163,6 +163,7 @@ function WaitingDecision({
   const thread = useQuery(threadQueries.one(decision.threadId)).data;
   const bringThreadIntoView = useBringThreadIntoView();
   const personName = roles?.find(({ key }) => key === decision.roleKey)?.card.name ?? "The Office";
+  const work = thread && chapterWork(stages, thread.id);
   return (
     <DecisionOnTask
       decision={decision}
@@ -171,17 +172,20 @@ function WaitingDecision({
       followUps={thread?.stageThread === false}
       landing
       place={
-        thread && (
+        thread &&
+        work && (
+          // A Stage's Thread is read at its run, in the Stage history; any other in the conversation.
           <Link
             className="needs-you-place"
             from="/tasks/$taskId"
             to="."
-            search={(shown) => ({ ...shown, taskThread: thread.id })}
+            search={(shown) => ({ ...shown, taskThread: work.runId ?? thread.id })}
             resetScroll={false}
-            onClick={() => bringThreadIntoView(thread.id)}
+            onClick={() => {
+              if (work.runId === undefined) bringThreadIntoView(thread.id);
+            }}
           >
-            in {chapterPlace(thread, chapterWork(stages, thread.id)) || "its Thread"} ·{" "}
-            {clockOf(decision.askedAt)}
+            in {chapterPlace(thread, work) || "its Thread"} · {clockOf(decision.askedAt)}
           </Link>
         )
       }

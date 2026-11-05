@@ -6,7 +6,9 @@ import {
   commandMarkWords,
   commandTimeWords,
   gateChoiceWords,
+  openingRunTab,
   runBadge,
+  runGist,
   runResultText,
   runTimeWords,
   stageHistoryLine,
@@ -167,6 +169,35 @@ describe("runResultText", () => {
     expect(runResultText(aTaskStage(look), aRun({ outcome }))).toBeUndefined();
     expect(runResultText(aTaskStage(look, { state: "waiting-on-you" }), aRun())).toMatch(/^Waits/);
     expect(runResultText(aTaskStage(implement, { state: "running" }), aRun())).toBe("Working now.");
+  });
+});
+
+describe("runGist", () => {
+  it("gives what the run came to in plain words, on one line", () => {
+    const run = aRun({
+      outcome: done({ summary: "Moved **the** `redirect`.\n- Tested it", handoverNote: null }),
+    });
+    expect(runGist(aTaskStage(implement), run, names)).toBe("Moved the redirect. Tested it");
+  });
+
+  it("gives the summary even when the Handover note says the same", () => {
+    const run = aRun({ outcome: done({ summary: "Moved it.", handoverNote: "Moved it." }) });
+    expect(runGist(aTaskStage(implement), run, names)).toBe("Moved it.");
+  });
+
+  it("tells a Gate's run by what the user did", () => {
+    const run = aRun({
+      gateAction: { kind: "continue" },
+      outcome: done({ summary: "", handoverNote: null }),
+    });
+    expect(runGist(aTaskStage(look), run, names)).toBe("You continued");
+  });
+});
+
+describe("openingRunTab", () => {
+  it("opens an ended run on its Summary and a running one on its Thread", () => {
+    expect(openingRunTab(aRun({ outcome: failed({}) }))).toBe("summary");
+    expect(openingRunTab(aRun())).toBe("thread");
   });
 });
 

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
 import { Icon, Tabs } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -23,7 +23,7 @@ import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { PullRequestButton } from "./pull-request-button.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "./record-tab.ts";
 import { RunControls } from "./run-controls.tsx";
-import { focusStage } from "./stage-selection.ts";
+import { useStageHistory } from "./use-stage-history.ts";
 import { StartButton } from "./start-action.tsx";
 import { ChangesTab } from "./task-changes.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
@@ -86,14 +86,15 @@ function TaskBody({
   readonly taskThread: string | undefined;
   readonly recordTab: RecordTab | undefined;
 }): ReactNode {
-  const [selectedStageKey, setSelectedStageKey] = useState<string>();
+  const stageHistory = useStageHistory(task.id, taskThread);
   return (
     <ConversationDrawerProvider>
       <PipelineRail
         task={task}
         pipeline={pipeline}
-        selectedKey={selectedStageKey}
-        onSelect={setSelectedStageKey}
+        shown={stageHistory.shown}
+        onSelect={stageHistory.show}
+        onCloseHistory={stageHistory.close}
       />
       <div className="task-columns">
         <div className="task-record-column">
@@ -106,11 +107,8 @@ function TaskBody({
         <TaskConversation
           task={task}
           threads={threads}
-          asked={taskThread}
-          onShowStage={(stageKey) => {
-            setSelectedStageKey(stageKey);
-            focusStage(stageKey);
-          }}
+          asked={stageHistory.askedThread}
+          onShowStage={stageHistory.show}
         />
       </div>
     </ConversationDrawerProvider>

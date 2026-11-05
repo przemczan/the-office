@@ -9,6 +9,11 @@ export function recordBlockElementId(block: PartBlock): string {
   return `record-block-${block}`;
 }
 
+/** Scrolls to a part of the page a link leads to. */
+export function bringIntoView(elementId: string): void {
+  document.getElementById(elementId)?.scrollIntoView({ block: "center" });
+}
+
 /**
  * Leads to a block of the Overview: its tab shown, its fold opened and the block brought into view,
  * with focus on its head.

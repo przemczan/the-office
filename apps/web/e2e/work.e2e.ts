@@ -1098,7 +1098,21 @@ function aStageRun(
   };
 }
 
-test("selecting a Stage opens its history, with the loop-back on the rail and the keys to step and close", async ({
+function stageInSmall(history: Locator, name: string): Locator {
+  return history.getByRole("list", { name: "Stages" }).getByRole("button", { name, exact: true });
+}
+
+function runOf(history: Locator, number: number): Locator {
+  return history.getByRole("list", { name: "Runs" }).getByRole("button", {
+    name: new RegExp(`^Run ${number} `),
+  });
+}
+
+function detailsOf(history: Locator, number: number): Locator {
+  return history.getByRole("region", { name: `Run ${number}`, exact: true });
+}
+
+test("selecting a Stage opens its history window, to move between Stages and runs and read a command's output", async ({
   page,
 }) => {
   const project = await addedProject(page, "Stage history", "SH");
@@ -1132,6 +1146,17 @@ test("selecting a Stage opens its history, with the loop-back on the rail and th
     pullRequestUrl: null,
     handoverNote: null,
   } as const;
+  const briefedWithTheFailure: StageRun = {
+    ...aStageRun(3, at(6), at(9)),
+    threadId,
+    session: "resume",
+    carriedFailure: { stageKey: "tests", round: 1, rounds: 3 },
+    outcome: {
+      ...done,
+      summary: "Fixed the test.",
+      handoverNote: "The **redirect** moved.",
+    },
+  };
   const stages: TaskStages = {
     stages: [
       {
@@ -1140,18 +1165,14 @@ test("selecting a Stage opens its history, with the loop-back on the rail and th
         tokens,
         wentBack: null,
         runs: [
-          { ...aStageRun(1, at(0), at(5)), threadId, session: "fresh", tokens },
           {
-            ...aStageRun(3, at(6), at(9)),
+            ...aStageRun(1, at(0), at(5)),
             threadId,
-            session: "resume",
-            carriedFailure: { stageKey: "tests", round: 1, rounds: 3 },
-            outcome: {
-              ...done,
-              summary: "Fixed the test.",
-              handoverNote: "The **redirect** moved.",
-            },
+            session: "fresh",
+            tokens,
+            outcome: { ...done, summary: "Moved the redirect." },
           },
+          briefedWithTheFailure,
           {
             ...aStageRun(6, at(14), at(15)),
             threadId,
@@ -1210,13 +1231,17 @@ test("selecting a Stage opens its history, with the loop-back on the rail and th
     definitionOfDoneMet: [],
   };
   await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+  await page.route(`**/api/tasks/${task.id}/stage-runs/*/command-outputs`, (route) =>
+    route.fulfill({
+      json: { outputs: ["… 6 KB cut from the start\n ✗ sign-in.test.ts\n Tests  2 failed"] },
+    }),
+  );
   await page.goto(`/tasks/${task.id}`);
 
   const rail = page.getByRole("region", { name: /^Pipeline · / });
   const stageButton = (name: string): Locator => rail.getByRole("button", { name, exact: true });
   const historyOf = (name: string): Locator =>
-    rail.getByRole("region", { name: `Stage history: ${name}` });
-
+    page.getByRole("dialog", { name: new RegExp(`^Stage history: ${name}`) });
   // Tests went back once; the Gate's send-back draws nothing.
   const loop = rail.getByRole("button", { name: /failed and went back/ });
   await expect(loop).toHaveCount(1);
@@ -1226,64 +1251,130 @@ test("selecting a Stage opens its history, with the loop-back on the rail and th
   await expect(loop).toHaveText("↺ 1 of 3");
   await expect(stageButton("UI acceptance")).toHaveAttribute("aria-current", "step");
 
+  // The window opens on the newest run, the Stage shown marked in the Pipeline in small.
   await loop.click();
   const testsHistory = historyOf("Tests");
-  await expect(stageButton("Tests")).toHaveAttribute("aria-expanded", "true");
-  await expect(testsHistory.getByRole("listitem").filter({ hasText: "Run 2" })).toContainText(
-    "2 tests failed.",
+  await expect(stageInSmall(testsHistory, "Tests")).toHaveAttribute("aria-pressed", "true");
+  await expect(stageInSmall(testsHistory, "Tests")).toBeFocused();
+  await expect(testsHistory.getByRole("list", { name: "Runs" }).getByRole("listitem")).toHaveCount(
+    3,
   );
-  await expect(testsHistory.getByRole("list", { name: "Commands" })).toContainText(
-    "npm test failed 1m",
-  );
-  await expect(testsHistory.getByRole("link", { name: "Open its Thread" })).toHaveCount(0);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-history.png") });
+  await expect(runOf(testsHistory, 7)).toHaveAttribute("aria-pressed", "true");
+  await expect(detailsOf(testsHistory, 7)).toContainText("No commands ran.");
 
+  // A Project command's run: its outcome, then each command with its whole output.
+  await expect(runOf(testsHistory, 2)).toContainText("2 tests failed.");
+  await runOf(testsHistory, 2).click();
+  const failedRun = detailsOf(testsHistory, 2);
+  await expect(failedRun).toContainText("2 tests failed.");
+  const npmTest = failedRun.getByRole("region", { name: "npm test" });
+  await expect(npmTest).toContainText("failed");
+  await expect(npmTest).toContainText("1m");
+  await expect(npmTest.locator("pre")).toContainText("… 6 KB cut from the start");
+  await expect(npmTest.locator("pre")).toContainText("Tests  2 failed");
+  await expect(testsHistory.getByRole("tab")).toHaveCount(0);
+  const windowHeight = (await testsHistory.boundingBox())?.height;
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-history.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.waitForFunction(() => document.getAnimations().length === 0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-stage-history.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // ← moves to the Stage before; the window keeps its height, and opens on Summary for an ended run.
   await page.keyboard.press("ArrowLeft");
   const implementHistory = historyOf("Implement");
   await expect(testsHistory).toHaveCount(0);
-  await expect(stageButton("Implement")).toBeFocused();
+  await expect(stageInSmall(implementHistory, "Implement")).toBeFocused();
   await expect(implementHistory).toContainText("Agent Stage");
-  const runs = implementHistory.locator(".stage-history-run");
-  await expect(runs).toHaveCount(3);
-  // Newest first, and the one Thread of all three runs is reached from each.
-  await expect(runs.nth(0)).toContainText("Run 6");
-  await expect(runs.nth(0)).toContainText("Sent back from UI acceptance");
-  await expect(runs.nth(0)).toContainText("Make the buttons bigger.");
-  await expect(runs.nth(1)).toContainText("Briefed with what failed in Tests, round 1 of 3");
-  await expect(runs.nth(1)).toContainText("Fixed the test.");
-  await expect(runs.nth(1)).toContainText("continued session");
-  await expect(runs.nth(1).locator("strong", { hasText: "redirect" })).toBeVisible();
-  await expect(runs.nth(2)).toContainText("42k tokens");
-  await expect(runs.nth(2)).toContainText("fresh session");
-  const threadLinks = implementHistory.getByRole("link", { name: "Open its Thread" });
-  await expect(threadLinks).toHaveCount(3);
-  await expect(threadLinks.first()).toHaveAttribute("href", new RegExp(`taskThread=${threadId}`));
+  expect((await implementHistory.boundingBox())?.height).toBe(windowHeight);
+  await expect(implementHistory.getByRole("tab", { name: "Summary" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 
-  // The arrows stop at the ends, and the panel's own buttons move focus to the Stage too.
+  // Newest first: each run's list item is a line or two, and the rest shows once it is picked.
+  const newest = detailsOf(implementHistory, 6);
+  await expect(newest).toContainText("Sent back from UI acceptance");
+  await expect(newest).toContainText("Make the buttons bigger.");
+  await expect(newest).toContainText("No Handover note.");
+  await expect(runOf(implementHistory, 6)).toContainText("Made them bigger.");
+  await expect(runOf(implementHistory, 6)).not.toContainText("Make the buttons bigger.");
+  await expect(runOf(implementHistory, 3)).toContainText("Briefed with what failed");
+  await runOf(implementHistory, 3).click();
+  const carried = detailsOf(implementHistory, 3);
+  await expect(carried).toContainText("Briefed with what failed in Tests, round 1 of 3");
+  await expect(carried).toContainText("Fixed the test.");
+  await expect(carried).toContainText("continued session");
+  await expect(carried.getByRole("region", { name: "Handover note" }).locator("strong")).toHaveText(
+    "redirect",
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-history-summary.png") });
+  await expect(runOf(implementHistory, 1)).toContainText("42k tokens");
+  await runOf(implementHistory, 1).click();
+  await expect(detailsOf(implementHistory, 1)).toContainText("fresh session");
+
+  // A run's tab is kept while the window is open.
+  await runOf(implementHistory, 3).click();
+  await implementHistory.getByRole("tab", { name: "Thread" }).click();
+  await runOf(implementHistory, 1).click();
+  await expect(implementHistory.getByRole("tab", { name: "Summary" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await runOf(implementHistory, 3).click();
+  await expect(implementHistory.getByRole("tab", { name: "Thread" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+
+  // The keys stop at the ends and work after a press on the window's text; a Stage in small moves
+  // too, and each Stage keeps the run picked.
   await page.keyboard.press("ArrowLeft");
   await expect(implementHistory).toBeVisible();
-  await implementHistory.getByRole("button", { name: "Next Stage" }).click();
-  await expect(stageButton("Tests")).toBeFocused();
+  await stageInSmall(implementHistory, "Tests").click();
+  await expect(runOf(testsHistory, 2)).toHaveAttribute("aria-pressed", "true");
+  await failedRun.getByText("2 tests failed.").click();
   await page.keyboard.press("ArrowRight");
-  const gateHistory = historyOf("UI acceptance");
-  await expect(gateHistory).toContainText("You sent back to Implement");
-  await expect(gateHistory).toContainText("Waits for you to look at the changes");
 
-  // A click on the panel's text leaves the keys working; Esc gives focus back to the Stage.
-  await gateHistory.getByText("You sent back to Implement").click();
+  // A Gate's run: what it waits for and the way to Needs you, or what the user did.
+  const gateHistory = historyOf("UI acceptance");
+  const waiting = detailsOf(gateHistory, 8);
+  await expect(waiting).toContainText("Waits for you to look at the changes");
+  await runOf(gateHistory, 5).click();
+  await expect(detailsOf(gateHistory, 5)).toContainText("You sent back to Implement");
+  await runOf(gateHistory, 8).click();
+
+  // Esc gives focus back to the Stage on the rail; so does the way to Needs you, and the window
+  // doesn't stay over it.
   await page.keyboard.press("Escape");
   await expect(gateHistory).toHaveCount(0);
   await expect(stageButton("UI acceptance")).toBeFocused();
-  await expect(stageButton("UI acceptance")).toHaveAttribute("aria-expanded", "false");
+  await stageButton("UI acceptance").click();
+  await waiting.getByRole("button", { name: "Answer it in Needs you" }).click();
+  await expect(gateHistory).toHaveCount(0);
 
-  // The same Stage again opens, and a second click closes.
-  await stageButton("Tests").click();
+  // An address naming a run opens the window there; closing takes it off the address.
+  await page.goto(`/tasks/${task.id}?taskThread=${briefedWithTheFailure.id}`);
+  await expect(runOf(implementHistory, 3)).toHaveAttribute("aria-pressed", "true");
+  await implementHistory.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(implementHistory).toHaveCount(0);
+  await expect(page).not.toHaveURL(/taskThread/);
+
+  // In a phone's width the panes stack, and nothing but the rows made to scrolls sideways.
+  await page.setViewportSize({ width: 420, height: 800 });
+  await stageButton("Tests").evaluate((button: HTMLElement) => button.click());
   await expect(testsHistory).toBeVisible();
-  await stageButton("Tests").click();
+  await expect
+    .poll(() =>
+      testsHistory.locator(".dialog-body").evaluate((body) => body.scrollWidth - body.clientWidth),
+    )
+    .toBe(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-420-stage-history.png") });
+  await page.keyboard.press("Escape");
   await expect(testsHistory).toHaveCount(0);
 
   // In a window too narrow for the Stages the loop-back's arc scrolls with them.
-  await page.setViewportSize({ width: 420, height: 800 });
   const stagesScroller = rail.locator(".pipeline-rail-scroll");
   await expect
     .poll(() => stagesScroller.evaluate((view) => view.scrollWidth - view.clientWidth))

@@ -5,6 +5,7 @@ import {
   pipelineSchema,
   pipelinesWebEventSchema,
   pipelineUseSchema,
+  stageRunCommandOutputsSchema,
   stagesCheckSchema,
   taskStagesSchema,
   type Pipeline,
@@ -20,6 +21,9 @@ import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const PIPELINES_KEY: readonly unknown[] = ["pipelines"];
+
+/** Apart from the Task's key, or the walk's and Work's events would read a run's whole output again. */
+const COMMAND_OUTPUTS_KEY: readonly unknown[] = ["stage-run-command-outputs"];
 
 export const pipelineQueries = {
   list: () =>
@@ -45,6 +49,17 @@ export const pipelineQueries = {
     queryOptions({
       queryKey: taskStagesKey(taskId),
       queryFn: ({ signal }) => getFromApi(stagesPath(taskId), taskStagesSchema, signal),
+    }),
+  /** What each of a run's commands printed, saved as they end, so a run's end reads it again. */
+  commandOutputs: (taskId: string, runId: string) =>
+    queryOptions({
+      queryKey: [...commandOutputsKey(taskId), runId],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/tasks/${encodeURIComponent(taskId)}/stage-runs/${encodeURIComponent(runId)}/command-outputs`,
+          stageRunCommandOutputsSchema,
+          signal,
+        ),
     }),
   /**
    * What saving the edited Stages would be refused for. Under the Task's Stages, so whatever makes
@@ -111,6 +126,10 @@ function taskStagesKey(taskId: string): readonly unknown[] {
   return ["tasks", taskId, "stages"];
 }
 
+function commandOutputsKey(taskId: string): readonly unknown[] {
+  return [...COMMAND_OUTPUTS_KEY, taskId];
+}
+
 /** A change to the library makes every list of it stale. */
 function staleLibrary(): readonly (readonly unknown[])[] {
   return [PIPELINES_KEY];
@@ -121,10 +140,13 @@ function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
   return [taskStagesKey(taskIdOf(event))];
 }
 
-/** A run's end also makes the Task's Changes stale, as The Office commits the Stage's work then. */
+/**
+ * A run's end also makes the Task's Changes stale, as The Office commits the Stage's work then, and
+ * its commands' outputs, saved then.
+ */
 function staleTaskStagesAndChanges(event: unknown): readonly (readonly unknown[])[] {
   const taskId = taskIdOf(event);
-  return [taskStagesKey(taskId), taskChangesKey(taskId)];
+  return [taskStagesKey(taskId), taskChangesKey(taskId), commandOutputsKey(taskId)];
 }
 
 function taskIdOf(event: unknown): string {

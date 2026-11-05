@@ -8,7 +8,7 @@ import { taskQueries } from "../../api/work.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
 import { PIPELINE_PROPOSAL_ELEMENT_ID } from "./pipeline-proposal.tsx";
-import { useShowRecordBlock, type PartBlock } from "./record-blocks.ts";
+import { bringIntoView, useShowRecordBlock, type PartBlock } from "./record-blocks.ts";
 import { RecordBlock } from "./record-block.tsx";
 
 type ReadinessPart = Readiness["lines"][number]["part"];
@@ -126,8 +126,4 @@ function LinkButton({
       {children}
     </button>
   );
-}
-
-function bringIntoView(elementId: string): void {
-  document.getElementById(elementId)?.scrollIntoView({ block: "center" });
 }
