@@ -9,6 +9,7 @@ import { Badge, Button, Icon, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import {
+  changeDescription,
   confirmDefinitionOfDone,
   confirmPlan,
   taskQueries,
@@ -20,14 +21,78 @@ import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { DefinitionOfDoneStatements, ReportedMetBadge } from "./definition-of-done-statements.tsx";
 import { PartEditor } from "./part-editor.tsx";
-import { definitionOfDoneSummary, planSummary, statementsOf } from "./planning-words.ts";
+import {
+  definitionOfDoneSummary,
+  descriptionSummary,
+  NO_DESCRIPTION,
+  planSummary,
+  statementsOf,
+} from "./planning-words.ts";
+import { recordBlockElementId, type PartBlock } from "./record-blocks.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold, type Fold } from "./record-folds.ts";
 
 /**
- * The Plan and the Definition of Done the Planner writes are proposed until the user confirms
- * them as shown or saves an edit; both stay editable until the Task starts. They start open while
- * the Task is in Planning, where the user reads them.
+ * The user's Description: what they want, in their own words, which the Planner plans from. It
+ * stays editable until the Task starts, and starts open until then, where it is read.
+ */
+export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
+  const changing = useRecordChange(task, (description: string) =>
+    changeDescription(task.id, description),
+  );
+  const [editing, setEditing] = useState(false);
+  const editable = NOT_STARTED.includes(task.state);
+  const fold = useFold({ kind: "task", id: task.id }, "description", editable);
+  return (
+    <RecordFold
+      fold={fold}
+      icon="align-left"
+      title="Description"
+      summary={descriptionSummary(task)}
+      side={
+        editable &&
+        !editing && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              fold.open();
+              setEditing(true);
+            }}
+          >
+            Edit
+          </Button>
+        )
+      }
+    >
+      {changing.error && (
+        <RefusalAlert title="The Description wasn't saved" error={changing.error} />
+      )}
+      {editing ? (
+        <PartEditor
+          label="Description"
+          hint="What you want, in your own words, in Markdown. The title alone is enough to plan from."
+          initial={task.description}
+          saveLabel="Save"
+          saving={changing.isPending}
+          onSave={(text) => changing.mutate(text, { onSuccess: () => setEditing(false) })}
+          onCancel={() => setEditing(false)}
+        />
+      ) : task.description === "" ? (
+        <p className="task-quiet">{NO_DESCRIPTION}</p>
+      ) : (
+        <div className="task-plan-text">
+          <MarkdownText text={task.description} />
+        </div>
+      )}
+    </RecordFold>
+  );
+}
+
+/**
+ * The Plan and the Definition of Done, written by the Planner or the user, are proposed until the
+ * user confirms them as shown or saves an edit; both stay editable until the Task starts. They
+ * start open while the Task is in Planning, where the user reads them.
  */
 interface PartProps {
   readonly task: Task;
@@ -46,6 +111,7 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
   const written = task.definitionOfDone.length > 0;
   return (
     <RecordFold
+      id={recordBlockElementId("definition-of-done")}
       fold={fold}
       icon="check"
       title="Definition of Done"
@@ -60,6 +126,8 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
               planner={planner}
               written={written}
               confirmed={task.definitionOfDoneConfirmed}
+              confirming={confirming.isPending}
+              onConfirm={() => confirming.mutate(task.definitionOfDone)}
               onEdit={() => {
                 fold.open();
                 setEditing(true);
@@ -91,7 +159,8 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
         />
       ) : (
         <p className="task-quiet">
-          Not written yet. {planner} proposes it during planning; a Task can't be Ready without one.
+          Not written yet. {planner} proposes it while planning, or write it yourself; a Task can't
+          be Ready without one.
         </p>
       )}
     </RecordFold>
@@ -105,6 +174,7 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
   const written = task.plan !== "";
   return (
     <RecordFold
+      id={recordBlockElementId("plan")}
       fold={fold}
       icon="file"
       title="Plan"
@@ -116,6 +186,10 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
             planner={planner}
             written={written}
             confirmed={task.planConfirmed}
+            confirming={confirming.isPending}
+            onConfirm={() =>
+              confirming.mutate({ plan: task.plan, filesToChange: [...task.filesToChange] })
+            }
             onEdit={() => {
               fold.open();
               setEditing(true);
@@ -141,13 +215,21 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
           <PlannersEstimate estimatedTokens={task.estimatedTokens} />
         </>
       ) : (
-        <p className="task-quiet">No Plan yet.</p>
+        <p className="task-quiet">
+          No Plan yet.{" "}
+          {task.state === "backlog"
+            ? `Make a plan with ${planner} from the conversation, or write it yourself.`
+            : `${planner} proposes it while planning, or write it yourself.`}
+        </p>
       )}
     </RecordFold>
   );
 }
 
-function usePartFold(task: Task, block: string): Fold {
+/** Where a part is confirmed: Ready waits for it. */
+const BEFORE_READY: readonly Task["state"][] = ["backlog", "planning"];
+
+function usePartFold(task: Task, block: PartBlock): Fold {
   return useFold({ kind: "task", id: task.id }, block, task.state === "planning");
 }
 
@@ -231,28 +313,43 @@ function PlanEditor({
   );
 }
 
-/** Where a part stands, and Edit while the Task hasn't started; Before Ready holds Confirm. */
+/**
+ * Where a part stands, with Confirm beside a proposed one before Ready, and Edit while the Task
+ * hasn't started. Confirm takes the part exactly as it reads; Edit confirms the user's own words.
+ */
 function PartActions({
   task,
   planner,
   written,
   confirmed,
+  confirming,
+  onConfirm,
   onEdit,
 }: {
   readonly task: Task;
   readonly planner: string;
   readonly written: boolean;
   readonly confirmed: boolean;
+  readonly confirming: boolean;
+  readonly onConfirm: () => void;
   readonly onEdit: () => void;
 }): ReactNode {
   const editable = NOT_STARTED.includes(task.state);
+  const confirmable = BEFORE_READY.includes(task.state);
   return (
     <div className="task-part-actions">
       {written &&
         (confirmed ? (
           <Badge tone="success">Confirmed</Badge>
         ) : (
-          <Badge tone="warning">Proposed by {planner}</Badge>
+          <>
+            <Badge tone="warning">Proposed by {planner}</Badge>
+            {confirmable && (
+              <Button size="sm" loading={confirming} onClick={onConfirm}>
+                Confirm
+              </Button>
+            )}
+          </>
         ))}
       {editable && (
         <Button size="sm" variant="secondary" onClick={onEdit}>

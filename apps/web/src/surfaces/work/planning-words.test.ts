@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   definitionOfDoneSummary,
+  descriptionSummary,
   planSummary,
   reportedMetCount,
   statementsOf,
@@ -54,6 +55,18 @@ describe("definitionOfDoneSummary", () => {
 
     expect(definitionOfDoneSummary(running, [1, 2])).toBe("2 of 2 Reported met");
     expect(definitionOfDoneSummary(running, [2])).toBe("1 of 2 Reported met");
+  });
+});
+
+describe("descriptionSummary", () => {
+  it("says when there is none", () => {
+    expect(descriptionSummary({ description: "" })).toBe("None");
+  });
+
+  it("takes the first line without its Markdown marks", () => {
+    expect(descriptionSummary({ description: "Keep **the page**.\n\nAnd its filters." })).toBe(
+      "Keep the page.",
+    );
   });
 });
 

@@ -95,7 +95,7 @@ function TaskBody({
         selectedKey={selectedStageKey}
         onSelect={setSelectedStageKey}
       />
-      <NeedsYouCard task={task} pipeline={pipeline} />
+      <NeedsYouCard task={task} />
       <div className="task-columns">
         <div className="task-record-column" id={RECORD_ELEMENT_ID}>
           <RecordTabs task={task} shown={recordTab} />
@@ -164,7 +164,7 @@ function TaskHead({
         </div>
       </div>
       <div className="task-head-actions">
-        <PlanButton task={task} variant="primary" />
+        <PlanButton task={task} />
         <MarkReadyButton task={task} />
         <StartButton task={task} />
         <RunControls task={task} />

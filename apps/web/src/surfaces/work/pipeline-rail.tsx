@@ -22,11 +22,13 @@ import { TokenFigure } from "../../shell/token-count.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
+import { PipelineProposal } from "./pipeline-proposal.tsx";
 import { StageHistory } from "./stage-history.tsx";
 import { focusStage, stageElementId } from "./stage-selection.ts";
 import { StageWorker } from "./stage-worker.tsx";
 import {
   currentStageIndex,
+  loopBackPath,
   loopBacks,
   loopBackWords,
   railCaption,
@@ -35,6 +37,7 @@ import {
   railStateWords,
   stagesOnRail,
   type LoopBack,
+  type RailPlace,
 } from "./stage-rail-words.ts";
 import { pipelineLabel, REMOVED_PIPELINE, stageNamesOf, type StageNames } from "./stage-words.ts";
 
@@ -50,18 +53,6 @@ const LINE_FROM_MARKER_TOP_PX = 11;
 /** The room over the markers once there are arcs: what they start from, and what each adds. */
 const ARC_ROOM_PX = 26;
 const ARC_ROOM_PER_LOOP_PX = 16;
-
-/** How far above a marker an arc's ends sit. */
-const ARC_END_ABOVE_MARKER_PX = 2;
-
-/** The lowest arc's box, and what each level above it adds. */
-const ARC_HEIGHT_PX = 28;
-const ARC_LEVEL_PX = 21;
-
-/** Where an arc's ends sit from their Stages' centres; a higher arc lands further out, so they nest. */
-const ARC_LEAVES_BEFORE_PX = 4;
-const ARC_LANDS_AFTER_PX = 6;
-const ARC_LANDING_STEP_PX = 12;
 
 const STATE_ICONS: Readonly<Partial<Record<TaskStage["state"], string>>> = {
   done: "check",
@@ -93,6 +84,7 @@ export function PipelineRail({
   const stages = stagesOnRail(taskStages.stages, pipeline?.stages);
   const finished = task.state === "done" || task.state === "dropped";
   const label = `Pipeline · ${pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, taskStages.editedForTask)}`;
+  const proposal = <PipelineProposal task={task} pipeline={pipeline} />;
   const editAction = !finished && (
     <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
       Edit for this Task
@@ -104,6 +96,7 @@ export function PipelineRail({
         <StageTrack
           label={label}
           action={editAction}
+          proposal={proposal}
           stages={stages}
           task={task}
           roles={roles}
@@ -115,6 +108,7 @@ export function PipelineRail({
           <div className="pipeline-rail">
             <RailTop label={label} action={editAction} />
             <p className="pipeline-rail-removed">Its Pipeline was removed from the library.</p>
+            {proposal}
           </div>
         </section>
       )}
@@ -150,6 +144,7 @@ function RailTop({
 function StageTrack({
   label,
   action,
+  proposal,
   stages,
   task,
   roles,
@@ -158,6 +153,8 @@ function StageTrack({
 }: {
   readonly label: string;
   readonly action: ReactNode;
+  /** The Planner's Pipeline proposal, at the rail's foot. */
+  readonly proposal: ReactNode;
   readonly stages: readonly TaskStage[];
   readonly task: Task;
   readonly roles: readonly Role[] | undefined;
@@ -260,6 +257,7 @@ function StageTrack({
             ))}
           </div>
         </div>
+        {proposal}
       </div>
       {selectedStage && (
         <StageHistory
@@ -309,9 +307,8 @@ function useCurrentStageInView(
 }
 
 /**
- * A loop-back's arc from the failing Stage to where the work went back; its mark selects that Stage.
- * The curve is drawn in a box of its own and stretched to it, so its ends are shares of the rail's
- * width and it needs no measuring.
+ * A loop-back from the failing Stage to where the work went back, drawn square by its box's borders
+ * so the corners keep their radius at any width; its mark selects the failing Stage.
  */
 function LoopBackArc({
   loop,
@@ -326,23 +323,18 @@ function LoopBackArc({
   readonly names: StageNames;
   readonly onSelect: () => void;
 }): ReactNode {
-  const centreOf = (index: number): number => ((index + 0.5) * 100) / stageCount;
-  const height = ARC_HEIGHT_PX + loop.level * ARC_LEVEL_PX;
-  const landing = ARC_LANDS_AFTER_PX - loop.level * ARC_LANDING_STEP_PX;
+  const path = loopBackPath(loop, stageCount, markerTop);
   const words = loopBackWords(loop, names);
   return (
     <div
       className="pipeline-rail-arc"
       style={{
-        top: markerTop - ARC_END_ABOVE_MARKER_PX - height,
-        height,
-        left: `calc(${centreOf(loop.toIndex)}% + ${landing}px)`,
-        right: `calc(${100 - centreOf(loop.fromIndex)}% + ${ARC_LEAVES_BEFORE_PX}px)`,
+        top: path.top,
+        height: path.height,
+        left: cssOf(path.landsOn),
+        right: cssOf(path.leaves),
       }}
     >
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M100 100 C 100 0, 0 0, 0 100" />
-      </svg>
       <button
         type="button"
         className="pipeline-rail-arc-mark"
@@ -354,6 +346,10 @@ function LoopBackArc({
       </button>
     </div>
   );
+}
+
+function cssOf({ share, offset }: RailPlace): string {
+  return `calc(${share}% + ${offset}px)`;
 }
 
 function RailStage({

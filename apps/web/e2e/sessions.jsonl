@@ -31,6 +31,15 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-1"],"usage":{"input":2,"output":30,"cacheRead":34000,"cacheCreation":60},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":34100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-make-a-plan","text":"Make a plan from the title and the Description"}}
+{"step":"event","event":{"kind":"tool-call","callId":"make-a-plan-1","tool":"write_plan","officeTool":true,"input":{"plan":"Remember the sort column and its direction per list, and apply them when the list opens."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"make-a-plan-2","tool":"write_definition_of_done","officeTool":true,"input":{"statements":["A list opens sorted as it was left.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I read the title and the Description, and wrote the Plan and the Definition of Done.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-make-a-plan"],"usage":{"input":3,"output":300,"cacheRead":0,"cacheCreation":33000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":33300,"window":1000000}}
+{"step":"end"}
 {"step":"start","brief":{"id":"brief-implement","text":"Implement the Task"}}
 {"step":"event","event":{"kind":"tool-call","callId":"implement-1","tool":"open_decision","officeTool":true,"input":{"question":"Which page should sign-in return to when the session expired?","context":"An expired session sends the user to sign-in from any page.","options":["The page it started from","The dashboard"],"recommended":1,"why":"The user goes on where they were."},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"implement-1","text":"","isError":false}}

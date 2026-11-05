@@ -5,9 +5,10 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import type { Task } from "@the-office/contracts";
-import { markReady, planTask, taskQueries } from "../../api/work.ts";
+import { makeAPlan, markReady, planTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useOnPlanned } from "../../shell/work/use-idea-planning.ts";
+import { usePlanner } from "../../shell/work/use-planner.ts";
 
 /**
  * Plan with the Planner: the Task moves to Planning with its planning Thread, and its page opens
@@ -25,11 +26,30 @@ export function usePlanning(): UseMutationResult<Task, Error, Task> {
   });
 }
 
+/**
+ * Make a plan: the Task moves to Planning, and the Planner starts at once from its title and
+ * Description, with nothing for the user to write. The page stays where it is.
+ */
+export function useMakingAPlan(): UseMutationResult<Task, Error, Task> {
+  const queryClient = useQueryClient();
+  const showToast = useToast();
+  const planner = usePlanner()?.card.name ?? "The Planner";
+  return useMutation({
+    mutationFn: (task: Task) => makeAPlan(task.id),
+    onSuccess: (planning) => {
+      queryClient.setQueryData(taskQueries.one(planning.id).queryKey, planning);
+      showToast(`${planning.title} is in Planning: ${planner} is making a plan.`);
+    },
+    onError: (error) => showToast(error.message),
+    onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
+  });
+}
+
 /** Whether every line of the Task's "Before Ready" checklist is met; false until it is known. */
 export function useReadyConditionsMet(task: Task): boolean {
   const readiness = useQuery({
     ...taskQueries.readiness(task.id),
-    enabled: task.state === "planning",
+    enabled: task.state === "planning" || task.state === "backlog",
   });
   return readiness.data?.lines.every(({ met }) => met) ?? false;
 }

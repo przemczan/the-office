@@ -153,6 +153,55 @@ function spanOf({ fromIndex, toIndex }: Pick<LoopBack, "fromIndex" | "toIndex">)
   return fromIndex - toIndex;
 }
 
+/** How far above a marker a loop-back's ends sit. */
+const ARC_END_ABOVE_MARKER_PX = 2;
+
+/** The lowest loop-back's height over its ends, and what each level above it adds. */
+const ARC_HEIGHT_PX = 22;
+const ARC_LEVEL_PX = 16;
+
+/** Where a loop-back's ends sit from their Stages' centres; a higher one lands further out, so they nest. */
+const ARC_LEAVES_BEFORE_PX = 4;
+const ARC_LANDS_AFTER_PX = 6;
+const ARC_LANDING_STEP_PX = 12;
+
+/**
+ * A loop-back's square path over the rail: up from the failing Stage, across at its level's height
+ * and down onto the Stage the work went back to. Its ends are shares of the rail's width, so it
+ * needs no measuring; `top` and `height` are pixels from the rail's top, with the markers at
+ * `markerTop`.
+ */
+export interface LoopBackPath {
+  /** Where it goes up, from the rail's right: a little before the failing Stage's centre. */
+  readonly leaves: RailPlace;
+  /** Where it comes down, from the rail's left: by the earlier Stage's centre, further out the higher it is. */
+  readonly landsOn: RailPlace;
+  readonly top: number;
+  readonly height: number;
+}
+
+/** A place across the rail: a share of its width, in percent, and pixels from there. */
+export interface RailPlace {
+  readonly share: number;
+  readonly offset: number;
+}
+
+export function loopBackPath(
+  { fromIndex, toIndex, level }: Pick<LoopBack, "fromIndex" | "toIndex" | "level">,
+  stageCount: number,
+  markerTop: number,
+): LoopBackPath {
+  const centreOf = (index: number): number => ((index + 0.5) * 100) / stageCount;
+  const height = ARC_HEIGHT_PX + level * ARC_LEVEL_PX;
+  const landing = ARC_LANDS_AFTER_PX - level * ARC_LANDING_STEP_PX;
+  return {
+    leaves: { share: 100 - centreOf(fromIndex), offset: ARC_LEAVES_BEFORE_PX },
+    landsOn: { share: centreOf(toIndex), offset: landing },
+    top: markerTop - ARC_END_ABOVE_MARKER_PX - height,
+    height,
+  };
+}
+
 /** What a loop-back's mark says in full. */
 export function loopBackWords({ from, to, count, rounds }: LoopBack, names: StageNames): string {
   const times = count === 1 ? "1 time" : `${count} times`;

@@ -4,6 +4,7 @@ import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   currentStageIndex,
   railScrollLeft,
+  loopBackPath,
   loopBacks,
   loopBackWords,
   railCaption,
@@ -347,5 +348,29 @@ describe("loopBacks", () => {
       aTaskStage(review, { runs: [aRun({ number: 2 })] }),
     ];
     expect(loopBacks(stages)).toEqual([]);
+  });
+});
+
+describe("loopBackPath", () => {
+  it("goes up at the failing Stage, across at its level and down on the earlier Stage", () => {
+    // Four Stages: their centres at 12.5%, 37.5%, 62.5% and 87.5% of the rail.
+    const path = loopBackPath({ fromIndex: 3, toIndex: 1, level: 0 }, 4, 42);
+
+    expect(path).toEqual({
+      leaves: { share: 12.5, offset: 4 },
+      landsOn: { share: 37.5, offset: 6 },
+      top: 18,
+      height: 22,
+    });
+  });
+
+  it("draws a longer loop higher, landing further out, so the two nest", () => {
+    const shorter = loopBackPath({ fromIndex: 2, toIndex: 1, level: 0 }, 4, 58);
+    const longer = loopBackPath({ fromIndex: 3, toIndex: 1, level: 1 }, 4, 58);
+
+    expect(longer.top).toBeLessThan(shorter.top);
+    expect(longer.top + longer.height).toBe(shorter.top + shorter.height);
+    expect(longer.landsOn).toEqual({ share: 37.5, offset: -6 });
+    expect(shorter.landsOn).toEqual({ share: 37.5, offset: 6 });
   });
 });

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
-import type { Decision, Pipeline, Role, Task, TaskStage, TaskStages } from "@the-office/contracts";
+import type { Decision, Role, Task, TaskStage, TaskStages } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import { useEffect, useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
@@ -19,30 +19,29 @@ import { BeforeReady } from "./before-ready.tsx";
 import { useBringThreadIntoView } from "./conversation-drawer.tsx";
 import { GateCard } from "./gate-card.tsx";
 import { gateQuestion } from "./gate-card-words.ts";
-import { needsYouClearWords, needsYouSummary, waitingOnYou } from "./needs-you-words.ts";
+import {
+  NEEDS_YOU_ELEMENT_ID,
+  needsYouClearWords,
+  needsYouSummary,
+  waitingOnYou,
+} from "./needs-you-words.ts";
 import { useQueued } from "./queue-parts.tsx";
 import { chapterPlace, chapterWork } from "./timeline-words.ts";
 import { useInView } from "./use-in-view.ts";
 
 /**
  * What waits on the user on this Task, under the rail and answered there (spec §4): its Decisions,
- * those with a Consultant marked and not counted, and the Gate it waits at. In Planning this place
- * holds Before Ready, beside any Decision. Otherwise it says where the Task stands.
+ * those with a Consultant marked and not counted, and the Gate it waits at. Before Ready holds
+ * this place, beside any Decision, in Planning and in Backlog once a part is written. Otherwise it
+ * says where the Task stands.
  */
-export function NeedsYouCard({
-  task,
-  pipeline,
-}: {
-  readonly task: Task;
-  readonly pipeline: Pipeline | undefined;
-}): ReactNode {
+export function NeedsYouCard({ task }: { readonly task: Task }): ReactNode {
   const decisions = useQuery(decisionQueries.unanswered(task.id)).data;
   const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
   if (!decisions || !taskStages) return null;
   if (task.state === "dropped") return <NothingWaits task={task} />;
   const waiting = taskStages.stages ? waitingGateOf(taskStages.stages) : undefined;
-  const beforeReady =
-    task.state === "planning" ? <BeforeReady task={task} pipeline={pipeline} /> : undefined;
+  const beforeReady = showsBeforeReady(task) ? <BeforeReady task={task} /> : undefined;
   if (decisions.length > 0 || waiting) {
     return (
       <WhatWaits
@@ -55,6 +54,11 @@ export function NeedsYouCard({
     );
   }
   return beforeReady ?? <NothingWaits task={task} />;
+}
+
+function showsBeforeReady(task: Task): boolean {
+  if (task.state === "planning") return true;
+  return task.state === "backlog" && (task.plan !== "" || task.definitionOfDone.length > 0);
 }
 
 function NothingWaits({ task }: { readonly task: Task }): ReactNode {
@@ -100,7 +104,12 @@ function WhatWaits({
   const count = onYou.length + (waiting ? 1 : 0);
   const headline = onYou[0]?.question ?? (waiting && gateQuestion(waiting));
   const needsYou = (
-    <section className="needs-you-card" aria-label="Needs you" ref={setCard}>
+    <section
+      id={NEEDS_YOU_ELEMENT_ID}
+      className="needs-you-card"
+      aria-label="Needs you"
+      ref={setCard}
+    >
       <header className="needs-you-head">
         {count > 0 && <span className="needs-you-count">{count}</span>}
         <h3>Needs you</h3>

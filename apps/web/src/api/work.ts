@@ -313,9 +313,19 @@ export function placeTask(id: string, placement: TaskPlacement): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/place`, placement, taskSchema);
 }
 
+/** The user's Description, until the Task starts; empty leaves none. */
+export function changeDescription(id: string, description: string): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/description`, { description }, taskSchema);
+}
+
 /** Plan with the Planner: the Task moves to Planning, and its planning Thread opens. */
 export function planTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/planning`, {}, taskSchema);
+}
+
+/** Make a plan: the Task moves to Planning, and the Planner starts at once from its record. */
+export function makeAPlan(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/make-a-plan`, {}, taskSchema);
 }
 
 /**

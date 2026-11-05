@@ -29,6 +29,14 @@ export function definitionOfDoneSummary(
   return task.definitionOfDoneConfirmed ? count : `${count} · not confirmed yet`;
 }
 
+/** What an empty Description reads, as the service words it in the Agents' Briefs. */
+export const NO_DESCRIPTION = "None: the title is all there is.";
+
+/** The Description's folded line: its first line without its Markdown marks. */
+export function descriptionSummary({ description }: Pick<Task, "description">): string {
+  return description === "" ? "None" : withoutMarkdownMarks(firstLine(description));
+}
+
 /** The Plan's folded line: its first line without its Markdown marks, and the files it expects. */
 export function planSummary({ plan, filesToChange }: Pick<Task, "plan" | "filesToChange">): string {
   if (plan === "") return "No Plan yet";

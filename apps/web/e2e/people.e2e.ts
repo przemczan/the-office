@@ -1530,7 +1530,10 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const beforeReady = page.getByRole("region", { name: "Before Ready" });
   const readinessLine = (label: string): Locator =>
     beforeReady.getByRole("listitem").filter({ hasText: label });
-  const proposedPipeline = readinessLine("Pipeline chosen");
+  // The Planner's Pipeline proposal sits at the rail's foot.
+  const proposedPipeline = page
+    .getByRole("region", { name: /^Pipeline · / })
+    .getByRole("region", { name: "Pipeline proposal" });
   await expect(plan.getByText("Proposed by Jan")).toBeVisible();
   await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
   await expect(proposedPipeline.getByText(/A small change with tests/)).toBeVisible();
@@ -1538,27 +1541,36 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const needsYouBox = await needsYou.boundingBox();
   expect(needsYouBox?.y).toBe(beforeReadyBox?.y);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-planning.png") });
+  await page.emulateMedia({ colorScheme: "light" });
 
-  // Mark Ready waits for every line of "Before Ready", and each line ticks as it is met.
+  // Mark Ready waits for every line of "Before Ready", read-only, each unmet line saying where it
+  // is settled, and each ticks as it is met.
   const markReady = page.getByRole("button", { name: "Mark Ready" });
   await expect(markReady).toBeDisabled();
-  await expect(readinessLine("Plan confirmed")).toContainText(
-    "Confirm the Plan before the Task can be Ready.",
+  await expect(readinessLine("Plan confirmed")).toContainText("Confirm it on the Plan");
+  await expect(readinessLine("Definition of Done confirmed")).toContainText(
+    "Confirm it on the Definition of Done",
   );
-  await expect(readinessLine("No Decision open")).toContainText(
-    "Answer the open Decision before the Task can be Ready.",
+  await expect(readinessLine("Pipeline chosen")).toContainText(
+    "Jan proposes Quick fix · confirm it on the rail",
   );
+  await expect(readinessLine("No Decision open")).toContainText("1 open, in Needs you");
   await expect(beforeReady.locator(".task-checklist-met")).toHaveCount(0);
+  await expect(beforeReady.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(0);
 
+  // Confirm sits on the part's own block; Before Ready's link leads there.
+  await readinessLine("Plan confirmed").getByRole("button", { name: "on the Plan" }).click();
+  await expect(plan).toBeInViewport();
+  await plan.getByRole("button", { name: "Confirm" }).click();
+  await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(plan.getByRole("button", { name: "Confirm" })).toHaveCount(0);
-  await readinessLine("Plan confirmed").getByRole("button", { name: "Confirm" }).click();
-  await expect(plan.getByText("Confirmed")).toBeVisible();
   await expect(readinessLine("Plan confirmed")).toHaveClass(/task-checklist-met/);
   await expect(readinessLine("Plan confirmed").getByRole("button")).toHaveCount(0);
-  await readinessLine("Definition of Done confirmed")
-    .getByRole("button", { name: "Confirm" })
-    .click();
-  await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
+  await definitionOfDone.getByRole("button", { name: "Confirm" }).click();
+  await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
   // A part stays editable, and the user's own words are confirmed as they are saved.
   await definitionOfDone.getByRole("button", { name: "Edit" }).click();
@@ -1569,7 +1581,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(
     definitionOfDone.getByText("Signing in returns to the page and its query string."),
   ).toBeVisible();
-  await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
+  await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
   await expect(readinessLine("Pipeline chosen")).not.toHaveClass(/task-checklist-met/);
   await expect(proposedPipeline.getByLabel("Another Pipeline")).toContainText("Document");
@@ -1637,6 +1649,64 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
       .getByRole("complementary", { name: "Conversation" })
       .getByRole("button", { name: /^Planning · Jan/ }),
   ).toHaveAttribute("aria-expanded", "true");
+});
+
+// The engine replays the next session in e2e/sessions.jsonl: Jan writes the Plan and the
+// Definition of Done from the record, with no message from the user.
+test("the user has Jan make a plan from the title and the Description, then confirms it and marks it Ready", async ({
+  page,
+}) => {
+  const signInTask = taskSchema.parse(
+    await (await page.request.get(`/api/tasks/${signIn.taskUrl?.split("/").at(-1)}`)).json(),
+  );
+  const title = "Lists keep their sort order";
+  const description = "Each list opens **sorted as I left it**, column and direction.";
+  const created = await page.request.post("/api/tasks", {
+    data: { title, description, projectId: signInTask.projectId, priority: "normal" },
+  });
+  expect(created.status()).toBe(201);
+  const task = taskSchema.parse(await created.json());
+  await page.goto(`/tasks/${task.id}`);
+
+  const record = page.getByRole("region", { name: "Record" });
+  await expect(record.getByRole("region", { name: "Description" })).toContainText(
+    "Each list opens sorted as I left it, column and direction.",
+  );
+  const conversation = page.getByRole("complementary", { name: "Conversation" });
+  await expect(conversation).toContainText(
+    "Jan plans from the title and the Description, so there is nothing more to write.",
+  );
+  await expect(page.getByRole("region", { name: "Before Ready" })).toHaveCount(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-make-a-plan.png") });
+  await conversation.getByRole("button", { name: "Make a plan" }).click();
+  await expect(page.getByText(`${title} is in Planning: Jan is making a plan.`)).toBeVisible();
+
+  // Jan starts at once, from the record, the Description in the Brief.
+  await expect(
+    conversation.getByText(
+      "I read the title and the Description, and wrote the Plan and the Definition of Done.",
+    ),
+  ).toBeVisible();
+  await detailsSwitch(conversation).click();
+  await conversation.getByText("Brief", { exact: true }).first().click();
+  await expect(conversation.locator(".message-brief-text")).toContainText(
+    "Each list opens sorted as I left it, column and direction.",
+  );
+
+  const plan = record.getByRole("region", { name: "Plan", exact: true });
+  const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
+  await expect(plan).toContainText("Remember the sort column and its direction per list");
+  await plan.getByRole("button", { name: "Confirm" }).click();
+  await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
+  await definitionOfDone.getByRole("button", { name: "Confirm" }).click();
+  await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
+  const markReady = page.getByRole("button", { name: "Mark Ready" });
+  await expect(markReady).toBeEnabled();
+  await markReady.click();
+  await expect(page.getByText(`${title} is Ready. Starting it is your call.`)).toBeVisible();
+
+  // Nothing of it is left to weigh on the next tests' Start.
+  expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
 });
 
 /**

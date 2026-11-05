@@ -84,6 +84,11 @@ export interface Fold {
   readonly open: () => void;
 }
 
+/** Unfolds a block from outside it, such as a link leading to it. */
+export function openFold(record: FoldedRecord, block: string): void {
+  store.remember(record, block, true);
+}
+
 /** A block's fold as this browser remembers it; until the user folds it, as `startsOpen` says. */
 export function useFold(record: FoldedRecord, block: string, startsOpen: boolean): Fold {
   const remembered = useSyncExternalStore(store.subscribe, store.remembered);

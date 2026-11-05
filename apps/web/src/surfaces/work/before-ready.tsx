@@ -1,39 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Pipeline, Readiness, Task } from "@the-office/contracts";
-import { Badge, Button, Icon, Select } from "@the-office/ui";
+import type { Readiness, Task } from "@the-office/contracts";
+import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { decisionQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
-import { confirmDefinitionOfDone, confirmPlan, setPipeline, taskQueries } from "../../api/work.ts";
-import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { taskQueries } from "../../api/work.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import { useRecordChange } from "./planning-parts.tsx";
+import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
+import { PIPELINE_PROPOSAL_ELEMENT_ID } from "./pipeline-proposal.tsx";
+import { useShowRecordBlock, type PartBlock } from "./record-blocks.ts";
 import { RecordBlock } from "./record-block.tsx";
 
+type ReadinessPart = Readiness["lines"][number]["part"];
+
 /**
- * What Mark Ready waits for, line by line, on a Task in Planning, each with what settles it. The
- * lines come from the same Work rules that refuse Mark Ready, and Mark Ready stays the user's step.
+ * What Mark Ready waits for, line by line, read-only: each unmet line says where it is settled and
+ * links there. The lines come from the same Work rules that refuse Mark Ready.
  */
-export function BeforeReady({
-  task,
-  pipeline,
-}: {
-  readonly task: Task;
-  /** The Pipeline the Task follows now. */
-  readonly pipeline: Pipeline | undefined;
-}): ReactNode {
+export function BeforeReady({ task }: { readonly task: Task }): ReactNode {
   const readiness = useQuery(taskQueries.readiness(task.id));
   return (
     <RecordBlock icon="list-checks" title="Before Ready">
       <ul className="task-checklist">
-        {readiness.data?.lines.map(({ part, label, met, problems }) => (
+        {readiness.data?.lines.map(({ part, label, met }) => (
           <li key={part} className={met ? "task-checklist-met" : undefined}>
             <Icon name={met ? "check" : "circle"} size={14} />
             <div className="before-ready-line">
-              <span>
-                {label}
-                {!met && <span className="task-quiet"> · {problems.join(" ")}</span>}
-              </span>
-              <SettlingPart part={part} task={task} pipeline={pipeline} />
+              <span>{label}</span>
+              {!met && (
+                <span className="task-quiet">
+                  <WhereSettled part={part} task={task} />
+                </span>
+              )}
             </div>
           </li>
         ))}
@@ -42,130 +40,94 @@ export function BeforeReady({
   );
 }
 
-/** Read from the Task, not the line, which lags it by a refetch once a part is settled. */
-function SettlingPart({
+/** Where an unmet line is settled, from its `part`; the Task is read, as the line lags a refetch. */
+function WhereSettled({
   part,
   task,
-  pipeline,
 }: {
-  readonly part: Readiness["lines"][number]["part"];
+  readonly part: ReadinessPart;
   readonly task: Task;
-  readonly pipeline: Pipeline | undefined;
 }): ReactNode {
   switch (part) {
     case "plan":
-      if (task.plan === "" || task.planConfirmed) return null;
       return (
-        <ConfirmPart
-          task={task}
-          name="Plan"
-          confirm={() =>
-            confirmPlan(task.id, { plan: task.plan, filesToChange: [...task.filesToChange] })
-          }
-        />
+        <OnBlock task={task} block="plan" written={task.plan !== ""}>
+          on the Plan
+        </OnBlock>
       );
     case "definition-of-done":
-      if (task.definitionOfDone.length === 0 || task.definitionOfDoneConfirmed) return null;
       return (
-        <ConfirmPart
-          task={task}
-          name="Definition of Done"
-          confirm={() => confirmDefinitionOfDone(task.id, task.definitionOfDone)}
-        />
+        <OnBlock task={task} block="definition-of-done" written={task.definitionOfDone.length > 0}>
+          on the Definition of Done
+        </OnBlock>
       );
     case "pipeline":
-      return <ProposedPipeline task={task} pipeline={pipeline} />;
+      return <OnRail task={task} />;
     case "decisions":
-      return null;
+      return <InNeedsYou task={task} />;
   }
 }
 
-/** Confirms a part as it reads in the record; Edit, on its fold, confirms the user's own words. */
-function ConfirmPart({
+function OnBlock({
   task,
-  name,
-  confirm,
+  block,
+  written,
+  children,
 }: {
   readonly task: Task;
-  readonly name: string;
-  readonly confirm: () => Promise<Task>;
+  readonly block: PartBlock;
+  readonly written: boolean;
+  readonly children: ReactNode;
 }): ReactNode {
-  const confirming = useRecordChange<void>(task, confirm);
+  const showBlock = useShowRecordBlock(task.id);
   return (
     <>
-      <Button size="sm" loading={confirming.isPending} onClick={() => confirming.mutate()}>
-        Confirm
-      </Button>
-      {confirming.error && (
-        <div className="before-ready-refusal">
-          <RefusalAlert title={`The ${name} wasn't saved`} error={confirming.error} />
-        </div>
-      )}
+      {written ? "Confirm it " : "Write it "}
+      <LinkButton onClick={() => void showBlock(block)}>{children}</LinkButton>
     </>
   );
 }
 
-/**
- * The Pipeline the Planner proposes, with why, until the user takes it, keeps the one the Task
- * follows or chooses another from the library; each ends the proposal.
- */
-function ProposedPipeline({
-  task,
-  pipeline,
-}: {
-  readonly task: Task;
-  /** The Pipeline the Task follows now. */
-  readonly pipeline: Pipeline | undefined;
-}): ReactNode {
+function OnRail({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner()?.card.name ?? "The Planner";
-  const pipelines = useQuery(pipelineQueries.list());
-  const choosing = useRecordChange(task, (pipelineId: string) => setPipeline(task.id, pipelineId));
-  const proposed = task.proposedPipeline;
-  if (proposed === null) return null;
-  const nameOf = (id: string): string =>
-    pipelines.data?.find((candidate) => candidate.id === id)?.name ?? id;
-  const proposedName = nameOf(proposed.pipelineId);
-  const current = pipeline?.name ?? task.pipelineId;
-  const same = proposed.pipelineId === task.pipelineId;
-  const others =
-    pipelines.data?.filter(({ id }) => id !== proposed.pipelineId && id !== task.pipelineId) ?? [];
+  const pipelines = useQuery(pipelineQueries.list()).data;
+  const proposed = task.proposedPipeline?.pipelineId;
+  if (proposed === undefined) return null;
+  const name = pipelines?.find(({ id }) => id === proposed)?.name ?? proposed;
   return (
-    <div className="task-proposed-pipeline">
-      <p>
-        <Badge tone="warning">Proposed by {planner}</Badge> {proposedName}
-        {same && " (the one it follows)"}: {proposed.reason}
-      </p>
-      <div className="task-part-actions">
-        <Button
-          size="sm"
-          loading={choosing.isPending && choosing.variables === proposed.pipelineId}
-          onClick={() => choosing.mutate(proposed.pipelineId)}
-        >
-          {same ? "Confirm" : `Use ${proposedName}`}
-        </Button>
-        {!same && (
-          <Button
-            size="sm"
-            variant="secondary"
-            loading={choosing.isPending && choosing.variables === task.pipelineId}
-            onClick={() => choosing.mutate(task.pipelineId)}
-          >
-            Keep {current}
-          </Button>
-        )}
-        {others.length > 0 && (
-          <Select
-            aria-label="Another Pipeline"
-            size="sm"
-            placeholder="Another Pipeline…"
-            value=""
-            disabled={choosing.isPending}
-            options={others.map(({ id, name }) => ({ value: id, label: name }))}
-            onChange={(pipelineId) => choosing.mutate(pipelineId)}
-          />
-        )}
-      </div>
-      {choosing.error && <RefusalAlert title="The Pipeline wasn't set" error={choosing.error} />}
-    </div>
+    <>
+      {planner} proposes {name} ·{" "}
+      <LinkButton onClick={() => bringIntoView(PIPELINE_PROPOSAL_ELEMENT_ID)}>
+        confirm it on the rail
+      </LinkButton>
+    </>
   );
+}
+
+function InNeedsYou({ task }: { readonly task: Task }): ReactNode {
+  const open = useQuery(decisionQueries.unanswered(task.id)).data?.length ?? 0;
+  return (
+    <>
+      {open} open,{" "}
+      <LinkButton onClick={() => bringIntoView(NEEDS_YOU_ELEMENT_ID)}>in Needs you</LinkButton>
+    </>
+  );
+}
+
+function LinkButton({
+  onClick,
+  children,
+}: {
+  readonly onClick: () => void;
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <button type="button" className="before-ready-link" onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+function bringIntoView(elementId: string): void {
+  document.getElementById(elementId)?.scrollIntoView({ block: "center" });
 }

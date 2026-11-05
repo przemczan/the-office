@@ -294,9 +294,6 @@ test('the user tags a Task in "+ Task" and on its page, and the board shows its 
   await newTags.getByLabel("Add a Tag").fill("Needs Review");
   await newTags.getByLabel("Add a Tag").press("Enter");
   await expect(newTags).toContainText("ble");
-  await expect(
-    dialog.getByText("You describe the work when you plan it with the Planner."),
-  ).toBeVisible();
   await dialog.getByRole("button", { name: "Add the Task" }).click();
   await expect(dialog).toBeHidden();
   // The new Task's page opens.
@@ -333,6 +330,91 @@ test('the user tags a Task in "+ Task" and on its page, and the board shows its 
   await expect(tags).toContainText("firmware");
   await expect(tags).not.toContainText("needs-review");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-tags.png") });
+});
+
+test("the user adds a Task with a Description, writes its Plan and Definition of Done, and marks it Ready from Backlog", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Described work", "DW");
+  await page.goto("/work");
+  await page.getByRole("button", { name: "Task", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Title").fill("Export keeps the filters");
+  await dialog.getByLabel("Description").fill("The CSV export uses **the filters on screen**.");
+  await dialog.getByRole("radiogroup").locator("label").filter({ hasText: project.name }).click();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-new-task.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-new-task.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+  await dialog.getByRole("button", { name: "Add the Task" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/tasks\//);
+
+  // The Description sits above the Plan, editable until the Task starts.
+  const record = page.getByRole("region", { name: "Record" });
+  const description = record.getByRole("region", { name: "Description" });
+  const plan = record.getByRole("region", { name: "Plan", exact: true });
+  const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
+  await expect(description).toContainText("The CSV export uses the filters on screen.");
+  const descriptionBox = await description.boundingBox();
+  const planBox = await plan.boundingBox();
+  expect(descriptionBox?.y).toBeLessThan(planBox?.y ?? 0);
+  await description.getByRole("button", { name: "Edit" }).click();
+  await description.getByRole("textbox", { name: "Description" }).fill("");
+  await description.getByRole("button", { name: "Save" }).click();
+  await expect(description).toContainText("None: the title is all there is.");
+  await description.getByRole("button", { name: "Edit" }).click();
+  await description
+    .getByRole("textbox", { name: "Description" })
+    .fill("The CSV export uses the filters and the sort on screen.");
+  await description.getByRole("button", { name: "Save" }).click();
+  await expect(description).toContainText(
+    "The CSV export uses the filters and the sort on screen.",
+  );
+
+  // Before Ready shows in Backlog once a part is written, and Mark Ready once every line is met.
+  const beforeReady = page.getByRole("region", { name: "Before Ready" });
+  const readinessLine = (label: string): Locator =>
+    beforeReady.getByRole("listitem").filter({ hasText: label });
+  const markReady = page.getByRole("button", { name: "Mark Ready" });
+  await expect(beforeReady).toHaveCount(0);
+  await expect(markReady).toHaveCount(0);
+  await plan.getByRole("button", { name: "Edit" }).click();
+  await plan.getByRole("textbox", { name: "Plan" }).fill("Pass the board's filters to the export.");
+  await plan.getByRole("button", { name: "Save and confirm" }).click();
+  await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
+  await expect(readinessLine("Plan confirmed")).toHaveClass(/task-checklist-met/);
+  await expect(readinessLine("Definition of Done confirmed")).toContainText(
+    "Write it on the Definition of Done",
+  );
+  await expect(markReady).toHaveCount(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-backlog-parts.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-backlog-parts.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Its link leads to the block, from another tab too.
+  await page.getByRole("tab", { name: /^Changes/ }).click();
+  await readinessLine("Definition of Done confirmed")
+    .getByRole("button", { name: "on the Definition of Done" })
+    .click();
+  await expect(definitionOfDone).toBeInViewport();
+  await definitionOfDone.getByRole("button", { name: "Edit" }).click();
+  await definitionOfDone
+    .getByRole("textbox")
+    .fill("The export holds only the filtered Tasks.\nThe tests pass.");
+  await definitionOfDone.getByRole("button", { name: "Save and confirm" }).click();
+  await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
+  await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
+
+  await markReady.click();
+  await expect(
+    page.getByText("Export keeps the filters is Ready. Starting it is your call."),
+  ).toBeVisible();
+  await expect(beforeReady).toHaveCount(0);
+  await expect(markReady).toHaveCount(0);
 });
 
 test("the board's filters narrow it by search, Tags, priority and Blocked, kept in its address until Clear", async ({
@@ -690,8 +772,12 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   await expect(origin.getByText("Users land on the home page.")).toBeHidden();
   await page.reload();
   await expect(originFold).toHaveAttribute("aria-expanded", "false");
+  // The Idea's notes are its Description; the Planner may not be hired yet.
+  await expect(record.getByRole("region", { name: "Description" })).toContainText(
+    "Users land on the home page.",
+  );
   await expect(page.getByRole("complementary", { name: "Conversation" })).toContainText(
-    "Planning opens one with",
+    /plans from the title and the Description|Planning opens one with/,
   );
 
   const files = [

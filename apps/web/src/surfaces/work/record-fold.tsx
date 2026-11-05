@@ -7,6 +7,7 @@ import type { Fold } from "./record-folds.ts";
  * folded body stays mounted, so an editor folded away keeps what was typed.
  */
 export function RecordFold({
+  id,
   fold,
   icon,
   title,
@@ -14,6 +15,8 @@ export function RecordFold({
   side,
   children,
 }: {
+  /** The element's id, for a link that leads to the block. */
+  readonly id?: string;
   readonly fold: Fold;
   readonly icon: string;
   readonly title: string;
@@ -23,7 +26,7 @@ export function RecordFold({
 }): ReactNode {
   const bodyId = useId();
   return (
-    <section className="record-fold" aria-label={title}>
+    <section id={id} className="record-fold" aria-label={title}>
       <div className="record-fold-row">
         <button
           type="button"

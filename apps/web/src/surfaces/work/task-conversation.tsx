@@ -7,7 +7,7 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useConversationDrawer, useDrawerFollowsAddress } from "./conversation-drawer.tsx";
-import { PlanButton } from "./planning-actions.tsx";
+import { MakeAPlanButton } from "./planning-actions.tsx";
 import { ThreadTimeline } from "./thread-timeline.tsx";
 import { chapterWork } from "./timeline-words.ts";
 
@@ -50,17 +50,27 @@ export function TaskConversation({
   if (threads.length === 0) {
     return (
       <aside className="task-conversation" aria-label="Conversation">
-        {readOnlyReason === undefined ? (
-          <EmptyCard>
-            No conversation on {task.title} yet. Planning opens one with{" "}
-            {planner?.card.name ?? "the Planner"}.
-            <div className="task-conversation-start">
-              <PlanButton task={task} />
-            </div>
-          </EmptyCard>
-        ) : (
-          <EmptyCard>No conversation on {task.title}.</EmptyCard>
-        )}
+        <EmptyCard>
+          {readOnlyReason !== undefined ? (
+            `No conversation on ${task.title}.`
+          ) : task.state !== "backlog" ? (
+            "No Planning Thread on this Task."
+          ) : planner ? (
+            <>
+              {planner.card.name} plans from the title
+              {task.description !== "" && " and the Description"}, so there is nothing more to
+              write.
+              <div className="task-conversation-start">
+                <MakeAPlanButton task={task} />
+              </div>
+              <p className="task-quiet">
+                Or Plan with {planner.card.name} in the head, to talk it through first.
+              </p>
+            </>
+          ) : (
+            `No conversation on ${task.title} yet. Planning opens one with the Planner.`
+          )}
+        </EmptyCard>
       </aside>
     );
   }

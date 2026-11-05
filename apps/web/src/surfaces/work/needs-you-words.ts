@@ -2,6 +2,9 @@ import type { Decision, TaskState } from "@the-office/contracts";
 
 const NOTHING_NEEDS_YOU = "Nothing needs you right now. You'll see it here first.";
 
+/** The Needs you card's element, for a link that leads to it. */
+export const NEEDS_YOU_ELEMENT_ID = "task-needs-you";
+
 /** A Decision with a Consultant waits on them, so it isn't counted, though the user may take it over. */
 export function waitingOnYou(decisions: readonly Decision[]): readonly Decision[] {
   return decisions.filter(({ putTo }) => putTo === null);

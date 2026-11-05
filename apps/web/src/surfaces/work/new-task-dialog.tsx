@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { Initiative, NewTask, Project, Task } from "@the-office/contracts";
-import { Button, Checkbox, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
+import { Button, Checkbox, Dialog, Field, Input, RadioGroup, Textarea } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { addTaskToInitiative, createTask, initiativeQueries, taskQueries } from "../../api/work.ts";
@@ -18,7 +18,8 @@ import { TagsInput } from "./tags-input.tsx";
 type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string };
 
 /**
- * "+ Task": a title, its Project and any Tags; it starts in Backlog, and its page opens. Given an
+ * "+ Task": a title, a Description if the user wants, its Project and any Tags; it starts in
+ * Backlog, and its page opens. Given an
  * Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in the Initiative's
  * first Project unless another is chosen, and waiting for any of its Tasks that can still hold it
  * back; the user stays on the Initiative to add the next. Otherwise it is in the one Project the
@@ -36,6 +37,7 @@ export function NewTaskDialog({
   const tasks = useQuery(taskQueries.list());
   const [draft, setDraft] = useState<NewTaskDraft>({
     title: "",
+    description: "",
     priority: "normal",
     tags: [],
   });
@@ -68,15 +70,11 @@ export function NewTaskDialog({
   });
   return (
     <Dialog
+      size="medium"
       title={initiative ? `Add a Task to ${initiative.name}` : "New Task"}
-      width={520}
       onClose={onClose}
       actions={
         <>
-          <span className="dialog-hint">It starts in Backlog.</span>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
           <Button
             type="submit"
             form={formId}
@@ -85,6 +83,7 @@ export function NewTaskDialog({
           >
             Add the Task
           </Button>
+          <span className="dialog-hint">It starts in Backlog.</span>
         </>
       }
     >
@@ -101,8 +100,14 @@ export function NewTaskDialog({
           label="Title"
           value={draft.title}
           onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-          hint="You describe the work when you plan it with the Planner."
           autoFocus
+        />
+        <Textarea
+          label="Description"
+          hint="Optional. What you want, in your own words; the title alone is enough to plan from."
+          rows={4}
+          value={draft.description}
+          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
         />
         <Field label="Project">
           {projects.data?.length === 0 ? (
