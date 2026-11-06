@@ -3760,6 +3760,12 @@ test("the user opens a Thread from Marta's Link card, edits the Handover note an
   await expect(message).toHaveValue(note);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-handover-note-prefilled.png") });
   await message.fill(`${note} Marta thinks the CSV part can ship first.`);
+
+  // Edited, the note is a draft like any other: leaving the Thread keeps the edit, and its origin.
+  await chat.getByRole("button", { name: "Threads" }).click();
+  await chat.locator('[aria-current="true"]').click();
+  await expect(message).toHaveValue(`${note} Marta thinks the CSV part can ship first.`);
+  await expect(prefilled).toBeVisible();
   await message.press("Enter");
 
   await expect(chat.getByText("Marta thinks the CSV part can ship first.")).toBeVisible();

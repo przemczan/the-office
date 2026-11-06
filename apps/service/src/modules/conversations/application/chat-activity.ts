@@ -35,7 +35,8 @@ export class ChatActivity {
   }
 
   /** Undefined for a Thread outside a chat. */
-  async inThread({ id }: Thread): Promise<ThreadActivity | undefined> {
+  async inThread({ id, home }: Thread): Promise<ThreadActivity | undefined> {
+    if (home.kind !== "chat") return undefined;
     const thread = await this.repository.chatThread(id);
     return thread && { answered: hasAnswered(thread), lastMovedAt: thread.lastMovedAt };
   }

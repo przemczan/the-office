@@ -32,7 +32,10 @@ export function Composer({
   /** Why it can't be sent, for the send button and an Enter pressed meanwhile. */
   readonly busyHint: string;
   readonly prefilledNote?: PrefilledNote;
-  /** A draft the user starts from, such as a question a page asks for them. */
+  /**
+   * A draft the user starts from, such as a question a page asks for them, or their own left here
+   * earlier, which stands over `prefilledNote` as it may be that note edited.
+   */
   readonly startingDraft?: string;
   readonly autoFocus?: boolean;
   /**
@@ -46,7 +49,7 @@ export function Composer({
   /** Hears the draft itself, for a composer that may go and come back. */
   readonly onDraftChange?: ((draft: string) => void) | undefined;
 }): ReactNode {
-  const [draft, setDraft] = useState(prefilledNote?.text ?? startingDraft ?? "");
+  const [draft, setDraft] = useState(startingDraft ?? prefilledNote?.text ?? "");
   const [noteKept, setNoteKept] = useState(prefilledNote !== undefined);
   const note = noteKept ? prefilledNote : undefined;
   const [sending, setSending] = useState(false);

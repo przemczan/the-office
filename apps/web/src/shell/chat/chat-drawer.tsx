@@ -426,6 +426,8 @@ function useReportingSeen(threadId: string): void {
     if (!visible || newest === undefined || newest === reported.current) return;
     reported.current = newest;
     // A report that fails only leaves the dot on, until the next message or the next look.
-    void markThreadSeen(threadId, newest).catch(() => undefined);
+    markThreadSeen(threadId, newest).catch(() => {
+      reported.current = undefined;
+    });
   }, [threadId, newest, visible]);
 }
