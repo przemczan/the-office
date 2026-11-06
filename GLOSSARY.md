@@ -119,7 +119,7 @@ The files and folders a Plan expects to change, written by the Planner with the 
 _Avoid_: Touch set, affected files, scope
 
 **Resolve**:
-The Stage The Office adds before Publish when the Task's branch conflicts with the base: The Office merges the base in, the Task's person edits the conflicted files, then the Project's Test and a Gate run before Publish again.
+The Stage The Office adds before Publish when the Task's branch conflicts with the base: The Office merges the base in, the Task's person edits the conflicted files, then the Project's Test runs, and a Gate if the Publish Stage asks for a review, before Publish again.
 _Avoid_: Rebase, merge fix, conflict Stage
 
 **Attachment**:

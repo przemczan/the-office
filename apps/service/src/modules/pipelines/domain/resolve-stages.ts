@@ -53,8 +53,9 @@ export function goesToResolve(run: StageRun): boolean {
 }
 
 /**
- * The Stages as the walk goes over them: once a Publish run's conflict went to Resolve, Resolve,
- * the Project's Test and a Gate stand before that Publish (spec §2.3), so the Stage rows show them.
+ * The Stages as the walk goes over them: once a Publish run's conflict went to Resolve, Resolve
+ * and the Project's Test stand before that Publish, with a Gate after them when the Publish asks
+ * for a review (spec §2.3), so the Stage rows show them.
  */
 export function walkedStages(stages: readonly Stage[], runs: readonly StageRun[]): Stage[] {
   const conflicted = runs.find(goesToResolve);
@@ -67,8 +68,9 @@ export function walkedStages(stages: readonly Stage[], runs: readonly StageRun[]
 
 /** `stages` with the Resolve Stages before the Publish at `publishIndex`, unless they stand already. */
 export function withResolveStages(stages: readonly Stage[], publishIndex: number): Stage[] {
-  if (publishIndex < 0 || stages.some(isResolveStage)) return [...stages];
-  return stages.toSpliced(publishIndex, 0, ...resolveStages(stages));
+  const publish = stages[publishIndex];
+  if (!publish || stages.some(isResolveStage)) return [...stages];
+  return stages.toSpliced(publishIndex, 0, ...resolveStages(stages, publish));
 }
 
 /**
@@ -122,7 +124,7 @@ export function resolveBrief(baseBranch: string, conflictedFiles: readonly strin
   ].join("\n\n");
 }
 
-function resolveStages(stages: readonly Stage[]): readonly Stage[] {
+function resolveStages(stages: readonly Stage[], publish: Stage): readonly Stage[] {
   const agentStages = stages.filter((stage): stage is AgentStage => stage.kind === "agent");
   const person = agentStages[0];
   if (!person) return [];
@@ -150,5 +152,6 @@ function resolveStages(stages: readonly Stage[]): readonly Stage[] {
     name: "Review the resolved conflict",
     optional: false,
   };
-  return [resolve, test, gate];
+  const reviewed = publish.kind === "script" && publish.afterConflict === "review";
+  return reviewed ? [resolve, test, gate] : [resolve, test];
 }

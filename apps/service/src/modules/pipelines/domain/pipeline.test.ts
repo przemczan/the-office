@@ -29,6 +29,15 @@ describe("stageProblems", () => {
     ]);
   });
 
+  it("takes what follows a conflict on a Publish Stage, and refuses it on another Script Stage", () => {
+    const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+
+    expect(stageProblems([{ ...publish, afterConflict: "review" }])).toEqual([]);
+    expect(problemTexts([scriptStage({ afterConflict: "review" })])).toEqual([
+      "Stage 1 · Tests: only a Publish Stage says what follows a conflict.",
+    ]);
+  });
+
   it("refuses a Pipeline with no Stages", () => {
     expect(stageProblems([])).toEqual([{ text: "A Pipeline needs at least one Stage." }]);
   });

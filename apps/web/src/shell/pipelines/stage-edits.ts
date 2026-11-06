@@ -108,12 +108,11 @@ export function withRole(stages: readonly Stage[], index: number, role: string):
     : changed;
 }
 
-/** The Script Stage running another command; only a Publish Stage keeps its publish target. */
+/** The Script Stage running another command; only a Publish Stage keeps what Publish alone says. */
 export function withCommand(stage: ScriptStage, command: StageCommand): ScriptStage {
-  const { publishTarget, ...rest } = stage;
-  return command === "publish" && publishTarget
-    ? { ...rest, command, publishTarget }
-    : { ...rest, command };
+  if (command === "publish") return { ...stage, command };
+  const { publishTarget: _publishTarget, afterConflict: _afterConflict, ...rest } = stage;
+  return { ...rest, command };
 }
 
 /** Whether the Agent Stage may continue the session of the Stage before: the same Role works it. */

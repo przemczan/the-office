@@ -284,15 +284,23 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   await page
     .getByLabel("Project command")
     .selectOption({ label: "Publish (each Project's own command)" });
+  const afterConflict = page.getByLabel("After a conflict");
+  await expect(afterConflict).toHaveValue("publish");
+  await afterConflict.selectOption({ label: "Wait at a Gate for your review" });
   await page
     .getByLabel("Publishes")
     .selectOption({ label: "Push the branch only (proof of concept)" });
+  await expect(afterConflict).toHaveCount(0);
   await page.getByRole("button", { name: "Gate", exact: true }).click();
   await expect(page.getByText("pushes the branch only")).toBeVisible();
   await page.getByRole("button", { name: "Add the Pipeline" }).click();
 
   await expect(page.getByText(`${name} added to the library.`)).toBeVisible();
   await expect(page).toHaveURL(/\/settings\/pipelines\/[\da-f-]{36}$/);
+  const saved = await page.request.get(`/api/pipelines/${page.url().split("/").at(-1)}`);
+  expect(await saved.json()).toMatchObject({
+    stages: expect.arrayContaining([expect.objectContaining({ afterConflict: "review" })]),
+  });
   const item = library.getByRole("link", { name: new RegExp(`^${name}`) });
   await expect(item).toContainText("Gate → Script");
   await expect(

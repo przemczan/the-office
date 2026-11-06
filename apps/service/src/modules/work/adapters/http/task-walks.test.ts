@@ -190,7 +190,10 @@ describe("Conflicts at Publish", () => {
         expect((await office.send("POST", `/tasks/${taskId}/gate/continue`)).ok).toBe(true);
       };
       try {
-        const pipeline = await office.aPipeline([REVIEW_GATE, PUBLISH]);
+        const pipeline = await office.aPipeline([
+          REVIEW_GATE,
+          { ...PUBLISH, afterConflict: "review" },
+        ]);
         const first = await office.readyTask(pipeline.id);
         const second = await office.readyTask(pipeline.id);
         // Both in progress before either publishes, each changing the same line.

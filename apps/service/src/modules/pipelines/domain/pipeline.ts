@@ -43,6 +43,9 @@ function problemsOfStage(stage: Stage, earlierStages: readonly Stage[]): string[
   if (stage.kind === "script" && stage.command !== "publish" && stage.publishTarget) {
     problems.push("only a Publish Stage has a publish target.");
   }
+  if (stage.kind === "script" && stage.command !== "publish" && stage.afterConflict) {
+    problems.push("only a Publish Stage says what follows a conflict.");
+  }
   if (stage.kind !== "gate" && stage.onFailure) {
     problems.push(...onFailureProblems(stage.onFailure, earlierStages));
   }

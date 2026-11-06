@@ -11,6 +11,10 @@ export const onFailureSchema = z.object({
 export const publishTargetSchema = z.enum(["publishing-mode", "branch-only"]);
 export type PublishTarget = z.infer<typeof publishTargetSchema>;
 
+/** What a Publish Stage does once a conflict is resolved and tested (spec §2.3). */
+export const afterConflictSchema = z.enum(["publish", "review"]);
+export type AfterConflict = z.infer<typeof afterConflictSchema>;
+
 /**
  * What an Agent Stage states of its Role card's permission profile (spec §6), each absent where the
  * card's stands: it may narrow the profile, never widen it, so editing and the web can only be taken
@@ -59,6 +63,8 @@ export const stageSchema = z.discriminatedUnion("kind", [
      * for a proof of concept. Absent means the publishing mode.
      */
     publishTarget: publishTargetSchema.optional(),
+    /** A Publish Stage's alone: absent publishes automatically. */
+    afterConflict: afterConflictSchema.optional(),
     onFailure: onFailureSchema.optional(),
   }),
   z.object({ kind: z.literal("gate"), ...stageFields }),

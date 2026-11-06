@@ -24,6 +24,12 @@ export type ScriptStageCommand = "build" | "lint" | "test" | "publish";
  */
 export type PublishTarget = "publishing-mode" | "branch-only";
 
+/**
+ * What a Publish Stage does once a conflict is resolved and tested (spec §2.3, "Conflicts at
+ * Publish"): publish automatically, or wait at a Gate for the user's review first.
+ */
+export type AfterConflict = "publish" | "review";
+
 /** Fresh with a Brief, or continuing the previous Stage's session when the same Role worked it. */
 export type StageSession = "fresh" | "continue";
 
@@ -69,6 +75,8 @@ export interface ScriptStage extends StageFields {
   readonly command: ScriptStageCommand;
   /** A Publish Stage's alone; absent means the Project's publishing mode. */
   readonly publishTarget?: PublishTarget;
+  /** A Publish Stage's alone; absent publishes automatically. */
+  readonly afterConflict?: AfterConflict;
   readonly onFailure?: OnFailure;
 }
 

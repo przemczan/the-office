@@ -359,7 +359,13 @@ async function seedGateBeforePublish(
   const quickFix = builtInPipelines.find(({ id }) => id === "quick-fix");
   if (!quickFix) throw new Error("There is no built-in Quick fix.");
   const publishAt = quickFix.stages.findIndex(({ key }) => key === "publish");
-  const stages = quickFix.stages.toSpliced(publishAt, 0, GATE);
+  const stages = quickFix.stages
+    .toSpliced(publishAt, 0, GATE)
+    .map((stage) =>
+      stage.kind === "script" && stage.command === "publish"
+        ? { ...stage, afterConflict: "review" as const }
+        : stage,
+    );
   await repository.save(makeTaskStages(taskId, { ...quickFix, stages }, new Date()).taskStages);
 }
 

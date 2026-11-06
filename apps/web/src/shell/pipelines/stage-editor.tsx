@@ -1,6 +1,8 @@
 import {
+  afterConflictSchema,
   effortSchema,
   publishTargetSchema,
+  type AfterConflict,
   type PublishTarget,
   type Role,
   type RoleCardOptions,
@@ -55,6 +57,11 @@ const COMMAND_NAMES: Readonly<Record<StageCommand, string>> = {
 const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
   "publishing-mode": "By the Project's publishing mode",
   "branch-only": "Push the branch only (proof of concept)",
+};
+
+const AFTER_CONFLICT_NAMES: Readonly<Record<AfterConflict, string>> = {
+  publish: "Publish automatically",
+  review: "Wait at a Gate for your review",
 };
 
 /** The most times a failure may go back, as the click-through offers. */
@@ -268,6 +275,10 @@ function StageSummary({
       `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
     stage.kind === "agent" && stage.permissions !== undefined && "narrowed permission profile",
     stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
+    stage.kind === "script" &&
+      stage.afterConflict === "review" &&
+      stage.publishTarget !== "branch-only" &&
+      "a resolved conflict waits for you",
     stage.optional && "optional",
     onFailure &&
       `on failure back to ${target?.name ?? onFailure.goBackTo}, at most ${onFailure.rounds}×`,
@@ -324,18 +335,7 @@ function StageForm(props: StageEditorRowProps & { readonly stage: Stage }): Reac
         />
       )}
       {stage.kind === "script" && stage.command === "publish" && (
-        <Select
-          label="Publishes"
-          value={stage.publishTarget ?? "publishing-mode"}
-          options={publishTargetSchema.options.map((target) => ({
-            value: target,
-            label: PUBLISH_TARGET_NAMES[target],
-          }))}
-          onChange={(target) => {
-            const chosen = publishTargetSchema.options.find((offered) => offered === target);
-            if (chosen) change({ ...stage, publishTarget: chosen });
-          }}
-        />
+        <PublishFields stage={stage} change={change} />
       )}
       {stage.kind === "gate" && (
         <Input
@@ -475,6 +475,46 @@ function BudgetInput({
         if (event.target.value !== "" && budget > 0) change({ ...stage, budget });
       }}
     />
+  );
+}
+
+function PublishFields({
+  stage,
+  change,
+}: {
+  readonly stage: Extract<Stage, { kind: "script" }>;
+  readonly change: (changed: Stage) => void;
+}): ReactNode {
+  return (
+    <>
+      <Select
+        label="Publishes"
+        value={stage.publishTarget ?? "publishing-mode"}
+        options={publishTargetSchema.options.map((target) => ({
+          value: target,
+          label: PUBLISH_TARGET_NAMES[target],
+        }))}
+        onChange={(target) => {
+          const chosen = publishTargetSchema.options.find((offered) => offered === target);
+          if (chosen) change({ ...stage, publishTarget: chosen });
+        }}
+      />
+      {stage.publishTarget !== "branch-only" && (
+        <Select
+          label="After a conflict"
+          hint="The Task's person resolves it and the Project's Test runs first"
+          value={stage.afterConflict ?? "publish"}
+          options={afterConflictSchema.options.map((afterConflict) => ({
+            value: afterConflict,
+            label: AFTER_CONFLICT_NAMES[afterConflict],
+          }))}
+          onChange={(afterConflict) => {
+            const chosen = afterConflictSchema.options.find((offered) => offered === afterConflict);
+            if (chosen) change({ ...stage, afterConflict: chosen });
+          }}
+        />
+      )}
+    </>
   );
 }
 

@@ -31,6 +31,7 @@ const publish: ScriptStage = {
   command: "publish",
   onFailure: { goBackTo: "implement", rounds: 1 },
 };
+const reviewedPublish: ScriptStage = { ...publish, afterConflict: "review" };
 const PULL_REQUEST = "https://github.com/notnullsoft/admin/pull/7";
 
 describe("A Publish Stage", () => {
@@ -137,6 +138,31 @@ describe("A Publish Stage", () => {
     expect(removedBefore).toEqual(["2"]);
   });
 
+  it("publishes automatically once a conflict is resolved and tested, when the Publish asks for no review", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Kept both renames.")),
+    ]);
+    pipelines.publishing.publications.push({
+      kind: "base-moved",
+      error: "office/task no longer applies cleanly on main on origin.",
+      conflictedFiles: ["src/index.ts"],
+    });
+
+    const taskId = await walkStages(pipelines, [implement, publish]);
+
+    const runs = await runsOf(pipelines, taskId);
+    expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+      ["implement", "done"],
+      ["publish", "failed"],
+      [RESOLVE_KEY, "done"],
+      [RESOLVE_TEST_KEY, "done"],
+      ["publish", "done"],
+    ]);
+    expect(pipelines.publishing.published).toHaveLength(2);
+    expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+  });
+
   it("goes to Resolve when the branch conflicts with the base: the Task's person resolves, The Office commits the merge, the Test and a Gate run, then Publish again", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),
@@ -150,7 +176,7 @@ describe("A Publish Stage", () => {
       conflictedFiles: ["src/index.ts"],
     });
 
-    const taskId = await walkStages(pipelines, [implement, publish]);
+    const taskId = await walkStages(pipelines, [implement, reviewedPublish]);
 
     const runs = await runsOf(pipelines, taskId);
     expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
@@ -203,7 +229,7 @@ describe("A Publish Stage", () => {
     });
     pipelines.publishing.resolveEnds.push({ kind: "markers-left", files: ["src/index.ts"] });
 
-    const taskId = await walkStages(pipelines, [implement, publish]);
+    const taskId = await walkStages(pipelines, [implement, reviewedPublish]);
 
     expect((await runsOf(pipelines, taskId)).at(-1)).toMatchObject({
       stageKey: RESOLVE_KEY,
@@ -241,7 +267,7 @@ describe("A Publish Stage", () => {
       error: "office/task no longer applies cleanly on main on origin.",
       conflictedFiles: ["src/index.ts"],
     });
-    const taskId = await walkStages(pipelines, [implement, publish]);
+    const taskId = await walkStages(pipelines, [implement, reviewedPublish]);
 
     await pipelines.app
       .get(GateService)

@@ -206,7 +206,7 @@ function baseMovedDecision(stage: Stage, error: string): WalkDecision {
     kind: "base-moved",
     draft: {
       question: `"${stage.name}" couldn't resolve the Task's conflict with the base branch. What now?`,
-      context: `${error}\n\nThe Office merged the base branch into the Task's branch and left the conflicted files in the Task's worktree. Resolve them there yourself, removing every conflict marker without committing, then choose the first option: The Office commits the merge and runs the Project's Test and a Gate before Publish. Or answer in your own words: your answer guides one more round of "${stage.name}".`,
+      context: `${error}\n\nThe Office merged the base branch into the Task's branch and left the conflicted files in the Task's worktree. Resolve them there yourself, removing every conflict marker without committing, then choose the first option: The Office commits the merge and runs the Project's Test before Publish. Or answer in your own words: your answer guides one more round of "${stage.name}".`,
       options: ["I resolved it in the worktree", DROP_THE_TASK],
       recommendation: {
         option: 0,

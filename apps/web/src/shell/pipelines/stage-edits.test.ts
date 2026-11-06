@@ -105,11 +105,16 @@ describe("withCommand", () => {
     optional: false,
     command: "publish",
     publishTarget: "branch-only",
+    afterConflict: "review",
   };
 
-  it("keeps a Publish Stage's target while it publishes, and drops it for another command", () => {
+  it("keeps what a Publish Stage alone says while it publishes, and drops it for another command", () => {
     expect(withCommand(pushingTheBranch, "publish")).toEqual(pushingTheBranch);
-    const { publishTarget: _dropped, ...withoutTarget } = pushingTheBranch;
-    expect(withCommand(pushingTheBranch, "test")).toEqual({ ...withoutTarget, command: "test" });
+    const {
+      publishTarget: _droppedTarget,
+      afterConflict: _droppedConflict,
+      ...commandStage
+    } = pushingTheBranch;
+    expect(withCommand(pushingTheBranch, "test")).toEqual({ ...commandStage, command: "test" });
   });
 });

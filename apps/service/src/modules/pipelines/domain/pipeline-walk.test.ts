@@ -305,7 +305,11 @@ describe("nextMove", () => {
   });
 
   describe("a conflict at Publish", () => {
-    const publish = { ...scriptStage("publish"), command: "publish" } as const;
+    const publish = {
+      ...scriptStage("publish"),
+      command: "publish",
+      afterConflict: "review",
+    } as const;
     const pipeline = [agentStage("write"), scriptStage("check"), publish];
     const error = "office/task-1 no longer applies cleanly on main on origin.";
     const conflicted: StageOutcome = {
@@ -350,6 +354,36 @@ describe("nextMove", () => {
         stage: walked[2],
         carriedFailure: { stageKey: "publish", error, round: 1, rounds: 3 },
         sentBack: undefined,
+      });
+    });
+
+    it("publishes automatically after the Test when the Publish asks for no review", () => {
+      const automatic = { ...scriptStage("publish"), command: "publish" } as const;
+      const automaticPipeline = [agentStage("write"), scriptStage("check"), automatic];
+      const conflictedRuns: readonly Ran[] = [...before, ["publish", conflicted]];
+
+      const walked = walkedStages(automaticPipeline, runs(...conflictedRuns));
+
+      expect(walked.map(({ key }) => key)).toEqual([
+        "write",
+        "check",
+        RESOLVE_KEY,
+        RESOLVE_TEST_KEY,
+        "publish",
+      ]);
+      const tested = runs(...conflictedRuns, [RESOLVE_KEY, done], [RESOLVE_TEST_KEY, done]);
+      expect(nextMove(automaticPipeline, tested, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: automatic,
+      });
+      const published = runs(
+        ...conflictedRuns,
+        [RESOLVE_KEY, done],
+        [RESOLVE_TEST_KEY, done],
+        ["publish", done],
+      );
+      expect(nextMove(automaticPipeline, published, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "complete",
       });
     });
 

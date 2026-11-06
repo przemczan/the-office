@@ -87,6 +87,7 @@ function toStageResponse(stage: Stage): StageResponse {
         ...fields,
         command: stage.command,
         publishTarget: stage.publishTarget,
+        afterConflict: stage.afterConflict,
         onFailure: stage.onFailure,
       };
     case "gate":

@@ -294,8 +294,9 @@ function afterRestart(run: StageRun, stage: Stage): StoppingMove | undefined {
 
 /**
  * Publish found the Task's branch conflicts with the base (spec §2.3, "Conflicts at Publish"):
- * Resolve, the Project's Test and a Gate are put before the Publish the first time, and the walk
- * goes to Resolve, again each time the conflict comes back, until Resolve leaves it to the user.
+ * Resolve, the Project's Test and any Gate the Publish asks for are put before it the first time,
+ * and the walk goes to Resolve, again each time the conflict comes back, until Resolve leaves it to
+ * the user.
  * With no Agent Stage to resolve it, or for a run asked about before The Office resolved
  * conflicts, the user is asked on the run: run again stays at the Stage using no round;
  * continuing records the failure as an accepted issue.
