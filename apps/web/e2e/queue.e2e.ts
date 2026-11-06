@@ -142,7 +142,13 @@ test("Start says when it only queues the Task, and what holds it", async ({ page
   const task = await readyTask(page, project, "Queued badge on the cards");
   // The Start check and Start answer as the service gives them while only the limit holds a Task;
   // the queue's own service test covers the queuing itself.
-  const check: StartCheck = { refusals: [], waits: [ONLY_DESK], overlaps: [], usageEstimate: null };
+  const check: StartCheck = {
+    refusals: [],
+    waits: [ONLY_DESK],
+    blockers: [],
+    overlaps: [],
+    usageEstimate: null,
+  };
   await page.route(`**/api/tasks/${task.id}/start`, async (route) => {
     if (route.request().method() === "GET") return route.fulfill({ json: check });
     await queued(task);
@@ -205,7 +211,13 @@ test("a Ready Task's Usage estimate shows on its card, beside Start, under the r
     const listed = engineSettingsSchema.parse(await (await route.fetch()).json());
     await route.fulfill({ json: { ...listed, engines: [...listed.engines, LOCAL_MODELS] } });
   });
-  const check: StartCheck = { refusals: [], waits: [], overlaps: [], usageEstimate: fromHistory };
+  const check: StartCheck = {
+    refusals: [],
+    waits: [],
+    blockers: [],
+    overlaps: [],
+    usageEstimate: fromHistory,
+  };
   await page.route(`**/api/tasks/${learned.id}/start`, (route) => route.fulfill({ json: check }));
   const HISTORY_WORDS =
     "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.";
@@ -278,6 +290,83 @@ test("Start warns of an Overlap with a Task in progress, naming it and the files
 
   // Out of the queue before the Task it waits behind ends, so no release starts a walk.
   await page.request.post(`/api/tasks/${task.id}/drop`);
+  await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
+});
+
+test("a blocked Task offers only the queue, shows its blocker as the reason, and starts by itself once the blocker ends", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue blocked", "QB");
+  const blocker = await readyTask(page, project, "Write the export schema");
+  const task = await readyTask(page, project, "Export the schema as CSV");
+  const dependency = await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+    data: { blockerId: blocker.id },
+  });
+  expect(dependency.status()).toBe(200);
+  const reason = 'Blocked by "Write the export schema", which must be Done first.';
+
+  await page.goto(`/tasks/${task.id}`);
+  await expect(page.getByText(reason)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Start anyway" })).toBeHidden();
+  await page.getByRole("button", { name: "Queue behind it" }).click();
+
+  await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
+  await expect(page.getByText(new RegExp(`^Place \\d+ · ${reason}$`))).toBeVisible();
+
+  await page.goto("/work");
+  await expect(page.getByRole("article", { name: task.title })).toContainText(reason);
+  await page.goto("/now");
+  await expect(page.getByRole("article", { name: `Queued: ${task.title}` })).toContainText(reason);
+
+  await page.goto(`/tasks/${task.id}`);
+  expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).status()).toBe(200);
+  await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeHidden();
+  await expect(page.getByText(reason)).toBeHidden();
+  const started = taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json());
+  expect(started.state).not.toBe("ready");
+
+  // Its walk has no more to prove here.
+  await page.request.post(`/api/tasks/${task.id}/drop`);
+});
+
+test("a blocked Task that also overlaps says Queue behind them, and waits for both", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue both", "QT");
+  const inProgress = await readyTask(page, project, "Rework the importer");
+  await queryOfficeDatabase(
+    `update tasks set state = 'in-progress', files_to_change = '{src/import}' where id = $1`,
+    [inProgress.id],
+  );
+  const blocker = await readyTask(page, project, "Name the import formats");
+  const task = await readyTask(page, project, "Import from a spreadsheet");
+  await queryOfficeDatabase(`update tasks set files_to_change = '{src/import}' where id = $1`, [
+    task.id,
+  ]);
+  await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+    data: { blockerId: blocker.id },
+  });
+
+  await page.goto(`/tasks/${task.id}`);
+  await expect(page.getByRole("note", { name: "Overlap" })).toBeVisible();
+  await expect(
+    page.getByText('Blocked by "Name the import formats", which must be Done first.'),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start anyway" })).toBeHidden();
+  await page.getByRole("button", { name: "Queue behind them" }).click();
+
+  await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(
+      /^Place \d+ · Blocked by "Name the import formats", which must be Done first\. Queued behind "Rework the importer" until it is Done or Dropped\.$/,
+    ),
+  ).toBeVisible();
+
+  // Out of the queue before what it waits for ends, so no release starts a walk.
+  await page.request.post(`/api/tasks/${task.id}/drop`);
+  await page.request.post(`/api/tasks/${blocker.id}/drop`);
   await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
 });
 

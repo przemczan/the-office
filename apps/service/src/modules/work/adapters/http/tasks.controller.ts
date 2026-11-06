@@ -221,15 +221,16 @@ export class TasksController {
   }
 
   /**
-   * Why the Task can't start now, refusals apart from waits, its Overlaps and its Usage estimate,
-   * for the Task page beside Start.
+   * Why the Task can't start now, refusals apart from waits, the blockers holding it back, its
+   * Overlaps and its Usage estimate, for the Task page beside Start.
    */
   @Get(":id/start")
   async startCheck(@Param("id", ParseUUIDPipe) id: string): Promise<StartCheck> {
-    const { refusals, waits, overlaps, usageEstimate } = await this.starting.check(id);
+    const { refusals, waits, blockers, overlaps, usageEstimate } = await this.starting.check(id);
     return {
       refusals: [...refusals],
       waits: [...waits],
+      blockers: blockers.map(({ id: taskId, title }) => ({ taskId, title })),
       overlaps: overlaps.map(({ taskId, title, files }) => ({ taskId, title, files: [...files] })),
       usageEstimate: usageEstimate ? toUsageEstimateResponse(usageEstimate) : null,
     };

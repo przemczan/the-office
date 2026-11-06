@@ -7,11 +7,19 @@ import { AllClearGiven } from "../domain/fire-alarm-events.js";
 import { OfficeWideLimitChanged, UsageSettingsChanged } from "../domain/office-limit-events.js";
 import { nextCapRelease } from "../domain/cap-waits.js";
 import { moveUpInQueue, queueOrder, releaseQueue, type QueuedTask } from "../domain/queue.js";
-import { TaskLeftQueue, TaskMovedUpInQueue, TaskQueued } from "../domain/queue-events.js";
+import {
+  TaskLeftQueue,
+  TaskMovedUpInQueue,
+  TaskQueued,
+  TaskQueueReasonsChanged,
+} from "../domain/queue-events.js";
 import type { StartConditions } from "../domain/task-start.js";
-import { TaskStateChanged } from "../domain/task-events.js";
+import {
+  TaskDependencyAdded,
+  TaskDependencyRemoved,
+  TaskStateChanged,
+} from "../domain/task-events.js";
 import { TaskRefused } from "../domain/task-refused.js";
-import { STARTED_STATES } from "../domain/task-states.js";
 import { QueueRepository } from "../ports/queue-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { StartConditionsReader } from "./start-conditions.js";
@@ -22,8 +30,8 @@ const LONGEST_TIMER = 2 ** 31 - 1;
 
 /**
  * The one Office-wide queue for Start (spec §2.1, "A queue for Start"): its Tasks start by
- * themselves, first place first among those that can, whenever a desk or a person may have freed
- * up or a cap may allow it; the user takes one out or moves it up. The queue is kept, so it
+ * themselves, first place first among those that can, whenever a blocker may have ended, a desk or
+ * a person may have freed up or a cap may allow it; the user takes one out or moves it up. The queue is kept, so it
  * releases on after a restart.
  */
 @Injectable()
@@ -43,10 +51,13 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   onModuleInit(): void {
     this.events.subscribe(TaskStateChanged, async ({ taskId, from, to }) => {
       if (from === "ready") await this.leaveReady(taskId);
-      if (STARTED_STATES.includes(from) && (to === "done" || to === "dropped")) {
-        await this.release();
-      }
+      // From any state: a blocker may end before it ever started.
+      if (to === "done" || to === "dropped") await this.release();
     });
+    // A queued Task may be free of its last blocker.
+    this.events.subscribe(TaskDependencyRemoved, () => this.release());
+    // Or held by one more, which its reasons name.
+    this.events.subscribe(TaskDependencyAdded, () => this.release());
     this.events.subscribe(OfficeWideLimitChanged, () => this.release());
     // A cap may have been raised, or its measure unticked.
     this.events.subscribe(UsageSettingsChanged, () => this.release());
@@ -81,8 +92,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
    */
   async release(): Promise<void> {
     const conditions = await this.conditionsOfQueued();
-    const { started, refused, capResets } = await this.queue.release((queue, held) =>
-      releaseQueue(queue, held, (taskId) => conditions.get(taskId)),
+    const { started, refused, reasonsChanged, capResets } = await this.queue.release(
+      (queue, held) => releaseQueue(queue, held, (taskId) => conditions.get(taskId)),
     );
     const startedAt = new Date();
     for (const { task } of started) {
@@ -97,6 +108,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     for (const { taskId, refusals } of refused) {
       this.logger.log(`Task ${taskId} left the queue: ${refusals.join(" ")}`);
       await this.events.publish(new TaskLeftQueue(taskId, "refused", refusals));
+    }
+    for (const taskId of reasonsChanged) {
+      await this.events.publish(new TaskQueueReasonsChanged(taskId));
     }
   }
 

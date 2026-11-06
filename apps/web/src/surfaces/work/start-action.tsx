@@ -13,12 +13,12 @@ import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
 
 /**
- * Start on a Ready Task (prototypes/app/task.js): disabled with the reasons while a blocker or a
- * vacant Role refuses it; while only a limit holds it, Start says the Task joins the queue (spec
- * §2.1, "A queue for Start"). An Overlap with a Task in progress in the Project names it and the
- * files, and Start becomes "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A
- * queued Task shows its place, reasons and the queue's actions. Beside Start, the Task's Usage
- * estimate.
+ * Start on a Ready Task (prototypes/app/task.js): disabled with the reasons while a vacant Role
+ * refuses it; while only a limit holds it, Start says the Task joins the queue (spec §2.1, "A queue
+ * for Start"). An Overlap with a Task in progress in the Project names it and the files, and Start
+ * becomes "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A blocked Task can't
+ * start anyway, so "Queue behind it" is all it offers, behind any Overlap too. A queued Task shows
+ * its place, reasons and the queue's actions. Beside Start, the Task's Usage estimate.
  */
 export function StartButton({ task }: { readonly task: Task }): ReactNode {
   const ready = task.state === "ready";
@@ -35,32 +35,37 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
     );
   }
   const refused = (check.data?.refusals.length ?? 0) > 0;
+  const blockers = refused ? [] : (check.data?.blockers ?? []);
   const overlaps = refused ? [] : (check.data?.overlaps ?? []);
   const startWith = (onOverlap: OverlapChoice | undefined) => starting.mutate({ task, onOverlap });
   const loadingFor = (onOverlap: OverlapChoice | undefined) =>
     starting.isPending && starting.variables.onOverlap === onOverlap;
-  if (overlaps.length > 0) {
+  if (blockers.length > 0 || overlaps.length > 0) {
+    const queueBehind = overlaps.length > 0 ? "queue-behind" : undefined;
+    const behind = new Set([...blockers, ...overlaps].map(({ taskId }) => taskId));
     return (
       <>
-        <OverlapNote overlaps={overlaps} />
+        {overlaps.length > 0 && <OverlapNote overlaps={overlaps} />}
         {check.data && <StartNote check={check.data} />}
-        <Button
-          variant="primary"
-          iconLeft={<Icon name="play" size={14} />}
-          disabled={starting.isPending}
-          loading={loadingFor("start-anyway")}
-          onClick={() => startWith("start-anyway")}
-        >
-          Start anyway
-        </Button>
+        {blockers.length === 0 && (
+          <Button
+            variant="primary"
+            iconLeft={<Icon name="play" size={14} />}
+            disabled={starting.isPending}
+            loading={loadingFor("start-anyway")}
+            onClick={() => startWith("start-anyway")}
+          >
+            Start anyway
+          </Button>
+        )}
         <Button
           variant="secondary"
           iconLeft={<Icon name="clock" size={14} />}
           disabled={starting.isPending}
-          loading={loadingFor("queue-behind")}
-          onClick={() => startWith("queue-behind")}
+          loading={loadingFor(queueBehind)}
+          onClick={() => startWith(queueBehind)}
         >
-          {overlaps.length === 1 ? "Queue behind it" : "Queue behind them"}
+          {behind.size === 1 ? "Queue behind it" : "Queue behind them"}
         </Button>
       </>
     );
@@ -105,8 +110,8 @@ function OverlapNote({ overlaps }: { readonly overlaps: readonly Overlap[] }): R
 }
 
 /**
- * What Start would do with the Task now: the refusals, else the waits it would queue behind (a cap's
- * in the service's words), then its Usage estimate.
+ * What Start would do with the Task now: what stops it, else the waits it would queue behind (a
+ * cap's in the service's words), then its Usage estimate.
  */
 function StartNote({ check }: { readonly check: StartCheck }): ReactNode {
   return (
@@ -118,7 +123,7 @@ function StartNote({ check }: { readonly check: StartCheck }): ReactNode {
 }
 
 function HeldNote({ check }: { readonly check: StartCheck }): ReactNode {
-  if (check.refusals.length > 0) {
+  if (check.refusals.length > 0 || check.blockers.length > 0) {
     return (
       <span className="task-head-note">
         <Icon name="lock" size={14} />

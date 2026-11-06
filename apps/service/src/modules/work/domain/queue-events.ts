@@ -1,6 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 
-/** Start couldn't run the Task now only for a limit, so it joined the queue at its place. */
+/** Only waits kept Start from running the Task now, so it joined the queue at its place. */
 export class TaskQueued extends DomainEvent {
   constructor(
     readonly taskId: string,
@@ -22,6 +22,13 @@ export class TaskLeftQueue extends DomainEvent {
     readonly why: LeavingQueue,
     readonly refusals: readonly string[] = [],
   ) {
+    super();
+  }
+}
+
+/** A release found the queued Task held by other reasons than the ones shown. */
+export class TaskQueueReasonsChanged extends DomainEvent {
+  constructor(readonly taskId: string) {
     super();
   }
 }

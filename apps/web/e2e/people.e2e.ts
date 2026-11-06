@@ -1791,7 +1791,8 @@ async function waitForAnotherTaskAndStopWaiting(page: Page, project: Project): P
   await expect(
     page.getByText(`Blocked by "${blockerTitle}", which must be Done first.`),
   ).toBeVisible();
-  await expect(start).toBeDisabled();
+  await expect(start).toBeHidden();
+  await expect(page.getByRole("button", { name: "Queue behind it" })).toBeVisible();
 
   await page.goto("/work");
   await expect(

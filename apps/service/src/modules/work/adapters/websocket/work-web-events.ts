@@ -20,7 +20,12 @@ import {
 } from "../../domain/initiative-events.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
 import { OfficeWideLimitChanged, UsageSettingsChanged } from "../../domain/office-limit-events.js";
-import { TaskLeftQueue, TaskMovedUpInQueue, TaskQueued } from "../../domain/queue-events.js";
+import {
+  TaskLeftQueue,
+  TaskMovedUpInQueue,
+  TaskQueued,
+  TaskQueueReasonsChanged,
+} from "../../domain/queue-events.js";
 import { SavedViewRemoved, SavedViewSaved } from "../../domain/saved-view-events.js";
 import {
   TaskCreated,
@@ -213,6 +218,13 @@ export class WorkWebEvents implements OnModuleInit {
       why: event.why,
       refusals: [...event.refusals],
     }));
+    this.forwarding.forward(
+      TaskQueueReasonsChanged,
+      (event): WebEventOf<"task.queue-reasons-changed"> => ({
+        type: "task.queue-reasons-changed",
+        taskId: event.taskId,
+      }),
+    );
     this.forwarding.forward(TaskMovedUpInQueue, (event): WebEventOf<"task.moved-up-in-queue"> => ({
       type: "task.moved-up-in-queue",
       taskId: event.taskId,

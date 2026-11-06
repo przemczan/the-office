@@ -40,6 +40,9 @@ function queued(
   return { taskId, place, queuedAt: NOW, reasons, behind };
 }
 
+const blocker = aTask({ id: "b", title: "Queue schema", state: "ready" });
+const BLOCKED = 'Blocked by "Queue schema", which must be Done first.';
+
 describe("startOrQueue", () => {
   it("starts a Task nothing holds", () => {
     const starting = startOrQueue(
@@ -83,19 +86,32 @@ describe("startOrQueue", () => {
   });
 
   it("refuses with every reason when any refuses, queuing nothing", () => {
-    const blocker = aTask({ id: "b", title: "Queue schema", state: "ready" });
     const held = {
       startedTasks: [started("x", "developer")],
       blockers: [blocker],
       fireAlarmOn: false,
     };
 
-    expect(() => startOrQueue(ready("a"), developer, held, [], NO_CHOICE)).toThrow(
+    expect(() =>
+      startOrQueue(ready("a"), { ...developer, person: undefined }, held, [], NO_CHOICE),
+    ).toThrow(
       new TaskRefused([
-        'Blocked by "Queue schema", which must be Done first.',
-        "The developer is at the Task limit (1).",
+        "Nobody fills the Role Implement needs: hire a person for it on People first.",
+        BLOCKED,
       ]),
     );
+  });
+
+  it("queues a blocked Task, though a desk and its person are free", () => {
+    const held = { startedTasks: [], blockers: [blocker], fireAlarmOn: false };
+
+    const starting = startOrQueue(ready("a"), developer, held, [], NO_CHOICE);
+
+    expect(starting).toEqual({
+      kind: "queued",
+      queued: queued("a", 1, [BLOCKED]),
+      event: expect.any(TaskQueued) as TaskQueued,
+    });
   });
 });
 
@@ -133,6 +149,31 @@ describe("startOrQueue with an Overlap", () => {
       queued: queued("a", 2, [BEHIND_LOGIN], ["x"]),
       event: expect.any(TaskQueued) as TaskQueued,
     });
+  });
+
+  it("queues a blocked Task behind the overlapping Task too, for both to end", () => {
+    const blocked = { ...held, blockers: [blocker] };
+
+    const starting = startOrQueue(task, developer, blocked, [], {
+      now: NOW,
+      onOverlap: "queue-behind",
+    });
+
+    expect(starting).toMatchObject({
+      kind: "queued",
+      queued: { reasons: [BLOCKED, BEHIND_LOGIN], behind: ["x"] },
+    });
+  });
+
+  it("never starts a blocked Task, though the user says to start anyway", () => {
+    const blocked = { ...held, blockers: [blocker] };
+
+    const starting = startOrQueue(task, developer, blocked, [], {
+      now: NOW,
+      onOverlap: "start-anyway",
+    });
+
+    expect(starting).toMatchObject({ kind: "queued", queued: { reasons: [BLOCKED], behind: [] } });
   });
 
   it("is released once the Task it is behind is Done or Dropped, and not before", () => {
@@ -192,14 +233,57 @@ describe("releaseQueue", () => {
   });
 
   it("takes out a Task whose turn meets a refusal, with the reasons", () => {
-    const tasks = [ready("a", { blockedBy: ["b"] }), ready("b", { title: "Queue schema" })];
+    const vacant = { ...developer, person: undefined };
+
+    const release = releaseQueue([queued("a", 1)], alarmOff([ready("a")]), () => vacant);
+
+    expect(release.refused).toEqual([
+      {
+        taskId: "a",
+        refusals: ["Nobody fills the Role Implement needs: hire a person for it on People first."],
+      },
+    ]);
+    expect(release.started).toEqual([]);
+  });
+
+  it("keeps a blocked Task waiting, reading its blockers from the Task itself", () => {
+    const tasks = [ready("a", { blockedBy: ["b"] }), { ...blocker, state: "backlog" as const }];
 
     const release = releaseQueue([queued("a", 1)], alarmOff(tasks), (id) => conditions.get(id));
 
-    expect(release.refused).toEqual([
-      { taskId: "a", refusals: ['Blocked by "Queue schema", which must be Done first.'] },
-    ]);
+    expect(release.waiting).toEqual([queued("a", 1, [BLOCKED])]);
     expect(release.started).toEqual([]);
+    expect(release.refused).toEqual([]);
+  });
+
+  it.each(["done", "dropped"] as const)("starts a Task once its blocker is %s", (state) => {
+    const tasks = [ready("a", { blockedBy: ["b"] }), { ...blocker, state }];
+
+    const release = releaseQueue([queued("a", 1, [BLOCKED])], alarmOff(tasks), (id) =>
+      conditions.get(id),
+    );
+
+    expect(release.started.map(({ task }) => task.id)).toEqual(["a"]);
+  });
+
+  it("holds a Task free of its blockers for a limit, its reasons changed", () => {
+    const tasks = [started("x", "developer"), ready("a", { blockedBy: ["b"] }), blocker];
+    const free = [started("x", "developer"), ready("a"), blocker];
+
+    const same = releaseQueue(
+      [queued("a", 1, [BLOCKED, "The developer is at the Task limit (1)."])],
+      alarmOff(tasks),
+      (id) => conditions.get(id),
+    );
+    const changed = releaseQueue(
+      [queued("a", 1, [BLOCKED, "The developer is at the Task limit (1)."])],
+      alarmOff(free),
+      (id) => conditions.get(id),
+    );
+
+    expect(same.reasonsChanged).toEqual([]);
+    expect(changed.waiting).toEqual([queued("a", 1, ["The developer is at the Task limit (1)."])]);
+    expect(changed.reasonsChanged).toEqual(["a"]);
   });
 
   it("takes out a Task that is no longer Ready", () => {

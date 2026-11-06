@@ -17,8 +17,9 @@ import { overlapsOf, overlapWords } from "./task-overlap.js";
 import { STARTED_STATES } from "./task-states.js";
 
 /**
- * A Ready Task in the one Office-wide queue (spec §2.1, "A queue for Start"): Start couldn't run
- * it only for a limit, so it waits, holding no desk, until it starts by itself.
+ * A Ready Task in the one Office-wide queue (spec §2.1, "A queue for Start"): only waits kept Start
+ * from running it, so it waits, holding no desk, until it starts by itself. Its blockers aren't
+ * kept here: each release reads them from the Task, so a dependency changed meanwhile counts.
  */
 export interface QueuedTask {
   readonly taskId: string;
@@ -102,6 +103,8 @@ export interface Release {
   readonly refused: readonly { readonly taskId: string; readonly refusals: readonly string[] }[];
   /** Tasks still waiting, with the waits that hold them now. */
   readonly waiting: readonly QueuedTask[];
+  /** The ids of those held by other reasons than at their last turn. */
+  readonly reasonsChanged: readonly string[];
   /** When the caps holding each waiting Task last reset, for those caps hold. */
   readonly capResets: readonly Date[];
 }
@@ -123,6 +126,7 @@ export function releaseQueue(
   const started: TaskChange<TaskStarted>[] = [];
   const refused: { taskId: string; refusals: readonly string[] }[] = [];
   const waiting: QueuedTask[] = [];
+  const reasonsChanged: string[] = [];
   const capResets: Date[] = [];
   const startedEstimates: StartConditions["usage"]["estimate"][] = [];
   for (const queued of queueOrder(queue)) {
@@ -147,6 +151,7 @@ export function releaseQueue(
     if (refusals.length > 0) refused.push({ taskId: task.id, refusals });
     else if (allWaits.length > 0) {
       waiting.push({ ...queued, reasons: allWaits });
+      if (!sameReasons(queued.reasons, allWaits)) reasonsChanged.push(task.id);
       const { resetsAt } = capWaitsAtStart(conditions.usage);
       if (resetsAt) capResets.push(resetsAt);
     } else {
@@ -154,7 +159,11 @@ export function releaseQueue(
       startedEstimates.push(conditions.usage.estimate);
     }
   }
-  return { started, refused, waiting, capResets };
+  return { started, refused, waiting, reasonsChanged, capResets };
+}
+
+function sameReasons(one: readonly string[], other: readonly string[]): boolean {
+  return one.length === other.length && one.every((reason, at) => reason === other[at]);
 }
 
 /**

@@ -286,12 +286,15 @@ export type TaskUsageEstimateList = z.infer<typeof taskUsageEstimateListSchema>;
 
 /**
  * GET /tasks/:id/start: why the Task can't start now; all empty when it can. A refusal stops
- * Start; a wait (the Office-wide limit, its person's Task limit) only holds the Task until a desk
- * and its person are free; an Overlap asks the user to start anyway or to queue behind it.
+ * Start; a wait (a blocker, the Office-wide limit, its person's Task limit) only holds the Task
+ * until its blockers end and a desk and its person are free; an Overlap asks the user to start
+ * anyway or to queue behind it.
  */
 export const startCheckSchema = z.object({
   refusals: z.array(z.string()),
   waits: z.array(z.string()),
+  /** The Tasks not yet Done or Dropped that it waits for: it can only queue, never start anyway. */
+  blockers: z.array(z.object({ taskId: z.uuid(), title: z.string() })),
   overlaps: z.array(overlapSchema),
   /** What the Task is expected to use; null with no measure ticked. */
   usageEstimate: usageEstimateSchema.nullable(),
@@ -594,6 +597,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     /** The reasons that refuse Start, when its turn met them. */
     refusals: z.array(z.string()),
   }),
+  webEventSchema.extend({ type: z.literal("task.queue-reasons-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.moved-up-in-queue"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.title-changed"), taskId: z.uuid() }),

@@ -77,7 +77,9 @@ export class PostgresQueueRepository extends QueueRepository {
     return this.database.transaction(async (transaction) => {
       await holdStarts(transaction);
       const inQueue = await heldQueue(transaction);
-      if (inQueue.length === 0) return { started: [], refused: [], waiting: [], capResets: [] };
+      if (inQueue.length === 0) {
+        return { started: [], refused: [], waiting: [], reasonsChanged: [], capResets: [] };
+      }
       // The queued Tasks are held, so none changes state between the weighing and the save.
       await transaction
         .select({ id: tasks.id })

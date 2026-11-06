@@ -747,6 +747,7 @@ async function readyTask(writing: PlanChange = MY_PLAN): Promise<Task> {
 const nothing: StartCheck = {
   refusals: [],
   waits: [],
+  blockers: [],
   overlaps: [],
   usageEstimate: { basis: { source: "none" }, engines: [] },
 };
@@ -810,18 +811,19 @@ describe("Start", () => {
     ]);
   });
 
-  it("refuses while a Task it waits for isn't Done, before and on Start, until that one is dropped", async () => {
+  it("names the blockers still holding a Task back as waits, until they are dropped", async () => {
     const blocker = await create({ title: "Queue schema" });
     const task = await readyTask();
     await addDependency(task.id, blocker.id);
-    const reason = 'Blocked by "Queue schema", which must be Done first.';
 
     const check = await startCheck(task.id);
-    const refused = await start(task.id);
     await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
 
-    expect(check).toEqual({ ...nothing, refusals: [reason] });
-    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
+    expect(check).toEqual({
+      ...nothing,
+      waits: ['Blocked by "Queue schema", which must be Done first.'],
+      blockers: [{ taskId: blocker.id, title: "Queue schema" }],
+    });
     expect(await startCheck(task.id)).toEqual(nothing);
     expect((await start(task.id)).status).toBe(200);
   });
@@ -953,6 +955,15 @@ async function finish(taskId: string): Promise<void> {
   await work.app.get(TaskService).changeState(taskId, "done");
 }
 
+function blockedBy(title: string): string {
+  return `Blocked by "${title}", which must be Done first.`;
+}
+
+async function reasonsOf(taskId: string): Promise<readonly string[] | undefined> {
+  const queue = queueSchema.parse(await (await sendJson(work, "GET", "/queue")).json());
+  return queue.find((queued) => queued.taskId === taskId)?.reasons;
+}
+
 describe("The queue", () => {
   const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
   /** Started and queued Tasks hold desks and places for every test file, so each is dropped. */
@@ -965,6 +976,20 @@ describe("The queue", () => {
   async function ownReadyTask(writing: PlanChange = MY_PLAN): Promise<Task> {
     const task = await readyTask(writing);
     ownIds.push(task.id);
+    return task;
+  }
+
+  async function ownBlocker(title: string): Promise<Task> {
+    const blocker = await create({ title });
+    ownIds.push(blocker.id);
+    return blocker;
+  }
+
+  /** A Ready Task waiting for `blockers`, queued by the user's Start. */
+  async function queuedBehind(...blockers: readonly Task[]): Promise<Task> {
+    const task = await ownReadyTask();
+    for (const blocker of blockers) await addDependency(task.id, blocker.id);
+    await requestStart(task.id);
     return task;
   }
 
@@ -1108,22 +1133,200 @@ describe("The queue", () => {
     const first = await deskTaken();
     const second = await ownReadyTask();
     await requestStart(second.id);
-    const blocker = await create({ title: "Queue schema" });
-    ownIds.push(blocker.id);
-    await addDependency(second.id, blocker.id);
-    const reason = 'Blocked by "Queue schema", which must be Done first.';
+    const reason = "Nobody fills the Role Implement needs: hire a person for it on People first.";
+    work.app.get(KnownPeopleForTests).vacant.add("developer");
     work.published.length = 0;
 
     await finish(first.id);
 
     expect((await readTask(second.id)).state).toBe("ready");
     expect(await ownQueue()).toEqual([]);
-    expect(await startCheck(second.id)).toEqual({ ...nothing, refusals: [reason] });
+    expect((await startCheck(second.id)).refusals).toEqual([reason]);
     expect(webEventsOf(work)).toContainEqual({
       type: "task.left-queue",
       taskId: second.id,
       why: "refused",
       refusals: [reason],
+    });
+  });
+
+  describe("with blockers", () => {
+    it("queues a blocked Task though a desk is free, and starts it by itself once the blocker is Done", async () => {
+      const blocker = await ownReadyTask();
+      const task = await ownReadyTask();
+      await addDependency(task.id, blocker.id);
+
+      const response = await requestStart(task.id);
+      const answer = startAnswerSchema.parse(await response.json());
+      await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
+      const stillQueued = await ownQueue();
+      await requestStart(blocker.id);
+      const queuedWhileItRuns = await ownQueue();
+      await finish(blocker.id);
+
+      expect(answer).toMatchObject({
+        task: { state: "ready" },
+        queued: { taskId: task.id, reasons: [blockedBy(blocker.title)], behind: [] },
+      });
+      expect(stillQueued).toEqual([task.id]);
+      expect(queuedWhileItRuns).toEqual([task.id]);
+      expect((await readTask(task.id)).state).toBe("in-progress");
+      expect(await ownQueue()).toEqual([]);
+    });
+
+    it("releases the Task when its blocker is dropped once started", async () => {
+      const blocker = await ownReadyTask();
+      await requestStart(blocker.id);
+      const task = await queuedBehind(blocker);
+
+      await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
+
+      expect((await readTask(task.id)).state).toBe("in-progress");
+    });
+
+    it("releases the Task when its blocker is dropped from Backlog, never having started", async () => {
+      const blocker = await ownBlocker("Queue schema");
+      const task = await queuedBehind(blocker);
+
+      await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
+
+      expect((await readTask(task.id)).state).toBe("in-progress");
+      expect(await ownQueue()).toEqual([]);
+    });
+
+    it("waits for every blocker, showing those left", async () => {
+      const [schema, protocol] = [await ownBlocker("Schema"), await ownBlocker("Protocol")];
+      const task = await queuedBehind(schema, protocol);
+      work.published.length = 0;
+
+      await sendJson(work, "POST", `/tasks/${schema.id}/drop`);
+
+      expect(await ownQueue()).toEqual([task.id]);
+      expect(await reasonsOf(task.id)).toEqual([blockedBy("Protocol")]);
+      expect(webEventsOf(work)).toContainEqual({
+        type: "task.queue-reasons-changed",
+        taskId: task.id,
+      });
+    });
+
+    it("releases the Task when the dependency is removed", async () => {
+      const blocker = await ownBlocker("Queue schema");
+      const task = await queuedBehind(blocker);
+
+      await sendJson(work, "DELETE", `/tasks/${task.id}/dependencies/${blocker.id}`);
+
+      expect((await readTask(task.id)).state).toBe("in-progress");
+      expect(await ownQueue()).toEqual([]);
+    });
+
+    it("starts a queued chain, each blocked by the one before, one after another", async () => {
+      const a = await ownReadyTask();
+      await requestStart(a.id);
+      const b = await queuedBehind(a);
+      const c = await queuedBehind(b);
+
+      await finish(a.id);
+
+      expect((await readTask(b.id)).state).toBe("in-progress");
+      expect((await readTask(c.id)).state).toBe("ready");
+      expect(await ownQueue()).toEqual([c.id]);
+
+      await finish(b.id);
+
+      expect((await readTask(c.id)).state).toBe("in-progress");
+      expect(await ownQueue()).toEqual([]);
+    });
+
+    it("keeps a queued Task queued when a blocker is added, naming it", async () => {
+      const first = await deskTaken();
+      const task = await ownReadyTask();
+      await requestStart(task.id);
+      const blocker = await ownBlocker("Queue schema");
+      work.published.length = 0;
+
+      await addDependency(task.id, blocker.id);
+      await finish(first.id);
+
+      expect(await ownQueue()).toEqual([task.id]);
+      expect(await reasonsOf(task.id)).toEqual([blockedBy("Queue schema")]);
+      expect((await readTask(task.id)).state).toBe("ready");
+      expect(webEventsOf(work)).toContainEqual({
+        type: "task.queue-reasons-changed",
+        taskId: task.id,
+      });
+    });
+
+    it("still waits for a limit once free of its blockers", async () => {
+      const first = await deskTaken();
+      const blocker = await ownBlocker("Queue schema");
+      const task = await queuedBehind(blocker);
+
+      await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
+
+      expect(await reasonsOf(task.id)).toEqual([ONLY_DESK]);
+      await finish(first.id);
+      expect((await readTask(task.id)).state).toBe("in-progress");
+    });
+
+    it("waits for both the blockers and the Tasks it overlaps, whichever ends first", async () => {
+      const overlapping = await ownReadyTask({ ...MY_PLAN, filesToChange: ["src/auth"] });
+      await requestStart(overlapping.id);
+      const blocker = await ownBlocker("Queue schema");
+      const task = await ownReadyTask({ ...MY_PLAN, filesToChange: ["src/auth/login.ts"] });
+      await addDependency(task.id, blocker.id);
+      const behind = `Queued behind "${overlapping.title}" until it is Done or Dropped.`;
+
+      const check = await startCheck(task.id);
+      const unanswered = await requestStart(task.id);
+      const answer = startAnswerSchema.parse(
+        await (
+          await sendJson(work, "POST", `/tasks/${task.id}/start`, { onOverlap: "queue-behind" })
+        ).json(),
+      );
+      await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
+      const afterTheBlocker = await reasonsOf(task.id);
+      await finish(overlapping.id);
+
+      expect(check.blockers).toEqual([{ taskId: blocker.id, title: "Queue schema" }]);
+      expect(check.overlaps.map(({ taskId }) => taskId)).toEqual([overlapping.id]);
+      expect(unanswered.status).toBe(422);
+      expect(answer.queued).toMatchObject({
+        reasons: [blockedBy("Queue schema"), behind],
+        behind: [overlapping.id],
+      });
+      expect(afterTheBlocker).toEqual([behind]);
+      expect((await readTask(task.id)).state).toBe("in-progress");
+    });
+
+    it("refuses a blocked Task with a vacant Role, every reason listed, queuing nothing", async () => {
+      const blocker = await ownBlocker("Queue schema");
+      const task = await ownReadyTask();
+      await addDependency(task.id, blocker.id);
+      work.app.get(KnownPeopleForTests).vacant.add("developer");
+
+      const refused = await requestStart(task.id);
+
+      expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+        "Nobody fills the Role Implement needs: hire a person for it on People first.",
+        blockedBy("Queue schema"),
+      ]);
+      expect(await ownQueue()).toEqual([]);
+    });
+
+    it("moves a blocked queued Task up and takes it out, leaving it Ready", async () => {
+      const blocker = await ownBlocker("Queue schema");
+      const ahead = await queuedBehind(blocker);
+      const task = await queuedBehind(blocker);
+
+      const movedUp = await sendJson(work, "POST", `/queue/${task.id}/move-up`);
+      const order = await ownQueue();
+      const takenOut = await sendJson(work, "DELETE", `/queue/${task.id}`);
+
+      expect(movedUp.status).toBe(204);
+      expect(order).toEqual([task.id, ahead.id]);
+      expect(takenOut.status).toBe(204);
+      expect(await ownQueue()).toEqual([ahead.id]);
+      expect((await readTask(task.id)).state).toBe("ready");
     });
   });
 

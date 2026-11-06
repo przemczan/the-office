@@ -473,7 +473,7 @@ test("a label that isn't letters or digits is refused in Appearance, and what wa
 test("an edit made while Appearance saves stays as the next draft", async ({ page }) => {
   const project = await addedProject(page, "Quick hands");
   await page.goto(`/projects/${project.id}/appearance`);
-  let finishSave = (): void => {};
+  let finishSave: (() => void) | undefined;
   const saveHeld = new Promise<void>((resolve) => {
     finishSave = resolve;
   });
@@ -486,7 +486,7 @@ test("an edit made while Appearance saves stays as the next draft", async ({ pag
   await label.fill("QH");
   await page.getByRole("button", { name: "Save" }).click();
   await label.fill("Q2");
-  finishSave();
+  finishSave?.();
 
   await expect(page.locator(".project-head .project-mark")).toHaveText("QH");
   await expect(label).toHaveValue("Q2");

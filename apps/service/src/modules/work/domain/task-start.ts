@@ -56,10 +56,10 @@ export interface HeldAtStart {
 
 /**
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
- * refusal (not Ready, a Task it waits for isn't Done, a vacant Role, a person who only talks) stops
- * Start; a wait (the fire alarm, a scheduled Office update, the Office-wide limit, its person's Task limit, a cap it would
- * pass) only holds the Task until the all clear, a desk and its person are free, and the cap
- * allows it. Both are empty when it can start.
+ * refusal (not Ready, a vacant Role, a person who only talks) stops Start; a wait (a Task it waits
+ * for not yet Done or Dropped, the fire alarm, a scheduled Office update, the Office-wide limit, its
+ * person's Task limit, a cap it would pass) only holds the Task until its blockers end, the all
+ * clear, a desk and its person are free, and the cap allows it. Both are empty when it can start.
  */
 export interface StartReasons {
   readonly refusals: readonly string[];
@@ -90,8 +90,9 @@ export function startReasons(
   );
   const stage = firstAgentStage(conditions.stages);
   return {
-    refusals: [...blockedProblems(blockers), ...personRefusals(stage, conditions.person)],
+    refusals: personRefusals(stage, conditions.person),
     waits: [
+      ...blockedProblems(blockers),
       ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
       ...(conditions.officeUpdateHold ? [conditions.officeUpdateHold] : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),

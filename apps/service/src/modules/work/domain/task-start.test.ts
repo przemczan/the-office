@@ -79,14 +79,21 @@ describe("startTask", () => {
       started("b", { personRole: "developer" }),
       started("c", { personRole: "developer" }),
     ];
+    const vacant = { ...conditions, person: undefined };
+
+    expect(() => startTask(ready, vacant, held(others), THE_USER)).toThrow(
+      new TaskRefused([
+        "Nobody fills the Role Implement needs: hire a person for it on People first.",
+        "The Office-wide limit is reached: all 3 desks are in use.",
+      ]),
+    );
+  });
+
+  it("refuses while a Task it waits for isn't Done or Dropped, though a blocker only waits", () => {
     const blockers = [aTask({ id: "b1", title: "Queue schema", state: "ready" })];
 
-    expect(() => startTask(ready, conditions, held(others, blockers), THE_USER)).toThrow(
-      new TaskRefused([
-        'Blocked by "Queue schema", which must be Done first.',
-        "The Office-wide limit is reached: all 3 desks are in use.",
-        "Ada is at the Task limit (2).",
-      ]),
+    expect(() => startTask(ready, conditions, held([], blockers), THE_USER)).toThrow(
+      new TaskRefused(['Blocked by "Queue schema", which must be Done first.']),
     );
   });
 });
@@ -163,16 +170,19 @@ describe("startReasons", () => {
     );
   });
 
-  it("refuses while a Task it waits for isn't Done, naming each", () => {
+  it("waits while a Task it waits for isn't Done or Dropped, naming each, before the other waits", () => {
     const blockers = [
       aTask({ id: "b1", title: "Queue schema", state: "in-progress" }),
       aTask({ id: "b2", title: "Sync protocol messages", state: "ready" }),
     ];
 
-    expect(startReasons(ready, conditions, held([], blockers))).toEqual(
-      refused(
+    const lowered = { ...conditions, officeWideLimit: 1 };
+
+    expect(startReasons(ready, lowered, held([started("a")], blockers))).toEqual(
+      waiting(
         'Blocked by "Queue schema", which must be Done first.',
         'Blocked by "Sync protocol messages", which must be Done first.',
+        "The Office-wide limit is reached: the only desk is in use.",
       ),
     );
   });
