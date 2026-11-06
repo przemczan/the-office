@@ -350,7 +350,8 @@ describe("a Task's conversation", () => {
     const read = await get("/people-working");
 
     const tasks = peopleWorkingSchema.parse(await read.json());
-    const onThisTest = tasks.filter(({ taskId }) => [working, waiting, idle].includes(taskId));
+    const tasksOfThisTest = new Set<string>([working, waiting, idle]);
+    const onThisTest = tasks.filter(({ taskId }) => tasksOfThisTest.has(taskId));
     expect(onThisTest).toEqual([{ taskId: working, roleKeys: [oscar] }]);
   });
 
