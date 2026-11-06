@@ -6,6 +6,47 @@ Pages here are **proposals**: interactive mock-ups to look at and compare before
 - [**The Task page, round 2**](task-page-2.html), **adopted** by [task 51](../tasks/51-task-page-round-2.md), from the user's notes of 2026-11-04 on the page task 48 built. It starts from a copy of the adopted page and adds two Backlog scenarios.
 - [**The Thread dialog**](thread-dialog.html), **Rows adopted** by [task 53](../tasks/53-thread-in-rows.md), from the user's note of 2026-11-05: Decisions and Handover notes look right, the dialog around them doesn't. It compares three designs of the turns with Today on the same messages, with three scenarios, the Details switch, three widths and both palettes. The user chose Rows, as in a team channel: everyone on the left, each turn with an avatar, name and time; Chat and Bubbles stay for comparing. The cards stay as they are and Chapters isn't touched. New with it: tool calls fold to one line and open to every command whole, the Office's lines lose their boxes, a failure gets a tinted strip, a refusal's reason wraps, a Thread that spans days gets a day line, and in a large window the Thread stays in a centred column. "Chat", "Bubbles" and "Rows" are this design's names, not glossary terms.
 
+- [**The chat drawer**](chat-drawer.html), a **proposal**, for the Task "Replace the chat modal with the chat drawer": a person's chat in a drawer on the right edge instead of a modal, opened from a button in the top bar. A switcher shows it behind Now, a Task page and an Initiative page, at wide, 900px and 390px, in the Light and Dark palettes, over the page or pushing it aside, in ten scenarios; Esc really follows the order below, and drafts survive. It changes [spec 4](../spec/4-ux-direction.md), [spec 4.1](../spec/4.1-ui-rules.md) and the click-through only when that Task adopts it. See [The chat drawer: what it proposes](#the-chat-drawer-what-it-proposes).
+
+## The chat drawer: what it proposes
+
+One recommendation for each of the five questions. Stanley (UI/UX Designer) was consulted and worked the Stage; their advice is folded in, and **Moved:** marks where it changed the starting position.
+
+1. **The button** sits at the top bar's right end, after + Idea, right above where the drawer opens, so it is on every page. It has three looks: **nothing new** (its icon and "Chat"), **someone answering** (that person's avatar with a live dot) and **someone has answered** (the avatar of whoever answered, two at most, with an Ember dot). It shows a face and a dot, never a number, so it never reads as the Needs you count in the status strip. Answered wins over answering, as it is the one that waits on the user. Pressing it with an answer waiting opens that Thread; otherwise it opens where the user left off. At 600px and below it shows its mark alone. **Moved:** the answered look leads to the Thread that answered rather than only marking it.
+2. **Picking a person:** with no chat open yet, the drawer opens on the people with chat on (Pam, Dwight, Michael, Angela, Jan and Stanley), each with their Role and where their chat stands: Answered, Answering… or when it last moved. Jim and Oscar, with chat off, aren't offered; a line says that people with chat off aren't listed and where chat is turned on. Once a chat is open, the person's name in the head is the switch: a menu of the same people with their dots, which switches without closing the drawer, and links to the person's page. **Moved:** the order is fixed and never sorts by who answered, so a row never moves under the pointer.
+3. **Threads in a narrow drawer:** one column. The open Thread fills the drawer, in Rows, under its own row: "‹ Threads", the Thread's title and the Details switch, which serves that Thread only (spec 4.1). The head carries the line on what the person can do. In a Caretaker's Thread, the Allow changes bar sits under the Thread's row, and Allow changes opens its small window. The Thread list is a step back, with New thread at its top; each Thread shows its title, the cache dot, when it last moved and whether it answered. A person with no Threads gets an empty state that says what a Thread is, with New thread. **Moved:** "‹ Threads" carries the Ember dot when another of that person's Threads has answered, so an answer is never hidden one step back.
+4. **Beside the page:** the drawer **pushes the page aside** on windows wider than 900px, with no dimmed backdrop: the page gives up the drawer's width and stays whole and usable. Over the page, it would cover the right side, which on a Task or an Initiative page is the conversation and its composer, and on Now the third panel. Dragging its left edge (or ← and → on the focused edge) resizes it between 360px and 720px, leaving the page at least 480px; the default is 420px, a double press on the edge goes back to it, and the width is remembered in this browser, as the rail's toggle is. **Moved:** the drawer sits below the top bar and the status strip, so the button that closes it and the Needs you count stay in reach. **Moved:** from 601px to 900px it lies over the page with no backdrop, as there is no room to push; it fills the window only at 600px and below, since at 900px a full-window chat would hide the page being asked about. Nothing scrolls sideways at any width.
+5. **With everything else:**
+   - The **Needs you panel** opens over the chat drawer, with its dimmed backdrop, as today: a short visit to answer and close. Beside it, 560px and 420px together would leave little page. The chat stays open under it.
+   - A **window** opens over everything, side panels included, such as a Decision's window opened from a Mention in a chat.
+   - On a narrow Task or Initiative page, the **conversation drawer's handle** keeps to the page's side of the chat drawer, so neither covers the other's control; the conversation drawer, opened last, lies over the chat.
+   - **Esc** closes one thing per press. Drafts are kept throughout, per Thread, as today.
+
+     | Press | What closes |
+     | --- | --- |
+     | 1 | A window: a Decision's, Allow changes, the Attachment viewer |
+     | 2 | A menu or picker inside a panel: the person switch, the mention picker |
+     | 3 | The side panel opened last: the chat drawer, the Needs you panel or the conversation drawer |
+     | 4 | The next side panel, by the same rule |
+
+     **Moved:** a menu or picker gets its own place in the order, and Esc never steps back inside the drawer, from a Thread to the list.
+
+**This design's names**, not glossary terms: the chat drawer, the Chat button and its looks (nothing new, someone answering, someone has answered or Answered), the person picker, the person switch, the Thread list, over the page and pushes the page aside.
+
+### What the build needs that the app doesn't have
+
+- **A record of what the user has seen in a Thread.** A Thread is only `waiting` or `answering`, and nothing records what the user has seen, so "someone has answered" needs one: the last message seen in each Thread, set when the Thread is on screen in the open drawer. The Task page's unseen counts are kept per page view only today (`threads-seen.ts`) and could move to the same record.
+- **The drawer stays open across pages.** The chat lives in the address (`?chat=…&thread=…`) today, which each navigation drops. The drawer's state (open, person, Thread, width) belongs to the shell, and a link that opens a chat, such as a Link card's or the People page's, sets it.
+- **The page gives up its width.** To push the page aside, the shell's layout gives the drawer a column below the status strip, and a page folds its side column into its drawer by its own width (844px, the 900px rule less the rail) rather than the window's. That changes spec 4.1's Narrow rule, and the conversation drawer's handle anchors to the page's right edge.
+- **Esc by the order things opened.** `useCloseOnEscape` finds the topmost thing by the order of `aria-modal` elements in the document. The chat drawer isn't modal, so "the side panel opened last" needs a shared record of what opened when, in `packages/ui`.
+- **A resizable side panel**, a new general part for `packages/ui`, with its edge, its limits and its remembered width.
+- **What changes in the spec:** spec 4's "Chats open in a modal", spec 4.1's "A chat's modal is not a window" and its Narrow rule, and the click-through's chat. The chat modal's Thread view, Allow changes bar and Thread items carry over.
+
+### About the mock
+
+- The people's titles are for display: Pam the Office Manager, Dwight Devops, Michael the CTO, Angela the Planner, Jan the Caretaker, Stanley the UI/UX Designer, and Jim (Developer) and Oscar (Reviewer) with chat off. Every answer to a message sent in the mock is the same line.
+- Unlike the other pages, it doesn't embed the Geist fonts: it uses them where they are installed and the system's sans-serif elsewhere.
+
 ## Round 2: what it changes
 
 - **Backlog:** a Task whose Plan and Definition of Done the user wrote and confirmed offers Mark Ready beside Plan with…, so Planning is optional (the user's answer of 2026-11-04; spec 2.1 changes with task 51).

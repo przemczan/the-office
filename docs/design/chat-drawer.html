@@ -1,0 +1,2998 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The chat drawer · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, copied as they were on 2026-11-06) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-100: #ffe0d4;
+        --ember-300: #ff9370;
+        --ember-400: #ff6638;
+        --ember-500: #f23d0f;
+        --ember-600: #cc2f07;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --flare-500: #ff9a1f;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-600: #17834a;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-600: #aa0d27;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-400);
+        --fg-inverse: var(--white);
+        --fg-on-accent: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --border-focus: var(--ember-500);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-hover: var(--gray-700);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+        --overlay: color-mix(in oklab, var(--gray-950) 45%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --text-xl: 18px;
+        --text-2xl: 20px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --control-xs: 24px;
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+        --duration-slow: 280ms;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --fg-disabled: var(--gray-600);
+        --accent-hover: var(--ember-400);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --overlay: color-mix(in oklab, #000 65%, transparent);
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --surface-hover: var(--gray-25);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --primary-hover: #e6e6e2;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+      /* packages/ui/src/appearance/densities/comfortable.css */
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-row: 14px 18px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+        --text-item: 14px;
+        --text-body: 13px;
+        --control-h: 28px;
+        --line: 1.5;
+      }
+
+      /* ---------- Base (design-system/tokens/base.css) ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      @supports selector(::-webkit-scrollbar) {
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          border: 3px solid transparent;
+          border-radius: var(--radius-full);
+          background: var(--border-strong) padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: var(--fg-3) padding-box;
+        }
+      }
+      @supports not selector(::-webkit-scrollbar) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: var(--border-strong) transparent;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: badge, avatar, button, switch ---------- */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: var(--radius-badge);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        border: 1px solid var(--neutral-border);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        white-space: nowrap;
+      }
+      .badge.success {
+        background: var(--success-subtle);
+        color: var(--success-fg);
+        border-color: var(--success-border);
+      }
+      .badge.warning {
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+        border-color: var(--warning-border);
+      }
+      .badge.info {
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        border-color: var(--info-border);
+      }
+      .badge.accent {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        border-color: transparent;
+      }
+      .avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        flex: none;
+        display: inline-grid;
+        place-items: center;
+        overflow: hidden;
+        font-size: 9px;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--avatar-fg, var(--gray-700));
+        background: var(--avatar-bg, var(--gray-100));
+      }
+      .avatar.lg {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+      }
+      .avatar.sm {
+        width: 20px;
+        height: 20px;
+        font-size: 8px;
+      }
+      .avatar.xs {
+        width: 18px;
+        height: 18px;
+        font-size: 8px;
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+        font-size: var(--text-xs);
+      }
+      .btn.secondary {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-1);
+      }
+      .btn.secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .btn.primary:hover {
+        background: var(--primary-hover);
+      }
+      .btn.danger {
+        background: var(--danger);
+        color: var(--white);
+      }
+      .btn.ghost {
+        background: none;
+        color: var(--fg-2);
+      }
+      .btn.ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn.block {
+        width: 100%;
+      }
+      .btn.icon-only {
+        width: var(--control-md);
+        padding: 0;
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: var(--control-sm);
+        height: var(--control-sm);
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .switch-label {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .switch {
+        position: relative;
+        width: 28px;
+        height: 16px;
+        border-radius: 8px;
+        background: var(--border-strong);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--white);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch-label[aria-checked="true"] .switch {
+        background: var(--accent);
+      }
+      .switch-label[aria-checked="true"] .switch::after {
+        left: 14px;
+      }
+      .project-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .project-chip::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: var(--ember-500);
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .dot {
+        display: inline-block;
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .dot.answered {
+        background: var(--accent);
+      }
+      .dot.answering {
+        background: var(--success);
+        animation: live 1.4s ease-in-out infinite;
+      }
+      .context-dot {
+        display: inline-block;
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .context-dot.warm {
+        background: var(--success);
+      }
+      @keyframes live {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 55%, transparent);
+        }
+        60% {
+          box-shadow: 0 0 0 4px color-mix(in oklab, var(--success) 0%, transparent);
+        }
+      }
+      @keyframes typing {
+        0%,
+        80%,
+        100% {
+          opacity: 0.25;
+        }
+        40% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+      :is(button, textarea, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .bar-escape {
+        font: var(--type-caption);
+        color: #b1b1ab;
+      }
+      .bar-escape b {
+        color: #f4f4f2;
+        font-weight: 500;
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .stage {
+        display: grid;
+        gap: 14px;
+        padding: 16px 24px 40px;
+      }
+      .scenario-note {
+        max-width: 120ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(640px, calc(100vh - 230px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(640px, min(844px, calc(100vh - 230px)));
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px 28px;
+        max-width: 1400px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 8px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p {
+        margin: 0 0 8px;
+      }
+      .reference table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .reference th,
+      .reference td {
+        padding: 5px 8px 5px 0;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      .reference th {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .looks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px 18px;
+        align-items: flex-start;
+        margin-bottom: 8px;
+      }
+      .look {
+        display: grid;
+        justify-items: start;
+        gap: 6px;
+        font: var(--type-caption);
+      }
+
+      /* ---------- The app: Shell A3 · Desk ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px 48px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail-item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .top {
+        grid-column: 2;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .app.w-phone .top {
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .lockup {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        font: 600 14px/1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .product-chip {
+        padding: 3px 6px;
+        border: 1px solid var(--border-strong);
+        border-radius: 4px;
+        font: var(--type-overline);
+        color: var(--fg-2);
+      }
+      .top-divider {
+        flex: none;
+        width: 1px;
+        height: 20px;
+        background: var(--border);
+      }
+      .top h1 {
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .crumb {
+        min-width: 0;
+        margin-left: -4px;
+        overflow: hidden;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .search {
+        display: flex;
+        flex: 0 1 220px;
+        align-items: center;
+        gap: 8px;
+        min-width: 120px;
+        height: var(--control-md);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .search kbd {
+        margin-left: auto;
+        font: var(--type-overline);
+      }
+      /* The chat button: a face and a dot, never a number, so it never reads as the Needs you count. */
+      .chat-button[aria-expanded="true"] {
+        background: var(--control-press);
+      }
+      .chat-mark {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+      }
+      .chat-mark .avatar + .avatar {
+        margin-left: -6px;
+        box-shadow: 0 0 0 2px var(--surface);
+      }
+      .chat-mark .dot {
+        position: absolute;
+        top: -3px;
+        right: -4px;
+        width: 9px;
+        height: 9px;
+        box-shadow: 0 0 0 2px var(--surface);
+      }
+      .chat-mark .dot.answering {
+        top: auto;
+        bottom: -3px;
+        animation: none;
+      }
+      .chat-mark .avatar.answering {
+        animation: live 1.4s ease-in-out infinite;
+      }
+      .strip {
+        grid-column: 2;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        min-width: 0;
+        padding: 0 24px;
+        overflow: hidden;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .app.w-phone .strip {
+        gap: 16px;
+        padding: 0 12px;
+      }
+      .strip-stat {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .strip-stat b {
+        font: 600 15px/1 var(--font-sans);
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+      }
+      .strip-needs-you {
+        margin: 0 -8px;
+        padding: 4px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: inherit;
+        cursor: pointer;
+      }
+      .strip-needs-you:hover {
+        background: var(--control-hover);
+      }
+      .strip-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      .strip-meter {
+        width: 80px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--border);
+      }
+      .strip-meter span {
+        display: block;
+        width: 38%;
+        height: 100%;
+        background: var(--fg-3);
+      }
+      .main {
+        grid-column: 2;
+        position: relative;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      .app.pushed .main {
+        margin-right: var(--drawer-width);
+      }
+
+      /* ---------- The pages behind ---------- */
+      .page {
+        display: grid;
+        gap: 20px;
+        min-width: 0;
+        padding: 24px;
+      }
+      .page.tight {
+        gap: 16px;
+        padding: 16px 12px;
+      }
+      .page-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        min-width: 0;
+      }
+      .page-head h2 {
+        min-width: 0;
+        margin: 0;
+        font: 600 20px/1.3 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+      .cols {
+        display: grid;
+        gap: 20px;
+        align-items: start;
+        min-width: 0;
+      }
+      .col {
+        display: grid;
+        gap: 12px;
+        min-width: 0;
+      }
+      .block {
+        min-width: 0;
+        padding: var(--pad-card);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--edge, var(--border-strong));
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .block-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        font: var(--type-card-title);
+      }
+      .block-sub {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .skeleton {
+        display: grid;
+        gap: 7px;
+        margin-top: 10px;
+      }
+      .skeleton span {
+        height: 7px;
+        border-radius: 4px;
+        background: var(--border-subtle);
+      }
+      .row-list {
+        display: grid;
+        gap: 8px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        font: var(--type-body-sm);
+      }
+      .row-text {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .pipeline {
+        display: flex;
+        gap: 8px;
+        padding: 12px;
+        overflow-x: auto; /* the one row made to scroll sideways, as the rail does */
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .stage-pill {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .stage-pill b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .stage-pill.done {
+        border-color: var(--success-border);
+      }
+      .stage-pill.running {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+      }
+      .tabs {
+        display: flex;
+        gap: 16px;
+        min-width: 0;
+        overflow: hidden;
+        border-bottom: 1px solid var(--border);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .tab {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 0;
+        border-bottom: 2px solid transparent;
+      }
+      .tab.on {
+        border-color: var(--fg-1);
+        font-weight: 500;
+        color: var(--fg-1);
+      }
+      .answer-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        margin-top: 6px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        text-align: left;
+        cursor: pointer;
+      }
+      .answer-line:hover {
+        background: var(--control-hover);
+      }
+      .task-conversation {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 440px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .task-conversation .tabs {
+        flex: none;
+        padding: 0 14px;
+      }
+      .task-conversation .thread {
+        flex: 1;
+      }
+      .conversation-handle {
+        position: absolute;
+        bottom: 16px;
+        z-index: 20;
+        height: 36px;
+        padding: 0 16px;
+        border-radius: var(--radius-full);
+        box-shadow: var(--shadow-3);
+      }
+      .unread {
+        display: inline-grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: var(--radius-full);
+        background: var(--accent);
+        color: var(--white);
+        font: 700 11px/1 var(--font-sans);
+      }
+
+      /* ---------- Side panels: the chat drawer, the conversation drawer, Needs you ---------- */
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: var(--overlay);
+      }
+      .chat-drawer {
+        position: absolute;
+        top: 104px;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        width: var(--drawer-width);
+        min-width: 0;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .chat-drawer.over {
+        box-shadow: var(--shadow-3);
+      }
+      .chat-drawer.fill {
+        top: 0;
+        left: 0;
+        width: auto;
+        border-left: 0;
+      }
+      .drawer-edge {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -5px;
+        z-index: 6;
+        width: 10px;
+        cursor: col-resize;
+        touch-action: none;
+      }
+      .drawer-edge::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 4px;
+        width: 2px;
+        background: transparent;
+        transition: background var(--duration-fast);
+      }
+      .drawer-edge:hover::after,
+      .drawer-edge:focus-visible::after,
+      .drawer-edge.dragging::after {
+        background: var(--accent);
+      }
+      .drawer-edge:focus-visible {
+        outline: none;
+      }
+      .edge-readout {
+        position: absolute;
+        top: 50%;
+        left: 14px;
+        padding: 4px 8px;
+        border-radius: var(--radius-md);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        font: var(--type-caption);
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-50%);
+        transition: opacity var(--duration-fast);
+      }
+      .drawer-edge:focus-visible .edge-readout,
+      .drawer-edge.dragging .edge-readout {
+        opacity: 1;
+      }
+      .drawer-head {
+        position: relative;
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 10px 10px 10px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .drawer-head-main {
+        display: grid;
+        flex: 1;
+        gap: 1px;
+        min-width: 0;
+      }
+      .drawer-title {
+        font: var(--type-card-title);
+      }
+      .drawer-sub {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .person-switch {
+        display: inline-flex;
+        align-items: baseline;
+        justify-self: start;
+        gap: 6px;
+        max-width: 100%;
+        min-width: 0;
+        margin-left: -6px;
+        padding: 1px 6px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        cursor: pointer;
+      }
+      .person-switch:hover,
+      .person-switch[aria-expanded="true"] {
+        background: var(--control-hover);
+      }
+      .person-switch-name {
+        flex: none;
+        font: var(--type-card-title);
+      }
+      .person-switch-title {
+        min-width: 0;
+        overflow: hidden;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .person-switch svg {
+        flex: none;
+        align-self: center;
+        color: var(--fg-2);
+      }
+      .menu {
+        position: absolute;
+        top: calc(100% - 4px);
+        right: 12px;
+        left: 12px;
+        z-index: 8;
+        display: grid;
+        gap: 1px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .menu-item,
+      .person-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .menu-item:hover,
+      .person-row:hover {
+        background: var(--control-hover);
+      }
+      .menu-item[aria-checked="true"] {
+        background: var(--surface-selected);
+      }
+      .menu-foot {
+        margin-top: 3px;
+        padding: 7px 8px 3px;
+        border-top: 1px solid var(--border);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .menu-foot a {
+        color: var(--fg-1);
+      }
+      .who {
+        display: grid;
+        min-width: 0;
+      }
+      .who b {
+        overflow: hidden;
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .who span {
+        overflow: hidden;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .status.answered {
+        font-weight: 500;
+        color: var(--accent-subtle-fg);
+      }
+      .status.answering {
+        color: var(--success-fg);
+      }
+      .people {
+        display: grid;
+        flex: 1;
+        align-content: start;
+        gap: 2px;
+        padding: 8px;
+        overflow-y: auto;
+      }
+      .person-row {
+        gap: 12px;
+        padding: 10px;
+        border-radius: var(--radius-lg);
+      }
+      .person-row .who b {
+        font-size: var(--text-md);
+      }
+      .people-note {
+        margin: 10px 10px 4px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .thread-bar {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        min-height: 40px;
+        padding: 4px 12px 4px 6px;
+        border-bottom: 1px solid var(--border);
+      }
+      .back {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 3px;
+        height: var(--control-sm);
+        padding: 0 8px 0 4px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .back:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .back .dot {
+        width: 7px;
+        height: 7px;
+        margin-left: 2px;
+      }
+      .thread-bar-title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .thread-changes {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 8px 12px 8px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--neutral-subtle);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .thread-changes.allowed {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .thread-changes svg {
+        flex: none;
+      }
+      .thread-changes-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .threads {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 2px;
+        padding: 12px;
+        overflow-y: auto;
+      }
+      .list-count {
+        margin: 14px 6px 6px;
+      }
+      .thread-item {
+        display: grid;
+        gap: 3px;
+        width: 100%;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: var(--radius-lg);
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .thread-item:hover {
+        background: var(--control-hover);
+      }
+      .thread-item.current {
+        background: var(--surface-selected);
+      }
+      .thread-item-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        font: 500 var(--text-sm) / 1.4 var(--font-sans);
+      }
+      .thread-item-title span {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .thread-item.has-answer .thread-item-title {
+        font-weight: 600;
+      }
+      .thread-item-sub {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .empty {
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        max-width: 300px;
+        margin: auto;
+        padding: 24px;
+        text-align: center;
+      }
+      .empty-icon {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--neutral-subtle);
+        color: var(--fg-2);
+      }
+      .empty b {
+        font: var(--type-card-title);
+      }
+      .empty span {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .conversation-drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        width: min(440px, 94%);
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+      }
+      .conversation-drawer .tabs {
+        flex: none;
+        padding: 0 14px;
+      }
+      .needs-you-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        width: min(560px, 94%);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+      }
+      .panel-head {
+        display: flex;
+        flex: none;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 16px 14px 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .panel-head h3 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .panel-body {
+        display: grid;
+        flex: 1;
+        align-content: start;
+        gap: 14px;
+        padding: 16px 20px;
+        overflow-y: auto;
+      }
+      .panel-foot {
+        display: flex;
+        flex: none;
+        justify-content: flex-end;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+      }
+      .card-over {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        margin-bottom: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .card-over b {
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      /* ---------- The Thread, in Rows (docs/design/thread-dialog.html, adopted by task 53) ---------- */
+      .thread {
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .chat-drawer .thread {
+        flex: 1;
+      }
+      .thread-column {
+        --gutter: 34px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 16px 16px 20px;
+      }
+      .turn {
+        display: grid;
+        grid-template-columns: var(--gutter) minmax(0, 1fr);
+        min-width: 0;
+      }
+      .turn-by {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 1px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .turn-by b {
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .said {
+        min-width: 0;
+        max-width: 72ch;
+        font: var(--type-body);
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .said p {
+        margin: 0 0 8px;
+      }
+      .said p:last-child {
+        margin-bottom: 0;
+      }
+      .said code {
+        padding: 1px 4px;
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        font: 400 12px/1.5 var(--font-mono);
+      }
+      .mention {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        max-width: 100%;
+        padding: 0 6px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-sm);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        font: 500 var(--text-sm) / 1.6 var(--font-sans);
+        text-align: left;
+        cursor: pointer;
+      }
+      .in-column {
+        min-width: 0;
+        margin-left: var(--gutter);
+      }
+      .turn + .tools {
+        margin-top: -10px;
+      }
+      .tools {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .tools summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        padding: 2px 6px 2px 0;
+        list-style: none;
+        cursor: pointer;
+      }
+      .tools summary::-webkit-details-marker {
+        display: none;
+      }
+      .tools-chevron {
+        flex: none;
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .tools[open] .tools-chevron {
+        transform: rotate(90deg);
+      }
+      .tools-last {
+        min-width: 0;
+        overflow: hidden;
+        font: 400 11px/1.5 var(--font-mono);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .tools.single {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tools ul {
+        display: grid;
+        gap: 3px;
+        margin: 4px 0 2px 5px;
+        padding: 0 0 0 12px;
+        border-left: 1px solid var(--border-strong);
+        list-style: none;
+      }
+      .tools li {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px;
+        min-width: 0;
+      }
+      .tools li b {
+        font-weight: 500;
+      }
+      .tools li span {
+        font: 400 11px/1.5 var(--font-mono);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .office-break {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .office-break::before,
+      .office-break::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .office-line {
+        font: var(--type-caption);
+        color: var(--fg-2);
+        text-align: center;
+      }
+      .typing {
+        display: inline-flex;
+        gap: 3px;
+        padding: 6px 0;
+      }
+      .typing i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--fg-3);
+        animation: typing 1.2s infinite;
+      }
+      .typing i:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .typing i:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .composer {
+        flex: none;
+        padding: 10px 12px 12px;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .composer-to {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .composer-to strong {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .composer-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+      }
+      .composer-field {
+        flex: 1;
+        min-width: 0;
+        min-height: 44px;
+        max-height: 160px;
+        padding: 8px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+        resize: none;
+        field-sizing: content;
+      }
+      .composer-field::placeholder {
+        color: var(--fg-3);
+      }
+      .composer-field:focus {
+        border-color: var(--border-focus);
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .composer-field:disabled {
+        background: var(--neutral-subtle);
+      }
+      .composer-send {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: var(--primary);
+        color: var(--primary-fg);
+        cursor: pointer;
+      }
+      .composer-send:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* ---------- Windows (spec 4.1) ---------- */
+      .window-backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 200;
+        display: grid;
+        place-items: center;
+        padding: 12px;
+        background: var(--overlay);
+      }
+      .window {
+        display: flex;
+        flex-direction: column;
+        width: min(var(--window-width), 94%);
+        max-height: 86%;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .window.small {
+        --window-width: 440px;
+      }
+      .window.large {
+        --window-width: 1180px;
+      }
+      .window-head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 14px 14px 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .window-head h2 {
+        display: flex;
+        flex: 1;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        min-width: 0;
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .window-head h2 span {
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .window-body {
+        display: grid;
+        flex: 1;
+        align-content: start;
+        gap: 14px;
+        padding: 18px 20px;
+        overflow-y: auto;
+        font: var(--type-body-sm);
+      }
+      .window-body h3 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .window-body p {
+        max-width: 72ch;
+        margin: 0;
+      }
+      .window-bar {
+        display: flex;
+        flex: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px 12px 20px;
+        border-top: 1px solid var(--border);
+      }
+      .window-bar .grow {
+        flex: 1;
+      }
+      .choice {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        text-align: left;
+        cursor: pointer;
+      }
+      .choice.picked {
+        border-color: var(--accent);
+        background: var(--accent-subtle);
+      }
+      .choice-mark {
+        flex: none;
+        width: 14px;
+        height: 14px;
+        margin-top: 3px;
+        border: 1.5px solid var(--border-strong);
+        border-radius: 50%;
+      }
+      .choice.picked .choice-mark {
+        border: 4px solid var(--accent);
+      }
+      .choice small {
+        display: block;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+      <section class="reference" id="reference" aria-label="What the page settles"></section>
+    </main>
+    <script>
+      /* ---------- Icons (the app's Icon set, re-drawn) ---------- */
+      const svg = (size, body, extra = "") =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${body}</svg>`;
+      const ICON = {
+        chat: (s = 14) => svg(s, '<path d="M2.5 8a5.5 5.5 0 1 1 2.7 4.7l-2.7.8.8-2.6A5.5 5.5 0 0 1 2.5 8z"/>'),
+        plus: (s = 14) => svg(s, '<path d="M8 3v10M3 8h10"/>'),
+        x: (s = 16) => svg(s, '<path d="m4 4 8 8M12 4l-8 8"/>'),
+        chevronDown: (s = 12) => svg(s, '<path d="m4 6 4 4 4-4"/>'),
+        chevronLeft: (s = 14) => svg(s, '<path d="m10 3-5 5 5 5"/>'),
+        chevronRight: (s = 10) => svg(s, '<path d="m6 3 5 5-5 5"/>', 'class="tools-chevron"'),
+        check: (s = 14) => svg(s, '<path d="m3 8.5 3 3 7-7"/>'),
+        eye: (s = 14) =>
+          svg(s, '<path d="M1.5 8S3.9 3.5 8 3.5 14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),
+        shield: (s = 14) =>
+          svg(s, '<path d="M8 1.8 13 3.6v4c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6v-4z"/><path d="M8 5.5v3M8 10.8v.1"/>'),
+        send: (s = 16) => svg(s, '<path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/>', 'stroke-width="1.8"'),
+        search: (s = 14) => svg(s, '<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/>'),
+        wrench: (s = 12) =>
+          svg(s, '<path d="M10.2 2.3a3.6 3.6 0 0 0-4.6 4.6L2 10.5a1.7 1.7 0 0 0 2.4 2.4L8 9.3a3.6 3.6 0 0 0 4.6-4.6l-2.2 2.2-1.9-.5-.5-1.9z"/>'),
+        at: (s = 12) =>
+          svg(s, '<circle cx="8" cy="8" r="2.8"/><path d="M10.8 5.2v3.6a1.8 1.8 0 0 0 3.6 0V8a6.4 6.4 0 1 0-2.5 5"/>'),
+        now: (s = 18) => svg(s, '<path d="M2.5 7 8 2.5 13.5 7v6.5h-11z"/><path d="M6.5 13.5v-4h3v4"/>'),
+        work: (s = 18) => svg(s, '<rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/>'),
+        people: (s = 18) =>
+          svg(s, '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5c.6-2.5 2.3-3.8 4.5-3.8s3.9 1.3 4.5 3.8"/><circle cx="11.5" cy="6" r="2"/><path d="M12 9.7c1.5.2 2.4 1.4 2.8 3.3"/>'),
+        projects: (s = 18) => svg(s, '<path d="M1.5 4.5v8h13v-6.5H8L6.5 4.5z"/>'),
+        settings: (s = 18) =>
+          svg(s, '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="var(--surface)"/><circle cx="10.5" cy="8" r="1.4" fill="var(--surface)"/><circle cx="5" cy="11.5" r="1.4" fill="var(--surface)"/>'),
+      };
+
+      /* ---------- Mock data, in the shapes of Role and Thread (packages/contracts) ---------- */
+      const capabilities = (chat, consultant) => ({ sharedMemory: true, chat, consultant });
+      const ROLES = [
+        { key: "office-manager", card: { name: "Pam", title: "Office Manager", capabilities: capabilities(true, false) }, builtIn: false },
+        { key: "devops", card: { name: "Dwight", title: "Devops", capabilities: capabilities(true, true) }, builtIn: false },
+        { key: "cto", card: { name: "Michael", title: "CTO", capabilities: capabilities(true, true) }, builtIn: false },
+        { key: "planner", card: { name: "Angela", title: "Planner", capabilities: capabilities(true, false) }, builtIn: false },
+        { key: "caretaker", card: { name: "Jan", title: "Caretaker", capabilities: capabilities(true, false) }, builtIn: true },
+        { key: "ui-ux-designer", card: { name: "Stanley", title: "UI/UX Designer", capabilities: capabilities(true, true) }, builtIn: false },
+        { key: "developer", card: { name: "Jim", title: "Developer", capabilities: capabilities(false, false) }, builtIn: false },
+        { key: "reviewer", card: { name: "Oscar", title: "Reviewer", capabilities: capabilities(false, false) }, builtIn: false },
+      ];
+      // The picker and the switch offer only people with chat on.
+      const CHAT_PEOPLE = ROLES.filter((role) => role.card.capabilities.chat);
+      const roleOf = (key) => ROLES.find((role) => role.key === key);
+      const nameOf = (key) => (key === "you" ? "You" : roleOf(key).card.name);
+      // The head's line on what the person can do, as the chat modal words it today.
+      const canDo = (role) =>
+        role.builtIn
+          ? "Reads, and changes only in a Thread where you allow changes"
+          : "Reads every Project and changes no file";
+
+      const say = (by, at, text, tools = []) => ({ kind: "turn", by, at, text, tools });
+      const day = (text) => ({ kind: "day", text });
+      const tool = (name, summary) => ({ name, summary });
+
+      function chatThread({ id, roleKey, title, startedAt, last, warmMinutes = null, changesAllowed = null, answered = false, messages }) {
+        return {
+          id,
+          home: { kind: "chat", roleKey },
+          roleKey,
+          title,
+          state: "waiting",
+          tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+          context: {
+            move: warmMinutes ? "resume" : "fresh",
+            reason: warmMinutes ? "cache-warm" : "cache-expired",
+            cacheWarm: warmMinutes !== null,
+            cacheWarmUntil: null,
+            contextTokens: 0,
+            briefTokens: null,
+            alternatives: [],
+            override: null,
+          },
+          startedAt,
+          stageThread: false,
+          consultation: null,
+          // Null for every Thread but the Caretaker's chat's.
+          changesAllowed,
+          // For display only: the time shown, the cache's minutes left, the messages.
+          display: { last, warmMinutes, messages },
+          // This design's new record, which the app doesn't have: an answer the user hasn't seen.
+          seen: { answeredUnseen: answered, order: answered ? 1 : 0 },
+        };
+      }
+
+      function seedThreads() {
+        return [
+          chatThread({
+            id: "pam-e2e",
+            roleKey: "office-manager",
+            title: "Who can look at the flaky e2e run?",
+            startedAt: "2026-11-06T10:04:00Z",
+            last: "Today 10:12",
+            warmMinutes: 47,
+            answered: true,
+            messages: [
+              day("Today"),
+              say("you", "10:04", "The e2e run failed twice this morning on the Task page spec. Who should look at it?"),
+              say("office-manager", "10:05", "Let me see what the two runs say first.", [
+                tool("Read", "docs/tasks/README.md"),
+                tool("Grep", '"conversation-drawer" apps/web/e2e'),
+                tool("Bash", "npm run test:e2e -- --list --grep task-page"),
+              ]),
+              say(
+                "office-manager",
+                "10:12",
+                "Dwight looks after the workstation and its runners, so a flaky run is his. Both failures time out on the same step, waiting for the conversation drawer to open, which points at the test rather than the machine.\n\nOpen a Thread with Dwight and paste the run; he can read its log from there.",
+              ),
+            ],
+          }),
+          chatThread({
+            id: "pam-hiring",
+            roleKey: "office-manager",
+            title: "Hiring a second Developer",
+            startedAt: "2026-11-05T16:20:00Z",
+            last: "Yesterday 16:30",
+            messages: [
+              day("Yesterday"),
+              say("you", "16:20", "Could a second Developer take the notnullsoft work?"),
+              say("office-manager", "16:30", "I drafted a Role card for a second Developer from Jim's, with a Task limit of 2. It's a Proposal on the People page, waiting for you to confirm it."),
+            ],
+          }),
+          chatThread({
+            id: "dwight-disk",
+            roleKey: "devops",
+            title: "Disk space on the workstation",
+            startedAt: "2026-11-06T08:41:00Z",
+            last: "Today 08:50",
+            warmMinutes: 22,
+            messages: [
+              day("Today"),
+              say("you", "08:41", "The disk is at 91%. What's taking it?"),
+              say(
+                "devops",
+                "08:50",
+                "Worktrees take 38 GB and Docker's build cache 21 GB. The cache is safe to prune; the worktrees are the Caretaker's to clear, as most of them belong to published Tasks.",
+                [tool("Bash", "du -sh /var/lib/the-office/*"), tool("Bash", "docker system df")],
+              ),
+            ],
+          }),
+          chatThread({
+            id: "dwight-backups",
+            roleKey: "devops",
+            title: "Postgres backups at night",
+            startedAt: "2026-11-03T21:02:00Z",
+            last: "Mon 21:10",
+            messages: [
+              day("Monday, 3 November"),
+              say("you", "21:02", "Do the nightly Postgres backups still run?"),
+              say("devops", "21:10", "Yes: the last seven are there, the newest from 02:00 this morning, each about 180 MB.", [tool("Bash", "ls -lh /var/backups/the-office")]),
+            ],
+          }),
+          chatThread({
+            id: "dwight-node",
+            roleKey: "devops",
+            title: "Node 24 on the workstation",
+            startedAt: "2026-11-02T11:30:00Z",
+            last: "2 Nov",
+            messages: [
+              day("Sunday, 2 November"),
+              say("you", "11:30", "Is Node 24 worth the move yet?"),
+              say("devops", "11:41", "Not yet: two of the Projects' dev dependencies don't support it. I'll look again when they release."),
+            ],
+          }),
+          chatThread({
+            id: "michael-login",
+            roleKey: "cto",
+            title: "Keeping the old /login route",
+            startedAt: "2026-11-06T09:20:00Z",
+            last: "Today 09:31",
+            warmMinutes: 41,
+            messages: [
+              day("Today"),
+              say("you", "09:20", "Before I answer {{decision}}: is a redirect worth keeping for one release?"),
+              say(
+                "cto",
+                "09:31",
+                "Yes, keep it for one release. Two bookmarks and the e2e suite still open `/login` directly, and the redirect costs one route. Remove it with the next release's clean-up Task.\n\nThe Decision is Jim's, on the Task, so the answer is yours to give there.",
+                [tool("Read", "apps/service/src/modules/auth/MAP.md"), tool("Grep", '"/login" apps/web/src apps/web/e2e')],
+              ),
+            ],
+          }),
+          chatThread({
+            id: "michael-engines",
+            roleKey: "cto",
+            title: "Engines for the Reviewer",
+            startedAt: "2026-11-04T14:00:00Z",
+            last: "Tue 14:12",
+            messages: [
+              day("Tuesday, 4 November"),
+              say("you", "14:00", "Should Oscar review on a cheaper model?"),
+              say("cto", "14:12", "For the-office, yes: its reviews are mostly reading. Keep notnullsoft on the default, where the diffs are larger."),
+            ],
+          }),
+          chatThread({
+            id: "angela-export",
+            roleKey: "planner",
+            title: "Split the export Initiative",
+            startedAt: "2026-11-06T10:16:00Z",
+            last: "Today 10:20",
+            warmMinutes: 55,
+            messages: [
+              day("Today"),
+              say("you", "10:16", "The export Initiative has grown. Could it be two: the CSV export, and the scheduled reports?"),
+              say("planner", "10:18", "It splits cleanly. The CSV export needs nothing from the schedules, and three of its Tasks are already Ready.", [
+                tool("Read", "Initiative: Usage exports"),
+                tool("Grep", '"schedule" docs/tasks'),
+              ]),
+              say("you", "10:20", "Good. Which Tasks go where?"),
+            ],
+          }),
+          chatThread({
+            id: "jan-worktrees",
+            roleKey: "caretaker",
+            title: "Old worktrees taking space",
+            startedAt: "2026-11-06T09:02:00Z",
+            last: "Today 09:05",
+            warmMinutes: 30,
+            changesAllowed: false,
+            messages: [
+              day("Today"),
+              say("you", "09:02", "Dwight says the worktrees take 38 GB. Can the old ones go?"),
+              say(
+                "caretaker",
+                "09:05",
+                "Eleven worktrees belong to Tasks that are done and published, 31 GB together. In this Thread I only read, so I can list them but not remove them.\n\nAllow changes and I'll remove those eleven and nothing else.",
+                [tool("Bash", "git -C /var/lib/the-office/repos/the-office worktree list"), tool("Bash", "du -sh /var/lib/the-office/worktrees/*")],
+              ),
+            ],
+          }),
+          chatThread({
+            id: "jan-update",
+            roleKey: "caretaker",
+            title: "After the Claude Code update",
+            startedAt: "2026-11-01T18:00:00Z",
+            last: "1 Nov",
+            changesAllowed: false,
+            messages: [
+              day("Saturday, 1 November"),
+              say("you", "18:00", "Did the update go through?"),
+              say("caretaker", "18:04", "It did: every engine check passes on the new version.", [tool("Bash", "claude --version")]),
+            ],
+          }),
+        ];
+      }
+
+      const DECISION = {
+        task: "Fix the login redirect loop",
+        project: "the-office",
+        by: "developer",
+        asked: "09:12",
+        question: "Keep the old /login route as a redirect for one release?",
+        context:
+          "The loop comes from /login and /sign-in redirecting to each other. Removing /login ends it at once; keeping it as a one-way redirect ends it too and spares bookmarks and the e2e suite, at the cost of one route to remove later.",
+        answers: [
+          { text: "Yes, keep it for one release", reason: "Bookmarks and the e2e suite still open it", recommended: true },
+          { text: "No, remove it now", reason: "One route less, and the e2e suite changes with it" },
+        ],
+      };
+      const REPLY = "Noted. I'll look into it and answer here.";
+
+      /* ---------- State ---------- */
+      const WIDTH_KEY = "the-office-design.chat-drawer-width";
+      const DRAWER = { min: 360, default: 420, max: 720, pageAtLeast: 480 };
+      function rememberedWidth() {
+        try {
+          const stored = Number(localStorage.getItem(WIDTH_KEY));
+          return stored >= DRAWER.min && stored <= DRAWER.max ? stored : DRAWER.default;
+        } catch {
+          return DRAWER.default;
+        }
+      }
+      function rememberWidth(width) {
+        try {
+          localStorage.setItem(WIDTH_KEY, String(width));
+        } catch {
+          /* A browser that keeps nothing for a file opened from disk still resizes; it just forgets. */
+        }
+      }
+
+      const state = {
+        page: "now",
+        width: "wide",
+        beside: "push",
+        palette: "light",
+        scenario: "closed-answered",
+        details: false,
+        drawerWidth: rememberedWidth(),
+        resizing: false,
+      };
+      let session = {};
+      let timers = [];
+      let answeredCounter = 1;
+
+      function freshSession() {
+        return {
+          threads: seedThreads(),
+          chatOpen: false,
+          view: "people",
+          roleKey: null,
+          threadId: null,
+          menuOpen: false,
+          needsYouOpen: false,
+          conversationOpen: false,
+          window: null,
+          picked: 0,
+          panels: [],
+          drafts: {},
+          focusNext: null,
+        };
+      }
+
+      /* ---------- Layers and Esc: one press closes only the topmost thing ---------- */
+      const LAYER_NAMES = {
+        window: () => (session.window === "allow-changes" ? "the Allow changes window" : "the Decision's window"),
+        menu: () => "the person switch",
+        chat: () => "the chat drawer",
+        needsYou: () => "the Needs you panel",
+        conversation: () => "the conversation drawer",
+      };
+      // A window first, then a menu, then the side panels, the one opened last first.
+      function openLayers() {
+        const layers = [];
+        if (session.window) layers.push("window");
+        if (session.menuOpen) layers.push("menu");
+        return layers.concat([...session.panels].reverse());
+      }
+      function openPanel(name) {
+        session.panels = session.panels.filter((panel) => panel !== name).concat(name);
+        if (name === "chat") session.chatOpen = true;
+        if (name === "needsYou") session.needsYouOpen = true;
+        if (name === "conversation") session.conversationOpen = true;
+      }
+      function closeLayer(name) {
+        if (name === "window") session.window = null;
+        else if (name === "menu") session.menuOpen = false;
+        else {
+          session.panels = session.panels.filter((panel) => panel !== name);
+          if (name === "chat") {
+            session.chatOpen = false;
+            session.menuOpen = false;
+            session.focusNext = "chat-button";
+          }
+          if (name === "needsYou") session.needsYouOpen = false;
+          if (name === "conversation") session.conversationOpen = false;
+        }
+      }
+      const zOf = (panel) => 30 + 10 * session.panels.indexOf(panel);
+
+      /* ---------- What the button and the picker read ---------- */
+      const threadsOf = (roleKey) => session.threads.filter((thread) => thread.roleKey === roleKey);
+      const shownThread = () => session.threads.find((thread) => thread.id === session.threadId);
+      const unseenAnswers = () =>
+        session.threads.filter((thread) => thread.seen.answeredUnseen).sort((a, b) => b.seen.order - a.seen.order);
+      const answering = () => session.threads.filter((thread) => thread.state === "answering");
+      // Answered wins over answering: it is the one that waits on the user.
+      function buttonLook() {
+        if (unseenAnswers().length > 0) return "answered";
+        if (answering().length > 0) return "answering";
+        return "nothing-new";
+      }
+      function personStatus(roleKey) {
+        const threads = threadsOf(roleKey);
+        const answered = threads.find((thread) => thread.seen.answeredUnseen);
+        if (answered) return { kind: "answered", words: `Answered · ${answered.display.last.replace("Today ", "")}` };
+        if (threads.some((thread) => thread.state === "answering")) return { kind: "answering", words: "Answering…" };
+        if (threads.length === 0) return { kind: "none", words: "No Threads yet" };
+        return { kind: "quiet", words: threads[0].display.last };
+      }
+      // The Thread on screen in the open drawer has been seen.
+      function markSeen() {
+        const thread = shownThread();
+        if (session.chatOpen && session.view === "thread" && thread && thread.state === "waiting") thread.seen.answeredUnseen = false;
+      }
+
+      /* ---------- Moves ---------- */
+      function openChat() {
+        const answered = unseenAnswers()[0];
+        if (answered) showThread(answered.roleKey, answered.id);
+        openPanel("chat");
+      }
+      function showPerson(roleKey) {
+        const latest = threadsOf(roleKey)[0];
+        session.roleKey = roleKey;
+        session.menuOpen = false;
+        if (latest) showThread(roleKey, latest.id);
+        else {
+          session.view = "list";
+          session.threadId = null;
+        }
+      }
+      function showThread(roleKey, threadId) {
+        session.roleKey = roleKey;
+        session.threadId = threadId;
+        session.view = "thread";
+        session.focusNext = `composer-${threadId}`;
+      }
+      function newThread() {
+        const role = roleOf(session.roleKey);
+        const thread = chatThread({
+          id: `new-${Date.now()}`,
+          roleKey: role.key,
+          title: null,
+          startedAt: new Date().toISOString(),
+          last: "Just now",
+          changesAllowed: role.builtIn ? false : null,
+          messages: [],
+        });
+        session.threads.unshift(thread);
+        showThread(role.key, thread.id);
+      }
+      const clock = () => new Date().toTimeString().slice(0, 5);
+      function send(threadId) {
+        const thread = session.threads.find((each) => each.id === threadId);
+        const text = (session.drafts[threadId] ?? "").trim();
+        if (!thread || !text || thread.state === "answering") return;
+        const at = clock();
+        if (thread.display.messages.length === 0) thread.display.messages.push(day("Today"));
+        thread.display.messages.push(say("you", at, text));
+        if (thread.title === null) thread.title = text.length > 48 ? `${text.slice(0, 47)}…` : text;
+        thread.display.last = `Today ${at}`;
+        thread.state = "answering";
+        delete session.drafts[threadId];
+        session.focusNext = `composer-${threadId}`;
+        timers.push(
+          setTimeout(() => {
+            const answeredAt = clock();
+            thread.display.messages.push(say(thread.roleKey, answeredAt, REPLY));
+            thread.display.last = `Today ${answeredAt}`;
+            thread.state = "waiting";
+            thread.seen = { answeredUnseen: true, order: ++answeredCounter };
+            render();
+          }, 3200),
+        );
+      }
+
+      /* ---------- Scenarios ---------- */
+      const SCENARIOS = {
+        "closed-answered": {
+          label: "Closed, someone answered",
+          note: "<strong>Closed, someone answered.</strong> The Chat button sits at the top bar's right end, after + Idea, right above where the drawer opens. Pam answered while the drawer was closed, so the button shows her avatar with an Ember dot: a face and a dot, never a number, so it can't be read as the Needs you count in the status strip. Press it: the drawer opens on the Thread that answered, and the dot clears once that answer is on screen.",
+          set: () => {
+            session.roleKey = "office-manager";
+            session.threadId = "pam-e2e";
+            session.view = "thread";
+          },
+        },
+        picking: {
+          label: "Picking a person",
+          note: "<strong>Picking a person.</strong> With no chat open yet, the drawer opens on the people with chat on, in one fixed order so a row never moves under the pointer, each with their Role and where their chat stands: Answered, Answering… or when it last moved. People with chat off aren't offered. Pick one and their latest Thread opens.",
+          set: () => openPanel("chat"),
+        },
+        list: {
+          label: "The Thread list",
+          note: "<strong>The Thread list.</strong> One column: the list is a step back from the open Thread (‹ Threads), with New thread at its top. Each Thread shows its title, whether the cache is warm, when it last moved, and an Ember dot if it answered unseen. The person's name in the head is the switch to someone else, with the drawer staying open.",
+          set: () => {
+            session.roleKey = "devops";
+            session.threadId = "dwight-disk";
+            session.view = "list";
+            openPanel("chat");
+          },
+        },
+        draft: {
+          label: "A Thread with a draft",
+          note: "<strong>A Thread open, with a draft.</strong> The Thread in Rows at drawer width, the Details switch on the Thread's own row, and the head's line on what Michael can do. The draft is kept per Thread: press Esc, switch person or the page behind, open the drawer again, and it is still there. The Mention of a Decision opens the Decision's window over everything.",
+          set: () => {
+            session.drafts["michael-login"] = "Thanks. And the session store: could it move to Postgres before the release, or does that wait for";
+            showThread("cto", "michael-login");
+            openPanel("chat");
+          },
+        },
+        answering: {
+          label: "A person answering",
+          note: "<strong>Angela is answering.</strong> The Thread shows the Turn being written, and the button its third look: her avatar with a live dot. Send waits until the answer ends, and says so on hover; the draft can still be written. Close the drawer: when she answers, the button turns to Answered.",
+          set: () => {
+            const thread = session.threads.find((each) => each.id === "angela-export");
+            thread.state = "answering";
+            showThread("planner", "angela-export");
+            openPanel("chat");
+            timers.push(
+              setTimeout(() => {
+                thread.display.messages.push(
+                  say("planner", clock(), "The CSV export keeps the three Ready Tasks and the download button; the scheduled reports take the schedule editor, the email digest and the reports page. I've drafted both Initiatives for you to look at.", [
+                    tool("Read", "docs/tasks/README.md"),
+                  ]),
+                );
+                thread.state = "waiting";
+                thread.seen = { answeredUnseen: true, order: ++answeredCounter };
+                render();
+              }, 9000),
+            );
+          },
+        },
+        "no-threads": {
+          label: "No Threads yet",
+          note: "<strong>No Threads yet.</strong> Stanley has none: the empty state says what a Thread is and offers New thread. Start one, write and press Enter: the Thread takes its title from the first message, and the reply comes as Answered if you look elsewhere meanwhile.",
+          set: () => {
+            session.roleKey = "ui-ux-designer";
+            session.view = "list";
+            openPanel("chat");
+          },
+        },
+        caretaker: {
+          label: "The Caretaker's Thread",
+          note: "<strong>The Caretaker's Thread.</strong> Jan's head says what the chat can do, and the Thread's Allow changes bar sits under the Thread's row, where it serves that Thread only. Allow changes opens a small window over the drawer; the session restarts under the new rules.",
+          set: () => {
+            showThread("caretaker", "jan-worktrees");
+            openPanel("chat");
+          },
+        },
+        "needs-you": {
+          label: "With the Needs you panel",
+          note: "<strong>With the Needs you panel.</strong> It opens from the status strip on the same right edge at 560px, over the chat drawer with its dimmed backdrop, as it does today: a short visit to answer and close. The chat drawer stays open under it, its draft kept. Esc closes the panel first, then the chat.",
+          set: () => {
+            session.drafts["michael-login"] = "Thanks, that settles it.";
+            showThread("cto", "michael-login");
+            openPanel("chat");
+            openPanel("needsYou");
+          },
+        },
+        window: {
+          label: "With a window",
+          note: "<strong>With a window.</strong> A window opens over everything, the chat drawer and both panels included: here the Decision's window, opened from the Mention in Michael's Thread. Esc closes the window alone; the drawer and its draft stay.",
+          set: () => {
+            showThread("cto", "michael-login");
+            openPanel("chat");
+            session.window = "decision";
+          },
+        },
+        conversation: {
+          label: "With the conversation drawer",
+          note: "<strong>With the conversation drawer.</strong> On a narrow Task or Initiative page the conversation is a drawer reached by its handle. While the chat drawer is open, the handle moves to the chat drawer's left edge, so both stay in reach and nothing covers the other's control. The conversation drawer opened last, so it lies over the chat, and Esc closes it first.",
+          set: () => {
+            if (state.page === "now") state.page = "task";
+            if (state.width === "wide") state.width = "900";
+            showThread("office-manager", "pam-e2e");
+            openPanel("chat");
+            openPanel("conversation");
+          },
+        },
+      };
+      function applyScenario(key) {
+        timers.forEach(clearTimeout);
+        timers = [];
+        state.scenario = key;
+        session = freshSession();
+        SCENARIOS[key].set();
+      }
+
+      /* ---------- Geometry ---------- */
+      const frame = document.getElementById("frame");
+      function layout() {
+        const width = frame.clientWidth;
+        const mode = width <= 600 ? "fill" : width <= 900 ? "over" : state.beside;
+        const widest = mode === "push" ? Math.min(DRAWER.max, width - 56 - DRAWER.pageAtLeast) : Math.min(DRAWER.max, width - 56 - 64);
+        const max = Math.max(DRAWER.min, widest);
+        const drawerWidth = mode === "fill" ? width : Math.min(Math.max(state.drawerWidth, DRAWER.min), max);
+        const pushed = session.chatOpen && mode === "push";
+        const pageWidth = width - 56 - (pushed ? drawerWidth : 0);
+        return { width, mode, max, drawerWidth, pushed, pageWidth, phone: width <= 600 };
+      }
+
+      /* ---------- Rendering helpers ---------- */
+      const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const AVATAR_TINTS = ["blue", "green", "amber", "ember", "gray", "red"];
+      function avatar(name, size = "sm", extraClass = "") {
+        let hash = 0;
+        for (const character of name) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+        const tint = name === "You" ? "gray" : AVATAR_TINTS[hash % AVATAR_TINTS.length];
+        return `<span class="avatar ${size} ${extraClass}" style="--avatar-bg:var(--${tint}-100);--avatar-fg:var(--${tint}-700)" aria-hidden="true">${name[0]}</span>`;
+      }
+      const mention = () =>
+        `<button type="button" class="mention" data-action="open-decision" title="Open the Decision">${ICON.at()}Decision: ${escapeHtml(DECISION.question)}</button>`;
+      const CODE_SPAN = new RegExp("`([^`]+)`", "g");
+      function markdown(text) {
+        return text
+          .split("\n\n")
+          .map((paragraph) => {
+            const inline = escapeHtml(paragraph).replace(CODE_SPAN, "<code>$1</code>").replace("{{decision}}", mention());
+            return `<p>${inline}</p>`;
+          })
+          .join("");
+      }
+      function toolsLine(tools) {
+        if (!state.details || tools.length === 0) return "";
+        const last = tools[tools.length - 1];
+        if (tools.length === 1)
+          return `<div class="tools single in-column">${ICON.wrench()}<span class="tools-last">${escapeHtml(last.name)} ${escapeHtml(last.summary)}</span></div>`;
+        const rows = tools.map((call) => `<li><b>${escapeHtml(call.name)}</b><span>${escapeHtml(call.summary)}</span></li>`).join("");
+        return `<details class="tools in-column"><summary>${ICON.chevronRight()}<span>${tools.length}</span><span aria-hidden="true">·</span><span class="tools-last">${escapeHtml(last.name)} ${escapeHtml(last.summary)}</span></summary><ul>${rows}</ul></details>`;
+      }
+      function turn(message) {
+        const name = nameOf(message.by);
+        return `<div class="turn">${avatar(name, "")}<div><div class="turn-by"><b>${escapeHtml(name)}</b><span>${message.at}</span></div><div class="said">${markdown(message.text)}</div></div></div>${toolsLine(message.tools)}`;
+      }
+      function threadColumn(messages, answeringBy) {
+        const parts = messages.map((message) => {
+          if (message.kind === "day") return `<div class="office-break">${message.text}</div>`;
+          if (message.kind === "note") return `<p class="office-line">${message.text}</p>`;
+          return turn(message);
+        });
+        if (answeringBy) {
+          const name = nameOf(answeringBy);
+          parts.push(
+            `<div class="turn">${avatar(name, "")}<div><div class="turn-by"><b>${escapeHtml(name)}</b><span>answering</span></div><span class="typing" aria-label="${escapeHtml(name)} is answering"><i></i><i></i><i></i></span></div></div>`,
+          );
+          if (state.details) parts.push(`<div class="tools single in-column">${ICON.wrench()}<span class="tools-last">Read docs/tasks/README.md</span></div>`);
+        }
+        return `<div class="thread-column">${parts.join("")}</div>`;
+      }
+      const detailsSwitch = () =>
+        `<button type="button" class="switch-label" role="switch" aria-checked="${state.details}" data-action="toggle-details"><span class="switch"></span>Details</button>`;
+
+      /* ---------- The shell ---------- */
+      function rail() {
+        const on = state.page === "now" ? "now" : "work";
+        const item = (key, label) => `<span class="rail-item${on === key ? " on" : ""}" title="${label}">${ICON[key]()}</span>`;
+        return `<nav class="rail" aria-label="Surfaces"><span class="rail-mark">N</span>${item("now", "Now")}${item("work", "Work")}${item("people", "People")}${item("projects", "Projects")}${item("settings", "Settings")}</nav>`;
+      }
+      function chatButton(geometry, { look = buttonLook(), expanded = session.chatOpen, interactive = true } = {}) {
+        let mark = ICON.chat();
+        let label = "Chat: nothing new";
+        if (look === "answered") {
+          const names = interactive ? unseenAnswers().map((thread) => nameOf(thread.roleKey)) : ["Pam"];
+          const unique = [...new Set(names)].slice(0, 2);
+          mark = `<span class="chat-mark">${unique.map((name) => avatar(name, "xs")).join("")}<span class="dot answered"></span></span>`;
+          label = `Chat: ${unique.join(" and ")} answered`;
+        } else if (look === "answering") {
+          const name = interactive ? nameOf(answering()[0].roleKey) : "Angela";
+          mark = `<span class="chat-mark">${avatar(name, "xs", "answering")}<span class="dot answering"></span></span>`;
+          label = `Chat: ${name} is answering`;
+        }
+        const narrow = geometry.phone;
+        const attributes = interactive ? `data-action="toggle-chat" data-focus="chat-button" aria-expanded="${expanded}"` : 'tabindex="-1"';
+        return `<button type="button" class="btn secondary chat-button${narrow ? " icon-only" : ""}" ${attributes} aria-label="${label}" title="${label}">${mark}${narrow ? "" : "Chat"}</button>`;
+      }
+      function topBar(geometry) {
+        const titles = { now: ["Now", ""], task: ["Fix the login redirect loop", "Work › the-office"], initiative: ["Usage exports", "Work › the-office"] };
+        const [title, crumb] = titles[state.page];
+        const wide = geometry.width > 900;
+        return `<header class="top">
+          ${geometry.phone ? "" : `<span class="lockup">NotNullSoft <span class="product-chip">The Office</span></span><span class="top-divider"></span>`}
+          <h1>${title}</h1>${crumb && !geometry.phone ? `<span class="crumb">${crumb}</span>` : ""}
+          <span class="grow"></span>
+          ${wide ? `<span class="search">${ICON.search()}Search<kbd>Ctrl K</kbd></span>` : ""}
+          <button type="button" class="btn secondary${geometry.phone ? " icon-only" : ""}" tabindex="-1" aria-label="Idea">${ICON.plus()}${geometry.phone ? "" : "Idea"}</button>
+          ${chatButton(geometry)}
+        </header>`;
+      }
+      function statusStrip(geometry) {
+        const needsYou = `<button type="button" class="strip-stat strip-needs-you" data-action="open-needs-you" aria-haspopup="dialog"><b>2</b> need you</button>`;
+        const desks = `<span class="strip-stat"><span class="strip-dot"></span><b>2</b> / 4 desks in use</span>`;
+        if (geometry.phone) return `<div class="strip">${needsYou}${desks}</div>`;
+        const more =
+          geometry.width > 900
+            ? `<span class="strip-stat"><b>184k</b> tokens today</span><span class="strip-stat">5-hour window 38%<span class="strip-meter"><span></span></span></span><span class="strip-stat"><b>6</b> Tasks touched</span>`
+            : `<span class="strip-stat"><b>184k</b> tokens today</span>`;
+        return `<div class="strip">${needsYou}${desks}${more}</div>`;
+      }
+
+      /* ---------- The pages behind ---------- */
+      const skeleton = (...widths) => `<div class="skeleton">${widths.map((width) => `<span style="width:${width}%"></span>`).join("")}</div>`;
+      function decisionCard({ withTask }) {
+        const answers = DECISION.answers
+          .map((answer) => `<button type="button" class="answer-line" tabindex="-1"><span>${answer.text}</span>${answer.recommended ? '<span class="badge accent">Recommended</span>' : ""}</button>`)
+          .join("");
+        const over = withTask ? `<div class="card-over"><b>${DECISION.task}</b><span class="project-chip">${DECISION.project}</span></div>` : "";
+        return `<div class="block" style="--edge:var(--warning)">${over}<div class="card-over"><span class="badge warning">Decision</span>${avatar("Jim", "sm")}<span>Jim · asked ${DECISION.asked}</span></div><div class="block-title">${DECISION.question}</div>${answers}<button type="button" class="answer-line" tabindex="-1"><span>In your own words…</span></button></div>`;
+      }
+      function gateCard() {
+        return `<div class="block" style="--edge:var(--info)"><div class="card-over"><b>Export usage as CSV</b><span class="project-chip">the-office</span></div><div class="card-over"><span class="badge info">Gate</span><span>Waiting for your review after Test</span></div><div class="block-sub">6 files changed · +214 −38 · tests passed · 5 of 5 statements met</div><div class="card-actions"><button type="button" class="btn sm primary" tabindex="-1">Continue</button><button type="button" class="btn sm secondary" tabindex="-1">Show details</button></div></div>`;
+      }
+      function nowPage(geometry) {
+        const columns = geometry.pageWidth >= 1000 ? 3 : geometry.pageWidth >= 620 ? 2 : 1;
+        const running = [
+          ["Fix the login redirect loop", "Jim", "Implement"],
+          ["Export usage as CSV", "Oscar", "Review"],
+          ["Archive old Initiatives", "Angela", "Plan"],
+        ]
+          .map(([task, person, stage]) => `<div class="row">${avatar(person, "sm")}<span class="row-text">${task}</span><span class="badge info">${stage}</span></div>`)
+          .join("");
+        const since = ["Pam captured an Idea: Dark mode for the rail", "Oscar passed Review on Task 52", "Publish merged the-office #54"]
+          .map((line) => `<div class="row"><span class="row-text">${line}</span></div>`)
+          .join("");
+        return `<div class="page${geometry.phone ? " tight" : ""}"><div class="cols" style="grid-template-columns:repeat(${columns}, minmax(0, 1fr))">
+          <section class="col"><span class="overline">Needs you · 2</span>${decisionCard({ withTask: true })}${gateCard()}</section>
+          <section class="col"><span class="overline">Running · 3</span><div class="block" style="--edge:var(--success)"><div class="row-list">${running}</div></div><span class="overline">Today's tokens</span><div class="block"><div class="block-title">184k</div>${skeleton(90, 70)}</div></section>
+          <section class="col"><span class="overline">Since you left</span><div class="block"><div class="row-list">${since}</div>${skeleton(80, 60, 72)}</div></section>
+        </div></div>`;
+      }
+      function taskConversation(withComposer = true) {
+        const messages = [
+          say("planner", "08:02", "The Plan and the Definition of Done are on the left. The loop is between `/login` and `/sign-in`."),
+          say("developer", "09:12", "I've put a Decision to you: keep `/login` as a redirect for one release?"),
+        ];
+        return `<div class="tabs"><span class="tab">${avatar("Angela", "xs")}Angela</span><span class="tab on">${avatar("Jim", "xs")}Jim<span class="dot answering"></span></span><span class="tab">${avatar("Oscar", "xs")}Oscar</span><span class="grow"></span>${detailsSwitch()}</div>
+          <div class="thread">${threadColumn(messages, null)}</div>
+          ${withComposer ? `<div class="composer"><div class="composer-to"><span class="context-dot warm"></span>To <strong>Jim</strong> · cache warm, 38 min left</div><div class="composer-row"><textarea class="composer-field" rows="1" placeholder="Message Jim" data-focus="task-composer" data-draft="task-jim">${escapeHtml(session.drafts["task-jim"] ?? "")}</textarea><button type="button" class="composer-send" tabindex="-1" aria-label="Send">${ICON.send()}</button></div></div>` : ""}`;
+      }
+      function initiativeConversation() {
+        const messages = [day("Yesterday"), say("you", "17:40", "Should the reports page wait for the schedules?"), say("planner", "17:52", "No: it can ship with the CSV export and grow the schedules later.")];
+        return `<div class="tabs"><span class="tab on">Threads · 3</span><span class="grow"></span>${detailsSwitch()}</div>
+          <div class="thread">${threadColumn(messages, null)}</div>
+          <div class="composer"><div class="composer-to"><span class="context-dot"></span>To <strong>Angela</strong> · starts fresh</div><div class="composer-row"><textarea class="composer-field" rows="1" placeholder="Message Angela" data-focus="initiative-composer" data-draft="initiative-angela">${escapeHtml(session.drafts["initiative-angela"] ?? "")}</textarea><button type="button" class="composer-send" tabindex="-1" aria-label="Send">${ICON.send()}</button></div></div>`;
+      }
+      // A page folds its side column into a drawer when the page, not the window, is 844px or less.
+      const pageIsNarrow = (geometry) => geometry.pageWidth <= 844;
+      function taskPage(geometry) {
+        const narrow = pageIsNarrow(geometry);
+        const stages = [
+          ["done", "Plan", "Angela"],
+          ["running", "Implement", "Jim"],
+          ["", "Review", "Oscar"],
+          ["", "Test", "npm run verify"],
+          ["", "Gate", "You"],
+          ["", "Publish", "The Office"],
+        ]
+          .map(([kind, name, by]) => `<span class="stage-pill ${kind}">${kind === "done" ? ICON.check(12) : ""}<b>${name}</b>${by}</span>`)
+          .join("");
+        const record = `<section class="col">${decisionCard({ withTask: false })}<div class="tabs"><span class="tab on">Overview</span><span class="tab">Changes</span><span class="tab">Attachments</span></div>
+          <div class="block"><div class="block-title">Description</div>${skeleton(96, 88, 40)}</div>
+          <div class="block" style="--edge:var(--success)"><div class="block-title">Plan <span class="badge success">Confirmed</span></div>${skeleton(92, 84, 90, 60)}</div>
+          <div class="block" style="--edge:var(--success)"><div class="block-title">Definition of Done <span class="badge success">Confirmed</span></div>${skeleton(80, 74, 66)}</div></section>`;
+        const conversation = narrow ? "" : `<section class="task-conversation">${taskConversation()}</section>`;
+        return `<div class="page${geometry.phone ? " tight" : ""}"><div class="page-head"><h2>Fix the login redirect loop</h2><span class="project-chip">the-office</span><span class="badge info">Running</span></div>
+          <div class="pipeline">${stages}</div>
+          <div class="cols" style="grid-template-columns:${narrow ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(360px, 440px)"}">${record}${conversation}</div>
+          ${narrow ? '<div style="height:56px"></div>' : ""}</div>`;
+      }
+      function initiativePage(geometry) {
+        const narrow = pageIsNarrow(geometry);
+        const tasks = [
+          ["Export usage as CSV", "Waiting on you", "warning"],
+          ["The reports page", "Ready", "info"],
+          ["Schedule a report", "Backlog", ""],
+          ["Email digest of reports", "Backlog", ""],
+        ]
+          .map(([task, stateWords, tone]) => `<div class="row"><span class="row-text">${task}</span><span class="badge ${tone}">${stateWords}</span></div>`)
+          .join("");
+        const blocks = `<section class="col"><div class="block"><div class="block-title">Goal</div>${skeleton(94, 86, 52)}</div><div class="block" style="--edge:var(--info)"><div class="block-title">Tasks · 4</div><div class="row-list">${tasks}</div></div><div class="block"><div class="block-title">Notes</div>${skeleton(70, 90)}</div></section>`;
+        const conversation = narrow ? "" : `<section class="task-conversation">${initiativeConversation()}</section>`;
+        return `<div class="page${geometry.phone ? " tight" : ""}"><div class="page-head"><h2>Usage exports</h2><span class="project-chip">the-office</span><span class="badge">Initiative</span></div>
+          <div class="cols" style="grid-template-columns:${narrow ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(360px, 440px)"}">${blocks}${conversation}</div>
+          ${narrow ? '<div style="height:56px"></div>' : ""}</div>`;
+      }
+
+      /* ---------- Side panels ---------- */
+      function conversationHandle(geometry) {
+        if (state.page === "now" || !pageIsNarrow(geometry)) return "";
+        // While the chat drawer is beside or over the page, the handle keeps to the page's side of it.
+        const offset = session.chatOpen && geometry.mode !== "fill" ? geometry.drawerWidth : 0;
+        const label = state.page === "task" ? '<span class="unread">2</span>' : "";
+        return `<button type="button" class="btn secondary conversation-handle" style="right:${16 + offset}px" data-action="open-conversation" aria-expanded="${session.conversationOpen}">${ICON.chat()}Conversation${label}</button>`;
+      }
+      function conversationDrawer(geometry) {
+        if (!session.conversationOpen || state.page === "now" || !pageIsNarrow(geometry)) return "";
+        const z = zOf("conversation");
+        const title = state.page === "task" ? "Conversation" : "Threads";
+        return `<div class="scrim" style="z-index:${z}" data-action="close-conversation"></div>
+          <aside class="conversation-drawer" style="z-index:${z + 1}" aria-label="${title}"><div class="drawer-head"><div class="drawer-head-main"><span class="drawer-title">${title}</span><span class="drawer-sub">${state.page === "task" ? "Fix the login redirect loop" : "Usage exports"}</span></div><button type="button" class="icon-button" data-action="close-conversation" aria-label="Close (Esc)">${ICON.x()}</button></div>
+          ${state.page === "task" ? taskConversation() : initiativeConversation()}</aside>`;
+      }
+      function needsYouPanel() {
+        if (!session.needsYouOpen) return "";
+        const z = zOf("needsYou");
+        return `<div class="scrim" style="z-index:${z}"></div><aside class="needs-you-panel" style="z-index:${z + 1}" role="dialog" aria-label="Needs you">
+          <div class="panel-head"><div class="drawer-head-main"><h3>Needs you</h3><span class="drawer-sub">2 need you, oldest first</span></div><button type="button" class="icon-button" data-action="close-needs-you" aria-label="Close (Esc)">${ICON.x()}</button></div>
+          <div class="panel-body">${decisionCard({ withTask: true })}${gateCard()}</div>
+          <div class="panel-foot"><button type="button" class="btn secondary" data-action="close-needs-you">Close</button></div></aside>`;
+      }
+
+      /* ---------- The chat drawer ---------- */
+      function drawerEdge(geometry) {
+        if (geometry.mode === "fill") return "";
+        return `<div class="drawer-edge${state.resizing ? " dragging" : ""}" role="separator" aria-orientation="vertical" aria-label="Resize the chat" aria-valuemin="${DRAWER.min}" aria-valuemax="${geometry.max}" aria-valuenow="${geometry.drawerWidth}" tabindex="0" data-focus="edge" title="Drag to resize · double-click for ${DRAWER.default}px"><span class="edge-readout">${geometry.drawerWidth}px · ${DRAWER.min}–${geometry.max}px</span></div>`;
+      }
+      function closeButton() {
+        return `<button type="button" class="icon-button" data-action="close-chat" aria-label="Close (Esc)" title="Close (Esc)">${ICON.x()}</button>`;
+      }
+      function statusWords(roleKey) {
+        const status = personStatus(roleKey);
+        const dot = status.kind === "answered" || status.kind === "answering" ? `<span class="dot ${status.kind}"></span>` : "";
+        return `<span class="status ${status.kind}">${dot}${status.words}</span>`;
+      }
+      function peopleView() {
+        const rows = CHAT_PEOPLE.map(
+          (role) =>
+            `<button type="button" class="person-row" data-action="pick" data-role="${role.key}">${avatar(role.card.name, "lg")}<span class="who"><b>${role.card.name}</b><span>${role.card.title}</span></span>${statusWords(role.key)}</button>`,
+        ).join("");
+        return `<header class="drawer-head"><div class="drawer-head-main"><span class="drawer-title">Chat</span><span class="drawer-sub">Pick a person to talk to</span></div>${closeButton()}</header>
+          <div class="people">${rows}<p class="people-note">People with chat off aren't listed. Chat is turned on in a person's Role card.</p></div>`;
+      }
+      function personMenu(role) {
+        const items = CHAT_PEOPLE.map((each) => {
+          const status = personStatus(each.key);
+          const dot = status.kind === "answered" || status.kind === "answering" ? `<span class="dot ${status.kind}" title="${status.words}"></span>` : "<span></span>";
+          return `<button type="button" class="menu-item" role="menuitemradio" aria-checked="${each.key === role.key}" data-action="switch-person" data-role="${each.key}">${avatar(each.card.name, "sm")}<span class="who"><b>${each.card.name}</b><span>${each.card.title}</span></span>${dot}</button>`;
+        }).join("");
+        return `<div class="menu" role="menu" aria-label="Chat with">${items}<div class="menu-foot">Open <a href="#" data-action="noop">${role.card.name}'s page</a> for their Role card and Memory.</div></div>`;
+      }
+      function personHead(role) {
+        return `<header class="drawer-head">${avatar(role.card.name, "lg")}<div class="drawer-head-main">
+            <button type="button" class="person-switch" data-action="toggle-menu" aria-haspopup="menu" aria-expanded="${session.menuOpen}" title="Chat with someone else"><span class="person-switch-name">${role.card.name}</span><span class="person-switch-title">${role.card.title}</span>${ICON.chevronDown()}</button>
+            <span class="drawer-sub">${canDo(role)}</span></div>${closeButton()}${session.menuOpen ? personMenu(role) : ""}</header>`;
+      }
+      function threadListView(role) {
+        const threads = threadsOf(role.key);
+        if (threads.length === 0)
+          return `<div class="threads"><div class="empty"><span class="empty-icon">${ICON.chat(18)}</span><b>No Threads with ${role.card.name} yet.</b><span>A new Thread starts a session that reads every Project's base branch.</span><button type="button" class="btn secondary" data-action="new-thread">${ICON.plus()}New thread</button></div></div>`;
+        const items = threads
+          .map((thread) => {
+            const unseen = thread.seen.answeredUnseen;
+            const current = thread.id === session.threadId;
+            const after = thread.state === "answering" ? '<span class="status answering"><span class="dot answering"></span>answering</span>' : unseen ? '<span class="status answered">answered</span>' : "";
+            return `<button type="button" class="thread-item${current ? " current" : ""}${unseen ? " has-answer" : ""}" data-action="open-thread" data-thread="${thread.id}" aria-current="${current}"><span class="thread-item-title"><span>${escapeHtml(thread.title ?? "New thread")}</span>${unseen ? '<span class="dot answered"></span>' : ""}</span><span class="thread-item-sub"><span class="context-dot${thread.context.cacheWarm ? " warm" : ""}" title="${thread.context.cacheWarm ? "Cache warm" : "Starts fresh with a brief, or continues a small context"}"></span>${thread.display.last}${after ? " · " : ""}${after}</span></button>`;
+          })
+          .join("");
+        return `<div class="threads"><button type="button" class="btn secondary block" data-action="new-thread">${ICON.plus()}New thread</button><div class="overline list-count">Threads · ${threads.length}</div>${items}</div>`;
+      }
+      function allowChangesBar(thread) {
+        if (thread.changesAllowed === null) return "";
+        if (thread.changesAllowed)
+          return `<p class="thread-changes allowed" role="note">${ICON.shield()}<span class="thread-changes-text">Changes allowed in this Thread: the Caretaker can do anything on the workstation except read your secrets</span><button type="button" class="btn sm secondary" data-action="switch-off">Switch off</button></p>`;
+        const answeringNow = thread.state === "answering";
+        return `<p class="thread-changes" role="note">${ICON.eye()}<span class="thread-changes-text">The Caretaker only reads in this Thread.</span><button type="button" class="btn sm secondary" data-action="allow-changes" ${answeringNow ? 'disabled title="Wait for the answer to finish, then Allow changes"' : ""}>${ICON.shield()}Allow changes</button></p>`;
+      }
+      function threadView(role, thread) {
+        const othersAnswered = threadsOf(role.key).some((each) => each.id !== thread.id && each.seen.answeredUnseen);
+        const draft = session.drafts[thread.id] ?? "";
+        const answeringNow = thread.state === "answering";
+        const minutes = thread.display.warmMinutes;
+        const cache = thread.context.cacheWarm ? `cache warm, ${minutes} min left` : "starts fresh";
+        const body =
+          thread.display.messages.length === 0
+            ? `<div class="thread-column"><p class="office-line">Write the first message: it gives the Thread its title.</p></div>`
+            : threadColumn(thread.display.messages, answeringNow ? thread.roleKey : null);
+        return `<div class="thread-bar"><button type="button" class="back" data-action="to-list" title="Every Thread with ${role.card.name}">${ICON.chevronLeft()}Threads${othersAnswered ? '<span class="dot answered"></span>' : ""}</button><span class="thread-bar-title" title="${escapeHtml(thread.title ?? "New thread")}">${escapeHtml(thread.title ?? "New thread")}</span>${detailsSwitch()}</div>
+          ${allowChangesBar(thread)}
+          <div class="thread" data-scroll="thread">${body}</div>
+          <div class="composer"><div class="composer-to"><span class="context-dot${thread.context.cacheWarm ? " warm" : ""}"></span>To <strong>${role.card.name}</strong> · ${cache}</div>
+            <div class="composer-row"><textarea class="composer-field" rows="1" placeholder="Message ${role.card.name}" data-focus="composer-${thread.id}" data-thread="${thread.id}">${escapeHtml(draft)}</textarea><button type="button" class="composer-send" data-action="send" data-thread="${thread.id}" aria-label="Send" ${answeringNow ? `disabled title="${role.card.name} is answering; send once the answer ends"` : 'title="Send (Enter)"'}>${ICON.send()}</button></div></div>`;
+      }
+      function chatDrawer(geometry) {
+        if (!session.chatOpen) return "";
+        const role = session.roleKey ? roleOf(session.roleKey) : null;
+        const thread = shownThread();
+        let content = peopleView();
+        if (role && session.view === "list") content = personHead(role) + threadListView(role);
+        if (role && session.view === "thread" && thread) content = personHead(role) + threadView(role, thread);
+        const label = role ? `Chat with ${role.card.name}` : "Chat";
+        return `<aside class="chat-drawer ${geometry.mode === "push" ? "beside" : geometry.mode}" style="z-index:${zOf("chat")}" aria-label="${label}">${drawerEdge(geometry)}${content}</aside>`;
+      }
+
+      /* ---------- Windows ---------- */
+      function windowLayer() {
+        if (session.window === "decision") {
+          const choices = DECISION.answers
+            .map(
+              (answer, index) =>
+                `<button type="button" class="choice${session.picked === index ? " picked" : ""}" data-action="choice" data-index="${index}"><span class="choice-mark"></span><span>${answer.text}${answer.recommended ? ' <span class="badge accent">Recommended</span>' : ""}<small>${answer.reason}</small></span></button>`,
+            )
+            .join("");
+          return `<div class="window-backdrop"><div class="window large" role="dialog" aria-modal="true" aria-label="Decision"><header class="window-head"><h2><span class="badge warning">Decision</span>Jim's<span>· ${DECISION.task} · asked ${DECISION.asked}</span></h2><button type="button" class="icon-button" data-action="close-window" aria-label="Close (Esc)">${ICON.x()}</button></header>
+            <div class="window-body"><h3>${DECISION.question}</h3><p>${DECISION.context}</p>${choices}<button type="button" class="choice${session.picked === 2 ? " picked" : ""}" data-action="choice" data-index="2"><span class="choice-mark"></span><span>In your own words</span></button></div>
+            <footer class="window-bar"><button type="button" class="btn primary" data-action="close-window">Answer</button><span class="grow"></span><button type="button" class="btn secondary" data-action="close-window">Close</button></footer></div></div>`;
+        }
+        if (session.window === "allow-changes")
+          return `<div class="window-backdrop"><div class="window small" role="dialog" aria-modal="true" aria-label="Allow changes in this Thread?"><header class="window-head"><h2>Allow changes in this Thread?</h2><button type="button" class="icon-button" data-action="close-window" aria-label="Close (Esc)">${ICON.x()}</button></header>
+            <div class="window-body"><p>The Caretaker can read and edit any file and run any command on the workstation in this Thread, git push included. Your secrets stay refused: SSH keys, credentials, browser profiles, the Office identity and the database credentials.</p><p>The Caretaker's session restarts under the new rules.</p></div>
+            <footer class="window-bar"><button type="button" class="btn danger" data-action="confirm-allow">Allow changes</button><span class="grow"></span><button type="button" class="btn secondary" data-action="close-window">Close</button></footer></div></div>`;
+        return "";
+      }
+
+      /* ---------- The bar, the note and the reference ---------- */
+      const PAGES = [
+        ["now", "Now"],
+        ["task", "A Task page"],
+        ["initiative", "An Initiative page"],
+      ];
+      const WIDTHS = [
+        ["wide", "Wide"],
+        ["900", "900px"],
+        ["390", "390px"],
+      ];
+      const BESIDE = [
+        ["push", "Pushes the page aside (recommended)"],
+        ["over", "Over the page"],
+      ];
+      const PALETTES = [
+        ["light", "Light"],
+        ["dark", "Dark"],
+      ];
+      function segments(key, options) {
+        return `<div class="segments">${options
+          .map(([value, label]) => `<button type="button" data-action="set" data-key="${key}" data-value="${value}" aria-pressed="${String(state[key]) === value}">${label}</button>`)
+          .join("")}</div>`;
+      }
+      function renderBar() {
+        const layers = openLayers();
+        const escape = layers.length ? layers.map((layer) => `<b>${LAYER_NAMES[layer]()}</b>`).join(" → ") : "nothing open";
+        const scenarios = `<div class="segments">${Object.entries(SCENARIOS)
+          .map(([key, scenario]) => `<button type="button" data-action="scenario" data-value="${key}" aria-pressed="${state.scenario === key}">${scenario.label}</button>`)
+          .join("")}</div>`;
+        document.getElementById("bar").innerHTML = `<span class="bar-title">The chat drawer</span><span class="bar-tag">PROPOSAL</span>
+          <div class="control"><span class="control-label">Page behind</span>${segments("page", PAGES)}</div>
+          <div class="control"><span class="control-label">Width</span>${segments("width", WIDTHS)}</div>
+          <div class="control"><span class="control-label">Beside the page</span>${segments("beside", BESIDE)}</div>
+          <div class="control"><span class="control-label">Palette</span>${segments("palette", PALETTES)}</div>
+          <span class="bar-break"></span>
+          <div class="control"><span class="control-label">Scenario</span>${scenarios}</div>
+          <span class="bar-escape">Esc closes, one per press: ${escape}</span>`;
+      }
+      function renderNote(geometry) {
+        const where =
+          geometry.mode === "fill"
+            ? " At 600px and below the drawer fills the window and can't be resized."
+            : geometry.mode === "over" && geometry.width <= 900
+              ? " At 900px and below the drawer lies over the page, with no backdrop, whatever the switch says: there is no room to push."
+              : geometry.mode === "push"
+                ? " <strong>Pushes the page aside:</strong> the page gives up the drawer's width and lays itself out at what is left, so a Task page folds its conversation into its drawer once the page is 844px or less."
+                : " <strong>Over the page:</strong> the page keeps its width and the drawer covers its right side, which on a Task or an Initiative page is the conversation and its composer.";
+        document.getElementById("note").innerHTML = SCENARIOS[state.scenario].note + (session.chatOpen ? where : "") + " Switch the page behind: the drawer stays open across pages.";
+      }
+      function renderReference(geometry) {
+        const looks = [
+          ["nothing-new", "Nothing new"],
+          ["answering", "Someone answering"],
+          ["answered", "Someone has answered"],
+        ]
+          .map(([look, words]) => `<div class="look">${chatButton({ phone: geometry.phone }, { look, expanded: false, interactive: false })}<span>${words}</span></div>`)
+          .join("");
+        document.getElementById("reference").innerHTML = `
+          <div><h2>The button's three looks</h2><div class="looks">${looks}<div class="look"><span class="strip-stat"><b>2</b> need you</span><span>Needs you, in the strip</span></div></div>
+            <p>A face and a dot, never a number: the number is the Needs you count's. At 600px and below the button shows its mark alone.</p></div>
+          <div><h2>Esc, one thing per press</h2><table><thead><tr><th>Order</th><th>What closes</th></tr></thead><tbody>
+            <tr><td>1</td><td>A window: the Decision's, Allow changes, the Attachment viewer</td></tr>
+            <tr><td>2</td><td>A menu or picker inside a panel: the person switch, the mention picker</td></tr>
+            <tr><td>3</td><td>The side panel opened last: the chat drawer, the Needs you panel or the conversation drawer</td></tr>
+            <tr><td>4</td><td>The next side panel, by the same rule</td></tr></tbody></table>
+            <p>Esc never steps back inside the drawer, from a Thread to the list. Every draft stays.</p></div>
+          <div><h2>Width</h2><p>Drag the drawer's left edge, or focus it and press ← and →. It keeps between ${DRAWER.min}px and ${DRAWER.max}px and leaves the page at least ${DRAWER.pageAtLeast}px; double-click the edge for ${DRAWER.default}px. The width is remembered in this browser.</p>
+            <p>Now: <b>${state.drawerWidth}px</b> remembered, ${geometry.mode === "fill" ? "the whole window" : `${geometry.drawerWidth}px shown`} at this width. <button type="button" class="btn sm secondary" data-action="reset-width">Reset width</button></p>
+            <table><tbody><tr><td>Over 900px</td><td>Beside the page, which gives up its width</td></tr><tr><td>601–900px</td><td>Over the page, no backdrop</td></tr><tr><td>600px and below</td><td>Fills the window</td></tr></tbody></table></div>`;
+      }
+
+      /* ---------- Render ---------- */
+      function render() {
+        markSeen();
+        document.documentElement.dataset.palette = state.palette;
+        document.documentElement.dataset.theme = state.palette;
+        frame.className = `frame w-${state.width}`;
+        const geometry = layout();
+        const focused = document.activeElement;
+        const focusKey = session.focusNext ?? (frame.contains(focused) ? focused?.dataset?.focus : null);
+        const selection = focused && "selectionStart" in focused && !session.focusNext ? [focused.selectionStart, focused.selectionEnd] : null;
+        const threadScroll = frame.querySelector('[data-scroll="thread"]');
+        const keepScroll = threadScroll && threadScroll.scrollHeight - threadScroll.scrollTop - threadScroll.clientHeight > 40 ? threadScroll.scrollTop : null;
+        // Messages only ever come at the end, so an opened fold keeps its place in the list.
+        const openFolds = [...frame.querySelectorAll("details.tools")].map((fold) => fold.open);
+        session.focusNext = null;
+
+        const pages = { now: nowPage, task: taskPage, initiative: initiativePage };
+        frame.innerHTML = `<div class="app${geometry.pushed ? " pushed" : ""}${geometry.phone ? " w-phone" : ""}" style="--drawer-width:${geometry.drawerWidth}px">
+          ${rail()}${topBar(geometry)}${statusStrip(geometry)}
+          <main class="main">${pages[state.page](geometry)}</main>
+          ${conversationHandle(geometry)}${chatDrawer(geometry)}${conversationDrawer(geometry)}${needsYouPanel()}${windowLayer()}
+        </div>`;
+
+        frame.querySelectorAll("details.tools").forEach((fold, index) => {
+          fold.open = openFolds[index] ?? false;
+        });
+        const thread = frame.querySelector('[data-scroll="thread"]');
+        if (thread) thread.scrollTop = keepScroll ?? thread.scrollHeight;
+        if (focusKey) {
+          const target = frame.querySelector(`[data-focus="${focusKey}"]`);
+          if (target) {
+            target.focus({ preventScroll: true });
+            if (selection && "setSelectionRange" in target) target.setSelectionRange(...selection);
+            else if (target.tagName === "TEXTAREA") target.setSelectionRange(target.value.length, target.value.length);
+          }
+        }
+        renderBar();
+        renderNote(geometry);
+        renderReference(geometry);
+      }
+
+      /* ---------- Events ---------- */
+      const ACTIONS = {
+        set: (target) => {
+          state[target.dataset.key] = target.dataset.value;
+        },
+        scenario: (target) => applyScenario(target.dataset.value),
+        "toggle-chat": () => (session.chatOpen ? closeLayer("chat") : openChat()),
+        "close-chat": () => closeLayer("chat"),
+        pick: (target) => showPerson(target.dataset.role),
+        "toggle-menu": () => {
+          session.menuOpen = !session.menuOpen;
+        },
+        "switch-person": (target) => showPerson(target.dataset.role),
+        "to-list": () => {
+          session.view = "list";
+        },
+        "open-thread": (target) => showThread(session.roleKey, target.dataset.thread),
+        "new-thread": () => newThread(),
+        "toggle-details": () => {
+          state.details = !state.details;
+        },
+        send: (target) => send(target.dataset.thread),
+        "open-decision": () => {
+          session.picked = 0;
+          session.window = "decision";
+        },
+        choice: (target) => {
+          session.picked = Number(target.dataset.index);
+        },
+        "close-window": () => closeLayer("window"),
+        "allow-changes": () => {
+          session.window = "allow-changes";
+        },
+        "confirm-allow": () => {
+          shownThread().changesAllowed = true;
+          shownThread().display.messages.push({ kind: "note", text: "You allowed changes in this Thread. The session restarts." });
+          closeLayer("window");
+        },
+        "switch-off": () => {
+          shownThread().changesAllowed = false;
+          shownThread().display.messages.push({ kind: "note", text: "You switched changes off in this Thread. The session restarts." });
+        },
+        "open-needs-you": () => openPanel("needsYou"),
+        "close-needs-you": () => closeLayer("needsYou"),
+        "open-conversation": () => openPanel("conversation"),
+        "close-conversation": () => closeLayer("conversation"),
+        "reset-width": () => {
+          state.drawerWidth = DRAWER.default;
+          rememberWidth(DRAWER.default);
+        },
+        noop: () => {},
+      };
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-action]");
+        // A press anywhere but the menu and its switch closes the menu.
+        const closesMenu = session.menuOpen && !event.target.closest(".menu, .person-switch");
+        if (closesMenu) session.menuOpen = false;
+        if (!target) {
+          if (closesMenu) render();
+          return;
+        }
+        event.preventDefault();
+        ACTIONS[target.dataset.action](target);
+        render();
+      });
+      document.addEventListener("input", (event) => {
+        const key = event.target.dataset.thread ?? event.target.dataset.draft;
+        if (key) session.drafts[key] = event.target.value;
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          const [topmost] = openLayers();
+          if (!topmost) return;
+          event.preventDefault();
+          closeLayer(topmost);
+          render();
+          return;
+        }
+        const field = event.target;
+        if (event.key === "Enter" && !event.shiftKey && field.tagName === "TEXTAREA" && field.dataset.thread) {
+          event.preventDefault();
+          send(field.dataset.thread);
+          render();
+          return;
+        }
+        if (field.classList?.contains("drawer-edge") && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          const { max } = layout();
+          const steps = { ArrowLeft: state.drawerWidth + 16, ArrowRight: state.drawerWidth - 16, Home: DRAWER.min, End: max };
+          state.drawerWidth = Math.min(Math.max(steps[event.key], DRAWER.min), max);
+          rememberWidth(state.drawerWidth);
+          render();
+        }
+      });
+
+      // Dragging the left edge: listened for on the document, as each frame re-draws the edge. A
+      // second press soon after the first resets the width; dblclick can't, as its target is gone.
+      let drag = null;
+      let lastEdgePress = 0;
+      document.addEventListener("pointerdown", (event) => {
+        if (!event.target.closest(".drawer-edge")) return;
+        event.preventDefault();
+        if (event.timeStamp - lastEdgePress < 350) {
+          lastEdgePress = 0;
+          state.drawerWidth = DRAWER.default;
+          rememberWidth(DRAWER.default);
+          render();
+          return;
+        }
+        lastEdgePress = event.timeStamp;
+        drag = { startX: event.clientX, startWidth: layout().drawerWidth };
+        state.resizing = true;
+        render();
+      });
+      document.addEventListener("pointermove", (event) => {
+        if (!drag) return;
+        const { max } = layout();
+        state.drawerWidth = Math.round(Math.min(Math.max(drag.startWidth + drag.startX - event.clientX, DRAWER.min), max));
+        render();
+      });
+      document.addEventListener("pointerup", () => {
+        if (!drag) return;
+        drag = null;
+        state.resizing = false;
+        rememberWidth(state.drawerWidth);
+        render();
+      });
+      window.addEventListener("resize", render);
+
+      applyScenario(state.scenario);
+      render();
+    </script>
+  </body>
+</html>
