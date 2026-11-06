@@ -1,15 +1,30 @@
-import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import {
+  Module,
+  RequestMethod,
+  type DynamicModule,
+  type MiddlewareConsumer,
+  type ModuleMetadata,
+  type NestModule,
+  type Type,
+} from "@nestjs/common";
+import { PROJECT_IMAGE_UPLOAD_BYTES } from "@the-office/contracts";
 import { GitIdentityModule } from "../../platform/git-identity/git-identity.module.js";
+import { uploadBody } from "../../platform/http/upload-body.js";
 import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
+import { FilesystemProjectImageFiles } from "./adapters/filesystem/filesystem-project-image-files.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubApiPullRequests } from "./adapters/github/github-api-pull-requests.js";
 import { BaseBranchFilesController } from "./adapters/http/base-branch-files.controller.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
+import {
+  PROJECT_IMAGE_UPLOAD_ROUTE,
+  ProjectImagesController,
+} from "./adapters/http/project-images.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { RepositoryClonesController } from "./adapters/http/repository-clones.controller.js";
@@ -26,6 +41,7 @@ import { LocalRepositories } from "./application/local-repositories.js";
 import { RepositoriesByUrl } from "./application/repositories-by-url.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
+import { ProjectImages } from "./application/project-images.js";
 import { ProjectRemotes } from "./application/project-remotes.js";
 import { ProjectLevelMoves } from "./application/project-level-moves.js";
 import { ProjectService } from "./application/project-service.js";
@@ -41,6 +57,7 @@ import { CommandRunner } from "./ports/command-runner.js";
 import { EnvironmentCheckRepository } from "./ports/environment-check-repository.js";
 import { Git } from "./ports/git.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
+import { ProjectImageFiles } from "./ports/project-image-files.js";
 import { ProjectRepository } from "./ports/project-repository.js";
 import { PullRequests } from "./ports/pull-requests.js";
 
@@ -54,7 +71,13 @@ export interface ProjectsModuleOptions {
 }
 
 @Module({})
-export class ProjectsModule {
+export class ProjectsModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(uploadBody(PROJECT_IMAGE_UPLOAD_BYTES))
+      .forRoutes({ path: PROJECT_IMAGE_UPLOAD_ROUTE, method: RequestMethod.POST });
+  }
+
   static register({ imports, knownPipelines }: ProjectsModuleOptions): DynamicModule {
     return {
       module: ProjectsModule,
@@ -71,6 +94,7 @@ export class ProjectsModule {
       ],
       controllers: [
         ProjectsController,
+        ProjectImagesController,
         ProjectServerValuesController,
         EnvironmentChecksController,
         TaskChangesController,
@@ -80,6 +104,7 @@ export class ProjectsModule {
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
         { provide: EnvironmentCheckRepository, useClass: PostgresEnvironmentCheckRepository },
+        { provide: ProjectImageFiles, useClass: FilesystemProjectImageFiles },
         { provide: Git, useClass: CommandLineGit },
         RepositoryLocks,
         { provide: PullRequests, useClass: GitHubApiPullRequests },
@@ -93,6 +118,7 @@ export class ProjectsModule {
         LocalRepositories,
         RepositoriesByUrl,
         ProjectService,
+        ProjectImages,
         ProjectLevelMoves,
         ProjectsFromRepositories,
         ProjectRemotes,

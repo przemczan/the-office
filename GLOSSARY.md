@@ -14,6 +14,14 @@ _Avoid_: Repo (in the UI), workspace
 A Project's short label on a colour, one of four offered or a custom one, shown with its name, and what any picture of the Project falls back to.
 _Avoid_: Avatar, initials
 
+**Icon**:
+A Project's uploaded image drawn on its Mark's colour in place of the label, wherever the Mark shows.
+_Avoid_: Avatar, thumbnail
+
+**Logo**:
+A Project's uploaded image shown at its own proportions, larger than the Mark, on the Project's page and card.
+_Avoid_: Banner
+
 **Install inputs**:
 The files of a Project whose change makes a worktree run the install command again, such as a lockfile.
 _Avoid_: Dependency files, install files

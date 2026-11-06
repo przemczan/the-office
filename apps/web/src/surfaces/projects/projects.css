@@ -713,3 +713,51 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* ---- Appearance: a row per image, beside the mark */
+.project-image-rows {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.project-image-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A Logo's own proportions fit here, so the rows line up whichever image they show. */
+.project-image-preview {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  min-height: 48px;
+}
+
+.project-image-words {
+  flex: 1;
+  min-width: 200px;
+}
+
+.project-image-name {
+  font: var(--type-label);
+}
+
+.project-image-hint {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.project-image-row .project-block-error {
+  margin-top: 4px;
+}
+
+.project-image-input {
+  display: none;
+}

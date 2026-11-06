@@ -2,6 +2,7 @@ import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
 import type { Project, ProjectCommandKey, ProjectMark, PublishingMode } from "./project.js";
 import type { ProjectEnvironment } from "./project-environment.js";
+import type { ProjectImage, ProjectImageKey } from "./project-image.js";
 
 export class ProjectAdded extends DomainEvent {
   constructor(readonly project: Project) {
@@ -53,6 +54,17 @@ export class ProjectMarkChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly mark: ProjectMark,
+  ) {
+    super();
+  }
+}
+
+/** `image` is null when the Project's Icon or Logo was removed. */
+export class ProjectImageChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly key: ProjectImageKey,
+    readonly image: ProjectImage | null,
   ) {
     super();
   }

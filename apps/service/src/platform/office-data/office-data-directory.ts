@@ -7,6 +7,7 @@ export type OfficeDataFolder =
   | "sessions"
   | "skills"
   | "attachments"
+  | "project-images"
   | "identity"
   | "repositories"
   | "engines"

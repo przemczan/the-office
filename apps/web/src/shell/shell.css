@@ -531,6 +531,31 @@ body,
   border: 1px solid var(--border);
 }
 
+.project-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+}
+
+/* A Logo keeps its own proportions and has no tile, so these are limits rather than a size. */
+.project-logo {
+  display: block;
+  flex: none;
+  object-fit: contain;
+}
+
+.project-logo.size-xl {
+  max-width: 120px;
+  max-height: 48px;
+}
+
+.project-logo.size-page {
+  max-width: 200px;
+  max-height: 72px;
+}
+
 /* ---- toasts: the in-app confirmations and Notifications, stacked in the corner */
 .toasts {
   position: fixed;

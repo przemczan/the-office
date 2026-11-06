@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  API_PATH,
   baseBranchFetchSchema,
   baseBranchFolderSchema,
   environmentCheckSchema,
@@ -20,6 +21,7 @@ import {
   type Project,
   type ProjectEnvironment,
   type ProjectCommandKey,
+  type ProjectImageKey,
   type ProjectMcpServerValues,
   type ProjectServerValuesChange,
   type ProjectWebEvent,
@@ -28,7 +30,7 @@ import {
   type RepositoryCloneStart,
   type RepositoryCloneWebEvent,
 } from "@the-office/contracts";
-import { getFromApi, sendToApi } from "./api-client.ts";
+import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { ENGINE_CASCADE } from "./people.ts";
 
@@ -189,6 +191,20 @@ export function changeMark(id: string, mark: Mark): Promise<Project> {
   return sendToApi("PUT", `${projectPath(id)}/mark`, { mark }, projectSchema);
 }
 
+/** Replaces the Project's Icon or Logo, or gives it one. */
+export function uploadProjectImage(id: string, key: ProjectImageKey, file: File): Promise<Project> {
+  return sendFileToApi(`${projectPath(id)}/images/${key}`, file, projectSchema);
+}
+
+export function removeProjectImage(id: string, key: ProjectImageKey): Promise<Project> {
+  return deleteFromApiReturning(`${projectPath(id)}/images/${key}`, projectSchema);
+}
+
+/** Where an Icon or a Logo is read from; a new upload has a new address, so none goes stale. */
+export function projectImageAddress(id: string, imageId: string): string {
+  return `${API_PATH}${projectPath(id)}/images/${encodeURIComponent(imageId)}/content`;
+}
+
 export function changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {
   return sendToApi(
     "PUT",
@@ -285,6 +301,7 @@ export const projectEventInvalidations: Readonly<
   "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.mark-changed": () => [PROJECTS],
+  "project.image-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
   "project.use-project-skills-changed": () => [PROJECTS],
   "project.skill-use-changed": () => [PROJECTS],

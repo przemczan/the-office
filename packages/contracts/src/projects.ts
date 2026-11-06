@@ -131,8 +131,33 @@ export type ProjectRemoteNeeds = z.infer<typeof projectRemoteNeedsSchema>;
 export const projectRoleOverrideSchema = engineModelSchema.extend({ roleKey: z.string() });
 export type ProjectRoleOverride = z.infer<typeof projectRoleOverrideSchema>;
 
+/** A Project's Icon and Logo, by the name they go by in `/projects/:id/images/:image`. */
+export const projectImageKeySchema = z.enum(["icon", "logo"]);
+export type ProjectImageKey = z.infer<typeof projectImageKeySchema>;
+
+/** The most an Icon or a Logo may be; the service and the web both hold to it. */
+export const PROJECT_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+export const PROJECT_IMAGE_MEDIA_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+] as const;
+
+/** An uploaded picture; each upload is a new image under a new id, its bytes never changing. */
+export const projectImageSchema = z.object({
+  id: z.string(),
+  mediaType: z.enum(PROJECT_IMAGE_MEDIA_TYPES),
+});
+export type ProjectImage = z.infer<typeof projectImageSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
+  /** Drawn on the mark's colour in place of its label; null when the Project has none. */
+  icon: projectImageSchema.nullable(),
+  /** The larger image on the Project's page and card; null when the Project has none. */
+  logo: projectImageSchema.nullable(),
   /** What the repository was cloned from; null for a Project added by its path. */
   repositoryUrl: z.string().nullable(),
   environment: projectEnvironmentSchema,
@@ -307,6 +332,11 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     type: z.literal("project.mark-changed"),
     projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.image-changed"),
+    projectId: z.string(),
+    key: projectImageKeySchema,
   }),
   webEventSchema.extend({
     type: z.literal("project.default-pipeline-changed"),

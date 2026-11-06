@@ -18,6 +18,7 @@ export {
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
+  ProjectImageChanged,
   ProjectInstallInputsChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,

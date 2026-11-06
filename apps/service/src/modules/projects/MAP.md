@@ -1,11 +1,12 @@
 # Projects: module map
 
-**Owns:** Projects (`projects`): path, the Repository URL of a cloned one (given only with its clone's folder as the path), the mark (label and colour together, the colour one of the four names or a custom `#rrggbb` in lower case, `PUT /projects/:id/mark`, one rule with adding a Project: `markProblem`), commands, install inputs, publishing mode, default Pipeline, which of the repository's skills it uses ("Use this Project's skills", `PUT /projects/:id/use-project-skills`, and the keys turned off one by one, `projectSkillsOff`, `PUT /projects/:id/skill-use`; the skills themselves are never stored, so only what is off is kept and a new skill starts on), and the engine cascade's Project levels (the Project default, "Use for every Role" allowed only with one, and the Project's Role overrides, each an engine id and a model, at most one per Role key; `PUT /projects/:id/project-default`, `…/use-for-every-role`, `…/role-overrides/:roleKey`, null clearing; given to People's engine cascade by `ProjectService.engineLevelsOf`, bound to its `KnownProjectLevels` port in app.module.ts; a removed engine's levels moved by `ProjectLevelMoves`, registered in Engine's `EngineReferenceMoves` with `projectLevelMovesOf` for the removal's preview, past the checks (`moveEngineLevels`: to the replacement, or to none with the only engine, "Use for every Role" turned off before the default clears)); the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks, every command on the Office identity through `GitProcess`; which part of the identity the base branch's remote needs (`ProjectRemotes`: `GET /projects/:id/remote-needs` and the environment check's failed fetch); cloning a repository by its Repository URL into `<office-data>/repositories/<host>/<path>` before it is added (`RepositoryClones`: `POST /repositories/clones`, `GET …/:id`, in memory while the service runs, told to the web as `repository-clone.changed`); the files committed on the base branch, for the Repository file browser (`BaseBranchFiles`: `POST /projects/:id/base-branch/fetch` fetches by `Worktrees.freshBase`, a failed fetch answering the last commit known here with why; `GET …/:commit/folder` reads one folder from the Project's own objects, `Git.commitTree`, at most 1,000 entries); a worktree per Task, the base checkouts, Changes, and the git work of Publish and Resolve (`TaskWorktrees`; `Publishing`, `Resolving`).
+**Owns:** Projects (`projects`): path, the Repository URL of a cloned one (given only with its clone's folder as the path), the mark (label and colour together, the colour one of the four names or a custom `#rrggbb` in lower case, `PUT /projects/:id/mark`, one rule with adding a Project: `markProblem`), its Icon and Logo (`ProjectImages`: `POST`/`DELETE /projects/:id/images/:image`, `GET …/:imageId/content`, answering only for an image the Project holds now; each file `<office-data>/project-images/<image id>`, what it is read from its bytes alone, `domain/project-image.ts`, and the row keeping its id and media type as jsonb), commands, install inputs, publishing mode, default Pipeline, which of the repository's skills it uses ("Use this Project's skills", `PUT /projects/:id/use-project-skills`, and the keys turned off one by one, `projectSkillsOff`, `PUT /projects/:id/skill-use`; the skills themselves are never stored, so only what is off is kept and a new skill starts on), and the engine cascade's Project levels (the Project default, "Use for every Role" allowed only with one, and the Project's Role overrides, each an engine id and a model, at most one per Role key; `PUT /projects/:id/project-default`, `…/use-for-every-role`, `…/role-overrides/:roleKey`, null clearing; given to People's engine cascade by `ProjectService.engineLevelsOf`, bound to its `KnownProjectLevels` port in app.module.ts; a removed engine's levels moved by `ProjectLevelMoves`, registered in Engine's `EngineReferenceMoves` with `projectLevelMovesOf` for the removal's preview, past the checks (`moveEngineLevels`: to the replacement, or to none with the only engine, "Use for every Role" turned off before the default clears)); the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks, every command on the Office identity through `GitProcess`; which part of the identity the base branch's remote needs (`ProjectRemotes`: `GET /projects/:id/remote-needs` and the environment check's failed fetch); cloning a repository by its Repository URL into `<office-data>/repositories/<host>/<path>` before it is added (`RepositoryClones`: `POST /repositories/clones`, `GET …/:id`, in memory while the service runs, told to the web as `repository-clone.changed`); the files committed on the base branch, for the Repository file browser (`BaseBranchFiles`: `POST /projects/:id/base-branch/fetch` fetches by `Worktrees.freshBase`, a failed fetch answering the last commit known here with why; `GET …/:commit/folder` reads one folder from the Project's own objects, `Git.commitTree`, at most 1,000 entries); a worktree per Task, the base checkouts, Changes, and the git work of Publish and Resolve (`TaskWorktrees`; `Publishing`, `Resolving`).
 
 **Talks to:** opens Push + PR's pull requests through the github module's `GitHubPullRequests` behind its `PullRequests` port (`GitHubApiPullRequests`), the github module's one instance given in `imports` by [app.module.ts](../../app.module.ts); Publish asks `whyCannotOpen` before the push, on the URL git resolves for the base's remote, and pushes nothing when the remote isn't on GitHub or no one is signed in; checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); checks that an engine level's engine is listed and offers its model through Engine's `EngineModels` (`ProjectChecks.checkEngineModel`), but not that a Role is filled under a Role override's key, since People reads these levels and Projects can't import People; refuses a save of the engine levels that a check registered in `EngineLevelsChecks` refuses (People's capability check of the Roles a Pipeline names, registered through its `ProjectLevelsSaves` port, which [app.module.ts](../../app.module.ts) binds to the registry), weighing the Project read just before the save; moves the levels naming an engine being removed to its replacement (`ProjectLevelMoves`, registered in Engine's `EngineReferenceMoves`, `moveEngineLevels` with each change's own event, past the checks, which Engine's removal ran first); calls Engine, Skills and MCP servers (the Project page's Server values, `GET`/`PUT /projects/:id/server-values`, in `ProjectServerValuesController`; the library's refusals answered as the Project's). Serves Work (`ProjectService`, `TaskWorktrees`, and `ProjectsFromRepositories` as `NewProjects`: a Proposal's Project by its folder, or by its Repository URL judged from the remote's branches with nothing cloned and, applied, cloned through `RepositoryClones.clone`, which waits, then added), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`; Devops' `read_repository` in their chat, reading a repository's local branches and the names and manifest files of its top level or one folder inside it before it is a Project (`LocalRepositories`, refusing a repository folder as adding a Project does, and a folder that leaves the repository or is git's own), or one on a host by its Repository URL: the remote's branches and the same of its default branch, read from that branch's last commit fetched alone into a bare repository in a temp folder removed after each read, nothing cloned (`RepositoriesByUrl`, `Git.readBranchTip`); and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`; and Work's `NewProjects` for a Project to onboard: `add` and its dry run `newProjectProblems`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it). Holds Engine's `EngineReferenceLock` over each save of the engine levels (`changeEngineLevels`), from reading the engines through the write, publishing after it is released, so an engine removed meanwhile is never named. Counts a running clone and environment check as Office-updates' `BusyWork`.
 
 **Traps:**
 
+- An image's bytes never change: every upload is a new id, so its address is cached for good and replacing one needs no cache busting; don't overwrite a file under an id. Its size limit is held twice, `PROJECT_IMAGE_SIZE_LIMIT` in the domain, for what doesn't come through the upload route, and the contracts' `PROJECT_IMAGE_UPLOAD_BYTES` for `uploadBody` and the web, as only adapters import the contracts; the controller's test at exactly the limit keeps them equal. The content route's headers are what stop an SVG's script when its address is opened directly, so keep them.
 - A `CommandRun` carries a command's output twice: `output`, filtered for an Agent to read, and `wholeOutput`, the last 64 KB for the user's Stage history. The shell runner's 16 MB tail feeds both, so `filteredOutput` sees failures long before the end; don't shrink it to the 64 KB. An environment check keeps only the first (`CheckedCommandRun`).
 - The module is registered once in `AppModule`, so every git change on a repository goes through the same locks.
 - A branch Resolve merged holds a merge commit: Publish in merge mode takes in a base that moved on again by another merge (`hasMergesSince`), never a rebase, which would drop the merge and bring its conflicts back.
@@ -18,12 +19,12 @@
 
 ## Public entry (`index.ts`)
 
-BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsCheck, EngineLevelsSave, ProjectsFromRepositories, TaskWorktrees, SessionWorktree, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectCommandChanged, ProjectDefaultChanged, ProjectDefaultPipelineChanged, ProjectEnvironmentChanged, ProjectInstallInputsChanged, ProjectMarkChanged, ProjectPublishingModeChanged, ProjectRoleOverrideChanged, ProjectSkillUseChanged, ProjectUseForEveryRoleChanged, ProjectUseProjectSkillsChanged, NewProject, ProjectEngineLevels, ProjectRoleOverride, ProjectNotFound, ProjectRefused, proposedCommandFields, ProjectCommandFields, ProjectsModule
+BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsCheck, EngineLevelsSave, ProjectsFromRepositories, TaskWorktrees, SessionWorktree, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectCommandChanged, ProjectDefaultChanged, ProjectDefaultPipelineChanged, ProjectEnvironmentChanged, ProjectImageChanged, ProjectInstallInputsChanged, ProjectMarkChanged, ProjectPublishingModeChanged, ProjectRoleOverrideChanged, ProjectSkillUseChanged, ProjectUseForEveryRoleChanged, ProjectUseProjectSkillsChanged, NewProject, ProjectEngineLevels, ProjectRoleOverride, ProjectNotFound, ProjectRefused, proposedCommandFields, ProjectCommandFields, ProjectsModule
 
 ## Domain events
 
 - `domain/environment-check-events.ts`: EnvironmentCheckStarted, EnvironmentCheckProgressed, EnvironmentCheckFinished
-- `domain/project-events.ts`: ProjectAdded, ProjectCommandChanged, ProjectInstallInputsChanged, ProjectEnvironmentChanged, ProjectPublishingModeChanged, ProjectMarkChanged, ProjectDefaultPipelineChanged, ProjectDefaultChanged, ProjectUseForEveryRoleChanged, ProjectRoleOverrideChanged, ProjectUseProjectSkillsChanged, ProjectSkillUseChanged
+- `domain/project-events.ts`: ProjectAdded, ProjectCommandChanged, ProjectInstallInputsChanged, ProjectEnvironmentChanged, ProjectPublishingModeChanged, ProjectMarkChanged, ProjectImageChanged, ProjectDefaultPipelineChanged, ProjectDefaultChanged, ProjectUseForEveryRoleChanged, ProjectRoleOverrideChanged, ProjectUseProjectSkillsChanged, ProjectSkillUseChanged
 - `domain/repository-clone-events.ts`: RepositoryCloneStarted, RepositoryCloneProgressed, RepositoryCloneFinished
 
 ## HTTP routes (under `/api`)
@@ -32,6 +33,8 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `GET /projects/:id/base-branch/:commit/folder`: BaseBranchFilesController.folder
 - `GET /projects/:id/environment-check`: EnvironmentChecksController.latest
 - `POST /projects/:id/environment-check`: EnvironmentChecksController.start
+- `DELETE /projects/:id/images/:image`: ProjectImagesController.remove
+- `GET /projects/:id/images/:imageId/content`: ProjectImagesController.content
 - `GET /projects/:id/server-values`: ProjectServerValuesController.list
 - `PUT /projects/:id/server-values/:serverName`: ProjectServerValuesController.change
 - `POST /projects`: ProjectsController.add
@@ -64,6 +67,10 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 
 - `projects.module.ts`: ProjectsModuleOptions, ProjectsModule
 
+### adapters/filesystem/
+
+- `filesystem-project-image-files.ts`: FilesystemProjectImageFiles
+
 ### adapters/git/
 
 - `command-line-git.fixtures.ts`: serviceVariables, WorktreeMaker, exists
@@ -86,12 +93,14 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 
 - `base-branch-files.controller.ts`: BaseBranchFilesController
 - `environment-checks.controller.ts`: EnvironmentChecksController
+- `project-images.controller.ts`: PROJECT_IMAGE_UPLOAD_ROUTE, ProjectImagesController
 - `project-refusals.filter.ts`: ProjectRefusalsFilter
+- `project-responses.ts`: toProjectResponse
 - `project-server-values.controller.ts`: ProjectServerValuesController
 - `projects.controller.ts`: ProjectsController
 - `repository-clones.controller.ts`: RepositoryClonesController
 - `task-changes.controller.ts`: TaskChangesController
-- Tests: base-branch-files.controller.test.ts, environment-checks.controller.test.ts, projects.controller.test.ts, repository-clones.controller.test.ts
+- Tests: base-branch-files.controller.test.ts, environment-checks.controller.test.ts, project-images.controller.test.ts, projects.controller.test.ts, repository-clones.controller.test.ts
 
 ### adapters/office-tools/
 
@@ -126,6 +135,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `local-repositories.ts`: LocalRepository, LocalRepositories
 - `project-checks.ts`: ProjectChecks
 - `project-command-runner.ts`: ProjectCommand, ProjectCommandRunner
+- `project-images.ts`: OpenedProjectImage, ProjectImages
 - `project-level-moves.ts`: ProjectLevelMoves
 - `project-remotes.ts`: ProjectRemotes
 - `project-service.ts`: ProjectService
@@ -140,7 +150,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `script-commands.ts`: ScriptCommandKey, MovedFiles, ScriptCommandRun, ScriptCommands
 - `task-worktrees.ts`: SessionWorktree, TaskWorktrees
 - `worktrees.ts`: BaseBranch, TaskWorktree, InstallOptions, Installation, TaskChanges, ThrowawayWorktree, Worktrees
-- Tests: base-branch-files.test.ts, base-checkouts.test.ts, branch-updates.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, project-levels-engine-removal.test.ts, publishing-branch-only.test.ts, publishing-merge.test.ts, publishing-pull-request.test.ts, repositories-by-url.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
+- Tests: base-branch-files.test.ts, base-checkouts.test.ts, branch-updates.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, project-images.test.ts, project-levels-engine-removal.test.ts, publishing-branch-only.test.ts, publishing-merge.test.ts, publishing-pull-request.test.ts, repositories-by-url.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
 
 ### domain/
 
@@ -149,9 +159,10 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `environment-check-changes.ts`: EnvironmentCheckChange, startEnvironmentCheck, progressEnvironmentCheck, finishEnvironmentCheck
 - `environment-check-events.ts`: EnvironmentCheckStarted, EnvironmentCheckProgressed, EnvironmentCheckFinished
 - `environment-check.ts`: CheckState, CheckedCommandRun, CheckedBase, WorktreeCheck, CommandCheck, Check, EnvironmentCheckState, EnvironmentCheck
-- `project-changes.ts`: ProjectChange, ProjectChanges, asProjectChanges, changeCommandsAsProposed, moveEngineLevels, addProject, changeCommand, changeInstallInputs, changeEnvironment, changePublishingMode, changeMark, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse
+- `project-changes.ts`: ProjectChange, ProjectChanges, asProjectChanges, changeCommandsAsProposed, moveEngineLevels, addProject, changeCommand, changeInstallInputs, changeEnvironment, changePublishingMode, changeMark, changeImage, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse
 - `project-environment.ts`: ProjectVariable, ProjectEnvironment, UNCHANGED_ENVIRONMENT, trimmedEnvironment, environmentProblems, sameEnvironment
-- `project-events.ts`: ProjectAdded, ProjectCommandChanged, ProjectInstallInputsChanged, ProjectEnvironmentChanged, ProjectPublishingModeChanged, ProjectMarkChanged, ProjectDefaultPipelineChanged, ProjectDefaultChanged, ProjectUseForEveryRoleChanged, ProjectRoleOverrideChanged, ProjectUseProjectSkillsChanged, ProjectSkillUseChanged
+- `project-events.ts`: ProjectAdded, ProjectCommandChanged, ProjectInstallInputsChanged, ProjectEnvironmentChanged, ProjectPublishingModeChanged, ProjectMarkChanged, ProjectImageChanged, ProjectDefaultPipelineChanged, ProjectDefaultChanged, ProjectUseForEveryRoleChanged, ProjectRoleOverrideChanged, ProjectUseProjectSkillsChanged, ProjectSkillUseChanged
+- `project-image.ts`: PROJECT_IMAGE_KEYS, ProjectImageKey, PROJECT_IMAGE_MEDIA_TYPES, ProjectImageMediaType, PROJECT_IMAGE_SIZE_LIMIT, ProjectImage, ProjectImageNotFound, newProjectImage, mediaTypeOf
 - `project-not-found.ts`: ProjectNotFound
 - `project-refused.ts`: ProjectRefused
 - `project.fixtures.ts`: aNewProject, aProject
@@ -161,7 +172,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `repository-clone-events.ts`: RepositoryCloneStarted, RepositoryCloneProgressed, RepositoryCloneFinished
 - `repository-clone.ts`: CloneProgress, RepositoryCloneOutcome, RepositoryClone, RepositoryCloneNotFound
 - `resolve.ts`: ResolveStart, ResolveEnd, mergedBase, mergeMessage
-- Tests: command-run.test.ts, environment-check-changes.test.ts, project-changes.test.ts, project-environment.test.ts, project.test.ts, proposed-commands.test.ts, publication.test.ts
+- Tests: command-run.test.ts, environment-check-changes.test.ts, project-changes.test.ts, project-environment.test.ts, project-image.test.ts, project.test.ts, proposed-commands.test.ts, publication.test.ts
 
 ### ports/
 
@@ -169,5 +180,6 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `environment-check-repository.ts`: EnvironmentCheckRepository
 - `git.ts`: FolderInspection, WorktreeCheckout, NewWorktree, Upstream, LocalBranch, Head, ChangedFile, BranchChanges, NO_BRANCH_CHANGES, MergeStart, MergeConclusion, GitVariables, RemoteBranches, CLONE_REMOTE, CloneRequest, TreeEntry, TreePathKind, CommitTree, GitCommandFailed, Git
 - `known-pipelines.ts`: KnownPipelines
+- `project-image-files.ts`: ProjectImageFiles
 - `project-repository.ts`: ProjectRepository
 - `pull-requests.ts`: PullRequestRequest, PullRequest, PullRequestRefused, PullRequests

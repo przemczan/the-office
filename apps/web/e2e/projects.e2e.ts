@@ -3,6 +3,7 @@ import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   OFFICE_IDENTITY_SETTINGS_PATH,
+  PROJECT_IMAGE_UPLOAD_BYTES,
   projectSchema,
   type NewProject,
   type Project,
@@ -13,6 +14,39 @@ import { createTemporaryRepository, type TemporaryRepository } from "./temporary
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
+
+const ICON_FILE = {
+  name: "icon.png",
+  mimeType: "image/png",
+  buffer: Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  ),
+};
+
+const LOGO_FILE = {
+  name: "logo.svg",
+  mimeType: "image/svg+xml",
+  buffer: Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100"><rect width="400" height="100" fill="teal"/></svg>',
+  ),
+};
+
+const TRANSPARENT_ICON_FILE = {
+  name: "circle.svg",
+  mimeType: "image/svg+xml",
+  buffer: Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3" fill="white"/></svg>',
+  ),
+};
+
+const SVG_WITH_A_SCRIPT = {
+  name: "scripted.svg",
+  mimeType: "image/svg+xml",
+  buffer: Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32"/><script>document.documentElement.setAttribute("data-script-ran", "yes"); alert("ran");</script></svg>`,
+  ),
+};
 
 /** A Project's sections in the menu's order: each one's address and the blocks only it shows. */
 const SECTIONS = [
@@ -59,6 +93,13 @@ async function expectCustomMark(
   await expect(mark).toHaveClass(/colour-custom/);
   await expect(mark).toHaveCSS("background-color", colours.background);
   await expect(mark).toHaveCSS("color", colours.label);
+}
+
+async function expectLoadedImage(image: Locator): Promise<void> {
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
+    .toBeGreaterThan(0);
 }
 
 async function addedProject(
@@ -435,6 +476,188 @@ test("the mark is changed in Appearance: previewed, saved, and shown on the head
   const card = page.getByRole("link", { name: /New look/ }).locator(".project-mark");
   await expect(card).toHaveText("NL");
   await expect(card).toHaveClass(/colour-teal/);
+});
+
+test("an Icon replaces the letters everywhere, without a reload, until it is removed", async ({
+  page,
+  context,
+}) => {
+  const project = await addedProject(page, "Iconic");
+  const created = await page.request.post("/api/tasks", {
+    data: { title: "Shows the Project's Icon", projectId: project.id, priority: "normal" },
+  });
+  expect(created.status()).toBe(201);
+  const board = await context.newPage();
+  await board.goto("/work");
+  const boardMark = board
+    .locator(".board-card", { hasText: "Shows the Project's Icon" })
+    .locator(".project-mark");
+  await expect(boardMark).toHaveText("AP");
+
+  await page.goto(`/projects/${project.id}/appearance`);
+  const row = page.getByRole("group", { name: "Icon" });
+  const head = page.locator(".project-head .project-mark");
+  await expect(row.getByText("PNG, JPEG, WebP or SVG, at most 2 MB")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Remove" })).toBeHidden();
+
+  await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
+
+  await expect(page.getByText("Icon saved for Iconic.")).toBeVisible();
+  await expectLoadedImage(head.locator("img"));
+  await expectLoadedImage(row.locator(".project-mark img"));
+  await expect(head).not.toHaveText("AP");
+  await expectLoadedImage(boardMark.locator("img"));
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-icon.png") });
+
+  await page.goto("/projects");
+  await expectLoadedImage(page.getByRole("link", { name: /Iconic/ }).locator(".project-mark img"));
+
+  await page.goto(`/projects/${project.id}/appearance`);
+  await page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Remove" }).click();
+
+  await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+  await expect(boardMark).toHaveText("AP");
+});
+
+test("a Logo stands for the Project on its page and card, and the mark comes back without it", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Logoed");
+  await page.goto(`/projects/${project.id}/appearance`);
+
+  await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
+
+  await expect(page.getByText("Logo saved for Logoed.")).toBeVisible();
+  const headLogo = page.locator(".project-head .project-logo");
+  await expectLoadedImage(headLogo);
+  await expect(page.locator(".project-head .project-mark")).toBeHidden();
+  // Its own proportions, 4 to 1, inside the head's limit.
+  await expect(headLogo).toHaveJSProperty("naturalWidth", 400);
+  const box = await headLogo.boundingBox();
+  expect(box && Math.round(box.width / box.height)).toBe(4);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-logo.png") });
+
+  await page.goto("/projects");
+  const card = page.getByRole("link", { name: /Logoed/ });
+  await expectLoadedImage(card.locator(".project-logo"));
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-logo.png") });
+
+  await page.goto(`/projects/${project.id}/appearance`);
+  await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
+
+  await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+  await page.goto("/projects");
+  await expect(card.locator(".project-mark")).toHaveText("AP");
+});
+
+test("without a Logo the Icon stands in, on its colour in the dark palette too", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Both images");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto(`/projects/${project.id}/appearance`);
+  await page.getByLabel("Icon file").setInputFiles(TRANSPARENT_ICON_FILE);
+  await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
+  await expectLoadedImage(page.locator(".project-head .project-logo"));
+  await expectLoadedImage(page.getByRole("group", { name: "Icon" }).locator(".project-mark img"));
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-project-images.png") });
+
+  await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
+
+  await expectLoadedImage(page.locator(".project-head .project-mark img"));
+  await expect(page.locator(".project-head .project-logo")).toBeHidden();
+});
+
+test("a replaced image shows at once, and its old address answers no more", async ({ page }) => {
+  const project = await addedProject(page, "Reimaged");
+  await page.goto(`/projects/${project.id}/appearance`);
+  await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
+  const image = page.locator(".project-head .project-mark img");
+  await expectLoadedImage(image);
+  const oldAddress = await image.getAttribute("src");
+
+  await page.getByLabel("Icon file").setInputFiles({ ...LOGO_FILE, name: "other.svg" });
+
+  await expect(image).not.toHaveAttribute("src", oldAddress ?? "");
+  await expectLoadedImage(image);
+  expect((await page.request.get(oldAddress ?? "")).status()).toBe(404);
+  await expect(
+    page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Replace" }),
+  ).toBeVisible();
+});
+
+test("a file that isn't an image, or is too large, is refused in its row, and the image stays", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Refusing");
+  await page.goto(`/projects/${project.id}/appearance`);
+  await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
+  const image = page.locator(".project-head .project-mark img");
+  await expectLoadedImage(image);
+  const address = await image.getAttribute("src");
+  const row = page.getByRole("group", { name: "Icon" });
+
+  await page.getByLabel("Icon file").setInputFiles({
+    name: "renamed.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("<html>not a picture</html>"),
+  });
+
+  await expect(row.getByRole("alert")).toHaveText("The file isn't a PNG, JPEG, WebP or SVG image.");
+  await expect(image).toHaveAttribute("src", address ?? "");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-image-refused.png") });
+
+  await page.getByLabel("Icon file").setInputFiles({
+    name: "large.png",
+    mimeType: "image/png",
+    buffer: Buffer.alloc(PROJECT_IMAGE_UPLOAD_BYTES + 1),
+  });
+
+  await expect(row.getByRole("alert")).toHaveText("An image may be at most 2 MB.");
+  await expect(image).toHaveAttribute("src", address ?? "");
+
+  await page.getByLabel("Icon file").setInputFiles(LOGO_FILE);
+  await expect(row.getByRole("alert")).toBeHidden();
+});
+
+test("an Icon that can't be loaded leaves the letters and the colour", async ({ page }) => {
+  const project = await addedProject(page, "Unloaded");
+  const response = await page.request.post(`/api/projects/${project.id}/images/icon`, {
+    headers: { "Content-Type": "application/octet-stream" },
+    data: ICON_FILE.buffer,
+  });
+  expect(response.status()).toBe(201);
+  await page.route("**/images/*/content", (route) => route.abort());
+
+  await page.goto(`/projects/${project.id}/appearance`);
+
+  const head = page.locator(".project-head .project-mark");
+  await expect(head).toHaveText("AP");
+  await expect(head).toHaveClass(/colour-violet/);
+});
+
+test("an SVG's script runs neither where The Office draws it nor at its own address", async ({
+  page,
+}) => {
+  const dialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.dismiss();
+  });
+  const project = await addedProject(page, "Scripted");
+  await page.goto(`/projects/${project.id}/appearance`);
+
+  await page.getByLabel("Icon file").setInputFiles(SVG_WITH_A_SCRIPT);
+
+  const image = page.locator(".project-head .project-mark img");
+  await expectLoadedImage(image);
+  const address = await image.getAttribute("src");
+
+  await page.goto(address ?? "");
+
+  await expect(page.locator("svg")).toBeAttached();
+  await expect(page.locator("svg")).not.toHaveAttribute("data-script-ran", "yes");
+  expect(dialogs).toEqual([]);
 });
 
 test("a custom colour is previewed, saved, and shown everywhere until a named one replaces it", async ({

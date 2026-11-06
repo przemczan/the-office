@@ -6,6 +6,7 @@ import {
   asProjectChanges,
   changeCommand,
   changeCommandsAsProposed,
+  changeImage,
 } from "../../domain/project-changes.js";
 import { aProject } from "../../domain/project.fixtures.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
@@ -131,5 +132,21 @@ describe("PostgresProjectRepository", () => {
         repository.update("nowhere", (stored) => ({ project: stored, events: [] })),
       ).rejects.toEqual(new ProjectNotFound("nowhere"));
     });
+  });
+
+  it("keeps an image, and clears it again, leaving the Project with none", async () => {
+    const project = aProject({ id: randomUUID() });
+    await repository.add(project);
+    const icon = { id: randomUUID(), mediaType: "image/webp" } as const;
+
+    await repository.update(project.id, (stored) =>
+      asProjectChanges(stored, changeImage(stored, "icon", icon)),
+    );
+    expect(await repository.find(project.id)).toMatchObject({ icon, logo: null });
+
+    await repository.update(project.id, (stored) =>
+      asProjectChanges(stored, changeImage(stored, "icon", null)),
+    );
+    expect(await repository.find(project.id)).toMatchObject({ icon: null, logo: null });
   });
 });

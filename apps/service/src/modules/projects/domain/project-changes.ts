@@ -21,6 +21,7 @@ import {
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
+  ProjectImageChanged,
   ProjectInstallInputsChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
@@ -34,6 +35,7 @@ import {
   UNCHANGED_ENVIRONMENT,
   type ProjectEnvironment,
 } from "./project-environment.js";
+import type { ProjectImage, ProjectImageKey } from "./project-image.js";
 import { ProjectRefused } from "./project-refused.js";
 import { proposedCommandsProblems, type ProjectCommandFields } from "./proposed-commands.js";
 
@@ -132,6 +134,8 @@ export function addProject(
     id,
     ...newProject,
     repositoryUrl: newProject.repositoryUrl ?? null,
+    icon: null,
+    logo: null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],
@@ -214,6 +218,19 @@ export function changeMark(
   if (problem) throw new ProjectRefused([problem]);
   if (project.mark.label === mark.label && project.mark.colour === mark.colour) return undefined;
   return { project: { ...project, mark }, event: new ProjectMarkChanged(project.id, mark) };
+}
+
+/** Undefined when the Project already holds that image, or has none to remove. */
+export function changeImage(
+  project: Project,
+  key: ProjectImageKey,
+  image: ProjectImage | null,
+): ProjectChange<ProjectImageChanged> | undefined {
+  if (project[key]?.id === image?.id) return undefined;
+  return {
+    project: { ...project, [key]: image },
+    event: new ProjectImageChanged(project.id, key, image),
+  };
 }
 
 /**

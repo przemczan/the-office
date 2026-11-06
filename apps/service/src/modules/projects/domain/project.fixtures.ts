@@ -20,6 +20,8 @@ export function aProject(fields: Partial<Project> = {}): Project {
     id: "admin-panel",
     ...aNewProject(),
     repositoryUrl: null,
+    icon: null,
+    logo: null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],

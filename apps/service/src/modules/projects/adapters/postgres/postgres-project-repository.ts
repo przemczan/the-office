@@ -58,6 +58,8 @@ function toRow(project: Project): ProjectRow {
     baseBranch: project.baseBranch,
     markLabel: project.mark.label,
     markColour: project.mark.colour,
+    icon: project.icon,
+    logo: project.logo,
     installCommand: project.commands.install,
     buildCommand: project.commands.build,
     lintCommand: project.commands.lint,
@@ -84,6 +86,8 @@ function toProject(row: ProjectRow): Project {
     repositoryUrl: row.repositoryUrl,
     baseBranch: row.baseBranch,
     mark: { label: row.markLabel, colour: row.markColour },
+    icon: row.icon,
+    logo: row.logo,
     commands: {
       install: row.installCommand,
       build: row.buildCommand,

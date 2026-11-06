@@ -6,6 +6,7 @@ import {
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
+  changeImage,
   changeMark,
   changeProjectDefault,
   changePublishingMode,
@@ -21,6 +22,7 @@ import {
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
+  ProjectImageChanged,
   ProjectInstallInputsChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
@@ -158,6 +160,36 @@ describe("changePublishingMode", () => {
     expect(change?.event).toBeInstanceOf(ProjectPublishingModeChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", publishingMode: "merge" });
     expect(changePublishingMode(aProject(), "push-and-pull-request")).toBeUndefined();
+  });
+});
+
+describe("changeImage", () => {
+  const icon = { id: "first", mediaType: "image/png" } as const;
+  const replacement = { id: "second", mediaType: "image/svg+xml" } as const;
+
+  it("gives the Project the image, naming which one in the event", () => {
+    const change = changeImage(aProject(), "icon", icon);
+
+    expect(change?.project).toMatchObject({ icon, logo: null });
+    expect(change?.event).toBeInstanceOf(ProjectImageChanged);
+    expect(change?.event).toMatchObject({ projectId: "admin-panel", key: "icon", image: icon });
+  });
+
+  it("replaces one image and leaves the other", () => {
+    const change = changeImage(aProject({ icon, logo: icon }), "logo", replacement);
+
+    expect(change?.project).toMatchObject({ icon, logo: replacement });
+  });
+
+  it("removes the image", () => {
+    const change = changeImage(aProject({ logo: icon }), "logo", null);
+
+    expect(change?.project.logo).toBeNull();
+    expect(change?.event).toMatchObject({ key: "logo", image: null });
+  });
+
+  it("changes nothing when there is no image to remove", () => {
+    expect(changeImage(aProject(), "icon", null)).toBeUndefined();
   });
 });
 

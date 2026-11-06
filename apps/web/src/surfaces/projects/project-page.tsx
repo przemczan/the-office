@@ -6,7 +6,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
-import { ProjectMark } from "../../shell/project-mark.tsx";
+import { ProjectLogo } from "../../shell/project-logo.tsx";
 import { SectionLayout, type MenuSection } from "../../shell/section-layout.tsx";
 import { OnboardingBadge } from "./onboarding-block.tsx";
 import { remoteNeedsLine } from "./remote-needs-words.ts";
@@ -63,7 +63,7 @@ export function ProjectPage(): ReactNode {
 function ProjectHead({ project }: { readonly project: Project }): ReactNode {
   return (
     <header className="project-head">
-      <ProjectMark project={project} size="page" />
+      <ProjectLogo project={project} size="page" />
       <div>
         <h2>{project.name}</h2>
         <div className="project-head-meta">

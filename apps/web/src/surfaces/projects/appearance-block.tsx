@@ -6,10 +6,12 @@ import { changeMark, projectQueries } from "../../api/projects.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { MarkPicker } from "./mark-picker.tsx";
 import { ProjectBlock } from "./project-block.tsx";
+import { ProjectImageRow } from "./project-image-row.tsx";
 
 /**
- * The Project's mark, saved by a button rather than at once, as a label can be briefly empty while
- * it is typed. Without a draft it shows the Project's, so a change from another tab shows here.
+ * The Project's mark and images. The mark is saved by a button rather than at once, as a label can
+ * be briefly empty while it is typed. Without a draft it shows the Project's, so a change from
+ * another tab shows here.
  */
 export function AppearanceBlock({ project }: { readonly project: Project }): ReactNode {
   const [draft, setDraft] = useState<Mark>();
@@ -29,7 +31,7 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
     <ProjectBlock
       icon="palette"
       title="Appearance"
-      note="The mark shows with the Project's name on every page."
+      note="The mark shows with the Project's name on every page. An Icon takes the place of its letters, and a Logo stands for the Project on its page and card."
     >
       <form
         onSubmit={(event) => {
@@ -62,6 +64,10 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
           </Button>
         </div>
       </form>
+      <div className="project-image-rows">
+        <ProjectImageRow project={project} imageKey="icon" />
+        <ProjectImageRow project={project} imageKey="logo" />
+      </div>
     </ProjectBlock>
   );
 }

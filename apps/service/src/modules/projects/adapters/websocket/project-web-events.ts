@@ -12,6 +12,7 @@ import {
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
+  ProjectImageChanged,
   ProjectInstallInputsChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
@@ -83,6 +84,11 @@ export class ProjectWebEvents implements OnModuleInit {
     this.forwarding.forward(ProjectMarkChanged, (event): WebEventOf<"project.mark-changed"> => ({
       type: "project.mark-changed",
       projectId: event.projectId,
+    }));
+    this.forwarding.forward(ProjectImageChanged, (event): WebEventOf<"project.image-changed"> => ({
+      type: "project.image-changed",
+      projectId: event.projectId,
+      key: event.key,
     }));
     this.forwarding.forward(
       ProjectUseProjectSkillsChanged,

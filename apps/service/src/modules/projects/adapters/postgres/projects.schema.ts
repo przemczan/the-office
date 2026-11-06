@@ -6,6 +6,7 @@ import type {
   PublishingMode,
 } from "../../domain/project.js";
 import type { ProjectEnvironment } from "../../domain/project-environment.js";
+import type { ProjectImage } from "../../domain/project-image.js";
 
 export const projects = pgTable("projects", {
   id: text("id").primaryKey(),
@@ -15,6 +16,8 @@ export const projects = pgTable("projects", {
   baseBranch: text("base_branch").notNull(),
   markLabel: text("mark_label").notNull(),
   markColour: text("mark_colour").$type<ProjectMarkColour>().notNull(),
+  icon: jsonb("icon").$type<ProjectImage>(),
+  logo: jsonb("logo").$type<ProjectImage>(),
   installCommand: text("install_command").notNull(),
   buildCommand: text("build_command").notNull(),
   lintCommand: text("lint_command").notNull(),

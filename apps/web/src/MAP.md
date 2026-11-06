@@ -30,7 +30,7 @@
 - `office-updates.ts`: officeUpdateQueries, checkForUpdates, scheduleOfficeUpdate, cancelOfficeUpdate, OFFICE_UPDATE_LOG_URL, officeUpdateEventInvalidations
 - `people.ts`: ENGINE_CASCADE, roleQueries, roleCardQueries, hire, changeRoleCard, filledRoleKeys, letGoOfPerson, hirePersonBack, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
 - `pipelines.ts`: pipelineQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
-- `projects.ts`: REMOTE_NEEDS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeMark, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
+- `projects.ts`: REMOTE_NEEDS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeMark, uploadProjectImage, removeProjectImage, projectImageAddress, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations
 - `work.ts`: TASKS, FIRE_ALARM, ideaQueries, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, confirmInitiative, dropInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, changeDescription, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, takeOutOfQueue, moveUpInQueue, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
 - Tests: api-client.test.ts, conversations.test.ts, event-stream.test.ts
@@ -53,6 +53,8 @@
 - `person-name.ts`: personName, roleName, roleFirstName
 - `person-tag.tsx`: PersonTag, NamedTag
 - `project-chip.tsx`: ProjectChip
+- `project-image.ts`: useShownProjectImage
+- `project-logo.tsx`: ProjectLogo
 - `project-mark.tsx`: ProjectMark
 - `project-words.ts`: publishingLabel, COMMAND_KEYS, COMMAND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine
 - `rail-item.tsx`: RailItemFace, RailItemTooltip
@@ -86,7 +88,7 @@
 - `use-placed-list.ts`: usePlacedList
 - `use-tab-visible.ts`: useTabVisible
 - `user-activity.ts`: pageAt, useReportingActivity
-- Tests: engine-words.test.ts, mark-colours.test.ts, markdown-text.test.tsx, menu-placement.test.ts, rail-store.test.ts, role-card-words.test.ts, secret-value.test.ts, time.test.ts, token-words.test.ts, unified-diff.test.ts, user-activity.test.ts
+- Tests: engine-words.test.ts, mark-colours.test.ts, markdown-text.test.tsx, menu-placement.test.ts, project-mark.test.tsx, rail-store.test.ts, role-card-words.test.ts, secret-value.test.ts, time.test.ts, token-words.test.ts, unified-diff.test.ts, user-activity.test.ts
 
 ### shell/attachments/
 

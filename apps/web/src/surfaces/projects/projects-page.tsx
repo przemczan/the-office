@@ -10,7 +10,7 @@ import { usePageHeading } from "../../shell/page-heading.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
-import { ProjectMark } from "../../shell/project-mark.tsx";
+import { ProjectLogo } from "../../shell/project-logo.tsx";
 import { publishingLabel } from "../../shell/project-words.ts";
 import { AddProjectDialog } from "./add-project-dialog.tsx";
 import { OnboardingBadge } from "./onboarding-block.tsx";
@@ -88,7 +88,7 @@ function ProjectCard({
       className="project-tile project-card"
     >
       <div className="project-tile-head">
-        <ProjectMark project={project} size="xl" />
+        <ProjectLogo project={project} size="xl" />
         <div className="project-tile-grow">
           <h2 className="project-tile-name">{project.name}</h2>
           <div className="project-tile-sub project-path">{project.path}</div>

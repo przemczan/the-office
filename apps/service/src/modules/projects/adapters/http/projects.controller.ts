@@ -35,8 +35,8 @@ import { ProjectSkills } from "../../../skills/index.js";
 import type { RemoteNeeds } from "../../../../platform/git-identity/remote-needs.js";
 import { ProjectRemotes } from "../../application/project-remotes.js";
 import { ProjectService } from "../../application/project-service.js";
-import type { Project } from "../../domain/project.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
+import { toProjectResponse } from "./project-responses.js";
 
 @Controller("projects")
 @UseFilters(ProjectRefusalsFilter)
@@ -163,36 +163,6 @@ export class ProjectsController {
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.projects.changeRoleOverride(id, roleKey, roleOverride));
   }
-}
-
-function toProjectResponse(project: Project): ProjectResponse {
-  return {
-    id: project.id,
-    name: project.name,
-    path: project.path,
-    repositoryUrl: project.repositoryUrl,
-    baseBranch: project.baseBranch,
-    mark: { label: project.mark.label, colour: project.mark.colour },
-    commands: { ...project.commands },
-    installInputs: [...project.installInputs],
-    publishingMode: project.publishingMode,
-    defaultPipeline: project.defaultPipeline,
-    environment: {
-      set: project.environment.set.map(({ name, value }) => ({ name, value })),
-      unset: [...project.environment.unset],
-      prependPath: [...project.environment.prependPath],
-    },
-    useProjectSkills: project.useProjectSkills,
-    projectSkillsOff: [...project.projectSkillsOff],
-    projectDefault: project.projectDefault && { ...project.projectDefault },
-    useForEveryRole: project.useForEveryRole,
-    roleOverrides: project.roleOverrides.map(({ roleKey, engineId, model }) => ({
-      roleKey,
-      engineId,
-      model,
-    })),
-    addedAt: project.addedAt.toISOString(),
-  };
 }
 
 function toRemoteNeedsResponse(needs: RemoteNeeds): RemoteNeedsResponse {
