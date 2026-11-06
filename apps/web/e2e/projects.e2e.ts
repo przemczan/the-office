@@ -14,6 +14,19 @@ import { createTemporaryRepository, type TemporaryRepository } from "./temporary
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
 
+/** A Project's sections in the menu's order: each one's address and the blocks only it shows. */
+const SECTIONS = [
+  { name: "Overview", address: "", blocks: ["Onboarding", "Environment", "Work"] },
+  { name: "Commands", address: "/commands", blocks: ["Commands"] },
+  { name: "Default Pipeline", address: "/default-pipeline", blocks: ["Default Pipeline"] },
+  { name: "Engine", address: "/engine", blocks: ["Engine"] },
+  { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
+  { name: "Server values", address: "/server-values", blocks: ["Server values"] },
+];
+
+const ANY_BLOCK =
+  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Engine|Skills in the repository.*|Server values)$/;
+
 let repository: TemporaryRepository;
 
 test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
@@ -53,6 +66,22 @@ async function addedProject(
   return projectSchema.parse(await response.json());
 }
 
+function projectMenu(page: Page) {
+  return page.getByRole("navigation", { name: "Project", exact: true });
+}
+
+/** The section is open: marked in the menu, its blocks alone showing, under the Project's head. */
+async function expectOpenSection(page: Page, project: Project, section: (typeof SECTIONS)[number]) {
+  await expect(projectMenu(page).locator("a[aria-current='page']")).toHaveText(section.name);
+  await expect(page.locator(".section-body").getByRole("heading", { name: ANY_BLOCK })).toHaveText(
+    section.blocks,
+  );
+  const head = page.locator(".project-head");
+  await expect(head.getByRole("heading", { name: project.name })).toBeVisible();
+  await expect(head).toContainText(project.path);
+  await expect(head).toContainText(project.baseBranch);
+}
+
 async function fillTheForm(page: Page, fields: { name: string; path: string; branch: string }) {
   const form = page.getByRole("dialog");
   await form.getByLabel("Name").fill(fields.name);
@@ -77,8 +106,9 @@ test("the user adds a Project from the Projects page and lands on its page", asy
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Billing service");
   await expect(page.getByText("Billing service added.")).toBeVisible();
   await expect(page.getByText(repository.path)).toBeVisible();
-  await expect(page.getByText("package-lock.json")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project.png") });
+  await projectMenu(page).getByRole("link", { name: "Commands" }).click();
+  await expect(page.getByText("package-lock.json")).toBeVisible();
 
   await page.getByRole("link", { name: "Projects", exact: true }).first().click();
   await expect(page.getByRole("link", { name: /Billing service/ })).toBeVisible();
@@ -182,7 +212,7 @@ test("editing a command saves it, and the toast says Tasks run it from their nex
   page,
 }) => {
   const project = await addedProject(page, "Command edits");
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/commands`);
 
   await page.getByRole("button", { name: "Change the test command" }).click();
   await page.getByLabel("Test command").fill("npm test -- --run");
@@ -207,7 +237,7 @@ test("a Project overrides an MCP server's Server values, a secret never shown", 
     { name: "FAKE_REGION", secret: false, required: false, officeWideValue: "eu" },
   ]);
   const project = await addedProject(page, "Values override");
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/server-values`);
 
   const values = page.getByRole("region", { name: `MCP server ${server}` });
   const token = values.getByRole("listitem", { name: "Server value FAKE_TOKEN" });
@@ -248,7 +278,7 @@ test("a Project overrides an MCP server's Server values, a secret never shown", 
 
 test("the install inputs are changed beside the install command", async ({ page }) => {
   const project = await addedProject(page, "Install inputs");
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/commands`);
   await expect(page.getByText("None: a worktree installs once.")).toBeVisible();
 
   await page.getByRole("button", { name: "Change the install inputs" }).click();
@@ -269,7 +299,7 @@ test("the install inputs are changed beside the install command", async ({ page 
 
 test("the default Pipeline picker lists the library, the built-ins first", async ({ page }) => {
   const project = await addedProject(page, "Pipeline choice");
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/default-pipeline`);
   const picker = page.getByLabel("Default Pipeline");
 
   // Other tests add Pipelines of their own after the built-ins.
@@ -304,9 +334,9 @@ test("a command changed in one tab shows in another", async ({ page, context }) 
       });
     });
   });
-  await other.goto(`/projects/${project.id}`);
+  await other.goto(`/projects/${project.id}/commands`);
   await subscribed;
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/commands`);
 
   await page.getByRole("button", { name: "Change the lint command" }).click();
   await page.getByLabel("Lint command").fill("oxlint");
@@ -351,10 +381,35 @@ test("the environment check shows each check, and saves the environment only onc
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-environment.png") });
 });
 
-test("a Project that doesn't exist says so, with the way back", async ({ page }) => {
-  await page.goto("/projects/nowhere");
+test("a Project's menu opens each section at its own address, which survives a reload", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Menu sections");
+  await page.goto(`/projects/${project.id}`);
+  await expect(projectMenu(page).getByRole("link")).toHaveText(
+    SECTIONS.map((section) => section.name),
+  );
 
-  await expect(page.getByText('There is no Project "nowhere".')).toBeVisible();
-  await page.getByRole("link", { name: "Back to Projects" }).click();
-  await expect(page).toHaveURL(/\/projects$/);
+  // Overview last, as it opens first and its link must also come back from a section.
+  for (const section of [...SECTIONS.slice(1), SECTIONS[0]!]) {
+    await projectMenu(page).getByRole("link", { name: section.name, exact: true }).click();
+    await expect(page).toHaveURL(`/projects/${project.id}${section.address}`);
+    await expectOpenSection(page, project, section);
+
+    await page.reload();
+    await expectOpenSection(page, project, section);
+  }
+});
+
+test("a Project that doesn't exist says so at each section's address, with the way back", async ({
+  page,
+}) => {
+  for (const section of SECTIONS) {
+    await page.goto(`/projects/nowhere${section.address}`);
+
+    await expect(page.getByText('There is no Project "nowhere".')).toBeVisible();
+    await expect(projectMenu(page)).toHaveCount(0);
+    await page.getByRole("link", { name: "Back to Projects" }).click();
+    await expect(page).toHaveURL(/\/projects$/);
+  }
 });

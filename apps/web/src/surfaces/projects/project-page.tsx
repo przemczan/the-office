@@ -1,27 +1,42 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { OFFICE_IDENTITY_SETTINGS_PATH, type Project } from "@the-office/contracts";
 import { EmptyState } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectMark } from "../../shell/project-mark.tsx";
-import { CommandsBlock } from "./commands-block.tsx";
-import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
-import { EngineBlock } from "./engine-block.tsx";
-import { EnvironmentBlock } from "./environment-block.tsx";
-import { OnboardingBadge, OnboardingBlock } from "./onboarding-block.tsx";
+import { SectionLayout, type MenuSection } from "../../shell/section-layout.tsx";
+import { OnboardingBadge } from "./onboarding-block.tsx";
 import { remoteNeedsLine } from "./remote-needs-words.ts";
-import { ServerValuesBlock } from "./server-values-block.tsx";
-import { SkillsBlock } from "./skills-block.tsx";
-import { WorkBlock } from "./work-block.tsx";
 import "./projects.css";
 
-/**
- * A Project's own page: its commands, default Pipeline and publishing, the engine its Roles run
- * on, its own skills, its onboarding, its environment, and how its Tasks stand.
- */
+/** A Project's sections, each a page of its own; Overview keeps the Project's bare address. */
+const SECTIONS: readonly MenuSection[] = [
+  {
+    to: "/projects/$projectId",
+    icon: "layout-dashboard",
+    label: "Overview",
+    onlyAtItsAddress: true,
+  },
+  { to: "/projects/$projectId/commands", icon: "terminal", label: "Commands" },
+  { to: "/projects/$projectId/default-pipeline", icon: "route", label: "Default Pipeline" },
+  { to: "/projects/$projectId/engine", icon: "cpu", label: "Engine" },
+  { to: "/projects/$projectId/skills", icon: "sparkles", label: "Skills" },
+  { to: "/projects/$projectId/server-values", icon: "plug", label: "Server values" },
+];
+
+const OpenProjectContext = createContext<Project | undefined>(undefined);
+
+/** The Project whose page is open, for its sections. */
+export function useOpenProject(): Project {
+  const project = useContext(OpenProjectContext);
+  if (project === undefined) throw new Error("No ProjectPage above this component");
+  return project;
+}
+
+/** A Project's own page: its head above the menu of its sections, beside the open one. */
 export function ProjectPage(): ReactNode {
   const { projectId } = useParams({ from: "/projects/$projectId" });
   const project = useQuery(projectQueries.one(projectId));
@@ -35,20 +50,11 @@ export function ProjectPage(): ReactNode {
   return (
     <div className="project-page">
       <ProjectHead project={project.data} />
-      <div className="project-columns">
-        <div className="project-column">
-          <CommandsBlock project={project.data} />
-          <DefaultPipelineBlock project={project.data} />
-          <EngineBlock project={project.data} />
-          <SkillsBlock project={project.data} />
-          <ServerValuesBlock project={project.data} />
-        </div>
-        <div className="project-column">
-          <OnboardingBlock project={project.data} />
-          <EnvironmentBlock project={project.data} />
-          <WorkBlock project={project.data} />
-        </div>
-      </div>
+      <SectionLayout label="Project" sections={SECTIONS} params={{ projectId }}>
+        <OpenProjectContext value={project.data}>
+          <Outlet />
+        </OpenProjectContext>
+      </SectionLayout>
     </div>
   );
 }

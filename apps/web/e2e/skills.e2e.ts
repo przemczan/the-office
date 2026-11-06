@@ -213,7 +213,7 @@ test("a Project's page lists its own skills, read-only, with their switches", as
   });
   const added = await page.request.post("/api/projects", { data: newProject });
   const project = projectSchema.parse(await added.json());
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/skills`);
 
   await expect(page.getByText("Deploys the panel.")).toBeVisible();
   await expect(page.getByText(".claude/skills/deploy")).toBeVisible();

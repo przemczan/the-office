@@ -1,10 +1,10 @@
-import { Link, Outlet } from "@tanstack/react-router";
-import { Icon } from "@the-office/ui";
+import { Outlet } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { SectionLayout, type MenuSection } from "../../shell/section-layout.tsx";
 import "./settings.css";
 
 /** Settings' sections, each a page of its own; later tasks add theirs here. */
-const SECTIONS = [
+const SECTIONS: readonly MenuSection[] = [
   { to: "/settings/pipelines", icon: "route", label: "Pipelines" },
   { to: "/settings/skills", icon: "sparkles", label: "Skills" },
   { to: "/settings/mcp-servers", icon: "plug", label: "MCP servers" },
@@ -14,23 +14,15 @@ const SECTIONS = [
   { to: "/settings/notifications", icon: "bell", label: "Notifications" },
   { to: "/settings/updates", icon: "refresh-cw", label: "Updates" },
   { to: "/settings/appearance", icon: "palette", label: "Appearance" },
-] as const;
+];
 
 /** Settings (prototypes/app/settings.js): its sections beside the open one. */
 export function SettingsPage(): ReactNode {
   return (
     <div className="settings-page">
-      <nav className="settings-nav" aria-label="Settings">
-        {SECTIONS.map((section) => (
-          <Link key={section.to} to={section.to} activeProps={{ className: "active" }}>
-            <Icon name={section.icon} size={16} strokeWidth={1.6} />
-            {section.label}
-          </Link>
-        ))}
-      </nav>
-      <div className="settings-body">
+      <SectionLayout label="Settings" sections={SECTIONS}>
         <Outlet />
-      </div>
+      </SectionLayout>
     </div>
   );
 }

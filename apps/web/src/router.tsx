@@ -20,6 +20,14 @@ import { HireFromScratchPage, RoleCardEditPage } from "./surfaces/people/role-ca
 import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
 import { WorkTab } from "./surfaces/people/work-tab.tsx";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
+import {
+  ProjectCommandsSection,
+  ProjectDefaultPipelineSection,
+  ProjectEngineSection,
+  ProjectOverviewSection,
+  ProjectServerValuesSection,
+  ProjectSkillsSection,
+} from "./surfaces/projects/project-sections.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { AppearanceSection } from "./surfaces/settings/appearance/appearance-section.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
@@ -258,6 +266,49 @@ const projectRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+// At the Project's bare address, no redirect: one would drop a link's ?chat=…&thread=….
+const projectOverviewRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "/",
+  component: ProjectOverviewSection,
+  staticData: { title: "Projects" },
+});
+
+const projectCommandsRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "commands",
+  component: ProjectCommandsSection,
+  staticData: { title: "Projects" },
+});
+
+const projectDefaultPipelineRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "default-pipeline",
+  component: ProjectDefaultPipelineSection,
+  staticData: { title: "Projects" },
+});
+
+const projectEngineRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "engine",
+  component: ProjectEngineSection,
+  staticData: { title: "Projects" },
+});
+
+const projectSkillsRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "skills",
+  component: ProjectSkillsSection,
+  staticData: { title: "Projects" },
+});
+
+const projectServerValuesRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "server-values",
+  component: ProjectServerValuesSection,
+  staticData: { title: "Projects" },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "settings",
@@ -379,7 +430,14 @@ export const router = createRouter({
     ]),
     hireFromScratchRoute,
     projectsRoute,
-    projectRoute,
+    projectRoute.addChildren([
+      projectOverviewRoute,
+      projectCommandsRoute,
+      projectDefaultPipelineRoute,
+      projectEngineRoute,
+      projectSkillsRoute,
+      projectServerValuesRoute,
+    ]),
     settingsRoute.addChildren([
       settingsHomeRoute,
       settingsPipelinesRoute,

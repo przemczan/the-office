@@ -382,7 +382,7 @@ test("the Project page's Engine block sets the Project default, uses it for ever
   let project: Project | undefined;
   try {
     project = await addedProject(page, repository, "Engine shop", "ES");
-    await page.goto(`/projects/${project.id}`);
+    await page.goto(`/projects/${project.id}/engine`);
     const block = page
       .locator("section")
       .filter({ has: page.getByRole("heading", { name: "Engine", exact: true }) });
@@ -413,7 +413,7 @@ test("the Project page's Engine block sets the Project default, uses it for ever
       "In Engine shop: Haiku 5.5 on Claude Code, from the Project default",
     );
 
-    await page.goto(`/projects/${project.id}`);
+    await page.goto(`/projects/${project.id}/engine`);
     const adding = block.getByRole("group", { name: "Add a Role override" });
     await adding.getByLabel("Role").selectOption("developer");
     await adding.getByLabel("Model").selectOption({ label: "Haiku 5.5" });
@@ -433,7 +433,7 @@ test("the Project page's Engine block sets the Project default, uses it for ever
       "In Engine shop: Haiku 5.5 on Claude Code, from the Project's Role override",
     );
 
-    await page.goto(`/projects/${project.id}`);
+    await page.goto(`/projects/${project.id}/engine`);
     await overrides.getByRole("button", { name: "Remove" }).click();
     await expect(overrides).toHaveCount(0);
     await expect(
@@ -3237,6 +3237,44 @@ test("the user hires into a preset's Role from Marta's Proposal under another na
   }
 });
 
+test("a chat opens over each section of a Project, whose address and menu stay on it", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Chat over sections", "CS");
+    const started = await page.request.post("/api/chats/office-manager/threads");
+    const { id: threadId } = threadSchema.parse(await started.json());
+    const openSection = page
+      .getByRole("navigation", { name: "Project", exact: true })
+      .locator("a[aria-current='page']");
+    const sections = [
+      { name: "Overview", address: `/projects/${project.id}` },
+      { name: "Commands", address: `/projects/${project.id}/commands` },
+      { name: "Default Pipeline", address: `/projects/${project.id}/default-pipeline` },
+      { name: "Engine", address: `/projects/${project.id}/engine` },
+      { name: "Skills", address: `/projects/${project.id}/skills` },
+      { name: "Server values", address: `/projects/${project.id}/server-values` },
+    ];
+
+    for (const { name, address } of sections) {
+      const withChat = `${address}?chat=office-manager&thread=${threadId}`;
+      await page.goto(withChat);
+
+      await expect(chatWith(page, "Marta")).toBeVisible();
+      await expect(page).toHaveURL(withChat);
+      await expect(openSection).toHaveText(name);
+
+      await page.keyboard.press("Escape");
+      await expect(chatWith(page, "Marta")).toHaveCount(0);
+      await expect(page).toHaveURL(address);
+      await expect(openSection).toHaveText(name);
+    }
+  } finally {
+    await repository.remove();
+  }
+});
+
 test("the user asks Nina from a Project's Commands and a library Pipeline, and applies her Proposals; a stale one is refused", async ({
   page,
 }) => {
@@ -3257,7 +3295,7 @@ test("the user asks Nina from a Project's Commands and a library Pipeline, and a
     const nina = chatWith(page, "Nina");
 
     // Asked from the Commands or the Pipeline, Nina's chat opens on a new Thread with the question.
-    await page.goto(`/projects/${project.id}`);
+    await page.goto(`/projects/${project.id}/commands`);
     await page.getByRole("button", { name: "Ask Nina to propose a change" }).click();
     await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you propose a change to the commands of ${project.name}? `,

@@ -1,5 +1,5 @@
 /* Projects (prototypes/app/projects.js): the cards with "Add a Project", and a Project's page with
-   its blocks. Colours are aliases only; a Project's mark is the shell's. */
+   its head above the sections of its blocks. Colours are aliases only; a Project's mark is the shell's. */
 
 .projects-page,
 .project-page {
@@ -213,20 +213,6 @@
   margin-top: 6px;
   font: var(--type-caption);
   color: var(--fg-2);
-}
-
-.project-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
-  gap: var(--gap-panel);
-  align-items: start;
-}
-
-.project-column {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
 }
 
 .add-project-actions {
@@ -536,10 +522,6 @@
 @media (max-width: 1280px) {
   .projects-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .project-columns {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 

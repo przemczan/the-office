@@ -1,0 +1,63 @@
+/* A page of sections (prototypes/app/settings.js): the left-hand menu beside the open one, a row
+   above it on a narrow window. Colours are aliases only. */
+
+.section-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--gap-panel);
+  align-items: start;
+}
+
+.section-menu {
+  position: sticky;
+  top: var(--pad-page);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.section-menu a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font: var(--type-label);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+
+.section-menu a:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
+
+.section-menu a.active {
+  background: var(--surface-selected);
+  color: var(--fg-1);
+}
+
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  max-width: 1100px;
+}
+
+@media (max-width: 980px) {
+  .section-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .section-menu {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .section-menu a {
+    white-space: nowrap;
+  }
+}
