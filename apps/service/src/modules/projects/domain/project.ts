@@ -10,9 +10,11 @@ export type ProjectCommands = Readonly<Record<ProjectCommandKey, string>>;
 export const PUBLISHING_MODES = ["push-and-pull-request", "merge"] as const;
 export type PublishingMode = (typeof PUBLISHING_MODES)[number];
 
-/** The design system's ramps a mark may take: never a status hue or the accent (spec §4). */
-export const PROJECT_MARK_COLOURS = ["teal", "violet", "gray", "ink"] as const;
-export type ProjectMarkColour = (typeof PROJECT_MARK_COLOURS)[number];
+/** The design system's ramps offered as a mark's quick choices. */
+export const NAMED_MARK_COLOURS = ["teal", "violet", "gray", "ink"] as const;
+
+/** One of the named colours, or any other as `#rrggbb` in lower case (spec §4). */
+export type ProjectMarkColour = (typeof NAMED_MARK_COLOURS)[number] | `#${string}`;
 
 /** A short label on a colour, shown wherever an item names its Project. */
 export interface ProjectMark {
@@ -87,6 +89,7 @@ export type NewProject = Pick<
 
 const NAME_LENGTH = 60;
 const MARK_LABEL = /^[\p{L}\p{N}]{1,3}$/u;
+const CUSTOM_MARK_COLOUR = /^#[0-9a-f]{6}$/;
 
 /** The new Project as it is kept: without the spaces around what the user typed. */
 export function trimmedNewProject(project: NewProject): NewProject {
@@ -135,7 +138,13 @@ export function trimmedMark(mark: ProjectMark): ProjectMark {
 
 /** Why a mark can't be saved, or undefined when it can. */
 export function markProblem(mark: ProjectMark): string | undefined {
-  return MARK_LABEL.test(mark.label) ? undefined : "The mark's label is 1 to 3 letters or digits.";
+  if (!MARK_LABEL.test(mark.label)) return "The mark's label is 1 to 3 letters or digits.";
+  if (!isMarkColour(mark.colour)) return "The mark's colour is a named colour or #rrggbb.";
+  return undefined;
+}
+
+function isMarkColour(colour: string): boolean {
+  return NAMED_MARK_COLOURS.some((named) => named === colour) || CUSTOM_MARK_COLOUR.test(colour);
 }
 
 /** Why a command line can't be saved, or undefined when it can. */

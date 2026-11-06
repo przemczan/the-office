@@ -5,6 +5,7 @@ import {
   newProjectProblems,
   projectIdFor,
   trimmedInstallInputs,
+  type ProjectMarkColour,
 } from "./project.js";
 import { aNewProject } from "./project.fixtures.js";
 
@@ -46,6 +47,20 @@ describe("newProjectProblems", () => {
 
   it.each(["A", "TO", "Ż2", "FW1"])("takes the mark label %j", (label) => {
     expect(newProjectProblems(aNewProject({ mark: { label, colour: "ink" } }))).toEqual([]);
+  });
+
+  it("takes a custom mark colour", () => {
+    const mark = { label: "AP", colour: "#3366cc" } as const;
+
+    expect(newProjectProblems(aNewProject({ mark }))).toEqual([]);
+  });
+
+  it.each(["pink", "#12", "#ABCDEF", "#3366cc "])("refuses the mark colour %j", (colour) => {
+    const mark = { label: "AP", colour: colour as ProjectMarkColour };
+
+    expect(newProjectProblems(aNewProject({ mark }))).toEqual([
+      "The mark's colour is a named colour or #rrggbb.",
+    ]);
   });
 });
 

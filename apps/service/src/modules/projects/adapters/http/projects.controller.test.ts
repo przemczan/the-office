@@ -375,11 +375,24 @@ describe("PUT /api/projects/:id/mark", () => {
     expect(webEvents()).toEqual([]);
   });
 
-  it("refuses a colour that isn't one of the four", async () => {
+  it("saves a custom colour and announces it, once", async () => {
+    const project = await addProject();
+    published = [];
+    const mark = { label: "AP", colour: "#3366cc" };
+
+    await send("PUT", `/projects/${project.id}/mark`, { mark });
+    await send("PUT", `/projects/${project.id}/mark`, { mark });
+
+    expect(webEvents()).toEqual([{ type: "project.mark-changed", projectId: project.id }]);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).mark).toEqual(mark);
+  });
+
+  it.each(["pink", "#12", "#ABCDEF"])("refuses %j, which isn't a colour", async (colour) => {
     const project = await addProject();
 
     const response = await send("PUT", `/projects/${project.id}/mark`, {
-      mark: { label: "AP", colour: "pink" },
+      mark: { label: "AP", colour },
     });
 
     expect(response.status).toBe(400);

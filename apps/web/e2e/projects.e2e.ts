@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   OFFICE_IDENTITY_SETTINGS_PATH,
   projectSchema,
@@ -41,6 +41,26 @@ test.afterAll(async () => {
 });
 
 /** Adds a Project through the API, for the tests that start on its page. */
+const GRAY_950 = "rgb(15, 15, 14)";
+const WHITE = "rgb(255, 255, 255)";
+
+// A custom colour is the user's own data, not a style.
+/* oxlint-disable office/restricted-syntax */
+const LIGHT_CUSTOM_COLOUR = { value: "#ffee88", background: "rgb(255, 238, 136)", label: GRAY_950 };
+const DARK_CUSTOM_COLOUR = { value: "#3366cc", background: "rgb(51, 102, 204)", label: WHITE };
+const PAGE_LIKE_CUSTOM_COLOUR = { value: "#ffffff", background: WHITE, label: GRAY_950 };
+const TILE_EDGE_WIDTH = "1px";
+/* oxlint-enable office/restricted-syntax */
+
+async function expectCustomMark(
+  mark: Locator,
+  colours: { readonly background: string; readonly label: string },
+): Promise<void> {
+  await expect(mark).toHaveClass(/colour-custom/);
+  await expect(mark).toHaveCSS("background-color", colours.background);
+  await expect(mark).toHaveCSS("color", colours.label);
+}
+
 async function addedProject(
   page: Page,
   name: string,
@@ -415,6 +435,89 @@ test("the mark is changed in Appearance: previewed, saved, and shown on the head
   const card = page.getByRole("link", { name: /New look/ }).locator(".project-mark");
   await expect(card).toHaveText("NL");
   await expect(card).toHaveClass(/colour-teal/);
+});
+
+test("a custom colour is previewed, saved, and shown everywhere until a named one replaces it", async ({
+  page,
+  context,
+}) => {
+  const project = await addedProject(page, "Custom look");
+  const projectsTab = await context.newPage();
+  await projectsTab.goto("/projects");
+  await page.goto(`/projects/${project.id}/appearance`);
+  const head = page.locator(".project-head .project-mark");
+  const picker = page.locator(".mark-picker");
+  const preview = picker.locator(".project-mark");
+  const customColour = picker.getByLabel("Custom colour");
+  await expect(customColour).toHaveCount(0);
+
+  await picker.getByRole("tab", { name: "Custom" }).click();
+  await customColour.fill(LIGHT_CUSTOM_COLOUR.value);
+
+  await expect(picker.getByText(LIGHT_CUSTOM_COLOUR.value)).toBeVisible();
+  await expectCustomMark(preview, LIGHT_CUSTOM_COLOUR);
+  await expect(head).toHaveClass(/colour-violet/);
+
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByText("Mark saved for Custom look.")).toBeVisible();
+  await expectCustomMark(head, LIGHT_CUSTOM_COLOUR);
+  const cardInTheOtherTab = projectsTab
+    .getByRole("link", { name: /Custom look/ })
+    .locator(".project-mark");
+  await expectCustomMark(cardInTheOtherTab, LIGHT_CUSTOM_COLOUR);
+
+  await page.reload();
+  await expectCustomMark(page.locator(".project-head .project-mark"), LIGHT_CUSTOM_COLOUR);
+  await expect(picker.getByRole("tab", { name: "Custom" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(customColour).toHaveValue(LIGHT_CUSTOM_COLOUR.value);
+
+  await customColour.fill(DARK_CUSTOM_COLOUR.value);
+  await expectCustomMark(preview, DARK_CUSTOM_COLOUR);
+
+  await picker.getByRole("tab", { name: "Teal" }).click();
+  await expect(customColour).toHaveCount(0);
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(head).toHaveClass(/colour-teal/);
+  await expect(cardInTheOtherTab).toHaveClass(/colour-teal/);
+  await expect(head).not.toHaveClass(/colour-custom/);
+});
+
+test("a Project is added with a custom colour", async ({ page }) => {
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Add it yourself" }).click();
+  await fillTheForm(page, { name: "Own colour", path: repository.path, branch: "main" });
+  const form = page.getByRole("dialog");
+
+  await form.getByRole("tab", { name: "Custom" }).click();
+  await form.getByLabel("Custom colour").fill(DARK_CUSTOM_COLOUR.value);
+  await expectCustomMark(form.locator(".mark-picker .project-mark"), DARK_CUSTOM_COLOUR);
+  await page.getByRole("button", { name: "Add the Project" }).click();
+
+  await expect(page).toHaveURL(/\/projects\/own-colour$/);
+  await expectCustomMark(page.locator(".project-head .project-mark"), DARK_CUSTOM_COLOUR);
+});
+
+test("a custom colour stays the same in both palettes, its tile's edge showing", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Pale mark");
+  await page.goto(`/projects/${project.id}/appearance`);
+  const head = page.locator(".project-head .project-mark");
+  await page.getByRole("tab", { name: "Custom" }).click();
+  await page.getByLabel("Custom colour").fill(PAGE_LIKE_CUSTOM_COLOUR.value);
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(head).toHaveClass(/colour-custom/);
+
+  for (const palette of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: palette });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
+    await expectCustomMark(head, PAGE_LIKE_CUSTOM_COLOUR);
+    await expect(head).toHaveCSS("border-top-width", TILE_EDGE_WIDTH);
+  }
 });
 
 test("a mark changed in one tab shows in another, on its cards and an untouched Appearance", async ({

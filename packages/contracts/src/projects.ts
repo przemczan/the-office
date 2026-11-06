@@ -9,9 +9,20 @@ export type ProjectCommandKey = z.infer<typeof projectCommandKeySchema>;
 export const publishingModeSchema = z.enum(["push-and-pull-request", "merge"]);
 export type PublishingMode = z.infer<typeof publishingModeSchema>;
 
-/** The design system's ramps a Project's mark may take. */
-export const projectMarkColourSchema = z.enum(["teal", "violet", "gray", "ink"]);
+/** The design system's ramps offered as a Project mark's quick choices. */
+export const namedMarkColourSchema = z.enum(["teal", "violet", "gray", "ink"]);
+export type NamedMarkColour = z.infer<typeof namedMarkColourSchema>;
+
+/** Any other colour, as `#rrggbb` in lower case so each colour has one spelling. */
+const customMarkColourSchema = z.templateLiteral(["#", z.string().regex(/^[0-9a-f]{6}$/)]);
+export type CustomMarkColour = z.infer<typeof customMarkColourSchema>;
+
+export const projectMarkColourSchema = z.union([namedMarkColourSchema, customMarkColourSchema]);
 export type ProjectMarkColour = z.infer<typeof projectMarkColourSchema>;
+
+export function isCustomMarkColour(colour: ProjectMarkColour): colour is CustomMarkColour {
+  return customMarkColourSchema.safeParse(colour).success;
+}
 
 /** Up to three letters or digits from the name's words, as a mark's label: "Admin panel" → "AP". */
 export function markLabelFor(name: string): string {

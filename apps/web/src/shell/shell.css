@@ -513,6 +513,11 @@ body,
   --mark-fg: var(--bg);
 }
 
+/* Its --mark-bg and --mark-fg are set on the element; the border holds its edge on a like background. */
+.project-mark.colour-custom {
+  border: 1px solid var(--border);
+}
+
 /* ---- toasts: the in-app confirmations and Notifications, stacked in the corner */
 .toasts {
   position: fixed;

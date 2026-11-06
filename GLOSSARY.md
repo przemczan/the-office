@@ -11,7 +11,7 @@ A repository The Office works on, with its own commands and settings.
 _Avoid_: Repo (in the UI), workspace
 
 **Mark**:
-A Project's short label on a colour, shown with its name, and what any picture of the Project falls back to.
+A Project's short label on a colour, one of four offered or a custom one, shown with its name, and what any picture of the Project falls back to.
 _Avoid_: Avatar, initials
 
 **Install inputs**:

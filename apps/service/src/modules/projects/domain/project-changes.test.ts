@@ -195,6 +195,21 @@ describe("changeMark", () => {
     expect(changeMark(aProject(), { label: "AP", colour: "teal" })).toBeUndefined();
     expect(changeMark(aProject(), { label: " AP ", colour: "teal" })).toBeUndefined();
   });
+
+  it("takes a custom colour, and changes nothing when it is the same", () => {
+    const mark = { label: "AP", colour: "#3366cc" } as const;
+
+    const change = changeMark(aProject(), mark);
+
+    expect(change?.project.mark).toEqual(mark);
+    expect(changeMark(aProject({ mark }), mark)).toBeUndefined();
+  });
+
+  it("refuses a colour that is neither named nor #rrggbb", () => {
+    expect(() => changeMark(aProject(), { label: "AP", colour: "#ABCDEF" })).toThrow(
+      "The mark's colour is a named colour or #rrggbb.",
+    );
+  });
 });
 
 describe("changeDefaultPipeline", () => {

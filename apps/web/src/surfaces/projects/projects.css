@@ -118,6 +118,34 @@
   gap: 8px;
 }
 
+/* Five colours are wider than the narrowest card, and only this row may scroll sideways. */
+.mark-picker [role="tablist"] {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mark-picker-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mark-picker-custom input {
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.mark-picker-custom-value {
+  color: var(--fg-2);
+  font: var(--type-caption);
+}
+
 /* The cloned repository's URL, with the button to clone another under its field. */
 .add-project-cloned {
   display: flex;

@@ -1,4 +1,4 @@
-import type { ProjectMarkColour } from "@the-office/contracts";
+import type { NamedMarkColour } from "@the-office/contracts";
 
 /** The install inputs the user typed as one line, separated by commas. */
 export function installInputsFrom(line: string): string[] {
@@ -8,7 +8,7 @@ export function installInputsFrom(line: string): string[] {
     .filter((input) => input !== "");
 }
 
-export const MARK_COLOUR_LABELS: Readonly<Record<ProjectMarkColour, string>> = {
+export const MARK_COLOUR_LABELS: Readonly<Record<NamedMarkColour, string>> = {
   teal: "Teal",
   violet: "Violet",
   gray: "Gray",

@@ -43,6 +43,7 @@
 - `engine-words.ts`: EFFORT_LABELS, modelLabel
 - `floating-menu.tsx`: FloatingMenu
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
+- `mark-colours.ts`: markLabelColour
 - `markdown-text.tsx`: MarkdownText
 - `menu-placement.ts`: Box, Size, Placement, menuPlacement
 - `page-heading.tsx`: PageHeading, usePageHeadingState, PageHeadingProvider, usePageHeading
@@ -81,7 +82,7 @@
 - `use-hired.ts`: useHired
 - `use-placed-list.ts`: usePlacedList
 - `user-activity.ts`: pageAt, useReportingActivity
-- Tests: engine-words.test.ts, markdown-text.test.tsx, menu-placement.test.ts, rail-store.test.ts, role-card-words.test.ts, secret-value.test.ts, time.test.ts, token-words.test.ts, unified-diff.test.ts, user-activity.test.ts
+- Tests: engine-words.test.ts, mark-colours.test.ts, markdown-text.test.tsx, menu-placement.test.ts, rail-store.test.ts, role-card-words.test.ts, secret-value.test.ts, time.test.ts, token-words.test.ts, unified-diff.test.ts, user-activity.test.ts
 
 ### shell/attachments/
 
