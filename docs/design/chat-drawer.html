@@ -2139,7 +2139,8 @@
 
       /* ---------- State ---------- */
       const WIDTH_KEY = "the-office-design.chat-drawer-width";
-      const DRAWER = { min: 360, default: 420, max: 720, pageAtLeast: 480 };
+      // Pushing, the page keeps room to lay itself out; over it, enough stays in view for the page and its handle.
+      const DRAWER = { min: 360, default: 420, max: 720, pageAtLeast: 480, pageInViewAtLeast: 240 };
       function rememberedWidth() {
         try {
           const stored = Number(localStorage.getItem(WIDTH_KEY));
@@ -2351,6 +2352,8 @@
           label: "A person answering",
           note: "<strong>Angela is answering.</strong> The Thread shows the Turn being written, and the button its third look: her avatar with a live dot. Send waits until the answer ends, and says so on hover; the draft can still be written. Close the drawer: when she answers, the button turns to Answered.",
           set: () => {
+            // Pam's answer was seen earlier, or Answered would win the button over answering.
+            session.threads.find((each) => each.id === "pam-e2e").seen.answeredUnseen = false;
             const thread = session.threads.find((each) => each.id === "angela-export");
             thread.state = "answering";
             showThread("planner", "angela-export");
@@ -2430,7 +2433,8 @@
       function layout() {
         const width = frame.clientWidth;
         const mode = width <= 600 ? "fill" : width <= 900 ? "over" : state.beside;
-        const widest = mode === "push" ? Math.min(DRAWER.max, width - 56 - DRAWER.pageAtLeast) : Math.min(DRAWER.max, width - 56 - 64);
+        const pageKeeps = mode === "push" ? DRAWER.pageAtLeast : DRAWER.pageInViewAtLeast;
+        const widest = Math.min(DRAWER.max, width - 56 - pageKeeps);
         const max = Math.max(DRAWER.min, widest);
         const drawerWidth = mode === "fill" ? width : Math.min(Math.max(state.drawerWidth, DRAWER.min), max);
         const pushed = session.chatOpen && mode === "push";
@@ -2583,6 +2587,7 @@
       }
       // A page folds its side column into a drawer when the page, not the window, is 844px or less.
       const pageIsNarrow = (geometry) => geometry.pageWidth <= 844;
+      const hasConversationDrawer = (geometry) => state.page !== "now" && pageIsNarrow(geometry);
       function taskPage(geometry) {
         const narrow = pageIsNarrow(geometry);
         const stages = [
@@ -2624,14 +2629,14 @@
 
       /* ---------- Side panels ---------- */
       function conversationHandle(geometry) {
-        if (state.page === "now" || !pageIsNarrow(geometry)) return "";
+        if (!hasConversationDrawer(geometry)) return "";
         // While the chat drawer is beside or over the page, the handle keeps to the page's side of it.
         const offset = session.chatOpen && geometry.mode !== "fill" ? geometry.drawerWidth : 0;
         const label = state.page === "task" ? '<span class="unread">2</span>' : "";
         return `<button type="button" class="btn secondary conversation-handle" style="right:${16 + offset}px" data-action="open-conversation" aria-expanded="${session.conversationOpen}">${ICON.chat()}Conversation${label}</button>`;
       }
       function conversationDrawer(geometry) {
-        if (!session.conversationOpen || state.page === "now" || !pageIsNarrow(geometry)) return "";
+        if (!session.conversationOpen) return "";
         const z = zOf("conversation");
         const title = state.page === "task" ? "Conversation" : "Threads";
         return `<div class="scrim" style="z-index:${z}" data-action="close-conversation"></div>
@@ -2816,7 +2821,7 @@
             <tr><td>3</td><td>The side panel opened last: the chat drawer, the Needs you panel or the conversation drawer</td></tr>
             <tr><td>4</td><td>The next side panel, by the same rule</td></tr></tbody></table>
             <p>Esc never steps back inside the drawer, from a Thread to the list. Every draft stays.</p></div>
-          <div><h2>Width</h2><p>Drag the drawer's left edge, or focus it and press ← and →. It keeps between ${DRAWER.min}px and ${DRAWER.max}px and leaves the page at least ${DRAWER.pageAtLeast}px; double-click the edge for ${DRAWER.default}px. The width is remembered in this browser.</p>
+          <div><h2>Width</h2><p>Drag the drawer's left edge, or focus it and press ← and →. It keeps between ${DRAWER.min}px and ${DRAWER.max}px and leaves the page at least ${DRAWER.pageAtLeast}px beside it, or ${DRAWER.pageInViewAtLeast}px in view when it lies over the page; double-click the edge for ${DRAWER.default}px. The width is remembered in this browser.</p>
             <p>Now: <b>${state.drawerWidth}px</b> remembered, ${geometry.mode === "fill" ? "the whole window" : `${geometry.drawerWidth}px shown`} at this width. <button type="button" class="btn sm secondary" data-action="reset-width">Reset width</button></p>
             <table><tbody><tr><td>Over 900px</td><td>Beside the page, which gives up its width</td></tr><tr><td>601–900px</td><td>Over the page, no backdrop</td></tr><tr><td>600px and below</td><td>Fills the window</td></tr></tbody></table></div>`;
       }
@@ -2828,6 +2833,8 @@
         document.documentElement.dataset.theme = state.palette;
         frame.className = `frame w-${state.width}`;
         const geometry = layout();
+        // A page that unfolds its conversation, or a page without one, has no drawer to close: Esc skips it.
+        if (session.conversationOpen && !hasConversationDrawer(geometry)) closeLayer("conversation");
         const focused = document.activeElement;
         const focusKey = session.focusNext ?? (frame.contains(focused) ? focused?.dataset?.focus : null);
         const selection = focused && "selectionStart" in focused && !session.focusNext ? [focused.selectionStart, focused.selectionEnd] : null;
