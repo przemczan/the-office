@@ -111,8 +111,8 @@ export interface TreeEntry {
 /** What a path names in a commit's tree. */
 export type TreePathKind = "file" | "folder" | "submodule" | "missing";
 
-/** A branch's last commit, fetched alone into a bare repository and read from git's objects. */
-export interface FetchedBranchTip {
+/** What a commit holds, read from git's objects, so no checkout runs a filter or writes a file. */
+export interface CommitTree {
   readonly commit: string;
   /** `path` is relative to the top level, with `/` between names; "" for the top level. */
   kindOf(path: string): Promise<TreePathKind>;
@@ -160,8 +160,11 @@ export abstract class Git {
   abstract readBranchTip<Result>(
     url: string,
     branch: string,
-    read: (tip: FetchedBranchTip) => Promise<Result>,
+    read: (tip: CommitTree) => Promise<Result>,
   ): Promise<Result>;
+
+  /** What `commit`, which the repository at `repositoryPath` must hold, has in its tree. */
+  abstract commitTree(repositoryPath: string, commit: string): CommitTree;
 
   /**
    * The URL git reaches for `url`, with the user's `insteadOf` applied, so the identity is decided

@@ -8,6 +8,7 @@ import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubApiPullRequests } from "./adapters/github/github-api-pull-requests.js";
+import { BaseBranchFilesController } from "./adapters/http/base-branch-files.controller.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
@@ -17,6 +18,7 @@ import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
+import { BaseBranchFiles } from "./application/base-branch-files.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
@@ -71,6 +73,7 @@ export class ProjectsModule {
         ProjectServerValuesController,
         EnvironmentChecksController,
         TaskChangesController,
+        BaseBranchFilesController,
         RepositoryClonesController,
       ],
       providers: [
@@ -98,6 +101,7 @@ export class ProjectsModule {
         Resolving,
         TaskWorktrees,
         BaseCheckouts,
+        BaseBranchFiles,
         ProjectWebEvents,
         ProjectOfficeTools,
       ],

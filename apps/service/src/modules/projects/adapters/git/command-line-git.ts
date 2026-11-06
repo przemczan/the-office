@@ -7,7 +7,7 @@ import {
   type BranchChanges,
   type ChangedFile,
   type CloneRequest,
-  type FetchedBranchTip,
+  type CommitTree,
   type FolderInspection,
   type GitVariables,
   type Head,
@@ -21,6 +21,7 @@ import {
 } from "../../ports/git.js";
 import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
 import { readBranchTip } from "./git-branch-tip.js";
+import { commitTreeOf } from "./git-commit-tree.js";
 import { cloneRepository, reachedUrlOf, remoteBranchesOf } from "./git-clone.js";
 import { GitProcess } from "./git-process.js";
 import { RepositoryLocks } from "./repository-locks.js";
@@ -83,9 +84,13 @@ export class CommandLineGit extends Git {
   async readBranchTip<Result>(
     url: string,
     branch: string,
-    read: (tip: FetchedBranchTip) => Promise<Result>,
+    read: (tip: CommitTree) => Promise<Result>,
   ): Promise<Result> {
     return readBranchTip(this.process, url, branch, read);
+  }
+
+  commitTree(repositoryPath: string, commit: string): CommitTree {
+    return commitTreeOf(this.process, repositoryPath, commit);
   }
 
   async reachedUrlOf(url: string): Promise<string> {
