@@ -11,6 +11,7 @@ const SECTIONS: readonly MenuSection[] = [
   { to: "/settings/engines", icon: "cpu", label: "Engines" },
   { to: "/settings/office-identity", icon: "fingerprint", label: "Office identity" },
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
+  { to: "/settings/office-instructions", icon: "scroll-text", label: "Office instructions" },
   { to: "/settings/notifications", icon: "bell", label: "Notifications" },
   { to: "/settings/updates", icon: "refresh-cw", label: "Updates" },
   { to: "/settings/appearance", icon: "palette", label: "Appearance" },

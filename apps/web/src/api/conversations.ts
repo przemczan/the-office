@@ -3,6 +3,7 @@ import {
   decisionListSchema,
   fireAlarmLiftsSchema,
   messageListSchema,
+  officeInstructionsSchema,
   proposalListSchema,
   proposalSchema,
   sizeThresholdSchema,
@@ -16,6 +17,7 @@ import {
   type FireAlarmLifts,
   type Home,
   type NewMessage,
+  type OfficeInstructions,
   type Proposal,
   type ProposalApplication,
   type SizeThreshold,
@@ -109,6 +111,23 @@ export const sizeThresholdQuery = () =>
 
 export function changeSizeThreshold(sizeThreshold: number): Promise<SizeThreshold> {
   return sendToApi("PUT", "/settings/size-threshold", { sizeThreshold }, sizeThresholdSchema);
+}
+
+/** Settings › Office instructions: the text every new session gets. */
+export const officeInstructionsQuery = () =>
+  queryOptions({
+    queryKey: OFFICE_INSTRUCTIONS,
+    queryFn: ({ signal }) =>
+      getFromApi("/settings/office-instructions", officeInstructionsSchema, signal),
+  });
+
+export function changeOfficeInstructions(officeInstructions: string): Promise<OfficeInstructions> {
+  return sendToApi(
+    "PUT",
+    "/settings/office-instructions",
+    { officeInstructions },
+    officeInstructionsSchema,
+  );
 }
 
 export const decisionQueries = {

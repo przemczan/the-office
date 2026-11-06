@@ -34,6 +34,44 @@ test("Office limits keeps the desks and the size threshold across reloads", asyn
   await expect(threshold).toHaveText("30k");
 });
 
+// The e2e files share one database: the text is emptied at the end, as every other file's sessions
+// would get it.
+test("Office instructions keeps a saved text across reloads", async ({ page }) => {
+  await page.goto("/settings/office-limits");
+  await page.getByRole("link", { name: "Office instructions" }).click();
+  await expect(page).toHaveURL(/\/settings\/office-instructions$/);
+  const text = page.getByRole("textbox", { name: "Office instructions" });
+  const save = page.getByRole("button", { name: "Save" });
+  await expect(text).toHaveValue("");
+  await expect(save).toBeDisabled();
+
+  await text.fill("  Write in plain words.\n\nAnswer briefly.  ");
+  await save.click();
+  await expect(page.getByText("Office instructions saved.")).toBeVisible();
+  // What the service kept: the trimmed text.
+  await expect(text).toHaveValue("Write in plain words.\n\nAnswer briefly.");
+  await expect(save).toBeDisabled();
+
+  await page.reload();
+  await expect(text).toHaveValue("Write in plain words.\n\nAnswer briefly.");
+
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [1600, 380]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `${colorScheme}-${width}-settings-office-instructions.png`),
+      });
+    }
+  }
+
+  await text.fill("");
+  await save.click();
+  await expect(save).toBeDisabled();
+  await page.reload();
+  await expect(text).toHaveValue("");
+});
+
 // The e2e files share one database: the caps are only raised, so no other file's Start waits, and
 // every setting is given back.
 test("Office limits' Usage keeps the ticked measures and the caps across reloads", async ({

@@ -35,6 +35,7 @@ import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx"
 import { McpServersSection } from "./surfaces/settings/mcp-servers/mcp-servers-section.tsx";
 import { OfficeIdentitySection } from "./surfaces/settings/office-identity/office-identity-section.tsx";
 import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx";
+import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
@@ -391,6 +392,13 @@ const settingsOfficeLimitsRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsOfficeInstructionsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "office-instructions",
+  component: OfficeInstructionsSection,
+  staticData: { title: "Settings" },
+});
+
 const settingsNotificationsRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "notifications",
@@ -447,6 +455,7 @@ export const router = createRouter({
       settingsEnginesRoute,
       settingsOfficeIdentityRoute,
       settingsOfficeLimitsRoute,
+      settingsOfficeInstructionsRoute,
       settingsNotificationsRoute,
       settingsUpdatesRoute,
       settingsAppearanceRoute,
