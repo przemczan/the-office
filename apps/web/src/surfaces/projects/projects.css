@@ -1,5 +1,6 @@
 /* Projects (prototypes/app/projects.js): the cards with "Add a Project", and a Project's page with
-   its head above the sections of its blocks. Colours are aliases only; a Project's mark is the shell's. */
+   its head above the sections of its blocks. Colours are aliases only; a Project's mark is the
+   shell's. */
 
 .projects-page,
 .project-page {
