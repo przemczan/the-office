@@ -835,11 +835,7 @@ describe("Start", () => {
       ...MY_PLAN,
       filesToChange: ["./src/auth/login.ts", "README.md"],
     });
-    const overlap = {
-      taskId: first.id,
-      title: first.title,
-      files: ["src/auth/login.ts"],
-    };
+    const overlap = { taskId: first.id, title: first.title };
 
     const check = await startCheck(second.id);
     const refused = await start(second.id);
@@ -851,7 +847,7 @@ describe("Start", () => {
     expect((await readTask(second.id)).filesToChange).toEqual(["src/auth/login.ts", "README.md"]);
     expect(check).toEqual({ ...nothing, overlaps: [overlap] });
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
-      `"${first.title}" is in progress and expects to change src/auth/login.ts too: start anyway, or queue behind it.`,
+      `"${first.title}" is in progress and expects to change some of the same files: start anyway, or queue behind it.`,
     ]);
     expect(startAnswerSchema.parse(await anyway.json()).task.state).toBe("in-progress");
   });

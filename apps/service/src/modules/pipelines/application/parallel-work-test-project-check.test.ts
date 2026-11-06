@@ -182,9 +182,7 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
           );
           expect(startCheck.refusals).toEqual([]);
           expect(startCheck.waits).toEqual([`${DEVELOPER_NAME} is at the Task limit (1).`]);
-          expect(startCheck.overlaps).toEqual([
-            expect.objectContaining({ taskId: first, files: expect.arrayContaining([README]) }),
-          ]);
+          expect(startCheck.overlaps).toEqual([expect.objectContaining({ taskId: first })]);
           expect(unanswered.ok).toBe(false);
 
           const anyway = startAnswerSchema.parse(

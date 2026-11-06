@@ -9,8 +9,6 @@ import { STARTED_STATES } from "./task-states.js";
 export interface Overlap {
   readonly taskId: string;
   readonly title: string;
-  /** The files both expect to change: of a folder and a file under it, the file. */
-  readonly files: readonly string[];
 }
 
 /**
@@ -21,23 +19,17 @@ export function overlapsOf(task: Task, tasks: readonly Task[]): Overlap[] {
   return tasks.flatMap((other) => {
     if (other.id === task.id || other.projectId !== task.projectId) return [];
     if (!STARTED_STATES.includes(other.state)) return [];
-    const files = sharedFiles(task.filesToChange, other.filesToChange);
-    return files.length > 0 ? [{ taskId: other.id, title: other.title, files }] : [];
+    return sharesFiles(task.filesToChange, other.filesToChange)
+      ? [{ taskId: other.id, title: other.title }]
+      : [];
   });
 }
 
 /** What Start says of the Overlaps when the user hasn't chosen how to start. */
-export function overlapWords({ title, files }: Overlap): string {
-  return `"${title}" is in progress and expects to change ${files.join(", ")} too: start anyway, or queue behind it.`;
+export function overlapWords({ title }: Overlap): string {
+  return `"${title}" is in progress and expects to change some of the same files: start anyway, or queue behind it.`;
 }
 
-function sharedFiles(ours: readonly string[], theirs: readonly string[]): string[] {
-  const shared = ours.flatMap((path) =>
-    theirs.flatMap((other) => {
-      if (covers(path, other)) return [other];
-      if (covers(other, path)) return [path];
-      return [];
-    }),
-  );
-  return [...new Set(shared)];
+function sharesFiles(ours: readonly string[], theirs: readonly string[]): boolean {
+  return ours.some((path) => theirs.some((other) => covers(path, other) || covers(other, path)));
 }

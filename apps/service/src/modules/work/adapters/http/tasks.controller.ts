@@ -231,7 +231,7 @@ export class TasksController {
       refusals: [...refusals],
       waits: [...waits],
       blockers: blockers.map(({ id: taskId, title }) => ({ taskId, title })),
-      overlaps: overlaps.map(({ taskId, title, files }) => ({ taskId, title, files: [...files] })),
+      overlaps: overlaps.map(({ taskId, title }) => ({ taskId, title })),
       usageEstimate: usageEstimate ? toUsageEstimateResponse(usageEstimate) : null,
     };
   }

@@ -121,10 +121,10 @@ describe("startOrQueue with an Overlap", () => {
   const task = ready("a", { filesToChange: ["src/auth/login.ts"] });
   const BEHIND_LOGIN = 'Queued behind "Login" until it is Done or Dropped.';
 
-  it("refuses until the user chooses, naming the Task and the files", () => {
+  it("refuses until the user chooses, naming the Task", () => {
     expect(() => startOrQueue(task, developer, held, [], NO_CHOICE)).toThrow(
       new TaskRefused([
-        '"Login" is in progress and expects to change src/auth/login.ts too: start anyway, or queue behind it.',
+        '"Login" is in progress and expects to change some of the same files: start anyway, or queue behind it.',
       ]),
     );
   });

@@ -227,14 +227,10 @@ export type TaskPlacement = z.infer<typeof taskPlacementSchema>;
 export const newDependencySchema = z.object({ blockerId: z.uuid() });
 export type NewDependency = z.infer<typeof newDependencySchema>;
 
-/**
- * A started Task in the same Project whose Plan expects to change some of the same files: the
- * files both expect to change, of a folder and a file under it the file.
- */
+/** A started Task in the same Project whose Plan expects to change some of the same files. */
 export const overlapSchema = z.object({
   taskId: z.uuid(),
   title: z.string(),
-  files: z.array(z.string()),
 });
 export type Overlap = z.infer<typeof overlapSchema>;
 

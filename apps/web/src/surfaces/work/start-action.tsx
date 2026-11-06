@@ -15,11 +15,11 @@ import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
 /**
  * Start on a Ready Task (prototypes/app/task.js): disabled with the reasons while a vacant Role
  * refuses it; while only a limit holds it, Start says the Task joins the queue (spec §2.1, "A queue
- * for Start"). An Overlap with a Task in progress in the Project names it and the files, and Start
- * becomes "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A blocked Task can't
- * start anyway, so "Queue behind it" is all it offers, behind any Overlap too; a refusal outranks
- * both. A queued Task shows its place, reasons and the queue's actions. Beside Start, the Task's
- * Usage estimate.
+ * for Start"). An Overlap with a Task in progress in the Project names it, and Start becomes
+ * "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A blocked Task can't start
+ * anyway, so "Queue behind it" is all it offers, behind any Overlap too; a refusal outranks both. A
+ * queued Task shows its place, reasons and the queue's actions. Beside Start, the Task's Usage
+ * estimate.
  */
 export function StartButton({ task }: { readonly task: Task }): ReactNode {
   const ready = task.state === "ready";
@@ -87,22 +87,16 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
   );
 }
 
-/** Each Task in progress in the Project expecting to change some of the same files, and which. */
+/** Each Task in progress in the Project expecting to change some of the same files. */
 function OverlapNote({ overlaps }: { readonly overlaps: readonly Overlap[] }): ReactNode {
   return (
-    <span className="task-head-note task-overlap-files" role="note" aria-label="Overlap">
+    <span className="task-head-note" role="note" aria-label="Overlap">
       <Icon name="files" size={14} />
       <span>
-        {overlaps.map(({ taskId, title, files }) => (
+        {overlaps.map(({ taskId, title }) => (
           <span key={taskId}>
-            Overlap: &ldquo;{title}&rdquo; is in progress and expects to change{" "}
-            {files.map((path, at) => (
-              <span key={path}>
-                {at > 0 && ", "}
-                <code>{path}</code>
-              </span>
-            ))}{" "}
-            too.{" "}
+            Overlap: &ldquo;{title}&rdquo; is in progress and expects to change some of the same
+            files.{" "}
           </span>
         ))}
       </span>

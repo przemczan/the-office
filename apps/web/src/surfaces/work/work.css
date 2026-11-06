@@ -1706,8 +1706,7 @@
   line-height: 1.55;
 }
 
-.task-files-to-change code,
-.task-overlap-files code {
+.task-files-to-change code {
   font: var(--type-mono);
 }
 

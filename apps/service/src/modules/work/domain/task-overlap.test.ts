@@ -22,8 +22,8 @@ describe("overlapsOf", () => {
     ];
 
     expect(overlapsOf(STARTING, tasks)).toEqual([
-      { taskId: "a", title: "Task a", files: ["README.md"] },
-      { taskId: "b", title: "Task b", files: ["src/auth/login.ts"] },
+      { taskId: "a", title: "Task a" },
+      { taskId: "b", title: "Task b" },
     ]);
   });
 
@@ -31,7 +31,10 @@ describe("overlapsOf", () => {
     const task = aTask({ id: "starting", state: "ready", filesToChange: ["src/auth/login.ts"] });
 
     expect(overlapsOf(task, [started("a", ["src/auth"])])).toEqual([
-      { taskId: "a", title: "Task a", files: ["src/auth/login.ts"] },
+      { taskId: "a", title: "Task a" },
+    ]);
+    expect(overlapsOf(STARTING, [started("c", ["src/auth/login.ts"])])).toEqual([
+      { taskId: "c", title: "Task c" },
     ]);
     expect(overlapsOf(task, [started("b", ["src/au", "src/auth/login.tsx"])])).toEqual([]);
   });
@@ -55,9 +58,9 @@ describe("overlapsOf", () => {
 });
 
 describe("overlapWords", () => {
-  it("names the Task and the files, and what Start offers", () => {
-    expect(overlapWords({ taskId: "a", title: "Login", files: ["src/a.ts", "src/b.ts"] })).toBe(
-      '"Login" is in progress and expects to change src/a.ts, src/b.ts too: start anyway, or queue behind it.',
+  it("names the Task, not the files, and what Start offers", () => {
+    expect(overlapWords({ taskId: "a", title: "Login" })).toBe(
+      '"Login" is in progress and expects to change some of the same files: start anyway, or queue behind it.',
     );
   });
 });

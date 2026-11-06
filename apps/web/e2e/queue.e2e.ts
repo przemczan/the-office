@@ -254,7 +254,7 @@ test("a Ready Task's Usage estimate shows on its card, beside Start, under the r
   ).toBeVisible();
 });
 
-test("Start warns of an Overlap with a Task in progress, naming it and the files, and queues behind it", async ({
+test("Start warns of an Overlap with a Task in progress, naming it, and queues behind it", async ({
   page,
 }) => {
   const project = await addedProject(page, "Queue overlap", "QO");
@@ -273,7 +273,7 @@ test("Start warns of an Overlap with a Task in progress, naming it and the files
   await page.goto(`/tasks/${task.id}`);
   const overlap = page.getByRole("note", { name: "Overlap" });
   await expect(overlap).toHaveText(
-    "Overlap: “Rework the sign-in” is in progress and expects to change src/auth/login.ts too.",
+    "Overlap: “Rework the sign-in” is in progress and expects to change some of the same files.",
   );
   await expect(page.getByRole("button", { name: "Start anyway" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
@@ -291,6 +291,33 @@ test("Start warns of an Overlap with a Task in progress, naming it and the files
   // Out of the queue before the Task it waits behind ends, so no release starts a walk.
   await page.request.post(`/api/tasks/${task.id}/drop`);
   await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
+});
+
+test("Start says one sentence for each Task in progress it overlaps", async ({ page }) => {
+  const project = await addedProject(page, "Queue overlaps", "QS");
+  const signIn = await readyTask(page, project, "Rework the sign-in");
+  const signOut = await readyTask(page, project, "Rework the sign-out");
+  await queryOfficeDatabase(
+    `update tasks set state = 'in-progress', files_to_change = '{src/auth}' where id = any($1)`,
+    [[signIn.id, signOut.id]],
+  );
+  const task = await readyTask(page, project, "Keep the redirect after sign-in");
+  await queryOfficeDatabase(`update tasks set files_to_change = '{src/auth}' where id = $1`, [
+    task.id,
+  ]);
+
+  await page.goto(`/tasks/${task.id}`);
+
+  await expect(page.getByRole("note", { name: "Overlap" })).toHaveText(
+    /^(Overlap: “Rework the sign-(in|out)” is in progress and expects to change some of the same files\.\s*){2}$/,
+  );
+  await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-in");
+  await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-out");
+  await expect(page.getByRole("button", { name: "Queue behind them" })).toBeVisible();
+
+  await queryOfficeDatabase(`update tasks set state = 'dropped' where id = any($1)`, [
+    [signIn.id, signOut.id],
+  ]);
 });
 
 test("a blocked Task offers only the queue, shows its blocker as the reason, and starts by itself once the blocker ends", async ({
