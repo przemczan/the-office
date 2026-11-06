@@ -2250,11 +2250,14 @@
 }
 
 /* ---- planning: the head's actions, what the Planner proposes, and the user's own version */
+/* Wraps, as a long note beside the actions would otherwise push them out of the window. */
 .task-head-actions {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   padding-top: 18px;
 }
 

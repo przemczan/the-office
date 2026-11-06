@@ -313,7 +313,10 @@ test("Start says one sentence for each Task in progress it overlaps", async ({ p
   );
   await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-in");
   await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-out");
-  await expect(page.getByRole("button", { name: "Queue behind them" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start anyway" })).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole("button", { name: "Queue behind them" })).toBeInViewport({
+    ratio: 1,
+  });
 
   await queryOfficeDatabase(`update tasks set state = 'dropped' where id = any($1)`, [
     [signIn.id, signOut.id],
