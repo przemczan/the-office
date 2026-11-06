@@ -5,6 +5,7 @@ import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
 import { Publishing } from "./publishing.js";
+import type { BranchUpdate, ConflictHandling } from "../domain/branch-update.js";
 import { BranchUpdates } from "./branch-updates.js";
 import { Resolving } from "./resolving.js";
 import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
@@ -61,6 +62,15 @@ export class TaskWorktrees {
       environment: this.commands.variablesFor(project.environment),
       screenshotsFolder: SCREENSHOTS_FOLDER,
     };
+  }
+
+  /** Brings the Task's branch to the freshly fetched base; `onConflict` says what a conflict does. */
+  async updateFromBase(
+    projectId: string,
+    taskId: string,
+    onConflict: ConflictHandling,
+  ): Promise<BranchUpdate> {
+    return this.branchUpdates.update(await this.projects.read(projectId), taskId, onConflict);
   }
 
   /** Whether the Task's branch moved from `from` along the freshly fetched base, losing nothing. */

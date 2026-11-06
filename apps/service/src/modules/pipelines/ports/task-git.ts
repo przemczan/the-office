@@ -1,3 +1,5 @@
+import type { BranchUpdate, ConflictHandling } from "../domain/stage-commit.js";
+
 /** The commit and branch a Task's worktree has checked out. */
 export interface WorktreeHead {
   readonly commit: string;
@@ -23,6 +25,13 @@ export abstract class TaskGit {
    * ones, such as dependencies, kept. Returns the dropped paths.
    */
   abstract discard(projectId: string, taskId: string): Promise<readonly string[]>;
+
+  /** Brings the Task's branch to the freshly fetched base, by a fast-forward or a merge. */
+  abstract updateFromBase(
+    projectId: string,
+    taskId: string,
+    onConflict: ConflictHandling,
+  ): Promise<BranchUpdate>;
 
   /**
    * Whether the worktree's HEAD descends from `from` and is in the freshly fetched base's history,

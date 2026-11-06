@@ -71,6 +71,19 @@ async function fastForwarded({ path }: OpenTask): Promise<void> {
   return Promise.resolve();
 }
 
+function originMain(): string {
+  return gitIn(repository.originPath, "rev-parse", "refs/heads/main");
+}
+
+async function aConflictingTask(): Promise<OpenTask & { readonly file: string }> {
+  const task = await aTask();
+  const file = `conflict-${task.taskId}.txt`;
+  await writeFile(join(task.path, file), "by the Task\n");
+  await git.commit(task.path, "Its own", variables);
+  await commitOnOrigin(repository, "main", file);
+  return { ...task, file };
+}
+
 describe("BranchUpdates.movedAlongBase", REAL_GIT_TEST, () => {
   it("takes a fast-forward to the base", async () => {
     const task = await aTask();
@@ -122,5 +135,72 @@ describe("BranchUpdates.movedAlongBase", REAL_GIT_TEST, () => {
     await expect(updates.movedAlongBase(project(), task.taskId, task.startedAt)).resolves.toBe(
       false,
     );
+  });
+});
+
+describe("BranchUpdates.update", REAL_GIT_TEST, () => {
+  it("leaves a branch that has the base alone", async () => {
+    const task = await aTask();
+    await fastForwarded(task);
+
+    await expect(updates.update(project(), task.taskId, "give-back")).resolves.toEqual({
+      kind: "up-to-date",
+    });
+  });
+
+  it("fast-forwards a branch with nothing of its own, with no merge commit", async () => {
+    const task = await aTask();
+    await commitOnOrigin(repository, "main", `ahead-${task.taskId}.txt`);
+
+    await expect(updates.update(project(), task.taskId, "give-back")).resolves.toEqual({
+      kind: "updated",
+      commit: originMain(),
+    });
+    expect((await git.head(task.path)).commit).toBe(originMain());
+  });
+
+  it("merges the base into a branch with commits of its own", async () => {
+    const task = await aTask();
+    await writeFile(join(task.path, `own-${task.taskId}.txt`), "by the Task\n");
+    await git.commit(task.path, "Its own", variables);
+    await commitOnOrigin(repository, "main", `ahead-${task.taskId}.txt`);
+
+    const update = await updates.update(project(), task.taskId, "give-back");
+
+    const { commit } = await git.head(task.path);
+    expect(update).toEqual({ kind: "updated", commit });
+    await expect(git.contains(repository.path, commit, originMain())).resolves.toBe(true);
+  });
+
+  it("gives the branch back from a conflict when told to", async () => {
+    const task = await aConflictingTask();
+    const { commit } = await git.head(task.path);
+
+    await expect(updates.update(project(), task.taskId, "give-back")).resolves.toEqual({
+      kind: "conflicted",
+      conflictedFiles: [task.file],
+    });
+    await expect(git.mergeConflicts(task.path)).resolves.toEqual([]);
+    expect((await git.head(task.path)).commit).toBe(commit);
+  });
+
+  it("leaves a conflict in the worktree when told to, and reports it again", async () => {
+    const task = await aConflictingTask();
+    const conflicted = { kind: "conflicted", conflictedFiles: [task.file] };
+
+    await expect(updates.update(project(), task.taskId, "leave")).resolves.toEqual(conflicted);
+    await expect(git.mergeConflicts(task.path)).resolves.toEqual([task.file]);
+    await expect(updates.update(project(), task.taskId, "leave")).resolves.toEqual(conflicted);
+  });
+
+  it("answers why when git refuses, as on a change the update would overwrite", async () => {
+    const task = await aTask();
+    const file = `overwritten-${task.taskId}.txt`;
+    await commitOnOrigin(repository, "main", file);
+    await writeFile(join(task.path, file), "half done\n");
+
+    await expect(updates.update(project(), task.taskId, "give-back")).resolves.toMatchObject({
+      kind: "failed",
+    });
   });
 });

@@ -259,6 +259,16 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<MergeStart>;
 
+  /**
+   * Moves the branch the worktree has checked out forward to `revision`, without the repository's
+   * hooks; git refuses when the branch has commits `revision` doesn't.
+   */
+  abstract fastForward(
+    worktreePath: string,
+    revision: string,
+    variables: GitVariables,
+  ): Promise<void>;
+
   /** Whether the worktree holds any change or untracked file git doesn't ignore. */
   abstract hasUncommittedChanges(worktreePath: string, variables: GitVariables): Promise<boolean>;
 

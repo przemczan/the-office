@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import {
   branchKept,
   branchMovedWords,
+  branchUpdateWords,
   headProblem,
   type ExpectedHead,
 } from "../domain/stage-commit.js";
@@ -37,14 +38,16 @@ export class StageGit {
   ) {}
 
   /**
-   * Where the Stage expects HEAD. Not where The Office left it, HEAD is taken as it is when the
+   * Where the Stage expects HEAD, the Task's first Stage bringing the branch to the base first:
+   * planning made it, maybe long ago. Not where The Office left it, HEAD is taken as it is when the
    * user said to keep it or it moved along the base; any other move refuses the Stage (spec §2.3).
    */
   async start(work: StageAt, task: TaskRecord): Promise<StageStart> {
+    const updateNews = await this.updatedForFirstStage(work, task);
     const expected = await this.expectedHead(work, task);
     const head = await this.git.head(task.project.id, work.run.taskId);
     const problem = headProblem(expected, head);
-    if (problem === undefined) return { expected, refusal: undefined, branchNews: undefined };
+    if (problem === undefined) return { expected, refusal: undefined, branchNews: updateNews };
     if (head.branch === expected.branch && (await this.takesMove(work, task, expected))) {
       return {
         expected: { ...expected, commit: head.commit },
@@ -62,6 +65,16 @@ export class StageGit {
         branchMoved: true,
       },
     };
+  }
+
+  /** Brings the branch to the base before the Task's first Stage; what its Agent should know. */
+  private async updatedForFirstStage(
+    { run, earlierRuns }: StageAt,
+    task: TaskRecord,
+  ): Promise<string | undefined> {
+    if (earlierRuns.some(({ headCommit }) => headCommit !== undefined)) return undefined;
+    const update = await this.git.updateFromBase(task.project.id, run.taskId, "give-back");
+    return branchUpdateWords(update, task.project.baseBranch);
   }
 
   private async takesMove(

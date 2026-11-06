@@ -487,6 +487,49 @@ describe("AgentStageRunner after the session", () => {
     );
   });
 
+  it("starts the Task's first Stage on the fresh base, telling its Agent", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    const commit = "b".repeat(40);
+    pipelines.git.branchUpdates.set(taskId, { kind: "updated", commit });
+    pipelines.git.unchanged.add(taskId);
+
+    await walkStages(pipelines, [implement], taskId);
+
+    expect((await runsOf(pipelines, taskId))[0]?.headCommit).toBe(commit);
+    expect(pipelines.stageThreads.requests[0]?.work).toContain("up to date with");
+  });
+
+  it("starts the first Stage on a branch that conflicts with the base, telling its Agent of the tool", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    pipelines.git.branchUpdates.set(taskId, { kind: "conflicted", conflictedFiles: ["a.ts"] });
+
+    await walkStages(pipelines, [implement], taskId);
+
+    expect(pipelines.stageThreads.requests[0]?.work).toContain("update_branch");
+    expect(pipelines.stageThreads.requests[0]?.work).toContain("a.ts");
+  });
+
+  it("updates the branch only for the Task's first Stage", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+    ]);
+    const taskId = randomUUID();
+    pipelines.git.unchanged.add(taskId);
+    pipelines.stageThreads.whileWorking = () => {
+      pipelines.git.branchUpdates.set(taskId, { kind: "updated", commit: "c".repeat(40) });
+    };
+
+    await walkStages(pipelines, [implement, anAgentStage("polish")], taskId);
+
+    expect((await runsOf(pipelines, taskId)).map(({ headCommit }) => headCommit)).toEqual([
+      PLANNED_COMMIT,
+      PLANNED_COMMIT,
+    ]);
+  });
+
   it("expects HEAD where the last Stage left it when the next one changed nothing", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),

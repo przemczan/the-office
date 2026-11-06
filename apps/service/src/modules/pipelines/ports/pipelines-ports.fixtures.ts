@@ -36,6 +36,7 @@ import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
 import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
+import type { BranchUpdate } from "../domain/stage-commit.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskPublishing } from "./task-publishing.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
@@ -488,6 +489,8 @@ export class TaskGitForTests extends TaskGit {
     | undefined = undefined;
   /** The Tasks whose worktrees The Office removed, in order. */
   readonly removedWorktrees: string[] = [];
+  /** How bringing each Task's branch to the base goes; up to date when a test puts nothing. */
+  readonly branchUpdates = new Map<string, BranchUpdate>();
   /** The Tasks whose branch moved along the base, so The Office takes the move as it is. */
   readonly movesAlongBase = new Set<string>();
   /** Set when removing a worktree fails, as a file a process holds on Windows makes it. */
@@ -496,6 +499,13 @@ export class TaskGitForTests extends TaskGit {
   /** Moves the Task's HEAD, as an Agent with git of its own would. */
   move(taskId: string, head: WorktreeHead): void {
     this.heads.set(taskId, head);
+  }
+
+  updateFromBase(_projectId: string, taskId: string): Promise<BranchUpdate> {
+    const update = this.branchUpdates.get(taskId) ?? { kind: "up-to-date" };
+    if (update.kind === "updated")
+      this.heads.set(taskId, { ...this.headOf(taskId), commit: update.commit });
+    return Promise.resolve(update);
   }
 
   movedAlongBase(_projectId: string, taskId: string): Promise<boolean> {

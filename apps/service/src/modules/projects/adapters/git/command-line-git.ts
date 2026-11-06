@@ -414,6 +414,21 @@ export class CommandLineGit extends Git {
     });
   }
 
+  async fastForward(
+    worktreePath: string,
+    revision: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    // Moving the branch's ref, which lives with the refs every worktree shares, as a merge does.
+    await this.locked(worktreePath, async () => {
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["merge", "--quiet", "--ff-only", "--no-verify", "--no-autostash", revision],
+        variables,
+      });
+    });
+  }
+
   async hasUncommittedChanges(worktreePath: string, variables: GitVariables): Promise<boolean> {
     const output = await this.process.output({
       folder: worktreePath,

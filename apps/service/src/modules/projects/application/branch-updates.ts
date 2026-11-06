@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
+import type { BranchUpdate, ConflictHandling } from "../domain/branch-update.js";
+import { mergeMessage } from "../domain/resolve.js";
 import { Git, GitCommandFailed } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
@@ -15,6 +17,42 @@ export class BranchUpdates {
     private readonly commands: ProjectCommandRunner,
     private readonly worktrees: Worktrees,
   ) {}
+
+  /**
+   * Brings the Task's branch to the fresh base: a fast-forward when it has nothing of its own, one
+   * merge commit otherwise. A merge that conflicts is given back or left in the worktree for an
+   * Agent, as `onConflict` says; one left there earlier is reported as it is.
+   */
+  async update(
+    project: Project,
+    taskId: string,
+    onConflict: ConflictHandling,
+  ): Promise<BranchUpdate> {
+    const variables = this.commands.variablesFor(project.environment);
+    const worktree = await this.worktrees.open(project, taskId);
+    return this.git
+      .exclusively(project.path, async (): Promise<BranchUpdate> => {
+        const inProgress = await this.git.mergeConflicts(worktree.path);
+        if (inProgress.length > 0) return { kind: "conflicted", conflictedFiles: inProgress };
+        const base = await this.worktrees.freshBase(project, variables);
+        const { commit: head } = await this.git.head(worktree.path);
+        if (await this.git.contains(project.path, head, base.commit)) return { kind: "up-to-date" };
+        if (await this.git.contains(project.path, base.commit, head)) {
+          await this.git.fastForward(worktree.path, base.commit, variables);
+          return { kind: "updated", commit: base.commit };
+        }
+        const from = base.fetchedFrom ?? { remote: "this repository", branch: project.baseBranch };
+        const message = mergeMessage(from, worktree.branch);
+        const merge = await this.git.merge(worktree.path, base.commit, message, variables);
+        if (merge.kind === "merged") return { kind: "updated", commit: merge.commit };
+        if (onConflict === "give-back") await this.git.abortMerge(worktree.path, variables);
+        return { kind: "conflicted", conflictedFiles: merge.conflictedFiles };
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof GitCommandFailed)) throw error;
+        return { kind: "failed", error: error.detail };
+      });
+  }
 
   /**
    * Whether HEAD descends from `from` and is in the base's history, with nothing uncommitted. A

@@ -143,6 +143,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 
 ### domain/
 
+- `branch-update.ts`: ConflictHandling, BranchUpdate
 - `command-run.ts`: CommandOutcome, CommandRun, filteredOutput, wholeOutputOf
 - `environment-check-changes.ts`: EnvironmentCheckChange, startEnvironmentCheck, progressEnvironmentCheck, finishEnvironmentCheck
 - `environment-check-events.ts`: EnvironmentCheckStarted, EnvironmentCheckProgressed, EnvironmentCheckFinished

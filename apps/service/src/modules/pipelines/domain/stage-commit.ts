@@ -1,6 +1,19 @@
 import type { StageOutcome, StageRun } from "./stage-run.js";
 import type { AcceptedIssue } from "./walk-decisions.js";
 
+/** The Office tool an Agent in a Stage brings the Task's branch to the base with (spec §2.3). */
+export const UPDATE_BRANCH_TOOL = "update_branch";
+
+/** What a conflict with the base does: the branch given back, or left for an Agent to resolve. */
+export type ConflictHandling = "give-back" | "leave";
+
+/** How bringing a Task's branch to the fresh base went (spec §2.3). */
+export type BranchUpdate =
+  | { readonly kind: "up-to-date" }
+  | { readonly kind: "updated"; readonly commit: string }
+  | { readonly kind: "conflicted"; readonly conflictedFiles: readonly string[] }
+  | { readonly kind: "failed"; readonly error: string };
+
 /** git's own advice for a subject line; longer ones are cut where a log shows them. */
 const SUBJECT_LENGTH = 72;
 const SHORT_COMMIT_LENGTH = 8;
@@ -64,6 +77,20 @@ export function branchKept(runs: readonly StageRun[]): boolean {
   return decisions.some(
     ({ kind, answer }) => kind === "branch-moved" && answer?.kind === "keep-branch",
   );
+}
+
+/** What a Task's first Agent is told of the branch's update as its Stage started (spec §2.3). */
+export function branchUpdateWords(update: BranchUpdate, baseBranch: string): string | undefined {
+  switch (update.kind) {
+    case "up-to-date":
+      return undefined;
+    case "updated":
+      return `The Office brought the Task's branch up to date with ${baseBranch} as this Stage started, so the code may be newer than the Plan.`;
+    case "conflicted":
+      return `The Task's branch is behind ${baseBranch} and conflicts with it in ${update.conflictedFiles.join(", ")}, so it stays as it was. When your work needs what the base has, call ${UPDATE_BRANCH_TOOL} and resolve the conflict in the files.`;
+    case "failed":
+      return `The Office couldn't bring the Task's branch up to date with ${baseBranch}, so it may be behind. If your work needs what the base has, call ${UPDATE_BRANCH_TOOL}. git said: ${update.error}`;
+  }
 }
 
 /** What the Stage's Agent is told of a branch that moved since the last Stage (spec §2.3). */
