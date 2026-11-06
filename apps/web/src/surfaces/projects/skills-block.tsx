@@ -115,17 +115,20 @@ function SkillLine({
       <div
         role="group"
         aria-label={skill.name}
+        className="project-skill-row"
         title={project.useProjectSkills ? undefined : "Use this Project's skills is off"}
       >
+        {/* Beside the Switch, not its label: a label's click anywhere flips it, so selecting a
+            path to copy it would change what sessions get. */}
+        <div className="project-skill-text">
+          <SkillChip name={skill.name} />
+          <SkillDetails skill={skill} sessionsGetIt={sessionsGetIt} sameKey={sameKey} />
+        </div>
         <Switch
           size="sm"
           checked={turnedOn}
           disabled={!project.useProjectSkills || switching.isPending}
           onChange={(use) => switching.mutate(use)}
-          label={<SkillChip name={skill.name} />}
-          description={
-            <SkillDetails skill={skill} sessionsGetIt={sessionsGetIt} sameKey={sameKey} />
-          }
         />
       </div>
       {switching.error && (

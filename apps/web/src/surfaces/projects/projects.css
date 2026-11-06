@@ -376,12 +376,19 @@
   padding-bottom: 0;
 }
 
-/* The Switch's own text column: it has to shrink, so a long path wraps and the switch stays put. */
-.project-skills label > span:first-child {
+.project-skill-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+/* It has to shrink, so a long path wraps and the switch stays put. */
+.project-skill-text {
   min-width: 0;
 }
 
-.project-skill.off label > span:first-child {
+.project-skill.off .project-skill-text {
   opacity: 0.55;
 }
 
@@ -390,6 +397,8 @@
   flex-direction: column;
   gap: 2px;
   margin-top: 2px;
+  color: var(--fg-3);
+  font: var(--type-caption);
 }
 
 .project-skill-description {

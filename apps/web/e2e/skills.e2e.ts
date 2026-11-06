@@ -230,6 +230,14 @@ test("a Project's page lists its own skills, read-only, with their switches", as
   await expect(deploy).toHaveAttribute("aria-checked", "false");
   await expect(notes).toHaveAttribute("aria-checked", "true");
 
+  // Only the switch changes a skill: selecting its path to copy it doesn't.
+  const saved = page.waitForRequest(/skill-use$/, { timeout: 500 }).then(
+    () => true,
+    () => false,
+  );
+  await page.getByText(".claude/skills/notes").click();
+  expect(await saved).toBe(false);
+
   // The library's skill of the same name matters only while the Project's is on.
   const alsoInLibrary = page
     .getByRole("group", { name: "notes", exact: true })
