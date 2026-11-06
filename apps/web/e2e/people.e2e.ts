@@ -2718,6 +2718,15 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     await expect(adamTab).toContainText("working now");
     await expect(janTab).toHaveAttribute("aria-selected", "true");
 
+    // The board's card names who works in the Stage's Thread.
+    await page.goto("/work");
+    await expect(
+      page
+        .getByRole("article", { name: "Export keeps its columns" })
+        .getByRole("img", { name: "Working now: Adam" }),
+    ).toBeVisible();
+    await page.goto(`/tasks/${taskId}`);
+
     // Landing on the page, the first tab is the person whose Stage runs. Their Thread opens only
     // on the first message, and the Stage's Thread shows only in its history.
     await page.reload();

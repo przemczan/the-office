@@ -5,6 +5,7 @@ import {
   fireAlarmLiftsSchema,
   messageListSchema,
   officeInstructionsSchema,
+  peopleWorkingSchema,
   proposalListSchema,
   proposalSchema,
   sizeThresholdSchema,
@@ -42,6 +43,12 @@ export const threadQueries = {
     queryOptions({
       queryKey: [...THREADS, "chat-activity"],
       queryFn: ({ signal }) => getFromApi("/chats/activity", chatActivitySchema, signal),
+    }),
+  /** Who is working on each Task now, under the key every Thread's event refreshes. */
+  peopleWorking: () =>
+    queryOptions({
+      queryKey: [...THREADS, "people-working"],
+      queryFn: ({ signal }) => getFromApi("/people-working", peopleWorkingSchema, signal),
     }),
   /** The person's chat, the newest Thread first. */
   inChat: (roleKey: string) =>

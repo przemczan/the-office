@@ -7,6 +7,7 @@ import {
   projectSchema,
   presetListSchema,
   recordPath,
+  roleListSchema,
   roleSchema,
   taskSchema,
   type Attachment,
@@ -84,6 +85,29 @@ async function seedThread(
       [crypto.randomUUID(), threadId, { roleKey: "planner", ...message }],
     );
   }
+}
+
+/** A Thread of the person's on the Task, waiting. */
+async function seedWaitingThread(taskId: string, roleKey: string): Promise<string> {
+  const threadId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into threads (id, home_kind, home_id, role_key, state, tokens, started_at)
+     values ($1, 'task', $2, $3, 'waiting', $4, now())`,
+    [threadId, taskId, roleKey, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
+  );
+  return threadId;
+}
+
+/** Sets the Thread's state, then has it raise a Thread event as starting and stopping do. */
+async function moveThreadTo(
+  page: Page,
+  threadId: string,
+  state: "answering" | "waiting",
+  title: string,
+): Promise<void> {
+  await queryOfficeDatabase(`update threads set state = $2 where id = $1`, [threadId, state]);
+  const renamed = await page.request.put(`/api/threads/${threadId}/title`, { data: { title } });
+  expect(renamed.ok()).toBe(true);
 }
 
 /** An element's words, its height, and how far they run past it. Runs in the browser. */
@@ -333,6 +357,81 @@ test("dragging a card reorders its column, and the order survives a reload", asy
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board.png") });
   await page.reload();
   await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(reordered);
+});
+
+test("a card shows who is working as they start and stop, and stays one link that drags", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Working now", "WN");
+  const done = await createdTask(page, project, "Working card done");
+  const movable = await createdTask(page, project, "Working card movable");
+  const titles = [movable.title, "Working card last"];
+  await createdTask(page, project, titles[1] ?? "");
+  // Done has no foot of its own, and unlike in progress it takes no desk from a test alongside.
+  await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [done.id]);
+  // Only the Caretaker is sure to be hired here, as hiring lives in people.e2e.ts.
+  const workingThread = await seedWaitingThread(done.id, "caretaker");
+  const movableThread = await seedWaitingThread(movable.id, "caretaker");
+  const roles = roleListSchema.parse(await (await page.request.get("/api/roles")).json());
+  const caretaker = roles.find(({ key }) => key === "caretaker")?.card.name;
+  const words = `Working now: ${caretaker}`;
+
+  await page.goto("/work");
+  await page.getByRole("button", { name: /^Project filter:/ }).click();
+  await page.getByRole("button", { name: "Show only Working now" }).click();
+  const card = page.getByRole("article", { name: done.title });
+  const mark = card.getByRole("img", { name: words });
+
+  // Nobody working: no mark, and a card with nothing else to say keeps having no foot.
+  await expect(card).toBeVisible();
+  await expect(mark).toHaveCount(0);
+  await expect(card.locator(".board-card-foot")).toHaveCount(0);
+
+  // The Thread's events refresh the mark on the open board, with no reload.
+  await moveThreadTo(page, workingThread, "answering", "Started");
+  await expect(mark).toBeVisible();
+  await mark.hover();
+  await expect(page.getByRole("tooltip")).toHaveText(words);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-working-mark.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-working-mark.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  await moveThreadTo(page, workingThread, "waiting", "Stopped");
+  await expect(mark).toHaveCount(0);
+  await expect(card.locator(".board-card-foot")).toHaveCount(0);
+
+  // A Thread waiting on an open Decision shows nobody, however long it stays answering.
+  const decisionId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
+     values ($1, $2, $3, 'caretaker', 'Which way?', 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', '[]', now())`,
+    [decisionId, workingThread, done.id],
+  );
+  await moveThreadTo(page, workingThread, "answering", "Asking");
+  const backlog = column(page, "Backlog");
+  await moveThreadTo(page, movableThread, "answering", "Moving");
+  const movableMark = backlog
+    .getByRole("article", { name: movable.title })
+    .getByRole("img", { name: words });
+  await expect(movableMark).toBeVisible();
+  await expect(mark).toHaveCount(0);
+
+  // A card with the mark drags by it, and a press on it follows the card's one link.
+  await movableMark.dragTo(backlog.getByRole("article", { name: "Working card last" }));
+  await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(titles.toReversed());
+  await expect(backlog.getByRole("article", { name: movable.title }).getByRole("link")).toHaveCount(
+    1,
+  );
+  await movableMark.click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${movable.id}`));
+
+  // Nothing stays behind for the tests alongside: no Decision in Needs you, nobody answering.
+  await queryOfficeDatabase(`delete from decisions where id = $1`, [decisionId]);
+  await queryOfficeDatabase(`update threads set state = 'waiting' where id = any($1)`, [
+    [workingThread, movableThread],
+  ]);
 });
 
 test("a Task's priority and Drop are in its menu, and the Project page counts its Tasks", async ({

@@ -182,6 +182,15 @@ export const chatActivitySchema = z.array(
 export type ChatActivity = z.infer<typeof chatActivitySchema>;
 
 /**
+ * GET /people-working: who is working on each Task right now, by the keys of their Roles, each
+ * once; a Task with nobody working isn't listed.
+ */
+export const peopleWorkingSchema = z.array(
+  z.object({ taskId: z.uuid(), roleKeys: z.array(z.string()) }),
+);
+export type PeopleWorking = z.infer<typeof peopleWorkingSchema>;
+
+/**
  * POST /threads/:id/messages: the user's message, which the person answers; `handoverNoteFrom`
  * when it is the Handover note a Link card gave them, by its writer's Role key.
  */
