@@ -21,10 +21,7 @@ import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubApiPullRequests } from "./adapters/github/github-api-pull-requests.js";
 import { BaseBranchFilesController } from "./adapters/http/base-branch-files.controller.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
-import {
-  PROJECT_IMAGE_UPLOAD_ROUTE,
-  ProjectImagesController,
-} from "./adapters/http/project-images.controller.js";
+import { ProjectImagesController } from "./adapters/http/project-images.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { RepositoryClonesController } from "./adapters/http/repository-clones.controller.js";
@@ -75,7 +72,7 @@ export class ProjectsModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(uploadBody(PROJECT_IMAGE_UPLOAD_BYTES))
-      .forRoutes({ path: PROJECT_IMAGE_UPLOAD_ROUTE, method: RequestMethod.POST });
+      .forRoutes({ path: "projects/:id/images/:image", method: RequestMethod.POST });
   }
 
   static register({ imports, knownPipelines }: ProjectsModuleOptions): DynamicModule {

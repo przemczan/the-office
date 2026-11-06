@@ -4,6 +4,7 @@ import {
   projectMarkColourSchema,
   type CustomMarkColour,
   type Mark,
+  type Project,
 } from "@the-office/contracts";
 import { Field, Input, SegmentedControl } from "@the-office/ui";
 import type { ReactNode } from "react";
@@ -17,12 +18,12 @@ const FIRST_CUSTOM_COLOUR: CustomMarkColour = "#3366cc";
 
 /** A Project's mark as it will look, with its label and colour to change. */
 export function MarkPicker({
-  name,
+  project,
   mark,
   onChange,
 }: {
-  /** The Project's name, which the preview is titled by. */
-  readonly name: string;
+  /** What the preview shows beside `mark`; a Project still being added has neither `id` nor `icon`. */
+  readonly project: Pick<Project, "name"> & Partial<Pick<Project, "id" | "icon">>;
   readonly mark: Mark;
   readonly onChange: (mark: Mark) => void;
 }): ReactNode {
@@ -30,7 +31,7 @@ export function MarkPicker({
   return (
     <Field label="Mark">
       <div className="mark-picker">
-        <ProjectMark project={{ name, mark }} size="xl" />
+        <ProjectMark project={{ ...project, mark }} size="xl" />
         <Input
           aria-label="Mark label"
           value={mark.label}

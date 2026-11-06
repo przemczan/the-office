@@ -40,7 +40,7 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
         }}
       >
         <MarkPicker
-          name={project.name}
+          project={project}
           mark={draft ?? project.mark}
           onChange={(mark) => {
             if (saving.isError) saving.reset();

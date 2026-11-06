@@ -176,7 +176,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
               autoFocus
             />
             <MarkPicker
-              name={draft.name}
+              project={{ name: draft.name }}
               mark={mark}
               onChange={(changed) => {
                 if (changed.label !== mark.label) setLabelEdited(true);

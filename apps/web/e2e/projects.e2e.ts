@@ -505,6 +505,7 @@ test("an Icon replaces the letters everywhere, without a reload, until it is rem
   await expect(page.getByText("Icon saved for Iconic.")).toBeVisible();
   await expectLoadedImage(head.locator("img"));
   await expectLoadedImage(row.locator(".project-mark img"));
+  await expectLoadedImage(page.locator(".mark-picker .project-mark img"));
   await expect(head).not.toHaveText("AP");
   await expectLoadedImage(boardMark.locator("img"));
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-icon.png") });

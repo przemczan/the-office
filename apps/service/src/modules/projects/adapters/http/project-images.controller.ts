@@ -22,9 +22,6 @@ import { ProjectImages } from "../../application/project-images.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
 import { toProjectResponse } from "./project-responses.js";
 
-/** The route the upload body is read on; ProjectsModule applies `uploadBody` to it. */
-export const PROJECT_IMAGE_UPLOAD_ROUTE = "projects/:id/images/:image";
-
 /**
  * Nothing in an opened file may load or run: an SVG can hold a script, and its address sits on The
  * Office's own origin. `<img>` runs nothing anyway; this holds when the address itself is opened.
@@ -38,7 +35,7 @@ const IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 export class ProjectImagesController {
   constructor(private readonly images: ProjectImages) {}
 
-  @Post(PROJECT_IMAGE_UPLOAD_ROUTE)
+  @Post("projects/:id/images/:image")
   async change(
     @Param("id") id: string,
     @Param("image", new ContractPipe(projectImageKeySchema)) image: ProjectImageKey,

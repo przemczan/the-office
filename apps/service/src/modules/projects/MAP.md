@@ -33,6 +33,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `GET /projects/:id/base-branch/:commit/folder`: BaseBranchFilesController.folder
 - `GET /projects/:id/environment-check`: EnvironmentChecksController.latest
 - `POST /projects/:id/environment-check`: EnvironmentChecksController.start
+- `POST /projects/:id/images/:image`: ProjectImagesController.change
 - `DELETE /projects/:id/images/:image`: ProjectImagesController.remove
 - `GET /projects/:id/images/:imageId/content`: ProjectImagesController.content
 - `GET /projects/:id/server-values`: ProjectServerValuesController.list
@@ -93,7 +94,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 
 - `base-branch-files.controller.ts`: BaseBranchFilesController
 - `environment-checks.controller.ts`: EnvironmentChecksController
-- `project-images.controller.ts`: PROJECT_IMAGE_UPLOAD_ROUTE, ProjectImagesController
+- `project-images.controller.ts`: ProjectImagesController
 - `project-refusals.filter.ts`: ProjectRefusalsFilter
 - `project-responses.ts`: toProjectResponse
 - `project-server-values.controller.ts`: ProjectServerValuesController
