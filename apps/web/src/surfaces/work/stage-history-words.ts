@@ -82,7 +82,7 @@ export function runBadge(
   state: TaskStage["state"],
 ): { readonly words: string; readonly tone: BadgeProps["tone"] } {
   if (!outcome) {
-    return { words: STAGE_STATE_WORDS[state], tone: state === "running" ? "accent" : "warning" };
+    return { words: STAGE_STATE_WORDS[state], tone: state === "running" ? "info" : "warning" };
   }
   switch (outcome.status) {
     case "done":

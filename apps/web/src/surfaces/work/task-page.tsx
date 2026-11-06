@@ -145,8 +145,7 @@ function TaskHead({
             state={task.state}
             pausedByAlarm={task.pausedByAlarm}
             stopped={stoppedAtCurrentStage(taskStages?.stages ?? [])}
-            {...(task.state === "in-progress" && { tone: "accent" })}
-            {...(task.state === "planning" && { tone: "info" })}
+            {...((task.state === "in-progress" || task.state === "planning") && { tone: "info" })}
           />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
         </div>

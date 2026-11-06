@@ -24,6 +24,7 @@ import {
   changePublishingMode,
   changeRoleOverride,
   changeUseForEveryRole,
+  changeProjectSkillUse,
   changeUseProjectSkills,
   type ProjectChange,
   type ProjectChanges,
@@ -234,6 +235,11 @@ export class ProjectService {
   /** Sessions already running keep the skills they started with. */
   async changeUseProjectSkills(id: string, useProjectSkills: boolean): Promise<Project> {
     return this.update(id, (project) => changeUseProjectSkills(project, useProjectSkills));
+  }
+
+  /** Sessions already running keep the skills they started with. */
+  async changeProjectSkillUse(id: string, key: string, use: boolean): Promise<Project> {
+    return this.update(id, (project) => changeProjectSkillUse(project, key, use));
   }
 
   private async update(

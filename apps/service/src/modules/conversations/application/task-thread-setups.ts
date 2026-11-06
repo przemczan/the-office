@@ -32,6 +32,7 @@ export interface TaskThreadSetup {
   readonly environment: Readonly<Record<string, string>>;
   /** Whether the session also gets the repository's own skills (spec §2.6). */
   readonly useProjectSkills: boolean;
+  readonly projectSkillsOff: readonly string[];
   /**
    * What the person does in the Thread, such as planning the Task, added to their standing
    * instructions. The same for every session of the Thread, so it stays in the cached prefix.

@@ -57,6 +57,7 @@ export class KnownProjectsForTests extends KnownProjects {
       defaultPipeline: "quick-fix",
       commands: { install: "npm install", build: "", lint: "npm run lint", test: "npm test" },
       useProjectSkills: true,
+      projectSkillsOff: [],
     };
   }
 }

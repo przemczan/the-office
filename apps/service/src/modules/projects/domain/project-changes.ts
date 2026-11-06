@@ -21,6 +21,7 @@ import {
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
+  ProjectSkillUseChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
@@ -129,6 +130,7 @@ export function addProject(
     repositoryUrl: newProject.repositoryUrl ?? null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
+    projectSkillsOff: [],
     projectDefault: null,
     useForEveryRole: false,
     roleOverrides: [],
@@ -290,5 +292,21 @@ export function changeUseProjectSkills(
   return {
     project: { ...project, useProjectSkills },
     event: new ProjectUseProjectSkillsChanged(project.id, useProjectSkills),
+  };
+}
+
+/** Undefined when the repository's skill of this key is already on, or off. */
+export function changeProjectSkillUse(
+  project: Project,
+  key: string,
+  use: boolean,
+): ProjectChange<ProjectSkillUseChanged> | undefined {
+  if (project.projectSkillsOff.includes(key) !== use) return undefined;
+  const projectSkillsOff = use
+    ? project.projectSkillsOff.filter((offKey) => offKey !== key)
+    : [...project.projectSkillsOff, key];
+  return {
+    project: { ...project, projectSkillsOff },
+    event: new ProjectSkillUseChanged(project.id, key, use),
   };
 }

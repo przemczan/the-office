@@ -9,6 +9,7 @@ import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { InitiativeEdit } from "../../domain/initiative-edit.js";
+import type { Task } from "../../domain/task.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 
 let officeData: string;
@@ -39,6 +40,17 @@ afterEach(async () => {
 
 function proposed(edit: InitiativeEdit) {
   return { kind: "initiative", initiativeId: initiative.id, edit } as const;
+}
+
+function itsTask(): Promise<Task> {
+  return work.app
+    .get(InitiativeService)
+    .addTask(
+      initiative.id,
+      { title: "Queue writes", projectId: "api", priority: "normal" },
+      [],
+      THE_USER,
+    );
 }
 
 function current(): Promise<Initiative> {
@@ -78,7 +90,66 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
       priority: "high",
       blockedBy: [blocker.id],
       createdBy: { kind: "person", roleKey: "cto" },
+      description: "",
     });
+  });
+
+  it("add the Task with its Description", async () => {
+    await work.app.get(ProposalAppliers).apply(
+      proposed({
+        kind: "add-task",
+        title: "Queue schema",
+        projectId: "api",
+        priority: "normal",
+        description: "Writes wait in a table.",
+        blockedBy: [],
+        taskId: undefined,
+      }),
+      "cto",
+    );
+
+    const [task] =
+      (await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id) ?? [];
+    expect(task?.description).toBe("Writes wait in a table.");
+  });
+
+  it("rewrite the title and Description of its Task once applied", async () => {
+    const appliers = work.app.get(ProposalAppliers);
+    const task = await itsTask();
+    const title = proposed({ kind: "task-title", taskId: task.id, title: "Keep the queue" });
+    const description = proposed({
+      kind: "task-description",
+      taskId: task.id,
+      description: "It survives a restart.",
+    });
+
+    expect(await appliers.problemsWith(title)).toEqual([]);
+    expect(await appliers.problemsWith(description)).toEqual([]);
+    expect(await appliers.apply(title, "cto")).toEqual(title);
+    expect(await appliers.apply(description, "cto")).toEqual(description);
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      title: "Keep the queue",
+      description: "It survives a restart.",
+    });
+  });
+
+  it("hold already once the Task reads as proposed, applying without a change", async () => {
+    const task = await itsTask();
+    const change = proposed({ kind: "task-title", taskId: task.id, title: task.title });
+
+    expect(await work.app.get(ProposalAppliers).apply(change, "cto")).toEqual(change);
+  });
+
+  it("are refused a Task's title past Start, as it stands when applied", async () => {
+    const appliers = work.app.get(ProposalAppliers);
+    const task = await itsTask();
+    const change = proposed({ kind: "task-title", taskId: task.id, title: "Keep the queue" });
+    await work.app.get(TaskService).drop(task.id);
+    const reason = "A Task keeps its title once it has started.";
+
+    expect(await appliers.problemsWith(change)).toEqual([reason]);
+    await expect(appliers.apply(change, "cto")).rejects.toThrow(new ProposalRefused([reason]));
+    expect((await work.app.get(TaskService).read(task.id)).title).toBe(task.title);
   });
 
   it("are refused a new Task waiting for a dropped Task, as drafted and as applied", async () => {

@@ -308,6 +308,7 @@ function taskSetup(taskId: string): TaskThreadSetup {
     folder: join(officeData, "worktrees", "admin-panel", taskId),
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: true,
+    projectSkillsOff: [],
     projectId: "admin-panel",
     instructions: "On this Task you plan.",
     officeTools: ["read_task", OPEN_DECISION_TOOL],
@@ -968,7 +969,12 @@ describe("a Thread on a Task", () => {
       {
         sessionId: session?.id,
         roleKey,
-        project: { id: "admin-panel", folder: worktree, useProjectSkills: true },
+        project: {
+          id: "admin-panel",
+          folder: worktree,
+          useProjectSkills: true,
+          projectSkillsOff: [],
+        },
       },
     ]);
     expect(mcpServers.prepared).toEqual([

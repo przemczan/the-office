@@ -179,6 +179,7 @@ describe("a planning Thread's session", () => {
       folder: join("/worktrees", projectId, task.id),
       environment: { PROJECT: projectId },
       useProjectSkills: true,
+      projectSkillsOff: [],
       instructions: PLANNING_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
       brief: expect.stringContaining(`Fix the login redirect (Task ${task.id})`),

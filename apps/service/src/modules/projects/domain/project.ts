@@ -44,6 +44,11 @@ export interface Project {
   readonly environment: ProjectEnvironment;
   /** Whether sessions in this Project also get the repository's own skills (spec §2.6). */
   readonly useProjectSkills: boolean;
+  /**
+   * The keys of the repository's skills and commands the Project turned off, each by itself. Any
+   * other is on, so one added later starts on (spec §2.6).
+   */
+  readonly projectSkillsOff: readonly string[];
   /** The engine cascade's Project levels (spec §5.4), set in the Project page's Engine block. */
   readonly projectDefault: EngineModel | null;
   /** Whether the Project default wins over the Office-wide Role overrides; set only with one. */

@@ -29,7 +29,12 @@ export interface SessionPlace {
    * undefined for a chat's.
    */
   readonly project:
-    | { readonly id: string; readonly folder: string; readonly useProjectSkills: boolean }
+    | {
+        readonly id: string;
+        readonly folder: string;
+        readonly useProjectSkills: boolean;
+        readonly projectSkillsOff: readonly string[];
+      }
     | undefined;
   readonly officeTools: readonly string[];
   /** A held call has a Thread to wait in: a Stage's, or the Planner's in Planning. */
@@ -89,6 +94,7 @@ export class SessionPlaces {
         id: setup.projectId,
         folder: setup.folder,
         useProjectSkills: setup.useProjectSkills,
+        projectSkillsOff: setup.projectSkillsOff,
       },
       officeTools: thread.consultation ? CONSULTATION_OFFICE_TOOLS : setup.officeTools,
       callsCanWait: !thread.consultation && !setup.asking,

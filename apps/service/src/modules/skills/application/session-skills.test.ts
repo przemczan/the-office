@@ -117,7 +117,7 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills.prepare({
       sessionId,
       roleKey: await aRoleWith(tdd),
-      project: { folder: checkout.path, useProjectSkills: true },
+      project: { folder: checkout.path, useProjectSkills: true, projectSkillsOff: [] },
     });
 
     expect(prepared.folder).toBe(sessionFolder(sessionId));
@@ -134,12 +134,24 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
       roleKey: aName("role"),
-      project: { folder: checkout.path, useProjectSkills: false },
+      project: { folder: checkout.path, useProjectSkills: false, projectSkillsOff: [] },
     });
 
     expect(prepared.names).toEqual([]);
     expect(prepared.expected).toEqual([]);
     expect(prepared.overrides).toEqual({ deploy: "off", ship: "off" });
+  });
+
+  it("turns off only the skills the Project turned off, and keeps the rest", async () => {
+    const prepared = await sessionSkills.prepare({
+      sessionId: randomUUID(),
+      roleKey: aName("role"),
+      project: { folder: checkout.path, useProjectSkills: true, projectSkillsOff: ["deploy"] },
+    });
+
+    expect(prepared.names).toEqual(["ship"]);
+    expect(prepared.expected).toEqual(["ship"]);
+    expect(prepared.overrides).toEqual({ deploy: "off" });
   });
 
   it("gives a Role's next session a skill assigned from Settings, and none taken away", async () => {
@@ -168,7 +180,7 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
       roleKey: await aRoleWith(name),
-      project: { folder: checkout.path, useProjectSkills: true },
+      project: { folder: checkout.path, useProjectSkills: true, projectSkillsOff: [] },
     });
 
     expect(prepared.suffixMatches).toEqual([
@@ -443,7 +455,7 @@ async function preparedWhileOn(
     return await on.get(SessionSkills).prepare({
       sessionId: randomUUID(),
       roleKey: aName("role"),
-      project: { folder: worktree, useProjectSkills: true },
+      project: { folder: worktree, useProjectSkills: true, projectSkillsOff: [] },
     });
   } finally {
     await skills.turnOff(skill);

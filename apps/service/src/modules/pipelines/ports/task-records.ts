@@ -15,6 +15,8 @@ export interface TaskRecord {
     readonly commands: Readonly<Record<string, string>>;
     /** Whether sessions on its Tasks also get the repository's own skills. */
     readonly useProjectSkills: boolean;
+    /** The keys of the repository's skills and commands the Project turned off, each by itself. */
+    readonly projectSkillsOff: readonly string[];
   };
   readonly worktree: {
     readonly path: string;

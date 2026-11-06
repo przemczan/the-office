@@ -77,9 +77,9 @@ export function projectSkillNameOf({ path, text }: ProjectSkillFile): ProjectSki
 export interface SessionSkillRecord {
   readonly sessionId: string;
   readonly skills: readonly SessionSkill[];
-  /** The Project's skills and commands it may use, when the Project allows them. */
+  /** The Project's skills and commands it may use: those the Project has on. */
   readonly projectSkills: readonly ProjectSkillName[];
-  /** The keys of the Project's skills and commands, when the Project doesn't allow them. */
+  /** The keys of the Project's skills and commands it found that the Project has off. */
   readonly projectSkillsOff: readonly string[];
   readonly preparedAt: Date;
 }
@@ -99,19 +99,32 @@ export function librarySkillsFor(
     .toSorted((first, second) => (first.name < second.name ? -1 : 1));
 }
 
-/** What a session records, given whether its Project allows its own skills. */
+/** Which of the repository's skills a Project gives its sessions (spec §2.6). */
+export interface ProjectSkillUse {
+  /** Off, sessions get none of them. */
+  readonly useProjectSkills: boolean;
+  /** The keys turned off one by one. A skill found under any other key is on. */
+  readonly projectSkillsOff: readonly string[];
+}
+
+/**
+ * What a session records: the skills it found, split by what its Project has on. An off key the
+ * repository no longer holds is left out, since the engine has nothing to turn off.
+ */
 export function sessionSkillRecord(
   sessionId: string,
   skills: readonly SessionSkill[],
   projectSkills: readonly ProjectSkillName[],
-  useProjectSkills: boolean,
+  { useProjectSkills, projectSkillsOff }: ProjectSkillUse,
   preparedAt: Date,
 ): SessionSkillRecord {
+  const isOff = (skill: ProjectSkillName): boolean =>
+    !useProjectSkills || projectSkillsOff.includes(skill.key);
   return {
     sessionId,
     skills,
-    projectSkills: useProjectSkills ? projectSkills : [],
-    projectSkillsOff: useProjectSkills ? [] : projectSkills.map((skill) => skill.key),
+    projectSkills: projectSkills.filter((skill) => !isOff(skill)),
+    projectSkillsOff: projectSkills.filter(isOff).map((skill) => skill.key),
     preparedAt,
   };
 }

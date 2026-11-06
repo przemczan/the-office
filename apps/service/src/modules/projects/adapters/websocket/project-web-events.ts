@@ -15,6 +15,7 @@ import {
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
+  ProjectSkillUseChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "../../domain/project-events.js";
@@ -82,6 +83,13 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectUseProjectSkillsChanged,
       (event): WebEventOf<"project.use-project-skills-changed"> => ({
         type: "project.use-project-skills-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectSkillUseChanged,
+      (event): WebEventOf<"project.skill-use-changed"> => ({
+        type: "project.skill-use-changed",
         projectId: event.projectId,
       }),
     );

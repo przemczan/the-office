@@ -10,6 +10,7 @@ import {
   projectSkillListSchema,
   roleOverrideChangeSchema,
   useForEveryRoleChangeSchema,
+  projectSkillUseChangeSchema,
   useProjectSkillsChangeSchema,
   type CommandChange,
   type DefaultPipelineChange,
@@ -24,6 +25,7 @@ import {
   type ProjectCommandKey,
   type PublishingModeChange,
   type ProjectSkill,
+  type ProjectSkillUseChange,
   type UseProjectSkillsChange,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -111,6 +113,14 @@ export class ProjectsController {
     return toProjectResponse(await this.projects.changeUseProjectSkills(id, useProjectSkills));
   }
 
+  @Put(":id/skill-use")
+  async changeProjectSkillUse(
+    @Param("id") id: string,
+    @Body(new ContractPipe(projectSkillUseChangeSchema)) { key, use }: ProjectSkillUseChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeProjectSkillUse(id, key, use));
+  }
+
   @Put(":id/default-pipeline")
   async changeDefaultPipeline(
     @Param("id") id: string,
@@ -163,6 +173,7 @@ function toProjectResponse(project: Project): ProjectResponse {
       prependPath: [...project.environment.prependPath],
     },
     useProjectSkills: project.useProjectSkills,
+    projectSkillsOff: [...project.projectSkillsOff],
     projectDefault: project.projectDefault && { ...project.projectDefault },
     useForEveryRole: project.useForEveryRole,
     roleOverrides: project.roleOverrides.map(({ roleKey, engineId, model }) => ({

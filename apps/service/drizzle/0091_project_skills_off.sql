@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "project_skills_off" text[] DEFAULT '{}' NOT NULL;

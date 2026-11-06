@@ -59,6 +59,7 @@ describe("TaskRecords", () => {
         baseBranch: "main",
         commands: { install: "npm install", build: "", lint: "npm run lint", test: "npm test" },
         useProjectSkills: true,
+        projectSkillsOff: [],
       },
       worktree: {
         path: join("/worktrees", projectId, taskId),

@@ -337,12 +337,16 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
         title: z.string(),
         projectId: z.string(),
         priority: prioritySchema,
+        description: z.string(),
         blockedBy: z.array(z.uuid()),
         taskId: z.uuid().nullable(),
       }),
       /** One of its Tasks (`taskId`) made to wait for any Task (`blockerId`). */
       z.object({ kind: z.literal("add-dependency"), taskId: z.uuid(), blockerId: z.uuid() }),
       z.object({ kind: z.literal("remove-dependency"), taskId: z.uuid(), blockerId: z.uuid() }),
+      /** One of its Tasks (`taskId`) under a new title, or with a new Description, whole. */
+      z.object({ kind: z.literal("task-title"), taskId: z.uuid(), title: z.string() }),
+      z.object({ kind: z.literal("task-description"), taskId: z.uuid(), description: z.string() }),
     ]),
   }),
   /**

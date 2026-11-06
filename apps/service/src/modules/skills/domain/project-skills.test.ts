@@ -20,6 +20,7 @@ describe("projectSkillsFrom", () => {
       ),
     ).toEqual([
       {
+        key: "ship",
         name: "ship",
         description: "Ships it.",
         path: ".claude/commands/ship.md",
@@ -27,6 +28,7 @@ describe("projectSkillsFrom", () => {
         alsoInLibrary: false,
       },
       {
+        key: "deploy",
         name: "deploy",
         description: "Deploys it.",
         path: ".claude/skills/deploy",
@@ -34,6 +36,7 @@ describe("projectSkillsFrom", () => {
         alsoInLibrary: true,
       },
       {
+        key: "release",
         name: "release",
         description: "",
         path: "apps/web/.claude/skills/release",

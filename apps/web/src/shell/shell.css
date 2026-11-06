@@ -1167,14 +1167,14 @@ a.person-tag:hover .person-tag-name {
   height: 7px;
   margin-right: 4px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--info);
   vertical-align: 1px;
   animation: pulse-dot 1.6s var(--ease-out) infinite;
 }
 
 @keyframes pulse-dot {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--info) 55%, transparent);
   }
 
   70% {

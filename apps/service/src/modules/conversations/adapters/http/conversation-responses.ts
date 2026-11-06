@@ -160,6 +160,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
           change.edit.kind === "add-task"
             ? {
                 ...change.edit,
+                description: change.edit.description ?? "",
                 blockedBy: [...change.edit.blockedBy],
                 taskId: change.edit.taskId ?? null,
               }

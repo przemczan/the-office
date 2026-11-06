@@ -3,6 +3,8 @@ import { frontmatterText, readSkillMd } from "./skill-md.js";
 
 /** A skill or command of the repository's own, as the Project page lists it, read-only. */
 export interface ProjectSkill {
+  /** What the Project turns it off by; two with the same key are one skill to the engine. */
+  readonly key: string;
   /** As a session lists it. */
   readonly name: string;
   readonly description: string;
@@ -28,6 +30,7 @@ export function projectSkillsFrom(
       if (!skill) return [];
       return [
         {
+          key: skill.key,
           name: skill.listedAs ?? skill.key,
           description: descriptionOf(file.text),
           path: file.path.replace(/\/SKILL\.md$/, ""),

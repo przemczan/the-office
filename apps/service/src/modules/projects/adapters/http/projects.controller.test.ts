@@ -544,6 +544,7 @@ describe("the repository's own skills", () => {
 
       expect(projectSkillListSchema.parse(await listed.json())).toEqual([
         {
+          key: "deploy",
           name: "deploy",
           description: "Deploys the panel.",
           path: ".claude/skills/deploy",
@@ -558,6 +559,36 @@ describe("the repository's own skills", () => {
     } finally {
       await rm(join(repository.path, ".claude"), { recursive: true, force: true });
     }
+  });
+
+  it("turns one of the repository's skills off and on by its key", async () => {
+    const project = await addProject();
+    published = [];
+
+    const off = await send("PUT", `/projects/${project.id}/skill-use`, {
+      key: "deploy",
+      use: false,
+    });
+    const offProject = projectSchema.parse(await off.json());
+    const on = await send("PUT", `/projects/${project.id}/skill-use`, {
+      key: "deploy",
+      use: true,
+    });
+
+    expect(offProject.projectSkillsOff).toEqual(["deploy"]);
+    expect(projectSchema.parse(await on.json()).projectSkillsOff).toEqual([]);
+    expect(webEvents()).toEqual([
+      { type: "project.skill-use-changed", projectId: project.id },
+      { type: "project.skill-use-changed", projectId: project.id },
+    ]);
+  });
+
+  it("refuses a change with no key", async () => {
+    const project = await addProject();
+
+    const refused = await send("PUT", `/projects/${project.id}/skill-use`, { key: "", use: false });
+
+    expect(refused.status).toBe(400);
   });
 });
 

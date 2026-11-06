@@ -16,7 +16,7 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
   readonly attachmentLines: readonly string[];
   readonly project: Pick<
     KnownProject,
-    "id" | "name" | "baseBranch" | "commands" | "useProjectSkills"
+    "id" | "name" | "baseBranch" | "commands" | "useProjectSkills" | "projectSkillsOff"
   >;
   readonly worktree: TaskWorktree;
 }
@@ -55,6 +55,7 @@ export class TaskRecords {
         baseBranch: project.baseBranch,
         commands: project.commands,
         useProjectSkills: project.useProjectSkills,
+        projectSkillsOff: project.projectSkillsOff,
       },
       worktree,
     };

@@ -97,3 +97,14 @@ export class ProjectUseProjectSkillsChanged extends DomainEvent {
     super();
   }
 }
+
+/** Sessions started from now on get the repository's skill of this key, or start without it. */
+export class ProjectSkillUseChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly key: string,
+    readonly use: boolean,
+  ) {
+    super();
+  }
+}

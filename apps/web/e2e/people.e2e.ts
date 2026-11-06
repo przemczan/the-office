@@ -3968,8 +3968,44 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await newTask.getByRole("button", { name: "Apply change" }).click();
     await expect(newTask).toContainText("Applied");
     await expect(graph.getByRole("link")).toHaveCount(4);
-    await graph.getByRole("link", { name: /Usage export in the API/ }).click();
+
+    // Bob retitles the Task and writes its Description, each by a Proposal of its own.
+    const added = taskSchema
+      .array()
+      .parse(await (await page.request.get("/api/tasks")).json())
+      .find(({ title }) => title === "Usage export in the API");
+    if (!added) throw new Error("The Proposal's Task isn't on the board.");
+    await seedInitiativeProposal(initiativeId, {
+      kind: "task-title",
+      taskId: added.id,
+      title: "Usage export for the API",
+    });
+    await seedInitiativeProposal(initiativeId, {
+      kind: "task-description",
+      taskId: added.id,
+      description: "One row per Project and day.",
+    });
+    await page.reload();
+    const newTitle = conversation.getByRole("region", { name: "Proposal: New title for a Task" });
+    await expect(newTitle).toContainText("Usage export in the API");
+    await expect(newTitle).toContainText("Usage export for the API");
+    await newTitle.screenshot({ path: path.join(SCREENSHOTS, "proposal-task-title.png") });
+    await newTitle.getByRole("button", { name: "Apply change" }).click();
+    await expect(newTitle).toContainText("Applied");
+    const newDescription = conversation.getByRole("region", {
+      name: "Proposal: New Description for a Task",
+    });
+    await expect(newDescription).toContainText("One row per Project and day.");
+    await newDescription.screenshot({
+      path: path.join(SCREENSHOTS, "proposal-task-description.png"),
+    });
+    await newDescription.getByRole("button", { name: "Apply change" }).click();
+    await expect(newDescription).toContainText("Applied");
+    await graph.getByRole("link", { name: /Usage export for the API/ }).click();
     await expect(dependencies).toContainText("Usage table schema");
+    await expect(page.getByRole("region", { name: "Description" })).toContainText(
+      "One row per Project and day.",
+    );
     await page.goto(initiativeUrl);
     await expect(
       conversation.getByText(

@@ -414,6 +414,8 @@ const INITIATIVE_EDIT_TITLES: Readonly<Record<InitiativeEdit["kind"], string>> =
   "add-task": "New Task in the Initiative",
   "add-dependency": "A Task waits for another",
   "remove-dependency": "A Task stops waiting",
+  "task-title": "New title for a Task",
+  "task-description": "New Description for a Task",
 };
 
 /** The CTO's change to the Initiative, its Tasks and Projects by name. */
@@ -436,6 +438,9 @@ function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): Re
             {projects?.find(({ id }) => id === edit.projectId)?.name ?? edit.projectId}
           </ProposedField>
           <ProposedField label="Priority">{PRIORITY_NAMES[edit.priority]}</ProposedField>
+          {edit.description !== "" && (
+            <ProposedField label="Description">{edit.description}</ProposedField>
+          )}
           {edit.blockedBy.length > 0 && (
             <ProposedField label="Must be Done first">
               {edit.blockedBy.map(taskTitle).join(", ")}
@@ -452,6 +457,22 @@ function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): Re
             label={edit.kind === "add-dependency" ? "Must be Done first" : "No longer waits for"}
           >
             {taskTitle(edit.blockerId)}
+          </ProposedField>
+        </dl>
+      );
+    case "task-title":
+      return (
+        <dl className="proposal-fields">
+          <ProposedField label="Task">{taskTitle(edit.taskId)}</ProposedField>
+          <ProposedField label="New title">{edit.title}</ProposedField>
+        </dl>
+      );
+    case "task-description":
+      return (
+        <dl className="proposal-fields">
+          <ProposedField label="Task">{taskTitle(edit.taskId)}</ProposedField>
+          <ProposedField label="New Description">
+            {edit.description === "" ? "None: the title is all there is." : edit.description}
           </ProposedField>
         </dl>
       );

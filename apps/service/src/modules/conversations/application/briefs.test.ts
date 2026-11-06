@@ -79,6 +79,7 @@ beforeAll(async () => {
         folder: `/office/worktrees/admin-panel/${taskId}`,
         environment: {},
         useProjectSkills: true,
+        projectSkillsOff: [],
         instructions: "You plan the Task.",
         officeTools: [],
         brief: recordOf(taskId),

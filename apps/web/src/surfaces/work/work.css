@@ -660,7 +660,7 @@
 }
 
 .pipeline-rail-reached-live {
-  background: linear-gradient(90deg, var(--success) calc(100% - 60px), var(--accent));
+  background: linear-gradient(90deg, var(--success) calc(100% - 60px), var(--info));
 }
 
 .pipeline-rail-stage {
@@ -731,15 +731,15 @@
 }
 
 .stage-mark-running {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--info);
+  color: var(--info);
 }
 
 .stage-mark-running::after {
   content: "";
   position: absolute;
   inset: -3px;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--info);
   border-radius: inherit;
   animation: pulse-ring 1.6s var(--ease-out) infinite;
 }
@@ -768,6 +768,12 @@
 .pipeline-rail-stage-selected:hover .pipeline-rail-body {
   background: var(--surface-selected);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.pipeline-rail-stage-running.pipeline-rail-stage-selected .pipeline-rail-body,
+.pipeline-rail-stage-running.pipeline-rail-stage-selected:hover .pipeline-rail-body {
+  background: var(--info-subtle);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--info) 35%, transparent);
 }
 
 .pipeline-rail-stage:has(.pipeline-rail-button:focus-visible) .pipeline-rail-body {
@@ -826,7 +832,7 @@
 }
 
 .pipeline-rail-stage-running .pipeline-rail-state {
-  color: var(--accent-subtle-fg);
+  color: var(--info-fg);
 }
 
 .pipeline-rail-stage-failed .pipeline-rail-state {
@@ -995,6 +1001,14 @@
   box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
+.pipeline-in-small-stage[aria-pressed="true"]:has(.stage-mark-running) {
+  background: var(--info-subtle);
+}
+
+.pipeline-in-small-stage[aria-pressed="true"]:has(.stage-mark-running) .stage-mark {
+  box-shadow: 0 0 0 3px var(--info-subtle);
+}
+
 .pipeline-in-small-stage:focus-visible {
   outline: 0;
   box-shadow: var(--focus-ring);
@@ -1095,8 +1109,12 @@
   --run-dot: var(--warning);
 }
 
-.stage-history-run-accent {
-  --run-tone: var(--accent);
+.stage-history-run-info {
+  --run-tone: var(--info);
+}
+
+.stage-history-run-info[aria-pressed="true"] {
+  background: var(--info-subtle);
 }
 
 .stage-history-run-neutral {
@@ -2107,7 +2125,7 @@
   align-items: center;
   padding: var(--space-1-5) var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
-  background: var(--accent-subtle);
+  background: var(--info-subtle);
   font-size: var(--text-xs);
 }
 

@@ -137,6 +137,8 @@ export type SkillRefusal = z.infer<typeof skillRefusalSchema>;
 
 /** GET /projects/:id/skills: a skill or command of the repository's own, read-only. */
 export const projectSkillSchema = z.object({
+  /** What the Project turns it off by; two with the same key are one skill to the engine. */
+  key: z.string(),
   /** As a session lists it. */
   name: z.string(),
   description: z.string(),

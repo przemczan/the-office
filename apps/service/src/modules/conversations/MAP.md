@@ -70,7 +70,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `size-threshold.controller.ts`: SizeThresholdController
 - `thread-refusals.filter.ts`: ThreadRefusalsFilter
 - `threads.controller.ts`: ThreadsController
-- Tests: threads.controller.test.ts
+- Tests: conversation-responses.test.ts, threads.controller.test.ts
 
 ### adapters/office-tools/
 

@@ -2,6 +2,7 @@ import type { Check } from "../../check.ts";
 import { allowlistSuffixCheck } from "./allowlist-suffix.ts";
 import { denyRuleCheck } from "./deny-rule.ts";
 import { frontmatterYamlCheck } from "./frontmatter-yaml.ts";
+import { overridesLibraryCheck } from "./overrides-library.ts";
 import { overridesOffCheck } from "./overrides-off.ts";
 import { pluginDetectionCheck } from "./plugin-detection.ts";
 import { projectNamesCheck } from "./project-names.ts";
@@ -18,6 +19,7 @@ export const skillsChecks: readonly Check[] = [
   allowlistSuffixCheck,
   pluginDetectionCheck,
   overridesOffCheck,
+  overridesLibraryCheck,
   projectNamesCheck,
   userScopeCheck,
   resumeCheck,
