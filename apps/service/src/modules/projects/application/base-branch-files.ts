@@ -55,6 +55,7 @@ export class BaseBranchFiles {
       const { commit } = await this.worktrees.freshBase(project, variables);
       return { commit, fetchProblem: undefined };
     } catch (error) {
+      // Any Error, as a fetch that times out is a plain one, not a GitCommandFailed.
       if (!(error instanceof Error)) throw error;
       return this.lastKnown(project, error);
     }

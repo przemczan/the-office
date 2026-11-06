@@ -49,6 +49,7 @@ let requests: string[];
 let fetchAnswer: Answer;
 let folders: Record<string, Answer>;
 let picked: RepositoryFile[];
+let closed: number;
 let queryClient: QueryClient;
 
 beforeEach(() => {
@@ -58,6 +59,7 @@ beforeEach(() => {
   root = createRoot(page);
   requests = [];
   picked = [];
+  closed = 0;
   fetchAnswer = { status: 200, body: FETCHED };
   folders = {
     "": { status: 200, body: TOP },
@@ -96,7 +98,7 @@ async function open(extensions: readonly string[] = ["png"]): Promise<void> {
           title="Choose a file"
           extensions={extensions}
           onPick={(file) => picked.push(file)}
-          onClose={() => undefined}
+          onClose={() => (closed += 1)}
         />
       </QueryClientProvider>,
     ),
@@ -159,6 +161,34 @@ describe("RepositoryFileWindow", () => {
 
     expect(button("README.md")).toBeDefined();
     expect(folderRequests()).toHaveLength(3);
+  });
+
+  it("opens a folder already read at its top, not where the last one was scrolled", async () => {
+    await open();
+    await press(button("assets"));
+    const assets = document.querySelector(".repository-file-list");
+    await press(breadcrumb("Top level"));
+
+    expect(document.querySelector(".repository-file-list")).not.toBe(assets);
+  });
+
+  it("fetches the base branch anew at the next sitting", async () => {
+    await open();
+    act(() => root.unmount());
+    await act(async () => {
+      await vi.waitFor(() => expect(queryClient.getQueryCache().findAll()).toHaveLength(1));
+    });
+    root = createRoot(page);
+    await open();
+
+    expect(requests.filter((request) => request.endsWith("/base-branch/fetch"))).toHaveLength(2);
+  });
+
+  it("has Close in its bar", async () => {
+    await open();
+    await press(button("Close"));
+
+    expect(closed).toBe(1);
   });
 
   it("gives a picked file's path and commit, once one is selected", async () => {

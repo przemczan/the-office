@@ -79,6 +79,8 @@ function CommitFolders({
       {folder.isPending && <p className="dialog-text">Reading the folder…</p>}
       {folder.data && (
         <FolderEntries
+          // A folder already read shows at once: without this it opens where the last one was scrolled.
+          key={path}
           folder={folder.data}
           extensions={extensions}
           selectedPath={selected?.path}
