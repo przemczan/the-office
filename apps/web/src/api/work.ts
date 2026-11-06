@@ -469,6 +469,7 @@ export const workEventInvalidations: Readonly<
   "task.left-queue": () => [TASKS],
   "task.moved-up-in-queue": () => [TASKS],
   "task.priority-changed": () => [TASKS],
+  "task.title-changed": () => [TASKS],
   "task.description-changed": () => [TASKS],
   "task.tags-changed": () => [TASKS],
   "task.reordered": () => [TASKS],

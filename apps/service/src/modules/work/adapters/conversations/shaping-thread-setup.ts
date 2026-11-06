@@ -14,6 +14,8 @@ import {
   READ_INITIATIVE,
   REMOVE_DEPENDENCY,
   WRITE_OUTCOME,
+  WRITE_TASK_DESCRIPTION,
+  WRITE_TASK_TITLE,
 } from "../office-tools/shaping-office-tools.js";
 import { LIST_IDEAS, LIST_TASKS, READ_IDEA, READ_TASK } from "../office-tools/work-office-tools.js";
 
@@ -33,6 +35,8 @@ export const SHAPING_OFFICE_TOOLS = [
   ADD_TASK,
   ADD_DEPENDENCY,
   REMOVE_DEPENDENCY,
+  WRITE_TASK_TITLE,
+  WRITE_TASK_DESCRIPTION,
 ] as const;
 
 /** Sets up the sessions of Threads on Initiatives for Conversations, from the Initiative's record. */

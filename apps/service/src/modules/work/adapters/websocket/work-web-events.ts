@@ -38,6 +38,7 @@ import {
   TaskPlanSaved,
   TaskPriorityChanged,
   TaskDescriptionChanged,
+  TaskTitleChanged,
   TaskTagsChanged,
   TaskReordered,
   TaskResumed,
@@ -165,6 +166,10 @@ export class WorkWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(TaskPriorityChanged, (event): WebEventOf<"task.priority-changed"> => ({
       type: "task.priority-changed",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskTitleChanged, (event): WebEventOf<"task.title-changed"> => ({
+      type: "task.title-changed",
       taskId: event.taskId,
     }));
     this.forwarding.forward(

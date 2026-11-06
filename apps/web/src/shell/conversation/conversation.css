@@ -923,6 +923,7 @@
 .proposal-field dd {
   margin: 0;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .proposal-files {

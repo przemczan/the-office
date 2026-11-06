@@ -10,6 +10,8 @@ import {
   addCtoTask,
   addDependencyOfItsTask,
   addTaskToInitiative,
+  changeDescriptionOfItsTask,
+  changeTitleOfItsTask,
   confirmInitiative,
   dropInitiative,
   finishInitiative,
@@ -22,6 +24,8 @@ import {
 import {
   initiativeEditProblems,
   newTaskOf,
+  sameDescriptionWords,
+  sameTitleWords,
   type InitiativeEdit,
 } from "../domain/initiative-edit.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
@@ -48,8 +52,8 @@ export type CtoChange =
   { readonly kind: "written"; readonly edit: InitiativeEdit } | { readonly kind: "proposed" };
 
 /**
- * The Initiatives use cases: shaped from an Idea, its outcome, Tasks and their dependencies written
- * while shaping or by the CTO's Proposals once active, confirmed, dropped, and done once their
+ * The Initiatives use cases: shaped from an Idea, its outcome, Tasks, their titles, Descriptions and
+ * dependencies written while shaping or by the CTO's Proposals once active, confirmed, dropped, and done once their
  * Tasks are. Each change is saved first and its events published after.
  */
 @Injectable()
@@ -313,6 +317,25 @@ export class InitiativeService implements OnModuleInit {
       case "remove-dependency":
         await this.removeDependencyOfItsTask(id, edit.taskId, edit.blockerId, route);
         return edit;
+      case "task-title":
+        await this.changeItsTask(
+          id,
+          edit.taskId,
+          route,
+          (initiative, task) => changeTitleOfItsTask(initiative, route, task, edit.title),
+          sameTitleWords,
+        );
+        return edit;
+      case "task-description":
+        await this.changeItsTask(
+          id,
+          edit.taskId,
+          route,
+          (initiative, task) =>
+            changeDescriptionOfItsTask(initiative, route, task, edit.description),
+          sameDescriptionWords,
+        );
+        return edit;
     }
   }
 
@@ -359,6 +382,22 @@ export class InitiativeService implements OnModuleInit {
     const { task, event } = await this.repository.changeDependencies(id, taskId, change);
     if (event) await this.events.publish(event);
     return task;
+  }
+
+  /**
+   * Changes one of its Tasks. Asked straight, a change that alters nothing is refused in
+   * `sameWords`, so the CTO hears it; a Proposal of it simply holds already.
+   */
+  private async changeItsTask<Event extends DomainEvent>(
+    id: string,
+    taskId: string,
+    route: InitiativeChangeRoute,
+    change: (initiative: Initiative, task: Task) => TaskChange<Event> | undefined,
+    sameWords: (task: Task) => string,
+  ): Promise<void> {
+    const { task, event } = await this.repository.changeTask(id, taskId, change);
+    if (event) await this.events.publish(event);
+    else if (route === "straight") throw new InitiativeRefused([sameWords(task)]);
   }
 
   /** The Initiative once done, or undefined while it isn't. */

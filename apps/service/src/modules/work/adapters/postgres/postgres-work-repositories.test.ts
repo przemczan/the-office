@@ -6,11 +6,13 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { Attachment } from "../../domain/attachment.js";
 import { moveAttachment } from "../../domain/attachment-changes.js";
 import { THE_USER } from "../../domain/author.js";
-import { dropIdea, shapeIdeaIntoTask } from "../../domain/idea-changes.js";
+import { dropIdea, shapeIdeaIntoInitiative, shapeIdeaIntoTask } from "../../domain/idea-changes.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
+import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { boardOrder, orderAfter } from "../../domain/manual-order.js";
 import type { Task } from "../../domain/task.js";
 import { changePriority, createTask, reorderTask } from "../../domain/task-changes.js";
+import { changeTitle } from "../../domain/task-description.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import { aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
@@ -75,6 +77,18 @@ async function createdTask(projectId: string, fields: Partial<Task> = {}): Promi
     ),
   );
   return task;
+}
+
+/** An Initiative being shaped, from an Idea of its own. */
+async function anInitiativeId(): Promise<string> {
+  const initiativeId = randomUUID();
+  const idea = anIdea({ id: randomUUID() });
+  await ideas.add(idea);
+  await ideas.shapeIntoInitiative(idea.id, (stored) => ({
+    ...shapeIdeaIntoInitiative(stored, initiativeId, THE_USER, new Date()),
+    moves: [],
+  }));
+  return initiativeId;
 }
 
 /** The Project's Tasks as the board shows them. */
@@ -245,6 +259,40 @@ describe("PostgresIdeaRepository", () => {
       new IdeaNotFound("idea-7"),
     );
     expect(await initiatives.find("initiative-7")).toBeUndefined();
+  });
+});
+
+describe("PostgresInitiativeRepository", () => {
+  it("changes a Task with the Initiative as held, and saves nothing when it changes nothing", async () => {
+    const initiativeId = await anInitiativeId();
+    const task = await createdTask(aProjectId(), { title: "Queue writes" });
+    const seen: string[] = [];
+
+    const changed = await initiatives.changeTask(initiativeId, task.id, (initiative, stored) => {
+      seen.push(initiative.id);
+      return changeTitle(stored, "Keep the queue");
+    });
+    const unchanged = await initiatives.changeTask(initiativeId, task.id, (_, stored) =>
+      changeTitle(stored, "Keep the queue"),
+    );
+
+    expect(seen).toEqual([initiativeId]);
+    expect(changed.task.title).toBe("Keep the queue");
+    expect(unchanged).toEqual({ task: changed.task, event: undefined });
+    await expect(tasks.find(task.id)).resolves.toEqual(changed.task);
+  });
+
+  it("refuses an unknown Initiative or Task", async () => {
+    const task = await createdTask(aProjectId());
+    const initiativeId = await anInitiativeId();
+    const missing = randomUUID();
+
+    await expect(initiatives.changeTask(missing, task.id, () => undefined)).rejects.toThrow(
+      new InitiativeNotFound(missing),
+    );
+    await expect(initiatives.changeTask(initiativeId, missing, () => undefined)).rejects.toThrow(
+      new TaskNotFound(missing),
+    );
   });
 });
 

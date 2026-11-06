@@ -26,7 +26,14 @@ export class TaskPriorityChanged extends DomainEvent {
   }
 }
 
-/** The user rewrote the Task's Description. */
+/** The Task's title was rewritten. */
+export class TaskTitleChanged extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+/** The Task's Description was rewritten. */
 export class TaskDescriptionChanged extends DomainEvent {
   constructor(readonly taskId: string) {
     super();

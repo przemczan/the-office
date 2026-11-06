@@ -6,8 +6,15 @@ import { InitiativeRefused } from "./initiative-refused.js";
 import { newTaskProblems, trimmedNewTask, type NewTask, type Task } from "./task.js";
 import { createTask, type NewTaskSetting, type TaskChange } from "./task-changes.js";
 import { addDependency, removeDependency } from "./task-dependencies.js";
+import { changeDescription, changeTitle } from "./task-description.js";
 import { TaskRefused } from "./task-refused.js";
-import type { TaskCreated, TaskDependencyAdded, TaskDependencyRemoved } from "./task-events.js";
+import type {
+  TaskCreated,
+  TaskDependencyAdded,
+  TaskDependencyRemoved,
+  TaskDescriptionChanged,
+  TaskTitleChanged,
+} from "./task-events.js";
 
 /** An Initiative after a change, with the event that announces it. */
 export interface InitiativeChange<Event extends DomainEvent> {
@@ -138,10 +145,7 @@ export function addDependencyOfItsTask(
   blockerId: string,
   tasks: readonly Task[],
 ): TaskChange<TaskDependencyAdded> | undefined {
-  requireItsTask(initiative, task);
-  const added = addDependency(task, blockerId, tasks);
-  if (added) requireOpenTo(initiative, route, CTO_CHANGES);
-  return added;
+  return changeItsTask(initiative, route, task, () => addDependency(task, blockerId, tasks));
 }
 
 export function removeDependencyOfItsTask(
@@ -150,10 +154,39 @@ export function removeDependencyOfItsTask(
   task: Task,
   blockerId: string,
 ): TaskChange<TaskDependencyRemoved> | undefined {
+  return changeItsTask(initiative, route, task, () => removeDependency(task, blockerId));
+}
+
+/** The CTO rewrites the title of one of the Initiative's Tasks; the rules are changeTitle's. */
+export function changeTitleOfItsTask(
+  initiative: Initiative,
+  route: InitiativeChangeRoute,
+  task: Task,
+  title: string,
+): TaskChange<TaskTitleChanged> | undefined {
+  return changeItsTask(initiative, route, task, () => changeTitle(task, title));
+}
+
+/** The CTO rewrites the Description of one of its Tasks; the rules are changeDescription's. */
+export function changeDescriptionOfItsTask(
+  initiative: Initiative,
+  route: InitiativeChangeRoute,
+  task: Task,
+  description: string,
+): TaskChange<TaskDescriptionChanged> | undefined {
+  return changeItsTask(initiative, route, task, () => changeDescription(task, description));
+}
+
+function changeItsTask<Event extends DomainEvent>(
+  initiative: Initiative,
+  route: InitiativeChangeRoute,
+  task: Task,
+  change: () => TaskChange<Event> | undefined,
+): TaskChange<Event> | undefined {
   requireItsTask(initiative, task);
-  const removed = removeDependency(task, blockerId);
-  if (removed) requireOpenTo(initiative, route, CTO_CHANGES);
-  return removed;
+  const changed = change();
+  if (changed) requireOpenTo(initiative, route, CTO_CHANGES);
+  return changed;
 }
 
 const CTO_CHANGES = "its Tasks and their dependencies change straight onto it";

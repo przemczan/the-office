@@ -83,7 +83,10 @@ export interface ProposedInitiativeChange {
   readonly edit: InitiativeEdit;
 }
 
-/** What a Proposal changes on an Initiative: its outcome, a new Task, or a dependency of its Task. */
+/**
+ * What a Proposal changes on an Initiative: its outcome, a new Task, or the title, Description or a
+ * dependency of its Task.
+ */
 export type InitiativeEdit =
   | { readonly kind: "outcome"; readonly outcome: string }
   | {
@@ -91,13 +94,17 @@ export type InitiativeEdit =
       readonly title: string;
       readonly projectId: string;
       readonly priority: "high" | "normal" | "low";
+      /** Undefined when none was given, as in every Proposal from before it could have one. */
+      readonly description?: string | undefined;
       /** The Tasks it waits for from the start. */
       readonly blockedBy: readonly string[];
       /** The Task added, once the user applied it; undefined before. */
       readonly taskId: string | undefined;
     }
   | { readonly kind: "add-dependency"; readonly taskId: string; readonly blockerId: string }
-  | { readonly kind: "remove-dependency"; readonly taskId: string; readonly blockerId: string };
+  | { readonly kind: "remove-dependency"; readonly taskId: string; readonly blockerId: string }
+  | { readonly kind: "task-title"; readonly taskId: string; readonly title: string }
+  | { readonly kind: "task-description"; readonly taskId: string; readonly description: string };
 
 /**
  * Devops' change to a Project's commands and install inputs (spec §2.3): the fields it rewrites as

@@ -21,6 +21,8 @@ describe("initiativeEditProblems", () => {
       { kind: "outcome", outcome: "Writes made offline reach the server." },
       addTask,
       { kind: "add-dependency", taskId: "its", blockerId: "blocker" },
+      { kind: "task-title", taskId: "its", title: "Queue every write" },
+      { kind: "task-description", taskId: "its", description: "Writes wait for the network." },
     ];
 
     for (const edit of edits) expect(initiativeEditProblems(active, edit, board)).toEqual([]);
@@ -54,6 +56,47 @@ describe("initiativeEditProblems", () => {
         board,
       ),
     ).toEqual([`"Queue writes" doesn't wait for the Task blocker.`]);
+    expect(
+      initiativeEditProblems(
+        active,
+        { kind: "task-title", taskId: "its", title: "Queue writes" },
+        board,
+      ),
+    ).toEqual([`The title of "Queue writes" says so already.`]);
+    expect(
+      initiativeEditProblems(
+        active,
+        { kind: "task-description", taskId: "its", description: its.description },
+        board,
+      ),
+    ).toEqual([`The Description of "Queue writes" says so already.`]);
+  });
+
+  it("refuses a title or Description by the Task's own rules", () => {
+    const started = { ...its, state: "in-progress" } as const;
+
+    expect(
+      initiativeEditProblems(active, { kind: "task-title", taskId: "its", title: " " }, board),
+    ).toEqual(["Give the Task a title."]);
+    expect(
+      initiativeEditProblems(active, { kind: "task-title", taskId: "its", title: "New" }, [
+        started,
+      ]),
+    ).toEqual(["A Task keeps its title once it has started."]);
+    expect(
+      initiativeEditProblems(
+        active,
+        { kind: "task-description", taskId: "its", description: "New" },
+        [started],
+      ),
+    ).toEqual(["A Task keeps its Description once it has started."]);
+    expect(
+      initiativeEditProblems(
+        active,
+        { kind: "task-description", taskId: "blocker", description: "New" },
+        board,
+      ),
+    ).toEqual([`The Task "Store the queue" isn't one of this Initiative's.`]);
   });
 
   it("refuses by the rules applying it would: another Initiative's Task, an unknown one", () => {

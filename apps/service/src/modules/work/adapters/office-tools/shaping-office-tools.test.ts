@@ -15,7 +15,11 @@ import {
   SessionInitiativesForTests,
   UNKNOWN_PROJECT,
 } from "../../ports/work-ports.fixtures.js";
-import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
+import {
+  startWorkApplication,
+  webEventsOf,
+  type WorkApplication,
+} from "../../work-application.fixtures.js";
 import { SHAPING_OFFICE_TOOLS } from "../conversations/shaping-thread-setup.js";
 import {
   ADD_DEPENDENCY,
@@ -23,6 +27,8 @@ import {
   READ_INITIATIVE,
   REMOVE_DEPENDENCY,
   WRITE_OUTCOME,
+  WRITE_TASK_DESCRIPTION,
+  WRITE_TASK_TITLE,
 } from "./shaping-office-tools.js";
 
 let officeData: string;
@@ -92,6 +98,8 @@ it("are among a shaping session's Office tools", () => {
       ADD_TASK,
       ADD_DEPENDENCY,
       REMOVE_DEPENDENCY,
+      WRITE_TASK_TITLE,
+      WRITE_TASK_DESCRIPTION,
     ]),
   );
 });
@@ -131,6 +139,18 @@ describe("add_task", () => {
       text: `Added the Task "Queue schema" (Task ${task?.id}) in Backlog in ${projectId}, on the Initiative's page.`,
       isError: false,
     });
+  });
+
+  it("gives the new Task the Description it names", async () => {
+    await call(ADD_TASK, {
+      title: "Queue schema",
+      projectId: aProjectId(),
+      description: "  Writes wait in a table. ",
+    });
+
+    const [task] =
+      (await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id) ?? [];
+    expect(task?.description).toBe("Writes wait in a table.");
   });
 
   it("adds it waiting for the Tasks it names, while shaping", async () => {
@@ -204,6 +224,69 @@ describe("add_dependency and remove_dependency", () => {
   });
 });
 
+describe("write_task_title and write_task_description", () => {
+  it("rewrite one of its Tasks straight away, and announce it", async () => {
+    const queue = await anInitiativeTask("Store the queue on flash");
+    work.published.length = 0;
+
+    const titled = await call(WRITE_TASK_TITLE, { taskId: queue.id, title: " Keep the queue " });
+    const described = await call(WRITE_TASK_DESCRIPTION, {
+      taskId: queue.id,
+      description: "Writes survive a restart.",
+    });
+
+    expect(titled).toEqual({
+      text: `The Task ${queue.id} is now titled "Keep the queue", on the Initiative's page.`,
+      isError: false,
+    });
+    expect(described).toEqual({
+      text: `Wrote the Description of "Keep the queue" onto its page.`,
+      isError: false,
+    });
+    expect(await work.app.get(TaskService).read(queue.id)).toMatchObject({
+      title: "Keep the queue",
+      description: "Writes survive a restart.",
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.title-changed", taskId: queue.id },
+      { type: "task.description-changed", taskId: queue.id },
+    ]);
+  });
+
+  it("refuse a Task that isn't the Initiative's, a missing one and a wrong title", async () => {
+    const outside = await aTaskOutside("Billing schema");
+    const queue = await anInitiativeTask("Store the queue on flash");
+    const missing = randomUUID();
+
+    expect(await call(WRITE_TASK_TITLE, { taskId: outside.id, title: "Mine now" })).toEqual({
+      text: `The Task "Billing schema" isn't one of this Initiative's.`,
+      isError: true,
+    });
+    expect(await call(WRITE_TASK_DESCRIPTION, { taskId: missing, description: "Why" })).toEqual({
+      text: `There is no Task "${missing}".`,
+      isError: true,
+    });
+    expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Two\nlines" })).toEqual({
+      text: "A Task's title must be one line.",
+      isError: true,
+    });
+    expect((await work.app.get(TaskService).read(outside.id)).title).toBe("Billing schema");
+  });
+
+  it("say so when the Task already reads that way", async () => {
+    const queue = await anInitiativeTask("Store the queue on flash");
+
+    expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: queue.title })).toEqual({
+      text: `The title of "Store the queue on flash" says so already.`,
+      isError: true,
+    });
+    expect(await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "" })).toEqual({
+      text: `The Description of "Store the queue on flash" says so already.`,
+      isError: true,
+    });
+  });
+});
+
 describe("once the Initiative is active", () => {
   it("each tool drafts a Proposal of the change in the session's Thread, changing nothing yet", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
@@ -213,11 +296,18 @@ describe("once the Initiative is active", () => {
 
     const answers = [
       await call(WRITE_OUTCOME, { outcome: "Sync works." }),
-      await call(ADD_TASK, { title: "Retry", projectId, blockedBy: [schema.id] }),
+      await call(ADD_TASK, {
+        title: "Retry",
+        projectId,
+        description: "Writes try again.",
+        blockedBy: [schema.id],
+      }),
       await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: schema.id }),
+      await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep the queue" }),
+      await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "It survives." }),
     ];
 
-    expect(answers).toEqual(Array.from({ length: 3 }, () => ({ text: PROPOSED, isError: false })));
+    expect(answers).toEqual(Array.from({ length: 5 }, () => ({ text: PROPOSED, isError: false })));
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual(
       [
         { kind: "outcome", outcome: "Sync works." },
@@ -226,10 +316,13 @@ describe("once the Initiative is active", () => {
           title: "Retry",
           projectId,
           priority: "normal",
+          description: "Writes try again.",
           blockedBy: [schema.id],
           taskId: undefined,
         },
         { kind: "add-dependency", taskId: queue.id, blockerId: schema.id },
+        { kind: "task-title", taskId: queue.id, title: "Keep the queue" },
+        { kind: "task-description", taskId: queue.id, description: "It survives." },
       ].map((edit) => ({
         sessionId: SESSION,
         change: { kind: "initiative", initiativeId: initiative.id, edit },
@@ -255,6 +348,35 @@ describe("once the Initiative is active", () => {
     expect(await call(ADD_TASK, { title: "Retry", projectId: UNKNOWN_PROJECT })).toMatchObject({
       isError: true,
     });
+    expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: " " })).toEqual({
+      text: "Give the Task a title.",
+      isError: true,
+    });
+    expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: queue.title })).toEqual({
+      text: `The title of "Store the queue on flash" says so already.`,
+      isError: true,
+    });
+    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
+  });
+
+  it("drafts no change of a Task past Start, or of another Initiative's", async () => {
+    const queue = await anInitiativeTask("Store the queue on flash");
+    const outside = await aTaskOutside("Billing schema");
+    await work.app.get(InitiativeService).confirm(initiative.id);
+    await work.app.get(TaskService).drop(queue.id);
+
+    expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep it" })).toEqual({
+      text: "A Task keeps its title once it has started.",
+      isError: true,
+    });
+    expect(await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "Why" })).toEqual({
+      text: "A Task keeps its Description once it has started.",
+      isError: true,
+    });
+    expect(await call(WRITE_TASK_TITLE, { taskId: outside.id, title: "Mine" })).toEqual({
+      text: `The Task "Billing schema" isn't one of this Initiative's.`,
+      isError: true,
+    });
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
   });
 });
@@ -268,6 +390,24 @@ describe("once the Initiative is dropped", () => {
       isError: true,
     });
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
+  });
+
+  it("refuses the title and Description of its Tasks, keeping them", async () => {
+    const queue = await anInitiativeTask("Store the queue on flash");
+    await work.app.get(InitiativeService).drop(initiative.id);
+    const text =
+      "The Initiative is dropped: its Tasks and their dependencies change straight onto it only while it is being shaped.";
+
+    expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep it" })).toEqual({
+      text,
+      isError: true,
+    });
+    expect(await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "Why" })).toEqual({
+      text,
+      isError: true,
+    });
+    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
+    expect((await work.app.get(TaskService).read(queue.id)).title).toBe(queue.title);
   });
 });
 

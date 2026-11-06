@@ -19,6 +19,8 @@ export const WRITE_OUTCOME = "write_outcome";
 export const ADD_TASK = "add_task";
 export const ADD_DEPENDENCY = "add_dependency";
 export const REMOVE_DEPENDENCY = "remove_dependency";
+export const WRITE_TASK_TITLE = "write_task_title";
+export const WRITE_TASK_DESCRIPTION = "write_task_description";
 
 const WHERE_IT_GOES =
   "While the Initiative is being shaped, it shows on the Initiative's page at once and the user confirms the whole Initiative once it is agreed; once it is active, it is drafted as a Proposal in this Thread, which changes the Initiative only when the user applies it.";
@@ -54,6 +56,8 @@ export class ShapingOfficeTools implements OnModuleInit {
     this.registerAddTask();
     this.registerAddDependency();
     this.registerRemoveDependency();
+    this.registerWriteTaskTitle();
+    this.registerWriteTaskDescription();
   }
 
   private registerReadInitiative(): void {
@@ -97,6 +101,10 @@ export class ShapingOfficeTools implements OnModuleInit {
       input: z.object({
         title: z.string().describe("One line naming the outcome of this Task."),
         projectId: z.string().describe("The Project's id, as list_projects gives it."),
+        description: z
+          .string()
+          .optional()
+          .describe("What the Task is for, in plain language; none when the title says it all."),
         priority: z.enum(PRIORITIES).optional().describe("Normal unless the user says otherwise."),
         blockedBy: z
           .array(z.string())
@@ -105,7 +113,7 @@ export class ShapingOfficeTools implements OnModuleInit {
             "The ids of the Tasks that must be Done before this one can start, in any Project or Initiative; none unless it must wait.",
           ),
       }),
-      run: ({ title, projectId, priority, blockedBy }, { sessionId }) =>
+      run: ({ title, projectId, description, priority, blockedBy }, { sessionId }) =>
         this.change(
           sessionId,
           {
@@ -113,6 +121,7 @@ export class ShapingOfficeTools implements OnModuleInit {
             title,
             projectId,
             priority: priority ?? "normal",
+            description,
             blockedBy: blockedBy ?? [],
             taskId: undefined,
           },
@@ -159,6 +168,38 @@ export class ShapingOfficeTools implements OnModuleInit {
         this.change(sessionId, { kind: "remove-dependency", taskId, blockerId }, async () => {
           const task = await this.tasks.read(taskId);
           return `"${task.title}" no longer waits for the Task ${blockerId}, on the Initiative's page.`;
+        }),
+    });
+  }
+
+  private registerWriteTaskTitle(): void {
+    this.registry.register({
+      name: WRITE_TASK_TITLE,
+      description: `Replaces the title of one of this Initiative's Tasks, until the Task starts. ${WHERE_IT_GOES}`,
+      input: z.object({
+        taskId: z.string().describe("The id of this Initiative's Task."),
+        title: z.string().describe("One line naming the outcome of this Task."),
+      }),
+      run: ({ taskId, title }, { sessionId }) =>
+        this.change(sessionId, { kind: "task-title", taskId, title }, async () => {
+          const task = await this.tasks.read(taskId);
+          return `The Task ${task.id} is now titled "${task.title}", on the Initiative's page.`;
+        }),
+    });
+  }
+
+  private registerWriteTaskDescription(): void {
+    this.registry.register({
+      name: WRITE_TASK_DESCRIPTION,
+      description: `Replaces the whole Description of one of this Initiative's Tasks, until the Task starts; empty leaves it none. The user may have written it, so read the Task with read_task first and keep what they said. ${WHERE_IT_GOES}`,
+      input: z.object({
+        taskId: z.string().describe("The id of this Initiative's Task."),
+        description: z.string().describe("The whole Description, in plain language."),
+      }),
+      run: ({ taskId, description }, { sessionId }) =>
+        this.change(sessionId, { kind: "task-description", taskId, description }, async () => {
+          const task = await this.tasks.read(taskId);
+          return `Wrote the Description of "${task.title}" onto its page.`;
         }),
     });
   }

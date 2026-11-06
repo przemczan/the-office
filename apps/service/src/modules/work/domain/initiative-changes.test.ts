@@ -3,6 +3,8 @@ import { THE_USER } from "./author.js";
 import {
   addCtoTask,
   addDependencyOfItsTask,
+  changeDescriptionOfItsTask,
+  changeTitleOfItsTask,
   addTaskToInitiative,
   confirmInitiative,
   dropInitiative,
@@ -232,6 +234,38 @@ describe("the CTO's Tasks and their dependencies", () => {
     expect(removeDependencyOfItsTask(active, "straight", its, "blocker")).toBeUndefined();
   });
 
+  it("rewrites the title and Description of its Tasks, straight or by Proposal", () => {
+    const shaping = anInitiative();
+    const active = anInitiative({ state: "active" });
+
+    expect(changeTitleOfItsTask(shaping, "straight", its, "Queue")?.task.title).toBe("Queue");
+    expect(changeDescriptionOfItsTask(shaping, "straight", its, "Why")?.task.description).toBe(
+      "Why",
+    );
+    expect(changeTitleOfItsTask(active, "by-proposal", its, "Queue")?.task.title).toBe("Queue");
+    expect(() => changeTitleOfItsTask(active, "straight", its, "Queue")).toThrow(
+      InitiativeNotShaping,
+    );
+    expect(() => changeDescriptionOfItsTask(active, "straight", its, "Why")).toThrow(
+      InitiativeNotShaping,
+    );
+  });
+
+  it("judges a title or Description before the state, then refuses a done or dropped Initiative", () => {
+    const active = anInitiative({ state: "active" });
+    const started = { ...its, state: "in-progress" } as const;
+
+    expect(() => changeTitleOfItsTask(active, "straight", its, " ")).toThrow(TaskRefused);
+    expect(() => changeTitleOfItsTask(active, "straight", started, "Queue")).toThrow(TaskRefused);
+    expect(changeTitleOfItsTask(active, "straight", its, its.title)).toBeUndefined();
+    expect(changeDescriptionOfItsTask(active, "straight", its, its.description)).toBeUndefined();
+    for (const state of ["done", "dropped"] as const) {
+      expect(() =>
+        changeTitleOfItsTask(anInitiative({ state }), "by-proposal", its, "Queue"),
+      ).toThrow(new InitiativeRefused([`The Initiative is ${state}: it changes no more.`]));
+    }
+  });
+
   it("changes the dependencies of the Initiative's own Tasks only", () => {
     const other = aTask({ id: "other", title: "Store the queue" });
 
@@ -241,6 +275,12 @@ describe("the CTO's Tasks and their dependencies", () => {
       new InitiativeRefused([`The Task "Store the queue" isn't one of this Initiative's.`]),
     );
     expect(() => removeDependencyOfItsTask(anInitiative(), "straight", other, "blocker")).toThrow(
+      InitiativeRefused,
+    );
+    expect(() => changeTitleOfItsTask(anInitiative(), "straight", other, "Queue")).toThrow(
+      InitiativeRefused,
+    );
+    expect(() => changeDescriptionOfItsTask(anInitiative(), "straight", other, "Why")).toThrow(
       InitiativeRefused,
     );
   });
