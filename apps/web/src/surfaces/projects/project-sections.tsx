@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppearanceBlock } from "./appearance-block.tsx";
 import { CommandsBlock } from "./commands-block.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 import { EngineBlock } from "./engine-block.tsx";
@@ -39,4 +40,8 @@ export function ProjectSkillsSection(): ReactNode {
 
 export function ProjectServerValuesSection(): ReactNode {
   return <ServerValuesBlock project={useOpenProject()} />;
+}
+
+export function ProjectAppearanceSection(): ReactNode {
+  return <AppearanceBlock project={useOpenProject()} />;
 }

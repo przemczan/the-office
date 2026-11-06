@@ -3,6 +3,7 @@ import {
   commandChangeSchema,
   defaultPipelineChangeSchema,
   installInputsChangeSchema,
+  markChangeSchema,
   newProjectSchema,
   projectCommandKeySchema,
   publishingModeChangeSchema,
@@ -15,6 +16,7 @@ import {
   type CommandChange,
   type DefaultPipelineChange,
   type InstallInputsChange,
+  type MarkChange,
   type NewProject,
   type Project as ProjectResponse,
   type ProjectDefaultChange,
@@ -85,6 +87,14 @@ export class ProjectsController {
     @Body(new ContractPipe(publishingModeChangeSchema)) { publishingMode }: PublishingModeChange,
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.projects.changePublishingMode(id, publishingMode));
+  }
+
+  @Put(":id/mark")
+  async changeMark(
+    @Param("id") id: string,
+    @Body(new ContractPipe(markChangeSchema)) { mark }: MarkChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeMark(id, mark));
   }
 
   /**

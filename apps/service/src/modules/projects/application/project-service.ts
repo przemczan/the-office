@@ -10,6 +10,7 @@ import {
   type Project,
   type ProjectCommandKey,
   type ProjectEngineLevels,
+  type ProjectMark,
   type PublishingMode,
 } from "../domain/project.js";
 import {
@@ -20,6 +21,7 @@ import {
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
+  changeMark,
   changeProjectDefault,
   changePublishingMode,
   changeRoleOverride,
@@ -154,6 +156,10 @@ export class ProjectService {
 
   async changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {
     return this.update(id, (project) => changePublishingMode(project, publishingMode));
+  }
+
+  async changeMark(id: string, mark: ProjectMark): Promise<Project> {
+    return this.update(id, (project) => changeMark(project, mark));
   }
 
   async changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {

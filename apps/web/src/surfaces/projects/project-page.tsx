@@ -25,6 +25,7 @@ const SECTIONS: readonly MenuSection[] = [
   { to: "/projects/$projectId/engine", icon: "cpu", label: "Engine" },
   { to: "/projects/$projectId/skills", icon: "sparkles", label: "Skills" },
   { to: "/projects/$projectId/server-values", icon: "plug", label: "Server values" },
+  { to: "/projects/$projectId/appearance", icon: "palette", label: "Appearance" },
 ];
 
 const OpenProjectContext = createContext<Project | undefined>(undefined);

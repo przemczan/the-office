@@ -22,6 +22,7 @@ export function markLabelFor(name: string): string {
 }
 
 const projectMarkSchema = z.object({ label: z.string(), colour: projectMarkColourSchema });
+export type Mark = z.infer<typeof projectMarkSchema>;
 
 const projectCommandsSchema = z.object({
   install: z.string(),
@@ -157,6 +158,10 @@ export type InstallInputsChange = z.infer<typeof installInputsChangeSchema>;
 export const publishingModeChangeSchema = z.object({ publishingMode: publishingModeSchema });
 export type PublishingModeChange = z.infer<typeof publishingModeChangeSchema>;
 
+/** PUT /projects/:id/mark: the label and colour together. */
+export const markChangeSchema = z.object({ mark: projectMarkSchema });
+export type MarkChange = z.infer<typeof markChangeSchema>;
+
 /** PUT /projects/:id/default-pipeline */
 export const defaultPipelineChangeSchema = z.object({ defaultPipeline: z.string() });
 export type DefaultPipelineChange = z.infer<typeof defaultPipelineChangeSchema>;
@@ -286,6 +291,10 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({
     type: z.literal("project.publishing-mode-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.mark-changed"),
     projectId: z.string(),
   }),
   webEventSchema.extend({

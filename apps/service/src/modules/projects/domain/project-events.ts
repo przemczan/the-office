@@ -1,6 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
-import type { Project, ProjectCommandKey, PublishingMode } from "./project.js";
+import type { Project, ProjectCommandKey, ProjectMark, PublishingMode } from "./project.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 
 export class ProjectAdded extends DomainEvent {
@@ -44,6 +44,15 @@ export class ProjectPublishingModeChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly publishingMode: PublishingMode,
+  ) {
+    super();
+  }
+}
+
+export class ProjectMarkChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly mark: ProjectMark,
   ) {
     super();
   }

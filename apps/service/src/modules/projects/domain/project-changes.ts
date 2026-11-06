@@ -3,13 +3,16 @@ import type { EngineModel } from "../../engine/index.js";
 import {
   commandProblem,
   installInputsProblems,
+  markProblem,
   newProjectProblems,
   PROJECT_COMMAND_KEYS,
   trimmedInstallInputs,
+  trimmedMark,
   trimmedNewProject,
   type NewProject,
   type Project,
   type ProjectCommandKey,
+  type ProjectMark,
   type PublishingMode,
 } from "./project.js";
 import {
@@ -19,6 +22,7 @@ import {
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
+  ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
   ProjectSkillUseChanged,
@@ -198,6 +202,18 @@ export function changePublishingMode(
     project: { ...project, publishingMode },
     event: new ProjectPublishingModeChanged(project.id, publishingMode),
   };
+}
+
+/** Undefined when the Project already has that label and colour. */
+export function changeMark(
+  project: Project,
+  given: ProjectMark,
+): ProjectChange<ProjectMarkChanged> | undefined {
+  const mark = trimmedMark(given);
+  const problem = markProblem(mark);
+  if (problem) throw new ProjectRefused([problem]);
+  if (project.mark.label === mark.label && project.mark.colour === mark.colour) return undefined;
+  return { project: { ...project, mark }, event: new ProjectMarkChanged(project.id, mark) };
 }
 
 /**

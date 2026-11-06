@@ -10,6 +10,10 @@ A single-user workspace, run like an office, where AI agents turn ideas into pub
 A repository The Office works on, with its own commands and settings.
 _Avoid_: Repo (in the UI), workspace
 
+**Mark**:
+A Project's short label on a colour, shown with its name, and what any picture of the Project falls back to.
+_Avoid_: Avatar, initials
+
 **Install inputs**:
 The files of a Project whose change makes a worktree run the install command again, such as a lockfile.
 _Avoid_: Dependency files, install files

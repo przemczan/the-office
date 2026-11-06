@@ -15,6 +15,7 @@ import {
   taskChangesSchema,
   type EngineModel,
   type EnvironmentCheck,
+  type Mark,
   type NewProject,
   type Project,
   type ProjectEnvironment,
@@ -184,6 +185,10 @@ export function changePublishingMode(id: string, publishingMode: PublishingMode)
   return sendToApi("PUT", `${projectPath(id)}/publishing-mode`, { publishingMode }, projectSchema);
 }
 
+export function changeMark(id: string, mark: Mark): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/mark`, { mark }, projectSchema);
+}
+
 export function changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {
   return sendToApi(
     "PUT",
@@ -279,6 +284,7 @@ export const projectEventInvalidations: Readonly<
   "project.environment-check-changed": () => [PROJECTS],
   "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
+  "project.mark-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
   "project.use-project-skills-changed": () => [PROJECTS],
   "project.skill-use-changed": () => [PROJECTS],

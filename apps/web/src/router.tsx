@@ -21,6 +21,7 @@ import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
 import { WorkTab } from "./surfaces/people/work-tab.tsx";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import {
+  ProjectAppearanceSection,
   ProjectCommandsSection,
   ProjectDefaultPipelineSection,
   ProjectEngineSection,
@@ -310,6 +311,13 @@ const projectServerValuesRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const projectAppearanceRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "appearance",
+  component: ProjectAppearanceSection,
+  staticData: { title: "Projects" },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "settings",
@@ -445,6 +453,7 @@ export const router = createRouter({
       projectEngineRoute,
       projectSkillsRoute,
       projectServerValuesRoute,
+      projectAppearanceRoute,
     ]),
     settingsRoute.addChildren([
       settingsHomeRoute,

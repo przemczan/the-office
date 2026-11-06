@@ -109,10 +109,11 @@
   gap: 14px;
 }
 
-.add-project-mark {
+.mark-picker {
   --mark-label-width: 56px;
 
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }

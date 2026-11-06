@@ -2,17 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
   markLabelFor,
-  projectMarkColourSchema,
   publishingModeSchema,
   type NewProject,
   type ProjectCommandKey,
-  type ProjectMarkColour,
 } from "@the-office/contracts";
 import { Button, Dialog, Field, Input, RadioGroup, SegmentedControl, Select } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { addProject, projectQueries } from "../../api/projects.ts";
-import { ProjectMark } from "../../shell/project-mark.tsx";
 import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
 import {
   COMMAND_KEYS,
@@ -23,7 +20,8 @@ import {
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { GitHubRepositoryPicker } from "./github-repository-picker.tsx";
-import { installInputsFrom, MARK_COLOUR_LABELS } from "./project-labels.ts";
+import { MarkPicker } from "./mark-picker.tsx";
+import { installInputsFrom } from "./project-labels.ts";
 import {
   RepositoryCloneStep,
   repositoryNameOf,
@@ -177,30 +175,14 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
               onChange={(event) => change({ name: event.target.value })}
               autoFocus
             />
-            <Field label="Mark">
-              <div className="add-project-mark">
-                <ProjectMark project={{ name: draft.name, mark }} size="xl" />
-                <Input
-                  aria-label="Mark label"
-                  value={mark.label}
-                  maxLength={3}
-                  onChange={(event) => {
-                    setLabelEdited(true);
-                    change({ mark: { ...mark, label: event.target.value } });
-                  }}
-                  style={{ width: "var(--mark-label-width)" }}
-                />
-                <SegmentedControl
-                  size="sm"
-                  value={mark.colour}
-                  options={projectMarkColourSchema.options.map((colour) => ({
-                    value: colour,
-                    label: MARK_COLOUR_LABELS[colour],
-                  }))}
-                  onChange={(colour) => change({ mark: { ...mark, colour: colourOf(colour) } })}
-                />
-              </div>
-            </Field>
+            <MarkPicker
+              name={draft.name}
+              mark={mark}
+              onChange={(changed) => {
+                if (changed.label !== mark.label) setLabelEdited(true);
+                change({ mark: changed });
+              }}
+            />
           </div>
           {cloned ? (
             <div className="add-project-cloned">
@@ -304,8 +286,4 @@ function draftFromClone(draft: NewProject, clone: ClonedRepository): NewProject 
 
 function whereItIsOf(value: string): WhereItIs {
   return WHERE_IT_IS_OPTIONS.find((option) => option.value === value)?.value ?? "folder";
-}
-
-function colourOf(value: string): ProjectMarkColour {
-  return projectMarkColourSchema.parse(value);
 }

@@ -332,6 +332,69 @@ describe("PUT /api/projects/:id/install-inputs", () => {
   });
 });
 
+describe("PUT /api/projects/:id/mark", () => {
+  it("changes the label and colour together and announces it", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/mark`, {
+      mark: { label: " FW ", colour: "ink" },
+    });
+
+    expect(projectSchema.parse(await response.json()).mark).toEqual({
+      label: "FW",
+      colour: "ink",
+    });
+    expect(webEvents()).toEqual([{ type: "project.mark-changed", projectId: project.id }]);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).mark).toEqual({ label: "FW", colour: "ink" });
+  });
+
+  it("sends no event for the mark the Project already has", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/mark`, { mark: project.mark });
+
+    expect(response.status).toBe(200);
+    expect(webEvents()).toEqual([]);
+  });
+
+  it("refuses a label that isn't 1 to 3 letters or digits, as adding a Project does", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/mark`, {
+      mark: { label: "A-", colour: "teal" },
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      reasons: ["The mark's label is 1 to 3 letters or digits."],
+    });
+    expect(webEvents()).toEqual([]);
+  });
+
+  it("refuses a colour that isn't one of the four", async () => {
+    const project = await addProject();
+
+    const response = await send("PUT", `/projects/${project.id}/mark`, {
+      mark: { label: "AP", colour: "pink" },
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ message: expect.stringContaining("colour") });
+  });
+
+  it("says when the Project doesn't exist", async () => {
+    const response = await send("PUT", "/projects/nowhere/mark", {
+      mark: { label: "AP", colour: "teal" },
+    });
+
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("PUT /api/projects/:id/publishing-mode and /default-pipeline", () => {
   it("changes how the Project publishes and the Pipeline new Tasks start from", async () => {
     const project = await addProject();

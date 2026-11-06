@@ -22,10 +22,11 @@ const SECTIONS = [
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
   { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
   { name: "Server values", address: "/server-values", blocks: ["Server values"] },
+  { name: "Appearance", address: "/appearance", blocks: ["Appearance"] },
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Engine|Skills in the repository.*|Server values)$/;
+  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Engine|Skills in the repository.*|Server values|Appearance)$/;
 
 let repository: TemporaryRepository;
 
@@ -379,6 +380,115 @@ test("the environment check shows each check, and saves the environment only onc
   await page.reload();
   await expect(page.getByLabel("Variables to set")).toHaveValue("GREETING=hello");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-environment.png") });
+});
+
+test("the mark is changed in Appearance: previewed, saved, and shown on the head and the card", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "New look");
+  await page.goto(`/projects/${project.id}/appearance`);
+  const head = page.locator(".project-head .project-mark");
+  const picker = page.locator(".mark-picker");
+  const save = page.getByRole("button", { name: "Save" });
+  await expect(head).toHaveText("AP");
+  await expect(save).toBeDisabled();
+
+  await picker.getByLabel("Mark label").fill("NL");
+  await picker.getByRole("tab", { name: "Teal" }).click();
+
+  await expect(picker.locator(".project-mark")).toHaveText("NL");
+  await expect(picker.locator(".project-mark")).toHaveClass(/colour-teal/);
+  await expect(head).toHaveText("AP");
+
+  await save.click();
+
+  await expect(page.getByText("Mark saved for New look.")).toBeVisible();
+  await expect(head).toHaveText("NL");
+  await expect(head).toHaveClass(/colour-teal/);
+  await expect(save).toBeDisabled();
+
+  await page.reload();
+  await expect(page.locator(".project-head .project-mark")).toHaveText("NL");
+  await expect(page.getByLabel("Mark label")).toHaveValue("NL");
+
+  await page.getByRole("link", { name: "Projects", exact: true }).first().click();
+  const card = page.getByRole("link", { name: /New look/ }).locator(".project-mark");
+  await expect(card).toHaveText("NL");
+  await expect(card).toHaveClass(/colour-teal/);
+});
+
+test("a mark changed in one tab shows in another, on its cards and an untouched Appearance", async ({
+  page,
+  context,
+}) => {
+  const project = await addedProject(page, "Two marks");
+  const projectsTab = await context.newPage();
+  const appearanceTab = await context.newPage();
+  const subscribed = [projectsTab, appearanceTab].map(
+    (tab) =>
+      new Promise<void>((resolve) => {
+        tab.on("websocket", (socket) => {
+          socket.on("framereceived", ({ payload }) => {
+            if (
+              String(payload).includes('"subscriptions"') &&
+              String(payload).includes("project.mark-changed")
+            ) {
+              resolve();
+            }
+          });
+        });
+      }),
+  );
+  await projectsTab.goto("/projects");
+  await appearanceTab.goto(`/projects/${project.id}/appearance`);
+  await Promise.all(subscribed);
+  await page.goto(`/projects/${project.id}/appearance`);
+
+  await page.getByLabel("Mark label").fill("TM");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(
+    projectsTab.getByRole("link", { name: /Two marks/ }).locator(".project-mark"),
+  ).toHaveText("TM");
+  await expect(appearanceTab.getByLabel("Mark label")).toHaveValue("TM");
+});
+
+test("a label that isn't letters or digits is refused in Appearance, and what was typed stays", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Bad label");
+  await page.goto(`/projects/${project.id}/appearance`);
+
+  await page.getByLabel("Mark label").fill("A-");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByRole("alert")).toHaveText("The mark's label is 1 to 3 letters or digits.");
+  await expect(page.getByLabel("Mark label")).toHaveValue("A-");
+  await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+
+  await page.getByLabel("Mark label").fill("AB");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("the add form's label follows the name until the user writes one, its colour kept", async ({
+  page,
+}) => {
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Add it yourself" }).click();
+  const form = page.getByRole("dialog");
+  const label = form.getByLabel("Mark label");
+
+  await form.getByRole("tab", { name: "Violet" }).click();
+  await form.getByLabel("Name").fill("Admin panel");
+  await expect(label).toHaveValue("AP");
+  await form.getByLabel("Name").fill("Billing service tools");
+  await expect(label).toHaveValue("BST");
+  await expect(form.locator(".mark-picker .project-mark")).toHaveClass(/colour-violet/);
+
+  await label.fill("X1");
+  await form.getByLabel("Name").fill("Admin panel");
+  await expect(label).toHaveValue("X1");
+  await expect(form.locator(".mark-picker .project-mark")).toHaveClass(/colour-violet/);
 });
 
 test("a Project's menu opens each section at its own address, which survives a reload", async ({

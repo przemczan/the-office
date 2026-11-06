@@ -95,7 +95,7 @@ export function trimmedNewProject(project: NewProject): NewProject {
     path: project.path.trim(),
     repositoryUrl: project.repositoryUrl?.trim(),
     baseBranch: project.baseBranch.trim(),
-    mark: { label: project.mark.label.trim(), colour: project.mark.colour },
+    mark: trimmedMark(project.mark),
     commands: {
       install: project.commands.install.trim(),
       build: project.commands.build.trim(),
@@ -118,15 +118,24 @@ export function newProjectProblems(project: NewProject): string[] {
   }
   if (project.path.trim() === "") problems.push("Give the path to the repository.");
   if (project.baseBranch.trim() === "") problems.push("Give the base branch.");
-  if (!MARK_LABEL.test(project.mark.label)) {
-    problems.push("The mark's label is 1 to 3 letters or digits.");
-  }
+  const wrongMark = markProblem(project.mark);
+  if (wrongMark) problems.push(wrongMark);
   for (const key of PROJECT_COMMAND_KEYS) {
     const problem = commandProblem(key, project.commands[key]);
     if (problem) problems.push(problem);
   }
   problems.push(...installInputsProblems(project.installInputs));
   return problems;
+}
+
+/** The mark as it is kept: without the spaces around the label the user typed. */
+export function trimmedMark(mark: ProjectMark): ProjectMark {
+  return { label: mark.label.trim(), colour: mark.colour };
+}
+
+/** Why a mark can't be saved, or undefined when it can. */
+export function markProblem(mark: ProjectMark): string | undefined {
+  return MARK_LABEL.test(mark.label) ? undefined : "The mark's label is 1 to 3 letters or digits.";
 }
 
 /** Why a command line can't be saved, or undefined when it can. */

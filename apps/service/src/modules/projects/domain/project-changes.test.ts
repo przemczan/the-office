@@ -6,6 +6,7 @@ import {
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
+  changeMark,
   changeProjectDefault,
   changePublishingMode,
   changeRoleOverride,
@@ -21,6 +22,7 @@ import {
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
+  ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
   ProjectUseForEveryRoleChanged,
@@ -156,6 +158,42 @@ describe("changePublishingMode", () => {
     expect(change?.event).toBeInstanceOf(ProjectPublishingModeChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", publishingMode: "merge" });
     expect(changePublishingMode(aProject(), "push-and-pull-request")).toBeUndefined();
+  });
+});
+
+describe("changeMark", () => {
+  it("changes the label and colour together, announcing the new mark", () => {
+    const change = changeMark(aProject(), { label: "FW1", colour: "ink" });
+
+    expect(change?.project.mark).toEqual({ label: "FW1", colour: "ink" });
+    expect(change?.event).toBeInstanceOf(ProjectMarkChanged);
+    expect(change?.event).toMatchObject({
+      projectId: "admin-panel",
+      mark: { label: "FW1", colour: "ink" },
+    });
+  });
+
+  it("keeps the label without its surrounding spaces", () => {
+    const change = changeMark(aProject(), { label: " FW ", colour: "teal" });
+
+    expect(change?.project.mark.label).toBe("FW");
+  });
+
+  it("changes when only the colour differs", () => {
+    const change = changeMark(aProject(), { label: "AP", colour: "gray" });
+
+    expect(change?.project.mark).toEqual({ label: "AP", colour: "gray" });
+  });
+
+  it.each(["", "ABCD", "A-"])("refuses the label %j", (label) => {
+    expect(() => changeMark(aProject(), { label, colour: "teal" })).toThrow(
+      new ProjectRefused(["The mark's label is 1 to 3 letters or digits."]),
+    );
+  });
+
+  it("changes nothing when the label and colour are already those", () => {
+    expect(changeMark(aProject(), { label: "AP", colour: "teal" })).toBeUndefined();
+    expect(changeMark(aProject(), { label: " AP ", colour: "teal" })).toBeUndefined();
   });
 });
 
