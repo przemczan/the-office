@@ -115,6 +115,19 @@ describe("startReasons", () => {
     );
   });
 
+  it("still names the blockers and limits of a Task whose Pipeline is gone", () => {
+    const blockers = [aTask({ id: "b1", title: "Queue schema", state: "ready" })];
+    const noPipeline = { ...conditions, stages: undefined, officeWideLimit: 1 };
+
+    expect(startReasons(ready, noPipeline, held([started("a")], blockers))).toEqual({
+      refusals: [`There is no Pipeline "${ready.pipelineId}" in the library.`],
+      waits: [
+        'Blocked by "Queue schema", which must be Done first.',
+        "The Office-wide limit is reached: the only desk is in use.",
+      ],
+    });
+  });
+
   it("doesn't stop at another Task started in the same Project", () => {
     const other = started("a", { projectId: "admin-panel" });
 

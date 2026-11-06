@@ -17,8 +17,9 @@ import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
  * refuses it; while only a limit holds it, Start says the Task joins the queue (spec §2.1, "A queue
  * for Start"). An Overlap with a Task in progress in the Project names it and the files, and Start
  * becomes "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A blocked Task can't
- * start anyway, so "Queue behind it" is all it offers, behind any Overlap too. A queued Task shows
- * its place, reasons and the queue's actions. Beside Start, the Task's Usage estimate.
+ * start anyway, so "Queue behind it" is all it offers, behind any Overlap too; a refusal outranks
+ * both. A queued Task shows its place, reasons and the queue's actions. Beside Start, the Task's
+ * Usage estimate.
  */
 export function StartButton({ task }: { readonly task: Task }): ReactNode {
   const ready = task.state === "ready";

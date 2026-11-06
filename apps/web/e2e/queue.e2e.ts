@@ -317,7 +317,18 @@ test("a blocked Task offers only the queue, shows its blocker as the reason, and
   await page.goto("/work");
   await expect(page.getByRole("article", { name: task.title })).toContainText(reason);
   await page.goto("/now");
-  await expect(page.getByRole("article", { name: `Queued: ${task.title}` })).toContainText(reason);
+  const queuedOnNow = page.getByRole("article", { name: `Queued: ${task.title}` });
+  await expect(queuedOnNow).toContainText(reason);
+
+  // Now hears of no dependency, only that the reasons of a queued Task changed.
+  const lateBlocker = await readyTask(page, project, "Agree the export columns");
+  await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+    data: { blockerId: lateBlocker.id },
+  });
+  await expect(queuedOnNow).toContainText(lateBlocker.title);
+  await page.request.post(`/api/tasks/${lateBlocker.id}/drop`);
+  await expect(queuedOnNow).not.toContainText(lateBlocker.title);
+  await expect(queuedOnNow).toContainText(reason);
 
   await page.goto(`/tasks/${task.id}`);
   expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).status()).toBe(200);

@@ -82,15 +82,14 @@ export function startReasons(
       `Only a Ready Task can start; this one is in ${TASK_STATE_NAMES[task.state]}.`,
     );
   }
-  if (!conditions.stages) {
-    return refusedFor(`There is no Pipeline "${task.pipelineId}" in the library.`);
-  }
   const others = startedTasks.filter(
     (other) => other.id !== task.id && STARTED_STATES.includes(other.state),
   );
-  const stage = firstAgentStage(conditions.stages);
+  const stage = conditions.stages && firstAgentStage(conditions.stages);
   return {
-    refusals: personRefusals(stage, conditions.person),
+    refusals: conditions.stages
+      ? personRefusals(stage, conditions.person)
+      : [`There is no Pipeline "${task.pipelineId}" in the library.`],
     waits: [
       ...blockedProblems(blockers),
       ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),

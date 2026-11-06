@@ -237,9 +237,9 @@ export class TasksController {
   }
 
   /**
-   * Start: Ready → In progress, or into the queue when only a limit holds it or the user queues it
-   * behind an Overlap; refused with the reasons when anything else does, or an Overlap the user
-   * hasn't answered.
+   * Start: Ready → In progress, or into the queue when only a blocker or a limit holds it or the
+   * user queues it behind an Overlap; refused with the reasons when anything else does, or an
+   * Overlap the user hasn't answered.
    */
   @Post(":id/start")
   @HttpCode(HttpStatus.OK)
