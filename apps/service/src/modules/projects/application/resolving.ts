@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import { noRemoteError, type RemoteBranch } from "../domain/publication.js";
-import { mergeMessage, type ResolveEnd, type ResolveStart } from "../domain/resolve.js";
+import { mergedBase, mergeMessage, type ResolveEnd, type ResolveStart } from "../domain/resolve.js";
 import { Git, GitCommandFailed, type MergeConclusion } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
@@ -49,8 +49,9 @@ export class Resolving {
 
   /** Commits the merge in progress as the Agent left it, unless a conflict marker remains. */
   async finish(project: Project, taskId: string): Promise<ResolveEnd> {
-    const base = await this.git.upstreamOf(project.path, project.baseBranch);
-    if (!base) return { kind: "failed", error: noRemoteError(project.baseBranch) };
+    // An Agent's own update of the branch can leave a merge of a base that tracks no remote.
+    const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
+    const base = mergedBase(project.baseBranch, upstream);
     // Opening it puts back the screenshots folder's own `.gitignore`, so no commit holds them.
     const worktree = await this.worktrees.open(project, taskId);
     return this.git

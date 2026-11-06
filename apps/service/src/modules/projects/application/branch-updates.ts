@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import type { BranchUpdate, ConflictHandling } from "../domain/branch-update.js";
-import { mergeMessage } from "../domain/resolve.js";
+import { mergedBase, mergeMessage } from "../domain/resolve.js";
 import { Git, GitCommandFailed } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
@@ -41,8 +41,10 @@ export class BranchUpdates {
           await this.git.fastForward(worktree.path, base.commit, variables);
           return { kind: "updated", commit: base.commit };
         }
-        const from = base.fetchedFrom ?? { remote: "this repository", branch: project.baseBranch };
-        const message = mergeMessage(from, worktree.branch);
+        const message = mergeMessage(
+          mergedBase(project.baseBranch, base.fetchedFrom),
+          worktree.branch,
+        );
         const merge = await this.git.merge(worktree.path, base.commit, message, variables);
         if (merge.kind === "merged") return { kind: "updated", commit: merge.commit };
         if (onConflict === "give-back") await this.git.abortMerge(worktree.path, variables);
@@ -52,6 +54,12 @@ export class BranchUpdates {
         if (!(error instanceof GitCommandFailed)) throw error;
         return { kind: "failed", error: error.detail };
       });
+  }
+
+  /** Whether the worktree holds a merge with files still conflicted in git's records. */
+  async mergeInProgress(project: Project, taskId: string): Promise<boolean> {
+    const conflicted = await this.git.mergeConflicts(this.worktrees.pathOf(project, taskId));
+    return conflicted.length > 0;
   }
 
   /**

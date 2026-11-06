@@ -24,6 +24,11 @@ export type ResolveEnd =
   | { readonly kind: "failed"; readonly error: string };
 
 /** The words of the merge commit that brings the base into the Task's branch. */
+/** The base a merge names: its upstream, or the local branch when it tracks none. */
+export function mergedBase(baseBranch: string, upstream: RemoteBranch | undefined): RemoteBranch {
+  return upstream ?? { remote: "this repository", branch: baseBranch };
+}
+
 export function mergeMessage(base: RemoteBranch, branch: string): string {
   return `Merge ${base.branch} from ${base.remote} into ${branch}`;
 }

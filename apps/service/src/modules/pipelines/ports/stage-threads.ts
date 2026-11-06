@@ -127,6 +127,9 @@ export interface StageSessionAhead {
 export abstract class StageThreads {
   abstract open(request: StageThreadRequest): Promise<StageThread>;
 
+  /** The Task whose Thread has the engine session `sessionId` now; undefined for any other. */
+  abstract taskInSession(sessionId: string): Promise<string | undefined>;
+
   /** What `open` would decide for the Stage's session now, opening nothing. */
   abstract sessionAhead(
     request: Pick<

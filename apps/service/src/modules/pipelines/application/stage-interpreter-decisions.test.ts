@@ -139,6 +139,22 @@ describe("StageInterpreter's Decisions", () => {
       return { taskId, asked };
     }
 
+    it("frees a Task already stuck: a run failed before this, the branch moved along the base, and Run once more starts the Stage", async () => {
+      await startWith();
+      failing("The Stage didn't start.");
+      const taskId = await walkStages(pipelines, [scriptStage("check")]);
+      pipelines.git.move(taskId, { commit: moved, branch });
+      pipelines.git.movesAlongBase.add(taskId);
+
+      await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+
+      expect(await statusesOf(taskId)).toEqual([
+        ["check", "failed"],
+        ["check", "done"],
+      ]);
+      expect((await runsOf(pipelines, taskId)).at(-1)?.headCommit).toBe(moved);
+    });
+
     it("takes a move along the base and tells the Agent, asking nobody", async () => {
       const { taskId, asked } = await movedWhileWaiting({ alongBase: true });
 

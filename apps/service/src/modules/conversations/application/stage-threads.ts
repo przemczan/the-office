@@ -239,6 +239,11 @@ export class StageThreads {
    * What `open` would decide for the Stage's session now, opening nothing: for what the all clear
    * shows will resume (spec §2.8).
    */
+  async taskInSession(sessionId: string): Promise<string | undefined> {
+    const home = (await this.repository.findBySession(sessionId))?.home;
+    return home?.kind === "task" ? home.taskId : undefined;
+  }
+
   async sessionAhead(request: StageSessionRequest): Promise<StageSessionAhead> {
     const { brief, move } = await this.decide(request, new Date());
     return {

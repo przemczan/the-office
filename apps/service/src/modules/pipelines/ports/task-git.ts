@@ -33,6 +33,9 @@ export abstract class TaskGit {
     onConflict: ConflictHandling,
   ): Promise<BranchUpdate>;
 
+  /** Whether the Task's worktree holds a merge of the base left for an Agent to resolve. */
+  abstract mergeInProgress(projectId: string, taskId: string): Promise<boolean>;
+
   /**
    * Whether the worktree's HEAD descends from `from` and is in the freshly fetched base's history,
    * with nothing uncommitted: a move along the base, which loses nothing (spec §2.3).

@@ -159,7 +159,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `publication.ts`: PullRequestText, PublishTarget, RemoteBranch, BaseTakenIn, Publication, pushFailure, baseMovedError, pullRequestBlockedError, noRemoteError
 - `repository-clone-events.ts`: RepositoryCloneStarted, RepositoryCloneProgressed, RepositoryCloneFinished
 - `repository-clone.ts`: CloneProgress, RepositoryCloneOutcome, RepositoryClone, RepositoryCloneNotFound
-- `resolve.ts`: ResolveStart, ResolveEnd, mergeMessage
+- `resolve.ts`: ResolveStart, ResolveEnd, mergedBase, mergeMessage
 - Tests: command-run.test.ts, environment-check-changes.test.ts, project-changes.test.ts, project-environment.test.ts, project.test.ts, proposed-commands.test.ts, publication.test.ts
 
 ### ports/

@@ -11,6 +11,7 @@ import {
 import type { ExpectedHead } from "../domain/stage-commit.js";
 import type { StageOutcome, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { TaskGit } from "../ports/task-git.js";
 import { TaskPublishing } from "../ports/task-publishing.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { StageGit } from "./stage-git.js";
@@ -44,6 +45,7 @@ export class ResolveStageGit implements OnModuleInit {
 
   constructor(
     private readonly publishing: TaskPublishing,
+    private readonly git: TaskGit,
     private readonly stageGit: StageGit,
     private readonly runs: StageRunRepository,
     private readonly records: TaskRecords,
@@ -57,14 +59,16 @@ export class ResolveStageGit implements OnModuleInit {
   }
 
   /**
-   * Gives a dropped Task's worktree back from a merge Resolve left in progress, so its branch
-   * stays as its last commit left it. A Task Resolve never ran on is left alone.
+   * Gives a dropped Task's worktree back from a merge Resolve or an Agent's branch update left in
+   * progress, so its branch stays as its last commit left it. A Task nothing ran on is left alone.
    */
   private async abandonMerge(taskId: string): Promise<void> {
     const runs = await this.runs.list(taskId);
-    if (!runs.some(({ stageKey }) => stageKey === RESOLVE_KEY)) return;
+    if (runs.length === 0) return;
     try {
       const task = await this.records.read(taskId);
+      const resolved = runs.some(({ stageKey }) => stageKey === RESOLVE_KEY);
+      if (!resolved && !(await this.git.mergeInProgress(task.project.id, taskId))) return;
       await this.publishing.abandonResolve(task.project.id, taskId);
     } catch (error) {
       // The Drop stands all the same; the merge is left in the worktree for the user to see.

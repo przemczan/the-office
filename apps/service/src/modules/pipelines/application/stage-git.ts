@@ -100,6 +100,13 @@ export class StageGit {
     return problem;
   }
 
+  /** Where the run expects HEAD now: as it began, unless its Agent's branch update moved it. */
+  async afterTurn(run: StageRun, expected: ExpectedHead): Promise<ExpectedHead> {
+    const runs = await this.runs.list(run.taskId);
+    const left = runs.find(({ id }) => id === run.id)?.headCommit;
+    return left === undefined ? expected : { ...expected, commit: left };
+  }
+
   /** Commits every change in the worktree with `message`, and records where the branch is now. */
   async commit(
     run: StageRun,
@@ -166,7 +173,10 @@ export class StageGit {
     { run, earlierRuns }: StageAt,
     task: TaskRecord,
   ): Promise<ExpectedHead> {
-    const left = earlierRuns.findLast(({ headCommit }) => headCommit !== undefined)?.headCommit;
+    // A run's own record, on one The Office left running, is its Agent's branch update.
+    const left =
+      run.headCommit ??
+      earlierRuns.findLast(({ headCommit }) => headCommit !== undefined)?.headCommit;
     const commit = left ?? (await this.git.head(task.project.id, run.taskId)).commit;
     return { commit, branch: task.worktree.branch };
   }

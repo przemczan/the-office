@@ -73,6 +73,11 @@ export class TaskWorktrees {
     return this.branchUpdates.update(await this.projects.read(projectId), taskId, onConflict);
   }
 
+  /** Whether the Task's worktree holds a merge of the base left for an Agent to resolve. */
+  async mergeInProgress(projectId: string, taskId: string): Promise<boolean> {
+    return this.branchUpdates.mergeInProgress(await this.projects.read(projectId), taskId);
+  }
+
   /** Whether the Task's branch moved from `from` along the freshly fetched base, losing nothing. */
   async movedAlongBase(projectId: string, taskId: string, from: string): Promise<boolean> {
     return this.branchUpdates.movedAlongBase(await this.projects.read(projectId), taskId, from);

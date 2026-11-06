@@ -252,6 +252,13 @@ export class KnownPeopleForTests extends KnownPeople {
  */
 @Injectable()
 export class StageThreadsForTests extends StageThreads {
+  /** The Task each engine session works on. */
+  readonly taskOfSession = new Map<string, string>();
+
+  taskInSession(sessionId: string): Promise<string | undefined> {
+    return Promise.resolve(this.taskOfSession.get(sessionId));
+  }
+
   /** What each Stage asked for, in order. */
   readonly requests: StageThreadRequest[] = [];
   /** What The Office sent into a Stage's session after its first turn, with why. */
@@ -491,6 +498,8 @@ export class TaskGitForTests extends TaskGit {
   readonly removedWorktrees: string[] = [];
   /** How bringing each Task's branch to the base goes; up to date when a test puts nothing. */
   readonly branchUpdates = new Map<string, BranchUpdate>();
+  /** The Tasks whose worktree holds a merge of the base left for an Agent. */
+  readonly merging = new Set<string>();
   /** The Tasks whose branch moved along the base, so The Office takes the move as it is. */
   readonly movesAlongBase = new Set<string>();
   /** Set when removing a worktree fails, as a file a process holds on Windows makes it. */
@@ -506,6 +515,10 @@ export class TaskGitForTests extends TaskGit {
     if (update.kind === "updated")
       this.heads.set(taskId, { ...this.headOf(taskId), commit: update.commit });
     return Promise.resolve(update);
+  }
+
+  mergeInProgress(_projectId: string, taskId: string): Promise<boolean> {
+    return Promise.resolve(this.merging.has(taskId));
   }
 
   movedAlongBase(_projectId: string, taskId: string): Promise<boolean> {

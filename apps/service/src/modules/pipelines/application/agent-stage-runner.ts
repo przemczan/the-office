@@ -18,7 +18,11 @@ import type {
   FollowedHardSwitchValue,
 } from "../domain/followed-hard-switches.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
-import { stageCommitMessage, type ExpectedHead } from "../domain/stage-commit.js";
+import {
+  stageCommitMessage,
+  UPDATE_BRANCH_TOOL,
+  type ExpectedHead,
+} from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
 import { closingOf, interruptedOutcome } from "../domain/stage-interruption.js";
 import type { AgentStage, Stage } from "../domain/stage.js";
@@ -63,8 +67,9 @@ import { StageRunners } from "./stage-runners.js";
 /**
  * The Office tools of an Agent Stage's session (spec §6): it reads its Task and the Task's
  * Attachments, asks the user with a Decision, consults a person (in tier 1 the user answers in
- * their place), and attaches a file or a link to the Task. The names are the tools' own, which
- * Conversations and Work register.
+ * their place), attaches a file or a link to the Task, and asks The Office to update the Task's
+ * branch from the base. The names are the tools' own, which Conversations, Work and Pipelines
+ * register.
  */
 export const AGENT_STAGE_OFFICE_TOOLS = [
   "read_task",
@@ -73,6 +78,7 @@ export const AGENT_STAGE_OFFICE_TOOLS = [
   "consult",
   "attach_file",
   "attach_link",
+  UPDATE_BRANCH_TOOL,
 ] as const;
 
 type Ending = Parameters<StageThread["end"]>[0];
@@ -191,9 +197,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       if (asked) await this.keep(work, asked);
       // Before git is read, so a dev server or a watcher it started can't change the worktree.
       await thread.endSession();
+      const after = await this.stageGit.afterTurn(work.run, expected);
       const outcome = result
-        ? await this.commitWork(work, task, expected, result, merging)
-        : await this.holdWork(work, task, expected);
+        ? await this.commitWork(work, task, after, result, merging)
+        : await this.holdWork(work, task, after);
       ending = endingOf(outcome);
       return outcome;
     } catch (error) {
@@ -217,7 +224,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   ): Promise<StageOutcome> {
     const after = await this.stageGit.checkHead(run, task, expected);
     if (after) return changedGitItself(after, result.handoverNote);
-    if (merging) return this.resolveGit.finish(run, task, expected, result);
+    // A merge left by the Agent's own branch update ends as Resolve's does.
+    if (merging || (await this.git.mergeInProgress(task.project.id, run.taskId))) {
+      return this.resolveGit.finish(run, task, expected, result);
+    }
     await this.stageGit.commit(
       run,
       task,

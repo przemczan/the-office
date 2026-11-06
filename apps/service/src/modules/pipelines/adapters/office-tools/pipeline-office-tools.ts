@@ -8,6 +8,8 @@ import {
 } from "../../../conversations/index.js";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { PipelineLibrary } from "../../application/pipeline-library.js";
+import { StageBranchUpdate } from "../../application/stage-branch-update.js";
+import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
 import { ProposalDrafts } from "../../ports/proposal-drafts.js";
 import { toPipelineResponse } from "../http/pipeline-responses.js";
 
@@ -25,11 +27,23 @@ export class PipelineOfficeTools implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly library: PipelineLibrary,
     private readonly proposals: ProposalDrafts,
+    private readonly branchUpdate: StageBranchUpdate,
   ) {}
 
   onModuleInit(): void {
     this.registerListPipelines();
     this.registerProposePipeline();
+    this.registerUpdateBranch();
+  }
+
+  private registerUpdateBranch(): void {
+    this.registry.register({
+      name: UPDATE_BRANCH_TOOL,
+      description:
+        "Asks The Office to bring the Task's branch up to date with the base branch: it commits your work so far and merges the base in. A conflict stays in the worktree for you to resolve by editing the files; The Office commits the merge when your Stage ends. It waits until the update and any install are done.",
+      input: z.object({}),
+      run: (_input, { sessionId }) => this.branchUpdate.inSession(sessionId),
+    });
   }
 
   private registerListPipelines(): void {
