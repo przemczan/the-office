@@ -1100,8 +1100,8 @@
   },
   "skills.overrides-library": {
     "linux": {
-      "listed": ["lint", "office:review"],
-      "userInvocable": ["lint", "office:review"]
+      "listed": ["lint", "office:review", "tools:review"],
+      "userInvocable": ["lint", "office:review", "tools:review"]
     }
   },
   "skills.overrides-off": {

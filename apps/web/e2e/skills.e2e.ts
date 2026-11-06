@@ -294,6 +294,13 @@ test("a Project's page lists its own skills, read-only, with their switches", as
     page.getByText("Sessions in Own skills start without its own skills."),
   ).toBeVisible();
   await expect(useProjectSkills).toHaveAttribute("aria-checked", "false");
+  await expect(notes).toHaveAttribute("tabindex", "-1");
+  await expect(page.locator(".project-skill:not(.off)")).toHaveCount(0);
+  await page.reload();
+  await expect(notes).toHaveAttribute("aria-checked", "true");
+  await skillsBlock.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-project-skills-all-off.png"),
+  });
   await notes.click({ force: true });
   await expect(notes).toHaveAttribute("aria-checked", "true");
   await useProjectSkills.click();

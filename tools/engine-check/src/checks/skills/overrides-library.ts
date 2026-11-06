@@ -1,6 +1,6 @@
 import type { Check } from "../../check.ts";
 import type { ProbeSession } from "../../probe-session.ts";
-import { SESSION_PLUGIN_NAME, writeProjectSkill } from "../../sandbox.ts";
+import { SESSION_PLUGIN_NAME, writeProjectCommand, writeProjectSkill } from "../../sandbox.ts";
 import { skill } from "./fixtures.ts";
 import { listedSkillNames, namesSkill, userInvocableNames } from "./skill-observations.ts";
 
@@ -8,10 +8,13 @@ import { listedSkillNames, namesSkill, userInvocableNames } from "./skill-observ
 const SHARED_NAME = "review";
 const PROJECT_SKILL_ON = "lint";
 const LIBRARY_SKILL = `${SESSION_PLUGIN_NAME}:${SHARED_NAME}`;
+/** A Project command left on whose key ends in the name turned off. */
+const PROJECT_COMMAND_ON = `tools:${SHARED_NAME}`;
 
 /**
- * Whether turning a Project skill off by its bare key also hides the library's skill of that name,
- * which the session must list or the start check refuses it (spec §5.6). No model call.
+ * Whether turning a Project skill off by its bare key also hides the library's skill of that name
+ * or a Project command ending in it, which the session must list or the start check refuses it
+ * (spec §5.6). No model call.
  */
 export const overridesLibraryCheck: Check = {
   id: "skills.overrides-library",
@@ -20,11 +23,16 @@ export const overridesLibraryCheck: Check = {
     const repository = await sandbox.createRepository();
     await writeProjectSkill(repository, skill(SHARED_NAME));
     await writeProjectSkill(repository, skill(PROJECT_SKILL_ON));
+    await writeProjectCommand(repository, {
+      name: PROJECT_COMMAND_ON.replace(":", "/"),
+      description: "The tools review command.",
+      body: "Reply with the word review.",
+    });
     const session = await startSession({
       repository,
       skills: [skill(SHARED_NAME)],
       // As The Office starts a session with the Project's copy off: the allowlist leaves it out.
-      allowedSkills: [LIBRARY_SKILL, PROJECT_SKILL_ON],
+      allowedSkills: [LIBRARY_SKILL, PROJECT_SKILL_ON, PROJECT_COMMAND_ON],
       settings: { skillOverrides: { [SHARED_NAME]: "off" } },
     });
     await session.control.initializationResult();

@@ -11,6 +11,11 @@ import { SkillChip } from "../../shell/skill-chip.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 
+/** In turn, so an earlier answer never lands after a later one. */
+function skillSwitchScope(project: Project): { readonly id: string } {
+  return { id: `project-skill-switches-${project.id}` };
+}
+
 /**
  * The repository's own skills, read-only, with the switches that give them to sessions in the
  * Project (spec §2.6): one for all of them, and one for each. They stay in the repository; a Task
@@ -21,6 +26,7 @@ export function SkillsBlock({ project }: { readonly project: Project }): ReactNo
   const queryClient = useQueryClient();
   const showToast = useToast();
   const switching = useMutation({
+    scope: skillSwitchScope(project),
     mutationFn: (use: boolean) => changeUseProjectSkills(project.id, use),
     onSuccess: (saved) => {
       queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved);
@@ -91,8 +97,7 @@ function SkillLine({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const switching = useMutation({
-    // In turn, so an earlier answer never lands after a later one.
-    scope: { id: `project-skill-use-${project.id}` },
+    scope: skillSwitchScope(project),
     mutationFn: (use: boolean) => changeProjectSkillUse(project.id, skill.key, use),
     onSuccess: (saved, use) => {
       queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved);
