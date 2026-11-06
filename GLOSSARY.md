@@ -18,6 +18,10 @@ _Avoid_: Dependency files, install files
 The https or ssh git URL a Project was added from; The Office clones it into its data directory. A Project added by path has none.
 _Avoid_: Remote, clone URL, Git URL (in the UI)
 
+**Repository file browser**:
+The window for picking one file committed on a Project's base branch, read a folder at a time from one commit; the caller says which extensions show.
+_Avoid_: File picker, repo browser
+
 **Office identity**:
 The only credentials The Office's git uses, shared by every Project and separate from the user's own: Sign in with GitHub and the Office ssh key. Other hosts over https are reached anonymously.
 _Avoid_: Machine credentials, service account, bot

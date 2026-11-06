@@ -4,7 +4,7 @@ import { ProjectRefused } from "../domain/project-refused.js";
 import {
   Git,
   GitCommandFailed,
-  type FetchedBranchTip,
+  type CommitTree,
   type RemoteBranches,
   type TreeEntry,
 } from "../ports/git.js";
@@ -107,7 +107,7 @@ function treeFolderOf(folder: string): string {
 }
 
 async function folderOf(
-  tip: FetchedBranchTip,
+  tip: CommitTree,
   treeFolder: string,
   folder: string,
 ): Promise<RepositoryFolder> {

@@ -1,0 +1,49 @@
+/* One height whatever the folder holds, so the window doesn't jump from one folder to the next. */
+.repository-file-browser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 60vh;
+}
+
+.repository-file-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.repository-file-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--fg-1);
+  font: var(--type-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.repository-file-entry:hover {
+  background: var(--surface-hover);
+}
+
+.repository-file-entry:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.repository-file-entry[aria-pressed="true"] {
+  background: var(--surface-selected);
+}
+
+.repository-file-entry span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

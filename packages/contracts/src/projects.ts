@@ -79,6 +79,38 @@ export const remoteNeedsSchema = z.discriminatedUnion("kind", [
 ]);
 export type RemoteNeeds = z.infer<typeof remoteNeedsSchema>;
 
+/** POST /projects/:id/base-branch/fetch: the commit to read folders from; `fetchProblem` says why it is only the last one known here. */
+export const baseBranchFetchSchema = z.object({
+  commit: z.string(),
+  fetchProblem: z.string().nullable(),
+});
+export type BaseBranchFetch = z.infer<typeof baseBranchFetchSchema>;
+
+/** GET /projects/:id/base-branch/:commit/folder: `path` "" for the top level, `extensions` joined by commas. */
+export const baseBranchFolderQuerySchema = z.object({
+  path: z.string().default(""),
+  extensions: z
+    .string()
+    .default("")
+    .transform((extensions) => extensions.split(",").filter((extension) => extension !== "")),
+});
+export type BaseBranchFolderQuery = z.infer<typeof baseBranchFolderQuerySchema>;
+
+export const baseBranchFolderEntrySchema = z.object({
+  name: z.string(),
+  kind: z.enum(["file", "folder"]),
+});
+export type BaseBranchFolderEntry = z.infer<typeof baseBranchFolderEntrySchema>;
+
+/** One folder of a commit: folders, then files, cut to a limit; `total` counts what the cut left out too. */
+export const baseBranchFolderSchema = z.object({
+  commit: z.string(),
+  path: z.string(),
+  entries: z.array(baseBranchFolderEntrySchema),
+  total: z.number().int().nonnegative(),
+});
+export type BaseBranchFolder = z.infer<typeof baseBranchFolderSchema>;
+
 /** GET /projects/:id/remote-needs, read from the repository each time; null when the base branch tracks no remote branch. */
 export const projectRemoteNeedsSchema = z.object({ remoteNeeds: remoteNeedsSchema.nullable() });
 export type ProjectRemoteNeeds = z.infer<typeof projectRemoteNeedsSchema>;

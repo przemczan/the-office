@@ -1,5 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  baseBranchFetchSchema,
+  baseBranchFolderSchema,
   environmentCheckSchema,
   latestEnvironmentCheckSchema,
   projectMcpServerValuesListSchema,
@@ -32,6 +34,8 @@ import { ENGINE_CASCADE } from "./people.ts";
 const PROJECTS = ["projects"] as const;
 /** Apart from the Projects' key, since Sign in with GitHub changes it too. */
 export const REMOTE_NEEDS = ["remote-needs"] as const;
+/** Apart from the Projects' key, so no event moves an open file browser to another commit. */
+const BASE_BRANCH = ["base-branch"] as const;
 
 export const projectQueries = {
   list: () =>
@@ -90,6 +94,32 @@ export const projectQueries = {
           repositoryCloneSchema,
           signal,
         ),
+    }),
+  /**
+   * Fetches the base branch and answers the commit to read folders from: once per sitting, so never
+   * refetched while it is in use and dropped as soon as it isn't, for the next sitting to fetch anew.
+   */
+  baseBranchFetch: (id: string) =>
+    queryOptions({
+      queryKey: [...BASE_BRANCH, id, "fetch"],
+      queryFn: () =>
+        sendToApi("POST", `${projectPath(id)}/base-branch/fetch`, {}, baseBranchFetchSchema),
+      staleTime: Infinity,
+      gcTime: 0,
+    }),
+  /** One folder of a commit, which never changes, so read once. */
+  baseBranchFolder: (id: string, commit: string, path: string, extensions: readonly string[]) =>
+    queryOptions({
+      queryKey: [...BASE_BRANCH, id, commit, path, extensions],
+      queryFn: ({ signal }) => {
+        const query = new URLSearchParams({ path, extensions: extensions.join(",") });
+        return getFromApi(
+          `${projectPath(id)}/base-branch/${encodeURIComponent(commit)}/folder?${query.toString()}`,
+          baseBranchFolderSchema,
+          signal,
+        );
+      },
+      staleTime: Infinity,
     }),
   /** What the Task's commits changed in its Project, for the Changes tab. */
   taskChanges: (projectId: string, taskId: string) =>

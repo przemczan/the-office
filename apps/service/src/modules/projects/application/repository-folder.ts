@@ -1,4 +1,4 @@
-/** One name in a repository's folder that Devops reads to onboard it. */
+/** One name in a repository's folder. */
 export interface FolderEntry {
   readonly name: string;
   readonly kind: "file" | "folder";
