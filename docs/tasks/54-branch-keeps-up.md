@@ -1,6 +1,6 @@
 # 54 · The Task's branch keeps up with the base
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -40,7 +40,7 @@ Chosen by the user on 2026-11-06, as A + B + D + E of the options given:
 - [x] **1. Moved branches (D + E).** `movedAlongBase` in Projects through `TaskGit`; `StageGit.start` accepts such a move and tells the Agent; any other is `branchMoved` on the outcome, walked by `afterBranchMoved` with a `branch-moved` Decision and a `keep-branch` answer. Spec amended. Read: `stage-git.ts`, `pipeline-walk.ts`, `walk-decisions.ts`, spec 2.3.
 - [x] **2. The first Stage starts on the fresh base (A).** `updateFromBase` in Projects, called from `StageGit.start` when no run has left the branch yet. Read: `resolving.ts`, `git.ts` port.
 - [x] **3. The Office tool (B).** `update_branch` in Pipelines' Office tools; the Stage's commit reads where the tool left the branch; a merge left in progress is committed as Resolve's is; dropping the Task gives it back. Read: `decision-office-tools.ts`, `resolve-stage-git.ts`, `agent-stage-runner.ts`.
-- [ ] **4. Close.** `npm run verify:linux`, the log archived.
+- [x] **4. Close.** `npm run verify:linux`, the log archived.
 
 ## State
 
@@ -54,11 +54,8 @@ Step 3 built: `StageBranchUpdate` behind the `update_branch` Office tool, offere
 
 The stuck Task's replay test is in too.
 
-Next: step 4, `npm run verify:linux`, then close.
+Done. Not run live: no real session has called `update_branch`; the tests use the scripted engine and real git. The running Office gets all this only once it is updated.
 
 ## Progress
 
-- 2026-11-06 · task written from the user's choice of options; next: step 1.
-- 2026-11-06 · step 1: a branch moved along the base is taken as a Stage starts, any other move is the user's Decision with no round; next: step 2.
-- 2026-11-06 · step 2: a Task's first Stage brings the branch to the fresh base; next: step 3.
-- 2026-11-06 · step 3: the `update_branch` Office tool; next: step 4.
+The log is in [archive/54-branch-keeps-up.md](archive/54-branch-keeps-up.md).
