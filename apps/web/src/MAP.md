@@ -131,7 +131,7 @@
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView, ThreadLog, ThreadTitle
 - `thread-writing.ts`: takesMessages
-- Tests: context-words.test.ts, decision-words.test.ts, details-store.test.ts, link-card-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-groups.test.ts, message-list-kinds.test.tsx, message-list.test.tsx, message-visibility.test.ts, office-status-words.test.ts, thread-title.test.ts
+- Tests: context-words.test.ts, decision-words.test.ts, details-store.test.ts, link-card-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-groups.test.ts, message-list-kinds.test.tsx, message-list.test.tsx, message-visibility.test.ts, office-status-words.test.ts, proposal-card.test.tsx, thread-title.test.ts
 
 ### shell/fire-alarm/
 
