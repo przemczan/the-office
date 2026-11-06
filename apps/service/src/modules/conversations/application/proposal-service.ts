@@ -5,9 +5,9 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import {
   changeToApply,
   type EditedHire,
-  type OfficeSetting,
   type Proposal,
   type ProposedChange,
+  type ProposedSettingValue,
 } from "../domain/proposal.js";
 import { applyProposal, declineProposal, type ProposalChange } from "../domain/proposal-changes.js";
 import { ProposalNotFound } from "../domain/proposal-not-found.js";
@@ -49,9 +49,23 @@ export class ProposalService {
   }
 
   /** As `draft`, a new value for the Office setting, from the value its owner keeps now. */
-  async draftSetting(sessionId: string, setting: OfficeSetting, value: number): Promise<Proposal> {
-    const from = await this.appliers.settingNow(setting);
-    return this.draft(sessionId, { kind: setting, from, to: value });
+  async draftSetting(sessionId: string, proposed: ProposedSettingValue): Promise<Proposal> {
+    // Apart by value type: one change of either kind would no longer pair its kind with its values.
+    switch (proposed.setting) {
+      case "office-wide-limit":
+      case "size-threshold":
+        return this.draft(sessionId, {
+          kind: proposed.setting,
+          from: await this.appliers.settingNow(proposed.setting),
+          to: proposed.value,
+        });
+      case "office-instructions":
+        return this.draft(sessionId, {
+          kind: proposed.setting,
+          from: await this.appliers.settingNow(proposed.setting),
+          to: proposed.value,
+        });
+    }
   }
 
   async read(id: string): Promise<Proposal> {

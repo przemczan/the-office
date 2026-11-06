@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
+  OFFICE_INSTRUCTIONS_MAX_CHARACTERS,
   OFFICE_WIDE_LIMIT_MAX,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
@@ -9,13 +10,17 @@ import {
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { RoleNotFound, RoleService } from "../../../people/index.js";
+import { OfficeInstructions } from "../../application/office-instructions.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import {
   OFFICE_SETTINGS,
   proposedRoleChange,
+  type OfficeSetting,
   type ProposedChange,
+  type ProposedSettingValue,
   type RoleCardFields,
 } from "../../domain/proposal.js";
+import { READ_OFFICE_INSTRUCTIONS_TOOL } from "../../domain/session-instructions.js";
 import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
 // A Role override is the user's to set on the card: a proposed Role runs on the Office default.
@@ -36,8 +41,9 @@ const SETTING_DRAFTED =
 /**
  * The Office tools the Office Manager drafts Proposals with (spec §2.2): a Role (a new one, from
  * scratch or from a preset, or a change to one) and an Office setting, each a Proposal the user
- * applies with a click. They change nothing themselves, so they sit behind no Hard switch: the
- * user's click is the approval. They return at once, with the owner's reasons when it would refuse.
+ * applies with a click, and the read of the Office instructions a draft of them starts from. They
+ * change nothing themselves, so they sit behind no Hard switch: the user's click is the approval.
+ * They return at once, with the owner's reasons when it would refuse.
  */
 @Injectable()
 export class ProposalOfficeTools implements OnModuleInit {
@@ -45,11 +51,13 @@ export class ProposalOfficeTools implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly proposals: ProposalService,
     private readonly roles: RoleService,
+    private readonly officeInstructions: OfficeInstructions,
   ) {}
 
   onModuleInit(): void {
     this.registerProposeRole();
     this.registerProposeOfficeSetting();
+    this.registerReadOfficeInstructions();
   }
 
   private registerProposeRole(): void {
@@ -103,20 +111,44 @@ export class ProposalOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_OFFICE_SETTING_TOOL,
       description:
-        "Drafts a new value for an Office setting as a Proposal the user applies with a click. It shows in this chat as a card, with the value now and the one proposed, and changes nothing until the user applies it. It returns at once.",
+        "Drafts a new value for an Office setting as a Proposal the user applies with a click. It shows in this chat as a card and changes nothing until the user applies it. It returns at once.",
       input: z.object({
         setting: z
           .enum(OFFICE_SETTINGS)
           .describe(
-            `office-wide-limit: how many Tasks may run at once across The Office, from 1 to ${OFFICE_WIDE_LIMIT_MAX}. size-threshold: once a Thread's cache has cooled, how many tokens the conversation may have added since its session began before its next message starts a fresh session with a Brief, from ${SIZE_THRESHOLD_TOKENS.min} to ${SIZE_THRESHOLD_TOKENS.max} in steps of ${SIZE_THRESHOLD_TOKENS.step}.`,
+            `office-wide-limit: how many Tasks may run at once across The Office, from 1 to ${OFFICE_WIDE_LIMIT_MAX}. size-threshold: once a Thread's cache has cooled, how many tokens the conversation may have added since its session began before its next message starts a fresh session with a Brief, from ${SIZE_THRESHOLD_TOKENS.min} to ${SIZE_THRESHOLD_TOKENS.max} in steps of ${SIZE_THRESHOLD_TOKENS.step}. office-instructions: the one text of general guidelines every person's session gets with their Role's instructions, from the next session on, at most ${OFFICE_INSTRUCTIONS_MAX_CHARACTERS} characters.`,
           ),
-        value: z.number().describe("The new value."),
+        value: z
+          .number()
+          .optional()
+          .describe("The new value of office-wide-limit or size-threshold."),
+        text: z
+          .string()
+          .optional()
+          .describe(
+            `The new text of office-instructions, given whole: it replaces all of them, not only the lines that change. Start from what ${READ_OFFICE_INSTRUCTIONS_TOOL} answers, since your session's copy may be old.`,
+          ),
       }),
-      run: ({ setting, value }, { sessionId }) =>
-        refusedToTheAgent(async () => {
-          await this.proposals.draftSetting(sessionId, setting, value);
+      run: ({ setting, value, text }, { sessionId }) => {
+        const proposed = proposedSettingValue(setting, value, text);
+        if (typeof proposed === "string") return Promise.resolve({ text: proposed, isError: true });
+        return refusedToTheAgent(async () => {
+          await this.proposals.draftSetting(sessionId, proposed);
           return SETTING_DRAFTED;
-        }),
+        });
+      },
+    });
+  }
+
+  private registerReadOfficeInstructions(): void {
+    this.registry.register({
+      name: READ_OFFICE_INSTRUCTIONS_TOOL,
+      description: `Reads the Office instructions as they are now, which may be newer than the ones in your session. Read them before drafting a change with ${PROPOSE_OFFICE_SETTING_TOOL}.`,
+      input: z.object({}),
+      run: async () => {
+        const { text } = await this.officeInstructions.current();
+        return { text: text === "" ? "The Office instructions are empty." : text, isError: false };
+      },
     });
   }
 
@@ -161,6 +193,24 @@ export class ProposalOfficeTools implements OnModuleInit {
       }
     );
   }
+}
+
+/** The value the call gives the setting, or what is wrong with it, in words the Agent acts on. */
+function proposedSettingValue(
+  setting: OfficeSetting,
+  value: number | undefined,
+  text: string | undefined,
+): ProposedSettingValue | string {
+  if (setting === "office-instructions") {
+    if (text === undefined || value !== undefined) {
+      return "Give the whole new Office instructions as text, and no value.";
+    }
+    return { setting, value: text.trim() };
+  }
+  if (value === undefined || text !== undefined) {
+    return `Give the new ${setting} as value, and no text.`;
+  }
+  return { setting, value };
 }
 
 /** A new Role on the card given, or what is missing from it, in words the Agent acts on. */

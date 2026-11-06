@@ -14,6 +14,7 @@ export interface ProposedChanges {
   readonly change: ProposedRoleChange;
   readonly "office-wide-limit": ProposedSettingChange<"office-wide-limit">;
   readonly "size-threshold": ProposedSettingChange<"size-threshold">;
+  readonly "office-instructions": ProposedSettingChange<"office-instructions">;
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
   readonly pipeline: ProposedPipelineChange;
@@ -61,17 +62,38 @@ export interface ProposedRoleChange {
   readonly to: RoleCardFields;
 }
 
-/** The Office settings a Proposal can change, each applied by the module that owns it. */
-export const OFFICE_SETTINGS = ["office-wide-limit", "size-threshold"] as const;
+/** The value each Office setting holds. */
+export interface OfficeSettingValues {
+  readonly "office-wide-limit": number;
+  readonly "size-threshold": number;
+  readonly "office-instructions": string;
+}
 
-export type OfficeSetting = (typeof OFFICE_SETTINGS)[number];
+export type OfficeSetting = keyof OfficeSettingValues;
+
+/** The Office settings a Proposal can change, each applied by the module that owns it. */
+export const OFFICE_SETTINGS = [
+  "office-wide-limit",
+  "size-threshold",
+  "office-instructions",
+] as const satisfies readonly OfficeSetting[];
 
 /** A new value for an Office setting (`to`), and its value when the Proposal was drafted (`from`). */
-export interface ProposedSettingChange<Setting extends OfficeSetting = OfficeSetting> {
-  readonly kind: Setting;
-  readonly from: number;
-  readonly to: number;
-}
+export type ProposedSettingChange<Setting extends OfficeSetting = OfficeSetting> = {
+  readonly [Kind in Setting]: {
+    readonly kind: Kind;
+    readonly from: OfficeSettingValues[Kind];
+    readonly to: OfficeSettingValues[Kind];
+  };
+}[Setting];
+
+/** A new value for an Office setting, as the person drafting it gives it. */
+export type ProposedSettingValue = {
+  readonly [Setting in OfficeSetting]: {
+    readonly setting: Setting;
+    readonly value: OfficeSettingValues[Setting];
+  };
+}[OfficeSetting];
 
 /**
  * A change the CTO wants to an active Initiative (spec §2.1 Defaults), which Work applies under the

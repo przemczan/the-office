@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type {
   OfficeSetting,
+  OfficeSettingValues,
   ProposedChange,
   ProposedChangeKind,
   ProposedChanges,
@@ -24,7 +25,7 @@ export interface ProposalApplier<Kind extends ProposedChangeKind> {
 export interface SettingProposalApplier<
   Setting extends OfficeSetting,
 > extends ProposalApplier<Setting> {
-  valueNow(): Promise<number>;
+  valueNow(): Promise<OfficeSettingValues[Setting]>;
 }
 
 type Appliers = { [Kind in ProposedChangeKind]?: ProposalApplier<Kind> };
@@ -56,7 +57,9 @@ export class ProposalAppliers {
   }
 
   /** The Office setting's value now, as the module that owns it keeps it. */
-  settingNow(setting: OfficeSetting): Promise<number> {
+  settingNow<Setting extends OfficeSetting>(
+    setting: Setting,
+  ): Promise<OfficeSettingValues[Setting]> {
     const applier = this.settings[setting];
     if (!applier) throw new Error(`Nothing applies Proposals of "${setting}".`);
     return applier.valueNow();
@@ -74,6 +77,8 @@ export class ProposalAppliers {
         return this.applierOf("office-wide-limit").problemsWith(change);
       case "size-threshold":
         return this.applierOf("size-threshold").problemsWith(change);
+      case "office-instructions":
+        return this.applierOf("office-instructions").problemsWith(change);
       case "initiative":
         return this.applierOf("initiative").problemsWith(change);
       case "project-commands":
@@ -103,6 +108,8 @@ export class ProposalAppliers {
         return this.applierOf("office-wide-limit").apply(change, proposedBy);
       case "size-threshold":
         return this.applierOf("size-threshold").apply(change, proposedBy);
+      case "office-instructions":
+        return this.applierOf("office-instructions").apply(change, proposedBy);
       case "initiative":
         return this.applierOf("initiative").apply(change, proposedBy);
       case "project-commands":

@@ -118,6 +118,12 @@ export const PROPOSE_ROLE_TOOL = "propose_role";
 /** The Office tool the Office Manager drafts a Proposal of an Office setting with, named as above. */
 export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 
+/**
+ * The Office tool the Office Manager reads the Office instructions with before drafting a change:
+ * their session holds the version it started with, and a draft of an old copy would undo an edit.
+ */
+export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
+
 /** The Office tool the Office Manager points the user to someone with, a Link card; named as above. */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
@@ -170,6 +176,7 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
         ...CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task"),
         PROPOSE_ROLE_TOOL,
         PROPOSE_OFFICE_SETTING_TOOL,
+        READ_OFFICE_INSTRUCTIONS_TOOL,
         POST_LINK_CARD_TOOL,
         SHOW_OFFICE_STATUS_TOOL,
       ]

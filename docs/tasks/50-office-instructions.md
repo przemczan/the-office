@@ -13,7 +13,7 @@ The user writes one text in Settings, for general guidelines, and every person's
 - [x] The session is told that its Role's instructions and the Project's `CLAUDE.md` win where they disagree. Check: `session-instructions.test.ts`.
 - [x] A change reaches new sessions only: a session records the version it started with and a resume runs with that version. A session from before this task resumes with none. Check: a service test of each session start, resuming across a change.
 - [x] Settings › Office instructions shows the text, saves a change and says who gets it and when. Saving the same text makes no new version. Check: a service test of the route; a web test; an e2e test that saves a text and reads it after a reload.
-- [ ] The Office Manager drafts a change with `propose_office_setting`; the card shows the whole new text, and applying it saves a version. A text changed since the draft is refused with the reason, so an edit in Settings is never overwritten. Check: service tests of the Proposal; a web test of the card.
+- [x] The Office Manager drafts a change with `propose_office_setting`; the card shows the whole new text, and applying it saves a version. A text changed since the draft is refused with the reason, so an edit in Settings is never overwritten. Check: service tests of the Proposal; a web test of the card.
 - [ ] Each engine gets the text. Check: a test on the scripted engine adapter and one on the OpenAI-compatible API engine's fake server; the Test Project check of the last step for Claude Code.
 - [ ] A live session follows the text. Check: on [the Test Project](test-project.md), with the cheapest model, a chat and an Agent Stage each obey a line that only the Office instructions hold.
 - [ ] The `global-instructions` Skill's text, without its LSP lines (sessions have no LSP tool), is in the Office instructions of the running Office, and the Skill is gone. Check: the user's go-ahead, then Settings and the skill library there.
@@ -57,29 +57,26 @@ Chosen while writing this file, for the user to review (spec 2.2 and 4 already n
   Read: `apps/web/src/surfaces/settings/MAP.md`, `office-limits/office-limits-section.tsx`, [UI rules](../spec/4.1-ui-rules.md), `apps/web/e2e/MAP.md`.
 - [x] 4. Contract and web, the Proposal's card: an `office-instructions` member of the change union (`packages/contracts/src/conversations.ts` l. 321-323) with string `from` and `to`, the number members untouched; `proposal-card.tsx` shows the whole new text. The service never sends it yet, so this stays green alone. Commit.
   Read: `apps/web/src/shell/conversation/proposal-card.tsx` from l. 72, the part on `shell/conversation/` in `apps/web/src/MAP.md`.
-- [ ] 5. Service, the Proposal: `"office-instructions"` joins `OFFICE_SETTINGS`; `ProposedSettingChange` takes each setting's own value type in the domain, `proposal-appliers.ts` and `propose_office_setting`. Registered as `size-threshold-proposals.ts` is, refusing a text that no longer matches `from`. Commit.
+- [x] 5. Service, the Proposal: `"office-instructions"` joins `OFFICE_SETTINGS`; `ProposedSettingChange` takes each setting's own value type in the domain, `proposal-appliers.ts` and `propose_office_setting`. Registered as `size-threshold-proposals.ts` is, refusing a text that no longer matches `from`. Commit.
   Read: `domain/proposal.ts`, `adapters/proposals/size-threshold-proposals.ts`, `application/proposal-appliers.ts`, `adapters/office-tools/proposal-office-tools.ts`.
 - [ ] 6. The check on the Test Project, then the user's go-ahead for the running Office: the Skill's text moves in and the Skill goes. Commit.
   Read: [the Test Project](test-project.md), `apps/service/docs/testing.md` on live checks.
 
 ## State
 
-The Office instructions reach every session, and `GET`/`PUT /api/settings/office-instructions` (`OfficeInstructionsController`) reads and saves them, from Settings › Office instructions (`surfaces/settings/office-instructions/office-instructions-section.tsx`, `/settings/office-instructions`, over `officeInstructionsQuery` and `changeOfficeInstructions` in `api/conversations.ts`). The contract is `officeInstructionsSchema` (`{ officeInstructions }`, trimmed, then at most `OFFICE_INSTRUCTIONS_MAX_CHARACTERS`). `OfficeInstructions` (`application/office-instructions.ts`, a provider of the module, not exported) answers `current()`, `forResumedSession(version)` and `save(text)`, over `OfficeInstructionsRepository` and the table `office_instructions_versions`; `save` publishes `OfficeInstructionsChanged` when a new version was made, which reaches the web as `office-instructions.changed`. `personInstructions` (`domain/session-instructions.ts`) puts them after who the person is, under `## Office instructions` with a fixed lead-in, and closes them with `## Your Role's instructions`; left empty it adds neither, so a session's prompt stays as it was. Every kind of session takes a `SessionPerson` (`card`, `officeInstructions`). `ThreadRunner.moveFor` and `StageThreads.startIn`/`continueIn` read the text and record `ThreadSession.officeInstructionsVersion`. Spec 2.2, 3 and 4, the Glossary and coverage carry the user's answers of 2026-11-06.
+Everything but the last step is built. The Office instructions reach every session; Settings › Office instructions reads and saves them (`OfficeInstructionsController`, `surfaces/settings/office-instructions/`); a session records `ThreadSession.officeInstructionsVersion` and a resume runs with it. `OfficeInstructions` (`application/office-instructions.ts`) answers `current()`, `forResumedSession(version)`, `save(text)` and `replace(from, text)`.
 
-For the user to review: the `## Your Role's instructions` heading was not in the step; without it the Role's words read as part of the section they overrule. The Proposal's card shows the text whole and scrolling in place, as a command does, not "first lines and Read it in full" as the UI rules' Long text says: a draft has nowhere else to read whole, and the user must read it before applying it.
+The Proposal: `office-instructions` is an Office setting (`OFFICE_SETTINGS`, `OfficeSettingValues`, `ProposedSettingChange<Setting>`, `ProposedSettingValue`). `OfficeInstructionsProposals` (`adapters/proposals/`) judges it and applies it through `replace`, which refuses a text no longer `from` under the store's lock, and tells the user to ask for a new draft. `propose_office_setting` takes `value` for the numbers and `text` for this setting, trimmed in the tool. The Office Manager's preset names no setting, so its words did not change.
 
-Each engine: `session.options.instructions` on the scripted engine shows the text in both runners' tests, and `openai-compatible-api-engine.test.ts` already proves `instructions` reach the system message, so that box waits only on the Claude Code check of the last step.
+Settled with the user, 2026-11-06: `read_office_instructions` stays, for the Office Manager alone, and spec 2.2 names it; the card shows the whole text, and the UI rules name that exception. origin/main's 2 commits are merged; their migration kept 0091, so ours is `0092_office_instructions`.
+
+Each engine: `session.options.instructions` on the scripted engine shows the text in both runners' tests, and `openai-compatible-api-engine.test.ts` proves `instructions` reach the system message, so that box waits only on the Claude Code check of step 6.
 
 Traps:
 
-- Version 0 means none and is never stored (a check holds it): `forResumedSession(0)` answers `NO_OFFICE_INSTRUCTIONS`, any other unknown number throws `OfficeInstructionsVersionNotFound`.
-- Every test file shares the table, so a test that saves a text binds `OfficeInstructionsRepositoryForTests`; the Postgres repository's test rolls back all it saves, so the table stays empty for the others. A test assembling the runners by hand provides `OfficeInstructions`.
-- Only an exact `""` counts as empty, and only the contract trims: step 5's Proposal must parse its text with `officeInstructionsSchema`, or a text of spaces gives an empty section.
-- The page holds only what the user typed, so its Save overwrites a text changed elsewhere meanwhile; only step 5's Proposal refuses a stale text.
-- The contract's `proposedChangeSchema` has `office-instructions` (`from`, `to`, plain strings) and `ProposalCard` its own case (`ProposedOfficeInstructions`, `.proposal-text`); the domain has no such member, so nothing sends it yet. The card's number names became `OfficeLimit`, `OFFICE_LIMITS`, `ProposedLimit`, `LimitFoot`; the service's `OFFICE_SETTINGS` keeps its name.
-- The card's open note already promises the refusal of a stale text, so step 5 must refuse one. `conversation-responses.ts` l. 153 maps the domain's change to the contract and needs the new case. The card is tested in `proposal-card.test.tsx`, as `message-list-kinds.test.tsx` mocks it; no e2e covers it yet (`people.e2e.ts` l. 3213 seeds the size threshold's).
-- The contract's type `OfficeInstructions` shares its name with the service class; the controller imports it as `OfficeInstructionsText`.
-- The repository's `update` takes a change of the current version, inside its lock; step 5's refusal of a stale `from` can go there, and must still publish `OfficeInstructionsChanged`.
+- Version 0 means none and is never stored; every test file shares the table, so a test that saves a text binds `OfficeInstructionsRepositoryForTests`.
+- The page's Save overwrites a text changed elsewhere meanwhile; only a Proposal refuses a stale one.
+- No e2e covers the card or this Proposal (`people.e2e.ts` l. 3213 seeds the size threshold's); service and web tests do.
 - `global-instructions` is a Skill in the running Office's library, not in this repository.
 
 ## Progress
@@ -90,3 +87,4 @@ Traps:
 - 2026-11-06 · step 2: `GET`/`PUT /api/settings/office-instructions`, its contract with the 20,000-character limit, and the `office-instructions.changed` event for a new version; step 3 is next.
 - 2026-11-06 · step 3: Settings › Office instructions, its nav entry, route, web test and e2e test; step 4 is next.
 - 2026-11-06 · step 4: the `office-instructions` change in the contract and its Proposal's card, showing the whole new text or that they would be emptied; step 5 is next.
+- 2026-11-06 · step 5: the Office Manager drafts the Office instructions with `propose_office_setting`, reads them with `read_office_instructions`, and applying refuses a text changed since the draft; step 6 is next.

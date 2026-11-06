@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeInstructionsVersionNotFound } from "../domain/office-instructions-version-not-found.js";
+import { ProposalRefused } from "../domain/proposal-refused.js";
 import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructions-repository.fixtures.js";
 import { OfficeInstructions } from "./office-instructions.js";
 
@@ -49,6 +50,26 @@ describe("OfficeInstructions", () => {
     await instructions.save("Write in plain words.");
 
     expect(await instructions.save("")).toEqual({ version: 2, text: "" });
+  });
+
+  it("replaces the text it was given as the one now", async () => {
+    const instructions = officeInstructions();
+    await instructions.save("Write in plain words.");
+
+    expect(await instructions.replace("Write in plain words.", "Keep it short.")).toEqual({
+      version: 2,
+      text: "Keep it short.",
+    });
+  });
+
+  it("refuses to replace any other text, saving nothing", async () => {
+    const instructions = officeInstructions();
+    await instructions.save("Edited in Settings.");
+
+    await expect(instructions.replace("Write in plain words.", "Keep it short.")).rejects.toThrow(
+      ProposalRefused,
+    );
+    expect(await instructions.current()).toEqual({ version: 1, text: "Edited in Settings." });
   });
 
   it("resumes a session with the version it recorded, across a change", async () => {

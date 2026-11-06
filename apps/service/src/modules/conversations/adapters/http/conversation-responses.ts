@@ -152,6 +152,8 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
     case "office-wide-limit":
     case "size-threshold":
       return { kind: change.kind, from: change.from, to: change.to };
+    case "office-instructions":
+      return { kind: change.kind, from: change.from, to: change.to };
     case "initiative":
       return {
         kind: "initiative",

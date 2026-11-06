@@ -3,9 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FactoryProvider, INestApplication } from "@nestjs/common";
+import { OFFICE_INSTRUCTIONS_MAX_CHARACTERS } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
+import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
@@ -30,14 +32,17 @@ import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
+import { OfficeInstructionsProposals } from "../adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-proposals.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
+import { OfficeInstructionsChanged } from "../domain/conversation-events.js";
 import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
 import { aProposedCard } from "../domain/proposal.fixtures.js";
 import {
   chatOfficeTools,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
+  READ_OFFICE_INSTRUCTIONS_TOOL,
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
@@ -94,6 +99,7 @@ let runner: ThreadRunner;
 let proposals: ProposalService;
 let roles: RoleService;
 let settings: ContextPolicySettingsService;
+let officeInstructions: OfficeInstructions;
 let officeWideLimit: OfficeWideLimitStandIn;
 /** A Role title of each test's own, so its Role key, which People makes from it, is too. */
 let title: string;
@@ -171,6 +177,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ProposalService,
       RoleProposals,
       SizeThresholdProposals,
+      OfficeInstructionsProposals,
       ProposalOfficeTools,
       chatToolStandIns(),
       {
@@ -189,6 +196,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   proposals = app.get(ProposalService);
   roles = app.get(RoleService);
   settings = app.get(ContextPolicySettingsService);
+  officeInstructions = app.get(OfficeInstructions);
 }
 
 /** Work's applier of the Office-wide limit, which Work registers as it starts (a module apart). */
@@ -214,6 +222,12 @@ class OfficeWideLimitStandIn {
   }
 }
 
+const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
+  PROPOSE_ROLE_TOOL,
+  PROPOSE_OFFICE_SETTING_TOOL,
+  READ_OFFICE_INSTRUCTIONS_TOOL,
+];
+
 /**
  * The chat tools that read records, as the Projects, People and Work modules register them, on the
  * registry the sessions read: People, booted here for its Roles, registers on an engine of its own.
@@ -224,7 +238,7 @@ function chatToolStandIns(): FactoryProvider {
     inject: [OfficeToolRegistry],
     useFactory: (registry: OfficeToolRegistry) => {
       for (const name of chatOfficeTools(OFFICE_MANAGER)) {
-        if (name === PROPOSE_ROLE_TOOL || name === PROPOSE_OFFICE_SETTING_TOOL) continue;
+        if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name)) continue;
         registry.register({
           name,
           description: `Reads ${name}.`,
@@ -528,6 +542,118 @@ describe("a Proposal of the Office-wide limit", () => {
       text: "The Office-wide limit is 3 already.",
       isError: true,
     });
+  });
+});
+
+function drafts(text: string): SessionScript {
+  return calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-instructions", text });
+}
+
+/** Starts on the text `now`, with the Office Manager's draft of `text` open. */
+async function draftOver(now: string, text: string): Promise<Proposal> {
+  await startWith(drafts(text));
+  await officeInstructions.save(now);
+  return theOnlyProposal("Ask for plain words.");
+}
+
+describe("a Proposal of the Office instructions", () => {
+  it("is drafted from the text now, and changes it only when the user applies it", async () => {
+    const proposal = await draftOver("Write in plain words.", "  Keep it short.\n");
+
+    expect(proposal.change).toEqual({
+      kind: "office-instructions",
+      from: "Write in plain words.",
+      to: "Keep it short.",
+    });
+    expect(toolResultRead().isError).toBe(false);
+    expect(await officeInstructions.current()).toEqual({
+      version: 1,
+      text: "Write in plain words.",
+    });
+  });
+
+  it("saves a new version and announces it when the user applies it", async () => {
+    const proposal = await draftOver("Write in plain words.", "Keep it short.");
+    const announced: OfficeInstructionsChanged[] = [];
+    app.get(EventBus).subscribe(OfficeInstructionsChanged, (event) => {
+      announced.push(event);
+    });
+
+    await proposals.apply(proposal.id);
+
+    expect(await officeInstructions.current()).toEqual({ version: 2, text: "Keep it short." });
+    expect(announced).toEqual([expect.objectContaining({ version: 2 })]);
+    expect((await proposals.read(proposal.id)).status).toMatchObject({ kind: "applied" });
+  });
+
+  it("is applied over no text at all", async () => {
+    const proposal = await draftOver("", "Keep it short.");
+
+    await proposals.apply(proposal.id);
+
+    expect(await officeInstructions.current()).toEqual({ version: 1, text: "Keep it short." });
+  });
+
+  it("empties them when a text of spaces is applied", async () => {
+    const proposal = await draftOver("Write in plain words.", "   ");
+
+    await proposals.apply(proposal.id);
+
+    expect(await officeInstructions.current()).toEqual({ version: 2, text: "" });
+  });
+
+  it("is not drafted on the text they are now, even with spaces around it", async () => {
+    await startWith(drafts("  Write in plain words.  "));
+    await officeInstructions.save("Write in plain words.");
+
+    const { drafted } = await askOfficeManager("Ask for plain words.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: "The Office instructions are this text already.",
+      isError: true,
+    });
+  });
+
+  it("is not drafted over the limit, and the Agent reads why", async () => {
+    await startWith(drafts("a".repeat(OFFICE_INSTRUCTIONS_MAX_CHARACTERS + 1)));
+
+    const { drafted } = await askOfficeManager("Ask for plain words.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: `The Office instructions are at most ${OFFICE_INSTRUCTIONS_MAX_CHARACTERS} characters.`,
+      isError: true,
+    });
+  });
+
+  it("is refused once the text changed since the draft, keeping the edit and staying open", async () => {
+    const proposal = await draftOver("Write in plain words.", "Keep it short.");
+    await officeInstructions.save("Edited in Settings.");
+    const announced: OfficeInstructionsChanged[] = [];
+    app.get(EventBus).subscribe(OfficeInstructionsChanged, (event) => {
+      announced.push(event);
+    });
+
+    await expect(proposals.apply(proposal.id)).rejects.toMatchObject({
+      reasons: [expect.stringContaining("Ask the Office Manager for a new draft.")],
+    });
+
+    expect(await officeInstructions.current()).toEqual({
+      version: 2,
+      text: "Edited in Settings.",
+    });
+    expect(announced).toEqual([]);
+    expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
+  });
+
+  it("lets the Office Manager read the text now, newer than their session's", async () => {
+    await startWith(calls(READ_OFFICE_INSTRUCTIONS_TOOL, {}));
+    await officeInstructions.save("Write in plain words.");
+
+    await askOfficeManager("What do the Office instructions say?");
+
+    expect(toolResultRead()).toEqual({ text: "Write in plain words.", isError: false });
   });
 });
 

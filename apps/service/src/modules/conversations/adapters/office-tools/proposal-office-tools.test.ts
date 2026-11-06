@@ -6,13 +6,15 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { RoleNotFound, type RoleService } from "../../../people/index.js";
+import type { OfficeInstructions } from "../../application/office-instructions.js";
 import type { ProposalService } from "../../application/proposal-service.js";
-import type { OfficeSetting, ProposedChange } from "../../domain/proposal.js";
+import type { ProposedChange, ProposedSettingValue } from "../../domain/proposal.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
 import {
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
+  READ_OFFICE_INSTRUCTIONS_TOOL,
 } from "../../domain/session-instructions.js";
 import { ProposalOfficeTools } from "./proposal-office-tools.js";
 
@@ -22,8 +24,8 @@ const tester = { role: { key: "tester", card: aProposedCard() } };
  * The tool named `name` as registered, over Proposals that keep what is drafted, refusing with
  * `refusal`.
  */
-function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL) {
-  const drafted: (ProposedChange | { setting: OfficeSetting; value: number })[] = [];
+function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL, instructionsNow = "") {
+  const drafted: (ProposedChange | ProposedSettingValue)[] = [];
   const draft = (change: (typeof drafted)[number]) => {
     if (refusal) return Promise.reject(new ProposalRefused([refusal]));
     drafted.push(change);
@@ -31,8 +33,7 @@ function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL) {
   };
   const proposals = {
     draft: (_sessionId: string, change: ProposedChange) => draft(change),
-    draftSetting: (_sessionId: string, setting: OfficeSetting, value: number) =>
-      draft({ setting, value }),
+    draftSetting: (_sessionId: string, proposed: ProposedSettingValue) => draft(proposed),
   } as unknown as ProposalService;
   const roles = {
     read: (key: string) =>
@@ -42,8 +43,11 @@ function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL) {
       { roleKey: "planner", card: { title: "Planner" } },
     ],
   } as unknown as RoleService;
+  const officeInstructions = {
+    current: () => Promise.resolve({ version: 2, text: instructionsNow }),
+  } as unknown as OfficeInstructions;
   const registry = new OfficeToolRegistry();
-  new ProposalOfficeTools(registry, proposals, roles).onModuleInit();
+  new ProposalOfficeTools(registry, proposals, roles, officeInstructions).onModuleInit();
   const [tool] = registry.named([name]);
   if (!tool) throw new Error(`${name} is not registered.`);
   return { tool, drafted };
@@ -190,6 +194,46 @@ describe("the propose_office_setting tool", () => {
     expect(drafted).toEqual([{ setting: "office-wide-limit", value: 5 }]);
   });
 
+  it("drafts the Office instructions' new text, without the spaces around it", async () => {
+    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
+
+    const result = await tool.run(
+      { setting: "office-instructions", text: "\n Keep it short.\nUse plain words. \n" },
+      session,
+    );
+
+    expect(result.isError).toBe(false);
+    expect(drafted).toEqual([
+      { setting: "office-instructions", value: "Keep it short.\nUse plain words." },
+    ]);
+  });
+
+  it("refuses a value that isn't of the setting's type", async () => {
+    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
+
+    await expect(tool.run({ setting: "office-instructions", value: 5 }, session)).resolves.toEqual({
+      text: "Give the whole new Office instructions as text, and no value.",
+      isError: true,
+    });
+    await expect(tool.run({ setting: "size-threshold", text: "5" }, session)).resolves.toEqual({
+      text: "Give the new size-threshold as value, and no text.",
+      isError: true,
+    });
+    await expect(tool.run({ setting: "office-wide-limit" }, session)).resolves.toMatchObject({
+      isError: true,
+    });
+    expect(drafted).toEqual([]);
+  });
+
+  it("tells the Agent to give the text whole, from the text now", () => {
+    const { tool } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
+
+    const schema = JSON.stringify(z.toJSONSchema(tool.input));
+
+    expect(schema).toContain("given whole");
+    expect(schema).toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
+  });
+
   it("gives the Agent the owner's reasons a Proposal is refused", async () => {
     const { tool } = toolDrafting(
       "The Office-wide limit is 3 already.",
@@ -199,6 +243,26 @@ describe("the propose_office_setting tool", () => {
     await expect(tool.run({ setting: "office-wide-limit", value: 3 }, session)).resolves.toEqual({
       text: "The Office-wide limit is 3 already.",
       isError: true,
+    });
+  });
+});
+
+describe("the read_office_instructions tool", () => {
+  it("answers the text now", async () => {
+    const { tool } = toolDrafting(undefined, READ_OFFICE_INSTRUCTIONS_TOOL, "Keep it short.");
+
+    await expect(tool.run({}, session)).resolves.toEqual({
+      text: "Keep it short.",
+      isError: false,
+    });
+  });
+
+  it("says so when they are empty", async () => {
+    const { tool } = toolDrafting(undefined, READ_OFFICE_INSTRUCTIONS_TOOL);
+
+    await expect(tool.run({}, session)).resolves.toEqual({
+      text: "The Office instructions are empty.",
+      isError: false,
     });
   });
 });

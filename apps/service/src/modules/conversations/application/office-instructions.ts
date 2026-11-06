@@ -2,12 +2,16 @@ import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeInstructionsChanged } from "../domain/conversation-events.js";
 import { OfficeInstructionsVersionNotFound } from "../domain/office-instructions-version-not-found.js";
+import { ProposalRefused } from "../domain/proposal-refused.js";
 import {
   NO_OFFICE_INSTRUCTIONS,
   versionAfter,
   type OfficeInstructionsVersion,
 } from "../domain/office-instructions.js";
 import { OfficeInstructionsRepository } from "../ports/office-instructions-repository.js";
+
+const CHANGED_SINCE_THE_DRAFT =
+  "The Office instructions changed after this was drafted, and applying it would overwrite that. Ask the Office Manager for a new draft.";
 
 /**
  * The Office instructions for the session starts (spec §2.2): as with a Role card, a new session
@@ -35,10 +39,27 @@ export class OfficeInstructions {
   }
 
   /** The current text again makes no new version and announces nothing. Answers the current one. */
-  async save(text: string): Promise<OfficeInstructionsVersion> {
+  save(text: string): Promise<OfficeInstructionsVersion> {
+    return this.update((current) => versionAfter(current, text));
+  }
+
+  /**
+   * As `save`, for a Proposal drafted from the text `from`: refused, saving nothing, once the text
+   * is another, so an edit made since is never overwritten.
+   */
+  replace(from: string, text: string): Promise<OfficeInstructionsVersion> {
+    return this.update((current) => {
+      if (current.text !== from) throw new ProposalRefused([CHANGED_SINCE_THE_DRAFT]);
+      return versionAfter(current, text);
+    });
+  }
+
+  private async update(
+    change: (current: OfficeInstructionsVersion) => OfficeInstructionsVersion | undefined,
+  ): Promise<OfficeInstructionsVersion> {
     let changed = false;
     const saved = await this.repository.update((current) => {
-      const next = versionAfter(current, text);
+      const next = change(current);
       changed = next !== undefined;
       return next;
     }, new Date());

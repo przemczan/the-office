@@ -21,6 +21,7 @@ import {
   LIST_SOURCE_SKILLS_TOOL,
   POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
+  READ_OFFICE_INSTRUCTIONS_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL,
@@ -147,9 +148,11 @@ describe("chatOfficeTools", () => {
 
     expect(tools).toContain(PROPOSE_ROLE_TOOL);
     expect(tools).toContain(PROPOSE_OFFICE_SETTING_TOOL);
+    expect(tools).toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
     expect(tools).not.toContain(CHANGE_ROLE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_ROLE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
   });
 
   it("gives everyone reading an Initiative by its id, the Office Manager too", () => {
