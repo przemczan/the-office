@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { headProblem, type ExpectedHead } from "../domain/stage-commit.js";
+import {
+  branchKept,
+  branchMovedWords,
+  headProblem,
+  type ExpectedHead,
+} from "../domain/stage-commit.js";
 import { actsNow } from "../domain/stage-interruption.js";
 import type { StageInterruption, StageOutcome, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
@@ -13,8 +18,10 @@ type StageAt = Pick<StageWork, "run" | "earlierRuns">;
 /** Where a Stage starts from, or why it can't start. */
 export interface StageStart {
   readonly expected: ExpectedHead;
-  /** The run's failure when HEAD isn't where The Office left it; the Stage doesn't start. */
+  /** The run's failure when HEAD moved somewhere only the user can judge; the Stage doesn't start. */
   readonly refusal: StageOutcome | undefined;
+  /** What the Stage's Agent should know of how the branch changed since the last Stage. */
+  readonly branchNews: string | undefined;
 }
 
 /**
@@ -29,20 +36,41 @@ export class StageGit {
     private readonly runs: StageRunRepository,
   ) {}
 
-  /** Where the Stage expects HEAD, and a refusal when it isn't there. */
+  /**
+   * Where the Stage expects HEAD. Not where The Office left it, HEAD is taken as it is when the
+   * user said to keep it or it moved along the base; any other move refuses the Stage (spec §2.3).
+   */
   async start(work: StageAt, task: TaskRecord): Promise<StageStart> {
     const expected = await this.expectedHead(work, task);
-    const problem = await this.checkHead(work.run, task, expected);
+    const head = await this.git.head(task.project.id, work.run.taskId);
+    const problem = headProblem(expected, head);
+    if (problem === undefined) return { expected, refusal: undefined, branchNews: undefined };
+    if (head.branch === expected.branch && (await this.takesMove(work, task, expected))) {
+      return {
+        expected: { ...expected, commit: head.commit },
+        refusal: undefined,
+        branchNews: branchMovedWords(expected.commit, head.commit),
+      };
+    }
+    await this.runs.saveHeadCommit(work.run.id, expected.commit);
     return {
       expected,
-      refusal:
-        problem === undefined
-          ? undefined
-          : {
-              status: "failed",
-              error: `The Task's worktree isn't where The Office left it: ${problem}. The Stage didn't start; put the branch back to go on.`,
-            },
+      branchNews: undefined,
+      refusal: {
+        status: "failed",
+        error: `The Task's worktree isn't where The Office left it: ${problem}. The Stage didn't start.`,
+        branchMoved: true,
+      },
     };
+  }
+
+  private async takesMove(
+    { run, earlierRuns }: StageAt,
+    task: TaskRecord,
+    expected: ExpectedHead,
+  ): Promise<boolean> {
+    if (branchKept(earlierRuns)) return true;
+    return this.git.movedAlongBase(task.project.id, run.taskId, expected.commit);
   }
 
   /**

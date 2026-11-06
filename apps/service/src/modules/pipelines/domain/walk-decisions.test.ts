@@ -230,6 +230,45 @@ describe("acceptedIssues", () => {
   });
 });
 
+describe("the branch-moved Decision", () => {
+  const error = "The Task's worktree isn't where The Office left it: HEAD moved.";
+  const run = aRun("implement", { status: "failed", error, branchMoved: true });
+  const question = { kind: "branch-moved", stage: implement, error } as const;
+
+  it("offers to keep the branch, to run the Stage after putting it back, or to drop the Task", () => {
+    const decision = walkDecision(run, question);
+
+    expect(decision.draft.options).toEqual([
+      "Keep the branch as it is",
+      'I put the branch back: run "Implement" again',
+      "Drop the Task",
+    ]);
+    expect(decision.options).toEqual([
+      { kind: "keep-branch", guidance: undefined },
+      { kind: "one-more-round", guidance: undefined },
+      { kind: "drop" },
+    ]);
+    expect(decision.draft.context).toContain(error);
+  });
+
+  it("is the user's, not the CTO's", () => {
+    expect(asksTheCtoFirst(question, [run])).toBe(false);
+  });
+
+  it("keeps the branch on words of the user's own, guided by them", () => {
+    const decision: StageRunDecision = {
+      id: "decision-1",
+      ...walkDecision(run, question),
+      answer: undefined,
+    };
+
+    expect(walkAnswerOf(decision, { kind: "free-answer", text: " try again " })).toEqual({
+      kind: "keep-branch",
+      guidance: "try again",
+    });
+  });
+});
+
 describe("the base-moved Decision", () => {
   it("offers to run Publish again, to continue without publishing, or to drop the Task", () => {
     const publish: Stage = {

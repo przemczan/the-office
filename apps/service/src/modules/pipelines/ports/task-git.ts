@@ -24,6 +24,12 @@ export abstract class TaskGit {
    */
   abstract discard(projectId: string, taskId: string): Promise<readonly string[]>;
 
+  /**
+   * Whether the worktree's HEAD descends from `from` and is in the freshly fetched base's history,
+   * with nothing uncommitted: a move along the base, which loses nothing (spec §2.3).
+   */
+  abstract movedAlongBase(projectId: string, taskId: string, from: string): Promise<boolean>;
+
   /** A few lines of what the Task's commits changed so far; undefined while nothing. */
   abstract changesSoFar(projectId: string, taskId: string): Promise<string | undefined>;
 

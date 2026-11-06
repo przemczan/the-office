@@ -1,4 +1,4 @@
-import type { StageOutcome } from "./stage-run.js";
+import type { StageOutcome, StageRun } from "./stage-run.js";
 import type { AcceptedIssue } from "./walk-decisions.js";
 
 /** git's own advice for a subject line; longer ones are cut where a log shows them. */
@@ -56,6 +56,19 @@ export function headProblem(
     return `HEAD moved from ${short(expected.commit)} to ${short(actual.commit)}`;
   }
   return undefined;
+}
+
+/** Whether the last run ended with the user keeping a branch that moved outside The Office. */
+export function branchKept(runs: readonly StageRun[]): boolean {
+  const decisions = runs.at(-1)?.decisions ?? [];
+  return decisions.some(
+    ({ kind, answer }) => kind === "branch-moved" && answer?.kind === "keep-branch",
+  );
+}
+
+/** What the Stage's Agent is told of a branch that moved since the last Stage (spec §2.3). */
+export function branchMovedWords(from: string, to: string): string {
+  return `The Task's branch moved from ${short(from)} to ${short(to)} since the last Stage: read again whatever you read before.`;
 }
 
 function resultText(outcome: StageOutcome): string {

@@ -57,6 +57,11 @@ export type StageOutcome = (
        * goes to Resolve rather than going back (spec §2.3, "Conflicts at Publish").
        */
       readonly baseMoved?: BaseMoved;
+      /**
+       * Set on a run The Office refused as it found the branch moved somewhere other than along
+       * the base: the user is asked, and no round goes (spec §2.3).
+       */
+      readonly branchMoved?: true;
     }
 ) & { readonly handoverNote?: string };
 
@@ -153,11 +158,18 @@ export interface SentBack {
 /**
  * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
- * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), or a
- * Publish that found the Task's branch no longer applies cleanly on the base branch.
+ * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), a Publish
+ * that found the Task's branch no longer applies cleanly on the base branch, or a branch moved
+ * outside The Office.
  */
 export type StageDecisionKind =
-  "agent" | "no-retries-left" | "budget" | "definition-of-done" | "restart" | "base-moved";
+  | "agent"
+  | "no-retries-left"
+  | "budget"
+  | "definition-of-done"
+  | "restart"
+  | "base-moved"
+  | "branch-moved";
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =
@@ -182,6 +194,8 @@ export type WalkAnswer =
   | { readonly kind: "raise-budget"; readonly tokens: number }
   /** The user resolved the conflict Resolve gave up on in the worktree: The Office commits it. */
   | { readonly kind: "resolved-in-worktree" }
+  /** The Stage runs from the branch as it is now, guided by the user's words, if any. */
+  | { readonly kind: "keep-branch"; readonly guidance: string | undefined }
   | { readonly kind: "drop" };
 
 /**

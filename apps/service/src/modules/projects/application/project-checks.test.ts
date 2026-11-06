@@ -56,6 +56,7 @@ class FakeGit extends Git {
   mergeBase = notUsed;
   rebase = notUsed;
   merge = notUsed;
+  hasUncommittedChanges = notUsed;
   mergeConflicts = notUsed;
   concludeMerge = notUsed;
   abortMerge = notUsed;

@@ -259,6 +259,9 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<MergeStart>;
 
+  /** Whether the worktree holds any change or untracked file git doesn't ignore. */
+  abstract hasUncommittedChanges(worktreePath: string, variables: GitVariables): Promise<boolean>;
+
   /** The files the worktree's merge in progress conflicted in, none when no merge is in progress. */
   abstract mergeConflicts(worktreePath: string): Promise<readonly string[]>;
 

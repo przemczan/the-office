@@ -32,6 +32,7 @@ import { ProjectService } from "./application/project-service.js";
 import { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
 import { RepositoryClones } from "./application/repository-clones.js";
 import { Publishing } from "./application/publishing.js";
+import { BranchUpdates } from "./application/branch-updates.js";
 import { Resolving } from "./application/resolving.js";
 import { ScriptCommands } from "./application/script-commands.js";
 import { TaskWorktrees } from "./application/task-worktrees.js";
@@ -99,6 +100,7 @@ export class ProjectsModule {
         ScriptCommands,
         Publishing,
         Resolving,
+        BranchUpdates,
         TaskWorktrees,
         BaseCheckouts,
         BaseBranchFiles,

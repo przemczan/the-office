@@ -369,7 +369,8 @@ describe("A Publish Stage", () => {
     expect((await runsOf(pipelines, taskId))[0]?.outcome).toEqual({
       status: "failed",
       error:
-        "The Task's worktree isn't where The Office left it: the worktree is on the branch main, not the Task's branch office/task. The Stage didn't start; put the branch back to go on.",
+        "The Task's worktree isn't where The Office left it: the worktree is on the branch main, not the Task's branch office/task. The Stage didn't start.",
+      branchMoved: true,
     });
     expect(pipelines.publishing.published).toEqual([]);
   });

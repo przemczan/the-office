@@ -118,6 +118,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 
 - `base-branch-files.ts`: FOLDER_ENTRIES_LIMIT, BaseBranchCommit, BaseBranchFolder, BaseBranchFiles
 - `base-checkouts.ts`: BaseCheckout, BaseCheckouts
+- `branch-updates.ts`: BranchUpdates
 - `command-environment.ts`: commandEnvironment
 - `engine-levels-checks.ts`: EngineLevelsSave, EngineLevelsCheck, EngineLevelsChecks
 - `environment-checks.ts`: EnvironmentChecks
@@ -138,7 +139,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `script-commands.ts`: ScriptCommandKey, MovedFiles, ScriptCommandRun, ScriptCommands
 - `task-worktrees.ts`: SessionWorktree, TaskWorktrees
 - `worktrees.ts`: BaseBranch, TaskWorktree, InstallOptions, Installation, TaskChanges, ThrowawayWorktree, Worktrees
-- Tests: base-branch-files.test.ts, base-checkouts.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, project-levels-engine-removal.test.ts, publishing-branch-only.test.ts, publishing-merge.test.ts, publishing-pull-request.test.ts, repositories-by-url.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
+- Tests: base-branch-files.test.ts, base-checkouts.test.ts, branch-updates.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, project-levels-engine-removal.test.ts, publishing-branch-only.test.ts, publishing-merge.test.ts, publishing-pull-request.test.ts, repositories-by-url.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
 
 ### domain/
 

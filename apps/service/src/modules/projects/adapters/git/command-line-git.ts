@@ -414,6 +414,15 @@ export class CommandLineGit extends Git {
     });
   }
 
+  async hasUncommittedChanges(worktreePath: string, variables: GitVariables): Promise<boolean> {
+    const output = await this.process.output({
+      folder: worktreePath,
+      gitArguments: ["status", "--porcelain=v1"],
+      variables,
+    });
+    return output.trim() !== "";
+  }
+
   async mergeConflicts(worktreePath: string): Promise<readonly string[]> {
     return unmergedFiles(this.process, worktreePath);
   }

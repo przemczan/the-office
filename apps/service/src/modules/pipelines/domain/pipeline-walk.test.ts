@@ -304,6 +304,50 @@ describe("nextMove", () => {
     ).toEqual({ move: "drop" });
   });
 
+  describe("a branch moved outside The Office", () => {
+    const moving = [agentStage("write"), agentStage("after")];
+    const error = "The Task's worktree isn't where The Office left it.";
+    const moved: StageOutcome = { status: "failed", error, branchMoved: true };
+
+    it("asks, and uses no round whatever the answer", () => {
+      expect(nextMove(moving, runs(["write", moved]), NO_DEFINITION_OF_DONE)).toEqual({
+        move: "ask",
+        run: expect.objectContaining({ id: "run-1" }),
+        question: { kind: "branch-moved", stage: moving[0], error },
+      });
+      const waiting = runs(["write", moved, decided("branch-moved")]);
+      expect(nextMove(moving, waiting, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
+    });
+
+    it.each([
+      { kind: "keep-branch", guidance: undefined },
+      { kind: "one-more-round", guidance: undefined },
+    ] as const)("runs the same Stage again after $kind", (answer) => {
+      const answered = runs(["write", moved, decided("branch-moved", answer)]);
+      expect(nextMove(moving, answered, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: moving[0],
+        carriedFailure: undefined,
+        sentBack: undefined,
+      });
+    });
+
+    it("carries the user's words into the Stage's next run", () => {
+      const answer = { kind: "keep-branch", guidance: "Read the new menu first." } as const;
+      const answered = runs(["write", moved, decided("branch-moved", answer)]);
+      expect(nextMove(moving, answered, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: moving[0],
+        carriedFailure: { guidance: "Read the new menu first." },
+      });
+    });
+
+    it("drops the Task when the user says so", () => {
+      const answered = runs(["write", moved, decided("branch-moved", { kind: "drop" })]);
+      expect(nextMove(moving, answered, NO_DEFINITION_OF_DONE)).toEqual({ move: "drop" });
+    });
+  });
+
   describe("a conflict at Publish", () => {
     const publish = {
       ...scriptStage("publish"),

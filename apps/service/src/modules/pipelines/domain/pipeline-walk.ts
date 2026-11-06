@@ -28,6 +28,7 @@ export type WalkQuestion =
    * or, with no Agent Stage to resolve it, Publish found the Task's branch conflicts with the base.
    */
   | { readonly kind: "base-moved"; readonly stage: Stage; readonly error: string }
+  | { readonly kind: "branch-moved"; readonly stage: Stage; readonly error: string }
   /**
    * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
    * `again`, the last Agent Stage (or the last Stage when there is none).
@@ -174,6 +175,7 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       if (outcome.interrupted === "restart") return afterRestart(run, stage);
       // Held by the user: the walk stays at the Stage, with the failure it carried, using no round.
       if (outcome.interrupted) return undefined;
+      if (outcome.branchMoved) return afterBranchMoved(walk, run, stage, outcome.error);
       if (outcome.baseMoved) return afterBaseMoved(walk, run, stage, outcome.error);
       if (outcome.budgetReached) return afterBudget(walk, run, stage, outcome.budgetReached);
       return stage.key === RESOLVE_KEY
@@ -246,6 +248,7 @@ function afterFailure(
     case "mark-done":
     case "raise-budget":
     case "resolved-in-worktree":
+    case "keep-branch":
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a failure.`);
   }
 }
@@ -337,6 +340,40 @@ function afterBaseMoved(
 }
 
 /**
+ * The branch moved somewhere The Office can't take as it is, so the Stage didn't start: the user
+ * is asked directly, and whatever they answer uses no round (spec §2.3). The walk stays at the
+ * Stage with the failure it carried, unless words of their own guide it.
+ */
+function afterBranchMoved(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  error: string,
+): StoppingMove | undefined {
+  const waiting = waitingOn(run, "branch-moved", { kind: "branch-moved", stage, error });
+  if (waiting) return waiting;
+  const answer = answerOf(run, "branch-moved");
+  switch (answer.kind) {
+    case "keep-branch":
+      if (answer.guidance !== undefined) {
+        const { guidance } = answer;
+        walk.position = {
+          index: walk.position.index,
+          carriedFailure: { stageKey: stage.key, error, round: 1, rounds: 1, guidance },
+          sentBack: undefined,
+        };
+      }
+      return undefined;
+    case "one-more-round":
+      return undefined;
+    case "drop":
+      return { move: "drop" };
+    default:
+      throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after the branch moved.`);
+  }
+}
+
+/**
  * Resolve gave up, or left a conflict that came back too often to the user, who is asked
  * directly, not the CTO (spec §2.3): once they resolved it in the worktree Resolve runs again to
  * commit it, words of their own guide one more round of Resolve, or they drop the Task.
@@ -411,6 +448,7 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
     case "accept-issues":
     case "raise-budget":
     case "resolved-in-worktree":
+    case "keep-branch":
       throw new Error(
         `Stage run ${run.id} was answered "${answer.kind}" at the Definition of Done.`,
       );

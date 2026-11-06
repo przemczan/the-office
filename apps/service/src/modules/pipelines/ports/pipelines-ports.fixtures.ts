@@ -488,12 +488,18 @@ export class TaskGitForTests extends TaskGit {
     | undefined = undefined;
   /** The Tasks whose worktrees The Office removed, in order. */
   readonly removedWorktrees: string[] = [];
+  /** The Tasks whose branch moved along the base, so The Office takes the move as it is. */
+  readonly movesAlongBase = new Set<string>();
   /** Set when removing a worktree fails, as a file a process holds on Windows makes it. */
   removalFailure: string | undefined = undefined;
 
   /** Moves the Task's HEAD, as an Agent with git of its own would. */
   move(taskId: string, head: WorktreeHead): void {
     this.heads.set(taskId, head);
+  }
+
+  movedAlongBase(_projectId: string, taskId: string): Promise<boolean> {
+    return Promise.resolve(this.movesAlongBase.has(taskId));
   }
 
   head(_projectId: string, taskId: string): Promise<WorktreeHead> {

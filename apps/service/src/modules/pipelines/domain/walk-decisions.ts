@@ -53,6 +53,8 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
       return restartDecision(question.stage, run);
     case "base-moved":
       return baseMovedDecision(question.stage, question.error);
+    case "branch-moved":
+      return branchMovedDecision(question.stage, question.error);
   }
 }
 
@@ -67,6 +69,8 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
     return chosen;
   }
   if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
+  if (decision.kind === "branch-moved")
+    return { kind: "keep-branch", guidance: answer.text.trim() };
   const raise = decision.options.find(({ kind }) => kind === "raise-budget");
   if (decision.kind === "budget" && raise) return raise;
   return {
@@ -157,6 +161,31 @@ function noRetriesLeft(stage: Stage, error: string): WalkDecision {
       },
     },
     options: [again.answer, { kind: "accept-issues" }, { kind: "drop" }],
+  };
+}
+
+/** Another round can't help here: only the user knows what the move was (spec §2.3). */
+function branchMovedDecision(stage: Stage, error: string): WalkDecision {
+  return {
+    kind: "branch-moved",
+    draft: {
+      question: `The Task's branch moved outside The Office, so "${stage.name}" didn't start. What now?`,
+      context: `${error}\n\nOr answer in your own words: the branch stays as it is, and your answer guides the Stage.`,
+      options: [
+        "Keep the branch as it is",
+        `I put the branch back: run "${stage.name}" again`,
+        DROP_THE_TASK,
+      ],
+      recommendation: {
+        option: 0,
+        reason: "The Stage goes on from the branch as it is now, so nothing on it is lost.",
+      },
+    },
+    options: [
+      { kind: "keep-branch", guidance: undefined },
+      { kind: "one-more-round", guidance: undefined },
+      { kind: "drop" },
+    ],
   };
 }
 

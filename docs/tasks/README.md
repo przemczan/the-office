@@ -76,6 +76,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 51 | [The Task page, round 2: the user's notes on task 48's page, with task 49](51-task-page-round-2.md) | Work and the Task page | done |
 | 52 | [The Task page, round 3: the user's notes on task 51's page](52-task-page-round-3.md) | Work and the Task page | done |
 | 53 | [The Thread in Rows, and whole commands](53-thread-in-rows.md) | Conversations | done |
+| 54 | [The Task's branch keeps up with the base](54-branch-keeps-up.md) | Work | in progress |
 | 50 | [Office instructions: general guidelines for everyone](50-office-instructions.md) | Settings | in progress |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |

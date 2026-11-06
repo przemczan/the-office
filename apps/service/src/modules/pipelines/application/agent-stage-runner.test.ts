@@ -531,7 +531,8 @@ describe("AgentStageRunner after the session", () => {
     expect(again?.stageKey).toBe("implement");
     expect(again?.outcome).toEqual({
       status: "failed",
-      error: `The Task's worktree isn't where The Office left it: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. The Stage didn't start; put the branch back to go on.`,
+      error: `The Task's worktree isn't where The Office left it: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. The Stage didn't start.`,
+      branchMoved: true,
     });
     expect(pipelines.stageThreads.requests).toHaveLength(2);
   });

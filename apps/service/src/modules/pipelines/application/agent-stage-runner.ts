@@ -130,15 +130,18 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const reached = await this.budgetCheck(work);
     if (reached) return reached;
     const task = await this.records.read(work.run.taskId);
-    const { expected, refusal } = await this.stageGit.start(work, task);
+    const { expected, refusal, branchNews } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
     if (work.interruption.requested) return this.holdWork(work, task, expected);
     const resolving = isResolveStage(work.stage)
       ? await this.resolveGit.begin(work, task, expected)
       : undefined;
     if (resolving?.kind === "ended") return resolving.outcome;
+    const brief = [resolving?.brief ?? work.stage.brief, branchNews]
+      .filter((part) => part !== undefined)
+      .join("\n\n");
     return this.work(
-      resolving ? { ...work, stage: { ...work.stage, brief: resolving.brief } } : work,
+      { ...work, stage: { ...work.stage, brief } },
       person,
       task,
       expected,

@@ -5,6 +5,7 @@ import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
 import { Publishing } from "./publishing.js";
+import { BranchUpdates } from "./branch-updates.js";
 import { Resolving } from "./resolving.js";
 import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
 import { ScriptCommands, type ScriptCommandKey, type ScriptCommandRun } from "./script-commands.js";
@@ -33,6 +34,7 @@ export class TaskWorktrees {
     private readonly scriptCommands: ScriptCommands,
     private readonly publishing: Publishing,
     private readonly resolving: Resolving,
+    private readonly branchUpdates: BranchUpdates,
   ) {}
 
   /**
@@ -59,6 +61,11 @@ export class TaskWorktrees {
       environment: this.commands.variablesFor(project.environment),
       screenshotsFolder: SCREENSHOTS_FOLDER,
     };
+  }
+
+  /** Whether the Task's branch moved from `from` along the freshly fetched base, losing nothing. */
+  async movedAlongBase(projectId: string, taskId: string, from: string): Promise<boolean> {
+    return this.branchUpdates.movedAlongBase(await this.projects.read(projectId), taskId, from);
   }
 
   /** The commit and branch the Task's worktree has checked out. */

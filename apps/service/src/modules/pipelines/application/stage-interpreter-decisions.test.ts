@@ -21,7 +21,7 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { aCommandRun, aPerson } from "../ports/pipelines-ports.fixtures.js";
+import { aCommandRun, aPerson, aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 
 function scriptStage(key: string, onFailure?: OnFailure): Stage {
@@ -37,6 +37,7 @@ function scriptStage(key: string, onFailure?: OnFailure): Stage {
 
 const draft = anAgentStage("draft");
 const agentDone = anAgentSession(aDoneResult());
+const A_WAITING = anAgentSession(A_WAITING_RESULT);
 let pipelines: PipelinesApplication;
 
 /** The Stage Thread a DecisionAnswered tells of, as Conversations keeps it. */
@@ -120,6 +121,77 @@ function failuresPutTo(): (string | undefined)[] {
 }
 
 describe("StageInterpreter's Decisions", () => {
+  describe("a branch moved outside The Office", () => {
+    const moved = "a".repeat(40);
+    const branch = aTaskRecord().worktree.branch;
+
+    /** A Stage that waits on its Agent's Decision, the branch moved meanwhile. */
+    async function movedWhileWaiting(options: { alongBase: boolean }): Promise<{
+      taskId: string;
+      asked: ReturnType<typeof anAskedDecision>;
+    }> {
+      await startWith(A_WAITING, agentDone);
+      const asked = anAskedDecision();
+      asksOnce(pipelines, asked);
+      const taskId = await walkStages(pipelines, [draft]);
+      pipelines.git.move(taskId, { commit: moved, branch });
+      if (options.alongBase) pipelines.git.movesAlongBase.add(taskId);
+      return { taskId, asked };
+    }
+
+    it("takes a move along the base and tells the Agent, asking nobody", async () => {
+      const { taskId, asked } = await movedWhileWaiting({ alongBase: true });
+
+      await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
+
+      expect(pipelines.stageThreads.requests.at(-1)?.work).toContain(
+        "The Task's branch moved from ",
+      );
+      expect(pipelines.decisions.on(taskId)).toEqual([]);
+      expect(await statusesOf(taskId)).toEqual([
+        ["draft", "needs-decision"],
+        ["draft", "done"],
+      ]);
+    });
+
+    it("asks the user alone about any other move, even with a CTO hired", async () => {
+      const { taskId, asked } = await movedWhileWaiting({ alongBase: false });
+      hireTheCto();
+
+      await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
+
+      const [decision] = pipelines.decisions.on(taskId);
+      expect(decision?.putTo).toBeUndefined();
+      expect(decision?.draft.options[0]).toBe("Keep the branch as it is");
+      expect(pipelines.stageThreads.requests).toHaveLength(1);
+    });
+
+    it("runs the Stage from the branch as it is once the user keeps it", async () => {
+      const { taskId, asked } = await movedWhileWaiting({ alongBase: false });
+      await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
+
+      await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+
+      expect(pipelines.stageThreads.requests).toHaveLength(2);
+      expect(await statusesOf(taskId)).toEqual([
+        ["draft", "needs-decision"],
+        ["draft", "failed"],
+        ["draft", "done"],
+      ]);
+      expect(statesOf(taskId).at(-1)).toBe("done");
+    });
+
+    it("asks again when the user said they put the branch back, and didn't", async () => {
+      const { taskId, asked } = await movedWhileWaiting({ alongBase: false });
+      await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
+
+      await answerLastDecision(pipelines, taskId, { kind: "option", option: 1 });
+
+      expect(pipelines.decisions.on(taskId)).toHaveLength(2);
+      expect(pipelines.stageThreads.requests).toHaveLength(1);
+    });
+  });
+
   describe("a round limit", () => {
     const measure = scriptStage("measure", { goBackTo: "draft", rounds: 1 });
 
