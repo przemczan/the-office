@@ -61,8 +61,8 @@ declare module "@tanstack/react-router" {
 }
 
 /**
- * What opens over any page (spec §4): the chat with a person, by their Role's key, and the Thread
- * shown in it; or the Needs you panel.
+ * What opens from any address (spec §4): the Needs you panel, and the chat drawer on a person, by
+ * their Role's key, and a Thread, which the shell takes out of the address as it opens.
  */
 export interface OverPageSearch {
   readonly chat?: string;
@@ -268,7 +268,8 @@ const projectRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
-// At the Project's bare address, no redirect: one would drop a link's ?chat=…&thread=….
+// At the Project's bare address, no redirect: one would drop a link's ?chat=…&thread=… before the
+// shell takes them in.
 const projectOverviewRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "/",

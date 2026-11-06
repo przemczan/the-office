@@ -9,8 +9,9 @@ body,
 
 .shell {
   display: grid;
-  /* The rail sets its own width, icon-only or expanded, and the page takes the rest. */
-  grid-template-columns: auto minmax(0, 1fr);
+  /* The rail sets its own width, icon-only or expanded, the chat drawer takes its own beside the
+     page, and the page takes the rest. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: 56px 48px minmax(0, 1fr);
   height: 100vh;
 }
@@ -139,7 +140,7 @@ body,
 
 /* ---- top bar */
 .shell-top {
-  grid-column: 2;
+  grid-column: 2 / -1;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -191,7 +192,7 @@ body,
 
 /* ---- status strip */
 .shell-strip {
-  grid-column: 2;
+  grid-column: 2 / -1;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -332,10 +333,13 @@ body,
 }
 
 /* ---- page */
+/* A page lays itself out by its own width, which the chat drawer can take from: `@container page`,
+   with each width the window's less the icon-only rail's 56px. */
 .shell-main {
   grid-column: 2;
   min-width: 0;
   overflow: auto;
+  container: page / inline-size;
 }
 
 /* ---- panels: three filling the width, folding to two, then one */
@@ -434,7 +438,7 @@ body,
   color: var(--fg-3);
 }
 
-@media (max-width: 1280px) {
+@container page (max-width: 1224px) {
   .desk {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   }
@@ -448,14 +452,23 @@ body,
   }
 }
 
+/* A phone's top bar keeps each action's mark alone. */
+@media (max-width: 600px) {
+  .shell-top-words {
+    display: none;
+  }
+}
+
 /* One panel. The phone's own layout (bottom tabs, no rail) is tier 2. */
-@media (max-width: 720px) {
+@container page (max-width: 664px) {
   .desk {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
     padding: 14px;
   }
+}
 
+@media (max-width: 720px) {
   .shell-top,
   .shell-strip {
     padding: 0 14px;

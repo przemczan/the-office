@@ -34,6 +34,9 @@ import { PostgresFireAlarmLiftRepository } from "./adapters/postgres/postgres-fi
 import { FireAlarmLiftRepository } from "./ports/fire-alarm-lift-repository.js";
 import { AllowChanges } from "./application/allow-changes.js";
 import { PostgresChangesAllowedRepository } from "./adapters/postgres/postgres-changes-allowed-repository.js";
+import { PostgresChatActivityRepository } from "./adapters/postgres/postgres-chat-activity-repository.js";
+import { ChatActivity } from "./application/chat-activity.js";
+import { ChatActivityRepository } from "./ports/chat-activity-repository.js";
 import { ChangesAllowedRepository } from "./ports/changes-allowed-repository.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { LinkCards } from "./application/link-cards.js";
@@ -92,6 +95,8 @@ export class ConversationsModule {
         { provide: OfficeInstructionsRepository, useClass: PostgresOfficeInstructionsRepository },
         { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
         { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
+        { provide: ChatActivityRepository, useClass: PostgresChatActivityRepository },
+        ChatActivity,
         ContextPolicySettingsService,
         OfficeInstructions,
         ThreadService,

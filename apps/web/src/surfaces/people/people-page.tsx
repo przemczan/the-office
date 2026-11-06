@@ -4,7 +4,7 @@ import type { Preset, Role } from "@the-office/contracts";
 import { Alert, Avatar, Button, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
-import { useChat } from "../../shell/chat/use-chat.ts";
+import { useChat } from "../../shell/chat/use-chat.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
 import { inGridOrder } from "./people-order.ts";

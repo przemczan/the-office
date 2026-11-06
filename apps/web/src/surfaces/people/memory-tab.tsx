@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import { addMemoryNote, clearMemory, deleteMemoryNote, roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
-import { useChat } from "../../shell/chat/use-chat.ts";
+import { useChat } from "../../shell/chat/use-chat.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";

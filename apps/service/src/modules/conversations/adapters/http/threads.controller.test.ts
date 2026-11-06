@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
+  chatActivitySchema,
   decisionListSchema,
   fireAlarmLiftsSchema,
   messageListSchema,
@@ -50,7 +51,7 @@ import { ThreadRunner } from "../../application/thread-runner.js";
 import { MentionedRecords } from "../../application/mentioned-records.js";
 import { WorkRecords } from "../../application/work-records.js";
 import { ThreadService } from "../../application/thread-service.js";
-import { DecisionAnswered } from "../../domain/conversation-events.js";
+import { DecisionAnswered, ThreadRenamed } from "../../domain/conversation-events.js";
 import type { Decision } from "../../domain/decision.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
@@ -78,6 +79,9 @@ import { FireAlarmLiftRepository } from "../../ports/fire-alarm-lift-repository.
 import { PostgresFireAlarmLiftRepository } from "../postgres/postgres-fire-alarm-lift-repository.js";
 import { ChangesAllowedRepository } from "../../ports/changes-allowed-repository.js";
 import { PostgresChangesAllowedRepository } from "../postgres/postgres-changes-allowed-repository.js";
+import { ChatActivity } from "../../application/chat-activity.js";
+import { ChatActivityRepository } from "../../ports/chat-activity-repository.js";
+import { PostgresChatActivityRepository } from "../postgres/postgres-chat-activity-repository.js";
 
 let app: INestApplication;
 let url: string;
@@ -145,6 +149,8 @@ beforeEach(async () => {
       ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
+      { provide: ChatActivityRepository, useClass: PostgresChatActivityRepository },
+      ChatActivity,
       MentionedRecords,
       WorkRecords,
       StageThreads,
@@ -1047,5 +1053,157 @@ describe("Allow changes", () => {
       "Only the Caretaker's chat has Allow changes.",
     ]);
     expect((await send("PUT", `/threads/${randomUUID()}/allow-changes`)).status).toBe(404);
+  });
+});
+
+async function aChatThread(roleKey: string): Promise<Thread> {
+  const { id } = threadSchema.parse(await (await send("POST", `/chats/${roleKey}/threads`)).json());
+  return app.get(ThreadService).read(id);
+}
+
+async function answerIn(thread: Thread, text: string): Promise<string> {
+  const [answer] = await app
+    .get(ThreadService)
+    .log(thread.id, [{ kind: "person", roleKey: thread.roleKey, text }]);
+  if (!answer) throw new Error("Nothing was logged.");
+  return answer.id;
+}
+
+async function reading(threadId: string): Promise<boolean | null> {
+  const response = await get(`/threads/${threadId}`);
+  return threadSchema.parse(await response.json()).answered;
+}
+
+async function activityOf(roleKey: string) {
+  const activity = chatActivitySchema.parse(await (await get("/chats/activity")).json());
+  return activity.find((person) => person.roleKey === roleKey);
+}
+
+describe("what the user has seen in a chat", () => {
+  it("counts an answer as answered until its message is seen, and tells the web", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = await aChatThread(roleKey);
+    expect(await reading(thread.id)).toBe(false);
+    const answer = await answerIn(thread, "Done.");
+
+    expect(await reading(thread.id)).toBe(true);
+    expect((await activityOf(roleKey))?.answered.map(({ threadId }) => threadId)).toEqual([
+      thread.id,
+    ]);
+
+    published.length = 0;
+    const seen = await send("PUT", `/threads/${thread.id}/seen`, { messageId: answer });
+
+    expect(threadSchema.parse(await seen.json()).answered).toBe(false);
+    expect((await activityOf(roleKey))?.answered).toEqual([]);
+    expect(webEvents()).toEqual([{ type: "thread.seen", threadId: thread.id, home: thread.home }]);
+  });
+
+  it("keeps a later message answered when an earlier one is marked seen", async () => {
+    const thread = await aChatThread(aPerson("Jan", true));
+    const first = await answerIn(thread, "First.");
+    const second = await answerIn(thread, "Second.");
+
+    await send("PUT", `/threads/${thread.id}/seen`, { messageId: first });
+    expect(await reading(thread.id)).toBe(true);
+
+    await send("PUT", `/threads/${thread.id}/seen`, { messageId: second });
+    await send("PUT", `/threads/${thread.id}/seen`, { messageId: first });
+    await answerIn(thread, "Third.");
+    await send("PUT", `/threads/${thread.id}/seen`, { messageId: second });
+    expect(await reading(thread.id)).toBe(true);
+  });
+
+  it("never moves the record back, and says nothing when it stays", async () => {
+    const thread = await aChatThread(aPerson("Jan", true));
+    const first = await answerIn(thread, "First.");
+    const second = await answerIn(thread, "Second.");
+    await send("PUT", `/threads/${thread.id}/seen`, { messageId: second });
+
+    published.length = 0;
+    await send("PUT", `/threads/${thread.id}/seen`, { messageId: first });
+
+    expect(await reading(thread.id)).toBe(false);
+    expect(webEvents()).toEqual([]);
+  });
+
+  it("leaves the user's own messages and switches out of what counts as answered", async () => {
+    const thread = await aChatThread(aPerson("Jan", true));
+
+    await app.get(ThreadService).log(thread.id, [
+      { kind: "user", text: "Are you there?", delivery: "delivered" },
+      { kind: "changes-allowed", allowed: true },
+    ]);
+
+    expect(await reading(thread.id)).toBe(false);
+  });
+
+  it("counts a failed turn's line, which the user should read too", async () => {
+    const thread = await aChatThread(aPerson("Jan", true));
+
+    await app
+      .get(ThreadService)
+      .log(thread.id, [{ kind: "failure", reason: "The engine stopped." }]);
+
+    expect(await reading(thread.id)).toBe(true);
+  });
+
+  it("doesn't count while the person is still answering, and says they are", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = await aChatThread(roleKey);
+    await answerIn(thread, "Reading the code…");
+    await app.get(ThreadRepository).update(thread.id, (current) => ({
+      thread: { ...current, state: "answering" },
+      logged: [],
+      event: new ThreadRenamed(current, new Date()),
+    }));
+
+    expect(await reading(thread.id)).toBe(false);
+    expect(await activityOf(roleKey)).toMatchObject({ answering: true, answered: [] });
+  });
+
+  it("has no record for a Thread on a Task, and refuses marking one", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = await app
+      .get(ThreadService)
+      .openOnTask({ taskId: randomUUID(), roleKey, title: "Asking Jan" });
+    const [message] = await app
+      .get(ThreadService)
+      .log(thread.id, [{ kind: "person", roleKey, text: "On the Task." }]);
+
+    const refused = await send("PUT", `/threads/${thread.id}/seen`, { messageId: message?.id });
+
+    expect(await reading(thread.id)).toBeNull();
+    expect(await activityOf(roleKey)).toBeUndefined();
+    expect(refused.status).toBe(422);
+    expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Only a chat's Threads keep what you have seen.",
+    ]);
+  });
+
+  it("refuses a message from another Thread, and one that isn't a Thread's", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = await aChatThread(roleKey);
+    const elsewhere = await answerIn(await aChatThread(roleKey), "Elsewhere.");
+
+    const refused = await send("PUT", `/threads/${thread.id}/seen`, { messageId: elsewhere });
+
+    expect(refused.status).toBe(422);
+    expect(
+      (await send("PUT", `/threads/${randomUUID()}/seen`, { messageId: elsewhere })).status,
+    ).toBe(404);
+  });
+
+  it("says when each Thread last moved, and when the person's chat did", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = await aChatThread(roleKey);
+    const started = threadSchema.parse(await (await get(`/threads/${thread.id}`)).json());
+    expect(started.lastMovedAt).toBe(started.startedAt);
+
+    await answerIn(thread, "Done.");
+
+    const moved = threadSchema.parse(await (await get(`/threads/${thread.id}`)).json());
+    expect(moved.lastMovedAt).not.toBe(started.startedAt);
+    expect((await activityOf(roleKey))?.lastMovedAt).toBe(moved.lastMovedAt);
   });
 });

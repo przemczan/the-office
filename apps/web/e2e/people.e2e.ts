@@ -15,6 +15,7 @@ import {
   taskSchema,
   taskStagesSchema,
   threadListSchema,
+  decisionListSchema,
   threadSchema,
   type Thread,
   type ClaudeCodeEngineEdit,
@@ -192,7 +193,7 @@ test("the user allows changes in a Caretaker Thread, confirmed, then switches th
   await page.goto("/people");
   await page.getByRole("button", { name: "Open the chat with Sam" }).click();
   const chat = chatWith(page, "Sam");
-  await chat.getByRole("button", { name: "New thread" }).first().click();
+  await startNewThread(chat);
   await expect(chat.getByText("The Caretaker only reads in this Thread.")).toBeVisible();
 
   await chat.getByRole("button", { name: "Allow changes", exact: true }).click();
@@ -949,9 +950,24 @@ test("the user hires Devops from the preset, who installs alone and consults the
   await expect(page.getByRole("button", { name: "Hire a Role" })).toHaveCount(0);
 });
 
-/** The chat open over the page. */
+/** The chat drawer, open beside the page. */
 function chatWith(page: Page, name: string) {
-  return page.getByRole("dialog", { name: `Chat with ${name}` });
+  return page.getByRole("complementary", { name: `Chat with ${name}` });
+}
+
+/** The Thread the drawer shows, which the shell keeps for this browser tab. */
+async function chatThreadShown(page: Page): Promise<string> {
+  const chat = await page.evaluate(() => sessionStorage.getItem("the-office.chat"));
+  return (JSON.parse(chat ?? "{}") as { threadId?: string }).threadId ?? "";
+}
+
+/** New thread sits in the Thread list, a step back from the open Thread. */
+async function startNewThread(chat: Locator) {
+  const back = chat.getByRole("button", { name: "Threads", exact: true });
+  const newThread = chat.getByRole("button", { name: "New thread", exact: true });
+  await expect(back.or(newThread)).toBeVisible();
+  if (await back.isVisible()) await back.click();
+  await newThread.click();
 }
 
 function contextLabel(page: Page) {
@@ -975,7 +991,7 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await page.getByRole("button", { name: "Open the chat with Jan" }).click();
   const chat = chatWith(page, "Jan");
   await expect(chat.getByText("No threads with Jan yet.")).toBeVisible();
-  await chat.getByRole("button", { name: "New thread" }).first().click();
+  await startNewThread(chat);
   await expect(contextLabel(page)).toHaveText(/^Starts a session with a Brief ~[\d.]+k? tokens$/);
 
   await chat.getByRole("textbox", { name: "Message" }).fill("Read the deploy workflow.");
@@ -1034,8 +1050,9 @@ test("a Thread is renamed, and an old one stays readable and continues", async (
   await chat.getByRole("button", { name: "Save" }).click();
   await expect(chat.getByRole("heading", { name: "Deploys" })).toBeVisible();
 
-  await chat.getByRole("button", { name: "New thread" }).first().click();
+  await startNewThread(chat);
   await expect(chat.getByRole("heading", { name: "New thread" })).toBeVisible();
+  await chat.getByRole("button", { name: "Threads", exact: true }).click();
   await chat.getByRole("button", { name: /^Deploys/ }).click();
   await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
   await chat.getByRole("textbox", { name: "Message" }).fill("Thanks.");
@@ -3037,10 +3054,10 @@ test("the user mentions a Task with @ in a chat, and the person is briefed with 
         response.request().method() === "POST" &&
         response.url().endsWith("/api/chats/planner/threads"),
     );
-    await chat.getByRole("button", { name: "New thread" }).first().click();
+    await startNewThread(chat);
     const { id: threadId } = threadSchema.parse(await (await starting).json());
     // Typed only once the new Thread shows: its composer starts with an empty draft.
-    await expect(page).toHaveURL(new RegExp(`thread=${threadId}`));
+    await expect.poll(() => chatThreadShown(page)).toBe(threadId);
     const message = chat.getByRole("textbox", { name: "Message" });
     await message.fill("Is ");
     await message.pressSequentially("@invoices");
@@ -3263,7 +3280,7 @@ test("a chat opens over each section of a Project, whose address and menu stay o
       await page.goto(withChat);
 
       await expect(chatWith(page, "Marta")).toBeVisible();
-      await expect(page).toHaveURL(withChat);
+      await expect(page).toHaveURL(address);
       await expect(openSection).toHaveText(name);
 
       await page.keyboard.press("Escape");
@@ -3306,7 +3323,7 @@ test("the user asks Nina from a Project's Commands and a library Pipeline, and a
     await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you propose a change to the ${pipeline.name} Pipeline? `,
     );
-    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+    const threadId = await chatThreadShown(page);
 
     const lint: Stage = {
       kind: "script",
@@ -3399,7 +3416,7 @@ test("the user asks Nina to onboard a Project, applies her Proposal and finds it
     await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       "Can you onboard a new Project? The repository is ",
     );
-    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+    const threadId = await chatThreadShown(page);
     await seedProposal(
       threadId,
       {
@@ -3460,7 +3477,7 @@ test("Nina's Proposal to onboard a repository by its Repository URL shows the UR
   await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
     "Can you onboard a new Project? The repository is ",
   );
-  const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+  const threadId = await chatThreadShown(page);
   await seedProposal(
     threadId,
     {
@@ -3510,7 +3527,7 @@ test("the user asks Nina to install a skill from a source, applies her Proposal 
     await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you install the skills from ${source.url}?`,
     );
-    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+    const threadId = await chatThreadShown(page);
     await seedProposal(
       threadId,
       {
@@ -3602,7 +3619,7 @@ test("the user sees a skill's update, asks Nina, reads her Proposal's diff and a
     await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       `Can you propose the update of ${name} to v1.1.0?`,
     );
-    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+    const threadId = await chatThreadShown(page);
     await seedProposal(
       threadId,
       {
@@ -4133,4 +4150,411 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
   } finally {
     await Promise.all([repository.remove(), dashboardRepository.remove()]);
   }
+});
+
+function chatButton(page: Page): Locator {
+  return page.getByRole("button", { name: /^Chat: / });
+}
+
+/** The chat drawer as it opens, on nobody yet. */
+function personPicker(page: Page): Locator {
+  return page.getByRole("complementary", { name: "Chat", exact: true });
+}
+
+/** Everything said so far has been read, so what a test looks at is all that shows. */
+async function seeEveryChat(): Promise<void> {
+  await queryOfficeDatabase(
+    `insert into thread_seen (thread_id, message_id, seen_at)
+     select distinct on (m.thread_id) m.thread_id, m.id, now()
+     from thread_messages m join threads t on t.id = m.thread_id
+     where t.home_kind = 'chat'
+     order by m.thread_id, m.position desc
+     on conflict (thread_id) do update set message_id = excluded.message_id`,
+    [],
+  );
+}
+
+async function plannersNewestThread(page: Page): Promise<{ id: string; title: string }> {
+  const response = await page.request.get("/api/chats/planner/threads");
+  const [thread] = (await response.json()) as { id: string; title: string }[];
+  if (!thread) throw new Error("Jan has no Thread.");
+  return thread;
+}
+
+/** The Role card's Chat switch, as Save on the person's page sets it. */
+async function setChatOf(page: Page, roleKey: string, chat: boolean): Promise<void> {
+  const { card } = roleSchema.parse(await (await page.request.get(`/api/roles/${roleKey}`)).json());
+  const changed = { ...card, capabilities: { ...card.capabilities, chat } };
+  expect((await page.request.put(`/api/roles/${roleKey}/card`, { data: changed })).ok()).toBe(true);
+}
+
+/** What the browser reports as the user moves to another tab and back. */
+async function setTabVisible(page: Page, visible: boolean): Promise<void> {
+  await page.evaluate((isVisible) => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (isVisible ? "visible" : "hidden"),
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, visible);
+}
+
+test.describe("the chat drawer", () => {
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+  // The Chat button leads to an answer waiting, and earlier tests leave some.
+  test.beforeEach(seeEveryChat);
+
+  test("opens from the top bar on the people with chat on, and switches person in place", async ({
+    page,
+  }) => {
+    await setChatOf(page, "developer", false);
+    await page.goto("/work");
+    await chatButton(page).click();
+
+    const picker = personPicker(page);
+    for (const name of ["Jan", "Marta", "Bob"]) {
+      await expect(picker.getByRole("button", { name: new RegExp(`^${name}`) })).toBeVisible();
+    }
+    await expect(picker.getByRole("button", { name: /^Ada/ })).toHaveCount(0);
+    await expect(picker.getByText("People with chat off aren't listed.")).toBeVisible();
+
+    await picker.getByRole("button", { name: /^Jan/ }).click();
+    const jan = chatWith(page, "Jan");
+    await expect(jan.getByRole("textbox", { name: "Message" })).toBeVisible();
+
+    await jan.getByRole("button", { name: /^Jan/ }).click();
+    const menu = page.getByRole("menu", { name: "Chat with" });
+    await expect(menu.getByRole("menuitemradio", { name: /^Ada/ })).toHaveCount(0);
+    await expect(menu.getByRole("menuitemradio", { name: /^Jan/ })).toBeChecked();
+    await menu.getByRole("menuitemradio", { name: /^Marta/ }).click();
+
+    await expect(chatWith(page, "Marta")).toBeVisible();
+    await expect(menu).toHaveCount(0);
+    await expect(page).toHaveURL(/\/work$/);
+    await setChatOf(page, "developer", true);
+  });
+
+  test("stays on its Thread through links, the rail, Back, Forward and a reload", async ({
+    page,
+  }) => {
+    const { id, title } = await plannersNewestThread(page);
+    await page.goto(`/now?chat=planner&thread=${id}`);
+    const jan = chatWith(page, "Jan");
+    const heading = jan.getByRole("heading", { name: title });
+    await expect(heading).toBeVisible();
+    await expect(page).toHaveURL(/\/now$/);
+
+    await page.getByRole("link", { name: "Work" }).first().click();
+    await expect(page).toHaveURL(/\/work$/);
+    await expect(heading).toBeVisible();
+    await page.getByRole("link", { name: "People" }).first().click();
+    await expect(page).toHaveURL(/\/people$/);
+    await expect(heading).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/work$/);
+    await expect(heading).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/people$/);
+    await expect(heading).toBeVisible();
+
+    await page.reload();
+    await expect(heading).toBeVisible();
+
+    await jan.getByRole("button", { name: "Close (Esc)" }).click();
+    await expect(jan).toHaveCount(0);
+    await expect(page).toHaveURL(/\/people$/);
+    await expect(chatButton(page)).toBeFocused();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/work$/);
+    await expect(jan).toHaveCount(0);
+  });
+
+  test("keeps a draft across pages, Threads and closing, per Thread", async ({ page }) => {
+    await page.goto("/people");
+    await page.getByRole("button", { name: "Open the chat with Jan" }).click();
+    const jan = chatWith(page, "Jan");
+    const message = jan.getByRole("textbox", { name: "Message" });
+    await message.fill("A thought I haven't finished");
+
+    await page.getByRole("link", { name: "Work" }).first().click();
+    await expect(message).toHaveValue("A thought I haven't finished");
+
+    await jan.getByRole("button", { name: "Threads", exact: true }).click();
+    await jan.getByRole("button", { name: /^Deploys/ }).click();
+    await expect(message).toHaveValue("");
+    await jan.getByRole("button", { name: "Threads", exact: true }).click();
+    await jan.locator(".chat-thread").first().click();
+    await expect(message).toHaveValue("A thought I haven't finished");
+
+    await page.keyboard.press("Escape");
+    await expect(jan).toHaveCount(0);
+    await chatButton(page).click();
+    await expect(message).toHaveValue("A thought I haven't finished");
+    await message.fill("");
+  });
+
+  test("Esc closes one thing a press: a menu, then a window, then the side panels", async ({
+    page,
+  }) => {
+    await page.goto("/work");
+    await chatButton(page).click();
+    await personPicker(page).getByRole("button", { name: /^Jan/ }).click();
+    const jan = chatWith(page, "Jan");
+    const message = jan.getByRole("textbox", { name: "Message" });
+    await message.fill("Kept through every press");
+
+    await jan.getByRole("button", { name: /^Jan/ }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu", { name: "Chat with" })).toHaveCount(0);
+    await expect(jan).toBeVisible();
+
+    await page.getByRole("button", { name: "Idea", exact: true }).click();
+    const idea = page.getByRole("dialog", { name: "Capture an Idea" });
+    await expect(idea).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(idea).toHaveCount(0);
+    await expect(jan).toBeVisible();
+
+    await page.getByRole("button", { name: /needs? you/ }).click();
+    const needsYou = page.getByRole("heading", { name: "Needs you" });
+    await expect(needsYou).toBeVisible();
+    await expect(jan).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(needsYou).toHaveCount(0);
+    await expect(jan).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(jan).toHaveCount(0);
+
+    await chatButton(page).click();
+    await expect(message).toHaveValue("Kept through every press");
+    await message.fill("");
+  });
+
+  test("a Mention of a waiting Decision opens its window over the drawer, closing alone", async ({
+    page,
+  }) => {
+    const { id: threadId } = await plannersNewestThread(page);
+    const decisions = await page.request.get("/api/decisions/open");
+    const [decision] = decisionListSchema.parse(await decisions.json());
+    if (!decision) throw new Error("No Decision is waiting.");
+    const { home } = threadSchema.parse(
+      await (await page.request.get(`/api/threads/${decision.threadId}`)).json(),
+    );
+    if (home.kind !== "task") throw new Error("A Decision waits on a Task.");
+    const link = `/tasks/${home.taskId}?taskThread=${decision.threadId}&decision=${decision.id}`;
+    await queryOfficeDatabase(
+      `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+      [
+        crypto.randomUUID(),
+        threadId,
+        { kind: "person", roleKey: "planner", text: `Have a look at [it](${link}).` },
+      ],
+    );
+    await page.goto(`/work?chat=planner&thread=${threadId}`);
+    const jan = chatWith(page, "Jan");
+    const message = jan.getByRole("textbox", { name: "Message" });
+    await message.fill("Kept behind the window");
+
+    await jan.getByRole("link", { name: /^Decision on/ }).click();
+
+    const decisionWindow = page.getByRole("dialog");
+    await expect(decisionWindow.getByRole("button", { name: "Answer", exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/work$/);
+    await page.keyboard.press("Escape");
+    await expect(decisionWindow).toHaveCount(0);
+    await expect(message).toHaveValue("Kept behind the window");
+    await message.fill("");
+  });
+
+  test("shows someone answering, then answered, and clears once the Thread is on screen", async ({
+    page,
+  }) => {
+    const { id } = await plannersNewestThread(page);
+    await page.goto("/now");
+    await expect(chatButton(page)).toHaveAccessibleName("Chat: nothing new");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "chat-button-nothing-new.png") });
+
+    await queryOfficeDatabase(`update threads set state = 'answering' where id = $1`, [id]);
+    await page.reload();
+    await expect(chatButton(page)).toHaveAccessibleName("Chat: Jan is answering");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "chat-button-answering.png") });
+
+    await queryOfficeDatabase(
+      `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+      [crypto.randomUUID(), id, { kind: "person", roleKey: "planner", text: "It is done." }],
+    );
+    await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [id]);
+    await page.reload();
+    await expect(chatButton(page)).toHaveAccessibleName("Chat: Jan answered");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "chat-button-answered.png") });
+
+    await chatButton(page).click();
+    await expect(chatWith(page, "Jan").getByText("It is done.")).toBeVisible();
+    await expect(chatButton(page)).toHaveAccessibleName("Chat: nothing new");
+    await page.reload();
+    await expect(chatButton(page)).toHaveAccessibleName("Chat: nothing new");
+  });
+
+  test("an answer landing in a hidden tab waits there, in other tabs and in another browser", async ({
+    page,
+    browser,
+  }) => {
+    await page.goto("/now");
+    await chatButton(page).click();
+    await personPicker(page).getByRole("button", { name: /^Jan/ }).click();
+    const jan = chatWith(page, "Jan");
+    await startNewThread(jan);
+    await expect(jan.getByRole("heading", { name: "New thread" })).toBeVisible();
+
+    const otherTab = await page.context().newPage();
+    await otherTab.goto("/work");
+    await expect(chatButton(otherTab)).toHaveAccessibleName("Chat: nothing new");
+    const elsewhere = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const otherBrowser = await elsewhere.newPage();
+    await otherBrowser.goto("/now");
+    await chatButton(otherBrowser).click();
+    const janInPicker = personPicker(otherBrowser).getByRole("button", { name: /^Jan/ });
+    await expect(janInPicker).toBeVisible();
+
+    await setTabVisible(page, false);
+    const message = jan.getByRole("textbox", { name: "Message" });
+    await message.fill("Tell me when it is done");
+    await message.press("Enter");
+    await expect(jan.getByText("This answer waits until you come back.")).toBeVisible();
+    await expect(message).toHaveValue("");
+
+    await expect(chatButton(page)).toHaveAccessibleName("Chat: Jan answered");
+    await expect(chatButton(otherTab)).toHaveAccessibleName("Chat: Jan answered");
+    await expect(janInPicker).toContainText("Answered");
+    await otherTab.reload();
+    await expect(chatButton(otherTab)).toHaveAccessibleName("Chat: Jan answered");
+    await otherBrowser.reload();
+    await expect(janInPicker).toContainText("Answered");
+
+    await setTabVisible(page, true);
+    await expect(chatButton(page)).toHaveAccessibleName("Chat: nothing new");
+    await expect(chatButton(otherTab)).toHaveAccessibleName("Chat: nothing new");
+    await expect(janInPicker).not.toContainText("Answered");
+    await elsewhere.close();
+    await otherTab.close();
+  });
+
+  test("pushes the page aside and resizes, remembering its width", async ({ page }) => {
+    await page.goto("/now");
+    const pageWidth = (): Promise<number> =>
+      page.locator(".shell-main").evaluate((main) => main.clientWidth);
+    const before = await pageWidth();
+    await chatButton(page).click();
+    const drawer = personPicker(page);
+    await expect(drawer).toBeVisible();
+    await expect.poll(pageWidth).toBe(before - 420);
+    await expect(page.locator(".conversation-scrim, .chat-overlay")).toHaveCount(0);
+
+    const edge = page.getByRole("separator", { name: "Resize the chat" });
+    const box = await edge.boundingBox();
+    if (!box) throw new Error("The edge isn't on the page.");
+    await page.mouse.move(box.x + 5, 300);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 5 - 100, 300);
+    await page.mouse.up();
+    await expect(edge).toHaveAttribute("aria-valuenow", "520");
+
+    await edge.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(edge).toHaveAttribute("aria-valuenow", "504");
+    await page.keyboard.press("End");
+    await expect(edge).toHaveAttribute("aria-valuenow", "720");
+    await page.keyboard.press("Home");
+    await expect(edge).toHaveAttribute("aria-valuenow", "360");
+    await edge.dblclick();
+    await expect(edge).toHaveAttribute("aria-valuenow", "420");
+    await page.keyboard.press("ArrowLeft");
+    await expect(edge).toHaveAttribute("aria-valuenow", "436");
+
+    await page.reload();
+    await expect(edge).toHaveAttribute("aria-valuenow", "436");
+    expect(await windowOverflow(page)).toBe(0);
+  });
+
+  test("lies over the page in a narrow window and fills a phone's, with nothing sideways", async ({
+    page,
+  }) => {
+    await page.goto("/now");
+    await chatButton(page).click();
+    await personPicker(page).getByRole("button", { name: /^Jan/ }).click();
+    const jan = chatWith(page, "Jan");
+    await expect(jan.getByRole("textbox", { name: "Message" })).toBeVisible();
+
+    await page.setViewportSize({ width: 900, height: 800 });
+    await expect.poll(() => jan.evaluate((chat) => getComputedStyle(chat).position)).toBe("fixed");
+    expect(await page.locator(".shell-main").evaluate((main) => main.clientWidth)).toBe(844);
+    expect(await windowOverflow(page)).toBe(0);
+
+    await page.setViewportSize({ width: 390, height: 800 });
+    await expect.poll(() => jan.evaluate((chat) => chat.clientWidth)).toBe(390);
+    await expect(page.getByRole("separator", { name: "Resize the chat" })).toHaveCount(0);
+    expect(await windowOverflow(page)).toBe(0);
+  });
+
+  test("looks as the design says at each width, in both palettes", async ({ page }) => {
+    const { id } = await plannersNewestThread(page);
+    await page.goto("/now");
+    await chatButton(page).click();
+    const shot = async (view: string, palette: string, width: number): Promise<void> => {
+      await motionSettled(page);
+      expect(await windowOverflow(page)).toBe(0);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `chat-${view}-${palette}-${width}.png`),
+      });
+    };
+    for (const palette of ["light", "dark"] as const) {
+      await showPalette(page, palette);
+      for (const width of [1600, 900, 390]) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.evaluate(() => sessionStorage.removeItem("the-office.chat"));
+        await page.goto("/now");
+        await chatButton(page).click();
+        await expect(personPicker(page)).toBeVisible();
+        await shot("picker", palette, width);
+
+        await page.goto(`/now?chat=planner&thread=${id}`);
+        const jan = chatWith(page, "Jan");
+        await expect(jan.getByRole("textbox", { name: "Message" })).toBeVisible();
+        await shot("thread", palette, width);
+
+        await jan.getByRole("button", { name: "Threads", exact: true }).click();
+        await expect(jan.getByRole("button", { name: "New thread", exact: true })).toBeVisible();
+        await shot("list", palette, width);
+      }
+    }
+    await showPalette(page, "light");
+  });
+
+  test("a Task page folds its conversation beside the drawer, its handle on the page's side", async ({
+    page,
+  }) => {
+    const tasks = (await (await page.request.get("/api/tasks")).json()) as { id: string }[];
+    const [task] = tasks;
+    if (!task) throw new Error("No Task to look at.");
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto(`/tasks/${task.id}`);
+    await expect(conversationHandle(page)).toHaveCount(0);
+
+    await chatButton(page).click();
+    await personPicker(page).getByRole("button", { name: /^Jan/ }).click();
+    await expect(conversationHandle(page)).toBeVisible();
+    const handle = await conversationHandle(page).boundingBox();
+    const chat = await chatWith(page, "Jan").boundingBox();
+    expect((handle?.x ?? 0) + (handle?.width ?? 0)).toBeLessThanOrEqual(chat?.x ?? 0);
+    expect(await windowOverflow(page)).toBe(0);
+
+    await conversationHandle(page).click();
+    await expect(page.locator(".conversation-drawer.open")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".conversation-drawer.open")).toHaveCount(0);
+    await expect(chatWith(page, "Jan")).toBeVisible();
+  });
 });

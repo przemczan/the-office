@@ -15,18 +15,22 @@ import {
   contextOverrideChoiceSchema,
   newMessageSchema,
   recordLinksIn,
+  threadSeenSchema,
   threadTitleSchema,
+  type ChatActivity as ChatActivityResponse,
   type RecordLink,
   type ContextOverrideChoice,
   type Message as MessageResponse,
   type NewMessage,
   type Thread as ThreadResponse,
+  type ThreadSeen,
   type ThreadTitle,
   type FirstBrief,
   type TaskConversation as TaskConversationResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { AllowChanges } from "../../application/allow-changes.js";
+import { ChatActivity } from "../../application/chat-activity.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
@@ -37,6 +41,7 @@ import { ThreadService } from "../../application/thread-service.js";
 import type { Mention } from "../../domain/mention.js";
 import type { Thread } from "../../domain/thread.js";
 import {
+  toChatActivityResponse,
   toMessageResponse,
   toTaskConversationResponse,
   toThreadResponse,
@@ -54,8 +59,15 @@ export class ThreadsController {
     private readonly proposals: ProposalService,
     private readonly linkCards: LinkCards,
     private readonly allowChanges: AllowChanges,
+    private readonly chatActivity: ChatActivity,
     private readonly taskConversations: TaskConversations,
   ) {}
+
+  /** Where each person's chat stands, for the Chat button and the person picker. */
+  @Get("chats/activity")
+  async activityInChats(): Promise<ChatActivityResponse> {
+    return toChatActivityResponse(await this.chatActivity.ofPeople());
+  }
 
   @Get("chats/:roleKey/threads")
   async listInChat(@Param("roleKey") roleKey: string): Promise<ThreadResponse[]> {
@@ -152,6 +164,15 @@ export class ThreadsController {
     return this.toResponse(await this.allowChanges.switchOff(id));
   }
 
+  /** The user has seen the chat Thread up to the message (spec §2.4). */
+  @Put("threads/:id/seen")
+  async markSeen(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(threadSeenSchema)) { messageId }: ThreadSeen,
+  ): Promise<ThreadResponse> {
+    return this.toResponse(await this.chatActivity.markSeen(id, messageId));
+  }
+
   /**
    * The log, with each Decision's card and answer showing the Decision as it is now, each
    * Proposal's card the Proposal, and each Link card whether its person was let go.
@@ -187,7 +208,11 @@ export class ThreadsController {
   }
 
   private async toResponse(thread: Thread): Promise<ThreadResponse> {
-    return toThreadResponse(thread, await this.contexts.read(thread));
+    const [reading, activity] = await Promise.all([
+      this.contexts.read(thread),
+      this.chatActivity.inThread(thread),
+    ]);
+    return toThreadResponse(thread, reading, activity);
   }
 }
 

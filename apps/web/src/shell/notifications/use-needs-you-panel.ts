@@ -7,7 +7,7 @@ export interface NeedsYouPanelControls {
   close(): void;
 }
 
-/** The panel lives in the address (`?needsYou=true`), so it opens over any page, as a chat does. */
+/** The panel lives in the address (`?needsYou=true`), so it opens over any page. */
 export function useNeedsYouPanel(): NeedsYouPanelControls {
   const { needsYou } = useSearch({ strict: false });
   const navigate = useNavigate();

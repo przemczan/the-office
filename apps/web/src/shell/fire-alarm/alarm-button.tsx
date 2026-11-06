@@ -30,12 +30,13 @@ export function AlarmButton(): ReactNode {
         variant="danger"
         iconLeft={<Icon name="siren" size={14} />}
         title="See what will resume, then give the all clear"
+        aria-label="All clear…"
         onClick={() => {
           review.open();
           void navigate({ to: "/" });
         }}
       >
-        All clear…
+        <span className="shell-top-words">All clear…</span>
       </Button>
     );
   }
@@ -44,10 +45,11 @@ export function AlarmButton(): ReactNode {
       variant="danger-ghost"
       iconLeft={<Icon name="siren" size={14} />}
       title="Fire alarm: pause all automated work"
+      aria-label="Sound the alarm"
       loading={sounding.isPending}
       onClick={() => sounding.mutate()}
     >
-      Sound the alarm
+      <span className="shell-top-words">Sound the alarm</span>
     </Button>
   );
 }

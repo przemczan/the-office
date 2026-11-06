@@ -14,14 +14,20 @@ import { ThreadComposer } from "./thread-composer.tsx";
 import { threadTitle } from "./thread-title.ts";
 import "./conversation.css";
 
-/** A Thread as its home shows it: its title, its context label, its log and the composer. */
+/**
+ * A Thread as its home shows it: its title, its context label, its log and the composer, which keeps
+ * a draft while the Thread is out of sight.
+ */
 export function ThreadView({
   threadId,
   personName,
+  back,
   readOnlyReason,
 }: {
   readonly threadId: string;
   readonly personName: string;
+  /** The way back from the Thread, before its title. */
+  readonly back?: ReactNode;
   /** Why nothing more can be written here; the Thread stays readable and has no composer. */
   readonly readOnlyReason?: string | undefined;
 }): ReactNode {
@@ -30,6 +36,7 @@ export function ThreadView({
   return (
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
       <div className="thread-view-head">
+        {back}
         <ThreadTitle thread={thread.data} personName={personName} />
         <DetailsSwitch />
       </div>
@@ -44,6 +51,7 @@ export function ThreadView({
         thread={thread.data}
         personName={personName}
         readOnlyReason={readOnlyReason}
+        keepsDraft
       />
     </section>
   );

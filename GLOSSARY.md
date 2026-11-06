@@ -138,6 +138,10 @@ _Avoid_: Approval, prompt, question (as a noun for the record)
 One continuous exchange within a conversation on a Task, an Initiative or a person's chat; a fresh Thread starts without the previous one's context. On a Task, each person has one Thread of their own, in their tab, and each Stage run has its Stage Thread, shown in the Stage history.
 _Avoid_: Session, chat (for the record), channel
 
+**Chat drawer**:
+The side panel on the right edge where the user talks with a person in their chat, opened from any page; it lists direct chats only. Not the conversation's drawer, which is a Task's or an Initiative's own conversation folded on a narrow page.
+_Avoid_: Chat modal, chat window, chat panel
+
 **Turn**:
 One author's neighbouring messages in a Thread, shown together under one name.
 _Avoid_: Bubble

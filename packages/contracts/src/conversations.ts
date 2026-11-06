@@ -114,6 +114,13 @@ export const threadSchema = z.object({
    * (spec §2.4). Null for every Thread but the Caretaker's chat's, where there is no such switch.
    */
   changesAllowed: z.boolean().nullable(),
+  /**
+   * The person has answered and the user hasn't seen it (spec §2.4). Null outside a chat, which
+   * takes no part in the record of what the user has seen.
+   */
+  answered: z.boolean().nullable(),
+  /** Its newest message's time, or when it started while it has none. Null outside a chat. */
+  lastMovedAt: z.iso.datetime().nullable(),
 });
 export type Thread = z.infer<typeof threadSchema>;
 
@@ -153,6 +160,26 @@ export type FirstBrief = z.infer<typeof firstBriefSchema>;
 
 /** GET /chats/:roleKey/threads: the newest started first. */
 export const threadListSchema = z.array(threadSchema);
+
+/** PUT /threads/:id/seen: the newest message of the chat Thread the web has shown. */
+export const threadSeenSchema = z.object({ messageId: z.uuid() });
+export type ThreadSeen = z.infer<typeof threadSeenSchema>;
+
+/**
+ * GET /chats/activity: where each person's chat stands (spec §2.4); someone with no Threads isn't
+ * listed.
+ */
+export const chatActivitySchema = z.array(
+  z.object({
+    roleKey: z.string(),
+    /** In any of their chat's Threads. */
+    answering: z.boolean(),
+    /** The Threads whose answer the user hasn't seen, the newest answer first. */
+    answered: z.array(z.object({ threadId: z.uuid(), at: z.iso.datetime() })),
+    lastMovedAt: z.iso.datetime(),
+  }),
+);
+export type ChatActivity = z.infer<typeof chatActivitySchema>;
 
 /**
  * POST /threads/:id/messages: the user's message, which the person answers; `handoverNoteFrom`
@@ -645,6 +672,8 @@ const proposalWebEventFields = { ...threadWebEventFields, proposalId: z.uuid() }
 export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.started"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.renamed"), ...threadWebEventFields }),
+  /** The user saw more of a chat Thread, in one tab: the others update what they show as answered. */
+  webEventSchema.extend({ type: z.literal("thread.seen"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.messages-logged"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.turn-ended"), ...threadWebEventFields }),
   /** The running turn counted more tokens: the Thread's tokens now, as GET /threads/:id has them. */

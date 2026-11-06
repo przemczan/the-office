@@ -80,6 +80,8 @@ function aThreadOn(taskId: string, fields: Partial<Thread>): Thread {
     stageThread: false,
     consultation: null,
     changesAllowed: null,
+    answered: null,
+    lastMovedAt: null,
     ...fields,
   };
 }

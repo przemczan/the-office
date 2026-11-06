@@ -225,7 +225,7 @@
   color: var(--fg-1);
 }
 
-@media (max-width: 720px) {
+@container page (max-width: 664px) {
   .alarm-panel {
     margin: 14px 14px 0;
   }

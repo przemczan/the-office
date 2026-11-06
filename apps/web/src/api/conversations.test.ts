@@ -28,6 +28,8 @@ function aStageThread(id: string, tokens: TokenTotals): Thread {
     stageThread: true,
     consultation: null,
     changesAllowed: null,
+    answered: null,
+    lastMovedAt: null,
   };
 }
 

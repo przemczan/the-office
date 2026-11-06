@@ -37,7 +37,7 @@ export function SectionLayout({
             to={section.to}
             params={params}
             activeProps={{ className: "active" }}
-            // An exact match compares the search too, and a chat opened over the page adds to it.
+            // An exact match compares the search too, and the Needs you panel adds to it.
             activeOptions={{ exact: section.onlyAtItsAddress ?? false, includeSearch: false }}
           >
             <Icon name={section.icon} size={16} strokeWidth={1.6} />

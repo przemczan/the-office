@@ -14,6 +14,7 @@ import {
   ProposalDrafted,
   SizeThresholdChanged,
   ThreadRenamed,
+  ThreadSeen,
   ThreadStarted,
   TokensCounted,
   TurnEnded,
@@ -42,6 +43,10 @@ export class ThreadWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(ThreadRenamed, (event): WebEventOf<"thread.renamed"> => ({
       type: "thread.renamed",
+      ...namesOf(event.thread),
+    }));
+    this.forwarding.forward(ThreadSeen, (event): WebEventOf<"thread.seen"> => ({
+      type: "thread.seen",
       ...namesOf(event.thread),
     }));
     this.forwarding.forward(MessagesLogged, (event): WebEventOf<"thread.messages-logged"> => ({

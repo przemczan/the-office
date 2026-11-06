@@ -2,7 +2,14 @@ import { act, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Dialog, Drawer, Tooltip, useCloseOnEscape } from "./index.ts";
+import {
+  Dialog,
+  Drawer,
+  Tooltip,
+  useCloseOnEscape,
+  useEscapeWaitsFor,
+  useOpenedLast,
+} from "./index.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -295,6 +302,120 @@ describe("useCloseOnEscape", () => {
   });
 });
 
+describe("the order of the side panels", () => {
+  it("closes the one opened last, one a press, whichever kind it is", () => {
+    const closed: string[] = [];
+    show(<OpeningPanels onClose={(name) => closed.push(name)} />);
+    openPanel("chat");
+    openPanel("needs-you");
+    openPanel("conversation");
+
+    pressEscape();
+    expect(closed).toEqual(["conversation"]);
+    pressEscape();
+    expect(closed).toEqual(["conversation", "needs-you"]);
+    pressEscape();
+    expect(closed).toEqual(["conversation", "needs-you", "chat"]);
+  });
+
+  it("follows the order they opened in, not their place in the document", () => {
+    const closed: string[] = [];
+    show(<OpeningPanels onClose={(name) => closed.push(name)} />);
+    openPanel("conversation");
+    openPanel("chat");
+
+    pressEscape();
+
+    expect(closed).toEqual(["chat"]);
+  });
+
+  it("goes back to the earlier one when a later one closes by other means", () => {
+    const closed: string[] = [];
+    show(<OpeningPanels onClose={(name) => closed.push(name)} />);
+    openPanel("chat");
+    openPanel("needs-you");
+    openPanel("needs-you");
+
+    pressEscape();
+
+    expect(closed).toEqual(["chat"]);
+  });
+
+  it("lets a window over them close first, with the design system's Drawer among them", () => {
+    const onClosePanel = vi.fn<() => void>();
+    const onCloseDrawer = vi.fn<() => void>();
+    const onCloseWindow = vi.fn<() => void>();
+    show(
+      <>
+        <SidePanelInOrder onClose={onClosePanel} />
+        <Drawer title="Needs you" onClose={onCloseDrawer} />
+        <Dialog size="small" title="Allow changes" onClose={onCloseWindow} />
+      </>,
+    );
+
+    pressEscape();
+
+    expect(onCloseWindow).toHaveBeenCalledOnce();
+    expect(onCloseDrawer).not.toHaveBeenCalled();
+    expect(onClosePanel).not.toHaveBeenCalled();
+  });
+
+  it("leaves Escape to an open menu, which closes on `window`, with nothing else closing", () => {
+    const onClosePanel = vi.fn<() => void>();
+    const onCloseMenu = vi.fn<() => void>();
+    window.addEventListener("keydown", onCloseMenu);
+    show(
+      <>
+        <SidePanelInOrder onClose={onClosePanel} />
+        <div role="menu" />
+      </>,
+    );
+
+    pressEscape();
+
+    expect(onCloseMenu).toHaveBeenCalledOnce();
+    expect(onClosePanel).not.toHaveBeenCalled();
+    window.removeEventListener("keydown", onCloseMenu);
+  });
+
+  it("keeps the design system's Drawer open as Escape passes it for a menu", () => {
+    const onClose = vi.fn<() => void>();
+    show(
+      <Drawer title="Needs you" onClose={onClose}>
+        <div role="menu" />
+      </Drawer>,
+    );
+
+    pressEscape();
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("waits the same for a menu that isn't the design system's", () => {
+    const onClosePanel = vi.fn<() => void>();
+    show(
+      <>
+        <SidePanelInOrder onClose={onClosePanel} />
+        <MenuOfItsOwn />
+      </>,
+    );
+
+    pressEscape();
+
+    expect(onClosePanel).not.toHaveBeenCalled();
+  });
+
+  it("tells a panel it lies over another once it opened after it", () => {
+    show(<OpeningPanels onClose={() => undefined} />);
+    openPanel("chat");
+    expect(document.querySelector("[data-panel='chat']")?.textContent).toContain("under");
+
+    openPanel("needs-you");
+    expect(document.querySelector("[data-panel='needs-you']")?.textContent).toContain("over");
+    expect(document.querySelector("[data-panel='chat']")?.textContent).toContain("under");
+  });
+});
+
 function trigger(): HTMLElement {
   const found = document.querySelector<HTMLElement>("button[data-trigger]");
   if (found === null) throw new Error("No trigger on the page");
@@ -436,6 +557,67 @@ function PanelWithWindow({ onClosePanel }: { readonly onClosePanel: () => void }
       )}
     </Drawer>
   );
+}
+
+const PANELS = ["chat", "needs-you", "conversation"] as const;
+type PanelName = (typeof PANELS)[number];
+
+function openPanel(name: PanelName): void {
+  pressOn(document.querySelector(`[data-toggle='${name}']`));
+}
+
+/** Side panels in a fixed place in the document, each opened by its own button. */
+function OpeningPanels({ onClose }: { readonly onClose: (name: PanelName) => void }): ReactNode {
+  const [opened, setOpened] = useState<readonly PanelName[]>([]);
+  const toggle = (name: PanelName): void =>
+    setOpened(opened.includes(name) ? opened.filter((each) => each !== name) : [...opened, name]);
+  return (
+    <>
+      {PANELS.map((name) => (
+        <span key={name}>
+          <button data-toggle={name} onClick={() => toggle(name)} />
+          <NamedPanel
+            name={name}
+            open={opened.includes(name)}
+            onClose={() => {
+              onClose(name);
+              toggle(name);
+            }}
+          />
+        </span>
+      ))}
+    </>
+  );
+}
+
+function NamedPanel({
+  name,
+  open: isOpen,
+  onClose,
+}: {
+  readonly name: PanelName;
+  readonly open: boolean;
+  readonly onClose: () => void;
+}): ReactNode {
+  const panel = useRef<HTMLElement>(null);
+  useCloseOnEscape(isOpen, onClose, panel, "side-panel");
+  const openedLast = useOpenedLast(panel);
+  return isOpen ? (
+    <aside ref={panel} data-panel={name}>
+      {openedLast ? "over" : "under"}
+    </aside>
+  ) : null;
+}
+
+function SidePanelInOrder({ onClose }: { readonly onClose: () => void }): ReactNode {
+  const panel = useRef<HTMLElement>(null);
+  useCloseOnEscape(true, onClose, panel, "side-panel");
+  return <aside ref={panel} />;
+}
+
+function MenuOfItsOwn(): ReactNode {
+  useEscapeWaitsFor(true);
+  return <div />;
 }
 
 function SidePanel({

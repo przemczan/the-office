@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { taskQueries } from "../api/work.ts";
 import { DocumentDialog } from "./attachments/attachment-chips.tsx";
 import { useBrandTone } from "./brand-tone.ts";
+import { ChatButton } from "./chat/chat-button.tsx";
 import { AlarmButton } from "./fire-alarm/alarm-button.tsx";
 import type { PageHeading } from "./page-heading.tsx";
 import { onlyProjectShown } from "./project-filter/project-filter-choices.ts";
@@ -15,7 +16,8 @@ import { CaptureIdeaDialog } from "./work/capture-idea-dialog.tsx";
 
 /**
  * The lockup, the page's title with its crumb, the Project filter, the search, "Idea", which
- * captures one from any page, and the fire alarm.
+ * captures one from any page, the fire alarm, and the Chat button at the end, above where the
+ * drawer opens.
  */
 export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNode {
   const [capturing, setCapturing] = useState(false);
@@ -49,11 +51,13 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
       <Button
         variant="secondary"
         iconLeft={<Icon name="plus" size={14} />}
+        aria-label="Idea"
         onClick={() => setCapturing(true)}
       >
-        Idea
+        <span className="shell-top-words">Idea</span>
       </Button>
       <AlarmButton />
+      <ChatButton />
       {capturing && (
         <CaptureIdeaDialog
           projectId={projectId ?? task.data?.projectId ?? onlyProjectShown(filter) ?? null}

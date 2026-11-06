@@ -1,6 +1,8 @@
 import { Outlet, useMatches } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { ChatModal } from "./chat/chat-modal.tsx";
+import type { CSSProperties, ReactNode } from "react";
+import { ChatDrawer } from "./chat/chat-drawer.tsx";
+import { useChatDrawerLayout } from "./chat/chat-drawer-width.ts";
+import { ChatProvider, useChat } from "./chat/use-chat.tsx";
 import { HandoverNotesProvider } from "./conversation/handover-notes.tsx";
 import { ThreadDraftsProvider } from "./conversation/thread-drafts.tsx";
 import { FireAlarmReviewProvider } from "./fire-alarm/fire-alarm-review.tsx";
@@ -16,34 +18,53 @@ import { useReportingActivity } from "./user-activity.ts";
 
 /** Shell A3 · Desk: the frame every surface opens in. */
 export function Shell(): ReactNode {
-  const routeTitle = useMatches({ select: (matches) => matches.at(-1)?.staticData.title });
-  const [pageHeading, setPageHeading] = usePageHeadingState();
   useReportingActivity();
   return (
     <ToastProvider>
       <HandoverNotesProvider>
         <ThreadDraftsProvider>
-          <FireAlarmReviewProvider>
-            <div className="shell">
-              <Rail />
-              <TopBar
-                title={pageHeading?.title ?? routeTitle}
-                crumb={pageHeading?.crumb}
-                parent={pageHeading?.parent}
-              />
-              <StatusStrip />
-              <main className="shell-main">
-                <PageHeadingProvider setPageHeading={setPageHeading}>
-                  <Outlet />
-                </PageHeadingProvider>
-              </main>
-            </div>
-          </FireAlarmReviewProvider>
-          <ChatModal />
-          <NeedsYouPanel />
-          <NotificationChannels />
+          <ChatProvider>
+            <FireAlarmReviewProvider>
+              <ShellFrame />
+            </FireAlarmReviewProvider>
+            <NeedsYouPanel />
+            <NotificationChannels />
+          </ChatProvider>
         </ThreadDraftsProvider>
       </HandoverNotesProvider>
     </ToastProvider>
+  );
+}
+
+function ShellFrame(): ReactNode {
+  const routeTitle = useMatches({ select: (matches) => matches.at(-1)?.staticData.title });
+  const [pageHeading, setPageHeading] = usePageHeadingState();
+  const chat = useChat();
+  const { place, width } = useChatDrawerLayout();
+  const chatCovers = chat.isOpen && place !== "fills" ? width : 0;
+  return (
+    <div
+      className="shell"
+      style={
+        {
+          "--chat-drawer-width": `${width}px`,
+          "--chat-drawer-covers": `${chatCovers}px`,
+        } as CSSProperties
+      }
+    >
+      <Rail />
+      <TopBar
+        title={pageHeading?.title ?? routeTitle}
+        crumb={pageHeading?.crumb}
+        parent={pageHeading?.parent}
+      />
+      <StatusStrip />
+      <main className="shell-main">
+        <PageHeadingProvider setPageHeading={setPageHeading}>
+          <Outlet />
+        </PageHeadingProvider>
+      </main>
+      <ChatDrawer />
+    </div>
   );
 }

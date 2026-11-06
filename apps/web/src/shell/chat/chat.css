@@ -1,77 +1,312 @@
-/* A person's chat, a modal over any page (prototypes/app/chat.js): the Threads beside the one
-   shown. Colours are aliases only. */
+/* A person's chat, a side panel (docs/design/chat-drawer.html, adopted): beside the page in the
+   shell's grid, over it from 601px to 900px, filling the window below. Colours are aliases only. */
 
-.chat-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--overlay);
-}
-
-.chat-dialog {
+.chat-drawer {
+  position: relative;
+  grid-column: 3;
+  grid-row: 3;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 940px;
-  height: min(760px, calc(100vh - 48px));
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-dialog);
-  background: var(--surface-raised);
+  width: var(--chat-drawer-width);
+  min-width: 0;
+  min-height: 0;
+  outline: none;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Under anything else opened after it, as a panel's dimmed backdrop, and over the page's own. */
+.chat-drawer.over,
+.chat-drawer.fills {
+  position: fixed;
+  top: 104px;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-dropdown) - 1);
+}
+
+.chat-drawer.over {
   box-shadow: var(--shadow-3);
+}
+
+.chat-drawer.fills {
+  top: 0;
+  left: 0;
+  width: auto;
+  border-left: 0;
+}
+
+/* Opened over another side panel: above its dimmed backdrop. */
+.chat-drawer.opened-last {
+  z-index: calc(var(--z-drawer) + 1);
 }
 
 .chat-head {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px 12px 20px;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 10px 10px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
-.chat-head-name {
+.chat-head-main {
+  position: relative;
+  display: grid;
   flex: 1;
+  gap: 1px;
   min-width: 0;
+}
+
+.chat-head-title {
   font: var(--type-card-title);
 }
 
-.chat-head-name a {
-  color: var(--fg-1);
-  text-decoration: none;
-}
-
-.chat-head-name a:hover {
-  text-decoration: underline;
-}
-
 .chat-head-sub {
-  margin-top: 2px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+/* ---- the person switch */
+.person-switch {
+  display: inline-flex;
+  align-items: baseline;
+  justify-self: start;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: -6px;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-1);
+  cursor: pointer;
+}
+
+.person-switch:hover,
+.person-switch[aria-expanded="true"] {
+  background: var(--control-hover);
+}
+
+.person-switch-name {
+  flex: none;
+  font: var(--type-card-title);
+}
+
+.person-switch-title {
+  min-width: 0;
+  overflow: hidden;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.person-switch svg {
+  flex: none;
+  align-self: center;
+  color: var(--fg-2);
+}
+
+.person-switch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: -46px;
+  left: -46px;
+  z-index: 2;
+  display: grid;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-3);
+}
+
+.person-switch-item,
+.chat-person {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.person-switch-item:hover,
+.chat-person:hover {
+  background: var(--control-hover);
+}
+
+.person-switch-item[aria-checked="true"] {
+  background: var(--surface-selected);
+}
+
+.person-switch-foot {
+  margin-top: 3px;
+  padding: 7px 8px 3px;
+  border-top: 1px solid var(--border);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.person-switch-foot a {
+  color: var(--fg-1);
+}
+
+/* ---- the person picker */
+.chat-people {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 2px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.chat-person {
+  gap: 12px;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+}
+
+.chat-person-who {
+  display: grid;
+  min-width: 0;
+}
+
+.chat-person-who b,
+.chat-person-who span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chat-person-who b {
+  font: 600 var(--text-sm) / 1.4 var(--font-sans);
+}
+
+.chat-person .chat-person-who b {
+  font-size: var(--text-md);
+}
+
+.chat-person-who span {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.chat-people-note {
+  margin: 10px 10px 4px;
   font: var(--type-caption);
   color: var(--fg-3);
 }
 
-.chat-body {
-  display: grid;
-  flex: 1;
-  grid-template-columns: 248px minmax(0, 1fr);
-  min-height: 0;
+.chat-standing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  white-space: nowrap;
 }
 
+.chat-standing.answered {
+  font-weight: 500;
+  color: var(--accent-subtle-fg);
+}
+
+.chat-standing.answering {
+  color: var(--success-fg);
+}
+
+/* ---- the marks: a face and a dot, never a number */
+.chat-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.chat-dot.answered {
+  background: var(--accent);
+}
+
+.chat-dot.answering {
+  background: var(--success);
+  animation: chat-live 1.4s ease-in-out infinite;
+}
+
+@keyframes chat-live {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 55%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--success) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-dot.answering {
+    animation: none;
+  }
+}
+
+.chat-button {
+  flex: none;
+}
+
+.chat-button[aria-expanded="true"] {
+  background: var(--control-press);
+}
+
+.chat-mark {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.chat-mark > * + span:not(.chat-dot) {
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.chat-mark .chat-dot {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.chat-mark .chat-dot.answering {
+  top: auto;
+  bottom: -3px;
+}
+
+/* ---- the Thread list */
 .chat-threads {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 10px;
-  overflow: auto;
-  border-right: 1px solid var(--border-subtle);
+  gap: 2px;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
 }
 
 .chat-threads-count {
-  margin: 10px 8px 4px;
+  margin: 14px 6px 6px;
   font: var(--type-overline);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
@@ -79,13 +314,12 @@
 }
 
 .chat-thread {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 3px;
   width: 100%;
   padding: 8px 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--fg-1);
   text-align: left;
@@ -93,7 +327,7 @@
 }
 
 .chat-thread:hover {
-  background: var(--surface-hover);
+  background: var(--control-hover);
 }
 
 .chat-thread.active {
@@ -101,57 +335,78 @@
 }
 
 .chat-thread-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font: 500 var(--text-sm) / 1.4 var(--font-sans);
+}
+
+.chat-thread-title > span:first-child {
+  min-width: 0;
   overflow: hidden;
-  font: 500 13px/1.3 var(--font-sans);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.chat-thread.has-answer .chat-thread-title {
+  font-weight: 600;
 }
 
 .chat-thread-sub {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   font: var(--type-caption);
   color: var(--fg-3);
 }
 
+/* ---- the open Thread */
 .chat-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
 
-@media (max-width: 720px) {
-  .chat-overlay {
-    padding: 0;
-  }
+.chat-back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: var(--control-sm);
+  margin-left: 6px;
+  padding: 0 8px 0 4px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  font: 500 var(--text-xs) / 1 var(--font-sans);
+  color: var(--fg-2);
+  cursor: pointer;
+}
 
-  .chat-dialog {
-    height: 100%;
-    max-width: none;
-    border: 0;
-    border-radius: 0;
-  }
+.chat-back:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
 
-  .chat-body {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-  }
+.chat-back .chat-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+}
 
-  .chat-threads {
-    flex-direction: row;
-    border-right: 0;
-    border-bottom: 1px solid var(--border-subtle);
-    overflow-x: auto;
-  }
+.chat-main .thread-view-head {
+  padding-right: 12px;
+}
 
-  .chat-threads-count {
-    display: none;
-  }
+.chat-main .thread-title {
+  min-height: 40px;
+  padding: 4px 6px 4px 6px;
+}
 
-  .chat-thread {
-    width: auto;
-    min-width: 160px;
-  }
+.chat-main .thread-title h3 {
+  font: 600 var(--text-sm) / 1.4 var(--font-sans);
 }

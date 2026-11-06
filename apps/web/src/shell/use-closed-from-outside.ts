@@ -1,3 +1,4 @@
+import { useEscapeWaitsFor } from "@the-office/ui";
 import { useEffect, useRef, type RefObject } from "react";
 
 /**
@@ -11,6 +12,7 @@ export function useClosedFromOutside(
   elsewhere?: RefObject<HTMLElement | null>,
 ): RefObject<HTMLDivElement | null> {
   const menu = useRef<HTMLDivElement>(null);
+  useEscapeWaitsFor(open);
   useEffect(() => {
     if (!open) return;
     const onPress = (event: MouseEvent): void => {

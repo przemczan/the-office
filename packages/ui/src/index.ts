@@ -140,11 +140,20 @@ export {
 export { Topbar, type TopbarProps } from "../../../design-system/components/navigation/Topbar.jsx";
 export { type DrawerProps } from "../../../design-system/components/overlays/Drawer.jsx";
 export {
+  createSidePanelWidthStore,
+  SidePanelEdge,
+  type SidePanelEdgeProps,
+  type SidePanelWidths,
+  type SidePanelWidthStore,
+} from "./side-panel-edge.tsx";
+export {
   Dialog,
   Drawer,
   isTopmost,
   Tooltip,
   useCloseOnEscape,
+  useEscapeWaitsFor,
+  useOpenedLast,
   type DialogProps,
   type DialogSize,
   type DialogStep,

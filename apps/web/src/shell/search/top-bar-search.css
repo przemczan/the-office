@@ -124,8 +124,8 @@
   color: var(--fg-3);
 }
 
-/* As in the click-through, the phone's top bar has no room for the search. */
-@media (max-width: 720px) {
+/* As in the chat drawer's design, a narrow window's top bar has no room for the search. */
+@media (max-width: 900px) {
   .top-search {
     display: none;
   }

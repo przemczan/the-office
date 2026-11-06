@@ -51,6 +51,7 @@ export class DecisionsController {
     @Body(new ContractPipe(decisionAnswerSchema)) answer: DecisionAnswer,
   ): Promise<ThreadResponse> {
     const thread = await this.decisions.answer(id, answer);
-    return toThreadResponse(thread, await this.contexts.read(thread));
+    // A chat has no Decisions, so this Thread takes no part in the record of what was seen.
+    return toThreadResponse(thread, await this.contexts.read(thread), undefined);
   }
 }

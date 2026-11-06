@@ -1,11 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { RecordLink } from "@the-office/contracts";
+import type { Decision, RecordLink } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+import { decisionQueries } from "../api/conversations.ts";
 import { ideaQueries, initiativeQueries, taskQueries } from "../api/work.ts";
 import { MENTION_KINDS } from "./conversation/mention-words.ts";
 import "./record-mention.css";
+
+/**
+ * Set where a mentioned Decision still waiting opens in its window instead of leading to its Task,
+ * as beside the page in the chat drawer.
+ */
+export const OpenMentionedDecisionContext = createContext<
+  ((decision: Decision) => void) | undefined
+>(undefined);
 
 /**
  * A Task, Initiative, Decision or Idea mentioned in a message (spec §2.4), shown as a chip linking to it in the
@@ -66,6 +75,12 @@ function DecisionMention({
   readonly written: ReactNode;
 }): ReactNode {
   const title = useQuery(taskQueries.one(taskId)).data?.title;
+  const openDecision = useContext(OpenMentionedDecisionContext);
+  const unanswered = useQuery({
+    ...decisionQueries.unanswered(taskId),
+    enabled: openDecision !== undefined,
+  }).data;
+  const waiting = unanswered?.find(({ id }) => id === decisionId);
   return (
     <Link
       className="record-mention"
@@ -73,6 +88,11 @@ function DecisionMention({
       params={{ taskId }}
       search={{ ...(threadId !== undefined && { taskThread: threadId }), decision: decisionId }}
       title="Decision"
+      onClick={(event) => {
+        if (!waiting || !openDecision) return;
+        event.preventDefault();
+        openDecision(waiting);
+      }}
     >
       <Icon name={MENTION_KINDS.decision.icon} size={12} />
       {title === undefined ? shownWords(written, "decision") : `Decision on ${title}`}

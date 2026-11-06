@@ -124,6 +124,31 @@ function DecisionToLookAt({
   );
 }
 
+/** A waiting Decision's window, opened from a Mention of it rather than from its card. */
+export function MentionedDecisionWindow({
+  decision,
+  onClose,
+}: {
+  readonly decision: Decision;
+  readonly onClose: () => void;
+}): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  const { card } = useDecisionThread(decision, roles);
+  const attachments = useNamedAttachments(decision);
+  if (attachments === undefined) return null;
+  return (
+    <DecisionWindow
+      decision={decision}
+      personName={card.personName}
+      answering={card.answering}
+      followUps={card.followUps}
+      roles={roles}
+      attachments={attachments}
+      onClose={onClose}
+    />
+  );
+}
+
 /** The value of "In your own words" among the answers' indexes. */
 const OWN_WORDS = "own-words";
 

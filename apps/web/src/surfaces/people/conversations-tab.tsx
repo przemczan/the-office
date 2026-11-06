@@ -7,7 +7,7 @@ import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
-import { useChat } from "../../shell/chat/use-chat.ts";
+import { useChat } from "../../shell/chat/use-chat.tsx";
 import { contextLabel, tokensShort } from "../../shell/conversation/context-words.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";

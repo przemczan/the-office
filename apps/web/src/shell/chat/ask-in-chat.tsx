@@ -6,7 +6,7 @@ import { startChatThread, threadQueries } from "../../api/conversations.ts";
 import { useThreadDrafts } from "../conversation/thread-drafts.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useHired } from "../use-hired.ts";
-import { useChat } from "./use-chat.ts";
+import { useChat } from "./use-chat.tsx";
 
 /** Asking the person who fills a Role in a new Thread of their chat, with a draft waiting. */
 export interface AskInChat {

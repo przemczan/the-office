@@ -266,7 +266,7 @@
   margin-top: 16px;
 }
 
-@media (max-width: 960px) {
+@container page (max-width: 904px) {
   .usage-caps {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -413,7 +413,7 @@
   color: var(--fg-3);
 }
 
-@media (max-width: 1280px) {
+@container page (max-width: 1224px) {
   .settings-split {
     grid-template-columns: 1fr;
   }

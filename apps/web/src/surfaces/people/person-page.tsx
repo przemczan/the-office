@@ -5,7 +5,7 @@ import { Alert, Avatar, Button, EmptyState, Icon, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { hirePersonBack, roleQueries } from "../../api/people.ts";
-import { useChat } from "../../shell/chat/use-chat.ts";
+import { useChat } from "../../shell/chat/use-chat.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { dayOf } from "../../shell/time.ts";

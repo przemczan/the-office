@@ -1,0 +1,53 @@
+/* The dragged edge of a side panel: a wide target over the panel's left border. */
+.side-panel-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  z-index: 1;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.side-panel-edge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: transparent;
+  transition: background var(--duration-fast);
+}
+
+.side-panel-edge:hover::after,
+.side-panel-edge:focus-visible::after,
+.side-panel-edge.dragging::after {
+  background: var(--accent);
+}
+
+.side-panel-edge:focus-visible {
+  outline: none;
+}
+
+.side-panel-edge-readout {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  background: var(--surface-inverse);
+  color: var(--fg-inverse);
+  font: var(--type-caption);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity var(--duration-fast);
+}
+
+.side-panel-edge:focus-visible .side-panel-edge-readout,
+.side-panel-edge.dragging .side-panel-edge-readout {
+  opacity: 1;
+}

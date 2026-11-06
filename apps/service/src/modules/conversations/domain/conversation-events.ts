@@ -19,6 +19,16 @@ export class ThreadRenamed extends DomainEvent {
   }
 }
 
+/** The user has seen more of a chat Thread, which may leave nobody answered there. */
+export class ThreadSeen extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    seenAt: Date,
+  ) {
+    super(seenAt);
+  }
+}
+
 /** Messages joined the Thread's log; the first of the user's also titles an untitled Thread. */
 export class MessagesLogged extends DomainEvent {
   constructor(

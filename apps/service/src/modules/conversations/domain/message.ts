@@ -33,6 +33,15 @@ export type MessageDraft =
   | StageWorkClosing;
 
 /**
+ * What the user did themselves, which leaves them nothing new to read: anything else in a chat comes
+ * from the person, or from The Office about their turn.
+ */
+export const USERS_OWN_MESSAGE_KINDS = [
+  "user",
+  "changes-allowed",
+] as const satisfies readonly Message["kind"][];
+
+/**
  * The user allowed changes in the Caretaker's Thread, or switched them off: The Office's line
  * (spec §2.4).
  */

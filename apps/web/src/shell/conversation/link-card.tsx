@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 import { startChatThread, threadQueries } from "../../api/conversations.ts";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
-import { useChat } from "../chat/use-chat.ts";
+import { useChat } from "../chat/use-chat.tsx";
 import { MarkdownText } from "../markdown-text.tsx";
 import { personName } from "../person-name.ts";
 import { RecordMention } from "../record-mention.tsx";

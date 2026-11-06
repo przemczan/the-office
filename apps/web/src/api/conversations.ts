@@ -1,5 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
+  chatActivitySchema,
   decisionListSchema,
   fireAlarmLiftsSchema,
   messageListSchema,
@@ -36,6 +37,12 @@ const SIZE_THRESHOLD = ["settings", "size-threshold"] as const;
 const OFFICE_INSTRUCTIONS = ["settings", "office-instructions"] as const;
 
 export const threadQueries = {
+  /** Where each person's chat stands, under the key every Thread's event refreshes. */
+  chatActivity: () =>
+    queryOptions({
+      queryKey: [...THREADS, "chat-activity"],
+      queryFn: ({ signal }) => getFromApi("/chats/activity", chatActivitySchema, signal),
+    }),
   /** The person's chat, the newest Thread first. */
   inChat: (roleKey: string) =>
     queryOptions({
@@ -243,6 +250,11 @@ export function allowChanges(id: string): Promise<Thread> {
   return sendToApi("PUT", `${threadPath(id)}/allow-changes`, {}, threadSchema);
 }
 
+/** The newest message of the chat Thread the web has shown: what the user has seen of it. */
+export function markThreadSeen(id: string, messageId: string): Promise<Thread> {
+  return sendToApi("PUT", `${threadPath(id)}/seen`, { messageId }, threadSchema);
+}
+
 /** "Switch off": the Thread's session ends at once, and the Caretaker only reads again. */
 export function switchChangesOff(id: string): Promise<Thread> {
   return deleteFromApiReturning(`${threadPath(id)}/allow-changes`, threadSchema);
@@ -268,6 +280,7 @@ export const threadEventInvalidations: Readonly<
 > = {
   "thread.started": () => [THREADS],
   "thread.renamed": () => [THREADS],
+  "thread.seen": () => [THREADS],
   "thread.messages-logged": () => [THREADS],
   "thread.turn-ended": () => [THREADS],
   "thread.delivery-marked": () => [THREADS],

@@ -6,25 +6,23 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
 } from "react";
 import { DecisionCardLinkContext } from "../../shell/conversation/decision-card.tsx";
+import { useNarrowPage } from "../../shell/use-narrow-page.ts";
 import { drawerMoveOn, type DrawerAddress } from "./conversation-drawer-address.ts";
 import { useConversationFit } from "./conversation-fit.ts";
 import { newMessagesWords } from "./new-messages.ts";
 
-const DRAWER_WINDOW_WIDTH_PX = 900;
-const NARROW_WINDOW_QUERY = `(max-width: ${DRAWER_WINDOW_WIDTH_PX}px)`;
 const PANEL_ELEMENT_ID = "conversation-panel";
 const HANDLE_ELEMENT_ID = "conversation-handle";
 const FOCUSABLE =
   "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex='0']";
 
 interface ConversationDrawer {
-  /** The window is narrow enough for the conversation to be a drawer. */
+  /** The page is narrow enough for the conversation to be a drawer. */
   readonly narrow: boolean;
   readonly open: boolean;
   readonly show: () => void;
@@ -45,9 +43,9 @@ export function ConversationDrawerProvider({
   readonly onLinkToDecisionCard?: () => void;
   readonly children: ReactNode;
 }): ReactNode {
-  const narrow = useNarrowWindow();
+  const narrow = useNarrowPage();
   const [open, setOpen] = useState(false);
-  // Widened and narrowed again, the window must not come back dimmed.
+  // Widened and narrowed again, the page must not come back dimmed.
   if (open && !narrow) setOpen(false);
   const value = useMemo(
     () => ({ narrow, open, show: () => setOpen(true), close: () => setOpen(false) }),
@@ -87,7 +85,7 @@ export function useDrawerFollowsAddress(address: DrawerAddress | undefined): voi
 }
 
 /**
- * The conversation's panel. In a narrow window it is a drawer over the page, reached by a handle
+ * The conversation's panel. On a narrow page it is a drawer over the page, reached by a handle
  * with the unread count. The design system's Drawer can't serve: closed it unmounts its content,
  * and this one must keep the draft, the folds and the count, so closed it is only out of sight.
  * Pressing outside closes it, unlike a window (overlays.tsx): it is a side view, losing nothing.
@@ -102,7 +100,7 @@ export function ConversationPanel({
   const { narrow, open, show, close } = useConversationDrawer();
   const panel = useConversationFit();
   useDrawerFocus(open, panel);
-  useCloseOnEscape(open, close, panel);
+  useCloseOnEscape(open, close, panel, "side-panel");
   const onKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
     // React events bubble through portals, and a window opened from here keeps its own Tab.
     if (!open || !event.currentTarget.contains(event.target as Node)) return;
@@ -164,20 +162,6 @@ export function CloseConversation(): ReactNode {
       onClick={close}
     />
   );
-}
-
-function useNarrowWindow(): boolean {
-  return useSyncExternalStore(subscribeToWindowWidth, windowIsNarrow);
-}
-
-function subscribeToWindowWidth(changed: () => void): () => void {
-  const query = window.matchMedia(NARROW_WINDOW_QUERY);
-  query.addEventListener("change", changed);
-  return () => query.removeEventListener("change", changed);
-}
-
-function windowIsNarrow(): boolean {
-  return window.matchMedia(NARROW_WINDOW_QUERY).matches;
 }
 
 /**

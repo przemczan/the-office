@@ -183,7 +183,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 960px) {
+@container page (max-width: 904px) {
   .engine-defaults,
   .engine-default-fields,
   .engine-fields {

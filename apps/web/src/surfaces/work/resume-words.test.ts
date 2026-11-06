@@ -58,6 +58,8 @@ function aThread(context: Partial<ThreadContext>): Thread {
     stageThread: true,
     consultation: null,
     changesAllowed: null,
+    answered: null,
+    lastMovedAt: null,
   };
 }
 

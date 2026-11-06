@@ -1,5 +1,6 @@
 import {
   stageSchema,
+  type ChatActivity as ChatActivityResponse,
   type DecisionAnswer as DecisionAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
@@ -10,7 +11,9 @@ import {
   type Thread as ThreadResponse,
   type TaskConversation,
 } from "@the-office/contracts";
+import type { ThreadActivity } from "../../application/chat-activity.js";
 import type { ThreadReading } from "../../application/thread-contexts.js";
+import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { NewProject } from "../../../projects/index.js";
@@ -21,6 +24,7 @@ import { tokensSoFar, type Thread } from "../../domain/thread.js";
 export function toThreadResponse(
   thread: Thread,
   { context, changesAllowed }: ThreadReading,
+  activity: ThreadActivity | undefined,
 ): ThreadResponse {
   return {
     id: thread.id,
@@ -45,7 +49,20 @@ export function toThreadResponse(
       ? { ...thread.consultation, askerRoleKey: thread.consultation.askerRoleKey ?? null }
       : null,
     changesAllowed: changesAllowed ?? null,
+    answered: activity?.answered ?? null,
+    lastMovedAt: activity?.lastMovedAt.toISOString() ?? null,
   };
+}
+
+export function toChatActivityResponse(
+  people: readonly PersonChatActivity[],
+): ChatActivityResponse {
+  return people.map(({ roleKey, answering, answered, lastMovedAt }) => ({
+    roleKey,
+    answering,
+    answered: answered.map(({ threadId, at }) => ({ threadId, at: at.toISOString() })),
+    lastMovedAt: lastMovedAt.toISOString(),
+  }));
 }
 
 /**
