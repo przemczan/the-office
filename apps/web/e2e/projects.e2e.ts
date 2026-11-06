@@ -470,6 +470,29 @@ test("a label that isn't letters or digits is refused in Appearance, and what wa
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
+test("an edit made while Appearance saves stays as the next draft", async ({ page }) => {
+  const project = await addedProject(page, "Quick hands");
+  await page.goto(`/projects/${project.id}/appearance`);
+  let finishSave = (): void => {};
+  const saveHeld = new Promise<void>((resolve) => {
+    finishSave = resolve;
+  });
+  await page.route(`**/api/projects/${project.id}/mark`, async (route) => {
+    await saveHeld;
+    await route.continue();
+  });
+  const label = page.getByLabel("Mark label");
+
+  await label.fill("QH");
+  await page.getByRole("button", { name: "Save" }).click();
+  await label.fill("Q2");
+  finishSave();
+
+  await expect(page.locator(".project-head .project-mark")).toHaveText("QH");
+  await expect(label).toHaveValue("Q2");
+  await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
+});
+
 test("the add form's label follows the name until the user writes one, its colour kept", async ({
   page,
 }) => {

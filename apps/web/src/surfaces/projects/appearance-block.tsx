@@ -17,9 +17,10 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
   const showToast = useToast();
   const saving = useMutation({
     mutationFn: (mark: Mark) => changeMark(project.id, mark),
-    onSuccess: (saved) => {
+    onSuccess: (saved, sent) => {
       queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved);
-      setDraft(undefined);
+      // An edit made while the save ran is a newer draft, and stays.
+      setDraft((current) => (current === sent ? undefined : current));
       showToast(`Mark saved for ${saved.name}.`);
     },
   });
@@ -33,14 +34,14 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (changed) saving.mutate(draft);
+          if (changed && !saving.isPending) saving.mutate(draft);
         }}
       >
         <MarkPicker
           name={project.name}
           mark={draft ?? project.mark}
           onChange={(mark) => {
-            saving.reset();
+            if (saving.isError) saving.reset();
             setDraft(sameMark(mark, project.mark) ? undefined : mark);
           }}
         />
