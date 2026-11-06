@@ -151,7 +151,7 @@ describe("runTimeWords", () => {
 
 describe("runBadge", () => {
   it("lets the Stage's state speak for a run still going", () => {
-    expect(runBadge(aRun(), "running")).toEqual({ words: "Running", tone: "accent" });
+    expect(runBadge(aRun(), "running")).toEqual({ words: "Running", tone: "info" });
     expect(runBadge(aRun(), "waiting-on-you")).toEqual({
       words: "Waiting on you",
       tone: "warning",
