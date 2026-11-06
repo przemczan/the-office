@@ -19,6 +19,7 @@ import { useState, type ReactNode } from "react";
 import {
   applyProposal,
   declineProposal,
+  officeInstructionsQuery,
   sizeThresholdQuery,
   threadQueries,
 } from "../../api/conversations.ts";
@@ -67,13 +68,13 @@ import "./conversation.css";
 type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
 type ProposedPresetHire = Extract<ProposedChange, { kind: "hire-from-preset" }>;
 type ProposedRoleChange = Extract<ProposedChange, { kind: "change" }>;
-type ProposedSettingChange = Extract<ProposedChange, { kind: OfficeSetting }>;
+type ProposedLimitChange = Extract<ProposedChange, { kind: OfficeLimit }>;
 type InitiativeEdit = Extract<ProposedChange, { kind: "initiative" }>["edit"];
-type OfficeSetting = "office-wide-limit" | "size-threshold";
+type OfficeLimit = "office-wide-limit" | "size-threshold";
 
-/** How the card words each Office setting, as Settings › Office limits does. */
-const OFFICE_SETTINGS: Record<
-  OfficeSetting,
+/** How the card words each number on Settings › Office limits, as that page does. */
+const OFFICE_LIMITS: Record<
+  OfficeLimit,
   {
     readonly title: string;
     readonly label: string;
@@ -144,9 +145,21 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     case "office-wide-limit":
     case "size-threshold":
       return (
-        <ProposalFrame title={OFFICE_SETTINGS[change.kind].title}>
-          <ProposedSetting change={change} />
-          <SettingFoot proposal={proposal} setting={change.kind} />
+        <ProposalFrame title={OFFICE_LIMITS[change.kind].title}>
+          <ProposedLimit change={change} />
+          <LimitFoot proposal={proposal} setting={change.kind} />
+        </ProposalFrame>
+      );
+    case "office-instructions":
+      return (
+        <ProposalFrame title="Change the Office instructions">
+          <ProposedOfficeInstructions text={change.to} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[officeInstructionsQuery().queryKey]}
+            appliedToast="Change applied. Sessions that start from now on get them."
+            openNote={`Applies to sessions that start after it. ${STALE_NOTE}`}
+          />
         </ProposalFrame>
       );
     case "initiative":
@@ -292,7 +305,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
   }
 }
 
-/** Devops' Proposals change what the user may edit by hand meanwhile, which refuses them. */
+/** These Proposals change what the user may edit by hand meanwhile, which refuses them. */
 const STALE_NOTE = "Refused if it changes before you apply this";
 
 function ProposalFrame({
@@ -479,8 +492,8 @@ function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): Re
   }
 }
 
-function ProposedSetting({ change }: { readonly change: ProposedSettingChange }): ReactNode {
-  const { label, valueText } = OFFICE_SETTINGS[change.kind];
+function ProposedLimit({ change }: { readonly change: ProposedLimitChange }): ReactNode {
+  const { label, valueText } = OFFICE_LIMITS[change.kind];
   return (
     <ul className="proposal-changes">
       <li>
@@ -490,6 +503,21 @@ function ProposedSetting({ change }: { readonly change: ProposedSettingChange })
         <span className="proposal-change-to">{valueText(change.to)}</span>
       </li>
     </ul>
+  );
+}
+
+/** The text as the sessions will get it, whole: the user reads all of it before applying it. */
+function ProposedOfficeInstructions({ text }: { readonly text: string }): ReactNode {
+  return (
+    <dl className="proposal-fields">
+      <ProposedField label="New Office instructions">
+        {text === "" ? (
+          "None: the Office instructions would be emptied, so sessions that start after this get none."
+        ) : (
+          <div className="proposal-text">{text}</div>
+        )}
+      </ProposedField>
+    </dl>
   );
 }
 
@@ -681,14 +709,14 @@ function ChangeFoot({
   );
 }
 
-function SettingFoot({
+function LimitFoot({
   proposal,
   setting,
 }: {
   readonly proposal: Proposal;
-  readonly setting: OfficeSetting;
+  readonly setting: OfficeLimit;
 }): ReactNode {
-  const { appliesWhen, query } = OFFICE_SETTINGS[setting];
+  const { appliesWhen, query } = OFFICE_LIMITS[setting];
   return (
     <AnswerFoot
       proposal={proposal}

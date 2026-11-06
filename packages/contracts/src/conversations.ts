@@ -321,6 +321,8 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("office-wide-limit"), from: z.number(), to: z.number() }),
   /** A new size threshold, in tokens, and the threshold when drafted. */
   z.object({ kind: z.literal("size-threshold"), from: z.number(), to: z.number() }),
+  /** New Office instructions, whole, and the text when drafted; `to` empty would empty them. */
+  z.object({ kind: z.literal("office-instructions"), from: z.string(), to: z.string() }),
   /** A change the CTO wants to an active Initiative; Work applies it. */
   z.object({
     kind: z.literal("initiative"),

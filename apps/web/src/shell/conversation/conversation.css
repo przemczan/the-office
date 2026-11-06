@@ -941,6 +941,13 @@
   -webkit-line-clamp: 4;
 }
 
+/* Shown whole at any width, line breaks kept; only a very long one scrolls in its place. */
+.proposal-text {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .proposal-skills {
   display: flex;
   flex-wrap: wrap;
