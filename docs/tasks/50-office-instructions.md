@@ -72,12 +72,15 @@ Settled with the user, 2026-11-06: `read_office_instructions` stays, for the Off
 
 Each engine: `session.options.instructions` on the scripted engine shows the text in both runners' tests, and `openai-compatible-api-engine.test.ts` proves `instructions` reach the system message, so that box waits only on the Claude Code check of step 6.
 
+The check is written, not passed: `conversations/application/office-instructions-test-project-check.test.ts` (one chat turn, one Agent Stage changing no file, both on Haiku at low effort; the Task is dropped at a Gate in place of Tests). No session has run. Since task 47 a check's new Office data folder has no login, and `auth status` there says `loggedIn: false`, so both tests stop at their sign-in check, after the setup, with no model call. To run it: `OFFICE_CHECK_ENGINE_TOKEN=<token from claude setup-token>` with `OFFICE_ENGINE_TESTS=live` and `OFFICE_TEST_PROJECT=D:/Projects/notnullsoft-admin`, from `apps/service`: `npx vitest run conversations/application/office-instructions-test-project-check`, reporting 2 tests. What's left: that token from the user, the run, then their go-ahead for the running Office.
+
 Traps:
 
 - Version 0 means none and is never stored; every test file shares the table, so a test that saves a text binds `OfficeInstructionsRepositoryForTests`.
 - The page's Save overwrites a text changed elsewhere meanwhile; only a Proposal refuses a stale one.
 - No e2e covers the card or this Proposal (`people.e2e.ts` l. 3213 seeds the size threshold's); service and web tests do.
 - `global-instructions` is a Skill in the running Office's library, not in this repository.
+- The other live checks start on a new Office data folder too, so they are signed out the same way. The logins on the workstation (`~/.claude`, the local Office's engine folder) are not to be copied: both are secret paths, and a copy's refresh can sign the original out.
 
 ## Progress
 
@@ -88,3 +91,4 @@ Traps:
 - 2026-11-06 · step 3: Settings › Office instructions, its nav entry, route, web test and e2e test; step 4 is next.
 - 2026-11-06 · step 4: the `office-instructions` change in the contract and its Proposal's card, showing the whole new text or that they would be emptied; step 5 is next.
 - 2026-11-06 · step 5: the Office Manager drafts the Office instructions with `propose_office_setting`, reads them with `read_office_instructions`, and applying refuses a text changed since the draft; step 6 is next.
+- 2026-11-06 · step 6: the Test Project check written, not passed: no session ran, as its new Office data folder has no engine login; next is a `claude setup-token` token from the user, the run, then the running Office.
