@@ -21,6 +21,7 @@ export {
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
+  ProjectSkillUseChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./domain/project-events.js";

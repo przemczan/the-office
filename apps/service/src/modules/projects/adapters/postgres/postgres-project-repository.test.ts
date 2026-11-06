@@ -56,6 +56,14 @@ describe("PostgresProjectRepository", () => {
     await expect(repository.find(project.id)).resolves.toEqual(project);
   });
 
+  it("keeps the skills the Project turned off", async () => {
+    const project = { ...aProjectOfItsOwn(), projectSkillsOff: ["deploy", "frontend:notes"] };
+
+    await repository.add(project);
+
+    await expect(repository.find(project.id)).resolves.toEqual(project);
+  });
+
   it("lists Projects in the order they were added", async () => {
     const earlier = aProjectOfItsOwn();
     const later = { ...aProjectOfItsOwn(), addedAt: new Date(earlier.addedAt.getTime() + 1000) };

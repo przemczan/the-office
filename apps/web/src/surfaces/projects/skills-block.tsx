@@ -2,14 +2,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project, ProjectSkill } from "@the-office/contracts";
 import { Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { changeUseProjectSkills, projectQueries } from "../../api/projects.ts";
+import {
+  changeProjectSkillUse,
+  changeUseProjectSkills,
+  projectQueries,
+} from "../../api/projects.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 
 /**
- * The repository's own skills, read-only, with the switch that gives them to sessions in the
- * Project (spec §2.6). They stay in the repository; a Task changes them.
+ * The repository's own skills, read-only, with the switches that give them to sessions in the
+ * Project (spec §2.6): one for all of them, and one for each. They stay in the repository; a Task
+ * changes them.
  */
 export function SkillsBlock({ project }: { readonly project: Project }): ReactNode {
   const skills = useQuery(projectQueries.skills(project.id));
@@ -44,22 +49,25 @@ export function SkillsBlock({ project }: { readonly project: Project }): ReactNo
         </p>
       )}
       {found.length > 0 && (
-        <>
-          <div className="project-skills-switch">
-            <Switch
-              checked={project.useProjectSkills}
-              disabled={switching.isPending}
-              onChange={(use) => switching.mutate(use)}
-              label="Use this Project's skills"
-              description={`Anyone working in ${project.name} gets them besides their Role's skills.`}
-            />
-          </div>
-          <ul className={`project-skills${project.useProjectSkills ? "" : " off"}`}>
+        <div className="project-skills">
+          <Switch
+            checked={project.useProjectSkills}
+            disabled={switching.isPending}
+            onChange={(use) => switching.mutate(use)}
+            label="Use this Project's skills"
+            description={`Anyone working in ${project.name} gets the ones turned on below, besides their Role's skills.`}
+          />
+          <ul className="project-skill-list">
             {found.map((skill) => (
-              <SkillLine key={skill.path} skill={skill} />
+              <SkillLine
+                key={skill.path}
+                project={project}
+                skill={skill}
+                sameKey={found.filter(({ key, path }) => key === skill.key && path !== skill.path)}
+              />
             ))}
           </ul>
-        </>
+        </div>
       )}
       {(skills.error ?? switching.error) && (
         <p className="project-block-error" role="alert">
@@ -70,23 +78,89 @@ export function SkillsBlock({ project }: { readonly project: Project }): ReactNo
   );
 }
 
-function SkillLine({ skill }: { readonly skill: ProjectSkill }): ReactNode {
+function SkillLine({
+  project,
+  skill,
+  sameKey,
+}: {
+  readonly project: Project;
+  readonly skill: ProjectSkill;
+  /** The other rows the engine takes for this same skill. */
+  readonly sameKey: readonly ProjectSkill[];
+}): ReactNode {
+  const queryClient = useQueryClient();
+  const showToast = useToast();
+  const switching = useMutation({
+    // In turn, so an earlier answer never lands after a later one.
+    scope: { id: `project-skill-use-${project.id}` },
+    mutationFn: (use: boolean) => changeProjectSkillUse(project.id, skill.key, use),
+    onSuccess: (saved, use) => {
+      queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved);
+      showToast(
+        use
+          ? `Sessions in ${saved.name} get ${skill.name} from their next start.`
+          : `Sessions in ${saved.name} start without ${skill.name}.`,
+      );
+    },
+  });
+  const turnedOn = !project.projectSkillsOff.includes(skill.key);
+  const sessionsGetIt = project.useProjectSkills && turnedOn;
   return (
-    <li className="project-skill">
-      <SkillChip name={skill.name} />
-      <span className="project-skill-description">
-        {skill.description}
-        {!skill.listedAtStart && (
-          <span className="project-skill-hint"> Listed once a file below it is read.</span>
-        )}
-        {skill.alsoInLibrary && (
-          <span className="project-skill-warning">
-            {" "}
-            The library has a skill of this name too; a session with both lists both.
-          </span>
-        )}
-      </span>
-      <code className="project-skill-path">{skill.path}</code>
+    <li className={`project-skill${sessionsGetIt ? "" : " off"}`}>
+      <div
+        role="group"
+        aria-label={skill.name}
+        title={project.useProjectSkills ? undefined : "Use this Project's skills is off"}
+      >
+        <Switch
+          size="sm"
+          checked={turnedOn}
+          disabled={!project.useProjectSkills || switching.isPending}
+          onChange={(use) => switching.mutate(use)}
+          label={<SkillChip name={skill.name} />}
+          description={
+            <SkillDetails skill={skill} sessionsGetIt={sessionsGetIt} sameKey={sameKey} />
+          }
+        />
+      </div>
+      {switching.error && (
+        <p className="project-block-error" role="alert">
+          {switching.error.message}
+        </p>
+      )}
     </li>
+  );
+}
+
+function SkillDetails({
+  skill,
+  sessionsGetIt,
+  sameKey,
+}: {
+  readonly skill: ProjectSkill;
+  readonly sessionsGetIt: boolean;
+  readonly sameKey: readonly ProjectSkill[];
+}): ReactNode {
+  return (
+    <span className="project-skill-details">
+      {skill.description && (
+        <span className="project-skill-description" title={skill.description}>
+          {skill.description}
+        </span>
+      )}
+      <code className="project-skill-path">{skill.path}</code>
+      {!skill.listedAtStart && <span>Listed once a file below it is read.</span>}
+      {sameKey.length > 0 && (
+        <span>
+          Switches together with {sameKey.map(({ path }) => path).join(", ")}: a session knows them
+          as one skill.
+        </span>
+      )}
+      {skill.alsoInLibrary && sessionsGetIt && (
+        <span className="project-skill-warning">
+          The library has a skill of this name too; a session with both lists both.
+        </span>
+      )}
+    </span>
   );
 }

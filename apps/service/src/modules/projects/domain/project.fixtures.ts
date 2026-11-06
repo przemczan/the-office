@@ -22,6 +22,7 @@ export function aProject(fields: Partial<Project> = {}): Project {
     repositoryUrl: null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
+    projectSkillsOff: [],
     projectDefault: null,
     useForEveryRole: false,
     roleOverrides: [],

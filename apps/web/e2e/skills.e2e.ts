@@ -162,10 +162,42 @@ test("a zip holding a link is refused with the reason", async ({ page }) => {
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skills-refused.png") });
 });
 
-test("a Project's page lists its own skills, read-only, with the switch", async ({ page }) => {
-  const skillFolder = path.join(repository.path, ".claude", "skills", "deploy");
+const LONG_DESCRIPTION = `Writes the release notes from the merged pull requests. ${"It groups them by area, names who asked for each change, and leaves out what never reached the users. ".repeat(10)}`;
+
+async function aProjectSkill(name: string, description: string, folder = ""): Promise<void> {
+  const skillFolder = path.join(repository.path, folder, ".claude", "skills", name);
   await mkdir(skillFolder, { recursive: true });
-  await writeFile(path.join(skillFolder, "SKILL.md"), skillMd("deploy", "Deploys the panel."));
+  await writeFile(path.join(skillFolder, "SKILL.md"), skillMd(name, description));
+}
+
+async function choosePalette(page: Page, palette: "Light" | "Dark"): Promise<void> {
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menu").getByRole("button", { name: palette }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-palette", palette.toLowerCase());
+  await page.keyboard.press("Escape");
+}
+
+/** Name, description and path share one left edge, the switches one right edge, nothing scrolls. */
+async function expectEveryEdgeLinedUp(page: Page): Promise<void> {
+  const lefts = await page
+    .locator(".project-skill .skill-chip, .project-skill-description, .project-skill-path")
+    .evaluateAll((parts) => parts.map((part) => part.getBoundingClientRect().left));
+  expect(new Set(lefts).size).toBe(1);
+  const rights = await page
+    .locator(".project-skill [role=switch]")
+    .evaluateAll((switches) => switches.map((one) => one.getBoundingClientRect().right));
+  expect(new Set(rights).size).toBe(1);
+  const scrollingSideways = await page
+    .locator("html, .project-skills")
+    .evaluateAll((parts) => parts.filter((part) => part.scrollWidth > part.clientWidth).length);
+  expect(scrollingSideways).toBe(0);
+}
+
+test("a Project's page lists its own skills, read-only, with their switches", async ({ page }) => {
+  await aProjectSkill("deploy", "Deploys the panel.");
+  await aProjectSkill("lint-all", "Lints the panel.");
+  await aProjectSkill("notes", LONG_DESCRIPTION);
+  await aProjectSkill("lint-all", "Lints the web app alone.", "apps/web");
   const newProject: NewProject = {
     name: "Own skills",
     path: repository.path,
@@ -176,12 +208,81 @@ test("a Project's page lists its own skills, read-only, with the switch", async 
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
   };
+  await page.request.post("/api/skills", {
+    data: { name: "notes", description: "The library's notes.", instructions: "Write them." },
+  });
   const added = await page.request.post("/api/projects", { data: newProject });
   const project = projectSchema.parse(await added.json());
   await page.goto(`/projects/${project.id}`);
 
   await expect(page.getByText("Deploys the panel.")).toBeVisible();
   await expect(page.getByText(".claude/skills/deploy")).toBeVisible();
+  const skillSwitch = (name: string) =>
+    page.getByRole("group", { name, exact: true }).getByRole("switch");
+  const deploy = skillSwitch("deploy");
+  const notes = skillSwitch("notes");
+
+  // A skill turns off by itself, and stays off.
+  await deploy.click();
+  await expect(page.getByText("Sessions in Own skills start without deploy.")).toBeVisible();
+  await expect(deploy).toHaveAttribute("aria-checked", "false");
+  await page.reload();
+  await expect(deploy).toHaveAttribute("aria-checked", "false");
+  await expect(notes).toHaveAttribute("aria-checked", "true");
+
+  // The library's skill of the same name matters only while the Project's is on.
+  const alsoInLibrary = page
+    .getByRole("group", { name: "notes", exact: true })
+    .getByText("The library has a skill of this name too");
+  await expect(alsoInLibrary).toBeVisible();
+  await notes.click();
+  await expect(notes).toHaveAttribute("aria-checked", "false");
+  await expect(alsoInLibrary).toBeHidden();
+  await notes.click();
+  await expect(alsoInLibrary).toBeVisible();
+
+  // Two rows of one key are one skill to the engine.
+  const sameKey = page.getByRole("group", { name: "lint-all", exact: true });
+  await expect(sameKey).toHaveCount(2);
+  await expect(sameKey.first()).toContainText("Switches together with");
+  await sameKey.first().getByRole("switch").click();
+  await expect(sameKey.last().getByRole("switch")).toHaveAttribute("aria-checked", "false");
+  await sameKey.first().getByRole("switch").click();
+  await expect(sameKey.last().getByRole("switch")).toHaveAttribute("aria-checked", "true");
+
+  // A long description holds to three lines, with the whole of it on hover.
+  const long = page.locator(".project-skill-description").filter({ hasText: "release notes" });
+  await expect(long).toHaveAttribute("title", LONG_DESCRIPTION.trim());
+  const clamped = await long.evaluate((part) => {
+    const { lineHeight, height } = getComputedStyle(part);
+    return Number.parseFloat(height) / Number.parseFloat(lineHeight);
+  });
+  expect(Math.round(clamped)).toBe(3);
+
+  // The reload clears the toasts off the screenshots.
+  await page.reload();
+  const skillsBlock = page.locator(".project-skills");
+  await expect(deploy).toHaveAttribute("aria-checked", "false");
+  await expectEveryEdgeLinedUp(page);
+  await skillsBlock.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-project-skills.png"),
+  });
+  await choosePalette(page, "Dark");
+  await skillsBlock.screenshot({
+    path: path.join(SCREENSHOTS, "dark-1600-project-skills.png"),
+  });
+  await choosePalette(page, "Light");
+
+  for (const width of [900, 600]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expectEveryEdgeLinedUp(page);
+    await skillsBlock.screenshot({
+      path: path.join(SCREENSHOTS, `light-${width}-project-skills.png`),
+    });
+  }
+  await page.setViewportSize({ width: 1600, height: 900 });
+
+  // The switch for all of them holds each skill's setting until it comes back on.
   // The Engine block has a switch of its own.
   const useProjectSkills = page
     .locator("label")
@@ -193,5 +294,10 @@ test("a Project's page lists its own skills, read-only, with the switch", async 
     page.getByText("Sessions in Own skills start without its own skills."),
   ).toBeVisible();
   await expect(useProjectSkills).toHaveAttribute("aria-checked", "false");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-skills.png") });
+  await notes.click({ force: true });
+  await expect(notes).toHaveAttribute("aria-checked", "true");
+  await useProjectSkills.click();
+  await expect(useProjectSkills).toHaveAttribute("aria-checked", "true");
+  await expect(deploy).toHaveAttribute("aria-checked", "false");
+  await expect(notes).toHaveAttribute("aria-checked", "true");
 });

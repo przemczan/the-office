@@ -276,6 +276,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       folder: task.worktree.path,
       environment: task.worktree.environment,
       useProjectSkills: task.project.useProjectSkills,
+      projectSkillsOff: task.project.projectSkillsOff,
       session: {
         instructions: AGENT_STAGE_INSTRUCTIONS,
         profile: { ...profile, run: commands.permission },

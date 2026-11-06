@@ -155,6 +155,7 @@ beforeEach(async () => {
         folder: join(officeData, "worktrees", taskId),
         environment: {},
         useProjectSkills: false,
+        projectSkillsOff: [],
         projectId: "admin-panel",
         instructions: "On this Task you plan.",
         officeTools: [],

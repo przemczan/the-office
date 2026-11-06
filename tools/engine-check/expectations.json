@@ -1098,6 +1098,12 @@
       "descriptionFromBody": false
     }
   },
+  "skills.overrides-library": {
+    "linux": {
+      "listed": ["lint", "office:review"],
+      "userInvocable": ["lint", "office:review"]
+    }
+  },
   "skills.overrides-off": {
     "win32": {
       "atStart": {

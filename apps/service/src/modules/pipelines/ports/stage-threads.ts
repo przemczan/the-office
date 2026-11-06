@@ -55,6 +55,7 @@ export interface StageThreadRequest {
   /** The Project's command environment. */
   readonly environment: Readonly<Record<string, string>>;
   readonly useProjectSkills: boolean;
+  readonly projectSkillsOff: readonly string[];
   readonly session: StageSessionSettings;
 }
 

@@ -205,6 +205,11 @@ export function changeUseProjectSkills(id: string, useProjectSkills: boolean): P
   );
 }
 
+/** Sessions started from now on get the repository's skill of this key, or start without it. */
+export function changeProjectSkillUse(id: string, key: string, use: boolean): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/skill-use`, { key, use }, projectSchema);
+}
+
 /**
  * The Project's values for one MCP server: each value given is kept as given or, without a
  * `projectValue`, as kept; a value left out is cleared.
@@ -246,6 +251,7 @@ export const projectEventInvalidations: Readonly<
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
   "project.use-project-skills-changed": () => [PROJECTS],
+  "project.skill-use-changed": () => [PROJECTS],
   "project.project-default-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.use-for-every-role-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.role-override-changed": () => [PROJECTS, ENGINE_CASCADE],

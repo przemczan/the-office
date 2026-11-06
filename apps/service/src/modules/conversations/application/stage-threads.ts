@@ -109,6 +109,7 @@ export interface StageThreadRequest {
   /** The Project's command environment. */
   readonly environment: Readonly<Record<string, string>>;
   readonly useProjectSkills: boolean;
+  readonly projectSkillsOff: readonly string[];
   readonly session: StageSessionSettings;
 }
 
@@ -447,7 +448,11 @@ export class StageThreads {
       const skills = await this.sessionSkills.prepare({
         sessionId: session.id,
         roleKey: role.roleKey,
-        project: { folder: request.folder, useProjectSkills: request.useProjectSkills },
+        project: {
+          folder: request.folder,
+          useProjectSkills: request.useProjectSkills,
+          projectSkillsOff: request.projectSkillsOff,
+        },
       });
       const servers = await this.sessionMcpServers.prepare({
         sessionId: session.id,

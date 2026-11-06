@@ -10,6 +10,7 @@ import {
   changePublishingMode,
   changeRoleOverride,
   changeUseForEveryRole,
+  changeProjectSkillUse,
   changeUseProjectSkills,
   moveEngineLevels,
 } from "./project-changes.js";
@@ -23,6 +24,7 @@ import {
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
   ProjectUseForEveryRoleChanged,
+  ProjectSkillUseChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
 import { aNewProject, aProject } from "./project.fixtures.js";
@@ -176,6 +178,45 @@ describe("changeUseProjectSkills", () => {
     expect(change?.event).toBeInstanceOf(ProjectUseProjectSkillsChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", useProjectSkills: false });
     expect(changeUseProjectSkills(aProject(), true)).toBeUndefined();
+  });
+});
+
+describe("changeProjectSkillUse", () => {
+  it("turns one skill off and leaves the others as they were", () => {
+    const change = changeProjectSkillUse(aProject({ projectSkillsOff: ["ship"] }), "deploy", false);
+
+    expect(change?.project.projectSkillsOff).toEqual(["ship", "deploy"]);
+    expect(change?.event).toBeInstanceOf(ProjectSkillUseChanged);
+    expect(change?.event).toMatchObject({
+      projectId: "admin-panel",
+      key: "deploy",
+      use: false,
+    });
+  });
+
+  it("turns one skill back on", () => {
+    const change = changeProjectSkillUse(
+      aProject({ projectSkillsOff: ["ship", "deploy"] }),
+      "deploy",
+      true,
+    );
+
+    expect(change?.project.projectSkillsOff).toEqual(["ship"]);
+    expect(change?.event).toMatchObject({ key: "deploy", use: true });
+  });
+
+  it("changes nothing when the skill already is that way", () => {
+    expect(changeProjectSkillUse(aProject(), "deploy", true)).toBeUndefined();
+    expect(
+      changeProjectSkillUse(aProject({ projectSkillsOff: ["deploy"] }), "deploy", false),
+    ).toBeUndefined();
+  });
+
+  it("keeps each skill's setting while the Project uses none of them", () => {
+    const off = changeUseProjectSkills(aProject({ projectSkillsOff: ["deploy"] }), false);
+    const backOn = off && changeUseProjectSkills(off.project, true);
+
+    expect(backOn?.project.projectSkillsOff).toEqual(["deploy"]);
   });
 });
 

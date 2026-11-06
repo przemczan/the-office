@@ -74,11 +74,14 @@ describe("projectSkillNamesFrom", () => {
   });
 });
 
+const allOn = { useProjectSkills: true, projectSkillsOff: [] };
+const allOff = { useProjectSkills: false, projectSkillsOff: [] };
+
 describe("sessionSkillRecord", () => {
   const projectSkills = [deploy, release, reviewSkill, ship];
 
   it("allows the Project's skills when the Project uses them, expecting those at the top", () => {
-    const record = sessionSkillRecord("s-1", [review], projectSkills, true, preparedAt);
+    const record = sessionSkillRecord("s-1", [review], projectSkills, allOn, preparedAt);
 
     expect(record).toEqual({
       sessionId: "s-1",
@@ -99,7 +102,7 @@ describe("sessionSkillRecord", () => {
   });
 
   it("turns each of the Project's skills and commands off when the Project doesn't use them", () => {
-    const record = sessionSkillRecord("s-1", [review], projectSkills, false, preparedAt);
+    const record = sessionSkillRecord("s-1", [review], projectSkills, allOff, preparedAt);
 
     expect(allowedSkillNames(record)).toEqual(["office:review"]);
     expect(expectedSkillNames(record)).toEqual(["office:review"]);
@@ -111,8 +114,62 @@ describe("sessionSkillRecord", () => {
     });
   });
 
+  it("splits the Project's skills by what the Project turned off", () => {
+    const record = sessionSkillRecord(
+      "s-1",
+      [],
+      projectSkills,
+      { useProjectSkills: true, projectSkillsOff: ["deploy", "release"] },
+      preparedAt,
+    );
+
+    expect(allowedSkillNames(record)).toEqual(["review", "ship"]);
+    expect(expectedSkillNames(record)).toEqual(["review", "ship"]);
+    expect(skillOverridesOf(record)).toEqual({ deploy: "off", release: "off" });
+  });
+
+  it("gets none of them with every skill turned off one by one", () => {
+    const record = sessionSkillRecord(
+      "s-1",
+      [],
+      [deploy, ship],
+      { useProjectSkills: true, projectSkillsOff: ["deploy", "ship"] },
+      preparedAt,
+    );
+
+    expect(allowedSkillNames(record)).toEqual([]);
+    expect(skillOverridesOf(record)).toEqual({ deploy: "off", ship: "off" });
+  });
+
+  it("keeps the library's skill of a name the Project turned off", () => {
+    const record = sessionSkillRecord(
+      "s-1",
+      [review],
+      [reviewSkill],
+      { useProjectSkills: true, projectSkillsOff: ["review"] },
+      preparedAt,
+    );
+
+    expect(allowedSkillNames(record)).toEqual(["office:review"]);
+    expect(expectedSkillNames(record)).toEqual(["office:review"]);
+    expect(suffixMatches(record)).toEqual([]);
+  });
+
+  it("leaves out an off key the repository no longer holds, and starts a new skill on", () => {
+    const record = sessionSkillRecord(
+      "s-1",
+      [],
+      [deploy],
+      { useProjectSkills: true, projectSkillsOff: ["removed"] },
+      preparedAt,
+    );
+
+    expect(allowedSkillNames(record)).toEqual(["deploy"]);
+    expect(skillOverridesOf(record)).toEqual({});
+  });
+
   it("has no Project skills for a session outside a Project", () => {
-    const record = sessionSkillRecord("s-1", [review], [], true, preparedAt);
+    const record = sessionSkillRecord("s-1", [review], [], allOn, preparedAt);
 
     expect(allowedSkillNames(record)).toEqual(["office:review"]);
     expect(skillOverridesOf(record)).toEqual({});
@@ -122,7 +179,7 @@ describe("sessionSkillRecord", () => {
 describe("suffixMatches", () => {
   it("reports an allowed Project skill named as one of the session's library skills", () => {
     expect(
-      suffixMatches(sessionSkillRecord("s-1", [review], [deploy, reviewSkill], true, preparedAt)),
+      suffixMatches(sessionSkillRecord("s-1", [review], [deploy, reviewSkill], allOn, preparedAt)),
     ).toEqual([
       "The Project's skill review also allows the library's office:review, which this session has too.",
     ]);
@@ -130,7 +187,7 @@ describe("suffixMatches", () => {
 
   it("reports nothing when the Project's skills are off", () => {
     expect(
-      suffixMatches(sessionSkillRecord("s-1", [review], [reviewSkill], false, preparedAt)),
+      suffixMatches(sessionSkillRecord("s-1", [review], [reviewSkill], allOff, preparedAt)),
     ).toEqual([]);
   });
 });

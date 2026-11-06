@@ -201,6 +201,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         folder: join(officeData, "worktrees", taskId),
         environment: {},
         useProjectSkills: false,
+        projectSkillsOff: [],
         projectId: "admin-panel",
         instructions: "On this Task you build.",
         officeTools: ["read_task", CONSULT_TOOL],

@@ -30,6 +30,10 @@ export const projects = pgTable("projects", {
     .notNull()
     .default({ set: [], unset: [], prependPath: [] }),
   useProjectSkills: boolean("use_project_skills").notNull(),
+  projectSkillsOff: text("project_skills_off")
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   /** The Project default: both set, or neither. */
   projectDefaultEngineId: text("project_default_engine_id"),
   projectDefaultModel: text("project_default_model"),

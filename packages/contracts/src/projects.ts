@@ -93,6 +93,8 @@ export const projectSchema = newProjectSchema.extend({
   repositoryUrl: z.string().nullable(),
   environment: projectEnvironmentSchema,
   useProjectSkills: z.boolean(),
+  /** The keys of the repository's skills and commands turned off, each by itself; any other is on. */
+  projectSkillsOff: z.array(z.string()),
   /** The engine cascade's Project levels (spec §5.4); null when the Project has no default. */
   projectDefault: engineModelSchema.nullable(),
   /** Only with a Project default: it wins over the Office-wide Role overrides. */
@@ -130,6 +132,10 @@ export type DefaultPipelineChange = z.infer<typeof defaultPipelineChangeSchema>;
 /** PUT /projects/:id/use-project-skills */
 export const useProjectSkillsChangeSchema = z.object({ useProjectSkills: z.boolean() });
 export type UseProjectSkillsChange = z.infer<typeof useProjectSkillsChangeSchema>;
+
+/** PUT /projects/:id/skill-use: one skill per call, so two quick changes don't overwrite each other. */
+export const projectSkillUseChangeSchema = z.object({ key: z.string().min(1), use: z.boolean() });
+export type ProjectSkillUseChange = z.infer<typeof projectSkillUseChangeSchema>;
 
 /** PUT /projects/:id/project-default; null leaves the Project without one. */
 export const projectDefaultChangeSchema = z.object({
@@ -268,6 +274,10 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({
     type: z.literal("project.use-project-skills-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.skill-use-changed"),
     projectId: z.string(),
   }),
 ]);

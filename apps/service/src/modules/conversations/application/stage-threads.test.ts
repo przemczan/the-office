@@ -215,6 +215,7 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     folder: join(officeData, "worktrees", "task"),
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: false,
+    projectSkillsOff: [],
     session: {
       instructions: "You work a Stage.",
       profile: PROFILE,

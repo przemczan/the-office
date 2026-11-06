@@ -72,6 +72,7 @@ Where each default lives (the old §9):
 - Installing a skill from a source, its pinned version: [2.6 Skills](2.6-skills.md#defaults)
 - Skill updates flagged, then proposed; an applied update is its review: [2.6 Skills](2.6-skills.md#defaults)
 - A skill drafted as a Proposal: [2.6 Skills](2.6-skills.md#defaults)
+- Project skills turn off one by one: [2.6 Skills](2.6-skills.md#defaults)
 - The base branch's upstream: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
 - A person's session default decides only the cold case: [2.5 Context policy](2.5-context-policy.md#defaults)
 - The Context policy's size threshold counts what the conversation added: [2.5 Context policy](2.5-context-policy.md#defaults)

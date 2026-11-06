@@ -179,6 +179,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       baseBranch: "main",
       commands: { install: "npm ci", build: "npm run build", lint: "", test: "npm test" },
       useProjectSkills: false,
+      projectSkillsOff: [],
     },
     worktree: {
       path: "/office/worktrees/admin-panel/task",

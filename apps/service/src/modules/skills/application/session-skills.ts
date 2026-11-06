@@ -7,6 +7,7 @@ import {
   sessionSkillRecord,
   skillOverridesOf,
   suffixMatches,
+  type ProjectSkillUse,
   type SessionSkill,
   type SessionSkillRecord,
 } from "../domain/session-skills.js";
@@ -37,11 +38,13 @@ export interface PreparedSkills {
   readonly suffixMatches: readonly string[];
 }
 
+/** A session outside a Project's checkout has no repository to find skills in. */
+const NO_PROJECT_SKILLS: ProjectSkillUse = { useProjectSkills: false, projectSkillsOff: [] };
+
 /** Where a session works, when it works in a Project's checkout. */
-export interface SessionProject {
+export interface SessionProject extends ProjectSkillUse {
   /** The checkout the session works in, such as a Task's worktree. */
   readonly folder: string;
-  readonly useProjectSkills: boolean;
 }
 
 export interface SessionSkillRequest {
@@ -83,7 +86,7 @@ export class SessionSkills {
       sessionId,
       skills.map(({ skill }) => skill),
       projectSkills,
-      project?.useProjectSkills ?? false,
+      project ?? NO_PROJECT_SKILLS,
       new Date(),
     );
     await this.records.add(record);

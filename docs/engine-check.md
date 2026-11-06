@@ -32,6 +32,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Windows 11 and Ubuntu 24.04 | 2026-10-30 | after the Office tools moved to the binary's stream (task 29 step 4a): `fallback.start`, `fallback.tools-and-rules`, `fallback.priority-next` re-run and `fallback.priority-next-office-tool` added, on both |
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | `permissions.read-fence-off` added (task 33 step 1), the same on both |
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | every check but the slow one, with the read fence off and `claudeMdExcludes` in the Office's options (task 33 step 2); `permissions.file-tool-fence` and `skills.plugin-folder-reads` retired, `permissions.hook-sees-every-call` re-recorded |
+| Ubuntu 24.04 x64 (linux), the Office's own machine | 2026-11-05 | `skills.overrides-library` added and recorded, no model call; not run on Windows yet |
 
 | Windows 11 (win32), the workstation | 2026-10-31 | the OpenAI-compatible API engine live on Strata (task 35 step 9): five contract scenarios, then a chat and a Stage on the Test Project (task 35's check); see [the OpenAI-compatible API](#the-openai-compatible-api) |
 | Windows 11 (win32), the workstation | 2026-11-01 | MCP servers live on the Agent SDK engine, Haiku (task 36 step 8, `mcp-servers/application/mcp-tools-test-project-check`): the fake stdio server, its secret Server value overridden on the Test Project. An Allowed tool ran under `permissionPrompts: 'none'` with no prompt; one at Consult Devops was held, waited on Devops in a Consultation, ran after the user's Allow once in the resumed session. The binary listed the MCP tools as deferred, so Haiku loaded them with ToolSearch first. The private MCP config file was written at the start and at the resume, and none was left; no command line held the value; the server's process tree ended. 35 s, 162k tokens (mostly cache reads) |
@@ -130,6 +131,12 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 - **Run:** Project skills at the root (`deploy` off, `lint` on), nested under `apps/web` (`release` off by the key `apps/web:release`, `migrate` off by its bare name, `audit` on) and two `.claude/commands` files (`ship` off, `notes` on), all in the allowlist; then a Read of a file under `apps/web`.
 - **Observed:** at start the session sees `lint` and `notes`; after the Read, also `audit` and `release`. Nested Project skills are listed by their bare name (`release`, not `apps/web:release`) and appear only once a file below them is read. The key `apps/web:release` hides nothing; the bare key hides `migrate`. `"off"` also hides a command file, from the listing and from `/name`.
 - **Meaning:** when a Project turns its skills off, The Office writes one bare-name key per skill it finds anywhere in the repository, and per command file.
+
+### skills.overrides-library
+
+- **Run:** a Project with skills `review` and `lint`, and a session with the library's `review`; the allowlist `office:review` and `lint` and `skillOverrides` with `review` off, as The Office starts a session with the Project's copy turned off. No model call.
+- **Observed:** the session lists `lint` and `office:review`, and `/name` runs the same two. The bare key hides the Project's `review` and leaves the library's on.
+- **Meaning:** turning a Project skill off by its key is safe beside a library skill of that name: the session keeps the library's, and its start check, which expects `office:review`, passes.
 
 ### skills.user-scope
 
