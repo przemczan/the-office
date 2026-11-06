@@ -1,5 +1,5 @@
 import path from "node:path";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect as playwrightExpect, test, type Locator, type Page } from "@playwright/test";
 import {
   engineSettingsSchema,
   ideaSchema,
@@ -37,9 +37,16 @@ const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshot
 /** Written by this file alone, so the other files' skills never meet it. */
 const SKILL = "people-handover";
 
+/**
+ * A session opened while the other files run answers late: it first refreshes every Project's base
+ * checkout, and their git processes took over 4s when measured, with most of the machine in use.
+ * This file's Stages and chats all wait on such sessions, so its waits and its tests get longer.
+ */
+const expect = playwrightExpect.configure({ timeout: 15_000 });
+
 // One person fills each Role and the database lives for the whole run, so the tests build on each
 // other's hires; this is the only file that hires.
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 90_000 });
 
 test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
@@ -979,12 +986,6 @@ function detailsSwitch(place: Locator) {
   return place.getByRole("group", { name: "Details" }).getByRole("switch");
 }
 
-/**
- * A session opened while the other files run answers late: it first refreshes every Project's base
- * checkout, and their git processes took over 4s when measured, with most of the machine in use.
- */
-const WHILE_THE_OTHER_FILES_RUN = { timeout: 15_000 };
-
 // The engine replays e2e/sessions.jsonl: the Planner's first session, then a fresh one.
 test("the user chats with the Planner, who reads but changes nothing", async ({ page }) => {
   await page.goto("/people");
@@ -997,9 +998,7 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await chat.getByRole("textbox", { name: "Message" }).fill("Read the deploy workflow.");
   await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
-  await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible(
-    WHILE_THE_OTHER_FILES_RUN,
-  );
+  await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
   // Details starts off: the tool call and the context line hide, the refusal never does.
   await expect(chat.getByText("This session only reads: changes happen on Tasks.")).toBeVisible();
   await expect(detailsSwitch(chat)).toHaveAttribute("aria-checked", "false");
@@ -1028,9 +1027,7 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await chat.getByRole("textbox", { name: "Message" }).fill("And the tests?");
   await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
-  await expect(chat.getByText("The tests run with npm test.")).toBeVisible(
-    WHILE_THE_OTHER_FILES_RUN,
-  );
+  await expect(chat.getByText("The tests run with npm test.")).toBeVisible();
   await expect(chat.getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
   await expect(contextLabel(page)).toHaveText(
     /^Continues · cache warm, \d+ min left · 21k context$/,
@@ -1357,7 +1354,11 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
 
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-editor.png") });
     await save.click();
-    await expect(page.getByText("Stages saved for Keep the filters on reload.")).toBeVisible();
+    // The window closes on saving: the swap's toast, in the same words, may still be up.
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByText("Stages saved for Keep the filters on reload.").last(),
+    ).toBeVisible();
 
     await page.reload();
     await expect(
@@ -3619,7 +3620,7 @@ test("the user sees a skill's update, asks Nina, reads her Proposal's diff and a
     await page.goto("/settings/skills");
     const skillRow = page.getByRole("row").filter({ hasText: name });
     // The end-to-end service's daily check runs every two seconds.
-    await expect(skillRow).toContainText("→ v1.1.0", { timeout: 15_000 });
+    await expect(skillRow).toContainText("→ v1.1.0");
     await expect(page.getByText(/pinned skills? ha(s|ve) an update available/)).toBeVisible();
     await skillRow.getByRole("button", { name: "Review the update" }).click();
     const dialog = page.getByRole("dialog");

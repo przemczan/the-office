@@ -364,9 +364,9 @@ test("a card shows who is working as they start and stop, and stays one link tha
 }) => {
   const project = await addedProject(page, "Working now", "WN");
   const done = await createdTask(page, project, "Working card done");
-  const movable = await createdTask(page, project, "Working card movable");
-  const titles = [movable.title, "Working card last"];
-  await createdTask(page, project, titles[1] ?? "");
+  const titles = ["Working card first", "Working card movable"];
+  await createdTask(page, project, titles[0] ?? "");
+  const movable = await createdTask(page, project, titles[1] ?? "");
   // Done has no foot of its own, and unlike in progress it takes no desk from a test alongside.
   await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [done.id]);
   // Only the Caretaker is sure to be hired here, as hiring lives in people.e2e.ts.
@@ -419,7 +419,7 @@ test("a card shows who is working as they start and stop, and stays one link tha
   await expect(mark).toHaveCount(0);
 
   // A card with the mark drags by it, and a press on it follows the card's one link.
-  await movableMark.dragTo(backlog.getByRole("article", { name: "Working card last" }));
+  await movableMark.dragTo(backlog.getByRole("article", { name: "Working card first" }));
   await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(titles.toReversed());
   await expect(backlog.getByRole("article", { name: movable.title }).getByRole("link")).toHaveCount(
     1,
