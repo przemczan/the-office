@@ -22,6 +22,7 @@ import {
   type ContextOverrideChoice,
   type Message as MessageResponse,
   type NewMessage,
+  type PeopleWorking as PeopleWorkingResponse,
   type Thread as ThreadResponse,
   type ThreadSeen,
   type ThreadTitle,
@@ -43,6 +44,7 @@ import type { Thread } from "../../domain/thread.js";
 import {
   toChatActivityResponse,
   toMessageResponse,
+  toPeopleWorkingResponse,
   toTaskConversationResponse,
   toThreadResponse,
 } from "./conversation-responses.js";
@@ -67,6 +69,12 @@ export class ThreadsController {
   @Get("chats/activity")
   async activityInChats(): Promise<ChatActivityResponse> {
     return toChatActivityResponse(await this.chatActivity.ofPeople());
+  }
+
+  /** Who is working on each Task now, for the marks on the board's cards. */
+  @Get("people-working")
+  async peopleWorking(): Promise<PeopleWorkingResponse> {
+    return toPeopleWorkingResponse(await this.taskConversations.peopleWorking());
   }
 
   @Get("chats/:roleKey/threads")

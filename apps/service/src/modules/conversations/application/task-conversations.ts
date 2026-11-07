@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { RoleCards } from "../../people/index.js";
 import { conversationTabs, type ConversationTab } from "../domain/conversation-tabs.js";
 import type { Decision } from "../domain/decision.js";
+import { peopleWorkingOnTasks, type TaskPeopleWorking } from "../domain/people-working.js";
 import type { Thread } from "../domain/thread.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
@@ -30,6 +31,11 @@ export class TaskConversations {
     const threads = await this.repository.listIn({ kind: "task", taskId });
     const decisions = await this.consultedDecisions(threads);
     return conversationTabs(this.taskThreads.planner(), threads, decisions);
+  }
+
+  /** Who is working on each Task right now, in one read for the whole board. */
+  async peopleWorking(): Promise<readonly TaskPeopleWorking[]> {
+    return peopleWorkingOnTasks(await this.repository.answering());
   }
 
   /**

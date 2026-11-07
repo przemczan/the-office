@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project, QueuedTask, Task, TaskPlacement, TaskState } from "@the-office/contracts";
 import { Alert, Icon } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
-import { Fragment, useState, type DragEvent, type ReactNode } from "react";
+import { Fragment, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, placeTask, taskQueries } from "../../api/work.ts";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
@@ -22,6 +22,7 @@ import { PlanButton } from "./planning-actions.tsx";
 import { QueuedMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters } from "./use-board-filters.ts";
+import { usePeopleWorking, WorkingMark } from "./working-mark.tsx";
 
 interface Column {
   readonly key: string;
@@ -80,6 +81,7 @@ export function Board(): ReactNode {
   const showToast = useToast();
   const waitingOnYou = useWaitingOnYouInItsState();
   const planner = usePlanner()?.card.name;
+  const peopleWorkingOn = usePeopleWorking();
 
   const cardsOf = (column: Column): Task[] =>
     matching.filter((task) => column.states.includes(task.state) && inProjectFilter(task));
@@ -144,6 +146,7 @@ export function Board(): ReactNode {
                     waiting={waitingOnYou(task)}
                     queued={queue?.find(({ taskId }) => taskId === task.id)}
                     blockers={blockingTasksOf(task, tasks.data ?? [])}
+                    peopleWorking={peopleWorkingOn(task.id)}
                     dragging={dragged?.id === task.id}
                     dropBefore={
                       target !== undefined && "before" in target && target.before === task.id
@@ -177,6 +180,7 @@ function BoardCard({
   waiting,
   queued,
   blockers,
+  peopleWorking,
   dragging,
   dropBefore,
   onDragStart,
@@ -192,6 +196,8 @@ function BoardCard({
   readonly queued: QueuedTask | undefined;
   /** The Tasks still holding it back. */
   readonly blockers: readonly Task[];
+  /** The names of the people working on it now. */
+  readonly peopleWorking: readonly string[];
   readonly dragging: boolean;
   readonly dropBefore: boolean;
   readonly onDragStart: () => void;
@@ -202,6 +208,8 @@ function BoardCard({
   const foot = queued ? <QueuedMark queued={queued} /> : footOf(task, planner, waiting);
   // Only Ready Tasks, queued ones too, have one.
   const usageEstimate = useUsageEstimate(task.id);
+  const titleLink = useRef<HTMLAnchorElement>(null);
+  const someoneWorking = peopleWorking.length > 0;
   const classes = [
     "board-card",
     waiting ? "edge-decision" : EDGES[task.state],
@@ -224,6 +232,7 @@ function BoardCard({
       <div className="board-card-head">
         <PriorityIcon priority={task.priority} />
         <Link
+          ref={titleLink}
           to="/tasks/$taskId"
           params={{ taskId: task.id }}
           className="board-card-title"
@@ -242,10 +251,16 @@ function BoardCard({
         ))}
       </div>
       {blockers.length > 0 && <BlockedMark blockers={blockers} />}
-      {(foot || usageEstimate) && (
+      {(foot || usageEstimate || someoneWorking) && (
         <div className="board-card-foot">
           {foot}
           <UsageEstimateLine estimate={usageEstimate} />
+          {someoneWorking && (
+            // Above the title's stretched link for its tooltip, so a press is passed on to the link.
+            <span className="board-card-working" onClick={() => titleLink.current?.click()}>
+              <WorkingMark names={peopleWorking} />
+            </span>
+          )}
         </div>
       )}
     </article>

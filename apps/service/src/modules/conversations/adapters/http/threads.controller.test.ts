@@ -10,6 +10,7 @@ import {
   messageListSchema,
   OFFICE_INSTRUCTIONS_MAX_CHARACTERS,
   officeInstructionsSchema,
+  peopleWorkingSchema,
   proposalSchema,
   sizeThresholdSchema,
   firstBriefSchema,
@@ -53,6 +54,7 @@ import { WorkRecords } from "../../application/work-records.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DecisionAnswered, ThreadRenamed } from "../../domain/conversation-events.js";
 import type { Decision } from "../../domain/decision.js";
+import { aDecision } from "../../domain/decision.fixtures.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
 import { aThread } from "../../domain/thread.fixtures.js";
@@ -318,6 +320,39 @@ describe("a Task's conversation", () => {
       { roleKey: "planner", threadId: null, stageRunning: false, consultations: [] },
       { roleKey: oscar, threadId: null, stageRunning: true, consultations: [] },
     ]);
+  });
+
+  it("says who is working on each Task, leaving out a Stage waiting on its Decision", async () => {
+    const [working, waiting, idle] = [randomUUID(), randomUUID(), randomUUID()];
+    const repository = app.get(ThreadRepository);
+    const answering = (taskId: string, fields: Partial<Thread>): Promise<void> =>
+      repository.add(
+        aThread({
+          id: randomUUID(),
+          home: { kind: "task", taskId },
+          state: "answering",
+          ...fields,
+        }),
+      );
+    const oscar = aPerson("Oscar", false);
+    await answering(working, { roleKey: oscar, stageThread: true });
+    await answering(working, { roleKey: oscar });
+    const stageThread = randomUUID();
+    await answering(waiting, { id: stageThread, roleKey: oscar, stageThread: true });
+    await repository.update(stageThread, (current) => ({
+      thread: current,
+      logged: [],
+      decision: aDecision({ threadId: stageThread, taskId: waiting, roleKey: oscar }),
+      event: new ThreadRenamed(current, new Date()),
+    }));
+    await repository.add(aThread({ id: randomUUID(), home: { kind: "task", taskId: idle } }));
+
+    const read = await get("/people-working");
+
+    const tasks = peopleWorkingSchema.parse(await read.json());
+    const tasksOfThisTest = new Set<string>([working, waiting, idle]);
+    const onThisTest = tasks.filter(({ taskId }) => tasksOfThisTest.has(taskId));
+    expect(onThisTest).toEqual([{ taskId: working, roleKeys: [oscar] }]);
   });
 
   it("opens a person's one Thread on the Task, briefed as a new session and never a Stage's", async () => {

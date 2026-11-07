@@ -5,6 +5,7 @@ import {
   type Decision as DecisionResponse,
   type Message as MessageResponse,
   type NewProject as NewProjectResponse,
+  type PeopleWorking,
   type ProjectCommandFields as ProjectCommandFieldsResponse,
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
@@ -18,6 +19,7 @@ import type { ConversationTab } from "../../domain/conversation-tabs.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
+import type { TaskPeopleWorking } from "../../domain/people-working.js";
 import type { Proposal, ProposedChange, ProposedProjectCommands } from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
@@ -52,6 +54,10 @@ export function toThreadResponse(
     answered: activity?.answered ?? null,
     lastMovedAt: activity?.lastMovedAt.toISOString() ?? null,
   };
+}
+
+export function toPeopleWorkingResponse(tasks: readonly TaskPeopleWorking[]): PeopleWorking {
+  return tasks.map(({ taskId, roleKeys }) => ({ taskId, roleKeys: [...roleKeys] }));
 }
 
 export function toChatActivityResponse(

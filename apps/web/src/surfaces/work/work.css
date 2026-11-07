@@ -154,9 +154,33 @@
   border-radius: inherit;
 }
 
-.board-card :is(button, a:not(.board-card-title), .floating-menu-anchor) {
+.board-card :is(button, a:not(.board-card-title), .floating-menu-anchor, .board-card-working) {
   position: relative;
   z-index: 1;
+}
+
+.board-card-working {
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.working-mark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg-3);
+}
+
+.working-mark-avatars {
+  display: inline-flex;
+}
+
+.working-mark-avatars > * + * {
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.working-mark-others {
+  margin-left: 4px;
 }
 
 .board-card:has(.board-card-title:hover) {

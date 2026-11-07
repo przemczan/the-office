@@ -63,15 +63,17 @@ function type(page: HTMLElement, text: string): void {
 }
 
 /** Runs what changes the page and lets the answers and the query's update reach it. */
-async function settled(change: () => void): Promise<void> {
+async function settled(queryClient: QueryClient, change: () => void): Promise<void> {
   await act(async () => {
     change();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await vi.waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    // The query tells the page of its new data in a timer of its own, after the save has ended.
+    await new Promise((resolve) => setTimeout(resolve));
   });
 }
 
 function changeElsewhere(queryClient: QueryClient): Promise<void> {
-  return settled(() =>
+  return settled(queryClient, () =>
     queryClient.setQueryData(officeInstructionsQuery().queryKey, {
       officeInstructions: "Changed elsewhere.",
     }),
@@ -116,10 +118,10 @@ describe("Settings › Office instructions", () => {
       Promise.resolve(Response.json({ officeInstructions: "Answer briefly." })),
     );
     vi.stubGlobal("fetch", fetched);
-    const { page } = sectionWith(SAVED_TEXT);
+    const { page, queryClient } = sectionWith(SAVED_TEXT);
     type(page, "  Answer briefly.  ");
 
-    await settled(() => button(page, "Save").click());
+    await settled(queryClient, () => button(page, "Save").click());
 
     const [url, request] = fetched.mock.calls[0] ?? [];
     expect(url).toBe("/api/settings/office-instructions");
@@ -134,10 +136,10 @@ describe("Settings › Office instructions", () => {
     vi.stubGlobal("fetch", () =>
       Promise.resolve(Response.json({ message: "The text is too long." }, { status: 400 })),
     );
-    const { page } = sectionWith(SAVED_TEXT);
+    const { page, queryClient } = sectionWith(SAVED_TEXT);
     type(page, "Answer briefly.");
 
-    await settled(() => button(page, "Save").click());
+    await settled(queryClient, () => button(page, "Save").click());
 
     expect(page.textContent).toContain("The Office instructions weren't saved");
     expect(page.textContent).toContain("The text is too long.");
