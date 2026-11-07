@@ -1190,12 +1190,15 @@ test("a person's Work tab lists the Tasks whose Stages they work, in the Project
     await expect(row).toBeVisible();
     await expect(elsewhereRow).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^All 1$/ })).toBeVisible();
-    await page.getByRole("button", { name: /in other Projects.*Show all projects/ }).click();
-    await expect(elsewhereRow).toBeVisible();
 
+    // Only while narrowed to this Project: other files' Tasks reach Done in the shared database.
     await page.getByRole("button", { name: /^Done/ }).click();
     await expect(page.getByText("No Tasks here. Try another filter.")).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-work.png") });
+
+    await page.getByRole("button", { name: /^All 1$/ }).click();
+    await page.getByRole("button", { name: /in other Projects.*Show all projects/ }).click();
+    await expect(elsewhereRow).toBeVisible();
   } finally {
     await repository.remove();
   }
