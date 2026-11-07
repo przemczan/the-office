@@ -32,6 +32,7 @@ const NO_CAPABILITY: EngineCapabilities = {
   contextUsage: false,
   officeTools: false,
   outputSchema: false,
+  languageServers: false,
 };
 
 describeAgentEngineContract("ScriptedEngine replaying the recordings", {
@@ -75,6 +76,7 @@ function options(): SessionOptions {
     profile: { edit: true, run: { kind: "anything" }, web: false, mcpTools: {} },
     officeTools: [],
     mcpServers: [],
+    languageServers: [],
     instructions: "",
     outputSchema: undefined,
   };

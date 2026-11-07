@@ -22,6 +22,17 @@ describe("agentAction", () => {
     });
   });
 
+  it("reads the file an LSP call names, whichever operation it runs", () => {
+    expect(
+      agentAction("LSP", {
+        operation: "goToDefinition",
+        filePath: "src/a.ts",
+        line: 1,
+        character: 1,
+      }),
+    ).toEqual({ kind: "read", paths: ["src/a.ts"] });
+  });
+
   it("reads a glob pattern's own folder up to its first wildcard", () => {
     expect(agentAction("Glob", { pattern: "src/**/*.ts" })).toEqual({
       kind: "read",

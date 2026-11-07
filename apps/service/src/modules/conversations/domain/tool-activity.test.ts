@@ -17,6 +17,12 @@ describe("a tool call's line in the log", () => {
     expect(toolActivitySummary({ file_path: "/elsewhere/README.md" }, FOLDER)).toBe(
       "/elsewhere/README.md",
     );
+    expect(
+      toolActivitySummary(
+        { operation: "goToDefinition", filePath: "/elsewhere/a.ts", line: 5, character: 3 },
+        FOLDER,
+      ),
+    ).toBe("/elsewhere/a.ts");
     expect(toolActivitySummary({ pattern: "deploy", path: "/bases/admin" }, FOLDER)).toBe("deploy");
     expect(toolActivitySummary({ command: "git log --oneline -5" }, FOLDER)).toBe(
       "git log --oneline -5",

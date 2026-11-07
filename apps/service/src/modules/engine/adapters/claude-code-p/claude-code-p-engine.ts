@@ -28,6 +28,7 @@ import type {
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
+import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
@@ -59,6 +60,7 @@ export const CLAUDE_CODE_P_CAPABILITIES: EngineCapabilities = {
   contextUsage: true,
   officeTools: true,
   outputSchema: true,
+  languageServers: true,
 };
 
 /** What a session opens beside its engine's process, which ending it closes. */
@@ -136,6 +138,11 @@ export class ClaudeCodePEngine extends AgentEngine {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     let session: ClaudeCodePSession;
     try {
+      const languageServerPlugin = await writeLanguageServerPlugin(
+        this.officeData.folder("sessions"),
+        id,
+        options.languageServers,
+      );
       const engine = engineProcess.spawn({
         command: pinnedBinaryPath(this.operatingSystem.claudeCodeBinaries),
         args: claudeCodePArguments({
@@ -147,6 +154,7 @@ export class ClaudeCodePEngine extends AgentEngine {
           instructionsFile:
             resources.folder === undefined ? undefined : join(resources.folder, INSTRUCTIONS_FILE),
           mcpConfigFile: resources.mcpConfigFile?.path,
+          languageServerPlugin,
         }),
         cwd: options.folder,
         env: claudeCodePEnvironment(

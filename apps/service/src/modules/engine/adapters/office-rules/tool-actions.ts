@@ -31,6 +31,8 @@ export function agentAction(tool: string, input: unknown): AgentAction {
   switch (tool) {
     case "Read":
       return { kind: "read", paths: [field(input, "file_path")] };
+    case "LSP":
+      return { kind: "read", paths: [field(input, "filePath")] };
     case "Grep":
       return { kind: "read", paths: [field(input, "path") || "."] };
     case "Glob": {

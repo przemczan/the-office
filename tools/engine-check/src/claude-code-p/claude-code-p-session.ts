@@ -173,6 +173,9 @@ export class ClaudeCodePSession extends RecordedSession {
       model: CHECK_MODEL,
       tools: OFFICE_TOOLS,
       pluginFolder: this.pluginFolder,
+      ...(spec.additionalPlugins === undefined
+        ? {}
+        : { additionalPluginFolders: spec.additionalPlugins }),
       allowedSkills: allowedSkillNames(spec),
       settings: sessionSettings(spec.repository, spec.settings),
       hookEvents: hookEvents(spec.hooks ?? {}),

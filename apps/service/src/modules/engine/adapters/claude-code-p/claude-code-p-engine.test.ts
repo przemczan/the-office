@@ -102,6 +102,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
         },
       ],
       mcpServers: [{ name: "fake", launch: fakeStdioMcpServer(), tools: [] }],
+      languageServers: [],
       instructions: "",
       outputSchema: undefined,
     };
@@ -122,6 +123,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
         hookUrl: "http://127.0.0.1:9/hook",
         instructionsFile: undefined,
         mcpConfigFile: mcpConfigFile.path,
+        languageServerPlugin: undefined,
       }),
       cwd: folder,
       env: { ...options.environment, [TOKEN_VARIABLE]: "token" },

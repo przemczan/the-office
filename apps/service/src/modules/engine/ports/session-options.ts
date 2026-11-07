@@ -1,4 +1,5 @@
 import type { Engine } from "../domain/engines.js";
+import type { LanguageServer } from "../domain/language-servers.js";
 import type { ApprovalSetting, PermissionProfile } from "../domain/permission-profile.js";
 import type { OfficeTool } from "./office-tool.js";
 
@@ -121,6 +122,11 @@ export interface SessionOptions {
   readonly officeTools: readonly OfficeTool[];
   /** The Role's MCP servers that run in the session; none when it has none. */
   readonly mcpServers: readonly SessionMcpServer[];
+  /**
+   * The workstation's language servers the session's LSP tool runs, the same for every Role and
+   * fixed for the session; none on an engine without the `languageServers` capability.
+   */
+  readonly languageServers: readonly LanguageServer[];
   /** What each turn's output must match, or undefined for a reply in plain words. */
   readonly outputSchema: JsonSchema | undefined;
   /** Undefined for a session whose tool calls The Office never holds as a whole. */

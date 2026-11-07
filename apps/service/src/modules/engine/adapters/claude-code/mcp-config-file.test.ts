@@ -71,6 +71,7 @@ describe("McpConfigFile", () => {
       profile: { edit: true, run: { kind: "anything" }, web: true, mcpTools: {} },
       officeTools: [],
       mcpServers: [],
+      languageServers: [],
       instructions: "",
       outputSchema: undefined,
     };

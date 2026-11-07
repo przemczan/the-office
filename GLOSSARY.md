@@ -332,6 +332,10 @@ _Avoid_: Upgrade, new release
 A server from The Office's library, a local command or a remote URL, whose tools a person may use when their Role card assigns it; off until the user reviews it.
 _Avoid_: Integration, connector, plugin, tool server
 
+**Language server**:
+A program installed on the workstation that answers the LSP tool for the files of its language. Every session on a Claude Code engine gets those found as it starts, whatever its Role; unlike an MCP server, no Role card assigns one.
+_Avoid_: LSP server, code intelligence
+
 **Server value**:
 A named value an MCP server needs (an environment variable or a header), plain or secret, set Office-wide and overridden on a Project's page.
 _Avoid_: Variable, parameter, credential, config

@@ -6,6 +6,7 @@ import { AgentSdkEngine } from "./adapters/agent-sdk/agent-sdk-engine.js";
 import { ClaudeCodePEngine } from "./adapters/claude-code-p/claude-code-p-engine.js";
 import { SessionEndpoints } from "./adapters/claude-code-p/session-endpoints.js";
 import { SessionEndpointsController } from "./adapters/http/session-endpoints.controller.js";
+import { WorkstationLanguageServers } from "./adapters/language-servers/workstation-language-servers.js";
 import { OpenAiCompatibleApiEngine } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 import { PostgresDayUsage } from "./adapters/postgres/postgres-day-usage.js";
 import { PostgresUsageWindowSamples } from "./adapters/postgres/postgres-usage-window-samples.js";
@@ -18,6 +19,7 @@ import { UsageWindowSamples } from "./application/usage-window-samples.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
 import { DayUsageRepository } from "./ports/day-usage-repository.js";
+import { SessionLanguageServers } from "./ports/session-language-servers.js";
 import { UsageWindowSampleRepository } from "./ports/usage-window-sample-repository.js";
 
 @Module({
@@ -49,6 +51,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
     { provide: UsageWindowSampleRepository, useClass: PostgresUsageWindowSamples },
     UsageWindowSamples,
     RemovedEngineUsage,
+    { provide: SessionLanguageServers, useClass: WorkstationLanguageServers },
     EngineSessions,
   ],
   exports: [

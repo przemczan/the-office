@@ -29,6 +29,7 @@ import { UsageWindowSamplesForTests } from "../../ports/usage-window-sample-repo
 import { UsageWindowSamples } from "../../application/usage-window-samples.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionEvent, ToolCallEvent } from "../../ports/session-events.js";
+import { NoLanguageServers } from "../scripted/no-language-servers.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
 import { AgentSdkEngine } from "./agent-sdk-engine.js";
 
@@ -104,6 +105,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           new EngineModels(new EngineSettingsForTests()),
           new RunningEngineSessions(),
           new BusyWork(events),
+          new NoLanguageServers(),
         );
         const sessionId = randomUUID();
         const session = await sessions.start({

@@ -1340,7 +1340,7 @@ test("a person's Work tab lists the Tasks whose Stages they work, in the Project
     await expect(elsewhereRow).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^All 1$/ })).toBeVisible();
 
-    // Narrowed to this test's Project: a file running beside this one finishes the Developer's Tasks.
+    // Only while narrowed to this Project: other files' Tasks reach Done in the shared database.
     await page.getByRole("button", { name: /^Done/ }).click();
     await expect(page.getByText("No Tasks here. Try another filter.")).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-work.png") });

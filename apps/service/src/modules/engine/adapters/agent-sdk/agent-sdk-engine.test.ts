@@ -44,6 +44,7 @@ import { currentOperatingSystem } from "../../../../platform/os/current-operatin
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
+import { NoLanguageServers } from "../scripted/no-language-servers.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { sdkMcpConfig, sdkOptions } from "./sdk-options.js";
 
@@ -116,6 +117,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         options: withServer,
         configFolder: await preparedEngineConfigFolder(OFFICE_DATA, FIRST_CLAUDE_CODE_ENGINE.id),
         mcpConfigFile: mcpConfigFile.path,
+        languageServerPlugin: undefined,
         agentShells: [],
         preToolUse: () => Promise.resolve({}),
         spawnProcess: engineProcess.spawn,
@@ -190,6 +192,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         new EngineModels(new EngineSettingsForTests()),
         new RunningEngineSessions(),
         new BusyWork(events),
+        new NoLanguageServers(),
       );
 
       const session = await sessions.start({
@@ -363,6 +366,7 @@ function options(folder: string): SessionOptions {
     profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },
     officeTools: [],
     mcpServers: [],
+    languageServers: [],
     instructions: "",
     outputSchema: undefined,
   };

@@ -29,6 +29,10 @@ const SESSIONS = fileURLToPath(new URL("./sessions.jsonl", import.meta.url));
 // where Nest writes errors alone, so a warning (a daily job that failed) is read here.
 const SERVICE_LOG = fileURLToPath(new URL("../e2e-results/service.log", import.meta.url));
 
+// First: the database and folders below are shared by every checkout on the machine, so a run that
+// can't have this port stops here, before it clears what the run holding it is using.
+const fakeGitHub = await startFakeGitHub();
+process.on("exit", () => fakeGitHub.kill());
 await recreateDatabase(E2E_DATABASE_SERVER, E2E_DATABASE_NAME);
 const officeData = E2E_OFFICE_DATA;
 rmSync(officeData, { recursive: true, force: true });
@@ -38,7 +42,6 @@ mkdirSync(E2E_GIT_HOST_FOLDER, { recursive: true });
 mkdirSync(fileURLToPath(new URL("../e2e-results/", import.meta.url)), { recursive: true });
 const officeCheckoutFolder = mkdtempSync(path.join(tmpdir(), "office-e2e-checkout-"));
 const officeCheckout = createOfficeCheckout(officeCheckoutFolder);
-const fakeGitHub = await startFakeGitHub();
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: ["ignore", openSync(SERVICE_LOG, "w"), "inherit"],
   env: {
@@ -56,7 +59,6 @@ const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], 
   },
 });
 service.on("exit", (code) => {
-  fakeGitHub.kill();
   rmSync(officeData, { recursive: true, force: true });
   rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
   rmSync(officeCheckoutFolder, { recursive: true, force: true });

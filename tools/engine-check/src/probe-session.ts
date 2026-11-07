@@ -25,8 +25,6 @@ import { sessionEnvironment } from "./session-environment.ts";
 export type ProbeHook = SessionHook<ProbeSession>;
 
 export interface SessionSpec extends SessionSpecBase<ProbeSession> {
-  /** Further plugin folders loaded beside the session plugin. */
-  readonly additionalPlugins?: readonly string[];
   /** Last-word overrides for what a check varies on purpose. */
   readonly options?: Partial<Options>;
 }
