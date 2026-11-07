@@ -1,3 +1,4 @@
+import type { Server } from "node:http";
 import { launch } from "./launch.js";
 import { HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 
@@ -10,6 +11,11 @@ const officeCheckout = process.env["OFFICE_E2E_CHECKOUT"];
 const hostKey = process.env["OFFICE_E2E_HOST_KEY"];
 /** A day in the end-to-end service: short, so a test sees the daily jobs find what it changed. */
 const E2E_DAY_MS = 2000;
+/**
+ * Longer than any pause in a test: Playwright's request client keeps a connection until the service
+ * closes it, so a request sent as that happens fails with ECONNRESET.
+ */
+const E2E_KEEP_ALIVE_MS = 10 * 60 * 1000;
 if (!scripts) throw new Error("The end-to-end service needs OFFICE_ENGINE_SCRIPTS.");
 if (!hostKey) throw new Error("The end-to-end service needs OFFICE_E2E_HOST_KEY.");
 if (!officeCheckout) throw new Error("The end-to-end service needs OFFICE_E2E_CHECKOUT.");
@@ -64,7 +70,13 @@ await launch(
       // The testing module's own logger shows errors alone; the service logs as main.ts's does.
       .setLogger(new OfficeLogger())
       .compile();
-    return moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, abortOnError: false });
+    const app = moduleRef.createNestApplication({
+      ...HTTP_APPLICATION_OPTIONS,
+      abortOnError: false,
+    });
+    const server: Server = app.getHttpServer();
+    server.keepAliveTimeout = E2E_KEEP_ALIVE_MS;
+    return app;
   },
   officeCheckout,
 );
