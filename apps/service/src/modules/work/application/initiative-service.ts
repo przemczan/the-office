@@ -20,6 +20,7 @@ import {
   writeOutcome,
   type InitiativeChange,
   type InitiativeChangeRoute,
+  type InitiativeTasksChange,
 } from "../domain/initiative-changes.js";
 import {
   initiativeEditProblems,
@@ -173,14 +174,15 @@ export class InitiativeService implements OnModuleInit {
     return initiativeRecordText(initiative, tasks, byId, attachments);
   }
 
-  /** Makes it active; done at once when its Tasks already are. */
+  /** Makes it active, its Tasks in Shaping moving to Backlog; done at once when its Tasks already are. */
   async confirm(id: string): Promise<Initiative> {
-    const confirmed = await this.update(id, confirmInitiative);
+    const confirmed = await this.updateWithTasks(id, confirmInitiative);
     return (await this.finishIfDone(id)) ?? confirmed;
   }
 
+  /** Drops it, and its Tasks still in Shaping with it. */
   async drop(id: string): Promise<Initiative> {
-    return this.update(id, dropInitiative);
+    return this.updateWithTasks(id, dropInitiative);
   }
 
   /**
@@ -196,9 +198,9 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * The user's new Task in Backlog in the Initiative and the Project, following the Project's
-   * default Pipeline, while the Initiative is shaping or active; it waits for `blockedBy` from the
-   * start.
+   * The user's new Task in the Initiative and the Project, following the Project's default
+   * Pipeline, while the Initiative is shaping or active: in Shaping or Backlog, as the Initiative
+   * stands. It waits for `blockedBy` from the start.
    */
   async addTask(
     id: string,
@@ -414,6 +416,19 @@ export class InitiativeService implements OnModuleInit {
   ): Promise<Initiative> {
     const { initiative, event } = await this.repository.update(id, change);
     if (event) await this.events.publish(event);
+    return initiative;
+  }
+
+  private async updateWithTasks<Event extends DomainEvent>(
+    id: string,
+    change: (
+      initiative: Initiative,
+      tasks: readonly Task[],
+    ) => InitiativeTasksChange<Event> | undefined,
+  ): Promise<Initiative> {
+    const { initiative, event, taskChanges } = await this.repository.updateWithTasks(id, change);
+    if (event) await this.events.publish(event);
+    for (const taskChange of taskChanges) await this.events.publish(taskChange.event);
     return initiative;
   }
 }

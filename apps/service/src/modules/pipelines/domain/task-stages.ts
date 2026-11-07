@@ -59,6 +59,15 @@ export function isFinished(taskState: string): boolean {
   return FINISHED_STATES.includes(taskState);
 }
 
+/** Why a Task in this state can't have its Stages edited; undefined while it can. */
+export function whyStagesAreKept(taskState: string): string | undefined {
+  if (isFinished(taskState)) return "A Task that is done or dropped keeps its Stages.";
+  if (taskState === "shaping") {
+    return "A Task in Shaping keeps its Stages as they are: confirm its Initiative first.";
+  }
+  return undefined;
+}
+
 /** What of a Task tells whether its own Stages are open, and where their sessions run. */
 export interface TaskOfStages {
   readonly id: string;

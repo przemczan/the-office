@@ -4,6 +4,7 @@ import {
   boardFilter,
   boardFiltersOf,
   hasBoardFilters,
+  isOnBoard,
   sameBoardFilters,
   tagsOffered,
   withBoardFilter,
@@ -119,6 +120,15 @@ describe("tagsOffered", () => {
     const tasks = [aTask("a", { tags: ["ui"] }), aTask("b", { tags: ["ble", "ui"] })];
 
     expect(tagsOffered(tasks, { tags: ["gone"] })).toEqual(["ble", "gone", "ui"]);
+  });
+});
+
+describe("isOnBoard", () => {
+  it("leaves out only a Task in Shaping, whose Initiative isn't confirmed", () => {
+    expect(isOnBoard({ state: "shaping" })).toBe(false);
+    for (const state of ["backlog", "planning", "ready", "in-progress", "done"] as const) {
+      expect(isOnBoard({ state })).toBe(true);
+    }
   });
 });
 

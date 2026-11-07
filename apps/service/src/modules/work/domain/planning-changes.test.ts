@@ -352,4 +352,12 @@ describe("confirmPipeline", () => {
       new TaskRefused(["A Task keeps its Pipeline once it has started."]),
     );
   });
+
+  it("refuses a Task in Shaping, with what it waits for", () => {
+    expect(() => confirmPipeline(aTask({ state: "shaping" }), "document")).toThrow(
+      new TaskRefused([
+        "A Task in Shaping keeps its Pipeline as it is: confirm its Initiative first.",
+      ]),
+    );
+  });
 });

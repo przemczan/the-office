@@ -66,6 +66,10 @@ _Avoid_: Plan, epic, roadmap, effort
 One unit of work in a Project, done when its Definition of Done is met: a published change, an Attachment, or both.
 _Avoid_: Job, ticket, issue
 
+**Shaping** (a Task state):
+The first state of a Task added to an Initiative still being shaped: off the Work board, and it can't be planned or started until Confirm moves it to Backlog. Dropping the Initiative drops it too.
+_Avoid_: Draft, on hold, pending
+
 **Description**:
 A Task's optional account, in the user's own words, of what they want; it sits above the Plan, and the Planner plans from it and the title.
 _Avoid_: Summary, brief, notes, using "description" for the Plan

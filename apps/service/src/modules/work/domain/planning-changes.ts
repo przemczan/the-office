@@ -15,7 +15,7 @@ import {
   TaskStateChanged,
 } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
+import { CONFIRM_ITS_INITIATIVE, NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 
 /*
  * The Planner proposes the Plan, the Definition of Done and a Pipeline on a Task in Planning; the
@@ -205,6 +205,9 @@ function proposingProblems(task: Task, part: string): string[] {
 }
 
 function changingProblems(task: Task, part: string): string[] {
+  if (task.state === "shaping") {
+    return [`A Task in Shaping keeps its ${part} as it is: ${CONFIRM_ITS_INITIATIVE}`];
+  }
   if (NOT_STARTED_STATES.includes(task.state)) return [];
   return [`A Task keeps its ${part} once it has started.`];
 }

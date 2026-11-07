@@ -120,7 +120,7 @@ describe("write_outcome", () => {
 });
 
 describe("add_task", () => {
-  it("adds a Task in Backlog to the Initiative in the person's name", async () => {
+  it("adds a Task in Shaping to the Initiative in the person's name", async () => {
     const projectId = aProjectId();
 
     const result = await call(ADD_TASK, { title: "Queue schema", projectId });
@@ -130,13 +130,13 @@ describe("add_task", () => {
     expect(task).toMatchObject({
       title: "Queue schema",
       projectId,
-      state: "backlog",
+      state: "shaping",
       priority: "normal",
       initiativeId: initiative.id,
       createdBy: { kind: "person", roleKey: "planner" },
     });
     expect(result).toEqual({
-      text: `Added the Task "Queue schema" (Task ${task?.id}) in Backlog in ${projectId}, on the Initiative's page.`,
+      text: `Added the Task "Queue schema" (Task ${task?.id}) in Shaping in ${projectId}, on the Initiative's page.`,
       isError: false,
     });
   });
@@ -167,7 +167,7 @@ describe("add_task", () => {
       (await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id) ?? [];
     expect(task?.blockedBy).toEqual([schema.id]);
     expect(result.text).toBe(
-      `Added the Task "Queue writes" (Task ${task?.id}) in Backlog in ${projectId}, waiting for "Queue schema", on the Initiative's page.`,
+      `Added the Task "Queue writes" (Task ${task?.id}) in Shaping in ${projectId}, waiting for "Queue schema", on the Initiative's page.`,
     );
   });
 
@@ -330,7 +330,7 @@ describe("once the Initiative is active", () => {
     );
     expect((await current()).outcome).toBe("");
     expect((await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id)).toEqual([
-      queue,
+      { ...queue, state: "backlog" },
     ]);
   });
 
@@ -394,6 +394,7 @@ describe("once the Initiative is dropped", () => {
 
   it("refuses the title and Description of its Tasks, keeping them", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
+    await work.app.get(InitiativeService).confirm(initiative.id);
     await work.app.get(InitiativeService).drop(initiative.id);
     const text =
       "The Initiative is dropped: its Tasks and their dependencies change straight onto it only while it is being shaped.";

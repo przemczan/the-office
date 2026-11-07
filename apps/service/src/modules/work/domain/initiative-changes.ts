@@ -1,10 +1,17 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Initiative, InitiativeState } from "./initiative.js";
+import { THE_USER } from "./author.js";
 import { InitiativeOutcomeWritten, InitiativeStateChanged } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import { newTaskProblems, trimmedNewTask, type NewTask, type Task } from "./task.js";
-import { createTask, type NewTaskSetting, type TaskChange } from "./task-changes.js";
+import {
+  changeTaskState,
+  createTask,
+  moveToBacklogOnConfirm,
+  type NewTaskSetting,
+  type TaskChange,
+} from "./task-changes.js";
 import { addDependency, removeDependency } from "./task-dependencies.js";
 import { changeDescription, changeTitle } from "./task-description.js";
 import { TaskRefused } from "./task-refused.js";
@@ -13,6 +20,7 @@ import type {
   TaskDependencyAdded,
   TaskDependencyRemoved,
   TaskDescriptionChanged,
+  TaskStateChanged,
   TaskTitleChanged,
 } from "./task-events.js";
 
@@ -22,27 +30,52 @@ export interface InitiativeChange<Event extends DomainEvent> {
   readonly event: Event;
 }
 
-/** "Confirm the Initiative": its outcome and Task list are agreed, and it becomes active. */
+/** An Initiative's change that moves its Tasks too, each by a change of its own. */
+export interface InitiativeTasksChange<Event extends DomainEvent> extends InitiativeChange<Event> {
+  readonly taskChanges: readonly TaskChange<TaskStateChanged>[];
+}
+
+/**
+ * "Confirm the Initiative": its outcome and Task list are agreed, so it becomes active and its
+ * Tasks in Shaping move to Backlog.
+ */
 export function confirmInitiative(
   initiative: Initiative,
-): InitiativeChange<InitiativeStateChanged> {
+  tasks: readonly Task[],
+): InitiativeTasksChange<InitiativeStateChanged> {
   if (initiative.state !== "shaping") {
     throw new InitiativeRefused([
       `Only an Initiative being shaped can be confirmed; this one is ${initiative.state}.`,
     ]);
   }
-  return moveTo(initiative, "active");
+  return {
+    ...moveTo(initiative, "active"),
+    taskChanges: inShaping(tasks).map(moveToBacklogOnConfirm),
+  };
 }
 
-/** Undefined when it is already dropped. Its Tasks stay as they are. */
+/**
+ * Undefined when it is already dropped. Its Tasks still in Shaping could never move on, so they
+ * drop with it; every other Task stays as it is.
+ */
 export function dropInitiative(
   initiative: Initiative,
-): InitiativeChange<InitiativeStateChanged> | undefined {
+  tasks: readonly Task[],
+): InitiativeTasksChange<InitiativeStateChanged> | undefined {
   if (initiative.state === "dropped") return undefined;
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
   }
-  return moveTo(initiative, "dropped");
+  return {
+    ...moveTo(initiative, "dropped"),
+    taskChanges: inShaping(tasks).flatMap(
+      (task) => changeTaskState(task, "dropped", THE_USER) ?? [],
+    ),
+  };
+}
+
+function inShaping(tasks: readonly Task[]): readonly Task[] {
+  return tasks.filter(({ state }) => state === "shaping");
 }
 
 /**
@@ -59,7 +92,10 @@ export function finishInitiative(
   return moveTo(initiative, "done");
 }
 
-/** A new Task in Backlog in the Initiative; a done or dropped one takes no more. */
+/**
+ * A new Task in the Initiative: in Shaping until the Initiative is confirmed, in Backlog from then
+ * on; a done or dropped one takes no more.
+ */
 export function addTaskToInitiative(
   initiative: Initiative,
   id: string,
@@ -75,6 +111,7 @@ export function addTaskToInitiative(
     given,
     { ...setting, originIdeaId: undefined, initiativeId: initiative.id },
     at,
+    initiative.state === "shaping" ? "shaping" : "backlog",
   );
 }
 

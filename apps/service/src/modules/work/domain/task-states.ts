@@ -2,6 +2,7 @@ import type { Task, TaskState } from "./task.js";
 
 /** Each state as the UI names it. */
 export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
+  shaping: "Shaping",
   backlog: "Backlog",
   planning: "Planning",
   ready: "Ready",
@@ -17,9 +18,11 @@ export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
  * Task whose Plan and Definition of Done the user wrote goes from Backlog to Ready (spec §2.1);
  * Waiting on you and Paused are side states of In progress and move among themselves; Dropped is
  * open until the Task ends. Nobody moves a Task back from Ready, so that isn't here: only saving a
- * change to its Plan or Definition of Done moves it to Backlog (`planning-changes.ts`).
+ * change to its Plan or Definition of Done moves it to Backlog (`planning-changes.ts`). Nobody asks
+ * for Shaping → Backlog either: only confirming the Initiative makes it (`initiative-changes.ts`).
  */
 const NEXT_STATES: Readonly<Record<TaskState, readonly TaskState[]>> = {
+  shaping: ["dropped"],
   backlog: ["planning", "ready", "dropped"],
   planning: ["ready", "dropped"],
   ready: ["in-progress", "dropped"],
@@ -30,8 +33,11 @@ const NEXT_STATES: Readonly<Record<TaskState, readonly TaskState[]>> = {
   dropped: [],
 };
 
+/** What a Task in Shaping waits for, closing each refusal of what comes after it. */
+export const CONFIRM_ITS_INITIATIVE = "confirm its Initiative first.";
+
 /** States from which the user may still reorder a Task on the board: it hasn't started. */
-export const NOT_STARTED_STATES: readonly TaskState[] = ["backlog", "planning", "ready"];
+export const NOT_STARTED_STATES: readonly TaskState[] = ["shaping", "backlog", "planning", "ready"];
 
 /**
  * States of a started Task: Waiting on you and Paused keep its worktree and session, so they count
@@ -43,7 +49,8 @@ export const STARTED_STATES: readonly TaskState[] = ["in-progress", "waiting-on-
 export function stateChangeProblems(task: Task, to: TaskState): string[] {
   if (task.state === to) return [];
   if (!NEXT_STATES[task.state].includes(to)) {
-    return [`A Task in ${TASK_STATE_NAMES[task.state]} can't move to ${TASK_STATE_NAMES[to]}.`];
+    const refusal = `A Task in ${TASK_STATE_NAMES[task.state]} can't move to ${TASK_STATE_NAMES[to]}`;
+    return [task.state === "shaping" ? `${refusal}: ${CONFIRM_ITS_INITIATIVE}` : `${refusal}.`];
   }
   return to === "ready" ? readyProblems(task) : [];
 }

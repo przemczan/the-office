@@ -58,6 +58,13 @@ export function progressWords({ done, counted, readyToStart }: InitiativeProgres
   return `${done} of ${counted} ${counted === 1 ? "Task" : "Tasks"} done${ready}`;
 }
 
+/** What Drop did, from the state it left: only a shaping Initiative takes Tasks with it. */
+export function droppedWords(droppedFrom: InitiativeState): string {
+  return droppedFrom === "shaping"
+    ? "Initiative dropped, with its Tasks in Shaping. Its other Tasks stay where they are."
+    : "Initiative dropped. Its Tasks stay where they are.";
+}
+
 /** The Outcome block's folded line. */
 export function outcomeSummary(outcome: string): string {
   return outcome === "" ? "Not written yet" : withoutMarkdownMarks(firstLine(outcome));

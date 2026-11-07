@@ -18,6 +18,7 @@ import { NeedsYouList } from "../../shell/work/needs-you-list.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { BeforeReady } from "./before-ready.tsx";
 import { useConversationDrawer } from "./conversation-drawer.tsx";
+import { ItsInitiativeLink } from "./its-initiative-link.tsx";
 import {
   NEEDS_YOU_ELEMENT_ID,
   needsYouClearWords,
@@ -68,6 +69,7 @@ function NothingWaits({ task }: { readonly task: Task }): ReactNode {
       <div className="needs-you-clear-words">
         {needsYouClearWords(task.state, queued)}
         {task.state === "ready" && !queued && <StartsUsing task={task} />}
+        {task.state === "shaping" && <ItsInitiativeLink task={task} />}
       </div>
     </section>
   );

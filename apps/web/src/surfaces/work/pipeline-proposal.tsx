@@ -27,7 +27,7 @@ export function PipelineProposal({
   const pipelines = useQuery(pipelineQueries.list());
   const choosing = useRecordChange(task, (pipelineId: string) => setPipeline(task.id, pipelineId));
   const proposed = task.proposedPipeline;
-  if (proposed === null) return null;
+  if (proposed === null || task.state === "shaping") return null;
   const nameOf = (id: string): string =>
     pipelines.data?.find((candidate) => candidate.id === id)?.name ?? id;
   const proposedName = nameOf(proposed.pipelineId);

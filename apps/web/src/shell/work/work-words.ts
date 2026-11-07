@@ -4,6 +4,7 @@ import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
 
 /** Each Task state as the UI names it (spec §2.1). */
 export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
+  shaping: "Shaping",
   backlog: "Backlog",
   planning: "Planning",
   ready: "Ready",
@@ -34,10 +35,11 @@ export function taskStateWords(
 }
 
 /** The states before In progress: the Task can still be reordered and its priority changed. */
-export const NOT_STARTED: readonly TaskState[] = ["backlog", "planning", "ready"];
+export const NOT_STARTED: readonly TaskState[] = ["shaping", "backlog", "planning", "ready"];
 
 /** How a state's badge reads: running green, waiting on someone amber, ended by how it ended. */
 export const TASK_STATE_TONES: Readonly<Record<TaskState, NonNullable<BadgeProps["tone"]>>> = {
+  shaping: "neutral",
   backlog: "neutral",
   planning: "neutral",
   ready: "neutral",

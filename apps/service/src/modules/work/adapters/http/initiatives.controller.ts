@@ -82,7 +82,7 @@ export class InitiativesController {
     return this.respond(await this.initiatives.read(id));
   }
 
-  /** A new Task in the Initiative, in Backlog in its Project, waiting for the Tasks it names. */
+  /** A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it names. */
   @Post(":id/tasks")
   async addTask(
     @Param("id", ParseUUIDPipe) id: string,

@@ -16,6 +16,7 @@ import {
 import { InitiativeOutcomeWritten, InitiativeStateChanged } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
+import { TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { anInitiative, aTask } from "./work.fixtures.js";
 
@@ -28,30 +29,69 @@ function stateChange(from: string, to: string): object {
 
 describe("confirmInitiative", () => {
   it("makes an Initiative being shaped active", () => {
-    const change = confirmInitiative(anInitiative());
+    const change = confirmInitiative(anInitiative(), []);
 
     expect(change.initiative).toEqual(anInitiative({ state: "active" }));
     expect(change.event).toMatchObject(stateChange("shaping", "active"));
+    expect(change.taskChanges).toEqual([]);
+  });
+
+  it("moves its Tasks in Shaping to Backlog, each move kept by the user, and no other", () => {
+    const shaping = aTask({ id: "task-1", state: "shaping" });
+    const planning = aTask({ id: "task-2", state: "planning" });
+
+    const { taskChanges } = confirmInitiative(anInitiative(), [shaping, planning]);
+
+    expect(taskChanges.map(({ task }) => [task.id, task.state])).toEqual([["task-1", "backlog"]]);
+    expect(taskChanges[0]?.event).toBeInstanceOf(TaskStateChanged);
+    expect(taskChanges[0]?.event).toMatchObject({ from: "shaping", to: "backlog" });
+    expect(taskChanges[0]?.stateChange).toMatchObject({
+      from: "shaping",
+      to: "backlog",
+      by: THE_USER,
+    });
   });
 
   it("refuses any other", () => {
     for (const state of ["active", "done", "dropped"] as const) {
-      expect(() => confirmInitiative(anInitiative({ state }))).toThrow(InitiativeRefused);
+      expect(() => confirmInitiative(anInitiative({ state }), [])).toThrow(InitiativeRefused);
     }
   });
 });
 
 describe("dropInitiative", () => {
   it("drops one being shaped or active, and changes nothing for a dropped one", () => {
-    expect(dropInitiative(anInitiative())?.initiative.state).toBe("dropped");
-    expect(dropInitiative(anInitiative({ state: "active" }))?.event).toMatchObject(
+    expect(dropInitiative(anInitiative(), [])?.initiative.state).toBe("dropped");
+    expect(dropInitiative(anInitiative({ state: "active" }), [])?.event).toMatchObject(
       stateChange("active", "dropped"),
     );
-    expect(dropInitiative(anInitiative({ state: "dropped" }))).toBeUndefined();
+    expect(dropInitiative(anInitiative({ state: "dropped" }), [])).toBeUndefined();
+  });
+
+  it("drops its Tasks still in Shaping with it, each move kept, and leaves the others", () => {
+    const shaping = aTask({ id: "task-1", state: "shaping" });
+    const inProgress = aTask({ id: "task-2", state: "in-progress" });
+
+    const change = dropInitiative(anInitiative(), [shaping, inProgress]);
+
+    expect(change?.taskChanges.map(({ task }) => [task.id, task.state])).toEqual([
+      ["task-1", "dropped"],
+    ]);
+    expect(change?.taskChanges[0]?.stateChange).toMatchObject({
+      from: "shaping",
+      to: "dropped",
+      by: THE_USER,
+    });
+  });
+
+  it("changes no Task of an active one", () => {
+    const backlog = aTask({ state: "backlog" });
+
+    expect(dropInitiative(anInitiative({ state: "active" }), [backlog])?.taskChanges).toEqual([]);
   });
 
   it("refuses a done one", () => {
-    expect(() => dropInitiative(anInitiative({ state: "done" }))).toThrow(
+    expect(() => dropInitiative(anInitiative({ state: "done" }), [])).toThrow(
       new InitiativeRefused(["A done Initiative can't be dropped."]),
     );
   });
@@ -89,16 +129,29 @@ describe("addTaskToInitiative", () => {
   const setting = { pipelineId: "full", order: "a3", createdBy: THE_USER };
   const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
 
-  it("makes a Task in Backlog that names the Initiative", () => {
-    const { task } = addTaskToInitiative(anInitiative(), "task-9", given, setting, at);
+  it("makes a Task in Shaping that names an Initiative being shaped", () => {
+    const { task, stateChange: move } = addTaskToInitiative(
+      anInitiative(),
+      "task-9",
+      given,
+      setting,
+      at,
+    );
 
     expect(task).toMatchObject({
       id: "task-9",
       projectId: "api",
-      state: "backlog",
+      state: "shaping",
       initiativeId: "initiative-1",
       originIdeaId: undefined,
     });
+    expect(move).toMatchObject({ from: undefined, to: "shaping" });
+  });
+
+  it("makes a Task in Backlog once the Initiative is active", () => {
+    const active = anInitiative({ state: "active" });
+
+    expect(addTaskToInitiative(active, "task-9", given, setting, at).task.state).toBe("backlog");
   });
 
   it("refuses a done or dropped Initiative", () => {

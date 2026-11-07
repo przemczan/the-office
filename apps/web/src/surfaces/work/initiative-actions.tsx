@@ -5,6 +5,7 @@ import { confirmInitiative, dropInitiative } from "../../api/work.ts";
 import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { droppedWords } from "./initiative-words.ts";
 import { NewTaskDialog } from "./new-task-dialog.tsx";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 
@@ -55,18 +56,14 @@ function ConfirmButton({ initiative }: { readonly initiative: Initiative }): Rea
 function confirmedWords(confirmed: Initiative, planner: string | undefined): string {
   if (confirmed.state === "done") return "Initiative confirmed, and done: its Tasks are.";
   const until = planner ? `${planner} plans them` : "they are planned";
-  return `Initiative confirmed. Its Tasks wait in Backlog until ${until}.`;
+  return `Initiative confirmed. Its Tasks moved to Backlog, to wait until ${until}.`;
 }
 
 function InitiativeMenu({ initiative }: { readonly initiative: Initiative }): ReactNode {
   const [open, setOpen] = useState(false);
   const copyLink = useCopyRecordLink();
   const showToast = useToast();
-  const dropping = useInitiativeChange(
-    initiative,
-    () => dropInitiative(initiative.id),
-    () => showToast("Initiative dropped. Its Tasks stay where they are."),
-  );
+  const dropping = useInitiativeChange(initiative, () => dropInitiative(initiative.id));
   const items: MenuItem[] = [
     {
       icon: <Icon name="link" size={14} />,
@@ -79,7 +76,14 @@ function InitiativeMenu({ initiative }: { readonly initiative: Initiative }): Re
       icon: <Icon name="x" size={14} />,
       label: "Drop the Initiative",
       danger: true,
-      onSelect: () => dropping.mutate(undefined, { onError: (error) => showToast(error.message) }),
+      onSelect: () => {
+        // Read now: the state changes under the mutation, as the Initiative's event lands first.
+        const words = droppedWords(initiative.state);
+        dropping.mutate(undefined, {
+          onSuccess: () => showToast(words),
+          onError: (error) => showToast(error.message),
+        });
+      },
     });
   }
   return (

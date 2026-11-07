@@ -3921,7 +3921,7 @@ async function addTaskToInitiative(
   }
   await dialog.getByRole("button", { name: "Add the Task" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText(`${title} is in Backlog.`)).toBeVisible();
+  await expect(page.getByText(`${title} is in Shaping.`)).toBeVisible();
 }
 
 // The engine replays the last sessions in e2e/sessions.jsonl: Bob writes the outcome while the
@@ -3995,6 +3995,15 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await dialog.getByText("Usage table schema").click();
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog).toBeHidden();
+    // A Task in Shaping waits for the Initiative, with nothing of planning to offer.
+    const needsYou = page.getByRole("region", { name: "Needs you" });
+    await expect(needsYou).toContainText("Waiting for its Initiative to be confirmed");
+    await expect(needsYou.getByRole("link", { name: "Usage exports for customers" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Plan with Jan" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Make a plan" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit for this Task" })).toHaveCount(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-task-in-shaping.png") });
+
     await page.goto(initiativeUrl);
     await expect(graph.getByRole("link")).toHaveCount(3);
     await expect(graph.getByRole("link", { name: /Usage table schema/ })).toContainText(
@@ -4002,10 +4011,25 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     );
     await expect(page.getByText("2 across 2 Projects")).toBeVisible();
 
+    // Its Tasks have no card on the board until Confirm, which brings them there live.
+    const board = await page.context().newPage();
+    await board.goto("/work");
+    const backlog = board.getByRole("region", { name: "Backlog" });
+    await expect(backlog.getByText("Usage table schema")).toBeVisible();
+    await expect(board.getByText("Usage export endpoint")).toHaveCount(0);
+    await board.screenshot({ path: path.join(SCREENSHOTS, "light-board-before-confirm.png") });
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-initiative-shaping.png") });
     await page.getByRole("button", { name: "Confirm the Initiative" }).click();
     await expect(
-      page.getByText("Initiative confirmed. Its Tasks wait in Backlog until Jan plans them."),
+      page.getByText(
+        "Initiative confirmed. Its Tasks moved to Backlog, to wait until Jan plans them.",
+      ),
     ).toBeVisible();
+    await expect(backlog.getByRole("article", { name: "Usage export endpoint" })).toBeVisible();
+    await expect(backlog.getByRole("article", { name: "Usage export button" })).toBeVisible();
+    await board.screenshot({ path: path.join(SCREENSHOTS, "light-board-after-confirm.png") });
+    await board.close();
     await expect(page.getByRole("button", { name: "Confirm the Initiative" })).toHaveCount(0);
     await expect(outcome.getByRole("button", { name: "Edit" })).toHaveCount(0);
 

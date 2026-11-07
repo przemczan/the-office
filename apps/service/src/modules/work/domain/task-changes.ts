@@ -58,12 +58,16 @@ export interface NewTaskSetting {
   readonly createdBy: Author;
 }
 
-/** A new Task starts in Backlog, unplanned. Refuses with every reason. */
+/**
+ * A new Task starts in Backlog, unplanned, or in Shaping when its Initiative is still being shaped.
+ * Refuses with every reason.
+ */
 export function createTask(
   id: string,
   given: NewTask,
   setting: NewTaskSetting,
   createdAt: Date,
+  state: Extract<Task["state"], "shaping" | "backlog"> = "backlog",
 ): TaskChange<TaskCreated> {
   const newTask = trimmedNewTask(given);
   const problems = newTaskProblems(newTask);
@@ -71,7 +75,7 @@ export function createTask(
   const task: Task = {
     id,
     ...newTask,
-    state: "backlog",
+    state,
     order: setting.order,
     plan: "",
     planConfirmed: false,
@@ -129,6 +133,21 @@ export function undoPlanningMove(task: Task): TaskChange<TaskStateChanged> | und
     },
     task,
     { kind: "office", reason: "its planning Thread couldn't be opened" },
+  );
+}
+
+/**
+ * Shaping → Backlog, as the user confirms the Task's Initiative. Moved here rather than by
+ * `changeTaskState`, as nobody may ask for this move on its own.
+ */
+export function moveToBacklogOnConfirm(task: Task): TaskChange<TaskStateChanged> {
+  return withStateChange(
+    {
+      task: { ...task, state: "backlog" },
+      event: new TaskStateChanged(task.id, task.state, "backlog"),
+    },
+    task,
+    THE_USER,
   );
 }
 

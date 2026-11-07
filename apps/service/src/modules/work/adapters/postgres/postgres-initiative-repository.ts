@@ -3,12 +3,16 @@ import { asc, desc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Initiative } from "../../domain/initiative.js";
-import type { InitiativeChange } from "../../domain/initiative-changes.js";
+import type { InitiativeChange, InitiativeTasksChange } from "../../domain/initiative-changes.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { TaskCreated } from "../../domain/task-events.js";
-import { InitiativeRepository, type InitiativeUpdate } from "../../ports/initiative-repository.js";
+import {
+  InitiativeRepository,
+  type InitiativeTasksUpdate,
+  type InitiativeUpdate,
+} from "../../ports/initiative-repository.js";
 import type { TaskUpdate } from "../../ports/task-repository.js";
 import { initiatives, tasks } from "./work.schema.js";
 import {
@@ -54,10 +58,27 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       const initiative = await heldInitiative(transaction, id);
       const changed = change(initiative, await tasksOf(transaction, id));
       if (!changed) return { initiative, event: undefined };
-      await transaction
-        .update(initiatives)
-        .set(toInitiativeRow(changed.initiative))
-        .where(eq(initiatives.id, id));
+      await saveInitiative(transaction, changed.initiative);
+      return changed;
+    });
+  }
+
+  async updateWithTasks<Event extends DomainEvent>(
+    id: string,
+    change: (
+      initiative: Initiative,
+      tasks: readonly Task[],
+    ) => InitiativeTasksChange<Event> | undefined,
+  ): Promise<InitiativeTasksUpdate<Event>> {
+    return this.database.transaction(async (transaction) => {
+      // The Initiative first and its Tasks after, the one order any hold of both takes.
+      const initiative = await heldInitiative(transaction, id);
+      const changed = change(initiative, await heldTasksOf(transaction, id));
+      if (!changed) return { initiative, event: undefined, taskChanges: [] };
+      await saveInitiative(transaction, changed.initiative);
+      for (const taskChange of changed.taskChanges) {
+        await saveTask(transaction, taskChange.task, taskChange);
+      }
       return changed;
     });
   }
@@ -121,6 +142,23 @@ async function heldInitiative(transaction: Transaction, id: string): Promise<Ini
     .for("update");
   if (!row) throw new InitiativeNotFound(id);
   return toInitiative(row);
+}
+
+async function saveInitiative(transaction: Transaction, initiative: Initiative): Promise<void> {
+  await transaction
+    .update(initiatives)
+    .set(toInitiativeRow(initiative))
+    .where(eq(initiatives.id, initiative.id));
+}
+
+async function heldTasksOf(transaction: Transaction, initiativeId: string): Promise<Task[]> {
+  const rows = await transaction
+    .select()
+    .from(tasks)
+    .where(eq(tasks.initiativeId, initiativeId))
+    .orderBy(asc(tasks.id))
+    .for("update");
+  return rows.map(toTask);
 }
 
 async function tasksOf(transaction: Transaction, initiativeId: string): Promise<Task[]> {

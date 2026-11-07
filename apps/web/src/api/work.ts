@@ -282,7 +282,7 @@ export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promi
   return sendToApi("PUT", `${initiativePath(id)}/outcome`, change, initiativeSchema);
 }
 
-/** "Add a Task": in Backlog in its Project, waiting for the Tasks it names. */
+/** "Add a Task": in Shaping or Backlog in its Project, as the Initiative stands, waiting for the Tasks it names. */
 export function addTaskToInitiative(id: string, newTask: NewInitiativeTask): Promise<Task> {
   return sendToApi("POST", `${initiativePath(id)}/tasks`, newTask, taskSchema);
 }

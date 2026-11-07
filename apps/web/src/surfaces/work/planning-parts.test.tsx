@@ -129,6 +129,15 @@ describe("the Plan's block", () => {
     expect(button(planPage({ ...WRITTEN_TASK, state: "planning" }), "Confirm")).toBeDefined();
   });
 
+  it("offers neither Confirm nor Edit in Shaping, and says what it waits for", () => {
+    const written = planPage({ ...WRITTEN_TASK, state: "shaping" });
+    const unwritten = planPage({ ...WRITTEN_TASK, state: "shaping", plan: "" });
+
+    expect(button(written, "Confirm")).toBeUndefined();
+    expect(button(written, "Edit")).toBeUndefined();
+    expect(unwritten.textContent).toContain("It is written once the Initiative is confirmed.");
+  });
+
   it("offers no Confirm once the Plan is confirmed", () => {
     const page = planPage({ ...WRITTEN_TASK, planConfirmed: true });
 

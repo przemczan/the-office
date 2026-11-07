@@ -14,7 +14,7 @@ import { UsageEstimateLine, useUsageEstimate } from "../../shell/work/usage-esti
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
-import { tagsOffered } from "./board-filters.ts";
+import { isOnBoard, tagsOffered } from "./board-filters.ts";
 import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
@@ -74,7 +74,8 @@ export function Board(): ReactNode {
   const projectFilter = useProjectFilter();
   // Blockers and placement read every Task: one in another Project still holds a Task back.
   const inProjectFilter = (task: Task): boolean => projectFilter.shows([task.projectId]);
-  const matching = tasks.data?.filter(shows) ?? [];
+  const onBoard = tasks.data?.filter(isOnBoard) ?? [];
+  const matching = onBoard.filter(shows);
   const [dragged, setDragged] = useState<Task>();
   const [target, setTarget] = useState<DropTarget>();
   const placing = usePlacing();
@@ -104,7 +105,7 @@ export function Board(): ReactNode {
     <>
       <FilterBar
         filters={filters}
-        tags={tagsOffered(tasks.data?.filter(inProjectFilter) ?? [], filters)}
+        tags={tagsOffered(onBoard.filter(inProjectFilter), filters)}
         initiatives={
           initiatives.data?.filter(
             ({ id, projectIds }) => projectFilter.shows(projectIds) || id === filters.initiative,

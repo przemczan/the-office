@@ -43,7 +43,11 @@ export interface WorkFilter {
 
 export const WORK_FILTERS: readonly [WorkFilter, ...WorkFilter[]] = [
   { key: "all", label: "All", includes: () => true },
-  { key: "not-started", label: "Not started", includes: inStates("backlog", "planning", "ready") },
+  {
+    key: "not-started",
+    label: "Not started",
+    includes: inStates("shaping", "backlog", "planning", "ready"),
+  },
   { key: "in-progress", label: "In progress", includes: inStates("in-progress", "paused") },
   { key: "waiting-on-you", label: "Waiting on you", includes: waitsOnYou },
   { key: "done", label: "Done", includes: inStates("done") },

@@ -4,9 +4,11 @@ import { titleProblem } from "./title.js";
 
 /**
  * Backlog → Planning → Ready → In progress → Done, with Waiting on you and Paused beside In
- * progress and Dropped as the exit (spec §2.1); the moves between them are in task-states.ts.
+ * progress and Dropped as the exit, and Shaping before Backlog for a Task of an Initiative not yet
+ * confirmed (spec §2.1); the moves between them are in task-states.ts.
  */
 export const TASK_STATES = [
+  "shaping",
   "backlog",
   "planning",
   "ready",

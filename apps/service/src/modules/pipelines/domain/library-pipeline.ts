@@ -33,7 +33,7 @@ export interface PipelineUse {
 }
 
 /** States of a Task that hasn't started: it reads its library Pipeline when it does. */
-const NOT_STARTED_STATES: readonly string[] = ["backlog", "planning", "ready"];
+const NOT_STARTED_STATES: readonly string[] = ["shaping", "backlog", "planning", "ready"];
 
 /** States of a started Task still at work, on the copy of the Stages it started with. */
 const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];

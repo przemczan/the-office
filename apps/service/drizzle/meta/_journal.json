@@ -673,6 +673,13 @@
       "when": 1793970317483,
       "tag": "0095_project_images",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1794056717483,
+      "tag": "0096_tasks_in_shaping",
+      "breakpoints": true
     }
   ]
 }

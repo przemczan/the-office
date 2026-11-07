@@ -15,6 +15,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../../platform/events/event-bus.js";
+import { THE_USER } from "../../domain/author.js";
 import { SHAPING_OPENING } from "../../domain/shaping.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
@@ -87,6 +88,21 @@ async function addTask(
   });
   expect(response.status).toBe(201);
   return taskSchema.parse(await response.json());
+}
+
+async function taskOf({ id }: Task): Promise<Task> {
+  return taskSchema.parse(await (await sendJson(work, "GET", `/tasks/${id}`)).json());
+}
+
+async function reasonsFor(
+  task: Task,
+  method: "POST" | "PUT",
+  path: string,
+  body?: unknown,
+): Promise<readonly string[]> {
+  const response = await sendJson(work, method, `/tasks/${task.id}${path}`, body);
+  expect(response.status).toBe(422);
+  return workRefusalSchema.parse(await response.json()).reasons;
 }
 
 async function post(initiative: Initiative, action: "confirm" | "drop"): Promise<Response> {
@@ -234,7 +250,7 @@ describe("the shaping Thread", () => {
 });
 
 describe("POST /api/initiatives/:id/tasks", () => {
-  it("adds Tasks in Backlog in any Project, which the Initiative then spans", async () => {
+  it("adds Tasks in Shaping in any Project, which the Initiative then spans", async () => {
     const initiative = await shape(await capture());
     const [api, web] = [aProjectId(), aProjectId()];
 
@@ -244,11 +260,18 @@ describe("POST /api/initiatives/:id/tasks", () => {
 
     expect(task).toMatchObject({
       projectId: api,
-      state: "backlog",
+      state: "shaping",
       initiativeId: initiative.id,
       originIdeaId: null,
     });
     expect((await read(initiative)).projectIds).toEqual([api, web]);
+  });
+
+  it("adds a Task in Backlog once the Initiative is active", async () => {
+    const initiative = await shape(await capture());
+    await post(initiative, "confirm");
+
+    expect((await addTask(initiative)).state).toBe("backlog");
   });
 
   it("refuses a Project that isn't there, and a dropped Initiative", async () => {
@@ -362,15 +385,133 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
     ]);
   });
 
-  it("drops an Initiative and leaves its Tasks as they are", async () => {
+  it("moves its Tasks in Shaping to Backlog as it is confirmed, each move announced and kept", async () => {
     const initiative = await shape(await capture());
-    const task = await addTask(initiative);
+    const [first, second] = [await addTask(initiative), await addTask(initiative)];
+    work.published.length = 0;
+
+    await post(initiative, "confirm");
+
+    expect((await taskOf(first)).state).toBe("backlog");
+    expect((await taskOf(second)).state).toBe("backlog");
+    expect(webEventsOf(work)).toEqual(
+      expect.arrayContaining(
+        [first, second].map(({ id }) => ({
+          type: "task.state-changed",
+          taskId: id,
+          from: "shaping",
+          to: "backlog",
+        })),
+      ),
+    );
+    expect((await work.app.get(TaskRepository).stateChangesOf(first.id)).at(-1)).toMatchObject({
+      from: "shaping",
+      to: "backlog",
+      by: THE_USER,
+    });
+  });
+
+  it("drops its Tasks in Shaping with a shaping Initiative, each move kept, and no other", async () => {
+    const initiative = await shape(await capture());
+    const shaping = await addTask(initiative);
+    const moved = await addTask(initiative);
+    await work.app.get(TaskRepository).update(moved.id, (held) => ({
+      task: { ...held, state: "planning" },
+      event: new TaskStateChanged(held.id, held.state, "planning"),
+    }));
+    work.published.length = 0;
 
     const dropped = await post(initiative, "drop");
 
     expect(initiativeSchema.parse(await dropped.json()).state).toBe("dropped");
-    const kept = taskSchema.parse(await (await sendJson(work, "GET", `/tasks/${task.id}`)).json());
-    expect(kept).toMatchObject({ state: "backlog", initiativeId: initiative.id });
+    expect((await taskOf(shaping)).state).toBe("dropped");
+    expect((await taskOf(moved)).state).toBe("planning");
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.state-changed",
+      taskId: shaping.id,
+      from: "shaping",
+      to: "dropped",
+    });
+    expect((await work.app.get(TaskRepository).stateChangesOf(shaping.id)).at(-1)).toMatchObject({
+      from: "shaping",
+      to: "dropped",
+      by: THE_USER,
+    });
+  });
+
+  it("changes no Task as an active Initiative drops", async () => {
+    const initiative = await shape(await capture());
+    const task = await addTask(initiative);
+    await post(initiative, "confirm");
+
+    await post(initiative, "drop");
+
+    expect(await taskOf(task)).toMatchObject({ state: "backlog", initiativeId: initiative.id });
+  });
+});
+
+describe("a Task in Shaping", () => {
+  const CONFIRM_FIRST = "confirm its Initiative first.";
+
+  it("can't be planned, marked Ready or started, each with the reason", async () => {
+    const task = await addTask(await shape(await capture()));
+
+    expect(await reasonsFor(task, "POST", "/planning")).toEqual([
+      `A Task in Shaping can't move to Planning: ${CONFIRM_FIRST}`,
+    ]);
+    expect(await reasonsFor(task, "POST", "/make-a-plan")).toEqual([
+      `A Task in Shaping can't move to Planning: ${CONFIRM_FIRST}`,
+    ]);
+    expect((await reasonsFor(task, "POST", "/ready"))[0]).toBe(
+      `A Task in Shaping can't move to Ready: ${CONFIRM_FIRST}`,
+    );
+    expect(await reasonsFor(task, "POST", "/start", {})).toEqual([
+      "Only a Ready Task can start; this one is in Shaping.",
+    ]);
+    expect((await taskOf(task)).state).toBe("shaping");
+  });
+
+  it("keeps its Plan, Definition of Done and Pipeline as they are", async () => {
+    const task = await addTask(await shape(await capture()));
+
+    expect(await reasonsFor(task, "PUT", "/plan", { plan: "Add the route." })).toEqual([
+      `A Task in Shaping keeps its Plan as it is: ${CONFIRM_FIRST}`,
+    ]);
+    expect(
+      await reasonsFor(task, "PUT", "/definition-of-done", { definitionOfDone: ["It exports."] }),
+    ).toEqual([`A Task in Shaping keeps its Definition of Done as it is: ${CONFIRM_FIRST}`]);
+    expect(await reasonsFor(task, "PUT", "/pipeline", { pipelineId: task.pipelineId })).toEqual([
+      `A Task in Shaping keeps its Pipeline as it is: ${CONFIRM_FIRST}`,
+    ]);
+  });
+
+  it("is still found, dropped, and changes its Description and dependencies", async () => {
+    const initiative = await shape(await capture());
+    const blocker = await addTask(initiative);
+    const task = await addTask(initiative);
+
+    await sendJson(work, "PUT", `/tasks/${task.id}/description`, { description: "CSV first." });
+    await sendJson(work, "POST", `/tasks/${task.id}/dependencies`, { blockerId: blocker.id });
+
+    expect(await taskOf(task)).toMatchObject({
+      state: "shaping",
+      description: "CSV first.",
+      blockedBy: [blocker.id],
+    });
+    const found = await sendJson(work, "GET", `/search?query=${encodeURIComponent(task.title)}`);
+    expect(JSON.stringify(await found.json())).toContain(task.id);
+    await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+    expect((await taskOf(task)).state).toBe("dropped");
+  });
+
+  it("can be planned once the Initiative is confirmed", async () => {
+    const initiative = await shape(await capture());
+    const task = await addTask(initiative);
+    await post(initiative, "confirm");
+
+    const planning = await sendJson(work, "POST", `/tasks/${task.id}/planning`);
+
+    expect(taskSchema.parse(await planning.json()).state).toBe("planning");
   });
 });
 

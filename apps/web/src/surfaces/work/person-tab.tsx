@@ -15,6 +15,8 @@ import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { ItsInitiativeLink } from "./its-initiative-link.tsx";
+import { WAITS_FOR_ITS_INITIATIVE } from "./needs-you-words.ts";
 import { MakeAPlanButton } from "./planning-actions.tsx";
 
 /** What a person's tab reads: their Consultations, then their Thread on the Task. */
@@ -84,6 +86,14 @@ function NoThreadYet({
   const planner = usePlanner();
   if (readOnlyReason !== undefined) {
     return <EmptyCard>{`No conversation with ${personName} on ${task.title}.`}</EmptyCard>;
+  }
+  if (task.state === "shaping") {
+    return (
+      <EmptyCard>
+        {WAITS_FOR_ITS_INITIATIVE}
+        <ItsInitiativeLink task={task} />
+      </EmptyCard>
+    );
   }
   if (task.state !== "backlog") return <EmptyCard>{emptyWords}</EmptyCard>;
   return planner ? (
@@ -157,8 +167,8 @@ export function TabFoot({
   }
   // Until it is taken, even once its Thread shows, so a refusal keeps the message and says why.
   if (tab.threadId === null || firstMessage.isPending || firstMessage.isError) {
-    // Backlog has no Thread to open: Planning opens it.
-    return task.state === "backlog" ? null : (
+    // Neither has a Thread to open: Planning opens it.
+    return task.state === "shaping" || task.state === "backlog" ? null : (
       <FirstMessage
         task={task}
         roleKey={tab.roleKey}

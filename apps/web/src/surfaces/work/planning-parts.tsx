@@ -166,8 +166,9 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
         />
       ) : (
         <p className="task-quiet">
-          Not written yet. {planner} proposes it while planning, or write it yourself; a Task can't
-          be Ready without one.
+          {task.state === "shaping"
+            ? `Not written yet. ${WRITTEN_ONCE_CONFIRMED}`
+            : `Not written yet. ${planner} proposes it while planning, or write it yourself; a Task can't be Ready without one.`}
         </p>
       )}
     </RecordFold>
@@ -223,19 +224,26 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
           <PlannersEstimate estimatedTokens={task.estimatedTokens} />
         </>
       ) : (
-        <p className="task-quiet">
-          No Plan yet.{" "}
-          {task.state === "backlog"
-            ? `Make a plan with ${planner} from the conversation, or write it yourself.`
-            : `${planner} proposes it while planning, or write it yourself.`}
-        </p>
+        <p className="task-quiet">No Plan yet. {noPlanWords(task.state, planner)}</p>
       )}
     </RecordFold>
   );
 }
 
+function noPlanWords(state: Task["state"], planner: string): string {
+  if (state === "shaping") return WRITTEN_ONCE_CONFIRMED;
+  return state === "backlog"
+    ? `Make a plan with ${planner} from the conversation, or write it yourself.`
+    : `${planner} proposes it while planning, or write it yourself.`;
+}
+
+const WRITTEN_ONCE_CONFIRMED = "It is written once the Initiative is confirmed.";
+
 /** Where a part is confirmed: Ready waits for it. */
 const BEFORE_READY: readonly Task["state"][] = ["backlog", "planning"];
+
+/** Where a part is edited: not in Shaping, which waits for the Initiative's Confirm. */
+const PARTS_EDITED_IN: readonly Task["state"][] = ["backlog", "planning", "ready"];
 
 function usePartFold(task: Task, block: PartBlock): Fold {
   return useFold({ kind: "task", id: task.id }, block, task.state === "planning");
@@ -348,7 +356,7 @@ function PartActions({
   readonly onConfirm: () => void;
   readonly onEdit: () => void;
 }): ReactNode {
-  const editable = NOT_STARTED.includes(task.state);
+  const editable = PARTS_EDITED_IN.includes(task.state);
   const confirmable = BEFORE_READY.includes(task.state);
   return (
     <div className="task-part-actions">

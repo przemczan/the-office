@@ -1,6 +1,11 @@
 import type { Decision } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { needsYouClearWords, needsYouSummary, waitingOnYou } from "./needs-you-words.ts";
+import {
+  WAITS_FOR_ITS_INITIATIVE,
+  needsYouClearWords,
+  needsYouSummary,
+  waitingOnYou,
+} from "./needs-you-words.ts";
 
 function decisionPutTo(putTo: string | null): Decision {
   return {
@@ -59,6 +64,7 @@ describe("needsYouClearWords", () => {
 
   it("says a Dropped Task was dropped", () => {
     expect(needsYouClearWords("dropped", false)).toBe("This Task was dropped.");
+    expect(needsYouClearWords("shaping", false)).toBe(WAITS_FOR_ITS_INITIATIVE);
   });
 
   it("leaves a Ready Task's Start to the user", () => {

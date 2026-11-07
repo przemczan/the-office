@@ -85,6 +85,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     const task = await this.tasks.read(taskId);
     const ended = ENDED_TASK_CONVERSATION_WORDS[task.state];
     if (ended !== undefined) return ended;
+    if (task.state === "shaping") return NOTHING_TO_ASK_IN_SHAPING;
     if (task.state === "backlog") return NOTHING_TO_ASK_IN_BACKLOG;
     // A Task marked Ready from Backlog has no worktree yet.
     await this.worktrees.open(task.projectId, task.id);
@@ -172,7 +173,10 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
 const NOTHING_TO_ASK_IN_BACKLOG =
   "This Task is in Backlog: nothing is written here until Make a plan or Plan with… starts Planning.";
 
+const NOTHING_TO_ASK_IN_SHAPING =
+  "This Task is in Shaping: nothing is written here until its Initiative is confirmed.";
+
 /** The Planner plans until the Task is Ready, and again if a Save moves it to Backlog. */
 function plansIt({ state }: Task, roleKey: string): boolean {
-  return roleKey === PLANNER && (state === "backlog" || state === "planning");
+  return roleKey === PLANNER && ["shaping", "backlog", "planning"].includes(state);
 }

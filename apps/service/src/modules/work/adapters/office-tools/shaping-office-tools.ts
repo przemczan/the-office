@@ -5,6 +5,7 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
 import type { InitiativeEdit } from "../../domain/initiative-edit.js";
 import { PRIORITIES } from "../../domain/task.js";
+import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { SessionInitiatives } from "../../ports/session-initiatives.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import {
@@ -97,7 +98,7 @@ export class ShapingOfficeTools implements OnModuleInit {
   private registerAddTask(): void {
     this.registry.register({
       name: ADD_TASK,
-      description: `Adds a Task to this Initiative in your name, in Backlog in one Project, on the Project's default Pipeline, waiting from the start for the Tasks it names; planning it comes after. ${WHERE_IT_GOES}`,
+      description: `Adds a Task to this Initiative in your name, in one Project, on the Project's default Pipeline, waiting from the start for the Tasks it names: in Shaping until the Initiative is confirmed, in Backlog from then on; planning it comes after. ${WHERE_IT_GOES}`,
       input: z.object({
         title: z.string().describe("One line naming the outcome of this Task."),
         projectId: z.string().describe("The Project's id, as list_projects gives it."),
@@ -131,7 +132,7 @@ export class ShapingOfficeTools implements OnModuleInit {
             const task = await this.tasks.read(taskId);
             const blockers = await Promise.all(task.blockedBy.map((id) => this.tasks.read(id)));
             const waiting = blockers.map((blocker) => `"${blocker.title}"`).join(" and ");
-            return `Added the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}${waiting && `, waiting for ${waiting}`}, on the Initiative's page.`;
+            return `Added the Task "${task.title}" (Task ${task.id}) in ${TASK_STATE_NAMES[task.state]} in ${task.projectId}${waiting && `, waiting for ${waiting}`}, on the Initiative's page.`;
           },
         ),
     });

@@ -74,7 +74,7 @@ export function PipelineRail({
   const finished = task.state === "done" || task.state === "dropped";
   const label = `Pipeline · ${pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, taskStages.editedForTask)}`;
   const proposal = <PipelineProposal task={task} pipeline={pipeline} />;
-  const editAction = !finished && (
+  const editAction = !finished && task.state !== "shaping" && (
     <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
       Edit for this Task
     </Button>

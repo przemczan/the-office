@@ -202,6 +202,12 @@ describe("Edit for this Task", () => {
       "A Task that is done or dropped keeps its Stages.",
     ]);
   });
+
+  it("refuses editing a Task in Shaping", async () => {
+    expect(await refusalOf(service.edit(aTask("shaping"), withGate))).toEqual([
+      "A Task in Shaping keeps its Stages as they are: confirm its Initiative first.",
+    ]);
+  });
 });
 
 describe("swapping the Pipeline before Start", () => {

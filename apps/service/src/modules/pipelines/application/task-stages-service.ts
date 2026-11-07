@@ -15,9 +15,9 @@ import {
   editTaskStages,
   firstStageToWork,
   followsPipeline,
-  isFinished,
   lockedStageCount,
   makeTaskStages,
+  whyStagesAreKept,
   type TaskStages,
   type TaskTrace,
 } from "../domain/task-stages.js";
@@ -161,8 +161,9 @@ export class TaskStagesService implements OnModuleInit {
     const { state, pipelineId, projectId } = await this.tasks.read(taskId);
     const own = await this.ownOrCopied(taskId, pipelineId);
     const runs = await this.runs.list(taskId);
-    const problems = isFinished(state)
-      ? [{ text: "A Task that is done or dropped keeps its Stages." }]
+    const keptBecause = whyStagesAreKept(state);
+    const problems = keptBecause
+      ? [{ text: keptBecause }]
       : [
           ...editProblems(own, edited, runs, await this.roleFillings.of(edited)),
           ...(await this.roleFillings.permissionProblems(

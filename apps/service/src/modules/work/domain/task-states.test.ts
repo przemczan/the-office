@@ -9,6 +9,7 @@ import { aPlannedTask, aTask } from "./work.fixtures.js";
 
 /** Spec §2.1, written out here apart from the rules so that a change to either shows. */
 const ALLOWED: readonly string[] = [
+  "shaping → dropped",
   "backlog → planning",
   "backlog → ready",
   "backlog → dropped",
@@ -58,6 +59,12 @@ describe("changeTaskState", () => {
   it("names both states in the UI's words when it refuses", () => {
     expect(() => changeTaskState(aTask({ state: "backlog" }), "in-progress", THE_USER)).toThrow(
       new TaskRefused(["A Task in Backlog can't move to In progress."]),
+    );
+  });
+
+  it("says what a Task in Shaping waits for when it refuses", () => {
+    expect(() => changeTaskState(aTask({ state: "shaping" }), "planning", THE_USER)).toThrow(
+      new TaskRefused(["A Task in Shaping can't move to Planning: confirm its Initiative first."]),
     );
   });
 

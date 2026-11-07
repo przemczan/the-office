@@ -6,6 +6,7 @@
 
 **Traps:**
 
+- A Task in Shaping keeps its Stages as Work keeps its Pipeline (`whyStagesAreKept`), and `library-pipeline.ts` lists the not-started states apart from Work's, Shaping among them.
 - A Publish Stage's `publishTarget` absent means the Project's publishing mode: Stages stored before it was added carry none, so never require it.
 - An Agent Stage's `permissions` narrow its Role card's profile through People's `narrowedPermissionProfile` (in `AgentStageRunner.open` and `sessionAhead`, the Brief's commands too); absent keeps the card's, and Stages stored before carry none. A setting wider than the card is flagged in the library and refused for a Task (`RoleFillings.permissionProblems`, not `staffingProblems`, which holds Tasks); at run time the card's applies. MCP tools the Role's servers don't have are ignored.
 - The built-ins live twice: `builtInPipelines` and the `pipelines` migration's seed, which `pipeline-library.test.ts` compares; a change to a built-in needs a migration too. Once seeded, the table is the library, and the user's edits of a built-in stand.
@@ -169,7 +170,7 @@ AlarmResumes, PipelineLibrary, StageResultWords, TaskStagesService, UsageHistory
 - `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, PublishTarget, AfterConflict, StageSession, Effort, OnFailure, AgentStage, ScriptStage, Gate, agentStageRoles, newlyNamedRoles
 - `stages-edit-refused.ts`: StagesEditRefused
 - `task-stages-events.ts`: TaskStagesMade, TaskStagesEdited, TaskStagesReset
-- `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, isFinished, TaskOfStages, rolesNamedByOpenTasks, lockedStageCount, firstStageToWork, editProblems, editTaskStages
+- `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, isFinished, whyStagesAreKept, TaskOfStages, rolesNamedByOpenTasks, lockedStageCount, firstStageToWork, editProblems, editTaskStages
 - `test-results.ts`: TestResultState, TestResult, latestTestResults
 - `usage-history.ts`: HISTORY_TASKS, StageUsage, StageUsages, PricedTokens, ModelTokens, countedTokens, latestTasksRuns, stageUsages, tokensByModel, dollarsPerToken
 - `walk-decisions.ts`: DecisionAnswer, WalkDecision, walkDecision, walkAnswerOf, asksTheCtoFirst, agentDecision, AcceptedIssue, acceptedIssues

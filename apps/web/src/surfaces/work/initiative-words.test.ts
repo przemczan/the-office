@@ -2,6 +2,7 @@ import type { Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   attachmentsSummary,
+  droppedWords,
   initiativeProgress,
   outcomeSummary,
   progressWords,
@@ -99,6 +100,15 @@ describe("initiativeProgress", () => {
 
     expect(progress).toEqual({ done: 1, counted: 3, readyToStart: 1 });
     expect(progressWords(progress)).toBe("1 of 3 Tasks done · 1 ready to start");
+  });
+});
+
+describe("droppedWords", () => {
+  it("says a shaping Initiative took its Tasks in Shaping with it, an active one none", () => {
+    expect(droppedWords("shaping")).toBe(
+      "Initiative dropped, with its Tasks in Shaping. Its other Tasks stay where they are.",
+    );
+    expect(droppedWords("active")).toBe("Initiative dropped. Its Tasks stay where they are.");
   });
 });
 

@@ -66,6 +66,7 @@ export const outcomeChangeSchema = z.object({ outcome: z.string() });
 export type OutcomeChange = z.infer<typeof outcomeChangeSchema>;
 
 export const taskStateSchema = z.enum([
+  "shaping",
   "backlog",
   "planning",
   "ready",

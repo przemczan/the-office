@@ -75,6 +75,11 @@ export function tagsOffered(tasks: readonly Task[], filters: BoardFilters): stri
   return [...new Set([...tagsInUse(tasks), ...(filters.tags ?? [])])].toSorted();
 }
 
+/** A Task in Shaping joins the board as its Initiative is confirmed; until then it has no column. */
+export function isOnBoard({ state }: Pick<Task, "state">): boolean {
+  return state !== "shaping";
+}
+
 /**
  * Whether a Task shows under the filters. `found` holds the Tasks the search matched, once the
  * service has answered; until then the search narrows nothing.

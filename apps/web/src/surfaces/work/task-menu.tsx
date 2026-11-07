@@ -75,11 +75,15 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
     ...(task.state === "done" || task.state === "dropped"
       ? []
       : [
-          {
-            icon: <Icon name="route" size={14} />,
-            label: "Edit Stages for this Task",
-            onSelect: () => setEditingStages(true),
-          },
+          ...(task.state === "shaping"
+            ? []
+            : [
+                {
+                  icon: <Icon name="route" size={14} />,
+                  label: "Edit Stages for this Task",
+                  onSelect: () => setEditingStages(true),
+                },
+              ]),
           { divider: true },
           {
             icon: <Icon name="x" size={14} />,

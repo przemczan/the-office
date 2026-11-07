@@ -152,6 +152,7 @@ describe("a person's Thread on a Task's session", () => {
   });
 
   it.each([
+    ["shaping", "This Task is in Shaping"],
     ["backlog", "This Task is in Backlog"],
     ["done", "This Task is Done"],
     ["dropped", "This Task was dropped"],

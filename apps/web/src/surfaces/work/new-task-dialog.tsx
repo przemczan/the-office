@@ -10,6 +10,7 @@ import { onlyProjectShown } from "../../shell/project-filter/project-filter-choi
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
+import { TASK_STATE_NAMES } from "../../shell/work/work-words.ts";
 import { canHoldBack } from "./dependency-words.ts";
 import { tasksOfInitiative } from "./initiative-words.ts";
 import { tagsInUse } from "./tag-words.ts";
@@ -22,7 +23,8 @@ type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string }
  * Backlog, and its page opens. Given an
  * Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in the Initiative's
  * first Project unless another is chosen, and waiting for any of its Tasks that can still hold it
- * back; the user stays on the Initiative to add the next. Otherwise it is in the one Project the
+ * back; it starts in Shaping while the Initiative does, and the user stays on the Initiative to add
+ * the next. Otherwise it is in the one Project the
  * Project filter shows, or the first.
  */
 export function NewTaskDialog({
@@ -63,7 +65,7 @@ export function NewTaskDialog({
         queryClient.invalidateQueries(taskQueries.list()),
         initiative && queryClient.invalidateQueries(initiativeQueries.list()),
       ]);
-      showToast(`${task.title} is in Backlog.`);
+      showToast(`${task.title} is in ${TASK_STATE_NAMES[task.state]}.`);
       onClose();
       if (!initiative) await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
     },
@@ -83,7 +85,11 @@ export function NewTaskDialog({
           >
             Add the Task
           </Button>
-          <span className="dialog-hint">It starts in Backlog.</span>
+          <span className="dialog-hint">
+            {initiative?.state === "shaping"
+              ? "It starts in Shaping, and moves to Backlog once the Initiative is confirmed."
+              : "It starts in Backlog."}
+          </span>
         </>
       }
     >
