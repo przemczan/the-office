@@ -37,7 +37,12 @@ describe("PickList", () => {
           foot={<button type="button">Duplicate</button>}
           note="Each engine is one account."
         >
-          <PickListItem picked={false} name="Claude Code" line="Signed in" onPick={vi.fn<() => void>()} />
+          <PickListItem
+            picked={false}
+            name="Claude Code"
+            line="Signed in"
+            onPick={vi.fn<() => void>()}
+          />
         </PickList>,
       ),
     );
