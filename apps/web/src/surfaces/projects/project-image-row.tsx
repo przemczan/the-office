@@ -20,8 +20,12 @@ import type { RepositoryFile } from "../../shell/repository-files/repository-fil
 import { RepositoryFileWindow } from "../../shell/repository-files/repository-file-window.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 
-const LIMIT_IN_MB = PROJECT_IMAGE_UPLOAD_BYTES / 1024 / 1024;
+export const IMAGE_LIMIT_IN_MB = PROJECT_IMAGE_UPLOAD_BYTES / 1024 / 1024;
 const IMAGE_NAMES: Readonly<Record<ProjectImageKey, string>> = { icon: "Icon", logo: "Logo" };
+const WHERE_IT_SHOWS: Readonly<Record<ProjectImageKey, string>> = {
+  icon: "Shows on the mark's colour in place of its letters, wherever the mark shows.",
+  logo: "Stands for the Project on its page and its card, in place of the mark.",
+};
 
 /** What a row is changing its image to: an upload, a file in the repository, or none. */
 type ImageChange = File | RepositoryFile | null;
@@ -70,19 +74,17 @@ export function ProjectImageRow({
     setTooLarge(false);
     changing.mutate(file);
   };
-  const problem = tooLarge ? `An image may be at most ${LIMIT_IN_MB} MB.` : changing.error?.message;
+  const problem = tooLarge
+    ? `An image may be at most ${IMAGE_LIMIT_IN_MB} MB.`
+    : changing.error?.message;
   return (
     <div className="project-image-row" role="group" aria-label={name}>
       <div className="project-image-preview">
-        {imageKey === "icon" ? (
-          <ProjectMark project={project} size="xl" />
-        ) : (
-          <ProjectLogo project={project} size="xl" />
-        )}
+        <ImagePreview project={project} imageKey={imageKey} />
       </div>
       <div className="project-image-words">
         <div className="project-image-name">{name}</div>
-        <div className="project-image-hint">PNG, JPEG, WebP or SVG, at most {LIMIT_IN_MB} MB</div>
+        <div className="project-image-hint">{WHERE_IT_SHOWS[imageKey]}</div>
         {problem && (
           <p className="project-block-error" role="alert">
             {problem}
@@ -149,5 +151,23 @@ export function ProjectImageRow({
         />
       )}
     </div>
+  );
+}
+
+/** The image alone, as it shows; an empty place without one, rather than what shows instead. */
+function ImagePreview({
+  project,
+  imageKey,
+}: {
+  readonly project: Project;
+  readonly imageKey: ProjectImageKey;
+}): ReactNode {
+  if (project[imageKey] === null) {
+    return <span className="project-image-empty">No {IMAGE_NAMES[imageKey]}</span>;
+  }
+  return imageKey === "icon" ? (
+    <ProjectMark project={project} size="xl" />
+  ) : (
+    <ProjectLogo project={project} size="xl" />
   );
 }

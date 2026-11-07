@@ -1,20 +1,48 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Mark, Project } from "@the-office/contracts";
 import { Button } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { changeMark, projectQueries } from "../../api/projects.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { AppearancePreview } from "./appearance-preview.tsx";
 import { MarkPicker } from "./mark-picker.tsx";
 import { ProjectBlock } from "./project-block.tsx";
-import { ProjectImageRow } from "./project-image-row.tsx";
+import { IMAGE_LIMIT_IN_MB, ProjectImageRow } from "./project-image-row.tsx";
 
 /**
- * The Project's mark and images. The mark is saved by a button rather than at once, as a label can
- * be briefly empty while it is typed. Without a draft it shows the Project's, so a change from
- * another tab shows here.
+ * The Project's mark and images beside how they look. The mark is saved by a button rather than at
+ * once, as a label can be briefly empty while it is typed, and the preview shows its draft until
+ * then. Without a draft it shows the Project's, so a change from another tab shows here.
  */
 export function AppearanceBlock({ project }: { readonly project: Project }): ReactNode {
   const [draft, setDraft] = useState<Mark>();
+  // Another tab may save the very mark being drafted, which leaves nothing to save.
+  const changed = draft !== undefined && !sameMark(draft, project.mark);
+  return (
+    <div className="appearance">
+      <div className="appearance-preview">
+        <AppearancePreview project={{ ...project, mark: draft ?? project.mark }} unsaved={changed} />
+      </div>
+      <div className="appearance-edit">
+        <MarkCard project={project} draft={draft} changed={changed} onDraft={setDraft} />
+        <ImagesCard project={project} />
+      </div>
+    </div>
+  );
+}
+
+function MarkCard({
+  project,
+  draft,
+  changed,
+  onDraft,
+}: {
+  readonly project: Project;
+  readonly draft: Mark | undefined;
+  /** The draft differs from the Project's mark, so there is something to save or discard. */
+  readonly changed: boolean;
+  readonly onDraft: Dispatch<SetStateAction<Mark | undefined>>;
+}): ReactNode {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const saving = useMutation({
@@ -22,31 +50,31 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
     onSuccess: (saved, sent) => {
       queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved);
       // An edit made while the save ran is a newer draft, and stays.
-      setDraft((current) => (current === sent ? undefined : current));
+      onDraft((current) => (current === sent ? undefined : current));
       showToast(`Mark saved for ${saved.name}.`);
     },
   });
-  const changed = draft !== undefined && !sameMark(draft, project.mark);
   return (
-    <ProjectBlock
-      icon="palette"
-      title="Appearance"
-      note="The mark shows with the Project's name on every page. An Icon takes the place of its letters, and a Logo stands for the Project on its page and card."
-    >
+    <ProjectBlock icon="palette" title="Mark">
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (changed && !saving.isPending) saving.mutate(draft);
+          if (changed && draft !== undefined && !saving.isPending) saving.mutate(draft);
         }}
       >
         <MarkPicker
-          project={project}
+          projectName={project.name}
           mark={draft ?? project.mark}
           onChange={(mark) => {
             if (saving.isError) saving.reset();
-            setDraft(sameMark(mark, project.mark) ? undefined : mark);
+            onDraft(sameMark(mark, project.mark) ? undefined : mark);
           }}
         />
+        {project.icon !== null && (
+          <p className="project-block-note">
+            The Icon shows in place of these letters. They come back if it is removed.
+          </p>
+        )}
         {saving.error && (
           <p className="project-block-error" role="alert">
             {saving.error.message}
@@ -62,8 +90,33 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
           >
             Save
           </Button>
+          {changed && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={saving.isPending}
+              title={saving.isPending ? "The mark is being saved." : undefined}
+              onClick={() => {
+                saving.reset();
+                onDraft(undefined);
+              }}
+            >
+              Discard
+            </Button>
+          )}
         </div>
       </form>
+    </ProjectBlock>
+  );
+}
+
+function ImagesCard({ project }: { readonly project: Project }): ReactNode {
+  return (
+    <ProjectBlock icon="image" title="Images">
+      <p className="appearance-images-intro">
+        PNG, JPEG, WebP or SVG, at most {IMAGE_LIMIT_IN_MB} MB. Each is saved as soon as it is
+        picked.
+      </p>
       <div className="project-image-rows">
         <ProjectImageRow project={project} imageKey="icon" />
         <ProjectImageRow project={project} imageKey="logo" />

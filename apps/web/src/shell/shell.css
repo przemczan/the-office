@@ -509,25 +509,26 @@ body,
   font-size: 15px;
 }
 
-.project-mark.colour-teal {
+/* A mark's colours, for its tile and for the swatches that pick one. */
+.mark-colour-teal {
   --mark-bg: var(--teal-500);
 }
 
-.project-mark.colour-violet {
+.mark-colour-violet {
   --mark-bg: var(--violet-500);
 }
 
-.project-mark.colour-gray {
+.mark-colour-gray {
   --mark-bg: var(--gray-500);
 }
 
-.project-mark.colour-ink {
+.mark-colour-ink {
   --mark-bg: var(--fg-1);
   --mark-fg: var(--bg);
 }
 
 /* Its --mark-bg and --mark-fg are set on the element; the border holds its edge on a like background. */
-.project-mark.colour-custom {
+.project-mark.mark-colour-custom {
   border: 1px solid var(--border);
 }
 

@@ -175,14 +175,16 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
               onChange={(event) => change({ name: event.target.value })}
               autoFocus
             />
-            <MarkPicker
-              project={{ name: draft.name }}
-              mark={mark}
-              onChange={(changed) => {
-                if (changed.label !== mark.label) setLabelEdited(true);
-                change({ mark: changed });
-              }}
-            />
+            <Field label="Mark">
+              <MarkPicker
+                projectName={draft.name}
+                mark={mark}
+                onChange={(changed) => {
+                  if (changed.label !== mark.label) setLabelEdited(true);
+                  change({ mark: changed });
+                }}
+              />
+            </Field>
           </div>
           {cloned ? (
             <div className="add-project-cloned">

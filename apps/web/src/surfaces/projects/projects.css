@@ -118,11 +118,61 @@
   gap: 8px;
 }
 
-/* Five colours are wider than the narrowest card, and only this row may scroll sideways. */
-.mark-picker [role="tablist"] {
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
+/* The colours as round swatches, each a native radio drawn on the mark's own colour classes. */
+.mark-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mark-swatch {
+  display: inline-grid;
+  place-items: center;
+}
+
+.mark-swatch > * {
+  grid-area: 1 / 1;
+}
+
+.mark-swatch-input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  appearance: none;
+  background: var(--mark-bg);
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+/* The ring stands off the swatch, so it reads on every colour, ink too. */
+.mark-swatch-input:checked {
+  outline: 2px solid var(--fg-1);
+  outline-offset: 2px;
+}
+
+.mark-swatch-input:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Until one is picked Custom has no colour, so it shows as an empty place to pick one. */
+.mark-swatch-input.custom {
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+}
+
+/* Its --mark-bg is the user's colour, set on the element; the edge holds on a like background. */
+.mark-swatch-input.custom:checked {
+  background: var(--mark-bg);
+  border: 1px solid var(--border);
+}
+
+.mark-swatch-over {
+  display: inline-flex;
+  color: var(--fg-2);
+  pointer-events: none;
 }
 
 .mark-picker-custom {
@@ -212,14 +262,16 @@
   color: var(--fg-3);
   font-family: var(--font-mono);
 }
-/* ---- a Project's page */
-.project-head {
+/* ---- a Project's page, and its head as Appearance previews it */
+.project-head,
+.appearance-sample-head {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-.project-head h2 {
+.project-head h2,
+.appearance-sample-name {
   margin: 0;
   font: 600 20px/1.3 var(--font-sans);
   letter-spacing: var(--tracking-tight);
@@ -714,12 +766,76 @@
   justify-content: flex-end;
 }
 
-/* ---- Appearance: a row per image, beside the mark */
+/* ---- Appearance: the Mark and Images cards beside How it looks, which comes first in one column */
+.appearance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap-card);
+  align-items: start;
+}
+
+.appearance-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  min-width: 0;
+}
+
+@container page (min-width: 1225px) {
+  .appearance {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  .appearance-edit {
+    grid-area: 1 / 1;
+  }
+
+  /* It stays in view while the cards beside it scroll. */
+  .appearance-preview {
+    position: sticky;
+    top: var(--pad-page);
+    grid-area: 1 / 2;
+  }
+}
+
+.appearance-samples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.appearance-sample {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+/* The page's own background, so each sample sits as it does in the app. */
+.appearance-sample-stage {
+  padding: var(--space-3);
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.appearance-sample-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.appearance-images-intro {
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
 .project-image-rows {
   display: grid;
   gap: 12px;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 14px;
+  padding-top: 14px;
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -752,6 +868,18 @@
 .project-image-hint {
   font: var(--type-caption);
   color: var(--fg-2);
+}
+
+/* No image, so a place for one rather than the mark that shows instead. */
+.project-image-empty {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 100%;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  font: var(--type-caption);
+  color: var(--fg-3);
 }
 
 .project-image-row .project-block-error {

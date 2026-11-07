@@ -52,6 +52,9 @@ const SVG_WITH_A_SCRIPT = {
   ),
 };
 
+/** In the page's order, How it looks first, as it shows on top in one column. */
+const APPEARANCE_BLOCKS = ["How it looks", "Mark", "Images"];
+
 /** A Project's sections in the menu's order: each one's address and the blocks only it shows. */
 const SECTIONS = [
   { name: "Overview", address: "", blocks: ["Onboarding", "Environment", "Work"] },
@@ -60,11 +63,11 @@ const SECTIONS = [
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
   { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
   { name: "Server values", address: "/server-values", blocks: ["Server values"] },
-  { name: "Appearance", address: "/appearance", blocks: ["Appearance"] },
+  { name: "Appearance", address: "/appearance", blocks: APPEARANCE_BLOCKS },
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Engine|Skills in the repository.*|Server values|Appearance)$/;
+  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 
@@ -171,6 +174,11 @@ async function addedProject(
 
 function projectMenu(page: Page) {
   return page.getByRole("navigation", { name: "Project", exact: true });
+}
+
+/** Appearance's How it looks: the page head, the card and the mark beside an item. */
+function howItLooks(page: Page): Locator {
+  return page.locator(".appearance-preview");
 }
 
 /** The section is open: marked in the menu, its blocks alone showing, under the Project's head. */
@@ -491,16 +499,24 @@ test("the mark is changed in Appearance: previewed, saved, and shown on the head
   await page.goto(`/projects/${project.id}/appearance`);
   const head = page.locator(".project-head .project-mark");
   const picker = page.locator(".mark-picker");
+  const preview = howItLooks(page);
   const save = page.getByRole("button", { name: "Save" });
   await expect(head).toHaveText("AP");
   await expect(save).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Discard" })).toBeHidden();
+  await expect(preview.getByText("Not saved")).toBeHidden();
 
   await picker.getByLabel("Mark label").fill("NL");
-  await picker.getByRole("tab", { name: "Teal" }).click();
+  await picker.getByRole("radio", { name: "Teal" }).check();
 
   await expect(picker.locator(".project-mark")).toHaveText("NL");
   await expect(picker.locator(".project-mark")).toHaveClass(/colour-teal/);
+  // Every place the preview draws shows the draft, while the real head keeps the saved mark.
+  await expect(preview.locator(".project-mark")).toHaveText(["NL", "NL", "NL"]);
+  await expect(preview.locator(".project-mark.mark-colour-teal")).toHaveCount(3);
+  await expect(preview.getByText("Not saved")).toBeVisible();
   await expect(head).toHaveText("AP");
+  await expect(head).toHaveClass(/colour-violet/);
 
   await save.click();
 
@@ -508,6 +524,7 @@ test("the mark is changed in Appearance: previewed, saved, and shown on the head
   await expect(head).toHaveText("NL");
   await expect(head).toHaveClass(/colour-teal/);
   await expect(save).toBeDisabled();
+  await expect(preview.getByText("Not saved")).toBeHidden();
 
   await page.reload();
   await expect(page.locator(".project-head .project-mark")).toHaveText("NL");
@@ -517,6 +534,52 @@ test("the mark is changed in Appearance: previewed, saved, and shown on the head
   const card = page.getByRole("link", { name: /New look/ }).locator(".project-mark");
   await expect(card).toHaveText("NL");
   await expect(card).toHaveClass(/colour-teal/);
+});
+
+test("Discard shows only while the mark has a draft, and brings back the saved mark", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Second thoughts");
+  await page.goto(`/projects/${project.id}/appearance`);
+  const picker = page.locator(".mark-picker");
+  const discard = page.getByRole("button", { name: "Discard" });
+  await expect(discard).toBeHidden();
+
+  await picker.getByLabel("Mark label").fill("ST");
+  await picker.getByRole("radio", { name: "Ink" }).check();
+  await expect(discard).toBeVisible();
+
+  await discard.click();
+
+  await expect(picker.getByLabel("Mark label")).toHaveValue("AP");
+  await expect(picker.getByRole("radio", { name: "Violet" })).toBeChecked();
+  await expect(howItLooks(page).locator(".project-mark").first()).toHaveText("AP");
+  await expect(howItLooks(page).getByText("Not saved")).toBeHidden();
+  await expect(discard).toBeHidden();
+  await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
+
+  // Typed back to the saved mark, there is nothing to discard either.
+  await picker.getByLabel("Mark label").fill("AQ");
+  await expect(discard).toBeVisible();
+  await picker.getByLabel("Mark label").fill("AP");
+  await expect(discard).toBeHidden();
+});
+
+test("the colours are swatches picked by the keyboard, each named", async ({ page }) => {
+  const project = await addedProject(page, "Keyed");
+  await page.goto(`/projects/${project.id}/appearance`);
+  const colours = page.getByRole("radiogroup", { name: "Colour" });
+  await expect(colours.getByRole("radio")).toHaveCount(5);
+  for (const name of ["Teal", "Violet", "Gray", "Ink", "Custom"]) {
+    await expect(colours.getByRole("radio", { name })).toBeVisible();
+  }
+
+  await colours.getByRole("radio", { name: "Violet" }).focus();
+  await page.keyboard.press("ArrowRight");
+
+  await expect(colours.getByRole("radio", { name: "Gray" })).toBeChecked();
+  await expect(page.locator(".mark-picker .project-mark")).toHaveClass(/colour-gray/);
+  await expect(page.getByRole("tooltip")).toHaveText("Gray");
 });
 
 test("an Icon replaces the letters everywhere, without a reload, until it is removed", async ({
@@ -538,15 +601,27 @@ test("an Icon replaces the letters everywhere, without a reload, until it is rem
   await page.goto(`/projects/${project.id}/appearance`);
   const row = page.getByRole("group", { name: "Icon" });
   const head = page.locator(".project-head .project-mark");
-  await expect(row.getByText("PNG, JPEG, WebP or SVG, at most 2 MB")).toBeVisible();
+  const iconNote = page.getByText("The Icon shows in place of these letters.");
+  await expect(
+    page.getByText("PNG, JPEG, WebP or SVG, at most 2 MB. Each is saved as soon as it is picked."),
+  ).toBeVisible();
+  await expect(row.getByText("in place of its letters, wherever the mark shows")).toBeVisible();
+  await expect(row.getByText("No Icon")).toBeVisible();
   await expect(row.getByRole("button", { name: "Remove" })).toBeHidden();
+  await expect(iconNote).toBeHidden();
 
   await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
 
   await expect(page.getByText("Icon saved for Iconic.")).toBeVisible();
   await expectLoadedImage(head.locator("img"));
   await expectLoadedImage(row.locator(".project-mark img"));
-  await expectLoadedImage(page.locator(".mark-picker .project-mark img"));
+  await expect(row.getByText("No Icon")).toBeHidden();
+  // The picker edits the letters, so it keeps them; How it looks shows the Icon in their place.
+  await expect(page.locator(".mark-picker .project-mark")).toHaveText("AP");
+  await expect(iconNote).toBeVisible();
+  const previewIcons = howItLooks(page).locator(".project-mark img");
+  await expect(previewIcons).toHaveCount(3);
+  for (const icon of await previewIcons.all()) await expectLoadedImage(icon);
   await expect(head).not.toHaveText("AP");
   await expectLoadedImage(boardMark.locator("img"));
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-icon.png") });
@@ -566,12 +641,22 @@ test("a Logo stands for the Project on its page and card, and the mark comes bac
 }) => {
   const project = await addedProject(page, "Logoed");
   await page.goto(`/projects/${project.id}/appearance`);
+  const row = page.getByRole("group", { name: "Logo" });
+  // An empty row shows a place for the Logo, not the mark that shows without one.
+  await expect(row.getByText("No Logo")).toBeVisible();
+  await expect(row.locator(".project-mark, .project-logo")).toHaveCount(0);
+  await expect(row.getByText("Stands for the Project on its page and its card")).toBeVisible();
 
   await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
 
   await expect(page.getByText("Logo saved for Logoed.")).toBeVisible();
   const headLogo = page.locator(".project-head .project-logo");
   await expectLoadedImage(headLogo);
+  await expectLoadedImage(row.locator(".project-logo"));
+  await expect(row.getByText("No Logo")).toBeHidden();
+  // How it looks shows the Logo on the page head and the card, and the mark beside an item.
+  await expect(howItLooks(page).locator(".project-logo")).toHaveCount(2);
+  await expect(howItLooks(page).locator(".project-mark")).toHaveText(["AP"]);
   await expect(page.locator(".project-head .project-mark")).toBeHidden();
   // Its own proportions, 4 to 1, inside the head's limit.
   await expect(headLogo).toHaveJSProperty("naturalWidth", 400);
@@ -815,6 +900,11 @@ for (const colorScheme of ["light", "dark"] as const) {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ colorScheme });
         await page.goto(`/projects/${project.id}/appearance`);
+        await expectAppearanceLaidOut(page, width);
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-appearance.png`),
+        });
+
         await chooseFromRepository(page, "Icon", "circle.svg");
         await chooseFromRepository(page, "Logo", "logo.svg");
         await expectLoadedImage(page.locator(".project-head .project-logo"));
@@ -823,11 +913,9 @@ for (const colorScheme of ["light", "dark"] as const) {
           .getByRole("button", { name: "Choose from repository" });
         await button.scrollIntoViewIfNeeded();
         await expect(button).toBeInViewport({ ratio: 1 });
-        const scrollsSideways = await page.evaluate(
-          () => document.documentElement.scrollWidth > window.innerWidth,
-        );
-        expect(scrollsSideways).toBe(false);
+        await expectAppearanceLaidOut(page, width);
         await expect(page.getByText(/saved for Look/)).toHaveCount(0);
+        await page.locator(".shell-main").evaluate((main) => main.scrollTo(0, 0));
         await page.screenshot({
           path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-images-appearance.png`),
         });
@@ -845,7 +933,53 @@ for (const colorScheme of ["light", "dark"] as const) {
         await imaged.remove();
       }
     });
+
+    test(`the add dialog's mark holds together, ${colorScheme} at ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme });
+      await page.goto("/projects");
+      await page.getByRole("button", { name: "Add it yourself" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Name").fill("Swatched");
+      const colours = dialog.getByRole("radiogroup", { name: "Colour" });
+      await colours.getByRole("radio", { name: "Custom" }).check();
+
+      await expect(colours.getByRole("radio")).toHaveCount(5);
+      await expect(dialog.getByLabel("Custom colour")).toBeVisible();
+      const scrollsSideways = await dialog
+        .locator(".add-project-form")
+        .evaluate((form) => form.scrollWidth > form.clientWidth);
+      expect(scrollsSideways).toBe(false);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `${colorScheme}-${width}-add-project-mark.png`),
+      });
+    });
   }
+}
+
+/**
+ * Appearance's columns, the cards beside How it looks on a wide page and under it on a narrow
+ * one, with nothing scrolling sideways.
+ */
+async function expectAppearanceLaidOut(page: Page, width: number): Promise<void> {
+  await expect(page.locator(".section-body").getByRole("heading", { name: ANY_BLOCK })).toHaveText(
+    APPEARANCE_BLOCKS,
+  );
+  const preview = await howItLooks(page).boundingBox();
+  const mark = await page.locator(".appearance-edit").boundingBox();
+  expect(preview && mark).toBeTruthy();
+  if (preview && mark) {
+    if (width >= 1600) expect(preview.x).toBeGreaterThanOrEqual(mark.x + mark.width);
+    else expect(preview.y + preview.height).toBeLessThanOrEqual(mark.y);
+  }
+  const scrollsSideways = await page.evaluate(() => {
+    const main = document.querySelector(".shell-main");
+    return (
+      document.documentElement.scrollWidth > window.innerWidth ||
+      (main !== null && main.scrollWidth > main.clientWidth)
+    );
+  });
+  expect(scrollsSideways).toBe(false);
 }
 
 test("an Icon that can't be loaded leaves the letters and the colour", async ({ page }) => {
@@ -902,7 +1036,7 @@ test("a custom colour is previewed, saved, and shown everywhere until a named on
   const customColour = picker.getByLabel("Custom colour");
   await expect(customColour).toHaveCount(0);
 
-  await picker.getByRole("tab", { name: "Custom" }).click();
+  await picker.getByRole("radio", { name: "Custom" }).check();
   await customColour.fill(LIGHT_CUSTOM_COLOUR.value);
 
   await expect(picker.getByText(LIGHT_CUSTOM_COLOUR.value)).toBeVisible();
@@ -920,16 +1054,13 @@ test("a custom colour is previewed, saved, and shown everywhere until a named on
 
   await page.reload();
   await expectCustomMark(page.locator(".project-head .project-mark"), LIGHT_CUSTOM_COLOUR);
-  await expect(picker.getByRole("tab", { name: "Custom" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(picker.getByRole("radio", { name: "Custom" })).toBeChecked();
   await expect(customColour).toHaveValue(LIGHT_CUSTOM_COLOUR.value);
 
   await customColour.fill(DARK_CUSTOM_COLOUR.value);
   await expectCustomMark(preview, DARK_CUSTOM_COLOUR);
 
-  await picker.getByRole("tab", { name: "Teal" }).click();
+  await picker.getByRole("radio", { name: "Teal" }).check();
   await expect(customColour).toHaveCount(0);
   await page.getByRole("button", { name: "Save" }).click();
   await expect(head).toHaveClass(/colour-teal/);
@@ -943,7 +1074,7 @@ test("a Project is added with a custom colour", async ({ page }) => {
   await fillTheForm(page, { name: "Own colour", path: repository.path, branch: "main" });
   const form = page.getByRole("dialog");
 
-  await form.getByRole("tab", { name: "Custom" }).click();
+  await form.getByRole("radio", { name: "Custom" }).check();
   await form.getByLabel("Custom colour").fill(DARK_CUSTOM_COLOUR.value);
   await expectCustomMark(form.locator(".mark-picker .project-mark"), DARK_CUSTOM_COLOUR);
   await page.getByRole("button", { name: "Add the Project" }).click();
@@ -958,7 +1089,7 @@ test("a custom colour stays the same in both palettes, its tile's edge showing",
   const project = await addedProject(page, "Pale mark");
   await page.goto(`/projects/${project.id}/appearance`);
   const head = page.locator(".project-head .project-mark");
-  await page.getByRole("tab", { name: "Custom" }).click();
+  await page.getByRole("radio", { name: "Custom" }).check();
   await page.getByLabel("Custom colour").fill(PAGE_LIKE_CUSTOM_COLOUR.value);
   await page.getByRole("button", { name: "Save" }).click();
   await expect(head).toHaveClass(/colour-custom/);
@@ -1005,6 +1136,8 @@ test("a mark changed in one tab shows in another, on its cards and an untouched 
     projectsTab.getByRole("link", { name: /Two marks/ }).locator(".project-mark"),
   ).toHaveText("TM");
   await expect(appearanceTab.getByLabel("Mark label")).toHaveValue("TM");
+  await expect(howItLooks(appearanceTab).locator(".project-mark")).toHaveText(["TM", "TM", "TM"]);
+  await expect(howItLooks(appearanceTab).getByText("Not saved")).toBeHidden();
 });
 
 test("a label that isn't letters or digits is refused in Appearance, and what was typed stays", async ({
@@ -1055,7 +1188,7 @@ test("the add form's label follows the name until the user writes one, its colou
   const form = page.getByRole("dialog");
   const label = form.getByLabel("Mark label");
 
-  await form.getByRole("tab", { name: "Violet" }).click();
+  await form.getByRole("radio", { name: "Violet" }).check();
   await form.getByLabel("Name").fill("Admin panel");
   await expect(label).toHaveValue("AP");
   await form.getByLabel("Name").fill("Billing service tools");

@@ -21,7 +21,7 @@ export function ProjectMark({
   const custom = isCustomMarkColour(colour);
   return (
     <span
-      className={`project-mark size-${size} colour-${custom ? "custom" : colour}`}
+      className={`project-mark size-${size} mark-colour-${custom ? "custom" : colour}`}
       style={custom ? customColourStyle(colour) : undefined}
       title={project.name}
       aria-hidden="true"
