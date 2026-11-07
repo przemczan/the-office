@@ -27,7 +27,13 @@ export function AppearancePreview({
         <Sample label="On its page">
           <div className="appearance-sample-head">
             <ProjectLogo project={project} size="page" />
-            <div className="appearance-sample-name">{project.name}</div>
+            <div className="appearance-sample-words">
+              <div className="appearance-sample-name">{project.name}</div>
+              <div className="project-head-meta">
+                <span className="project-path">{project.path}</span>
+                <span>· {project.baseBranch}</span>
+              </div>
+            </div>
           </div>
         </Sample>
         <Sample label="On the Projects page">

@@ -146,6 +146,11 @@
   cursor: pointer;
 }
 
+.mark-swatch-input:hover {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+
 /* The ring stands off the swatch, so it reads on every colour, ink too. */
 .mark-swatch-input:checked {
   outline: 2px solid var(--fg-1);
@@ -820,8 +825,12 @@
   border-radius: var(--radius-card);
 }
 
-.appearance-sample-name {
+/* A long name wraps and a long path ends in an ellipsis, so neither widens the narrow column. */
+.appearance-sample-words {
   min-width: 0;
+}
+
+.appearance-sample-name {
   overflow-wrap: anywhere;
 }
 
