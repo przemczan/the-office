@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
+import type { Avatar } from "./avatar.js";
 import { isBuiltIn } from "./caretaker.js";
 import { KNOWN_ROLES } from "./known-roles.js";
 import { presetFor } from "./presets.js";
@@ -12,7 +13,13 @@ import {
   type RoleCard,
 } from "./role-card.js";
 import { roleCardChanges } from "./role-card-changes.js";
-import { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./role-events.js";
+import {
+  RoleAvatarChanged,
+  RoleCardChanged,
+  RoleHired,
+  RoleHiredBack,
+  RoleLetGo,
+} from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
 
 /** A Role after a change, with the event that announces it. */
@@ -46,6 +53,7 @@ export function hire(
     cardSavedAt: hiredAt,
     cardProposedBy: proposedBy,
     letGoAt: undefined,
+    avatar: null,
   };
   return { role, event: new RoleHired(role) };
 }
@@ -85,6 +93,7 @@ export function hireFromScratch(
     cardSavedAt: hiredAt,
     cardProposedBy: proposedBy,
     letGoAt: undefined,
+    avatar: null,
   };
   return { role, event: new RoleHired(role) };
 }
@@ -177,6 +186,26 @@ export function moveRoleOverride(
     cardProposedBy: undefined,
   };
   return { role: changed, event: new RoleCardChanged(changed, roleCardChanges(role.card, card)) };
+}
+
+/**
+ * Gives the person `avatar`, or none, leaving the card and its versions alone. Undefined when they
+ * have none to remove; refused for someone let go, whose page is read-only until hired back.
+ */
+export function changeAvatar(
+  role: Role,
+  avatar: Avatar | null,
+  changedAt: Date,
+): RoleChange<RoleAvatarChanged> | undefined {
+  const { name, title } = role.card;
+  if (role.letGoAt) {
+    throw new RoleRefused([
+      `${name} was let go from the ${title} Role; hire ${name} back to change their Avatar.`,
+    ]);
+  }
+  if (role.avatar?.id === avatar?.id) return undefined;
+  const changed: Role = { ...role, avatar };
+  return { role: changed, event: new RoleAvatarChanged(changed, changedAt) };
 }
 
 function sameEngineModel(one: EngineModel, other: EngineModel | null): boolean {

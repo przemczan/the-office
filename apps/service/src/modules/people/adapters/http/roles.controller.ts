@@ -12,11 +12,9 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import type { RoleHistoryEntry } from "../../application/role-history.js";
 import { RoleService, type RoleWithAssignments } from "../../application/role-service.js";
-import { switchesAskingYouUntilHired } from "../../domain/hard-switches.js";
-import { mcpToolSetting } from "../../domain/mcp-tool-settings.js";
 import type { Preset } from "../../domain/presets.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
-import { isBuiltIn } from "../../domain/caretaker.js";
+import { filledKeys, toRoleResponse } from "./role-responses.js";
 
 @Controller()
 @UseFilters(RoleRefusalsFilter)
@@ -98,38 +96,9 @@ export class RolesController {
   }
 }
 
-function filledKeys(roles: readonly RoleWithAssignments[]): ReadonlySet<string> {
-  return new Set(roles.filter(({ role }) => !role.letGoAt).map(({ role }) => role.key));
-}
-
 /** Splits the card the user sent into the Role card and the skills the Skills module keeps. */
 function cardAndSkills({ skills, ...card }: RoleCard): [Omit<RoleCard, "skills">, string[]] {
   return [card, skills];
-}
-
-function toRoleResponse(
-  { role, skills, mcpServers }: RoleWithAssignments,
-  hiredRoles: ReadonlySet<string>,
-): RoleResponse {
-  const { mcpTools } = role.card.permissionProfile;
-  return {
-    key: role.key,
-    card: { ...role.card, skills: [...skills] },
-    cardVersion: role.cardVersion,
-    hiredAt: role.hiredAt.toISOString(),
-    cardSavedAt: role.cardSavedAt.toISOString(),
-    letGoAt: role.letGoAt?.toISOString() ?? null,
-    builtIn: isBuiltIn(role.key),
-    askingYouUntilHired: switchesAskingYouUntilHired(role.card.hardSwitches, hiredRoles),
-    mcpServers: mcpServers.map((server) => ({
-      name: server.name,
-      on: server.on,
-      tools: server.tools.map((tool) => ({
-        name: tool,
-        setting: mcpToolSetting(mcpTools, server.name, tool),
-      })),
-    })),
-  };
 }
 
 function toPresetResponse(preset: Preset): PresetResponse {

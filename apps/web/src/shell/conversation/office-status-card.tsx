@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Message } from "@the-office/contracts";
-import { Avatar, Icon } from "@the-office/ui";
+import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
+import { PersonAvatar } from "../person-avatar.tsx";
 import { personName } from "../person-name.ts";
 import { personStatus } from "./link-card-words.ts";
 import { pausedWords, waitingWords } from "./office-status-words.ts";
@@ -44,7 +45,7 @@ export function OfficeStatusCard({ card }: { readonly card: OfficeStatusMessage 
           .filter(({ key }) => key !== card.roleKey)
           .map((role) => (
             <li key={role.key} className="office-status-person">
-              <Avatar name={role.card.name} size="sm" />
+              <PersonAvatar roleKey={role.key} name={role.card.name} size="sm" />
               <span className="office-status-name">{personName(role)}</span>
               <span className="office-status-doing">{personStatus(role.key, running)}</span>
             </li>

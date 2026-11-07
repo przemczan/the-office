@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { Preset, Role } from "@the-office/contracts";
-import { Alert, Avatar, Button, Icon, IconButton } from "@the-office/ui";
+import { Alert, Button, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { useChat } from "../../shell/chat/use-chat.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
 import { inGridOrder } from "./people-order.ts";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { CAPABILITIES, taskLimitShort } from "../../shell/role-card-words.ts";
 import "./people.css";
 
@@ -64,7 +65,7 @@ function PersonCard({ role }: { readonly role: Role }): ReactNode {
   return (
     <article className="person-tile person-card">
       <div className="person-tile-head">
-        <Avatar name={card.name} size="md" />
+        <PersonAvatar roleKey={role.key} name={card.name} size="md" />
         <div className="person-tile-grow">
           <h2 className="person-tile-name">
             {/* The whole card opens the page; the chat button sits above the link. */}

@@ -2,11 +2,12 @@ import { Readable } from "node:stream";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { IMAGE_SIZE_LIMIT } from "../../../platform/images/image-rules.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import type { ProjectChanges } from "../domain/project-changes.js";
 import { ProjectImageChanged } from "../domain/project-events.js";
-import { PROJECT_IMAGE_SIZE_LIMIT, ProjectImageNotFound } from "../domain/project-image.js";
+import { ProjectImageNotFound } from "../domain/project-image.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectImageFiles } from "../ports/project-image-files.js";
@@ -194,7 +195,7 @@ describe("changing an image from the repository", () => {
     expect(files.files.get(project.logo?.id ?? "")).toEqual(SVG);
     expect(published[0]).toBeInstanceOf(ProjectImageChanged);
     expect(repositoryFiles.limit).toEqual({
-      bytes: PROJECT_IMAGE_SIZE_LIMIT,
+      bytes: IMAGE_SIZE_LIMIT,
       problem: "An image may be at most 2 MB.",
     });
   });

@@ -1,22 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mediaTypeOf, newProjectImage, PROJECT_IMAGE_SIZE_LIMIT } from "./project-image.js";
-import { ProjectRefused } from "./project-refused.js";
+import { IMAGE_SIZE_LIMIT, mediaTypeOf, readImage } from "./image-rules.js";
 
 const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0);
 const JPEG = Uint8Array.of(0xff, 0xd8, 0xff, 0xe0, 0, 0);
 
 function bytesOf(text: string): Uint8Array {
   return new TextEncoder().encode(text);
-}
-
-function refusalOf(content: Uint8Array): readonly string[] {
-  try {
-    newProjectImage("an-id", content);
-  } catch (error) {
-    if (error instanceof ProjectRefused) return error.reasons;
-    throw error;
-  }
-  throw new Error("It was not refused.");
 }
 
 describe("mediaTypeOf", () => {
@@ -53,32 +42,32 @@ describe("mediaTypeOf", () => {
   });
 });
 
-describe("newProjectImage", () => {
+describe("readImage", () => {
   it("takes its media type from the bytes", () => {
-    expect(newProjectImage("an-id", PNG)).toEqual({ id: "an-id", mediaType: "image/png" });
+    expect(readImage(PNG)).toEqual({ mediaType: "image/png" });
   });
 
   it("takes an image of exactly the limit", () => {
-    const content = new Uint8Array(PROJECT_IMAGE_SIZE_LIMIT);
+    const content = new Uint8Array(IMAGE_SIZE_LIMIT);
     content.set(PNG);
 
-    expect(newProjectImage("an-id", content).mediaType).toBe("image/png");
+    expect(readImage(content)).toEqual({ mediaType: "image/png" });
   });
 
   it("refuses an empty file", () => {
-    expect(refusalOf(new Uint8Array())).toEqual(["The file is empty."]);
+    expect(readImage(new Uint8Array())).toEqual({ problem: "The file is empty." });
   });
 
   it("refuses a file over the limit", () => {
-    const content = new Uint8Array(PROJECT_IMAGE_SIZE_LIMIT + 1);
+    const content = new Uint8Array(IMAGE_SIZE_LIMIT + 1);
     content.set(PNG);
 
-    expect(refusalOf(content)).toEqual(["An image may be at most 2 MB."]);
+    expect(readImage(content)).toEqual({ problem: "An image may be at most 2 MB." });
   });
 
   it("refuses anything else", () => {
-    expect(refusalOf(bytesOf("MZ, a program with a .png name"))).toEqual([
-      "The file isn't a PNG, JPEG, WebP or SVG image.",
-    ]);
+    expect(readImage(bytesOf("MZ, a program with a .png name"))).toEqual({
+      problem: "The file isn't a PNG, JPEG, WebP or SVG image.",
+    });
   });
 });

@@ -3,11 +3,17 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Role, RoleCardVersion } from "../../domain/role.js";
 import type { RoleChange } from "../../domain/role-changes.js";
-import type { RoleCardChanged, RoleHiredBack, RoleLetGo } from "../../domain/role-events.js";
+import type {
+  RoleAvatarChanged,
+  RoleCardChanged,
+  RoleHiredBack,
+  RoleLetGo,
+} from "../../domain/role-events.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
 import { RoleRepository, type RoleUpdate } from "../../ports/role-repository.js";
 import { roleCardVersions, roles } from "./roles.schema.js";
 
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type RoleRow = typeof roles.$inferSelect;
 type RoleCardVersionRow = typeof roleCardVersions.$inferSelect;
 
@@ -61,22 +67,7 @@ export class PostgresRoleRepository extends RoleRepository {
     change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
   ): Promise<RoleUpdate> {
     return this.database.transaction(async (transaction) => {
-      // Locked on its own: Postgres re-checks a locked row against a join after waiting for the
-      // lock, and the version joined before the other change would no longer match.
-      const [locked] = await transaction
-        .select({ key: roles.key })
-        .from(roles)
-        .where(eq(roles.key, key))
-        .for("update");
-      const [row] = locked
-        ? await transaction
-            .select()
-            .from(roles)
-            .innerJoin(roleCardVersions, currentCard)
-            .where(eq(roles.key, key))
-        : [];
-      if (!row) throw new RoleNotFound(key);
-      const role = toRole(row.roles, row.role_card_versions);
+      const role = await heldRole(transaction, key);
       const changed = change(role);
       if (!changed) return { role, event: undefined };
       await transaction.update(roles).set(toRow(changed.role)).where(eq(roles.key, key));
@@ -92,22 +83,26 @@ export class PostgresRoleRepository extends RoleRepository {
     change: (role: Role) => RoleChange<Event>,
   ): Promise<RoleChange<Event>> {
     return this.database.transaction(async (transaction) => {
-      const [locked] = await transaction
-        .select({ key: roles.key })
-        .from(roles)
-        .where(eq(roles.key, key))
-        .for("update");
-      if (!locked) throw new RoleNotFound(key);
-      const [row] = await transaction
-        .select()
-        .from(roles)
-        .innerJoin(roleCardVersions, currentCard)
-        .where(eq(roles.key, key));
-      if (!row) throw new RoleNotFound(key);
-      const changed = change(toRole(row.roles, row.role_card_versions));
+      const changed = change(await heldRole(transaction, key));
       await transaction
         .update(roles)
         .set({ letGoAt: changed.role.letGoAt ?? null })
+        .where(eq(roles.key, key));
+      return changed;
+    });
+  }
+
+  async changeAvatar(
+    key: string,
+    change: (role: Role) => RoleChange<RoleAvatarChanged> | undefined,
+  ): Promise<RoleUpdate<RoleAvatarChanged>> {
+    return this.database.transaction(async (transaction) => {
+      const role = await heldRole(transaction, key);
+      const changed = change(role);
+      if (!changed) return { role, event: undefined };
+      await transaction
+        .update(roles)
+        .set({ avatar: changed.role.avatar })
         .where(eq(roles.key, key));
       return changed;
     });
@@ -131,12 +126,32 @@ export class PostgresRoleRepository extends RoleRepository {
   }
 }
 
+/** The Role as stored, locked until `transaction` ends. */
+async function heldRole(transaction: Transaction, key: string): Promise<Role> {
+  // Locked on its own: Postgres re-checks a locked row against a join after waiting for the lock,
+  // and the version joined before the other change would no longer match.
+  const [locked] = await transaction
+    .select({ key: roles.key })
+    .from(roles)
+    .where(eq(roles.key, key))
+    .for("update");
+  if (!locked) throw new RoleNotFound(key);
+  const [row] = await transaction
+    .select()
+    .from(roles)
+    .innerJoin(roleCardVersions, currentCard)
+    .where(eq(roles.key, key));
+  if (!row) throw new RoleNotFound(key);
+  return toRole(row.roles, row.role_card_versions);
+}
+
 function toRow(role: Role): RoleRow {
   return {
     key: role.key,
     cardVersion: role.cardVersion,
     hiredAt: role.hiredAt,
     letGoAt: role.letGoAt ?? null,
+    avatar: role.avatar,
   };
 }
 
@@ -159,6 +174,7 @@ function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
     cardSavedAt: version.savedAt,
     cardProposedBy: version.proposedBy ?? undefined,
     letGoAt: row.letGoAt ?? undefined,
+    avatar: row.avatar,
   };
 }
 

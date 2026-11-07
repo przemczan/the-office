@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { roleQueries } from "../../api/people.ts";
+import { PersonAvatar } from "../person-avatar.tsx";
 import { roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
 import { contextLabel } from "./context-words.ts";
@@ -51,6 +52,7 @@ export type HandoverNoteReader = (note: string) => (() => void) | undefined;
  */
 export function MessageList({
   messages,
+  roleKey,
   personName,
   answering,
   stageThread,
@@ -61,6 +63,8 @@ export function MessageList({
   handoverNoteReader,
 }: {
   readonly messages: readonly Message[];
+  /** Whose Thread it is. */
+  readonly roleKey: string;
   readonly personName: string;
   /** The person is writing an answer now. */
   readonly answering: boolean;
@@ -129,6 +133,7 @@ export function MessageList({
           <GroupItem
             key={piece.id}
             group={piece}
+            roleKey={roleKey}
             personName={personName}
             stageThread={stageThread}
             handoverNoteReader={handoverNoteReader}
@@ -137,6 +142,7 @@ export function MessageList({
       )}
       {answering && (
         <Working
+          roleKey={roleKey}
           personName={personName}
           toolCall={details ? undefined : latestToolCall(messages)}
           onToolCallOpened={showEnd}
@@ -157,11 +163,13 @@ export function MessageList({
  * fold's state lives here, as a call with nothing to open takes the fold away until the next one.
  */
 function Working({
+  roleKey,
   personName,
   toolCall,
   onToolCallOpened,
   onOpenToolCallChanged,
 }: {
+  readonly roleKey: string;
   readonly personName: string;
   readonly toolCall: ToolCall | undefined;
   readonly onToolCallOpened: () => void;
@@ -181,7 +189,7 @@ function Working({
   return (
     <div className="message-answering" role="status">
       <span aria-hidden="true">
-        <Avatar name={personName} size="xs" />
+        <PersonAvatar roleKey={roleKey} name={personName} size="xs" />
       </span>
       <span className="message-answering-dots" aria-hidden="true">
         <i />
@@ -219,18 +227,27 @@ function WorkingToolCall({
 
 function GroupItem({
   group,
+  roleKey,
   personName,
   stageThread,
   handoverNoteReader,
 }: {
   readonly group: MessageGroup;
+  readonly roleKey: string;
   readonly personName: string;
   readonly stageThread: boolean;
   readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
   switch (group.kind) {
     case "turn":
-      return <Turn messages={group.messages} personName={personName} stageThread={stageThread} />;
+      return (
+        <Turn
+          messages={group.messages}
+          roleKey={roleKey}
+          personName={personName}
+          stageThread={stageThread}
+        />
+      );
     case "tool-calls":
       return <ToolCalls calls={group.messages} />;
     case "alone":
@@ -247,17 +264,25 @@ function GroupItem({
 /** One author's run of messages under one line; each of the user's keeps its own delivery mark. */
 function Turn({
   messages,
+  roleKey,
   personName,
   stageThread,
 }: {
   readonly messages: readonly [TurnMessage, ...TurnMessage[]];
+  readonly roleKey: string;
   readonly personName: string;
   readonly stageThread: boolean;
 }): ReactNode {
   const [opening] = messages;
   return (
     <TurnFrame
-      avatar={opening.kind === "user" ? <YourAvatar /> : <Avatar name={personName} size="xs" />}
+      avatar={
+        opening.kind === "user" ? (
+          <YourAvatar />
+        ) : (
+          <PersonAvatar roleKey={roleKey} name={personName} size="xs" />
+        )
+      }
       by={<TurnAuthor opening={opening} personName={personName} />}
       at={opening.at}
       labelled={opening.kind === "user" && opening.handoverNoteFrom !== null}

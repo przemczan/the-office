@@ -1,3 +1,4 @@
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import {
   expect as playwrightExpect,
@@ -9,6 +10,7 @@ import {
 import {
   engineSettingsSchema,
   ideaSchema,
+  IMAGE_UPLOAD_BYTES,
   OPEN_DECISION_TOOL,
   pipelineListSchema,
   pipelineSchema,
@@ -33,12 +35,29 @@ import {
 } from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
 import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
+import { E2E_OFFICE_DATA } from "./office-data.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
 import { createSkillSource } from "./skill-source.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
+
+const AVATAR_FILE = {
+  name: "portrait.svg",
+  mimeType: "image/svg+xml",
+  buffer: Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><rect width="64" height="64" fill="teal"/><circle cx="32" cy="26" r="12" fill="white"/><rect x="12" y="42" width="40" height="22" rx="11" fill="white"/></svg>',
+  ),
+};
+
+const AVATAR_WITH_A_SCRIPT = {
+  name: "scripted.svg",
+  mimeType: "image/svg+xml",
+  buffer: Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32"/><script>document.documentElement.setAttribute("data-script-ran", "yes"); alert("ran");</script></svg>`,
+  ),
+};
 
 /** Written by this file alone, so the other files' skills never meet it. */
 const SKILL = "people-handover";
@@ -142,6 +161,21 @@ async function removeEngine(page: Page, name: string): Promise<void> {
     `/api/settings/engines/${encodeURIComponent(engineId)}?replacement=claude-code`,
   );
   expect(removed.ok()).toBe(true);
+}
+
+async function expectLoadedImage(image: Locator): Promise<void> {
+  await expect
+    .poll(() => image.first().evaluate((shown: HTMLImageElement) => shown.naturalWidth))
+    .toBeGreaterThan(0);
+}
+
+function avatarFiles(): Promise<string[]> {
+  return readdir(path.join(E2E_OFFICE_DATA, "avatars"));
+}
+
+/** The image's id, the part of its address before `/content`. */
+function imageIdOf(address: string): string {
+  return address.split("/").at(-2) ?? "";
 }
 
 test("the user hires the Planner, a Developer, a Reviewer, the CTO and the Office Manager from the presets", async ({
@@ -1086,6 +1120,121 @@ test("the Planner's page lists their Threads under Conversations", async ({ page
   await expect(chatWith(page, "Jan").getByText("You're welcome.")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(chatWith(page, "Jan")).toHaveCount(0);
+});
+
+test("the user gives the Planner an Avatar, shown everywhere at once, then replaces and removes it", async ({
+  page,
+  context,
+}) => {
+  const dialogs: string[] = [];
+  const peopleTab = await context.newPage();
+  await peopleTab.goto("/people");
+  const threadTab = await context.newPage();
+  await threadTab.goto("/people/planner/conversations");
+  await threadTab.getByRole("button", { name: /^Deploys/ }).click();
+  const thread = chatWith(threadTab, "Jan");
+  await expect(thread.getByText("You're welcome.")).toBeVisible();
+  const cardAvatar = peopleTab.locator(".person-card", { hasText: "Jan" }).locator("img");
+  const threadAvatars = thread.locator("img");
+  await expect(cardAvatar).toHaveCount(0);
+
+  await page.goto("/people/planner");
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.dismiss();
+  });
+  const block = page.getByRole("group", { name: "Avatar" });
+  const headAvatar = page.locator(".person-head img");
+  await expect(block).toContainText("PNG, JPEG, WebP or SVG, at most 2 MB");
+  await expect(block.getByRole("button", { name: "Remove" })).toHaveCount(0);
+
+  await page.getByLabel("Avatar file").setInputFiles({
+    name: "renamed.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("<html>not a picture</html>"),
+  });
+  await expect(block.getByRole("alert")).toHaveText(
+    "The file isn't a PNG, JPEG, WebP or SVG image.",
+  );
+  await page.getByLabel("Avatar file").setInputFiles({
+    name: "large.png",
+    mimeType: "image/png",
+    buffer: Buffer.alloc(IMAGE_UPLOAD_BYTES + 1),
+  });
+  await expect(block.getByRole("alert")).toHaveText("An image may be at most 2 MB.");
+  await expect(headAvatar).toHaveCount(0);
+
+  await page.getByLabel("Avatar file").setInputFiles(AVATAR_FILE);
+
+  await expectLoadedImage(headAvatar);
+  await expect(block.getByRole("alert")).toHaveCount(0);
+  await expect(block.getByRole("button", { name: "Replace" })).toBeVisible();
+  await expectLoadedImage(cardAvatar);
+  await expectLoadedImage(threadAvatars.first());
+  const firstAddress = (await headAvatar.getAttribute("src")) ?? "";
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-avatar.png") });
+  await peopleTab.screenshot({ path: path.join(SCREENSHOTS, "light-1600-people-avatar.png") });
+  await threadTab.screenshot({ path: path.join(SCREENSHOTS, "light-1600-chat-avatar.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-person-avatar.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  await page.getByLabel("Avatar file").setInputFiles(AVATAR_WITH_A_SCRIPT);
+
+  await expect(headAvatar).not.toHaveAttribute("src", firstAddress);
+  await expectLoadedImage(headAvatar);
+  await expect(cardAvatar).not.toHaveAttribute("src", firstAddress);
+  const address = (await headAvatar.getAttribute("src")) ?? "";
+  expect((await page.request.get(firstAddress)).status()).toBe(404);
+  expect(await avatarFiles()).not.toContain(imageIdOf(firstAddress));
+  expect(await avatarFiles()).toContain(imageIdOf(address));
+  const opened = await context.newPage();
+  opened.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await opened.goto(address);
+  await expect(opened.locator("svg")).toBeAttached();
+  await expect(opened.locator("svg")).not.toHaveAttribute("data-script-ran", "yes");
+  await opened.close();
+  expect(dialogs).toEqual([]);
+
+  await block.getByRole("button", { name: "Remove" }).click();
+
+  await expect(headAvatar).toHaveCount(0);
+  await expect(page.locator(".person-head")).toContainText("J");
+  await expect(cardAvatar).toHaveCount(0);
+  await expect(threadAvatars).toHaveCount(0);
+  expect(await avatarFiles()).not.toContain(imageIdOf(address));
+  await expect(block).toContainText("No Avatar");
+  await peopleTab.close();
+  await threadTab.close();
+});
+
+test("someone let go keeps showing their Avatar, which changes only once they are hired back", async ({
+  page,
+}) => {
+  await page.goto("/people/data-analyst");
+  const block = page.getByRole("group", { name: "Avatar" });
+  const avatar = page.locator(".person-head img");
+  await page.getByLabel("Avatar file").setInputFiles(AVATAR_FILE);
+  await expectLoadedImage(avatar);
+
+  await page.getByRole("button", { name: "Let go", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Let Mia go" }).click();
+
+  await expect(page.getByText("Mia was let go", { exact: true })).toBeVisible();
+  await expectLoadedImage(avatar);
+  await expect(block).toContainText("Hire Mia back to change it.");
+  await expect(block.getByRole("button")).toHaveCount(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-avatar-let-go.png") });
+  const refused = await page.request.delete("/api/roles/data-analyst/avatar");
+  expect(refused.status()).toBe(422);
+
+  await page.getByRole("button", { name: "Hire Mia back" }).click();
+  await block.getByRole("button", { name: "Remove" }).click();
+
+  await expect(avatar).toHaveCount(0);
 });
 
 test("the user adds a note to the Planner's Memory, deletes one, then deletes the whole memory", async ({

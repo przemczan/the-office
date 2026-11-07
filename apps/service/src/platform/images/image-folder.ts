@@ -1,19 +1,10 @@
 import { mkdir, open, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
-import { Injectable } from "@nestjs/common";
-import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
-import { ProjectImageFiles } from "../../ports/project-image-files.js";
 
-/** `<office-data>/project-images/<image id>`, each written whole or not at all. */
-@Injectable()
-export class FilesystemProjectImageFiles extends ProjectImageFiles {
-  private readonly folder: string;
-
-  constructor(officeData: OfficeDataDirectory) {
-    super();
-    this.folder = officeData.folder("project-images");
-  }
+/** Images in one folder of the Office data directory, each under its id, written whole or not at all. */
+export class ImageFolder {
+  constructor(private readonly folder: string) {}
 
   async save(imageId: string, content: Uint8Array): Promise<void> {
     await mkdir(this.folder, { recursive: true });

@@ -7,7 +7,7 @@ import { CARETAKER } from "../../domain/known-roles.js";
 import { roleCardProblems } from "../../domain/role-card.js";
 import { aRole, aRoleCard, OFFERED_MODELS } from "../../domain/role.fixtures.js";
 import type { Role } from "../../domain/role.js";
-import { changeRoleCard } from "../../domain/role-changes.js";
+import { changeAvatar, changeRoleCard } from "../../domain/role-changes.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
 import { PostgresRoleRepository } from "./postgres-role-repository.js";
 
@@ -144,6 +144,36 @@ describe("PostgresRoleRepository", () => {
     await expect(repository.update(`role-${randomUUID()}`, () => undefined)).rejects.toThrow(
       RoleNotFound,
     );
+  });
+
+  it("keeps an Avatar with no new card version, and keeps it through a card change", async () => {
+    const role = aRoleOfItsOwn();
+    await repository.add(role);
+    const avatar = { id: randomUUID(), mediaType: "image/webp" } as const;
+
+    const { event } = await repository.changeAvatar(role.key, (stored) =>
+      changeAvatar(stored, avatar, new Date()),
+    );
+    await repository.update(role.key, (stored) =>
+      changeRoleCard(stored, { ...stored.card, title: "Tester" }, OFFERED_MODELS, new Date()),
+    );
+
+    expect(event?.role.cardVersion).toBe(1);
+    expect((await repository.find(role.key))?.avatar).toEqual(avatar);
+    expect(await repository.versions(role.key)).toHaveLength(2);
+  });
+
+  it("saves nothing when the Avatar stays", async () => {
+    const role = aRoleOfItsOwn();
+    await repository.add(role);
+
+    const { event } = await repository.changeAvatar(role.key, () => undefined);
+
+    expect(event).toBeUndefined();
+  });
+
+  it("refuses to change the Avatar of a Role never hired", async () => {
+    await expect(repository.changeAvatar("nobody", () => undefined)).rejects.toThrow(RoleNotFound);
   });
 
   it("finds no version a Role doesn't have", async () => {

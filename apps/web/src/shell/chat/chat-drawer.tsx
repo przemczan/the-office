@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Decision, Role, Thread } from "@the-office/contracts";
 import {
-  Avatar,
   Button,
   EmptyState,
   Icon,
@@ -16,6 +15,7 @@ import { markThreadSeen, startChatThread, threadQueries } from "../../api/conver
 import { roleQueries } from "../../api/people.ts";
 import { MentionedDecisionWindow } from "../conversation/decision-on-task.tsx";
 import { ThreadView } from "../conversation/thread-view.tsx";
+import { PersonAvatar } from "../person-avatar.tsx";
 import { OpenMentionedDecisionContext } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { dayAndClockOf } from "../time.ts";
@@ -142,7 +142,7 @@ function PersonPicker(): ReactNode {
             onClick={() => chat.open(role.key)}
           >
             <span aria-hidden="true">
-              <Avatar name={role.card.name} size="lg" />
+              <PersonAvatar roleKey={role.key} name={role.card.name} size="lg" />
             </span>
             <span className="chat-person-who">
               <b>{role.card.name}</b>
@@ -165,7 +165,7 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
   const place = useClosedFromOutside(switching, setSwitching);
   return (
     <header className="chat-head">
-      <Avatar name={role.card.name} size="lg" />
+      <PersonAvatar roleKey={role.key} name={role.card.name} size="lg" />
       <div ref={place} className="chat-head-main">
         <button
           type="button"
@@ -219,7 +219,7 @@ function PersonSwitchMenu({
             }}
           >
             <span aria-hidden="true">
-              <Avatar name={person.card.name} size="sm" />
+              <PersonAvatar roleKey={person.key} name={person.card.name} size="sm" />
             </span>
             <span className="chat-person-who">
               <b>{person.card.name}</b>

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ConversationTab, TabConsultation, Task, ThreadContext } from "@the-office/contracts";
-import { Avatar, Card } from "@the-office/ui";
+import { Card } from "@the-office/ui";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { openPersonsThread, sendMessage, threadQueries } from "../../api/conversations.ts";
 import { CacheMark } from "../../shell/conversation/cache-mark.tsx";
@@ -12,6 +12,7 @@ import { useThreadDrafts } from "../../shell/conversation/thread-drafts.tsx";
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
@@ -238,7 +239,7 @@ function FirstMessage({
   );
   return (
     <div className="timeline-foot">
-      <ToLine personName={personName} personLabel={personLabel} />
+      <ToLine roleKey={roleKey} personName={personName} personLabel={personLabel} />
       {error && <RefusalAlert title="The message wasn't sent" error={error} />}
       <Composer
         placeholder={composerPlaceholder(personName)}
@@ -261,10 +262,12 @@ function FirstMessage({
 }
 
 function ToLine({
+  roleKey,
   personName,
   personLabel,
   context,
 }: {
+  readonly roleKey: string;
   readonly personName: string;
   readonly personLabel: string;
   /** The Thread's; a tab with no Thread has no cache to mark. */
@@ -275,7 +278,7 @@ function ToLine({
       <span aria-hidden="true">To</span>
       {context && <CacheMark context={context} />}
       <span className="timeline-to-shown">
-        <Avatar name={personName} size="xs" />
+        <PersonAvatar roleKey={roleKey} name={personName} size="xs" />
         <strong>{personLabel}</strong>
       </span>
       <span className="timeline-to-place">, in this Thread</span>
@@ -303,7 +306,12 @@ function WritingInTab({
   if (!thread) return null;
   return (
     <div className="timeline-foot">
-      <ToLine personName={personName} personLabel={personLabel} context={thread.context} />
+      <ToLine
+        roleKey={thread.roleKey}
+        personName={personName}
+        personLabel={personLabel}
+        context={thread.context}
+      />
       <ThreadComposer
         thread={thread}
         personName={personName}

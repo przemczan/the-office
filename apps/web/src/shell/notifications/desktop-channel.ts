@@ -27,7 +27,7 @@ export class DesktopChannel implements NotificationChannel {
   }
 
   show({ id, person, line, about, open }: ShownNotification): void {
-    const notification = new Notification(person ?? OFFICE_TITLE, {
+    const notification = new Notification(person?.name ?? OFFICE_TITLE, {
       body: about ? `${line}\n${about}` : line,
       tag: id,
       icon: "/favicon.svg",

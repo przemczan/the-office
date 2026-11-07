@@ -88,5 +88,5 @@ A Task in Shaping (Shaping â†’ Backlog is the Initiative's Confirm alone, spec Â
 - `use-stage-history.ts`: ShownStage, StageHistoryShowing, useStageHistory
 - `use-timeline-scroll.ts`: TimelineScroll, chapterElementId, useTimelineScroll
 - `work-page.tsx`: WorkPage
-- `working-mark.tsx`: usePeopleWorking, WorkingMark
+- `working-mark.tsx`: PersonWorking, usePeopleWorking, WorkingMark
 - Tests: board-columns.test.ts, board-filters.test.ts, board-placement.test.ts, changes-words.test.ts, conversation-drawer-address.test.ts, conversation-fit.test.ts, conversation-tabs.test.ts, dependency-words.test.ts, initiative-words.test.ts, needs-you-words.test.ts, new-messages.test.ts, planning-parts.test.tsx, planning-words.test.ts, pull-request-button.test.tsx, record-folds.test.ts, resume-words.test.ts, run-details.test.tsx, stage-history-words.test.ts, stage-rail-words.test.ts, stage-words.test.ts, tag-words.test.ts, threads-seen.test.ts, timeline-words.test.ts, to-line.test.ts, working-mark.test.tsx

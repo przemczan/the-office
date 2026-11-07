@@ -6,12 +6,13 @@ import {
   type Task,
   type Thread,
 } from "@the-office/contracts";
-import { Avatar, Button, Tabs, TextButton } from "@the-office/ui";
+import { Button, Tabs, TextButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { roleQueries } from "../../api/people.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { roleFirstName, roleName } from "../../shell/person-name.ts";
 import {
   CloseConversation,
@@ -120,7 +121,13 @@ function PeopleTabs({
         <Tabs
           tabs={tabs.map((tab) => ({
             value: tab.roleKey,
-            label: <TabLabel name={roleFirstName(tab.roleKey, roles)} working={tab.stageRunning} />,
+            label: (
+              <TabLabel
+                roleKey={tab.roleKey}
+                name={roleFirstName(tab.roleKey, roles)}
+                working={tab.stageRunning}
+              />
+            ),
             count: unseenIn(tab) > 0 ? unseenIn(tab) : undefined,
           }))}
           value={roleKey}
@@ -204,15 +211,17 @@ function WorkingNow({
 }
 
 function TabLabel({
+  roleKey,
   name,
   working,
 }: {
+  readonly roleKey: string;
   readonly name: string;
   readonly working: boolean;
 }): ReactNode {
   return (
     <span className="conversation-tab">
-      <Avatar name={name} size="xs" />
+      <PersonAvatar roleKey={roleKey} name={name} size="xs" />
       {name}
       {working && (
         <span className="live-dot" title={`${name}'s Stage runs now`}>

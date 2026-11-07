@@ -2,17 +2,20 @@ import { randomUUID } from "node:crypto";
 import type { Readable } from "node:stream";
 import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import {
+  IMAGE_SIZE_LIMIT,
+  IMAGE_TOO_LARGE,
+  readImage,
+} from "../../../platform/images/image-rules.js";
 import type { Project } from "../domain/project.js";
 import { asProjectChanges, changeImage } from "../domain/project-changes.js";
 import {
-  newProjectImage,
-  PROJECT_IMAGE_SIZE_LIMIT,
-  PROJECT_IMAGE_TOO_LARGE,
   ProjectImageNotFound,
   type ProjectImage,
   type ProjectImageKey,
 } from "../domain/project-image.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
+import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectImageFiles } from "../ports/project-image-files.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { BaseBranchFiles } from "./base-branch-files.js";
@@ -45,7 +48,9 @@ export class ProjectImages {
 
   /** Refuses, keeping the image the Project has, bytes that can't be an image. */
   async change(projectId: string, key: ProjectImageKey, content: Uint8Array): Promise<Project> {
-    const image = newProjectImage(randomUUID(), content);
+    const reading = readImage(content);
+    if ("problem" in reading) throw new ProjectRefused([reading.problem]);
+    const image: ProjectImage = { id: randomUUID(), mediaType: reading.mediaType };
     await this.files.save(image.id, content);
     try {
       return await this.keep(projectId, key, image);
@@ -62,8 +67,8 @@ export class ProjectImages {
     { commit, path }: RepositoryImageFile,
   ): Promise<Project> {
     const content = await this.repositoryFiles.file(projectId, commit, path, {
-      bytes: PROJECT_IMAGE_SIZE_LIMIT,
-      problem: PROJECT_IMAGE_TOO_LARGE,
+      bytes: IMAGE_SIZE_LIMIT,
+      problem: IMAGE_TOO_LARGE,
     });
     return this.change(projectId, key, content);
   }

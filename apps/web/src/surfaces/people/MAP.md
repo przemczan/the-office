@@ -1,6 +1,6 @@
 # People surface: map
 
-**Owns:** the People grid (the built-in Caretaker pinned first with a "Built in" mark, `people-order.ts`) and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too.
+**Owns:** the People grid (the built-in Caretaker pinned first with a "Built in" mark, `people-order.ts`) and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), with its Avatar block (`avatar-block.tsx`, the shell's `ImageRow`, without its buttons for someone let go), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too.
 
 The Role card's Engine and Model (`EngineFields` in `role-card-form.tsx`, its pair `EngineModelFields` in `shell/engine-model-fields.tsx`, shared with the Project page's Engine block) set the Role override, "Office default" being none, picking an engine filling in its default model (`/role-card-options`' `defaultModel`); the view, the Overview and a Proposal's card say it through `worksWithText`. The view's "Runs on" (`EngineThatApplies`, for a Role someone fills) says what the cascade gives outside any Project and where it comes from, and lists the Projects where another engine or model applies (`roleQueries.engineCascade`, under its own `ENGINE_CASCADE` key, invalidated by `role.card-changed`, the Projects' engine events and a Settings › Engines save).
 
@@ -16,6 +16,7 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 
 ### ./
 
+- `avatar-block.tsx`: AvatarBlock
 - `blank-role-card.ts`: blankRoleCard
 - `conversations-tab.tsx`: ConversationsTab
 - `hire-dialog.tsx`: HireDialog

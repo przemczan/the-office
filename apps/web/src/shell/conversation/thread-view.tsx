@@ -83,6 +83,7 @@ export function ThreadLog({
     <>
       <MessageList
         messages={messages.data ?? []}
+        roleKey={thread.roleKey}
         personName={personName}
         answering={thread.state === "answering"}
         stageThread={thread.stageThread}

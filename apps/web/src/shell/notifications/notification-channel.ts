@@ -1,8 +1,14 @@
+/** Who speaks in a Notification. */
+export interface NotificationPerson {
+  readonly roleKey: string;
+  readonly name: string;
+}
+
 /** A Notification as a channel shows it (spec §2.7): the person, one line, what it is about. */
 export interface ShownNotification {
   readonly id: string;
-  /** The person's name; undefined when The Office speaks, which has no person (spec §2.7 Defaults). */
-  readonly person: string | undefined;
+  /** Undefined when The Office speaks, which has no person (spec §2.7 Defaults). */
+  readonly person: NotificationPerson | undefined;
   readonly line: string;
   /** The Task and its Project; undefined for the Office's own kinds. */
   readonly about: string | undefined;

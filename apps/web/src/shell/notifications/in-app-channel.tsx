@@ -1,5 +1,5 @@
-import { Avatar } from "@the-office/ui";
 import { useMemo } from "react";
+import { PersonAvatar } from "../person-avatar.tsx";
 import { useNotices } from "../toasts.tsx";
 import type { NotificationChannel } from "./notification-channel.ts";
 import { OFFICE_TITLE } from "./notification-words.ts";
@@ -18,8 +18,8 @@ export function useInAppChannel(): NotificationChannel {
           key: id,
           title: (
             <span className="notice-person">
-              {person && <Avatar name={person} size="xs" />}
-              {person ?? OFFICE_TITLE}
+              {person && <PersonAvatar roleKey={person.roleKey} name={person.name} size="xs" />}
+              {person?.name ?? OFFICE_TITLE}
             </span>
           ),
           description: (

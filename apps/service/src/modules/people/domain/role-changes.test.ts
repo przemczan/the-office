@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { presetFor } from "./presets.js";
 import { aRole, aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
 import {
+  changeAvatar,
   changeRoleCard,
   hire,
   hireBack,
@@ -9,7 +10,13 @@ import {
   letGo,
   moveRoleOverride,
 } from "./role-changes.js";
-import { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./role-events.js";
+import {
+  RoleAvatarChanged,
+  RoleCardChanged,
+  RoleHired,
+  RoleHiredBack,
+  RoleLetGo,
+} from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
 
 const at = new Date("2026-10-25T10:00:00.000Z");
@@ -24,6 +31,7 @@ describe("hire", () => {
       cardVersion: 1,
       hiredAt: at,
       cardSavedAt: at,
+      avatar: null,
     });
     expect(event).toEqual(new RoleHired(role));
     expect(event.occurredAt).toEqual(at);
@@ -60,6 +68,7 @@ describe("hireFromScratch", () => {
       cardVersion: 1,
       hiredAt: at,
       cardSavedAt: at,
+      avatar: null,
     });
     expect(event).toEqual(new RoleHired(role));
   });
@@ -296,5 +305,38 @@ describe("a Role whose person was let go", () => {
         "Ada was let go from the Developer Role; hire Ada back to change the Role card.",
       ]),
     );
+  });
+});
+
+describe("changeAvatar", () => {
+  const AVATAR = { id: "an-id", mediaType: "image/png" } as const;
+  const AT = new Date("2026-11-07T09:00:00.000Z");
+
+  it("gives the person the Avatar, leaving the card and its version", () => {
+    const role = aRole();
+
+    const change = changeAvatar(role, AVATAR, AT);
+
+    expect(change?.role).toEqual({ ...role, avatar: AVATAR });
+    expect(change?.event).toBeInstanceOf(RoleAvatarChanged);
+    expect(change?.event.occurredAt).toEqual(AT);
+  });
+
+  it("removes it", () => {
+    expect(changeAvatar(aRole({ avatar: AVATAR }), null, AT)?.role.avatar).toBeNull();
+  });
+
+  it("changes nothing when there is none to remove", () => {
+    expect(changeAvatar(aRole(), null, AT)).toBeUndefined();
+  });
+
+  it("refuses someone let go until they are hired back", () => {
+    const role = aRole({ avatar: AVATAR, letGoAt: AT });
+
+    expect(() => changeAvatar(role, null, AT)).toThrow(RoleRefused);
+    expect(() => changeAvatar(role, { ...AVATAR, id: "another-id" }, AT)).toThrow(
+      "Ada was let go from the Developer Role; hire Ada back to change their Avatar.",
+    );
+    expect(changeAvatar({ ...role, letGoAt: undefined }, null, AT)?.role.avatar).toBeNull();
   });
 });

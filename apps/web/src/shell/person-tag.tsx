@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { PersonAvatar } from "./person-avatar.tsx";
 
 /** A person by avatar and name, leading to their page. */
 export function PersonTag({
@@ -15,7 +16,9 @@ export function PersonTag({
 }): ReactNode {
   return (
     <Link className="person-tag" to="/people/$roleKey" params={{ roleKey }}>
-      <TagAvatar name={name} />
+      <span aria-hidden="true">
+        <PersonAvatar roleKey={roleKey} name={name} size="xs" />
+      </span>
       <span className="person-tag-name">{label}</span>
     </Link>
   );
@@ -25,16 +28,10 @@ export function PersonTag({
 export function NamedTag({ name }: { readonly name: string }): ReactNode {
   return (
     <span className="person-tag">
-      <TagAvatar name={name} />
+      <span aria-hidden="true">
+        <Avatar name={name} size="xs" />
+      </span>
       <span className="person-tag-name">{name}</span>
-    </span>
-  );
-}
-
-function TagAvatar({ name }: { readonly name: string }): ReactNode {
-  return (
-    <span aria-hidden="true">
-      <Avatar name={name} size="xs" />
     </span>
   );
 }

@@ -26,6 +26,7 @@ export function aRole(fields: Partial<Role> = {}): Role {
     cardSavedAt: hiredAt,
     cardProposedBy: undefined,
     letGoAt: undefined,
+    avatar: null,
     ...fields,
   };
 }

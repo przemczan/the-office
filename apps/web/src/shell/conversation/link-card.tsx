@@ -5,13 +5,14 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import type { Message, Thread } from "@the-office/contracts";
-import { Avatar, Badge, Button, Icon } from "@the-office/ui";
+import { Badge, Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startChatThread, threadQueries } from "../../api/conversations.ts";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { useChat } from "../chat/use-chat.tsx";
 import { MarkdownText } from "../markdown-text.tsx";
+import { PersonAvatar } from "../person-avatar.tsx";
 import { personName } from "../person-name.ts";
 import { RecordMention } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
@@ -35,7 +36,7 @@ export function LinkCard({ card }: { readonly card: LinkCardMessage }): ReactNod
   return (
     <section className="message link-card" aria-label={`Link card: ${name}`}>
       <div className="link-card-head">
-        <Avatar name={firstName} size="sm" />
+        <PersonAvatar roleKey={card.to.roleKey} name={firstName} size="sm" />
         <div className="link-card-person">
           <span className="link-card-name">{name}</span>
           <span className="link-card-status">

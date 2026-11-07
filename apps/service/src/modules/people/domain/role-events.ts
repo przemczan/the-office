@@ -47,3 +47,13 @@ export class RoleCardChanged extends DomainEvent {
     super(role.cardSavedAt);
   }
 }
+
+/** The person's picture changed or went; the Role card, and so every session, stays as it was. */
+export class RoleAvatarChanged extends DomainEvent {
+  constructor(
+    readonly role: Role,
+    changedAt: Date,
+  ) {
+    super(changedAt);
+  }
+}

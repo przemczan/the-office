@@ -1,3 +1,4 @@
+import type { Avatar } from "./avatar.js";
 import type { RoleCard } from "./role-card.js";
 import type { RoleCardFieldChange } from "./role-card-changes.js";
 
@@ -24,6 +25,8 @@ export interface Role {
    * their card, Memory and chats, unused and readable, until hired back (spec §2.2).
    */
   readonly letGoAt: Date | undefined;
+  /** The person's own picture, or null: it sits beside the card, in none of its versions. */
+  readonly avatar: Avatar | null;
 }
 
 /** A saved version of a Role card, with what changed from the version before: nothing for the first. */

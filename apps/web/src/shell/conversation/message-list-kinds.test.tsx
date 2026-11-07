@@ -98,6 +98,7 @@ function shownLog(
     createRoot(page).render(
       <QueryClientProvider client={new QueryClient()}>
         <MessageList
+          roleKey="developer"
           messages={messages}
           personName="Jan"
           answering={answering}

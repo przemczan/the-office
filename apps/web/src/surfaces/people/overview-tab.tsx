@@ -7,6 +7,7 @@ import { SkillChip } from "../../shell/skill-chip.tsx";
 import { PersonBlock } from "./role-card-layout.tsx";
 import { SESSION_DEFAULTS, taskLimitLabel, worksWithText } from "../../shell/role-card-words.ts";
 import { useEngineName } from "../../shell/use-engine-name.ts";
+import { AvatarBlock } from "./avatar-block.tsx";
 import { sessionSkillsOf } from "./session-skills.ts";
 
 /** Who the person is, what they work with, and their skills. */
@@ -21,6 +22,7 @@ export function OverviewTab(): ReactNode {
   return (
     <div className="person-columns">
       <div className="person-column">
+        <AvatarBlock role={role.data} />
         <PersonBlock icon="user" title={`Who ${card.name} is`}>
           <p className="person-text">{card.responsibilities}</p>
         </PersonBlock>

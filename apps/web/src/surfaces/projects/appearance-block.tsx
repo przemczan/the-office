@@ -3,11 +3,12 @@ import type { Mark, Project } from "@the-office/contracts";
 import { Button } from "@the-office/ui";
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { changeMark, projectQueries } from "../../api/projects.ts";
+import { IMAGE_LIMIT_IN_MB } from "../../shell/image-row.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { AppearancePreview } from "./appearance-preview.tsx";
 import { MarkPicker } from "./mark-picker.tsx";
 import { ProjectBlock } from "./project-block.tsx";
-import { IMAGE_LIMIT_IN_MB, ProjectImageRow } from "./project-image-row.tsx";
+import { ProjectImageRow } from "./project-image-row.tsx";
 
 /**
  * The Project's mark and images beside how they look. The mark is saved by a button rather than at

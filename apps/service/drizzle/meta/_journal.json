@@ -687,6 +687,13 @@
       "when": 1794056717484,
       "tag": "0097_saved_views_without_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1794069485836,
+      "tag": "0098_person_avatars",
+      "breakpoints": true
     }
   ]
 }

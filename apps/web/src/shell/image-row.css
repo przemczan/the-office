@@ -1,0 +1,59 @@
+.image-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A Logo's own proportions fit here, so the rows line up whichever image they show. */
+.image-row-preview {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  min-height: 48px;
+}
+
+.image-row-words {
+  flex: 1;
+  min-width: 200px;
+}
+
+.image-row-name {
+  font: var(--type-label);
+}
+
+.image-row-hint {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.image-row-error {
+  margin: 4px 0 0;
+  font: var(--type-caption);
+  color: var(--danger-fg);
+}
+
+/* No image, so a place for one rather than what shows instead. */
+.image-row-empty {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 100%;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* One group, so on a narrow page the buttons wrap below the words together. */
+.image-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image-row-input {
+  display: none;
+}

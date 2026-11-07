@@ -6,6 +6,7 @@ import type {
   Role,
   Task,
 } from "@the-office/contracts";
+import type { NotificationPerson } from "./notification-channel.ts";
 
 /** The product's name, the tab's title with no Notification open. */
 export const OFFICE_TITLE = "The Office";
@@ -88,12 +89,13 @@ export function titleWithUnread(unread: number): string {
   return unread === 0 ? OFFICE_TITLE : `(${unread}) ${OFFICE_TITLE}`;
 }
 
-/** The person who speaks, by name; undefined when The Office does (spec §2.7 Defaults). */
+/** The person who speaks; undefined when The Office does (spec §2.7 Defaults). */
 export function personOf(
   notification: Pick<Notification, "roleKey">,
   roles: readonly Role[] | undefined,
-): string | undefined {
-  return roles?.find(({ key }) => key === notification.roleKey)?.card.name;
+): NotificationPerson | undefined {
+  const role = roles?.find(({ key }) => key === notification.roleKey);
+  return role && { roleKey: role.key, name: role.card.name };
 }
 
 /** "Add a filter · Billing": the Task and its Project, when the Notification is about a Task. */

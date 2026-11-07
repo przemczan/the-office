@@ -260,6 +260,10 @@ _Avoid_: Persona, profile, agent type
 Everything that defines a Role: its person's name and title, responsibilities, instructions, effort, Role override, capabilities (shared memory, chat, Consultant), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
 
+**Avatar**:
+A person's own picture, uploaded on their Overview tab, which shows in place of their initials wherever they are drawn. It is not part of the Role card: changing it adds no card version, and Agents never see it.
+_Avoid_: Profile picture, photo
+
 **Office instructions**:
 The one text of general guidelines the user writes in Settings, which every person's session gets with their Role's instructions; a Role's instructions and a Project's `CLAUDE.md` win where they disagree.
 _Avoid_: Global instructions, guidelines, house rules, agents.md

@@ -3,7 +3,7 @@ import { access, mkdir, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
-  PROJECT_IMAGE_UPLOAD_BYTES,
+  IMAGE_UPLOAD_BYTES,
   projectRefusalSchema,
   projectSchema,
   projectWebEventSchema,
@@ -67,9 +67,9 @@ async function commitImages(files: Readonly<Record<string, Uint8Array | string>>
 
 beforeAll(async () => {
   repository = await createTemporaryRepository();
-  const atTheLimit = new Uint8Array(PROJECT_IMAGE_UPLOAD_BYTES);
+  const atTheLimit = new Uint8Array(IMAGE_UPLOAD_BYTES);
   atTheLimit.set(BINARY_PNG);
-  const overIt = new Uint8Array(PROJECT_IMAGE_UPLOAD_BYTES + 1);
+  const overIt = new Uint8Array(IMAGE_UPLOAD_BYTES + 1);
   overIt.set(BINARY_PNG);
   commit = await commitImages({
     "icon.png": BINARY_PNG,
@@ -259,11 +259,11 @@ describe("refusals", () => {
   });
 
   it("takes a file of exactly the limit and refuses one byte more", async () => {
-    const atTheLimit = new Uint8Array(PROJECT_IMAGE_UPLOAD_BYTES);
+    const atTheLimit = new Uint8Array(IMAGE_UPLOAD_BYTES);
     atTheLimit.set(PNG);
     await uploaded("logo", atTheLimit);
 
-    const overIt = new Uint8Array(PROJECT_IMAGE_UPLOAD_BYTES + 1);
+    const overIt = new Uint8Array(IMAGE_UPLOAD_BYTES + 1);
     overIt.set(PNG);
     const response = await upload("icon", overIt);
 

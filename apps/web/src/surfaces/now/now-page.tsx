@@ -8,7 +8,7 @@ import type {
   Role,
   RunningTask,
 } from "@the-office/contracts";
-import { Avatar, Badge } from "@the-office/ui";
+import { Badge } from "@the-office/ui";
 import { Fragment, type ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
@@ -29,6 +29,7 @@ import {
   percentWords,
   sinceWords,
 } from "../../shell/notifications/now-words.ts";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { narrowed, type Narrowed } from "../../shell/project-filter/project-filter-choices.ts";
@@ -167,7 +168,7 @@ function RunningCard({
             "Starting"
           ) : (
             <>
-              {person && <Avatar name={person.card.name} size="xs" />}
+              {person && <PersonAvatar roleKey={person.key} name={person.card.name} size="xs" />}
               {person ? person.card.name : "No Agent"}
               <span>·</span>
               <Badge size="sm">{stage.name}</Badge>

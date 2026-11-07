@@ -2,6 +2,7 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import type { RoleWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
+  RoleAvatarChanged,
   RoleCardChanged,
   RoleHired,
   RoleHiredBack,
@@ -34,6 +35,10 @@ export class RoleWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(RoleCardChanged, (event): WebEventOf<"role.card-changed"> => ({
       type: "role.card-changed",
+      roleKey: event.role.key,
+    }));
+    this.forwarding.forward(RoleAvatarChanged, (event): WebEventOf<"role.avatar-changed"> => ({
+      type: "role.avatar-changed",
       roleKey: event.role.key,
     }));
     this.forwarding.forward(RoleMemoryChanged, (event): WebEventOf<"role.memory-changed"> => ({

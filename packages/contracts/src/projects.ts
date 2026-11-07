@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { engineModelSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
+import { imageSchema } from "./images.js";
 
 export const projectCommandKeySchema = z.enum(["install", "build", "lint", "test"]);
 export type ProjectCommandKey = z.infer<typeof projectCommandKeySchema>;
@@ -135,16 +136,6 @@ export type ProjectRoleOverride = z.infer<typeof projectRoleOverrideSchema>;
 export const projectImageKeySchema = z.enum(["icon", "logo"]);
 export type ProjectImageKey = z.infer<typeof projectImageKeySchema>;
 
-/** The most an Icon or a Logo may be; the service and the web both hold to it. */
-export const PROJECT_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
-
-export const PROJECT_IMAGE_MEDIA_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/svg+xml",
-] as const;
-
 /** What the Repository file browser offers for an Icon or a Logo; the contents still decide. */
 export const PROJECT_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".svg"] as const;
 
@@ -155,19 +146,12 @@ export const projectImageFromRepositorySchema = z.object({
 });
 export type ProjectImageFromRepository = z.infer<typeof projectImageFromRepositorySchema>;
 
-/** A picture kept by The Office; each upload or choice is a new image under a new id, its bytes never changing. */
-export const projectImageSchema = z.object({
-  id: z.string(),
-  mediaType: z.enum(PROJECT_IMAGE_MEDIA_TYPES),
-});
-export type ProjectImage = z.infer<typeof projectImageSchema>;
-
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
   /** Drawn on the mark's colour in place of its label; null when the Project has none. */
-  icon: projectImageSchema.nullable(),
+  icon: imageSchema.nullable(),
   /** The larger image on the Project's page and card; null when the Project has none. */
-  logo: projectImageSchema.nullable(),
+  logo: imageSchema.nullable(),
   /** What the repository was cloned from; null for a Project added by its path. */
   repositoryUrl: z.string().nullable(),
   environment: projectEnvironmentSchema,

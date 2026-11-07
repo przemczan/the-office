@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   OFFICE_IDENTITY_SETTINGS_PATH,
-  PROJECT_IMAGE_UPLOAD_BYTES,
+  IMAGE_UPLOAD_BYTES,
   projectSchema,
   type NewProject,
   type Project,
@@ -737,7 +737,7 @@ test("a file that isn't an image, or is too large, is refused in its row, and th
   await page.getByLabel("Icon file").setInputFiles({
     name: "large.png",
     mimeType: "image/png",
-    buffer: Buffer.alloc(PROJECT_IMAGE_UPLOAD_BYTES + 1),
+    buffer: Buffer.alloc(IMAGE_UPLOAD_BYTES + 1),
   });
 
   await expect(row.getByRole("alert")).toHaveText("An image may be at most 2 MB.");

@@ -7,15 +7,16 @@ import {
   type NestModule,
   type Type,
 } from "@nestjs/common";
-import { PROJECT_IMAGE_UPLOAD_BYTES } from "@the-office/contracts";
+import { IMAGE_UPLOAD_BYTES } from "@the-office/contracts";
 import { GitIdentityModule } from "../../platform/git-identity/git-identity.module.js";
 import { uploadBody } from "../../platform/http/upload-body.js";
+import { ImageFolder } from "../../platform/images/image-folder.js";
+import { OfficeDataDirectory } from "../../platform/office-data/office-data-directory.js";
 import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
-import { FilesystemProjectImageFiles } from "./adapters/filesystem/filesystem-project-image-files.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubApiPullRequests } from "./adapters/github/github-api-pull-requests.js";
@@ -71,7 +72,7 @@ export interface ProjectsModuleOptions {
 export class ProjectsModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(uploadBody(PROJECT_IMAGE_UPLOAD_BYTES))
+      .apply(uploadBody(IMAGE_UPLOAD_BYTES))
       .forRoutes({ path: "projects/:id/images/:image", method: RequestMethod.POST });
   }
 
@@ -101,7 +102,12 @@ export class ProjectsModule implements NestModule {
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
         { provide: EnvironmentCheckRepository, useClass: PostgresEnvironmentCheckRepository },
-        { provide: ProjectImageFiles, useClass: FilesystemProjectImageFiles },
+        {
+          provide: ProjectImageFiles,
+          inject: [OfficeDataDirectory],
+          useFactory: (officeData: OfficeDataDirectory) =>
+            new ImageFolder(officeData.folder("project-images")),
+        },
         { provide: Git, useClass: CommandLineGit },
         RepositoryLocks,
         { provide: PullRequests, useClass: GitHubApiPullRequests },

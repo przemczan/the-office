@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  API_PATH,
   memoryNoteSchema,
   memorySchema,
   presetListSchema,
@@ -15,7 +16,13 @@ import {
   type RoleCard,
   type RoleWebEvent,
 } from "@the-office/contracts";
-import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
+import {
+  deleteFromApi,
+  deleteFromApiReturning,
+  getFromApi,
+  sendFileToApi,
+  sendToApi,
+} from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const ROLES = ["roles"] as const;
@@ -98,6 +105,20 @@ export function hirePersonBack(key: string): Promise<Role> {
   return sendToApi("POST", `${rolePath(key)}/hire-back`, {}, roleSchema);
 }
 
+/** The person's Avatar becomes `file`; a refusal leaves the one they had. */
+export function uploadAvatar(key: string, file: File): Promise<Role> {
+  return sendFileToApi(avatarPath(key), file, roleSchema);
+}
+
+export function removeAvatar(key: string): Promise<Role> {
+  return deleteFromApiReturning(avatarPath(key), roleSchema);
+}
+
+/** Where an Avatar's bytes are; a new image has a new address, so the browser caches each for good. */
+export function avatarAddress(key: string, imageId: string): string {
+  return `${API_PATH}${avatarPath(key)}/${encodeURIComponent(imageId)}/content`;
+}
+
 export function addMemoryNote(key: string, note: MemoryNoteDraft): Promise<MemoryNote> {
   return sendToApi("POST", memoryPath(key), note, memoryNoteSchema);
 }
@@ -122,11 +143,16 @@ export const roleEventInvalidations: Readonly<
   "role.let-go": () => [ROLES],
   "role.hired-back": () => [ROLES],
   "role.card-changed": () => [ROLES, ENGINE_CASCADE],
+  "role.avatar-changed": () => [ROLES],
   "role.memory-changed": () => [ROLES],
 };
 
 function rolePath(key: string): `/${string}` {
   return `/roles/${encodeURIComponent(key)}`;
+}
+
+function avatarPath(key: string): `/${string}` {
+  return `${rolePath(key)}/avatar`;
 }
 
 function memoryPath(key: string): `/${string}` {

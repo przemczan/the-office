@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { engineCapabilitySchema, engineIdSchema, engineModelSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
+import { imageSchema } from "./images.js";
 
 /** How hard the model thinks. */
 export const effortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
@@ -104,6 +105,8 @@ export const roleSchema = z.object({
   cardSavedAt: z.iso.datetime(),
   /** When the person was let go; null while they fill the Role. */
   letGoAt: z.iso.datetime().nullable(),
+  /** The person's own picture, in place of their initials; null when they have none. Not on the card. */
+  avatar: imageSchema.nullable(),
   /**
    * The built-in Caretaker (spec §2.2): never hired or let go; their capabilities, permission
    * profile, Hard switches and Task limit are fixed.
@@ -298,6 +301,7 @@ export const roleWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("role.let-go"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.hired-back"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.card-changed"), roleKey: z.string() }),
+  webEventSchema.extend({ type: z.literal("role.avatar-changed"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.memory-changed"), roleKey: z.string() }),
 ]);
 export type RoleWebEvent = z.infer<typeof roleWebEventSchema>;

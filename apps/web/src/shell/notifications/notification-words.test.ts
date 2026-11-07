@@ -71,7 +71,10 @@ describe("personOf", () => {
   it("is the person who speaks, and nobody when The Office does", () => {
     const roles = [{ key: "developer", card: { name: "Adam" } }] as unknown as Role[];
 
-    expect(personOf({ roleKey: "developer" }, roles)).toBe("Adam");
+    expect(personOf({ roleKey: "developer" }, roles)).toEqual({
+      roleKey: "developer",
+      name: "Adam",
+    });
     expect(personOf({ roleKey: null }, roles)).toBeUndefined();
   });
 });

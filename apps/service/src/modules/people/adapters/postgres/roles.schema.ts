@@ -1,4 +1,5 @@
 import { integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import type { Avatar } from "../../domain/avatar.js";
 import type { RoleCard } from "../../domain/role-card.js";
 import type { RoleCardFieldChange } from "../../domain/role-card-changes.js";
 
@@ -9,6 +10,8 @@ export const roles = pgTable("roles", {
   hiredAt: timestamp("hired_at", { withTimezone: true }).notNull(),
   /** Null while the person fills the Role. */
   letGoAt: timestamp("let_go_at", { withTimezone: true }),
+  /** Null while the person has none. */
+  avatar: jsonb("avatar").$type<Avatar>(),
 });
 
 /** Every version of each Role's card, kept for the sessions that started with it. */

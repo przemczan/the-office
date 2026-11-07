@@ -1,7 +1,9 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Message } from "@the-office/contracts";
-import { act } from "react";
+import { act, type ComponentProps, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it } from "vitest";
+import { roleQueries } from "../../api/people.ts";
 import { MessageList } from "./message-list.tsx";
 
 declare global {
@@ -24,6 +26,18 @@ function toolCall(id: string, summary: string): Message {
   };
 }
 
+const queryClient = new QueryClient();
+queryClient.setQueryData(roleQueries.list().queryKey, []);
+
+/** The list of the developer's Thread, with no Avatar to fetch. */
+function RenderedList(props: Omit<ComponentProps<typeof MessageList>, "roleKey">): ReactNode {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MessageList roleKey="developer" {...props} />
+    </QueryClientProvider>
+  );
+}
+
 it("scrolls only the list to its end as a message comes or the person starts to answer", () => {
   const page = document.createElement("div");
   const root = createRoot(page);
@@ -32,7 +46,7 @@ it("scrolls only the list to its end as a message comes or the person starts to 
   const show = (answering: boolean): void =>
     act(() =>
       root.render(
-        <MessageList
+        <RenderedList
           messages={[...messages]}
           personName="Jan"
           answering={answering}
@@ -67,7 +81,7 @@ it("leaves a reader who scrolled up where they are, until they send something th
   const show = (): void =>
     act(() =>
       root.render(
-        <MessageList
+        <RenderedList
           messages={[...messages]}
           personName="Jan"
           answering={false}
@@ -107,7 +121,7 @@ it("brings an opened tool call into view and follows the next, unless the reader
   const show = (call: Message): void =>
     act(() =>
       root.render(
-        <MessageList
+        <RenderedList
           messages={[call]}
           personName="Jan"
           answering
@@ -176,7 +190,7 @@ it("shows a Handover note's first lines and the way to it when it reads whole el
   const read: string[] = [];
   act(() =>
     root.render(
-      <MessageList
+      <RenderedList
         messages={messages}
         personName="Jan"
         answering={false}
@@ -206,7 +220,7 @@ it("shows the person working from the moment a turn starts, before any output", 
   const show = (answering: boolean): void =>
     act(() =>
       root.render(
-        <MessageList
+        <RenderedList
           messages={[]}
           personName="Jan"
           answering={answering}
@@ -242,7 +256,7 @@ it("shows an MCP server that didn't start as The Office's line, with why when th
 
   act(() =>
     root.render(
-      <MessageList
+      <RenderedList
         messages={messages}
         personName="Jan"
         answering={false}
@@ -271,7 +285,7 @@ it("shows Allow changes and a held Stage as The Office's small notes, a run on a
 
   act(() =>
     root.render(
-      <MessageList
+      <RenderedList
         messages={messages}
         personName="Sam"
         answering={false}

@@ -1,8 +1,9 @@
-import { Avatar, Button, Icon } from "@the-office/ui";
+import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { chatButtonLook, chatButtonWords, type ChatButtonLook } from "./chat-words.ts";
 import { useChatPeople } from "./use-chat-people.ts";
 import { useChat } from "./use-chat.tsx";
+import { PersonAvatar } from "../person-avatar.tsx";
 
 /** Where focus goes back to as the drawer closes. */
 export const CHAT_BUTTON_ELEMENT_ID = "chat-button";
@@ -42,7 +43,7 @@ function ChatMark({ look }: { readonly look: ChatButtonLook }): ReactNode {
     case "answering":
       return (
         <span className="chat-mark">
-          <Avatar name={look.person.card.name} size="xs" />
+          <PersonAvatar roleKey={look.person.key} name={look.person.card.name} size="xs" />
           <span className="chat-dot answering" />
         </span>
       );
@@ -50,7 +51,7 @@ function ChatMark({ look }: { readonly look: ChatButtonLook }): ReactNode {
       return (
         <span className="chat-mark">
           {look.people.map(({ key, card }) => (
-            <Avatar key={key} name={card.name} size="xs" />
+            <PersonAvatar key={key} roleKey={key} name={card.name} size="xs" />
           ))}
           <span className="chat-dot answered" />
         </span>

@@ -23,7 +23,7 @@ import { PlanButton } from "./planning-actions.tsx";
 import { QueuedMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters } from "./use-board-filters.ts";
-import { usePeopleWorking, WorkingMark } from "./working-mark.tsx";
+import { usePeopleWorking, WorkingMark, type PersonWorking } from "./working-mark.tsx";
 
 const EDGES: Partial<Record<TaskState, string>> = {
   "in-progress": "edge-running",
@@ -173,7 +173,7 @@ function BoardCard({
   /** The Tasks still holding it back. */
   readonly blockers: readonly Task[];
   /** The names of the people working on it now. */
-  readonly peopleWorking: readonly string[];
+  readonly peopleWorking: readonly PersonWorking[];
   readonly dragging: boolean;
   readonly dropBefore: boolean;
   readonly onDragStart: () => void;
@@ -234,7 +234,7 @@ function BoardCard({
           {someoneWorking && (
             // Above the title's stretched link for its tooltip, so a press is passed on to the link.
             <span className="board-card-working" onClick={() => titleLink.current?.click()}>
-              <WorkingMark names={peopleWorking} />
+              <WorkingMark people={peopleWorking} />
             </span>
           )}
         </div>

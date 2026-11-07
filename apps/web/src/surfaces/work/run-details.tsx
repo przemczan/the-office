@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
-import { Avatar, Badge, Button, Icon, Tabs } from "@the-office/ui";
+import { Badge, Button, Icon, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -13,6 +13,7 @@ import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-co
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { takesMessages } from "../../shell/conversation/thread-writing.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
@@ -311,7 +312,7 @@ function RunThread({
       {takesMessages(thread) || drafting ? (
         <div className="run-thread-foot">
           <p className="run-thread-to">
-            To <Avatar name={personName} size="xs" />
+            To <PersonAvatar roleKey={thread.roleKey} name={personName} size="xs" />
             <span>
               <strong>{personName}</strong>
               {thread.title !== null && `, in ${thread.title}`}: lands at the next safe point

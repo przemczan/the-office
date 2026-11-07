@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Thread } from "@the-office/contracts";
-import { Avatar, Icon } from "@the-office/ui";
+import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { ContextBar } from "../../shell/conversation/context-bar.tsx";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { threadTitle } from "../../shell/conversation/thread-title.ts";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 
 /**
  * Under the timeline: the To line, the one composer and the context label of the Thread it names,
@@ -49,7 +50,7 @@ export function TimelineFoot({
         {/* The person shows; the list over them, unseen, is what is pressed and read out. */}
         <span className="timeline-to-pick">
           <span className="timeline-to-shown" aria-hidden="true">
-            <Avatar name={personName(to)} size="xs" />
+            <PersonAvatar roleKey={to.roleKey} name={personName(to)} size="xs" />
             <strong>{personLabel(to)}</strong>
             {to.title !== null && <span className="timeline-to-place">, in {to.title}</span>}
             {threads.length > 1 && <Icon name="chevron-down" size={12} />}

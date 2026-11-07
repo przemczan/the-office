@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import type { Role } from "@the-office/contracts";
-import { Alert, Avatar, Button, EmptyState, Icon, Tabs } from "@the-office/ui";
+import { Alert, Button, EmptyState, Icon, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { hirePersonBack, roleQueries } from "../../api/people.ts";
 import { useChat } from "../../shell/chat/use-chat.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
@@ -62,7 +63,7 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
   });
   return (
     <header className="person-head">
-      <Avatar name={card.name} size="lg" />
+      <PersonAvatar roleKey={role.key} name={card.name} size="lg" />
       <div className="person-head-grow">
         <h2>{personName(role)}</h2>
         <div className="person-head-meta">
