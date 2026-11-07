@@ -94,6 +94,22 @@ _Avoid_: Proposed (for a part's badge), approve
 A free-form word on a Task, set by the user or the Planner, to find Tasks by.
 _Avoid_: Label, category; "tag" for a Mention
 
+**Archive** (a Task):
+Taking a Done or Dropped Task off the Work board, by the user or automatically once it has been finished for the days set Office-wide.
+_Avoid_: Hide, delete, clean up
+
+**Archived**:
+A mark on a Done or Dropped Task that is archived; not a state, so the Task stays Done or Dropped.
+_Avoid_: Archived as a Task state, closed
+
+**Restore** (an archived Task):
+Returning an archived Task to the Work board in the state it had; a dropped Idea has a Restore of its own.
+_Avoid_: Unarchive, reopen
+
+**Move** (a Task):
+Putting a Task in another Project; not a change of state, though it can return the Task to Backlog.
+_Avoid_: Transfer, migrate, reassign
+
 **Saved view**:
 A named set of the Work board's filters (search, priority, Initiative, Blocked), shown under "Views"; it never holds the Project filter.
 _Avoid_: Filter preset, query, perspective
