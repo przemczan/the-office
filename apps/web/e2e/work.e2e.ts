@@ -638,10 +638,12 @@ test("the board's filters narrow it by search, Tags, priority and Blocked, kept 
   await expect(filters.getByLabel("Search Tasks")).toHaveValue("");
   await expect.poll(shown).toEqual(titles);
 
-  await filters
-    .getByRole("group", { name: "Tags" })
-    .getByRole("button", { name: "fw-radio" })
-    .click();
+  await expect(filters.getByRole("group", { name: "Tags" })).toHaveCount(0);
+  await page.goto(`/work?tags=${encodeURIComponent('["fw-radio"]')}`);
+  await expect.poll(shown).toEqual(titles);
+  await expect(page).not.toHaveURL(/tags=/);
+
+  await filters.getByLabel("Search Tasks").fill("fw-radio");
   await expect.poll(shown).toEqual(["Filtered pairing handshake", "Filtered flash layout"]);
   await filters.getByRole("button", { name: "Blocked" }).click();
   await expect.poll(shown).toEqual(["Filtered flash layout"]);
@@ -837,12 +839,7 @@ test("the user saves the board's filters as a view, applies it and removes it", 
     ["Viewed release checklist", "high"],
   ] as const) {
     const response = await page.request.post("/api/tasks", {
-      data: {
-        title,
-        projectId: project.id,
-        priority,
-        tags: title.includes("radio") ? ["vw-radio"] : [],
-      },
+      data: { title, projectId: project.id, priority },
     });
     expect(response.status()).toBe(201);
   }
@@ -853,10 +850,7 @@ test("the user saves the board's filters as a view, applies it and removes it", 
 
   const filters = page.getByRole("search", { name: "Filter the board" });
   const views = filters.getByRole("group", { name: "Views" });
-  await filters
-    .getByRole("group", { name: "Tags" })
-    .getByRole("button", { name: "vw-radio" })
-    .click();
+  await filters.getByLabel("Search Tasks").fill("radio");
   await filters
     .getByRole("group", { name: "Priority" })
     .getByRole("button", { name: "High" })

@@ -91,11 +91,11 @@ The user taking the part as it reads, the only way it becomes confirmed; a part 
 _Avoid_: Proposed (for a part's badge), approve
 
 **Tag**:
-A free-form word on a Task, set by the user or the Planner, to find and filter Tasks by.
+A free-form word on a Task, set by the user or the Planner, to find Tasks by.
 _Avoid_: Label, category; "tag" for a Mention
 
 **Saved view**:
-A named set of the Work board's filters (search, priority, Tags, Initiative, Blocked), shown under "Views"; it never holds the Project filter.
+A named set of the Work board's filters (search, priority, Initiative, Blocked), shown under "Views"; it never holds the Project filter.
 _Avoid_: Filter preset, query, perspective
 
 **Project filter**:

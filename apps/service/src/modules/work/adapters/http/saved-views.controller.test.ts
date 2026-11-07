@@ -61,14 +61,14 @@ describe("/api/saved-views", () => {
 
     const response = await saveView({
       name: `  ${name} `,
-      filters: { query: " flash ", priority: "high", tags: ["Bug", "bug "], initiative },
+      filters: { query: " flash ", priority: "high", initiative },
     });
 
     expect(response.status).toBe(201);
     const view = savedViewSchema.parse(await response.json());
     expect(view).toMatchObject({
       name,
-      filters: { query: "flash", priority: "high", tags: ["bug"], initiative },
+      filters: { query: "flash", priority: "high", initiative },
     });
     expect(await listViews()).toContainEqual(view);
     expect(webEventsOf(work)).toEqual([{ type: "saved-view.saved", savedViewId: view.id }]);
@@ -85,6 +85,19 @@ describe("/api/saved-views", () => {
     const view = savedViewSchema.parse(await response.json());
     expect(view.filters).toEqual({ blocked: true });
     expect((await listViews()).find(({ id }) => id === view.id)).toEqual(view);
+  });
+
+  it("never keeps Tags", async () => {
+    const response = await saveView({
+      name: aName("Tagged"),
+      filters: { blocked: true, tags: ["bug"] },
+    });
+
+    expect(response.status).toBe(201);
+    const view = savedViewSchema.parse(await response.json());
+    expect((await listViews()).find(({ id }) => id === view.id)?.filters).toEqual({
+      blocked: true,
+    });
   });
 
   it("lists the views in the order saved", async () => {
@@ -104,7 +117,7 @@ describe("/api/saved-views", () => {
     await saveView({ name, filters: { blocked: true } });
     work.published.length = 0;
 
-    const unnamed = await saveView({ name: " ", filters: { query: "  ", tags: [" "] } });
+    const unnamed = await saveView({ name: " ", filters: { query: "  " } });
     const taken = await saveView({ name: name.toUpperCase(), filters: { priority: "low" } });
 
     expect(unnamed.status).toBe(422);

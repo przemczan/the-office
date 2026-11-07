@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { readFile } from "node:fs/promises";
-import { asc, eq, sql, TransactionRollbackError, type SQL } from "drizzle-orm";
+import { asc, eq, inArray, sql, TransactionRollbackError, type SQL } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
@@ -15,6 +15,7 @@ import { InitiativeStateChanged } from "../../domain/initiative-events.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { InitiativeRefused } from "../../domain/initiative-refused.js";
 import { boardOrder, orderAfter } from "../../domain/manual-order.js";
+import type { BoardFilters } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";
 import { changePriority, createTask, reorderTask } from "../../domain/task-changes.js";
 import { changeTitle } from "../../domain/task-description.js";
@@ -27,6 +28,7 @@ import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./postgres-initiative-repository.js";
 import { PostgresTaskRepository } from "./postgres-task-repository.js";
 import { PostgresWorkSettings } from "./postgres-work-settings.js";
+import { savedViews } from "./saved-views.schema.js";
 import {
   initiatives as initiativeRows,
   tasks as taskRows,
@@ -438,6 +440,47 @@ describe("migration 0096", () => {
       changedBy: { kind: "office", reason: "its Initiative is still being shaped" },
     });
     expect(after.planningMoves).toHaveLength(1);
+  });
+});
+
+describe("migration 0097", () => {
+  const aSavedView = (filters: BoardFilters & { readonly tags?: readonly string[] }) => ({
+    id: randomUUID(),
+    name: `View ${randomUUID()}`,
+    filters,
+    savedAt: new Date(),
+  });
+
+  it("takes Tags out of the Saved views, removing those left with no filters", async () => {
+    const migration = await readFile(
+      new URL("../../../../../drizzle/0097_saved_views_without_tags.sql", import.meta.url),
+      "utf8",
+    );
+    const onlyTags = aSavedView({ tags: ["ble"] });
+    const tagsAndOthers = aSavedView({ tags: ["ble"], priority: "high", blocked: true });
+    const noTags = aSavedView({ query: "flash" });
+
+    const after = await rolledBack(async (transaction) => {
+      await transaction.insert(savedViews).values([onlyTags, tagsAndOthers, noTags]);
+      for (const statement of migration.split("--> statement-breakpoint")) {
+        await transaction.execute(sql.raw(statement));
+      }
+      return transaction
+        .select()
+        .from(savedViews)
+        .where(inArray(savedViews.id, [onlyTags.id, tagsAndOthers.id, noTags.id]));
+    });
+
+    expect(after).toHaveLength(2);
+    expect(after).toContainEqual(
+      expect.objectContaining({
+        name: tagsAndOthers.name,
+        filters: { priority: "high", blocked: true },
+      }),
+    );
+    expect(after).toContainEqual(
+      expect.objectContaining({ name: noTags.name, filters: { query: "flash" } }),
+    );
   });
 });
 

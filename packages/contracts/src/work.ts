@@ -465,8 +465,6 @@ export const boardFiltersSchema = z.object({
   /** Matched as the search's words are (`searchQuerySchema`). */
   query: z.string().optional(),
   priority: prioritySchema.optional(),
-  /** A Task shows only with every one of them. */
-  tags: z.array(z.string()).optional(),
   initiative: z.uuid().optional(),
   blocked: z.literal(true).optional(),
 });

@@ -143,7 +143,7 @@ export class PlanningOfficeTools implements OnModuleInit {
     this.registry.register({
       name: WRITE_TAGS,
       description:
-        "Sets this Task's Tags: a few short words the user finds and filters Tasks by, such as its area or kind. It replaces the Tags the Task has; each is kept lower-case, spaces made hyphens. They apply at once, and the user can change them.",
+        "Sets this Task's Tags: a few short words the user finds Tasks by, such as its area or kind. It replaces the Tags the Task has; each is kept lower-case, spaces made hyphens. They apply at once, and the user can change them.",
       input: z.object({
         tags: z.array(z.string()).describe("Every Tag the Task should have, one word each."),
       }),

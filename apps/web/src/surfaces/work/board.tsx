@@ -14,7 +14,7 @@ import { UsageEstimateLine, useUsageEstimate } from "../../shell/work/usage-esti
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
-import { isOnBoard, tagsOffered } from "./board-filters.ts";
+import { isOnBoard } from "./board-filters.ts";
 import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
@@ -105,7 +105,6 @@ export function Board(): ReactNode {
     <>
       <FilterBar
         filters={filters}
-        tags={tagsOffered(onBoard.filter(inProjectFilter), filters)}
         initiatives={
           initiatives.data?.filter(
             ({ id, projectIds }) => projectFilter.shows(projectIds) || id === filters.initiative,

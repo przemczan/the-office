@@ -1,7 +1,6 @@
 import { SavedViewSaved } from "./saved-view-events.js";
 import { SavedViewRefused } from "./saved-view-refused.js";
 import type { Priority } from "./task.js";
-import { normalizedTags } from "./task-tags.js";
 
 export const SAVED_VIEW_NAME_LENGTH = 60;
 
@@ -9,8 +8,6 @@ export const SAVED_VIEW_NAME_LENGTH = 60;
 export interface BoardFilters {
   readonly query?: string;
   readonly priority?: Priority;
-  /** A Task shows only with every one of them. */
-  readonly tags?: readonly string[];
   readonly initiative?: string;
   readonly blocked?: true;
 }
@@ -27,16 +24,14 @@ export interface SavedView {
 export type NewSavedView = Pick<SavedView, "name" | "filters">;
 
 /**
- * The filters as a view keeps them: the search's words trimmed, the Tags as a Task holds them, and
- * whatever is left empty left out, so a view holds only the filters that narrow the board.
+ * The filters as a view keeps them: the search's words trimmed, and whatever is left empty left
+ * out, so a view holds only the filters that narrow the board.
  */
 export function keptBoardFilters(filters: BoardFilters): BoardFilters {
   const query = filters.query?.trim() ?? "";
-  const tags = normalizedTags(filters.tags ?? []);
   return {
     ...(query !== "" && { query }),
     ...(filters.priority !== undefined && { priority: filters.priority }),
-    ...(tags.length > 0 && { tags }),
     ...(filters.initiative !== undefined && { initiative: filters.initiative }),
     ...(filters.blocked === true && { blocked: true as const }),
   };

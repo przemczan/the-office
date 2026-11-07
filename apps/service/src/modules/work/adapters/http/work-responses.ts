@@ -139,11 +139,10 @@ function toAuthorResponse(author: Author): AuthorResponse {
 }
 
 export function toSavedViewResponse(savedView: SavedView): SavedViewResponse {
-  const { tags, ...filters } = savedView.filters;
   return {
     id: savedView.id,
     name: savedView.name,
-    filters: { ...filters, ...(tags && { tags: [...tags] }) },
+    filters: savedView.filters,
     savedAt: savedView.savedAt.toISOString(),
   };
 }

@@ -2,28 +2,21 @@ import type { BoardFilters, Initiative, Priority } from "@the-office/contracts";
 import { Button, Icon, Input, Select } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
-import {
-  boardFiltersOf,
-  hasBoardFilters,
-  withBoardFilter,
-  withTagToggled,
-} from "./board-filters.ts";
+import { boardFiltersOf, hasBoardFilters, withBoardFilter } from "./board-filters.ts";
 import { SavedViewsRow } from "./saved-views.tsx";
 
 const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
 /**
  * The board's filters (prototypes/app/work.js `filterBar`): search, priority, Initiative, Blocked,
- * Tags, and the Saved views of them.
+ * and the Saved views of them.
  */
 export function FilterBar({
   filters,
-  tags,
   initiatives,
   onChange,
 }: {
   readonly filters: BoardFilters;
-  readonly tags: readonly string[];
   readonly initiatives: readonly Initiative[];
   readonly onChange: (filters: BoardFilters) => void;
 }): ReactNode {
@@ -79,20 +72,6 @@ export function FilterBar({
           </Button>
         )}
       </div>
-      {tags.length > 0 && (
-        <div className="board-filters-row" role="group" aria-label="Tags">
-          <span className="board-filters-label">Tags</span>
-          {tags.map((tag) => (
-            <FilterChip
-              key={tag}
-              on={filters.tags?.includes(tag) === true}
-              onClick={() => onChange(withTagToggled(filters, tag))}
-            >
-              {tag}
-            </FilterChip>
-          ))}
-        </div>
-      )}
       <SavedViewsRow filters={filters} onChange={onChange} />
     </div>
   );

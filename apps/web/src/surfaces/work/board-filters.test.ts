@@ -6,10 +6,8 @@ import {
   hasBoardFilters,
   isOnBoard,
   sameBoardFilters,
-  tagsOffered,
   withBoardFilter,
   withoutBoardFilters,
-  withTagToggled,
 } from "./board-filters.ts";
 
 function aTask(id: string, fields: Partial<Task> = {}): Task {
@@ -48,7 +46,7 @@ describe("boardFiltersOf", () => {
       boardFiltersOf({
         query: "pairing",
         priority: "high",
-        tags: ["ble", 3],
+        tags: ["ble"],
         initiative: "launch",
         blocked: true,
         chat: "cto",
@@ -56,7 +54,6 @@ describe("boardFiltersOf", () => {
     ).toEqual({
       query: "pairing",
       priority: "high",
-      tags: ["ble"],
       initiative: "launch",
       blocked: true,
     });
@@ -64,7 +61,6 @@ describe("boardFiltersOf", () => {
       boardFiltersOf({
         query: "  ",
         priority: "urgent",
-        tags: "ble",
         initiative: "",
         blocked: "yes",
       }),
@@ -72,36 +68,29 @@ describe("boardFiltersOf", () => {
   });
 });
 
-describe("withBoardFilter, withTagToggled and hasBoardFilters", () => {
-  it("sets a filter, leaves out one emptied, and toggles a Tag", () => {
+describe("withBoardFilter and hasBoardFilters", () => {
+  it("sets a filter and leaves out one emptied", () => {
     const filters = withBoardFilter({}, "priority", "low");
 
     expect(filters).toEqual({ priority: "low" });
     expect(hasBoardFilters(filters)).toBe(true);
     expect(withBoardFilter(filters, "priority", undefined)).toEqual({});
     expect(hasBoardFilters({})).toBe(false);
-
-    const tagged = withTagToggled(withTagToggled({}, "ble"), "ui");
-    expect(tagged).toEqual({ tags: ["ble", "ui"] });
-    expect(withTagToggled(withTagToggled(tagged, "ble"), "ui")).toEqual({});
   });
 });
 
 describe("sameBoardFilters", () => {
-  it("matches the same filters, the Tags in any order and the search's words trimmed", () => {
-    const view = { query: "flash", tags: ["ble", "ui"], blocked: true as const };
+  it("matches the same filters, the search's words trimmed", () => {
+    const view = { query: "flash", blocked: true as const };
 
-    expect(sameBoardFilters(view, { query: " flash", tags: ["ui", "ble"], blocked: true })).toBe(
-      true,
-    );
+    expect(sameBoardFilters(view, { query: " flash", blocked: true })).toBe(true);
     expect(sameBoardFilters({}, {})).toBe(true);
   });
 
   it("tells apart filters that narrow the board differently", () => {
-    const view = { priority: "high" as const, tags: ["ble"] };
+    const view = { priority: "high" as const, query: "flash" };
 
     expect(sameBoardFilters(view, { priority: "high" })).toBe(false);
-    expect(sameBoardFilters(view, { ...view, tags: ["ble", "ui"] })).toBe(false);
     expect(sameBoardFilters(view, { ...view, blocked: true })).toBe(false);
     expect(sameBoardFilters(view, { ...view, initiative: "i" })).toBe(false);
   });
@@ -109,17 +98,10 @@ describe("sameBoardFilters", () => {
 
 describe("withoutBoardFilters", () => {
   it("keeps what opens over the page", () => {
-    expect(withoutBoardFilters({ query: "x", tags: ["ble"], chat: "cto", needsYou: true })).toEqual(
-      { chat: "cto", needsYou: true },
-    );
-  });
-});
-
-describe("tagsOffered", () => {
-  it("offers the Tags in use and any chosen that no Task has any more", () => {
-    const tasks = [aTask("a", { tags: ["ui"] }), aTask("b", { tags: ["ble", "ui"] })];
-
-    expect(tagsOffered(tasks, { tags: ["gone"] })).toEqual(["ble", "gone", "ui"]);
+    expect(withoutBoardFilters({ query: "x", chat: "cto", needsYou: true })).toEqual({
+      chat: "cto",
+      needsYou: true,
+    });
   });
 });
 
@@ -133,14 +115,10 @@ describe("isOnBoard", () => {
 });
 
 describe("boardFilter", () => {
-  const protocol = aTask("protocol", { priority: "high", tags: ["ble", "ui"] });
-  const client = aTask("client", {
-    tags: ["ble"],
-    blockedBy: ["protocol"],
-    initiativeId: "launch",
-  });
+  const protocol = aTask("protocol", { priority: "high" });
+  const client = aTask("client", { blockedBy: ["protocol"], initiativeId: "launch" });
   const docs = aTask("docs", { priority: "low", blockedBy: ["finished"] });
-  const finished = aTask("finished", { state: "done", tags: ["ui"] });
+  const finished = aTask("finished", { state: "done" });
   const tasks = [protocol, client, docs, finished];
 
   it("shows every Task with no filters", () => {
@@ -152,19 +130,17 @@ describe("boardFilter", () => {
     ]);
   });
 
-  it("narrows by priority, by every Tag chosen, by Initiative, and to those blocked", () => {
+  it("narrows by priority, by Initiative, and to those blocked", () => {
     expect(shown(tasks, boardFilter({ priority: "high" }, tasks))).toEqual(["protocol"]);
-    expect(shown(tasks, boardFilter({ tags: ["ble"] }, tasks))).toEqual(["protocol", "client"]);
-    expect(shown(tasks, boardFilter({ tags: ["ble", "ui"] }, tasks))).toEqual(["protocol"]);
     expect(shown(tasks, boardFilter({ initiative: "launch" }, tasks))).toEqual(["client"]);
     // A Done blocker no longer holds a Task back.
     expect(shown(tasks, boardFilter({ blocked: true }, tasks))).toEqual(["client"]);
   });
 
   it("narrows to the Tasks the search found, once the service has answered", () => {
-    const filters = { query: "pair", tags: ["ble"] };
+    const filters = { query: "pair", priority: "normal" as const };
 
-    expect(shown(tasks, boardFilter(filters, tasks))).toEqual(["protocol", "client"]);
+    expect(shown(tasks, boardFilter(filters, tasks))).toEqual(["client", "finished"]);
     expect(shown(tasks, boardFilter(filters, tasks, new Set(["client", "docs"])))).toEqual([
       "client",
     ]);
