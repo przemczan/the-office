@@ -204,6 +204,8 @@ describe("refusals", () => {
 
   it("refuses an empty file", async () => {
     await expectRefused(await upload(new Uint8Array()), ["The file is empty."]);
+
+    expect((await stored()).avatar).toBeNull();
   });
 
   it("takes a file of exactly the limit and refuses one byte more", async () => {

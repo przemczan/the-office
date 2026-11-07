@@ -706,8 +706,7 @@ function Avatar({
   name = '',
   src,
   size = 'md',
-  style,
-  onImageError
+  style
 }) {
   const d = {
     xs: 20,
@@ -738,7 +737,6 @@ function Avatar({
   }, src ? /*#__PURE__*/React.createElement("img", {
     src: src,
     alt: "",
-    onError: onImageError,
     style: {
       width: '100%',
       height: '100%',

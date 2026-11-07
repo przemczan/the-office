@@ -11,7 +11,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import type { RoleHistoryEntry } from "../../application/role-history.js";
-import { RoleService, type RoleWithAssignments } from "../../application/role-service.js";
+import { RoleService } from "../../application/role-service.js";
 import type { Preset } from "../../domain/presets.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
 import { filledKeys, toRoleResponse } from "./role-responses.js";
