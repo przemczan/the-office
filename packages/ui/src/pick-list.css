@@ -1,0 +1,184 @@
+/* A list to pick one item from: see pick-list.tsx. Not clipped by the card, so the head action's
+   menu can open over the rows; the last row rounds its own corners instead. */
+.pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pick-list-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.pick-list-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.pick-list-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font: var(--type-card-title);
+  color: var(--fg-1);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pick-list-count {
+  margin-left: var(--space-1-5);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+}
+
+.pick-list-action {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.pick-list-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pick-list-row + .pick-list-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pick-list-item {
+  display: flex;
+  align-items: center;
+  position: relative;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--fg-1);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pick-list-item:hover {
+  background: var(--surface-hover);
+}
+
+.pick-list-item.picked {
+  background: var(--surface-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.pick-list-item:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.pick-list-card > nav:last-child .pick-list-row:last-child > .pick-list-item {
+  border-radius: 0 0 calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px);
+}
+
+.pick-list-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--fg-2);
+}
+
+.pick-list-item.picked .pick-list-icon {
+  border-color: transparent;
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
+}
+
+.pick-list-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+
+.pick-list-name,
+.pick-list-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pick-list-name {
+  font: var(--type-label);
+}
+
+.pick-list-line {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.pick-list-aside {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+  white-space: nowrap;
+}
+
+.pick-list-warning {
+  display: inline-grid;
+  color: var(--warning-fg);
+}
+
+.pick-list-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pick-list-empty {
+  margin: 0;
+  padding: var(--space-3);
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.pick-list-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pick-list-note {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-3);
+}

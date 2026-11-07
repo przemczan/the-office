@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import type { Pipeline } from "@the-office/contracts";
-import { Button, Card, Icon } from "@the-office/ui";
+import { Button, Card, Icon, PickList, PickListItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleCardQueries, roleQueries } from "../../../api/people.ts";
 import { duplicatePipeline, pipelineQueries } from "../../../api/pipelines.ts";
@@ -77,18 +77,10 @@ function LibraryList({
     },
   });
   return (
-    <div className="library-list">
-      <nav aria-label="Pipelines">
-        {library.map((pipeline) => (
-          <LibraryItem
-            key={pipeline.id}
-            pipeline={pipeline}
-            active={pipeline.id === open?.id}
-            onOpen={onOpen}
-          />
-        ))}
-      </nav>
-      <div className="library-list-actions">
+    <PickList
+      name="Pipelines"
+      count={library.length}
+      action={
         <Button
           size="sm"
           variant="secondary"
@@ -98,33 +90,47 @@ function LibraryList({
         >
           New Pipeline
         </Button>
-        {open && (
-          <Button
-            size="sm"
-            variant="secondary"
-            loading={duplicating.isPending}
-            iconLeft={<Icon name="copy" size={14} />}
-            onClick={() => duplicating.mutate(open.id)}
-          >
-            Duplicate {open.name}
-          </Button>
-        )}
-      </div>
-      {duplicating.error && (
-        <RefusalAlert title="The Pipeline wasn't duplicated" error={duplicating.error} />
-      )}
-    </div>
+      }
+      empty="No Pipeline yet. Make one from scratch with New Pipeline."
+      foot={
+        open && (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={duplicating.isPending}
+              iconLeft={<Icon name="copy" size={14} />}
+              onClick={() => duplicating.mutate(open.id)}
+            >
+              Duplicate {open.name}
+            </Button>
+            {duplicating.error && (
+              <RefusalAlert title="The Pipeline wasn't duplicated" error={duplicating.error} />
+            )}
+          </>
+        )
+      }
+    >
+      {library.map((pipeline) => (
+        <LibraryItem
+          key={pipeline.id}
+          pipeline={pipeline}
+          picked={pipeline.id === open?.id}
+          onOpen={onOpen}
+        />
+      ))}
+    </PickList>
   );
 }
 
 /** A Pipeline in the list, flagged when its Stages need fixing or name a Role nobody fills. */
 function LibraryItem({
   pipeline,
-  active,
+  picked,
   onOpen,
 }: {
   readonly pipeline: Pipeline;
-  readonly active: boolean;
+  readonly picked: boolean;
   readonly onOpen: () => void;
 }): ReactNode {
   const { id, name, description, stages } = pipeline;
@@ -133,23 +139,20 @@ function LibraryItem({
   );
   const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
   return (
-    <Link
-      to="/settings/pipelines/$pipelineId"
-      params={{ pipelineId: id }}
-      className={active ? "library-item active" : "library-item"}
-      aria-current={active ? "page" : undefined}
-      onClick={onOpen}
-    >
-      <span className="library-item-words">
-        <span className="library-item-name">{name}</span>
-        <span className="library-item-stages">{stagesLine(pipeline)}</span>
-      </span>
-      {needsFixing && (
-        <span className="library-item-flag" title="Needs fixing" aria-label="Needs fixing">
-          <Icon name="triangle-alert" size={14} />
-        </span>
+    <PickListItem
+      picked={picked}
+      name={name}
+      line={stagesLine(pipeline)}
+      warning={needsFixing ? "Needs fixing" : undefined}
+      link={(parts) => (
+        <Link
+          to="/settings/pipelines/$pipelineId"
+          params={{ pipelineId: id }}
+          onClick={onOpen}
+          {...parts}
+        />
       )}
-    </Link>
+    />
   );
 }
 

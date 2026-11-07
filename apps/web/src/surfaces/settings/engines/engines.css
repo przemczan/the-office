@@ -1,5 +1,5 @@
-/* Settings › Engines: the Defaults above the list of engines (settings.css' `.library-list`) beside
-   the selected engine's tabs. */
+/* Settings › Engines: the Defaults above the list of engines (packages/ui's PickList) beside the
+   selected engine's tabs. */
 .engine-defaults {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -23,42 +23,6 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-}
-
-/* A row of the list is a button, styled as a library item. */
-.engine-item {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.engine-item-name {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.engine-item-name .library-item-name {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.engine-list-add {
-  margin: 2px 4px 8px;
-}
-
-.engine-list-empty {
-  padding: 8px 10px 0;
-}
-
-.engine-list-note {
-  margin: 8px 4px 4px;
 }
 
 .engine-detail {

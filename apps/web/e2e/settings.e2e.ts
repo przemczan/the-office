@@ -1,6 +1,6 @@
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
-import type { NotificationTiming } from "@the-office/contracts";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { EngineSettings, NotificationTiming } from "@the-office/contracts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -274,8 +274,11 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   await page.goto("/settings");
   await expect(page).toHaveURL(/\/settings\/pipelines$/);
   const library = page.getByRole("navigation", { name: "Pipelines" });
-  await expect(library.getByRole("link").first()).toContainText("Full");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-pipelines.png") });
+  const full = library.getByRole("link").first();
+  await expect(full).toContainText("Full");
+  // A row is still a link to its Pipeline's address.
+  await expect(full).toHaveAttribute("href", /\/settings\/pipelines\/[^/]+$/);
+  await screenshotEachLook(page, library, "settings-pipelines");
 
   await page.getByRole("button", { name: "New Pipeline" }).click();
   await expect(page.getByText("Give the Pipeline a name.")).toBeVisible();
@@ -337,6 +340,89 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
     page.getByText("Onboarding uses the Onboard Pipeline, so it stays in the library."),
   ).toBeVisible();
 });
+
+// Nothing is saved: people.e2e.ts saves engines, and a Save sends every engine whole.
+test("Settings › Engines' rows hold one line each, a long name cut beside the Office default", async ({
+  page,
+}) => {
+  const longName = "Claude Code on the research team's long-lived account, kept for the night runs";
+  await page.goto("/settings/engines");
+  const list = page.getByRole("navigation", { name: "Engines" });
+  const officeDefault = list.getByRole("button").filter({ hasText: "Office default" });
+  await officeDefault.click();
+  await page.locator(".engine-detail").getByLabel("Name", { exact: true }).fill(longName);
+  // An API endpoint without a model shows its warning mark.
+  await page.getByRole("button", { name: "Add an engine" }).click();
+  await page.getByRole("menu").getByRole("button", { name: "API endpoint", exact: true }).click();
+  await expect(list.getByLabel("It offers no model yet")).toBeVisible();
+  await expect(officeDefault).toContainText(longName);
+  // The kind shows as an icon, and screen readers still read it in the row's text.
+  await expect(officeDefault).toContainText("Claude Code ·");
+
+  await screenshotEachLook(page, list, "settings-engines", async () => {
+    const nameCut = await officeDefault
+      .locator(".pick-list-name")
+      .evaluate((name) => name.scrollWidth > name.clientWidth);
+    expect(nameCut).toBe(true);
+  });
+  await page.getByRole("button", { name: "Discard" }).click();
+
+  // With no engine listed, the list says how to add one.
+  await page.route("**/api/settings/engines", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    const saved = (await response.json()) as EngineSettings;
+    return route.fulfill({ response, json: { ...saved, engines: [], officeDefault: null } });
+  });
+  await page.reload();
+  await expect(list).toHaveText(
+    "No engine yet. Add a Claude Code engine or an API endpoint with Add an engine.",
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-engines-empty.png") });
+});
+
+/**
+ * For each palette and at 1600 and 600 wide: the list's rows all one height, each mark inside its
+ * row, nothing scrolling sideways, then a screenshot of the list beside its detail.
+ */
+async function screenshotEachLook(
+  page: Page,
+  list: Locator,
+  name: string,
+  check?: () => Promise<void>,
+): Promise<void> {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
+    for (const width of [1600, 600]) {
+      await page.setViewportSize({ width, height: 900 });
+      const rows = await list.locator("li > *").evaluateAll((items) =>
+        items.map((item) => {
+          const row = item.getBoundingClientRect();
+          return {
+            height: Math.round(row.height),
+            marksInside: [...item.querySelectorAll(".pick-list-aside > *")].every((mark) => {
+              const box = mark.getBoundingClientRect();
+              return box.top >= row.top && box.bottom <= row.bottom && box.right <= row.right;
+            }),
+          };
+        }),
+      );
+      expect(new Set(rows.map(({ height }) => height)).size).toBe(1);
+      expect(rows.every(({ marksInside }) => marksInside)).toBe(true);
+      const sideways = await page
+        .locator("html")
+        .evaluate((html) => html.scrollWidth - html.clientWidth);
+      expect(sideways).toBe(0);
+      await check?.();
+      await page.locator(".settings-split").screenshot({
+        path: path.join(SCREENSHOTS, `${colorScheme}-${width}-${name}.png`),
+      });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1600, height: 900 });
+}
 
 test.describe("Appearance", () => {
   // A system in dark, so each choice shows as a change from what the system gives.

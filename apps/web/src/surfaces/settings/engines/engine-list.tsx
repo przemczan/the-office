@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { EngineEdit } from "@the-office/contracts";
-import { Badge, Button, Icon, Menu } from "@the-office/ui";
+import { Badge, Button, Icon, Menu, PickList, PickListItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { engineAccountQuery } from "../../../api/engine.ts";
 import {
@@ -21,9 +21,15 @@ export interface EngineRow {
   readonly problem: string | undefined;
 }
 
+/** Each kind's icon, in the list's rows and in "Add an engine". */
+const ENGINE_KIND_ICONS: Readonly<Record<EngineEdit["kind"], string>> = {
+  "claude-code": "terminal",
+  "openai-compatible-api": "server",
+};
+
 /**
- * Settings › Engines' list: "Add an engine" on top, a menu of the kinds, each selecting the engine
- * it adds, then a row per engine, the Claude Code engines first, as Save sends them.
+ * Settings › Engines' list: "Add an engine" in its head, a menu of the kinds, each selecting the
+ * engine it adds, then a row per engine, the Claude Code engines first, as Save sends them.
  */
 export function EngineList({
   rows,
@@ -38,24 +44,22 @@ export function EngineList({
   readonly add: Readonly<Record<EngineEdit["kind"], () => void>>;
 }): ReactNode {
   return (
-    <div className="library-list">
-      <AddEngineMenu add={add} />
-      <nav aria-label="Engines">
-        {rows.map((row) => (
-          <EngineListItem
-            key={`${row.selection.kind}-${row.selection.index}`}
-            row={row}
-            active={sameSelection(shown, row.selection)}
-            select={() => select(row.selection)}
-          />
-        ))}
-      </nav>
-      {rows.length === 0 && <p className="settings-note engine-list-empty">No engine yet.</p>}
-      <p className="settings-note engine-list-note">
-        Each Claude Code engine is one Claude account, each API endpoint a server on the
-        OpenAI-compatible API, such as a local LLM.
-      </p>
-    </div>
+    <PickList
+      name="Engines"
+      count={rows.length}
+      action={<AddEngineMenu add={add} />}
+      empty="No engine yet. Add a Claude Code engine or an API endpoint with Add an engine."
+      note="Each Claude Code engine is one Claude account, each API endpoint a server on the OpenAI-compatible API, such as a local LLM."
+    >
+      {rows.map((row) => (
+        <EngineListItem
+          key={`${row.selection.kind}-${row.selection.index}`}
+          row={row}
+          picked={sameSelection(shown, row.selection)}
+          select={() => select(row.selection)}
+        />
+      ))}
+    </PickList>
   );
 }
 
@@ -67,65 +71,60 @@ function AddEngineMenu({
   const [open, setOpen] = useState(false);
   const kinds = Object.keys(ENGINE_KIND_LABELS) as EngineEdit["kind"][];
   return (
-    <div className="engine-list-add">
-      <Menu
-        open={open}
-        onOpenChange={setOpen}
-        align="start"
-        width={220}
-        trigger={
-          <Button
-            variant="secondary"
-            size="sm"
-            iconLeft={<Icon name="plus" size={14} />}
-            iconRight={<Icon name="chevron-down" size={14} />}
-            aria-haspopup="menu"
-            aria-expanded={open}
-          >
-            Add an engine
-          </Button>
-        }
-        items={kinds.map((kind) => ({ label: ENGINE_KIND_LABELS[kind], onSelect: add[kind] }))}
-      />
-    </div>
+    <Menu
+      open={open}
+      onOpenChange={setOpen}
+      align="end"
+      width={220}
+      trigger={
+        <Button
+          variant="secondary"
+          size="sm"
+          iconLeft={<Icon name="plus" size={14} />}
+          iconRight={<Icon name="chevron-down" size={14} />}
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          Add an engine
+        </Button>
+      }
+      items={kinds.map((kind) => ({
+        label: ENGINE_KIND_LABELS[kind],
+        icon: <Icon name={ENGINE_KIND_ICONS[kind]} size={14} />,
+        onSelect: add[kind],
+      }))}
+    />
   );
 }
 
 function EngineListItem({
   row: { engine, officeDefault, problem },
-  active,
+  picked,
   select,
 }: {
   readonly row: EngineRow;
-  readonly active: boolean;
+  readonly picked: boolean;
   readonly select: () => void;
 }): ReactNode {
   return (
-    <button
-      type="button"
-      className={active ? "library-item engine-item active" : "library-item engine-item"}
-      aria-current={active ? "true" : undefined}
-      onClick={select}
-    >
-      <span className="library-item-words">
-        <span className="engine-item-name">
-          <span className="library-item-name">{engineCalled(engine)}</span>
-          {officeDefault && (
-            <Badge size="sm" tone="accent">
-              Office default
-            </Badge>
-          )}
-        </span>
-        <span className="library-item-stages">
-          {ENGINE_KIND_LABELS[engine.kind]} · <EngineSummary engine={engine} />
-        </span>
-      </span>
-      {problem && (
-        <span className="library-item-flag" title={problem} aria-label={problem}>
-          <Icon name="triangle-alert" size={14} />
-        </span>
-      )}
-    </button>
+    <PickListItem
+      picked={picked}
+      icon={{
+        glyph: <Icon name={ENGINE_KIND_ICONS[engine.kind]} size={15} strokeWidth={1.6} />,
+        label: ENGINE_KIND_LABELS[engine.kind],
+      }}
+      name={engineCalled(engine)}
+      line={<EngineSummary engine={engine} />}
+      aside={
+        officeDefault && (
+          <Badge size="sm" tone="accent">
+            Office default
+          </Badge>
+        )
+      }
+      warning={problem}
+      onPick={select}
+    />
   );
 }
 

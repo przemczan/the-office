@@ -311,77 +311,12 @@
   margin-top: 12px;
 }
 
-/* ---- Pipelines: the library beside the open Pipeline */
+/* ---- Pipelines and Engines: the list (packages/ui's PickList) beside the picked item */
 .settings-split {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-}
-
-.library-list {
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.library-list nav {
-  display: flex;
-  flex-direction: column;
-}
-
-.library-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: var(--fg-1);
-  text-decoration: none;
-}
-
-.library-item:hover {
-  background: var(--surface-hover);
-}
-
-.library-item.active {
-  background: var(--surface-selected);
-}
-
-.library-item-words {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.library-item-name {
-  font: var(--type-label);
-}
-
-.library-item-stages {
-  overflow: hidden;
-  font: var(--type-caption);
-  color: var(--fg-3);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.library-item-flag {
-  display: inline-grid;
-  color: var(--warning-fg);
-}
-
-.library-list-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 4px 4px;
 }
 
 .library-detail {
