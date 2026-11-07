@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Project Appearance · design · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/ and packages/ui/src/appearance/, as on 2026-11-07) */
+      :root {
+        --ember-500: #f23d0f;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-700: #8e0b20;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --border-focus: var(--ember-500);
+        --primary: var(--gray-900);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger-fg: var(--red-700);
+        --neutral-subtle: var(--gray-50);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono: 400 var(--text-xs) / 1.45 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+      }
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --neutral-subtle: var(--gray-50);
+      }
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --control-hover: #262624;
+        --neutral-subtle: #242422;
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-fg: #ff8a97;
+      }
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+        --text-item: 14px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+      }
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      /* ---------- This document's own frame, not part of the design */
+      .doc {
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+        padding: 32px;
+      }
+      .doc-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .doc-head h1 {
+        margin: 0;
+        font: 600 20px/1.3 var(--font-sans);
+      }
+      .doc-head p,
+      .doc-scene > p {
+        max-width: 90ch;
+        margin: 6px 0 0;
+        color: var(--fg-2);
+      }
+      .doc-scene h2 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .doc-frame {
+        margin-top: 14px;
+        padding: var(--pad-page);
+        border: 1px dashed var(--border-strong);
+        border-radius: 12px;
+      }
+      .doc-frame.wide {
+        width: 1180px;
+        max-width: 100%;
+        overflow-x: auto;
+      }
+      .doc-frame.narrow {
+        width: 544px;
+        padding: 14px;
+      }
+
+      /* ---------- shell.css: the mark, the Logo, the chip */
+      .project-mark {
+        --mark-bg: var(--teal-500);
+        --mark-fg: var(--white);
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        background: var(--mark-bg);
+        color: var(--mark-fg);
+        font: 600 8px/1 var(--font-mono);
+      }
+      .project-mark.size-xl {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        font-size: 11px;
+      }
+      .project-mark.size-page {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        font-size: 15px;
+      }
+      .mark-colour-teal {
+        --mark-bg: var(--teal-500);
+      }
+      .mark-colour-violet {
+        --mark-bg: var(--violet-500);
+      }
+      .mark-colour-gray {
+        --mark-bg: var(--gray-500);
+      }
+      .mark-colour-ink {
+        --mark-bg: var(--fg-1);
+        --mark-fg: var(--bg);
+      }
+      .project-mark img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: inherit;
+      }
+      .project-logo {
+        display: block;
+        flex: none;
+        object-fit: contain;
+      }
+      .project-logo.size-xl {
+        max-width: 120px;
+        max-height: 48px;
+      }
+      .project-logo.size-page {
+        max-width: 200px;
+        max-height: 72px;
+      }
+      .project-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      /* ---------- packages/ui: Card, Button, Input, Badge */
+      .card {
+        padding: var(--pad-card);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .project-block-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font: var(--type-card-title);
+      }
+      .project-block-title svg {
+        color: var(--fg-3);
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .button.primary {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .button.danger-ghost {
+        border-color: transparent;
+        background: none;
+        color: var(--danger-fg);
+      }
+      .button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .input {
+        height: 28px;
+        padding: 0 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        font: var(--type-body-sm);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 6px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-badge);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+      }
+
+      /* ---------- projects.css, as on this branch */
+      .project-head,
+      .appearance-sample-head {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .project-head h2,
+      .appearance-sample-name {
+        margin: 0;
+        font: 600 20px/1.3 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+      .project-head-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .project-path {
+        overflow: hidden;
+        font: var(--type-mono);
+        font-size: 11px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: var(--fg-3);
+      }
+      .project-section-title {
+        margin: 24px 0 12px;
+        font: var(--type-section-title);
+      }
+      .project-tile {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: var(--pad-card);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+      }
+      .project-tile-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .project-tile-grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .project-tile-name {
+        font: 600 var(--text-item) / 1.3 var(--font-sans);
+      }
+      .project-tile-sub {
+        margin-top: 2px;
+      }
+      .project-block-note {
+        margin: 10px 0 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .project-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .project-row-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      .mark-picker {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .mark-swatches {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+      }
+      .mark-swatch {
+        display: inline-grid;
+        place-items: center;
+      }
+      .mark-swatch > * {
+        grid-area: 1 / 1;
+      }
+      .mark-swatch-input {
+        width: 24px;
+        height: 24px;
+        margin: 0;
+        appearance: none;
+        background: var(--mark-bg);
+        border: 0;
+        border-radius: var(--radius-full);
+        cursor: pointer;
+      }
+      .mark-swatch-input:hover {
+        outline: 2px solid var(--border-strong);
+        outline-offset: 2px;
+      }
+      .mark-swatch-input:checked {
+        outline: 2px solid var(--fg-1);
+        outline-offset: 2px;
+      }
+      .mark-swatch-input:focus-visible {
+        outline: 2px solid var(--border-focus);
+        outline-offset: 2px;
+      }
+      .mark-swatch-input.custom {
+        background: var(--surface);
+        border: 1px dashed var(--border-strong);
+      }
+      .mark-swatch-over {
+        display: inline-flex;
+        color: var(--fg-2);
+        pointer-events: none;
+      }
+
+      .appearance {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--gap-card);
+        align-items: start;
+      }
+      .appearance-edit {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-card);
+        min-width: 0;
+      }
+      .doc-frame.wide .appearance {
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      }
+      .doc-frame.wide .appearance-edit {
+        grid-area: 1 / 1;
+      }
+      .doc-frame.wide .appearance-preview {
+        position: sticky;
+        top: var(--pad-page);
+        grid-area: 1 / 2;
+      }
+      .appearance-samples {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+      .appearance-sample {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        margin: 0;
+      }
+      .appearance-sample-stage {
+        padding: var(--space-3);
+        overflow: hidden;
+        background: var(--bg);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+      }
+      .appearance-sample-words {
+        min-width: 0;
+      }
+      .appearance-images-intro {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .project-image-rows {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .project-image-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .project-image-preview {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 120px;
+        min-height: 48px;
+      }
+      .project-image-words {
+        flex: 1;
+        min-width: 200px;
+      }
+      .project-image-name {
+        font: var(--type-label);
+      }
+      .project-image-hint {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .project-image-empty {
+        display: grid;
+        place-items: center;
+        align-self: stretch;
+        width: 100%;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-card);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .project-image-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      /* The add dialog, as far as the mark goes */
+      .dialog {
+        width: 520px;
+        max-width: 100%;
+        padding: 20px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+      .dialog h3 {
+        margin: 0 0 16px;
+        font: var(--type-section-title);
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .field > label {
+        font: var(--type-label);
+      }
+      .field .input {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" />
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+      </symbol>
+      <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="18" height="18" x="3" y="3" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+      </symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" />
+      </symbol>
+      <symbol id="i-pipette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m2 22 1-1h3l9-9" /><path d="M3 21v-3l9-9" /><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+      </symbol>
+    </svg>
+
+    <main class="doc">
+      <header class="doc-head">
+        <div>
+          <h1>Project Appearance</h1>
+          <p>
+            A drawing of the page as this branch builds it, with the app's tokens and class names, for review
+            before the real screenshots: this Stage could not run the app. The Icon and Logo are stand-ins
+            for a user's images. The wide frame is narrower than a 1600 window's page so it fits a screen;
+            the columns keep their 3 : 2 share.
+          </p>
+        </div>
+        <button class="button" type="button" id="palette">Show Dark</button>
+      </header>
+
+      <!-- 1 -->
+      <section class="doc-scene">
+        <h2>1 · Wide, no images, a draft not yet saved</h2>
+        <p>
+          The label was changed from TO to OF and Violet picked. How it looks shows the draft with the
+          Not saved badge; the page head above still shows the saved TO on Teal. Discard shows beside Save.
+          Both image rows show their empty place.
+        </p>
+        <div class="doc-frame wide">
+          <div class="project-head">
+            <span class="project-mark size-page mark-colour-teal">TO</span>
+            <div>
+              <h2>the-office</h2>
+              <div class="project-head-meta"><span class="project-path">/home/p/Projects/the-office</span><span>· main</span></div>
+            </div>
+          </div>
+          <h3 class="project-section-title">Appearance</h3>
+          <div class="appearance">
+            <div class="appearance-preview" data-slot="preview-draft"></div>
+            <div class="appearance-edit">
+              <div data-slot="mark-draft"></div>
+              <div data-slot="images-empty"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2 -->
+      <section class="doc-scene">
+        <h2>2 · Wide, with an Icon and a Logo, nothing to save</h2>
+        <p>
+          The Mark card's tile keeps the letters, with the line about the Icon; How it looks shows the Logo on
+          the page and the card, and the Icon beside an item. Each row previews only its own image.
+        </p>
+        <div class="doc-frame wide">
+          <div class="appearance">
+            <div class="appearance-preview" data-slot="preview-images"></div>
+            <div class="appearance-edit">
+              <div data-slot="mark-icon"></div>
+              <div data-slot="images-set"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 -->
+      <section class="doc-scene">
+        <h2>3 · Narrow (a 600 window), one column with How it looks on top</h2>
+        <p>The rows' buttons wrap under their words together; nothing scrolls sideways.</p>
+        <div class="doc-frame narrow">
+          <div class="appearance">
+            <div class="appearance-preview" data-slot="preview-draft"></div>
+            <div class="appearance-edit">
+              <div data-slot="mark-draft"></div>
+              <div data-slot="images-set"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 -->
+      <section class="doc-scene">
+        <h2>4 · The add dialog's Mark</h2>
+        <p>
+          The same picker with the same swatches; Custom picked shows the browser's colour input and its hex
+          value. Its tile shows the mark, as the dialog has no images yet.
+        </p>
+        <div class="doc-frame" style="width: fit-content">
+          <div class="dialog">
+            <h3>Add a Project</h3>
+            <div class="field"><label>Name</label><input class="input" value="not-astray" /></div>
+            <div class="field">
+              <label>Mark</label>
+              <div class="mark-picker">
+                <span class="project-mark size-xl" style="--mark-bg: #3366cc; border: 1px solid var(--border)">NA</span>
+                <input class="input" aria-label="Mark label" value="NA" style="width: 56px" />
+                <div class="mark-swatches" role="radiogroup" aria-label="Colour">
+                  <span class="mark-swatch" title="Teal"><input type="radio" name="add" class="mark-swatch-input mark-colour-teal" aria-label="Teal" /></span>
+                  <span class="mark-swatch" title="Violet"><input type="radio" name="add" class="mark-swatch-input mark-colour-violet" aria-label="Violet" /></span>
+                  <span class="mark-swatch" title="Gray"><input type="radio" name="add" class="mark-swatch-input mark-colour-gray" aria-label="Gray" /></span>
+                  <span class="mark-swatch" title="Ink"><input type="radio" name="add" class="mark-swatch-input mark-colour-ink" aria-label="Ink" /></span>
+                  <span class="mark-swatch" title="Custom"><input type="radio" name="add" class="mark-swatch-input custom" aria-label="Custom" checked style="--mark-bg: #3366cc; background: var(--mark-bg); border: 1px solid var(--border)" /></span>
+                </div>
+                <span style="display: inline-flex; align-items: center; gap: 8px">
+                  <input type="color" aria-label="Custom colour" value="#3366cc" style="width: 28px; height: 28px; padding: 2px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface)" />
+                  <span style="font: var(--type-caption); color: var(--fg-2)">#3366cc</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- The cards, drawn once and placed in each scene -->
+    <template id="preview-draft">
+      <div class="card">
+        <div class="card-head">
+          <span class="project-block-title"><svg width="16" height="16"><use href="#i-eye" /></svg>How it looks</span>
+          <span class="badge">Not saved</span>
+        </div>
+        <div class="appearance-samples">
+          <figure class="appearance-sample">
+            <figcaption class="project-row-label">On its page</figcaption>
+            <div class="appearance-sample-stage">
+              <div class="appearance-sample-head">
+                <span class="project-mark size-page mark-colour-violet">OF</span>
+                <div class="appearance-sample-words">
+                  <div class="appearance-sample-name">the-office</div>
+                  <div class="project-head-meta"><span class="project-path">/home/p/Projects/the-office</span><span>· main</span></div>
+                </div>
+              </div>
+            </div>
+          </figure>
+          <figure class="appearance-sample">
+            <figcaption class="project-row-label">On the Projects page</figcaption>
+            <div class="appearance-sample-stage">
+              <div class="project-tile">
+                <div class="project-tile-head">
+                  <span class="project-mark size-xl mark-colour-violet">OF</span>
+                  <div class="project-tile-grow">
+                    <div class="project-tile-name">the-office</div>
+                    <div class="project-tile-sub project-path">/home/p/Projects/the-office</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </figure>
+          <figure class="appearance-sample">
+            <figcaption class="project-row-label">Beside an item, as on a Task card</figcaption>
+            <div class="appearance-sample-stage">
+              <span class="project-chip"><span class="project-mark mark-colour-violet">OF</span>the-office</span>
+            </div>
+          </figure>
+        </div>
+      </div>
+    </template>
+
+    <template id="preview-images">
+      <div class="card">
+        <div class="card-head">
+          <span class="project-block-title"><svg width="16" height="16"><use href="#i-eye" /></svg>How it looks</span>
+        </div>
+        <div class="appearance-samples">
+          <figure class="appearance-sample">
+            <figcaption class="project-row-label">On its page</figcaption>
+            <div class="appearance-sample-stage">
+              <div class="appearance-sample-head">
+                <img class="project-logo size-page" data-image="logo" alt="" />
+                <div class="appearance-sample-words">
+                  <div class="appearance-sample-name">the-office</div>
+                  <div class="project-head-meta"><span class="project-path">/home/p/Projects/the-office</span><span>· main</span></div>
+                </div>
+              </div>
+            </div>
+          </figure>
+          <figure class="appearance-sample">
+            <figcaption class="project-row-label">On the Projects page</figcaption>
+            <div class="appearance-sample-stage">
+              <div class="project-tile">
+                <div class="project-tile-head">
+                  <img class="project-logo size-xl" data-image="logo" alt="" />
+                  <div class="project-tile-grow">
+                    <div class="project-tile-name">the-office</div>
+                    <div class="project-tile-sub project-path">/home/p/Projects/the-office</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </figure>
+          <figure class="appearance-sample">
+            <figcaption class="project-row-label">Beside an item, as on a Task card</figcaption>
+            <div class="appearance-sample-stage">
+              <span class="project-chip"><span class="project-mark mark-colour-teal"><img data-image="icon" alt="" /></span>the-office</span>
+            </div>
+          </figure>
+        </div>
+      </div>
+    </template>
+
+    <template id="mark-draft">
+      <div class="card">
+        <div class="card-head">
+          <span class="project-block-title"><svg width="16" height="16"><use href="#i-palette" /></svg>Mark</span>
+        </div>
+        <div class="mark-picker">
+          <span class="project-mark size-xl mark-colour-violet">OF</span>
+          <input class="input" aria-label="Mark label" value="OF" style="width: 56px" />
+          <div class="mark-swatches" role="radiogroup" aria-label="Colour" data-checked="violet"></div>
+        </div>
+        <div class="project-row">
+          <button class="button primary" type="button">Save</button>
+          <button class="button" type="button">Discard</button>
+        </div>
+      </div>
+    </template>
+
+    <template id="mark-icon">
+      <div class="card">
+        <div class="card-head">
+          <span class="project-block-title"><svg width="16" height="16"><use href="#i-palette" /></svg>Mark</span>
+        </div>
+        <div class="mark-picker">
+          <span class="project-mark size-xl mark-colour-teal">TO</span>
+          <input class="input" aria-label="Mark label" value="TO" style="width: 56px" />
+          <div class="mark-swatches" role="radiogroup" aria-label="Colour" data-checked="teal"></div>
+        </div>
+        <p class="project-block-note">The Icon shows in place of these letters. They come back if it is removed.</p>
+        <div class="project-row">
+          <button class="button primary" type="button" disabled title="Change the label or the colour to save.">Save</button>
+        </div>
+      </div>
+    </template>
+
+    <template id="images-empty">
+      <div class="card">
+        <div class="card-head">
+          <span class="project-block-title"><svg width="16" height="16"><use href="#i-image" /></svg>Images</span>
+        </div>
+        <p class="appearance-images-intro">PNG, JPEG, WebP or SVG, at most 2 MB. Each is saved as soon as it is picked.</p>
+        <div class="project-image-rows">
+          <div class="project-image-row" role="group" aria-label="Icon">
+            <div class="project-image-preview"><span class="project-image-empty">No Icon</span></div>
+            <div class="project-image-words">
+              <div class="project-image-name">Icon</div>
+              <div class="project-image-hint">Shows on the mark's colour in place of its letters, wherever the mark shows.</div>
+            </div>
+            <div class="project-image-actions">
+              <button class="button" type="button">Upload</button>
+              <button class="button" type="button">Choose from repository</button>
+            </div>
+          </div>
+          <div class="project-image-row" role="group" aria-label="Logo">
+            <div class="project-image-preview"><span class="project-image-empty">No Logo</span></div>
+            <div class="project-image-words">
+              <div class="project-image-name">Logo</div>
+              <div class="project-image-hint">Stands for the Project on its page and its card, in place of the mark.</div>
+            </div>
+            <div class="project-image-actions">
+              <button class="button" type="button">Upload</button>
+              <button class="button" type="button">Choose from repository</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="images-set">
+      <div class="card">
+        <div class="card-head">
+          <span class="project-block-title"><svg width="16" height="16"><use href="#i-image" /></svg>Images</span>
+        </div>
+        <p class="appearance-images-intro">PNG, JPEG, WebP or SVG, at most 2 MB. Each is saved as soon as it is picked.</p>
+        <div class="project-image-rows">
+          <div class="project-image-row" role="group" aria-label="Icon">
+            <div class="project-image-preview"><span class="project-mark size-xl mark-colour-teal"><img data-image="icon" alt="" /></span></div>
+            <div class="project-image-words">
+              <div class="project-image-name">Icon</div>
+              <div class="project-image-hint">Shows on the mark's colour in place of its letters, wherever the mark shows.</div>
+            </div>
+            <div class="project-image-actions">
+              <button class="button" type="button">Replace</button>
+              <button class="button" type="button">Choose from repository</button>
+              <button class="button danger-ghost" type="button">Remove</button>
+            </div>
+          </div>
+          <div class="project-image-row" role="group" aria-label="Logo">
+            <div class="project-image-preview"><img class="project-logo size-xl" data-image="logo" alt="" /></div>
+            <div class="project-image-words">
+              <div class="project-image-name">Logo</div>
+              <div class="project-image-hint">Stands for the Project on its page and its card, in place of the mark.</div>
+            </div>
+            <div class="project-image-actions">
+              <button class="button" type="button">Replace</button>
+              <button class="button" type="button">Choose from repository</button>
+              <button class="button danger-ghost" type="button">Remove</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script>
+      // Stand-ins for a user's images, which carry their own colours.
+      const IMAGES = {
+        icon:
+          "data:image/svg+xml," +
+          encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 10h6M9 14h4"/></svg>',
+          ),
+        logo:
+          "data:image/svg+xml," +
+          encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 48"><rect x="2" y="6" width="36" height="36" rx="9" fill="#14a38b"/><path d="M12 19h16M12 29h11" stroke="white" stroke-width="3.2" stroke-linecap="round"/><text x="48" y="31" font-family="ui-sans-serif,system-ui,sans-serif" font-size="17" font-weight="700" fill="#7c5cd6">the office</text></svg>',
+          ),
+      };
+      const COLOURS = ["teal", "violet", "gray", "ink"];
+      const LABELS = { teal: "Teal", violet: "Violet", gray: "Gray", ink: "Ink" };
+
+      let group = 0;
+      function swatches(element) {
+        const name = `colour-${group++}`;
+        const checked = element.dataset.checked;
+        element.innerHTML =
+          COLOURS.map(
+            (colour) =>
+              `<span class="mark-swatch" title="${LABELS[colour]}"><input type="radio" name="${name}" class="mark-swatch-input mark-colour-${colour}" aria-label="${LABELS[colour]}"${colour === checked ? " checked" : ""} /></span>`,
+          ).join("") +
+          `<span class="mark-swatch" title="Custom"><input type="radio" name="${name}" class="mark-swatch-input custom" aria-label="Custom" /><span class="mark-swatch-over"><svg width="12" height="12"><use href="#i-pipette" /></svg></span></span>`;
+      }
+
+      for (const slot of document.querySelectorAll("[data-slot]")) {
+        slot.replaceChildren(document.getElementById(slot.dataset.slot).content.cloneNode(true));
+      }
+      document.querySelectorAll(".mark-swatches[data-checked]").forEach(swatches);
+      document.querySelectorAll("img[data-image]").forEach((image) => (image.src = IMAGES[image.dataset.image]));
+
+      const toggle = document.getElementById("palette");
+      toggle.addEventListener("click", () => {
+        const root = document.documentElement;
+        const dark = root.dataset.palette === "light";
+        root.dataset.palette = dark ? "dark" : "light";
+        root.dataset.theme = dark ? "dark" : "light";
+        toggle.textContent = dark ? "Show Light" : "Show Dark";
+      });
+    </script>
+  </body>
+</html>
