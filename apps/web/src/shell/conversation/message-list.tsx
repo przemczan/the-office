@@ -1,7 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Message, MessageDelivery } from "@the-office/contracts";
 import { Avatar, Icon, TextButton } from "@the-office/ui";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
@@ -72,7 +79,7 @@ export function MessageList({
 }): ReactNode {
   const list = useRef<HTMLDivElement>(null);
   const shownLinkedTo = useRef(false);
-  const readerScrolledUp = useRef(false);
+  const readerLeftEnd = useRef(false);
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
   // A Decision's link opens the list at its card instead, once. Only the list scrolls, never the page
   // around it, so scrollIntoView, which scrolls every scrolling ancestor, is left out.
@@ -82,7 +89,7 @@ export function MessageList({
   useEffect(() => {
     const scroller = list.current;
     if (inTimeline || lines === 0 || scroller === null) return;
-    if (readerScrolledUp.current && !endsWithUsersMessage) return;
+    if (leavesReaderBe && readerLeftEnd.current && !endsWithUsersMessage) return;
     const linkedTo = shownLinkedTo.current
       ? null
       : scroller.querySelector(".decision-card.linked-to");
@@ -95,15 +102,22 @@ export function MessageList({
     } else {
       scroller.scrollTop = scroller.scrollHeight;
     }
-  }, [inTimeline, lines, endsWithUsersMessage]);
+  }, [inTimeline, leavesReaderBe, lines, endsWithUsersMessage]);
+  // A timeline follows its growing content itself, and a list in one doesn't scroll.
+  const showEnd = useCallback((): void => {
+    const scroller = list.current;
+    if (!inTimeline && scroller !== null) scroller.scrollTop = scroller.scrollHeight;
+  }, [inTimeline]);
+  const followEnd = useCallback((): void => {
+    if (!readerLeftEnd.current) showEnd();
+  }, [showEnd]);
   return (
     <div
       className={inTimeline ? "message-list in-timeline" : "message-list"}
       aria-live="polite"
       ref={list}
       onScroll={({ currentTarget: { scrollHeight, scrollTop, clientHeight } }) => {
-        readerScrolledUp.current =
-          leavesReaderBe && scrollHeight - scrollTop - clientHeight > FOLLOWING_DISTANCE_PX;
+        readerLeftEnd.current = scrollHeight - scrollTop - clientHeight > FOLLOWING_DISTANCE_PX;
       }}
     >
       {withDayLines(withLogLines(groupedMessages(visible), logLines)).map((piece) =>
@@ -125,6 +139,8 @@ export function MessageList({
         <Working
           personName={personName}
           toolCall={details ? undefined : latestToolCall(messages)}
+          onToolCallOpened={showEnd}
+          onOpenToolCallChanged={followEnd}
         />
       )}
       {onlyDetailsWouldShow(messages, details, answering) && (
@@ -136,14 +152,32 @@ export function MessageList({
   );
 }
 
-/** The person is answering, with the tool call they are on while Details hides the log's own. */
+/**
+ * The person is answering, with the tool call they are on while Details hides the log's own. The
+ * fold's state lives here, as a call with nothing to open takes the fold away until the next one.
+ */
 function Working({
   personName,
   toolCall,
+  onToolCallOpened,
+  onOpenToolCallChanged,
 }: {
   readonly personName: string;
   readonly toolCall: ToolCall | undefined;
+  readonly onToolCallOpened: () => void;
+  readonly onOpenToolCallChanged: () => void;
 }): ReactNode {
+  const [open, setOpen] = useState(false);
+  const openCall = open ? toolCall?.id : undefined;
+  useEffect(() => {
+    if (openCall !== undefined) onOpenToolCallChanged();
+  }, [openCall, onOpenToolCallChanged]);
+  const onToggle = (nowOpen: boolean): void => {
+    // A fold coming back already open reports a toggle too, which the user didn't make.
+    if (nowOpen === open) return;
+    setOpen(nowOpen);
+    if (nowOpen) onToolCallOpened();
+  };
   return (
     <div className="message-answering" role="status">
       <span aria-hidden="true">
@@ -155,8 +189,31 @@ function Working({
         <i />
       </span>
       <span>{personName} is working</span>
-      {toolCall && <ToolCallWords call={toolCall} />}
+      {toolCall && <WorkingToolCall call={toolCall} open={open} onToggle={onToggle} />}
     </div>
+  );
+}
+
+/** One line beside "is working", opening to the call shown whole; with no command, just the tool. */
+function WorkingToolCall({
+  call,
+  open,
+  onToggle,
+}: {
+  readonly call: ToolCall;
+  readonly open: boolean;
+  readonly onToggle: (open: boolean) => void;
+}): ReactNode {
+  if (call.summary === "") return <ToolCallWords call={call} />;
+  return (
+    <details
+      className="tool-calls tool-call-fold working-tool-call"
+      open={open}
+      onToggle={(event) => onToggle(event.currentTarget.open)}
+    >
+      <ToolCallFoldSummary latest={call} />
+      <ToolCallLines calls={[call]} />
+    </details>
   );
 }
 
@@ -289,22 +346,42 @@ function ToolCallFold({
 }): ReactNode {
   return (
     <details className="tool-calls tool-call-fold">
-      <summary>
-        <Icon name="chevron-right" size={12} />
+      <ToolCallFoldSummary latest={latest}>
         <span className="tool-call-count">{calls.length} tool calls</span>
         <span aria-hidden="true">·</span>
-        <span className="tool-call-latest">
-          {latest.tool} {latest.summary}
-        </span>
-      </summary>
-      <ul>
-        {calls.map((call) => (
-          <li key={call.id} className="message-line">
-            <ToolCallWords call={call} />
-          </li>
-        ))}
-      </ul>
+      </ToolCallFoldSummary>
+      <ToolCallLines calls={calls} />
     </details>
+  );
+}
+
+function ToolCallFoldSummary({
+  latest,
+  children,
+}: {
+  readonly latest: ToolCall;
+  readonly children?: ReactNode;
+}): ReactNode {
+  return (
+    <summary>
+      <Icon name="chevron-right" size={12} />
+      {children}
+      <span className="tool-call-latest">
+        {latest.tool} {latest.summary}
+      </span>
+    </summary>
+  );
+}
+
+function ToolCallLines({ calls }: { readonly calls: readonly ToolCall[] }): ReactNode {
+  return (
+    <ul>
+      {calls.map((call) => (
+        <li key={call.id} className="message-line">
+          <ToolCallWords call={call} />
+        </li>
+      ))}
+    </ul>
   );
 }
 

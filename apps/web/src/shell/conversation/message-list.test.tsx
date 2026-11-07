@@ -13,6 +13,17 @@ Element.prototype.scrollIntoView = () => {
   throw new Error("Only the message list scrolls, never the page around it.");
 };
 
+function toolCall(id: string, summary: string): Message {
+  return {
+    at: "2026-11-01T10:00:00.000Z",
+    id,
+    kind: "tool-activity",
+    roleKey: "developer",
+    tool: "Bash",
+    summary,
+  };
+}
+
 it("scrolls only the list to its end as a message comes or the person starts to answer", () => {
   const page = document.createElement("div");
   const root = createRoot(page);
@@ -87,6 +98,70 @@ it("leaves a reader who scrolled up where they are, until they send something th
   });
   show();
   expect(list.scrollTop).toBe(1000);
+  act(() => root.unmount());
+});
+
+it("brings an opened tool call into view and follows the next, unless the reader left the end", () => {
+  const page = document.createElement("div");
+  const root = createRoot(page);
+  const show = (call: Message): void =>
+    act(() =>
+      root.render(
+        <MessageList
+          messages={[call]}
+          personName="Jan"
+          answering
+          stageThread={false}
+          details={false}
+        />,
+      ),
+    );
+  show(toolCall("1", "first"));
+  const list = page.querySelector<HTMLElement>(".message-list");
+  if (list === null) throw new Error("No message list.");
+  let height = 300;
+  Object.defineProperty(list, "scrollHeight", { get: () => height });
+  const fold = (): HTMLDetailsElement => {
+    const shown = page.querySelector("details");
+    if (shown === null) throw new Error("No fold.");
+    return shown;
+  };
+  const toggleFold = (open: boolean): void => {
+    fold().open = open;
+    act(() => void fold().dispatchEvent(new Event("toggle")));
+  };
+  const scrollListTo = (top: number): void => {
+    list.scrollTop = top;
+    act(() => void list.dispatchEvent(new Event("scroll")));
+  };
+
+  list.scrollTop = 0;
+  show(toolCall("2", "closed, so it moves nothing"));
+  expect(list.scrollTop).toBe(0);
+
+  toggleFold(true);
+  expect(list.scrollTop).toBe(300);
+
+  height = 500;
+  show(toolCall("3", "second"));
+  expect(fold().open).toBe(true);
+  expect(fold().querySelector(".message-summary")?.textContent).toBe("second");
+  expect(list.scrollTop).toBe(500);
+
+  scrollListTo(100);
+  height = 700;
+  show(toolCall("4", "third"));
+  expect(list.scrollTop).toBe(100);
+
+  show(toolCall("5", ""));
+  expect(page.querySelector("details")).toBeNull();
+  show(toolCall("6", "fourth"));
+  expect(fold().open).toBe(true);
+  expect(list.scrollTop).toBe(100);
+
+  toggleFold(false);
+  toggleFold(true);
+  expect(list.scrollTop).toBe(700);
   act(() => root.unmount());
 });
 
