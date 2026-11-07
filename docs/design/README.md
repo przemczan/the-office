@@ -10,6 +10,36 @@ Pages here are **proposals**: interactive mock-ups to look at and compare before
 
 - [**Loaders**](loaders.html), proposed for the Task "Loaders": while a block's data hasn't arrived for the first time, it shows one shared loader shaped like what replaces it, instead of a blank card or a wrong "Nothing here". A switcher shows Settings › Office identity, the Work board, Now, People and the chat drawer, each Loading, Loaded and Failed, with a fast and a slow replay, a background refresh, and both palettes; under it, the loader's six shapes and where each block takes one. Like the chat drawer's page, it uses the Geist fonts only where they are installed. See [Loaders: what it proposes](#loaders-what-it-proposes).
 
+- [**Add a Project**](add-project.html), proposed for the Task "redesign adding a new project window", from the user's note: the window jumps as the source changes, and From GitHub shows nothing while it loads, then a long list that isn't pleasant. A switcher shows the window Today and Proposed, the small and large windows by the same rule, the three GitHub list designs, every state of the GitHub source with a fast and a slow replay, both palettes, wide and 600px, and a short browser window; dashed lines mark where the window's top and bar were before each change. See [Add a Project: what it proposes](#add-a-project-what-it-proposes).
+
+## Add a Project: what it proposes
+
+1. **Windows pinned to the top:** every window's top sits 7% from the top of the browser window, 24px at least, rather than in the middle. That is where the large window already sits, 86% high and centred, so the large one doesn't move and the small and medium ones line up with it. A window that grows then grows downwards only.
+2. **One height for Add a Project:** a medium window that keeps one height, 640px or less in a short browser window, as the Stage history keeps its own. Its body scrolls; its head and its bar stay. Together with 1, neither the top nor the bar moves when the source changes. The cost: a folder or a git URL leaves room under it.
+3. **Two steps:** step 1 is Where it is (A folder, A git URL, From GitHub), each ending the same way: a folder's path then Continue, a git URL then Clone, or a pick from GitHub, which clones at once. Step 2 shows the source as one line (what it is, the path or repository, where it was cloned) with Change, then the form's fields as today, regrouped but not changed. Change goes back to step 1 and forgets the clone, as "Pick another repository" does today. The bar's hint says "Step 1 of 2" or "Step 2 of 2".
+4. **From GitHub, the list:** a card drawn after `PickList`, with a head (its name and count) and a foot ("Missing one? Install the App on more repositories"). The search box above it stays put and only the rows scroll. Each row shows the repository's name, wrapping however long it is; under it the owner, its default branch and when it was last pushed; then its description on one line, and Private at its end. A repository already added as a Project shows Added and "Already added, as the Project …", and can't be picked. The search matches name, owner and description and marks the match.
+5. **Three list designs to choose from:**
+   1. **Recent first:** one list of all of them, most recently pushed on top.
+   2. **By owner:** an owner filter in the list's head (All and each owner, with counts), recent first within it. With many owners it would be a select.
+   3. **Search first:** the five most recently pushed, and the search reaching all of them.
+6. **States:** while the list loads, rows shaped like it hold its place (the Loaders proposal's `rows`, fading in after 200ms, so a fast answer shows no flash), and the search box is there at once. No match, and no repository reachable, say so in the card; a failed read shows its problem there with Try again. Signed out, or the App not registered, replaces the search and the list with one block: what to do, Open Settings › Office identity, and Use a git URL instead. Picking a repository shows the clone's progress in its row, the other rows waiting; a failed clone shows its problem in the row with Try again, and a clone refused before it starts keeps its alert above the list.
+
+**This design's names**, not glossary terms: Today, Proposed, pinned to the top, the source line, Recent first, By owner and Search first.
+
+### What the build needs that the app doesn't have
+
+- **`pushedAt` and `description` on `GitHubRepository`**, read from GitHub's repository list (its `pushed_at` and `description`), so the list can sort by when each was last pushed and show a description.
+- **Loading the list when the window opens**, rather than when From GitHub is chosen, so it is usually there by then. Which repositories are already Projects comes from the Projects' Repository URLs, already in the app; a Project added from a folder has none, so its repository isn't marked unless the build also reads the folder's remote.
+- **The shared loader:** the Loaders design was never built, so the build either builds `BlockLoader` with its `rows` shape, or only the rows this list needs, in its place.
+- **`keepsHeight` for a medium window:** `Dialog` allows it only when large today (`packages/ui/src/overlays.tsx`, `dialog.css`). Medium keeps `min(640px, 100%)`.
+- **The window rule in [spec 4.1](../spec/4.1-ui-rules.md)'s Windows:** "Every window's top sits 7% from the top of the browser window, at least 24px, so windows line up and grow downwards", and "A window whose content changes as the user moves inside it (the Stage history, Add a Project) keeps one height" in place of the Stage history alone. In `dialog.css`, the backdrop places its window at the top with that padding instead of centring it.
+- **Which e2e tests move:** `apps/web/e2e/office-identity.e2e.ts` (the GitHub picker: search, picking, signed out and not registered) and `apps/web/e2e/projects.e2e.ts` (Add a Project from a folder and by a git URL), for step 1's Continue, the source line and Change, and the list's new rows. Any test that finds a window by where it sits on screen moves with the rule.
+
+### About the mock
+
+- Its data is made up: 40 repositories across two owners, notnullsoft and pdev, some with very long names; three are the Projects the-office, not-astray and notnullsoft. Picking pdev/old-dotfiles-backup fails, to show a failed clone. Every clone takes about two seconds.
+- Like the chat drawer's page, it uses the Geist fonts only where they are installed.
+
 ## Loaders: what it proposes
 
 1. **One loader**, `BlockLoader` in `apps/web/src/shell/`, its bars the design system's `Skeleton`. It is `role="status"` with a visually hidden label, "Loading…" unless the block names what it loads; the bars stay hidden from screen readers. Six shapes: `lines` (text, a form, a set shape such as the ssh key's bar and buttons), `rows` (a list in a card), `cards` (item cards with their frame, as on the Board and Now, whose sunken surface would swallow bare bars), `tiles` (People, Projects), `table` (in place of `DataTable`'s own loading rows) and `turns` (a Thread's messages).
