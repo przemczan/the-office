@@ -261,8 +261,8 @@ test("the six columns scroll sideways inside the board when they don't fit, none
   const { x: boardLeft, width: boardWidth } = shownArea!;
   expect(boardLeft + boardWidth).toBeLessThanOrEqual(1100);
   for (const shown of await columns.all()) {
-    await shown.evaluate((column) =>
-      column.scrollIntoView({ inline: "nearest", block: "nearest" }),
+    await shown.evaluate((element) =>
+      element.scrollIntoView({ inline: "nearest", block: "nearest" }),
     );
     const { x: left, width } = (await shown.boundingBox())!;
     expect(width).toBeGreaterThanOrEqual(220);
