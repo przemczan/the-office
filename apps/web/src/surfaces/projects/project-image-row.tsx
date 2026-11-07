@@ -58,6 +58,7 @@ export function ProjectImageRow({
   const uploading = changing.isPending && changing.variables instanceof File;
   const removing = changing.isPending && changing.variables === null;
   const copying = changing.isPending && !uploading && !removing;
+  const whyDisabled = changing.isPending ? `The ${name} is being saved.` : undefined;
   const pick = (file: File): void => {
     changing.reset();
     const fits = file.size <= PROJECT_IMAGE_UPLOAD_BYTES;
@@ -107,6 +108,7 @@ export function ProjectImageRow({
           size="sm"
           loading={uploading}
           disabled={changing.isPending}
+          title={whyDisabled}
           onClick={() => fileInput.current?.click()}
         >
           {project[imageKey] ? "Replace" : "Upload"}
@@ -116,6 +118,7 @@ export function ProjectImageRow({
           size="sm"
           loading={copying}
           disabled={changing.isPending}
+          title={whyDisabled}
           onClick={() => setChoosing(true)}
         >
           Choose from repository
@@ -126,6 +129,7 @@ export function ProjectImageRow({
             size="sm"
             loading={removing}
             disabled={changing.isPending}
+            title={whyDisabled}
             onClick={() => {
               setTooLarge(false);
               changing.mutate(null);
