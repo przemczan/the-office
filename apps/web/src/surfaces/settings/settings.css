@@ -349,7 +349,8 @@
 }
 
 @container page (max-width: 1224px) {
+  /* As wide as the page whatever a row holds, so nothing scrolls it sideways. */
   .settings-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
