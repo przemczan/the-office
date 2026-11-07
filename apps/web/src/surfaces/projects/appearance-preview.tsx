@@ -21,7 +21,13 @@ export function AppearancePreview({
     <ProjectBlock
       icon="eye"
       title="How it looks"
-      actions={unsaved && <Badge tone="warning" size="sm">Not saved</Badge>}
+      actions={
+        unsaved && (
+          <Badge tone="warning" size="sm">
+            Not saved
+          </Badge>
+        )
+      }
     >
       <div className="appearance-samples">
         <Sample label="On its page">

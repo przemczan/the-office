@@ -9,4 +9,3 @@
 - 2026-11-06 · step 5: the Office Manager drafts the Office instructions with `propose_office_setting`, reads them with `read_office_instructions`, and applying refuses a text changed since the draft; step 6 is next.
 - 2026-11-06 · step 6: the Test Project check written, not passed: no session ran, as its new Office data folder has no engine login; next is a `claude setup-token` token from the user, the run, then the running Office.
 - 2026-11-07 · step 6: the check ran on the running Office (a chat and a Stage obeyed `beep`, the Skill is gone), the unrun Test Project check is deleted; next is closing the task.
-- 2026-11-07 · closed: `npm run verify` passed on the Linux host, which the user accepted in place of `verify:linux`; the task is done.
