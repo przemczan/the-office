@@ -2,6 +2,10 @@
 export interface FakeRepository {
   readonly fullName: string;
   readonly private?: boolean;
+  /** GitHub's `pushed_at`; a fixed day in 2026 unless a test names one. */
+  readonly pushedAt?: string;
+  /** GitHub's `description`, null when left out, as GitHub gives it for one never written. */
+  readonly description?: string;
 }
 
 interface Installation {
@@ -17,6 +21,8 @@ export interface ApiAnswer {
   readonly body: unknown;
   readonly headers?: Record<string, string>;
 }
+
+const DEFAULT_PUSHED_AT = "2026-01-05T09:00:00Z";
 
 /** GitHub's page size when none is asked for, and the most it gives. */
 const DEFAULT_PAGE_SIZE = 30;
@@ -96,6 +102,8 @@ export class FakeInstallations {
         html_url: `${this.web}/${repository.fullName}`,
         clone_url: `${this.git}/${repository.fullName}.git`,
         default_branch: "main",
+        pushed_at: repository.pushedAt ?? DEFAULT_PUSHED_AT,
+        description: repository.description ?? null,
       };
     });
   }

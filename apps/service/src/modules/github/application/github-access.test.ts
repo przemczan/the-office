@@ -246,6 +246,8 @@ describe("GitHubAccess", () => {
       repositoryUrl: `${github.urls.web}/office-org/repository-000.git`,
       private: false,
       defaultBranch: "main",
+      pushedAt: "2026-01-05T09:00:00Z",
+      description: "",
     });
     expect(repositories.at(-1)).toMatchObject({
       fullName: "office-user/private-notes",

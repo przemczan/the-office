@@ -6,13 +6,16 @@ import { ApiError } from "../api/api-client.ts";
 export function RefusalAlert({
   title,
   error,
+  action,
 }: {
   readonly title: string;
   readonly error: Error;
+  /** A button on its right, such as Try again. */
+  readonly action?: ReactNode;
 }): ReactNode {
   const reasons = error instanceof ApiError ? error.reasons : [error.message];
   return (
-    <Alert tone="danger" title={title}>
+    <Alert tone="danger" title={title} action={action}>
       <ul className="refusal-reasons">
         {reasons.map((reason) => (
           <li key={reason}>{reason}</li>

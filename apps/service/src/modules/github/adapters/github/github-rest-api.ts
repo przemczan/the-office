@@ -63,6 +63,8 @@ const repositoriesPageSchema = z.object({
       clone_url: z.string().min(1),
       private: z.boolean(),
       default_branch: z.string().min(1),
+      pushed_at: z.string().nullish(),
+      description: z.string().nullish(),
     }),
   ),
 });
@@ -167,6 +169,8 @@ export class GitHubRestApi extends GitHubApi {
           repositoryUrl: repository.clone_url,
           private: repository.private,
           defaultBranch: repository.default_branch,
+          pushedAt: repository.pushed_at ?? null,
+          description: repository.description ?? "",
         })),
       );
     }

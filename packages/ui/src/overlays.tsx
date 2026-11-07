@@ -57,10 +57,13 @@ interface DialogContentProps {
 export type DialogSize = "small" | "medium" | "large";
 
 type DialogSizeProps =
-  | { readonly size: "small" | "medium"; readonly keepsHeight?: never }
+  | { readonly size: "small"; readonly keepsHeight?: never }
   | {
-      readonly size: "large";
-      /** For a window whose content changes as the user moves inside it, so it doesn't jump. */
+      readonly size: "medium" | "large";
+      /**
+       * For a window whose content changes as the user moves inside it, so it doesn't jump: 640px
+       * high when medium, 86% of the browser window when large, less when the browser is shorter.
+       */
       readonly keepsHeight?: boolean;
     };
 

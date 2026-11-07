@@ -277,7 +277,14 @@ describe("/api/github", () => {
   it("lists the repositories the App is installed on, never showing a token", async () => {
     await registerApp();
     await signInThroughGitHub();
-    github.installations.install("office-user", [{ fullName: "office-user/notes", private: true }]);
+    github.installations.install("office-user", [
+      {
+        fullName: "office-user/notes",
+        private: true,
+        pushedAt: "2026-10-30T14:05:00Z",
+        description: "Notes on the office.",
+      },
+    ]);
 
     const response = await office("/api/github/repositories");
 
@@ -288,6 +295,8 @@ describe("/api/github", () => {
         repositoryUrl: `${github.urls.web}/office-user/notes.git`,
         private: true,
         defaultBranch: "main",
+        pushedAt: "2026-10-30T14:05:00Z",
+        description: "Notes on the office.",
       },
     ]);
     const shown = answers.join("\n");

@@ -92,21 +92,92 @@
   color: var(--fg-3);
 }
 
-/* ---- the add form */
-.add-project-form {
+/* ---- Add a Project (docs/design/add-project.html): a window of one height whose body scrolls.
+   Its steps lay out by its own width, as the window sits on the body, outside the page's container. */
+.add-project {
+  container: add-project / inline-size;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: 62vh;
-  margin: 0 -20px;
-  padding: 2px 20px;
-  overflow: auto;
+}
+
+/* From GitHub: the body's whole height, the list taking what is left and scrolling on its own. */
+.add-project.fills {
+  height: 100%;
+}
+
+.add-project-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .add-project-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+@container add-project (max-width: 620px) {
+  .add-project-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Step 2's first line: what step 1 chose, with Change. */
+.add-project-source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-sunken);
+}
+
+.add-project-source > svg {
+  color: var(--fg-2);
+}
+
+.add-project-source-words {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.add-project-source-kind {
+  flex: none;
+  font: var(--type-label);
+  color: var(--fg-2);
+}
+
+.add-project-source-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 500 13px/1.3 var(--font-mono);
+  color: var(--fg-1);
+}
+
+.add-project-source-cloned {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+@container add-project (max-width: 620px) {
+  .add-project-source-cloned {
+    display: none;
+  }
 }
 
 .mark-picker {
@@ -201,72 +272,281 @@
   font: var(--type-caption);
 }
 
-/* The cloned repository's URL, with the button to clone another under its field. */
-.add-project-cloned {
+/* ---- From GitHub: the repositories as a card drawn after packages/ui's PickList */
+.github-repositories-step {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.add-project-cloned > :first-child {
-  align-self: stretch;
-}
-
-.add-project-note {
-  margin: 0;
-  color: var(--fg-2);
+  gap: 14px;
+  min-height: 0;
 }
 
 .github-repositories {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  min-height: 200px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
 }
 
-.github-repositories li + li {
+.github-repositories-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.github-repositories-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font: var(--type-card-title);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.github-repositories-count {
+  margin-left: var(--space-1-5);
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+}
+
+.github-repositories-rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.github-repositories-row + .github-repositories-row {
   border-top: 1px solid var(--border-subtle);
+}
+
+.github-repositories-group {
+  padding: 6px var(--space-3);
+  border-block: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.github-repositories-group:first-child {
+  border-top: 0;
+}
+
+.github-repositories-empty {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  text-align: center;
+}
+
+.github-repositories-empty strong {
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.github-repositories-failed {
+  flex: 1 1 auto;
+  padding: var(--space-3);
+}
+
+.github-repositories-foot {
+  flex: none;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font: var(--type-caption);
+  color: var(--fg-3);
 }
 
 .github-repository {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: var(--space-3);
   width: 100%;
-  padding: 8px 12px;
+  min-width: 0;
+  padding: 10px var(--space-3);
   border: 0;
   background: transparent;
-  color: inherit;
+  color: var(--fg-1);
   font: inherit;
   text-align: left;
+}
+
+button.github-repository {
   cursor: pointer;
 }
 
-.github-repository:hover:not(:disabled),
-.github-repository:focus-visible {
+button.github-repository:hover:not(:disabled) {
   background: var(--surface-hover);
 }
 
-.github-repository:disabled {
+button.github-repository:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+button.github-repository:disabled {
   cursor: default;
-  opacity: 0.6;
+}
+
+button.github-repository:disabled :is(.github-repository-words, .github-repository-icon) {
+  opacity: 0.5;
+}
+
+.github-repository.added :is(.github-repository-words, .github-repository-icon) {
+  opacity: 0.55;
+}
+
+.github-repository.cloning {
+  background: var(--surface-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.github-repository.failed {
+  background: var(--danger-subtle);
+  box-shadow: inset 2px 0 0 var(--danger);
+}
+
+.github-repository-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--fg-2);
+}
+
+.github-repository.cloning .github-repository-icon {
+  border-color: transparent;
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
+}
+
+.github-repository-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .github-repository-name {
-  flex: 1;
-  min-width: 0;
+  font: 500 var(--text-item) / 1.35 var(--font-sans);
   overflow-wrap: anywhere;
-  font-family: var(--font-mono);
+}
+
+.github-repository-words mark {
+  border-radius: 2px;
+  background: var(--accent-subtle);
+  color: inherit;
+}
+
+.github-repository-line {
+  font: var(--type-caption);
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
 }
 
 .github-repository-branch {
-  color: var(--fg-3);
   font-family: var(--font-mono);
+  font-size: 11px;
 }
+
+.github-repository-description {
+  overflow: hidden;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.github-repository-problem {
+  font: var(--type-body-sm);
+  color: var(--danger-fg);
+  overflow-wrap: anywhere;
+}
+
+/* The clone's progress, under the row's line. */
+.github-repository.cloning .github-repository-words > :last-child {
+  margin-top: 4px;
+}
+
+.github-repository-aside {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 28px;
+}
+
+.github-repository-clone-hint {
+  font: var(--type-caption);
+  color: var(--fg-2);
+  opacity: 0;
+}
+
+button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repository-clone-hint {
+  opacity: 1;
+}
+
+/* Signed out or the App not registered: one block in place of the search and the list. */
+.github-sign-in {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  text-align: center;
+}
+
+.github-sign-in > svg {
+  color: var(--fg-2);
+}
+
+.github-sign-in h3 {
+  margin: 0;
+  font: var(--type-card-title);
+}
+
+.github-sign-in p {
+  max-width: 52ch;
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.github-sign-in-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 /* ---- a Project's page, and its head as Appearance previews it */
 .project-head,
 .appearance-sample-head {
@@ -619,7 +899,6 @@
   }
 
   .projects-grid,
-  .add-project-columns,
   .server-values-list li,
   .project-engine-pair,
   .project-role-override {

@@ -47,7 +47,14 @@ export const FAKE_INSTALLATIONS_CONTROL_PATH = "/_fake/installations";
 
 const installationRequestSchema = z.object({
   account: z.string().min(1),
-  repositories: z.array(z.object({ fullName: z.string().min(1), private: z.boolean().optional() })),
+  repositories: z.array(
+    z.object({
+      fullName: z.string().min(1),
+      private: z.boolean().optional(),
+      pushedAt: z.string().optional(),
+      description: z.string().optional(),
+    }),
+  ),
 });
 
 /** GitHub's own limit on a sign-in's code. */

@@ -168,6 +168,14 @@ describe("Dialog's frame", () => {
     );
   });
 
+  it("keeps one height when medium and asked to", () => {
+    show(<Dialog size="medium" keepsHeight title="Add a Project" onClose={() => {}} />);
+
+    expect(document.querySelector("[role=dialog]")?.className).toBe(
+      "dialog-frame medium keeps-height",
+    );
+  });
+
   it("opens a step over the bar, whose actions and Cancel take the place of the bar's", () => {
     const onCancel = vi.fn<() => void>();
     show(

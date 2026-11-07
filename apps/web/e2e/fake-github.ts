@@ -31,6 +31,9 @@ export function fakeGitHubVariables(): Record<string, string> {
 export interface InstalledRepository {
   readonly fullName: string;
   readonly private?: boolean;
+  /** When it was last pushed, an ISO timestamp; a fixed day in 2026 when left out. */
+  readonly pushedAt?: string;
+  readonly description?: string;
 }
 
 /**

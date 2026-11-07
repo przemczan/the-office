@@ -4,6 +4,8 @@
 
 **A person's picture** (`shell/person-avatar.tsx`): `PersonAvatar` draws anyone from the Roles, by Role key since names can repeat, with their Avatar or, without one or when it can't be loaded (`useShownImage`), their initials and tint. The kit's `Avatar` is imported directly only there and by the user's and The Office's marks (`YourAvatar`, `NamedTag`). `shell/image-row.tsx` is the row a Project's images and the Avatar share: preview, Upload or Replace, Remove, and the size check.
 
+**The shared loader** (`shell/block-loader.tsx`, docs/design/loaders.html): `BlockLoader` stands in for a block whose data hasn't arrived for the first time, shaped like what replaces it; only its `rows` shape is built yet (Add a Project's GitHub list). It is a `status` with a hidden label, fades in after 200ms by CSS alone so a quick answer shows no flash, and its bars, the design system's `Skeleton`, hold still with reduced motion through `!important`, as `Skeleton` sets its shimmer inline.
+
 **The chat drawer** (`shell/chat/`, spec §4, `docs/design/chat-drawer.html`): a side panel in the shell's grid, in column 3 under the strip, so it pushes the page aside, over it at 601–900px, filling the window below (`chat-drawer-width.ts`, with its width in this browser's local storage, resized by `packages/ui`'s `SidePanelEdge`). Where it stands lives in the shell, not the address, in `chat-store.ts` through `ChatProvider` and `useChat`, in this tab's session storage, so links, Back and Forward leave it be and a reload keeps it; `?chat=…&thread=…` stays a way in, taken out of the address as it opens. It lists direct chats only. `chat-button.tsx` at the top bar's end shows `chatButtonLook`, read from `GET /chats/activity` with the hired people with chat on (`use-chat-people.ts`, which leaves the Thread on screen out, so an answer read as it lands never flashes). `useReportingSeen` tells the service the newest message on screen while the tab is visible. Inside it a Mention of a waiting Decision opens its window (`OpenMentionedDecisionContext`) rather than moving the page. Pages lay themselves out by the `page` container on `.shell-main` (`@container page`, each width the window's less the 56px rail), so the open drawer folds them; only what is on the body keeps `@media`, and `shell/use-narrow-page.ts` is the same rule for the conversation's drawer.
 
 **Attachments** (`shell/attachments/`): a chip opens an image in a new tab, a document in `DocumentDialog`, an HTML file in `HtmlPreviewDialog`, a sandboxed frame, and any other file as a download, so every place chips show gets the preview. A Gate run's Attachments are `attachmentsOfGateRun`: what no earlier Gate run on the Task showed; a skipped or never-started run shows nothing and hides nothing.
@@ -42,6 +44,7 @@
 ### shell/
 
 - `ask-devops.tsx`: AskDevopsButton, useDevops, useAskDevops
+- `block-loader.tsx`: BlockLoaderShape, BlockLoader
 - `brand-tone.ts`: useBrandTone
 - `copy-record-link.ts`: useCopyRecordLink
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed

@@ -87,6 +87,8 @@ export class GitHubController {
         repositoryUrl: repository.repositoryUrl,
         private: repository.private,
         defaultBranch: repository.defaultBranch,
+        pushedAt: repository.pushedAt,
+        description: repository.description,
       }));
     } catch (error) {
       if (error instanceof NotSignedInWithGitHub) throw new ConflictException(error.message);

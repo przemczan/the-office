@@ -1,0 +1,42 @@
+/* The shared loader (block-loader.tsx): unseen for its first 200ms, then a 160ms fade. */
+.block-loader {
+  animation: block-loader-in 160ms ease-out 200ms both;
+}
+
+@keyframes block-loader-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.block-loader-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+}
+
+.block-loader-row + .block-loader-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.block-loader-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding-top: 3px;
+}
+
+/* The bars hold still; the fade stays, as it moves nothing. The design system's Skeleton sets its
+   shimmer inline, so only !important overrides it. */
+@media (prefers-reduced-motion: reduce) {
+  .block-loader [aria-hidden="true"] {
+    animation: none !important;
+  }
+}

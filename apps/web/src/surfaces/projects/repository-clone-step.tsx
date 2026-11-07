@@ -13,6 +13,8 @@ export interface RepositoryCloning {
   /** Why the service refused to start it: every reason, nothing cloned. */
   readonly refusal: Error | null;
   readonly clone: RepositoryClone | undefined;
+  /** The Repository URL being started or cloned, or the one the clone shown was of. */
+  readonly url: string | undefined;
   readonly busy: boolean;
   readonly forget: () => void;
 }
@@ -36,10 +38,15 @@ export function useRepositoryCloning(): RepositoryCloning {
   const current = cloneId === undefined ? undefined : clone.data;
   return {
     // Followed here rather than in the mutation's own onSuccess, which runs even after `forget`
-    // reset it: a clone the user moved away from never takes over the dialog.
-    start: (url) => starting.mutate(url, { onSuccess: (started) => setCloneId(started.id) }),
+    // reset it: a clone the user moved away from never takes over the dialog. A failed one before it
+    // goes as the next starts.
+    start: (url) => {
+      setCloneId(undefined);
+      starting.mutate(url, { onSuccess: (started) => setCloneId(started.id) });
+    },
     refusal: starting.error,
     clone: current,
+    url: starting.isPending ? starting.variables : current?.url,
     busy: starting.isPending || current?.state === "cloning",
     forget: () => {
       starting.reset();
@@ -48,37 +55,49 @@ export function useRepositoryCloning(): RepositoryCloning {
   };
 }
 
-/** "Where it is" as a git URL: the Repository URL to clone, and how its clone is going. */
+/**
+ * Step 1 of Add a Project by a git URL: the Repository URL, cloned on the form's submit (the bar's
+ * Clone), and how its clone is going. `url` is the dialog's, so Change finds it as it was.
+ */
 export function RepositoryCloneStep({
   formId,
   cloning,
-  children,
+  url,
+  onUrlChange,
 }: {
   readonly formId: string;
   readonly cloning: RepositoryCloning;
-  /** What comes first in the form: the choice of where the repository is. */
-  readonly children: ReactNode;
+  readonly url: string;
+  readonly onUrlChange: (url: string) => void;
 }): ReactNode {
-  const [url, setUrl] = useState("");
+  const [missing, setMissing] = useState(false);
   return (
     <form
       id={formId}
-      className="add-project-form"
+      className="add-project-stack"
       onSubmit={(event) => {
         event.preventDefault();
-        cloning.start(url.trim());
+        const trimmed = url.trim();
+        setMissing(trimmed === "");
+        if (trimmed !== "") cloning.start(trimmed);
       }}
     >
-      {children}
-      <CloneProblems cloning={cloning} />
+      <CloneRefusal cloning={cloning} />
+      {cloning.clone?.state === "failed" && (
+        <Alert tone="danger" title="The clone failed">
+          {cloning.clone.problem}
+        </Alert>
+      )}
       <Input
         label="Repository URL"
-        hint="https, ssh:// or user@host:path. The Office clones it into its data folder, then you add it."
+        hint="https, ssh:// or user@host:path. The Office clones it into its data folder."
+        error={missing ? "Write the repository's git URL." : undefined}
         placeholder="https://github.com/owner/repository.git"
         value={url}
         disabled={cloning.busy}
-        onChange={(event) => setUrl(event.target.value)}
+        onChange={(event) => onUrlChange(event.target.value)}
         inputStyle={{ fontFamily: "var(--font-mono)" }}
+        spellCheck={false}
         autoFocus
       />
       <CloneProgress cloning={cloning} />
@@ -86,32 +105,25 @@ export function RepositoryCloneStep({
   );
 }
 
-/** Why the clone couldn't start, or why it failed; nothing while it goes well. */
-export function CloneProblems({ cloning }: { readonly cloning: RepositoryCloning }): ReactNode {
-  const { clone } = cloning;
+/** Why the service refused to start the clone; nothing while none was refused. */
+export function CloneRefusal({ cloning }: { readonly cloning: RepositoryCloning }): ReactNode {
   return (
-    <>
-      {cloning.refusal && (
-        <RefusalAlert title="The repository can't be cloned" error={cloning.refusal} />
-      )}
-      {clone?.state === "failed" && (
-        <Alert tone="danger" title="The clone failed">
-          {clone.problem}
-        </Alert>
-      )}
-    </>
+    cloning.refusal && (
+      <RefusalAlert title="The repository can't be cloned" error={cloning.refusal} />
+    )
   );
 }
 
-/** How far the clone has come, while it runs. */
+/** How far the clone has come, from the moment it is asked for until it ends. */
 export function CloneProgress({ cloning }: { readonly cloning: RepositoryCloning }): ReactNode {
+  if (!cloning.busy) return null;
   const { clone } = cloning;
-  if (clone?.state !== "cloning") return null;
-  const percent = clone.progress?.percent;
+  const progress = clone?.state === "cloning" ? clone.progress : undefined;
+  const percent = progress?.percent;
   return (
     <ProgressBar
       value={percent ?? 0}
-      label={clone.progress?.phase ?? "Starting the clone"}
+      label={progress?.phase ?? "Starting the clone"}
       valueLabel={percent === undefined ? "" : `${percent}%`}
       size="sm"
     />

@@ -6,6 +6,10 @@ export interface GitHubRepository {
   readonly repositoryUrl: string;
   readonly private: boolean;
   readonly defaultBranch: string;
+  /** When something was last pushed to it, an ISO timestamp; null when GitHub has none. */
+  readonly pushedAt: string | null;
+  /** Its description on GitHub, empty when it has none. */
+  readonly description: string;
 }
 
 /** Why GitHub couldn't be used for the user, in the words the UI shows. */

@@ -193,10 +193,23 @@ async function expectOpenSection(page: Page, project: Project, section: (typeof 
   await expect(head).toContainText(project.baseBranch);
 }
 
+/** Step 1 of Add a Project from a folder: its path, then Continue to step 2. */
+async function chooseFolder(page: Page, folder: string) {
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Repository folder").fill(folder);
+  await dialog.getByRole("button", { name: "Continue" }).click();
+  await expect(sourceLine(page)).toContainText(folder);
+}
+
+/** Step 2's first line: where the repository is, with Change. */
+function sourceLine(page: Page): Locator {
+  return page.getByRole("dialog").getByRole("group", { name: "Where it is" });
+}
+
 async function fillTheForm(page: Page, fields: { name: string; path: string; branch: string }) {
+  await chooseFolder(page, fields.path);
   const form = page.getByRole("dialog");
   await form.getByLabel("Name").fill(fields.name);
-  await form.getByLabel("Repository folder").fill(fields.path);
   await form.getByLabel("Base branch").fill(fields.branch);
   await form.getByLabel("Install", { exact: true }).fill("npm ci");
   await form.getByLabel("Build").fill("npm run build");
@@ -240,11 +253,56 @@ test("a folder that isn't a repository, or a branch it lacks, is refused with th
   await expect(refusal).toContainText(`${repository.folder} is not a git repository`);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-refused.png") });
 
-  await page.getByRole("dialog").getByLabel("Repository folder").fill(repository.path);
+  await sourceLine(page).getByRole("button", { name: "Change" }).click();
+  await expect(page.getByRole("dialog").getByLabel("Repository folder")).toHaveValue(
+    repository.folder,
+  );
+  await chooseFolder(page, repository.path);
+  await expect(page.getByRole("dialog").getByLabel("Name")).toHaveValue("Nowhere");
   await page.getByRole("dialog").getByLabel("Base branch").fill("develop");
   await add.click();
   await expect(refusal).toContainText('The repository has no branch "develop".');
   await expect(page).toHaveURL(/\/projects$/);
+});
+
+test("Add a Project goes in two steps in a window that neither moves nor changes height", async ({
+  page,
+}) => {
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Add it yourself" }).click();
+  const dialog = page.getByRole("dialog");
+  const bar = dialog.locator(".dialog-bar");
+  const box = await dialog.boundingBox();
+  const viewport = page.viewportSize()!;
+  // Pinned to the top: 7% of the browser window from its top, 24px at least.
+  expect(box!.y).toBeCloseTo(Math.max(24, viewport.height * 0.07), 0);
+  expect(box!.height).toBeCloseTo(Math.min(640, viewport.height - 2 * box!.y), 0);
+  const barTop = (await bar.boundingBox())!.y;
+  await expect(bar).toContainText("Step 1 of 2");
+
+  await dialog.getByRole("button", { name: "Continue" }).click();
+  await expect(dialog.getByText("Write the repository's folder, as a full path.")).toBeVisible();
+  for (const source of ["A git URL", "From GitHub", "A folder"]) {
+    await dialog.getByRole("tab", { name: source }).click();
+    expect(await dialog.boundingBox()).toEqual(box);
+    expect((await bar.boundingBox())!.y).toBe(barTop);
+  }
+
+  await chooseFolder(page, repository.path);
+  await expect(bar).toContainText("Step 2 of 2");
+  await expect(sourceLine(page)).toContainText("A folder");
+  await expect(dialog.getByLabel("Name")).toHaveValue(path.basename(repository.path));
+  await expect(dialog.getByLabel("Repository folder")).toBeHidden();
+  expect(await dialog.boundingBox()).toEqual(box);
+  expect((await bar.boundingBox())!.y).toBe(barTop);
+  // Only the body scrolls: the head and the bar stay where they were.
+  await dialog.locator(".dialog-body").evaluate((body) => body.scrollTo(0, body.scrollHeight));
+  await expect(dialog.getByRole("heading", { name: "Add a Project" })).toBeInViewport();
+  expect((await bar.boundingBox())!.y).toBe(barTop);
+
+  await sourceLine(page).getByRole("button", { name: "Change" }).click();
+  await expect(bar).toContainText("Step 1 of 2");
+  await expect(dialog.getByLabel("Repository folder")).toHaveValue(repository.path);
 });
 
 test("the user adds a Project by its git URL: cloned first, then the form opens from the clone", async ({
@@ -269,8 +327,16 @@ test("the user adds a Project by its git URL: cloned first, then the form opens 
   await repositoryUrl.fill(url);
   await clone.click();
   await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
+  await expect(sourceLine(page)).toContainText("A git URL");
+  await expect(sourceLine(page)).toContainText(url);
+  await expect(sourceLine(page)).toContainText(/cloned into .*storefront/);
+  await expect(dialog.locator(".dialog-bar")).toContainText("Step 2 of 2");
+
+  // Change forgets the clone and the name it gave; the URL stays as written.
+  await sourceLine(page).getByRole("button", { name: "Change" }).click();
   await expect(repositoryUrl).toHaveValue(url);
-  await expect(dialog.getByText(/Cloned into .*storefront/)).toBeVisible();
+  await clone.click();
+  await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
   const baseBranch = dialog.getByLabel("Base branch");
   await expect(baseBranch).toHaveValue("main");
   await baseBranch.selectOption("release");
@@ -940,6 +1006,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme });
       await page.goto("/projects");
       await page.getByRole("button", { name: "Add it yourself" }).click();
+      await chooseFolder(page, repository.path);
       const dialog = page.getByRole("dialog");
       await dialog.getByLabel("Name").fill("Swatched");
       const colours = dialog.getByRole("radiogroup", { name: "Colour" });
@@ -948,8 +1015,8 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(colours.getByRole("radio")).toHaveCount(5);
       await expect(dialog.getByLabel("Custom colour")).toBeVisible();
       const scrollsSideways = await dialog
-        .locator(".add-project-form")
-        .evaluate((form) => form.scrollWidth > form.clientWidth);
+        .locator(".dialog-body")
+        .evaluate((body) => body.scrollWidth > body.clientWidth);
       expect(scrollsSideways).toBe(false);
       await page.screenshot({
         path: path.join(SCREENSHOTS, `${colorScheme}-${width}-add-project-mark.png`),
@@ -1186,6 +1253,7 @@ test("the add form's label follows the name until the user writes one, its colou
 }) => {
   await page.goto("/projects");
   await page.getByRole("button", { name: "Add it yourself" }).click();
+  await chooseFolder(page, repository.path);
   const form = page.getByRole("dialog");
   const label = form.getByLabel("Mark label");
 

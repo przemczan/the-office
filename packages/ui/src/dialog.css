@@ -1,12 +1,17 @@
 /* The window of docs/spec/4.1-ui-rules.md#windows: three sizes, a head with its X, a body that
-   scrolls while the head and the bar stay, a step over the bar, and the bar with Close on the right. */
+   scrolls while the head and the bar stay, a step over the bar, and the bar with Close on the right.
+   Every window's top sits 7% from the top of the browser window, 24px at least, so windows of every
+   size line up and one that grows grows downwards; the large one, 86% high, fills the room between. */
 .dialog-backdrop {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
   display: grid;
-  place-items: center;
-  padding: var(--space-6) 0;
+  /* One row the height of the room, so a window's height in % has something to resolve against. */
+  grid-template-rows: minmax(0, 1fr);
+  justify-items: center;
+  align-items: start;
+  padding: max(var(--space-6), 7vh) 0;
   background: var(--overlay);
 }
 
@@ -31,13 +36,17 @@
   max-width: min(720px, 94vw);
 }
 
+.dialog-frame.medium.keeps-height {
+  height: min(640px, 100%);
+}
+
 .dialog-frame.large {
   max-width: min(1180px, 94vw);
   max-height: 86vh;
 }
 
 .dialog-frame.large.keeps-height {
-  height: 86vh;
+  height: min(86vh, 100%);
 }
 
 .dialog-head {

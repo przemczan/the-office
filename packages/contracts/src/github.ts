@@ -62,6 +62,10 @@ export const gitHubRepositorySchema = z.object({
   repositoryUrl: z.string().min(1),
   private: z.boolean(),
   defaultBranch: z.string().min(1),
+  /** When something was last pushed to it; null when GitHub has none. */
+  pushedAt: z.iso.datetime({ offset: true }).nullable(),
+  /** Its description on GitHub, empty when it has none. */
+  description: z.string(),
 });
 export type GitHubRepository = z.infer<typeof gitHubRepositorySchema>;
 
