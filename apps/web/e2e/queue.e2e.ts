@@ -255,10 +255,19 @@ test("the six columns scroll sideways inside the board when they don't fit, none
   expect(sizes.scrollable).toBeGreaterThan(0);
   expect(sizes.page).toBe(0);
 
+  // Sideways only: a column with many cards is taller than the window, which the page scrolls.
+  const shownArea = await board.boundingBox();
+  expect(shownArea).not.toBeNull();
+  const { x: boardLeft, width: boardWidth } = shownArea!;
+  expect(boardLeft + boardWidth).toBeLessThanOrEqual(1100);
   for (const shown of await columns.all()) {
-    await shown.scrollIntoViewIfNeeded();
-    await expect(shown).toBeInViewport({ ratio: 1 });
-    expect((await shown.boundingBox())?.width).toBeGreaterThanOrEqual(220);
+    await shown.evaluate((column) =>
+      column.scrollIntoView({ inline: "nearest", block: "nearest" }),
+    );
+    const { x: left, width } = (await shown.boundingBox())!;
+    expect(width).toBeGreaterThanOrEqual(220);
+    expect(left).toBeGreaterThanOrEqual(boardLeft);
+    expect(left + width).toBeLessThanOrEqual(boardLeft + boardWidth);
   }
 });
 
