@@ -605,7 +605,7 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await expect(markReady).toHaveCount(0);
 });
 
-test("the board's filters narrow it by search, Tags, priority and Blocked, kept in its address until Clear", async ({
+test("the board's filters narrow it by search, priority and Blocked, kept in its address until Clear", async ({
   page,
 }) => {
   const project = await addedProject(page, "Filtered work", "FW");

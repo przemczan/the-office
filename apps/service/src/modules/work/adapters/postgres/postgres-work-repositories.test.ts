@@ -443,14 +443,14 @@ describe("migration 0096", () => {
   });
 });
 
-describe("migration 0097", () => {
-  const aSavedView = (filters: BoardFilters & { readonly tags?: readonly string[] }) => ({
-    id: randomUUID(),
-    name: `View ${randomUUID()}`,
-    filters,
-    savedAt: new Date(),
-  });
+const aSavedView = (filters: BoardFilters & { readonly tags?: readonly string[] }) => ({
+  id: randomUUID(),
+  name: `View ${randomUUID()}`,
+  filters,
+  savedAt: new Date(),
+});
 
+describe("migration 0097", () => {
   it("takes Tags out of the Saved views, removing those left with no filters", async () => {
     const migration = await readFile(
       new URL("../../../../../drizzle/0097_saved_views_without_tags.sql", import.meta.url),

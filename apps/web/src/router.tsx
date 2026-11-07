@@ -4,10 +4,12 @@ import {
   createRouter,
   Navigate,
   redirect,
+  stripSearchParams,
 } from "@tanstack/react-router";
 import {
   GITHUB_APP_REGISTRATION_FAILED_PARAMETER,
   GITHUB_SIGN_IN_FAILED_PARAMETER,
+  type BoardFilters,
 } from "@the-office/contracts";
 import { Shell } from "./shell/shell.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
@@ -109,6 +111,8 @@ const boardRoute = createRoute({
   path: "/",
   component: Board,
   validateSearch: boardFiltersOf,
+  // The router keeps keys validateSearch leaves out, so an old address's Tags need removing here.
+  search: { middlewares: [stripSearchParams<BoardFilters & { tags?: unknown }>(["tags"])] },
   staticData: { title: "Work" },
 });
 
