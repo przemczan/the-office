@@ -79,13 +79,13 @@ interface PickListItemContent {
 
 export type PickListItemProps = PickListItemContent &
   (
-    | { readonly onPick: () => void; readonly link?: never }
+    | { readonly onPick: () => void; readonly renderLink?: never }
     | {
         /**
          * Draws the row as the caller's own link, such as a router's, which this package doesn't
          * have: the link spreads the parts on itself.
          */
-        readonly link: (parts: PickListRowParts) => ReactNode;
+        readonly renderLink: (parts: PickListRowParts) => ReactNode;
         readonly onPick?: never;
       }
   );
@@ -96,8 +96,8 @@ export function PickListItem(props: PickListItemProps): ReactNode {
   const children = <PickListItemWords {...props} />;
   return (
     <li className="pick-list-row">
-      {props.link ? (
-        props.link({ className, "aria-current": picked ? "page" : undefined, children })
+      {props.renderLink ? (
+        props.renderLink({ className, "aria-current": picked ? "page" : undefined, children })
       ) : (
         <button
           type="button"

@@ -1,5 +1,11 @@
 import path from "node:path";
-import { expect as playwrightExpect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect as playwrightExpect,
+  test,
+  type Locator,
+  type Page,
+  type Route,
+} from "@playwright/test";
 import {
   engineSettingsSchema,
   ideaSchema,
@@ -2049,6 +2055,64 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
 
 const GATE_FEEDBACK = "Call the button Save, as the rest of the settings do.";
 /** A 1×1 PNG. */
+/** In every address a design tries to reach, so a request that left it can be told. */
+const FROM_THE_DESIGN = "from-the-design";
+
+/** A design whose script says what it could reach. */
+const A_DESIGN = `<!doctype html>
+<title>Design</title>
+<h1>Settings design</h1>
+<p id="script">Script: not run</p>
+<p id="origin"></p>
+<p id="parent"></p>
+<p id="api"></p>
+<p id="network"></p>
+<p id="picture"></p>
+<script>
+  const say = (id, words) => { document.getElementById(id).textContent = words; };
+  say("script", "Script: ran");
+  say("origin", "Origin: " + window.origin);
+  try {
+    say("parent", "Parent page: " + window.parent.document.title);
+  } catch {
+    say("parent", "Parent page: blocked");
+  }
+  const reached = (id, name, address) =>
+    fetch(address).then(
+      () => say(id, name + ": reached"),
+      () => say(id, name + ": blocked"),
+    );
+  reached("api", "API", new URL("/api/tasks?${FROM_THE_DESIGN}", document.baseURI));
+  reached("network", "Network", "https://example.com/${FROM_THE_DESIGN}");
+  const picture = new Image();
+  picture.onload = () => say("picture", "Picture: reached");
+  picture.onerror = () => say("picture", "Picture: blocked");
+  picture.src = "https://example.com/${FROM_THE_DESIGN}.png";
+</script>`;
+
+/** What the script of `A_DESIGN` says when it ran, sandboxed. */
+async function expectDesignSandboxed(body: Locator): Promise<void> {
+  await expect(body.locator("#script")).toHaveText("Script: ran");
+  await expect(body.locator("#origin")).toHaveText("Origin: null");
+  await expect(body.locator("#api")).toHaveText("API: blocked");
+  await expect(body.locator("#network")).toHaveText("Network: blocked");
+  await expect(body.locator("#picture")).toHaveText("Picture: blocked");
+}
+
+/** Light and dark, at 1600 wide and at 600, back to 1600 and light after; no toast in the way. */
+async function screenshotInEveryPalette(page: Page, name: string): Promise<void> {
+  for (const width of [600, 1600]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const palette of ["dark", "light"] as const) {
+      await showPalette(page, palette);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `${palette}-${width}-${name}.png`),
+        style: ".toasts { visibility: hidden; }",
+      });
+    }
+  }
+}
+
 const A_SCREENSHOT = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
@@ -2173,7 +2237,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-gate.png") });
     await showPalette(page, "light");
 
-    // Show details has the four facts, this round's pictures and every action in its bar.
+    // Show details has the four facts, this round's Attachments and every action in its bar.
     const details = page.getByRole("dialog", { name: /Before Build/ });
     await gate.getByRole("button", { name: "Show details" }).click();
     await expect(details.locator(".gate-fact", { hasText: "Tests" })).toContainText("Passed");
@@ -2182,7 +2246,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     );
     await expect(details.locator(".gate-fact", { hasText: "Files changed" })).toBeVisible();
     await expect(details.locator(".gate-fact", { hasText: "Lines" })).toContainText("+");
-    const attachments = details.getByRole("region", { name: "Screenshots" });
+    const attachments = details.getByRole("region", { name: "Attachments" });
     await expect(attachments).toHaveCount(0);
     // A screenshot, as Work attaches the ones an Agent lists, shows as a picture.
     const uploaded = await page.request.post(
@@ -2196,6 +2260,50 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await showPalette(page, "dark");
     await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-gate-window.png") });
     await showPalette(page, "light");
+
+    // A design shows as a chip that opens its live preview. Its scripts run, and it reaches nothing
+    // outside the file: not The Office's page, nor its API, nor the network.
+    // Every address it tries answers, for any origin, so "blocked" can only be the sandbox's doing.
+    const reachedOut: string[] = [];
+    const answerTheDesign = async (route: Route): Promise<void> => {
+      reachedOut.push(route.request().url());
+      await route.fulfill({
+        headers: { "access-control-allow-origin": "*" },
+        contentType: "image/png",
+        body: A_SCREENSHOT,
+      });
+    };
+    const addressesOfTheDesign = new RegExp(FROM_THE_DESIGN);
+    await page.context().route(addressesOfTheDesign, answerTheDesign);
+    const designAdded = await page.request.post(
+      `/api/tasks/${taskId}/attachments/files?${new URLSearchParams({ fileName: "design.html", mediaType: "text/html" })}`,
+      { headers: { "content-type": "application/octet-stream" }, data: A_DESIGN },
+    );
+    expect(designAdded.status()).toBe(201);
+    const designChip = attachments.getByRole("button", { name: "design.html" });
+    await expect(designChip).toBeVisible();
+    await screenshotInEveryPalette(page, "gate-window-html-chip");
+    await designChip.click();
+    const preview = page.getByRole("dialog", { name: "design.html" });
+    const design = page.frameLocator('iframe[title="design.html"]');
+    await expectDesignSandboxed(design.locator("body"));
+    await expect(design.locator("#parent")).toHaveText("Parent page: blocked");
+    await screenshotInEveryPalette(page, "gate-html-preview");
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      preview.getByRole("link", { name: "Download" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("design.html");
+    const [original] = await Promise.all([
+      page.context().waitForEvent("page"),
+      preview.getByRole("link", { name: "Open the original" }).click(),
+    ]);
+    await expectDesignSandboxed(original.locator("body"));
+    await original.close();
+    expect(reachedOut).toEqual([]);
+    await page.context().unroute(addressesOfTheDesign, answerTheDesign);
+    await page.keyboard.press("Escape");
+    await expect(preview).toHaveCount(0);
 
     // The diff is a click away, in the Changes tab, brought into view.
     await details.getByRole("link", { name: "Open Changes" }).click();

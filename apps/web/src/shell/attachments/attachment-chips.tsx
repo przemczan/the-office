@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Attachment } from "@the-office/contracts";
+import { isHtmlFile, type Attachment } from "@the-office/contracts";
 import { Alert, Dialog, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { attachmentContentUrl, attachmentQueries } from "../../api/work.ts";
+import { HtmlPreviewDialog } from "./html-preview-dialog.tsx";
 
 const KIND_ICONS: Readonly<Record<Attachment["kind"], string>> = {
   link: "link",
@@ -13,7 +14,7 @@ const KIND_ICONS: Readonly<Record<Attachment["kind"], string>> = {
 
 /**
  * Attachments as chips that open them: a link at its address, an image in a new tab, a document
- * here as its Markdown, any other file as a download.
+ * here as its Markdown, an HTML file here in its preview, any other file as a download.
  */
 export function AttachmentChips({
   attachments,
@@ -23,13 +24,13 @@ export function AttachmentChips({
   /** Offers a remove button on each chip when given. */
   readonly onRemove?: (attachment: Attachment) => void;
 }): ReactNode {
-  const [reading, setReading] = useState<Attachment>();
+  const [opened, setOpened] = useState<Attachment>();
   if (attachments.length === 0) return null;
   return (
     <div className="attachment-chips">
       {attachments.map((attachment) => (
         <span key={attachment.id} className="attachment-chip">
-          <AttachmentOpener attachment={attachment} onRead={() => setReading(attachment)} />
+          <AttachmentOpener attachment={attachment} onOpenHere={() => setOpened(attachment)} />
           {onRemove && (
             <IconButton
               size="xs"
@@ -40,17 +41,17 @@ export function AttachmentChips({
           )}
         </span>
       ))}
-      {reading && <DocumentDialog document={reading} onClose={() => setReading(undefined)} />}
+      {opened && <OpenedHere attachment={opened} onClose={() => setOpened(undefined)} />}
     </div>
   );
 }
 
 function AttachmentOpener({
   attachment,
-  onRead,
+  onOpenHere,
 }: {
   readonly attachment: Attachment;
-  readonly onRead: () => void;
+  readonly onOpenHere: () => void;
 }): ReactNode {
   const label = (
     <>
@@ -58,9 +59,9 @@ function AttachmentOpener({
       {attachment.name}
     </>
   );
-  if (attachment.kind === "document") {
+  if (attachment.kind === "document" || isHtmlFile(attachment)) {
     return (
-      <button type="button" className="attachment-open" onClick={onRead}>
+      <button type="button" className="attachment-open" onClick={onOpenHere}>
         {label}
       </button>
     );
@@ -74,6 +75,20 @@ function AttachmentOpener({
     <a className="attachment-open" href={href} target="_blank" rel="noopener noreferrer">
       {label}
     </a>
+  );
+}
+
+function OpenedHere({
+  attachment,
+  onClose,
+}: {
+  readonly attachment: Attachment;
+  readonly onClose: () => void;
+}): ReactNode {
+  return isHtmlFile(attachment) ? (
+    <HtmlPreviewDialog file={attachment} onClose={onClose} />
+  ) : (
+    <DocumentDialog document={attachment} onClose={onClose} />
   );
 }
 

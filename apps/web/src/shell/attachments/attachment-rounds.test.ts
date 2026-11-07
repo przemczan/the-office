@@ -178,16 +178,9 @@ describe("attachmentsOfGateRun", () => {
     ...aRun("2026-11-04T12:00:00.000Z", "2026-11-04T12:00:00.100Z"),
     number: 4,
   };
-  const gate: TaskStage = {
-    stage: look,
-    state: "waiting-on-you",
-    tokens: NO_TOKENS,
-    wentBack: null,
-    runs: [firstRun, secondRun],
-  };
-  const stages: TaskStage[] = [{ ...gate, stage: implement, runs: [workStart] }, gate];
+  const stages = [stageWith(implement, [workStart]), stageWith(look, [firstRun, secondRun])];
 
-  it("gives a first run what was added from the start of the work until it ended", () => {
+  it("gives a first run everything added until it ended, from before the work started too", () => {
     const attachments = [
       anImage("before the work", "2026-11-04T08:59:59.000Z"),
       anImage("as the work started", "2026-11-04T09:00:00.000Z"),
@@ -195,10 +188,17 @@ describe("attachmentsOfGateRun", () => {
       anImage("after", "2026-11-04T11:00:01.000Z"),
     ];
 
-    expect(namesOf(attachmentsOfGateRun(attachments, stages, gate, firstRun))).toEqual([
+    expect(namesOf(attachmentsOfGateRun(attachments, stages, firstRun))).toEqual([
+      "before the work",
       "as the work started",
       "as it ended",
     ]);
+  });
+
+  it("shows what was added before the work started at the first run only", () => {
+    const attachments = [anImage("before the work", "2026-11-04T08:59:59.000Z")];
+
+    expect(attachmentsOfGateRun(attachments, stages, secondRun)).toEqual([]);
   });
 
   it("gives a later run what came after the previous one ended, though that was a Continue", () => {
@@ -207,8 +207,39 @@ describe("attachmentsOfGateRun", () => {
       anImage("between the two", "2026-11-04T11:30:00.000Z"),
     ];
 
-    expect(namesOf(attachmentsOfGateRun(attachments, stages, gate, secondRun))).toEqual([
+    expect(namesOf(attachmentsOfGateRun(attachments, stages, secondRun))).toEqual([
       "between the two",
+    ]);
+  });
+
+  it("skips what another Gate's earlier run showed, and only an earlier one's", () => {
+    const secondGate: Stage = { ...look, key: "sign-off", name: "Sign-off" };
+    const signOff = {
+      ...aRun("2026-11-04T11:30:00.000Z", "2026-11-04T11:40:00.000Z", { kind: "continue" }),
+      number: 3,
+    };
+    const twoGates = [...stages, stageWith(secondGate, [signOff])];
+    const attachments = [
+      anImage("the first Gate's", "2026-11-04T10:30:00.000Z"),
+      anImage("the second Gate's", "2026-11-04T11:20:00.000Z"),
+      anImage("after both", "2026-11-04T11:50:00.000Z"),
+    ];
+
+    expect(namesOf(attachmentsOfGateRun(attachments, twoGates, firstRun))).toEqual([
+      "the first Gate's",
+    ]);
+    expect(namesOf(attachmentsOfGateRun(attachments, twoGates, signOff))).toEqual([
+      "the second Gate's",
+    ]);
+    expect(namesOf(attachmentsOfGateRun(attachments, twoGates, secondRun))).toEqual(["after both"]);
+  });
+
+  it("doesn't count an earlier run of a Stage that isn't a Gate", () => {
+    const attachments = [anImage("during the work", "2026-11-04T09:10:00.000Z")];
+    const onlyTheWork = [stageWith(implement, [workStart]), stageWith(look, [secondRun])];
+
+    expect(namesOf(attachmentsOfGateRun(attachments, onlyTheWork, secondRun))).toEqual([
+      "during the work",
     ]);
   });
 
@@ -218,18 +249,21 @@ describe("attachmentsOfGateRun", () => {
       anImage("earlier today", "2026-11-05T08:00:00.000Z"),
     ];
 
-    expect(namesOf(attachmentsOfGateRun(attachments, stages, gate, secondRun))).toEqual([
+    expect(namesOf(attachmentsOfGateRun(attachments, stages, secondRun))).toEqual([
       "earlier today",
       "just now",
     ]);
   });
 
   it("keeps every kind of Attachment", () => {
-    const notes = {
-      ...anImage("notes", "2026-11-04T11:30:00.000Z"),
-      kind: "document",
-    } as Attachment;
+    const addedAt = "2026-11-04T11:30:00.000Z";
+    const image = anImage("shot", addedAt);
+    const notes = { ...anImage("notes", addedAt), kind: "document" } as Attachment;
+    const design = { ...anImage("design.html", addedAt), kind: "file" } as Attachment;
+    const spec = { ...anImage("spec", addedAt), kind: "link" } as Attachment;
 
-    expect(attachmentsOfGateRun([notes], stages, gate, secondRun)).toEqual([notes]);
+    expect(
+      attachmentsOfGateRun([image, notes, design, spec], stages, secondRun).map(({ kind }) => kind),
+    ).toEqual(["image", "document", "file", "link"]);
   });
 });

@@ -39,7 +39,7 @@ export class AttachmentOfficeTools implements OnModuleInit {
     this.registry.register({
       name: ATTACH_FILE,
       description:
-        "Attaches a file from the Task's worktree to the Task, such as a screenshot, a report or a document (.md), for the user to see with the Task. The Office keeps a copy, so a later change to the file doesn't change the Attachment.",
+        "Attaches a file from the Task's worktree to the Task, such as a screenshot, a report or a document (.md), for the user to see with the Task. A design for the user to approve is attached before its Gate, as one self-contained .html file, since the preview loads nothing from outside the file. The Office keeps a copy, so a later change to the file doesn't change the Attachment.",
       input: z.object({
         path: z.string().describe("The file's path, relative to the worktree."),
       }),

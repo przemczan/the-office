@@ -1776,7 +1776,7 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
     .getByRole("button", { name: "Show details" })
     .click();
   const gateWindow = page.getByRole("dialog", { name: /UI acceptance/ });
-  const gate = gateWindow.getByRole("region", { name: "Screenshots" });
+  const gate = gateWindow.getByRole("region", { name: "Attachments" });
   await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
   // The Attachment viewer is the one window that opens on another, and Esc closes it first.

@@ -17,11 +17,11 @@ import {
   type SendingBack,
 } from "./gate-actions.tsx";
 import {
+  attachmentsOfThisRound,
   definitionOfDoneFact,
   gateHeading,
   gateQuestion,
   linesChanged,
-  picturesOfThisRound,
   testsBeforeGate,
   testsFact,
 } from "./gate-card-words.ts";
@@ -31,7 +31,7 @@ import { RECORD_ELEMENT_ID } from "./record-tab.ts";
 type GateStep = "send-back" | "drop";
 
 /**
- * The Gate's details (spec 4.1): what the work came to in four facts and the pictures of this
+ * The Gate's details (spec 4.1): what the work came to in four facts and the Attachments of this
  * round, with every action in the bar. Send back's notes and Drop's confirmation are steps over the
  * bar, as no window opens on another.
  */
@@ -52,8 +52,12 @@ export function GateWindow({
   const continuing = useContinuingAtGate(task, waiting);
   const sending = useSendingBack(task, waiting.sendBackTargets, roles, onClose);
   const dropping = useDroppingTask(() => dropAtGate(task.id), onClose);
-  const attachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
-  const pictures = picturesOfThisRound(attachments ?? [], taskStages.stages ?? [], waiting);
+  const allAttachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
+  const attachments = attachmentsOfThisRound(
+    allAttachments ?? [],
+    taskStages.stages ?? [],
+    waiting,
+  );
   const busy = continuing.isPending;
   const cancelStep = (): void => setStep(undefined);
   const steps: Record<GateStep, DialogStep> = {
@@ -112,9 +116,9 @@ export function GateWindow({
         {continuing.error && <ContinueRefused error={continuing.error} />}
         <div className="gate-question">{gateQuestion(waiting)}</div>
         <GateFacts task={task} taskStages={taskStages} waiting={waiting} />
-        {pictures.length > 0 && (
-          <section aria-label="Screenshots">
-            <AttachmentGallery rounds={oneRound(pictures)} />
+        {attachments.length > 0 && (
+          <section aria-label="Attachments">
+            <AttachmentGallery rounds={oneRound(attachments)} />
           </section>
         )}
       </div>

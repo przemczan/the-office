@@ -10,12 +10,12 @@ import type {
 import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../token-words.ts";
 import {
+  attachmentsOfThisRound,
   definitionOfDoneFact,
   gateFactsLine,
   gateHeading,
   gateQuestion,
   linesChanged,
-  picturesOfThisRound,
   testsBeforeGate,
   testsFact,
 } from "./gate-card-words.ts";
@@ -149,7 +149,7 @@ describe("definitionOfDoneFact", () => {
   });
 });
 
-describe("picturesOfThisRound", () => {
+describe("attachmentsOfThisRound", () => {
   const gate: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
   const stages: TaskStage[] = [
     {
@@ -174,15 +174,18 @@ describe("picturesOfThisRound", () => {
     },
   ];
 
-  it("keeps the waiting run's pictures, without its other Attachments or an earlier run's", () => {
+  it("keeps the waiting run's Attachments of every kind, without an earlier run's", () => {
     const attachments = [
       anAttachment({ id: "before", kind: "image", addedAt: "2026-11-04T10:30:00.000Z" }),
       anAttachment({ id: "picture", kind: "image", addedAt: "2026-11-04T11:30:00.000Z" }),
       anAttachment({ id: "notes", kind: "document", addedAt: "2026-11-04T11:31:00.000Z" }),
+      anAttachment({ id: "design", kind: "file", addedAt: "2026-11-04T11:32:00.000Z" }),
       anAttachment({ id: "while-it-waits", kind: "image", addedAt: "2026-11-04T13:00:00.000Z" }),
     ];
-    expect(picturesOfThisRound(attachments, stages, { gate }).map(({ id }) => id)).toEqual([
+    expect(attachmentsOfThisRound(attachments, stages, { gate }).map(({ id }) => id)).toEqual([
       "picture",
+      "notes",
+      "design",
       "while-it-waits",
     ]);
   });
@@ -193,6 +196,6 @@ describe("picturesOfThisRound", () => {
     ];
     const ended = stages.map((taskStage) => ({ ...taskStage, runs: taskStage.runs.slice(0, 1) }));
 
-    expect(picturesOfThisRound(attachments, ended, { gate })).toEqual([]);
+    expect(attachmentsOfThisRound(attachments, ended, { gate })).toEqual([]);
   });
 });

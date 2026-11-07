@@ -15,6 +15,7 @@ import {
 } from "@nestjs/common";
 import {
   attachmentUploadQuerySchema,
+  isHtmlFile,
   newLinkSchema,
   type Attachment as AttachmentResponse,
   type AttachmentUploadQuery,
@@ -35,6 +36,13 @@ export const ATTACHMENT_UPLOAD_ROUTES = [
   "initiatives/:id/attachments/files",
   "tasks/:id/attachments/files",
 ] as const;
+
+/**
+ * An HTML file's address sits on The Office's own origin, so its scripts run in an isolated origin
+ * and nothing outside the file loads, opened in a tab as in the preview's frame.
+ */
+const HTML_FILE_CONTENT_SECURITY_POLICY =
+  "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'";
 
 @Controller()
 @UseFilters(WorkRefusalsFilter)
@@ -109,7 +117,8 @@ export class AttachmentsController {
 
   /**
    * A file's bytes, typed by its kind rather than by the media type it was uploaded with, since it
-   * is opened on The Office's own origin: only images and Markdown show in the browser.
+   * is opened on The Office's own origin: only images, Markdown and sandboxed HTML show in the
+   * browser.
    */
   @Get("attachments/:id/content")
   async content(
@@ -118,6 +127,9 @@ export class AttachmentsController {
   ): Promise<StreamableFile> {
     const { attachment, content } = await this.attachments.open(id);
     response.setHeader("X-Content-Type-Options", "nosniff");
+    if (isHtmlFile(attachment)) {
+      response.setHeader("Content-Security-Policy", HTML_FILE_CONTENT_SECURITY_POLICY);
+    }
     return new StreamableFile(content, servingOf(attachment));
   }
 
@@ -155,10 +167,15 @@ function servingOf(attachment: Attachment): { type: string; disposition: string 
         disposition: dispositionOf("inline", attachment.name),
       };
     default:
-      return {
-        type: "application/octet-stream",
-        disposition: dispositionOf("attachment", attachment.name),
-      };
+      return isHtmlFile(attachment)
+        ? {
+            type: "text/html; charset=utf-8",
+            disposition: dispositionOf("inline", attachment.name),
+          }
+        : {
+            type: "application/octet-stream",
+            disposition: dispositionOf("attachment", attachment.name),
+          };
   }
 }
 

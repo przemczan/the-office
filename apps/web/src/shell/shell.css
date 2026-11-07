@@ -1137,6 +1137,15 @@ body,
   white-space: pre-wrap;
 }
 
+.attachment-html-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
 /* A Notification's toast: the person, then the line and what it is about, which open it. */
 .notice-person {
   display: inline-flex;

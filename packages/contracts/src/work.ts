@@ -408,6 +408,18 @@ export type Attachment = z.infer<typeof attachmentSchema>;
 export const attachmentListSchema = z.array(attachmentSchema);
 
 /**
+ * Whether an Attachment is an HTML file, which opens in a sandboxed preview. A document's name makes
+ * it Markdown whatever its media type, so only a `file` counts.
+ */
+export function isHtmlFile(attachment: {
+  readonly kind: Attachment["kind"];
+  readonly mediaType?: string;
+}): boolean {
+  const essence = attachment.mediaType?.split(";")[0]?.trim().toLowerCase();
+  return attachment.kind === "file" && essence === "text/html";
+}
+
+/**
  * The query of GET /tasks and GET /search: words, each matched as the start of a word in a
  * record, all of them required. GET /tasks answers every Task when it has no words.
  */

@@ -73,13 +73,7 @@ export function RunDetails({
           {summary}
           {stage.kind === "script" && <CommandLog taskId={taskId} run={run} />}
           {stage.kind === "gate" && (
-            <GateRunAttachments
-              key={run.id}
-              taskId={taskId}
-              stages={stages}
-              gate={taskStage}
-              run={run}
-            />
+            <GateRunAttachments key={run.id} taskId={taskId} stages={stages} run={run} />
           )}
         </div>
       </section>
@@ -216,16 +210,14 @@ function RunSummary({
 function GateRunAttachments({
   taskId,
   stages,
-  gate,
   run,
 }: {
   readonly taskId: string;
   readonly stages: readonly TaskStage[];
-  readonly gate: TaskStage;
   readonly run: StageRun;
 }): ReactNode {
   const attachments = useQuery(attachmentQueries.of({ kind: "task", taskId })).data ?? [];
-  const ofThisRun = attachmentsOfGateRun(attachments, stages, gate, run);
+  const ofThisRun = attachmentsOfGateRun(attachments, stages, run);
   if (ofThisRun.length === 0) return null;
   return (
     <section className="run-attachments" aria-label="Attachments">
