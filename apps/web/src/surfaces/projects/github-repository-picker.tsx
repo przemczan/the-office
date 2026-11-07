@@ -109,8 +109,14 @@ function RepositoryList({
   const titleId = useId();
   const now = useClock();
   const all = repositories.data;
-  // Which are already added comes from the Projects, so the list waits for them too.
+  // Which are already added comes from the Projects, so the list waits for them too, and fails with
+  // them rather than loading for ever.
   const loaded = all !== undefined && projects.data !== undefined;
+  const failure = repositories.error ?? projects.error;
+  const retry = (): void => {
+    if (repositories.error) void repositories.refetch();
+    if (projects.error) void projects.refetch();
+  };
   const rows = loaded ? repositoryRowsOf(all, projects.data, search) : [];
   const count = loaded
     ? search.trim() === ""
@@ -137,17 +143,21 @@ function RepositoryList({
             {count && <span className="github-repositories-count">{count}</span>}
           </h3>
         </header>
-        {repositories.error ? (
+        {failure ? (
           <div className="github-repositories-failed">
             <RefusalAlert
-              title="GitHub's repositories can't be listed"
-              error={repositories.error}
+              title={
+                repositories.error
+                  ? "GitHub's repositories can't be listed"
+                  : "Your Projects can't be read"
+              }
+              error={failure}
               action={
                 <Button
                   variant="secondary"
                   size="sm"
-                  loading={repositories.isFetching}
-                  onClick={() => void repositories.refetch()}
+                  loading={repositories.isFetching || projects.isFetching}
+                  onClick={retry}
                 >
                   Try again
                 </Button>
