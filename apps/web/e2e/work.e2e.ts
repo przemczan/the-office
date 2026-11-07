@@ -1739,6 +1739,14 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   };
   const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
   const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  const gateReached: StageRun["outcome"] = {
+    status: "done",
+    summary: "The Task reached the Gate and waited for the user.",
+    skipped: false,
+    definitionOfDoneMet: null,
+    pullRequestUrl: null,
+    handoverNote: null,
+  };
   const stages: TaskStages = {
     stages: [
       {
@@ -1754,12 +1762,15 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
         tokens: noTokens,
         wentBack: null,
         runs: [
-          aStageRun(2, sentBackAt, sentBackAt, {
-            kind: "send-back",
-            stageKey: "implement",
-            feedback: "Make the buttons bigger.",
-          }),
-          aStageRun(4, secondLook.addedAt, null),
+          {
+            ...aStageRun(2, sentBackAt, sentBackAt, {
+              kind: "send-back",
+              stageKey: "implement",
+              feedback: "Make the buttons bigger.",
+            }),
+            outcome: gateReached,
+          },
+          { ...aStageRun(4, secondLook.addedAt, null), outcome: gateReached },
         ],
       },
     ],

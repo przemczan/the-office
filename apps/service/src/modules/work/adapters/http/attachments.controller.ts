@@ -39,7 +39,8 @@ export const ATTACHMENT_UPLOAD_ROUTES = [
 
 /**
  * An HTML file's address sits on The Office's own origin, so its scripts run in an isolated origin
- * and nothing outside the file loads, opened in a tab as in the preview's frame.
+ * and nothing from outside the file loads into it, opened in a tab as in the preview's frame. It can
+ * still navigate away, which no policy stops; the page it leaves for can't reach The Office either.
  */
 const HTML_FILE_CONTENT_SECURITY_POLICY =
   "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'";

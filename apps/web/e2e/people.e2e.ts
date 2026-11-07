@@ -2261,8 +2261,8 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-gate-window.png") });
     await showPalette(page, "light");
 
-    // A design shows as a chip that opens its live preview. Its scripts run, and it reaches nothing
-    // outside the file: not The Office's page, nor its API, nor the network.
+    // A design shows as a chip that opens its live preview. Its scripts run, and it can't read
+    // The Office's page, call its API or load anything into itself from the network.
     // Every address it tries answers, for any origin, so "blocked" can only be the sandbox's doing.
     const reachedOut: string[] = [];
     const answerTheDesign = async (route: Route): Promise<void> => {
