@@ -99,10 +99,13 @@ export const newInitiativeTaskSchema = newTaskSchema.extend({ blockedBy: z.array
 export type NewInitiativeTask = z.input<typeof newInitiativeTaskSchema>;
 
 /**
- * Why a Task's conversations can be read but not continued, for the states that end the Task: no
- * session works on it any more (Done: Publish removed its worktree; Dropped: the user ended it).
+ * Why a Task's conversations can be read but not continued, for the states where no session works
+ * on it: Shaping until its Initiative is confirmed; then for good once Done (Publish removed its
+ * worktree) or Dropped (the user ended it).
  */
-export const ENDED_TASK_CONVERSATION_WORDS: Readonly<Partial<Record<TaskState, string>>> = {
+export const CLOSED_TASK_CONVERSATION_WORDS: Readonly<Partial<Record<TaskState, string>>> = {
+  shaping:
+    "This Task is in Shaping, so you can read this conversation but not continue it until its Initiative is confirmed.",
   done: "This Task is Done and its working copy has been removed, so you can read this conversation but not continue it. To keep working, start a new Task.",
   dropped:
     "This Task was dropped, so you can read this conversation but not continue it. To work on it again, start a new Task.",

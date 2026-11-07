@@ -4019,6 +4019,19 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await expect(board.getByText("Usage export endpoint")).toHaveCount(0);
     await board.screenshot({ path: path.join(SCREENSHOTS, "light-board-before-confirm.png") });
 
+    // Nor does the note of other Projects count them, even when a search finds only one.
+    const otherProjects = board.getByRole("button", {
+      name: /in other Projects.*Show all projects/,
+    });
+    const boardSearch = board.getByLabel("Search Tasks");
+    await board.getByRole("button", { name: /^Project filter:/ }).click();
+    await board.getByRole("button", { name: "Show only Metering" }).click();
+    await expect(otherProjects).toBeVisible();
+    await boardSearch.fill("Usage export button");
+    await expect(otherProjects).toHaveCount(0);
+    await boardSearch.fill("");
+    await otherProjects.click();
+
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-initiative-shaping.png") });
     await page.getByRole("button", { name: "Confirm the Initiative" }).click();
     await expect(

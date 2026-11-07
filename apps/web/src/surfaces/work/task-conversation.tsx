@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
-  ENDED_TASK_CONVERSATION_WORDS,
+  CLOSED_TASK_CONVERSATION_WORDS,
   type ConversationTab,
   type Task,
   type Thread,
@@ -113,7 +113,7 @@ function PeopleTabs({
     ? stageRunningFor(stages ?? [], threads, roleKey)
     : undefined;
   const isPlanner = roleKey === tabs[0]?.roleKey;
-  const readOnlyReason = ENDED_TASK_CONVERSATION_WORDS[task.state];
+  const readOnlyReason = CLOSED_TASK_CONVERSATION_WORDS[task.state];
   return (
     <ConversationPanel unread={tabs.reduce((sum, tab) => sum + unseenIn(tab), 0)}>
       <div className="conversation-tabs">

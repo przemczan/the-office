@@ -84,9 +84,6 @@ function NoThreadYet({
   readonly readOnlyReason: string | undefined;
 }): ReactNode {
   const planner = usePlanner();
-  if (readOnlyReason !== undefined) {
-    return <EmptyCard>{`No conversation with ${personName} on ${task.title}.`}</EmptyCard>;
-  }
   if (task.state === "shaping") {
     return (
       <EmptyCard>
@@ -94,6 +91,9 @@ function NoThreadYet({
         <ItsInitiativeLink task={task} />
       </EmptyCard>
     );
+  }
+  if (readOnlyReason !== undefined) {
+    return <EmptyCard>{`No conversation with ${personName} on ${task.title}.`}</EmptyCard>;
   }
   if (task.state !== "backlog") return <EmptyCard>{emptyWords}</EmptyCard>;
   return planner ? (
@@ -158,6 +158,8 @@ export function TabFoot({
   readonly onSent: () => void;
 }): ReactNode {
   const firstMessage = useFirstMessage(task.id, tab.roleKey, onSent);
+  // Its empty tab already says what it waits for: the note is for a Thread it can't continue.
+  if (task.state === "shaping" && tab.threadId === null) return null;
   if (readOnlyReason !== undefined) {
     return (
       <div className="timeline-foot">
@@ -167,8 +169,8 @@ export function TabFoot({
   }
   // Until it is taken, even once its Thread shows, so a refusal keeps the message and says why.
   if (tab.threadId === null || firstMessage.isPending || firstMessage.isError) {
-    // Neither has a Thread to open: Planning opens it.
-    return task.state === "shaping" || task.state === "backlog" ? null : (
+    // Backlog has no Thread to open: Planning opens it.
+    return task.state === "backlog" ? null : (
       <FirstMessage
         task={task}
         roleKey={tab.roleKey}

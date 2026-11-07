@@ -191,9 +191,10 @@ describe("a planning Thread's session", () => {
   });
 
   it.each([
+    ["shaping", "This Task is in Shaping"],
     ["done", "This Task is Done"],
     ["dropped", "This Task was dropped"],
-  ] as const)("refuses a session once the Task is %s", async (state, words) => {
+  ] as const)("refuses a session while the Task is %s", async (state, words) => {
     const created = await sendJson(work, "POST", "/tasks", {
       title: "Ship the redirect",
       projectId: `project-${randomUUID()}`,
