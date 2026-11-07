@@ -778,11 +778,6 @@
         color: var(--neutral-fg);
         white-space: nowrap;
       }
-      .badge.success {
-        border-color: var(--success-border);
-        background: var(--success-subtle);
-        color: var(--success-fg);
-      }
       .alert {
         display: flex;
         align-items: flex-start;
@@ -1136,6 +1131,18 @@
       .repo-row + .repo-row {
         border-top: 1px solid var(--border-subtle);
       }
+      .repo-group {
+        padding: 6px var(--space-3);
+        border-block: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .repo-group:first-child {
+        border-top: 0;
+      }
       .repo {
         display: flex;
         align-items: flex-start;
@@ -1422,8 +1429,8 @@
           <li><strong>Pinned to the top:</strong> every window's top sits 7% from the top of the browser window (24px at least), where the large window already sits since it is 86% high and centred. The small one is pinned there too, so the whole app reads the same. Switch Window to “All three, outlined”.</li>
           <li><strong>One height:</strong> Add a Project keeps 640px, or less in a short browser window, as the Stage history keeps its height. Its body scrolls; its head and its bar stay. A short source leaves room under it, which is the price of not jumping.</li>
           <li><strong>Two steps:</strong> step 1 is Where it is: a folder's path then Continue, a git URL then Clone, or a pick from GitHub, which clones at once. Step 2 shows the source as one line with Change, then the form's fields as today. Change goes back to step 1 and forgets the clone, as “Pick another repository” does today.</li>
-          <li><strong>From GitHub:</strong> the list is read when the window opens, so it is usually there by the time From GitHub is chosen; while it loads, rows shaped like the list hold its place. Each row shows the repository's name first, then its owner, default branch and when it was last pushed, then its description. A repository already added as a Project is marked Added and can't be picked. Picking one shows the clone's progress in its row; a failed clone shows its problem in the row, with Try again.</li>
-          <li><strong>Three list designs</strong>, to choose one: Recent first (one list, most recently pushed on top), By owner (an owner filter in the list's head, recent first within it) and Search first (the five most recently pushed, with the search reaching all of them).</li>
+          <li><strong>From GitHub:</strong> the list is read when the window opens, so it is usually there by the time From GitHub is chosen; while it loads, rows shaped like the list hold its place. Each row shows the repository's name first, then its owner, default branch and when it was last pushed, then its description. A repository already added as a Project is marked Added, can't be picked, and sits at the end under Already added, so the top rows are ones that can be picked. Picking one shows the clone's progress in its row; a failed clone shows its problem in the row, with Try again.</li>
+          <li><strong>Three list designs</strong>, to choose one: Recent first (one list, most recently pushed on top), By owner (an owner filter in the list's head, recent first within it) and Search first (the five most recently pushed that aren't Projects yet, with the search reaching all of them).</li>
         </ul>
         <p>“Today”, “Proposed”, “Recent first”, “By owner”, “Search first”, “pinned to the top” and “source line” are this design's names, not glossary terms. The mock's data, owners and paths are made up. Like the chat drawer's page, it uses the Geist fonts only where they are installed.</p>
       </section>
@@ -1564,6 +1571,7 @@
         owner: "all",
         folder: "/home/p/Projects/notnullsoft-api",
         folderProblem: "",
+        urlProblem: "",
         url: "https://github.com/notnullsoft/billing-service.git",
         clone: null,
         chosen: null,
@@ -1662,17 +1670,17 @@
         const pipeline = PIPELINES.find(([id]) => id === S.pipeline);
         parts.push(`<div class="columns">
           ${field("Base branch", branch, { hint: "Tasks branch from it and publish to it." })}
-          ${field("Default Pipeline", select("pipeline", PIPELINES.map(([id, name]) => [id, name]), S.pipeline), { hint: escapeHtml(pipeline[2]) })}
+          ${field("Default Pipeline", select("pipeline", PIPELINES.map(([id, name]) => [id, name]), S.pipeline), { hint: `<span data-pipeline-stages>${escapeHtml(pipeline[2])}</span>` })}
         </div>`);
         parts.push(`<div class="columns">${COMMANDS.map(([name, example]) => field(name, input({ placeholder: example, mono: true }))).join("")}</div>`);
         parts.push(field("Install inputs", input({ placeholder: "package-lock.json", mono: true }), { hint: "Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once." }));
-        const base = S.baseBranch.trim() || "the base branch";
         parts.push(field("Publishing", `<div class="radios" role="radiogroup">
           <label><input type="radio" name="publishing" value="push" data-field="publishing"${S.publishing === "push" ? " checked" : ""}> Push and open a pull request</label>
-          <label><input type="radio" name="publishing" value="merge" data-field="publishing"${S.publishing === "merge" ? " checked" : ""}> Merge into <span class="mono">${escapeHtml(base)}</span></label>
+          <label><input type="radio" name="publishing" value="merge" data-field="publishing"${S.publishing === "merge" ? " checked" : ""}> Merge into <span class="mono" data-merge-into>${escapeHtml(mergeTarget())}</span></label>
         </div>`, { tag: "div" }));
         return parts.join("");
       }
+      const mergeTarget = () => S.baseBranch.trim() || "the base branch";
 
       // ---------- Add a Project, Today: centred, its height following its content
       function todayAddProject() {
@@ -1749,7 +1757,7 @@
             size: "medium",
             keepsHeight: true,
             title: "Add a Project",
-            body: `<div class="form-stack">${whereItIs}${field("Repository URL", input({ name: "url", value: S.url, mono: true, disabled: busy, placeholder: "https://github.com/owner/repository.git" }), { hint: "https, ssh:// or user@host:path." })}${busy ? progress(S.clone) : ""}</div>`,
+            body: `<div class="form-stack">${whereItIs}${field("Repository URL", input({ name: "url", value: S.url, mono: true, disabled: busy, placeholder: "https://github.com/owner/repository.git", invalid: Boolean(S.urlProblem) }), { hint: "https, ssh:// or user@host:path.", problem: S.urlProblem })}${busy ? progress(S.clone) : ""}</div>`,
             actions: button("Clone", "primary", "clone-url", { loading: busy }),
             hint: "Step 1 of 2",
           });
@@ -1783,7 +1791,8 @@
       function listView() {
         const all = S.read === "empty" ? [] : REPOSITORIES;
         const query = S.search.trim().toLowerCase();
-        const recent = [...all].sort((a, b) => a.hoursAgo - b.hoursAgo);
+        // The repositories already added can't be picked, so they leave the top rows to the ones that can.
+        const recent = [...all].sort((a, b) => Number(Boolean(a.project)) - Number(Boolean(b.project)) || a.hoursAgo - b.hoursAgo);
         const matches = (r) => !query || r.fullName.toLowerCase().includes(query) || r.description.toLowerCase().includes(query);
         if (S.list === "owner") {
           const owned = recent.filter((r) => S.owner === "all" || r.owner === S.owner);
@@ -1791,7 +1800,7 @@
           return { all, query, shown, title: "Your repositories", count: query ? `${shown.length} of ${owned.length}` : `${owned.length}` };
         }
         if (S.list === "search" && !query) {
-          const shown = recent.slice(0, 5);
+          const shown = recent.filter((r) => !r.project).slice(0, 5);
           return { all, query, shown, title: "Recently pushed", count: `${shown.length} of ${all.length}`, teaser: true };
         }
         const shown = recent.filter(matches);
@@ -1824,8 +1833,9 @@
         if (view.shown.length === 0) {
           return `${head(view.title, view.count)}<div class="repo-empty"><strong>No repository matches “${escapeHtml(S.search.trim())}”.</strong><span>The search looks at every repository's name, owner and description.</span></div>${installLine}`;
         }
-        const foot = view.teaser ? `<div class="repo-foot">The five most recently pushed. Search to reach all ${view.all.length}. Missing one? <a href="#" data-action="install">Install the App on more repositories</a> ${ICON.external}</div>` : installLine;
-        return `${head(view.title, view.count)}<ul class="repo-rows" aria-label="Your GitHub repositories">${view.shown.map((r) => repositoryRow(r, view.query)).join("")}</ul>${foot}`;
+        const foot = view.teaser ? `<div class="repo-foot">The five most recently pushed that aren't Projects yet. Search to reach all ${view.all.length}. Missing one? <a href="#" data-action="install">Install the App on more repositories</a> ${ICON.external}</div>` : installLine;
+        const rows = view.shown.map((r, index) => `${r.project && !view.shown[index - 1]?.project ? '<li class="repo-group">Already added</li>' : ""}${repositoryRow(r, view.query)}`);
+        return `${head(view.title, view.count)}<ul class="repo-rows" aria-label="Your GitHub repositories">${rows.join("")}</ul>${foot}`;
       }
 
       function repositoryRow(r, query) {
@@ -2106,6 +2116,7 @@
             S.source = value;
             S.step = 1;
             S.folderProblem = "";
+            S.urlProblem = "";
             render();
             break;
           case "continue-folder":
@@ -2121,7 +2132,9 @@
             render();
             break;
           case "clone-url":
-            if (S.url.trim()) startClone("git-url");
+            S.urlProblem = S.url.trim() ? "" : "Write the repository's git URL.";
+            if (S.urlProblem) render();
+            else startClone("git-url");
             break;
           case "pick":
             startClone("github", value);
@@ -2164,8 +2177,13 @@
         if (!name) return;
         S[name] = event.target.value;
         if (name === "search") renderList();
+        if (name === "pipeline") $("[data-pipeline-stages]", host).textContent = PIPELINES.find(([id]) => id === S.pipeline)[2];
+        if (name === "baseBranch") $("[data-merge-into]", host).textContent = mergeTarget();
         if (name === "name" || name === "label") {
-          if (name === "label") S.label = event.target.value.toUpperCase().slice(0, 2);
+          if (name === "label") {
+            S.label = event.target.value.toUpperCase().slice(0, 2);
+            event.target.value = S.label;
+          }
           const label = S.label || markLabelFor(S.name);
           const tile = $("[data-mark-tile]", host);
           if (tile) tile.textContent = label;
