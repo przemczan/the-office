@@ -150,6 +150,14 @@ describe("definitionOfDoneFact", () => {
 });
 
 describe("attachmentsOfThisRound", () => {
+  const GATE_REACHED: StageRun["outcome"] = {
+    status: "done",
+    summary: "The Task reached the Gate and waited for the user.",
+    skipped: false,
+    definitionOfDoneMet: null,
+    pullRequestUrl: null,
+    handoverNote: null,
+  };
   const gate: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
   const stages: TaskStage[] = [
     {
@@ -163,12 +171,14 @@ describe("attachmentsOfThisRound", () => {
           startedAt: "2026-11-04T10:00:00.000Z",
           endedAt: "2026-11-04T11:00:00.000Z",
           gateAction: { kind: "continue" },
+          outcome: GATE_REACHED,
         } as StageRun,
         {
           number: 3,
           startedAt: "2026-11-04T11:45:00.000Z",
           endedAt: "2026-11-04T11:45:00.100Z",
           gateAction: null,
+          outcome: GATE_REACHED,
         } as StageRun,
       ],
     },

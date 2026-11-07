@@ -2054,7 +2054,6 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
 });
 
 const GATE_FEEDBACK = "Call the button Save, as the rest of the settings do.";
-/** A 1×1 PNG. */
 /** In every address a design tries to reach, so a request that left it can be told. */
 const FROM_THE_DESIGN = "from-the-design";
 
@@ -2113,6 +2112,7 @@ async function screenshotInEveryPalette(page: Page, name: string): Promise<void>
   }
 }
 
+/** A 1×1 PNG. */
 const A_SCREENSHOT = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",

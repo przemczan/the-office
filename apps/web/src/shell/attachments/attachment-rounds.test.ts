@@ -163,21 +163,36 @@ describe("attachmentRounds", () => {
   });
 });
 
+const GATE_REACHED = {
+  status: "done",
+  summary: "The Task reached the Gate and waited for the user.",
+  skipped: false,
+  definitionOfDoneMet: null,
+  pullRequestUrl: null,
+  handoverNote: null,
+} satisfies StageRun["outcome"];
+
 function namesOf(attachments: readonly Attachment[]): string[] {
   return attachments.map(({ name }) => name);
 }
 
+/** A Gate's run the Task waited at. */
+function aGateRun(
+  number: number,
+  startedAt: string,
+  endedAt: string,
+  gateAction: StageRun["gateAction"] = null,
+): StageRun {
+  return { ...aRun(startedAt, endedAt, gateAction), number, outcome: GATE_REACHED };
+}
+
 describe("attachmentsOfGateRun", () => {
   const workStart = aRun("2026-11-04T09:00:00.000Z", "2026-11-04T09:30:00.000Z");
-  const firstRun = {
-    ...aRun("2026-11-04T10:00:00.000Z", "2026-11-04T11:00:00.000Z", { kind: "continue" }),
-    number: 2,
-  };
+  const firstRun = aGateRun(2, "2026-11-04T10:00:00.000Z", "2026-11-04T11:00:00.000Z", {
+    kind: "continue",
+  });
   // As every Gate's run, it ended on reaching the Gate, and goes on waiting for the user.
-  const secondRun = {
-    ...aRun("2026-11-04T12:00:00.000Z", "2026-11-04T12:00:00.100Z"),
-    number: 4,
-  };
+  const secondRun = aGateRun(4, "2026-11-04T12:00:00.000Z", "2026-11-04T12:00:00.100Z");
   const stages = [stageWith(implement, [workStart]), stageWith(look, [firstRun, secondRun])];
 
   it("gives a first run everything added until it ended, from before the work started too", () => {
@@ -214,10 +229,9 @@ describe("attachmentsOfGateRun", () => {
 
   it("skips what another Gate's earlier run showed, and only an earlier one's", () => {
     const secondGate: Stage = { ...look, key: "sign-off", name: "Sign-off" };
-    const signOff = {
-      ...aRun("2026-11-04T11:30:00.000Z", "2026-11-04T11:40:00.000Z", { kind: "continue" }),
-      number: 3,
-    };
+    const signOff = aGateRun(3, "2026-11-04T11:30:00.000Z", "2026-11-04T11:40:00.000Z", {
+      kind: "continue",
+    });
     const twoGates = [...stages, stageWith(secondGate, [signOff])];
     const attachments = [
       anImage("the first Gate's", "2026-11-04T10:30:00.000Z"),
@@ -242,6 +256,37 @@ describe("attachmentsOfGateRun", () => {
       "during the work",
     ]);
   });
+
+  it.each([
+    ["skipped", { ...GATE_REACHED, skipped: true }],
+    [
+      "never started",
+      {
+        status: "failed",
+        error: "Restarted.",
+        budgetReached: null,
+        interrupted: null,
+        handoverNote: null,
+      },
+    ],
+  ] satisfies [string, StageRun["outcome"]][])(
+    "leaves a %s Gate's run empty, and what it would have shown to the next one",
+    (_words, outcome) => {
+      const notShown = {
+        ...aRun("2026-11-04T11:30:00.000Z", "2026-11-04T11:30:00.000Z"),
+        number: 3,
+        outcome,
+      };
+      const secondGate: Stage = { ...look, key: "sign-off", name: "Sign-off" };
+      const twoGates = [...stages, stageWith(secondGate, [notShown])];
+      const attachments = [anImage("between the two", "2026-11-04T11:20:00.000Z")];
+
+      expect(attachmentsOfGateRun(attachments, twoGates, notShown)).toEqual([]);
+      expect(namesOf(attachmentsOfGateRun(attachments, twoGates, secondRun))).toEqual([
+        "between the two",
+      ]);
+    },
+  );
 
   it("keeps adding to a run while it waits, in the order they were added", () => {
     const attachments = [

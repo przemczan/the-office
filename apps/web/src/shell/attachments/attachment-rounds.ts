@@ -60,8 +60,9 @@ export function attachmentRounds(
 export function attachmentsOfGateRun(
   attachments: readonly Attachment[],
   taskStages: readonly TaskStage[],
-  run: Pick<StageRun, "number" | "endedAt" | "gateAction">,
+  run: Pick<StageRun, "number" | "endedAt" | "gateAction" | "outcome">,
 ): Attachment[] {
+  if (!waitedForTheUser(run)) return [];
   const shownUntil = endOfEarlierGateRuns(taskStages, run.number);
   const until =
     run.gateAction === null || run.endedAt === null ? Infinity : Date.parse(run.endedAt);
@@ -73,8 +74,13 @@ export function attachmentsOfGateRun(
     .toSorted((a, b) => Date.parse(a.addedAt) - Date.parse(b.addedAt));
 }
 
+/** Whether the Task waited at a Gate's run: one skipped, or never started, showed the user nothing. */
+function waitedForTheUser({ outcome }: Pick<StageRun, "outcome">): boolean {
+  return outcome?.status === "done" && !outcome.skipped;
+}
+
 /**
- * When the last Gate run before `runNumber` ended, in milliseconds since the epoch; a run's number
+ * When the last Gate run the Task waited at before `runNumber` ended, in milliseconds since the epoch; a run's number
  * counts across all the Task's Stages. Each run shows everything up to its end, so nothing before
  * that time is left to show.
  */
@@ -82,6 +88,7 @@ function endOfEarlierGateRuns(taskStages: readonly TaskStage[], runNumber: numbe
   const ends = taskStages
     .filter(({ stage }) => stage.kind === "gate")
     .flatMap(({ runs }) => runs)
+    .filter(waitedForTheUser)
     .flatMap(({ number, endedAt }) =>
       number < runNumber && endedAt !== null ? [Date.parse(endedAt)] : [],
     );
