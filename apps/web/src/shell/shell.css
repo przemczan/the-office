@@ -1205,7 +1205,9 @@ a.person-tag:hover .person-tag-name {
   color: var(--fg-3);
 }
 
+/* The ring pulses on transform and opacity alone, which run without repainting what it sits on. */
 .live-dot {
+  position: relative;
   display: inline-block;
   width: 7px;
   height: 7px;
@@ -1213,25 +1215,38 @@ a.person-tag:hover .person-tag-name {
   border-radius: 50%;
   background: var(--info);
   vertical-align: 1px;
+}
+
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--info);
+  opacity: 0;
+  pointer-events: none;
   animation: pulse-dot 1.6s var(--ease-out) infinite;
 }
 
 @keyframes pulse-dot {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--info) 55%, transparent);
+    opacity: 0.55;
+    transform: scale(1);
   }
 
   70% {
-    box-shadow: 0 0 0 7px transparent;
+    opacity: 0;
+    transform: scale(3);
   }
 
   100% {
-    box-shadow: 0 0 0 0 transparent;
+    opacity: 0;
+    transform: scale(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .live-dot {
+  .live-dot::after {
     animation: none;
   }
 }

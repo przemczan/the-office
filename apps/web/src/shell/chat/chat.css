@@ -240,23 +240,37 @@
   background: var(--accent);
 }
 
+/* As the live dot: a ring on transform and opacity alone, so nothing repaints on every frame. */
 .chat-dot.answering {
+  position: relative;
   background: var(--success);
+}
+
+.chat-dot.answering::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--success);
+  opacity: 0;
+  pointer-events: none;
   animation: chat-live 1.4s ease-in-out infinite;
 }
 
 @keyframes chat-live {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 55%, transparent);
+    opacity: 0.55;
+    transform: scale(1);
   }
   60% {
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--success) 0%, transparent);
+    opacity: 0;
+    transform: scale(2);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-dot.answering {
+  .chat-dot.answering::after {
     animation: none;
   }
 }
@@ -292,6 +306,7 @@
 .chat-mark .chat-dot.answering {
   top: auto;
   bottom: -3px;
+  box-shadow: none;
 }
 
 /* ---- the Thread list */

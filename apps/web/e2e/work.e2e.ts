@@ -117,6 +117,20 @@ async function moveThreadTo(
   expect(renamed.ok()).toBe(true);
 }
 
+/** What the page's CSS animations move, sorted: anything but transform and opacity repaints each frame. */
+function animatedProperties(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const notProperties = new Set(["offset", "computedOffset", "easing", "composite"]);
+    const properties = document
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSAnimation)
+      .flatMap((animation) => (animation.effect as KeyframeEffect).getKeyframes())
+      .flatMap((keyframe) => Object.keys(keyframe))
+      .filter((property) => !notProperties.has(property));
+    return [...new Set(properties)].toSorted();
+  });
+}
+
 /** An element's words, its height, and how far they run past it. Runs in the browser. */
 function sizeOf(shown: Element): {
   words: string | null;
@@ -472,6 +486,13 @@ test("a card shows who is working as they start and stop, and stays one link tha
   // The Thread's events refresh the mark on the open board, with no reload.
   await moveThreadTo(page, workingThread, "answering", "Started");
   await expect(mark).toBeVisible();
+
+  // The live dot pulses without repainting the board on every frame, and not at all on reduced motion.
+  expect(await animatedProperties(page)).toEqual(["opacity", "transform"]);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await animatedProperties(page)).toEqual([]);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+
   await mark.hover();
   await expect(page.getByRole("tooltip")).toHaveText(words);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-working-mark.png") });

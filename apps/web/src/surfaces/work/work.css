@@ -170,7 +170,9 @@
   color: var(--fg-3);
 }
 
+/* Positioned, so the live dot's ring pulses under the avatars. */
 .working-mark-avatars {
+  position: relative;
   display: inline-flex;
 }
 

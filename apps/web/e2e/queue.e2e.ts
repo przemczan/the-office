@@ -463,6 +463,10 @@ async function boxesOf(lines: Locator): Promise<{ top: number; bottom: number }[
   return boxes.map((box) => ({ top: box!.y, bottom: box!.y + box!.height }));
 }
 
+function overlapWords(title: string): string {
+  return `Overlap: “${title}” is in progress and expects to change some of the same files.`;
+}
+
 test("the notes above a Ready Task each take a line of their own, in order, under the buttons, and a queued Task's place and reasons join them there", async ({
   page,
 }) => {
@@ -470,8 +474,6 @@ test("the notes above a Ready Task each take a line of their own, in order, unde
   const ahead = await readyTask(page, project, "Notes ahead in the queue");
   const task = await readyTask(page, project, "Notes under the buttons");
   const LONG_TITLE = "Rework how the sign-in remembers the page it came from ".repeat(6).trim();
-  const overlapWords = (title: string) =>
-    `Overlap: “${title}” is in progress and expects to change some of the same files.`;
   // The check as the service gives it; the Tasks it names need no walk to be said.
   let check: StartCheck = {
     refusals: [],
