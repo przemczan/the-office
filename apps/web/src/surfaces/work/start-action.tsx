@@ -4,7 +4,14 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Overlap, OverlapChoice, StartAnswer, StartCheck, Task } from "@the-office/contracts";
+import type {
+  Overlap,
+  OverlapChoice,
+  QueuedTask,
+  StartAnswer,
+  StartCheck,
+  Task,
+} from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startTask, taskQueries } from "../../api/work.ts";
@@ -12,32 +19,46 @@ import { useToast } from "../../shell/toasts.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
 
+interface StartStanding {
+  readonly ready: boolean;
+  readonly check: StartCheck | undefined;
+  readonly queued: QueuedTask | undefined;
+  readonly refused: boolean;
+  readonly blockers: StartCheck["blockers"];
+  readonly overlaps: readonly Overlap[];
+}
+
 /**
- * Start on a Ready Task (prototypes/app/task.js): disabled with the reasons while a vacant Role
- * refuses it; while only a limit holds it, Start says the Task joins the queue (spec §2.1, "A queue
- * for Start"). An Overlap with a Task in progress in the Project names it, and Start becomes
- * "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A blocked Task can't start
- * anyway, so "Queue behind it" is all it offers, behind any Overlap too; a refusal outranks both. A
- * queued Task shows its place, reasons and the queue's actions. Beside Start, the Task's Usage
- * estimate.
+ * Where the Task stands for Start, which the buttons and the notes both follow: a refusal outranks
+ * its blockers and Overlaps.
+ */
+function useStartStanding(task: Task): StartStanding {
+  const ready = task.state === "ready";
+  const check = useQuery({ ...taskQueries.startCheck(task.id), enabled: ready }).data;
+  const queued = useQueued(task.id);
+  const refused = (check?.refusals.length ?? 0) > 0;
+  return {
+    ready,
+    check,
+    queued,
+    refused,
+    blockers: refused ? [] : (check?.blockers ?? []),
+    overlaps: refused ? [] : (check?.overlaps ?? []),
+  };
+}
+
+/**
+ * Start on a Ready Task (prototypes/app/task.js): disabled while a vacant Role refuses it. An
+ * Overlap with a Task in progress in the Project makes Start "Start anyway" or "Queue behind it"
+ * (spec §2.1, "Overlaps at Start"). A blocked Task can't start anyway, so "Queue behind it" is all
+ * it offers, behind any Overlap too. A queued Task has the queue's actions instead. What each of
+ * these says is in `StartNotes`.
  */
 export function StartButton({ task }: { readonly task: Task }): ReactNode {
-  const ready = task.state === "ready";
-  const check = useQuery({ ...taskQueries.startCheck(task.id), enabled: ready });
-  const queued = useQueued(task.id);
+  const { ready, check, queued, refused, blockers, overlaps } = useStartStanding(task);
   const starting = useStarting();
   if (!ready) return null;
-  if (queued) {
-    return (
-      <>
-        <QueuedMark queued={queued} />
-        <QueueActions queued={queued} />
-      </>
-    );
-  }
-  const refused = (check.data?.refusals.length ?? 0) > 0;
-  const blockers = refused ? [] : (check.data?.blockers ?? []);
-  const overlaps = refused ? [] : (check.data?.overlaps ?? []);
+  if (queued) return <QueueActions queued={queued} />;
   const startWith = (onOverlap: OverlapChoice | undefined) => starting.mutate({ task, onOverlap });
   const loadingFor = (onOverlap: OverlapChoice | undefined) =>
     starting.isPending && starting.variables.onOverlap === onOverlap;
@@ -46,8 +67,6 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
     const behind = new Set([...blockers, ...overlaps].map(({ taskId }) => taskId));
     return (
       <>
-        {overlaps.length > 0 && <OverlapNote overlaps={overlaps} />}
-        {check.data && <StartNote check={check.data} />}
         {blockers.length === 0 && (
           <Button
             variant="primary"
@@ -72,57 +91,77 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
     );
   }
   return (
-    <>
-      {check.data && <StartNote check={check.data} />}
-      <Button
-        variant="primary"
-        iconLeft={<Icon name="play" size={14} />}
-        disabled={!check.data || refused}
-        loading={starting.isPending}
-        onClick={() => startWith(undefined)}
-      >
-        Start
-      </Button>
-    </>
-  );
-}
-
-/** Each Task in progress in the Project expecting to change some of the same files. */
-function OverlapNote({ overlaps }: { readonly overlaps: readonly Overlap[] }): ReactNode {
-  return (
-    <span className="task-head-note" role="note" aria-label="Overlap">
-      <Icon name="files" size={14} />
-      <span>
-        {overlaps.map(({ taskId, title }) => (
-          <span key={taskId}>
-            Overlap: &ldquo;{title}&rdquo; is in progress and expects to change some of the same
-            files.{" "}
-          </span>
-        ))}
-      </span>
-    </span>
+    <Button
+      variant="primary"
+      iconLeft={<Icon name="play" size={14} />}
+      disabled={!check || refused}
+      loading={starting.isPending}
+      onClick={() => startWith(undefined)}
+    >
+      Start
+    </Button>
   );
 }
 
 /**
- * What Start would do with the Task now: what stops it, else the waits it would queue behind (a
- * cap's in the service's words), then its Usage estimate.
+ * What the Task head says about Start, a line each, nothing with none to say: the Overlaps, what
+ * Start would do (spec §2.1, "A queue for Start"), then the Usage estimate; or, for a queued Task,
+ * its place and reasons.
  */
-function StartNote({ check }: { readonly check: StartCheck }): ReactNode {
+export function StartNotes({ task }: { readonly task: Task }): ReactNode {
+  const { ready, check, queued, overlaps } = useStartStanding(task);
+  if (!ready) return null;
+  if (queued) {
+    return (
+      <div className="task-head-notes">
+        <QueuedMark queued={queued} />
+      </div>
+    );
+  }
+  if (!check || !hasNote(check, overlaps)) return null;
   return (
-    <>
+    <div className="task-head-notes">
+      {overlaps.length > 0 && <OverlapNote overlaps={overlaps} />}
       <HeldNote check={check} />
       <UsageEstimateLine estimate={check.usageEstimate} />
-    </>
+    </div>
   );
 }
 
+function hasNote(check: StartCheck, overlaps: readonly Overlap[]): boolean {
+  return (
+    overlaps.length > 0 ||
+    check.refusals.length > 0 ||
+    check.blockers.length > 0 ||
+    check.waits.length > 0 ||
+    check.usageEstimate !== null
+  );
+}
+
+/** Each Task in progress in the Project expecting to change some of the same files, a line each. */
+function OverlapNote({ overlaps }: { readonly overlaps: readonly Overlap[] }): ReactNode {
+  return (
+    <div className="task-head-overlaps" role="note" aria-label="Overlap">
+      {overlaps.map(({ taskId, title }) => (
+        <span key={taskId} className="task-head-note">
+          <Icon name="files" size={14} />
+          <span>
+            Overlap: &ldquo;{title}&rdquo; is in progress and expects to change some of the same
+            files.
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** What stops Start, else the waits it would queue behind (a cap's in the service's words). */
 function HeldNote({ check }: { readonly check: StartCheck }): ReactNode {
   if (check.refusals.length > 0 || check.blockers.length > 0) {
     return (
       <span className="task-head-note">
         <Icon name="lock" size={14} />
-        {[...check.refusals, ...check.waits].join(" ")}
+        <span>{[...check.refusals, ...check.waits].join(" ")}</span>
       </span>
     );
   }
@@ -130,7 +169,7 @@ function HeldNote({ check }: { readonly check: StartCheck }): ReactNode {
   return (
     <span className="task-head-note">
       <Icon name="clock" size={14} />
-      Start joins the queue: {check.waits.join(" ")}
+      <span>Start joins the queue: {check.waits.join(" ")}</span>
     </span>
   );
 }

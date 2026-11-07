@@ -309,7 +309,7 @@ test("Start says when it only queues the Task, and what holds it", async ({ page
   await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
 });
 
-test("a Ready Task's Usage estimate shows on its card, beside Start, under the rail and on Now when queued, with where it came from and a cap's wait in the service's words", async ({
+test("a Ready Task's Usage estimate shows on its card, in the Task head's notes, under the rail and on Now when queued, with where it came from and a cap's wait in the service's words", async ({
   page,
 }) => {
   const project = await addedProject(page, "Queue estimates", "QE");
@@ -375,7 +375,7 @@ test("a Ready Task's Usage estimate shows on its card, beside Start, under the r
   await expect(queuedOnNow.getByRole("note", { name: "Usage estimate" })).toHaveText(PLANNER_WORDS);
 
   await page.goto(`/tasks/${learned.id}`);
-  // Beside Start and in the card's place under the rail.
+  // In the Task head's notes and in the card's place under the rail.
   await expect(page.getByRole("note", { name: "Usage estimate" })).toHaveText([
     HISTORY_WORDS,
     HISTORY_WORDS,
@@ -455,6 +455,100 @@ test("Start says one sentence for each Task in progress it overlaps", async ({ p
   await queryOfficeDatabase(`update tasks set state = 'dropped' where id = any($1)`, [
     [signIn.id, signOut.id],
   ]);
+});
+
+/** Each line's top and bottom, read after the words have settled. */
+async function boxesOf(lines: Locator): Promise<{ top: number; bottom: number }[]> {
+  const boxes = await Promise.all((await lines.all()).map((line) => line.boundingBox()));
+  return boxes.map((box) => ({ top: box!.y, bottom: box!.y + box!.height }));
+}
+
+test("the notes above a Ready Task each take a line of their own, in order, under the buttons, and a queued Task's place and reasons join them there", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue notes", "QN");
+  const ahead = await readyTask(page, project, "Notes ahead in the queue");
+  const task = await readyTask(page, project, "Notes under the buttons");
+  const LONG_TITLE = "Rework how the sign-in remembers the page it came from ".repeat(6).trim();
+  const overlapWords = (title: string) =>
+    `Overlap: “${title}” is in progress and expects to change some of the same files.`;
+  // The check as the service gives it; the Tasks it names need no walk to be said.
+  let check: StartCheck = {
+    refusals: [],
+    waits: [ONLY_DESK],
+    blockers: [],
+    overlaps: [
+      { taskId: crypto.randomUUID(), title: "Rework the sign-out" },
+      { taskId: crypto.randomUUID(), title: LONG_TITLE },
+    ],
+    usageEstimate: {
+      basis: { source: "history", tasks: 4 },
+      engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
+    },
+  };
+  await page.route(`**/api/tasks/${task.id}/start`, (route) => route.fulfill({ json: check }));
+
+  await page.goto(`/tasks/${task.id}`);
+  const notes = page.locator(".task-head-notes");
+  const lines = notes.locator(".task-head-note, .usage-estimate, .queued-mark");
+  await expect(lines).toHaveText([
+    overlapWords("Rework the sign-out"),
+    overlapWords(LONG_TITLE),
+    `Start joins the queue: ${ONLY_DESK}`,
+    "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.",
+  ]);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-notes.png") });
+
+  const actions = page.locator(".task-head-actions");
+  await expect(actions).not.toContainText("Overlap");
+  const startAnyway = await actions.getByRole("button", { name: "Start anyway" }).boundingBox();
+  const queueBehind = await actions
+    .getByRole("button", { name: "Queue behind them" })
+    .boundingBox();
+  expect(startAnyway!.y).toBe(queueBehind!.y);
+
+  const boxes = await boxesOf(lines);
+  expect(boxes[0]!.top).toBeGreaterThanOrEqual(startAnyway!.y + startAnyway!.height);
+  for (const [index, box] of boxes.slice(1).entries()) {
+    expect(box.top).toBeGreaterThanOrEqual(boxes[index]!.bottom);
+  }
+
+  // The long line wraps in the block's full width, its text after the icon, as a short line's is.
+  const block = await notes.boundingBox();
+  const [short, long] = await Promise.all(
+    [0, 1].map((line) => lines.nth(line).locator("span").boundingBox()),
+  );
+  expect(long!.height).toBeGreaterThan(short!.height);
+  expect(long!.x).toBe(short!.x);
+  expect(long!.x + long!.width).toBeGreaterThan(block!.x + block!.width * 0.9);
+
+  const looks = await lines.evaluateAll((shown) =>
+    shown.map((line) => {
+      const { fontSize, color } = getComputedStyle(line);
+      return `${fontSize} ${color}`;
+    }),
+  );
+  expect(new Set(looks).size).toBe(1);
+
+  // A note-less Task's head keeps no block to leave a gap.
+  check = { ...check, waits: [], overlaps: [], usageEstimate: null };
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
+  await expect(notes).toHaveCount(0);
+
+  await queued(ahead);
+  await queued(task);
+  await page.reload();
+  await expect(lines).toHaveText([`QueuedPlace 2 · ${ONLY_DESK}`]);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-queued.png") });
+  const moveUp = actions.getByRole("button", { name: "Move up" });
+  const takeOut = actions.getByRole("button", { name: "Take out of the queue" });
+  await expect(moveUp).toBeVisible();
+  await expect(takeOut).toBeVisible();
+  const takeOutBox = await takeOut.boundingBox();
+  expect((await moveUp.boundingBox())!.y).toBe(takeOutBox!.y);
+  const [queuedLine] = await boxesOf(lines);
+  expect(queuedLine!.top).toBeGreaterThanOrEqual(takeOutBox!.y + takeOutBox!.height);
 });
 
 test("a blocked Task offers only the queue, shows its blocker as the reason, and starts by itself once the blocker ends", async ({

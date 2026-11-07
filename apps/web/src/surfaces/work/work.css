@@ -2274,7 +2274,7 @@
 }
 
 /* ---- planning: the head's actions, what the Planner proposes, and the user's own version */
-/* Wraps, as a long note beside the actions would otherwise push them out of the window. */
+/* Wraps, as the actions would otherwise run out of a narrow window. */
 .task-head-actions {
   display: flex;
   flex: 0 1 auto;
@@ -2285,11 +2285,42 @@
   padding-top: 18px;
 }
 
-.task-head-note {
-  display: inline-flex;
-  align-items: center;
+/* A row of the head to itself, under the title and the actions: a line per note. */
+.task-head-notes {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.task-head-overlaps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The estimate and the Queued mark too, so all the lines read alike here and only here; a line that
+   wraps stays after its icon. */
+.task-head-note,
+.task-head-notes .usage-estimate,
+.task-head-notes .queued-mark {
+  display: flex;
+  align-items: flex-start;
   gap: 6px;
+  font: var(--type-caption);
   color: var(--fg-3);
+}
+
+.task-head-notes .queued-mark > :first-child {
+  flex: none;
+}
+
+/* One width, as the estimate's own icon is smaller, so the words of every line start together. */
+.task-head-notes svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
 }
 
 .queued-mark {

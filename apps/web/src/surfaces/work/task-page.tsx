@@ -24,7 +24,7 @@ import { PullRequestButton } from "./pull-request-button.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "../../shell/work/record-tab.ts";
 import { RunControls } from "./run-controls.tsx";
 import { useStageHistory } from "./use-stage-history.ts";
-import { StartButton } from "./start-action.tsx";
+import { StartButton, StartNotes } from "./start-action.tsx";
 import { ChangesTab } from "./task-changes.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
@@ -173,6 +173,7 @@ function TaskHead({
         <PullRequestButton taskStages={taskStages?.stages} />
         <TaskMenu task={task} />
       </div>
+      <StartNotes task={task} />
     </header>
   );
 }
