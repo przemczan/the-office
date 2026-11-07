@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import path from "node:path";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   engineSettingsSchema,
   nowSchema,
@@ -19,6 +20,7 @@ import { createTemporaryRepository, type TemporaryRepository } from "./temporary
 // Runs alone, after every other file (playwright.config.ts): the queue is the Office's one, so the
 // Tasks seeded into it here would otherwise start or leave at another file's release.
 
+const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
 const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
 const CAP_WAIT =
   "The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task. It resets at 12:00.";
@@ -98,6 +100,16 @@ async function queued(task: Task, reason = ONLY_DESK): Promise<void> {
   );
 }
 
+function column(page: Page, name: string): Locator {
+  return page.getByRole("region", { name, exact: true });
+}
+
+/** Only this Project's cards, whatever an earlier test left on the board. */
+async function showOnly(page: Page, project: Project): Promise<void> {
+  await page.getByRole("button", { name: /^Project filter:/ }).click();
+  await page.getByRole("button", { name: `Show only ${project.name}` }).click();
+}
+
 test("queued Tasks show their place and reason on the board, the Task page and Now; the user moves one up and takes one out", async ({
   page,
 }) => {
@@ -135,6 +147,128 @@ test("queued Tasks show their place and reason on the board, the Task page and N
   await expect(queue).toHaveCount(1);
   await expect(queue).toContainText(`Queued export as CSV`);
   await expect(queue).toContainText(`Place 1 · ${ONLY_DESK}`);
+});
+
+test("the Queued column holds queued Tasks by place, narrows with the filters, and its cards stay put; Ready keeps the rest", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue column", "QC");
+  const first = await readyTask(page, project, "Column export as CSV");
+  const second = await readyTask(page, project, "Column sync of the inbox");
+  const notQueued = await readyTask(page, project, "Column left to the user");
+  // High, so only the queue's places can put it second.
+  await queryOfficeDatabase(`update tasks set priority = 'high' where id = $1`, [second.id]);
+  await queued(first);
+  await queued(second);
+
+  await page.goto("/work");
+  await showOnly(page, project);
+  const ready = column(page, "Ready");
+  const queuedColumn = column(page, "Queued");
+  await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 2");
+  await expect(queuedColumn).toContainText("They start by themselves when their turn comes");
+  await expect(ready).toContainText("Starting is your call");
+  await expect(queuedColumn.getByRole("article")).toHaveText([
+    new RegExp(`${first.title}.*Place 1 · ${ONLY_DESK}`),
+    new RegExp(`${second.title}.*Place 2 · ${ONLY_DESK}`),
+  ]);
+  await expect(ready.getByRole("article")).toHaveText([new RegExp(notQueued.title)]);
+  const left = taskSchema.parse(await (await page.request.get(`/api/tasks/${first.id}`)).json());
+  expect(left.state).toBe("ready");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-queued.png") });
+
+  // A queued card's order is the queue's, and Start is what queues a Task.
+  const firstCard = queuedColumn.getByRole("article", { name: first.title });
+  await expect(firstCard).toHaveAttribute("draggable", "false");
+  await ready.getByRole("article", { name: notQueued.title }).dragTo(firstCard);
+  await expect(
+    page.getByText("A Task changes state through its actions: Plan, Mark Ready, Start."),
+  ).toBeVisible();
+  await expect(ready.getByRole("article", { name: notQueued.title })).toBeVisible();
+
+  const movedUp = await page.request.post(`/api/queue/${second.id}/move-up`);
+  expect(movedUp.ok()).toBe(true);
+  await expect(queuedColumn.getByRole("article")).toHaveText([
+    new RegExp(`${second.title}.*Place 1`),
+    new RegExp(`${first.title}.*Place 2`),
+  ]);
+
+  expect((await page.request.delete(`/api/queue/${second.id}`)).ok()).toBe(true);
+  await expect(queuedColumn.getByRole("article")).toHaveCount(1);
+  await expect(ready.getByRole("article", { name: second.title })).toBeVisible();
+  await expect(ready.getByRole("article", { name: second.title })).toHaveAttribute(
+    "draggable",
+    "true",
+  );
+  await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 1");
+
+  await queued(second);
+  await page.goto("/work?query=inbox");
+  await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 1");
+  await expect(queuedColumn.getByRole("article")).toHaveText([new RegExp(second.title)]);
+  await page.goto("/work?priority=high");
+  await expect(queuedColumn.getByRole("article")).toHaveText([new RegExp(second.title)]);
+});
+
+test("a Task moves from Ready to Queued as it is queued and to In progress as the queue starts it, with no reload", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue moves", "QM");
+  const blocker = await readyTask(page, project, "Moves write the schema");
+  const task = await readyTask(page, project, "Moves export the schema");
+  await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+    data: { blockerId: blocker.id },
+  });
+
+  await page.goto("/work");
+  await showOnly(page, project);
+  const card = (name: string) => column(page, name).getByRole("article", { name: task.title });
+  // Blocked and not queued yet, it still waits for the user.
+  await expect(card("Ready")).toContainText(`Blocked by ${blocker.title}`);
+
+  const start = await page.request.post(`/api/tasks/${task.id}/start`, { data: {} });
+  expect(start.ok()).toBe(true);
+  await expect(card("Queued")).toContainText("Place");
+  await expect(card("Ready")).toBeHidden();
+
+  expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).ok()).toBe(true);
+  await expect(card("In progress")).toBeVisible();
+  await expect(card("Queued")).toBeHidden();
+
+  // Its walk has no more to prove here.
+  await page.request.post(`/api/tasks/${task.id}/drop`);
+});
+
+test("the six columns scroll sideways inside the board when they don't fit, none cut off", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.goto("/work");
+  const board = page.locator(".board");
+  const columns = board.getByRole("region");
+  await expect(columns).toHaveCount(6);
+
+  const sizes = await board.evaluate((shown) => ({
+    scrollable: shown.scrollWidth - shown.clientWidth,
+    page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }));
+  expect(sizes.scrollable).toBeGreaterThan(0);
+  expect(sizes.page).toBe(0);
+
+  // Sideways only: a column with many cards is taller than the window, which the page scrolls.
+  const shownArea = await board.boundingBox();
+  expect(shownArea).not.toBeNull();
+  const { x: boardLeft, width: boardWidth } = shownArea!;
+  expect(boardLeft + boardWidth).toBeLessThanOrEqual(1100);
+  for (const shown of await columns.all()) {
+    await shown.evaluate((element) =>
+      element.scrollIntoView({ inline: "nearest", block: "nearest" }),
+    );
+    const { x: left, width } = (await shown.boundingBox())!;
+    expect(width).toBeGreaterThanOrEqual(220);
+    expect(left).toBeGreaterThanOrEqual(boardLeft);
+    expect(left + width).toBeLessThanOrEqual(boardLeft + boardWidth);
+  }
 });
 
 test("Start says when it only queues the Task, and what holds it", async ({ page }) => {

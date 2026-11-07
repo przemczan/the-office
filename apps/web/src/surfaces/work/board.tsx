@@ -14,6 +14,7 @@ import { UsageEstimateLine, useUsageEstimate } from "../../shell/work/usage-esti
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { cardsIn, COLUMNS, queuedEntryOf, type Column } from "./board-columns.ts";
 import { isOnBoard } from "./board-filters.ts";
 import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
@@ -23,32 +24,6 @@ import { QueuedMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters } from "./use-board-filters.ts";
 import { usePeopleWorking, WorkingMark } from "./working-mark.tsx";
-
-interface Column {
-  readonly key: string;
-  readonly label: string;
-  readonly states: readonly TaskState[];
-  readonly hint: (planner: string) => string;
-}
-
-/** Waiting on you and Paused are In progress's side states; Dropped ends a Task like Done. */
-const COLUMNS: readonly Column[] = [
-  { key: "backlog", label: "Backlog", states: ["backlog"], hint: () => "Not planned yet" },
-  {
-    key: "planning",
-    label: "Planning",
-    states: ["planning"],
-    hint: (planner) => `Plan and Definition of Done with ${planner}`,
-  },
-  { key: "ready", label: "Ready", states: ["ready"], hint: () => "Starting is your call" },
-  {
-    key: "in-progress",
-    label: "In progress",
-    states: ["in-progress", "waiting-on-you", "paused"],
-    hint: () => "Agents work its Pipeline",
-  },
-  { key: "done", label: "Done", states: ["done", "dropped"], hint: () => "Done and dropped" },
-];
 
 const EDGES: Partial<Record<TaskState, string>> = {
   "in-progress": "edge-running",
@@ -62,12 +37,13 @@ const EDGES: Partial<Record<TaskState, string>> = {
 type DropTarget = { readonly before: string } | { readonly endOf: string };
 
 /**
- * The Tasks of the Projects the Project filter shows, by state, each column by priority then manual order (the service's order).
+ * The Tasks of the Projects the Project filter shows, by column (`board-columns.ts`).
  * A card that hasn't started drags within its column; dropped among another priority, it takes it.
+ * A queued card doesn't drag: its order is the queue's.
  */
 export function Board(): ReactNode {
   const tasks = useQuery(taskQueries.list());
-  const queue = useQuery(taskQueries.queue()).data;
+  const queue = useQuery(taskQueries.queue()).data ?? [];
   const projects = useQuery(projectQueries.list());
   const initiatives = useQuery(initiativeQueries.list());
   const { filters, change: changeFilters, shows } = useBoardFilters(tasks.data ?? []);
@@ -85,7 +61,7 @@ export function Board(): ReactNode {
   const peopleWorkingOn = usePeopleWorking();
 
   const cardsOf = (column: Column): Task[] =>
-    matching.filter((task) => column.states.includes(task.state) && inProjectFilter(task));
+    cardsIn(column, matching.filter(inProjectFilter), queue);
 
   const drop = (column: Column, event: DragEvent): void => {
     event.preventDefault();
@@ -93,7 +69,7 @@ export function Board(): ReactNode {
     setDragged(undefined);
     setTarget(undefined);
     if (!task || !tasks.data) return;
-    if (!column.states.includes(task.state)) {
+    if (!column.holds(task, queue)) {
       showToast("A Task changes state through its actions: Plan, Mark Ready, Start.");
       return;
     }
@@ -144,7 +120,7 @@ export function Board(): ReactNode {
                     projects={projects.data}
                     planner={planner}
                     waiting={waitingOnYou(task)}
-                    queued={queue?.find(({ taskId }) => taskId === task.id)}
+                    queued={queuedEntryOf(task, queue)}
                     blockers={blockingTasksOf(task, tasks.data ?? [])}
                     peopleWorking={peopleWorkingOn(task.id)}
                     dragging={dragged?.id === task.id}
@@ -167,7 +143,7 @@ export function Board(): ReactNode {
       <p className="board-note">
         <Icon name="grip-vertical" size={13} />
         Drag a card that has not started to reorder it within its column; dropping it among another
-        priority takes that priority.
+        priority takes that priority. Queued cards keep their place in the queue.
       </p>
     </>
   );
@@ -204,7 +180,7 @@ function BoardCard({
   readonly onDragEnd: () => void;
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);
-  const movable = NOT_STARTED.includes(task.state);
+  const movable = NOT_STARTED.includes(task.state) && !queued;
   const foot = queued ? <QueuedMark queued={queued} /> : footOf(task, planner, waiting);
   // Only Ready Tasks, queued ones too, have one.
   const usageEstimate = useUsageEstimate(task.id);

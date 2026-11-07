@@ -34,7 +34,7 @@
 /* ---- the board: a column per state, cards by priority then manual order */
 .board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  grid-template-columns: repeat(6, minmax(220px, 1fr));
   gap: var(--gap-card);
   align-items: start;
   overflow-x: auto;

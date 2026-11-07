@@ -283,14 +283,24 @@ describe("MessageList with Details off", () => {
     expect(working.querySelector(".message-answering")?.textContent).toContain("Read");
   });
 
-  it("shows the whole command beside is working", () => {
+  it("folds the command beside is working to one line, opening to it whole", () => {
     const working = shownLog([{ ...toolCall, summary: LONG_COMMAND }], {
       details: false,
       answering: true,
     });
-    expect(working.querySelector(".message-answering .message-summary")?.textContent).toBe(
-      LONG_COMMAND,
+    const fold = working.querySelector<HTMLDetailsElement>(".message-answering details");
+    expect(fold?.open).toBe(false);
+    expect(fold?.querySelector("summary .tool-call-latest")?.textContent).toBe(
+      `Read ${LONG_COMMAND}`,
     );
+    expect(fold?.querySelector(".tool-call-count")).toBeNull();
+    expect(fold?.querySelector("li .message-summary")?.textContent).toBe(LONG_COMMAND);
+  });
+
+  it("has nothing to open for a tool call with no command", () => {
+    const working = shownLog([{ ...toolCall, summary: "" }], { details: false, answering: true });
+    expect(working.querySelector(".message-answering details")).toBeNull();
+    expect(working.querySelector(".message-answering .message-tool")?.textContent).toBe("Read");
   });
 
   it("leaves the tool line to the log with Details on", () => {

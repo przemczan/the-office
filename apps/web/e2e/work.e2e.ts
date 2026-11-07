@@ -72,7 +72,7 @@ async function seedThread(
   taskId: string,
   title: string,
   messages: readonly Record<string, unknown>[],
-): Promise<void> {
+): Promise<string> {
   const threadId = crypto.randomUUID();
   await queryOfficeDatabase(
     `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
@@ -85,7 +85,14 @@ async function seedThread(
       [crypto.randomUUID(), threadId, { roleKey: "planner", ...message }],
     );
   }
+  return threadId;
 }
+
+/** Messages enough for a Thread's list to scroll. */
+const SCROLLING_MESSAGES = Array.from({ length: 20 }, () => ({
+  kind: "person",
+  text: "Enough words to take a line or two in the column, as a real log would read.",
+}));
 
 /** A Thread of the person's on the Task, waiting. */
 async function seedWaitingThread(taskId: string, roleKey: string): Promise<string> {
@@ -194,15 +201,14 @@ test("a tool call's command shows whole in a narrow window, and only a very long
   const severalLines = "git status\ngit log --oneline -5";
   const veryLong = Array.from({ length: 80 }, (_, line) => `echo line ${line}`).join("\n");
   const unbroken = `npx vitest run ${"apps/service/src/a.test.ts,".repeat(12)}`;
-  await seedThread(
-    task.id,
-    "Commands",
-    [severalLines, veryLong, unbroken].map((summary) => ({
+  await seedThread(task.id, "Commands", [
+    ...SCROLLING_MESSAGES,
+    ...[severalLines, unbroken, veryLong].map((summary) => ({
       kind: "tool-activity",
       tool: "Bash",
       summary,
     })),
-  );
+  ]);
   await page.setViewportSize({ width: 380, height: 800 });
   await page.goto(`/tasks/${task.id}`);
   const handle = page.getByRole("button", { name: /^Conversation/ });
@@ -214,13 +220,13 @@ test("a tool call's command shows whole in a narrow window, and only a very long
   await conversation.getByText("3 tool calls").click();
   const commands = conversation.locator(".tool-calls .message-summary");
   await expect(commands).toHaveCount(3);
-  const [lines, scrolling, wrapped] = await Promise.all(
+  const [lines, wrapped, scrolling] = await Promise.all(
     (await commands.all()).map((command) => command.evaluate(sizeOf)),
   );
-  expect([lines?.words, scrolling?.words, wrapped?.words]).toEqual([
+  expect([lines?.words, wrapped?.words, scrolling?.words]).toEqual([
     severalLines,
-    veryLong,
     unbroken,
+    veryLong,
   ]);
   expect(lines?.overflow).toEqual({ across: 0, down: 0 });
   expect(wrapped?.overflow).toEqual({ across: 0, down: 0 });
@@ -231,20 +237,96 @@ test("a tool call's command shows whole in a narrow window, and only a very long
   await commands.last().scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-whole-commands.png") });
 
-  // With Details off the latest command shows beside "is working", wrapped just the same.
+  // With Details off the latest command folds to one row beside "is working", and opens to it whole.
   await queryOfficeDatabase(`update threads set state = 'answering' where home_id = $1`, [task.id]);
   try {
     await page.reload();
     await handle.click();
     await details.click();
-    const working = conversation.locator(".message-answering .message-summary");
-    const beside = await working.evaluate(sizeOf);
-    expect(beside.words).toBe(unbroken);
-    expect(beside.overflow).toEqual({ across: 0, down: 0 });
-    expect(beside.height).toBeGreaterThan(lines?.height ?? Infinity);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-whole-command-working.png") });
+    const working = conversation.locator(".message-answering");
+    const fold = working.locator("details");
+    const closedLine = await fold.locator(".tool-call-latest").evaluate(sizeOf);
+    const closedRow = await working.evaluate(sizeOf);
+    expect(closedLine.overflow.across).toBeGreaterThan(0);
+    expect(closedLine.overflow.down).toBe(0);
+    expect(closedRow.overflow).toEqual({ across: 0, down: 0 });
+    expect(closedRow.height).toBeLessThan(2 * closedLine.height);
+    await expect(fold.locator(".message-summary")).toBeHidden();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-working-closed.png") });
+
+    const pageScroller = page.locator(".shell-main");
+    const pageTop = await pageScroller.evaluate((view) => view.scrollTop);
+    await fold.locator("summary").click();
+    const whole = fold.locator(".message-summary");
+    await expect(whole).toBeInViewport({ ratio: 1 });
+    const opened = await whole.evaluate(sizeOf);
+    expect(opened.words).toBe(veryLong);
+    expect(opened.overflow.across).toBe(0);
+    expect(opened.height).toBe(320);
+    expect(await pageScroller.evaluate((view) => view.scrollTop)).toBe(pageTop);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-working-open.png") });
   } finally {
     await queryOfficeDatabase(`update threads set state = 'waiting' where home_id = $1`, [task.id]);
+  }
+});
+
+test("a tool call opened at the end of a Stage's Thread comes into view, the page around it still", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Working fold", "WF");
+  const task = await createdTask(page, project, "A Task on a long command");
+  const command = Array.from({ length: 12 }, (_, line) => `echo line ${line}`).join("\n");
+  const threadId = await seedThread(task.id, "Long command", [
+    ...SCROLLING_MESSAGES,
+    { kind: "tool-activity", tool: "Bash", summary: command },
+  ]);
+  const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  const stages: TaskStages = {
+    stages: [
+      {
+        stage: {
+          kind: "agent",
+          key: "implement",
+          name: "Implement",
+          optional: false,
+          role: "planner",
+          brief: "Do it.",
+          session: "fresh",
+          budget: 100_000,
+        },
+        state: "running",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [{ ...aStageRun(1, at(0), null), threadId, session: "fresh" }],
+      },
+    ],
+    editedForTask: false,
+    lockedStages: 1,
+    testResults: [],
+    definitionOfDoneMet: [],
+  };
+  await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+  await queryOfficeDatabase(`update threads set state = 'answering' where id = $1`, [threadId]);
+  try {
+    await page.goto(`/tasks/${task.id}`);
+    await page
+      .getByRole("region", { name: /^Pipeline · / })
+      .getByRole("button", { name: "Implement", exact: true })
+      .click();
+    const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+    await history.getByRole("tab", { name: "Thread" }).click();
+
+    const fold = history.locator(".message-answering details");
+    const pageScroller = page.locator(".shell-main");
+    const pageTop = await pageScroller.evaluate((view) => view.scrollTop);
+    await fold.locator("summary").click();
+    const whole = fold.locator(".message-summary");
+    await expect(whole).toBeInViewport({ ratio: 1 });
+    expect(await whole.textContent()).toBe(command);
+    expect(await pageScroller.evaluate((view) => view.scrollTop)).toBe(pageTop);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-stage-thread-working-open.png") });
+  } finally {
+    await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [threadId]);
   }
 });
 

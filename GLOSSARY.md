@@ -103,7 +103,7 @@ The top bar's choice of which Projects every surface shows; Office-wide numbers,
 _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 
 **Queue**:
-The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do.
+The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
 _Avoid_: Backlog (a Task state), waiting list, pending
 
 **Overlap**:
