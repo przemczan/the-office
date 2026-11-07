@@ -1,5 +1,14 @@
 /** The input fields that say what a tool call is about, in the order they are looked for. */
-const SUBJECT_FIELDS = ["file_path", "pattern", "command", "url", "query", "path", "description"];
+const SUBJECT_FIELDS = [
+  "file_path",
+  "filePath",
+  "pattern",
+  "command",
+  "url",
+  "query",
+  "path",
+  "description",
+];
 
 /**
  * What a tool call read, ran or looked up, whole and with its line breaks, for the Thread's log; a

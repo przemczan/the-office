@@ -32,7 +32,7 @@ Measured on 2026-11-07 on the Office's own machine, through the pinned engine.
 
 - **TypeScript:** the first answer in a the-office worktree takes about 14 s, while `tsserver` loads the project. `useSyntaxServer: "never"` makes it wait for that: its syntax server would answer at once, stopping a definition at the import line. Writes nothing into the folder.
 - **C and C++:** answers in about 2 s. `--background-index=false` keeps `.cache/clangd` out of the folder, so it knows the files open and what they include, and finds no definition across translation units without a `compile_commands.json`.
-- **Kotlin:** imports the Gradle project first, running its build scripts, and until that ends, about a minute on a small sample, it answers "No definition found" where it knows better; hover answers sooner. So retry after a first empty answer.
+- **Kotlin:** imports the Gradle project first, running its build scripts, and until that ends, about a minute on a small sample, it answers "No definition found" where it knows better; hover answers sooner. So retry after a first empty answer. At this version `kotlin-lsp.sh` warns that it is deprecated in favour of `bin/intellij-server`, so a version change should try that launcher.
 
 ## What to watch
 
