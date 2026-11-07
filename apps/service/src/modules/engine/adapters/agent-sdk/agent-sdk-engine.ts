@@ -27,6 +27,7 @@ import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
+import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import type { SessionHolds } from "../office-rules/tool-decision.js";
@@ -51,6 +52,7 @@ export class AgentSdkEngine extends AgentEngine {
     contextUsage: true,
     officeTools: true,
     outputSchema: true,
+    languageServers: true,
   };
 
   private readonly operatingSystem = currentOperatingSystem();
@@ -91,6 +93,11 @@ export class AgentSdkEngine extends AgentEngine {
       skills: options.skills,
       paths: this.operatingSystem.paths,
     };
+    const languageServerPlugin = await writeLanguageServerPlugin(
+      this.officeData.folder("sessions"),
+      id,
+      options.languageServers,
+    );
     const mcpConfig = sdkMcpConfig(options);
     const mcpConfigFile =
       mcpConfig === undefined
@@ -110,6 +117,7 @@ export class AgentSdkEngine extends AgentEngine {
             options,
             configFolder,
             mcpConfigFile: mcpConfigFile?.path,
+            languageServerPlugin,
             agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
             ...hooks,
           }),

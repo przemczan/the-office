@@ -1,5 +1,8 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { access, constants } from "node:fs/promises";
+import { join } from "node:path";
 import spawn from "cross-spawn";
+import type { OperatingSystem } from "./operating-system.js";
 import type { ProcessTrees } from "./process-trees.js";
 
 /** A program a user named by its command, such as a local MCP server's `npx`, to start without a shell. */
@@ -29,4 +32,31 @@ export function startProgram(
     detached: processTrees.detached,
     windowsHide: true,
   }) as ChildProcessWithoutNullStreams;
+}
+
+/**
+ * Whether `environment`'s PATH finds `command` as a shell would: on Windows under each of its
+ * PATHEXT endings too, as `npx` is `npx.cmd`.
+ */
+export async function isOnPath(
+  command: string,
+  environment: Readonly<Record<string, string>>,
+  { paths, sameVariableName }: Pick<OperatingSystem, "paths" | "sameVariableName">,
+): Promise<boolean> {
+  const variable = (name: string): string =>
+    Object.entries(environment).find(([given]) => sameVariableName(given, name))?.[1] ?? "";
+  const folders = variable("PATH").split(paths.pathListSeparator).filter(Boolean);
+  const endings = ["", ...variable("PATHEXT").split(";").filter(Boolean)];
+  const candidates = folders.flatMap((folder) =>
+    endings.map((ending) => join(folder, `${command}${ending}`)),
+  );
+  const runnable = await Promise.all(candidates.map(canRun));
+  return runnable.includes(true);
+}
+
+function canRun(file: string): Promise<boolean> {
+  return access(file, constants.X_OK).then(
+    () => true,
+    () => false,
+  );
 }

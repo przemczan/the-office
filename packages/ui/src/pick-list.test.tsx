@@ -37,7 +37,7 @@ describe("PickList", () => {
           foot={<button type="button">Duplicate</button>}
           note="Each engine is one account."
         >
-          <PickListItem picked={false} name="Claude Code" line="Signed in" onPick={vi.fn()} />
+          <PickListItem picked={false} name="Claude Code" line="Signed in" onPick={vi.fn<() => void>()} />
         </PickList>,
       ),
     );
@@ -63,7 +63,7 @@ describe("PickList", () => {
     act(() =>
       root.render(
         <PickList name="Engines" count={2}>
-          <PickListItem picked name="Claude Code" line="Signed in" onPick={vi.fn()} />
+          <PickListItem picked name="Claude Code" line="Signed in" onPick={vi.fn<() => void>()} />
           <PickListItem picked={false} name="Local LLM" line="3 models" onPick={onPick} />
         </PickList>,
       ),
@@ -86,7 +86,7 @@ describe("PickList", () => {
             picked
             name="Full"
             line="6 Stages"
-            link={(parts) => <a href="/settings/pipelines/full" {...parts} />}
+            renderLink={(parts) => <a href="/settings/pipelines/full" {...parts} />}
           />
         </PickList>,
       ),
@@ -111,7 +111,7 @@ describe("PickList", () => {
             line="Signed out"
             aside={<span>Office default</span>}
             warning="It has no folder to sign in yet"
-            onPick={vi.fn()}
+            onPick={vi.fn<() => void>()}
           />
         </PickList>,
       ),

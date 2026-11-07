@@ -112,7 +112,7 @@
 - `path-rules.ts`: PathRules, PathEntry, PathLimits, pathLengthProblem
 - `process-trees.fixtures.ts`: isRunning, processMark, isMarkedRunning, commandLinesHolding
 - `process-trees.ts`: ProcessTrees
-- `program.ts`: Program, startProgram
+- `program.ts`: Program, startProgram, isOnPath
 - `shell.ts`: AgentShell, ShellProgram, AgentShellProgram, Shell, ShellInvocation, FailedShellCommand
 - `windows.ts`: windows, programOf, programCandidates
 - Tests: current-operating-system.test.ts, linux-processes.test.ts, linux.test.ts, move-when-free.test.ts, program.test.ts, windows.test.ts

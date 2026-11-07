@@ -5,6 +5,7 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
 import { BusyWork } from "../../office-updates/index.js";
 import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
+import { withLeftOutLanguageServers } from "../domain/language-servers.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
@@ -27,6 +28,10 @@ import {
   type SessionEvent,
   type TokenUsage,
 } from "../ports/session-events.js";
+import {
+  SessionLanguageServers,
+  type PreparedLanguageServers,
+} from "../ports/session-language-servers.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import { AgentEngines } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
@@ -41,7 +46,7 @@ import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.
  * What a caller runs a session with: the engine by its id and the model by its id there, which a
  * resume names again, as a session lives in one engine; the Office tools by name, from the registry.
  */
-export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine"> &
+export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine" | "languageServers"> &
   EngineModel & {
     readonly officeTools: readonly string[];
     /** What the caller tags the session's engine calls with, beside the engine's own attributes. */
@@ -52,6 +57,8 @@ export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine"> &
      */
     readonly turnLabel: string;
   };
+
+const NO_LANGUAGE_SERVERS: PreparedLanguageServers = { servers: [], leftOut: [] };
 
 export interface SessionStart {
   /** Chosen by the caller, as for the port: what is named after the session exists before it starts. */
@@ -86,6 +93,7 @@ export class EngineSessions {
     private readonly engineModels: EngineModels,
     private readonly running: RunningEngineSessions,
     private readonly busyWork: BusyWork,
+    private readonly languageServers: SessionLanguageServers,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
@@ -107,12 +115,19 @@ export class EngineSessions {
     return this.counted(settings.engineId, async (ended) => {
       const listed = await this.listed(settings.engineId);
       const engine = this.engines.of(listed);
-      const options = this.optionsOf(listed, settings);
+      const { servers, leftOut } = engine.capabilities.languageServers
+        ? await this.languageServers.prepare(id, settings.environment)
+        : NO_LANGUAGE_SERVERS;
+      const options = this.optionsOf(listed, settings, servers);
       this.costs.started(id);
       const spans = this.spansOf(id, options, settings);
       spans.messageSent(brief.id);
       return this.watch(id, listed, settings, spans, ended, () =>
-        engine.start({ id, options, brief }),
+        engine.start({
+          id,
+          options,
+          brief: { ...brief, text: withLeftOutLanguageServers(brief.text, leftOut) },
+        }),
       );
     });
   }
@@ -125,7 +140,10 @@ export class EngineSessions {
     return this.counted(settings.engineId, async (ended) => {
       const listed = await this.listed(settings.engineId);
       const engine = this.engines.of(listed);
-      const options = this.optionsOf(listed, settings);
+      const servers = engine.capabilities.languageServers
+        ? await this.languageServers.recorded(sessionId)
+        : [];
+      const options = this.optionsOf(listed, settings, servers);
       const spans = this.spansOf(sessionId, options, settings);
       return this.watch(sessionId, listed, settings, spans, ended, () =>
         engine.resume(sessionId, options),
@@ -168,8 +186,14 @@ export class EngineSessions {
       turnLabel: _turnLabel,
       ...settings
     }: SessionSettings,
+    languageServers: SessionOptions["languageServers"],
   ): SessionOptions {
-    return { ...settings, engine, officeTools: this.officeTools.named(settings.officeTools) };
+    return {
+      ...settings,
+      engine,
+      officeTools: this.officeTools.named(settings.officeTools),
+      languageServers,
+    };
   }
 
   private spansOf(

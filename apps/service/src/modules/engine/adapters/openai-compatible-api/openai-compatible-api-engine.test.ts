@@ -213,6 +213,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       profile: READ_ONLY,
       officeTools: [],
       mcpServers: [],
+      languageServers: [],
       outputSchema: undefined,
       ...changes,
     };
@@ -230,6 +231,15 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     session = started;
     return untilTurnEnds(started.events[Symbol.asyncIterator]());
   }
+
+  it("declares it has no language servers, and offers no LSP tool", async () => {
+    fake.script(textReply(["Noted."]));
+
+    await oneTurn();
+
+    expect(OPENAI_COMPATIBLE_API_CAPABILITIES.languageServers).toBe(false);
+    expect(lastRequestBody().tools.map((tool) => tool.function.name)).not.toContain("LSP");
+  });
 
   it("streams the reply, reports it whole, sends the system prompt and the tools, and counts the turn's tokens", async () => {
     fake.script(textReply(["Hello", " there."], { prompt: 300, completion: 4, cached: 100 }));

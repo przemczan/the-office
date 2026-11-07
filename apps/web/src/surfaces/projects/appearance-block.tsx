@@ -21,7 +21,10 @@ export function AppearanceBlock({ project }: { readonly project: Project }): Rea
   return (
     <div className="appearance">
       <div className="appearance-preview">
-        <AppearancePreview project={{ ...project, mark: draft ?? project.mark }} unsaved={changed} />
+        <AppearancePreview
+          project={{ ...project, mark: draft ?? project.mark }}
+          unsaved={changed}
+        />
       </div>
       <div className="appearance-edit">
         <MarkCard project={project} draft={draft} changed={changed} onDraft={setDraft} />

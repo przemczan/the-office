@@ -3,6 +3,7 @@ import { autoMemoryCheck } from "./auto-memory.ts";
 import { decisionWaitCheck } from "./decision-wait.ts";
 import { interruptCheck } from "./interrupt.ts";
 import { leanOptionsCheck } from "./lean-options.ts";
+import { lspToolCheck } from "./lsp-tool.ts";
 import { priorityLaterCheck, priorityNextCheck, priorityNowCheck } from "./message-priority.ts";
 import { officeToolCheck } from "./office-tool.ts";
 import { parallelSessionsCheck } from "./parallel-sessions.ts";
@@ -24,4 +25,5 @@ export const engineChecks: readonly Check[] = [
   leanOptionsCheck,
   autoMemoryCheck,
   turnUsageCheck,
+  lspToolCheck,
 ];

@@ -58,6 +58,7 @@ const MISSING_CAPABILITY_WORDS: Readonly<Record<EngineCapability, string>> = {
   contextUsage: "It can't tell how full its context is, so the Context policy can't weigh it.",
   officeTools: "It can't use Office tools.",
   outputSchema: "It can't hold a Stage's answer to a schema.",
+  languageServers: "It has no LSP tool, so its Agents get no language servers.",
 };
 
 /** The words for what an engine can't do; undefined when it can do everything. */

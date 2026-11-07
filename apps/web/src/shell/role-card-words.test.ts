@@ -51,6 +51,9 @@ describe("the Role card's words", () => {
     expect(missingCapabilitiesWords(["usageWindows"])).toBe(
       "It has no usage windows, so the 5-hour window doesn't count it.",
     );
+    expect(missingCapabilitiesWords(["languageServers"])).toBe(
+      "It has no LSP tool, so its Agents get no language servers.",
+    );
     expect(missingCapabilitiesWords([])).toBeUndefined();
   });
 

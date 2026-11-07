@@ -24,6 +24,7 @@ const OPTIONS: SessionOptions = {
   profile: { edit: true, run: { kind: "anything" }, web: true, mcpTools: {} },
   officeTools: [],
   mcpServers: [],
+  languageServers: [],
   instructions: "",
   outputSchema: undefined,
 };
@@ -73,6 +74,7 @@ function argumentsFor(session: Partial<ClaudeCodePSession> = {}): string[] {
     hookUrl: HOOK_URL,
     instructionsFile: undefined,
     mcpConfigFile: undefined,
+    languageServerPlugin: undefined,
     ...session,
   });
 }
@@ -134,6 +136,19 @@ describe("claudeCodePArguments", () => {
 
     expect(flag(args, "plugin-dir")).toBeUndefined();
     expect(flag(args, "allowedTools")).toBeUndefined();
+  });
+
+  it("names the LSP tool, and its language servers' plugin beside the skills folder", () => {
+    const args = argumentsFor({
+      options: { ...OPTIONS, skills: SKILLS },
+      languageServerPlugin: "/data/sessions/s1/language-servers",
+    });
+
+    expect(flag(args, "tools")?.split(",")).toContain("LSP");
+    expect(args.filter((argument) => argument.startsWith("--plugin-dir="))).toEqual([
+      `--plugin-dir=${SKILLS.folder}`,
+      "--plugin-dir=/data/sessions/s1/language-servers",
+    ]);
   });
 
   it("gives the SDK adapter's settings, with a hook that asks the service and blocks when it can't", () => {

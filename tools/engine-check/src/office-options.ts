@@ -18,7 +18,8 @@ const BUILT_IN_PLUGINS = [
 
 /**
  * The built-in tools, named explicitly so both platforms get the same set (spec §5.4): the engine's
- * Linux default drops Grep and Glob for shell search. This is the Windows default of 2.1.310.
+ * Linux default drops Grep and Glob for shell search. This is the Windows default of 2.1.310, and
+ * LSP, which the engine drops from a session with no language server (`engine.lsp-tool`).
  */
 export const OFFICE_TOOLS = [
   "Bash",
@@ -32,6 +33,7 @@ export const OFFICE_TOOLS = [
   "Glob",
   "Grep",
   "ListAgents",
+  "LSP",
   "Monitor",
   "NotebookEdit",
   "PushNotification",
@@ -72,6 +74,8 @@ export interface SessionSpecBase<S extends RecordedSession> {
   readonly skills?: readonly SkillFixture[];
   /** The skills the session may run; defaults to `office:<name>` for each of `skills`. */
   readonly allowedSkills?: readonly string[];
+  /** Further plugin folders loaded beside the session plugin. */
+  readonly additionalPlugins?: readonly string[];
   /** Merged over the spec §5.4, §5.6 and §6 settings; `permissions` merges a level deeper. */
   readonly settings?: Settings;
   /** Decides a hook call; events without one are recorded and allowed to continue. */

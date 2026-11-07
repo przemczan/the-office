@@ -39,6 +39,8 @@ export interface ClaudeCodePSession {
   readonly instructionsFile: string | undefined;
   /** The file holding the session's MCP config (`claudeCodePMcpConfig`), when it has one. */
   readonly mcpConfigFile: string | undefined;
+  /** The plugin folder holding the session's language servers, when it has any. */
+  readonly languageServerPlugin: string | undefined;
 }
 
 /**
@@ -60,6 +62,9 @@ export function claudeCodePArguments(session: ClaudeCodePSession): string[] {
     "--setting-sources=project",
     // Ticket 22's public flag; the session folder holds skills only, so no plugin MCP server starts.
     ...(options.skills === undefined ? [] : [`--plugin-dir=${options.skills.folder}`]),
+    ...(session.languageServerPlugin === undefined
+      ? []
+      : [`--plugin-dir=${session.languageServerPlugin}`]),
     ...skillRules(options),
     `--settings=${JSON.stringify(withHook(session))}`,
     // One value: the flag takes several, and would read on into the next argument otherwise.

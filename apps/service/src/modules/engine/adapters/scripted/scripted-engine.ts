@@ -45,6 +45,7 @@ const EVERY_CAPABILITY: EngineCapabilities = {
   contextUsage: true,
   officeTools: true,
   outputSchema: true,
+  languageServers: true,
 };
 
 /** The caller did something other than what the script has next, or more than it has. */

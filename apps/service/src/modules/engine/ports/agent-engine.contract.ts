@@ -519,6 +519,7 @@ function defaultOptions(
     profile: READ_ONLY,
     officeTools: [],
     mcpServers: [],
+    languageServers: [],
     instructions: "",
     outputSchema: undefined,
   };

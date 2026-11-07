@@ -17,6 +17,8 @@ export interface ClaudeCodePOptions {
   readonly model: string;
   readonly tools: readonly string[];
   readonly pluginFolder: string;
+  /** Further plugin folders loaded beside the session plugin. */
+  readonly additionalPluginFolders?: readonly string[];
   /** `office:<name>` for each session skill, allowed by rule as the SDK's `skills` option does. */
   readonly allowedSkills: readonly string[];
   /** The settings of spec §5.4, §5.6 and §6, without hooks. */
@@ -46,6 +48,7 @@ export function claudeCodePArguments(options: ClaudeCodePOptions): string[] {
     "--setting-sources=project",
     // Ticket 22's public flag; the session folder holds skills only, so no plugin MCP server starts.
     `--plugin-dir=${options.pluginFolder}`,
+    ...(options.additionalPluginFolders ?? []).map((folder) => `--plugin-dir=${folder}`),
     ...(options.allowedSkills.length > 0
       ? [`--allowedTools=${options.allowedSkills.map((skill) => `Skill(${skill})`).join(",")}`]
       : []),

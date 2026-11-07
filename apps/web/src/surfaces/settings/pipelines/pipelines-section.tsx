@@ -144,7 +144,7 @@ function LibraryItem({
       name={name}
       line={stagesLine(pipeline)}
       warning={needsFixing ? "Needs fixing" : undefined}
-      link={(parts) => (
+      renderLink={(parts) => (
         <Link
           to="/settings/pipelines/$pipelineId"
           params={{ pipelineId: id }}

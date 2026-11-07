@@ -7,7 +7,8 @@ import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 
 /**
  * The engine's built-in tools besides the shells, named explicitly so both systems get the same
- * set (spec §5.4): the Linux default drops Grep and Glob. The Windows default of Claude Code 2.1.310.
+ * set (spec §5.4): the Linux default drops Grep and Glob. The Windows default of Claude Code 2.1.310,
+ * and LSP, which the engine drops from a session with no language server.
  */
 const BUILT_IN_TOOLS = [
   "CronCreate",
@@ -20,6 +21,7 @@ const BUILT_IN_TOOLS = [
   "Glob",
   "Grep",
   "ListAgents",
+  "LSP",
   "Monitor",
   "NotebookEdit",
   "PushNotification",

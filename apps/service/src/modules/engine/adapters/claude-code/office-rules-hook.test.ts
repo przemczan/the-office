@@ -38,6 +38,23 @@ const preToolUse = (tool_name: string, tool_input: unknown): HookInput =>
 
 const SIGNAL = { signal: new AbortController().signal };
 
+const readOnly = (): OfficeRules =>
+  new OfficeRules({
+    workingFolder: "/work/task-1",
+    readableFolders: [],
+    profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },
+    workstation: false,
+    secrets: SYSTEM.secretPaths,
+    officeFiles: [],
+    cloneFolders: [],
+    homeFolder: "/home/office",
+    environment: {},
+    paths: SYSTEM.paths,
+  });
+
+const lspCall = (filePath: string): HookInput =>
+  preToolUse("LSP", { operation: "hover", filePath, line: 1, character: 1 });
+
 describe("officeRulesHook", () => {
   it("allows what the Office rules allow, so nothing waits on a prompt", async () => {
     const hook = officeRulesHook(rules(), new ToolRefusals());
@@ -64,6 +81,27 @@ describe("officeRulesHook", () => {
       },
     });
     expect(refused).toHaveBeenCalledWith("c1", "Not allowed in this session: editing files.");
+  });
+
+  describe("an LSP call", () => {
+    it("runs in a read-only session on a file in its folder", async () => {
+      const hook = officeRulesHook(readOnly(), new ToolRefusals());
+
+      await expect(hook(lspCall("/work/task-1/src/a.ts"), "c1", SIGNAL)).resolves.toEqual({
+        hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" },
+      });
+    });
+
+    it("is refused outside the session's read area, and the refusal kept for the Thread log", async () => {
+      const refusals = new ToolRefusals();
+      const refused = vi.spyOn(refusals, "refusedByOfficeRules");
+      const hook = officeRulesHook(readOnly(), refusals);
+
+      await expect(hook(lspCall("/work/task-2/src/a.ts"), "c1", SIGNAL)).resolves.toMatchObject({
+        hookSpecificOutput: { permissionDecision: "deny" },
+      });
+      expect(refused).toHaveBeenCalledOnce();
+    });
   });
 
   it("judges each MCP tool by its setting, a call on approval by the session's approval hold", async () => {

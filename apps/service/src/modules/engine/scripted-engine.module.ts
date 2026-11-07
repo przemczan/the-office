@@ -2,6 +2,7 @@ import { BusyWorkModule } from "../office-updates/index.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ScriptedEngine } from "./adapters/scripted/scripted-engine.js";
+import { NoLanguageServers } from "./adapters/scripted/no-language-servers.js";
 import { PostgresDayUsage } from "./adapters/postgres/postgres-day-usage.js";
 import { PostgresUsageWindowSamples } from "./adapters/postgres/postgres-usage-window-samples.js";
 import { AgentEngines, type EngineAdapter } from "./application/agent-engines.js";
@@ -13,6 +14,7 @@ import { UsageWindowSamples } from "./application/usage-window-samples.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
 import { DayUsageRepository } from "./ports/day-usage-repository.js";
+import { SessionLanguageServers } from "./ports/session-language-servers.js";
 import { UsageWindowSampleRepository } from "./ports/usage-window-sample-repository.js";
 import { AgentEngine } from "./ports/agent-engine.js";
 
@@ -41,6 +43,7 @@ export class ScriptedEngineModule {
         { provide: UsageWindowSampleRepository, useClass: PostgresUsageWindowSamples },
         UsageWindowSamples,
         RemovedEngineUsage,
+        { provide: SessionLanguageServers, useClass: NoLanguageServers },
         EngineSessions,
       ],
       exports: [

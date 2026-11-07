@@ -32,6 +32,7 @@ const OPTIONS: SessionOptions = {
   profile: { edit: true, run: { kind: "anything" }, web: true, mcpTools: {} },
   officeTools: [],
   mcpServers: [],
+  languageServers: [],
   instructions: "",
   outputSchema: undefined,
 };
@@ -100,6 +101,7 @@ function optionsFor(session: Partial<SdkSession> = {}) {
     options: OPTIONS,
     configFolder: CONFIG_FOLDER,
     mcpConfigFile: undefined,
+    languageServerPlugin: undefined,
     agentShells: ["bash"],
     preToolUse: PRE_TOOL_USE,
     spawnProcess: () => {
@@ -193,6 +195,15 @@ describe("sdkOptions", () => {
 
     expect(options.resume).toBe("session-1");
     expect(options.sessionId).toBeUndefined();
+  });
+
+  it("gives every session the LSP tool and its language servers' plugin, skills or none", () => {
+    const options = optionsFor({ languageServerPlugin: "/data/sessions/s1/language-servers" });
+
+    expect(options.tools).toContain("LSP");
+    expect(options.plugins).toEqual([
+      { type: "local", path: "/data/sessions/s1/language-servers", skipMcpDiscovery: true },
+    ]);
   });
 
   it("loads the skills folder as a plugin, listing only its skills", () => {

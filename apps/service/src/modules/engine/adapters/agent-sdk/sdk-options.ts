@@ -27,6 +27,8 @@ export interface SdkSession {
   readonly configFolder: string;
   /** The file holding the session's MCP servers with their values, when it has any. */
   readonly mcpConfigFile: string | undefined;
+  /** The plugin folder holding the session's language servers, when it has any. */
+  readonly languageServerPlugin: string | undefined;
   /** The shells Agents run commands in on this system. */
   readonly agentShells: readonly AgentShell[];
   /** Decides every tool call by the Office rules. */
@@ -45,6 +47,7 @@ export function sdkOptions({
   options,
   configFolder,
   mcpConfigFile,
+  languageServerPlugin,
   agentShells,
   preToolUse,
   spawnProcess,
@@ -55,10 +58,9 @@ export function sdkOptions({
     effort: options.effort,
     tools: sessionTools(agentShells),
     settingSources: ["project"],
-    plugins:
-      options.skills === undefined
-        ? []
-        : [{ type: "local", path: options.skills.folder, skipMcpDiscovery: true }],
+    plugins: [options.skills?.folder, languageServerPlugin]
+      .filter((folder) => folder !== undefined)
+      .map((path) => ({ type: "local", path, skipMcpDiscovery: true })),
     // The session folder holds only the session's skills; the allowlist keeps the rest unlisted.
     skills: [...(options.skills?.names ?? [])],
     settings: sessionSettings(options),

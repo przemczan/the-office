@@ -17,6 +17,8 @@ export interface EngineCapabilities {
   readonly officeTools: boolean;
   /** A turn's output can be held to a JSON Schema. */
   readonly outputSchema: boolean;
+  /** Sessions have the LSP tool, on the workstation's language servers. */
+  readonly languageServers: boolean;
 }
 
 export type EngineCapability = keyof EngineCapabilities;

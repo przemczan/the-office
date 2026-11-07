@@ -11,6 +11,7 @@ import { z } from "zod";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
+import { NoLanguageServers } from "../adapters/scripted/no-language-servers.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
@@ -20,6 +21,8 @@ import {
   type ApiEngine,
   type ClaudeCodeEngine,
 } from "../domain/engines.js";
+import { LANGUAGE_SERVERS, type LanguageServer } from "../domain/language-servers.js";
+import type { PermissionProfile } from "../domain/permission-profile.js";
 import { EngineSettingsForTests } from "../ports/engine-settings-repository.fixtures.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
@@ -30,6 +33,10 @@ import {
   type EngineCapabilities,
   type NewSession,
 } from "../ports/agent-engine.js";
+import {
+  SessionLanguageServers,
+  type PreparedLanguageServers,
+} from "../ports/session-language-servers.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import { DayUsageForTests } from "../ports/day-usage-repository.fixtures.js";
 import { UsageWindowSamplesForTests } from "../ports/usage-window-sample-repository.fixtures.js";
@@ -136,17 +143,46 @@ const TWO_TURNS: SessionScript = [
 ];
 
 /** Sessions on the Agent SDK's stand-in, with no session for the fallback's. */
-function setUp(scripts: readonly SessionScript[], capabilities: Partial<EngineCapabilities> = {}) {
-  return setUpOn({
-    "agent-sdk": new ScriptedEngine(scripts, capabilities),
-    "claude-code-p": new ScriptedEngine([]),
-    "openai-compatible-api": new ScriptedEngine([]),
-  });
+function setUp(
+  scripts: readonly SessionScript[],
+  capabilities: Partial<EngineCapabilities> = {},
+  languageServers: SessionLanguageServers = new NoLanguageServers(),
+) {
+  return setUpOn(
+    {
+      "agent-sdk": new ScriptedEngine(scripts, capabilities),
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new ScriptedEngine([]),
+    },
+    undefined,
+    languageServers,
+  );
+}
+
+const [TYPESCRIPT, CLANGD, KOTLIN] = LANGUAGE_SERVERS as [
+  LanguageServer,
+  LanguageServer,
+  LanguageServer,
+];
+
+/** A workstation with TypeScript and C++, and no Kotlin. */
+class WorkstationWithoutKotlin extends SessionLanguageServers {
+  readonly prepared: string[] = [];
+
+  prepare(sessionId: string): Promise<PreparedLanguageServers> {
+    this.prepared.push(sessionId);
+    return Promise.resolve({ servers: [TYPESCRIPT, CLANGD], leftOut: [KOTLIN] });
+  }
+
+  recorded(): Promise<readonly LanguageServer[]> {
+    return Promise.resolve([TYPESCRIPT]);
+  }
 }
 
 function setUpOn(
   engines: Readonly<Record<EngineAdapter, ScriptedEngine>>,
   settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
+  languageServers: SessionLanguageServers = new NoLanguageServers(),
 ) {
   const spans = new InMemorySpanExporter();
   const tracerProvider = new TracerProvider({
@@ -177,6 +213,7 @@ function setUpOn(
     new EngineModels(settings),
     running,
     new BusyWork(new EventBus()),
+    languageServers,
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }
@@ -283,6 +320,90 @@ describe("EngineSessions", () => {
     const readings = published.filter((event) => event instanceof UsageWindowsRead);
     expect(readings).toHaveLength(1);
     expect(readings[0]?.readAt).toEqual(usageWindows.of(FIRST_CLAUDE_CODE_ENGINE.id)?.readAt);
+  });
+
+  describe("language servers", () => {
+    const FIRST_MESSAGE = { id: "brief", text: "Begin." };
+    const BRIEF_NAMING_KOTLIN =
+      "## Language servers left out\n\nThese language servers are not in this session, so the LSP tool doesn't answer for their files:\n\n- Kotlin: `kotlin-lsp` isn't installed\n\nBegin.";
+    const READ_ONLY_PROFILE: PermissionProfile = {
+      edit: false,
+      run: { kind: "read-only-git" },
+      web: true,
+      mcpTools: {},
+    };
+    const STAGE_PROFILE: PermissionProfile = {
+      edit: true,
+      run: { kind: "anything" },
+      web: true,
+      mcpTools: {},
+    };
+
+    it.each([
+      ["a Stage's", STAGE_PROFILE],
+      ["a read-only", READ_ONLY_PROFILE],
+    ] as const)("gives %s session the workstation's servers", async (_, profile) => {
+      const engine = new ScriptedEngine([
+        [{ step: "start", brief: { id: "brief", text: BRIEF_NAMING_KOTLIN } }, { step: "end" }],
+      ]);
+      const { sessions } = setUpOn(
+        { "agent-sdk": engine, "claude-code-p": engine, "openai-compatible-api": engine },
+        undefined,
+        new WorkstationWithoutKotlin(),
+      );
+
+      const session = await sessions.start({
+        id: "s1",
+        settings: { ...SETTINGS, profile },
+        brief: FIRST_MESSAGE,
+      });
+      await session.end();
+
+      expect(engine.sessions[0]?.options.languageServers).toEqual([TYPESCRIPT, CLANGD]);
+    });
+
+    it("starts a session whose server is missing, its brief naming the server", async () => {
+      const engine = new ScriptedEngine([
+        [{ step: "start", brief: { id: "brief", text: BRIEF_NAMING_KOTLIN } }, { step: "end" }],
+      ]);
+      const { sessions } = setUpOn(
+        { "agent-sdk": engine, "claude-code-p": engine, "openai-compatible-api": engine },
+        undefined,
+        new WorkstationWithoutKotlin(),
+      );
+
+      const session = await sessions.start({ id: "s1", settings: SETTINGS, brief: FIRST_MESSAGE });
+
+      await expect(session.end()).resolves.toBeUndefined();
+    });
+
+    it("resumes a session on the servers it started with", async () => {
+      const engine = new ScriptedEngine([RESUMED]);
+      const { sessions } = setUpOn(
+        { "agent-sdk": engine, "claude-code-p": engine, "openai-compatible-api": engine },
+        undefined,
+        new WorkstationWithoutKotlin(),
+      );
+
+      const session = await sessions.resume("s1", SETTINGS);
+      await session.end();
+
+      expect(engine.sessions[0]?.options.languageServers).toEqual([TYPESCRIPT]);
+    });
+
+    it("leaves an engine without the capability as it was: no server, its brief untouched", async () => {
+      const workstation = new WorkstationWithoutKotlin();
+      const { sessions } = setUp(
+        [[{ step: "start", brief: FIRST_MESSAGE }, { step: "end" }]],
+        { languageServers: false },
+        workstation,
+      );
+
+      const session = await sessions.start({ id: "s1", settings: SETTINGS, brief: FIRST_MESSAGE });
+      await session.end();
+
+      expect(workstation.prepared).toEqual([]);
+    });
   });
 
   it("refuses a session named an Office tool no module registered, before the engine starts it", async () => {
