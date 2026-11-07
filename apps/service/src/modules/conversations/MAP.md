@@ -157,7 +157,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `thread-runner.ts`: Answerer, ThreadRunner
 - `thread-service.ts`: InitiativeThreadOpening, TaskThreadStarting, ThreadService
 - `work-records.ts`: WorkRecordSource, WorkRecords
-- Tests: briefs.test.ts, consultations.test.ts, devops-proposals.test.ts, devops-skill-sources.test.ts, held-calls.test.ts, link-cards.test.ts, office-instructions-test-project-check.test.ts, office-instructions.test.ts, openai-compatible-api-test-project-check.test.ts, proposal-service.test.ts, session-memory.test.ts, stage-threads.test.ts, task-tokens.test.ts, thread-runner.test.ts
+- Tests: briefs.test.ts, consultations.test.ts, devops-proposals.test.ts, devops-skill-sources.test.ts, held-calls.test.ts, link-cards.test.ts, office-instructions.test.ts, openai-compatible-api-test-project-check.test.ts, proposal-service.test.ts, session-memory.test.ts, stage-threads.test.ts, task-tokens.test.ts, thread-runner.test.ts
 
 ### domain/
 

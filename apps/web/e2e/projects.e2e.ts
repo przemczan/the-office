@@ -911,8 +911,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         const button = page
           .getByRole("group", { name: "Logo" })
           .getByRole("button", { name: "Choose from repository" });
-        // Clear of the edge: scrolled only just into view, whole-pixel scrolling can leave the
-        // fractional height above it a fraction of a pixel past the fold.
+        // Centred, as scrollIntoViewIfNeeded leaves a button a fraction of a pixel past the edge.
         await button.evaluate((element) => element.scrollIntoView({ block: "center" }));
         await expect(button).toBeInViewport({ ratio: 1 });
         await expectAppearanceLaidOut(page, width);

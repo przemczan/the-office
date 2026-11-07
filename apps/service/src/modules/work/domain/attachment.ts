@@ -75,6 +75,7 @@ const MEDIA_TYPES_BY_EXTENSION: Readonly<Record<string, string>> = {
   csv: "text/csv",
   json: "application/json",
   html: "text/html",
+  htm: "text/html",
   pdf: "application/pdf",
   zip: "application/zip",
   png: "image/png",

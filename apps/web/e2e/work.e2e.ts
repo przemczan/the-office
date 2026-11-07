@@ -1739,6 +1739,14 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   };
   const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
   const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  const gateReached: StageRun["outcome"] = {
+    status: "done",
+    summary: "The Task reached the Gate and waited for the user.",
+    skipped: false,
+    definitionOfDoneMet: null,
+    pullRequestUrl: null,
+    handoverNote: null,
+  };
   const stages: TaskStages = {
     stages: [
       {
@@ -1754,12 +1762,15 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
         tokens: noTokens,
         wentBack: null,
         runs: [
-          aStageRun(2, sentBackAt, sentBackAt, {
-            kind: "send-back",
-            stageKey: "implement",
-            feedback: "Make the buttons bigger.",
-          }),
-          aStageRun(4, secondLook.addedAt, null),
+          {
+            ...aStageRun(2, sentBackAt, sentBackAt, {
+              kind: "send-back",
+              stageKey: "implement",
+              feedback: "Make the buttons bigger.",
+            }),
+            outcome: gateReached,
+          },
+          { ...aStageRun(4, secondLook.addedAt, null), outcome: gateReached },
         ],
       },
     ],
@@ -1776,7 +1787,7 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
     .getByRole("button", { name: "Show details" })
     .click();
   const gateWindow = page.getByRole("dialog", { name: /UI acceptance/ });
-  const gate = gateWindow.getByRole("region", { name: "Screenshots" });
+  const gate = gateWindow.getByRole("region", { name: "Attachments" });
   await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
   // The Attachment viewer is the one window that opens on another, and Esc closes it first.

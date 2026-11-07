@@ -52,31 +52,47 @@ export function attachmentRounds(
 }
 
 /**
- * What a Gate's run has to show: what was added after the Gate's previous run ended, or from the
- * start of the work for its first, until this run ended, or until now while it waits. A Gate's run
- * ends the moment the Task reaches it, so one that waits has ended too: what tells them apart is the
- * user's Gate action. That action can be Continue, which starts no round, so a Gate's runs don't
- * follow `attachmentRounds`.
+ * What a Gate's run has to show: what no earlier run of any Gate on the Task showed, up to the end
+ * of this run, or until now while it waits. A Gate's run ends the moment the Task reaches it, so one
+ * that waits has ended too: what tells them apart is the user's Gate action. That action can be
+ * Continue, which starts no round, so a Gate's runs don't follow `attachmentRounds`.
  */
 export function attachmentsOfGateRun(
   attachments: readonly Attachment[],
   taskStages: readonly TaskStage[],
-  gate: Pick<TaskStage, "runs">,
-  run: Pick<StageRun, "number" | "endedAt" | "gateAction">,
+  run: Pick<StageRun, "number" | "endedAt" | "gateAction" | "outcome">,
 ): Attachment[] {
-  const previousEnds = gate.runs.flatMap(({ number, endedAt }) =>
-    number < run.number && endedAt !== null ? [Date.parse(endedAt)] : [],
-  );
-  const previousEnd = previousEnds.length > 0 ? Math.max(...previousEnds) : undefined;
-  const workStart = workStartOf(taskStages);
+  if (!waitedForTheUser(run)) return [];
+  const shownUntil = endOfEarlierGateRuns(taskStages, run.number);
   const until =
     run.gateAction === null || run.endedAt === null ? Infinity : Date.parse(run.endedAt);
   return attachments
     .filter(({ addedAt }) => {
       const time = Date.parse(addedAt);
-      return (previousEnd === undefined ? time >= workStart : time > previousEnd) && time <= until;
+      return time > shownUntil && time <= until;
     })
     .toSorted((a, b) => Date.parse(a.addedAt) - Date.parse(b.addedAt));
+}
+
+/** Whether the Task waited at a Gate's run: one skipped, or never started, showed the user nothing. */
+function waitedForTheUser({ outcome }: Pick<StageRun, "outcome">): boolean {
+  return outcome?.status === "done" && !outcome.skipped;
+}
+
+/**
+ * When the last Gate run the Task waited at before `runNumber` ended, in milliseconds since the epoch; a run's number
+ * counts across all the Task's Stages. Each run shows everything up to its end, so nothing before
+ * that time is left to show.
+ */
+function endOfEarlierGateRuns(taskStages: readonly TaskStage[], runNumber: number): number {
+  const ends = taskStages
+    .filter(({ stage }) => stage.kind === "gate")
+    .flatMap(({ runs }) => runs)
+    .filter(waitedForTheUser)
+    .flatMap(({ number, endedAt }) =>
+      number < runNumber && endedAt !== null ? [Date.parse(endedAt)] : [],
+    );
+  return Math.max(-Infinity, ...ends);
 }
 
 /** Attachments that have no rounds, as an Idea's or an Initiative's: all in one. */

@@ -92,6 +92,17 @@ describe("attach_file", () => {
     ]);
   });
 
+  it.each(["design.html", "design.htm"])("attaches %s as an HTML file", async (name) => {
+    await writeFile(join(worktree, name), "<h1>Design</h1>");
+
+    await call(ATTACH_FILE, { path: name });
+
+    const [attachment] = await work.app
+      .get(AttachmentService)
+      .listOf({ kind: "task", taskId: task.id });
+    expect(attachment).toMatchObject({ kind: "file", mediaType: "text/html" });
+  });
+
   it("attaches a screenshot as an image, by its extension", async () => {
     await writeFile(join(worktree, "home.png"), new Uint8Array([137, 80, 78, 71]));
 

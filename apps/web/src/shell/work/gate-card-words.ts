@@ -75,16 +75,13 @@ function testsWords(checks: readonly TestResult[]): string {
   return `tests ${testsFact(checks).toLowerCase()}`;
 }
 
-/** The pictures of the run the Gate waits in; its other Attachments stay in the tab. */
-export function picturesOfThisRound(
+/** The Attachments of the run the Gate waits in, of every kind. */
+export function attachmentsOfThisRound(
   attachments: readonly Attachment[],
   taskStages: readonly TaskStage[],
   { gate }: Pick<WaitingGate, "gate">,
 ): Attachment[] {
-  const gateStage = taskStages.find(({ stage }) => stage.key === gate.key);
-  const waitingRun = gateStage?.runs.at(-1);
-  if (gateStage === undefined || waitingRun?.gateAction !== null) return [];
-  return attachmentsOfGateRun(attachments, taskStages, gateStage, waitingRun).filter(
-    ({ kind }) => kind === "image",
-  );
+  const waitingRun = taskStages.find(({ stage }) => stage.key === gate.key)?.runs.at(-1);
+  if (waitingRun === undefined || waitingRun.gateAction !== null) return [];
+  return attachmentsOfGateRun(attachments, taskStages, waitingRun);
 }

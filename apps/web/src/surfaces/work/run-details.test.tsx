@@ -24,7 +24,14 @@ function aRun(fields: Pick<StageRun, "id" | "number" | "startedAt" | "endedAt">)
     sentBack: null,
     commandRuns: [],
     gateAction: null,
-    outcome: null,
+    outcome: {
+      status: "done",
+      summary: "The Task reached the Gate and waited for the user.",
+      skipped: false,
+      definitionOfDoneMet: null,
+      pullRequestUrl: null,
+      handoverNote: null,
+    },
     ...fields,
   };
 }

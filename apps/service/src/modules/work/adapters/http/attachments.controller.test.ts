@@ -174,15 +174,36 @@ describe("GET /api/attachments/:id/content", () => {
     expect(await documentResponse.text()).toBe("# Plan");
   });
 
+  it("serves an HTML file inline as HTML, sandboxed, under every way of writing its type", async () => {
+    const page = await uploadToTask("design.html", "text/html", "<h1>Design</h1>");
+    const withCharset = await uploadToTask("other.html", "Text/HTML; charset=utf-8", "<p>Hi</p>");
+
+    const response = await contentOf(page);
+
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("content-disposition")).toBe(
+      `inline; filename="design.html"; filename*=UTF-8''design.html`,
+    );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("content-security-policy")).toBe(
+      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'",
+    );
+    expect(await response.text()).toBe("<h1>Design</h1>");
+    expect((await contentOf(withCharset)).headers.get("content-type")).toBe(
+      "text/html; charset=utf-8",
+    );
+  });
+
   it("serves any other file as a download, with its name in full", async () => {
-    const file = await uploadToTask('Zażółć "raport".html', "text/html", "<script></script>");
+    const file = await uploadToTask('Zażółć "raport".zip', "application/zip", "zip bytes");
 
     const response = await contentOf(file);
 
     expect(response.headers.get("content-type")).toBe("application/octet-stream");
     expect(response.headers.get("content-disposition")).toBe(
-      `attachment; filename="Za____ _raport_.html"; filename*=UTF-8''Za%C5%BC%C3%B3%C5%82%C4%87%20%22raport%22.html`,
+      `attachment; filename="Za____ _raport_.zip"; filename*=UTF-8''Za%C5%BC%C3%B3%C5%82%C4%87%20%22raport%22.zip`,
     );
+    expect(response.headers.get("content-security-policy")).toBeNull();
   });
 
   it("refuses to serve a link, which opens at its address", async () => {
