@@ -25,6 +25,7 @@
   --accent:#F23D0F;--accent-subtle:#FFF2ED;--accent-subtle-fg:#9E2406;
   --info-subtle:#EEF3FD;--info-fg:#1D4699;--info-border:#DAE5FA;
   --danger:#C8102E;--danger-subtle:#FDEEF0;--danger-fg:#8E0B20;--danger-border:#FAD9DD;
+  --success-subtle:#EDF8F1;--success-fg:#106A3B;--success-border:#D5F0DF;
   --neutral-subtle:#F4F4F2;--neutral-fg:#6B6B66;
 }
 [data-palette="dark"]{
@@ -34,6 +35,7 @@
   --accent:#F23D0F;--accent-subtle:color-mix(in oklab,#F23D0F 16%,transparent);--accent-subtle-fg:#FF9D80;
   --info-subtle:color-mix(in oklab,#2F6BDB 18%,transparent);--info-fg:#93B5F5;--info-border:color-mix(in oklab,#2F6BDB 34%,transparent);
   --danger:#C8102E;--danger-subtle:color-mix(in oklab,#C8102E 20%,transparent);--danger-fg:#FF8A97;--danger-border:color-mix(in oklab,#C8102E 36%,transparent);
+  --success-subtle:color-mix(in oklab,#1E9E57 16%,transparent);--success-fg:#6FD69B;--success-border:color-mix(in oklab,#1E9E57 30%,transparent);
   --neutral-subtle:#262624;--neutral-fg:#9A9A94;
 }
 *{box-sizing:border-box}
@@ -85,6 +87,9 @@ button{font:inherit;color:inherit}
 .badge{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:var(--radius-sm);font:500 11px/1 var(--font-sans);background:var(--info-subtle);color:var(--info-fg);border:1px solid var(--info-border)}
 .badge.neutral{background:var(--neutral-subtle);color:var(--neutral-fg);border-color:var(--border)}
 .badge.accent{background:var(--accent-subtle);color:var(--accent-subtle-fg);border-color:transparent}
+.badge.success{gap:5px;background:var(--success-subtle);color:var(--success-fg);border-color:var(--success-border)}
+.badge.success i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.link{font:var(--type-label);color:var(--accent);text-decoration:underline;text-underline-offset:2px;align-self:flex-start;cursor:pointer}
 .mono{font:400 12.5px/1.5 var(--font-mono);color:var(--fg-2);padding:8px 10px;background:var(--surface-sunken);border-radius:var(--radius-md);overflow-wrap:anywhere}
 .avatar{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;font:600 11px/1 var(--font-sans);color:#fff}
 .avatar.sm{width:20px;height:20px;font-size:9px}
@@ -166,6 +171,9 @@ button{font:inherit;color:inherit}
 .thread-row .t{font:500 13px/1.4 var(--font-sans)}
 .thread-row .s{font:var(--type-caption);color:var(--fg-3)}
 .dim-page{opacity:.55;pointer-events:none}
+.chat-back{align-self:flex-start;border:0;background:none;padding:2px 0;font:var(--type-label);color:var(--fg-2);cursor:pointer}
+.threads-count{font:var(--type-caption);color:var(--fg-3)}
+.composer{margin-top:auto;padding:10px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-md);font:var(--type-body-sm);color:var(--fg-3)}
 
 /* ---------- Gallery and table ---------- */
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
@@ -200,6 +208,11 @@ table.where{border-collapse:collapse;width:100%;background:var(--surface);border
       <button data-state="loading" aria-pressed="true">Loading</button>
       <button data-state="loaded">Loaded</button>
       <button data-state="failed">Failed</button>
+    </span></span>
+  <span id="drawer-switch-group" hidden><span class="switch-label">Drawer opens on</span>
+    <span class="switch" id="drawer-switch">
+      <button data-drawer="thread" aria-pressed="true">The newest Thread</button>
+      <button data-drawer="list">The Thread list</button>
     </span></span>
   <span><span class="switch-label">Palette</span>
     <span class="switch" id="palette-switch">
@@ -253,6 +266,11 @@ table.where{border-collapse:collapse;width:100%;background:var(--surface);border
       <li><strong>A record page</strong> (a Project, a person, a Task) returns nothing until its record arrives today. It shows its heading's place and the <code>lines</code> shape for its first block, under the page's own frame.</li>
       <li><strong>Text-only loading lines</strong> in the file browser ("Fetching the base branch…", "Reading the folder…") become the <code>rows</code> loader with those words as its label, so they look like the rest.</li>
       <li><strong>Unconfirmed hosts</strong> read the same data as Trusted hosts but show no problem when it fails, so the card is blank. The problem shows in both.</li>
+      <li><strong>Reads that never show their problem today</strong>: Now (its feeds stay blank when the read fails), the chat drawer's Thread list (<code>if (!threads.data) return null</code>) and every <code>return null</code> on several reads. Each shows its problem where the loader was.</li>
+      <li><strong>Lists that fall back to empty</strong> (<code>data ?? []</code>) say the wrong thing while loading: the chat's person picker lists nobody, then says "No Threads yet" for everyone until their activity arrives; the Board says "Nothing here" with a 0 in every column. The block keeps its loader until every read it says "nothing" about has arrived.</li>
+      <li><strong>The chat drawer</strong> opens on the newest Thread unless the user went back to the list, so while its Threads load it shows the <code>turns</code> shape, which the Thread's messages then keep: one loader, not rows that turn into turns. On the Thread list it shows <code>rows</code>. Use "Drawer opens on" above.</li>
+      <li><strong>Reduced motion</strong>: <code>Skeleton</code> sets its shimmer as an inline style, which a stylesheet's <code>prefers-reduced-motion</code> rule can't override. The fix belongs in <code>Skeleton</code>: its shimmer moves into the stylesheet it already injects, under <code>@media (prefers-reduced-motion: no-preference)</code>, so every Skeleton holds still, not only the loader's.</li>
+      <li><strong>Tests</strong>: <code>role="status"</code> takes no name from its content, so a test finds the loader with <code>getByRole("status")</code> and checks its text (<code>toHaveText("Loading the Office ssh key…")</code>), not <code>{ name }</code>. The People and Projects grids put the <code>tiles</code> shape in the grid itself (<code>display: contents</code>) so the Hire a Role tile doesn't move when the people arrive; the test checks the status is still found there.</li>
       <li><strong>Watch:</strong> in Light, the <code>Skeleton</code>'s bars (<code>--surface-sunken</code> on white) are faint. That is the design system's look and this proposal keeps it; if it reads too faint at the Gate, the change goes into <code>Skeleton</code> itself, not into the loader.</li>
     </ul>
   </section>
@@ -260,7 +278,7 @@ table.where{border-collapse:collapse;width:100%;background:var(--surface);border
 
 <script>
 "use strict";
-const state = { screen: "identity", state: "loading", palette: "light" };
+const state = { screen: "identity", state: "loading", palette: "light", drawer: "thread" };
 const app = document.getElementById("app");
 const note = document.getElementById("replay-note");
 
@@ -303,9 +321,9 @@ function identity() {
     .map((n) => `<a class="${n === "Office identity" ? "on" : ""}">${n}</a>`).join("");
   const card = (title, body) => `<section class="card"><div class="card-title"><span class="ico"></span>${title}</div><div class="card-body">${body}</div></section>`;
   const gitHub = card("Sign in with GitHub", block(
-    () => loader("lines", 0, "Loading Sign in with GitHub…", `<div class="bl-row">${circle(28)}<div class="bl-grow">${bar("38%", 12)}${bar("56%", 9)}</div></div><div class="bl-row">${bar("92px", 28, 6)}</div>`),
+    () => loader("lines", 0, "Loading the GitHub sign-in…", `<div class="bl-row">${bar("72px", 10)}${bar("96px", 20, 4)}${bar("72px", 28, 6)}</div>${bar("88%", 9)}${bar("54%", 9)}${bar("230px", 10)}`),
     () => problem("Sign in with GitHub can't be read"),
-    () => `<div class="row">${avatar("office-owner")}<div><div style="font:500 13px/1.4 var(--font-sans)">Signed in as office-owner</div><div class="note">GitHub over https uses this account. Since 3 Nov.</div></div></div><div class="row"><span class="b">Sign out</span></div>`));
+    () => `<div class="row"><span>Signed in as</span><span class="badge success"><i></i>office-owner</span><span class="b">Sign out</span></div><p class="note">Through the GitHub App the-office-app, registered on office-owner. The Office reaches only the repositories it is installed on.</p><a class="link">Install the App on more repositories</a>`));
   const sshKey = card("Office ssh key", `<p class="note">The Office reaches ssh remotes with this key alone. Add its public half to each host that needs it: on GitHub, under your account's Settings › SSH and GPG keys; elsewhere, wherever the host takes ssh keys.</p>` + block(
     () => loader("lines", 0, "Loading the Office ssh key…", `${bar("100%", 36, 6)}<div class="bl-row">${bar("70px", 28, 6)}${bar("150px", 28, 6)}${bar("120px", 28, 6)}</div>`),
     () => problem("The Office ssh key can't be read"),
@@ -352,7 +370,7 @@ function board() {
     return `<section class="board-column" aria-label="${label}"><h3>${label} ${count}</h3><div class="board-hint">${hint}</div><div class="board-cards">${cards}</div></section>`;
   }).join("");
   const failed = state.state === "failed" ? problem("The Tasks can't be read") : "";
-  return frame("Work", `<h2 class="page-heading">Work <span class="crumb">› Board</span></h2>
+  return frame("Work", `<h2 class="page-heading">Work <span class="crumb">› Tasks by state</span></h2>
     <div class="filter-bar"><span class="select">Tags</span><span class="select">Initiative</span><span class="select">Priority</span><span class="select">Saved views</span></div>
     ${failed ? `<div style="margin-bottom:12px">${failed}</div>` : ""}<div class="board">${cols}</div>`);
 }
@@ -384,25 +402,34 @@ function peoplePage() {
 }
 
 /* ---------- Chat drawer ---------- */
+/* The drawer shows either the Thread list or one Thread, never both. Unless the user went back to the
+   Thread list, it opens on the newest Thread, so it loads in the turns shape from the start: the Thread list's read and
+   then the messages' read show as one loader, not rows that turn into turns. */
 function chat() {
-  const list = block(
-    () => loader("rows", 4, "Loading Angela's Threads…"),
-    () => problem("Angela's Threads can't be read"),
-    () => [["Plan for Loaders", "Answered · 4 min ago"], ["Initiative timeline view", "Yesterday"], ["Which tile source?", "3 Nov"]].map(([t, s]) => `<div class="thread-row"><span class="t">${t}</span><span class="s">${s}</span></div>`).join(""));
+  const message = (who, time, text) => `<div class="row" style="align-items:flex-start;flex-wrap:nowrap">${avatar(who)}<div><b style="font:600 13px var(--font-sans)">${who}</b> <span class="note" style="display:inline">${time}</span><p class="note" style="color:var(--fg-1)">${text}</p></div></div>`;
+  const onThread = state.drawer === "thread";
+  const body = onThread
+    ? block(
+        () => loader("turns", 3, "Loading the Thread…"),
+        () => problem("Angela's Threads can't be read"),
+        () => `<button class="chat-back">‹ Threads</button><div class="drawer-body" style="padding:0">${message("You", "09:08", "Can the Plan list every place that needs a loader?")}${message("Angela", "09:12", "Done: the Plan lists them, and the Definition of Done says no block is blank while it loads.")}</div><div class="composer">Write to Angela…</div>`)
+    : block(
+        () => loader("rows", 4, "Loading Angela's Threads…"),
+        () => problem("Angela's Threads can't be read"),
+        () => `<div class="row" style="justify-content:space-between"><span class="threads-count">Threads · 3</span><span class="b">+ New thread</span></div>` +
+          [["Plan for Loaders", "Answered · 4 min ago"], ["Initiative timeline view", "Yesterday"], ["Which tile source?", "3 Nov"]].map(([t, s]) => `<div class="thread-row"><span class="t">${t}</span><span class="s">${s}</span></div>`).join(""));
   const page = `<div class="dim-page"><h2 class="page-heading">Now</h2>${loader("cards", 3)}</div>`;
   return `<div class="topbar"><span class="logo">The <span>Office</span></span><nav class="nav"><a class="on">Now</a><a>Work</a><a>Projects</a><a>People</a><a>Settings</a></nav><div class="topbar-end"><span class="b">Chat</span></div></div>
     <div class="strip"><span>Needs you <b>2</b></span><span>Running <b>3</b></span></div>
-    <div class="drawer-layout"><div class="page">${page.replace("dim-page", "dim-page static")}</div>
-    <aside class="drawer" aria-label="Chat"><div class="drawer-head">${avatar("Angela")}<div><div class="who">Angela</div><div class="role">Planner · plans Tasks and Initiatives</div></div></div>
-    <div class="drawer-body"><span class="b" style="align-self:flex-start">+ New thread</span>${list}</div>
-    <div class="drawer-head" style="border-top:1px solid var(--border);border-bottom:0;margin-top:auto;flex-direction:column;align-items:stretch;gap:10px">
-      <span class="note">An open Thread loads its messages in Turns:</span>${block(() => loader("turns", 3, "Loading the messages…"), () => problem("The messages can't be read"), () => `<div class="row" style="align-items:flex-start">${avatar("Angela")}<div><b style="font:600 13px var(--font-sans)">Angela</b> <span class="note" style="display:inline">09:12</span><p class="note" style="color:var(--fg-1)">The Plan is ready for you to confirm.</p></div></div>`)}
-    </div></aside></div><div class="toast" id="toast"></div>`;
+    <div class="drawer-layout"><div class="page">${page}</div>
+    <aside class="drawer" aria-label="Chat with Angela"><div class="drawer-head">${avatar("Angela")}<div><div class="who">Angela</div><div class="role">Planner · plans Tasks and Initiatives</div></div></div>
+    <div class="drawer-body" style="flex:1">${body}</div></aside></div><div class="toast" id="toast"></div>`;
 }
 
 const screens = { identity, board, now, people: peoplePage, chat };
 function render() {
   app.innerHTML = screens[state.screen]();
+  document.getElementById("drawer-switch-group").hidden = state.screen !== "chat";
   // In the chat screen the dimmed page behind is only scenery: it isn't loading for this example.
   app.querySelectorAll(".dim-page .block-loader").forEach((el) => { el.style.animation = "none"; el.removeAttribute("role"); });
 }
@@ -431,7 +458,7 @@ const where = [
   ["Engines (form and engine list, Claude Code account)", "Blank", "lines; rows ×2"],
   ["Office limits (desks, threshold, usage)", "Blank", "lines per card"],
   ["Notifications (routing, timing)", "Blank", "rows ×3; lines"],
-  ["Pipelines", "Blank list", "rows ×3"],
+  ["Pipelines", "Blank list; blank for good when one of its three reads fails", "rows ×3; its problem on failure"],
   ["Skills, MCP servers", "DataTable rows, no delay, silent", "table ×3"],
   ["Updates › version", "Blank", "lines ×2"],
   ["Projects"],
@@ -440,22 +467,25 @@ const where = [
   ["Project › environment checks, Skills, server values, engine, Work, onboarding", "Blank", "rows or lines per block"],
   ["Add a Project › GitHub repositories", "Blank list", "rows ×4"],
   ["Work"],
-  ["Board", "Every column “Nothing here”, counts 0", "cards ×2 per column, no count"],
+  ["Board", "Every column “Nothing here”, counts 0; the same under the problem when the read fails", "cards ×2 per column, no count; on failure the problem, the columns empty and uncounted"],
   ["Initiatives list, Initiative page's Tasks", "Says empty", "rows ×3"],
   ["Ideas › Shaped", "“None yet”", "rows ×2 (Fresh already waits)"],
   ["Task page (record, rail, Changes, Attachments, Dependencies, Needs you card)", "Blank, or no tab content", "lines; rows; Changes and Attachments rows"],
   ["Task page › conversation, Stage history", "Empty Thread", "turns ×3"],
   ["Now"],
-  ["Needs you, Running, Since you left", "Blank feeds, counts blank", "cards ×2, cards ×2, rows ×3"],
+  ["Needs you, Running, Since you left", "Blank feeds, counts blank; blank for good when the read fails", "cards ×2, cards ×2, rows ×3; its problem on failure"],
   ["People"],
   ["People page", "Only the Hire a Role tile", "tiles ×6, then Hire a Role"],
   ["A person's page and Overview", "Nothing at all", "lines under the page's frame"],
   ["Role card, Work, Memory, Conversations tabs", "Blank, and blank for good when a read fails", "lines; table; rows; rows; each shows its problem on failure"],
+  ["Hire a Role page (the Role card form)", "Blank, and blank for good when a read fails", "lines; its problem on failure"],
   ["The shell"],
-  ["Chat drawer › person picker, Thread list", "Empty list / nothing", "rows ×4"],
+  ["Chat drawer › person picker", "Nobody listed, then “No Threads yet” for everyone", "rows ×4 until the people and their activity arrive"],
+  ["Chat drawer › Thread list", "Nothing; nothing for good when the read fails", "turns ×3 when it opens on a Thread, rows ×4 on the list; its problem on failure"],
+  ["Idea card in a Thread", "Nothing", "lines ×2 in the card's frame"],
   ["Thread (drawer, Task page, Stage history)", "Nothing", "turns ×3"],
   ["Needs you panel", "Blank", "cards ×2"],
-  ["Windows: Gate, Decision, Review skill or MCP server, Remove engine", "Blank body", "lines in the body; the bar stays"],
+  ["Windows: Gate, Decision, Review skill or MCP server, Who has it, Remove engine", "Blank body", "lines in the body; the bar stays"],
   ["File browser", "“Fetching the base branch…”, “Reading the folder…” as text", "rows ×5 with those words as the label"],
   ["Left as they are"],
   ["Chips, names, the status strip's counts, select options, heading crumbs, mention picker, search's suggestions", "—", "none: inline bits"],
@@ -475,6 +505,10 @@ document.getElementById("screen-switch").addEventListener("click", (e) => {
 document.getElementById("state-switch").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   state.state = b.dataset.state; pick("state-switch", "state", state.state); note.textContent = ""; render();
+});
+document.getElementById("drawer-switch").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.drawer = b.dataset.drawer; pick("drawer-switch", "drawer", state.drawer); render();
 });
 document.getElementById("palette-switch").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
