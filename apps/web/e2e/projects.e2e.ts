@@ -911,7 +911,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         const button = page
           .getByRole("group", { name: "Logo" })
           .getByRole("button", { name: "Choose from repository" });
-        // Centred, as at the view's edge a fraction of a pixel can stay out of it.
+        // Centred, as scrollIntoViewIfNeeded leaves a button a fraction of a pixel past the edge.
         await button.evaluate((element) => element.scrollIntoView({ block: "center" }));
         await expect(button).toBeInViewport({ ratio: 1 });
         await expectAppearanceLaidOut(page, width);
