@@ -15,11 +15,11 @@ A Project's short label on a colour, one of four offered or a custom one, shown 
 _Avoid_: Avatar, initials
 
 **Icon**:
-A Project's uploaded image drawn on its Mark's colour in place of the label, wherever the Mark shows.
+A Project's image, uploaded or copied from its repository, drawn on its Mark's colour in place of the label, wherever the Mark shows.
 _Avoid_: Avatar, thumbnail
 
 **Logo**:
-A Project's uploaded image shown at its own proportions, larger than the Mark, on the Project's page and card.
+A Project's image, uploaded or copied from its repository, shown at its own proportions, larger than the Mark, on the Project's page and card.
 _Avoid_: Banner
 
 **Install inputs**:

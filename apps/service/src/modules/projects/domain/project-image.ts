@@ -13,10 +13,11 @@ export const PROJECT_IMAGE_MEDIA_TYPES = [
 export type ProjectImageMediaType = (typeof PROJECT_IMAGE_MEDIA_TYPES)[number];
 
 export const PROJECT_IMAGE_SIZE_LIMIT = 2 * 1024 * 1024;
+export const PROJECT_IMAGE_TOO_LARGE = `An image may be at most ${PROJECT_IMAGE_SIZE_LIMIT / 1024 / 1024} MB.`;
 
 /**
- * An uploaded picture. Its bytes never change: a new upload is a new image under a new id, so its
- * address can be cached for good.
+ * A picture kept by The Office, uploaded or copied from the repository. Its bytes never change: each
+ * is a new image under a new id, so its address can be cached for good.
  */
 export interface ProjectImage {
   readonly id: string;
@@ -37,9 +38,7 @@ export class ProjectImageNotFound extends Error {
 export function newProjectImage(id: string, content: Uint8Array): ProjectImage {
   if (content.byteLength === 0) throw new ProjectRefused(["The file is empty."]);
   if (content.byteLength > PROJECT_IMAGE_SIZE_LIMIT) {
-    throw new ProjectRefused([
-      `An image may be at most ${PROJECT_IMAGE_SIZE_LIMIT / 1024 / 1024} MB.`,
-    ]);
+    throw new ProjectRefused([PROJECT_IMAGE_TOO_LARGE]);
   }
   const mediaType = mediaTypeOf(content);
   if (!mediaType) throw new ProjectRefused(["The file isn't a PNG, JPEG, WebP or SVG image."]);

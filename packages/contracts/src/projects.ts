@@ -145,7 +145,17 @@ export const PROJECT_IMAGE_MEDIA_TYPES = [
   "image/svg+xml",
 ] as const;
 
-/** An uploaded picture; each upload is a new image under a new id, its bytes never changing. */
+/** What the Repository file browser offers for an Icon or a Logo; the contents still decide. */
+export const PROJECT_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".svg"] as const;
+
+/** POST /projects/:id/images/:image/from-repository: the file to copy, at the commit the browser showed it. */
+export const projectImageFromRepositorySchema = z.object({
+  commit: z.string(),
+  path: z.string(),
+});
+export type ProjectImageFromRepository = z.infer<typeof projectImageFromRepositorySchema>;
+
+/** A picture kept by The Office; each upload or choice is a new image under a new id, its bytes never changing. */
 export const projectImageSchema = z.object({
   id: z.string(),
   mediaType: z.enum(PROJECT_IMAGE_MEDIA_TYPES),

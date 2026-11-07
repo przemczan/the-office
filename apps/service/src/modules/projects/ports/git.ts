@@ -120,6 +120,10 @@ export interface CommitTree {
   entriesOf(folder: string): Promise<readonly TreeEntry[]>;
   /** The text of the file `path` names, which must be one. */
   textOf(path: string): Promise<string>;
+  /** How many bytes the file `path` names holds, which must be one; nothing of it is read. */
+  sizeOf(path: string): Promise<number>;
+  /** The bytes of the file `path` names, which must be one, exactly as committed. */
+  bytesOf(path: string): Promise<Uint8Array>;
 }
 
 /** A git command that ran and failed. */

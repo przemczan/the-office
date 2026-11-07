@@ -32,6 +32,15 @@ export function commitTreeOf(git: GitProcess, repository: string, commit: string
     },
     textOf: (path) =>
       git.output({ folder: repository, gitArguments: ["cat-file", "blob", object(path)] }),
+    sizeOf: async (path) => {
+      const output = await git.output({
+        folder: repository,
+        gitArguments: ["cat-file", "-s", object(path)],
+      });
+      return Number(output.trim());
+    },
+    bytesOf: (path) =>
+      git.bytes({ folder: repository, gitArguments: ["cat-file", "blob", object(path)] }),
   };
 }
 

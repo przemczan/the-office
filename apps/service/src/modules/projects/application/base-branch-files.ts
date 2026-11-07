@@ -2,7 +2,7 @@ import { win32 } from "node:path";
 import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import { ProjectRefused } from "../domain/project-refused.js";
-import { Git, GitCommandFailed, type TreeEntry } from "../ports/git.js";
+import { Git, GitCommandFailed, type CommitTree, type TreeEntry } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
@@ -30,6 +30,12 @@ export interface BaseBranchFolder {
   readonly entries: readonly FolderEntry[];
   /** How many there are before the cut. */
   readonly total: number;
+}
+
+/** The most a file read through `BaseBranchFiles.file` may hold, and the words refusing one over it. */
+export interface FileSizeLimit {
+  readonly bytes: number;
+  readonly problem: string;
 }
 
 /**
@@ -72,13 +78,7 @@ export class BaseBranchFiles {
     path: string,
     extensions: readonly string[],
   ): Promise<BaseBranchFolder> {
-    const project = await this.projects.read(projectId);
-    const problem = pathProblem(path);
-    if (problem !== undefined) throw new ProjectRefused([problem]);
-    if (!COMMIT_ID.test(commit) || !(await this.git.findCommit(project.path, commit))) {
-      throw new ProjectRefused([`The repository holds no commit ${commit}.`]);
-    }
-    const tree = this.git.commitTree(project.path, commit);
+    const tree = await this.treeAt(projectId, commit, path);
     if ((await tree.kindOf(path)) !== "folder") {
       throw new ProjectRefused([`The repository has no folder ${path} at this commit.`]);
     }
@@ -97,6 +97,35 @@ export class BaseBranchFiles {
       entries: entries.slice(0, FOLDER_ENTRIES_LIMIT),
       total: entries.length,
     };
+  }
+
+  /**
+   * The bytes of the file `path` names at `commit`, as committed. Its size is asked first, so a huge
+   * file is refused rather than read. A link is read as what git holds for it, the target's path.
+   */
+  async file(
+    projectId: string,
+    commit: string,
+    path: string,
+    limit: FileSizeLimit,
+  ): Promise<Uint8Array> {
+    const tree = await this.treeAt(projectId, commit, path);
+    if ((await tree.kindOf(path)) !== "file") {
+      throw new ProjectRefused([`The repository has no file ${path} at this commit.`]);
+    }
+    if ((await tree.sizeOf(path)) > limit.bytes) throw new ProjectRefused([limit.problem]);
+    return tree.bytesOf(path);
+  }
+
+  /** The tree to read `path` from, refusing a `path` no commit could hold or a `commit` not here. */
+  private async treeAt(projectId: string, commit: string, path: string): Promise<CommitTree> {
+    const project = await this.projects.read(projectId);
+    const problem = pathProblem(path);
+    if (problem !== undefined) throw new ProjectRefused([problem]);
+    if (!COMMIT_ID.test(commit) || !(await this.git.findCommit(project.path, commit))) {
+      throw new ProjectRefused([`The repository holds no commit ${commit}.`]);
+    }
+    return this.git.commitTree(project.path, commit);
   }
 
   private async lastKnown(project: Project, failure: Error): Promise<BaseBranchCommit> {
@@ -143,17 +172,15 @@ function isFile(entry: TreeEntry): entry is FolderEntry {
   return entry.kind === "file";
 }
 
-/** Why `path` can't name a folder of a commit's tree, whatever the commit holds. */
+/** Why `path` can't name anything in a commit's tree, whatever the commit holds. */
 function pathProblem(path: string): string | undefined {
   if (path === "") return undefined;
   // win32's rule covers both systems: `/a`, `\a` and `C:\a`.
   if (win32.isAbsolute(path)) {
-    return `Give the folder relative to the repository's top level, not as a full path: ${path}.`;
+    return `Give the path relative to the repository's top level, not as a full path: ${path}.`;
   }
   const leaves = path.split("/").some((name) => name === "" || name === "." || name === "..");
-  return leaves || path.includes("\0")
-    ? `${path} is not a folder inside the repository.`
-    : undefined;
+  return leaves || path.includes("\0") ? `${path} is not a path inside the repository.` : undefined;
 }
 
 /** Matches the end of a name in any case; an extension may be given with its dot or without. */

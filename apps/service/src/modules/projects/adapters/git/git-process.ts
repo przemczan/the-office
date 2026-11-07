@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 import type { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
 import { GitCommandFailed, type GitVariables } from "../../ports/git.js";
 
@@ -35,6 +36,13 @@ export interface GitResult {
   readonly stderr: string;
 }
 
+/** A `GitResult` as git wrote it, for what isn't text. */
+interface GitBytesResult {
+  readonly exitCode: number;
+  readonly stdout: Buffer;
+  readonly stderr: Buffer;
+}
+
 /**
  * Runs the git on PATH, never through a shell, so no argument is ever parsed as a command; every
  * command on the Office identity, since even one that reaches no remote runs hooks and filters.
@@ -44,14 +52,25 @@ export class GitProcess {
 
   /** Runs git and returns what it printed, or throws GitCommandFailed when it fails. */
   async output(call: GitCall): Promise<string> {
-    const result = await this.run(call);
+    return (await this.bytes(call)).toString();
+  }
+
+  /** `output` for what isn't text: decoding a picture as UTF-8 would damage it. */
+  async bytes(call: GitCall): Promise<Buffer> {
+    const result = await this.runForBytes(call);
     if (result.exitCode !== 0) {
-      throw new GitCommandFailed(call.gitArguments, result.exitCode, result.stderr.trim());
+      const detail = result.stderr.toString().trim();
+      throw new GitCommandFailed(call.gitArguments, result.exitCode, detail);
     }
     return result.stdout;
   }
 
-  async run({
+  async run(call: GitCall): Promise<GitResult> {
+    const { exitCode, stdout, stderr } = await this.runForBytes(call);
+    return { exitCode, stdout: stdout.toString(), stderr: stderr.toString() };
+  }
+
+  private async runForBytes({
     folder,
     gitArguments,
     remote,
@@ -60,16 +79,17 @@ export class GitProcess {
     input,
     signal,
     onStandardError,
-  }: GitCall): Promise<GitResult> {
+  }: GitCall): Promise<GitBytesResult> {
     const identity = await this.identity.forGitCommand(
       remote,
       variables ?? { ...process.env, LC_ALL: "C" },
     );
-    return new Promise<GitResult>((resolvePromise, reject) => {
+    return new Promise<GitBytesResult>((resolvePromise, reject) => {
       const child = execFile(
         "git",
         [...identity.configArguments, "-C", folder, ...gitArguments],
         {
+          encoding: "buffer",
           env: identity.variables,
           timeout: timeoutMs,
           ...(signal && { signal }),
@@ -88,8 +108,11 @@ export class GitProcess {
           }
         },
       );
-      if (onStandardError)
-        child.stderr?.on("data", (chunk: Buffer | string) => onStandardError(String(chunk)));
+      if (onStandardError) {
+        // A chunk may end inside a character.
+        const decoder = new StringDecoder("utf8");
+        child.stderr?.on("data", (chunk: Buffer) => onStandardError(decoder.write(chunk)));
+      }
       child.stdin?.end(input);
     }).finally(() => identity.release());
   }

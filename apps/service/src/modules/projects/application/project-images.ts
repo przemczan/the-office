@@ -6,6 +6,8 @@ import type { Project } from "../domain/project.js";
 import { asProjectChanges, changeImage } from "../domain/project-changes.js";
 import {
   newProjectImage,
+  PROJECT_IMAGE_SIZE_LIMIT,
+  PROJECT_IMAGE_TOO_LARGE,
   ProjectImageNotFound,
   type ProjectImage,
   type ProjectImageKey,
@@ -13,6 +15,13 @@ import {
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectImageFiles } from "../ports/project-image-files.js";
 import { ProjectRepository } from "../ports/project-repository.js";
+import { BaseBranchFiles } from "./base-branch-files.js";
+
+/** A file in the Project's repository, at the commit the user saw it. */
+export interface RepositoryImageFile {
+  readonly commit: string;
+  readonly path: string;
+}
 
 export interface OpenedProjectImage {
   readonly image: ProjectImage;
@@ -31,6 +40,7 @@ export class ProjectImages {
     private readonly repository: ProjectRepository,
     private readonly files: ProjectImageFiles,
     private readonly events: EventBus,
+    private readonly repositoryFiles: BaseBranchFiles,
   ) {}
 
   /** Refuses, keeping the image the Project has, bytes that can't be an image. */
@@ -43,6 +53,19 @@ export class ProjectImages {
       await this.files.remove(image.id);
       throw error;
     }
+  }
+
+  /** `change` with a copy of the file: nothing ties the image to the repository afterwards. */
+  async changeFromRepository(
+    projectId: string,
+    key: ProjectImageKey,
+    { commit, path }: RepositoryImageFile,
+  ): Promise<Project> {
+    const content = await this.repositoryFiles.file(projectId, commit, path, {
+      bytes: PROJECT_IMAGE_SIZE_LIMIT,
+      problem: PROJECT_IMAGE_TOO_LARGE,
+    });
+    return this.change(projectId, key, content);
   }
 
   async remove(projectId: string, key: ProjectImageKey): Promise<Project> {

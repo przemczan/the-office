@@ -38,6 +38,30 @@ export async function createTemporaryRepository(): Promise<TemporaryRepository> 
   };
 }
 
+/** Commits `files`, by their paths in the repository, on the branch checked out. */
+export async function commitFiles(
+  repository: TemporaryRepository,
+  files: Readonly<Record<string, string | Buffer>>,
+): Promise<void> {
+  for (const [file, content] of Object.entries(files)) {
+    const filePath = path.join(repository.path, file);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, content);
+  }
+  runGit(repository.path, "add", ".");
+  runGit(
+    repository.path,
+    "-c",
+    "user.name=The Office",
+    "-c",
+    "user.email=office@localhost",
+    "commit",
+    "--quiet",
+    "--message",
+    "Commit files",
+  );
+}
+
 /**
  * Commits a file on a Task's branch, as a Stage's work would be, through a worktree removed
  * afterwards, so only the branch stays.

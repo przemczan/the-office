@@ -1,10 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { CommandLineGit } from "../adapters/git/command-line-git.js";
+import { GitProcess } from "../adapters/git/git-process.js";
 import { RepositoryLocks } from "../adapters/git/repository-locks.js";
 import {
   commitOnOrigin,
@@ -24,11 +25,19 @@ import type { ProjectService } from "./project-service.js";
 import { Worktrees } from "./worktrees.js";
 
 const NO_SUCH_COMMIT = "0123456789abcdef0123456789abcdef01234567";
+/** A PNG's signature, then bytes that are no UTF-8: a decoded copy would come back different. */
+const BINARY = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0xfe, 0x00, 0x80,
+]);
+const LATER_BINARY = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xc0, 0xaf]);
+const LIMIT = { bytes: BINARY.byteLength, problem: "That is too much." };
 
 let repository: TemporaryRepository;
 let files: BaseBranchFiles;
 let project: Project;
 let commit: string;
+let imageCommit: string;
+let laterImageCommit: string;
 
 /** Adds an entry of the given mode to the index without a file behind it, as a link or submodule is. */
 function addToIndex(path: string, mode: string, object: string): void {
@@ -55,6 +64,14 @@ function commitCrowdedFolder(name: string, count: number, folders: number): void
     input: `${lines.join("\n")}\n`,
   });
   gitIn(repository.path, "commit", "--quiet", "--message", `Add ${name}`);
+}
+
+/** Commits everything in the working tree with `file` holding `content`, answering the commit. */
+async function commitFile(file: string, content: Buffer): Promise<string> {
+  await writeFile(join(repository.path, file), content);
+  gitIn(repository.path, "add", ".");
+  gitIn(repository.path, "commit", "--quiet", "--message", `Commit ${file}`);
+  return gitIn(repository.path, "rev-parse", "HEAD");
 }
 
 function filesFor(read: Project): BaseBranchFiles {
@@ -93,6 +110,9 @@ beforeAll(async () => {
   await writeFile(join(path, "other-branch.txt"), "other");
   gitIn(path, "add", ".");
   gitIn(path, "commit", "--quiet", "--message", "On another branch");
+  imageCommit = await commitFile("picture.png", BINARY);
+  await writeFile(join(path, "over-the-limit.png"), Buffer.concat([BINARY, Buffer.of(0)]));
+  laterImageCommit = await commitFile("picture.png", LATER_BINARY);
   gitIn(path, "checkout", "--quiet", "main");
   await writeFile(join(path, "local-commit.txt"), "not pushed");
   gitIn(path, "add", ".");
@@ -117,6 +137,14 @@ function namesOf(folder: { entries: readonly { name: string }[] }): string[] {
 async function refusalOf(commitId: string, path: string): Promise<string[]> {
   const error: unknown = await files
     .folder(project.id, commitId, path, [])
+    .catch((e: unknown) => e);
+  expect(error).toBeInstanceOf(ProjectRefused);
+  return [...(error as ProjectRefused).reasons];
+}
+
+async function fileRefusalOf(commitId: string, path: string): Promise<string[]> {
+  const error: unknown = await files
+    .file(project.id, commitId, path, LIMIT)
     .catch((e: unknown) => e);
   expect(error).toBeInstanceOf(ProjectRefused);
   return [...(error as ProjectRefused).reasons];
@@ -261,5 +289,80 @@ describe("BaseBranchFiles.folder", REAL_GIT_TEST, () => {
     await expect(refusalOf(commit, path)).resolves.toEqual([
       `The repository has no folder ${path} at this commit.`,
     ]);
+  });
+});
+
+describe("BaseBranchFiles.file", REAL_GIT_TEST, () => {
+  it("answers a file's bytes as committed, for one that is no text too", async () => {
+    const bytes = await files.file(project.id, imageCommit, "picture.png", LIMIT);
+
+    expect(Buffer.from(bytes).equals(BINARY)).toBe(true);
+  });
+
+  it("reads the commit picked, not a later one", async () => {
+    const later = await files.file(project.id, laterImageCommit, "picture.png", LIMIT);
+
+    expect(Buffer.from(later).equals(LATER_BINARY)).toBe(true);
+    await expect(files.file(project.id, imageCommit, "picture.png", LIMIT)).resolves.toHaveLength(
+      BINARY.byteLength,
+    );
+  });
+
+  it("reads a file in a folder", async () => {
+    const bytes = await files.file(project.id, commit, "assets/icons/a.png", LIMIT);
+
+    expect(Buffer.from(bytes).toString()).toBe("a");
+  });
+
+  it("refuses a file over the limit in the caller's words, without reading it", async () => {
+    const reading = vi.spyOn(GitProcess.prototype, "bytes");
+    try {
+      await expect(fileRefusalOf(laterImageCommit, "over-the-limit.png")).resolves.toEqual([
+        LIMIT.problem,
+      ]);
+      const commands = reading.mock.calls.map(([{ gitArguments }]) => gitArguments.join(" "));
+      expect(commands.filter((command) => command.startsWith("cat-file blob"))).toEqual([]);
+    } finally {
+      reading.mockRestore();
+    }
+  });
+
+  it("answers what git holds for a link, the target's path, not the target", async () => {
+    const bytes = await files.file(project.id, commit, "assets/link.png", LIMIT);
+
+    expect(Buffer.from(bytes).toString()).toBe("logo.PNG");
+  });
+
+  it("refuses a commit that isn't an id or that the repository doesn't hold", async () => {
+    await expect(fileRefusalOf("main", "assets/logo.PNG")).resolves.toEqual([
+      "The repository holds no commit main.",
+    ]);
+    await expect(fileRefusalOf(NO_SUCH_COMMIT, "assets/logo.PNG")).resolves.toEqual([
+      `The repository holds no commit ${NO_SUCH_COMMIT}.`,
+    ]);
+  });
+
+  it.each(["/etc/passwd", "\\etc", "C:\\etc", "../secret.png", "assets/../..", "./a", "a\0b"])(
+    "refuses the path %j, which no commit can hold",
+    async (path) => {
+      await expect(fileRefusalOf(commit, path)).resolves.toHaveLength(1);
+    },
+  );
+
+  it.each([
+    ["the top level", ""],
+    ["no such name", "nothing-here.png"],
+    ["a folder", "assets"],
+    ["a submodule", "assets/module.png"],
+    ["words git would read as its own", ":(top)assets/logo.PNG"],
+    ["a wildcard", "assets/*.PNG"],
+  ])("refuses a path naming %s", async (_, path) => {
+    await expect(fileRefusalOf(commit, path)).resolves.toEqual([
+      `The repository has no file ${path} at this commit.`,
+    ]);
+  });
+
+  it("refuses a file the commit picked doesn't hold, though a later one does", async () => {
+    await expect(fileRefusalOf(imageCommit, "over-the-limit.png")).resolves.toHaveLength(1);
   });
 });

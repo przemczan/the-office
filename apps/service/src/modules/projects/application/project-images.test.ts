@@ -6,11 +6,12 @@ import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import type { ProjectChanges } from "../domain/project-changes.js";
 import { ProjectImageChanged } from "../domain/project-events.js";
-import { ProjectImageNotFound } from "../domain/project-image.js";
+import { PROJECT_IMAGE_SIZE_LIMIT, ProjectImageNotFound } from "../domain/project-image.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectImageFiles } from "../ports/project-image-files.js";
 import { ProjectRepository } from "../ports/project-repository.js";
+import type { BaseBranchFiles, FileSizeLimit } from "./base-branch-files.js";
 import { ProjectImages } from "./project-images.js";
 
 const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
@@ -62,9 +63,28 @@ class ProjectsInMemory extends ProjectRepository {
   }
 }
 
+/** The repository's files by `<commit>:<path>`, refusing as `BaseBranchFiles.file` does. */
+class RepositoryInMemory {
+  readonly committed = new Map<string, Uint8Array>();
+  limit: FileSizeLimit | undefined;
+
+  async file(
+    _projectId: string,
+    commit: string,
+    path: string,
+    limit: FileSizeLimit,
+  ): Promise<Uint8Array> {
+    this.limit = limit;
+    const content = this.committed.get(`${commit}:${path}`);
+    if (!content) throw new ProjectRefused([`The repository has no file ${path} at this commit.`]);
+    return content;
+  }
+}
+
 let files: FilesInMemory;
 let projects: ProjectsInMemory;
 let published: DomainEvent[];
+let repositoryFiles: RepositoryInMemory;
 let images: ProjectImages;
 
 beforeEach(() => {
@@ -73,7 +93,13 @@ beforeEach(() => {
   published = [];
   const events = new EventBus();
   events.subscribeToEveryEvent((event) => void published.push(event));
-  images = new ProjectImages(projects, files, events);
+  repositoryFiles = new RepositoryInMemory();
+  images = new ProjectImages(
+    projects,
+    files,
+    events,
+    repositoryFiles as unknown as BaseBranchFiles,
+  );
 });
 
 describe("changing an image", () => {
@@ -151,6 +177,76 @@ describe("changing an image", () => {
     const project = await images.change("admin-panel", "icon", SVG);
 
     expect(project.icon?.mediaType).toBe("image/svg+xml");
+  });
+});
+
+describe("changing an image from the repository", () => {
+  const LOGO_FILE = { commit: "first", path: "assets/logo.svg" };
+
+  beforeEach(() => {
+    repositoryFiles.committed.set("first:assets/logo.svg", SVG);
+  });
+
+  it("keeps a copy as an upload does, under the image limit", async () => {
+    const project = await images.changeFromRepository("admin-panel", "logo", LOGO_FILE);
+
+    expect(project.logo?.mediaType).toBe("image/svg+xml");
+    expect(files.files.get(project.logo?.id ?? "")).toEqual(SVG);
+    expect(published[0]).toBeInstanceOf(ProjectImageChanged);
+    expect(repositoryFiles.limit).toEqual({
+      bytes: PROJECT_IMAGE_SIZE_LIMIT,
+      problem: "An image may be at most 2 MB.",
+    });
+  });
+
+  it("removes the image it replaces", async () => {
+    const { logo } = await images.change("admin-panel", "logo", PNG);
+
+    const project = await images.changeFromRepository("admin-panel", "logo", LOGO_FILE);
+
+    expect([...files.files.keys()]).toEqual([project.logo?.id]);
+    expect(project.logo?.id).not.toBe(logo?.id);
+  });
+
+  it("keeps the old image when the file can't be read", async () => {
+    const { icon } = await images.change("admin-panel", "icon", PNG);
+    published = [];
+
+    await expect(
+      images.changeFromRepository("admin-panel", "icon", { commit: "first", path: "gone.png" }),
+    ).rejects.toThrow(ProjectRefused);
+
+    expect(projects.stored.icon).toEqual(icon);
+    expect([...files.files.keys()]).toEqual([icon?.id]);
+    expect(published).toEqual([]);
+  });
+
+  it("keeps the old image when the file is no image, whatever its name", async () => {
+    const { icon } = await images.change("admin-panel", "icon", PNG);
+    repositoryFiles.committed.set("first:fake.png", new TextEncoder().encode("not an image"));
+
+    await expect(
+      images.changeFromRepository("admin-panel", "icon", { commit: "first", path: "fake.png" }),
+    ).rejects.toThrow("The file isn't a PNG, JPEG, WebP or SVG image.");
+
+    expect(projects.stored.icon).toEqual(icon);
+    expect([...files.files.keys()]).toEqual([icon?.id]);
+  });
+
+  it("keeps the copy as it was when the file changes or goes from the repository", async () => {
+    const { logo } = await images.changeFromRepository("admin-panel", "logo", LOGO_FILE);
+
+    repositoryFiles.committed.set("second:assets/logo.svg", PNG);
+    repositoryFiles.committed.delete("first:assets/logo.svg");
+
+    expect(projects.stored.logo).toEqual(logo);
+    expect(files.files.get(logo?.id ?? "")).toEqual(SVG);
+  });
+
+  it("remembers nothing of where the image came from", async () => {
+    const { logo } = await images.changeFromRepository("admin-panel", "logo", LOGO_FILE);
+
+    expect(Object.keys(logo ?? {}).toSorted()).toEqual(["id", "mediaType"]);
   });
 });
 

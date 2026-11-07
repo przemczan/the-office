@@ -21,6 +21,7 @@ import {
   type Project,
   type ProjectEnvironment,
   type ProjectCommandKey,
+  type ProjectImageFromRepository,
   type ProjectImageKey,
   type ProjectMcpServerValues,
   type ProjectServerValuesChange,
@@ -194,6 +195,15 @@ export function changeMark(id: string, mark: Mark): Promise<Project> {
 /** Replaces the Project's Icon or Logo, or gives it one. */
 export function uploadProjectImage(id: string, key: ProjectImageKey, file: File): Promise<Project> {
   return sendFileToApi(`${projectPath(id)}/images/${key}`, file, projectSchema);
+}
+
+/** As an upload, with a copy of the file in the Project's repository at the commit given. */
+export function chooseProjectImage(
+  id: string,
+  key: ProjectImageKey,
+  file: ProjectImageFromRepository,
+): Promise<Project> {
+  return sendToApi("POST", `${projectPath(id)}/images/${key}/from-repository`, file, projectSchema);
 }
 
 export function removeProjectImage(id: string, key: ProjectImageKey): Promise<Project> {

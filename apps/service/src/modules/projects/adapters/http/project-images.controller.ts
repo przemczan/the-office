@@ -11,8 +11,10 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  projectImageFromRepositorySchema,
   projectImageKeySchema,
   type Project as ProjectResponse,
+  type ProjectImageFromRepository,
   type ProjectImageKey,
 } from "@the-office/contracts";
 import type { Response } from "express";
@@ -27,7 +29,7 @@ import { toProjectResponse } from "./project-responses.js";
  * Office's own origin. `<img>` runs nothing anyway; this holds when the address itself is opened.
  */
 const IMAGE_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
-/** An image's bytes never change, as a new upload gets a new id. */
+/** An image's bytes never change, as a new one gets a new id. */
 const IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 @Controller()
@@ -42,6 +44,15 @@ export class ProjectImagesController {
     @Body() body: unknown,
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.images.change(id, image, uploadedBytes(body)));
+  }
+
+  @Post("projects/:id/images/:image/from-repository")
+  async changeFromRepository(
+    @Param("id") id: string,
+    @Param("image", new ContractPipe(projectImageKeySchema)) image: ProjectImageKey,
+    @Body(new ContractPipe(projectImageFromRepositorySchema)) file: ProjectImageFromRepository,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.images.changeFromRepository(id, image, file));
   }
 
   @Delete("projects/:id/images/:image")

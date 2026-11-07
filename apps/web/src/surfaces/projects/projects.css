@@ -758,6 +758,13 @@
   margin-top: 4px;
 }
 
+/* One group, so on a narrow page the buttons wrap below the words together. */
+.project-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .project-image-input {
   display: none;
 }

@@ -10,7 +10,11 @@ import {
 } from "@the-office/contracts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { branchOnHost, serveRepository } from "./git-host.ts";
-import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
+import {
+  commitFiles,
+  createTemporaryRepository,
+  type TemporaryRepository,
+} from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -100,6 +104,43 @@ async function expectLoadedImage(image: Locator): Promise<void> {
   await expect
     .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
     .toBeGreaterThan(0);
+}
+
+/** A repository holding images, a text file, a text file named as an image, and a folder. */
+async function repositoryWithImages(): Promise<TemporaryRepository> {
+  const imaged = await createTemporaryRepository();
+  await commitFiles(imaged, {
+    "assets/circle.svg": TRANSPARENT_ICON_FILE.buffer,
+    "assets/icon.png": ICON_FILE.buffer,
+    "assets/logo.svg": LOGO_FILE.buffer,
+    "assets/PHOTO.JPG": ICON_FILE.buffer,
+    "assets/fake.png": "<html>not a picture</html>",
+    "assets/notes.txt": "Notes",
+    "assets/old/older.webp": ICON_FILE.buffer,
+  });
+  return imaged;
+}
+
+/** Opens the row's window at `assets`, where the images are. */
+async function openAssets(page: Page, image: "Icon" | "Logo"): Promise<Locator> {
+  await page
+    .getByRole("group", { name: image })
+    .getByRole("button", { name: "Choose from repository" })
+    .click();
+  const window = page.getByRole("dialog", { name: `Choose ${image}` });
+  await window.getByRole("button", { name: "assets" }).click();
+  return window;
+}
+
+async function chooseFromRepository(
+  page: Page,
+  image: "Icon" | "Logo",
+  fileName: string,
+): Promise<void> {
+  const window = await openAssets(page, image);
+  await window.getByRole("button", { name: fileName }).click();
+  await window.getByRole("button", { name: "Choose file" }).click();
+  await expect(window).toBeHidden();
 }
 
 async function addedProject(
@@ -620,6 +661,192 @@ test("a file that isn't an image, or is too large, is refused in its row, and th
   await page.getByLabel("Icon file").setInputFiles(LOGO_FILE);
   await expect(row.getByRole("alert")).toBeHidden();
 });
+
+test("the window to choose an image shows only images and folders, in any case", async ({
+  page,
+}) => {
+  const imaged = await repositoryWithImages();
+  try {
+    const project = await addedProject(page, "Filtered images", undefined, imaged.path);
+    await page.goto(`/projects/${project.id}/appearance`);
+
+    const window = await openAssets(page, "Icon");
+
+    await expect(window.locator(".repository-file-entry")).toHaveText([
+      "old",
+      "circle.svg",
+      "fake.png",
+      "icon.png",
+      "logo.svg",
+      "PHOTO.JPG",
+    ]);
+    await expect(window.getByRole("button", { name: "Choose file" })).toBeDisabled();
+
+    await window.getByRole("button", { name: "Close" }).last().click();
+    await expect(window).toBeHidden();
+    await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+  } finally {
+    await imaged.remove();
+  }
+});
+
+test("an Icon and a Logo chosen from the repository show everywhere, without a reload", async ({
+  page,
+}) => {
+  const imaged = await repositoryWithImages();
+  try {
+    const project = await addedProject(page, "Chosen images", undefined, imaged.path);
+    await page.goto(`/projects/${project.id}/appearance`);
+
+    await chooseFromRepository(page, "Icon", "icon.png");
+
+    await expect(page.getByText("Icon saved for Chosen images.")).toBeVisible();
+    const iconRow = page.getByRole("group", { name: "Icon" });
+    await expectLoadedImage(page.locator(".project-head .project-mark img"));
+    await expectLoadedImage(iconRow.locator(".project-mark img"));
+    await expect(iconRow.getByRole("button", { name: "Replace" })).toBeVisible();
+
+    await chooseFromRepository(page, "Logo", "logo.svg");
+
+    await expect(page.getByText("Logo saved for Chosen images.")).toBeVisible();
+    await expectLoadedImage(page.locator(".project-head .project-logo"));
+
+    await page.goto("/projects");
+    const card = page.getByRole("link", { name: /Chosen images/ });
+    await expectLoadedImage(card.locator(".project-logo"));
+
+    await page.goto(`/projects/${project.id}/appearance`);
+    await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
+    await expectLoadedImage(page.locator(".project-head .project-mark img"));
+    await page.goto("/projects");
+    await expectLoadedImage(card.locator(".project-mark img"));
+  } finally {
+    await imaged.remove();
+  }
+});
+
+test("a chosen image stays as it was after a new commit, until it is chosen again", async ({
+  page,
+}) => {
+  const imaged = await repositoryWithImages();
+  try {
+    const project = await addedProject(page, "Copied image", undefined, imaged.path);
+    await page.goto(`/projects/${project.id}/appearance`);
+    await chooseFromRepository(page, "Icon", "icon.png");
+    const image = page.locator(".project-head .project-mark img");
+    await expectLoadedImage(image);
+    const address = (await image.getAttribute("src")) ?? "";
+
+    await commitFiles(imaged, { "assets/icon.png": LOGO_FILE.buffer });
+    await page.reload();
+
+    await expectLoadedImage(image);
+    await expect(image).toHaveAttribute("src", address);
+    const kept = await page.request.get(address);
+    expect((await kept.body()).equals(ICON_FILE.buffer)).toBe(true);
+
+    await chooseFromRepository(page, "Icon", "icon.png");
+
+    await expect(image).not.toHaveAttribute("src", address);
+    await expectLoadedImage(image);
+    const chosenAgain = await page.request.get((await image.getAttribute("src")) ?? "");
+    expect((await chosenAgain.body()).equals(LOGO_FILE.buffer)).toBe(true);
+    expect((await page.request.get(address)).status()).toBe(404);
+  } finally {
+    await imaged.remove();
+  }
+});
+
+test("a text file named .png is refused in its row, and the image stays", async ({ page }) => {
+  const imaged = await repositoryWithImages();
+  try {
+    const project = await addedProject(page, "Refused choice", undefined, imaged.path);
+    await page.goto(`/projects/${project.id}/appearance`);
+    await chooseFromRepository(page, "Icon", "icon.png");
+    const image = page.locator(".project-head .project-mark img");
+    await expectLoadedImage(image);
+    const address = await image.getAttribute("src");
+
+    await chooseFromRepository(page, "Icon", "fake.png");
+
+    const row = page.getByRole("group", { name: "Icon" });
+    await expect(row.getByRole("alert")).toHaveText(
+      "The file isn't a PNG, JPEG, WebP or SVG image.",
+    );
+    await expect(image).toHaveAttribute("src", address ?? "");
+
+    await chooseFromRepository(page, "Icon", "PHOTO.JPG");
+    await expect(row.getByRole("alert")).toBeHidden();
+  } finally {
+    await imaged.remove();
+  }
+});
+
+test("a Project whose folder has gone says so plainly in the window", async ({ page }) => {
+  const imaged = await repositoryWithImages();
+  const project = await addedProject(page, "Gone folder", undefined, imaged.path);
+  await imaged.remove();
+  await page.goto(`/projects/${project.id}/appearance`);
+
+  await page
+    .getByRole("group", { name: "Icon" })
+    .getByRole("button", { name: "Choose from repository" })
+    .click();
+
+  const window = page.getByRole("dialog", { name: "Choose Icon" });
+  const refusal = window.getByRole("status");
+  await expect(refusal).toContainText("The base branch can't be read");
+  await expect(refusal).not.toContainText("Internal server error");
+});
+
+for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1600, 600]) {
+    test(`Appearance and the window to choose an image hold together, ${colorScheme} at ${width}`, async ({
+      page,
+    }) => {
+      const imaged = await repositoryWithImages();
+      try {
+        const project = await addedProject(
+          page,
+          `Look ${colorScheme} ${width}`,
+          undefined,
+          imaged.path,
+        );
+        await page.setViewportSize({ width, height: 900 });
+        await page.emulateMedia({ colorScheme });
+        await page.goto(`/projects/${project.id}/appearance`);
+        await chooseFromRepository(page, "Icon", "circle.svg");
+        await chooseFromRepository(page, "Logo", "logo.svg");
+        await expectLoadedImage(page.locator(".project-head .project-logo"));
+        const button = page
+          .getByRole("group", { name: "Logo" })
+          .getByRole("button", { name: "Choose from repository" });
+        await button.scrollIntoViewIfNeeded();
+        await expect(button).toBeInViewport({ ratio: 1 });
+        const scrollsSideways = await page.evaluate(
+          () => document.documentElement.scrollWidth > window.innerWidth,
+        );
+        expect(scrollsSideways).toBe(false);
+        await expect(page.getByText(/saved for Look/)).toHaveCount(0);
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-images-appearance.png`),
+        });
+
+        const fileWindow = await openAssets(page, "Icon");
+        await fileWindow.getByRole("button", { name: "icon.png" }).click();
+        await expect(fileWindow.getByRole("button", { name: "icon.png" })).toHaveAttribute(
+          "aria-pressed",
+          "true",
+        );
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-image-window.png`),
+        });
+      } finally {
+        await imaged.remove();
+      }
+    });
+  }
+}
 
 test("an Icon that can't be loaded leaves the letters and the colour", async ({ page }) => {
   const project = await addedProject(page, "Unloaded");
