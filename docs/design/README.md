@@ -8,6 +8,18 @@ Pages here are **proposals**: interactive mock-ups to look at and compare before
 
 - [**The chat drawer**](chat-drawer.html), **adopted** by the Task "Replace the chat modal with the chat drawer": a person's chat in a drawer on the right edge instead of a modal, opened from a button in the top bar. A switcher shows it behind Now, a Task page and an Initiative page, at wide, 900px and 390px, in the Light and Dark palettes, over the page or pushing it aside, in ten scenarios; Esc really follows the order below, and drafts survive. It changed [spec 4](../spec/4-ux-direction.md) and [spec 4.1](../spec/4.1-ui-rules.md). The click-through is local and wasn't changed: for the chat, this page is the UI spec instead. See [The chat drawer: what it proposes](#the-chat-drawer-what-it-proposes).
 
+- [**Loaders**](loaders.html), proposed for the Task "Loaders": while a block's data hasn't arrived for the first time, it shows one shared loader shaped like what replaces it, instead of a blank card or a wrong "Nothing here". A switcher shows Settings › Office identity, the Work board, Now, People and the chat drawer, each Loading, Loaded and Failed, with a fast and a slow replay, a background refresh, and both palettes; under it, the loader's six shapes and where each block takes one. Like the chat drawer's page, it uses the Geist fonts only where they are installed. See [Loaders: what it proposes](#loaders-what-it-proposes).
+
+## Loaders: what it proposes
+
+1. **One loader**, `BlockLoader` in `apps/web/src/shell/`, its bars the design system's `Skeleton`. It is `role="status"` with a visually hidden label, "Loading…" unless the block names what it loads; the bars stay hidden from screen readers. Six shapes: `lines` (text, a form, a set shape such as the ssh key's bar and buttons), `rows` (a list in a card), `cards` (item cards with their frame, as on the Board and Now, whose sunken surface would swallow bare bars), `tiles` (People, Projects), `table` (in place of `DataTable`'s own loading rows) and `turns` (a Thread's messages).
+2. **What shows at once:** everything that doesn't wait on data, such as a card's title and note, the filter bar, the Hire a Role and Add a Project tiles. Only the part that waits gets the loader, so the page keeps its frame.
+3. **Timing:** it fades in 200ms after it appears, by CSS (160ms), so a quick answer shows no flash. It shows only on the first load (`isLoading`, never `isPending`); a background refresh leaves the content alone. With reduced motion on, the bars hold still.
+4. **Empty and failed:** an empty message, or a count of 0, shows only once the data has loaded; while loading, the Board's columns and Now's headings show no count. A failed read shows its problem where the loader was, in every block that reads it (Unconfirmed hosts too, which is blank today when the read fails).
+5. **Proposed for [spec 4.1](../spec/4.1-ui-rules.md)'s Words**, after "an empty block says what would fill it and how": "A block whose data hasn't arrived yet shows the shared loader, shaped like what will replace it, from 200ms on; its empty message shows only once the data has loaded, and a failed read shows its problem instead. A refresh keeps what is on screen. Small inline bits (a chip, a name, a count) show nothing until they load."
+
+**This design's names**, not glossary terms: the loader (`BlockLoader`) and its shapes.
+
 ## The chat drawer: what it proposes
 
 One recommendation for each of the five questions. Stanley (UI/UX Designer) was consulted and worked the Stage; their advice is folded in, and **Moved:** marks where it changed the starting position.
