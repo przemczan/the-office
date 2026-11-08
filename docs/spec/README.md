@@ -93,7 +93,7 @@ Where each default lives (the old §9):
 - Onboarding a Project: [2.1 Work](2.1-work.md#defaults)
 - Project commands by Proposal and by hand: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The library editor: [2.3 Pipelines](2.3-pipelines.md#defaults)
-- Stage templates wait until after tier 3, copied into a Pipeline when added: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- Stage templates in tier 3, copied into a Pipeline when added: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The proof-of-concept publish target: [2.3 Pipelines](2.3-pipelines.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.
