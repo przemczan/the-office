@@ -1,4 +1,5 @@
 import { prioritySchema, type BoardFilters, type Task } from "@the-office/contracts";
+import { isArchived } from "../../shell/work/work-words.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 
 /**
@@ -51,9 +52,12 @@ export function withBoardFilter<Key extends keyof BoardFilters>(
   return boardFiltersOf({ ...filters, [key]: value });
 }
 
-/** A Task in Shaping joins the board as its Initiative is confirmed; until then it has no column. */
-export function isOnBoard({ state }: Pick<Task, "state">): boolean {
-  return state !== "shaping";
+/**
+ * A Task in Shaping joins the board as its Initiative is confirmed; until then it has no column. An
+ * archived Task has left it, until restored.
+ */
+export function isOnBoard(task: Pick<Task, "state" | "archivedAt">): boolean {
+  return task.state !== "shaping" && !isArchived(task);
 }
 
 /**

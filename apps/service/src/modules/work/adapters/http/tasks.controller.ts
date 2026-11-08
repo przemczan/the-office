@@ -281,4 +281,18 @@ export class TasksController {
   async drop(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
     return toTaskResponse(await this.tasks.drop(id));
   }
+
+  /** Archive: a Done or Dropped Task leaves the board, its state as it was. */
+  @Post(":id/archive")
+  @HttpCode(HttpStatus.OK)
+  async archive(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.archive(id));
+  }
+
+  /** Restore: an archived Task returns to the board in the state it had. */
+  @Post(":id/restore")
+  @HttpCode(HttpStatus.OK)
+  async restore(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.restore(id));
+  }
 }

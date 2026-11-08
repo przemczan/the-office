@@ -39,6 +39,8 @@ export interface SearchOption {
   readonly label: string;
   /** None for a record Office-wide, and for a person. */
   readonly projectIds: readonly string[];
+  /** Said beside the label: "Archived" for a Task off the board. */
+  readonly mark?: string;
   readonly pick: SearchPick;
 }
 
@@ -60,10 +62,11 @@ export function searchGroups(
     {
       kind: "task",
       heading: "Tasks",
-      options: (results?.tasks ?? []).map(({ id, title, projectIds }) => ({
+      options: (results?.tasks ?? []).map(({ id, title, projectIds, archived }) => ({
         key: `task-${id}`,
         label: title,
         projectIds,
+        ...(archived && { mark: "Archived" }),
         pick: { kind: "task", taskId: id },
       })),
     },

@@ -33,6 +33,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     initiativeId: null,
     createdBy: { kind: "user" },
     createdAt: "2026-10-28T10:00:00.000Z",
+    archivedAt: null,
     ...fields,
   };
 }
@@ -106,11 +107,17 @@ describe("withoutBoardFilters", () => {
 });
 
 describe("isOnBoard", () => {
-  it("leaves out only a Task in Shaping, whose Initiative isn't confirmed", () => {
-    expect(isOnBoard({ state: "shaping" })).toBe(false);
+  it("leaves out a Task in Shaping, whose Initiative isn't confirmed", () => {
+    expect(isOnBoard({ state: "shaping", archivedAt: null })).toBe(false);
     for (const state of ["backlog", "planning", "ready", "in-progress", "done"] as const) {
-      expect(isOnBoard({ state })).toBe(true);
+      expect(isOnBoard({ state, archivedAt: null })).toBe(true);
     }
+  });
+
+  it("leaves out an archived Task, in the state it stays in", () => {
+    const archivedAt = "2026-11-07T10:00:00.000Z";
+    expect(isOnBoard({ state: "done", archivedAt })).toBe(false);
+    expect(isOnBoard({ state: "dropped", archivedAt })).toBe(false);
   });
 });
 

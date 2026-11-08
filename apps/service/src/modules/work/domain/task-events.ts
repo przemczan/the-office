@@ -17,6 +17,26 @@ export class TaskStateChanged extends DomainEvent {
   }
 }
 
+/** The Task left the board for the Archive; its state is as it was, so nothing else moves. */
+export class TaskArchived extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
+/** The Task came back from the Archive to the board, in the state it had. */
+export class TaskRestored extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
 export class TaskPriorityChanged extends DomainEvent {
   constructor(
     readonly taskId: string,

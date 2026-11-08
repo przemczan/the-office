@@ -6,16 +6,22 @@ import { changePriority, taskQueries } from "../../api/work.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import { NOT_STARTED, PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import {
+  canBeArchived,
+  NOT_STARTED,
+  PRIORITY_ICONS,
+  PRIORITY_NAMES,
+} from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { useMarkingReady, usePlanning, useReadyConditionsMet } from "./use-planning.ts";
+import { useArchiving } from "./use-task-archive.ts";
 
 const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
 /**
  * A Task's "More" menu: what moves it along (planning, Mark Ready), its priority while it hasn't
- * started, and its Stages to edit and Drop until it has ended.
+ * started, its Stages to edit and Drop until it has ended, and Archive once it has.
  */
 export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
   const [open, setOpen] = useState(false);
@@ -27,6 +33,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
   const planning = usePlanning();
   const marking = useMarkingReady();
   const readyConditionsMet = useReadyConditionsMet(task);
+  const archiving = useArchiving();
   const prioritising = useMutation({
     mutationFn: (priority: Priority) => changePriority(task.id, priority),
     onSuccess: (changed) => {
@@ -70,6 +77,15 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
             ),
             onSelect: () => prioritising.mutate(priority),
           })),
+        ]
+      : []),
+    ...(canBeArchived(task)
+      ? [
+          {
+            icon: <Icon name="archive" size={14} />,
+            label: "Archive",
+            onSelect: () => archiving.mutate(task),
+          },
         ]
       : []),
     ...(task.state === "done" || task.state === "dropped"

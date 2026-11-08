@@ -82,6 +82,13 @@ export interface Task {
   readonly initiativeId: string | undefined;
   readonly createdBy: Author;
   readonly createdAt: Date;
+  /**
+   * When it was archived, while it is (task-archive.ts): a mark on a Done or Dropped Task that takes
+   * it off the board, never a state, so everything reading its state reads it as before.
+   */
+  readonly archivedAt: Date | undefined;
+  /** When it was last restored from the Archive, kept for archiving it again automatically. */
+  readonly restoredAt: Date | undefined;
 }
 
 /** A Pipeline the Planner chose from the Definition of Done, with why (spec §2.3). */

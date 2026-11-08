@@ -1,5 +1,5 @@
 import type { BadgeProps } from "@the-office/ui";
-import type { Author, Idea, Priority, Role, TaskState } from "@the-office/contracts";
+import type { Author, Idea, Priority, Role, Task, TaskState } from "@the-office/contracts";
 import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
 
 /** Each Task state as the UI names it (spec §2.1). */
@@ -32,6 +32,19 @@ export function taskStateWords(
   if (state !== "paused") return TASK_STATE_NAMES[state];
   if (pausedByAlarm) return PAUSED_BY_THE_ALARM;
   return stopped ? STOPPED : TASK_STATE_NAMES.paused;
+}
+
+/**
+ * Whether the Task is in the Archive: a mark beside its state, never a state, that takes it off the
+ * board and its lists (spec §2.1); blockers, Initiatives and Usage estimates still read it.
+ */
+export function isArchived(task: Pick<Task, "archivedAt">): boolean {
+  return task.archivedAt !== null;
+}
+
+/** Only a finished Task can be archived. */
+export function canBeArchived(task: Pick<Task, "state" | "archivedAt">): boolean {
+  return (task.state === "done" || task.state === "dropped") && !isArchived(task);
 }
 
 /** The states before In progress: the Task can still be reordered and its priority changed. */

@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { Project } from "@the-office/contracts";
-import { Icon } from "@the-office/ui";
+import { Badge, Icon } from "@the-office/ui";
 import {
   useEffect,
   useId,
@@ -199,6 +199,7 @@ function FoundGroup({
           >
             <Icon name={KIND_ICONS[option.pick.kind]} size={14} />
             <span className="top-search-label">{option.label}</span>
+            {option.mark && <Badge size="sm">{option.mark}</Badge>}
             <ProjectMarks projectIds={option.projectIds} projects={projects.data} />
           </div>
         );

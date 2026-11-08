@@ -565,6 +565,46 @@ test("a Task's priority and Drop are in its menu, and the Project page counts it
   await expect(work).toContainText("1");
 });
 
+test("a finished Task is archived from its card, found in Archived and by search, and restored in one click", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Archived work", "AW");
+  const task = await createdTask(page, project, "Wombat migration notes");
+  expect((await page.request.post(`/api/tasks/${task.id}/drop`)).ok()).toBe(true);
+  const card = column(page, "Done").getByRole("article", { name: task.title });
+  await page.goto("/work");
+
+  await card.getByRole("button", { name: `More for ${task.title}` }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText(`${task.title} is archived.`)).toBeVisible();
+  await expect(card).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Archived", exact: true }).click();
+  await expect(page).toHaveURL(/\/work\/archived$/);
+  const row = page.getByRole("row", { name: new RegExp(task.title) });
+  await expect(row).toContainText("Dropped");
+  await expect(row).toContainText(project.name);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-tasks.png") });
+
+  await page.keyboard.press("ControlOrMeta+K");
+  await page.keyboard.type("wombat migration");
+  const found = page
+    .getByRole("listbox", { name: "Found" })
+    .getByRole("option", { name: new RegExp(task.title) });
+  await expect(found).toContainText("Archived");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
+  await expect(page.locator(".task-head")).toContainText(/Archived \d+ \w+/);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-task-page.png") });
+
+  await page.goto("/work/archived");
+  await row.getByRole("button", { name: `Restore ${task.title}` }).click();
+  await expect(page.getByText(`${task.title} is back on the board.`)).toBeVisible();
+  await expect(row).toHaveCount(0);
+  await page.getByRole("tab", { name: "Tasks", exact: true }).click();
+  await expect(card).toContainText("Dropped");
+});
+
 test('the user tags a Task in "+ Task" and on its page, and the board shows its Tags', async ({
   page,
 }) => {

@@ -162,6 +162,30 @@ describe("reading Tasks and Ideas", () => {
     expect(record.text).toContain("Attachments:\n- Spec (link to https://example.com/spec)");
   });
 
+  it("leaves an archived Task out of the list, and reads its record saying it is archived", async () => {
+    const tasks = work.app.get(TaskService);
+    const onBoard = await tasks.create(
+      { title: "On the board", projectId, priority: "normal" },
+      THE_USER,
+    );
+    const finished = await tasks.create(
+      { title: "Finished", projectId, priority: "normal" },
+      THE_USER,
+    );
+    await tasks.drop(finished.id);
+    const archived = await tasks.archive(finished.id);
+
+    const list = await call(LIST_TASKS, { projectId });
+    const record = await call(READ_TASK, { taskId: finished.id });
+
+    expect(list.text).toBe(
+      `- On the board (Task ${onBoard.id}) · Project ${projectId} · Backlog · normal priority`,
+    );
+    expect(record.text).toContain(
+      `- Archived on ${archived.archivedAt?.toISOString()}: off the board, its state as it was`,
+    );
+  });
+
   it("lists the Ideas and reads one's record", async () => {
     const idea = await work.app
       .get(IdeaService)

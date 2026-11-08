@@ -21,6 +21,7 @@ import { initiativeProjectIds } from "../../domain/initiative-changes.js";
 import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";
+import { isArchived } from "../../domain/task-archive.js";
 import type { EngineUsage, UsageEstimate, UsageMeasure } from "../../domain/usage-estimate.js";
 import type { UsageSettings } from "../../domain/usage-settings.js";
 
@@ -79,6 +80,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     initiativeId: task.initiativeId ?? null,
     createdBy: toAuthorResponse(task.createdBy),
     createdAt: task.createdAt.toISOString(),
+    archivedAt: task.archivedAt?.toISOString() ?? null,
   };
 }
 
@@ -101,6 +103,7 @@ export function toSearchResultsResponse(results: SearchResults): SearchResultsRe
       id: record.id,
       title: record.title,
       state: record.state,
+      archived: isArchived(record),
       projectIds: [...projectIds],
     })),
     ideas: results.ideas.map(({ record, projectIds }) => ({

@@ -34,6 +34,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     initiativeId: INITIATIVE_ID,
     createdBy: { kind: "user" },
     createdAt: "2026-10-28T10:00:00.000Z",
+    archivedAt: null,
     ...fields,
   };
 }

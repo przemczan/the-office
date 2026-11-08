@@ -1,5 +1,6 @@
 import type { Decision, Pipeline, Task, TaskState, Thread } from "@the-office/contracts";
 import { waitsOnYou } from "../../shell/work/waiting-on-you.ts";
+import { isArchived } from "../../shell/work/work-words.ts";
 
 /** A Task the person has a part in, and what that part is, in a few words. */
 export interface PersonTask {
@@ -10,7 +11,8 @@ export interface PersonTask {
 /**
  * The Tasks the person has a part in: those they created, as from a chat, those with a Thread with
  * them, by its title (as "Planning"), and those whose Pipeline has a Stage their Role works, by
- * the Stages' names (task 10). Ownership and consultations add theirs in later tasks.
+ * the Stages' names (task 10). Ownership and consultations add theirs in later tasks. An
+ * archived Task has left the lists.
  */
 export function personTasks(
   roleKey: string,
@@ -19,6 +21,7 @@ export function personTasks(
   threadsOnTasks: readonly Thread[],
 ): PersonTask[] {
   return tasks.flatMap((task) => {
+    if (isArchived(task)) return [];
     const created = task.createdBy.kind === "person" && task.createdBy.roleKey === roleKey;
     const threads = threadsOnTasks
       .filter(({ home }) => home.kind === "task" && home.taskId === task.id)

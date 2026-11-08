@@ -694,6 +694,13 @@
       "when": 1794069485836,
       "tag": "0098_person_avatars",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1794089583940,
+      "tag": "0099_task_archive",
+      "breakpoints": true
     }
   ]
 }

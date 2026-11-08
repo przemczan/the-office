@@ -35,7 +35,9 @@ describe("searchGroups", () => {
     const groups = searchGroups(
       {
         ...NOTHING,
-        tasks: [{ id: "t", title: "Fix login", state: "backlog", projectIds: ["web"] }],
+        tasks: [
+          { id: "t", title: "Fix login", state: "backlog", archived: false, projectIds: ["web"] },
+        ],
         attachments: [
           { id: "d", name: "brief.md", owner: { kind: "task", taskId: "t" }, projectIds: [] },
         ],
@@ -53,6 +55,28 @@ describe("searchGroups", () => {
       },
     ]);
     expect(groups[2]?.options[0]?.pick).toEqual({ kind: "document", id: "d", name: "brief.md" });
+  });
+
+  it("marks an archived Task, still opening its page", () => {
+    const [tasks] = searchGroups(
+      {
+        ...NOTHING,
+        tasks: [
+          { id: "t", title: "Fix login", state: "done", archived: true, projectIds: ["web"] },
+        ],
+      },
+      [],
+    );
+
+    expect(tasks?.options).toEqual([
+      {
+        key: "task-t",
+        label: "Fix login",
+        projectIds: ["web"],
+        mark: "Archived",
+        pick: { kind: "task", taskId: "t" },
+      },
+    ]);
   });
 });
 

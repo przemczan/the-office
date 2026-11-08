@@ -208,6 +208,8 @@ export function toTaskRow(task: Task): TaskRow {
     initiativeId: task.initiativeId ?? null,
     createdBy: task.createdBy,
     createdAt: task.createdAt,
+    archivedAt: task.archivedAt ?? null,
+    restoredAt: task.restoredAt ?? null,
   };
 }
 
@@ -237,6 +239,8 @@ export function toTask(row: TaskRow): Task {
     initiativeId: row.initiativeId ?? undefined,
     createdBy: row.createdBy,
     createdAt: row.createdAt,
+    archivedAt: row.archivedAt ?? undefined,
+    restoredAt: row.restoredAt ?? undefined,
   };
 }
 

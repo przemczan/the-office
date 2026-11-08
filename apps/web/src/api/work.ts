@@ -418,6 +418,16 @@ export function dropTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/drop`, {}, taskSchema);
 }
 
+/** Archive: a Done or Dropped Task leaves the board, its state as it was. */
+export function archiveTask(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/archive`, {}, taskSchema);
+}
+
+/** Restore: an archived Task returns to the board in the state it had. */
+export function restoreTask(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/restore`, {}, taskSchema);
+}
+
 export function addLink(owner: AttachmentOwner, link: NewLink): Promise<Attachment> {
   return sendToApi("POST", `${ownerPath(owner)}/attachments/links`, link, attachmentSchema);
 }
@@ -469,6 +479,8 @@ export const workEventInvalidations: Readonly<
   "task.left-queue": () => [TASKS],
   "task.queue-reasons-changed": () => [TASKS],
   "task.moved-up-in-queue": () => [TASKS],
+  "task.archived": () => [TASKS],
+  "task.restored": () => [TASKS],
   "task.priority-changed": () => [TASKS],
   "task.title-changed": () => [TASKS],
   "task.description-changed": () => [TASKS],

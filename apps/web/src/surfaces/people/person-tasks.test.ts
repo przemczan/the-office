@@ -54,6 +54,7 @@ function aTask(fields: Partial<Task>): Task {
     initiativeId: null,
     createdBy: { kind: "user" },
     createdAt: "2026-10-25T10:00:00.000Z",
+    archivedAt: null,
     ...fields,
   };
 }
@@ -91,6 +92,12 @@ describe("personTasks", () => {
     expect(personTasks("developer", [aTask({})], [FULL], [])).toEqual([
       { task: aTask({}), part: "Implement · Review & fix" },
     ]);
+  });
+
+  it("leaves out an archived Task, and with it from every filter's count", () => {
+    const archived = aTask({ state: "done", archivedAt: "2026-11-07T10:00:00.000Z" });
+
+    expect(personTasks("developer", [archived], [FULL], [])).toEqual([]);
   });
 
   it("lists a Task the person created, with no Stage of theirs", () => {

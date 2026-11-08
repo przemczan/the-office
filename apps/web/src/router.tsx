@@ -43,6 +43,7 @@ import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-li
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
+import { ArchivedTasks } from "./surfaces/work/archived-tasks.tsx";
 import { Board } from "./surfaces/work/board.tsx";
 import { boardFiltersOf } from "./surfaces/work/board-filters.ts";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
@@ -135,6 +136,13 @@ const initiativesRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "initiatives",
   component: InitiativesList,
+  staticData: { title: "Work" },
+});
+
+const archivedRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "archived",
+  component: ArchivedTasks,
   staticData: { title: "Work" },
 });
 
@@ -437,7 +445,7 @@ export const router = createRouter({
   routeTree: rootRoute.addChildren([
     homeRoute,
     nowRoute,
-    workRoute.addChildren([boardRoute, ideasRoute, initiativesRoute]),
+    workRoute.addChildren([boardRoute, ideasRoute, initiativesRoute, archivedRoute]),
     initiativeRoute,
     taskRoute,
     peopleRoute,

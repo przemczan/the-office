@@ -167,7 +167,15 @@ describe("GET /search", () => {
     );
 
     expect(await searched(word)).toEqual({
-      tasks: [{ id: task.id, title: task.title, state: "backlog", projectIds: [projectId] }],
+      tasks: [
+        {
+          id: task.id,
+          title: task.title,
+          state: "backlog",
+          archived: false,
+          projectIds: [projectId],
+        },
+      ],
       ideas: [{ id: officeWide.id, title: officeWide.title, state: "new", projectIds: [] }],
       initiatives: [
         { id: initiative.id, name: "An Initiative", state: "shaping", projectIds: [projectId] },
@@ -177,6 +185,16 @@ describe("GET /search", () => {
       ],
       inOtherProjects: NONE_IN_OTHER_PROJECTS,
     });
+  });
+
+  it("still finds an archived Task, marked archived", async () => {
+    const task = await createdTask(`Finished ${word}`);
+    await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+    await sendJson(work, "POST", `/tasks/${task.id}/archive`);
+
+    expect((await searched(word)).tasks).toEqual([
+      { id: task.id, title: task.title, state: "dropped", archived: true, projectIds: [projectId] },
+    ]);
   });
 
   it("finds a document by its name and text, and no other kind of Attachment", async () => {

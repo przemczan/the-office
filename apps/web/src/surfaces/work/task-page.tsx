@@ -14,6 +14,7 @@ import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { ArchivedBadge, RestoreButton } from "./archive-parts.tsx";
 import { AttachmentsBlock } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { MissingRecord } from "./missing-record.tsx";
@@ -148,6 +149,7 @@ function TaskHead({
             {...((task.state === "in-progress" || task.state === "planning") && { tone: "info" })}
           />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
+          <ArchivedBadge task={task} />
         </div>
         <div className="task-head-meta">
           <span className="task-head-priority">
@@ -171,6 +173,7 @@ function TaskHead({
         <StartButton task={task} />
         <RunControls task={task} />
         <PullRequestButton taskStages={taskStages?.stages} />
+        <RestoreButton task={task} />
         <TaskMenu task={task} />
       </div>
       <StartNotes task={task} />

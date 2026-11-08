@@ -95,6 +95,10 @@ export const tasks = pgTable(
     initiativeId: uuid("initiative_id").references((): AnyPgColumn => initiatives.id),
     createdBy: jsonb("created_by").$type<Author>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    /** Null while it isn't archived. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** Null until it is first restored from the Archive. */
+    restoredAt: timestamp("restored_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),

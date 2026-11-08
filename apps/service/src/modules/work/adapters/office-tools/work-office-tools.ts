@@ -9,6 +9,7 @@ import { TaskService } from "../../application/task-service.js";
 import type { Idea } from "../../domain/idea.js";
 import { ideaRecordText, whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
+import { isArchived } from "../../domain/task-archive.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { IdeaCards } from "../../ports/idea-cards.js";
 import { SessionPeople } from "../../ports/session-people.js";
@@ -49,14 +50,15 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_TASKS,
       description:
-        "Lists The Office's Tasks in the board's order (priority, then the user's manual order): each one's id, title, Project, state and priority. Give a Project's id to list only its Tasks.",
+        "Lists The Office's Tasks on the board, in its order (priority, then the user's manual order): each one's id, title, Project, state and priority. Archived Tasks are left out; read_task still reads one by its id. Give a Project's id to list only its Tasks.",
       input: z.object({
         projectId: z.string().optional().describe("Only this Project's Tasks, by its id."),
       }),
       run: ({ projectId }) =>
         answered(async () => {
           const tasks = (await this.tasks.list()).filter(
-            (task) => projectId === undefined || task.projectId === projectId,
+            (task) =>
+              !isArchived(task) && (projectId === undefined || task.projectId === projectId),
           );
           if (tasks.length === 0) return "There is no Task yet.";
           return tasks.map(taskLine).join("\n");

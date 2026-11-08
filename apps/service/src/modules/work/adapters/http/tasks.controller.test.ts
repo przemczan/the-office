@@ -321,6 +321,58 @@ describe("POST /api/tasks/:id/drop", () => {
   });
 });
 
+describe("POST /api/tasks/:id/archive and /restore", () => {
+  it("archives a Dropped Task, its state and state changes as they were, and announces it", async () => {
+    const task = await create();
+    await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+    const tasks = work.app.get(TaskService);
+    const stateChanges = await tasks.stateChangesOf(task.id);
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/archive`);
+    const again = await sendJson(work, "POST", `/tasks/${task.id}/archive`);
+
+    const archived = taskSchema.parse(await response.json());
+    expect(archived.state).toBe("dropped");
+    expect(archived.archivedAt).not.toBeNull();
+    expect(again.status).toBe(200);
+    expect(await readTask(task.id)).toEqual(archived);
+    await expect(board()).resolves.toEqual([task.title]);
+    expect(await tasks.stateChangesOf(task.id)).toEqual(stateChanges);
+    expect(webEventsOf(work)).toEqual([{ type: "task.archived", taskId: task.id }]);
+  });
+
+  it("refuses a Task that isn't Done or Dropped, with the reason", async () => {
+    const task = await create();
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/archive`);
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "Only a Done or Dropped Task can be archived; this one is in Backlog.",
+    ]);
+    expect((await readTask(task.id)).archivedAt).toBeNull();
+    expect(work.published).toEqual([]);
+  });
+
+  it("restores an archived Task in the state it had, keeping the moment, and announces it", async () => {
+    const task = await create();
+    await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+    await sendJson(work, "POST", `/tasks/${task.id}/archive`);
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/restore`);
+    const again = await sendJson(work, "POST", `/tasks/${task.id}/restore`);
+
+    const restored = taskSchema.parse(await response.json());
+    expect(restored).toMatchObject({ state: "dropped", archivedAt: null });
+    expect(again.status).toBe(200);
+    expect((await work.app.get(TaskRepository).find(task.id))?.restoredAt).toBeInstanceOf(Date);
+    expect(webEventsOf(work)).toEqual([{ type: "task.restored", taskId: task.id }]);
+  });
+});
+
 async function addDependency(taskId: string, blockerId: string): Promise<Response> {
   return sendJson(work, "POST", `/tasks/${taskId}/dependencies`, { blockerId });
 }

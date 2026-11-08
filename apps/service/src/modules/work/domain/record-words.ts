@@ -26,6 +26,9 @@ export function taskRecordText(
     `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; Pipeline ${task.pipelineId}`,
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
+    ...(task.archivedAt
+      ? [`- Archived on ${task.archivedAt.toISOString()}: off the board, its state as it was`]
+      : []),
     ...(task.originIdeaId ? [`- Shaped from the Idea ${task.originIdeaId}`] : []),
     ...(task.proposedPipeline
       ? [

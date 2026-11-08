@@ -60,6 +60,8 @@ export function aTask(fields: Partial<Task> = {}): Task {
     initiativeId: undefined,
     createdBy: THE_USER,
     createdAt: new Date("2026-10-25T09:30:00.000Z"),
+    archivedAt: undefined,
+    restoredAt: undefined,
     ...fields,
   };
 }

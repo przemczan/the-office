@@ -158,6 +158,11 @@ export const taskSchema = newTaskSchema.extend({
   initiativeId: z.uuid().nullable(),
   createdBy: authorSchema,
   createdAt: z.iso.datetime(),
+  /**
+   * When it was archived, while it is: a mark on a Done or Dropped Task, never a state, that takes
+   * it off the board and its lists; null on the board.
+   */
+  archivedAt: z.iso.datetime().nullable(),
 });
 export type Task = z.infer<typeof taskSchema>;
 
@@ -451,7 +456,10 @@ const countOfKind = z.number().int().nonnegative();
  * the best matches first; and how many more of each kind match in other Projects.
  */
 export const searchResultsSchema = z.object({
-  tasks: z.array(z.object({ ...foundFields, title: z.string(), state: taskStateSchema })),
+  /** A Task in the Archive is found too, marked `archived`. */
+  tasks: z.array(
+    z.object({ ...foundFields, title: z.string(), state: taskStateSchema, archived: z.boolean() }),
+  ),
   ideas: z.array(z.object({ ...foundFields, title: z.string(), state: ideaStateSchema })),
   initiatives: z.array(
     z.object({ ...foundFields, name: z.string(), state: initiativeStateSchema }),
@@ -609,6 +617,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("task.queue-reasons-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.moved-up-in-queue"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.archived"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.restored"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.title-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.description-changed"), taskId: z.uuid() }),

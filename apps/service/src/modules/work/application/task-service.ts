@@ -18,6 +18,7 @@ import {
   stopTask,
   type TaskChange,
 } from "../domain/task-changes.js";
+import { archiveTask, restoreTask } from "../domain/task-archive.js";
 import { addDependency, removeDependency } from "../domain/task-dependencies.js";
 import { TaskResumed } from "../domain/task-events.js";
 import { changeDescription } from "../domain/task-description.js";
@@ -138,6 +139,16 @@ export class TaskService {
   /** Drops the Task, by the user: on its page, or by their answer to a Decision. */
   async drop(id: string): Promise<Task> {
     return this.update(id, (task) => changeTaskState(task, "dropped", THE_USER));
+  }
+
+  /** Takes a Done or Dropped Task off the board into the Archive, its state as it was. */
+  async archive(id: string): Promise<Task> {
+    return this.update(id, (task) => archiveTask(task, new Date()));
+  }
+
+  /** Returns an archived Task to the board in the state it had. */
+  async restore(id: string): Promise<Task> {
+    return this.update(id, (task) => restoreTask(task, new Date()));
   }
 
   /**

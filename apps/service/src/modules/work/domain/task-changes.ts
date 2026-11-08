@@ -93,6 +93,8 @@ export function createTask(
     initiativeId: setting.initiativeId,
     createdBy: setting.createdBy,
     createdAt,
+    archivedAt: undefined,
+    restoredAt: undefined,
   };
   return {
     task,
