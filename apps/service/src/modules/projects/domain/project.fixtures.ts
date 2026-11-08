@@ -28,6 +28,8 @@ export function aProject(fields: Partial<Project> = {}): Project {
     projectDefault: null,
     useForEveryRole: false,
     roleOverrides: [],
+    runEnvironment: "not-decided",
+    runEnvironmentSetUpProblems: [],
     addedAt: new Date("2026-10-25T09:00:00.000Z"),
     ...fields,
   };

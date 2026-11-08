@@ -25,6 +25,7 @@ import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import {
   ProjectAppearanceSection,
   ProjectCommandsSection,
+  ProjectRunEnvironmentSection,
   ProjectDefaultPipelineSection,
   ProjectEngineSection,
   ProjectOverviewSection,
@@ -303,6 +304,13 @@ const projectDefaultPipelineRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const projectRunEnvironmentRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "run-environment",
+  component: ProjectRunEnvironmentSection,
+  staticData: { title: "Projects" },
+});
+
 const projectEngineRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "engine",
@@ -463,6 +471,7 @@ export const router = createRouter({
       projectOverviewRoute,
       projectCommandsRoute,
       projectDefaultPipelineRoute,
+      projectRunEnvironmentRoute,
       projectEngineRoute,
       projectSkillsRoute,
       projectServerValuesRoute,

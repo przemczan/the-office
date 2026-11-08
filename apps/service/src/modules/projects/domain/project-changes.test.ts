@@ -11,9 +11,11 @@ import {
   changeProjectDefault,
   changePublishingMode,
   changeRoleOverride,
+  changeRunEnvironment,
   changeUseForEveryRole,
   changeProjectSkillUse,
   changeUseProjectSkills,
+  finishRunEnvironmentSetUp,
   moveEngineLevels,
 } from "./project-changes.js";
 import {
@@ -27,6 +29,7 @@ import {
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
+  ProjectRunEnvironmentChanged,
   ProjectUseForEveryRoleChanged,
   ProjectSkillUseChanged,
   ProjectUseProjectSkillsChanged,
@@ -160,6 +163,85 @@ describe("changePublishingMode", () => {
     expect(change?.event).toBeInstanceOf(ProjectPublishingModeChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", publishingMode: "merge" });
     expect(changePublishingMode(aProject(), "push-and-pull-request")).toBeUndefined();
+  });
+});
+
+describe("changeRunEnvironment", () => {
+  const NO_DEFINITION = ["The repository has no .devcontainer/devcontainer.json."];
+
+  it("starts every Project at Not decided yet", () => {
+    expect(addProject("admin-panel", aNewProject(), addedAt).project).toMatchObject({
+      runEnvironment: "not-decided",
+      runEnvironmentSetUpProblems: [],
+    });
+  });
+
+  it("turns On with a valid definition, and changes nothing when it already is", () => {
+    const change = changeRunEnvironment(aProject(), "on", []);
+
+    expect(change?.project.runEnvironment).toBe("on");
+    expect(change?.event).toEqual(
+      expect.objectContaining({
+        projectId: "admin-panel",
+        runEnvironment: "on",
+        setUpProblems: [],
+      }),
+    );
+    expect(change?.event).toBeInstanceOf(ProjectRunEnvironmentChanged);
+    expect(changeRunEnvironment(aProject({ runEnvironment: "on" }), "on", [])).toBeUndefined();
+  });
+
+  it("refuses On without a valid definition, with its problems as the reasons", () => {
+    expect(() => changeRunEnvironment(aProject(), "on", NO_DEFINITION)).toThrow(
+      new ProjectRefused([
+        "Run environment can't be On: the base branch main has no valid .devcontainer/.",
+        ...NO_DEFINITION,
+      ]),
+    );
+  });
+
+  it("always takes Off, and clears why the last set-up left it as it was", () => {
+    const change = changeRunEnvironment(
+      aProject({ runEnvironment: "off", runEnvironmentSetUpProblems: NO_DEFINITION }),
+      "off",
+      NO_DEFINITION,
+    );
+
+    expect(change?.project).toMatchObject({
+      runEnvironment: "off",
+      runEnvironmentSetUpProblems: [],
+    });
+  });
+});
+
+describe("finishRunEnvironmentSetUp", () => {
+  it("turns On when the set-up Task's branch has a valid definition", () => {
+    const change = finishRunEnvironmentSetUp(
+      aProject({ runEnvironmentSetUpProblems: ["An earlier problem."] }),
+      [],
+    );
+
+    expect(change?.project).toMatchObject({
+      runEnvironment: "on",
+      runEnvironmentSetUpProblems: [],
+    });
+  });
+
+  it("leaves the setting as it was with an invalid one, keeping why", () => {
+    const problems = ["devcontainer.json names no service."];
+    const change = finishRunEnvironmentSetUp(aProject({ runEnvironment: "off" }), problems);
+
+    expect(change?.project).toMatchObject({
+      runEnvironment: "off",
+      runEnvironmentSetUpProblems: problems,
+    });
+    expect(change?.event).toMatchObject({ runEnvironment: "off", setUpProblems: problems });
+    expect(
+      finishRunEnvironmentSetUp(
+        aProject({ runEnvironment: "off", runEnvironmentSetUpProblems: problems }),
+        problems,
+      ),
+    ).toBeUndefined();
   });
 });
 

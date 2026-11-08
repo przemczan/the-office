@@ -1,6 +1,12 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
-import type { Project, ProjectCommandKey, ProjectMark, PublishingMode } from "./project.js";
+import type {
+  Project,
+  ProjectCommandKey,
+  ProjectMark,
+  PublishingMode,
+  RunEnvironmentSetting,
+} from "./project.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 import type { ProjectImage, ProjectImageKey } from "./project-image.js";
 
@@ -45,6 +51,17 @@ export class ProjectPublishingModeChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly publishingMode: PublishingMode,
+  ) {
+    super();
+  }
+}
+
+/** The Run environment setting, or why a set-up Task's Done left it as it was. */
+export class ProjectRunEnvironmentChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly runEnvironment: RunEnvironmentSetting,
+    readonly setUpProblems: readonly string[],
   ) {
     super();
   }

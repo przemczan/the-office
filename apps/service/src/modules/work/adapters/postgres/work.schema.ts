@@ -19,7 +19,7 @@ import type { Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
 import type { StateChangeCause } from "../../domain/state-change.js";
-import type { Priority, ProposedPipeline, TaskState } from "../../domain/task.js";
+import type { Priority, ProposedPipeline, TaskMadeFor, TaskState } from "../../domain/task.js";
 import { searchVectorOf } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
@@ -93,7 +93,8 @@ export const tasks = pgTable(
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
     pausedByAlarm: boolean("paused_by_alarm").notNull().default(false),
-    isOnboardTask: boolean("is_onboard_task").notNull().default(false),
+    /** Null for a Task the user or an Agent made. */
+    madeFor: text("made_for").$type<TaskMadeFor>(),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */
     blockedBy: uuid("blocked_by")
       .array()
@@ -119,7 +120,13 @@ export const tasks = pgTable(
     // A Project has one Onboard Task at most: its onboarding is read from it alone.
     uniqueIndex("tasks_onboard_task_per_project")
       .on(table.projectId)
-      .where(sql`${table.isOnboardTask}`),
+      .where(sql`${table.madeFor} = 'onboard'`),
+    // And one open "Set up the run environment" Task, which asking again answers.
+    uniqueIndex("tasks_open_run_environment_set_up_per_project")
+      .on(table.projectId)
+      .where(
+        sql`${table.madeFor} = 'run-environment-setup' AND ${table.state} NOT IN ('done', 'dropped')`,
+      ),
   ],
 );
 

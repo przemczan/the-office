@@ -12,6 +12,7 @@ import {
   type ProjectEngineLevels,
   type ProjectMark,
   type PublishingMode,
+  type RunEnvironmentSetting,
 } from "../domain/project.js";
 import {
   addProject,
@@ -25,9 +26,11 @@ import {
   changeProjectDefault,
   changePublishingMode,
   changeRoleOverride,
+  changeRunEnvironment,
   changeUseForEveryRole,
   changeProjectSkillUse,
   changeUseProjectSkills,
+  finishRunEnvironmentSetUp,
   type ProjectChange,
   type ProjectChanges,
 } from "../domain/project-changes.js";
@@ -156,6 +159,28 @@ export class ProjectService {
 
   async changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {
     return this.update(id, (project) => changePublishingMode(project, publishingMode));
+  }
+
+  /**
+   * The user's On or Off; On refused with `definitionProblems`, the problems of the definition on
+   * the base branch, which the caller reads.
+   */
+  async changeRunEnvironment(
+    id: string,
+    runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
+    definitionProblems: readonly string[],
+  ): Promise<Project> {
+    return this.update(id, (project) =>
+      changeRunEnvironment(project, runEnvironment, definitionProblems),
+    );
+  }
+
+  /** A set-up Task is Done, with these problems of the definition on its branch. */
+  async finishRunEnvironmentSetUp(
+    id: string,
+    definitionProblems: readonly string[],
+  ): Promise<Project> {
+    return this.update(id, (project) => finishRunEnvironmentSetUp(project, definitionProblems));
   }
 
   async changeMark(id: string, mark: ProjectMark): Promise<Project> {

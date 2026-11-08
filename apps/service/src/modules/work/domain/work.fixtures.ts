@@ -54,7 +54,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     proposedPipeline: undefined,
     personRole: undefined,
     pausedByAlarm: false,
-    isOnboardTask: false,
+    madeFor: undefined,
     blockedBy: [],
     originIdeaId: undefined,
     initiativeId: undefined,

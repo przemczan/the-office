@@ -60,6 +60,7 @@ import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
 import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
 import { OnboardingService } from "./application/onboarding-service.js";
+import { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
 import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
 import { SearchService } from "./application/search-service.js";
@@ -227,6 +228,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         OfficeLimits,
         RemovedEngineCaps,
         OnboardingService,
+        RunEnvironmentSetUps,
         AttachmentService,
         SearchService,
         SavedViewService,
@@ -261,6 +263,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskArchiving,
         OfficeLimits,
         QueueService,
+        RunEnvironmentSetUps,
         TaskRecords,
         StageScreenshots,
       ],

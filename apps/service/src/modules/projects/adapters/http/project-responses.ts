@@ -29,6 +29,7 @@ export function toProjectResponse(project: Project): ProjectResponse {
       engineId,
       model,
     })),
+    runEnvironment: project.runEnvironment,
     addedAt: project.addedAt.toISOString(),
   };
 }

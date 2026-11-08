@@ -62,6 +62,40 @@ export interface Reading<Value> {
   readonly problems: readonly string[];
 }
 
+/** A file's text by its path in the repository; undefined when no such file is there. */
+export type DefinitionFileText = (path: string) => Promise<string | undefined>;
+
+/** The definition as read, and whether devcontainer.json was there at all. */
+export interface DefinitionReading {
+  readonly found: boolean;
+  readonly reading: Reading<RunEnvironmentDefinition>;
+}
+
+/** How a repository's definition stands, as the Project page shows it. */
+export type DefinitionStatus =
+  | { readonly state: "not-found" }
+  | { readonly state: "valid" }
+  | { readonly state: "not-valid"; readonly problems: readonly string[] };
+
+export function definitionStatusOf({ found, reading }: DefinitionReading): DefinitionStatus {
+  if (!found) return { state: "not-found" };
+  return reading.value === undefined
+    ? { state: "not-valid", problems: reading.problems }
+    : { state: "valid" };
+}
+
+/** Every reason the definition can't be used; empty when it is valid. */
+export function definitionProblemsOf(status: DefinitionStatus): readonly string[] {
+  switch (status.state) {
+    case "valid":
+      return [];
+    case "not-found":
+      return [`The repository has no ${DEFINITION_FILE}.`];
+    case "not-valid":
+      return status.problems;
+  }
+}
+
 /**
  * devcontainer.json's properties The Office reads or may leave aside. Any other is refused, since
  * the definition would then not mean what it says: features, lifecycle commands, mounts and so on

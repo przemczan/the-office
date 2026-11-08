@@ -33,8 +33,16 @@ describe("moveProblems", () => {
   });
 
   it("refuses an Onboard Task, which belongs to its Project", () => {
-    expect(moveProblems(aReadyTask({ isOnboardTask: true }), READY_FROM_BACKLOG)).toEqual([
+    expect(moveProblems(aReadyTask({ madeFor: "onboard" }), READY_FROM_BACKLOG)).toEqual([
       "An Onboard Task belongs to its Project, so it can't move to another.",
+    ]);
+  });
+
+  it("refuses a set-up Task, which belongs to its Project", () => {
+    expect(
+      moveProblems(aReadyTask({ madeFor: "run-environment-setup" }), READY_FROM_BACKLOG),
+    ).toEqual([
+      'A "Set up the run environment" Task belongs to its Project, so it can\'t move to another.',
     ]);
   });
 

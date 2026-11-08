@@ -1,4 +1,4 @@
-import type { INestApplication } from "@nestjs/common";
+import type { DynamicModule, INestApplication } from "@nestjs/common";
 import { workWebEventSchema } from "@the-office/contracts";
 import { startTestApplication, type ProviderOverride } from "../../../test/test-application.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../pipelines/index.js";
@@ -60,35 +60,40 @@ export async function startWorkApplication(
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeDataFolder),
-      WorkModule.register({
-        imports: [WorkPortsForTestsModule, PipelineLibraryModule],
-        knownProjects: KnownProjectsForTests,
-        newProjects: NewProjectsForTests,
-        projectWorktrees: ProjectWorktreesForTests,
-        knownPeople: KnownPeopleForTests,
-        knownEngineCascade: KnownEngineCascadeForTests,
-        knownPipelines: PipelineLibrary,
-        sessionPeople: SessionPeopleForTests,
-        ideaCards: IdeaCardsForTests,
-        sessionTasks: SessionTasksForTests,
-        sessionInitiatives: SessionInitiativesForTests,
-        taskThreads: TaskThreadsForTests,
-        initiativeThreads: InitiativeThreadsForTests,
-        taskDecisions: TaskDecisionsForTests,
-        proposalDrafts: ProposalDraftsForTests,
-        usageHistory: UsageHistoryForTests,
-        stageResults: StageResultsForTests,
-        modelPrices: ModelPricesForTests,
-        accountWindows: AccountWindowsForTests,
-        accountWindowRatios: AccountWindowRatiosForTests,
-        dayUsage: DayUsageForTests,
-        taskTokens: TaskTokensForTests,
-      }),
+      workModuleForTests(),
     ],
   });
   const published: DomainEvent[] = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
   return { app, url, published };
+}
+
+/** Work on the test ports, every Project known but UNKNOWN_PROJECT, and the library's Pipelines. */
+export function workModuleForTests(): DynamicModule {
+  return WorkModule.register({
+    imports: [WorkPortsForTestsModule, PipelineLibraryModule],
+    knownProjects: KnownProjectsForTests,
+    newProjects: NewProjectsForTests,
+    projectWorktrees: ProjectWorktreesForTests,
+    knownPeople: KnownPeopleForTests,
+    knownEngineCascade: KnownEngineCascadeForTests,
+    knownPipelines: PipelineLibrary,
+    sessionPeople: SessionPeopleForTests,
+    ideaCards: IdeaCardsForTests,
+    sessionTasks: SessionTasksForTests,
+    sessionInitiatives: SessionInitiativesForTests,
+    taskThreads: TaskThreadsForTests,
+    initiativeThreads: InitiativeThreadsForTests,
+    taskDecisions: TaskDecisionsForTests,
+    proposalDrafts: ProposalDraftsForTests,
+    usageHistory: UsageHistoryForTests,
+    stageResults: StageResultsForTests,
+    modelPrices: ModelPricesForTests,
+    accountWindows: AccountWindowsForTests,
+    accountWindowRatios: AccountWindowRatiosForTests,
+    dayUsage: DayUsageForTests,
+    taskTokens: TaskTokensForTests,
+  });
 }
 
 /** The events published, as the web receives them, without their times. */

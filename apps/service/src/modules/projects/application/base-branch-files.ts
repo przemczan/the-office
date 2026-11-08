@@ -67,6 +67,11 @@ export class BaseBranchFiles {
     }
   }
 
+  /** The base branch's last commit known here, with no fetch; undefined when there is none. */
+  async lastFetched(projectId: string): Promise<string | undefined> {
+    return this.lastKnownCommit(await this.projects.read(projectId));
+  }
+
   /**
    * What `path` holds at `commit`: every folder, since finding those holding a match would walk the
    * whole tree, and the files ending in one of `extensions`, or all of them when none is given.

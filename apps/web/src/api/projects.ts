@@ -9,6 +9,7 @@ import {
   projectMcpServerValuesSchema,
   projectListSchema,
   projectRemoteNeedsSchema,
+  projectRunEnvironmentSchema,
   projectSchema,
   projectSkillListSchema,
   repositoryCloneSchema,
@@ -24,12 +25,14 @@ import {
   type ProjectImageFromRepository,
   type ProjectImageKey,
   type ProjectMcpServerValues,
+  type ProjectRunEnvironment,
   type ProjectServerValuesChange,
   type ProjectWebEvent,
   type PublishingMode,
   type RepositoryClone,
   type RepositoryCloneStart,
   type RepositoryCloneWebEvent,
+  type RunEnvironmentChange,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
@@ -38,6 +41,11 @@ import { ENGINE_CASCADE } from "./people.ts";
 const PROJECTS = ["projects"] as const;
 /** Apart from the Projects' key, since Sign in with GitHub changes it too. */
 export const REMOTE_NEEDS = ["remote-needs"] as const;
+/**
+ * Apart from the Projects' key, since a Task's events change it too: its set-up Task, and the Done
+ * that turns it On.
+ */
+export const RUN_ENVIRONMENTS = ["run-environments"] as const;
 /** Apart from the Projects' key, so no event moves an open file browser to another commit. */
 const BASE_BRANCH = ["base-branch"] as const;
 
@@ -51,6 +59,13 @@ export const projectQueries = {
     queryOptions({
       queryKey: [...PROJECTS, id],
       queryFn: ({ signal }) => getFromApi(projectPath(id), projectSchema, signal),
+    }),
+  /** The Run environment setting, the definition on the base branch, and the set-up Task. */
+  runEnvironment: (id: string) =>
+    queryOptions({
+      queryKey: [...RUN_ENVIRONMENTS, id],
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPath(id)}/run-environment`, projectRunEnvironmentSchema, signal),
     }),
   /** The running environment check, or the last finished one. */
   environmentCheck: (id: string) =>
@@ -188,6 +203,28 @@ export function changePublishingMode(id: string, publishingMode: PublishingMode)
   return sendToApi("PUT", `${projectPath(id)}/publishing-mode`, { publishingMode }, projectSchema);
 }
 
+export function changeRunEnvironment(
+  id: string,
+  runEnvironment: RunEnvironmentChange["runEnvironment"],
+): Promise<ProjectRunEnvironment> {
+  return sendToApi(
+    "PUT",
+    `${projectPath(id)}/run-environment`,
+    { runEnvironment },
+    projectRunEnvironmentSchema,
+  );
+}
+
+/** Turns On at once with a valid definition on the base branch, else adds the set-up Task. */
+export function setUpRunEnvironment(id: string): Promise<ProjectRunEnvironment> {
+  return sendToApi(
+    "POST",
+    `${projectPath(id)}/run-environment/set-up`,
+    {},
+    projectRunEnvironmentSchema,
+  );
+}
+
 export function changeMark(id: string, mark: Mark): Promise<Project> {
   return sendToApi("PUT", `${projectPath(id)}/mark`, { mark }, projectSchema);
 }
@@ -310,6 +347,7 @@ export const projectEventInvalidations: Readonly<
   "project.environment-check-changed": () => [PROJECTS],
   "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
+  "project.run-environment-changed": () => [PROJECTS, RUN_ENVIRONMENTS],
   "project.mark-changed": () => [PROJECTS],
   "project.image-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],

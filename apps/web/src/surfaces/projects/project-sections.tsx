@@ -6,6 +6,7 @@ import { EngineBlock } from "./engine-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
 import { OnboardingBlock } from "./onboarding-block.tsx";
 import { useOpenProject } from "./project-page.tsx";
+import { RunEnvironmentBlock } from "./run-environment-block.tsx";
 import { ServerValuesBlock } from "./server-values-block.tsx";
 import { SkillsBlock } from "./skills-block.tsx";
 import { WorkBlock } from "./work-block.tsx";
@@ -28,6 +29,10 @@ export function ProjectCommandsSection(): ReactNode {
 
 export function ProjectDefaultPipelineSection(): ReactNode {
   return <DefaultPipelineBlock project={useOpenProject()} />;
+}
+
+export function ProjectRunEnvironmentSection(): ReactNode {
+  return <RunEnvironmentBlock project={useOpenProject()} />;
 }
 
 export function ProjectEngineSection(): ReactNode {

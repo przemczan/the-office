@@ -7,6 +7,9 @@ const DEVOPS = "devops";
 /** Onboarding's Pipeline, which onboarding uses and so can't be removed (spec §2.3). */
 export const ONBOARD_PIPELINE = "onboard";
 
+/** The Pipeline of a Project's "Set up the run environment" Task, which can't be removed either. */
+export const SET_UP_RUN_ENVIRONMENT_PIPELINE = "set-up-run-environment";
+
 // A budget is checked against the whole Task's tokens (spec §2.3), so each Agent Stage's is the
 // budgets of the Stages before it plus its own, written as that sum.
 
@@ -178,6 +181,39 @@ const proofOfConcept: Pipeline = {
 };
 
 /**
+ * Building the image and running the checks inside it come with the Script Stage's run environment;
+ * until then Verify runs the Test command as any Script Stage does.
+ */
+const setUpRunEnvironment: Pipeline = {
+  id: SET_UP_RUN_ENVIRONMENT_PIPELINE,
+  name: "Set up run environment",
+  description:
+    "Writes a Project's run environment definition, .devcontainer/, for its stack, then publishes it.",
+  stages: [
+    {
+      kind: "agent",
+      key: "set-up",
+      name: "Set up",
+      role: DEVOPS,
+      brief:
+        "Write .devcontainer/ (devcontainer.json and a compose file for the services) for the Project's stack, from its manifests and commands.",
+      session: "fresh",
+      budget: 150_000,
+      optional: false,
+    },
+    {
+      kind: "script",
+      key: "verify",
+      name: "Verify",
+      command: "test",
+      optional: false,
+      onFailure: { goBackTo: "set-up", rounds: 2 },
+    },
+    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
+  ],
+};
+
+/**
  * Spec §2.3's built-ins, in the library's order. The `pipelines` table's migration seeds them once;
  * from then on the library holds them and the user edits them like any.
  */
@@ -187,4 +223,5 @@ export const builtInPipelines: readonly Pipeline[] = [
   document,
   onboard,
   proofOfConcept,
+  setUpRunEnvironment,
 ];

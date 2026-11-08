@@ -87,7 +87,7 @@ export function createTask(
     proposedPipeline: undefined,
     personRole: undefined,
     pausedByAlarm: false,
-    isOnboardTask: false,
+    madeFor: undefined,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
     initiativeId: setting.initiativeId,

@@ -37,8 +37,13 @@ export interface MoveDestination {
 
 /** Every reason the Task can't move to another Project; empty when it can. */
 export function moveProblems(task: Task, { stateChanges, hasWorktree }: MoveGrounds): string[] {
-  if (task.isOnboardTask) {
+  if (task.madeFor === "onboard") {
     return ["An Onboard Task belongs to its Project, so it can't move to another."];
+  }
+  if (task.madeFor === "run-environment-setup") {
+    return [
+      'A "Set up the run environment" Task belongs to its Project, so it can\'t move to another.',
+    ];
   }
   const problems: string[] = [];
   // Planning is refused by the Task's history, below.

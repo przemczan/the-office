@@ -27,7 +27,7 @@ describe("createOnboardTask", () => {
       state: "ready",
       pipelineId: ONBOARD_PIPELINE,
       proposedPipeline: undefined,
-      isOnboardTask: true,
+      madeFor: "onboard",
       definitionOfDone: ONBOARD_TASK_DEFINITION_OF_DONE,
       createdBy: { kind: "person", roleKey: "devops" },
     });
@@ -47,7 +47,7 @@ describe("createOnboardTask", () => {
 });
 
 describe("projectOnboardingOf", () => {
-  const onboardTask = aTask({ id: "task-1", projectId: "billing", isOnboardTask: true });
+  const onboardTask = aTask({ id: "task-1", projectId: "billing", madeFor: "onboard" });
 
   it("is onboarding until the Onboard Task is done, then onboarded", () => {
     expect(projectOnboardingOf({ ...onboardTask, state: "in-progress" })).toEqual({

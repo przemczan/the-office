@@ -10,6 +10,13 @@ export type ProjectCommandKey = z.infer<typeof projectCommandKeySchema>;
 export const publishingModeSchema = z.enum(["push-and-pull-request", "merge"]);
 export type PublishingMode = z.infer<typeof publishingModeSchema>;
 
+/**
+ * Whether the Project's checks run in its run environment: "not-decided" until the user picks On or
+ * Off, and run on the host meanwhile.
+ */
+export const runEnvironmentSettingSchema = z.enum(["not-decided", "on", "off"]);
+export type RunEnvironmentSetting = z.infer<typeof runEnvironmentSettingSchema>;
+
 /** The design system's ramps offered as a Project mark's quick choices. */
 export const namedMarkColourSchema = z.enum(["teal", "violet", "gray", "ink"]);
 export type NamedMarkColour = z.infer<typeof namedMarkColourSchema>;
@@ -164,6 +171,7 @@ export const projectSchema = newProjectSchema.extend({
   useForEveryRole: z.boolean(),
   /** At most one per Role. */
   roleOverrides: z.array(projectRoleOverrideSchema),
+  runEnvironment: runEnvironmentSettingSchema,
   addedAt: z.iso.datetime(),
 });
 export type Project = z.infer<typeof projectSchema>;
@@ -321,6 +329,11 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({
     type: z.literal("project.publishing-mode-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    /** The Run environment setting changed, or a set-up Task's Done left it as it was. */
+    type: z.literal("project.run-environment-changed"),
     projectId: z.string(),
   }),
   webEventSchema.extend({

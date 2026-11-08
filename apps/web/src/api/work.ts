@@ -61,6 +61,7 @@ import {
   sendToApiWithNoAnswer,
 } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { RUN_ENVIRONMENTS } from "./projects.ts";
 
 const IDEAS = ["ideas"] as const;
 const INITIATIVES = ["initiatives"] as const;
@@ -497,8 +498,8 @@ export const workEventInvalidations: Readonly<
   "initiative.created": () => [INITIATIVES],
   "initiative.state-changed": () => [INITIATIVES],
   "initiative.outcome-written": () => [INITIATIVES],
-  "task.created": () => [TASKS, INITIATIVES],
-  "task.state-changed": () => [TASKS, INITIATIVES],
+  "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
+  "task.state-changed": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
   "task.started": () => [TASKS],
   "task.paused": () => [TASKS],
   "task.stopped": () => [TASKS],

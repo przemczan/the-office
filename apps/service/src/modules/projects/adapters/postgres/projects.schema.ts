@@ -4,6 +4,7 @@ import type {
   ProjectMarkColour,
   ProjectRoleOverride,
   PublishingMode,
+  RunEnvironmentSetting,
 } from "../../domain/project.js";
 import type { ProjectEnvironment } from "../../domain/project-environment.js";
 import type { ProjectImage } from "../../domain/project-image.js";
@@ -45,5 +46,13 @@ export const projects = pgTable("projects", {
     .$type<readonly ProjectRoleOverride[]>()
     .notNull()
     .default([]),
+  runEnvironment: text("run_environment")
+    .$type<RunEnvironmentSetting>()
+    .notNull()
+    .default("not-decided"),
+  runEnvironmentSetUpProblems: text("run_environment_set_up_problems")
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
 });

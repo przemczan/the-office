@@ -246,6 +246,10 @@ _Avoid_: Pipeline catalog, templates
 Making a Project build and test in a fresh worktree on the workstation, done by Devops in the Project's Onboard Task.
 _Avoid_: Setup, initialization, provisioning
 
+**Run environment**:
+A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile, and On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else adds the Project's "Set up the run environment" Task, in which Devops writes it, and its Done turns the setting On.
+_Avoid_: dev container, sandbox
+
 **Stage**:
 One step of a Pipeline: work by an Agent in a Role, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)

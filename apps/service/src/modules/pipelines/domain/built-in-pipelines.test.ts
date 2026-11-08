@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { builtInPipelines, ONBOARD_PIPELINE } from "./built-in-pipelines.js";
+import {
+  builtInPipelines,
+  ONBOARD_PIPELINE,
+  SET_UP_RUN_ENVIRONMENT_PIPELINE,
+} from "./built-in-pipelines.js";
 import { stageProblems } from "./pipeline.js";
 import type { Stage } from "./stage.js";
 
@@ -13,15 +17,16 @@ function lastStageOf(id: string): Stage | undefined {
 }
 
 describe("the built-in Pipelines", () => {
-  it("are Full, Quick fix, Document, Onboard and Proof of concept, each with its own id", () => {
+  it("are Full, Quick fix, Document, Onboard, Proof of concept and Set up run environment, each with its own id", () => {
     expect(builtInPipelines.map((pipeline) => pipeline.name)).toEqual([
       "Full",
       "Quick fix",
       "Document",
       "Onboard",
       "Proof of concept",
+      "Set up run environment",
     ]);
-    expect(new Set(builtInPipelines.map((pipeline) => pipeline.id)).size).toBe(5);
+    expect(new Set(builtInPipelines.map((pipeline) => pipeline.id)).size).toBe(6);
   });
 
   it("follow the Stages of spec §2.3", () => {
@@ -30,6 +35,7 @@ describe("the built-in Pipelines", () => {
     expect(stagesOf("Document")).toEqual(["Produce", "Review & fix"]);
     expect(stagesOf("Onboard")).toEqual(["Onboard", "Verify", "Publish"]);
     expect(stagesOf("Proof of concept")).toEqual(["Implement", "Tests", "Publish"]);
+    expect(stagesOf("Set up run environment")).toEqual(["Set up", "Verify", "Publish"]);
   });
 
   it.each(builtInPipelines.map((pipeline) => [pipeline.name, pipeline] as const))(
@@ -39,7 +45,7 @@ describe("the built-in Pipelines", () => {
     },
   );
 
-  it("have every Agent Stage worked by the Developer in a fresh session, but Onboard's by Devops", () => {
+  it("have every Agent Stage worked by the Developer in a fresh session, but Devops' Pipelines' by Devops", () => {
     const agentStages = builtInPipelines.flatMap((pipeline) =>
       pipeline.stages.flatMap((stage) =>
         stage.kind === "agent" ? [[pipeline.id, stage.role, stage.session]] : [],
@@ -47,7 +53,11 @@ describe("the built-in Pipelines", () => {
     );
 
     expect(agentStages).toEqual(
-      agentStages.map(([id]) => [id, id === ONBOARD_PIPELINE ? "devops" : "developer", "fresh"]),
+      agentStages.map(([id]) => [
+        id,
+        id === ONBOARD_PIPELINE || id === SET_UP_RUN_ENVIRONMENT_PIPELINE ? "devops" : "developer",
+        "fresh",
+      ]),
     );
   });
 
@@ -63,6 +73,7 @@ describe("the built-in Pipelines", () => {
       ["Document", [80_000, 120_000]],
       ["Onboard", [150_000]],
       ["Proof of concept", [200_000]],
+      ["Set up run environment", [150_000]],
     ]);
   });
 

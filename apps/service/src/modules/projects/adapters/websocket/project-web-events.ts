@@ -16,6 +16,7 @@ import {
   ProjectInstallInputsChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
+  ProjectRunEnvironmentChanged,
   ProjectRoleOverrideChanged,
   ProjectSkillUseChanged,
   ProjectUseForEveryRoleChanged,
@@ -78,6 +79,13 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectPublishingModeChanged,
       (event): WebEventOf<"project.publishing-mode-changed"> => ({
         type: "project.publishing-mode-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectRunEnvironmentChanged,
+      (event): WebEventOf<"project.run-environment-changed"> => ({
+        type: "project.run-environment-changed",
         projectId: event.projectId,
       }),
     );

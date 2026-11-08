@@ -179,8 +179,9 @@ export class AppModule {
         PeopleModule,
         pipelines,
         projects,
-        // Work's Tasks tell the startup sweep which run environments to keep.
-        RunEnvironmentsModule.register({ imports: [work], knownTasks: TaskService }),
+        // Work's Tasks tell the startup sweep which run environments to keep; a Project's Run
+        // environment setting is kept by Projects, and its set-up Task by Work.
+        RunEnvironmentsModule.register({ imports: [work, projects], knownTasks: TaskService }),
         SkillsModule,
         TelemetryModule,
         WebAppModule.register(webApp),

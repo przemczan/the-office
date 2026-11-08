@@ -74,6 +74,8 @@ function toRow(project: Project): ProjectRow {
     projectDefaultModel: project.projectDefault?.model ?? null,
     useForEveryRole: project.useForEveryRole,
     roleOverrides: project.roleOverrides,
+    runEnvironment: project.runEnvironment,
+    runEnvironmentSetUpProblems: [...project.runEnvironmentSetUpProblems],
     addedAt: project.addedAt,
   };
 }
@@ -103,6 +105,8 @@ function toProject(row: ProjectRow): Project {
     projectDefault: projectDefaultOf(row),
     useForEveryRole: row.useForEveryRole,
     roleOverrides: row.roleOverrides,
+    runEnvironment: row.runEnvironment,
+    runEnvironmentSetUpProblems: row.runEnvironmentSetUpProblems,
     addedAt: row.addedAt,
   };
 }

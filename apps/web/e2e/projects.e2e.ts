@@ -61,6 +61,7 @@ const SECTIONS = [
   { name: "Overview", address: "", blocks: ["Onboarding", "Environment", "Work"] },
   { name: "Commands", address: "/commands", blocks: ["Commands"] },
   { name: "Default Pipeline", address: "/default-pipeline", blocks: ["Default Pipeline"] },
+  { name: "Run environment", address: "/run-environment", blocks: ["Run environment"] },
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
   { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
   { name: "Server values", address: "/server-values", blocks: ["Server values"] },
@@ -68,7 +69,7 @@ const SECTIONS = [
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
+  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Run environment|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 
@@ -1287,6 +1288,94 @@ test("the add form's label follows the name until the user writes one, its colou
   await form.getByLabel("Name").fill("Admin panel");
   await expect(label).toHaveValue("X1");
   await expect(form.locator(".mark-picker .project-mark")).toHaveClass(/colour-violet/);
+});
+
+const VALID_RUN_ENVIRONMENT = {
+  ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml", "service": "app" }',
+  ".devcontainer/compose.yaml": "services:\n  app:\n    image: node:22\n",
+};
+
+function runEnvironmentBlock(page: Page): Locator {
+  return page.locator(".section-body");
+}
+
+test("Run environment starts Not decided yet, refuses On without .devcontainer/, and sets one up in a Task", async ({
+  page,
+}) => {
+  const ownRepository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(
+      page,
+      "Run environment set-up",
+      undefined,
+      ownRepository.path,
+    );
+    expect(project.runEnvironment).toBe("not-decided");
+    await page.goto(`/projects/${project.id}/run-environment`);
+    const block = runEnvironmentBlock(page);
+    await expect(block.getByText("Not decided yet")).toBeVisible();
+    await expect(block.getByText("Not found")).toBeVisible();
+
+    await block.getByRole("tab", { name: "On" }).click();
+    await expect(block.getByRole("alert")).toContainText(
+      "Run environment can't be On: the base branch main has no valid .devcontainer/.",
+    );
+    await expect(block.getByRole("alert")).toContainText(
+      "The repository has no .devcontainer/devcontainer.json.",
+    );
+    await expect(block.getByText("Not decided yet")).toBeVisible();
+
+    await block.getByRole("tab", { name: "Off" }).click();
+    await expect(page.getByText(`Checks in ${project.name} run on this computer.`)).toBeVisible();
+    await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
+    await expect(block.getByText("Not decided yet")).toHaveCount(0);
+
+    await commitFiles(ownRepository, {
+      ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml" }',
+    });
+    await page.reload();
+    await expect(block.getByText("Not valid")).toBeVisible();
+    await expect(block.getByText("devcontainer.json names no service")).toBeVisible();
+
+    await block.getByRole("button", { name: "Set up run environment" }).click();
+    const taskLink = block.getByRole("link", { name: "Set up the run environment" });
+    await expect(taskLink).toBeVisible();
+    await expect(block).toContainText("Ready, waiting for your Start");
+    await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "project-run-environment.png") });
+
+    await taskLink.click();
+    await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
+  } finally {
+    await ownRepository.remove();
+  }
+});
+
+test("Set up run environment turns On at once with a valid .devcontainer/ on the base branch", async ({
+  page,
+}) => {
+  const ownRepository = await createTemporaryRepository();
+  try {
+    await commitFiles(ownRepository, VALID_RUN_ENVIRONMENT);
+    const project = await addedProject(
+      page,
+      "Run environment at once",
+      undefined,
+      ownRepository.path,
+    );
+    await page.goto(`/projects/${project.id}/run-environment`);
+    const block = runEnvironmentBlock(page);
+    await expect(block.getByText("Valid", { exact: true })).toBeVisible();
+
+    await block.getByRole("button", { name: "Set up run environment" }).click();
+
+    await expect(page.getByText(/Run environment is On/)).toBeVisible();
+    await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
+    await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
+    await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+  } finally {
+    await ownRepository.remove();
+  }
 });
 
 test("a Project's menu opens each section at its own address, which survives a reload", async ({

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  definitionProblemsOf,
+  definitionStatusOf,
   readDefinition,
   readDevcontainer,
   type ComposeFileText,
@@ -195,5 +197,34 @@ networks:
     expect(
       definitionProblems("services:\n  app:\n    build:\n      context: .\n      ssh: [default]\n"),
     ).toEqual([`The service app's build sets "ssh", which The Office doesn't support.`]);
+  });
+});
+
+describe("definitionStatusOf", () => {
+  const valid = readDefinition(
+    { composeFiles: [".devcontainer/compose.yaml"], service: "app", overrideCommand: false },
+    [{ path: ".devcontainer/compose.yaml", text: "services:\n  app:\n    image: node:22\n" }],
+  );
+
+  it("tells a missing devcontainer.json from an invalid one", () => {
+    const missing = { found: false, reading: { problems: readDevcontainer(undefined).problems } };
+    const invalid = { found: true, reading: { problems: readDevcontainer("{}").problems } };
+
+    expect(definitionStatusOf(missing)).toEqual({ state: "not-found" });
+    expect(definitionStatusOf(invalid)).toEqual({
+      state: "not-valid",
+      problems: invalid.reading.problems,
+    });
+    expect(definitionStatusOf({ found: true, reading: valid })).toEqual({ state: "valid" });
+  });
+
+  it("gives every reason the definition can't be used, none when it is valid", () => {
+    expect(definitionProblemsOf({ state: "valid" })).toEqual([]);
+    expect(definitionProblemsOf({ state: "not-found" })).toEqual([
+      "The repository has no .devcontainer/devcontainer.json.",
+    ]);
+    expect(definitionProblemsOf({ state: "not-valid", problems: ["A problem."] })).toEqual([
+      "A problem.",
+    ]);
   });
 });

@@ -1,0 +1,208 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import type {
+  Project,
+  ProjectRunEnvironment,
+  RunEnvironmentChange,
+  RunEnvironmentDefinition,
+  RunEnvironmentSetUpTask,
+} from "@the-office/contracts";
+import { Badge, Button, Icon, SegmentedControl } from "@the-office/ui";
+import type { ReactNode } from "react";
+import { ApiError } from "../../api/api-client.ts";
+import { changeRunEnvironment, projectQueries, setUpRunEnvironment } from "../../api/projects.ts";
+import { TASK_STATE_NAMES } from "../../shell/work/work-words.ts";
+import { useToast } from "../../shell/toasts.tsx";
+import { ProjectBlock } from "./project-block.tsx";
+
+const DEFINITION_BADGES: Readonly<
+  Record<
+    RunEnvironmentDefinition["state"],
+    { readonly label: string; readonly tone: "neutral" | "success" | "warning" }
+  >
+> = {
+  "not-found": { label: "Not found", tone: "neutral" },
+  valid: { label: "Valid", tone: "success" },
+  "not-valid": { label: "Not valid", tone: "warning" },
+};
+
+const SETTING_OPTIONS = [
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+] as const;
+
+/**
+ * Whether the Project's checks run in its run environment, the repository's .devcontainer/ on the
+ * base branch, and setting one up.
+ */
+export function RunEnvironmentBlock({ project }: { readonly project: Project }): ReactNode {
+  const runEnvironment = useQuery(projectQueries.runEnvironment(project.id));
+  const queryClient = useQueryClient();
+  const showToast = useToast();
+  const keep = (saved: ProjectRunEnvironment): void => {
+    queryClient.setQueryData(projectQueries.runEnvironment(project.id).queryKey, saved);
+    void queryClient.invalidateQueries({ queryKey: projectQueries.one(project.id).queryKey });
+  };
+  const choosing = useMutation({
+    mutationFn: (setting: RunEnvironmentChange["runEnvironment"]) =>
+      changeRunEnvironment(project.id, setting),
+    onSuccess: (saved) => {
+      keep(saved);
+      showToast(
+        saved.runEnvironment === "on"
+          ? `Checks in ${project.name} run in its run environment.`
+          : `Checks in ${project.name} run on this computer.`,
+      );
+    },
+  });
+  const settingUp = useMutation({
+    mutationFn: () => setUpRunEnvironment(project.id),
+    onSuccess: (saved) => {
+      keep(saved);
+      showToast(
+        saved.setUpTask
+          ? `${saved.setUpTask.title} is ${TASK_STATE_NAMES[saved.setUpTask.state]}${saved.setUpTask.state === "ready" ? ", waiting for your Start" : ""}.`
+          : `Run environment is On: ${project.name}'s .devcontainer/ is valid.`,
+      );
+    },
+  });
+  const data = runEnvironment.data;
+  const failure = choosing.error ?? settingUp.error ?? runEnvironment.error;
+  return (
+    <ProjectBlock
+      icon="container"
+      title="Run environment"
+      actions={data?.runEnvironment === "not-decided" && <Badge>Not decided yet</Badge>}
+    >
+      <p className="project-block-text">
+        With Run environment On, the Project's checks run in the containers its .devcontainer/
+        defines; until then they run on this computer.
+      </p>
+      {data && (
+        <>
+          <div className="project-row">
+            <span className="project-row-label">Run environment</span>
+            <div role="group" aria-label="Run environment">
+              <SegmentedControl
+                size="sm"
+                options={SETTING_OPTIONS.map((option) => ({ ...option }))}
+                value={data.runEnvironment}
+                onChange={(setting) => {
+                  if (setting === "on" || setting === "off") choosing.mutate(setting);
+                }}
+              />
+            </div>
+          </div>
+          <DefinitionRow definition={data.definition} baseBranch={project.baseBranch} />
+          {data.setUpProblems.length > 0 && (
+            <div className="run-environment-problems">
+              <p className="project-block-text">
+                The last set-up Task was Done, but the .devcontainer/ on its branch isn't valid, so
+                Run environment stayed as it was:
+              </p>
+              <Problems problems={data.setUpProblems} />
+            </div>
+          )}
+          <SetUp
+            runEnvironment={data}
+            pending={settingUp.isPending}
+            onSetUp={() => settingUp.mutate()}
+          />
+        </>
+      )}
+      {failure && <Refusal error={failure} />}
+    </ProjectBlock>
+  );
+}
+
+function DefinitionRow({
+  definition,
+  baseBranch,
+}: {
+  readonly definition: RunEnvironmentDefinition;
+  readonly baseBranch: string;
+}): ReactNode {
+  const { label, tone } = DEFINITION_BADGES[definition.state];
+  return (
+    <>
+      <div className="project-row">
+        <span className="project-row-label">.devcontainer/</span>
+        <Badge tone={tone} dot>
+          {label}
+        </Badge>
+        <span className="project-block-note run-environment-where">
+          on {baseBranch}, as last fetched
+        </span>
+      </div>
+      {definition.state === "not-valid" && <Problems problems={definition.problems} />}
+    </>
+  );
+}
+
+/** The open set-up Task, or Set up run environment unless it is On with a valid definition. */
+function SetUp({
+  runEnvironment,
+  pending,
+  onSetUp,
+}: {
+  readonly runEnvironment: ProjectRunEnvironment;
+  readonly pending: boolean;
+  readonly onSetUp: () => void;
+}): ReactNode {
+  if (runEnvironment.setUpTask) return <SetUpTaskLine task={runEnvironment.setUpTask} />;
+  if (runEnvironment.runEnvironment === "on" && runEnvironment.definition.state === "valid") {
+    return null;
+  }
+  return (
+    <div className="run-environment-actions">
+      <Button
+        variant="secondary"
+        size="sm"
+        iconLeft={<Icon name="wrench" size={14} />}
+        loading={pending}
+        onClick={onSetUp}
+      >
+        Set up run environment
+      </Button>
+      <span className="project-block-note">
+        With a valid .devcontainer/ on the base branch it turns On at once; otherwise Devops writes
+        one in a Task.
+      </span>
+    </div>
+  );
+}
+
+function SetUpTaskLine({ task }: { readonly task: RunEnvironmentSetUpTask }): ReactNode {
+  return (
+    <p className="project-block-note">
+      Being set up in the Task{" "}
+      <Link to="/tasks/$taskId" params={{ taskId: task.id }}>
+        {task.title}
+      </Link>{" "}
+      · {TASK_STATE_NAMES[task.state]}
+      {task.state === "ready" && ", waiting for your Start"}. Run environment turns On when it is
+      Done.
+    </p>
+  );
+}
+
+function Problems({ problems }: { readonly problems: readonly string[] }): ReactNode {
+  return (
+    <ul className="environment-reasons run-environment-problem-list">
+      {problems.map((problem) => (
+        <li key={problem}>{problem}</li>
+      ))}
+    </ul>
+  );
+}
+
+function Refusal({ error }: { readonly error: Error }): ReactNode {
+  const reasons = error instanceof ApiError ? error.reasons : [error.message];
+  return (
+    <ul className="environment-reasons run-environment-refusal" role="alert">
+      {reasons.map((reason) => (
+        <li key={reason}>{reason}</li>
+      ))}
+    </ul>
+  );
+}

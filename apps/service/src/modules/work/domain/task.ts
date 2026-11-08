@@ -20,6 +20,13 @@ export const TASK_STATES = [
 ] as const;
 export type TaskState = (typeof TASK_STATES)[number];
 
+/**
+ * The Tasks The Office makes for a Project by itself: its Onboard Task, and its "Set up the run
+ * environment" Task.
+ */
+export const TASK_MADE_FOR = ["onboard", "run-environment-setup"] as const;
+export type TaskMadeFor = (typeof TASK_MADE_FOR)[number];
+
 /** Highest first: the board shows each column by priority, then by manual order. */
 export const PRIORITIES = ["high", "normal", "low"] as const;
 export type Priority = (typeof PRIORITIES)[number];
@@ -69,8 +76,11 @@ export interface Task {
    * all clear resumes it, or the user's Hold makes it theirs.
    */
   readonly pausedByAlarm: boolean;
-  /** Whether it is its Project's Onboard Task, whose state is the Project's onboarding. */
-  readonly isOnboardTask: boolean;
+  /**
+   * What The Office made it for, in its Project: its Onboard Task, whose state is the Project's
+   * onboarding, or its "Set up the run environment" Task; undefined for any other Task.
+   */
+  readonly madeFor: TaskMadeFor | undefined;
   /**
    * The Tasks that must be Done before it can start, in any Project, in the order they were added
    * (task-dependencies.ts); a Dropped one stays listed but no longer blocks.

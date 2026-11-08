@@ -1,4 +1,5 @@
 export { BaseCheckouts, type BaseCheckout } from "./application/base-checkouts.js";
+export { CommittedFiles } from "./application/committed-files.js";
 export { ProjectService } from "./application/project-service.js";
 export {
   EngineLevelsChecks,
@@ -23,11 +24,17 @@ export {
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
+  ProjectRunEnvironmentChanged,
   ProjectSkillUseChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./domain/project-events.js";
-export type { NewProject, ProjectEngineLevels, ProjectRoleOverride } from "./domain/project.js";
+export type {
+  NewProject,
+  ProjectEngineLevels,
+  ProjectRoleOverride,
+  RunEnvironmentSetting,
+} from "./domain/project.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";
 export { ProjectRefused } from "./domain/project-refused.js";
 export { proposedCommandFields, type ProjectCommandFields } from "./domain/proposed-commands.js";

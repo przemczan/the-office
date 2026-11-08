@@ -1126,3 +1126,27 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   padding-top: 14px;
   border-top: 1px solid var(--border-subtle);
 }
+
+/* ---- the Run environment section */
+.run-environment-where {
+  margin: 0;
+}
+
+.run-environment-problem-list,
+.run-environment-refusal {
+  margin-top: 8px;
+}
+
+.run-environment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.run-environment-actions .project-block-note {
+  margin: 0;
+}

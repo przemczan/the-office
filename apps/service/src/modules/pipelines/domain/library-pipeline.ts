@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { ONBOARD_PIPELINE } from "./built-in-pipelines.js";
+import { ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE } from "./built-in-pipelines.js";
 import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import type { Stage } from "./stage.js";
@@ -157,6 +157,11 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
   const problems: string[] = [];
   if (pipelineId === ONBOARD_PIPELINE) {
     problems.push("Onboarding uses the Onboard Pipeline, so it stays in the library.");
+  }
+  if (pipelineId === SET_UP_RUN_ENVIRONMENT_PIPELINE) {
+    problems.push(
+      "Setting up a run environment uses the Set up run environment Pipeline, so it stays in the library.",
+    );
   }
   if (use.defaultFor.length > 0) {
     const names = use.defaultFor.map(({ name }) => name).join(", ");

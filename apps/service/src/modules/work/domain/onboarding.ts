@@ -1,7 +1,7 @@
-import type { Author } from "./author.js";
 import type { Task } from "./task.js";
-import { createTask, type TaskChange } from "./task-changes.js";
-import { TaskCreated } from "./task-events.js";
+import type { TaskChange } from "./task-changes.js";
+import type { TaskCreated } from "./task-events.js";
+import { createTaskMadeFor, type MadeTaskSetting } from "./task-made-for.js";
 
 /** The built-in Onboard Pipeline, keyed as Pipelines' library keys it (spec §2.3). */
 export const ONBOARD_PIPELINE = "onboard";
@@ -28,12 +28,6 @@ export const ONBOARD_TASK_DEFINITION_OF_DONE: readonly string[] = [
   "The fixes the repository needed, if any, are made in the worktree for Publish to ship by the Project's publishing mode; a repository that needed none meets this as it is.",
 ];
 
-/** What The Office sets on a Project's Onboard Task besides its Project. */
-export interface OnboardTaskSetting {
-  readonly order: string;
-  readonly createdBy: Author;
-}
-
 /**
  * A Project's Onboard Task: Ready on the Onboard Pipeline, its Plan and Definition of Done written
  * by The Office and confirmed, waiting for the user's Start like any Task.
@@ -41,37 +35,22 @@ export interface OnboardTaskSetting {
 export function createOnboardTask(
   id: string,
   project: { readonly id: string; readonly name: string },
-  setting: OnboardTaskSetting,
+  setting: MadeTaskSetting,
   createdAt: Date,
 ): TaskChange<TaskCreated> {
-  const { task } = createTask(
+  return createTaskMadeFor(
     id,
-    { title: ONBOARD_TASK_TITLE, projectId: project.id, priority: "normal" },
+    project.id,
     {
+      madeFor: "onboard",
+      title: ONBOARD_TASK_TITLE,
       pipelineId: ONBOARD_PIPELINE,
-      order: setting.order,
-      originIdeaId: undefined,
-      initiativeId: undefined,
-      createdBy: setting.createdBy,
+      plan: onboardTaskPlan(project.name),
+      definitionOfDone: ONBOARD_TASK_DEFINITION_OF_DONE,
     },
+    setting,
     createdAt,
   );
-  const onboardTask: Task = {
-    ...task,
-    state: "ready",
-    plan: onboardTaskPlan(project.name),
-    planConfirmed: true,
-    filesToChange: [],
-    estimatedTokens: undefined,
-    definitionOfDone: ONBOARD_TASK_DEFINITION_OF_DONE,
-    definitionOfDoneConfirmed: true,
-    isOnboardTask: true,
-  };
-  return {
-    task: onboardTask,
-    event: new TaskCreated(onboardTask),
-    stateChange: { from: undefined, to: "ready", at: createdAt, by: setting.createdBy },
-  };
 }
 
 /** A Project's onboarding, read from its Onboard Task alone; a Project without one has none. */
@@ -85,7 +64,7 @@ export interface ProjectOnboarding {
 
 /** Undefined for a Task that isn't an Onboard Task, and for a dropped one: no onboarding then. */
 export function projectOnboardingOf(task: Task): ProjectOnboarding | undefined {
-  if (!task.isOnboardTask || task.state === "dropped") return undefined;
+  if (task.madeFor !== "onboard" || task.state === "dropped") return undefined;
   return {
     projectId: task.projectId,
     taskId: task.id,

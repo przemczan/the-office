@@ -202,6 +202,12 @@ describe("removalProblems", () => {
     ]);
   });
 
+  it("always keeps the Set up run environment Pipeline, which a set-up Task uses", () => {
+    expect(removalProblems("set-up-run-environment", NO_USE)).toEqual([
+      "Setting up a run environment uses the Set up run environment Pipeline, so it stays in the library.",
+    ]);
+  });
+
   it("names the Projects whose default it is and the Tasks that haven't started", () => {
     const use = {
       defaultFor: [

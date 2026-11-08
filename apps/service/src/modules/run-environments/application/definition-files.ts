@@ -5,6 +5,8 @@ import {
   DEFINITION_FOLDER,
   readDefinition,
   readDevcontainer,
+  type DefinitionFileText,
+  type DefinitionReading,
   type Reading,
   type RunEnvironmentDefinition,
 } from "../domain/run-environment-definition.js";
@@ -13,15 +15,24 @@ import type { TaskInWorktree } from "../domain/run-environment.js";
 
 /** Reads and validates the Run environment definition in a worktree or checkout. */
 export async function readDefinitionIn(folder: string): Promise<Reading<RunEnvironmentDefinition>> {
-  const devcontainer = readDevcontainer(await textOf(join(folder, DEFINITION_FILE)));
-  if (devcontainer.value === undefined) return { problems: devcontainer.problems };
+  return (await readDefinitionWith((path) => textOf(join(folder, path)))).reading;
+}
+
+/**
+ * Reads and validates the Run environment definition through `fileText`, which answers a file's
+ * text by its path in the repository, or undefined when no such file is there.
+ */
+export async function readDefinitionWith(fileText: DefinitionFileText): Promise<DefinitionReading> {
+  const devcontainerText = await fileText(DEFINITION_FILE);
+  const found = devcontainerText !== undefined;
+  const devcontainer = readDevcontainer(devcontainerText);
+  if (devcontainer.value === undefined) {
+    return { found, reading: { problems: devcontainer.problems } };
+  }
   const composeFiles = await Promise.all(
-    devcontainer.value.composeFiles.map(async (path) => ({
-      path,
-      text: await textOf(join(folder, path)),
-    })),
+    devcontainer.value.composeFiles.map(async (path) => ({ path, text: await fileText(path) })),
   );
-  return readDefinition(devcontainer.value, composeFiles);
+  return { found, reading: readDefinition(devcontainer.value, composeFiles) };
 }
 
 /** What the Task's image is made from, read from its worktree. */

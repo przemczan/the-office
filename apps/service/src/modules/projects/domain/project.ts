@@ -11,6 +11,13 @@ export type ProjectCommands = Readonly<Record<ProjectCommandKey, string>>;
 export const PUBLISHING_MODES = ["push-and-pull-request", "merge"] as const;
 export type PublishingMode = (typeof PUBLISHING_MODES)[number];
 
+/**
+ * Whether the Project's checks run in its run environment: "not-decided" until the user picks On
+ * or Off, and run on the host meanwhile, as with Off.
+ */
+export const RUN_ENVIRONMENT_SETTINGS = ["not-decided", "on", "off"] as const;
+export type RunEnvironmentSetting = (typeof RUN_ENVIRONMENT_SETTINGS)[number];
+
 /** The design system's ramps offered as a mark's quick choices. */
 export const NAMED_MARK_COLOURS = ["teal", "violet", "gray", "ink"] as const;
 
@@ -62,6 +69,12 @@ export interface Project {
   readonly useForEveryRole: boolean;
   /** At most one per Role, winning over every other level in this Project. */
   readonly roleOverrides: readonly ProjectRoleOverride[];
+  readonly runEnvironment: RunEnvironmentSetting;
+  /**
+   * Why the last "Set up the run environment" Task's Done left the setting as it was: each problem
+   * of the definition on its branch; empty when it turned On or none has been Done.
+   */
+  readonly runEnvironmentSetUpProblems: readonly string[];
   readonly addedAt: Date;
 }
 

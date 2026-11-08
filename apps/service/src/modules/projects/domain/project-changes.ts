@@ -14,6 +14,7 @@ import {
   type ProjectCommandKey,
   type ProjectMark,
   type PublishingMode,
+  type RunEnvironmentSetting,
 } from "./project.js";
 import {
   ProjectAdded,
@@ -26,6 +27,7 @@ import {
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
+  ProjectRunEnvironmentChanged,
   ProjectSkillUseChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
@@ -142,6 +144,8 @@ export function addProject(
     projectDefault: null,
     useForEveryRole: false,
     roleOverrides: [],
+    runEnvironment: "not-decided",
+    runEnvironmentSetUpProblems: [],
     addedAt,
   };
   return { project, event: new ProjectAdded(project) };
@@ -205,6 +209,53 @@ export function changePublishingMode(
   return {
     project: { ...project, publishingMode },
     event: new ProjectPublishingModeChanged(project.id, publishingMode),
+  };
+}
+
+/**
+ * The user's On or Off. On is refused, with `definitionProblems` as the reasons, unless the base
+ * branch holds a valid definition; Off always stands. Undefined when nothing would change.
+ */
+export function changeRunEnvironment(
+  project: Project,
+  runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
+  definitionProblems: readonly string[],
+): ProjectChange<ProjectRunEnvironmentChanged> | undefined {
+  if (runEnvironment === "on" && definitionProblems.length > 0) {
+    throw new ProjectRefused([
+      `Run environment can't be On: the base branch ${project.baseBranch} has no valid .devcontainer/.`,
+      ...definitionProblems,
+    ]);
+  }
+  return runEnvironmentChange(project, runEnvironment, []);
+}
+
+/**
+ * A "Set up the run environment" Task is Done: On with a valid definition on its branch, else the
+ * setting stays as it was and the definition's problems say why. Undefined when nothing would change.
+ */
+export function finishRunEnvironmentSetUp(
+  project: Project,
+  definitionProblems: readonly string[],
+): ProjectChange<ProjectRunEnvironmentChanged> | undefined {
+  return definitionProblems.length === 0
+    ? runEnvironmentChange(project, "on", [])
+    : runEnvironmentChange(project, project.runEnvironment, definitionProblems);
+}
+
+function runEnvironmentChange(
+  project: Project,
+  runEnvironment: RunEnvironmentSetting,
+  setUpProblems: readonly string[],
+): ProjectChange<ProjectRunEnvironmentChanged> | undefined {
+  const unchanged =
+    project.runEnvironment === runEnvironment &&
+    setUpProblems.length === project.runEnvironmentSetUpProblems.length &&
+    setUpProblems.every((problem, index) => problem === project.runEnvironmentSetUpProblems[index]);
+  if (unchanged) return undefined;
+  return {
+    project: { ...project, runEnvironment, runEnvironmentSetUpProblems: setUpProblems },
+    event: new ProjectRunEnvironmentChanged(project.id, runEnvironment, setUpProblems),
   };
 }
 
