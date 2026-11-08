@@ -277,6 +277,11 @@ export interface StageRun {
   readonly gateAction: GateAction | undefined;
   /** Undefined while the Stage runs. */
   readonly outcome: StageOutcome | undefined;
+  /**
+   * Since when a Script Stage's run waits for a free run environment, every one Run environments at
+   * once allows being in use; undefined while it doesn't, and once its command starts.
+   */
+  readonly waitingSince: Date | undefined;
   readonly startedAt: Date;
   readonly endedAt: Date | undefined;
 }

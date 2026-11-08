@@ -20,6 +20,7 @@ import { Publishing } from "./publishing.js";
 import { Resolving } from "./resolving.js";
 import { Worktrees } from "./worktrees.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
 class NoPullRequests extends PullRequests {
   whyCannotOpen(): Promise<string | undefined> {
@@ -53,6 +54,7 @@ beforeAll(async () => {
   worktrees = new Worktrees(
     git,
     commands,
+    taskCommandsOver(commands),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
   );
   resolving = new Resolving(git, commands, worktrees);

@@ -34,6 +34,7 @@ export function startStageRun(
     tokens: NO_STAGE_TOKENS,
     decisions: [],
     heldBy: undefined,
+    waitingSince: undefined,
     gateAction: undefined,
     outcome: undefined,
     startedAt,
@@ -50,7 +51,7 @@ export function endStageRun(
 ): { readonly run: StageRun; readonly event: StageRunEnded } {
   if (run.outcome) throw new Error(`Stage run ${run.id} has already ended ${run.outcome.status}.`);
   return {
-    run: { ...run, outcome, endedAt },
+    run: { ...run, outcome, endedAt, waitingSince: undefined },
     event: new StageRunEnded(run.taskId, run.id, run.stageKey, outcome.status),
   };
 }

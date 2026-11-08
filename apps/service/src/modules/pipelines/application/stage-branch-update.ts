@@ -3,7 +3,9 @@ import { RESOLVE_KEY } from "../domain/resolve-stages.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
 import { failedInstall } from "../domain/stage-command-run.js";
 import type { BranchUpdate } from "../domain/stage-commit.js";
+import type { StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { StageRunWaits } from "./stage-run-waits.js";
 import { StageThreads } from "../ports/stage-threads.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskGit } from "../ports/task-git.js";
@@ -33,6 +35,7 @@ export class StageBranchUpdate {
     private readonly records: TaskRecords,
     private readonly git: TaskGit,
     private readonly commands: TaskCommands,
+    private readonly waits: StageRunWaits,
   ) {}
 
   async inSession(sessionId: string): Promise<StageBranchUpdateAnswer> {
@@ -53,17 +56,22 @@ export class StageBranchUpdate {
     const update = await this.git.updateFromBase(projectId, run.taskId, "leave");
     if (update.kind === "updated") await this.runs.saveHeadCommit(run.id, update.commit);
     return {
-      text: `${answerTo(update, task.project.baseBranch)}${await this.installed(update, task, run.taskId)}`,
+      text: `${answerTo(update, task.project.baseBranch)}${await this.installed(update, task, run)}`,
       isError: update.kind === "failed",
     };
   }
 
   /** Installs again after an update, whose changes may be the install inputs'. */
-  private async installed(update: BranchUpdate, task: TaskRecord, taskId: string): Promise<string> {
+  private async installed(update: BranchUpdate, task: TaskRecord, run: StageRun): Promise<string> {
     if (update.kind !== "updated") return "";
     // The tool's caller waits for it, and only a restart stops an install, ending the call too.
     const { signal } = new AbortController();
-    const failed = failedInstall(await this.commands.install(task.project.id, taskId, signal));
+    const failed = failedInstall(
+      await this.commands.install(task.project.id, run.taskId, {
+        signal,
+        wait: this.waits.of(run),
+      }),
+    );
     return failed ? `\n\n${installFailure(failed)}` : "";
   }
 }

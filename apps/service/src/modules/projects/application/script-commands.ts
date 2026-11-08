@@ -4,8 +4,9 @@ import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import type { CommandRun } from "../domain/command-run.js";
 import type { Project, ProjectCommandKey } from "../domain/project.js";
-import { ProjectCommandRunner } from "./project-command-runner.js";
 import { keepingScreenshots } from "./screenshots-folder.js";
+import { TaskCommandRunner } from "./task-command-runner.js";
+import type { CommandWait } from "./task-run-environments.js";
 import { Worktrees } from "./worktrees.js";
 
 /** The Project commands a Script Stage runs; install runs before a Stage that needs it. */
@@ -27,8 +28,16 @@ export interface ScriptCommandRun extends CommandRun {
 
 const SCRIPT_COMMAND_TIMEOUT_MS = 30 * 60_000;
 
+/** How a Script Stage's command is stopped, and told of a wait for its run environment. */
+export interface ScriptCommandOptions {
+  /** Stops the command running, with everything it started, or its wait, with nothing run. */
+  readonly signal?: AbortSignal;
+  readonly wait?: CommandWait;
+}
+
 /**
- * Runs a Script Stage's Project command in a Task's worktree with the Project's environment. What
+ * Runs a Script Stage's Project command in a Task's worktree with the Project's environment, on
+ * the host or in the Task's run environment (TaskCommandRunner). What
  * a test run changed never reaches the work (spec §5.5): tracked files are restored after it, the
  * files it wrote are moved out of the worktree for the user to see, and the screenshots folder is
  * put back as the Agent left it, so only the Agent's screenshots are attached. A failing test command
@@ -38,7 +47,7 @@ const SCRIPT_COMMAND_TIMEOUT_MS = 30 * 60_000;
 export class ScriptCommands {
   constructor(
     private readonly worktrees: Worktrees,
-    private readonly commands: ProjectCommandRunner,
+    private readonly commands: TaskCommandRunner,
     private readonly officeData: OfficeDataDirectory,
   ) {}
 
@@ -52,28 +61,28 @@ export class ScriptCommands {
     taskId: string,
     key: ScriptCommandKey,
     stageRunId: string,
-    signal?: AbortSignal,
+    options: ScriptCommandOptions = {},
   ): Promise<readonly ScriptCommandRun[]> {
     if (key !== "test")
-      return [{ ...(await this.runOnce(project, taskId, key, signal)), movedFiles: undefined }];
-    const first = await this.runTests(project, taskId, join(stageRunId, "1"), signal);
+      return [{ ...(await this.runOnce(project, taskId, key, options)), movedFiles: undefined }];
+    const first = await this.runTests(project, taskId, join(stageRunId, "1"), options);
     // Only a command that ran and failed may be a flake: one the shell couldn't start won't start
     // the second time either, and one that ran out of time would take as long again.
     if (first.outcome !== "failed") return [first];
-    return [first, await this.runTests(project, taskId, join(stageRunId, "2"), signal)];
+    return [first, await this.runTests(project, taskId, join(stageRunId, "2"), options)];
   }
 
   private async runTests(
     project: Project,
     taskId: string,
     outputFolder: string,
-    signal: AbortSignal | undefined,
+    options: ScriptCommandOptions,
   ): Promise<ScriptCommandRun> {
     const before = new Set(await this.worktrees.untracked(project, taskId));
     const run = await keepingScreenshots(
       this.worktrees.pathOf(project, taskId),
       `${this.outputFolder(outputFolder)}.screenshots`,
-      () => this.runOnce(project, taskId, "test", signal),
+      () => this.runOnce(project, taskId, "test", options),
     );
     await this.worktrees.restore(project, taskId);
     const written = (await this.worktrees.untracked(project, taskId)).filter(
@@ -86,14 +95,13 @@ export class ScriptCommands {
     project: Project,
     taskId: string,
     key: ScriptCommandKey,
-    signal: AbortSignal | undefined,
+    { signal, wait }: ScriptCommandOptions,
   ): Promise<CommandRun> {
-    return this.commands.run({
+    return this.commands.run(project, taskId, this.worktrees.pathOf(project, taskId), {
       commandLine: project.commands[key],
-      folder: this.worktrees.pathOf(project, taskId),
-      environment: project.environment,
       timeoutMs: SCRIPT_COMMAND_TIMEOUT_MS,
       signal,
+      wait,
     });
   }
 

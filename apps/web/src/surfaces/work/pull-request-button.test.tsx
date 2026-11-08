@@ -35,6 +35,7 @@ function publishStage(...outcomes: readonly StageRun["outcome"][]): TaskStage {
       number: index + 1,
       startedAt: "2026-11-01T10:00:00.000Z",
       endedAt: outcome === null ? null : "2026-11-01T10:01:00.000Z",
+      waitingSince: null,
       threadId: null,
       session: null,
       tokens: NO_TOKENS,

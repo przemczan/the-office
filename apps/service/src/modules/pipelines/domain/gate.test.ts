@@ -44,6 +44,7 @@ function aRun(stageKey: string, gateAction?: GateAction): StageRun {
     model: undefined,
     decisions: [],
     heldBy: undefined,
+    waitingSince: undefined,
     gateAction,
     outcome: GATE_REACHED,
     startedAt: new Date(0),

@@ -34,7 +34,12 @@ import type {
 import type { PublishTarget } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
-import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
+import {
+  TaskCommands,
+  type CommandWait,
+  type ScriptCommandKey,
+  type TaskCommandOptions,
+} from "./task-commands.js";
 import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
 import type { BranchUpdate } from "../domain/stage-commit.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
@@ -614,6 +619,12 @@ export class TaskCommandsForTests extends TaskCommands {
   /** Set while the next command runs until its signal stops it, as a hung test run would. */
   runsUntilStopped = false;
 
+  /**
+   * Set to make the next command wait for a free run environment first: it tells the wait, then
+   * runs once this resolves, or ends stopped, with nothing run, when its signal stops it.
+   */
+  waitsUntil: Promise<void> | undefined = undefined;
+
   install(): Promise<Installation> {
     this.observe?.("install");
     return Promise.resolve(this.installations.shift() ?? { kind: "up-to-date" });
@@ -624,9 +635,14 @@ export class TaskCommandsForTests extends TaskCommands {
     taskId: string,
     key: ScriptCommandKey,
     stageRunId: string,
-    signal: AbortSignal,
+    { signal, wait }: TaskCommandOptions,
   ): Promise<readonly ScriptCommandRun[]> {
     this.observe?.("runCommand");
+    if (this.waitsUntil) {
+      const waited = await this.waitFor(this.waitsUntil, signal, wait);
+      this.waitsUntil = undefined;
+      if (!waited) return [aCommandRun(`npm run ${key}`, "stopped")];
+    }
     this.ran.push({ taskId, key, stageRunId });
     if (this.runsUntilStopped) {
       this.runsUntilStopped = false;
@@ -636,6 +652,24 @@ export class TaskCommandsForTests extends TaskCommands {
       return [aCommandRun(`npm run ${key}`, "stopped")];
     }
     return this.commandRuns.shift() ?? [aCommandRun(`npm run ${key}`, "passed")];
+  }
+
+  /** Whether the wait ended in the command's turn, not in a stop. */
+  private async waitFor(
+    turn: Promise<void>,
+    signal: AbortSignal,
+    wait: CommandWait | undefined,
+  ): Promise<boolean> {
+    await wait?.started();
+    const stopped = new Promise<false>((resolve) => {
+      if (signal.aborted) resolve(false);
+      signal.addEventListener("abort", () => resolve(false), { once: true });
+    });
+    try {
+      return await Promise.race([turn.then(() => true), stopped]);
+    } finally {
+      await wait?.ended();
+    }
   }
 }
 

@@ -247,6 +247,28 @@ describe("Shutting down during a Stage", () => {
     ]);
     expect(more).toEqual([]);
   });
+
+  it("ends a Script Stage's wait for a free run environment at once as the service stops, with nothing run", async () => {
+    const before = await start();
+    const taskId = randomUUID();
+    before.commands.waitsUntil = new Promise(() => undefined);
+    let closed: Promise<void> | undefined;
+    before.commands.observe = (call) => {
+      if (call === "runCommand") closed = close(before);
+    };
+
+    await walkStages(before, [tests, review], taskId);
+    await closed;
+
+    expect(before.commands.ran).toEqual([]);
+    const after = await start();
+    const [run, ...more] = await runsOf(after, taskId);
+    expect(run).toMatchObject({
+      waitingSince: undefined,
+      outcome: { status: "failed", interrupted: "restart" },
+    });
+    expect(more).toEqual([]);
+  });
 });
 
 describe("Starting with a run left running", () => {

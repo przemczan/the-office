@@ -1,6 +1,6 @@
 import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { CommandLineGit } from "../adapters/git/command-line-git.js";
 import { RepositoryLocks } from "../adapters/git/repository-locks.js";
@@ -15,6 +15,8 @@ import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ScriptCommands } from "./script-commands.js";
+import { taskCommandsOver } from "./task-command-runner.fixtures.js";
+import { ScriptedTaskRunEnvironments } from "./task-run-environments.fixtures.js";
 import { Worktrees } from "./worktrees.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
@@ -23,6 +25,7 @@ let repository: TemporaryRepository;
 let worktrees: Worktrees;
 let scriptCommands: ScriptCommands;
 let officeData: OfficeDataDirectory;
+let runEnvironments: ScriptedTaskRunEnvironments;
 let taskCount = 0;
 
 /**
@@ -59,12 +62,15 @@ beforeAll(async () => {
   await writeFile(join(repository.folder, "test-suite.cjs"), TEST_SUITE);
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
+  runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
+  const taskCommands = taskCommandsOver(commands, runEnvironments.registry());
   worktrees = new Worktrees(
     new CommandLineGit(new RepositoryLocks(), officeIdentityForTests()),
     commands,
+    taskCommands,
     officeData,
   );
-  scriptCommands = new ScriptCommands(worktrees, commands, officeData);
+  scriptCommands = new ScriptCommands(worktrees, taskCommands, officeData);
 });
 
 afterAll(async () => {
@@ -75,6 +81,7 @@ afterAll(async () => {
 async function aTask(
   passFromRun: number,
   commands: Partial<Project["commands"]> = {},
+  runEnvironment: Project["runEnvironment"] = "not-decided",
 ): Promise<{ project: Project; taskId: string; worktreePath: string; runLog: string }> {
   taskCount += 1;
   const taskId = `task-${taskCount}`;
@@ -91,6 +98,7 @@ async function aTask(
       unset: [],
       prependPath: [],
     },
+    runEnvironment,
   });
   const { path } = await worktrees.open(project, taskId);
   return { project, taskId, worktreePath: path, runLog };
@@ -211,4 +219,105 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
     expect(runs).toEqual([expect.objectContaining({ outcome: "failed", movedFiles: undefined })]);
     expect(await trackedIndex(worktreePath)).toBe("export const changedByRun = 1;\n");
   });
+});
+
+describe("ScriptCommands.run with the Project's run environment On", REAL_GIT_TEST, () => {
+  it("runs the command in the Task's run environment, with only the Project's variables", async () => {
+    const { project, taskId, worktreePath } = await aTask(1, {}, "on");
+    const before = runEnvironments.runs.length;
+
+    const runs = await scriptCommands.run(project, taskId, "build", "stage-run-5");
+
+    expect(runs.map(({ outcome }) => outcome)).toEqual(["passed"]);
+    expect(runEnvironments.runs.slice(before)).toEqual([
+      {
+        task: {
+          taskId,
+          projectId: project.id,
+          worktree: worktreePath,
+          installCommand: project.commands.install,
+          installInputs: project.installInputs,
+        },
+        command: expect.objectContaining({
+          commandLine: RUN_TEST_SUITE,
+          environment: project.environment,
+          timeoutMs: 30 * 60_000,
+        }),
+      },
+    ]);
+  });
+
+  it("keeps a test run's re-run, restore, moved files and screenshots as on the host", async () => {
+    const { project, taskId, worktreePath } = await aTask(2, {}, "on");
+    const screenshots = join(worktreePath, ".office", "screenshots");
+    await writeFile(join(screenshots, "dialog.png"), "the Agent's\n");
+    const before = runEnvironments.runs.length;
+
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run-6");
+
+    expect(runEnvironments.runs.length - before).toBe(2);
+    expect(runs.map(({ outcome }) => outcome)).toEqual(["failed", "passed"]);
+    expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
+    expect(runs.map(({ movedFiles }) => movedFiles?.paths)).toEqual([
+      ["screenshots/run-1.txt"],
+      ["screenshots/run-2.txt"],
+    ]);
+    expect(await exists(join(worktreePath, "screenshots", "run-1.txt"))).toBe(false);
+    expect(await readdir(screenshots)).toEqual(["dialog.png"]);
+  });
+
+  it("tells the wait for a free run environment, and a stop during it runs nothing", async () => {
+    const { project, taskId, runLog } = await aTask(1, {}, "on");
+    runEnvironments.waitsUntil = new Promise(() => undefined);
+    const stop = new AbortController();
+    const wait = {
+      started: vi.fn<() => Promise<void>>(() => {
+        stop.abort();
+        return Promise.resolve();
+      }),
+      ended: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+    };
+
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run-7", {
+      signal: stop.signal,
+      wait,
+    });
+
+    expect(runs.map(({ outcome }) => outcome)).toEqual(["stopped"]);
+    expect(wait.started).toHaveBeenCalledOnce();
+    expect(wait.ended).toHaveBeenCalledOnce();
+    expect(await exists(runLog)).toBe(false);
+  });
+
+  it("fails with why when the run environment can't start, running nothing on the host", async () => {
+    const { project, taskId, runLog } = await aTask(1, {}, "on");
+    runEnvironments.refusal = "The run environment couldn't start. The image didn't build.";
+
+    try {
+      const runs = await scriptCommands.run(project, taskId, "build", "stage-run-8");
+
+      expect(runs).toEqual([
+        expect.objectContaining({
+          outcome: "could-not-run",
+          output: expect.stringContaining("The image didn't build.") as string,
+        }),
+      ]);
+      expect(await exists(runLog)).toBe(false);
+    } finally {
+      runEnvironments.refusal = undefined;
+    }
+  });
+
+  it.each(["off", "not-decided"] as const)(
+    "runs on the host with the setting %s",
+    async (runEnvironment) => {
+      const { project, taskId, runLog } = await aTask(1, {}, runEnvironment);
+      const before = runEnvironments.runs.length;
+
+      await scriptCommands.run(project, taskId, "build", "stage-run-9");
+
+      expect(runEnvironments.runs.length).toBe(before);
+      expect(await exists(runLog)).toBe(true);
+    },
+  );
 });

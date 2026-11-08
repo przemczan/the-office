@@ -17,12 +17,14 @@ import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { BusyWork } from "../../office-updates/index.js";
 import { PublishStage } from "./publish-stage.js";
 import { StageGit } from "./stage-git.js";
+import { StageRunWaits } from "./stage-run-waits.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
 
 /**
  * Runs Script Stages (spec §2.3): the Stage's Project command in the Task's worktree with the
- * Project's environment and no model call, after the dependencies' install. The commands' runs are
+ * Project's environment and no model call, after the dependencies' install, on the host or in the
+ * Task's run environment; a wait for a free one is saved on the run until the command starts. The commands' runs are
  * recorded on the Stage run, and the last one's result is its outcome. git is checked before and
  * after (spec §5.5); a test run leaves the worktree restored, so only a build or lint commits what
  * it changed. A command can't be stopped by the user (spec §2.4): only The Office shutting down
@@ -38,6 +40,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     private readonly runs: StageRunRepository,
     private readonly publish: PublishStage,
     private readonly busyWork: BusyWork,
+    private readonly waits: StageRunWaits,
   ) {}
 
   onModuleInit(): void {
@@ -63,8 +66,8 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     const task = await this.records.read(run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
-    const { commandsSignal } = work.interruption;
-    const installation = await this.commands.install(task.project.id, run.taskId, commandsSignal);
+    const options = { signal: work.interruption.commandsSignal, wait: this.waits.of(run) };
+    const installation = await this.commands.install(task.project.id, run.taskId, options);
     const installed = installRuns(installation);
     if (anyStopped(installed)) return this.stopped(work, task, expected, installed);
     const failed = failedInstall(installation);
@@ -81,7 +84,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
       run.taskId,
       command,
       run.id,
-      commandsSignal,
+      options,
     );
     const ran = [...installed, ...commandRunsOf(commandRuns)];
     if (anyStopped(ran)) return this.stopped(work, task, expected, ran);

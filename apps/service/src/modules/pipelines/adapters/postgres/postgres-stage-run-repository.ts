@@ -58,6 +58,13 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set({ decisions }).where(eq(stageRuns.id, runId));
   }
 
+  async saveWaitingSince(runId: string, waitingSince: Date | undefined): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({ waitingSince: waitingSince ?? null })
+      .where(eq(stageRuns.id, runId));
+  }
+
   async saveHeldBy(runId: string, heldBy: AskedInterruption): Promise<void> {
     await this.database.update(stageRuns).set({ heldBy }).where(eq(stageRuns.id, runId));
   }
@@ -72,7 +79,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
   }
 
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
-    await this.database.update(stageRuns).set({ outcome, endedAt }).where(eq(stageRuns.id, id));
+    await this.database
+      .update(stageRuns)
+      .set({ outcome, endedAt, waitingSince: null })
+      .where(eq(stageRuns.id, id));
   }
 
   async list(taskId: string): Promise<readonly StageRun[]> {
@@ -117,6 +127,7 @@ function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">):
     heldBy: row.heldBy ?? undefined,
     gateAction: row.gateAction ?? undefined,
     outcome: row.outcome ?? undefined,
+    waitingSince: row.waitingSince ?? undefined,
     endedAt: row.endedAt ?? undefined,
   };
 }

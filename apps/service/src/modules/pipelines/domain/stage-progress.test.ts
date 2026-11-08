@@ -66,6 +66,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     model: undefined,
     decisions: each.decisions ?? [],
     heldBy: undefined,
+    waitingSince: undefined,
     sentBack: undefined,
     gateAction: each.gateAction,
     carriedFailure: each.carriedFailure,

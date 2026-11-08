@@ -36,6 +36,8 @@ import { BaseCheckouts } from "./application/base-checkouts.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
+import { TaskCommandRunner } from "./application/task-command-runner.js";
+import { TaskRunEnvironments } from "./application/task-run-environments.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { LocalRepositories } from "./application/local-repositories.js";
 import { RepositoriesByUrl } from "./application/repositories-by-url.js";
@@ -115,6 +117,8 @@ export class ProjectsModule implements NestModule {
         { provide: PullRequests, useClass: GitHubApiPullRequests },
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
+        TaskRunEnvironments,
+        TaskCommandRunner,
         { provide: KnownPipelines, useExisting: knownPipelines },
         EnvironmentChecks,
         RepositoryClones,
@@ -147,6 +151,7 @@ export class ProjectsModule implements NestModule {
         RunEnvironmentSetUpRegistry,
         ProjectService,
         ProjectsFromRepositories,
+        TaskRunEnvironments,
         TaskWorktrees,
       ],
     };

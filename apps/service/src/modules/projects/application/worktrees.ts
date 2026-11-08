@@ -18,6 +18,8 @@ import {
 } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ensureScreenshotsFolder } from "./screenshots-folder.js";
+import { TaskCommandRunner, type CommandPlace } from "./task-command-runner.js";
+import type { CommandWait } from "./task-run-environments.js";
 
 /** Short, as worktree paths count against Windows' MAX_PATH; a UUID fits. */
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/;
@@ -47,6 +49,13 @@ export interface InstallOptions {
   readonly environment?: ProjectEnvironment;
   /** Stops the install when aborted. */
   readonly signal?: AbortSignal;
+}
+
+/** How a Task's install is stopped, and told of a wait for its run environment. */
+export interface TaskInstallOptions {
+  /** Stops the install, or its wait, when aborted. */
+  readonly signal?: AbortSignal;
+  readonly wait?: CommandWait;
 }
 
 /** Whether a worktree's install ran, and how it went. */
@@ -81,6 +90,7 @@ export class Worktrees {
   constructor(
     private readonly git: Git,
     private readonly commands: ProjectCommandRunner,
+    private readonly taskCommands: TaskCommandRunner,
     private readonly officeData: OfficeDataDirectory,
   ) {}
 
@@ -108,16 +118,31 @@ export class Worktrees {
   }
 
   /**
-   * The Task's worktree on its branch, with dependencies installed. The first time, the branch
-   * starts at the freshly fetched base branch; after that the worktree is as the Task left it.
+   * The Task's worktree on its branch, with dependencies installed where the Task's commands run
+   * (TaskCommandRunner). The first time, the branch starts at the freshly fetched base branch;
+   * after that the worktree is as the Task left it.
    */
   async prepare(
     project: Project,
     taskId: string,
-    signal?: AbortSignal,
+    { signal, wait }: TaskInstallOptions = {},
   ): Promise<{ readonly worktree: TaskWorktree; readonly installation: Installation }> {
     const worktree = await this.open(project, taskId);
-    return { worktree, installation: await this.install(project, worktree.path, { signal }) };
+    const place = await this.taskCommands.placeOf(project, taskId, worktree.path);
+    const installation = await this.installOnce(
+      project,
+      worktree.path,
+      place,
+      project.environment,
+      () =>
+        this.taskCommands.run(project, taskId, worktree.path, {
+          commandLine: project.commands.install,
+          timeoutMs: INSTALL_TIMEOUT_MS,
+          signal,
+          wait,
+        }),
+    );
+    return { worktree, installation };
   }
 
   /**
@@ -151,28 +176,24 @@ export class Worktrees {
   }
 
   /**
-   * Runs the install command in the worktree, unless the command, the install inputs and the
-   * environment are what they were at its last install there that passed.
+   * Runs the install command in the worktree on the host, as the environment check does, unless
+   * the command, the install inputs and the environment are what they were at its last install
+   * there that passed.
    */
   async install(
     project: Project,
     worktreePath: string,
     { environment = project.environment, signal }: InstallOptions = {},
   ): Promise<Installation> {
-    const record = await this.git.worktreeRecordPath(worktreePath, INSTALL_RECORD);
-    const fingerprint = await installFingerprint(project, worktreePath, environment);
-    if ((await readFile(record, "utf8").catch(() => undefined)) === fingerprint) {
-      return { kind: "up-to-date" };
-    }
-    const run = await this.commands.run({
-      commandLine: project.commands.install,
-      folder: worktreePath,
-      environment,
-      timeoutMs: INSTALL_TIMEOUT_MS,
-      signal,
-    });
-    if (run.outcome === "passed") await writeFile(record, fingerprint);
-    return { kind: "ran", run };
+    return this.installOnce(project, worktreePath, { kind: "host" }, environment, () =>
+      this.commands.run({
+        commandLine: project.commands.install,
+        folder: worktreePath,
+        environment,
+        timeoutMs: INSTALL_TIMEOUT_MS,
+        signal,
+      }),
+    );
   }
 
   /**
@@ -313,6 +334,27 @@ export class Worktrees {
     }
   }
 
+  /**
+   * Runs `install` unless the worktree's record says the same install passed there last: the same
+   * command, install inputs and environment, in the same place.
+   */
+  private async installOnce(
+    project: Project,
+    worktreePath: string,
+    place: CommandPlace,
+    environment: ProjectEnvironment,
+    install: () => Promise<CommandRun>,
+  ): Promise<Installation> {
+    const record = await this.git.worktreeRecordPath(worktreePath, INSTALL_RECORD);
+    const fingerprint = await installFingerprint(project, worktreePath, environment, place);
+    if ((await readFile(record, "utf8").catch(() => undefined)) === fingerprint) {
+      return { kind: "up-to-date" };
+    }
+    const run = await install();
+    if (run.outcome === "passed") await writeFile(record, fingerprint);
+    return { kind: "ran", run };
+  }
+
   /** Git on a Project runs with the Project's variables, as its hooks and filters run its tools. */
   private variablesOf(project: Project): GitVariables {
     return this.commands.variablesFor(project.environment);
@@ -347,6 +389,7 @@ async function installFingerprint(
   project: Project,
   worktreePath: string,
   environment: ProjectEnvironment,
+  place: CommandPlace,
 ): Promise<string> {
   const inputs = await Promise.all(
     project.installInputs.map(async (input) => {
@@ -361,6 +404,8 @@ async function installFingerprint(
         command: project.commands.install,
         environment,
         inputs,
+        // Left out on the host, so the records of installs made before run environments still hold.
+        ...(place.kind === "host" ? {} : { place }),
       }),
     )
     .digest("hex");

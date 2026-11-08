@@ -113,6 +113,7 @@ describe("GET /api/tasks/:id/stages", () => {
         number: 1,
         startedAt: run?.startedAt.toISOString(),
         endedAt: run?.endedAt?.toISOString(),
+        waitingSince: null,
         threadId: run?.threadId,
         session: "fresh",
         tokens: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },

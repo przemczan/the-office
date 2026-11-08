@@ -25,6 +25,14 @@ export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   failed: "Failed",
 };
 
+/** A Script Stage's running run before its command starts, every run environment being in use. */
+export const WAITING_FOR_RUN_ENVIRONMENT = "Waiting for a run environment";
+
+/** Whether the run hasn't ended and waits for a free run environment, its command not started. */
+export function waitsForRunEnvironment({ outcome, waitingSince }: StageRun): boolean {
+  return outcome === null && waitingSince !== null;
+}
+
 export const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
   resume: "continued session",
   fresh: "fresh session",

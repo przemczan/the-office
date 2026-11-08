@@ -184,6 +184,26 @@ describe("Sounding the fire alarm", () => {
     expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
   });
 
+  it("ends a Script Stage's wait for a free run environment at once, with nothing run", async () => {
+    const pipelines = await start();
+    const taskId = randomUUID();
+    pipelines.commands.waitsUntil = new Promise(() => undefined);
+    pipelines.commands.observe = (call) => {
+      if (call === "runCommand") void soundTheAlarm(pipelines, taskId);
+    };
+
+    await walkStages(pipelines, [tests, review], taskId);
+
+    expect(await runsOf(pipelines, taskId)).toMatchObject([
+      {
+        stageKey: "tests",
+        waitingSince: undefined,
+        outcome: { status: "failed", error: HELD, interrupted: "alarm" },
+      },
+    ]);
+    expect(pipelines.commands.ran).toEqual([]);
+  });
+
   it("records an answer to a Task Waiting on you, but nothing walks until the Task resumes", async () => {
     const asked = anAskedDecision();
     const pipelines = await start([

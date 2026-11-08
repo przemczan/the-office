@@ -6,6 +6,7 @@ import { ProjectRunEnvironmentsController } from "./adapters/http/project-run-en
 import { ProjectsRepositoryFiles } from "./adapters/projects/projects-repository-files.js";
 import { ProjectsSettings } from "./adapters/projects/projects-settings.js";
 import { ProjectsSetUpRegistration } from "./adapters/projects/projects-set-up-registration.js";
+import { ProjectsTaskRunEnvironments } from "./adapters/projects/projects-task-run-environments.js";
 import { WorkSetUpTasks } from "./adapters/work/work-set-up-tasks.js";
 import { PostgresRunEnvironmentSettings } from "./adapters/postgres/postgres-run-environment-settings.js";
 import { ProjectRunEnvironments } from "./application/project-run-environments.js";
@@ -57,6 +58,7 @@ export class RunEnvironmentsModule {
         { provide: SetUpTasks, useClass: WorkSetUpTasks },
         ProjectRunEnvironments,
         ProjectsSetUpRegistration,
+        ProjectsTaskRunEnvironments,
       ],
       exports: [RunEnvironments],
     };

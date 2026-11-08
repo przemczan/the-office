@@ -23,6 +23,21 @@ export class StageRunThreadOpened extends DomainEvent {
   }
 }
 
+/**
+ * A Script Stage's run began waiting for a free run environment, every one Run environments at
+ * once allows being in use, or stopped waiting as its command starts or it is stopped.
+ */
+export class StageRunWaiting extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly runId: string,
+    readonly stageKey: string,
+    readonly waiting: boolean,
+  ) {
+    super();
+  }
+}
+
 /** A Stage run ended done, needing a Decision, or failed. */
 export class StageRunEnded extends DomainEvent {
   constructor(

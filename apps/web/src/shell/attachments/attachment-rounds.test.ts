@@ -45,6 +45,7 @@ function aRun(
     number: 1,
     startedAt,
     endedAt,
+    waitingSince: null,
     threadId: null,
     session: null,
     tokens: NO_TOKENS,

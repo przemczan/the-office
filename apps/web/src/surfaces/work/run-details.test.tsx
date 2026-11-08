@@ -17,6 +17,7 @@ const gate: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional
 
 function aRun(fields: Pick<StageRun, "id" | "number" | "startedAt" | "endedAt">): StageRun {
   return {
+    waitingSince: null,
     threadId: null,
     session: null,
     tokens: NO_TOKENS,

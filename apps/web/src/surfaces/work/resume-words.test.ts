@@ -11,6 +11,7 @@ function aRun(fields: Partial<StageRun>): StageRun {
     number: 1,
     startedAt: "2026-10-26T10:00:00.000Z",
     endedAt: "2026-10-26T10:18:00.000Z",
+    waitingSince: null,
     threadId: THREAD_ID,
     session: "fresh",
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },

@@ -23,6 +23,11 @@ export class RunEnvironmentFolders {
     return join(this.tasks, taskId);
   }
 
+  /** Where a Project command's output goes while it runs, read back once it ends. */
+  get commandOutputs(): string {
+    return join(this.root, "command-outputs");
+  }
+
   /** The build context of an image while it is built. */
   imageBuildFolder(image: string): string {
     return join(this.root, "image-builds", image.replace(/[^a-zA-Z0-9_.-]/g, "_"));

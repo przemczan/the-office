@@ -11,6 +11,14 @@ export {
   type RunEnvironmentSetUp,
 } from "./application/run-environment-set-up-registry.js";
 export { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
+export {
+  TaskRunEnvironments,
+  type CommandWait,
+  type TaskRunEnvironmentCommand,
+  type TaskInRunEnvironment,
+  type TaskRunEnvironmentRunner,
+} from "./application/task-run-environments.js";
+export type { FinishedCommand } from "./ports/command-runner.js";
 export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
 export {
   EnvironmentCheckFinished,

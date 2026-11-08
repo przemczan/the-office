@@ -24,6 +24,7 @@
 - Resolve (spec 2.3, "Conflicts at Publish"): a Publish run that conflicts puts Resolve, its Test and, when the Publish's `afterConflict` is `review`, a Gate (keys `office:resolve…`, `domain/resolve-stages.ts`) before that Publish, derived from the runs and never stored. `afterConflict` absent publishes automatically; the Publish has a run by then, so it is locked and the Stages stay as derived: read the Stages as walked (`walkedStages`) wherever runs meet them (the walk, progress, the Gate, staffing), and strip them from an edit (`withoutResolveStages`). The Resolve Agent Stage's git is The Office's around the Agent's turn (`ResolveStageGit`, through `TaskPublishing`): no commit of its own, the merge committed once no marker is left; a round its Gate sent back is an ordinary Agent round on the merged branch, committed as any Stage's; dropping the Task aborts a merge left in progress (Work's `TaskStateChanged`).
 - What the all clear would resume (`AlarmResumes`, pure `domain/alarm-resume.ts`, read by Notifications' Now): from the walk's next move, an Agent Stage's session as `AgentStageRunner.sessionAhead` asks `StageThreads.sessionAhead` (the same `stageSessionOf` and record as a run's `open`), a warm cache counted at a tenth of its context; none while the held run still runs. A run the alarm held shows Paused.
 - The fire alarm (spec 2.8) is the `alarm` interruption: held after the Agent's turn as a Pause, its edits kept, but its Project commands stopped now, so a Script Stage stops at once; a Publish takes no interruption and finishes. `AlarmSounded` schedules the hard stop (`Schedule.once`) of the runs going on then, which cuts their turns short (`StageRunInterruption.hardStop`, `cutShortBy`), edits kept. At boot an In progress Task is held through `StartedTasks.holdForFireAlarm` before anything walks, and a run left running on a Task the alarm paused ends held by it.
+- A Project command may wait for a free run environment before it starts (the Project's Run environment On, every one Run environments at once allows in use): `TaskCommands.install` and `runCommand` take `wait` beside `signal`, and `StageRunWaits` saves `waitingSince` on the running run and publishes `StageRunWaiting` (`stage-run.waiting` to the web) as the wait begins and ends; `saveEnded` clears it too. The Stage's state stays `running`: the web reads `waitingSince` for "Waiting for a run environment". The interruption's `commandsSignal` ends a wait at once, the command `stopped` with nothing run.
 - A command's whole output (Projects' `wholeOutput`, its last 64 KB) is saved beside its run in `stage_runs.command_outputs`, in the order of `commandRuns`, and read only by `GET /tasks/:id/stage-runs/:runId/command-outputs`; `list` and `listOfTasks` leave it out, as the walk reads every run at each move and the web refetches the Stages at each event. The `output` on a command run is the filtered one, which the Brief and the failure's words use; a run saved before `command_outputs` answers with that.
 - `StaffingHolds` pauses a Task whose next Stages nobody can work, behind a Decision kept in `staffing_holds`; the interpreter asks it on every `TaskResumed` before walking, so a Resume while the lack stands pauses the Task again.
 
@@ -38,7 +39,7 @@ AlarmResumes, PipelineLibrary, StageResultWords, TaskStagesService, UsageHistory
 ## Domain events
 
 - `domain/pipeline-library-events.ts`: PipelineAdded, PipelineSaved, PipelineRemoved
-- `domain/stage-run-events.ts`: StageRunStarted, StageRunThreadOpened, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
+- `domain/stage-run-events.ts`: StageRunStarted, StageRunThreadOpened, StageRunWaiting, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `domain/task-stages-events.ts`: TaskStagesMade, TaskStagesEdited, TaskStagesReset
 
 ## HTTP routes (under `/api`)
@@ -130,6 +131,7 @@ AlarmResumes, PipelineLibrary, StageResultWords, TaskStagesService, UsageHistory
 - `stage-interpreter.ts`: StageInterpreter
 - `stage-result-words.ts`: StageResultWords
 - `stage-run-interruption.ts`: StageRunInterruption
+- `stage-run-waits.ts`: StageRunWaits
 - `stage-runner.ts`: StageOfKind, StageWork, StageRunner
 - `stage-runners.ts`: StageRunners
 - `task-stages-service.ts`: TaskStagesService
@@ -162,7 +164,7 @@ AlarmResumes, PipelineLibrary, StageResultWords, TaskStagesService, UsageHistory
 - `stage-progress.ts`: StageState, WentBack, StageProgress, TaskProgress, stagesProgress
 - `stage-result.ts`: STAGE_RESULT_SCHEMA, StageResultReading, readStageResult, screenshotsRefused, correctionMessage
 - `stage-run-changes.ts`: NewStageRun, startStageRun, endStageRun
-- `stage-run-events.ts`: StageRunStarted, StageRunThreadOpened, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
+- `stage-run-events.ts`: StageRunStarted, StageRunThreadOpened, StageRunWaiting, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `stage-run.fixtures.ts`: aStageRun
 - `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, AskedInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
 - `stage-staffing.ts`: RoleFilling, staffingProblems
@@ -190,7 +192,7 @@ AlarmResumes, PipelineLibrary, StageResultWords, TaskStagesService, UsageHistory
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads
 - `started-tasks.fixtures.ts`: OwnProjectsStartedTasks, ownProjectsStartedTasks
 - `started-tasks.ts`: WalkTaskState, StartedTask, StartedTasks
-- `task-commands.ts`: ScriptCommandKey, TaskCommands
+- `task-commands.ts`: ScriptCommandKey, CommandWait, TaskCommandOptions, TaskCommands
 - `task-git.ts`: WorktreeHead, TaskGit
 - `task-publishing.ts`: TaskPublishing
 - `task-records.ts`: TaskRecord, TaskRecords

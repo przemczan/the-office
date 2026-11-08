@@ -1486,6 +1486,7 @@ function aStageRun(
     number,
     startedAt,
     endedAt,
+    waitingSince: null,
     threadId: null,
     session: null,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },

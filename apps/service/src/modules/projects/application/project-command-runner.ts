@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
 import { filteredOutput, wholeOutputOf, type CommandRun } from "../domain/command-run.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
-import { CommandRunner } from "../ports/command-runner.js";
+import { CommandRunner, type FinishedCommand } from "../ports/command-runner.js";
 import { commandEnvironment } from "./command-environment.js";
 
 export interface ProjectCommand {
@@ -36,18 +36,23 @@ export class ProjectCommandRunner {
       timeoutMs,
       signal,
     });
-    return {
-      commandLine,
-      outcome: finished.outcome,
-      exitCode: finished.exitCode,
-      durationMs: finished.durationMs,
-      output: filteredOutput(finished.output),
-      wholeOutput: wholeOutputOf(finished.output, finished.droppedOutputBytes),
-    };
+    return commandRunOf(commandLine, finished);
   }
 
   /** The variables a Project with this environment runs its commands with. */
   variablesFor(environment: ProjectEnvironment): Record<string, string> {
     return commandEnvironment(process.env, environment, this.operatingSystem);
   }
+}
+
+/** A finished command as it is recorded, its output filtered and kept whole, wherever it ran. */
+export function commandRunOf(commandLine: string, finished: FinishedCommand): CommandRun {
+  return {
+    commandLine,
+    outcome: finished.outcome,
+    exitCode: finished.exitCode,
+    durationMs: finished.durationMs,
+    output: filteredOutput(finished.output),
+    wholeOutput: wholeOutputOf(finished.output, finished.droppedOutputBytes),
+  };
 }

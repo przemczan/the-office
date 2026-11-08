@@ -15,7 +15,7 @@ import {
 } from "./stage-history-words.ts";
 import { railStateWords } from "./stage-rail-words.ts";
 import { StageWorker } from "./stage-worker.tsx";
-import type { StageNames } from "./stage-words.ts";
+import { waitsForRunEnvironment, type StageNames } from "./stage-words.ts";
 
 /**
  * A Stage's history (spec 4.1): the Pipeline in small to move between Stages, the runs on the left
@@ -154,7 +154,12 @@ function RunItem({
       >
         <span className="stage-history-run-line">
           <strong>Run {run.number}</strong>
-          <Badge tone={badge.tone} dot={taskStage.state === "running" && run.outcome === null}>
+          <Badge
+            tone={badge.tone}
+            dot={
+              taskStage.state === "running" && run.outcome === null && !waitsForRunEnvironment(run)
+            }
+          >
             {badge.words}
           </Badge>
           {run.carriedFailure && (

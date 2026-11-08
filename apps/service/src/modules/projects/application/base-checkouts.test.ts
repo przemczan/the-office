@@ -19,6 +19,7 @@ import { BaseCheckouts } from "./base-checkouts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
 /** The Projects as kept: only listing them matters here. */
 class ListedProjects extends ProjectRepository {
@@ -49,7 +50,7 @@ class FetchesThatMeet extends Worktrees {
     commands: ProjectCommandRunner,
     officeData: OfficeDataDirectory,
   ) {
-    super(git, commands, officeData);
+    super(git, commands, taskCommandsOver(commands), officeData);
   }
 
   override freshBase(): Promise<never> {
@@ -79,7 +80,7 @@ beforeAll(async () => {
   checkouts = new BaseCheckouts(
     projects,
     git,
-    new Worktrees(git, commands, officeData),
+    new Worktrees(git, commands, taskCommandsOver(commands), officeData),
     commands,
     officeData,
   );
@@ -97,7 +98,7 @@ describe("BaseCheckouts", () => {
     const empty = new BaseCheckouts(
       new ListedProjects([]),
       git,
-      new Worktrees(git, commands, officeData),
+      new Worktrees(git, commands, taskCommandsOver(commands), officeData),
       commands,
       officeData,
     );

@@ -20,6 +20,7 @@ import { RoleFillings } from "./application/role-fillings.js";
 import { RolesNamedInStages } from "./application/roles-named-in-stages.js";
 import { ScriptStageRunner } from "./application/script-stage-runner.js";
 import { ResolveStageGit } from "./application/resolve-stage-git.js";
+import { StageRunWaits } from "./application/stage-run-waits.js";
 import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
@@ -124,6 +125,7 @@ export class PipelinesModule {
         StageRunners,
         StageInterpreter,
         StageGit,
+        StageRunWaits,
         ResolveStageGit,
         StageBranchUpdate,
         AgentStageRunner,

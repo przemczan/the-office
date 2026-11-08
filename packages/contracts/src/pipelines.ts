@@ -157,6 +157,11 @@ export const stageRunSchema = z.object({
   number: z.int().positive(),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime().nullable(),
+  /**
+   * Since when a Script Stage's run waits for a free run environment, before its command starts;
+   * null while it doesn't.
+   */
+  waitingSince: z.iso.datetime().nullable(),
   /** The Stage Thread an Agent Stage's run works in. */
   threadId: z.uuid().nullable(),
   /** How its session began; null for a run that opened none. */
@@ -292,6 +297,13 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("stage-run.thread-opened"),
     taskId: z.uuid(),
     stageKey: z.string(),
+  }),
+  /** A Script Stage's run began or stopped waiting for a free run environment. */
+  webEventSchema.extend({
+    type: z.literal("stage-run.waiting"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
+    waiting: z.boolean(),
   }),
   webEventSchema.extend({
     type: z.literal("stage-run.ended"),

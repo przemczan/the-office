@@ -13,6 +13,8 @@ import {
   gateActionWords,
   STAGE_STATE_WORDS,
   stageRule,
+  WAITING_FOR_RUN_ENVIRONMENT,
+  waitsForRunEnvironment,
   withoutMarkdownMarks,
   type StageNames,
 } from "./stage-words.ts";
@@ -78,10 +80,14 @@ export function runTimeWords({ startedAt, endedAt }: StageRun, now: Date): strin
 
 /** How a run stands, as its badge says it. The Stage's state speaks for a run still going. */
 export function runBadge(
-  { outcome }: StageRun,
+  run: StageRun,
   state: TaskStage["state"],
 ): { readonly words: string; readonly tone: BadgeProps["tone"] } {
+  const { outcome } = run;
   if (!outcome) {
+    if (state === "running" && waitsForRunEnvironment(run)) {
+      return { words: WAITING_FOR_RUN_ENVIRONMENT, tone: "info" };
+    }
     return { words: STAGE_STATE_WORDS[state], tone: state === "running" ? "info" : "warning" };
   }
   switch (outcome.status) {

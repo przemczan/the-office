@@ -95,7 +95,7 @@ describe.skipIf(missing !== undefined)(
         outputFile: output,
       });
 
-      expect(end).toEqual({ exitCode: 3 });
+      expect(end).toMatchObject({ exitCode: 3 });
       expect(await readFile(join(task.worktree, "from-web.txt"), "utf8")).toBe("hello-from-web\n");
       expect(await readFile(output, "utf8")).toBe("variable: hello\ninstalled\n");
     });
@@ -130,8 +130,8 @@ describe.skipIf(missing !== undefined)(
         outputFile: join(testbed.folder, "next.log"),
       });
 
-      expect(slow).toEqual({ exitCode: undefined, endedBy: "timeout" });
-      expect(next).toEqual({ exitCode: 0 });
+      expect(slow).toMatchObject({ exitCode: undefined, endedBy: "timeout" });
+      expect(next).toMatchObject({ exitCode: 0 });
     });
 
     it("removes the Task's containers, network and volume by its label when it is Done", async () => {
@@ -151,7 +151,7 @@ describe.skipIf(missing !== undefined)(
         await writeFiles(each.worktree, DEFINITION);
         await testbed.environments.prepare(each, join(testbed.folder, `${each.taskId}.log`));
       }
-      testbed.knownTasks.tasks = [{ id: "open", state: "in-progress" }];
+      testbed.knownTasks.tasks = [{ id: "open", title: "Open", state: "in-progress" }];
 
       await testbed.environments.sweep();
 

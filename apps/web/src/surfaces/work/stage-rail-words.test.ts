@@ -12,6 +12,7 @@ import {
   railRunsWords,
   railStateWords,
   stagesOnRail,
+  stageWaitsForRunEnvironment,
   stageWorkerWords,
   stoppedAtCurrentStage,
   type LoopBack,
@@ -46,6 +47,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     number: 1,
     startedAt: "2026-10-26T10:00:00.000Z",
     endedAt: "2026-10-26T10:18:00.000Z",
+    waitingSince: null,
     threadId: null,
     session: null,
     tokens: NO_TOKENS,
@@ -213,6 +215,20 @@ describe("railStateWords", () => {
       wentBack: { stageKey: "implement", round: 1, rounds: 3 },
     });
     expect(railStateWords(failed, names)).toBe("Failed · went back to Implement");
+  });
+
+  it("says a running Stage waits for a run environment until its command starts", () => {
+    const waiting = aTaskStage(tests, {
+      state: "running",
+      runs: [aRun({ endedAt: null, waitingSince: "2026-10-26T10:20:00.000Z" })],
+    });
+    const started = aTaskStage(tests, { state: "running", runs: [aRun({ endedAt: null })] });
+
+    expect(railStateWords(waiting, names)).toBe("Waiting for a run environment");
+    expect(stageWaitsForRunEnvironment(waiting)).toBe(true);
+    expect(railCaption([waiting], "in-progress")).toBe("At Tests: waiting for a run environment");
+    expect(railStateWords(started, names)).toBe("Running");
+    expect(stageWaitsForRunEnvironment(started)).toBe(false);
   });
 });
 

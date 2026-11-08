@@ -25,7 +25,7 @@ describe("scriptStageOutcome", () => {
   it.each([
     [
       aRun({ outcome: "could-not-run", exitCode: 127 }),
-      "`npm test` couldn't be run: the shell couldn't start it, as when its program isn't installed.",
+      "`npm test` couldn't be run, as when its program isn't installed or its run environment can't start.",
     ],
     [
       aRun({ outcome: "timed-out", exitCode: undefined, durationMs: 30 * 60_000 }),

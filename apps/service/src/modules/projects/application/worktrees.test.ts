@@ -15,6 +15,8 @@ import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
+import { taskCommandsOver } from "./task-command-runner.fixtures.js";
+import { ScriptedTaskRunEnvironments } from "./task-run-environments.fixtures.js";
 import { Worktrees } from "./worktrees.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
@@ -23,6 +25,7 @@ let repository: TemporaryRepository;
 let worktrees: Worktrees;
 let installLog: string;
 let project: Project;
+let runEnvironments: ScriptedTaskRunEnvironments;
 let taskCount = 0;
 
 /** An install that adds one "x" to the log, so a test can count installs. */
@@ -33,9 +36,12 @@ beforeAll(async () => {
   gitIn(repository.path, "fetch", "--quiet", "origin");
   gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
   installLog = join(repository.folder, "installs.log");
+  const commands = new ProjectCommandRunner(new ShellCommandRunner());
+  runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
   worktrees = new Worktrees(
     new CommandLineGit(new RepositoryLocks(), officeIdentityForTests()),
-    new ProjectCommandRunner(new ShellCommandRunner()),
+    commands,
+    taskCommandsOver(commands, runEnvironments.registry()),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
   );
   project = aProject({
@@ -140,6 +146,70 @@ describe("Worktrees.open", REAL_GIT_TEST, () => {
     expect(gitIn(worktree.path, "rev-parse", "HEAD")).toBe(fetched);
     expect(await installs()).toBe(before);
     expect((await worktrees.prepare(project, taskId)).installation).toMatchObject({ kind: "ran" });
+  });
+});
+
+describe("Worktrees.prepare, by the Project's Run environment setting", REAL_GIT_TEST, () => {
+  it("installs in the run environment when On, with the install's time limit and wait", async () => {
+    const taskId = aTaskId();
+    const on: Project = { ...project, runEnvironment: "on" };
+    const before = runEnvironments.runs.length;
+    const wait = { started: () => Promise.resolve(), ended: () => Promise.resolve() };
+    const { signal } = new AbortController();
+
+    const { worktree, installation } = await worktrees.prepare(on, taskId, { signal, wait });
+
+    expect(installation).toMatchObject({ kind: "ran", run: { outcome: "passed" } });
+    expect(runEnvironments.runs.slice(before)).toEqual([
+      {
+        task: expect.objectContaining({ taskId, worktree: worktree.path }) as unknown,
+        command: {
+          commandLine: COUNTING_INSTALL,
+          environment: project.environment,
+          timeoutMs: 30 * 60_000,
+          signal,
+          wait,
+        },
+      },
+    ]);
+  });
+
+  it("installs again where the commands run next, never reusing an install made elsewhere", async () => {
+    const taskId = aTaskId();
+    const on: Project = { ...project, runEnvironment: "on" };
+    const installationOf = async (given: Project) =>
+      (await worktrees.prepare(given, taskId)).installation.kind;
+    await worktrees.prepare(project, taskId);
+    const count = await installs();
+
+    expect(await installationOf(on)).toBe("ran");
+    expect(await installationOf(on)).toBe("up-to-date");
+    runEnvironments.image = "the-office/shop:second-key";
+    expect(await installationOf(on)).toBe("ran");
+    expect(await installationOf({ ...project, runEnvironment: "off" })).toBe("ran");
+    expect(await installationOf(project)).toBe("up-to-date");
+    expect(await installs()).toBe(count + 3);
+  });
+
+  it("gives a run environment that can't start as a failed install, nothing run on the host", async () => {
+    const taskId = aTaskId();
+    runEnvironments.refusal = "The run environment's image couldn't be built.";
+    try {
+      const count = await installs();
+
+      const { installation } = await worktrees.prepare(
+        { ...project, runEnvironment: "on" },
+        taskId,
+      );
+
+      expect(installation).toMatchObject({
+        kind: "ran",
+        run: { outcome: "could-not-run", output: "The run environment's image couldn't be built." },
+      });
+      expect(await installs()).toBe(count);
+    } finally {
+      runEnvironments.refusal = undefined;
+    }
   });
 });
 

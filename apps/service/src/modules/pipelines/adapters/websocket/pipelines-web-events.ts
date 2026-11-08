@@ -16,6 +16,7 @@ import {
   PipelineCompleted,
   StageRunEnded,
   StageRunStarted,
+  StageRunWaiting,
   StageRunThreadOpened,
   SentBackFromGate,
   StageSkipped,
@@ -77,6 +78,12 @@ export class PipelinesWebEvents implements OnModuleInit {
         stageKey: event.stageKey,
       }),
     );
+    this.forwarding.forward(StageRunWaiting, (event): WebEventOf<"stage-run.waiting"> => ({
+      type: "stage-run.waiting",
+      taskId: event.taskId,
+      stageKey: event.stageKey,
+      waiting: event.waiting,
+    }));
     this.forwarding.forward(StageRunEnded, (event): WebEventOf<"stage-run.ended"> => ({
       type: "stage-run.ended",
       taskId: event.taskId,

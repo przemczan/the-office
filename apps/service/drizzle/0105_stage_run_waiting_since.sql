@@ -1,0 +1,1 @@
+ALTER TABLE "stage_runs" ADD COLUMN "waiting_since" timestamp with time zone;

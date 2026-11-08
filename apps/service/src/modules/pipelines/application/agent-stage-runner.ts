@@ -60,6 +60,7 @@ import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { TaskScreenshots } from "../ports/task-screenshots.js";
 import { TaskUsage } from "../ports/task-usage.js";
 import { ResolveStageGit } from "./resolve-stage-git.js";
+import { StageRunWaits } from "./stage-run-waits.js";
 import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
@@ -114,6 +115,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly screenshots: TaskScreenshots,
     private readonly engineModels: EngineModels,
     private readonly events: EventBus,
+    private readonly waits: StageRunWaits,
   ) {}
 
   onModuleInit(): void {
@@ -167,11 +169,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     merging: boolean,
   ): Promise<StageOutcome> {
     // Only a restart stops the install; a Stop or a Pause during it waits for it to end.
-    const installation = await this.commands.install(
-      task.project.id,
-      work.run.taskId,
-      work.interruption.commandsSignal,
-    );
+    const installation = await this.commands.install(task.project.id, work.run.taskId, {
+      signal: work.interruption.commandsSignal,
+      wait: this.waits.of(work.run),
+    });
     await this.runs.saveCommandRuns(work.run.id, installRuns(installation));
     if (work.interruption.requested) return this.holdWork(work, task, expected);
     const failed = failedInstall(installation);

@@ -49,6 +49,7 @@ function aRun(
     model: undefined,
     decisions,
     heldBy: undefined,
+    waitingSince: undefined,
     sentBack: undefined,
     gateAction: undefined,
     outcome,

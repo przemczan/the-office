@@ -46,6 +46,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     number: 1,
     startedAt: "2026-10-26T10:00:00.000Z",
     endedAt: "2026-10-26T10:18:00.000Z",
+    waitingSince: null,
     threadId: null,
     session: null,
     tokens: NO_TOKENS,
@@ -152,6 +153,10 @@ describe("runTimeWords", () => {
 describe("runBadge", () => {
   it("lets the Stage's state speak for a run still going", () => {
     expect(runBadge(aRun(), "running")).toEqual({ words: "Running", tone: "info" });
+    expect(runBadge(aRun({ waitingSince: "2026-10-26T10:20:00.000Z" }), "running")).toEqual({
+      words: "Waiting for a run environment",
+      tone: "info",
+    });
     expect(runBadge(aRun(), "waiting-on-you")).toEqual({
       words: "Waiting on you",
       tone: "warning",

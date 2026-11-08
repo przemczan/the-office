@@ -199,7 +199,7 @@ describe("RunEnvironments.run", () => {
 
     const end = await testbed.environments.run(task, command(outputOf("check")));
 
-    expect(end).toEqual({ exitCode: 1 });
+    expect(end).toMatchObject({ exitCode: 1 });
     expect(await readFile(outputOf("check"), "utf8")).toContain("3 tests failed\n");
     expect(script).toBe(`cd '${task.worktree}' || exit 125\nexport CI='1'\nnpm test`);
   });
@@ -234,18 +234,33 @@ describe("RunEnvironments.run", () => {
       expect(runtime.steps.some((step) => step.startsWith("exec"))).toBe(true),
     );
 
-    const onWaiting = vi.fn<() => void>();
-    const secondRun = testbed.environments.run(second, command(outputOf("second"), { onWaiting }));
+    const told: string[] = [];
+    const onWaiting = vi.fn<() => void>(() => void told.push("waiting"));
+    const onWaitOver = vi.fn<() => void>(() => void told.push("wait over"));
+    const secondRun = testbed.environments.run(
+      second,
+      command(outputOf("second"), { onWaiting, onWaitOver }),
+    );
     await vi.waitFor(() => expect(onWaiting).toHaveBeenCalledOnce());
     endFirstCheck?.();
     await firstRun;
-    runtime.onExec = () => Promise.resolve({ exitCode: 0 });
+    let timeoutMs = 0;
+    runtime.onExec = (execution) => {
+      timeoutMs = execution.timeoutMs;
+      return Promise.resolve({ exitCode: 0 });
+    };
     // The first Task's run environment is still running, so it still holds the only slot.
     expect(runtime.steps.filter((step) => step.startsWith("up "))).toHaveLength(1);
+    expect(onWaitOver).not.toHaveBeenCalled();
 
     await testbed.schedule.advanceBy(IDLE_STOP_MS);
 
-    expect(await secondRun).toEqual({ exitCode: 0 });
+    const end = await secondRun;
+    expect(end).toMatchObject({ exitCode: 0 });
+    expect(told).toEqual(["waiting", "wait over"]);
+    // The time limit and the duration count from the check's start, not the wait's.
+    expect(timeoutMs).toBe(command(outputOf("second")).timeoutMs);
+    expect(end.durationMs).toBeLessThan(IDLE_STOP_MS);
     const firstName = composeProjectNameOf(testbed.folders.instance, "task-1");
     expect(runtime.projects.get(firstName)?.state).toBe("stopped");
   });
@@ -279,7 +294,7 @@ describe("RunEnvironments.run", () => {
 
     expect(
       await testbed.environments.run(second, command(outputOf("second"), { onWaiting })),
-    ).toEqual({ exitCode: 0 });
+    ).toMatchObject({ exitCode: 0 });
     expect(onWaiting).not.toHaveBeenCalled();
   });
 
@@ -299,18 +314,41 @@ describe("RunEnvironments.run", () => {
     expect(runtime.projects.get(firstName)?.state).toBe("stopped");
   });
 
+  it("takes the slot even when telling of the wait fails, and runs the check", async () => {
+    const first = await taskWithDefinition("task-1");
+    const second = await taskWithDefinition("task-2");
+    await testbed.environments.prepare(first, outputOf("first"));
+    const secondRun = testbed.environments.run(
+      second,
+      command(outputOf("second"), {
+        onWaiting: () => Promise.reject(new Error("The database is gone.")),
+        onWaitOver: () => Promise.reject(new Error("The database is gone.")),
+      }),
+    );
+
+    await testbed.schedule.advanceBy(IDLE_STOP_MS);
+
+    await expect(secondRun).resolves.toMatchObject({ exitCode: 0 });
+  });
+
   it("gives up waiting when stopped", async () => {
     const first = await taskWithDefinition("task-1");
     const second = await taskWithDefinition("task-2");
     await testbed.environments.prepare(first, outputOf("first"));
     const stop = new AbortController();
 
+    const onWaitOver = vi.fn<() => void>();
     const waiting = testbed.environments.run(
       second,
-      command(outputOf("second"), { signal: stop.signal, onWaiting: () => stop.abort() }),
+      command(outputOf("second"), {
+        signal: stop.signal,
+        onWaiting: () => stop.abort(),
+        onWaitOver,
+      }),
     );
 
     await expect(waiting).rejects.toThrow("This operation was aborted");
+    expect(onWaitOver).toHaveBeenCalledOnce();
     expect(runtime.steps.filter((step) => step.startsWith("up "))).toHaveLength(1);
   });
 });
@@ -365,8 +403,8 @@ describe("RunEnvironments.sweep", () => {
     runtime.leave({ kind: "network", id: "n-other", labels: taskLabels("another", "gone") });
     await mkdir(testbed.folders.taskFolder("only-files"), { recursive: true });
     testbed.knownTasks.tasks = [
-      { id: "live", state: "in-progress" },
-      { id: "finished", state: "done" },
+      { id: "live", title: "Live", state: "in-progress" },
+      { id: "finished", title: "Finished", state: "done" },
     ];
 
     await testbed.environments.sweep();

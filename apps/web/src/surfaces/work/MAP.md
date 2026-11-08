@@ -68,9 +68,9 @@ A Task in Shaping (Shaping â†’ Backlog is the Initiative's Confirm alone, spec Â
 - `stage-history-window.tsx`: StageHistoryWindow
 - `stage-history-words.ts`: RunTab, stageHistoryLine, runTimeWords, runBadge, runResultText, runGist, openingRunTab, runThreadClosedWords, RunPlace, runOfHandoverNote, carriedFailureWords, gateChoiceWords, commandMarkWords, commandTimeWords
 - `stage-mark.tsx`: StageMark
-- `stage-rail-words.ts`: stagesOnRail, currentStageIndex, stoppedAtCurrentStage, railScrollLeft, railCaption, stageWorkerWords, railStateWords, railRunsWords, LoopBack, loopBacks, LoopBackPath, RailPlace, loopBackPath, LoopBackEnd, loopBackEnds, loopBackWords
+- `stage-rail-words.ts`: stagesOnRail, currentStageIndex, stoppedAtCurrentStage, railScrollLeft, railCaption, stageWorkerWords, stageWaitsForRunEnvironment, railStateWords, railRunsWords, LoopBack, loopBacks, LoopBackPath, RailPlace, loopBackPath, LoopBackEnd, loopBackEnds, loopBackWords
 - `stage-selection.ts`: stageElementId, focusStage
-- `stage-words.ts`: STAGE_STATE_WORDS, SESSION_WORDS, StageNames, REMOVED_PIPELINE, pipelineLabel, stageNamesOf, stageRule, pullRequestUrlOf, scriptCommandLine, timeTaken, budgetWords, gateActionWords, firstLine, withoutMarkdownMarks, taskTokens
+- `stage-words.ts`: STAGE_STATE_WORDS, WAITING_FOR_RUN_ENVIRONMENT, waitsForRunEnvironment, SESSION_WORDS, StageNames, REMOVED_PIPELINE, pipelineLabel, stageNamesOf, stageRule, pullRequestUrlOf, scriptCommandLine, timeTaken, budgetWords, gateActionWords, firstLine, withoutMarkdownMarks, taskTokens
 - `stage-worker.tsx`: StageWorker
 - `start-action.tsx`: StartButton, StartNotes
 - `tag-words.ts`: tagOf, withTag, tagsInUse

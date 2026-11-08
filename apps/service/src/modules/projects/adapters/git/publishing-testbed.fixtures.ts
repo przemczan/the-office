@@ -23,6 +23,7 @@ import {
 import { ProjectCommandRunner } from "../../application/project-command-runner.js";
 import { Publishing } from "../../application/publishing.js";
 import { Worktrees } from "../../application/worktrees.js";
+import { taskCommandsOver } from "../../application/task-command-runner.fixtures.js";
 
 /** Several real git commands a test, slower while every test file runs at once. */
 export const PUBLISHING_TEST = { timeout: 30_000 } as const;
@@ -88,6 +89,7 @@ export class PublishingTestbed {
     const worktrees = new Worktrees(
       git,
       commands,
+      taskCommandsOver(commands),
       new OfficeDataDirectory(join(repository.folder, "office-data")),
     );
     const pullRequests = new PullRequestsForTests();

@@ -1,7 +1,14 @@
 import type { Role, Stage, TaskStage, TaskState } from "@the-office/contracts";
 import { shortDurationWords } from "../../shell/time.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
-import { scriptCommandLine, STAGE_STATE_WORDS, timeTaken, type StageNames } from "./stage-words.ts";
+import {
+  scriptCommandLine,
+  STAGE_STATE_WORDS,
+  timeTaken,
+  WAITING_FOR_RUN_ENVIRONMENT,
+  waitsForRunEnvironment,
+  type StageNames,
+} from "./stage-words.ts";
 
 /** The words of the Pipeline rail: where the Task is, and each Stage's person, state and runs. */
 
@@ -65,7 +72,7 @@ export function railCaption(stages: readonly TaskStage[], taskState: TaskState):
   if (current < 0) return "Not started";
   const at = stages[current];
   if (at && HOLDING_STATES.includes(at.state)) {
-    return `At ${at.stage.name}: ${STAGE_STATE_WORDS[at.state].toLowerCase()}`;
+    return `At ${at.stage.name}: ${stateWords(at).toLowerCase()}`;
   }
   const finished = stages.filter(({ state }) => state === "done" || state === "skipped").length;
   return `${finished} of ${stages.length} Stages finished`;
@@ -82,10 +89,26 @@ export function stageWorkerWords(
   return roles?.find(({ key }) => key === stage.role)?.card.name ?? "Nobody yet";
 }
 
+/**
+ * Whether the Stage runs but its command hasn't started, waiting for a free run environment: no
+ * live dot, as nothing works on it yet.
+ */
+export function stageWaitsForRunEnvironment({ state, runs }: TaskStage): boolean {
+  const last = runs.at(-1);
+  return state === "running" && last !== undefined && waitsForRunEnvironment(last);
+}
+
 /** A Stage's state, saying where its failure sent the work. */
-export function railStateWords({ state, wentBack }: TaskStage, names: StageNames): string {
-  const words = STAGE_STATE_WORDS[state];
+export function railStateWords(taskStage: TaskStage, names: StageNames): string {
+  const words = stateWords(taskStage);
+  const { wentBack } = taskStage;
   return wentBack ? `${words} · went back to ${names(wentBack.stageKey)}` : words;
+}
+
+function stateWords(taskStage: TaskStage): string {
+  return stageWaitsForRunEnvironment(taskStage)
+    ? WAITING_FOR_RUN_ENVIRONMENT
+    : STAGE_STATE_WORDS[taskStage.state];
 }
 
 /**

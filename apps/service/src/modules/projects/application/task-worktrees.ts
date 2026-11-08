@@ -9,8 +9,18 @@ import type { BranchUpdate, ConflictHandling } from "../domain/branch-update.js"
 import { BranchUpdates } from "./branch-updates.js";
 import { Resolving } from "./resolving.js";
 import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
-import { ScriptCommands, type ScriptCommandKey, type ScriptCommandRun } from "./script-commands.js";
-import { Worktrees, type Installation, type TaskChanges } from "./worktrees.js";
+import {
+  ScriptCommands,
+  type ScriptCommandKey,
+  type ScriptCommandOptions,
+  type ScriptCommandRun,
+} from "./script-commands.js";
+import {
+  Worktrees,
+  type Installation,
+  type TaskChanges,
+  type TaskInstallOptions,
+} from "./worktrees.js";
 
 /** A Task's worktree, as a session works in it. */
 export interface SessionWorktree {
@@ -160,15 +170,20 @@ export class TaskWorktrees {
   }
 
   /**
-   * Installs the Project's dependencies in the Task's worktree, unless the install command, its
-   * inputs and the environment are as they were at its last install there that passed. `signal`
-   * stops it, with everything it started.
+   * Installs the Project's dependencies in the Task's worktree, where the Project's Run
+   * environment setting says, unless the install command, its inputs, the environment and that
+   * place are as they were at its last install there that passed. `signal` stops it, with
+   * everything it started, or its wait for a run environment; `wait` is told of that wait.
    */
-  async install(projectId: string, taskId: string, signal: AbortSignal): Promise<Installation> {
+  async install(
+    projectId: string,
+    taskId: string,
+    options: TaskInstallOptions,
+  ): Promise<Installation> {
     const { installation } = await this.worktrees.prepare(
       await this.projects.read(projectId),
       taskId,
-      signal,
+      options,
     );
     return installation;
   }
@@ -176,17 +191,18 @@ export class TaskWorktrees {
   /**
    * Runs a Script Stage's Project command in the Task's worktree: after each test run the
    * worktree is restored and the files it wrote are moved to a folder named by `stageRunId`, and
-   * a failing test command runs once more. Returns each run, in order. `signal` stops the command
-   * running, with everything it started, and runs no other.
+   * a failing test command runs once more. It runs where the Project's Run environment setting
+   * says. Returns each run, in order. `signal` stops the command running, with everything it
+   * started, or its wait for a run environment, and runs no other; `wait` is told of that wait.
    */
   async runCommand(
     projectId: string,
     taskId: string,
     key: ScriptCommandKey,
     stageRunId: string,
-    signal: AbortSignal,
+    options: ScriptCommandOptions,
   ): Promise<readonly ScriptCommandRun[]> {
     const project = await this.projects.read(projectId);
-    return this.scriptCommands.run(project, taskId, key, stageRunId, signal);
+    return this.scriptCommands.run(project, taskId, key, stageRunId, options);
   }
 }

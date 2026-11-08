@@ -21,6 +21,11 @@ export class KnownTasksForTests extends KnownTasks {
   list(): Promise<readonly KnownTask[]> {
     return Promise.resolve(this.tasks);
   }
+
+  read(id: string): Promise<KnownTask> {
+    const task = this.tasks.find((known) => known.id === id);
+    return task ? Promise.resolve(task) : Promise.reject(new Error(`No Task ${id}.`));
+  }
 }
 
 /** RunEnvironments wired by hand on the runtime given, in an Office data directory of its own. */
@@ -58,7 +63,7 @@ export async function runEnvironmentsTestbed(
     busyWork,
     events,
   );
-  environments.onModuleInit();
+  await environments.onModuleInit();
   return { environments, folders, settings, knownTasks, schedule, busyWork, events, folder };
 }
 

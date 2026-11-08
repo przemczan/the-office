@@ -32,6 +32,11 @@ export class RunEnvironmentImages {
     private readonly events: EventBus,
   ) {}
 
+  /** The name of the Task's image by the key of what it is made from now, built or not. */
+  async imageNameFor(task: TaskInWorktree): Promise<string> {
+    return imageNameOf(task.projectId, imageKeyOf(await imageInputsOf(task)));
+  }
+
   /** The Task's image, built first unless one is there for its key. */
   async imageFor(
     task: TaskInWorktree,

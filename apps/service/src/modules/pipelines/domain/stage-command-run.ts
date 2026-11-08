@@ -79,7 +79,7 @@ export function howItEnded(run: CommandRun): string {
     case "failed":
       return run.exitCode === undefined ? "failed" : `failed with exit code ${run.exitCode}`;
     case "could-not-run":
-      return "couldn't be run: the shell couldn't start it, as when its program isn't installed";
+      return "couldn't be run, as when its program isn't installed or its run environment can't start";
     case "timed-out":
       return `ran out of time after ${Math.round(run.durationMs / 60_000)} minutes and was ended`;
     case "stopped":

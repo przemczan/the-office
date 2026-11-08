@@ -102,6 +102,7 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     number: run.number,
     startedAt: run.startedAt.toISOString(),
     endedAt: run.endedAt?.toISOString() ?? null,
+    waitingSince: run.waitingSince?.toISOString() ?? null,
     threadId: run.threadId ?? null,
     session: run.session ?? null,
     tokens: run.tokens,

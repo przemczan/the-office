@@ -29,6 +29,7 @@ import {
   railRunsWords,
   railScrollLeft,
   railStateWords,
+  stageWaitsForRunEnvironment,
   stagesOnRail,
   type LoopBack,
   type LoopBackEnd,
@@ -368,7 +369,9 @@ function RailStage({
           <StageWorker taskStage={taskStage} roles={roles} />
         </span>
         <span className="pipeline-rail-state">
-          {state === "running" && <span className="live-dot" />}
+          {state === "running" && !stageWaitsForRunEnvironment(taskStage) && (
+            <span className="live-dot" />
+          )}
           {railStateWords(taskStage, names)}
         </span>
         <span className="pipeline-rail-runs">

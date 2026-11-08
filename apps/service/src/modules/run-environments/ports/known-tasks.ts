@@ -1,6 +1,7 @@
-/** A Task as the startup sweep weighs it. */
+/** A Task as the startup sweep weighs it, and as busy work names it. */
 export interface KnownTask {
   readonly id: string;
+  readonly title: string;
   readonly state: string;
 }
 
@@ -11,4 +12,7 @@ export interface KnownTask {
  */
 export abstract class KnownTasks {
   abstract list(): Promise<readonly KnownTask[]>;
+
+  /** The Task; throws when there is none. */
+  abstract read(id: string): Promise<KnownTask>;
 }

@@ -54,6 +54,8 @@ export const stageRuns = pgTable(
     /** What the user did at a Gate's run. */
     gateAction: jsonb("gate_action").$type<GateAction>(),
     outcome: jsonb("outcome").$type<StageOutcome>(),
+    /** Since when a Script Stage's run waits for a free run environment. */
+    waitingSince: timestamp("waiting_since", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
   },

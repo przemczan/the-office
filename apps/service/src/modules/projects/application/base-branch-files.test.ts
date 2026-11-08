@@ -23,6 +23,7 @@ import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import type { ProjectService } from "./project-service.js";
 import { Worktrees } from "./worktrees.js";
+import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
 const NO_SUCH_COMMIT = "0123456789abcdef0123456789abcdef01234567";
 /** A PNG's signature, then bytes that are no UTF-8: a decoded copy would come back different. */
@@ -82,7 +83,7 @@ function filesFor(read: Project): BaseBranchFiles {
   return new BaseBranchFiles(
     { read: () => Promise.resolve(read) } as unknown as ProjectService,
     git,
-    new Worktrees(git, commands, new OfficeDataDirectory(officeData)),
+    new Worktrees(git, commands, taskCommandsOver(commands), new OfficeDataDirectory(officeData)),
     commands,
     new ProjectRemotes(git, identity),
   );

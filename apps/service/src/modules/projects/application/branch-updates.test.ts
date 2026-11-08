@@ -18,6 +18,7 @@ import type { Project } from "../domain/project.js";
 import { BranchUpdates } from "./branch-updates.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
+import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
 // Real git on a temporary repository whose main tracks its origin's, which is a bare repository.
 let repository: TemporaryRepository;
@@ -38,6 +39,7 @@ beforeAll(async () => {
   worktrees = new Worktrees(
     git,
     commands,
+    taskCommandsOver(commands),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
   );
   updates = new BranchUpdates(git, commands, worktrees);

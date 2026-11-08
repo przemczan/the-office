@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ScriptStage, ScriptStageCommand, Stage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
+import { StageRunWaiting } from "../domain/stage-run-events.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -137,7 +138,7 @@ describe("ScriptStageRunner", () => {
     expect(run?.outcome).toEqual({
       status: "failed",
       error:
-        "Installing the Project's dependencies failed: `npm ci` couldn't be run: the shell couldn't start it, as when its program isn't installed.\n\nWhat it printed:\n\n```\n'npm' is not recognized\n```\n\nThe Stage's command didn't run.",
+        "Installing the Project's dependencies failed: `npm ci` couldn't be run, as when its program isn't installed or its run environment can't start.\n\nWhat it printed:\n\n```\n'npm' is not recognized\n```\n\nThe Stage's command didn't run.",
     });
     expect(run?.commandRuns).toEqual([recordedRun(install, "install")]);
   });
@@ -211,5 +212,34 @@ describe("ScriptStageRunner", () => {
     });
     expect(pipelines.git.commits).toEqual([]);
     expect((await runsOf(pipelines, taskId))[0]?.headCommit).toBe(PLANNED_COMMIT);
+  });
+
+  it("saves its wait for a free run environment on the run, told to the web, until its command starts", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    let letIn: (() => void) | undefined;
+    pipelines.commands.waitsUntil = new Promise<void>((resolve) => {
+      letIn = resolve;
+    });
+
+    const walked = walkStages(pipelines, [tests], taskId);
+    await vi.waitFor(async () =>
+      expect((await runsOf(pipelines, taskId))[0]?.waitingSince).toBeInstanceOf(Date),
+    );
+    expect(pipelines.commands.ran).toEqual([]);
+    letIn?.();
+    await walked;
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.waitingSince).toBeUndefined();
+    expect(run?.outcome).toMatchObject({ status: "done" });
+    expect(
+      pipelines.published
+        .filter((event) => event instanceof StageRunWaiting)
+        .map(({ runId, stageKey, waiting }) => ({ runId, stageKey, waiting })),
+    ).toEqual([
+      { runId: run?.id, stageKey: "test", waiting: true },
+      { runId: run?.id, stageKey: "test", waiting: false },
+    ]);
   });
 });

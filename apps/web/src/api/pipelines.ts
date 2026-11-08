@@ -166,6 +166,7 @@ export const pipelineEventInvalidations: Readonly<
   "task-stages.reset": staleTaskStages,
   "stage-run.started": staleTaskStages,
   "stage-run.thread-opened": staleTaskStages,
+  "stage-run.waiting": staleTaskStages,
   "stage-run.ended": staleTaskStagesAndChanges,
   "stage-run.skipped": staleTaskStages,
   "stage-run.stop-held-as-pause": staleTaskStages,

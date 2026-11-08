@@ -43,10 +43,16 @@ const OVERRIDE_FILE = "office-override.yaml";
 /** The states a Task's run environment is removed in (spec §5.5, "Lifecycle"). */
 const FINISHED_STATES: readonly string[] = ["done", "dropped"];
 
-/** What a step that may wait for a slot is told, and how it can be stopped. */
+/**
+ * What a step that may wait for a slot is told, and how it can be stopped. A hook that fails is
+ * logged, never thrown, so a slot taken is never left held by a step that didn't run.
+ */
 export interface SlotOptions {
   /** Called once when every slot is in use, before waiting: "Waiting for a run environment". */
-  readonly onWaiting?: () => void;
+  readonly onWaiting?: () => void | Promise<void>;
+  /** Called once the wait `onWaiting` told of is over, taken or given up, after it. */
+  readonly onWaitOver?: () => void | Promise<void>;
+  /** Ends a wait at once, the step throwing; a check it reaches is stopped. */
   readonly signal?: AbortSignal;
 }
 
@@ -54,9 +60,17 @@ export interface SlotOptions {
 export interface RunEnvironmentCommand extends SlotOptions {
   readonly commandLine: string;
   readonly environment: CommandEnvironment;
+  /** Counted from when the check starts, never from a wait for a slot before it. */
   readonly timeoutMs: number;
-  /** Where its output goes as it runs, and the run environment's own if it has to start first. */
+  /** Where its output goes as it runs. */
   readonly outputFile: string;
+  /** Where the run environment's own output goes if it has to start first; else `outputFile`. */
+  readonly startOutputFile?: string;
+}
+
+/** How a check ended, and how long it ran, from its start in the service. */
+export interface CommandEnd extends ExecutionEnd {
+  readonly durationMs: number;
 }
 
 /** A Task's run environment while The Office knows it is running. */
@@ -90,7 +104,7 @@ export class RunEnvironments implements OnModuleInit {
     private readonly events: EventBus,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     this.events.subscribe(TaskStateChanged, ({ taskId, to }) => {
       if (!FINISHED_STATES.includes(to)) return;
       // In the background: the bus waits for its handlers, and the state change for nothing.
@@ -98,6 +112,8 @@ export class RunEnvironments implements OnModuleInit {
         this.logger.error(`The run environment of the Task ${taskId} was not removed.`, error);
       });
     });
+    // Before any Stage runs, so what is there was left by a service that stopped mid-command.
+    await rm(this.folders.commandOutputs, { recursive: true, force: true });
   }
 
   /** The Run environment definition in the folder, or every problem with it in the UI's words. */
@@ -121,10 +137,14 @@ export class RunEnvironments implements OnModuleInit {
    * Runs the check in the Task's run environment, starting it first if it isn't running, the
    * output streamed to the file; waits for a slot when Run environments at once are all running.
    */
-  run(task: TaskInWorktree, command: RunEnvironmentCommand): Promise<ExecutionEnd> {
+  run(task: TaskInWorktree, command: RunEnvironmentCommand): Promise<CommandEnd> {
     return this.exclusively(task.taskId, () =>
       this.busyWork.during(this.busyItem(task), async () => {
-        const environment = await this.started(task, command.outputFile, command);
+        const environment = await this.started(
+          task,
+          command.startOutputFile ?? command.outputFile,
+          command,
+        );
         environment.idleStop?.cancel();
         try {
           return await this.execute(task, environment, command);
@@ -138,6 +158,14 @@ export class RunEnvironments implements OnModuleInit {
   }
 
   /**
+   * The image the Task's checks run in now, by its key, without building it: another one means
+   * what was installed in the worktree inside the old one may not suit it.
+   */
+  async imageOf(task: TaskInWorktree): Promise<string> {
+    return this.images.imageNameFor(task);
+  }
+
+  /**
    * Runs the check in the service. A runtime failure, such as the service gone, stops the Task's
    * run environment, freeing its slot, for the next check to start again.
    */
@@ -145,9 +173,10 @@ export class RunEnvironments implements OnModuleInit {
     task: TaskInWorktree,
     environment: RunningEnvironment,
     command: RunEnvironmentCommand,
-  ): Promise<ExecutionEnd> {
+  ): Promise<CommandEnd> {
+    const startedAt = this.schedule.now().getTime();
     try {
-      return await this.runtime.exec(
+      const end = await this.runtime.exec(
         environment.project,
         {
           service: environment.definition.service,
@@ -160,6 +189,7 @@ export class RunEnvironments implements OnModuleInit {
         },
         command.outputFile,
       );
+      return { ...end, durationMs: this.schedule.now().getTime() - startedAt };
     } catch (error) {
       if (!(error instanceof ContainerRuntimeFailed)) throw error;
       // Stopped, not just forgotten, so no service left running passes Run environments at once.
@@ -230,7 +260,7 @@ export class RunEnvironments implements OnModuleInit {
     const created = !(await exists(folder));
     const project = await this.writeProject(task, definition, image);
 
-    await this.slots.take(task.taskId, options.onWaiting ?? (() => undefined), options.signal);
+    await this.slotFor(task.taskId, options);
     try {
       await note(outputFile, `Starting the run environment ${project.name}.`);
       await this.failingAsRefused(outputFile, "The run environment couldn't start.", () =>
@@ -247,6 +277,39 @@ export class RunEnvironments implements OnModuleInit {
       await this.events.publish(new RunEnvironmentCreated(task.taskId, task.projectId, image));
     }
     return environment;
+  }
+
+  /**
+   * Takes the Task's slot, telling `onWaiting` when it has to wait and `onWaitOver` once the wait
+   * ends, in that order, however it ends.
+   */
+  private async slotFor(taskId: string, options: SlotOptions): Promise<void> {
+    let waitTold: Promise<void> | undefined;
+    try {
+      await this.slots.take(
+        taskId,
+        () => {
+          waitTold = this.tell(taskId, options.onWaiting);
+        },
+        options.signal,
+      );
+    } finally {
+      if (waitTold !== undefined) {
+        await waitTold;
+        await this.tell(taskId, options.onWaitOver);
+      }
+    }
+  }
+
+  private async tell(
+    taskId: string,
+    hook: (() => void | Promise<void>) | undefined,
+  ): Promise<void> {
+    try {
+      await hook?.();
+    } catch (error) {
+      this.logger.warn(`The wait of the Task ${taskId} for a run environment wasn't told.`, error);
+    }
   }
 
   /** Writes the Office's compose file over the repository's, for the Task. */
