@@ -35,6 +35,7 @@ import { BaseBranchFiles } from "./application/base-branch-files.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
+import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { LocalRepositories } from "./application/local-repositories.js";
 import { RepositoriesByUrl } from "./application/repositories-by-url.js";
@@ -119,6 +120,7 @@ export class ProjectsModule implements NestModule {
         RepositoryClones,
         ProjectChecks,
         EngineLevelsChecks,
+        RunEnvironmentSetUpRegistry,
         LocalRepositories,
         RepositoriesByUrl,
         ProjectService,
@@ -142,6 +144,7 @@ export class ProjectsModule implements NestModule {
         BaseCheckouts,
         CommittedFiles,
         EngineLevelsChecks,
+        RunEnvironmentSetUpRegistry,
         ProjectService,
         ProjectsFromRepositories,
         TaskWorktrees,

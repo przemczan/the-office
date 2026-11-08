@@ -5,6 +5,7 @@ import {
   type GitHubRepository,
   type NewProject,
   type RepositoryClone,
+  type RunEnvironmentAnswer,
 } from "@the-office/contracts";
 import { Button, Dialog, Field, Input, SegmentedControl } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
@@ -72,6 +73,8 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
   const [labelEdited, setLabelEdited] = useState(false);
   // Kept as typed, so a comma just written isn't dropped before the next path.
   const [installInputs, setInstallInputs] = useState("");
+  const [runEnvironmentAnswer, setRunEnvironmentAnswer] =
+    useState<RunEnvironmentAnswer>("decide-later");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -145,6 +148,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
             draft={draft}
             mark={mark}
             installInputs={installInputs}
+            runEnvironmentAnswer={runEnvironmentAnswer}
             refusal={adding.error}
             onChange={change}
             onMarkChange={(changed) => {
@@ -152,9 +156,15 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
               change({ mark: changed });
             }}
             onInstallInputsChange={setInstallInputs}
+            onRunEnvironmentAnswerChange={setRunEnvironmentAnswer}
             onChangeSource={backToStepOne}
             onSubmit={() =>
-              adding.mutate({ ...draft, mark, installInputs: installInputsFrom(installInputs) })
+              adding.mutate({
+                ...draft,
+                mark,
+                installInputs: installInputsFrom(installInputs),
+                runEnvironmentAnswer,
+              })
             }
           />
         ) : (

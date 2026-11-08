@@ -38,7 +38,11 @@ import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
 import { createSkillSource } from "./skill-source.ts";
-import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
+import {
+  commitFiles,
+  createTemporaryRepository,
+  type TemporaryRepository,
+} from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -2755,6 +2759,105 @@ test("a Gate's card and window continue past it, and the window drops the Task",
     await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
   } finally {
     await repository.remove();
+  }
+});
+
+/** Build alone, a check run where the Project's Run environment says, so Start opens no session. */
+async function seedBuildOnly(page: Page, taskId: string): Promise<void> {
+  const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
+    data: {
+      stages: [{ kind: "script", key: "build", name: "Build", optional: false, command: "build" }],
+    },
+  });
+  expect(edited.status()).toBe(200);
+}
+
+async function runEnvironmentOf(page: Page, projectId: string): Promise<Project["runEnvironment"]> {
+  const read = await page.request.get(`/api/projects/${projectId}`);
+  return projectSchema.parse(await read.json()).runEnvironment;
+}
+
+/** The run environment question in the Task head, beside Start. */
+function startQuestion(page: Page): Locator {
+  return page.locator(".task-head").getByRole("group", { name: "Run environment" });
+}
+
+test("Start asks about a Not decided yet run environment, starts on this computer without an answer, and No ends the asking", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Asked at Start", "AA", PASSING_COMMANDS);
+    const start = page.getByRole("button", { name: "Start", exact: true });
+    const question = startQuestion(page);
+
+    const unanswered = await readyTask(page, project.id, "Starts with no answer");
+    await seedBuildOnly(page, unanswered);
+    await page.goto(`/tasks/${unanswered}`);
+    await expect(question).toContainText("Run this Project's checks in a run environment?");
+    await expect(start).toBeEnabled();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-start-run-environment.png") });
+    await start.click();
+    await expect(question).toHaveCount(0);
+    // Build ran on this computer and passed, and the walk asks before the Task can end.
+    const needsYou = page.getByRole("region", { name: "Needs you" });
+    await needsYou.getByRole("button", { name: "Mark the Task Done" }).click();
+    await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
+    expect(await runEnvironmentOf(page, project.id)).toBe("not-decided");
+
+    const answered = await readyTask(page, project.id, "Asked again at Start");
+    await page.goto(`/tasks/${answered}`);
+    await expect(question).toBeVisible();
+    await question.getByRole("button", { name: "No", exact: true }).click();
+    await expect(page.getByText(`Checks in ${project.name} run on this computer.`)).toBeVisible();
+    await expect(question).toHaveCount(0);
+    expect(await runEnvironmentOf(page, project.id)).toBe("off");
+
+    const never = await readyTask(page, project.id, "Never asked again");
+    await page.goto(`/tasks/${never}`);
+    await expect(page.locator(".task-head").getByText("Never asked again")).toBeVisible();
+    await expect(start).toBeVisible();
+    await expect(question).toHaveCount(0);
+  } finally {
+    await repository.remove();
+  }
+});
+
+test("Yes at Start sets up the run environment: in a Task without .devcontainer/, at once with one", async ({
+  page,
+}) => {
+  const bare = await createTemporaryRepository();
+  const defined = await createTemporaryRepository();
+  try {
+    await commitFiles(defined, {
+      ".devcontainer/devcontainer.json":
+        '{ "dockerComposeFile": "compose.yaml", "service": "app" }',
+      ".devcontainer/compose.yaml": "services:\n  app:\n    image: node:22\n",
+    });
+    const question = startQuestion(page);
+
+    const toSetUp = await addedProject(page, bare, "Set up at Start", "SS", PASSING_COMMANDS);
+    await page.goto(`/tasks/${await readyTask(page, toSetUp.id, "Asks to set one up")}`);
+    await question.getByRole("button", { name: "Yes", exact: true }).click();
+    await expect(
+      page.getByText("Set up the run environment is Ready, waiting for your Start."),
+    ).toBeVisible();
+    // The set-up Task is the answer until it is Done, so neither Task asks again meanwhile.
+    await expect(question).toHaveCount(0);
+    expect(await runEnvironmentOf(page, toSetUp.id)).toBe("not-decided");
+    await page.reload();
+    await expect(page.locator(".task-head").getByText("Asks to set one up")).toBeVisible();
+    await expect(question).toHaveCount(0);
+
+    const atOnce = await addedProject(page, defined, "On at Start", "OS", PASSING_COMMANDS);
+    await page.goto(`/tasks/${await readyTask(page, atOnce.id, "Turns it On")}`);
+    await question.getByRole("button", { name: "Yes", exact: true }).click();
+    await expect(page.getByText(/Run environment is On/)).toBeVisible();
+    await expect(question).toHaveCount(0);
+    expect(await runEnvironmentOf(page, atOnce.id)).toBe("on");
+  } finally {
+    await bare.remove();
+    await defined.remove();
   }
 });
 

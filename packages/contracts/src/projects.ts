@@ -70,6 +70,20 @@ export const newProjectSchema = z.object({
 });
 export type NewProject = z.infer<typeof newProjectSchema>;
 
+/**
+ * The answer to "Run this Project's checks in a run environment?", asked once while the setting is
+ * "not-decided": "yes" acts as Set up run environment, "no" sets Off, "decide-later" leaves it.
+ */
+export const runEnvironmentAnswerSchema = z.enum(["yes", "no", "decide-later"]);
+export type RunEnvironmentAnswer = z.infer<typeof runEnvironmentAnswerSchema>;
+
+/** The Add a Project window's request (POST /projects): the Project and the window's answers. */
+export const addProjectSchema = newProjectSchema.extend({
+  /** Left out, "decide-later". */
+  runEnvironmentAnswer: runEnvironmentAnswerSchema.optional(),
+});
+export type AddProject = z.infer<typeof addProjectSchema>;
+
 /** How the Project's commands and Agents change the variables they inherit. */
 export const projectEnvironmentSchema = z.object({
   set: z.array(z.object({ name: z.string(), value: z.string() })),

@@ -11,6 +11,7 @@ import { Badge, Button, Icon, SegmentedControl } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { changeRunEnvironment, projectQueries, setUpRunEnvironment } from "../../api/projects.ts";
+import { settingChosenWords, setUpWords } from "../../shell/run-environment-words.ts";
 import { TASK_STATE_NAMES } from "../../shell/work/work-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
@@ -48,22 +49,14 @@ export function RunEnvironmentBlock({ project }: { readonly project: Project }):
       changeRunEnvironment(project.id, setting),
     onSuccess: (saved) => {
       keep(saved);
-      showToast(
-        saved.runEnvironment === "on"
-          ? `Checks in ${project.name} run in its run environment.`
-          : `Checks in ${project.name} run on this computer.`,
-      );
+      showToast(settingChosenWords(saved, project.name));
     },
   });
   const settingUp = useMutation({
     mutationFn: () => setUpRunEnvironment(project.id),
     onSuccess: (saved) => {
       keep(saved);
-      showToast(
-        saved.setUpTask
-          ? `${saved.setUpTask.title} is ${TASK_STATE_NAMES[saved.setUpTask.state]}${saved.setUpTask.state === "ready" ? ", waiting for your Start" : ""}.`
-          : `Run environment is On: ${project.name}'s .devcontainer/ is valid.`,
-      );
+      showToast(setUpWords(saved, project.name));
     },
   });
   const data = runEnvironment.data;

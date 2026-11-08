@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   publishingModeSchema,
+  runEnvironmentAnswerSchema,
   type NewProject,
   type ProjectCommandKey,
+  type RunEnvironmentAnswer,
 } from "@the-office/contracts";
-import { Badge, Button, Field, Icon, Input, RadioGroup, Select } from "@the-office/ui";
+import { Badge, Button, Field, Icon, Input, RadioGroup, RadioList, Select } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
@@ -15,6 +17,12 @@ import {
   publishingLabel,
 } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import {
+  RUN_ENVIRONMENT_ANSWERS,
+  RUN_ENVIRONMENT_ANSWER_LABELS,
+  RUN_ENVIRONMENT_QUESTION,
+  RUN_ENVIRONMENT_QUESTION_HINT,
+} from "../../shell/run-environment-words.ts";
 import { WHERE_IT_IS_OPTIONS, type ProjectSource } from "./add-project-source.ts";
 import { MarkPicker } from "./mark-picker.tsx";
 
@@ -41,10 +49,12 @@ export function ProjectDetailsStep({
   draft,
   mark,
   installInputs,
+  runEnvironmentAnswer,
   refusal,
   onChange,
   onMarkChange,
   onInstallInputsChange,
+  onRunEnvironmentAnswerChange,
   onChangeSource,
   onSubmit,
 }: {
@@ -54,11 +64,13 @@ export function ProjectDetailsStep({
   /** The mark shown, its label following the name until the user writes one. */
   readonly mark: NewProject["mark"];
   readonly installInputs: string;
+  readonly runEnvironmentAnswer: RunEnvironmentAnswer;
   /** Why the service refused the last Add the Project. */
   readonly refusal: Error | null;
   readonly onChange: (fields: Partial<NewProject>) => void;
   readonly onMarkChange: (mark: NewProject["mark"]) => void;
   readonly onInstallInputsChange: (installInputs: string) => void;
+  readonly onRunEnvironmentAnswerChange: (answer: RunEnvironmentAnswer) => void;
   readonly onChangeSource: () => void;
   readonly onSubmit: () => void;
 }): ReactNode {
@@ -146,6 +158,20 @@ export function ProjectDetailsStep({
             label: publishingLabel(mode, draft.baseBranch.trim() || "the base branch"),
           }))}
           onChange={(mode) => onChange({ publishingMode: publishingModeSchema.parse(mode) })}
+        />
+      </Field>
+      <Field label={RUN_ENVIRONMENT_QUESTION} hint={RUN_ENVIRONMENT_QUESTION_HINT}>
+        <RadioList
+          label={RUN_ENVIRONMENT_QUESTION}
+          name={`${formId}-run-environment`}
+          value={runEnvironmentAnswer}
+          options={RUN_ENVIRONMENT_ANSWERS.map((answer) => ({
+            value: answer,
+            label: RUN_ENVIRONMENT_ANSWER_LABELS[answer],
+          }))}
+          onChange={(answer) =>
+            onRunEnvironmentAnswerChange(runEnvironmentAnswerSchema.parse(answer))
+          }
         />
       </Field>
     </form>

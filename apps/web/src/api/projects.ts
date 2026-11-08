@@ -15,10 +15,10 @@ import {
   repositoryCloneSchema,
   repositoryCloneWebEventSchema,
   taskChangesSchema,
+  type AddProject,
   type EngineModel,
   type EnvironmentCheck,
   type Mark,
-  type NewProject,
   type Project,
   type ProjectEnvironment,
   type ProjectCommandKey,
@@ -161,8 +161,8 @@ export function taskChangesKey(taskId: string): readonly unknown[] {
   return ["tasks", taskId, "changes"];
 }
 
-export function addProject(newProject: NewProject): Promise<Project> {
-  return sendToApi("POST", "/projects", newProject, projectSchema);
+export function addProject(request: AddProject): Promise<Project> {
+  return sendToApi("POST", "/projects", request, projectSchema);
 }
 
 /** Starts cloning the repository at `url`; it is added as a Project by its clone's path after. */

@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Post, Put, UseFilters } from "@nestjs/common";
 import {
+  addProjectSchema,
   commandChangeSchema,
   defaultPipelineChangeSchema,
   installInputsChangeSchema,
   markChangeSchema,
-  newProjectSchema,
   projectCommandKeySchema,
   publishingModeChangeSchema,
   projectDefaultChangeSchema,
@@ -13,11 +13,11 @@ import {
   useForEveryRoleChangeSchema,
   projectSkillUseChangeSchema,
   useProjectSkillsChangeSchema,
+  type AddProject,
   type CommandChange,
   type DefaultPipelineChange,
   type InstallInputsChange,
   type MarkChange,
-  type NewProject,
   type Project as ProjectResponse,
   type ProjectDefaultChange,
   type RoleOverrideChange,
@@ -49,9 +49,9 @@ export class ProjectsController {
 
   @Post()
   async add(
-    @Body(new ContractPipe(newProjectSchema)) newProject: NewProject,
+    @Body(new ContractPipe(addProjectSchema)) { runEnvironmentAnswer, ...newProject }: AddProject,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.add(newProject));
+    return toProjectResponse(await this.projects.add(newProject, runEnvironmentAnswer));
   }
 
   @Get()

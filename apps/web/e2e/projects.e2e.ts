@@ -239,6 +239,13 @@ test("the user adds a Project from the Projects page and lands on its page", asy
   await fillTheForm(page, { name: "Billing service", path: repository.path, branch: "main" });
   await page.getByRole("dialog").getByLabel("Install inputs").fill("package-lock.json,");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add.png") });
+  const question = page.getByRole("dialog").getByRole("radiogroup", {
+    name: "Run this Project's checks in a run environment?",
+  });
+  await question.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-projects-add-run-environment.png"),
+  });
 
   await page.getByRole("button", { name: "Add the Project" }).click();
 
@@ -1375,6 +1382,73 @@ test("Set up run environment turns On at once with a valid .devcontainer/ on the
     await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
   } finally {
     await ownRepository.remove();
+  }
+});
+
+/**
+ * Adds a Project from the folder in the window, answering its run environment question, which
+ * starts at Decide later.
+ */
+async function addAnswering(
+  page: Page,
+  name: string,
+  folder: string,
+  answer: "Yes" | "No" | "Decide later",
+): Promise<Project> {
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Add it yourself" }).click();
+  await fillTheForm(page, { name, path: folder, branch: "main" });
+  const question = page
+    .getByRole("dialog")
+    .getByRole("radiogroup", { name: "Run this Project's checks in a run environment?" });
+  await expect(question.getByRole("radio", { name: "Decide later" })).toBeChecked();
+  await question.getByRole("radio", { name: answer, exact: true }).check();
+  const added = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/projects") && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Add the Project" }).click();
+  const project = projectSchema.parse(await (await added).json());
+  await expect(page).toHaveURL(`/projects/${project.id}`);
+  return project;
+}
+
+test("Add a Project asks about a run environment: Yes sets one up, No sets Off, Decide later leaves it", async ({
+  page,
+}) => {
+  const withDefinition = await createTemporaryRepository();
+  try {
+    await commitFiles(withDefinition, VALID_RUN_ENVIRONMENT);
+    const block = runEnvironmentBlock(page);
+
+    const later = await addAnswering(
+      page,
+      "Run environment later",
+      repository.path,
+      "Decide later",
+    );
+    expect(later.runEnvironment).toBe("not-decided");
+    await page.goto(`/projects/${later.id}/run-environment`);
+    await expect(block.getByText("Not decided yet")).toBeVisible();
+    await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+
+    const off = await addAnswering(page, "Run environment no", repository.path, "No");
+    expect(off.runEnvironment).toBe("off");
+    await page.goto(`/projects/${off.id}/run-environment`);
+    await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
+
+    const setUp = await addAnswering(page, "Run environment yes", repository.path, "Yes");
+    expect(setUp.runEnvironment).toBe("not-decided");
+    await page.goto(`/projects/${setUp.id}/run-environment`);
+    await expect(block.getByRole("link", { name: "Set up the run environment" })).toBeVisible();
+
+    const on = await addAnswering(page, "Run environment yes at once", withDefinition.path, "Yes");
+    expect(on.runEnvironment).toBe("on");
+    await page.goto(`/projects/${on.id}/run-environment`);
+    await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
+    await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+  } finally {
+    await withDefinition.remove();
   }
 });
 

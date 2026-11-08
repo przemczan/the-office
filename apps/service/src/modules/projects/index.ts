@@ -6,6 +6,10 @@ export {
   type EngineLevelsCheck,
   type EngineLevelsSave,
 } from "./application/engine-levels-checks.js";
+export {
+  RunEnvironmentSetUpRegistry,
+  type RunEnvironmentSetUp,
+} from "./application/run-environment-set-up-registry.js";
 export { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
 export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
 export {
@@ -33,6 +37,7 @@ export type {
   NewProject,
   ProjectEngineLevels,
   ProjectRoleOverride,
+  RunEnvironmentAnswer,
   RunEnvironmentSetting,
 } from "./domain/project.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";

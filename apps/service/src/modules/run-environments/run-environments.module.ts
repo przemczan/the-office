@@ -5,6 +5,7 @@ import { ComposeCommandLine } from "./adapters/compose/compose-command-line.js";
 import { ProjectRunEnvironmentsController } from "./adapters/http/project-run-environments.controller.js";
 import { ProjectsRepositoryFiles } from "./adapters/projects/projects-repository-files.js";
 import { ProjectsSettings } from "./adapters/projects/projects-settings.js";
+import { ProjectsSetUpRegistration } from "./adapters/projects/projects-set-up-registration.js";
 import { WorkSetUpTasks } from "./adapters/work/work-set-up-tasks.js";
 import { PostgresRunEnvironmentSettings } from "./adapters/postgres/postgres-run-environment-settings.js";
 import { ProjectRunEnvironments } from "./application/project-run-environments.js";
@@ -55,6 +56,7 @@ export class RunEnvironmentsModule {
         { provide: RepositoryFiles, useClass: ProjectsRepositoryFiles },
         { provide: SetUpTasks, useClass: WorkSetUpTasks },
         ProjectRunEnvironments,
+        ProjectsSetUpRegistration,
       ],
       exports: [RunEnvironments],
     };

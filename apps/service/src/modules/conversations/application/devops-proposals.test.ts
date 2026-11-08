@@ -215,6 +215,8 @@ describe("Devops' Proposals, through the scripted engine", () => {
       name,
       path: repository,
       defaultPipeline: "quick-fix",
+      // Asked at its first Start: the Proposal carries no answer.
+      runEnvironment: "not-decided",
     });
     expect(taskSchema.parse(await chat.read(`/tasks/${change.taskId}`))).toMatchObject({
       title: "Onboard",

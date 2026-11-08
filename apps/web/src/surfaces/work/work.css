@@ -2326,6 +2326,17 @@
   flex: none;
 }
 
+/* Its answers sit on the line, centred on the words, and wrap under them on a narrow head. */
+.task-head-question {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.task-head-question-answers {
+  display: flex;
+  gap: 6px;
+}
+
 /* One width, as the estimate's own icon is smaller, so the words of every line start together. */
 .task-head-notes svg {
   flex: none;

@@ -18,6 +18,12 @@ export type PublishingMode = (typeof PUBLISHING_MODES)[number];
 export const RUN_ENVIRONMENT_SETTINGS = ["not-decided", "on", "off"] as const;
 export type RunEnvironmentSetting = (typeof RUN_ENVIRONMENT_SETTINGS)[number];
 
+/**
+ * The answer to the question asked once while the setting is "not-decided": "yes" acts as Set up
+ * run environment, "no" sets Off, "decide-later" leaves it.
+ */
+export type RunEnvironmentAnswer = "yes" | "no" | "decide-later";
+
 /** The design system's ramps offered as a mark's quick choices. */
 export const NAMED_MARK_COLOURS = ["teal", "violet", "gray", "ink"] as const;
 

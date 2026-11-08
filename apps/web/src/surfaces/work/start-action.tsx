@@ -18,6 +18,7 @@ import { startTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
+import { RunEnvironmentQuestion, useAskedProject } from "./run-environment-question.tsx";
 
 interface StartStanding {
   readonly ready: boolean;
@@ -105,11 +106,12 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
 
 /**
  * What the Task head says about Start, a line each, nothing with none to say: the Overlaps, what
- * Start would do (spec §2.1, "A queue for Start"), then the Usage estimate; or, for a queued Task,
- * its place and reasons.
+ * Start would do (spec §2.1, "A queue for Start"), the Usage estimate, then the run environment
+ * question while the Project's is Not decided yet; or, for a queued Task, its place and reasons.
  */
 export function StartNotes({ task }: { readonly task: Task }): ReactNode {
   const { ready, check, queued, overlaps } = useStartStanding(task);
+  const askedProject = useAskedProject(task.projectId, ready && !queued);
   if (!ready) return null;
   if (queued) {
     return (
@@ -118,12 +120,14 @@ export function StartNotes({ task }: { readonly task: Task }): ReactNode {
       </div>
     );
   }
-  if (!check || !hasNote(check, overlaps)) return null;
+  const checkNotes = check !== undefined && hasNote(check, overlaps);
+  if (!checkNotes && !askedProject) return null;
   return (
     <div className="task-head-notes">
       {overlaps.length > 0 && <OverlapNote overlaps={overlaps} />}
-      <HeldNote check={check} />
-      <UsageEstimateLine estimate={check.usageEstimate} />
+      {check && <HeldNote check={check} />}
+      {check && <UsageEstimateLine estimate={check.usageEstimate} />}
+      {askedProject && <RunEnvironmentQuestion project={askedProject} />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { isAbsolute, resolve } from "node:path";
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineReferenceLock, type EngineModel } from "../../engine/index.js";
@@ -12,6 +12,7 @@ import {
   type ProjectEngineLevels,
   type ProjectMark,
   type PublishingMode,
+  type RunEnvironmentAnswer,
   type RunEnvironmentSetting,
 } from "../domain/project.js";
 import {
@@ -45,6 +46,7 @@ import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { EngineLevelsChecks } from "./engine-levels-checks.js";
 import { ProjectChecks } from "./project-checks.js";
+import { RunEnvironmentSetUpRegistry } from "./run-environment-set-up-registry.js";
 
 /**
  * The Projects use cases. Each change is saved first and its event published after, so nothing
@@ -52,6 +54,8 @@ import { ProjectChecks } from "./project-checks.js";
  */
 @Injectable()
 export class ProjectService {
+  private readonly logger = new Logger(ProjectService.name);
+
   constructor(
     private readonly repository: ProjectRepository,
     private readonly checks: ProjectChecks,
@@ -59,10 +63,18 @@ export class ProjectService {
     private readonly events: EventBus,
     private readonly engineLevelsChecks: EngineLevelsChecks,
     private readonly engineReferences: EngineReferenceLock,
+    private readonly runEnvironmentSetUp: RunEnvironmentSetUpRegistry,
   ) {}
 
   /** Refuses with every reason, before saving, when the Project breaks a rule. */
-  async add(given: NewProject): Promise<Project> {
+  /**
+   * The answer to the run environment question is applied once the Project is added: a Project to
+   * onboard is added with none, so it is asked at its first Start.
+   */
+  async add(
+    given: NewProject,
+    runEnvironmentAnswer: RunEnvironmentAnswer = "decide-later",
+  ): Promise<Project> {
     const newProject = withResolvedPath(trimmedNewProject(given));
     await this.checks.checkNewProject(newProject);
     await this.trackBaseBranchOfClone(newProject);
@@ -74,6 +86,29 @@ export class ProjectService {
     );
     await this.repository.add(project);
     await this.events.publish(event);
+    return this.answerRunEnvironment(project, runEnvironmentAnswer);
+  }
+
+  /**
+   * The Project is added either way: an answer that fails leaves the setting "not-decided", so the
+   * question comes back at its next Start.
+   */
+  private async answerRunEnvironment(
+    project: Project,
+    answer: RunEnvironmentAnswer,
+  ): Promise<Project> {
+    try {
+      if (answer === "no") return await this.changeRunEnvironment(project.id, "off", []);
+      if (answer === "yes") {
+        await this.runEnvironmentSetUp.setUp(project.id);
+        return await this.read(project.id);
+      }
+    } catch (error) {
+      this.logger.error(
+        `The Project ${project.name}'s run environment answer wasn't applied.`,
+        error,
+      );
+    }
     return project;
   }
 
