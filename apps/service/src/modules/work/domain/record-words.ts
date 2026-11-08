@@ -13,8 +13,7 @@ import { TASK_STATE_NAMES } from "./task-states.js";
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
  * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, the Idea it came from,
  * its Moves to another Project, the Tasks it waits for (`blockers`, in the order of
- * `task.blockedBy`), and its kept state changes
- * with who or what made each.
+ * `task.blockedBy`), and its kept state changes with who or what made each.
  */
 export function taskRecordText(
   task: Task,
