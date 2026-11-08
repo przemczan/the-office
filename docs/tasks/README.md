@@ -78,7 +78,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 53 | [The Thread in Rows, and whole commands](53-thread-in-rows.md) | Conversations | done |
 | 54 | [The Task's branch keeps up with the base](54-branch-keeps-up.md) | Work | done |
 | 50 | [Office instructions: general guidelines for everyone](50-office-instructions.md) | Settings | in progress |
-| 38 | Archive, and moving Tasks between Projects: run as the Initiative `145c5f3c-bf2b-4bf3-b3cb-760ad58655f8` | Work | in progress |
+| 38 | Archive, and moving Tasks between Projects: run as the Initiative `145c5f3c-bf2b-4bf3-b3cb-760ad58655f8` | Work | done |
 | 39 | Attachment versions | Work and the Task page | todo |
 | 40 | Stage templates in the Pipeline library | Projects | todo |
 | 41 | The Graphite and Paper palettes, the densities, skill usage counts | Settings | todo |
