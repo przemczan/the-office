@@ -12,6 +12,7 @@ export type OfficeDataFolder =
   | "identity"
   | "repositories"
   | "engines"
+  | "run-environments"
   | "test-output";
 
 /** Where The Office keeps its files outside the database: OFFICE_DATA_DIR or the system's default. */

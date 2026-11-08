@@ -12,7 +12,14 @@ export type OfficeCommit = z.infer<typeof officeCommitSchema>;
 
 /** What keeps a scheduled Office update waiting, in the UI's words. */
 export const busyItemSchema = z.object({
-  kind: z.enum(["turn", "script-stage", "publish", "clone", "environment-check"]),
+  kind: z.enum([
+    "turn",
+    "script-stage",
+    "publish",
+    "clone",
+    "environment-check",
+    "run-environment",
+  ]),
   label: z.string().min(1),
 });
 export type BusyItem = z.infer<typeof busyItemSchema>;

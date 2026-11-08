@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
 import { InterruptedAnswers } from "./modules/conversations/index.js";
 import { OfficeUpdates } from "./modules/office-updates/index.js";
+import { RunEnvironments } from "./modules/run-environments/index.js";
 import { FireAlarmService, QueueService, TaskArchiving } from "./modules/work/index.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
@@ -92,14 +93,22 @@ function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): voi
  * during (spec §2.8), which also pauses again the Tasks an all clear it stopped during had resumed
  * before turning the alarm off, then releases the kept queue (spec §2.1), since a desk may have been
  * freed while the service was down; the release holds while the alarm is on. Last, it starts the
- * daily archiving of finished Tasks, here only so a test app never runs it. After every module's
- * start, so the walks the release starts aren't taken for ones the last run left.
+ * daily archiving of finished Tasks, here only so a test app never runs it, and sweeps the run
+ * environments the last run left (spec §5.5) in the background, as the container runtime may be
+ * slow or not there. After every module's start, so the walks the release starts aren't taken for
+ * ones the last run left.
  */
 async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void> {
   await app.get(InterruptedAnswers).recover();
   await app.get(FireAlarmService).finishSounding();
   await app.get(QueueService).release();
   app.get(TaskArchiving).start();
+  void app
+    .get(RunEnvironments)
+    .sweep()
+    .catch((error: unknown) => {
+      logger.warn(`The run environments the last run left were not swept: ${String(error)}`);
+    });
 }
 
 async function start(

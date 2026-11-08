@@ -46,6 +46,7 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
+import { RunEnvironmentsModule } from "./modules/run-environments/index.js";
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import {
@@ -178,6 +179,8 @@ export class AppModule {
         PeopleModule,
         pipelines,
         projects,
+        // Work's Tasks tell the startup sweep which run environments to keep.
+        RunEnvironmentsModule.register({ imports: [work], knownTasks: TaskService }),
         SkillsModule,
         TelemetryModule,
         WebAppModule.register(webApp),
