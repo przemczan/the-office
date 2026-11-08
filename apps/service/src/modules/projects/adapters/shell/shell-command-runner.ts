@@ -1,4 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
+import { createWriteStream } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { CommandOutcome } from "../../domain/command-run.js";
@@ -39,7 +43,17 @@ export class ShellCommandRunner extends CommandRunner {
   async run(command: CommandToRun): Promise<FinishedCommand> {
     const startedAt = performance.now();
     const output = new OutputEnd(OUTPUT_LIMIT_BYTES);
-    const ending = await this.runToEnd(command, output);
+    const file =
+      command.outputFile === undefined ? undefined : await outputFile(command.outputFile);
+    let ending: Ending;
+    try {
+      ending = await this.runToEnd(command, (chunk) => {
+        output.add(chunk);
+        file?.write(chunk);
+      });
+    } finally {
+      await file?.close();
+    }
     const durationMs = Math.round(performance.now() - startedAt);
     return {
       outcome: await this.outcomeOf(command, ending),
@@ -53,7 +67,7 @@ export class ShellCommandRunner extends CommandRunner {
     };
   }
 
-  private runToEnd(command: CommandToRun, output: OutputEnd): Promise<Ending> {
+  private runToEnd(command: CommandToRun, output: (chunk: Buffer) => void): Promise<Ending> {
     const { defaultShell, processTrees } = this.operatingSystem;
     const invocation = defaultShell.invocation(command.commandLine);
     if (command.signal?.aborted) {
@@ -68,8 +82,8 @@ export class ShellCommandRunner extends CommandRunner {
         windowsHide: true,
         windowsVerbatimArguments: invocation.windowsVerbatimArguments,
       });
-      child.stdout.on("data", (chunk: Buffer) => output.add(chunk));
-      child.stderr.on("data", (chunk: Buffer) => output.add(chunk));
+      child.stdout.on("data", output);
+      child.stderr.on("data", output);
 
       let endedBy: EndedBy | undefined;
       const end = (reason: EndedBy): void => {
@@ -87,7 +101,7 @@ export class ShellCommandRunner extends CommandRunner {
       // No shell to start, or no folder to start it in.
       child.once("error", (error) => {
         stopWatching();
-        output.add(Buffer.from(`\n${error.message}`));
+        output(Buffer.from(`\n${error.message}`));
         resolve({ kind: "not-started" });
       });
       child.once("exit", (exitCode) => {
@@ -111,6 +125,27 @@ export class ShellCommandRunner extends CommandRunner {
     });
     return couldNotRun ? "could-not-run" : "failed";
   }
+}
+
+/** A file a command's whole output is written to as it comes. */
+interface OutputFile {
+  write(chunk: Buffer): void;
+  /** Once everything written is in the file. */
+  close(): Promise<void>;
+}
+
+/** Opens `path` for a command's output, made or replaced, its folder made if missing. */
+async function outputFile(path: string): Promise<OutputFile> {
+  await mkdir(dirname(path), { recursive: true });
+  const stream = createWriteStream(path);
+  await once(stream, "open");
+  // A file that can't take more, such as on a full disk, ends short: the run goes on, its output's
+  // end kept in memory as always.
+  stream.on("error", () => undefined);
+  return {
+    write: (chunk) => stream.write(chunk),
+    close: () => new Promise((resolve) => stream.end(resolve)),
+  };
 }
 
 /** Waits for the output pipes to close, or stops reading them after OUTPUT_GRACE_MS. */

@@ -158,17 +158,21 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       "podman-compose up",
       "nerdctl ps",
       "npm test && docker exec db psql",
+      "docker ps | grep db",
+      "npm test | podman-compose logs",
       "curl --unix-socket /var/run/docker.sock http://localhost/containers/json",
       "ls -l /run/podman/podman.sock",
       dialect === "bash" ? `bash -c "docker ps"` : `Invoke-Expression "docker ps"`,
       ...(dialect === "bash"
         ? [
             "sudo docker ps",
+            "env docker ps",
+            "sudo -u root podman ps",
             "DOCKER_HOST=tcp://localhost:2375 npm test",
             "export DOCKER_HOST=unix:///var/run/docker.sock",
             "env CONTAINER_HOST=ssh://host npm test",
           ]
-        : ["docker.exe ps"]),
+        : ["docker.exe ps", "& podman ps", "Get-Date; docker-compose ps"]),
     ])("refuses %s", (commandLine) => {
       expect(decide(command(dialect, commandLine))).toEqual({
         allowed: false,
@@ -185,6 +189,22 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       "npm run docker",
     ])("allows %s, which names the runtime only in its arguments", (commandLine) => {
       expect(decide(command(dialect, commandLine))).toEqual({ allowed: true });
+    });
+
+    it.each(["dockerfile-lint Dockerfile", "docker-credential-helper-check", "podmanager status"])(
+      "allows %s, a program whose name only begins like the runtime's",
+      (commandLine) => {
+        expect(decide(command(dialect, commandLine))).toEqual({ allowed: true });
+      },
+    );
+
+    it("points the Agent to run_project_command", () => {
+      expect(decide(command(dialect, "podman ps"))).toEqual({
+        allowed: false,
+        reason: expect.stringContaining(
+          "in a Stage, run the Project's commands, or a command line such as one test file, with run_project_command",
+        ),
+      });
     });
 
     it("refuses it in a chat, before its profile", () => {

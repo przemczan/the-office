@@ -1,5 +1,5 @@
 import type { ToolDecision } from "../../domain/office-rules.js";
-import type { OfficeTool } from "../../ports/office-tool.js";
+import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 import { OFFICE_TOOL_PREFIX } from "../office-rules/office-tool-names.js";
 import { builtInTool, failure, type BuiltInTool } from "./built-in-tool.js";
 
@@ -13,7 +13,7 @@ export type CallJudge = (tool: string, input: unknown) => Promise<ToolDecision>;
  */
 export function officeBuiltInTool(
   officeTool: OfficeTool,
-  sessionId: string,
+  call: OfficeToolCall,
   judge: CallJudge,
 ): BuiltInTool {
   const name = `${OFFICE_TOOL_PREFIX}${officeTool.name}`;
@@ -24,7 +24,7 @@ export function officeBuiltInTool(
     run: async (input) => {
       const decision = await judge(name, input);
       if (!decision.allowed) return failure(decision.reason);
-      return officeTool.run(input, { sessionId });
+      return officeTool.run(input, call);
     },
   });
   return { ...tool, officeTool: true };

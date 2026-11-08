@@ -1,7 +1,12 @@
 export { EngineSessions } from "./application/engine-sessions.js";
 export type { EngineCapability } from "./ports/agent-engine.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
-export type { OfficeTool, OfficeToolResult } from "./ports/office-tool.js";
+export type {
+  CommandJudgement,
+  OfficeTool,
+  OfficeToolCall,
+  OfficeToolResult,
+} from "./ports/office-tool.js";
 export { UsageWindowState, type UsageWindowReading } from "./application/usage-window-state.js";
 export { UsageWindowSamples } from "./application/usage-window-samples.js";
 export type { UsageWindowRatios } from "./domain/usage-window-samples.js";
@@ -42,6 +47,7 @@ export type { ModelDayUsage } from "./ports/day-usage-repository.js";
 export { ModelPrices } from "./application/model-prices.js";
 export { READ_ONLY_GIT_COMMANDS } from "./domain/git-commands.js";
 export { READ_ONLY_SHELL_RULE } from "./domain/office-rules.js";
+export { RUN_PROJECT_COMMAND_TOOL } from "./domain/container-runtime-commands.js";
 export { EngineModule } from "./engine.module.js";
 export { EngineAccountsModule } from "./engine-accounts.module.js";
 // For other modules' tests: sessions replay scripts, with no model calls.

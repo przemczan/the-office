@@ -1,5 +1,5 @@
 import type { AgentAction } from "./agent-action.js";
-import { containerRuntimeReach } from "./container-runtime-commands.js";
+import { containerRuntimeReach, RUN_PROJECT_COMMAND_TOOL } from "./container-runtime-commands.js";
 import { directoryChange } from "./directory-change.js";
 import { gitChange, isGit, READ_ONLY_GIT_COMMANDS } from "./git-commands.js";
 import type { ApprovalSetting, CommandPermission } from "./permission-profile.js";
@@ -230,7 +230,7 @@ export class OfficeRules {
     ]);
     if (runtime !== undefined) {
       return this.advised(
-        `Refused by The Office: Agents never reach the container runtime (${runtime}), which would reach the whole workstation; run the Project's own commands instead.`,
+        `Refused by The Office: Agents never reach the container runtime (${runtime}), which would reach the whole workstation; in a Stage, run the Project's commands, or a command line such as one test file, with ${RUN_PROJECT_COMMAND_TOOL}, which runs them in the Task's run environment.`,
       );
     }
     const change = isGit(program) ? gitChange(program) : undefined;

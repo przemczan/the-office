@@ -24,6 +24,7 @@ import {
   EngineSettingsForTests,
   textReply,
   type ApiEngineOnFakeServer,
+  anOfficeToolCall,
 } from "../../engine/index.fixtures.js";
 import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
@@ -1546,11 +1547,11 @@ describe("a Decision", () => {
       why: "It is what the export is for.",
     };
 
-    await expect(tool?.run(input, { sessionId: chatSession })).resolves.toEqual({
+    await expect(tool?.run(input, anOfficeToolCall(chatSession))).resolves.toEqual({
       text: "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
       isError: true,
     });
-    await expect(tool?.run(input, { sessionId: randomUUID() })).resolves.toEqual({
+    await expect(tool?.run(input, anOfficeToolCall(randomUUID()))).resolves.toEqual({
       text: "The Office doesn't know this session's Thread.",
       isError: true,
     });

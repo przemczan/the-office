@@ -134,6 +134,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
         expect(call.input).toEqual({ word: "tangerine" });
         expect(notes.calls).toEqual([{ input: { word: "tangerine" }, sessionId: session.id }]);
         expect(log.resultOf(call)).toMatchObject({ text: NOTED, isError: false });
+        await expectCommandsJudgedAsTheSessionsShell(notes.judges[0]);
         await session.end();
       }),
       under.timeoutMs,
@@ -555,17 +556,43 @@ async function replyingSession(
 
 /** An Office tool that keeps what it is called with. */
 function noteTool() {
-  const calls: ({ input: unknown } & OfficeToolCall)[] = [];
+  const calls: { readonly input: unknown; readonly sessionId: string }[] = [];
+  /** Each call's judge of command lines, in the order of `calls`. */
+  const judges: OfficeToolCall["judgeCommand"][] = [];
   const tool: OfficeTool = {
     name: "note",
     description: "Notes down one word for The Office.",
     input: z.object({ word: z.string() }),
-    run: (input, call) => {
-      calls.push({ input, ...call });
+    run: (input, { sessionId, judgeCommand }) => {
+      calls.push({ input, sessionId });
+      judges.push(judgeCommand);
       return Promise.resolve({ text: NOTED, isError: false });
     },
   };
-  return { tool, calls };
+  return { tool, calls, judges };
+}
+
+/**
+ * A command line an Office tool runs for the Agent is judged as the session's own shell call: by
+ * its read-only git profile, git, and the container runtime, in the same words.
+ */
+async function expectCommandsJudgedAsTheSessionsShell(
+  judge: OfficeToolCall["judgeCommand"] | undefined,
+): Promise<void> {
+  if (judge === undefined) throw new Error("The Office tool was not called.");
+  await expect(judge("git status")).resolves.toEqual({ allowed: true });
+  await expect(judge("npm test")).resolves.toEqual({
+    allowed: false,
+    reason: expect.stringContaining("Not allowed in this session"),
+  });
+  await expect(judge("git commit -m wip")).resolves.toEqual({
+    allowed: false,
+    reason: expect.stringContaining("Agents never change git (git commit)"),
+  });
+  await expect(judge("docker ps")).resolves.toEqual({
+    allowed: false,
+    reason: expect.stringContaining("run_project_command"),
+  });
 }
 
 /** An Office tool that runs until the test releases it, so a turn is surely running meanwhile. */

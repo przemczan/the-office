@@ -1,7 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdir, open, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import type { PathRules } from "../../../../platform/os/path-rules.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { ShellProgram } from "../../../../platform/os/shell.js";
@@ -30,14 +29,6 @@ interface RunningCommand {
   exitCode: number | null | undefined;
   /** Set once The Office began ending it, so its exit doesn't end leftovers a second time. */
   ending: Promise<void> | undefined;
-}
-
-/**
- * Where a session of the loop writes its background commands' output: a folder of its own, which
- * its Office rules let it read as the SDK's sessions read theirs (spec §6).
- */
-export function backgroundCommandFolder(paths: PathRules, sessionId: string): string {
-  return paths.join(tmpdir(), "office-sessions", sessionId);
 }
 
 /**

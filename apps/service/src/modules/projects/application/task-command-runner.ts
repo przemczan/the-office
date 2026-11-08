@@ -24,6 +24,8 @@ export interface TaskCommand {
   readonly signal?: AbortSignal;
   /** Told when the command waits for a free run environment, and when it no longer does. */
   readonly wait?: CommandWait;
+  /** Where its whole output is written too, as it comes. */
+  readonly outputFile?: string;
 }
 
 /**
@@ -49,7 +51,7 @@ export class TaskCommandRunner {
     project: Project,
     taskId: string,
     worktree: string,
-    { commandLine, timeoutMs, signal, wait }: TaskCommand,
+    { commandLine, timeoutMs, signal, wait, outputFile }: TaskCommand,
   ): Promise<CommandRun> {
     if (project.runEnvironment !== "on") {
       return this.host.run({
@@ -58,11 +60,12 @@ export class TaskCommandRunner {
         environment: project.environment,
         timeoutMs,
         signal,
+        outputFile,
       });
     }
     const finished = await this.runEnvironments.run(
       taskInRunEnvironment(project, taskId, worktree),
-      { commandLine, environment: project.environment, timeoutMs, signal, wait },
+      { commandLine, environment: project.environment, timeoutMs, signal, wait, outputFile },
     );
     return commandRunOf(commandLine, finished);
   }

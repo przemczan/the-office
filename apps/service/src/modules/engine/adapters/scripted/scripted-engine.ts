@@ -8,6 +8,7 @@ import { EngineProcess } from "../claude-code/engine-process.js";
 import { McpServerConnections, type McpToolAnswer } from "../mcp-servers/mcp-server-connections.js";
 import { mcpToolOf } from "../office-rules/office-tool-names.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
+import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
 import { OfficeRules } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
@@ -149,11 +150,11 @@ function startStandIn({ command, args, processTrees }: StandInEngine): RunningSt
 }
 
 /**
- * The rules a scripted session judges its MCP calls by. Only their profile part decides an MCP
- * call, so no file of the user's or The Office's is named: every other call's judgment is
- * replayed as recorded.
+ * The rules a scripted session judges its MCP calls by, and the command lines an Office tool asks
+ * it to judge. The profile, git and the container runtime decide those, so no file of the user's
+ * or The Office's is named: every other call's judgment is replayed as recorded.
  */
-function mcpToolRules(options: SessionOptions): OfficeRules {
+function scriptedSessionRules(options: SessionOptions): OfficeRules {
   return new OfficeRules({
     workingFolder: options.folder,
     readableFolders: [],
@@ -236,7 +237,7 @@ export class ScriptedSession implements EngineSession {
     private readonly mcpServers: McpServerConnections,
     private readonly standIn?: RunningStandIn,
   ) {
-    this.rules = mcpToolRules(options);
+    this.rules = scriptedSessionRules(options);
     const steps = script.map((step) => inPlaces(step, { folder: options.folder, home: homedir() }));
     this.recordedWindows = steps.flatMap((step) =>
       step.step === "read-usage-windows" ? [step.windows] : [],
@@ -290,6 +291,7 @@ export class ScriptedSession implements EngineSession {
       await this.played;
     } finally {
       await this.mcpServers.close();
+      await removeSessionTemporaryFolder(currentOperatingSystem().paths, this.id);
       if (this.standIn) {
         this.standIn.input.end();
         await this.standIn.process.endWithLeftovers();
@@ -431,7 +433,10 @@ export class ScriptedSession implements EngineSession {
         `Session ${this.id}: the script calls the Office tool ${name}, which the session was not given.`,
       );
     }
-    const result = tool.run(tool.input.parse(input), { sessionId: this.id });
+    const call = officeToolCall(this.id, currentOperatingSystem().paths, (judged, judgedInput) =>
+      toolDecision(this.rules, this.options, judged, judgedInput),
+    );
+    const result = tool.run(tool.input.parse(input), call);
     // Awaited when the script reaches the call's result.
     result.catch(() => undefined);
     this.officeToolResults.set(callId, result);

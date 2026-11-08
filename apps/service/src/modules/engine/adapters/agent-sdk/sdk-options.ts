@@ -6,7 +6,7 @@ import {
   type Options,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentShell } from "../../../../platform/os/shell.js";
-import type { OfficeTool } from "../../ports/office-tool.js";
+import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import type { McpConfig } from "../claude-code/mcp-config-file.js";
 import { officeToolAnswer } from "../claude-code/office-tools.js";
@@ -33,6 +33,8 @@ export interface SdkSession {
   readonly agentShells: readonly AgentShell[];
   /** Decides every tool call by the Office rules. */
   readonly preToolUse: HookCallback;
+  /** What the Office tools are told of the session calling them. */
+  readonly officeToolCall: OfficeToolCall;
   /** Starts the engine's process. */
   readonly spawnProcess: NonNullable<Options["spawnClaudeCodeProcess"]>;
 }
@@ -50,6 +52,7 @@ export function sdkOptions({
   languageServerPlugin,
   agentShells,
   preToolUse,
+  officeToolCall,
   spawnProcess,
 }: SdkSession): Options {
   return {
@@ -75,7 +78,7 @@ export function sdkOptions({
     hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
     // The in-process server reaches the binary on its input, never on the command line.
     ...(options.officeTools.length > 0 && {
-      mcpServers: { [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, id) },
+      mcpServers: { [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, officeToolCall) },
     }),
     // The SDK writes `mcpServers` inline on the binary's command line, so the session's servers,
     // holding their values, go in a file instead (`McpConfigFile`).
@@ -98,14 +101,14 @@ export function sdkMcpConfig({ mcpServers }: SessionOptions): McpConfig | undefi
 /** Always loaded, so the Agent calls an Office tool without looking it up first. */
 function officeToolServer(
   officeTools: readonly OfficeTool[],
-  sessionId: string,
+  call: OfficeToolCall,
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: OFFICE_TOOL_SERVER,
     alwaysLoad: true,
     tools: officeTools.map((officeTool) =>
       tool(officeTool.name, officeTool.description, officeTool.input.shape, (input) =>
-        officeToolAnswer(officeTool, input, sessionId),
+        officeToolAnswer(officeTool, input, call),
       ),
     ),
   });

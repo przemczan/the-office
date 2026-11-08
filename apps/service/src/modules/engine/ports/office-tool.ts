@@ -1,8 +1,23 @@
 import type { z } from "zod";
 
+/** The session's Office rules' decision on a command line: run it, or refuse it in these words. */
+export type CommandJudgement =
+  { readonly allowed: true } | { readonly allowed: false; readonly reason: string };
+
 /** The session an Office tool is called from, so the tool can tell whose work it acts on. */
 export interface OfficeToolCall {
   readonly sessionId: string;
+  /**
+   * A folder of the session's own that its Office rules let it read, for files a tool writes for
+   * it to read, such as a command's output. It may not exist yet; it is removed with the session.
+   */
+  readonly outputFolder: string;
+  /**
+   * The session's Office rules' decision on `commandLine` as its own Bash call in its folder: its
+   * profile, git, the container runtime and the secrets, and any hold on its calls, as the engine's
+   * hook would decide it. For a tool that runs a command line the Agent wrote.
+   */
+  judgeCommand(commandLine: string): Promise<CommandJudgement>;
 }
 
 /** What an Office tool answers the Agent. */

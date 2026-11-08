@@ -24,7 +24,7 @@ export function claudeCodeOfficeRules(
   { sessionId, configFolder }: ClaudeCodeSessionPlaces,
   options: SessionOptions,
 ): OfficeRules {
-  return sessionOfficeRules(operatingSystem, officeData, options, {
+  return sessionOfficeRules(operatingSystem, officeData, sessionId, options, {
     readableFolders: [engineTaskFolder(operatingSystem, options.folder, sessionId)],
     environment: sessionEnvironment(options.environment, configFolder),
   });

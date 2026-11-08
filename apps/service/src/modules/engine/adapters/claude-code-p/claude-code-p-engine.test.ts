@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { anOfficeToolCall } from "../../ports/office-tool.fixtures.js";
 import { z } from "zod";
 import {
   FAKE_STDIO_MCP_SERVER,
@@ -109,7 +110,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
     const mcpConfig = claudeCodePMcpConfig(options);
     if (mcpConfig === undefined) throw new Error("The session has MCP servers.");
     const mcpConfigFile = await McpConfigFile.write(OFFICE_DATA.folder("sessions"), id, mcpConfig);
-    const officeTools = new OfficeToolServer(options.officeTools, id, () =>
+    const officeTools = new OfficeToolServer(options.officeTools, anOfficeToolCall(id), () =>
       Promise.resolve({ allowed: true }),
     );
     const engineProcess = new EngineProcess(operatingSystem.processTrees);

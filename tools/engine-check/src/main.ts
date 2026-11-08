@@ -7,6 +7,7 @@ import {
   DECISION_WAIT_VARIABLE,
   DEFAULT_DECISION_WAIT_MINUTES,
 } from "./checks/engine/decision-wait.ts";
+import { DEFAULT_LONG_TOOL_MINUTES, LONG_TOOL_VARIABLE } from "./checks/engine/long-office-tool.ts";
 import { checks } from "./checks/index.ts";
 import { loadExpectations, recordObservations } from "./expectations.ts";
 import { runCheck, sumTokens, type CheckOutcome } from "./run-checks.ts";
@@ -23,6 +24,9 @@ expectations.json. Exits non-zero when a check differs, has no recorded result o
 Slow checks:
   engine.decision-wait  waits ${DECISION_WAIT_VARIABLE} (default ${DEFAULT_DECISION_WAIT_MINUTES}) before answering
                         a Decision, to see the answer continue the work past the 1-hour cache
+  engine.long-office-tool, fallback.long-office-tool
+                        an Office tool answers after ${LONG_TOOL_VARIABLE} (default
+                        ${DEFAULT_LONG_TOOL_MINUTES}), to see neither route cut a long call short
 `;
 
 const toolRoot = join(dirname(fileURLToPath(import.meta.url)), "..");

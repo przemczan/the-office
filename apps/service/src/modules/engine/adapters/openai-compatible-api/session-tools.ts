@@ -1,6 +1,6 @@
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { AgentShellProgram } from "../../../../platform/os/shell.js";
-import type { OfficeTool } from "../../ports/office-tool.js";
+import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 import type { SearchEndpointClient } from "../../ports/search-endpoint-client.js";
 import type { JsonSchema, SessionMcpServer } from "../../ports/session-options.js";
 import type { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
@@ -36,8 +36,9 @@ export interface SessionToolParts {
   readonly searchEndpoint: SearchEndpointClient | undefined;
   /** What the session lists, which Skill loads; Skill is offered with none too. */
   readonly skills: readonly ListedSkill[];
-  readonly sessionId: string;
   readonly officeTools: readonly OfficeTool[];
+  /** What the Office tools are told of the session calling them. */
+  readonly officeToolCall: OfficeToolCall;
   /** Judges an Office tool's call again as it runs. */
   readonly judge: CallJudge;
   /** The session's MCP servers, each with the tools recorded for it, and where their calls go. */
@@ -65,7 +66,9 @@ export class SessionTools {
       webFetchTool(),
       webSearchTool(parts.searchEndpoint),
       skillTool(parts.skills),
-      ...parts.officeTools.map((tool) => officeBuiltInTool(tool, parts.sessionId, parts.judge)),
+      ...parts.officeTools.map((tool) =>
+        officeBuiltInTool(tool, parts.officeToolCall, parts.judge),
+      ),
       ...parts.mcpServers.flatMap((server) =>
         server.tools.map((tool) => mcpBuiltInTool(server.name, tool, parts.mcpConnections)),
       ),

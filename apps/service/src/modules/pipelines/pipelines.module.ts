@@ -9,6 +9,8 @@ import { TaskStagesController } from "./adapters/http/task-stages.controller.js"
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { StageBranchUpdate } from "./application/stage-branch-update.js";
+import { StageCommandRuns } from "./application/stage-command-runs.js";
+import { StageProjectCommands } from "./application/stage-project-commands.js";
 import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js";
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
 import { AlarmResumes } from "./application/alarm-resumes.js";
@@ -128,6 +130,8 @@ export class PipelinesModule {
         StageRunWaits,
         ResolveStageGit,
         StageBranchUpdate,
+        StageCommandRuns,
+        StageProjectCommands,
         AgentStageRunner,
         AlarmResumes,
         ScriptStageRunner,

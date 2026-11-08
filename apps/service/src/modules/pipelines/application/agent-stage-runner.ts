@@ -1,6 +1,11 @@
 import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { EngineModels, NoEngineListed, READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
+import {
+  EngineModels,
+  NoEngineListed,
+  READ_ONLY_GIT_COMMANDS,
+  RUN_PROJECT_COMMAND_TOOL,
+} from "../../engine/index.js";
 import { narrowedPermissionProfile } from "../../people/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
@@ -60,6 +65,7 @@ import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { TaskScreenshots } from "../ports/task-screenshots.js";
 import { TaskUsage } from "../ports/task-usage.js";
 import { ResolveStageGit } from "./resolve-stage-git.js";
+import { StageCommandRuns } from "./stage-command-runs.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
@@ -68,9 +74,9 @@ import { StageRunners } from "./stage-runners.js";
 /**
  * The Office tools of an Agent Stage's session (spec §6): it reads its Task and the Task's
  * Attachments, asks the user with a Decision, consults a person (in tier 1 the user answers in
- * their place), attaches a file or a link to the Task, and asks The Office to update the Task's
- * branch from the base. The names are the tools' own, which Conversations, Work and Pipelines
- * register.
+ * their place), attaches a file or a link to the Task, asks The Office to update the Task's
+ * branch from the base, and runs the Project's commands where they run (`StageProjectCommands`).
+ * The names are the tools' own, which Conversations, Work and Pipelines register.
  */
 export const AGENT_STAGE_OFFICE_TOOLS = [
   "read_task",
@@ -80,6 +86,7 @@ export const AGENT_STAGE_OFFICE_TOOLS = [
   "attach_file",
   "attach_link",
   UPDATE_BRANCH_TOOL,
+  RUN_PROJECT_COMMAND_TOOL,
 ] as const;
 
 type Ending = Parameters<StageThread["end"]>[0];
@@ -116,6 +123,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly engineModels: EngineModels,
     private readonly events: EventBus,
     private readonly waits: StageRunWaits,
+    private readonly commandRuns: StageCommandRuns,
   ) {}
 
   onModuleInit(): void {
@@ -177,6 +185,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (work.interruption.requested) return this.holdWork(work, task, expected);
     const failed = failedInstall(installation);
     const thread = await this.open(work, person, task, failed && installFailure(failed));
+    this.commandRuns.begin(work.run.id, work.interruption.commandsSignal);
     let ending: Ending = { handoverNote: undefined, closing: undefined };
     try {
       const { threadId, move, engine, model } = thread;
@@ -196,7 +205,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();
       if (asked) await this.keep(work, asked);
-      // Before git is read, so a dev server or a watcher it started can't change the worktree.
+      // Before git is read, so a dev server or a watcher it started, or a command it ran through
+      // an Office tool, can't change the worktree.
+      await this.commandRuns.end(work.run.id);
       await thread.endSession();
       const after = await this.stageGit.afterTurn(work.run, expected);
       const outcome = result
@@ -208,6 +219,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       ending = { handoverNote: undefined, closing: { kind: "failure", reason: messageOf(error) } };
       throw error;
     } finally {
+      await this.commandRuns.end(work.run.id);
       await thread.end(ending);
     }
   }

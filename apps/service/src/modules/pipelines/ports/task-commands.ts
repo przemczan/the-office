@@ -1,3 +1,4 @@
+import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 
 /** The Project commands a Script Stage runs; install runs before each Stage instead. */
@@ -14,6 +15,12 @@ export interface TaskCommandOptions {
   /** Stops the command, with everything it started, or its wait, with nothing run. */
   readonly signal: AbortSignal;
   readonly wait?: CommandWait;
+}
+
+/** An Agent's command's options: where its whole output goes beside how it is stopped. */
+export interface AgentCommandOptions extends TaskCommandOptions {
+  /** Made or replaced as it runs, its folder made if missing; it holds the install's output instead when that failed. */
+  readonly outputFile: string;
 }
 
 /**
@@ -47,4 +54,17 @@ export abstract class TaskCommands {
     stageRunId: string,
     options: TaskCommandOptions,
   ): Promise<readonly ScriptCommandRun[]>;
+
+  /**
+   * Runs a command for an Agent at work on the Task (spec §6): one of the Project's by its key, or
+   * a command line it wrote, run as given, so the caller judges it first. It runs where a Script
+   * Stage's command would, after an install when its inputs changed, and what it writes stays in
+   * the worktree. A stop ends it, with everything it started, before this returns.
+   */
+  abstract runForAgent(
+    projectId: string,
+    taskId: string,
+    command: AgentCommand,
+    options: AgentCommandOptions,
+  ): Promise<AgentCommandEnd>;
 }

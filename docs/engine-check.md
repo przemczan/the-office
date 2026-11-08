@@ -5,7 +5,7 @@ What tier 1 takes on trust about the engine, checked against live sessions on th
 ## When to run
 
 - **On every SDK bump, before the bump is merged,** on Windows and on Linux: `npm run engine-check`. It exits non-zero when any check differs from what is recorded for that platform, has nothing recorded, or fails. A difference is read, its entry here updated (and the spec amended with the user when it contradicts it), then recorded with `npm run engine-check -- --record`.
-- **Once per bump, also the slow check:** `npm run engine-check -- --only engine.decision-wait --include-slow`, which waits an hour on purpose.
+- **Once per bump, also the slow checks:** `npm run engine-check -- --only engine.decision-wait --include-slow`, which waits an hour on purpose, and `npm run engine-check -- --only engine.long-office-tool --only fallback.long-office-tool --include-slow`, which each wait 11 minutes in an Office tool.
 - **To re-check one area:** `--only <id prefix>`, for example `--only permissions.`; `npm run engine-check -- --help` lists the options.
 
 Every run writes `tools/engine-check/out/report-<platform>.json` with each session's messages and hook calls, and prints its tokens. A full run costs a few minutes and, on `claude-haiku-5-5`, about 15k output tokens and 2.7M cache-read tokens.
@@ -241,6 +241,14 @@ Slow: about an hour; runs only with `--include-slow`. Recorded on Windows 2026-1
 - **Run:** an Office tool opens a Decision and its result tells the Agent to end its turn and wait; the answer is sent as the next message into the still-open `query()` 62 minutes later (`ENGINE_CHECK_DECISION_WAIT_MINUTES`).
 - **Observed:** the Agent made no further tool call and ended its turn; the answer continued the work in the same session (it read the chosen file). That turn read nothing from the cache: the hour had passed and the Office tool in the tool list gives the session a prefix no other session kept warm.
 - **Meaning:** Agents wait on Decisions as §2.4 describes, with no session kept busy; the first turn after a long wait pays the full prompt again, which the Context policy (§2.5) weighs.
+
+### engine.long-office-tool, fallback.long-office-tool
+
+Slow: 11 minutes each (`ENGINE_CHECK_LONG_TOOL_MINUTES`); run only with `--include-slow`. Added for `run_project_command` (spec §6, "Agents run checks through an Office tool"), which answers only once the Project's command ends.
+
+- **Run:** one turn calling an Office tool whose handler answers after the wait: on the SDK from `createSdkMcpServer()`, on `-p` served through the binary's stream.
+- **Observed:** not run live yet. The Stage that added it (2026-11-08, Linux) ran on a machine with no Claude Code login of its own, so both sessions ended at once with "Not logged in"; it is to be run and recorded on a signed-in machine. Read from the pinned versions instead, not from a session: the binary (2.1.310) limits an MCP tool call to `MCP_TOOL_TIMEOUT`, else 1e8 ms (about 28 hours), capped at 2^31−1 ms; a server of type `sdk` has no idle timeout (`CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` applies to stdio and remote servers only); an `mcp_message` control request that is a request (it has an `id`, as `tools/call` does) is sent with no timeout, only notifications get one; the SDK (0.3.310) keeps the request pending until the server answers, with no timeout of its own. The Office's sessions carry no `MCP_*` variable (`sessionEnvironment`), so the default applies on both routes.
+- **Meaning:** a Project's test run of 10 minutes or more through an Office tool isn't cut short on either Claude Code route, so The Office sets no `MCP_TOOL_TIMEOUT`; the command's own 30-minute limit ends it first.
 
 ### engine.resume-cache
 

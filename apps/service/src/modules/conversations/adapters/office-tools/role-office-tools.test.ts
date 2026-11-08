@@ -4,6 +4,7 @@ import { RoleNotFound, type RoleService } from "../../../people/index.js";
 import type { HeldCallOutcome, HeldCalls } from "../../application/held-calls.js";
 import { CHANGE_ROLE_TOOL } from "../../domain/session-instructions.js";
 import { RoleOfficeTools } from "./role-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 type Words = Parameters<RoleService["reword"]>[1];
 
@@ -42,7 +43,7 @@ describe("the change_role tool", () => {
   it("rewords the Role, as proposed by the caller, when the call may run", async () => {
     const { tool, reworded } = toolWith({ kind: "proceed", roleKey: "planner" });
 
-    const result = await tool.run(input, { sessionId: "session-1" });
+    const result = await tool.run(input, anOfficeToolCall("session-1"));
 
     expect(result.isError).toBe(false);
     expect(reworded).toEqual([
@@ -53,7 +54,7 @@ describe("the change_role tool", () => {
   it("changes nothing and tells the Agent to end its turn while the call is held", async () => {
     const { tool, reworded, holds } = toolWith({ kind: "held", waitingOn: "the user" });
 
-    const result = await tool.run(input, { sessionId: "session-1" });
+    const result = await tool.run(input, anOfficeToolCall("session-1"));
 
     expect(result).toMatchObject({ isError: false });
     expect(result.text).toContain("End your turn");
@@ -64,7 +65,7 @@ describe("the change_role tool", () => {
   it("changes nothing and gives the reason when the call is refused", async () => {
     const { tool, reworded } = toolWith({ kind: "refused", reason: "Change Roles is Never." });
 
-    await expect(tool.run(input, { sessionId: "session-1" })).resolves.toEqual({
+    await expect(tool.run(input, anOfficeToolCall("session-1"))).resolves.toEqual({
       text: "Change Roles is Never.",
       isError: true,
     });
@@ -75,7 +76,7 @@ describe("the change_role tool", () => {
     const { tool, holds } = toolWith({ kind: "proceed", roleKey: "planner" });
 
     await expect(
-      tool.run({ ...input, role: "janitor" }, { sessionId: "session-1" }),
+      tool.run({ ...input, role: "janitor" }, anOfficeToolCall("session-1")),
     ).resolves.toEqual({ text: 'The Office has no Role "janitor".', isError: true });
     expect(holds).toEqual([]);
   });
@@ -83,7 +84,7 @@ describe("the change_role tool", () => {
   it("asks what to change when the call changes nothing", async () => {
     const { tool, holds } = toolWith({ kind: "proceed", roleKey: "planner" });
 
-    const result = await tool.run({ role: "developer", why: "Because." }, { sessionId: "s" });
+    const result = await tool.run({ role: "developer", why: "Because." }, anOfficeToolCall("s"));
 
     expect(result.isError).toBe(true);
     expect(holds).toEqual([]);

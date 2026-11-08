@@ -30,7 +30,8 @@ import { EngineProcess } from "../claude-code/engine-process.js";
 import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
-import type { SessionHolds } from "../office-rules/tool-decision.js";
+import { toolDecision, type SessionHolds } from "../office-rules/tool-decision.js";
+import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
@@ -119,6 +120,9 @@ export class AgentSdkEngine extends AgentEngine {
             mcpConfigFile: mcpConfigFile?.path,
             languageServerPlugin,
             agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
+            officeToolCall: officeToolCall(id, held.paths, (tool, input) =>
+              toolDecision(held.rules, held.holds, tool, input),
+            ),
             ...hooks,
           }),
       );
@@ -226,6 +230,7 @@ class AgentSdkSession implements EngineSession {
     await this.read;
     await this.parts.engineProcess.endWithLeftovers();
     await this.parts.mcpConfigFile?.remove();
+    await removeSessionTemporaryFolder(this.held.paths, this.id);
   }
 
   private async readMessages(): Promise<void> {

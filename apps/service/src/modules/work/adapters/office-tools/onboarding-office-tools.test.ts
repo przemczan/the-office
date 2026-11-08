@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { ProposalDraftsForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 const SESSION = "devops-chat";
 
@@ -40,7 +41,7 @@ afterEach(async () => {
 function proposeProject(input: Record<string, unknown>) {
   const [tool] = work.app.get(OfficeToolRegistry).named([PROPOSE_PROJECT_TOOL]);
   if (!tool) throw new Error(`No Office tool ${PROPOSE_PROJECT_TOOL}.`);
-  return tool.run(tool.input.parse(input), { sessionId: SESSION });
+  return tool.run(tool.input.parse(input), anOfficeToolCall(SESSION));
 }
 
 describe("propose_project", () => {

@@ -20,6 +20,7 @@ import {
   OpenDecisionsForTests,
   TaskStageProgressForTests,
 } from "../../ports/notifications-ports.fixtures.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 describe("the show_office_status tool", () => {
   let app: INestApplication;
@@ -68,7 +69,7 @@ describe("the show_office_status tool", () => {
     const [tool] = app.get(OfficeToolRegistry).named([SHOW_OFFICE_STATUS_TOOL]);
     if (!tool) throw new Error("No show_office_status tool.");
 
-    const result = await tool.run({}, { sessionId: "office-manager-session" });
+    const result = await tool.run({}, anOfficeToolCall("office-manager-session"));
 
     expect(app.get(OfficeStatusCardsForTests).postedIn).toEqual(["office-manager-session"]);
     expect(result.isError).toBe(false);

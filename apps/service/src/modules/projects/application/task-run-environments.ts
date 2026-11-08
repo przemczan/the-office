@@ -29,6 +29,11 @@ export interface TaskRunEnvironmentCommand {
   /** Ends a wait at once, with nothing run, or the command running. */
   readonly signal?: AbortSignal;
   readonly wait?: CommandWait;
+  /**
+   * Where its whole output goes as it runs, kept after it; the run environment's own output, if
+   * it has to start first, goes elsewhere. Undefined writes it to a file of the runner's own.
+   */
+  readonly outputFile?: string;
 }
 
 /**

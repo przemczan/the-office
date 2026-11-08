@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { metrics, trace } from "@opentelemetry/api";
 import { describe, expect, it, vi } from "vitest";
+import { anOfficeToolCall } from "../../ports/office-tool.fixtures.js";
 import { z } from "zod";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
@@ -120,6 +121,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         languageServerPlugin: undefined,
         agentShells: [],
         preToolUse: () => Promise.resolve({}),
+        officeToolCall: anOfficeToolCall(id),
         spawnProcess: engineProcess.spawn,
       }),
     });

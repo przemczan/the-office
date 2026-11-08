@@ -1,5 +1,5 @@
-import { readdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   TaskRunEnvironments,
@@ -85,6 +85,20 @@ describe("Projects' run environments", () => {
     });
     expect(script).toBe(`cd '${task.worktree}' || exit 125\nunset 'HOME'\nexport CI='1'\nnpm test`);
     // Its output folder goes with the run.
+    expect(await readdir(testbed.folders.commandOutputs)).toEqual([]);
+  });
+
+  it("streams the command's output to the file given, replacing what it held, and keeps it", async () => {
+    const task = await aTask("task-1");
+    const outputFile = join(testbed.folder, "sessions", "s-1", "office-tools", "command.log");
+    await mkdir(dirname(outputFile), { recursive: true });
+    await writeFile(outputFile, "an earlier run's\n");
+    runtime.onExec = () => Promise.resolve({ output: "1 passed\n", exitCode: 0 });
+
+    const finished = await registry.run(task, aCommand({ outputFile }));
+
+    expect(finished).toMatchObject({ outcome: "passed", output: "1 passed\n" });
+    await expect(readFile(outputFile, "utf8")).resolves.toBe("1 passed\n");
     expect(await readdir(testbed.folders.commandOutputs)).toEqual([]);
   });
 

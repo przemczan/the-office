@@ -21,9 +21,10 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import { sessionOfficeRules } from "../office-rules/session-office-rules.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
+import { officeToolCall, sessionTemporaryFolder } from "../office-rules/office-tool-call.js";
 import { SearxngClient } from "../searxng/searxng-client.js";
 import { ApiSession } from "./api-session.js";
-import { BackgroundCommands, backgroundCommandFolder } from "./background-commands.js";
+import { BackgroundCommands } from "./background-commands.js";
 import { ReadFiles } from "./built-in-tool.js";
 import { ChatCompletionsClient } from "./chat-completions-client.js";
 import type { ChatMessage } from "./chat-completions.js";
@@ -133,13 +134,15 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     if (problems.length > 0) throw new SessionSkillsDiffer(id, problems);
     const { paths, agentShells, processTrees } = this.operatingSystem;
     const backgroundCommands = new BackgroundCommands(
-      backgroundCommandFolder(paths, id),
+      // The session's temporary folder, which its Office rules let it read as the SDK's sessions
+      // read their background commands' output (spec §6).
+      sessionTemporaryFolder(paths, id),
       processTrees,
       paths,
     );
     const environment = withoutContainerRuntimeVariables(options.environment);
-    const rules = sessionOfficeRules(this.operatingSystem, this.officeData, options, {
-      readableFolders: [backgroundCommands.folder],
+    const rules = sessionOfficeRules(this.operatingSystem, this.officeData, id, options, {
+      readableFolders: [],
       environment,
     });
     const judge = (tool: string, input: unknown): Promise<ToolDecision> =>
@@ -165,8 +168,8 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
           backgroundCommands,
           searchEndpoint: searchEndpoint === null ? undefined : new SearxngClient(searchEndpoint),
           skills,
-          sessionId: id,
           officeTools: options.officeTools,
+          officeToolCall: officeToolCall(id, paths, judge),
           judge,
           mcpServers: options.mcpServers,
           mcpConnections,

@@ -16,6 +16,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { ATTACH_FILE, ATTACH_LINK } from "./attachment-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 /** A Stage's session on the test's Task, of the person the fixtures name "planner". */
 const SESSION = "stage-session";
@@ -55,7 +56,7 @@ afterEach(async () => {
 function call(name: string, input: Record<string, unknown>, sessionId = SESSION) {
   const [tool] = work.app.get(OfficeToolRegistry).named([name]);
   if (!tool) throw new Error(`No Office tool ${name}.`);
-  return tool.run(tool.input.parse(input), { sessionId });
+  return tool.run(tool.input.parse(input), anOfficeToolCall(sessionId));
 }
 
 describe("attach_file", () => {

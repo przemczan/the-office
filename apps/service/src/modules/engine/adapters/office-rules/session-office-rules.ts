@@ -4,6 +4,7 @@ import type { OfficeDataDirectory } from "../../../../platform/office-data/offic
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import { OfficeRules } from "../../domain/office-rules.js";
 import type { SessionOptions } from "../../ports/session-options.js";
+import { sessionTemporaryFolder } from "./office-tool-call.js";
 
 /** What differs between the engines in the rules a session is held to. */
 export interface EngineRuleParts {
@@ -14,13 +15,15 @@ export interface EngineRuleParts {
 }
 
 /**
- * The Office rules one session is held to (spec §6): its folder, its skills folder and the
- * engine's own readable folders readable, The Office's own files not; Projects' clones in its data
- * directory are no Office files. A session reaching the workstation is refused the secrets alone.
+ * The Office rules one session is held to (spec §6): its folder, its skills folder, its temporary
+ * folder, where the Office tools write files for it, and the engine's own readable folders
+ * readable, The Office's own files not; Projects' clones in its data directory are no Office
+ * files. A session reaching the workstation is refused the secrets alone.
  */
 export function sessionOfficeRules(
   operatingSystem: OperatingSystem,
   officeData: OfficeDataDirectory,
+  sessionId: string,
   options: SessionOptions,
   engine: EngineRuleParts,
 ): OfficeRules {
@@ -28,6 +31,7 @@ export function sessionOfficeRules(
     workingFolder: options.folder,
     readableFolders: [
       ...(options.skills === undefined ? [] : [options.skills.folder]),
+      sessionTemporaryFolder(operatingSystem.paths, sessionId),
       ...engine.readableFolders,
     ],
     profile: options.profile,

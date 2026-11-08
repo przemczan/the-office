@@ -17,6 +17,7 @@ import {
   READ_OFFICE_INSTRUCTIONS_TOOL,
 } from "../../domain/session-instructions.js";
 import { ProposalOfficeTools } from "./proposal-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 const tester = { role: { key: "tester", card: aProposedCard() } };
 
@@ -53,7 +54,7 @@ function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL, instructionsNo
   return { tool, drafted };
 }
 
-const session = { sessionId: "session-1" };
+const session = anOfficeToolCall("session-1");
 
 /** What the Agent reads when it names a person by the Role's title. */
 function namedByTheTitle(name: string) {

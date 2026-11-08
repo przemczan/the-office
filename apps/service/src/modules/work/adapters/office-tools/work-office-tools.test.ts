@@ -16,6 +16,7 @@ import {
 } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import { CREATE_TASK, LIST_IDEAS, LIST_TASKS, READ_IDEA, READ_TASK } from "./work-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -43,7 +44,7 @@ afterEach(async () => {
 function call(name: string, input: Record<string, unknown>, sessionId = "planner-session") {
   const [tool] = work.app.get(OfficeToolRegistry).named([name]);
   if (!tool) throw new Error(`No Office tool ${name}.`);
-  return tool.run(input, { sessionId });
+  return tool.run(input, anOfficeToolCall(sessionId));
 }
 
 describe("capture_idea", () => {

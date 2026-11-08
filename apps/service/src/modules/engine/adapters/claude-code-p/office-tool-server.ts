@@ -1,13 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { JSONRPCMessage, RequestId } from "@modelcontextprotocol/sdk/types.js";
-import type { ToolDecision } from "../../domain/office-rules.js";
-import type { OfficeTool } from "../../ports/office-tool.js";
+import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 import { officeToolAnswer, textAnswer } from "../claude-code/office-tools.js";
+import type { ToolDecider } from "../office-rules/office-tool-call.js";
 import { OFFICE_TOOL_PREFIX, OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
-
-/** Whether the session may call a tool, by the engine's name for it, as its hook decides. */
-export type ToolDecider = (tool: string, input: unknown) => Promise<ToolDecision>;
 
 /** What the SDK's `alwaysLoad` sets on each tool, so the Agent calls one without looking it up. */
 const ALWAYS_LOAD = { "anthropic/alwaysLoad": true };
@@ -28,7 +25,7 @@ export class OfficeToolServer {
   private readonly transport = new ControlRequestTransport();
   private readonly connected: Promise<void>;
 
-  constructor(officeTools: readonly OfficeTool[], sessionId: string, decide: ToolDecider) {
+  constructor(officeTools: readonly OfficeTool[], call: OfficeToolCall, decide: ToolDecider) {
     for (const officeTool of officeTools) {
       this.server.registerTool(
         officeTool.name,
@@ -40,7 +37,7 @@ export class OfficeToolServer {
         async (input: Record<string, unknown>) => {
           const decision = await decide(`${OFFICE_TOOL_PREFIX}${officeTool.name}`, input);
           if (!decision.allowed) return textAnswer(decision.reason, true);
-          return officeToolAnswer(officeTool, input, sessionId);
+          return officeToolAnswer(officeTool, input, call);
         },
       );
     }

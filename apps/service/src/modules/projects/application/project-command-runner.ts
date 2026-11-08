@@ -13,6 +13,8 @@ export interface ProjectCommand {
   readonly environment: ProjectEnvironment;
   readonly timeoutMs: number;
   readonly signal?: AbortSignal;
+  /** Where its whole output is written too, as it comes. */
+  readonly outputFile?: string;
 }
 
 /** Runs every command The Office runs for a Project, with the Project's environment applied. */
@@ -28,6 +30,7 @@ export class ProjectCommandRunner {
     environment,
     timeoutMs,
     signal,
+    outputFile,
   }: ProjectCommand): Promise<CommandRun> {
     const finished = await this.runner.run({
       commandLine,
@@ -35,6 +38,7 @@ export class ProjectCommandRunner {
       environment: this.variablesFor(environment),
       timeoutMs,
       signal,
+      outputFile,
     });
     return commandRunOf(commandLine, finished);
   }

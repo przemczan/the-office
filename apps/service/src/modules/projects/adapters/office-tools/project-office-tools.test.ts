@@ -8,6 +8,7 @@ import { aProject } from "../../domain/project.fixtures.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { LIST_PROJECTS, ProjectOfficeTools, READ_REPOSITORY } from "./project-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 function toolsOver(projects: Project[]): ProjectOfficeTools {
   const service: Pick<ProjectService, "list"> = { list: () => Promise.resolve(projects) };
@@ -57,7 +58,7 @@ describe("list_projects", () => {
       aProject({ commands: { ...aProject().commands, lint: "" } }),
     ]).listProjects();
 
-    const result = await tool.run({}, { sessionId: "s-1" });
+    const result = await tool.run({}, anOfficeToolCall("s-1"));
 
     expect(tool.name).toBe(LIST_PROJECTS);
     expect(result).toEqual({
@@ -74,7 +75,7 @@ describe("list_projects", () => {
   });
 
   it("says so when there is no Project", async () => {
-    const result = await toolsOver([]).listProjects().run({}, { sessionId: "s-1" });
+    const result = await toolsOver([]).listProjects().run({}, anOfficeToolCall("s-1"));
 
     expect(result.text).toBe("The Office works on no Project yet.");
   });
@@ -115,7 +116,7 @@ describe("read_repository", () => {
       }),
     ).readRepository();
 
-    const result = await tool.run({ path: "/work/admin-panel" }, { sessionId: "s-1" });
+    const result = await tool.run({ path: "/work/admin-panel" }, anOfficeToolCall("s-1"));
 
     expect(result).toEqual({
       isError: false,
@@ -140,7 +141,7 @@ describe("read_repository", () => {
 
     const result = await tool.run(
       { path: "/work/admin-panel", folder: "apps/server" },
-      { sessionId: "s-1" },
+      anOfficeToolCall("s-1"),
     );
 
     expect(read).toHaveBeenCalledWith("/work/admin-panel", "apps/server");
@@ -156,7 +157,7 @@ describe("read_repository", () => {
       Promise.reject(new ProjectRefused(["There is no folder at /work/missing."])),
     ).readRepository();
 
-    await expect(tool.run({ path: "/work/missing" }, { sessionId: "s-1" })).resolves.toEqual({
+    await expect(tool.run({ path: "/work/missing" }, anOfficeToolCall("s-1"))).resolves.toEqual({
       isError: true,
       text: "There is no folder at /work/missing.",
     });
@@ -178,7 +179,7 @@ describe("read_repository", () => {
 
     const result = await tool.run(
       { url: "https://github.com/acme/shop", folder: "apps/server" },
-      { sessionId: "s-1" },
+      anOfficeToolCall("s-1"),
     );
 
     expect(read).toHaveBeenCalledWith("https://github.com/acme/shop", "apps/server");
@@ -199,9 +200,12 @@ describe("read_repository", () => {
       text: "Give the repository's path on the workstation or its Repository URL, one of the two.",
     };
 
-    await expect(tool.run({}, { sessionId: "s-1" })).resolves.toEqual(answer);
+    await expect(tool.run({}, anOfficeToolCall("s-1"))).resolves.toEqual(answer);
     await expect(
-      tool.run({ path: "/work/shop", url: "https://github.com/acme/shop" }, { sessionId: "s-1" }),
+      tool.run(
+        { path: "/work/shop", url: "https://github.com/acme/shop" },
+        anOfficeToolCall("s-1"),
+      ),
     ).resolves.toEqual(answer);
   });
 });

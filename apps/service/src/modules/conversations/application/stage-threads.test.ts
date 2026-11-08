@@ -72,6 +72,7 @@ import {
   sessionMcpServersStandIn,
   type SessionMcpServersStandIn,
 } from "./session-mcp-servers.fixtures.js";
+import { anOfficeToolCall } from "../../engine/index.fixtures.js";
 
 type Step = SessionScript[number];
 
@@ -1235,7 +1236,7 @@ async function callInStage(threadId: string, name: string, input: Record<string,
   const sessionId = (await threadOf(threadId)).session?.id ?? "";
   const [tool] = app.get(OfficeToolRegistry).named([name]);
   if (!tool) throw new Error(`No Office tool ${name}.`);
-  return tool.run(tool.input.parse(input), { sessionId });
+  return tool.run(tool.input.parse(input), anOfficeToolCall(sessionId));
 }
 
 const WHICH_PAGE = {

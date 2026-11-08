@@ -59,6 +59,7 @@ export class ScriptedTaskRunEnvironments implements TaskRunEnvironmentRunner {
       ),
       timeoutMs: command.timeoutMs,
       signal: command.signal,
+      outputFile: command.outputFile,
     });
   }
 }

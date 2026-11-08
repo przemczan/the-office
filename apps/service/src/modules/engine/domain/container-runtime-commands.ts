@@ -12,6 +12,12 @@ export const CONTAINER_RUNTIME_PROGRAMS: readonly string[] = [
   "nerdctl",
 ];
 
+/**
+ * The Office tool an Agent Stage runs the Project's commands with, in the Task's run environment
+ * when the Project has one on, which the runtime's refusal points to. Pipelines registers it.
+ */
+export const RUN_PROJECT_COMMAND_TOOL = "run_project_command";
+
 /** The variables that point a runtime's client at a daemon, which a session never carries. */
 export const CONTAINER_RUNTIME_VARIABLES: readonly string[] = [
   "DOCKER_HOST",

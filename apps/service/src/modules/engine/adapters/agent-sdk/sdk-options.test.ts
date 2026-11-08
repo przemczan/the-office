@@ -5,6 +5,7 @@ import {
   type SpawnOptions,
 } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
+import { anOfficeToolCall } from "../../ports/office-tool.fixtures.js";
 import { z } from "zod";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
@@ -107,6 +108,7 @@ function optionsFor(session: Partial<SdkSession> = {}) {
     languageServerPlugin: undefined,
     agentShells: ["bash"],
     preToolUse: PRE_TOOL_USE,
+    officeToolCall: anOfficeToolCall("session-1"),
     spawnProcess: () => {
       throw new Error("Not started in this test.");
     },

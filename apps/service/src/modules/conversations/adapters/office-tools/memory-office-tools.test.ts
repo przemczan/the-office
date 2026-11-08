@@ -12,6 +12,7 @@ import {
 import type { Thread } from "../../domain/thread.js";
 import { ThreadRepository } from "../../ports/thread-repository.js";
 import { MemoryOfficeTools } from "./memory-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 type Draft = Parameters<MemoryService["write"]>[0];
 
@@ -47,7 +48,7 @@ describe("the remember tool", () => {
 
     const result = await tool.run(
       { note: "Prefers short answers.", project: " Admin panel " },
-      { sessionId: SESSION },
+      anOfficeToolCall(SESSION),
     );
 
     expect(result.isError).toBe(false);
@@ -65,7 +66,7 @@ describe("the remember tool", () => {
     const thread = aThread({ home: { kind: "task", taskId: TASK } });
     const { tool, written } = toolWith(thread);
 
-    await tool.run({ note: "Run lint before tests." }, { sessionId: SESSION });
+    await tool.run({ note: "Run lint before tests." }, anOfficeToolCall(SESSION));
 
     expect(written[0]).toMatchObject({
       projectId: undefined,
@@ -76,7 +77,7 @@ describe("the remember tool", () => {
   it("writes nothing and says why when the Memory refuses the note", async () => {
     const { tool, written } = toolWith(aThread(), "Jan's shared memory is off.");
 
-    await expect(tool.run({ note: "Anything." }, { sessionId: SESSION })).resolves.toEqual({
+    await expect(tool.run({ note: "Anything." }, anOfficeToolCall(SESSION))).resolves.toEqual({
       text: "Jan's shared memory is off.",
       isError: true,
     });
@@ -86,7 +87,7 @@ describe("the remember tool", () => {
   it("is refused to a session no Thread has", async () => {
     const { tool, written } = toolWith(undefined);
 
-    await expect(tool.run({ note: "Anything." }, { sessionId: "other" })).resolves.toEqual({
+    await expect(tool.run({ note: "Anything." }, anOfficeToolCall("other"))).resolves.toEqual({
       text: "The Office doesn't know this session's Thread.",
       isError: true,
     });

@@ -90,6 +90,7 @@ describe("AgentStageRunner", () => {
           "attach_file",
           "attach_link",
           "update_branch",
+          "run_project_command",
         ],
         outputSchema: STAGE_RESULT_SCHEMA,
       },

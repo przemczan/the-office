@@ -2,6 +2,12 @@ import { Injectable } from "@nestjs/common";
 import type { Publication, PublishTarget, PullRequestText } from "../domain/publication.js";
 import type { ResolveEnd, ResolveStart } from "../domain/resolve.js";
 import type { Head } from "../ports/git.js";
+import {
+  AgentCommands,
+  type AgentCommand,
+  type AgentCommandEnd,
+  type AgentCommandOptions,
+} from "./agent-commands.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
 import { Publishing } from "./publishing.js";
@@ -43,6 +49,7 @@ export class TaskWorktrees {
     private readonly worktrees: Worktrees,
     private readonly commands: ProjectCommandRunner,
     private readonly scriptCommands: ScriptCommands,
+    private readonly agentCommands: AgentCommands,
     private readonly publishing: Publishing,
     private readonly resolving: Resolving,
     private readonly branchUpdates: BranchUpdates,
@@ -204,5 +211,22 @@ export class TaskWorktrees {
   ): Promise<readonly ScriptCommandRun[]> {
     const project = await this.projects.read(projectId);
     return this.scriptCommands.run(project, taskId, key, stageRunId, options);
+  }
+
+  /**
+   * Runs a command for an Agent at work on the Task: one of the Project's by its key, or a command
+   * line it wrote, which the caller has judged. It runs where the Project's Run environment
+   * setting says, after an install when its inputs changed, its whole output written to
+   * `outputFile` as it runs. `signal` stops it, with everything it started, or its wait for a run
+   * environment; `wait` is told of that wait.
+   */
+  async runForAgent(
+    projectId: string,
+    taskId: string,
+    command: AgentCommand,
+    options: AgentCommandOptions,
+  ): Promise<AgentCommandEnd> {
+    const project = await this.projects.read(projectId);
+    return this.agentCommands.run(project, taskId, command, options);
   }
 }

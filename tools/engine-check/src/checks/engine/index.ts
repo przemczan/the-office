@@ -5,6 +5,7 @@ import { interruptCheck } from "./interrupt.ts";
 import { leanOptionsCheck } from "./lean-options.ts";
 import { lspToolCheck } from "./lsp-tool.ts";
 import { priorityLaterCheck, priorityNextCheck, priorityNowCheck } from "./message-priority.ts";
+import { longOfficeToolCheck } from "./long-office-tool.ts";
 import { officeToolCheck } from "./office-tool.ts";
 import { parallelSessionsCheck } from "./parallel-sessions.ts";
 import { rateLimitEventCheck } from "./rate-limit-event.ts";
@@ -18,6 +19,7 @@ export const engineChecks: readonly Check[] = [
   priorityNowCheck,
   interruptCheck,
   officeToolCheck,
+  longOfficeToolCheck,
   decisionWaitCheck,
   resumeCacheCheck,
   rateLimitEventCheck,

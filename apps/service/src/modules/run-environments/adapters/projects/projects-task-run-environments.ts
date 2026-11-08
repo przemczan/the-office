@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { mkdir, mkdtemp, open, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import {
   TaskRunEnvironments,
   type FinishedCommand,
@@ -40,12 +40,17 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
 
   async run(
     task: TaskInRunEnvironment,
-    { commandLine, environment, timeoutMs, signal, wait }: TaskRunEnvironmentCommand,
+    { commandLine, environment, timeoutMs, signal, wait, ...given }: TaskRunEnvironmentCommand,
   ): Promise<FinishedCommand> {
     const inWorktree = await this.taskInWorktree(task);
     await mkdir(this.folders.commandOutputs, { recursive: true });
     const folder = await mkdtemp(join(this.folders.commandOutputs, `${task.taskId}-`));
-    const outputFile = join(folder, "command.log");
+    const outputFile = given.outputFile ?? join(folder, "command.log");
+    if (given.outputFile !== undefined) {
+      await mkdir(dirname(outputFile), { recursive: true });
+      // The runtime appends, so a file left by an earlier run is replaced first.
+      await writeFile(outputFile, "");
+    }
     try {
       const end = await this.environments.run(inWorktree, {
         commandLine,

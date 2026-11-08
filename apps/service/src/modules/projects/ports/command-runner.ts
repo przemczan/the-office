@@ -10,6 +10,8 @@ export interface CommandToRun {
   readonly timeoutMs: number;
   /** Ends it, with everything it started, when aborted. */
   readonly signal?: AbortSignal;
+  /** Where its whole output is written too, as it comes; the file is made or replaced. */
+  readonly outputFile?: string;
 }
 
 export interface FinishedCommand {

@@ -4,6 +4,7 @@ import type { RoleService, RoleWithAssignments } from "../../application/role-se
 import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
 import { LIST_PEOPLE, PeopleOfficeTools, READ_ROLE } from "./people-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 function toolsOver(roles: RoleWithAssignments[]): PeopleOfficeTools {
   const service: Pick<RoleService, "list" | "read"> = {
@@ -34,7 +35,7 @@ describe("list_people", () => {
       { role: ada, skills: [], mcpServers: [] },
     ]).listPeople();
 
-    const result = await tool.run({}, { sessionId: "s-1" });
+    const result = await tool.run({}, anOfficeToolCall("s-1"));
 
     expect(tool.name).toBe(LIST_PEOPLE);
     expect(result.isError).toBe(false);
@@ -48,7 +49,7 @@ describe("list_people", () => {
   });
 
   it("says so when nobody is hired", async () => {
-    const result = await toolsOver([]).listPeople().run({}, { sessionId: "s-1" });
+    const result = await toolsOver([]).listPeople().run({}, anOfficeToolCall("s-1"));
 
     expect(result.text).toMatch(
       /^Nobody is hired yet\.\n\nNobody fills Planner, Developer, Reviewer/,
@@ -93,7 +94,7 @@ describe("read_role", () => {
       },
     ]).readRole();
 
-    const result = await tool.run({ role: " developer " }, { sessionId: "s-1" });
+    const result = await tool.run({ role: " developer " }, anOfficeToolCall("s-1"));
 
     expect(tool.name).toBe(READ_ROLE);
     expect(result).toEqual({
@@ -120,7 +121,7 @@ describe("read_role", () => {
   it("says when the Role runs on the Office default, with no Skills or MCP servers", async () => {
     const result = await toolsOver([{ role: aRole(), skills: [], mcpServers: [] }])
       .readRole()
-      .run({ role: "developer" }, { sessionId: "s-1" });
+      .run({ role: "developer" }, anOfficeToolCall("s-1"));
 
     expect(result.text).toContain("\nRole override: none, so the Office default\n");
     expect(result.text).toContain("\nSkills: none besides the skills for everyone\n");
@@ -132,7 +133,7 @@ describe("read_role", () => {
 
     const result = await toolsOver([{ role: ada, skills: [], mcpServers: [] }])
       .readRole()
-      .run({ role: "developer" }, { sessionId: "s-1" });
+      .run({ role: "developer" }, anOfficeToolCall("s-1"));
 
     expect(result.isError).toBe(false);
     expect(result.text.split("\n\n")[1]).toBe(
@@ -141,7 +142,7 @@ describe("read_role", () => {
   });
 
   it("refuses a Role The Office doesn't have, pointing to list_people", async () => {
-    const result = await toolsOver([]).readRole().run({ role: "janitor" }, { sessionId: "s-1" });
+    const result = await toolsOver([]).readRole().run({ role: "janitor" }, anOfficeToolCall("s-1"));
 
     expect(result).toEqual({
       text: 'The Office has no Role "janitor". list_people gives the Roles\' keys.',

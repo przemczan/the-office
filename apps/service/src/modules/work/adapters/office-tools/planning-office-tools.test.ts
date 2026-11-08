@@ -21,6 +21,7 @@ import {
   WRITE_PLAN,
   WRITE_TAGS,
 } from "./planning-office-tools.js";
+import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -62,7 +63,7 @@ async function aTaskInPlanning(): Promise<Task> {
 function call(name: string, input: Record<string, unknown>, sessionId = SESSION) {
   const [tool] = work.app.get(OfficeToolRegistry).named([name]);
   if (!tool) throw new Error(`No Office tool ${name}.`);
-  return tool.run(input, { sessionId });
+  return tool.run(input, anOfficeToolCall(sessionId));
 }
 
 function current(): Promise<Task> {

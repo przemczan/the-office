@@ -1,13 +1,13 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { OfficeTool } from "../../ports/office-tool.js";
+import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
 
 /** Runs an Office tool for a session's call, its input checked against the tool's schema by MCP. */
 export async function officeToolAnswer(
   officeTool: OfficeTool,
   input: Record<string, unknown>,
-  sessionId: string,
+  call: OfficeToolCall,
 ): Promise<CallToolResult> {
-  const result = await officeTool.run(input, { sessionId });
+  const result = await officeTool.run(input, call);
   return textAnswer(result.text, result.isError);
 }
 

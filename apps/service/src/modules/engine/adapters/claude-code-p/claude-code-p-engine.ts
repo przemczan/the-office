@@ -50,6 +50,11 @@ import { pinnedBinaryPath } from "./pinned-binary.js";
 import { SessionEndpoints, type OpenEndpoints } from "./session-endpoints.js";
 import { StreamJson } from "./stream-json.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
+import {
+  officeToolCall,
+  removeSessionTemporaryFolder,
+  type ToolDecider,
+} from "../office-rules/office-tool-call.js";
 
 /** What the engine check found the fallback can do (docs/engine-check.md, "The `-p` fallback"). */
 export const CLAUDE_CODE_P_CAPABILITIES: EngineCapabilities = {
@@ -72,6 +77,8 @@ interface SessionResources {
   readonly folder: string | undefined;
   /** The session's MCP config, when it has MCP servers or Office tools. */
   readonly mcpConfigFile: McpConfigFile | undefined;
+  /** Where the session's Office tools write files for it (`sessionTemporaryFolder`). */
+  readonly sessionId: string;
 }
 
 /**
@@ -121,6 +128,8 @@ export class ClaudeCodePEngine extends AgentEngine {
     );
     const streamEvents = new StreamEvents(options.mcpServers.map(({ name }) => name));
     const holds = { toolHold: options.toolHold, approvalHold: options.approvalHold };
+    const decide: ToolDecider = (tool, input) => toolDecision(rules, holds, tool, input);
+    const { paths } = this.operatingSystem;
     const endpoints = this.endpoints.open({
       preToolUse: officeRulesHook(rules, streamEvents.refusals, holds),
     });
@@ -129,11 +138,10 @@ export class ClaudeCodePEngine extends AgentEngine {
       officeTools:
         options.officeTools.length === 0
           ? undefined
-          : new OfficeToolServer(options.officeTools, id, (tool, input) =>
-              toolDecision(rules, holds, tool, input),
-            ),
+          : new OfficeToolServer(options.officeTools, officeToolCall(id, paths, decide), decide),
       folder: options.instructions === "" ? undefined : await instructionsFolder(options),
       mcpConfigFile: await this.mcpConfigFile(id, options),
+      sessionId: id,
     };
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     let session: ClaudeCodePSession;
@@ -216,11 +224,13 @@ async function closeResources({
   officeTools,
   folder,
   mcpConfigFile,
+  sessionId,
 }: SessionResources): Promise<void> {
   endpoints.close();
   await officeTools?.close();
   if (folder !== undefined) await rm(folder, { recursive: true, force: true });
   await mcpConfigFile?.remove();
+  await removeSessionTemporaryFolder(currentOperatingSystem().paths, sessionId);
 }
 
 /** What a session runs on and is held to. */

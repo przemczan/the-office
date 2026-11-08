@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
@@ -32,10 +34,12 @@ import type {
   StageCommandRun,
 } from "../domain/stage-command-run.js";
 import type { PublishTarget } from "../domain/stage.js";
+import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import {
   TaskCommands,
+  type AgentCommandOptions,
   type CommandWait,
   type ScriptCommandKey,
   type TaskCommandOptions,
@@ -625,6 +629,19 @@ export class TaskCommandsForTests extends TaskCommands {
    */
   waitsUntil: Promise<void> | undefined = undefined;
 
+  /** What the next Agents' commands give, in order. */
+  readonly agentCommandEnds: AgentCommandEnd[] = [];
+  /** Every Agent's command, in order. */
+  readonly agentCommands: {
+    readonly taskId: string;
+    readonly command: AgentCommand;
+    readonly outputFile: string;
+  }[] = [];
+  /** Set to make every Agent's command run until its signal stops it. */
+  agentCommandRunsUntilStopped = false;
+  /** Told as an Agent's command that runs until stopped begins. */
+  agentCommandStarted: (() => void) | undefined = undefined;
+
   install(): Promise<Installation> {
     this.observe?.("install");
     return Promise.resolve(this.installations.shift() ?? { kind: "up-to-date" });
@@ -652,6 +669,35 @@ export class TaskCommandsForTests extends TaskCommands {
       return [aCommandRun(`npm run ${key}`, "stopped")];
     }
     return this.commandRuns.shift() ?? [aCommandRun(`npm run ${key}`, "passed")];
+  }
+
+  /**
+   * Runs an Agent's command: it gives what a test put next, else the command passed, its output
+   * written to the file. While `agentCommandRunsUntilStopped`, it runs until its signal stops it,
+   * as a hung test run would, and `agentCommandStarted` is told once it runs.
+   */
+  async runForAgent(
+    _projectId: string,
+    taskId: string,
+    command: AgentCommand,
+    { signal, outputFile }: AgentCommandOptions,
+  ): Promise<AgentCommandEnd> {
+    this.agentCommands.push({ taskId, command, outputFile });
+    const commandLine = "key" in command ? `npm run ${command.key}` : command.commandLine;
+    if (this.agentCommandRunsUntilStopped) {
+      this.agentCommandStarted?.();
+      if (!signal.aborted) {
+        await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+      }
+      return { kind: "ran", run: aCommandRun(commandLine, "stopped") };
+    }
+    const end = this.agentCommandEnds.shift() ?? {
+      kind: "ran",
+      run: aCommandRun(commandLine, "passed", "1 passed"),
+    };
+    await mkdir(dirname(outputFile), { recursive: true });
+    await writeFile(outputFile, end.kind === "no-command" ? "" : end.run.wholeOutput);
+    return end;
   }
 
   /** Whether the wait ended in the command's turn, not in a stop. */
