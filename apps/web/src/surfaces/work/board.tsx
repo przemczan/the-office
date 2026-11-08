@@ -19,7 +19,7 @@ import { isOnBoard } from "./board-filters.ts";
 import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
-import { PlanButton } from "./planning-actions.tsx";
+import { MakeAPlanButton } from "./planning-actions.tsx";
 import { QueuedMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters } from "./use-board-filters.ts";
@@ -264,13 +264,14 @@ function BlockedMark({ blockers }: { readonly blockers: readonly Task[] }): Reac
 }
 
 /**
- * What a card says below its title: Plan in Backlog, how planning stands, or a state the column
- * doesn't name already; undefined when there is nothing to say.
+ * What a card says below its title: Plan in Backlog (Make a plan, so the board stays open while
+ * the Planner plans), how planning stands, or a state the column doesn't name already; undefined
+ * when there is nothing to say.
  */
 function footOf(task: Task, planner: string | undefined, waiting: boolean): ReactNode {
   switch (task.state) {
     case "backlog":
-      return planner && <PlanButton task={task} label="Plan" size="sm" />;
+      return planner && <MakeAPlanButton task={task} label="Plan" variant="secondary" size="sm" />;
     case "planning":
       return waiting ? (
         <TaskStateBadge state="waiting-on-you" />

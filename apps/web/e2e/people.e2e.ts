@@ -1698,14 +1698,10 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
     data: { title: "Sign-in returns to the page", projectId: project.id, priority: "normal" },
   });
   expect(created.status()).toBe(201);
-  await page.goto("/work");
-  await page
-    .getByRole("region", { name: "Backlog", exact: true })
-    .getByRole("article", { name: "Sign-in returns to the page" })
-    .getByRole("button", { name: "Plan", exact: true })
-    .click();
+  const task = taskSchema.parse(await created.json());
+  await page.goto(`/tasks/${task.id}`);
+  await page.getByRole("button", { name: "Plan with Jan" }).click();
 
-  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
   signIn.taskUrl = page.url();
   await expect(
     page.getByText(
@@ -1904,8 +1900,22 @@ test("the user has Jan make a plan from the title and the Description, then conf
   );
   await expect(page.getByRole("region", { name: "Before Ready" })).toHaveCount(0);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-make-a-plan.png") });
-  await conversation.getByRole("button", { name: "Make a plan" }).click();
+
+  // The card's Plan is Make a plan too: the board stays open while Jan plans.
+  await page.goto("/work");
+  await page
+    .getByRole("region", { name: "Backlog", exact: true })
+    .getByRole("article", { name: title })
+    .getByRole("button", { name: "Plan", exact: true })
+    .click();
   await expect(page.getByText(`${title} is in Planning: Jan is making a plan.`)).toBeVisible();
+  await expect(page).toHaveURL(/\/work(\?.*)?$/);
+  await expect(
+    page
+      .getByRole("region", { name: "Planning", exact: true })
+      .getByRole("article", { name: title }),
+  ).toContainText("Planning with Jan");
+  await page.goto(`/tasks/${task.id}`);
 
   // Jan starts at once, from the record, the Description in the Brief.
   await expect(

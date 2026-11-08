@@ -10,13 +10,34 @@ import {
 } from "./use-planning.ts";
 
 /**
- * "Plan with Jan" on a Task in Backlog, or `label` where the place says less; nothing while nobody
- * is the Planner, as planning would be refused.
+ * "Plan with Jan" on a Task in Backlog: opens the planning Thread for the user to talk it through
+ * first. Nothing while nobody is the Planner, as planning would be refused.
  */
-export function PlanButton({
+export function PlanButton({ task }: { readonly task: Task }): ReactNode {
+  const planner = usePlanner();
+  const planning = usePlanning();
+  if (!planner || task.state !== "backlog") return null;
+  return (
+    <Button
+      variant="secondary"
+      iconLeft={<Icon name="map" size={14} />}
+      loading={planning.isPending}
+      onClick={() => planning.mutate(task)}
+    >
+      Plan with {planner.card.name}
+    </Button>
+  );
+}
+
+/**
+ * Make a plan on a Task in Backlog, or `label` where the place says less: the Planner plans from
+ * the title and the Description at once. Nothing while nobody is the Planner, as planning would be
+ * refused.
+ */
+export function MakeAPlanButton({
   task,
-  label,
-  variant = "secondary",
+  label = "Make a plan",
+  variant = "primary",
   size,
 }: {
   readonly task: Task;
@@ -25,37 +46,17 @@ export function PlanButton({
   readonly size?: ButtonProps["size"];
 }): ReactNode {
   const planner = usePlanner();
-  const planning = usePlanning();
+  const making = useMakingAPlan();
   if (!planner || task.state !== "backlog") return null;
   return (
     <Button
       variant={variant}
       size={size}
       iconLeft={<Icon name="map" size={14} />}
-      loading={planning.isPending}
-      onClick={() => planning.mutate(task)}
-    >
-      {label ?? `Plan with ${planner.card.name}`}
-    </Button>
-  );
-}
-
-/**
- * Make a plan on a Task in Backlog: the Planner plans from the title and the Description at once.
- * Nothing while nobody is the Planner, as planning would be refused.
- */
-export function MakeAPlanButton({ task }: { readonly task: Task }): ReactNode {
-  const planner = usePlanner();
-  const making = useMakingAPlan();
-  if (!planner || task.state !== "backlog") return null;
-  return (
-    <Button
-      variant="primary"
-      iconLeft={<Icon name="map" size={14} />}
       loading={making.isPending}
       onClick={() => making.mutate(task)}
     >
-      Make a plan
+      {label}
     </Button>
   );
 }
