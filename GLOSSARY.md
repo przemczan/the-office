@@ -95,8 +95,12 @@ A free-form word on a Task, set by the user or the Planner, to find Tasks by.
 _Avoid_: Label, category; "tag" for a Mention
 
 **Archive** (a Task):
-Taking a Done or Dropped Task off the Work board, by the user or automatically once it has been finished for the days set Office-wide.
+Taking a Done or Dropped Task off the Work board, by the user or automatically once it has been finished for the Archive period.
 _Avoid_: Hide, delete, clean up
+
+**Archive period**:
+How many days a Done or Dropped Task stays on the Work board, from when it finished or was last restored, before a daily run archives it; set Office-wide in Settings › Office limits, 30 until changed.
+_Avoid_: Retention, expiry, archive delay
 
 **Archived**:
 A mark on a Done or Dropped Task that is archived; not a state, so the Task stays Done or Dropped.

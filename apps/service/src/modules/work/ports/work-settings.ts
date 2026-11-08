@@ -8,6 +8,11 @@ export abstract class WorkSettings {
 
   abstract changeOfficeWideLimit(officeWideLimit: number): Promise<void>;
 
+  /** How many days a finished or restored Task stays on the board before it is archived. */
+  abstract archivePeriod(): Promise<number>;
+
+  abstract changeArchivePeriod(archivePeriod: number): Promise<void>;
+
   /** The ticked measures and every engine id's caps. */
   abstract usageSettings(): Promise<UsageSettings>;
 

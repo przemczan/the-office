@@ -13,10 +13,13 @@ export const workSettings = pgTable(
     id: smallint("id").primaryKey().default(1),
     officeWideLimit: integer("office_wide_limit"),
     usageMeasures: text("usage_measures").array().$type<UsageMeasure[]>(),
+    /** In days. */
+    archivePeriod: smallint("archive_period"),
   },
   (table) => [
     check("work_settings_one_row", sql`${table.id} = 1`),
     check("work_settings_office_wide_limit", sql`${table.officeWideLimit} > 0`),
+    check("work_settings_archive_period", sql`${table.archivePeriod} > 0`),
   ],
 );
 

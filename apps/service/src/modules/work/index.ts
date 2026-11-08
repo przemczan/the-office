@@ -3,6 +3,7 @@ export { IdeaService } from "./application/idea-service.js";
 export { OfficeLimits } from "./application/office-limits.js";
 export { QueueService } from "./application/queue-service.js";
 export { StageScreenshots } from "./application/stage-screenshots.js";
+export { TaskArchiving } from "./application/task-archiving.js";
 export { TaskRecords } from "./application/task-records.js";
 export { TaskService } from "./application/task-service.js";
 export { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./domain/attachment-events.js";

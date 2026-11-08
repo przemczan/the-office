@@ -8,6 +8,7 @@ import {
   initiativeSchema,
   fireAlarmSchema,
   officeWideLimitSchema,
+  archivePeriodSchema,
   projectOnboardingListSchema,
   readinessSchema,
   savedViewListSchema,
@@ -31,6 +32,7 @@ import {
   type NewSavedView,
   type NewTask,
   type OfficeWideLimit,
+  type ArchivePeriod,
   type OutcomeChange,
   type OverlapChoice,
   type PlanChange,
@@ -65,6 +67,7 @@ const INITIATIVES = ["initiatives"] as const;
 export const TASKS = ["tasks"] as const;
 const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
+const ARCHIVE_PERIOD = ["settings", "archive-period"] as const;
 const USAGE_SETTINGS = ["settings", "usage"] as const;
 const SAVED_VIEWS = ["saved-views"] as const;
 /** The fire alarm and the Threads it is lifted for. */
@@ -113,6 +116,17 @@ export function changeOfficeWideLimit(officeWideLimit: number): Promise<OfficeWi
     { officeWideLimit },
     officeWideLimitSchema,
   );
+}
+
+/** Settings › Office limits: how many days a finished Task stays on the board. */
+export const archivePeriodQuery = () =>
+  queryOptions({
+    queryKey: ARCHIVE_PERIOD,
+    queryFn: ({ signal }) => getFromApi("/settings/archive-period", archivePeriodSchema, signal),
+  });
+
+export function changeArchivePeriod(archivePeriod: number): Promise<ArchivePeriod> {
+  return sendToApi("PUT", "/settings/archive-period", { archivePeriod }, archivePeriodSchema);
 }
 
 /** Settings › Office limits: the ticked measures and every engine id's caps. */
@@ -519,6 +533,7 @@ export const workEventInvalidations: Readonly<
   "saved-view.removed": () => [SAVED_VIEWS],
   // Each Task's start check reads the limit too.
   "office-wide-limit.changed": () => [OFFICE_WIDE_LIMIT, TASKS],
+  "archive-period.changed": () => [ARCHIVE_PERIOD],
   // Each Task's start check gives its Usage estimate in the ticked measures.
   "usage-settings.changed": () => [USAGE_SETTINGS, TASKS],
   // Each Task's start check reads the alarm too.

@@ -11,6 +11,7 @@ import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../..
 import type { NewProject } from "../../projects/index.js";
 import type { AccountWindowsReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
+import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import {
   countedTokens,
@@ -192,6 +193,16 @@ export class WorkSettingsForTests extends WorkSettings {
 
   async changeOfficeWideLimit(officeWideLimit: number): Promise<void> {
     this.limit = officeWideLimit;
+  }
+
+  private period = DEFAULT_ARCHIVE_PERIOD;
+
+  async archivePeriod(): Promise<number> {
+    return this.period;
+  }
+
+  async changeArchivePeriod(archivePeriod: number): Promise<void> {
+    this.period = archivePeriod;
   }
 
   private usage: UsageSettings = DEFAULT_USAGE_SETTINGS;

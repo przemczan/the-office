@@ -531,6 +531,18 @@ export const officeWideLimitSchema = z.object({
 });
 export type OfficeWideLimit = z.infer<typeof officeWideLimitSchema>;
 
+/** Settings › Office limits: the longest Archive period, in days. */
+export const ARCHIVE_PERIOD_MAX = 365;
+
+/**
+ * The Archive period: how many days a Done or Dropped Task stays on the board once finished, or
+ * once restored, before the daily run archives it (spec §2.1).
+ */
+export const archivePeriodSchema = z.object({
+  archivePeriod: z.int().min(1).max(ARCHIVE_PERIOD_MAX),
+});
+export type ArchivePeriod = z.infer<typeof archivePeriodSchema>;
+
 /** A Window cap: the % of the window a Start may bring it to. */
 export const windowCapSchema = z.int().min(1).max(100);
 
@@ -694,6 +706,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("saved-view.saved"), savedViewId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("saved-view.removed"), savedViewId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("office-wide-limit.changed") }),
+  webEventSchema.extend({ type: z.literal("archive-period.changed") }),
   /** The ticked measures or a cap changed: Settings › Office limits and the estimates read again. */
   webEventSchema.extend({ type: z.literal("usage-settings.changed") }),
   /** The fire alarm sounded, or the all clear was given: every tab reads it again, and its lifts. */

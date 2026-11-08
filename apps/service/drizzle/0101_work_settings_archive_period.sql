@@ -1,0 +1,2 @@
+ALTER TABLE "work_settings" ADD COLUMN "archive_period" smallint;--> statement-breakpoint
+ALTER TABLE "work_settings" ADD CONSTRAINT "work_settings_archive_period" CHECK ("work_settings"."archive_period" > 0);

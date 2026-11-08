@@ -19,6 +19,7 @@ import {
   ATTACHMENT_UPLOAD_ROUTES,
   AttachmentsController,
 } from "./adapters/http/attachments.controller.js";
+import { ArchivePeriodController } from "./adapters/http/archive-period.controller.js";
 import { FireAlarmController } from "./adapters/http/fire-alarm.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
@@ -70,6 +71,7 @@ import { StartsSinceReading } from "./application/starts-since-reading.js";
 import { StartService } from "./application/start-service.js";
 import { UsageEstimates } from "./application/usage-estimates.js";
 import { TaskRecords } from "./application/task-records.js";
+import { TaskArchiving } from "./application/task-archiving.js";
 import { TaskService } from "./application/task-service.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
@@ -177,6 +179,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         QueueController,
         AttachmentsController,
         OfficeLimitsController,
+        ArchivePeriodController,
         OnboardingsController,
         SearchController,
         SavedViewsController,
@@ -220,6 +223,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         IdeaService,
         InitiativeService,
         TaskService,
+        TaskArchiving,
         OfficeLimits,
         RemovedEngineCaps,
         OnboardingService,
@@ -254,6 +258,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         FireAlarmService,
         IdeaService,
         TaskService,
+        TaskArchiving,
         OfficeLimits,
         QueueService,
         TaskRecords,

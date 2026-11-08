@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import type { EngineId } from "../../../engine/index.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { DEFAULT_ARCHIVE_PERIOD } from "../../domain/task-archive.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT } from "../../domain/task-start.js";
 import { DEFAULT_USAGE_MEASURES } from "../../domain/usage-estimate.js";
 import type { EngineCaps, UsageSettings } from "../../domain/usage-settings.js";
@@ -26,6 +27,18 @@ export class PostgresWorkSettings extends WorkSettings {
       .insert(workSettings)
       .values({ officeWideLimit })
       .onConflictDoUpdate({ target: workSettings.id, set: { officeWideLimit } });
+  }
+
+  async archivePeriod(): Promise<number> {
+    const [row] = await this.database.select().from(workSettings).limit(1);
+    return row?.archivePeriod ?? DEFAULT_ARCHIVE_PERIOD;
+  }
+
+  async changeArchivePeriod(archivePeriod: number): Promise<void> {
+    await this.database
+      .insert(workSettings)
+      .values({ archivePeriod })
+      .onConflictDoUpdate({ target: workSettings.id, set: { archivePeriod } });
   }
 
   async usageSettings(): Promise<UsageSettings> {

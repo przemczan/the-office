@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { OfficeWideLimitChanged, UsageSettingsChanged } from "../domain/office-limit-events.js";
+import {
+  ArchivePeriodChanged,
+  OfficeWideLimitChanged,
+  UsageSettingsChanged,
+} from "../domain/office-limit-events.js";
 import { EngineModels } from "../../engine/index.js";
 import {
   everyEngineCaps,
@@ -32,6 +36,17 @@ export class OfficeLimits {
   async changeOfficeWideLimit(officeWideLimit: number): Promise<void> {
     await this.settings.changeOfficeWideLimit(officeWideLimit);
     await this.events.publish(new OfficeWideLimitChanged(officeWideLimit));
+  }
+
+  /** How many days a Done or Dropped Task stays on the board before it is archived (spec §2.1). */
+  archivePeriod(): Promise<number> {
+    return this.settings.archivePeriod();
+  }
+
+  /** Archives nothing by itself: the next daily run archives by the new period. */
+  async changeArchivePeriod(archivePeriod: number): Promise<void> {
+    await this.settings.changeArchivePeriod(archivePeriod);
+    await this.events.publish(new ArchivePeriodChanged(archivePeriod));
   }
 
   /** The measures Usage estimates are given in and every engine's caps (spec §2.2). */

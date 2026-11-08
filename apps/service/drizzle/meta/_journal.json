@@ -708,6 +708,13 @@
       "when": 1794134357317,
       "tag": "0100_task_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1794138783870,
+      "tag": "0101_work_settings_archive_period",
+      "breakpoints": true
     }
   ]
 }

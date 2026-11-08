@@ -1,17 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { OFFICE_WIDE_LIMIT_MAX, SIZE_THRESHOLD_TOKENS } from "@the-office/contracts";
+import {
+  ARCHIVE_PERIOD_MAX,
+  OFFICE_WIDE_LIMIT_MAX,
+  SIZE_THRESHOLD_TOKENS,
+} from "@the-office/contracts";
 import { Card } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { changeSizeThreshold, sizeThresholdQuery } from "../../../api/conversations.ts";
 import { nowQueries } from "../../../api/notifications.ts";
-import { changeOfficeWideLimit, officeWideLimitQuery } from "../../../api/work.ts";
+import {
+  archivePeriodQuery,
+  changeArchivePeriod,
+  changeOfficeWideLimit,
+  officeWideLimitQuery,
+} from "../../../api/work.ts";
 import { tokensShort } from "../../../shell/conversation/context-words.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import { Stepper } from "./stepper.tsx";
 import { UsageCard } from "./usage-card.tsx";
 
-/** Settings › Office limits: the desks, the usage measures and caps, and the size threshold. */
+/**
+ * Settings › Office limits: the desks, the usage measures and caps, the size threshold and the
+ * Archive period.
+ */
 export function OfficeLimitsSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Office limits" });
   return (
@@ -19,6 +31,7 @@ export function OfficeLimitsSection(): ReactNode {
       <DesksCard />
       <UsageCard />
       <SizeThresholdCard />
+      <ArchiveCard />
     </>
   );
 }
@@ -100,4 +113,47 @@ function SizeThresholdCard(): ReactNode {
       <SettingsProblem title="The size threshold can't be saved" error={saving.error} />
     </Card>
   );
+}
+
+function ArchiveCard(): ReactNode {
+  const queryClient = useQueryClient();
+  const period = useQuery(archivePeriodQuery());
+  const saving = useMutation({
+    mutationFn: changeArchivePeriod,
+    onSuccess: (saved) => queryClient.setQueryData(archivePeriodQuery().queryKey, saved),
+  });
+  return (
+    <Card title={<SettingsCardTitle icon="archive">Archive</SettingsCardTitle>}>
+      <div className="stepper-row">
+        <div className="stepper-row-words">
+          <b>Archive period</b>
+          <p className="settings-note">
+            Done and Dropped Tasks finished longer ago than this are archived at the next daily run,
+            including those already finished.
+          </p>
+        </div>
+        {period.data && (
+          <Stepper
+            label="the Archive period"
+            value={period.data.archivePeriod}
+            min={1}
+            max={ARCHIVE_PERIOD_MAX}
+            format={daysWords}
+            disabled={saving.isPending}
+            onChange={(archivePeriod) => saving.mutate(archivePeriod)}
+          />
+        )}
+      </div>
+      <p className="settings-note stepper-note">
+        A restored Task gets a full period again from its Restore. A change applies from the next
+        daily run.
+      </p>
+      <SettingsProblem title="The Archive period can't be read" error={period.error} />
+      <SettingsProblem title="The Archive period can't be saved" error={saving.error} />
+    </Card>
+  );
+}
+
+function daysWords(days: number): string {
+  return days === 1 ? "1 day" : `${days} days`;
 }

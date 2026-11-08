@@ -9,29 +9,47 @@ test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
 // The e2e files share one database: each limit is raised and put back, never lowered below its
 // default, so no other file's Start is refused and no Thread starts fresh meanwhile.
-test("Office limits keeps the desks and the size threshold across reloads", async ({ page }) => {
+test("Office limits keeps the desks, the size threshold and the Archive period across reloads", async ({
+  page,
+}) => {
   await page.goto("/settings/office-limits");
   const desks = page.getByRole("status", { name: "running Tasks at once" });
   const threshold = page.getByRole("status", { name: "the size threshold" });
+  const archivePeriod = page.getByRole("status", { name: "the Archive period" });
   await expect(desks).toHaveText("3");
   await expect(threshold).toHaveText("30k");
+  await expect(archivePeriod).toHaveText("30 days");
+  await expect(
+    page.getByText(
+      "Done and Dropped Tasks finished longer ago than this are archived at the next daily run, including those already finished.",
+    ),
+  ).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-office-limits.png") });
+  await archivePeriod.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-settings-office-limits-archive.png"),
+  });
 
   await page.getByRole("button", { name: "Raise running Tasks at once" }).click();
   await page.getByRole("button", { name: "Raise the size threshold" }).click();
+  await page.getByRole("button", { name: "Raise the Archive period" }).click();
   await expect(desks).toHaveText("4");
   await expect(threshold).toHaveText("35k");
+  await expect(archivePeriod).toHaveText("31 days");
   // The status strip's desks follow at once.
   await expect(page.getByText("/ 4", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(desks).toHaveText("4");
   await expect(threshold).toHaveText("35k");
+  await expect(archivePeriod).toHaveText("31 days");
 
   await page.getByRole("button", { name: "Lower running Tasks at once" }).click();
   await page.getByRole("button", { name: "Lower the size threshold" }).click();
+  await page.getByRole("button", { name: "Lower the Archive period" }).click();
   await expect(desks).toHaveText("3");
   await expect(threshold).toHaveText("30k");
+  await expect(archivePeriod).toHaveText("30 days");
 });
 
 // The e2e files share one database: the text is emptied at the end, as every other file's sessions
