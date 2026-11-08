@@ -67,6 +67,15 @@ export function RunEnvironmentBlock({ project }: { readonly project: Project }):
     },
   });
   const data = runEnvironment.data;
+  // One action's refusal shows until the next action, so the other's never shows as its own.
+  const choose = (setting: RunEnvironmentChange["runEnvironment"]): void => {
+    settingUp.reset();
+    choosing.mutate(setting);
+  };
+  const setUp = (): void => {
+    choosing.reset();
+    settingUp.mutate();
+  };
   const failure = choosing.error ?? settingUp.error ?? runEnvironment.error;
   return (
     <ProjectBlock
@@ -88,7 +97,7 @@ export function RunEnvironmentBlock({ project }: { readonly project: Project }):
                 options={SETTING_OPTIONS.map((option) => ({ ...option }))}
                 value={data.runEnvironment}
                 onChange={(setting) => {
-                  if (setting === "on" || setting === "off") choosing.mutate(setting);
+                  if (setting === "on" || setting === "off") choose(setting);
                 }}
               />
             </div>
@@ -103,11 +112,7 @@ export function RunEnvironmentBlock({ project }: { readonly project: Project }):
               <Problems problems={data.setUpProblems} />
             </div>
           )}
-          <SetUp
-            runEnvironment={data}
-            pending={settingUp.isPending}
-            onSetUp={() => settingUp.mutate()}
-          />
+          <SetUp runEnvironment={data} pending={settingUp.isPending} onSetUp={setUp} />
         </>
       )}
       {failure && <Refusal error={failure} />}
