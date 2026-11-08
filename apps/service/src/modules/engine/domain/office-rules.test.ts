@@ -183,7 +183,7 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
     });
 
     it.each([
-      "npm run verify:linux",
+      "npm run services:up",
       "cat docker-compose.yml",
       `echo "docker ps"`,
       "npm run docker",

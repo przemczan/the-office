@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "./current-operating-system.js";
 import { isRunning } from "./process-trees.fixtures.js";
 
-// Runs on whichever system the tests run on: Windows in npm run verify, Linux in verify:linux.
+// Runs on whichever system the tests run on: Windows on the workstation, Linux in a run environment.
 describe("currentOperatingSystem", () => {
   const { defaultShell } = currentOperatingSystem();
 

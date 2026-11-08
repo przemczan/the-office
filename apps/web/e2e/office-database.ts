@@ -14,8 +14,8 @@ export const E2E_ENVIRONMENT: Readonly<Record<string, string | undefined>> = {
 /** The Postgres server the end-to-end database lives on, from DATABASE_URL. */
 export const E2E_DATABASE_SERVER = new URL(required("DATABASE_URL"));
 
-// One per address the server is reached at, so the workstation (127.0.0.1) and the verify-linux
-// container (postgres) can run at once on the same compose Postgres without dropping each other's.
+// One per address the server is reached at, so runs reaching one Postgres by different addresses
+// never drop each other's; a run environment has a Postgres of its own anyway.
 export const E2E_DATABASE_NAME = `${E2E_DATABASE_SERVER.pathname.slice(1)}_e2e_${E2E_DATABASE_SERVER.hostname.replace(/\W/g, "_")}`;
 
 /** The end-to-end service's own database, recreated for every run. */

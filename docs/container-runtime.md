@@ -1,6 +1,6 @@
 # Container runtime
 
-What runs The Office's Postgres, the bundled Grafana and `npm run verify:linux` ([docker-compose.yml](../docker-compose.yml), [spec §5.2](spec/5.2-stack.md)): Docker Engine with the Compose plugin, from Docker's own apt repository, held at the versions below. The systemd unit in [running-the-office.md](running-the-office.md) needs `docker.service`.
+What runs The Office's Postgres, the bundled Grafana ([docker-compose.yml](../docker-compose.yml), [spec §5.2](spec/5.2-stack.md)) and each Task's run environment: Docker Engine with the Compose plugin, from Docker's own apt repository, held at the versions below. The systemd unit in [running-the-office.md](running-the-office.md) needs `docker.service`.
 
 ## What is installed
 
@@ -16,7 +16,7 @@ The Office's own machine (Ubuntu 24.04 x64, a Proxmox LXC guest) runs them, appr
 
 ## Why Docker Engine and not Podman
 
-The compose file, `verify:linux` and the systemd unit already run on Docker Engine, and Docker's repository gives exact versions to hold. Podman would mean moving all three, and `podman compose` covers less of the compose and devcontainer specs, which run environments (Task 62120c02) will need.
+The compose file and the systemd unit already ran on Docker Engine, and Docker's repository gives exact versions to hold. Podman would mean moving both, and `podman compose` covers less of the compose and devcontainer specs, which run environments (Task 62120c02) will need.
 
 ## Installing it on a fresh Linux machine
 
@@ -62,7 +62,7 @@ Restarting or upgrading `docker.service` stops Postgres and, through `Requires=d
 
 Reaching the runtime is reaching the workstation as root: a container can mount `/`. So the Office rules refuse an Agent's command that runs `docker`, `docker-compose`, `podman`, `podman-compose` or `nerdctl`, names a runtime's socket (`docker.sock`, `podman.sock`, `containerd.sock`), or sets `DOCKER_HOST`, `DOCKER_CONTEXT` or `CONTAINER_HOST`, in every Role and Stage; only the Caretaker with Allow changes on may (`container-runtime-commands.ts` in the engine module). No session's environment carries those variables.
 
-**Accepted limit:** the hook sees the command, not what it runs. A command that calls the runtime indirectly, such as `npm run verify:linux`, which runs `docker compose` inside npm, isn't seen, until run environments replace it (Task 62120c02). Agents run as the same OS user as the service, and spec §6 leaves a hostile Agent out of the threat model.
+**Accepted limit:** the hook sees the command, not what it runs. A command that calls the runtime indirectly, such as an npm script that runs `docker compose`, isn't seen; the-office has no such script since its Linux checks moved into run environments (Task 62120c02). Agents run as the same OS user as the service, and spec §6 leaves a hostile Agent out of the threat model.
 
 ## Windows: an open follow-up
 

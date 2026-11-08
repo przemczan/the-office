@@ -9,8 +9,8 @@ import {
 } from "../../domain/project-environment.js";
 import { ShellCommandRunner } from "./shell-command-runner.js";
 
-// Real commands in the default shell of whichever system the tests run on: cmd.exe in
-// npm run verify on Windows, sh in verify:linux.
+// Real commands in the default shell of whichever system the tests run on: cmd.exe on Windows,
+// sh on Linux and in a run environment.
 const runner = new ProjectCommandRunner(new ShellCommandRunner());
 let folder: string;
 

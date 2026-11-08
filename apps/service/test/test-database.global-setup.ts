@@ -30,7 +30,7 @@ export default async function setUpTestDatabase(
   return () => dropDatabase(serverUrl, name);
 }
 
-// npm run verify:linux sets DATABASE_URL; on the workstation it comes from .env, as for npm run dev.
+// A run environment sets DATABASE_URL; on the workstation it comes from .env, as for npm run dev.
 function databaseUrl(): string {
   const fromEnvFile = existsSync(ENV_FILE) ? parseEnv(readFileSync(ENV_FILE, "utf8")) : {};
   const url = process.env["DATABASE_URL"] || fromEnvFile["DATABASE_URL"];

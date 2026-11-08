@@ -1,0 +1,10 @@
+{
+  "name": "@the-office/service-start-check",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node src/main.ts",
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  }
+}
