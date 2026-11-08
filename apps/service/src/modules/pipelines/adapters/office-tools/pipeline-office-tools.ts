@@ -14,11 +14,7 @@ import {
 import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
 import { StageProjectCommands } from "../../application/stage-project-commands.js";
-import {
-  PROJECT_COMMAND_KEYS,
-  type AgentCommand,
-  type ProjectCommandKey,
-} from "../../domain/agent-command.js";
+import { agentCommandOf, PROJECT_COMMAND_KEYS } from "../../domain/agent-command.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
 import { ProposalDrafts } from "../../ports/proposal-drafts.js";
 import { toPipelineResponse } from "../http/pipeline-responses.js";
@@ -126,20 +122,6 @@ export class PipelineOfficeTools implements OnModuleInit {
       },
     });
   }
-}
-
-/** The command the Agent asked for, or why its ask names none. */
-function agentCommandOf(
-  key: ProjectCommandKey | undefined,
-  commandLine: string | undefined,
-): AgentCommand | string {
-  const written = commandLine?.trim() ?? "";
-  if (key !== undefined && written !== "") {
-    return "Give either command or commandLine, not both.";
-  }
-  if (key !== undefined) return { key };
-  if (written !== "") return { commandLine: written };
-  return `Give the command to run: command, one of ${PROJECT_COMMAND_KEYS.join(", ")}, or commandLine.`;
 }
 
 /** Drafts with `draft`, answering the Agent that it is drafted, or with why it was refused. */

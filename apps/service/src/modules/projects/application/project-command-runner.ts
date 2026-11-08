@@ -15,6 +15,8 @@ export interface ProjectCommand {
   readonly signal?: AbortSignal;
   /** Where its whole output is written too, as it comes. */
   readonly outputFile?: string;
+  /** Runs it in the Bash Agents have, as a line an Agent wrote, rather than the Project's shell. */
+  readonly inAgentBash?: boolean;
 }
 
 /** Runs every command The Office runs for a Project, with the Project's environment applied. */
@@ -31,6 +33,7 @@ export class ProjectCommandRunner {
     timeoutMs,
     signal,
     outputFile,
+    inAgentBash,
   }: ProjectCommand): Promise<CommandRun> {
     const finished = await this.runner.run({
       commandLine,
@@ -39,6 +42,7 @@ export class ProjectCommandRunner {
       timeoutMs,
       signal,
       outputFile,
+      inAgentBash,
     });
     return commandRunOf(commandLine, finished);
   }

@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import type { ShellProgram } from "../../../../platform/os/shell.js";
 import type { CommandOutcome } from "../../domain/command-run.js";
 import {
   CommandRunner,
@@ -33,7 +34,7 @@ type Ending =
   | { readonly kind: "not-started" };
 
 /**
- * Runs a command line in the platform's default shell, ending its whole tree when time runs out
+ * Runs a command line in the platform's default shell, or the Bash Agents have, ending its whole tree when time runs out
  * or it is stopped.
  */
 @Injectable()
@@ -68,8 +69,8 @@ export class ShellCommandRunner extends CommandRunner {
   }
 
   private runToEnd(command: CommandToRun, output: (chunk: Buffer) => void): Promise<Ending> {
-    const { defaultShell, processTrees } = this.operatingSystem;
-    const invocation = defaultShell.invocation(command.commandLine);
+    const invocation = this.shellOf(command).invocation(command.commandLine);
+    const { processTrees } = this.operatingSystem;
     if (command.signal?.aborted) {
       return Promise.resolve({ kind: "exited", exitCode: null, endedBy: "stop" });
     }
@@ -116,7 +117,8 @@ export class ShellCommandRunner extends CommandRunner {
     if (ending.endedBy === "timeout") return "timed-out";
     if (ending.endedBy === "stop") return "stopped";
     if (ending.exitCode === 0) return "passed";
-    if (ending.exitCode === null) return "failed";
+    // Only the Project's shell tells a command it couldn't run from one that failed.
+    if (ending.exitCode === null || command.inAgentBash === true) return "failed";
     const couldNotRun = await this.operatingSystem.defaultShell.couldNotRun({
       commandLine: command.commandLine,
       exitCode: ending.exitCode,
@@ -124,6 +126,14 @@ export class ShellCommandRunner extends CommandRunner {
       environment: command.environment,
     });
     return couldNotRun ? "could-not-run" : "failed";
+  }
+
+  private shellOf({ inAgentBash }: CommandToRun): ShellProgram {
+    const { defaultShell, agentShells } = this.operatingSystem;
+    if (inAgentBash !== true) return defaultShell;
+    const bash = agentShells.find(({ shell }) => shell === "bash");
+    if (bash === undefined) throw new Error("This platform gives Agents no Bash.");
+    return bash;
   }
 }
 

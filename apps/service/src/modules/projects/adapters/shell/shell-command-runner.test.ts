@@ -102,6 +102,19 @@ describe("ProjectCommandRunner with ShellCommandRunner", () => {
     });
   });
 
+  it("runs a line an Agent wrote in the Bash Agents have, not the Project's shell", async () => {
+    const commandRun = await runner.run({
+      commandLine: 'echo "bash ${BASH_VERSINFO[0]}"',
+      folder,
+      environment: UNCHANGED_ENVIRONMENT,
+      timeoutMs: 20_000,
+      inAgentBash: true,
+    });
+
+    expect(commandRun).toMatchObject({ outcome: "passed" });
+    expect(commandRun.output.trim()).toMatch(/^bash \d+$/);
+  });
+
   it("runs with the Project's environment and without The Office's own variables", async () => {
     vi.stubEnv("LEFT_OVER", "inherited");
     vi.stubEnv("NODE_ENV", "production");

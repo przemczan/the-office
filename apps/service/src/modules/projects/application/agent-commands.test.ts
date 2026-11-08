@@ -189,6 +189,20 @@ describe("AgentCommands.run", REAL_GIT_TEST, () => {
     );
   });
 
+  it("runs a command line in the Bash its Office rules judged it as, on every platform", async () => {
+    const task = await aTask();
+
+    const end = await agentCommands.run(
+      task.project,
+      task.taskId,
+      { commandLine: 'echo "bash ${BASH_VERSINFO[0]}"' },
+      options(task.taskId),
+    );
+
+    expect(end).toMatchObject({ kind: "ran", run: { outcome: "passed" } });
+    await expect(readFile(outputFileOf(task.taskId), "utf8")).resolves.toMatch(/^bash \d+\n$/);
+  });
+
   it("runs nothing for a key the Project has no command for", async () => {
     const task = await aTask();
 

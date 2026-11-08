@@ -9,6 +9,23 @@ export type ProjectCommandKey = (typeof PROJECT_COMMAND_KEYS)[number];
 export type AgentCommand = { readonly key: ProjectCommandKey } | { readonly commandLine: string };
 
 /**
+ * The command an Agent asked for with the tool's two inputs, or why its ask names none: it gives
+ * exactly one of them.
+ */
+export function agentCommandOf(
+  key: ProjectCommandKey | undefined,
+  commandLine: string | undefined,
+): AgentCommand | string {
+  const written = commandLine?.trim() ?? "";
+  if (key !== undefined && written !== "") {
+    return "Give either command or commandLine, not both.";
+  }
+  if (key !== undefined) return { key };
+  if (written !== "") return { commandLine: written };
+  return `Give the command to run: command, one of ${PROJECT_COMMAND_KEYS.join(", ")}, or commandLine.`;
+}
+
+/**
  * How an Agent's command went: the Project has no command by that key, the install before it
  * didn't pass so it didn't run, or it ran.
  */

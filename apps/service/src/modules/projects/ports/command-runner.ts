@@ -12,6 +12,11 @@ export interface CommandToRun {
   readonly signal?: AbortSignal;
   /** Where its whole output is written too, as it comes; the file is made or replaced. */
   readonly outputFile?: string;
+  /**
+   * Runs it in the Bash Agents have, not the Project's shell: a line an Agent wrote, judged by its
+   * Office rules as that Bash would run it, so cmd.exe can't read it another way.
+   */
+  readonly inAgentBash?: boolean;
 }
 
 export interface FinishedCommand {

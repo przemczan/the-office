@@ -36,8 +36,8 @@ const AGENT_COMMAND_TIMEOUT_MS = 30 * 60_000;
  * tool") in the Task's worktree, where the Project's Run environment setting says, as a Script
  * Stage's command runs: after an install when its inputs changed, waiting for a free run
  * environment. Unlike a Script Stage's, what it writes stays in the worktree, as the Agent's own
- * shell would leave it. A command line is run as given: whether the Agent may run it is the
- * caller's to decide.
+ * shell would leave it. A command line is run as given, on the host in the Bash Agents have:
+ * whether the Agent may run it is the caller's to decide, judged as that Bash would run it.
  */
 @Injectable()
 export class AgentCommands {
@@ -70,6 +70,7 @@ export class AgentCommands {
       signal,
       wait,
       outputFile,
+      writtenByAgent: key === undefined,
     });
     return { kind: "ran", run };
   }

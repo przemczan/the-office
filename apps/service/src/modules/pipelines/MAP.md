@@ -143,7 +143,7 @@ AlarmResumes, PipelineLibrary, StageResultWords, TaskStagesService, UsageHistory
 
 ### domain/
 
-- `agent-command.ts`: PROJECT_COMMAND_KEYS, ProjectCommandKey, AgentCommand, AgentCommandEnd, agentCommandAnswer
+- `agent-command.ts`: PROJECT_COMMAND_KEYS, ProjectCommandKey, AgentCommand, agentCommandOf, AgentCommandEnd, agentCommandAnswer
 - `agent-stage-brief.ts`: AGENT_STAGE_INSTRUCTIONS, BriefTask, EarlierResult, AgentStageRecord, agentStageRecord, AnsweredQuestion, CarriedRound, StageWorkReasons, HeldRun, agentStageWork, stageResultWords, earlierResults
 - `alarm-resume.ts`: ResumeKind, TaskResume, WalkAhead, SessionAhead, walkAhead, taskResumeOf
 - `allowed-commands.ts`: RunPermission, CommandPermission, AllowedCommands, allowedCommands
@@ -180,7 +180,7 @@ AlarmResumes, PipelineLibrary, StageResultWords, TaskStagesService, UsageHistory
 - `test-results.ts`: TestResultState, TestResult, latestTestResults
 - `usage-history.ts`: HISTORY_TASKS, StageUsage, StageUsages, PricedTokens, ModelTokens, countedTokens, latestTasksRuns, stageUsages, tokensByModel, dollarsPerToken
 - `walk-decisions.ts`: DecisionAnswer, WalkDecision, walkDecision, walkAnswerOf, asksTheCtoFirst, agentDecision, AcceptedIssue, acceptedIssues
-- Tests: agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, library-pipeline.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, task-stages.test.ts, test-results.test.ts, usage-history.test.ts, walk-decisions.test.ts
+- Tests: agent-command.test.ts, agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, library-pipeline.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, task-stages.test.ts, test-results.test.ts, usage-history.test.ts, walk-decisions.test.ts
 
 ### ports/
 

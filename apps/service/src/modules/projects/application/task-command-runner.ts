@@ -26,6 +26,11 @@ export interface TaskCommand {
   readonly wait?: CommandWait;
   /** Where its whole output is written too, as it comes. */
   readonly outputFile?: string;
+  /**
+   * A line an Agent wrote: on the host it runs in the Bash Agents have, which its Office rules
+   * judged it as; a run environment runs every command in its own sh.
+   */
+  readonly writtenByAgent?: boolean;
 }
 
 /**
@@ -51,7 +56,7 @@ export class TaskCommandRunner {
     project: Project,
     taskId: string,
     worktree: string,
-    { commandLine, timeoutMs, signal, wait, outputFile }: TaskCommand,
+    { commandLine, timeoutMs, signal, wait, outputFile, writtenByAgent }: TaskCommand,
   ): Promise<CommandRun> {
     if (project.runEnvironment !== "on") {
       return this.host.run({
@@ -61,6 +66,7 @@ export class TaskCommandRunner {
         timeoutMs,
         signal,
         outputFile,
+        inAgentBash: writtenByAgent,
       });
     }
     const finished = await this.runEnvironments.run(
