@@ -3,6 +3,8 @@
 // after the script, so a test's process mark is on both command lines.
 //   --silent  never answers, writing `server <id>` and `started <id>` to its standard error
 //   --fail    writes why to its standard error, with $FAKE_TOKEN, and ends at once
+//   --fail-after-its-end  ends at once, leaving a process that writes why to its standard error
+//             once it has ended, then ends too
 import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -13,6 +15,20 @@ const flags = new Set(process.argv.slice(2));
 if (flags.has("--fail")) {
   // A real server may well echo its token, so the reviews' hiding of secrets is tested on it.
   process.stderr.write(`The fake server was told to fail (token ${process.env.FAKE_TOKEN}).\n`);
+  process.exit(1);
+}
+
+if (flags.has("--fail-after-its-end")) {
+  const server = process.pid;
+  const ended = `() => { try { process.kill(${server}, 0); return false; } catch { return true; } }`;
+  spawn(
+    process.execPath,
+    [
+      "-e",
+      `const ended = ${ended}; const tell = () => ended() ? process.stderr.write("The fake server failed after its end.\\n") : setTimeout(tell, 10); tell();`,
+    ],
+    { stdio: ["ignore", "ignore", "inherit"] },
+  ).unref();
   process.exit(1);
 }
 

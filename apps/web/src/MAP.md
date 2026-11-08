@@ -187,7 +187,8 @@
 - `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_COMMANDS, addStage, removeStage, canMove, moveStage, replaceStage, withRole, withCommand, canContinue, failureTargets
 - `stage-permission-fields.tsx`: StagePermissionFields
 - `stage-permissions.ts`: narrowerRuns, narrowerSettings, withPermissions, withMcpToolSetting
-- Tests: pipeline-words.test.ts, stage-edits.test.ts, stage-permissions.test.ts
+- `stages-check.ts`: StagesCheckState, checkAwaited
+- Tests: pipeline-words.test.ts, stage-edits.test.ts, stage-permissions.test.ts, stages-check.test.ts
 
 ### shell/project-filter/
 

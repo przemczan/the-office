@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { OfficeUpdateCancelled } from "../../office-updates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { UsageWindowsRead } from "../../engine/index.js";
 import { RoleCardChanged } from "../../people/index.js";
 import { AllClearGiven } from "../domain/fire-alarm-events.js";
@@ -25,9 +26,6 @@ import { TaskRepository } from "../ports/task-repository.js";
 import { StartConditionsReader } from "./start-conditions.js";
 import { StartsSinceReading } from "./starts-since-reading.js";
 
-/** The longest delay `setTimeout` keeps, about 24.8 days. */
-const LONGEST_TIMER = 2 ** 31 - 1;
-
 /**
  * The one Office-wide queue for Start (spec §2.1, "A queue for Start"): its Tasks start by
  * themselves, first place first among those that can, whenever a blocker may have ended, a desk or
@@ -38,7 +36,7 @@ const LONGEST_TIMER = 2 ** 31 - 1;
 export class QueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(QueueService.name);
   /** The next release for the caps holding a waiting Task. */
-  private capTimer: NodeJS.Timeout | undefined;
+  private capRelease: Wait | undefined;
 
   constructor(
     private readonly queue: QueueRepository,
@@ -46,6 +44,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     private readonly conditions: StartConditionsReader,
     private readonly startsSinceReading: StartsSinceReading,
     private readonly events: EventBus,
+    private readonly schedule: Schedule,
   ) {}
 
   onModuleInit(): void {
@@ -73,12 +72,12 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       this.startsSinceReading.forgetUntil(engineId, readAt);
       return this.release();
     });
-    // A Task a cap holds sets the timer for when the cap resets.
+    // A Task a cap holds sets the release for when the cap resets.
     this.events.subscribe(TaskQueued, () => this.release());
   }
 
   onModuleDestroy(): void {
-    clearTimeout(this.capTimer);
+    this.capRelease?.cancel();
   }
 
   /** The queue, first place first. */
@@ -95,12 +94,12 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     const { started, refused, reasonsChanged, capResets } = await this.queue.release(
       (queue, held) => releaseQueue(queue, held, (taskId) => conditions.get(taskId)),
     );
-    const startedAt = new Date();
+    const startedAt = this.schedule.now();
     for (const { task } of started) {
       const estimate = conditions.get(task.id)?.usage.estimate;
       if (estimate) this.startsSinceReading.record(startedAt, estimate);
     }
-    this.setCapTimer(capResets, weighedAt(conditions));
+    this.setCapRelease(capResets, this.weighedAt(conditions));
     for (const { task, event } of started) {
       await this.events.publish(new TaskLeftQueue(task.id, "started"));
       await this.events.publish(event);
@@ -136,20 +135,20 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   /**
    * An hour before, and at, the next reset that frees a Task a cap holds. The next release counts
    * from when the caps were weighed: a moment that passed since then releases at once, rather than
-   * holding the Task until the next one. A timer longer than Node keeps releases at its longest and
-   * is set again then.
+   * holding the Task until the next one.
    */
-  private setCapTimer(capResets: readonly Date[], weighed: Date): void {
-    clearTimeout(this.capTimer);
+  private setCapRelease(capResets: readonly Date[], weighed: Date): void {
+    this.capRelease?.cancel();
     const releaseAt = nextCapRelease(capResets, weighed);
-    if (!releaseAt) return;
-    const delay = Math.min(Math.max(0, releaseAt.getTime() - Date.now()), LONGEST_TIMER);
-    this.capTimer = setTimeout(() => {
-      this.release().catch((error: unknown) => {
-        this.logger.error(`The release for a cap's reset failed: ${String(error)}`);
-      });
-    }, delay);
-    this.capTimer.unref();
+    this.capRelease =
+      releaseAt &&
+      this.schedule.once("The release for a cap's reset", releaseAt, () => this.release());
+  }
+
+  /** The earliest moment the queued Tasks' caps were weighed at; now when none was. */
+  private weighedAt(conditions: ReadonlyMap<string, StartConditions>): Date {
+    const moments = [...conditions.values()].map(({ usage }) => usage.now.getTime());
+    return moments.length === 0 ? this.schedule.now() : new Date(Math.min(...moments));
   }
 
   /** Read before the hold, as Start reads them: they live in other modules. */
@@ -159,10 +158,4 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     );
     return this.conditions.ofEach(queued.filter((task) => task !== undefined));
   }
-}
-
-/** The earliest moment the queued Tasks' caps were weighed at; now when none was. */
-function weighedAt(conditions: ReadonlyMap<string, StartConditions>): Date {
-  const moments = [...conditions.values()].map(({ usage }) => usage.now.getTime());
-  return moments.length === 0 ? new Date() : new Date(Math.min(...moments));
 }

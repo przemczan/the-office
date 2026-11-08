@@ -343,7 +343,13 @@ test.describe("losing the service", () => {
       const roles = (await (await route.fetch()).json()) as { readonly key: string }[];
       await route.fulfill({ json: roles.filter(({ key }) => key !== "office-manager") });
     });
+    // The Notifications open as the page loads are counted, not shown: "service down" raised
+    // before they are read would be one of them, so the stream is lost only once they are.
+    const openRead = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === "/api/notifications" && response.ok(),
+    );
     await page.goto("/now");
+    await openRead;
     const strip = page.getByRole("status", { name: "Status strip" });
     await expect(strip).toContainText("tokens today");
     const unread = async (): Promise<number> =>

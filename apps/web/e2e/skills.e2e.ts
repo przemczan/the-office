@@ -44,6 +44,19 @@ async function openAddASkill(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Add a skill" }).click();
 }
 
+/**
+ * Clicks Upload and waits for the service's answer. The upload writes the skill's folder and moves
+ * it into place, which on a loaded Windows machine waits for a scanner holding a file there.
+ */
+async function upload(page: Page): Promise<void> {
+  const uploaded = page.waitForResponse(
+    (response) =>
+      /\/api\/skills\/uploads(\?|$)/.test(response.url()) && response.request().method() === "POST",
+  );
+  await page.getByRole("dialog").getByRole("button", { name: "Upload" }).click();
+  expect((await uploaded).status()).toBe(201);
+}
+
 function row(page: Page, name: string) {
   return page.getByRole("row").filter({ hasText: name });
 }
@@ -111,7 +124,7 @@ test("the user uploads a .md and a zipped folder; each arrives off", async ({ pa
     mimeType: "text/markdown",
     buffer: Buffer.from(skillMd("tdd", "Test first: red, green, refactor.")),
   });
-  await dialog.getByRole("button", { name: "Upload" }).click();
+  await upload(page);
   await expect(page.getByText("tdd uploaded. It is off until you review it.")).toBeVisible();
 
   await page.getByRole("button", { name: "Add a skill" }).click();
@@ -124,7 +137,7 @@ test("the user uploads a .md and a zipped folder; each arrives off", async ({ pa
       { path: "collect/scripts/collect.sh", text: "#!/bin/sh\ngit log --merges\n" },
     ]),
   });
-  await dialog.getByRole("button", { name: "Upload" }).click();
+  await upload(page);
   await expect(page.getByText("collect uploaded. It is off until you review it.")).toBeVisible();
 
   await expect(row(page, "tdd")).toContainText("Uploaded · one file");

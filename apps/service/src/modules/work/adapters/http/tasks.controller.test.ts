@@ -34,6 +34,8 @@ import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
+import { Schedule } from "../../../../platform/schedule/schedule.js";
+import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { PostgresTaskRepository } from "../postgres/postgres-task-repository.js";
 import { changeStartedTaskState } from "../../domain/task-changes.js";
 import { STARTED_STATES } from "../../domain/task-states.js";
@@ -1670,16 +1672,20 @@ describe("Usage estimates", () => {
 
 const HOUR = 60 * 60 * 1000;
 
-/** The 5-hour window read now at `percentUsed`, resetting `resetsIn` from now; desks to spare. */
+/**
+ * The 5-hour window read now, by The Office's clock, at `percentUsed`, resetting `resetsIn` from
+ * now; desks to spare.
+ */
 async function windowRead(percentUsed: number, resetsIn: number): Promise<void> {
+  const now = work.app.get(Schedule).now();
   work.app.get(AccountWindowRatiosForTests).windowRatios = {
     fiveHour: 0.0001,
     sevenDay: undefined,
   };
   await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
   work.app.get(AccountWindowsForTests).reading = {
-    readAt: new Date(),
-    fiveHour: { percentUsed, resetsAt: new Date(Date.now() + resetsIn) },
+    readAt: now,
+    fiveHour: { percentUsed, resetsAt: new Date(now.getTime() + resetsIn) },
     sevenDay: { percentUsed: 0, resetsAt: undefined },
   };
 }
@@ -1688,7 +1694,7 @@ async function newReading(): Promise<void> {
   const windows = work.app.get(AccountWindowsForTests);
   const reading = windows.reading;
   if (!reading) throw new Error("No reading to read again.");
-  windows.reading = { ...reading, readAt: new Date() };
+  windows.reading = { ...reading, readAt: work.app.get(Schedule).now() };
   const { readAt, fiveHour, sevenDay } = windows.reading;
   await work.app
     .get(EventBus)
@@ -1745,16 +1751,16 @@ describe("Window caps", () => {
   });
 
   it("releases a Task the window holds an hour before the window resets", async () => {
-    // Read after making the Task, so the 500 ms margin covers only the Start.
+    const schedule = work.app.get(Schedule) as ManualSchedule;
+    schedule.setTime(new Date());
     const task = await sixPercentTask();
-    await windowRead(95, HOUR + 500);
+    await windowRead(95, HOUR + 1);
 
     const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
 
     expect(answer.task.state).toBe("ready");
-    await vi.waitFor(async () => expect((await readTask(task.id)).state).toBe("in-progress"), {
-      timeout: 5000,
-    });
+    await schedule.advanceBy(1);
+    expect((await readTask(task.id)).state).toBe("in-progress");
   });
 
   it("holds a Task with no estimate only when the use and the Tasks started since pass the cap", async () => {

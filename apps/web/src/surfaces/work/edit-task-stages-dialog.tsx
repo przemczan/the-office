@@ -16,6 +16,7 @@ import { projectQueries } from "../../api/projects.ts";
 import { setPipeline } from "../../api/work.ts";
 import { StageEditor } from "../../shell/pipelines/stage-editor.tsx";
 import type { StageCommand } from "../../shell/pipelines/stage-edits.ts";
+import { checkAwaited } from "../../shell/pipelines/stages-check.ts";
 import { publishingLabel } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -111,7 +112,7 @@ function EditTaskStagesForm({
     },
   });
   const notStarted = NOT_STARTED.includes(task.state);
-  const editWaits = edited && (problems.length > 0 || check.isFetching);
+  const editWaits = edited && (problems.length > 0 || checkAwaited(check));
   const lockedNotes = (taskStages.stages ?? [])
     .slice(0, taskStages.lockedStages)
     .map(({ state }) => `${STAGE_STATE_WORDS[state]}: started, so it can't be changed`);

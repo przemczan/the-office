@@ -23,6 +23,7 @@ export class ProgramStdioTransport implements Transport {
 
   private child: ChildProcessWithoutNullStreams | undefined;
   private exited: Promise<void> = Promise.resolve();
+  private outputRead: Promise<void> = Promise.resolve();
   private readonly readBuffer = new ReadBuffer();
   private outputTail = "";
   private closing: Promise<void> | undefined;
@@ -48,6 +49,12 @@ export class ProgramStdioTransport implements Transport {
         child.once("exit", () => ended());
         child.once("error", () => ended());
       });
+      // Node may tell of the exit before the server's last words on its standard error are read;
+      // "close" comes once its output has ended, every process holding it gone.
+      this.outputRead = new Promise((read) => {
+        child.once("close", () => read());
+        child.once("error", () => read());
+      });
       child.once("spawn", () => {
         spawned = true;
         resolve();
@@ -57,7 +64,7 @@ export class ProgramStdioTransport implements Transport {
         else reject(error);
         this.notifyClosed();
       });
-      child.once("exit", () => this.notifyClosed());
+      child.once("close", () => this.notifyClosed());
       child.stdin.on("error", (error) => this.onerror?.(error));
       child.stdout.on("data", (chunk: Buffer) => this.read(chunk));
       child.stderr.setEncoding("utf8");
@@ -98,6 +105,7 @@ export class ProgramStdioTransport implements Transport {
       await this.processTrees.end(processId).catch(() => undefined);
     }
     await this.processTrees.endLeftovers(processId).catch(() => undefined);
+    await this.outputRead;
     this.notifyClosed();
   }
 
