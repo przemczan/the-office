@@ -24,11 +24,11 @@ import { StageRunners } from "./stage-runners.js";
 /**
  * Runs Script Stages (spec §2.3): the Stage's Project command in the Task's worktree with the
  * Project's environment and no model call, after the dependencies' install, on the host or in the
- * Task's run environment; a wait for a free one is saved on the run until the command starts. The commands' runs are
- * recorded on the Stage run, and the last one's result is its outcome. git is checked before and
- * after (spec §5.5); a test run leaves the worktree restored, so only a build or lint commits what
- * it changed. A command can't be stopped by the user (spec §2.4): only The Office shutting down
- * stops it, which ends the run interrupted. Publish is The Office's own git (PublishStage).
+ * Task's run environment; a wait for a free one is saved on the run until the command starts. The
+ * commands' runs are recorded on the Stage run, and the last one's result is its outcome. git is
+ * checked before and after (spec §5.5); a test run leaves the worktree restored, so only a build or
+ * lint commits what it changed. A command can't be stopped by the user (spec §2.4): only The Office
+ * shutting down stops it, which ends the run interrupted. Publish is The Office's own git (PublishStage).
  */
 @Injectable()
 export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
