@@ -138,8 +138,8 @@ export class RunEnvironments implements OnModuleInit {
   }
 
   /**
-   * Runs the check in the service. A runtime failure, such as the service gone, leaves the Task's
-   * run environment for the next check to start again, and frees its slot.
+   * Runs the check in the service. A runtime failure, such as the service gone, stops the Task's
+   * run environment, freeing its slot, for the next check to start again.
    */
   private async execute(
     task: TaskInWorktree,
@@ -162,8 +162,10 @@ export class RunEnvironments implements OnModuleInit {
       );
     } catch (error) {
       if (!(error instanceof ContainerRuntimeFailed)) throw error;
-      this.running.delete(task.taskId);
-      await this.slots.release(task.taskId);
+      // Stopped, not just forgotten, so no service left running passes Run environments at once.
+      await this.stopNow(task.taskId).catch((stopError: unknown) => {
+        this.logger.warn(`The run environment of the Task ${task.taskId} didn't stop.`, stopError);
+      });
       throw new RunEnvironmentRefused(
         ["The check couldn't run in the run environment.", error.message],
         command.outputFile,

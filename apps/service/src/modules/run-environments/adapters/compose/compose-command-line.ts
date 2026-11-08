@@ -280,11 +280,19 @@ export class ComposeCommandLine extends ContainerRuntime {
     );
     const stdout = new BoundedText(LISTING_LIMIT_BYTES);
     const errorTail = new BoundedText(ERROR_TAIL_BYTES);
-    child.stdout.on("data", (chunk: Buffer) => (output ? output.write(chunk) : stdout.add(chunk)));
-    child.stderr.on("data", (chunk: Buffer) => {
-      output?.write(chunk);
-      errorTail.add(chunk);
-    });
+    let outputFailed: Error | undefined;
+    if (output) {
+      // Piped, so a slow disk holds the command back instead of its output filling memory.
+      child.stdout.pipe(output, { end: false });
+      child.stderr.pipe(output, { end: false });
+      output.on("error", (error) => {
+        outputFailed ??= error;
+        if (child.pid !== undefined) void processTrees.end(child.pid);
+      });
+    } else {
+      child.stdout.on("data", (chunk: Buffer) => stdout.add(chunk));
+    }
+    child.stderr.on("data", (chunk: Buffer) => errorTail.add(chunk));
 
     let endedBy: "timeout" | "stop" | undefined;
     const end = (reason: "timeout" | "stop"): void => {
@@ -304,9 +312,16 @@ export class ComposeCommandLine extends ContainerRuntime {
     });
     clearTimeout(timer);
     invocation.signal?.removeEventListener("abort", stop);
-    if (output) {
+    if (output && outputFailed === undefined) {
       output.end();
-      await finished(output);
+      await finished(output).catch((error: unknown) => {
+        outputFailed ??= error instanceof Error ? error : new Error(String(error));
+      });
+    }
+    if (outputFailed !== undefined) {
+      throw new ContainerRuntimeFailed(
+        `The output couldn't be written to ${invocation.outputFile}. ${outputFailed.message}`,
+      );
     }
     return {
       exitCode: endedBy === undefined ? exitCode : undefined,

@@ -283,7 +283,7 @@ describe("RunEnvironments.run", () => {
     expect(onWaiting).not.toHaveBeenCalled();
   });
 
-  it("frees the slot when the check can't run in it, and starts it again at the next", async () => {
+  it("stops the run environment and frees its slot when the check can't run in it", async () => {
     const first = await taskWithDefinition("task-1");
     const second = await taskWithDefinition("task-2");
     runtime.failing.add("exec");
@@ -295,6 +295,8 @@ describe("RunEnvironments.run", () => {
     await testbed.environments.run(second, command(outputOf("second"), { onWaiting }));
 
     expect(onWaiting).not.toHaveBeenCalled();
+    const firstName = composeProjectNameOf(testbed.folders.instance, "task-1");
+    expect(runtime.projects.get(firstName)?.state).toBe("stopped");
   });
 
   it("gives up waiting when stopped", async () => {
