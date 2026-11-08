@@ -2,11 +2,12 @@ import type { Task } from "@the-office/contracts";
 import { Badge, Button, Icon, type ButtonProps } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { dayOf } from "../../shell/time.ts";
+import { isArchived } from "../../shell/work/work-words.ts";
 import { useRestoring } from "./use-task-archive.ts";
 
 /** "Archived 25 Oct" beside the state, on an archived Task; nothing on one on the board. */
 export function ArchivedBadge({ task }: { readonly task: Task }): ReactNode {
-  if (task.archivedAt === null) return null;
+  if (!isArchived(task)) return null;
   return (
     <Badge tone="neutral">
       <Icon name="archive" size={12} />
@@ -24,7 +25,7 @@ export function RestoreButton({
   readonly size?: ButtonProps["size"];
 }): ReactNode {
   const restoring = useRestoring();
-  if (task.archivedAt === null) return null;
+  if (!isArchived(task)) return null;
   return (
     <Button
       variant="secondary"

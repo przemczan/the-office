@@ -11,6 +11,7 @@ import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { dayOf } from "../../shell/time.ts";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import type { Archived } from "../../shell/work/work-words.ts";
 import { RestoreButton } from "./archive-parts.tsx";
 import { archivedTasks } from "./archive-words.ts";
 
@@ -39,7 +40,7 @@ export function ArchivedTasks(): ReactNode {
   );
 }
 
-function columnsFor(projects: readonly Project[] | undefined): DataTableColumn<Task>[] {
+function columnsFor(projects: readonly Project[] | undefined): DataTableColumn<Task & Archived>[] {
   return [
     {
       key: "task",
@@ -61,7 +62,7 @@ function columnsFor(projects: readonly Project[] | undefined): DataTableColumn<T
       key: "archivedAt",
       header: "Archived",
       muted: true,
-      render: (task) => (task.archivedAt === null ? null : dayOf(task.archivedAt)),
+      render: (task) => dayOf(task.archivedAt),
     },
     {
       key: "restore",

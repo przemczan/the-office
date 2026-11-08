@@ -229,5 +229,5 @@
 - `use-idea-planning.ts`: useIdeaPlanning, useOnPlanned
 - `use-planner.ts`: usePlanner
 - `waiting-on-you.ts`: waitsOnYou, waitsOnYouInItsState, useWaitingOnYou, useWaitingOnYouInItsState
-- `work-words.ts`: TASK_STATE_NAMES, STOPPED, taskStateWords, isArchived, canBeArchived, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName, reportedMetCount, projectIdsOfIdea
+- `work-words.ts`: TASK_STATE_NAMES, STOPPED, taskStateWords, Archived, isArchived, canBeArchived, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName, reportedMetCount, projectIdsOfIdea
 - Tests: gate-card-words.test.ts, gate-words.test.ts, usage-estimate-words.test.ts, waiting-on-you.test.ts, work-words.test.ts

@@ -34,11 +34,18 @@ export function taskStateWords(
   return stopped ? STOPPED : TASK_STATE_NAMES.paused;
 }
 
+/** A Task in the Archive, with the moment it was archived. */
+export interface Archived {
+  readonly archivedAt: string;
+}
+
 /**
  * Whether the Task is in the Archive: a mark beside its state, never a state, that takes it off the
  * board and its lists (spec §2.1); blockers, Initiatives and Usage estimates still read it.
  */
-export function isArchived(task: Pick<Task, "archivedAt">): boolean {
+export function isArchived<Archivable extends Pick<Task, "archivedAt">>(
+  task: Archivable,
+): task is Archivable & Archived {
   return task.archivedAt !== null;
 }
 
