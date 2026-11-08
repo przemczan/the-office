@@ -124,6 +124,12 @@ export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
  */
 export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
 
+/**
+ * The Office tool that reads a Role's whole card, which People registers: whoever drafts a change
+ * gives each field whole, and their session's copy of the card may be old or lack the instructions.
+ */
+export const READ_ROLE_TOOL = "read_role";
+
 /** The Office tool the Office Manager points the user to someone with, a Link card; named as above. */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
@@ -175,6 +181,7 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
     ? [
         ...CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task"),
         PROPOSE_ROLE_TOOL,
+        READ_ROLE_TOOL,
         PROPOSE_OFFICE_SETTING_TOOL,
         READ_OFFICE_INSTRUCTIONS_TOOL,
         POST_LINK_CARD_TOOL,
@@ -249,7 +256,7 @@ export const CHANGE_ROLE_TOOL = "change_role";
 /**
  * The Office tools a session gets: its place's; `remember` when its card has Shared memory; and
  * `change_role` on a Task, where a held call has a Thread to wait in, unless its Change Roles is
- * Never.
+ * Never, with `read_role` to start the change from.
  */
 export function sessionOfficeTools(
   placeTools: readonly string[],
@@ -265,7 +272,9 @@ export function sessionOfficeTools(
   return [
     ...placeTools,
     ...(capabilities.sharedMemory ? [REMEMBER_TOOL] : []),
-    ...(onTask && hardSwitches.changeRoles.kind !== "never" ? [CHANGE_ROLE_TOOL] : []),
+    ...(onTask && hardSwitches.changeRoles.kind !== "never"
+      ? [CHANGE_ROLE_TOOL, ...(placeTools.includes(READ_ROLE_TOOL) ? [] : [READ_ROLE_TOOL])]
+      : []),
   ];
 }
 

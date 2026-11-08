@@ -22,6 +22,7 @@ import {
   POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  READ_ROLE_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL,
@@ -153,6 +154,12 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_ROLE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
+  });
+
+  it("gives the Office Manager reading a Role's whole card, to draft a change from", () => {
+    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(READ_ROLE_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(READ_ROLE_TOOL);
+    expect(chatOfficeTools(DEVOPS)).not.toContain(READ_ROLE_TOOL);
   });
 
   it("gives everyone reading an Initiative by its id, the Office Manager too", () => {

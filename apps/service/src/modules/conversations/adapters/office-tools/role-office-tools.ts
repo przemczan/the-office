@@ -3,7 +3,7 @@ import { z } from "zod";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { RoleNotFound, RoleRefused, RoleService } from "../../../people/index.js";
 import { HeldCalls } from "../../application/held-calls.js";
-import { CHANGE_ROLE_TOOL } from "../../domain/session-instructions.js";
+import { CHANGE_ROLE_TOOL, READ_ROLE_TOOL } from "../../domain/session-instructions.js";
 
 type Words = { readonly responsibilities?: string; readonly instructions?: string };
 
@@ -31,7 +31,12 @@ export class RoleOfficeTools implements OnModuleInit {
           .string()
           .optional()
           .describe("The new responsibilities, in a paragraph."),
-        instructions: z.string().optional().describe("The new instructions."),
+        instructions: z
+          .string()
+          .optional()
+          .describe(
+            `The new instructions, given whole: they replace all of them, not only the lines that change. Start from what ${READ_ROLE_TOOL} answers, since your session's copy may be old.`,
+          ),
         why: z.string().describe("Why the Role should change, in a sentence."),
       }),
       run: async ({ role, responsibilities, instructions, why }, { sessionId }) => {

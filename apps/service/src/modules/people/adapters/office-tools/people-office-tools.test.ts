@@ -2,10 +2,17 @@ import { describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import type { RoleService, RoleWithAssignments } from "../../application/role-service.js";
 import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
-import { LIST_PEOPLE, PeopleOfficeTools } from "./people-office-tools.js";
+import { RoleNotFound } from "../../domain/role-not-found.js";
+import { LIST_PEOPLE, PeopleOfficeTools, READ_ROLE } from "./people-office-tools.js";
 
 function toolsOver(roles: RoleWithAssignments[]): PeopleOfficeTools {
-  const service: Pick<RoleService, "list"> = { list: () => Promise.resolve(roles) };
+  const service: Pick<RoleService, "list" | "read"> = {
+    list: () => Promise.resolve(roles),
+    read: (key) => {
+      const found = roles.find(({ role }) => role.key === key);
+      return found ? Promise.resolve(found) : Promise.reject(new RoleNotFound(key));
+    },
+  };
   return new PeopleOfficeTools(new OfficeToolRegistry(), service as RoleService);
 }
 
@@ -47,16 +54,115 @@ describe("list_people", () => {
       /^Nobody is hired yet\.\n\nNobody fills Planner, Developer, Reviewer/,
     );
   });
+});
 
-  it("is registered as the module starts", () => {
+describe("read_role", () => {
+  it("reads the whole card, instructions in full, with its Skills and MCP servers", async () => {
+    const instructions = "Work from the Plan.\n\nKeep the tests green.";
+    const ada = aRole({
+      cardVersion: 4,
+      cardSavedAt: new Date("2026-11-01T10:00:00.000Z"),
+      card: aRoleCard({
+        instructions,
+        effort: "high",
+        roleOverride: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+        capabilities: { sharedMemory: true, chat: false, consultant: true },
+        permissionProfile: {
+          edit: true,
+          run: "project-commands",
+          web: false,
+          mcpTools: { "github/create_issue": { kind: "allowed" } },
+        },
+        hardSwitches: {
+          runInstalls: { kind: "consult", role: "devops" },
+          publishOutsideThePipeline: { kind: "ask-me" },
+          changeRoles: { kind: "never" },
+        },
+        taskLimit: 2,
+        sessionDefault: "prefer-to-continue",
+      }),
+    });
+    const tool = toolsOver([
+      {
+        role: ada,
+        skills: ["definition-of-done"],
+        mcpServers: [
+          { name: "github", on: true, tools: ["create_issue", "list_issues"] },
+          { name: "linear", on: false, tools: [] },
+        ],
+      },
+    ]).readRole();
+
+    const result = await tool.run({ role: " developer " }, { sessionId: "s-1" });
+
+    expect(tool.name).toBe(READ_ROLE);
+    expect(result).toEqual({
+      isError: false,
+      text: [
+        "Ada · Developer (Role developer), card version 4, saved 2026-11-01T10:00:00.000Z.",
+        `responsibilities: ${ada.card.responsibilities}`,
+        `instructions:\n${instructions}`,
+        [
+          "effort: high",
+          "Role override: claude-code, claude-sonnet-5-5",
+          'capabilities: {"sharedMemory":true,"chat":false,"consultant":true}',
+          'permissionProfile: {"edit":true,"run":"project-commands","web":false,"mcpTools":{"github/create_issue":{"kind":"allowed"}}}',
+          'hardSwitches: {"runInstalls":{"kind":"consult","role":"devops"},"publishOutsideThePipeline":{"kind":"ask-me"},"changeRoles":{"kind":"never"}}',
+          "taskLimit: 2",
+          "sessionDefault: prefer-to-continue",
+          "Skills: definition-of-done",
+          "MCP servers: github (on): create_issue Allowed, list_issues Consult devops; linear (off)",
+        ].join("\n"),
+      ].join("\n\n"),
+    });
+  });
+
+  it("says when the Role runs on the Office default, with no Skills or MCP servers", async () => {
+    const result = await toolsOver([{ role: aRole(), skills: [], mcpServers: [] }])
+      .readRole()
+      .run({ role: "developer" }, { sessionId: "s-1" });
+
+    expect(result.text).toContain("\nRole override: none, so the Office default\n");
+    expect(result.text).toContain("\nSkills: none besides the skills for everyone\n");
+    expect(result.text).toMatch(/\nMCP servers: none$/);
+  });
+
+  it("says when the person was let go", async () => {
+    const ada = aRole({ letGoAt: new Date("2026-11-02T08:00:00.000Z") });
+
+    const result = await toolsOver([{ role: ada, skills: [], mcpServers: [] }])
+      .readRole()
+      .run({ role: "developer" }, { sessionId: "s-1" });
+
+    expect(result.isError).toBe(false);
+    expect(result.text.split("\n\n")[1]).toBe(
+      "Ada was let go on 2026-11-02T08:00:00.000Z: nobody fills the Role until the user hires them back.",
+    );
+  });
+
+  it("refuses a Role The Office doesn't have, pointing to list_people", async () => {
+    const result = await toolsOver([]).readRole().run({ role: "janitor" }, { sessionId: "s-1" });
+
+    expect(result).toEqual({
+      text: 'The Office has no Role "janitor". list_people gives the Roles\' keys.',
+      isError: true,
+    });
+  });
+});
+
+describe("People's Office tools", () => {
+  it("are registered as the module starts", () => {
     const registry = new OfficeToolRegistry();
 
     new PeopleOfficeTools(registry, {} as RoleService).onModuleInit();
 
-    expect(registry.named([LIST_PEOPLE]).map(({ name }) => name)).toEqual([LIST_PEOPLE]);
+    expect(registry.named([LIST_PEOPLE, READ_ROLE]).map(({ name }) => name)).toEqual([
+      LIST_PEOPLE,
+      READ_ROLE,
+    ]);
   });
 
-  it("is People's only Office tool, so no session can change Roles (spec §9: Never in tier 1)", () => {
+  it("only read, so no session can change Roles through them (spec §9: Never in tier 1)", () => {
     const registered: string[] = [];
     class RecordingRegistry extends OfficeToolRegistry {
       override register(tool: Parameters<OfficeToolRegistry["register"]>[0]): void {
@@ -67,6 +173,6 @@ describe("list_people", () => {
 
     new PeopleOfficeTools(new RecordingRegistry(), {} as RoleService).onModuleInit();
 
-    expect(registered).toEqual([LIST_PEOPLE]);
+    expect(registered).toEqual([LIST_PEOPLE, READ_ROLE]);
   });
 });

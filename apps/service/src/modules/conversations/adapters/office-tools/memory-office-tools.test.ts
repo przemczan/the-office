@@ -5,6 +5,7 @@ import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import {
   CHANGE_ROLE_TOOL,
+  READ_ROLE_TOOL,
   REMEMBER_TOOL,
   sessionOfficeTools,
 } from "../../domain/session-instructions.js";
@@ -109,14 +110,22 @@ describe("the Office tools of a session", () => {
   });
 
   it.each([{ kind: "allowed" }, { kind: "ask-me" }, { kind: "consult", role: "cto" }] as const)(
-    "offer change_role on a Task when Change Roles is %o",
+    "offer change_role on a Task when Change Roles is %o, with read_role to start from",
     (changeRoles) => {
       expect(sessionOfficeTools(["read_task"], card(false, changeRoles), true)).toEqual([
         "read_task",
         CHANGE_ROLE_TOOL,
+        READ_ROLE_TOOL,
       ]);
     },
   );
+
+  it("offer read_role once when the place already has it", () => {
+    expect(sessionOfficeTools([READ_ROLE_TOOL], card(false, { kind: "allowed" }), true)).toEqual([
+      READ_ROLE_TOOL,
+      CHANGE_ROLE_TOOL,
+    ]);
+  });
 
   it("keep change_role from a chat, which has no Task Thread to hold a call in", () => {
     expect(sessionOfficeTools(["read_task"], card(false, { kind: "ask-me" }), false)).toEqual([

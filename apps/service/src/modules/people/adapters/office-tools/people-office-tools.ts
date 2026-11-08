@@ -1,13 +1,18 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry } from "../../../engine/index.js";
+import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
 import { RoleService, type RoleWithAssignments } from "../../application/role-service.js";
+import type { HardSwitchValue } from "../../domain/hard-switches.js";
 import { KNOWN_ROLES } from "../../domain/known-roles.js";
-
-/** An Office tool as the registry takes it. */
-type OfficeTool = Parameters<OfficeToolRegistry["register"]>[0];
+import { mcpToolSetting, type McpToolSettings } from "../../domain/mcp-tool-settings.js";
+import { RoleNotFound } from "../../domain/role-not-found.js";
 
 export const LIST_PEOPLE = "list_people";
+export const READ_ROLE = "read_role";
+
+const READ_ROLE_INPUT = z.object({
+  role: z.string().describe(`The Role's key, as ${LIST_PEOPLE} gives it, such as developer.`),
+});
 
 /** The Office tools that read the People's records (spec §6): never one that changes them. */
 @Injectable()
@@ -19,13 +24,13 @@ export class PeopleOfficeTools implements OnModuleInit {
 
   onModuleInit(): void {
     this.registry.register(this.listPeople());
+    this.registry.register(this.readRole());
   }
 
   listPeople(): OfficeTool {
     return {
       name: LIST_PEOPLE,
-      description:
-        "Lists the people of The Office: each one's Role, responsibilities, capabilities and Task limit, and the Roles nobody fills yet.",
+      description: `Lists the people of The Office: each one's Role, responsibilities, capabilities and Task limit, and the Roles nobody fills yet. ${READ_ROLE} gives a Role's whole card.`,
       input: z.object({}),
       run: async () => {
         const roles = await this.roles.list();
@@ -42,6 +47,28 @@ export class PeopleOfficeTools implements OnModuleInit {
             : []),
         ];
         return { text: lines.join("\n\n"), isError: false };
+      },
+    };
+  }
+
+  readRole(): OfficeTool<typeof READ_ROLE_INPUT> {
+    return {
+      name: READ_ROLE,
+      description:
+        "Reads a Role's whole card as it is now, which may be newer than what your session knows: its instructions in full and every other field, its Skills and its MCP servers. Read it before drafting a change to the Role, as a change gives each field whole.",
+      input: READ_ROLE_INPUT,
+      run: async ({ role }) => {
+        try {
+          return { text: wholeCard(await this.roles.read(role.trim())), isError: false };
+        } catch (error) {
+          if (error instanceof RoleNotFound) {
+            return {
+              text: `The Office has no Role "${role}". ${LIST_PEOPLE} gives the Roles' keys.`,
+              isError: true,
+            };
+          }
+          throw error;
+        }
       },
     };
   }
@@ -62,4 +89,53 @@ function personRecord({ role, skills }: RoleWithAssignments): string {
     card.responsibilities,
     `${capabilities}; ${limit}.${skills.length > 0 ? ` Skills: ${skills.join(", ")}.` : ""}`,
   ].join("\n");
+}
+
+/** Each field under the name `propose_role` takes it by, so a change can start from it whole. */
+function wholeCard({ role, skills, mcpServers }: RoleWithAssignments): string {
+  const { card } = role;
+  return [
+    `${card.name} · ${card.title} (Role ${role.key}), card version ${role.cardVersion}, saved ${role.cardSavedAt.toISOString()}.`,
+    ...(role.letGoAt
+      ? [
+          `${card.name} was let go on ${role.letGoAt.toISOString()}: nobody fills the Role until the user hires them back.`,
+        ]
+      : []),
+    `responsibilities: ${card.responsibilities}`,
+    `instructions:\n${card.instructions}`,
+    [
+      `effort: ${card.effort}`,
+      `Role override: ${card.roleOverride ? `${card.roleOverride.engineId}, ${card.roleOverride.model}` : "none, so the Office default"}`,
+      `capabilities: ${JSON.stringify(card.capabilities)}`,
+      `permissionProfile: ${JSON.stringify(card.permissionProfile)}`,
+      `hardSwitches: ${JSON.stringify(card.hardSwitches)}`,
+      `taskLimit: ${card.taskLimit}`,
+      `sessionDefault: ${card.sessionDefault}`,
+      `Skills: ${skills.length > 0 ? skills.join(", ") : "none besides the skills for everyone"}`,
+      `MCP servers: ${mcpServers.length > 0 ? mcpServers.map((server) => mcpServerRecord(server, card.permissionProfile.mcpTools)).join("; ") : "none"}`,
+    ].join("\n"),
+  ].join("\n\n");
+}
+
+function mcpServerRecord(
+  server: RoleWithAssignments["mcpServers"][number],
+  settings: McpToolSettings,
+): string {
+  const tools = server.tools.map(
+    (tool) => `${tool} ${settingInWords(mcpToolSetting(settings, server.name, tool))}`,
+  );
+  return `${server.name} (${server.on ? "on" : "off"})${tools.length > 0 ? `: ${tools.join(", ")}` : ""}`;
+}
+
+function settingInWords(setting: HardSwitchValue): string {
+  switch (setting.kind) {
+    case "allowed":
+      return "Allowed";
+    case "consult":
+      return `Consult ${setting.role}`;
+    case "ask-me":
+      return "Ask me";
+    case "never":
+      return "Never";
+  }
 }

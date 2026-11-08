@@ -13,6 +13,7 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
+  EngineModule,
   OfficeToolRegistry,
   ScriptedEngine,
   ScriptedEngineModule,
@@ -43,6 +44,7 @@ import {
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  READ_ROLE_TOOL,
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
@@ -117,9 +119,13 @@ afterEach(async () => {
   await rm(officeData, { recursive: true, force: true });
 });
 
-/** Boots the conversations and People on a scripted engine that replays `scripts`. */
+/**
+ * Boots the conversations and People on a scripted engine that replays `scripts`, which People's
+ * Office tools register on too.
+ */
 async function startWith(...scripts: SessionScript[]): Promise<void> {
   engine = new ScriptedEngine(scripts);
+  const scriptedEngine = ScriptedEngineModule.register(engine);
   officeWideLimit = new OfficeWideLimitStandIn();
   const sessionSkills: Pick<SessionSkills, "prepare" | "rebuild" | "forget"> = {
     prepare: ({ sessionId }) => Promise.resolve(noSkills(sessionId)),
@@ -143,7 +149,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
-      ScriptedEngineModule.register(engine),
+      EngineModule,
       PeopleModule,
     ],
     providers: [
@@ -190,6 +196,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       },
     ],
     overrides: [{ provide: RoleCards, useValue: roleCards }],
+    moduleOverrides: [{ module: EngineModule, useModule: scriptedEngine }],
   }));
   threads = app.get(ThreadService);
   runner = app.get(ThreadRunner);
@@ -228,17 +235,19 @@ const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
   READ_OFFICE_INSTRUCTIONS_TOOL,
 ];
 
-/**
- * The chat tools that read records, as the Projects, People and Work modules register them, on the
- * registry the sessions read: People, booted here for its Roles, registers on an engine of its own.
- */
+/** People's own, which PeopleModule, booted here for its Roles, registers on the sessions' registry. */
+const TOOLS_OF_PEOPLE: readonly string[] = ["list_people", READ_ROLE_TOOL];
+
+/** The chat tools that read records, as the Projects and Work modules register them. */
 function chatToolStandIns(): FactoryProvider {
   return {
     provide: "chat tool stand-ins",
     inject: [OfficeToolRegistry],
     useFactory: (registry: OfficeToolRegistry) => {
       for (const name of chatOfficeTools(OFFICE_MANAGER)) {
-        if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name)) continue;
+        if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) || TOOLS_OF_PEOPLE.includes(name)) {
+          continue;
+        }
         registry.register({
           name,
           description: `Reads ${name}.`,
@@ -271,19 +280,25 @@ function proposes(input: Record<string, unknown>): SessionScript {
 function calls(tool: string, input: Record<string, unknown>): SessionScript {
   return [
     { step: "start", brief: { id: "brief", text: "" } },
+    ...officeToolCall("c-1", tool, input),
+    ...endsTurn("Here is the card."),
+  ];
+}
+
+function officeToolCall(callId: string, tool: string, input: Record<string, unknown>): Step[] {
+  return [
     {
       step: "event",
       event: {
         kind: "tool-call",
-        callId: "c-1",
+        callId,
         tool,
         officeTool: true,
         input,
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId: "c-1", text: "", isError: false } },
-    ...endsTurn("Here is the card."),
+    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
   ];
 }
 
@@ -324,11 +339,12 @@ async function askOfficeManager(text: string): Promise<{
   return { thread, drafted: await proposals.listInThread(thread.id) };
 }
 
-/** What the Office Manager read back from their Office tool call. */
-function toolResultRead(): { readonly text: string; readonly isError: boolean } {
+/** What the Office Manager read back from their Office tool call `callId`. */
+function toolResultRead(callId = "c-1"): { readonly text: string; readonly isError: boolean } {
   const result = engine.sessions
     .flatMap((session) => session.reportedEvents)
-    .find((event) => event.kind === "tool-result");
+    .filter((event) => event.kind === "tool-result")
+    .find((event) => event.callId === callId);
   if (!result) throw new Error("No Office tool answered.");
   return { text: result.text, isError: result.isError };
 }
@@ -658,6 +674,34 @@ describe("a Proposal of the Office instructions", () => {
 });
 
 describe("a Proposal of a change to a Role", () => {
+  it("is drafted from the whole card the Office Manager reads first, instructions included", async () => {
+    const instructions = "Work from the Plan.\n\nKeep the tests green.";
+    const rewritten = `${instructions}\n\nEnd every Stage with a Handover note.`;
+    await startWith([
+      { step: "start", brief: { id: "brief", text: "" } },
+      ...officeToolCall("c-1", READ_ROLE_TOOL, { role: roleKey }),
+      ...officeToolCall("c-2", PROPOSE_ROLE_TOOL, {
+        role: roleKey,
+        card: { instructions: rewritten },
+      }),
+      ...endsTurn("Here is the card."),
+    ]);
+    await roles.hireFromScratch(aProposedCard({ title, instructions }), []);
+
+    const proposal = await theOnlyProposal("Ask the tester for a Handover note.");
+
+    const read = toolResultRead("c-1");
+    expect(read.isError).toBe(false);
+    expect(read.text).toContain(`(Role ${roleKey}), card version 1`);
+    expect(read.text).toContain(`\n\ninstructions:\n${instructions}\n\n`);
+    expect(proposal.change).toEqual({
+      kind: "change",
+      roleKey,
+      from: { instructions },
+      to: { instructions: rewritten },
+    });
+  });
+
   it("changes only the fields it names, when the user applies it, saying who proposed it", async () => {
     await startWith(proposes({ role: roleKey, card: { effort: "high" } }));
     await roles.hireFromScratch(aProposedCard({ title }), []);

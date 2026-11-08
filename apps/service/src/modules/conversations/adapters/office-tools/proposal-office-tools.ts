@@ -20,7 +20,10 @@ import {
   type ProposedSettingValue,
   type RoleCardFields,
 } from "../../domain/proposal.js";
-import { READ_OFFICE_INSTRUCTIONS_TOOL } from "../../domain/session-instructions.js";
+import {
+  READ_OFFICE_INSTRUCTIONS_TOOL,
+  READ_ROLE_TOOL,
+} from "../../domain/session-instructions.js";
 import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
 // A Role override is the user's to set on the card: a proposed Role runs on the Office default.
@@ -71,7 +74,7 @@ export class ProposalOfficeTools implements OnModuleInit {
           .string()
           .optional()
           .describe(
-            "The key of the Role to change, such as developer; leave it out for a new Role.",
+            `The key of the Role to change, such as developer; leave it out for a new Role. Read its whole card with ${READ_ROLE_TOOL} first and start the change from what it answers, since your session's copy may be old.`,
           ),
         preset: z
           .string()
@@ -82,7 +85,7 @@ export class ProposalOfficeTools implements OnModuleInit {
         card: roleCardFieldsSchema
           .partial()
           .describe(
-            "For a new Role, the whole Role card; for a preset's Role, only the name; for a change, only the fields that change, each one whole.",
+            `For a new Role, the whole Role card; for a preset's Role, only the name; for a change, only the fields that change, each one whole, written from what ${READ_ROLE_TOOL} answers: new instructions replace all of them, not only the lines that change.`,
           ),
         skills: z
           .array(z.string())
