@@ -83,8 +83,13 @@ async function bodyOf(url: string): Promise<string | undefined> {
 
 /** The service's end, killed outright when it doesn't stop within STOP_SECONDS. */
 async function stopped(service: ChildProcess, exited: Promise<ServiceExit>): Promise<ServiceExit> {
-  const timeout = delay(STOP_SECONDS * 1_000).then(() => undefined);
+  // Cancelled once the service has ended, as a pending timer would keep the check running.
+  const timeoutCancelled = new AbortController();
+  const timeout = delay(STOP_SECONDS * 1_000, undefined, { signal: timeoutCancelled.signal }).catch(
+    () => undefined,
+  );
   const exit = await Promise.race([exited, timeout]);
+  timeoutCancelled.abort();
   if (exit !== undefined) return exit;
   service.kill("SIGKILL");
   console.error(`The service didn't stop within ${STOP_SECONDS}s of SIGTERM.`);
