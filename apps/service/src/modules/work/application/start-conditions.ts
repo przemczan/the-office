@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { OFFICE_UPDATE_SCHEDULED, OfficeUpdateHold } from "../../office-updates/index.js";
 import { EngineModels, type EngineId } from "../../engine/index.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { DailyCapsAtStart, UsageAtStart, WindowsAtStart } from "../domain/cap-waits.js";
 import type { Task } from "../domain/task.js";
 import { firstAgentStage, type StartConditions } from "../domain/task-start.js";
@@ -40,6 +41,7 @@ export class StartConditionsReader {
     private readonly dailyCaps: DailyCaps,
     private readonly engineModels: EngineModels,
     private readonly updateHold: OfficeUpdateHold,
+    private readonly schedule: Schedule,
   ) {}
 
   async of(task: Task): Promise<StartConditions> {
@@ -62,7 +64,7 @@ export class StartConditionsReader {
       this.tasks.list(),
       this.engineModels.engines(),
     ]);
-    const now = new Date();
+    const now = this.schedule.now();
     const daily = await this.dailyCaps.of(usageSettings.caps, everyTask);
     const engineNames = new Map(engines.map(({ id, name }) => [id, name] as const));
     const officeUpdateHold = this.updateHold.isScheduled() ? OFFICE_UPDATE_SCHEDULED : undefined;

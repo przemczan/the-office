@@ -75,6 +75,31 @@ describe("SdkMcpClient", () => {
       await expect(failure).rejects.toThrow(/The fake server was told to fail/);
     });
 
+    it(
+      "fails with what the server's processes wrote until their output ended, after its exit too",
+      PROCESS_TIMEOUT,
+      async () => {
+        const failure = client.connect(fakeStdioMcpServer(["--fail-after-its-end"]), options);
+
+        await expect(failure).rejects.toThrow(/The fake server failed after its end/);
+      },
+    );
+
+    it(
+      "fails at its end when a process it left holds its output open",
+      PROCESS_TIMEOUT,
+      async () => {
+        const failure = await client
+          .connect(fakeStdioMcpServer(["--fail-leaving-its-output-open"]), options)
+          .catch((error: unknown) => error);
+
+        const left = /left (\d+)/.exec(String(failure))?.[1];
+        if (left) process.kill(Number(left));
+        expect(failure).toBeInstanceOf(McpServerFailure);
+        expect(String(failure)).toMatch(/The fake server failed, leaving its output open/);
+      },
+    );
+
     it("fails on a command that isn't there", PROCESS_TIMEOUT, async () => {
       const launch = { ...fakeStdioMcpServer(), command: "no-such-mcp-server-command" };
 

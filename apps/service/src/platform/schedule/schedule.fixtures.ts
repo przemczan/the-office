@@ -34,6 +34,11 @@ export class ManualSchedule extends Schedule {
     this.time = at;
   }
 
+  /** Lets the clock follow the system's time again, as before `setTime`, running nothing. */
+  followSystemTime(): void {
+    this.time = undefined;
+  }
+
   /**
    * Moves the clock to `at`, running each wait due by then in its time's order, the clock at that
    * time while it runs, and waiting for it; a wait set while they run runs too if it is due.

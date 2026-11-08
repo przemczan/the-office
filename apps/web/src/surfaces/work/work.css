@@ -19,6 +19,14 @@
   gap: 14px;
 }
 
+/* What a Move does to the Task, one line each. */
+.move-task-effects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: 18px;
+}
+
 .must-wait-for {
   display: flex;
   flex-direction: column;

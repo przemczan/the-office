@@ -22,6 +22,7 @@ import {
   priorityChangeSchema,
   searchQuerySchema,
   tagsChangeSchema,
+  taskMoveSchema,
   taskPlacementSchema,
   type DefinitionOfDoneChange,
   type DescriptionChange,
@@ -38,6 +39,8 @@ import {
   type StartRequest,
   type TagsChange,
   type Task as TaskResponse,
+  type TaskMove,
+  type TaskMoveCheck,
   type TaskPlacement,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -294,5 +297,21 @@ export class TasksController {
   @HttpCode(HttpStatus.OK)
   async restore(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
     return toTaskResponse(await this.tasks.restore(id));
+  }
+
+  /** Move's check: every reason the Task can't move to another Project now. */
+  @Get(":id/move")
+  async moveCheck(@Param("id", ParseUUIDPipe) id: string): Promise<TaskMoveCheck> {
+    return { problems: [...(await this.tasks.moveProblems(id))] };
+  }
+
+  /** Move: the Task goes to another Project, back in Backlog with both parts Not confirmed. */
+  @Post(":id/move")
+  @HttpCode(HttpStatus.OK)
+  async move(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(taskMoveSchema)) { projectId }: TaskMove,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.move(id, projectId));
   }
 }

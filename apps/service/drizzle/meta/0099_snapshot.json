@@ -1,5 +1,5 @@
 {
-  "id": "e88ebcbb-651c-40d5-b813-6ed721f44898",
+  "id": "92d171dd-8b62-4d3c-ae72-d390415086f5",
   "prevId": "fa3c9a7c-1378-4eee-a194-ae853a91852d",
   "version": "7",
   "dialect": "postgresql",
@@ -3683,6 +3683,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "project_moves": {
+          "name": "project_moves",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "created_by": {
           "name": "created_by",
           "type": "jsonb",
@@ -3694,18 +3701,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restored_at": {
-          "name": "restored_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {

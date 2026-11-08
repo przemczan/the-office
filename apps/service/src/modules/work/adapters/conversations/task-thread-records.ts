@@ -12,6 +12,7 @@ import { TaskService } from "../../application/task-service.js";
 import { ASKING_INSTRUCTIONS, askingBrief } from "../../domain/asking.js";
 import { PLANNER, PLANNING_INSTRUCTIONS, planningBrief } from "../../domain/planning.js";
 import type { Task } from "../../domain/task.js";
+import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../../ports/project-worktrees.js";
@@ -88,6 +89,8 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     if (task.state === "backlog") return NOTHING_TO_ASK_IN_BACKLOG;
     // A Task marked Ready from Backlog has no worktree yet.
     await this.worktrees.open(task.projectId, task.id);
+    // A Move landing meanwhile would leave the Thread in a Project where the Task has no worktree.
+    if (!(await this.tasks.isInProject(task.id, task.projectId))) return MOVED_AS_IT_OPENED;
     return undefined;
   }
 

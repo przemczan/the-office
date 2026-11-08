@@ -5,6 +5,7 @@ import {
   OFFICE_IDENTITY_SETTINGS_PATH,
   IMAGE_UPLOAD_BYTES,
   projectSchema,
+  repositoryCloneSchema,
   type NewProject,
   type Project,
 } from "@the-office/contracts";
@@ -201,6 +202,20 @@ async function chooseFolder(page: Page, folder: string) {
   await expect(sourceLine(page)).toContainText(folder);
 }
 
+/**
+ * Waits for the service to answer that a clone has ended, as the dialog reads it. A clone is real
+ * git work, and on a loaded machine it takes longer than a look for the form would wait.
+ */
+function cloneEnded(page: Page): Promise<unknown> {
+  return page.waitForResponse(
+    async (response) =>
+      /\/api\/repositories\/clones\/[^/]+$/.test(response.url()) &&
+      response.request().method() === "GET" &&
+      response.ok() &&
+      repositoryCloneSchema.parse(await response.json()).state !== "cloning",
+  );
+}
+
 /** Step 2's first line: where the repository is, with Change. */
 function sourceLine(page: Page): Locator {
   return page.getByRole("dialog").getByRole("group", { name: "Where it is" });
@@ -325,7 +340,9 @@ test("the user adds a Project by its git URL: cloned first, then the form opens 
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add-git-url.png") });
 
   await repositoryUrl.fill(url);
+  let ended = cloneEnded(page);
   await clone.click();
+  await ended;
   await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
   await expect(sourceLine(page)).toContainText("A git URL");
   await expect(sourceLine(page)).toContainText(url);
@@ -335,7 +352,9 @@ test("the user adds a Project by its git URL: cloned first, then the form opens 
   // Change forgets the clone and the name it gave; the URL stays as written.
   await sourceLine(page).getByRole("button", { name: "Change" }).click();
   await expect(repositoryUrl).toHaveValue(url);
+  ended = cloneEnded(page);
   await clone.click();
+  await ended;
   await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
   const baseBranch = dialog.getByLabel("Base branch");
   await expect(baseBranch).toHaveValue("main");

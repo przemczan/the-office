@@ -20,7 +20,8 @@ import {
 } from "../domain/task-changes.js";
 import { archiveTask, restoreTask } from "../domain/task-archive.js";
 import { addDependency, removeDependency } from "../domain/task-dependencies.js";
-import { TaskResumed } from "../domain/task-events.js";
+import { TaskResumed, type TaskMovedToProject } from "../domain/task-events.js";
+import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js";
 import { changeDescription } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
@@ -28,6 +29,7 @@ import { TaskRefused } from "../domain/task-refused.js";
 import { STARTED_STATES } from "../domain/task-states.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
+import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository, type NeighbourIds } from "../ports/task-repository.js";
 
 /** The Tasks use cases. Each change is saved first and its event published after. */
@@ -37,6 +39,7 @@ export class TaskService {
     private readonly repository: TaskRepository,
     private readonly projects: KnownProjects,
     private readonly fireAlarm: FireAlarmRepository,
+    private readonly worktrees: ProjectWorktrees,
     private readonly events: EventBus,
   ) {}
 
@@ -136,6 +139,41 @@ export class TaskService {
     return task;
   }
 
+  /** Every reason the Task can't move to another Project now; empty when it can. */
+  async moveProblems(id: string): Promise<readonly string[]> {
+    const task = await this.read(id);
+    return moveProblems(task, await this.moveGrounds(task, await this.stateChangesOf(id)));
+  }
+
+  /**
+   * Move, by the user: the Task goes to another Project and its default Pipeline, refused with
+   * every reason it can't. Its history and worktree are read holding the Task, so a planning or a
+   * person's Thread that opens meanwhile either refuses the Move or finds the Task moved. A Ready
+   * Task leaves Ready in the same save, published after the Move, as a changing Save publishes it.
+   */
+  async move(id: string, projectId: string): Promise<Task> {
+    const project = await this.projects.find(projectId);
+    if (!project) throw new TaskRefused([`There is no Project "${projectId}".`]);
+    const destination = { projectId, defaultPipeline: project.defaultPipeline };
+    const { task, event } = await this.repository.updateWithStateChanges(
+      id,
+      async (held, stateChanges) =>
+        moveTask(held, destination, await this.moveGrounds(held, stateChanges), THE_USER),
+    );
+    await this.publishMove(event);
+    return task;
+  }
+
+  /**
+   * Whether the Task is in the Project, read holding it: a Move holds it while it reads the
+   * worktree, so one that found none has saved before this reads, or reads after a worktree made
+   * before this call.
+   */
+  async isInProject(id: string, projectId: string): Promise<boolean> {
+    const { task } = await this.repository.update(id, () => undefined);
+    return task.projectId === projectId;
+  }
+
   /** Drops the Task, by the user: on its page, or by their answer to a Decision. */
   async drop(id: string): Promise<Task> {
     return this.update(id, (task) => changeTaskState(task, "dropped", THE_USER));
@@ -201,6 +239,19 @@ export class TaskService {
   /** Moves a started Task along its Pipeline: Pipelines' interpreter calls it, Start never does. */
   async changeState(id: string, state: Task["state"]): Promise<Task> {
     return this.update(id, (task) => changeStartedTaskState(task, state));
+  }
+
+  private async moveGrounds(
+    task: Task,
+    stateChanges: MoveGrounds["stateChanges"],
+  ): Promise<MoveGrounds> {
+    return { stateChanges, hasWorktree: await this.worktrees.exists(task.projectId, task.id) };
+  }
+
+  private async publishMove(event: TaskMovedToProject | undefined): Promise<void> {
+    if (!event) return;
+    await this.events.publish(event);
+    if (event.leftReady) await this.events.publish(event.leftReady);
   }
 
   private async fireAlarmOn(): Promise<boolean> {

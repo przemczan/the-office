@@ -58,6 +58,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     blockedBy: [],
     originIdeaId: undefined,
     initiativeId: undefined,
+    projectMoves: [],
     createdBy: THE_USER,
     createdAt: new Date("2026-10-25T09:30:00.000Z"),
     archivedAt: undefined,

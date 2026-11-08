@@ -10,6 +10,7 @@ import {
   savePipeline,
 } from "../../../api/pipelines.ts";
 import { StageEditor } from "../../../shell/pipelines/stage-editor.tsx";
+import { checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 
@@ -106,7 +107,7 @@ export function LibraryPipelineForm({
         </Button>
         <Button
           loading={saving.isPending}
-          disabled={!dirty || problems.length > 0 || check.isFetching}
+          disabled={!dirty || problems.length > 0 || checkAwaited(check)}
           onClick={() => saving.mutate()}
         >
           {pipeline ? "Save the Pipeline" : "Add the Pipeline"}

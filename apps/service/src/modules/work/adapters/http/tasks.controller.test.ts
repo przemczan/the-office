@@ -8,6 +8,7 @@ import {
   startAnswerSchema,
   startCheckSchema,
   taskListSchema,
+  taskMoveCheckSchema,
   taskSchema,
   taskUsageEstimateListSchema,
   workRefusalSchema,
@@ -16,6 +17,7 @@ import {
   type Task,
   type PlanChange,
 } from "@the-office/contracts";
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderOverride } from "../../../../../test/test-application.js";
 import { FIRST_CLAUDE_CODE_ENGINE, UsageWindowsRead } from "../../../engine/index.js";
@@ -34,6 +36,8 @@ import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
+import { Schedule } from "../../../../platform/schedule/schedule.js";
+import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { PostgresTaskRepository } from "../postgres/postgres-task-repository.js";
 import { changeStartedTaskState } from "../../domain/task-changes.js";
 import { STARTED_STATES } from "../../domain/task-states.js";
@@ -64,6 +68,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
+import { taskStateChanges } from "../postgres/work.schema.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -777,6 +782,173 @@ describe("POST /api/tasks/:id/ready from Backlog", () => {
   });
 });
 
+async function move(taskId: string, toProjectId: string): Promise<Response> {
+  return sendJson(work, "POST", `/tasks/${taskId}/move`, { projectId: toProjectId });
+}
+
+async function moveProblems(taskId: string): Promise<string[]> {
+  const response = await sendJson(work, "GET", `/tasks/${taskId}/move`);
+  return taskMoveCheckSchema.parse(await response.json()).problems;
+}
+
+/** A Task the user wrote both parts of and marked Ready from Backlog, never planned. */
+async function readyFromBacklog(): Promise<Task> {
+  const task = await create();
+  await saveAndConfirmParts(task.id);
+  await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+  return task;
+}
+
+/** A Project beside the test's own, to move its Tasks to. */
+function otherProject(): string {
+  return `${projectId}-other`;
+}
+
+describe("POST /api/tasks/:id/move", () => {
+  it("moves a Task in Backlog to the Project's default Pipeline, keeps the Move and announces it", async () => {
+    const task = await create();
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "full" });
+    await saveAndConfirmParts(task.id);
+    work.published.length = 0;
+
+    expect(await moveProblems(task.id)).toEqual([]);
+    const response = await move(task.id, otherProject());
+
+    expect(response.status).toBe(200);
+    const moved = taskSchema.parse(await response.json());
+    expect(moved).toMatchObject({
+      projectId: otherProject(),
+      pipelineId: "quick-fix",
+      state: "backlog",
+      plan: "Mine.",
+      planConfirmed: false,
+      definitionOfDone: ["Mine."],
+      definitionOfDoneConfirmed: false,
+    });
+    expect(moved.projectMoves).toEqual([
+      { from: projectId, to: otherProject(), at: expect.any(String), by: { kind: "user" } },
+    ]);
+    expect(await readTask(task.id)).toEqual(moved);
+    expect(webEventsOf(work)).toEqual([
+      {
+        type: "task.moved-to-project",
+        taskId: task.id,
+        fromProjectId: projectId,
+        toProjectId: otherProject(),
+      },
+    ]);
+  });
+
+  it("keeps the Task's dependencies", async () => {
+    const blocker = await create({ title: "Queue schema" });
+    const task = await create();
+    await addDependency(task.id, blocker.id);
+
+    await move(task.id, otherProject());
+
+    expect((await readTask(task.id)).blockedBy).toEqual([blocker.id]);
+  });
+
+  it("takes a Ready Task back to Backlog, its move kept in its state changes", async () => {
+    const task = await readyFromBacklog();
+    work.published.length = 0;
+
+    const moved = taskSchema.parse(await (await move(task.id, otherProject())).json());
+
+    expect(moved.state).toBe("backlog");
+    expect(webEventsOf(work)).toEqual([
+      expect.objectContaining({ type: "task.moved-to-project", taskId: task.id }),
+      { type: "task.state-changed", taskId: task.id, from: "ready", to: "backlog" },
+    ]);
+    const changes = await work.app.get(TaskService).stateChangesOf(task.id);
+    expect(changes.at(-1)).toMatchObject({ from: "ready", to: "backlog", by: { kind: "user" } });
+  });
+
+  it("changes nothing for the Project the Task is in", async () => {
+    const task = await create();
+    work.published.length = 0;
+
+    const response = await move(task.id, projectId);
+
+    expect(response.status).toBe(200);
+    expect(work.published).toEqual([]);
+  });
+
+  it("refuses an unknown Project", async () => {
+    const task = await create();
+
+    const response = await move(task.id, UNKNOWN_PROJECT);
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      `There is no Project "${UNKNOWN_PROJECT}".`,
+    ]);
+  });
+
+  it("refuses a Task that entered Planning, also once a changing Save took it back from Ready", async () => {
+    const task = await readyTask();
+    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Edited." });
+    expect((await readTask(task.id)).state).toBe("backlog");
+    work.app.get(ProjectWorktreesForTests).opened.length = 0;
+
+    const response = await move(task.id, otherProject());
+
+    expect(response.status).toBe(422);
+    const reasons = [
+      "A Task can't move to another Project once it has entered Planning: it was planned for this one.",
+    ];
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual(reasons);
+    expect(await moveProblems(task.id)).toEqual(reasons);
+    expect((await readTask(task.id)).projectId).toBe(projectId);
+  });
+
+  it("refuses a Task whose state changes weren't kept from its creation, saying why", async () => {
+    const task = await create();
+    const database = work.app.get<Database>(DATABASE);
+    await database.delete(taskStateChanges).where(eq(taskStateChanges.taskId, task.id));
+
+    const response = await move(task.id, otherProject());
+
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "The Task is older than the state changes The Office keeps, so it can't tell whether the Task was planned for its Project; it can't move to another.",
+    ]);
+  });
+
+  it("refuses a Task with a worktree in its Project, a Dropped one and an Onboard Task", async () => {
+    const withWorktree = await readyFromBacklog();
+    work.app.get(ProjectWorktreesForTests).opened.push(`${projectId}/${withWorktree.id}`);
+    const dropped = await create();
+    await sendJson(work, "POST", `/tasks/${dropped.id}/drop`);
+
+    expect(await moveProblems(withWorktree.id)).toEqual([
+      "The Task has a worktree in its Project, so it can't move to another.",
+    ]);
+    expect(await moveProblems(dropped.id)).toEqual([
+      "A Task can't move to another Project once it has started or ended; this one is in Dropped.",
+    ]);
+    expect((await move(dropped.id, otherProject())).status).toBe(422);
+  });
+
+  it("refuses a planning that began before the Move landed, and the Move after it", async () => {
+    const task = await create();
+    const worktrees = work.app.get(ProjectWorktreesForTests);
+    const opening = vi.spyOn(worktrees, "open").mockImplementationOnce(async (from, taskId) => {
+      // The Move lands as the worktree is being made, before it is there.
+      await move(taskId, otherProject());
+      return worktrees.find(from, taskId);
+    });
+
+    const planning = await plan(task.id);
+
+    expect(planning.status).toBe(422);
+    expect(workRefusalSchema.parse(await planning.json()).reasons).toEqual([
+      "The Task moved to another Project as this was opening; open it again from the Task's page.",
+    ]);
+    expect(await readTask(task.id)).toMatchObject({ projectId: otherProject(), state: "backlog" });
+    opening.mockRestore();
+  });
+});
+
 const MY_PLAN: PlanChange = { plan: "Mine." };
 
 async function saveAndConfirmParts(taskId: string, writing: PlanChange = MY_PLAN): Promise<void> {
@@ -1063,6 +1235,26 @@ describe("The queue", () => {
     work.published.length = 0;
 
     await sendJson(work, "PUT", `/tasks/${queued.id}/plan`, { plan: "Edited." });
+
+    expect(await ownQueue()).toEqual([]);
+    expect((await readTask(queued.id)).state).toBe("backlog");
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.left-queue",
+      taskId: queued.id,
+      why: "left-ready",
+      refusals: [],
+    });
+  });
+
+  it("takes a queued Task out of the queue when it moves to another Project", async () => {
+    await deskTaken();
+    const queued = await readyFromBacklog();
+    ownIds.push(queued.id);
+    await requestStart(queued.id);
+    expect(await ownQueue()).toEqual([queued.id]);
+    work.published.length = 0;
+
+    await move(queued.id, otherProject());
 
     expect(await ownQueue()).toEqual([]);
     expect((await readTask(queued.id)).state).toBe("backlog");
@@ -1722,16 +1914,20 @@ describe("Usage estimates", () => {
 
 const HOUR = 60 * 60 * 1000;
 
-/** The 5-hour window read now at `percentUsed`, resetting `resetsIn` from now; desks to spare. */
+/**
+ * The 5-hour window read now, by The Office's clock, at `percentUsed`, resetting `resetsIn` from
+ * now; desks to spare.
+ */
 async function windowRead(percentUsed: number, resetsIn: number): Promise<void> {
+  const now = work.app.get(Schedule).now();
   work.app.get(AccountWindowRatiosForTests).windowRatios = {
     fiveHour: 0.0001,
     sevenDay: undefined,
   };
   await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
   work.app.get(AccountWindowsForTests).reading = {
-    readAt: new Date(),
-    fiveHour: { percentUsed, resetsAt: new Date(Date.now() + resetsIn) },
+    readAt: now,
+    fiveHour: { percentUsed, resetsAt: new Date(now.getTime() + resetsIn) },
     sevenDay: { percentUsed: 0, resetsAt: undefined },
   };
 }
@@ -1740,7 +1936,7 @@ async function newReading(): Promise<void> {
   const windows = work.app.get(AccountWindowsForTests);
   const reading = windows.reading;
   if (!reading) throw new Error("No reading to read again.");
-  windows.reading = { ...reading, readAt: new Date() };
+  windows.reading = { ...reading, readAt: work.app.get(Schedule).now() };
   const { readAt, fiveHour, sevenDay } = windows.reading;
   await work.app
     .get(EventBus)
@@ -1757,6 +1953,8 @@ describe("Window caps", () => {
   const ownIds: string[] = [];
 
   afterEach(async () => {
+    // A test that stopped the clock lets it go, so the Daily caps' faked midday reaches the Start.
+    (work.app.get(Schedule) as ManualSchedule).followSystemTime();
     for (const id of ownIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
   });
 
@@ -1797,16 +1995,16 @@ describe("Window caps", () => {
   });
 
   it("releases a Task the window holds an hour before the window resets", async () => {
-    // Read after making the Task, so the 500 ms margin covers only the Start.
+    const schedule = work.app.get(Schedule) as ManualSchedule;
+    schedule.setTime(new Date());
     const task = await sixPercentTask();
-    await windowRead(95, HOUR + 500);
+    await windowRead(95, HOUR + 1);
 
     const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
 
     expect(answer.task.state).toBe("ready");
-    await vi.waitFor(async () => expect((await readTask(task.id)).state).toBe("in-progress"), {
-      timeout: 5000,
-    });
+    await schedule.advanceBy(1);
+    expect((await readTask(task.id)).state).toBe("in-progress");
   });
 
   it("holds a Task with no estimate only when the use and the Tasks started since pass the cap", async () => {

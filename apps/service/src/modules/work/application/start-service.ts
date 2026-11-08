@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import { startOrQueue, type OverlapChoice, type Starting } from "../domain/queue.js";
 import type { Task } from "../domain/task.js";
 import { blockingTasks } from "../domain/task-dependencies.js";
@@ -41,15 +42,16 @@ export class StartService {
     private readonly usageEstimates: UsageEstimates,
     private readonly startsSinceReading: StartsSinceReading,
     private readonly events: EventBus,
+    private readonly schedule: Schedule,
   ) {}
 
   async start(id: string, onOverlap: OverlapChoice): Promise<Starting> {
     const conditions = await this.conditions.of(await this.read(id));
     const starting = await this.queue.start(id, (task, held, queue) =>
-      startOrQueue(task, conditions, held, queue, { now: new Date(), onOverlap }),
+      startOrQueue(task, conditions, held, queue, { now: this.schedule.now(), onOverlap }),
     );
     if (starting.kind === "started") {
-      this.startsSinceReading.record(new Date(), conditions.usage.estimate);
+      this.startsSinceReading.record(this.schedule.now(), conditions.usage.estimate);
     }
     const event = starting.kind === "started" ? starting.change.event : starting.event;
     if (event) await this.events.publish(event);

@@ -19,6 +19,9 @@ export abstract class ProjectWorktrees {
   /** Where the Task's worktree is, without running git. */
   abstract find(projectId: string, taskId: string): Promise<TaskWorktree>;
 
+  /** Whether the Task has a worktree in the Project: its folder is there. Runs no git. */
+  abstract exists(projectId: string, taskId: string): Promise<boolean>;
+
   /** A few lines of what the Task's commits changed; undefined while they change nothing. */
   abstract changesSoFar(projectId: string, taskId: string): Promise<string | undefined>;
 }

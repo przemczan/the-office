@@ -14,6 +14,7 @@ import {
 } from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
+import { MoveTaskDialog } from "./move-task-dialog.tsx";
 import { useMarkingReady, usePlanning, useReadyConditionsMet } from "./use-planning.ts";
 import { useArchiving } from "./use-task-archive.ts";
 
@@ -21,12 +22,14 @@ const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
 /**
  * A Task's "More" menu: what moves it along (planning, Mark Ready), its priority while it hasn't
- * started, its Stages to edit and Drop until it has ended, and Archive once it has.
+ * started, its Stages to edit, Move and Drop until it has ended, and Archive once it has. Move
+ * shows even where it is refused, as its window says why.
  */
 export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
   const [open, setOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
   const [editingStages, setEditingStages] = useState(false);
+  const [moving, setMoving] = useState(false);
   const queryClient = useQueryClient();
   const showToast = useToast();
   const planner = usePlanner();
@@ -100,6 +103,11 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
                   onSelect: () => setEditingStages(true),
                 },
               ]),
+          {
+            icon: <Icon name="folder-input" size={14} />,
+            label: "Move to another Project…",
+            onSelect: () => setMoving(true),
+          },
           { divider: true },
           {
             icon: <Icon name="x" size={14} />,
@@ -127,6 +135,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
         items={items}
       />
       {dropping && <DropTaskDialog task={task} onClose={() => setDropping(false)} />}
+      {moving && <MoveTaskDialog task={task} onClose={() => setMoving(false)} />}
       {editingStages && (
         <EditTaskStagesDialog task={task} onClose={() => setEditingStages(false)} />
       )}
