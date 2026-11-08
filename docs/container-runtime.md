@@ -44,7 +44,7 @@ apt-mark hold docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-
 docker version && docker compose version
 ```
 
-**In an LXC guest** (Proxmox), the container needs nesting before the daemon starts: on the host, `pct set <id> --features nesting=1,keyctl=1` and restart the guest. An unprivileged guest needs `keyctl` too.
+**In an LXC guest** (Proxmox), the container needs nesting before the daemon starts: on the host, `pct set <id> --features nesting=1` (`nesting=1,keyctl=1` for an unprivileged guest) and restart the guest.
 
 ## Upgrading safely
 
@@ -66,4 +66,4 @@ Reaching the runtime is reaching the workstation as root: a container can mount 
 
 ## Windows: an open follow-up
 
-Not installed or checked yet. The likely shape is Docker Desktop on WSL2, with its own versions and its own pinning, and a PowerShell twin of the refusal.
+Not installed or checked yet. The likely shape is Docker Desktop on WSL2, with its own versions and its own pinning. In PowerShell the refusal already covers the programs (`docker.exe` too) and the sockets; setting a variable (`$env:DOCKER_HOST = …`) needs a twin of the Bash check.

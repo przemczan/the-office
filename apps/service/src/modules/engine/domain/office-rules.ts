@@ -45,8 +45,9 @@ export const READ_ONLY_SHELL_RULE = `the shell runs only ${READ_ONLY_GIT} and re
 
 /**
  * The Office rules, which no profile loosens (git, the container runtime, secrets, protected paths,
- * the folders a session reads and edits), and then the session's permission profile, applied as data (spec §6). A
- * session reaching the workstation is held to the secrets alone, and then its profile.
+ * the folders a session reads and edits), and then the session's permission profile, applied as
+ * data (spec §6). A session reaching the workstation is held to the secrets alone, and then its
+ * profile.
  */
 export class OfficeRules {
   private readonly secrets: SecretPaths;
