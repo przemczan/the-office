@@ -1,4 +1,5 @@
 import type { AgentAction } from "./agent-action.js";
+import { containerRuntimeReach } from "./container-runtime-commands.js";
 import { directoryChange } from "./directory-change.js";
 import { gitChange, isGit, READ_ONLY_GIT_COMMANDS } from "./git-commands.js";
 import type { ApprovalSetting, CommandPermission } from "./permission-profile.js";
@@ -43,8 +44,8 @@ const READ_WITH_TOOLS = "read files with Read and search them with Grep";
 export const READ_ONLY_SHELL_RULE = `the shell runs only ${READ_ONLY_GIT} and refuses every other command, in a pipe too (git show | head is refused), so ${READ_WITH_TOOLS}`;
 
 /**
- * The Office rules, which no profile loosens (git, secrets, protected paths, the folders a session
- * reads and edits), and then the session's permission profile, applied as data (spec §6). A
+ * The Office rules, which no profile loosens (git, the container runtime, secrets, protected paths,
+ * the folders a session reads and edits), and then the session's permission profile, applied as data (spec §6). A
  * session reaching the workstation is held to the secrets alone, and then its profile.
  */
 export class OfficeRules {
@@ -204,8 +205,8 @@ export class OfficeRules {
   }
 
   /**
-   * Secrets and git, which hold under every profile, for a command run in any of `directories`; only
-   * the secrets for a session reaching the workstation.
+   * Secrets, the container runtime and git, which hold under every profile, for a command run in any
+   * of `directories`; only the secrets for a session reaching the workstation.
    */
   private officeCommandRefusal(
     command: SimpleCommand,
@@ -222,6 +223,15 @@ export class OfficeRules {
     const outsideWrite = this.outsideWriteRefusal(command, directories);
     if (outsideWrite !== undefined) return outsideWrite;
     const program = programWords(command, dialect);
+    const runtime = containerRuntimeReach(program, [
+      ...command.words,
+      ...command.redirects.map(({ target }) => target),
+    ]);
+    if (runtime !== undefined) {
+      return this.advised(
+        `Refused by The Office: Agents never reach the container runtime (${runtime}), which would reach the whole workstation; run the Project's own commands instead.`,
+      );
+    }
     const change = isGit(program) ? gitChange(program) : undefined;
     return change === undefined
       ? undefined

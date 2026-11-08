@@ -3,6 +3,7 @@ import { McpClient } from "../../../../platform/mcp/mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
+import { withoutContainerRuntimeVariables } from "../../domain/container-runtime-commands.js";
 import type { ApiEngine } from "../../domain/engines.js";
 import type { SearchEndpoint } from "../../domain/engine-settings.js";
 import type { ToolDecision } from "../../domain/office-rules.js";
@@ -136,9 +137,10 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       processTrees,
       paths,
     );
+    const environment = withoutContainerRuntimeVariables(options.environment);
     const rules = sessionOfficeRules(this.operatingSystem, this.officeData, options, {
       readableFolders: [backgroundCommands.folder],
-      environment: options.environment,
+      environment,
     });
     const judge = (tool: string, input: unknown): Promise<ToolDecision> =>
       toolDecision(rules, options, tool, input);
@@ -172,7 +174,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         }),
         toolContext: {
           folder: options.folder,
-          environment: options.environment,
+          environment,
           paths,
           mayRead: (path) => rules.decide({ kind: "read", paths: [path] }).allowed,
           readFiles: new ReadFiles(),

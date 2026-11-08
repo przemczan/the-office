@@ -83,6 +83,32 @@ describe("officeRulesHook", () => {
     expect(refused).toHaveBeenCalledWith("c1", "Not allowed in this session: editing files.");
   });
 
+  it.each([
+    ["a Stage session", rules],
+    ["a chat", readOnly],
+  ])(
+    "refuses the container runtime in %s, and keeps the refusal for the Thread log",
+    async (_, sessionRules) => {
+      const refusals = new ToolRefusals();
+      const refused = vi.spyOn(refusals, "refusedByOfficeRules");
+      const hook = officeRulesHook(sessionRules(), refusals);
+      const reason = expect.stringMatching(
+        /^Refused by The Office: Agents never reach the container runtime \(docker\)/,
+      );
+
+      await expect(
+        hook(preToolUse("Bash", { command: "docker compose up -d" }), "c1", SIGNAL),
+      ).resolves.toEqual({
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          permissionDecisionReason: reason,
+        },
+      });
+      expect(refused).toHaveBeenCalledWith("c1", reason);
+    },
+  );
+
   describe("an LSP call", () => {
     it("runs in a read-only session on a file in its folder", async () => {
       const hook = officeRulesHook(readOnly(), new ToolRefusals());

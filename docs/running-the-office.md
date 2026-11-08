@@ -15,7 +15,7 @@ How The Office runs on a Linux host, kept running by systemd, and how it updates
 
 ## An example systemd unit
 
-`/etc/systemd/system/the-office.service`, for a checkout in `/opt/the-office` with the compose stack's Postgres beside it:
+`/etc/systemd/system/the-office.service`, for a checkout in `/opt/the-office` with the compose stack's Postgres beside it. It needs `docker.service`: Docker Engine at the versions [container-runtime.md](container-runtime.md) holds, which also says how to upgrade it without losing Postgres.
 
 ```ini
 [Unit]

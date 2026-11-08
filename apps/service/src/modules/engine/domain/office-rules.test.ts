@@ -148,6 +148,56 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
     });
   });
 
+  describe.each(platform.dialects)("the container runtime, in %s", (dialect) => {
+    it.each([
+      "docker ps",
+      "docker compose up -d",
+      "/usr/bin/docker run --rm -v /:/host alpine",
+      "docker-compose down",
+      "podman run alpine",
+      "podman-compose up",
+      "nerdctl ps",
+      "npm test && docker exec db psql",
+      "curl --unix-socket /var/run/docker.sock http://localhost/containers/json",
+      "ls -l /run/podman/podman.sock",
+      dialect === "bash" ? `bash -c "docker ps"` : `Invoke-Expression "docker ps"`,
+      ...(dialect === "bash"
+        ? [
+            "sudo docker ps",
+            "DOCKER_HOST=tcp://localhost:2375 npm test",
+            "export DOCKER_HOST=unix:///var/run/docker.sock",
+            "env CONTAINER_HOST=ssh://host npm test",
+          ]
+        : ["docker.exe ps"]),
+    ])("refuses %s", (commandLine) => {
+      expect(decide(command(dialect, commandLine))).toEqual({
+        allowed: false,
+        reason: expect.stringMatching(
+          /^Refused by The Office: Agents never reach the container runtime \(\S+\), which would reach the whole workstation/,
+        ),
+      });
+    });
+
+    it.each([
+      "npm run verify:linux",
+      "cat docker-compose.yml",
+      `echo "docker ps"`,
+      "npm run docker",
+    ])("allows %s, which names the runtime only in its arguments", (commandLine) => {
+      expect(decide(command(dialect, commandLine))).toEqual({ allowed: true });
+    });
+
+    it("refuses it in a chat, before its profile", () => {
+      const chat = rulesOn(platform, { profile: READ_ONLY });
+      expect(chat.decide(command(dialect, "docker ps"))).toEqual({
+        allowed: false,
+        reason: expect.stringMatching(
+          /^Refused by The Office: Agents never reach the container runtime \(docker\)/,
+        ),
+      });
+    });
+  });
+
   describe.each(platform.dialects)("secrets in commands, in %s", (dialect) => {
     it.each([
       `cat ~/.ssh/id_ed25519`,
@@ -483,6 +533,7 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
       ["an edit", { kind: "edit", paths: ["src/app.ts"] }],
       ["a command", command(dialect, "npm install")],
       ["a git change", command(dialect, "git commit -m 'fix'")],
+      ["the container runtime", command(dialect, "docker ps")],
       ["a read outside its folders", { kind: "read", paths: [platform.systemFile] }],
     ] as const)("refuses %s, telling the Agent to ask the user", (_, action) => {
       expect(readOnly.decide(action)).toEqual({
@@ -519,18 +570,24 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
       expect(workstation.decide({ kind: "edit", paths: [path] })).toEqual({ allowed: true });
     });
 
-    it.each(platform.dialects)("runs any command, every git command included, in %s", (shell) => {
-      for (const commandLine of [
-        "npm install -g pnpm",
-        "git commit -am 'fix'",
-        "git push origin HEAD",
-        `git -C '${platform.worktree}' reset --hard`,
-        `ls '${platform.dataDirectory}'`,
-        "npm test > /tmp/results.txt",
-      ]) {
-        expect(workstation.decide(command(shell, commandLine))).toEqual({ allowed: true });
-      }
-    });
+    it.each(platform.dialects)(
+      "runs any command, every git command and the container runtime included, in %s",
+      (shell) => {
+        for (const commandLine of [
+          "npm install -g pnpm",
+          "git commit -am 'fix'",
+          "git push origin HEAD",
+          `git -C '${platform.worktree}' reset --hard`,
+          `ls '${platform.dataDirectory}'`,
+          "npm test > /tmp/results.txt",
+          "docker compose ps",
+          "podman ps",
+          "curl --unix-socket /var/run/docker.sock http://localhost/version",
+        ]) {
+          expect(workstation.decide(command(shell, commandLine))).toEqual({ allowed: true });
+        }
+      },
+    );
 
     it.each(secrets)("refuses reading, editing and naming in a command %s", (secret) => {
       const refusal = {

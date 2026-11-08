@@ -687,6 +687,27 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       expect(await readFile(join(folder, "where.txt"), "utf8")).not.toBe("");
     });
 
+    it("runs a command without the container runtime's variables", async () => {
+      fake.script(
+        toolCall("Bash", { command: 'echo "[$DOCKER_HOST$DOCKER_CONTEXT$CONTAINER_HOST]"' }),
+        textReply(["Done."], USAGE),
+      );
+      const runtimeVariables = {
+        DOCKER_HOST: "unix:///var/run/docker.sock",
+        DOCKER_CONTEXT: "default",
+        CONTAINER_HOST: "unix:///run/podman/podman.sock",
+      };
+
+      const { events } = await oneTurn(
+        options({ profile: ANYTHING, environment: { ...environment, ...runtimeVariables } }),
+      );
+
+      expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+        isError: false,
+        text: "[]",
+      });
+    });
+
     it.runIf(SHELL_TOOLS.includes("PowerShell"))(
       "runs a PowerShell command line, with its exit code",
       async () => {

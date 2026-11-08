@@ -2,6 +2,7 @@ import type { Settings } from "@anthropic-ai/claude-agent-sdk";
 import { dirname } from "node:path";
 import { isOfficeOwnVariable } from "../../../../platform/config/office-config.js";
 import type { AgentShell } from "../../../../platform/os/shell.js";
+import { withoutContainerRuntimeVariables } from "../../domain/container-runtime-commands.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 
@@ -124,8 +125,8 @@ export function sessionSettings({
 
 /**
  * The variables a session runs with: the given ones without the engine's, nor The Office's own,
- * which hold its database credentials (spec §6), whoever passed them; then the engine's own
- * config folder (`engineConfigFolder`), which holds its account.
+ * which hold its database credentials (spec §6), nor the container runtime's, whoever passed
+ * them; then the engine's own config folder (`engineConfigFolder`), which holds its account.
  */
 export function sessionEnvironment(
   environment: Readonly<Record<string, string>>,
@@ -133,7 +134,7 @@ export function sessionEnvironment(
 ): Record<string, string> {
   return {
     ...Object.fromEntries(
-      Object.entries(environment).filter(
+      Object.entries(withoutContainerRuntimeVariables(environment)).filter(
         ([name]) =>
           !isOfficeOwnVariable(name) &&
           !ENGINE_VARIABLE_PREFIXES.some((prefix) => name.toUpperCase().startsWith(prefix)),

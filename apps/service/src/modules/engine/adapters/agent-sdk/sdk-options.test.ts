@@ -24,6 +24,9 @@ const OPTIONS: SessionOptions = {
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318",
     DATABASE_URL: "postgres://office:secret@localhost:5432/office",
     OFFICE_PORT: "4100",
+    DOCKER_HOST: "unix:///var/run/docker.sock",
+    DOCKER_CONTEXT: "default",
+    CONTAINER_HOST: "unix:///run/podman/podman.sock",
   },
   engine: FIRST_CLAUDE_CODE_ENGINE,
   model: "claude-haiku-5-5",
@@ -169,7 +172,7 @@ describe("sdkOptions", () => {
     expect(optionsFor().hooks).toEqual({ PreToolUse: [{ hooks: [PRE_TOOL_USE] }] });
   });
 
-  it("runs the session with the given variables, without the engine's nor The Office's own, on its engine's config folder", () => {
+  it("runs the session with the given variables, without the engine's, The Office's own nor the container runtime's, on its engine's config folder", () => {
     expect(optionsFor().env).toEqual({
       PATH: "/usr/bin",
       GREETING: "hello",
