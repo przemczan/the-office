@@ -1711,6 +1711,8 @@ describe("Window caps", () => {
   const ownIds: string[] = [];
 
   afterEach(async () => {
+    // A test that stopped the clock lets it go, so the Daily caps' faked midday reaches the Start.
+    (work.app.get(Schedule) as ManualSchedule).followSystemTime();
     for (const id of ownIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
   });
 

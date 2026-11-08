@@ -5,6 +5,8 @@
 //   --fail    writes why to its standard error, with $FAKE_TOKEN, and ends at once
 //   --fail-after-its-end  ends at once, leaving a process that writes why to its standard error
 //             once it has ended, then ends too
+//   --fail-leaving-its-output-open  writes why and `left <id>` to its standard error and ends,
+//             leaving a process outside its tree that holds that output open for a minute
 import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -29,6 +31,17 @@ if (flags.has("--fail-after-its-end")) {
     ],
     { stdio: ["ignore", "ignore", "inherit"] },
   ).unref();
+  process.exit(1);
+}
+
+if (flags.has("--fail-leaving-its-output-open")) {
+  // Detached, so ending the server's tree misses it, as a process that escaped it would be.
+  const left = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60_000)"], {
+    detached: true,
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+  left.unref();
+  process.stderr.write(`The fake server failed, leaving its output open.\nleft ${left.pid}\n`);
   process.exit(1);
 }
 

@@ -12,6 +12,12 @@ const OUTPUT_KEPT = 4000;
 const EXIT_GRACE_MS = 2000;
 
 /**
+ * How long, after the server's end, its output may stay open: a process it left that escaped its
+ * tree can hold it open for ever, and the server's end must still be told.
+ */
+const OUTPUT_GRACE_MS = 2000;
+
+/**
  * MCP's stdio transport over a program The Office starts itself. The SDK's own transport signals
  * only the process it started, which on Windows is cmd.exe running `npx.cmd`, so the server
  * would outlive it; this one ends the process tree on close.
@@ -64,7 +70,9 @@ export class ProgramStdioTransport implements Transport {
         else reject(error);
         this.notifyClosed();
       });
-      child.once("close", () => this.notifyClosed());
+      child.once("exit", () => {
+        void within(this.outputRead, OUTPUT_GRACE_MS).then(() => this.notifyClosed());
+      });
       child.stdin.on("error", (error) => this.onerror?.(error));
       child.stdout.on("data", (chunk: Buffer) => this.read(chunk));
       child.stderr.setEncoding("utf8");
@@ -100,25 +108,17 @@ export class ProgramStdioTransport implements Transport {
       this.notifyClosed();
       return;
     }
-    this.child.stdin.end();
-    if (!(await this.exitsWithin(EXIT_GRACE_MS))) {
+    const child = this.child;
+    child.stdin.end();
+    if (!(await within(this.exited, EXIT_GRACE_MS))) {
       await this.processTrees.end(processId).catch(() => undefined);
     }
     await this.processTrees.endLeftovers(processId).catch(() => undefined);
-    await this.outputRead;
-    this.notifyClosed();
-  }
-
-  private async exitsWithin(milliseconds: number): Promise<boolean> {
-    let timer: NodeJS.Timeout | undefined;
-    const timedOut = new Promise<false>((resolve) => {
-      timer = setTimeout(() => resolve(false), milliseconds);
-    });
-    try {
-      return await Promise.race([this.exited.then(() => true as const), timedOut]);
-    } finally {
-      clearTimeout(timer);
+    if (!(await within(this.outputRead, OUTPUT_GRACE_MS))) {
+      child.stdout.destroy();
+      child.stderr.destroy();
     }
+    this.notifyClosed();
   }
 
   private read(chunk: Buffer): void {
@@ -139,5 +139,18 @@ export class ProgramStdioTransport implements Transport {
     if (this.closed) return;
     this.closed = true;
     this.onclose?.();
+  }
+}
+
+/** Whether `settled` settles within `milliseconds`. */
+async function within(settled: Promise<void>, milliseconds: number): Promise<boolean> {
+  let timer: NodeJS.Timeout | undefined;
+  const timedOut = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), milliseconds);
+  });
+  try {
+    return await Promise.race([settled.then(() => true as const), timedOut]);
+  } finally {
+    clearTimeout(timer);
   }
 }

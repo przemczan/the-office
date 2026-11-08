@@ -851,7 +851,8 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
     it("tells the model of one that ended by itself, as the next message would land", async () => {
       // The second call ends only once the first command's shell is gone: reaped, so the service
-      // has seen its exit and queued the notice before the second call's result.
+      // has seen its exit. The notice follows the end of its leftovers, at once on Linux once the
+      // group is gone; on Windows that query starts before the second call's own, so ends first.
       fake.script(
         toolCall("Bash", {
           command: `${WRITE_SHELL_PID}; echo done-7; exit 3`,
@@ -1153,14 +1154,14 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
   });
 });
 
-/** A command whose node child writes its id where `childProcessId` finds it, then runs on. */
 /** Writes the id of the shell running it to `shell.pid`, for `UNTIL_SHELL_GONE`. */
 const WRITE_SHELL_PID = `node -e "require('fs').writeFileSync('shell.pid', String(process.ppid))"`;
 /**
  * Waits, as long as it takes, until the shell `shell.pid` names is gone. Before its parent reaps it,
- * an ended process still answers signal 0, so gone means the service has handled its exit.
+ * an ended process still answers signal 0, so gone means the service has seen its exit.
  */
 const UNTIL_SHELL_GONE = `node -e "const shell = Number(require('fs').readFileSync('shell.pid', 'utf8')); const gone = () => { try { process.kill(shell, 0); return false; } catch { return true; } }; const check = () => gone() || setTimeout(check, 10); check()"`;
+/** A command whose node child writes its id where `childProcessId` finds it, then runs on. */
 const NODE_CHILD = `node -e "require('fs').writeFileSync('child.pid', String(process.pid)); setInterval(() => {}, 1000)"`;
 
 async function childProcessId(folder: string): Promise<number> {
