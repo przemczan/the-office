@@ -24,6 +24,14 @@ import { searchVectorOf } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
 
+/** A Task's Move to another Project as jsonb keeps it: its time as an ISO string. */
+export interface ProjectMoveRow {
+  readonly from: string;
+  readonly to: string;
+  readonly at: string;
+  readonly by: Author;
+}
+
 export const ideas = pgTable("ideas", {
   id: uuid("id").primaryKey(),
   title: text("title").notNull(),
@@ -93,6 +101,11 @@ export const tasks = pgTable(
       .default(sql`'{}'`),
     originIdeaId: uuid("origin_idea_id").references((): AnyPgColumn => ideas.id),
     initiativeId: uuid("initiative_id").references((): AnyPgColumn => initiatives.id),
+    /** Each Move to another Project, oldest first; kept on the row, as it saves with the Task. */
+    projectMoves: jsonb("project_moves")
+      .$type<ProjectMoveRow[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     createdBy: jsonb("created_by").$type<Author>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },

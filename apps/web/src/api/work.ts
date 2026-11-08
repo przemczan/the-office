@@ -16,6 +16,7 @@ import {
   queueSchema,
   startAnswerSchema,
   startCheckSchema,
+  taskMoveCheckSchema,
   taskListSchema,
   taskSchema,
   taskUsageEstimateListSchema,
@@ -43,6 +44,7 @@ import {
   type AllClear,
   type FireAlarm,
   type Task,
+  type TaskMoveCheck,
   type TaskPlacement,
   type TaskUsageEstimateList,
   type UsageSettings,
@@ -206,6 +208,13 @@ export const taskQueries = {
       queryKey: [...TASKS, id, "start"],
       queryFn: ({ signal }): Promise<StartCheck> =>
         getFromApi(`${taskPath(id)}/start`, startCheckSchema, signal),
+    }),
+  /** Why the Task can't move to another Project now; under the Task's key, so any Task event refreshes it. */
+  moveCheck: (id: string) =>
+    queryOptions({
+      queryKey: [...TASKS, id, "move"],
+      queryFn: ({ signal }): Promise<TaskMoveCheck> =>
+        getFromApi(`${taskPath(id)}/move`, taskMoveCheckSchema, signal),
     }),
   /** The "Before Ready" checklist; under the Task's key, and a Decision's events refresh it too. */
   readiness: (id: string) =>
@@ -414,6 +423,11 @@ export function resumeTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/resume`, {}, taskSchema);
 }
 
+/** Move: the Task goes to another Project, back in Backlog with both parts Not confirmed. */
+export function moveTask(id: string, projectId: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/move`, { projectId }, taskSchema);
+}
+
 export function dropTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/drop`, {}, taskSchema);
 }
@@ -476,6 +490,8 @@ export const workEventInvalidations: Readonly<
   "task.reordered": () => [TASKS],
   "task.dependency-added": () => [TASKS],
   "task.dependency-removed": () => [TASKS],
+  // An Initiative's Projects are its Tasks'.
+  "task.moved-to-project": () => [TASKS, INITIATIVES],
   "task.plan-proposed": () => [TASKS],
   "task.plan-saved": () => [TASKS],
   "task.plan-confirmed": () => [TASKS],

@@ -29,6 +29,7 @@ export {
   TaskDefinitionOfDoneSaved,
   TaskPaused,
   TaskPipelineConfirmed,
+  TaskMovedToProject,
   TaskPipelineProposed,
   TaskPlanConfirmed,
   TaskPlanProposed,

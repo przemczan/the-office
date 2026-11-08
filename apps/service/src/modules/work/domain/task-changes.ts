@@ -91,6 +91,7 @@ export function createTask(
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
     initiativeId: setting.initiativeId,
+    projectMoves: [],
     createdBy: setting.createdBy,
     createdAt,
   };

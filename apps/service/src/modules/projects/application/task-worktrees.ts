@@ -64,6 +64,11 @@ export class TaskWorktrees {
     };
   }
 
+  /** Whether the Task has a worktree in the Project: its folder is there. Runs no git. */
+  async exists(projectId: string, taskId: string): Promise<boolean> {
+    return this.worktrees.exists(await this.projects.read(projectId), taskId);
+  }
+
   /** Brings the Task's branch to the freshly fetched base; `onConflict` says what a conflict does. */
   async updateFromBase(
     projectId: string,

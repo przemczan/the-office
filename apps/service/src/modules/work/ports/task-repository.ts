@@ -46,6 +46,18 @@ export abstract class TaskRepository {
   ): Promise<TaskUpdate<Event>>;
 
   /**
+   * As `update`, with the Task's kept state changes read in the same hold, so no move slips in
+   * between; `change` may ask other modules while the Task is held.
+   */
+  abstract updateWithStateChanges<Event extends DomainEvent>(
+    id: string,
+    change: (
+      task: Task,
+      stateChanges: readonly StateChange[],
+    ) => Promise<TaskChange<Event> | undefined>,
+  ): Promise<TaskUpdate<Event>>;
+
+  /**
    * Applies `change` to every started Task as stored, holding Starts and those Tasks until the
    * results are saved, so no Task starts meanwhile. Returns the Tasks it changed, with their events.
    */

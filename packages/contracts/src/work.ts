@@ -126,6 +126,15 @@ export type ProposedPipeline = z.infer<typeof proposedPipelineSchema>;
 /** Tokens as every token count gives them: input, output and cache writes. */
 const estimatedTokensSchema = z.number().int().positive();
 
+/** A Task's Move from one Project to another (POST /tasks/:id/move). */
+export const projectMoveSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  at: z.iso.datetime(),
+  by: authorSchema,
+});
+export type ProjectMove = z.infer<typeof projectMoveSchema>;
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
@@ -156,6 +165,8 @@ export const taskSchema = newTaskSchema.extend({
   originIdeaId: z.uuid().nullable(),
   /** The Initiative it is part of (POST /initiatives/:id/tasks). */
   initiativeId: z.uuid().nullable(),
+  /** Each Move to another Project, oldest first. */
+  projectMoves: z.array(projectMoveSchema),
   createdBy: authorSchema,
   createdAt: z.iso.datetime(),
 });
@@ -216,6 +227,14 @@ export type DefinitionOfDoneChange = z.infer<typeof definitionOfDoneChangeSchema
  */
 export const pipelineChangeSchema = z.object({ pipelineId: z.string() });
 export type PipelineChange = z.infer<typeof pipelineChangeSchema>;
+
+/** POST /tasks/:id/move: the Project the Task moves to. */
+export const taskMoveSchema = z.object({ projectId: z.string().min(1) });
+export type TaskMove = z.infer<typeof taskMoveSchema>;
+
+/** GET /tasks/:id/move: every reason the Task can't move to another Project; empty when it can. */
+export const taskMoveCheckSchema = z.object({ problems: z.array(z.string()) });
+export type TaskMoveCheck = z.infer<typeof taskMoveCheckSchema>;
 
 /**
  * PUT /tasks/:id/place: the Tasks it lands between in its column of the board, null at either
@@ -623,6 +642,12 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("task.dependency-removed"),
     taskId: z.uuid(),
     blockerId: z.uuid(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("task.moved-to-project"),
+    taskId: z.uuid(),
+    fromProjectId: z.string(),
+    toProjectId: z.string(),
   }),
   webEventSchema.extend({ type: z.literal("task.plan-proposed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-saved"), taskId: z.uuid() }),

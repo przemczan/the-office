@@ -80,8 +80,18 @@ export interface Task {
   readonly originIdeaId: string | undefined;
   /** The Initiative it is part of, if any; it stays there for good. */
   readonly initiativeId: string | undefined;
+  /** Each Move to another Project, oldest first (task-move.ts). */
+  readonly projectMoves: readonly ProjectMove[];
   readonly createdBy: Author;
   readonly createdAt: Date;
+}
+
+/** A Task's Move from one Project to another, kept for its record. */
+export interface ProjectMove {
+  readonly from: string;
+  readonly to: string;
+  readonly at: Date;
+  readonly by: Author;
 }
 
 /** A Pipeline the Planner chose from the Definition of Done, with why (spec §2.3). */

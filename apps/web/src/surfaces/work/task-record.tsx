@@ -19,6 +19,7 @@ export function TaskRecord({ task }: { readonly task: Task }): ReactNode {
         record={{ kind: "task", id: task.id }}
         ideaId={task.originIdeaId}
         initiativeId={task.initiativeId}
+        projectMoves={task.projectMoves}
       />
     </section>
   );

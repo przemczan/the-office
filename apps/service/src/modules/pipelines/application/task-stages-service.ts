@@ -2,7 +2,7 @@ import { walkedStages, withoutResolveStages } from "../domain/resolve-stages.js"
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
-import { TaskPipelineConfirmed } from "../../work/index.js";
+import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
 import type { Pipeline, StageProblem } from "../domain/pipeline.js";
 import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
 import { reportedMet } from "../domain/pipeline-walk.js";
@@ -53,6 +53,7 @@ export class TaskStagesService implements OnModuleInit {
     this.events.subscribe(TaskPipelineConfirmed, ({ taskId, pipelineId }) =>
       this.reset(taskId, pipelineId),
     );
+    this.events.subscribe(TaskMovedToProject, ({ taskId }) => this.reset(taskId));
   }
 
   /**
@@ -142,11 +143,15 @@ export class TaskStagesService implements OnModuleInit {
     await this.repository.saveTrace(taskId, trace);
   }
 
-  /** A swap before Start sets aside Stages edited for the old Pipeline: the Task follows the new. */
-  private async reset(taskId: string, pipelineId: string): Promise<void> {
+  /**
+   * A swap before Start sets aside Stages edited for the old Pipeline: the Task follows the new. A
+   * Move sets them aside even when the new Project's default is the same Pipeline (no `pipelineId`):
+   * they were edited for the old Project, and the Task follows the library from now on.
+   */
+  private async reset(taskId: string, pipelineId?: string): Promise<void> {
     await this.changes.run(taskId, async () => {
       const own = await this.repository.find(taskId);
-      if (!own || followsPipeline(own, pipelineId)) return;
+      if (!own || (pipelineId !== undefined && followsPipeline(own, pipelineId))) return;
       await this.repository.remove(taskId);
       await this.events.publish(new TaskStagesReset(taskId, own.pipelineId));
     });

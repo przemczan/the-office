@@ -3,9 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OPEN_DECISION_TOOL, taskSchema, type Task, type TaskState } from "@the-office/contracts";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { TaskThreadSetups, type TaskThreadRequest } from "../../../conversations/index.js";
+import { TaskService } from "../../application/task-service.js";
 import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
+import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { StageResults } from "../../ports/stage-results.js";
@@ -149,6 +151,18 @@ describe("a person's Thread on a Task's session", () => {
     await expect(setups().readyForPersonsThread(task.id)).resolves.toBeUndefined();
 
     expect(worktrees.opened).toContain(`${task.projectId}/${task.id}`);
+  });
+
+  it("opens no person's Thread on a Task that moved to another Project as its worktree was made", async () => {
+    const task = await aTaskIn("ready");
+    const worktrees = work.app.get(ProjectWorktrees) as ProjectWorktreesForTests;
+    const opening = vi.spyOn(worktrees, "open").mockImplementationOnce(async (from, taskId) => {
+      await work.app.get(TaskService).move(taskId, `${from}-other`);
+      return worktrees.find(from, taskId);
+    });
+
+    await expect(setups().readyForPersonsThread(task.id)).resolves.toBe(MOVED_AS_IT_OPENED);
+    opening.mockRestore();
   });
 
   it.each([

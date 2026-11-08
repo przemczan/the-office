@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { TaskPipelineConfirmed } from "../../work/index.js";
+import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import type { Stage } from "../domain/stage.js";
 import type { StagePermissions } from "../domain/stage-permissions.js";
@@ -233,5 +233,20 @@ describe("swapping the Pipeline before Start", () => {
       stages: builtIn("full"),
       editedForTask: false,
     });
+  });
+});
+
+describe("moving the Task to another Project", () => {
+  it("sets the edited Stages aside even when the new default is the same Pipeline", async () => {
+    const taskId = aTask();
+    await service.edit(taskId, withGate);
+
+    await pipelines.app
+      .get(EventBus)
+      .publish(new TaskMovedToProject(taskId, "admin-panel", "shop", "quick-fix", undefined));
+
+    expect(await service.progress(taskId)).toBeUndefined();
+    expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(builtIn("quick-fix"));
   });
 });

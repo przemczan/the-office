@@ -119,6 +119,11 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
     };
   }
 
+  /** A worktree is there once it was opened. */
+  async exists(projectId: string, taskId: string): Promise<boolean> {
+    return this.opened.includes(`${projectId}/${taskId}`);
+  }
+
   async changesSoFar(_projectId: string, taskId: string): Promise<string | undefined> {
     if (this.changesFailure) throw this.changesFailure;
     return this.changes.get(taskId);

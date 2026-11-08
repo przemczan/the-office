@@ -90,6 +90,11 @@ export class Worktrees {
     return join(this.projectFolder(project), taskId);
   }
 
+  /** Whether the Task's worktree folder is there. */
+  async exists(project: Project, taskId: string): Promise<boolean> {
+    return exists(this.pathOf(project, taskId));
+  }
+
   branchOf(taskId: string): string {
     return `${TASK_BRANCH_PREFIX}${taskId}`;
   }

@@ -64,6 +64,20 @@ export class PostgresTaskRepository extends TaskRepository {
     });
   }
 
+  async updateWithStateChanges<Event extends DomainEvent>(
+    id: string,
+    change: (
+      task: Task,
+      stateChanges: readonly StateChange[],
+    ) => Promise<TaskChange<Event> | undefined>,
+  ): Promise<TaskUpdate<Event>> {
+    return this.database.transaction(async (transaction) => {
+      const task = await heldTask(transaction, id);
+      const changed = await change(task, await stateChangesOf(transaction, id));
+      return saveTask(transaction, task, changed);
+    });
+  }
+
   async updateEveryStarted<Event extends DomainEvent>(
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<readonly TaskChange<Event>[]> {

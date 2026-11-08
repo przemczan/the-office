@@ -77,6 +77,12 @@ export function toTaskResponse(task: Task): TaskResponse {
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     initiativeId: task.initiativeId ?? null,
+    projectMoves: task.projectMoves.map((move) => ({
+      from: move.from,
+      to: move.to,
+      at: move.at.toISOString(),
+      by: toAuthorResponse(move.by),
+    })),
     createdBy: toAuthorResponse(task.createdBy),
     createdAt: task.createdAt.toISOString(),
   };

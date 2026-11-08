@@ -81,6 +81,22 @@ export class TaskPlanSaved extends DomainEvent {
   }
 }
 
+/**
+ * The Task moved to another Project, following its default Pipeline from now on; a Ready Task left
+ * Ready in the same save, as `leftReady` says.
+ */
+export class TaskMovedToProject extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly fromProjectId: string,
+    readonly toProjectId: string,
+    readonly pipelineId: string,
+    readonly leftReady: TaskStateChanged | undefined,
+  ) {
+    super();
+  }
+}
+
 /** The user confirmed the Plan as it reads. */
 export class TaskPlanConfirmed extends DomainEvent {
   constructor(readonly taskId: string) {

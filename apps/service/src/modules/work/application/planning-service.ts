@@ -23,6 +23,7 @@ import {
 } from "../domain/task-changes.js";
 import type { TaskDefinitionOfDoneSaved, TaskPlanSaved } from "../domain/task-events.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
+import { MOVED_AS_IT_OPENED } from "../domain/task-move.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { readinessLines, stateChangeProblems, type ReadinessLine } from "../domain/task-states.js";
 import { KnownPeople } from "../ports/known-people.js";
@@ -84,9 +85,11 @@ export class PlanningService {
       const reason = error instanceof Error ? error.message : String(error);
       throw new TaskRefused([`The Task's worktree couldn't be made: ${reason}`]);
     });
-    const { task: planning, event } = await this.tasks.update(taskId, (latest) =>
-      changeTaskState(latest, "planning", THE_USER),
-    );
+    const { task: planning, event } = await this.tasks.update(taskId, (latest) => {
+      // A Move landed as the worktree was made: it is in the old Project, not the Task's.
+      if (latest.projectId !== task.projectId) throw new TaskRefused([MOVED_AS_IT_OPENED]);
+      return changeTaskState(latest, "planning", THE_USER);
+    });
     // Another call moved it first, and opened its Thread.
     if (!event) return planning;
     await this.events.publish(event);

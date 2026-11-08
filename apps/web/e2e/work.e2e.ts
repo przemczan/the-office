@@ -565,6 +565,43 @@ test("a Task's priority and Drop are in its menu, and the Project page counts it
   await expect(work).toContainText("1");
 });
 
+test("a Task moves to another Project from its menu, and one whose history wasn't kept is refused with why", async ({
+  page,
+}) => {
+  const from = await addedProject(page, "Move from here", "MF");
+  const to = await addedProject(page, "Move to there", "MT");
+  const task = await createdTask(page, from, "Pair the barcode scanner");
+  const old = await createdTask(page, from, "Older than the history");
+  await queryOfficeDatabase(`delete from task_state_changes where task_id = $1`, [old.id]);
+
+  await page.goto(`/tasks/${task.id}`);
+  await page.getByRole("button", { name: "More for Pair the barcode scanner" }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("radiogroup").locator("label").filter({ hasText: to.name }).click();
+  await expect(dialog).toContainText(`It follows ${to.name}'s default Pipeline`);
+  await expect(dialog).toContainText("It stays in Backlog.");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task.png") });
+  await dialog.getByRole("button", { name: "Move", exact: true }).click();
+
+  await expect(dialog).toBeHidden();
+  const origin = page.getByRole("region", { name: "Origin" });
+  await expect(origin).toContainText(`Moved from ${from.name}`);
+  await origin.getByRole("button", { name: /Origin/ }).click();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-moved-task-origin.png") });
+  await page.goto("/work");
+  await expect(
+    page.getByRole("article", { name: "Pair the barcode scanner" }).getByTitle(to.name),
+  ).toBeAttached();
+
+  await page.goto(`/tasks/${old.id}`);
+  await page.getByRole("button", { name: "More for Older than the history" }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
+  await expect(dialog).toContainText("The Task is older than the state changes The Office keeps");
+  await expect(dialog.getByRole("button", { name: "Move", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task-refused.png") });
+});
+
 test('the user tags a Task in "+ Task" and on its page, and the board shows its Tags', async ({
   page,
 }) => {
