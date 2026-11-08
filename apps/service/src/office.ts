@@ -90,9 +90,10 @@ function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): voi
 /**
  * Puts right the answers the last run cut short, finishes a fire alarm's sounding it stopped
  * during (spec §2.8), which also pauses again the Tasks an all clear it stopped during had resumed
- * before turning the alarm off, then releases the kept queue (spec §2.1), since a desk may have been freed
- * while the service was down; the release holds while the alarm is on, and starts the daily archiving of finished Tasks. After
- * every module's start, so the walks the release starts aren't taken for ones the last run left.
+ * before turning the alarm off, then releases the kept queue (spec §2.1), since a desk may have been
+ * freed while the service was down; the release holds while the alarm is on. Last, it starts the
+ * daily archiving of finished Tasks, here only so a test app never runs it. After every module's
+ * start, so the walks the release starts aren't taken for ones the last run left.
  */
 async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void> {
   await app.get(InterruptedAnswers).recover();
