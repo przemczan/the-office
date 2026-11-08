@@ -91,7 +91,7 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 | §2.1, §2.2, §2.3, §3, §4, §5.4, §5.6, §6, §8 | Engines as a list in Settings › Engines: a Claude Code engine per account in its own config folder with a "Sign in" (`claude auth login`) and the `-p` switch, each API endpoint an engine, each with a default model; caps, usage and Model prices per engine; the engine cascade (Office default, Project default with "Use for every Role", Role override, the Project's Role override) for every session, checked at every level; no Stage model; the Role card showing what applies and from where; the Project page's Engine block; removing an engine with a replacement | 47 |
 | §2.2, §4 | Office instructions: one text from Settings in every person's session on every engine, versioned as a Role card is, and a Proposal of the Office Manager | 50 |
 | §2.1 | Archive; moving Tasks between Projects until In progress, the Plan marked for the Planner to re-check | 38 |
-| §2.1 | Attachment versions | 39 |
+| §2.1 | Attachment versions: postponed until after tier 3 (2026-11-08) | 39 |
 | §2.3 | Stage templates in the Pipeline library | 40 |
 | §4, §2.6 | The Graphite and Paper palettes; the densities; skill usage counts | 41 |
 | §2.7 | Email and chat-app Notifications (WhatsApp first) | 42 |
