@@ -1,6 +1,6 @@
 # 50 · Office instructions
 
-Status: in progress
+Status: done
 
 ## Goal
 
