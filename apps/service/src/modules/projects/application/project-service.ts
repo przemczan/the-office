@@ -66,10 +66,10 @@ export class ProjectService {
     private readonly runEnvironmentSetUp: RunEnvironmentSetUpRegistry,
   ) {}
 
-  /** Refuses with every reason, before saving, when the Project breaks a rule. */
   /**
-   * The answer to the run environment question is applied once the Project is added: a Project to
-   * onboard is added with none, so it is asked at its first Start.
+   * Refuses with every reason, before saving, when the Project breaks a rule. The answer to the run
+   * environment question is applied once the Project is added: a Project to onboard is added with
+   * none, so it is asked at its first Start.
    */
   async add(
     given: NewProject,
