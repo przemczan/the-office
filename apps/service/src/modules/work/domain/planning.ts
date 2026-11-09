@@ -55,8 +55,8 @@ export interface PlanningRecord {
 
 /**
  * A planning Thread's Brief (spec §2.5): the Task's title and Description, where it came from, its
- * linked records, its Attachments, the Project's commands, the Pipelines to propose from, and the Plan and Definition of Done once
- * written, each marked confirmed or not.
+ * linked records, its Attachments, the Project's commands, the Pipelines to propose from, and the
+ * Plan and Definition of Done once written, each marked confirmed or not.
  */
 export function planningBrief({
   task,

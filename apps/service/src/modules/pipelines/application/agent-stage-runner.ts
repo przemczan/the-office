@@ -74,8 +74,8 @@ import { StageRunners } from "./stage-runners.js";
 
 /**
  * The Office tools of an Agent Stage's session (spec §6): it reads every record and Attachment, its
- * own Task's and those of the Tasks, Idea and Initiative it is linked to, asks the user with a Decision, consults a person (in tier 1 the user answers in
- * their place), attaches a file or a link to the Task, asks The Office to update the Task's
+ * own Task's and those of the Tasks, Idea and Initiative it is linked to, asks the user with a
+ * Decision, consults a person (in tier 1 the user answers in their place), attaches a file or a link to the Task, asks The Office to update the Task's
  * branch from the base, and runs the Project's commands where they run (`StageProjectCommands`).
  * The names are the tools' own, which Conversations, Work and Pipelines register.
  */

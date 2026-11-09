@@ -1,6 +1,7 @@
 import type { Idea } from "./idea.js";
 import type { Initiative } from "./initiative.js";
 import type { Task } from "./task.js";
+import { isArchived } from "./task-archive.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 
 /**
@@ -39,7 +40,7 @@ export function linkedRecordLines(links: TaskLinks): string[] {
 
 /** A linked Task in a few words, marked when it is archived; `note` follows its state. */
 export function linkedTaskWords(task: Task, note = ""): string {
-  const archived = task.archivedAt ? ", archived" : "";
+  const archived = isArchived(task) ? ", archived" : "";
   return `${task.title} (Task ${task.id}), ${TASK_STATE_NAMES[task.state]}${note}${archived}; read_task reads it`;
 }
 

@@ -58,10 +58,10 @@ export interface AgentStageRecord {
 
 /**
  * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title,
- * Description, Plan and Definition of Done, where the session works, the earlier Stages' results with their Handover
- * notes, the diff so far, the records the Task is linked to, the Attachments, the commands the Agent may run and the Hard switches it
- * follows. Conversations adds
- * the answered Decisions; transcripts are never handed over.
+ * Description, Plan and Definition of Done, where the session works, the earlier Stages' results
+ * with their Handover notes, the diff so far, the records the Task is linked to, the Attachments,
+ * the commands the Agent may run and the Hard switches it follows. Conversations adds the answered
+ * Decisions; transcripts are never handed over.
  */
 export function agentStageRecord({
   task,

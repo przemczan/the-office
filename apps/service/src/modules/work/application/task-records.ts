@@ -18,7 +18,10 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
   readonly descriptionSection: string;
   /** Each of its Attachments, as a line of a Brief; none when it has none. */
   readonly attachmentLines: readonly string[];
-  /** The records it is linked to, as the section of a Brief the Planner's has too; none without any. */
+  /**
+   * The records it is linked to, as a section of a Brief, the same as the Planner's; none when it is
+   * linked to none.
+   */
   readonly linkedRecordsSection: string | undefined;
   readonly project: Pick<
     KnownProject,
