@@ -1,5 +1,5 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { access, mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -82,7 +82,19 @@ export interface CommandEnd extends ExecutionEnd {
 interface RunningEnvironment {
   readonly project: ComposeProject;
   readonly definition: RunEnvironmentDefinition;
+  /** The worktree folder its containers have bind-mounted, as it was when it started. */
+  readonly worktree: FolderIdentity | undefined;
   idleStop: Wait | undefined;
+}
+
+/**
+ * Which folder a path names: a folder removed and made again at the same path is another one, and
+ * a running container keeps the old one mounted. That mount holds the old inode, so the new folder
+ * can't be given its number.
+ */
+interface FolderIdentity {
+  readonly device: number;
+  readonly inode: number;
 }
 
 /**
@@ -254,7 +266,18 @@ export class RunEnvironments implements OnModuleInit {
     options: SlotOptions,
   ): Promise<RunningEnvironment> {
     const known = this.running.get(task.taskId);
-    if (known !== undefined) return known;
+    if (known !== undefined) {
+      if (sameFolder(known.worktree, await folderIdentityOf(task.worktree))) return known;
+      // Publish removes the worktree and the next Stage adds it again: exec into the old mount
+      // fails in the runtime, so the containers start again on the new folder.
+      await note(
+        outputFile,
+        "The Task's worktree was replaced; starting the run environment again.",
+      );
+      await this.failingAsRefused(outputFile, "The run environment couldn't stop.", () =>
+        this.stopNow(task.taskId),
+      );
+    }
     const reading = await readDefinitionIn(task.worktree);
     if (reading.value === undefined) throw new RunEnvironmentRefused(reading.problems);
     const definition = reading.value;
@@ -278,7 +301,12 @@ export class RunEnvironments implements OnModuleInit {
       await this.slots.release(task.taskId);
       throw error;
     }
-    const environment: RunningEnvironment = { project, definition, idleStop: undefined };
+    const environment: RunningEnvironment = {
+      project,
+      definition,
+      worktree: await folderIdentityOf(task.worktree),
+      idleStop: undefined,
+    };
     this.running.set(task.taskId, environment);
     this.stopWhenIdle(task.taskId, environment);
     if (created) {
@@ -417,6 +445,23 @@ export class RunEnvironments implements OnModuleInit {
       label: `The run environment of the Task "${task.taskTitle}"`,
     } as const;
   }
+}
+
+/** The folder's identity, or none when it is gone, which no running environment's matches. */
+async function folderIdentityOf(path: string): Promise<FolderIdentity | undefined> {
+  return stat(path).then(
+    ({ dev, ino }) => ({ device: dev, inode: ino }),
+    () => undefined,
+  );
+}
+
+function sameFolder(started: FolderIdentity | undefined, now: FolderIdentity | undefined): boolean {
+  return (
+    started !== undefined &&
+    now !== undefined &&
+    started.device === now.device &&
+    started.inode === now.inode
+  );
 }
 
 async function exists(path: string): Promise<boolean> {
