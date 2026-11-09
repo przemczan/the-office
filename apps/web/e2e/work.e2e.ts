@@ -416,7 +416,8 @@ test("an Idea with Attachments is shaped into a Task in Backlog, and another is 
 
   await card.getByRole("button", { name: "Shape into a Task" }).click();
   await expect(page.getByText("Export usage as CSV is a Task in Backlog.")).toBeVisible();
-  await expect(page.getByText("became")).toBeVisible();
+  // Other files' Ideas may have become Tasks already, so this one's row is named in full.
+  await expect(page.getByText("· became Export usage as CSV")).toBeVisible();
 
   await page.getByRole("button", { name: "Idea", exact: true }).click();
   await page.keyboard.type("Voice notes to the Office Manager");
