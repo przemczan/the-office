@@ -292,6 +292,9 @@ export class RunEnvironments implements OnModuleInit {
     const project = await this.writeProject(task, definition, image);
 
     await this.slotFor(task.taskId, options);
+    // Taken before `up`: a folder replaced while it runs then reads as replaced at the next check,
+    // never as the one the containers mounted.
+    const worktree = await folderIdentityOf(task.worktree);
     try {
       await note(outputFile, `Starting the run environment ${project.name}.`);
       await this.failingAsRefused(outputFile, "The run environment couldn't start.", () =>
@@ -304,7 +307,7 @@ export class RunEnvironments implements OnModuleInit {
     const environment: RunningEnvironment = {
       project,
       definition,
-      worktree: await folderIdentityOf(task.worktree),
+      worktree,
       idleStop: undefined,
     };
     this.running.set(task.taskId, environment);
