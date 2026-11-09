@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { OPEN_DECISION_TOOL, taskSchema, type Task, type TaskState } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  READ_STAGE_HISTORY_TOOL,
   READING_OFFICE_TOOLS,
   TaskThreadSetups,
   type TaskThreadRequest,
@@ -94,6 +95,10 @@ describe("a person's Thread on a Task's session", () => {
   it("gives a person's Thread and a planning session every reading tool", () => {
     expect(ASKING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
     expect(PLANNING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+  });
+
+  it("gives a person's Thread reading the Task's Stage history", () => {
+    expect(ASKING_OFFICE_TOOLS).toContain(READ_STAGE_HISTORY_TOOL);
   });
 
   it("gives no read-write tool, and no Decision", () => {

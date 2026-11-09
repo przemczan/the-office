@@ -11,6 +11,7 @@ import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-sta
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { StageBranchUpdate } from "./application/stage-branch-update.js";
 import { StageCommandRuns } from "./application/stage-command-runs.js";
+import { StageHistory } from "./application/stage-history.js";
 import { StageProjectCommands } from "./application/stage-project-commands.js";
 import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js";
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
@@ -147,6 +148,7 @@ export class PipelinesModule {
         GateStageRunner,
         GateService,
         PipelineProposals,
+        StageHistory,
         PipelineOfficeTools,
         PipelinesWebEvents,
       ],

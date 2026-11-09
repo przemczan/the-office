@@ -116,12 +116,28 @@ export const READING_OFFICE_TOOLS = [
 ] as const;
 
 /**
- * The Office tools a chat session works with (spec §6): it reads every record, captures an Idea,
- * creates a Task and drafts a skill as a Proposal (Conversations' `propose_skill`), and changes no
- * file.
+ * The Office tool a person reads a Task's Stage history with, each run and its Project commands'
+ * output, which Pipelines registers. An Agent Stage doesn't get it: its Brief carries what it needs
+ * of earlier runs.
+ */
+export const READ_STAGE_HISTORY_TOOL = "read_stage_history";
+
+/**
+ * The Office tools a person's session reads records with, in their chat, their Thread on a Task
+ * and a Consultation: every record, and a Task's Stage history besides.
+ */
+export const PERSON_READING_OFFICE_TOOLS = [
+  ...READING_OFFICE_TOOLS,
+  READ_STAGE_HISTORY_TOOL,
+] as const;
+
+/**
+ * The Office tools a chat session works with (spec §6): it reads every record and a Task's Stage
+ * history, captures an Idea, creates a Task and drafts a skill as a Proposal (Conversations'
+ * `propose_skill`), and changes no file.
  */
 export const CHAT_OFFICE_TOOLS = [
-  ...READING_OFFICE_TOOLS,
+  ...PERSON_READING_OFFICE_TOOLS,
   "capture_idea",
   "create_task",
   PROPOSE_SKILL_TOOL,
@@ -242,11 +258,11 @@ export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
 
 /**
  * The Office tools a Consultant works a Consultation with: they read every record, the Task's and
- * any other, and give their answer. They open no Decision and consult no one, so a Consultation
- * never nests.
+ * any other, and its Stage history, and give their answer. They open no Decision and consult no
+ * one, so a Consultation never nests.
  */
 export const CONSULTATION_OFFICE_TOOLS = [
-  ...READING_OFFICE_TOOLS,
+  ...PERSON_READING_OFFICE_TOOLS,
   ANSWER_CONSULTATION_TOOL,
 ] as const;
 

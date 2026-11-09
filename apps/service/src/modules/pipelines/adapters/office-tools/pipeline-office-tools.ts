@@ -7,6 +7,7 @@ import {
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
   ProposalRefused,
+  READ_STAGE_HISTORY_TOOL,
 } from "../../../conversations/index.js";
 import {
   OfficeToolRegistry,
@@ -15,6 +16,7 @@ import {
 } from "../../../engine/index.js";
 import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
+import { StageHistory } from "../../application/stage-history.js";
 import { StageProjectCommands } from "../../application/stage-project-commands.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf, PROJECT_COMMAND_KEYS } from "../../domain/agent-command.js";
@@ -43,6 +45,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     private readonly proposals: ProposalDrafts,
     private readonly branchUpdate: StageBranchUpdate,
     private readonly projectCommands: StageProjectCommands,
+    private readonly stageHistory: StageHistory,
   ) {}
 
   onModuleInit(): void {
@@ -52,6 +55,31 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registerProposeStageTemplate();
     this.registerUpdateBranch();
     this.registerRunProjectCommand();
+    this.registerReadStageHistory();
+  }
+
+  private registerReadStageHistory(): void {
+    this.registry.register({
+      name: READ_STAGE_HISTORY_TOOL,
+      description:
+        "Reads a Task's Stage history, as the user sees it on the Task: every Stage run in the order they ran, with its Stage, start and end, outcome, Handover note, Decisions and their answers, engine, model and tokens, and every Project command it ran with its outcome, exit code, duration and filtered output. Give a run's number as well to read that run with each command's whole output. It reads only The Office's records, never a file.",
+      input: z.object({
+        taskId: z.string().describe("The Task's id, as list_tasks gives it."),
+        runNumber: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("One run's number, as the whole history gives it, to read its whole outputs."),
+      }),
+      run: async ({ taskId, runNumber }) => ({
+        text:
+          runNumber === undefined
+            ? await this.stageHistory.of(taskId.trim())
+            : await this.stageHistory.run(taskId.trim(), runNumber),
+        isError: false,
+      }),
+    });
   }
 
   private registerRunProjectCommand(): void {

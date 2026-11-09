@@ -5,6 +5,7 @@ import {
   type TaskThreadRequest,
   type TaskThreadSetup,
   type TaskThreadSource,
+  PERSON_READING_OFFICE_TOOLS,
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
@@ -33,10 +34,10 @@ export const PLANNING_OFFICE_TOOLS = [
 ] as const;
 
 /**
- * The Office tools of a person's Thread on a Task: it reads every record and Attachment and changes
- * none (spec §2.4).
+ * The Office tools of a person's Thread on a Task: it reads every record and Attachment, and the
+ * Task's Stage history, and changes none (spec §2.4).
  */
-export const ASKING_OFFICE_TOOLS = READING_OFFICE_TOOLS;
+export const ASKING_OFFICE_TOOLS = PERSON_READING_OFFICE_TOOLS;
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Planner's

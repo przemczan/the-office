@@ -38,6 +38,7 @@ import {
   READ_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
   READING_OFFICE_TOOLS,
+  READ_STAGE_HISTORY_TOOL,
   roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
   workThreadInstructions,
@@ -171,6 +172,13 @@ describe("chatOfficeTools", () => {
     expect(READING_OFFICE_TOOLS).toContain("read_attachment");
   });
 
+  it("gives every chat reading a Task's Stage history, the Office Manager's too, which no Agent Stage reads with", () => {
+    for (const roleKey of ["planner", DEVOPS, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(roleKey)).toContain(READ_STAGE_HISTORY_TOOL);
+    }
+    expect(READING_OFFICE_TOOLS).not.toContain(READ_STAGE_HISTORY_TOOL);
+  });
+
   it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {
     expect(chatOfficeTools(DEVOPS)).toContain(READ_REPOSITORY_TOOL);
     expect(roleOfficeTools(DEVOPS)).not.toContain(READ_REPOSITORY_TOOL);
@@ -234,5 +242,9 @@ describe("CONSULTATION_OFFICE_TOOLS", () => {
   it("gives a Consultant every reading tool, and no Decision or Consultation of their own", () => {
     expect(CONSULTATION_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
     expect(CONSULTATION_OFFICE_TOOLS).not.toContain(OPEN_DECISION_TOOL);
+  });
+
+  it("gives a Consultant reading the Task's Stage history", () => {
+    expect(CONSULTATION_OFFICE_TOOLS).toContain(READ_STAGE_HISTORY_TOOL);
   });
 });
