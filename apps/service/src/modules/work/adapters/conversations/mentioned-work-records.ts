@@ -1,18 +1,18 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { WorkRecords, type WorkRecordSource } from "../../../conversations/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
-import { IdeaService } from "../../application/idea-service.js";
+import { IdeaRecords } from "../../application/idea-records.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
-import { ideaRecordText } from "../../domain/record-words.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 
 /**
  * Gives Conversations the records of the Tasks, Initiatives and Ideas the user mentions in a chat,
- * worded as `read_task`, `read_initiative` and `read_idea` word them, the titles of the Tasks a Link card is about, and the Attachments of a Task a Decision may name.
+ * worded as `read_task`, `read_initiative` and `read_idea` word them, with their linked records, the
+ * titles of the Tasks a Link card is about, and the Attachments of a Task a Decision may name.
  */
 @Injectable()
 export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
@@ -21,7 +21,7 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
     private readonly tasks: TaskService,
     private readonly taskRecords: TaskRecords,
     private readonly initiatives: InitiativeService,
-    private readonly ideas: IdeaService,
+    private readonly ideaRecords: IdeaRecords,
     private readonly attachments: AttachmentService,
   ) {}
 
@@ -63,8 +63,7 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
 
   async ideaRecord(ideaId: string): Promise<string | undefined> {
     try {
-      const idea = await this.ideas.read(ideaId);
-      return ideaRecordText(idea, await this.attachments.listOf({ kind: "idea", ideaId }));
+      return await this.ideaRecords.recordText(ideaId);
     } catch (error) {
       if (error instanceof IdeaNotFound) return undefined;
       throw error;

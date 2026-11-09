@@ -53,6 +53,7 @@ describe("TaskRecords", () => {
       plan: "",
       definitionOfDone: [],
       attachmentLines: [`- Mockup (link to https://example.com/mockup) · Attachment ${link.id}`],
+      linkedRecordsSection: undefined,
       project: {
         id: projectId,
         name: `The ${projectId}`,
@@ -74,5 +75,27 @@ describe("TaskRecords", () => {
     const taskId = await aTask(`project-${randomUUID()}`);
 
     expect((await work.app.get(TaskRecords).read(taskId)).attachmentLines).toEqual([]);
+  });
+
+  it("lists the Tasks it waits for and that wait for it, as a section of the Brief", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const [blockerId, taskId, waitingId] = [
+      await aTask(projectId),
+      await aTask(projectId),
+      await aTask(projectId),
+    ];
+    await sendJson(work, "POST", `/tasks/${taskId}/dependencies`, { blockerId });
+    await sendJson(work, "POST", `/tasks/${waitingId}/dependencies`, { blockerId: taskId });
+
+    expect((await work.app.get(TaskRecords).read(taskId)).linkedRecordsSection).toBe(
+      [
+        "## Linked records",
+        "",
+        `- Waits for: Rename a device (Task ${blockerId}), Backlog; read_task reads it`,
+        `- Waiting for it: Rename a device (Task ${waitingId}), Backlog; read_task reads it`,
+        "",
+        "Read them with read_task, read_idea and read_initiative, and their Attachments with read_attachment.",
+      ].join("\n"),
+    );
   });
 });

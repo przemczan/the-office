@@ -95,10 +95,19 @@ export class TaskService {
     return this.repository.stateChangesOf(taskId);
   }
 
-  /** The Tasks it waits for, in the order they were added. */
-  async blockersOf(task: Task): Promise<Task[]> {
-    const tasks = new Map((await this.repository.list()).map((each) => [each.id, each]));
-    return task.blockedBy.flatMap((id) => tasks.get(id) ?? []);
+  /**
+   * The Tasks it waits for, in the order they were added, and the Tasks that wait for it, in the
+   * board's order; archived ones too.
+   */
+  async dependenciesOf(
+    task: Task,
+  ): Promise<{ readonly waitsFor: readonly Task[]; readonly waitingForIt: readonly Task[] }> {
+    const board = await this.repository.list();
+    const byId = new Map(board.map((each) => [each.id, each]));
+    return {
+      waitsFor: task.blockedBy.flatMap((id) => byId.get(id) ?? []),
+      waitingForIt: board.filter((each) => each.blockedBy.includes(task.id)).toSorted(boardOrder),
+    };
   }
 
   async changePriority(id: string, priority: Priority): Promise<Task> {

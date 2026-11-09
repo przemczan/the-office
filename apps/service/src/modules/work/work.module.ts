@@ -55,6 +55,7 @@ import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
 import { AttachmentService } from "./application/attachment-service.js";
 import { FireAlarmService } from "./application/fire-alarm-service.js";
+import { IdeaRecords } from "./application/idea-records.js";
 import { IdeaService } from "./application/idea-service.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
@@ -241,6 +242,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         QueueService,
         FireAlarmService,
         TaskRecords,
+        IdeaRecords,
         StageScreenshots,
         WorkWebEvents,
         WorkOfficeTools,

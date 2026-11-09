@@ -11,6 +11,7 @@ import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../..
 import type { NewProject } from "../../projects/index.js";
 import type { AccountWindowsReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
+import type { AllStageResults } from "../domain/record-words.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import {
@@ -142,6 +143,13 @@ export class StageResultsForTests extends StageResults {
 
   async of(taskId: string, roleKey: string): Promise<TaskStageResults> {
     return this.results.get(`${taskId}/${roleKey}`) ?? { lines: [], handoverNotes: [] };
+  }
+
+  /** Each Task's whole Stage results, as a test sets them; none for any other Task. */
+  readonly allResults = new Map<string, AllStageResults>();
+
+  async ofTask(taskId: string): Promise<AllStageResults> {
+    return this.allResults.get(taskId) ?? { lines: [], handoverNotes: [] };
   }
 }
 

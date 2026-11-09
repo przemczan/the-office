@@ -1,5 +1,6 @@
 import {
   CAPTURE_IDEA_TOOL,
+  OPEN_DECISION_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL as CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL as CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL as CONTRACT_PROPOSE_PROJECT_TOOL,
@@ -16,6 +17,7 @@ import {
   CHAT_OFFICE_TOOLS,
   chatInstructions,
   chatOfficeTools,
+  CONSULTATION_OFFICE_TOOLS,
   consultationInstructions,
   LIST_PIPELINES_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
@@ -32,6 +34,7 @@ import {
   PROPOSE_SKILL_UPDATE_TOOL,
   READ_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
+  READING_OFFICE_TOOLS,
   roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
   workThreadInstructions,
@@ -156,16 +159,13 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools("planner")).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
   });
 
-  it("gives the Office Manager reading a Role's whole card, to draft a change from", () => {
-    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(READ_ROLE_TOOL);
-    expect(chatOfficeTools("planner")).not.toContain(READ_ROLE_TOOL);
-    expect(chatOfficeTools(DEVOPS)).not.toContain(READ_ROLE_TOOL);
-  });
-
-  it("gives everyone reading an Initiative by its id, the Office Manager too", () => {
-    expect(chatOfficeTools("planner")).toContain("read_initiative");
-    expect(chatOfficeTools(DEVOPS)).toContain("read_initiative");
-    expect(chatOfficeTools(OFFICE_MANAGER)).toContain("read_initiative");
+  it("gives every chat every reading tool, the Office Manager's too", () => {
+    for (const roleKey of ["planner", DEVOPS, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(roleKey)).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+    }
+    expect(READING_OFFICE_TOOLS).toContain(READ_ROLE_TOOL);
+    expect(READING_OFFICE_TOOLS).toContain("read_initiative");
+    expect(READING_OFFICE_TOOLS).toContain("read_attachment");
   });
 
   it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {
@@ -220,5 +220,12 @@ describe("chatOfficeTools", () => {
   it("names the tools whose calls the web shows as cards as the contracts name them", () => {
     expect(SHOW_OFFICE_STATUS_TOOL).toBe(CONTRACT_SHOW_OFFICE_STATUS_TOOL);
     expect(CHAT_OFFICE_TOOLS).toContain(CAPTURE_IDEA_TOOL);
+  });
+});
+
+describe("CONSULTATION_OFFICE_TOOLS", () => {
+  it("gives a Consultant every reading tool, and no Decision or Consultation of their own", () => {
+    expect(CONSULTATION_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+    expect(CONSULTATION_OFFICE_TOOLS).not.toContain(OPEN_DECISION_TOOL);
   });
 });

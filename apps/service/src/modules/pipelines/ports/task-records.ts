@@ -7,6 +7,11 @@ export interface TaskRecord {
   readonly definitionOfDone: readonly string[];
   /** Each of the Task's Attachments, as a line of a Brief; none when it has none. */
   readonly attachmentLines: readonly string[];
+  /**
+   * The records the Task is linked to (the Tasks it waits for and that wait for it, its Idea and its
+   * Initiative), as a section of the Brief with how to read them; none when it is linked to none.
+   */
+  readonly linkedRecordsSection: string | undefined;
   readonly project: {
     readonly id: string;
     readonly name: string;

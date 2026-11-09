@@ -54,5 +54,6 @@ export {
   LIST_PIPELINES_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
+  READING_OFFICE_TOOLS,
 } from "./domain/session-instructions.js";
 export { ProposalRefused } from "./domain/proposal-refused.js";

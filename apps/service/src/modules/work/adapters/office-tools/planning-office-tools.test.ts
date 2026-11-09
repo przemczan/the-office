@@ -4,19 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { AttachmentService } from "../../application/attachment-service.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
-import { taskRecordText } from "../../domain/record-words.js";
 import { PLANNING_OFFICE_TOOLS } from "../conversations/task-thread-records.js";
 import type { Task } from "../../domain/task.js";
 import { SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import {
-  DOCUMENT_READ_LIMIT,
   PROPOSE_PIPELINE,
-  READ_ATTACHMENT,
   WRITE_DEFINITION_OF_DONE,
   WRITE_PLAN,
   WRITE_TAGS,
@@ -72,13 +69,7 @@ function current(): Promise<Task> {
 
 it("are among a planning session's Office tools", () => {
   expect(PLANNING_OFFICE_TOOLS).toEqual(
-    expect.arrayContaining([
-      WRITE_PLAN,
-      WRITE_DEFINITION_OF_DONE,
-      PROPOSE_PIPELINE,
-      READ_ATTACHMENT,
-      WRITE_TAGS,
-    ]),
+    expect.arrayContaining([WRITE_PLAN, WRITE_DEFINITION_OF_DONE, PROPOSE_PIPELINE, WRITE_TAGS]),
   );
 });
 
@@ -113,7 +104,7 @@ describe("write_plan", () => {
     });
 
     expect((await current()).filesToChange).toEqual(["src/auth", "src/login.ts"]);
-    expect(taskRecordText(await current(), [], [], [])).toContain(
+    expect(await work.app.get(TaskRecords).recordText(task.id)).toContain(
       "Files to change:\n- src/auth\n- src/login.ts",
     );
   });
@@ -175,70 +166,6 @@ describe("propose_pipeline", () => {
       text: expect.stringMatching(
         /^There is no Pipeline "nightly"\. The library has full, quick-fix, document, onboard, proof-of-concept/,
       ),
-      isError: true,
-    });
-  });
-});
-
-/** Attaches a file to the session's Task, or to another. */
-function addFile(name: string, mediaType: string, content: string, taskId = task.id) {
-  return work.app
-    .get(AttachmentService)
-    .addFile(
-      { kind: "task", taskId },
-      { name, mediaType, content: new TextEncoder().encode(content) },
-      THE_USER,
-    );
-}
-
-describe("read_attachment", () => {
-  it("reads a document's text", async () => {
-    const notes = await addFile("notes.md", "text/markdown", "# Notes\n\nKeep the path.");
-
-    await expect(call(READ_ATTACHMENT, { attachmentId: notes.id })).resolves.toEqual({
-      text: "notes.md (document, text/markdown, 23 bytes):\n\n# Notes\n\nKeep the path.",
-      isError: false,
-    });
-  });
-
-  it("reads the start of a long document, saying it goes on", async () => {
-    const long = await addFile("long.md", "text/markdown", "é".repeat(DOCUMENT_READ_LIMIT));
-
-    const result = await call(READ_ATTACHMENT, { attachmentId: long.id });
-
-    // Two bytes a character, so the limit holds half of them, and no half character at its end.
-    expect(result.text).toBe(
-      `long.md (document, text/markdown, ${DOCUMENT_READ_LIMIT * 2} bytes):\n\n${"é".repeat(DOCUMENT_READ_LIMIT / 2)}\n\nThe document goes on: these are its first ${DOCUMENT_READ_LIMIT} bytes.`,
-    );
-  });
-
-  it("gives a link's address and an image's name and kind", async () => {
-    const link = await work.app
-      .get(AttachmentService)
-      .addLink(
-        { kind: "task", taskId: task.id },
-        { name: "Spec", url: "https://example.com/spec" },
-        THE_USER,
-      );
-    const image = await addFile("screen.png", "image/png", "png bytes");
-
-    const linkRead = await call(READ_ATTACHMENT, { attachmentId: link.id });
-    const imageRead = await call(READ_ATTACHMENT, { attachmentId: image.id });
-
-    expect(linkRead.text).toBe(
-      "Spec (link to https://example.com/spec). The Office keeps its address only; fetch it if you need what it says.",
-    );
-    expect(imageRead.text).toBe(
-      "screen.png (image, image/png, 9 bytes). Only a document is read as text; ask the user what it holds if you need to know.",
-    );
-  });
-
-  it("refuses another Task's Attachment as one it doesn't have", async () => {
-    const other = await aTaskInPlanning();
-    const elsewhere = await addFile("other.md", "text/markdown", "Not yours.", other.id);
-
-    await expect(call(READ_ATTACHMENT, { attachmentId: elsewhere.id })).resolves.toEqual({
-      text: `There is no Attachment "${elsewhere.id}".`,
       isError: true,
     });
   });

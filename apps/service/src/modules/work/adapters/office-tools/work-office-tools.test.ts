@@ -7,7 +7,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
+import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
+import type { AttachmentOwner } from "../../domain/attachment.js";
 import { THE_USER } from "../../domain/author.js";
 import {
   IdeaCardsForTests,
@@ -15,7 +17,16 @@ import {
   UNKNOWN_SESSION,
 } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
-import { CREATE_TASK, LIST_IDEAS, LIST_TASKS, READ_IDEA, READ_TASK } from "./work-office-tools.js";
+import { READ_INITIATIVE } from "./shaping-office-tools.js";
+import {
+  CREATE_TASK,
+  DOCUMENT_READ_LIMIT,
+  LIST_IDEAS,
+  LIST_TASKS,
+  READ_ATTACHMENT,
+  READ_IDEA,
+  READ_TASK,
+} from "./work-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 let officeData: string;
@@ -226,5 +237,200 @@ describe("reading Tasks and Ideas", () => {
       text: `There is no Idea "${missing}".`,
       isError: true,
     });
+  });
+});
+
+/** Attaches a document to its owner. */
+function addDocument(owner: AttachmentOwner, name: string, content: string) {
+  return work.app
+    .get(AttachmentService)
+    .addFile(
+      owner,
+      { name, mediaType: "text/markdown", content: new TextEncoder().encode(content) },
+      THE_USER,
+    );
+}
+
+function aTaskNamed(title: string) {
+  return work.app.get(TaskService).create({ title, projectId, priority: "normal" }, THE_USER);
+}
+
+describe("read_attachment", () => {
+  it("reads any Task's document, in a session on no Task, naming the Task it belongs to", async () => {
+    const other = await aTaskNamed("Add the session store");
+    const notes = await addDocument({ kind: "task", taskId: other.id }, "notes.md", "# Notes");
+
+    await expect(
+      call(READ_ATTACHMENT, { attachmentId: notes.id }, "chat-on-no-task"),
+    ).resolves.toEqual({
+      text: `Attached to Task ${other.id}: Add the session store.\n\nnotes.md (document, text/markdown, 7 bytes):\n\n# Notes`,
+      isError: false,
+    });
+  });
+
+  it("reads an archived Task's document, saying the Task is archived", async () => {
+    const tasks = work.app.get(TaskService);
+    const finished = await aTaskNamed("Finished");
+    const notes = await addDocument({ kind: "task", taskId: finished.id }, "notes.md", "Done.");
+    await tasks.drop(finished.id);
+    await tasks.archive(finished.id);
+
+    const result = await call(READ_ATTACHMENT, { attachmentId: notes.id });
+
+    expect(result.text).toBe(
+      `Attached to Task ${finished.id}: Finished (archived).\n\nnotes.md (document, text/markdown, 5 bytes):\n\nDone.`,
+    );
+  });
+
+  it("reads an Idea's and an Initiative's document, naming each owner", async () => {
+    const ideas = work.app.get(IdeaService);
+    const idea = await ideas.capture(
+      { title: "Voice notes", notes: "", projectId: undefined },
+      THE_USER,
+    );
+    const ideaNotes = await addDocument({ kind: "idea", ideaId: idea.id }, "idea.md", "Idea.");
+    const origin = await ideas.capture(
+      { title: "Usage exports", notes: "", projectId: undefined },
+      THE_USER,
+    );
+    const initiative = await work.app.get(InitiativeService).shape(origin.id, THE_USER);
+    const outcome = await addDocument(
+      { kind: "initiative", initiativeId: initiative.id },
+      "outcome.md",
+      "Outcome.",
+    );
+
+    const ideaRead = await call(READ_ATTACHMENT, { attachmentId: ideaNotes.id });
+    const initiativeRead = await call(READ_ATTACHMENT, { attachmentId: outcome.id });
+
+    expect(ideaRead.text).toBe(
+      `Attached to Idea ${idea.id}: Voice notes.\n\nidea.md (document, text/markdown, 5 bytes):\n\nIdea.`,
+    );
+    expect(initiativeRead.text).toBe(
+      `Attached to Initiative ${initiative.id}: ${initiative.name}.\n\noutcome.md (document, text/markdown, 8 bytes):\n\nOutcome.`,
+    );
+  });
+
+  it("reads the start of a long document, saying it goes on", async () => {
+    const task = await aTaskNamed("Long notes");
+    const long = await addDocument(
+      { kind: "task", taskId: task.id },
+      "long.md",
+      "é".repeat(DOCUMENT_READ_LIMIT),
+    );
+
+    const result = await call(READ_ATTACHMENT, { attachmentId: long.id });
+
+    // Two bytes a character, so the limit holds half of them, and no half character at its end.
+    expect(result.text).toBe(
+      `Attached to Task ${task.id}: Long notes.\n\nlong.md (document, text/markdown, ${DOCUMENT_READ_LIMIT * 2} bytes):\n\n${"é".repeat(DOCUMENT_READ_LIMIT / 2)}\n\nThe document goes on: these are its first ${DOCUMENT_READ_LIMIT} bytes.`,
+    );
+  });
+
+  it("gives a link's address and an image's name and kind", async () => {
+    const task = await aTaskNamed("Mockups");
+    const attachments = work.app.get(AttachmentService);
+    const link = await attachments.addLink(
+      { kind: "task", taskId: task.id },
+      { name: "Spec", url: "https://example.com/spec" },
+      THE_USER,
+    );
+    const image = await attachments.addFile(
+      { kind: "task", taskId: task.id },
+      {
+        name: "screen.png",
+        mediaType: "image/png",
+        content: new TextEncoder().encode("png bytes"),
+      },
+      THE_USER,
+    );
+
+    const linkRead = await call(READ_ATTACHMENT, { attachmentId: link.id });
+    const imageRead = await call(READ_ATTACHMENT, { attachmentId: image.id });
+
+    expect(linkRead.text).toBe(
+      `Attached to Task ${task.id}: Mockups.\n\nSpec (link to https://example.com/spec). The Office keeps its address only; fetch it if you need what it says.`,
+    );
+    expect(imageRead.text).toBe(
+      `Attached to Task ${task.id}: Mockups.\n\nscreen.png (image, image/png, 9 bytes). Only a document is read as text; ask the user what it holds if you need to know.`,
+    );
+  });
+
+  it("refuses an Attachment that isn't there", async () => {
+    const missing = randomUUID();
+
+    await expect(call(READ_ATTACHMENT, { attachmentId: missing })).resolves.toEqual({
+      text: `There is no Attachment "${missing}".`,
+      isError: true,
+    });
+  });
+});
+
+describe("linked records", () => {
+  it("read_task names the Tasks it waits for and that wait for it, archived and dropped ones marked", async () => {
+    const tasks = work.app.get(TaskService);
+    const blocker = await aTaskNamed("Add the session store");
+    const dropped = await aTaskNamed("Old approach");
+    const task = await aTaskNamed("Remember me");
+    const waiting = await aTaskNamed("Sign out everywhere");
+    await tasks.addDependency(task.id, blocker.id);
+    await tasks.addDependency(task.id, dropped.id);
+    await tasks.addDependency(waiting.id, task.id);
+    await tasks.drop(dropped.id);
+    await tasks.archive(dropped.id);
+
+    const record = await call(READ_TASK, { taskId: task.id });
+
+    expect(record.text).toContain(
+      [
+        "Linked records:",
+        `- Waits for: Add the session store (Task ${blocker.id}), Backlog; read_task reads it`,
+        `- Waits for: Old approach (Task ${dropped.id}), Dropped, so it no longer blocks, archived; read_task reads it`,
+        `- Waiting for it: Sign out everywhere (Task ${waiting.id}), Backlog; read_task reads it`,
+      ].join("\n"),
+    );
+  });
+
+  it("read_task names the Idea it was shaped from, and read_idea the Task it was shaped into", async () => {
+    const idea = await work.app
+      .get(IdeaService)
+      .capture({ title: "Voice notes", notes: "", projectId }, THE_USER);
+    const task = await work.app.get(IdeaService).shape(idea.id, projectId, THE_USER);
+
+    const taskRecord = await call(READ_TASK, { taskId: task.id });
+    const ideaRecord = await call(READ_IDEA, { ideaId: idea.id });
+
+    expect(taskRecord.text).toContain(
+      `- Shaped from: Voice notes (Idea ${idea.id}), shaped; read_idea reads it`,
+    );
+    expect(ideaRecord.text).toContain(
+      `- Shaped into: Voice notes (Task ${task.id}), Backlog; read_task reads it`,
+    );
+  });
+
+  it("read_task names its Initiative, read_idea the Initiative it was shaped into, and read_initiative its Idea, a dropped one marked", async () => {
+    const idea = await work.app
+      .get(IdeaService)
+      .capture({ title: "Usage exports", notes: "", projectId }, THE_USER);
+    const initiatives = work.app.get(InitiativeService);
+    const initiative = await initiatives.shape(idea.id, THE_USER);
+    const task = await initiatives.addTask(
+      initiative.id,
+      { title: "Export as CSV", projectId, priority: "normal" },
+      [],
+      THE_USER,
+    );
+    await initiatives.drop(initiative.id);
+
+    const taskRecord = await call(READ_TASK, { taskId: task.id });
+    const ideaRecord = await call(READ_IDEA, { ideaId: idea.id });
+    const initiativeRecord = await call(READ_INITIATIVE, { initiativeId: initiative.id });
+
+    const initiativeLine = `${initiative.name} (Initiative ${initiative.id}), dropped; read_initiative reads it`;
+    expect(taskRecord.text).toContain(`- Part of: ${initiativeLine}`);
+    expect(ideaRecord.text).toContain(`- Shaped into: ${initiativeLine}`);
+    expect(initiativeRecord.text).toContain(
+      `- Shaped from: Usage exports (Idea ${idea.id}), shaped; read_idea reads it`,
+    );
   });
 });

@@ -65,13 +65,13 @@ export class ShapingOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_INITIATIVE,
       description:
-        "Reads an Initiative's record as it stands now: its state, the Projects it spans, its outcome, its Tasks with what each must wait for, and its Attachments. In a Thread on an Initiative it reads that one unless you name another; the user may have changed it since your Brief.",
+        "Reads any Initiative's record as it stands now: its state, the Projects it spans, the Idea it was shaped from, its outcome, its Tasks with what each must wait for, and its Attachments by id. In a Thread on an Initiative it reads that one unless you name another; the user may have changed it since your Brief.",
       input: z.object({
         initiativeId: z
           .string()
           .optional()
           .describe(
-            "The Initiative's id; leave it out in a Thread on an Initiative to read that one.",
+            "The Initiative's id, as a Task's or an Idea's record gives it; leave it out in a Thread on an Initiative to read that one.",
           ),
       }),
       run: ({ initiativeId }, { sessionId }) =>

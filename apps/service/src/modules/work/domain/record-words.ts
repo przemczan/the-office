@@ -3,23 +3,50 @@ import { authorWords } from "./author.js";
 import type { Idea } from "./idea.js";
 import type { Initiative } from "./initiative.js";
 import { initiativeProjectIds } from "./initiative-changes.js";
+import {
+  linkedIdeaWords,
+  linkedInitiativeWords,
+  linkedRecordLines,
+  linkedTaskWords,
+  type TaskLinks,
+} from "./linked-records.js";
 import { confirmationWords } from "./planning.js";
 import { stateChangeLines, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
 import { NO_DESCRIPTION } from "./task-description.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 
+/** A Handover note with the Stage and the Role whose person wrote it. */
+export interface HandoverNote {
+  readonly stageName: string;
+  readonly roleKey: string;
+  readonly note: string;
+}
+
+/** What every Stage of a Task did, in the order they ran. */
+export interface AllStageResults {
+  /** Each run's result as a line. */
+  readonly lines: readonly string[];
+  readonly handoverNotes: readonly HandoverNote[];
+}
+
+/** What a Task's record is worded from, besides the Task. */
+export interface TaskRecordParts {
+  readonly attachments: readonly Attachment[];
+  readonly links: TaskLinks;
+  readonly stageResults: AllStageResults;
+  readonly stateChanges: readonly StateChange[];
+}
+
 /**
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
- * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, the Idea it came from,
- * its Moves to another Project, the Tasks it waits for (`blockers`, in the order of
- * `task.blockedBy`), and its kept state changes with who or what made each.
+ * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, its Moves to another
+ * Project, its linked records (one line each, never their own links), its Stage results with every
+ * Handover note, and its kept state changes with who or what made each.
  */
 export function taskRecordText(
   task: Task,
-  attachments: readonly Attachment[],
-  blockers: readonly Task[],
-  stateChanges: readonly StateChange[],
+  { attachments, links, stageResults, stateChanges }: TaskRecordParts,
 ): string {
   return [
     `${task.title} (Task ${task.id})`,
@@ -29,7 +56,6 @@ export function taskRecordText(
     ...(task.archivedAt
       ? [`- Archived on ${task.archivedAt.toISOString()}: off the board, its state as it was`]
       : []),
-    ...(task.originIdeaId ? [`- Shaped from the Idea ${task.originIdeaId}`] : []),
     ...task.projectMoves.map(
       ({ from, to, at, by }) =>
         `- Moved from Project ${from} to Project ${to} by ${authorWords(by)} on ${at.toISOString()}`,
@@ -55,34 +81,44 @@ export function taskRecordText(
     ...(task.definitionOfDone.length === 0
       ? ["Not written yet."]
       : task.definitionOfDone.map((statement) => `- ${statement}`)),
-    ...blockerLines(blockers),
+    "",
+    "Linked records:",
+    ...orNone(linkedRecordLines(links)),
     "",
     "Attachments:",
     ...attachmentLines(attachments),
+    "",
+    "Stage results:",
+    ...orNone(stageResults.lines),
+    ...handoverNoteLines(stageResults.handoverNotes),
     "",
     ...stateChangeLines(stateChanges),
   ].join("\n");
 }
 
-function blockerLines(blockers: readonly Task[]): string[] {
-  if (blockers.length === 0) return [];
+function orNone(lines: readonly string[]): readonly string[] {
+  return lines.length === 0 ? ["None."] : lines;
+}
+
+function handoverNoteLines(notes: readonly HandoverNote[]): string[] {
+  if (notes.length === 0) return [];
   return [
     "",
-    "Must be Done before it can start:",
-    ...blockers.map((blocker) => {
-      const dropped = blocker.state === "dropped" ? ", so it no longer blocks" : "";
-      return `- ${blocker.title} (Task ${blocker.id}), ${TASK_STATE_NAMES[blocker.state]}${dropped}`;
-    }),
+    "Handover notes:",
+    ...notes.map(
+      ({ stageName, roleKey, note }) => `- ${stageName}, by the Role ${roleKey}: ${note}`,
+    ),
   ];
 }
 
 /**
  * An Initiative's record as an Agent reads it, in its Thread or mentioned in a chat: its state and
- * outcome, the Idea it was shaped from, its Attachments, and its Tasks in the order they were
- * added, each with its Project, state and the Tasks it waits for, looked up in `blockers`.
+ * outcome, the Idea it was shaped from (`idea`), its Attachments, and its Tasks in the order they
+ * were added, each with its Project, state and the Tasks it waits for, looked up in `blockers`.
  */
 export function initiativeRecordText(
   initiative: Initiative,
+  idea: Idea,
   tasks: readonly Task[],
   blockers: ReadonlyMap<string, Task>,
   attachments: readonly Attachment[],
@@ -90,7 +126,8 @@ export function initiativeRecordText(
   return [
     `${initiative.name} (Initiative ${initiative.id})`,
     `- ${initiative.state}; spans ${projectsWords(initiativeProjectIds(tasks))}`,
-    `- Shaped from the Idea ${initiative.originIdeaId} by ${authorWords(initiative.createdBy)} on ${initiative.createdAt.toISOString()}`,
+    `- Shaped from: ${linkedIdeaWords(idea)}`,
+    `- Created by ${authorWords(initiative.createdBy)} on ${initiative.createdAt.toISOString()}`,
     "",
     "Outcome:",
     initiative.outcome === "" ? "Not written yet." : initiative.outcome,
@@ -122,14 +159,24 @@ function initiativeTaskLine(task: Task, blockers: ReadonlyMap<string, Task>): st
   return `${line}; must wait for ${waitsFor.join(", ")}`;
 }
 
+/** The Task or Initiative an Idea was shaped into, if it was. */
+export type ShapedInto =
+  | { readonly kind: "task"; readonly task: Task }
+  | { readonly kind: "initiative"; readonly initiative: Initiative };
+
 /**
  * An Idea's record as an Agent reads it, through `read_idea` or mentioned in a chat: its notes,
  * who captured it and when, its Attachments, and the Task or Initiative it was shaped into.
  */
-export function ideaRecordText(idea: Idea, attachments: readonly Attachment[]): string {
+export function ideaRecordText(
+  idea: Idea,
+  shapedInto: ShapedInto | undefined,
+  attachments: readonly Attachment[],
+): string {
   return [
     `${idea.title} (Idea ${idea.id})`,
-    `- ${whereOf(idea.projectId)}; ${idea.state}${shapedIntoWords(idea)}`,
+    `- ${whereOf(idea.projectId)}; ${idea.state}`,
+    ...(shapedInto ? [`- Shaped into: ${shapedIntoWords(shapedInto)}`] : []),
     `- Captured by ${authorWords(idea.capturedBy)} on ${idea.capturedAt.toISOString()}`,
     "",
     "Notes:",
@@ -140,9 +187,10 @@ export function ideaRecordText(idea: Idea, attachments: readonly Attachment[]): 
   ].join("\n");
 }
 
-function shapedIntoWords({ taskId, initiativeId }: Idea): string {
-  if (taskId) return ` into the Task ${taskId}`;
-  return initiativeId ? ` into the Initiative ${initiativeId}` : "";
+function shapedIntoWords(shapedInto: ShapedInto): string {
+  return shapedInto.kind === "task"
+    ? linkedTaskWords(shapedInto.task)
+    : linkedInitiativeWords(shapedInto.initiative);
 }
 
 /** In a Project or Office-wide, as an Agent reads an Idea's place. */

@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { READING_OFFICE_TOOLS } from "../../../conversations/index.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
@@ -90,6 +91,10 @@ async function anInitiativeTask(title: string): Promise<Task> {
     .get(InitiativeService)
     .addTask(initiative.id, { title, projectId: aProjectId(), priority: "normal" }, [], THE_USER);
 }
+
+it("gives a shaping session every reading tool", () => {
+  expect(SHAPING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+});
 
 it("are among a shaping session's Office tools", () => {
   expect(SHAPING_OFFICE_TOOLS).toEqual(

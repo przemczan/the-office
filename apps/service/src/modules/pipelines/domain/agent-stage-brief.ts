@@ -25,6 +25,8 @@ export interface BriefTask {
   readonly definitionOfDone: readonly string[];
   /** Each of the Task's Attachments, as a line of the Brief. */
   readonly attachmentLines: readonly string[];
+  /** The records the Task is linked to, worded as a section by Work; none when it has none. */
+  readonly linkedRecordsSection: string | undefined;
   readonly projectName: string;
   readonly baseBranch: string;
   readonly worktree: {
@@ -57,7 +59,7 @@ export interface AgentStageRecord {
 /**
  * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title,
  * Description, Plan and Definition of Done, where the session works, the earlier Stages' results with their Handover
- * notes, the diff so far, the Attachments, the commands the Agent may run and the Hard switches it
+ * notes, the diff so far, the records the Task is linked to, the Attachments, the commands the Agent may run and the Hard switches it
  * follows. Conversations adds
  * the answered Decisions; transcripts are never handed over.
  */
@@ -80,6 +82,7 @@ export function agentStageRecord({
       ? undefined
       : `## Earlier Stages\n\n${earlier.map(earlierResultWords).join("\n")}`,
     diffSummary === undefined ? undefined : `## What changed so far\n\n${diffSummary}`,
+    task.linkedRecordsSection,
     attachmentsSection(task.attachmentLines),
     `## Commands you may run\n\n${commands.words}`,
     // Claude Code asks approval for `cd <absolute path> && …` whatever the hook allows, which

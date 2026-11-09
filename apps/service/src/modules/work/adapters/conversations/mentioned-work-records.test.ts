@@ -103,9 +103,9 @@ describe("the records of mentioned Tasks, Initiatives and Ideas", () => {
 
     expect(record).toContain(
       [
-        "Must be Done before it can start:",
-        `- Queue schema (Task ${schema?.id}), Backlog`,
-        `- Sync protocol messages (Task ${protocol?.id}), Dropped, so it no longer blocks`,
+        "Linked records:",
+        `- Waits for: Queue schema (Task ${schema?.id}), Backlog; read_task reads it`,
+        `- Waits for: Sync protocol messages (Task ${protocol?.id}), Dropped, so it no longer blocks; read_task reads it`,
       ].join("\n"),
     );
   });

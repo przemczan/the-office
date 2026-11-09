@@ -1,25 +1,15 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { AttachmentService } from "../../application/attachment-service.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { attachmentKindWords, type Attachment } from "../../domain/attachment.js";
-import { AttachmentNotFound } from "../../domain/attachment-not-found.js";
 import { SessionTasks } from "../../ports/session-tasks.js";
 import { answered, WorkToolRefused } from "./work-tool-answers.js";
 
 export const WRITE_PLAN = "write_plan";
 export const WRITE_DEFINITION_OF_DONE = "write_definition_of_done";
 export const PROPOSE_PIPELINE = "propose_pipeline";
-export const READ_ATTACHMENT = "read_attachment";
 export const WRITE_TAGS = "write_tags";
-
-/**
- * How much of a document read_attachment answers with, so one large file can't fill the session's
- * context; about 15k tokens of English.
- */
-export const DOCUMENT_READ_LIMIT = 60_000;
 
 const PROPOSED =
   "It shows on the Task as not confirmed until the user confirms it; end your turn when you want them to look at it.";
@@ -27,7 +17,7 @@ const PROPOSED =
 /**
  * The Office tools the Planner plans a Task with, in a Thread on it (spec §2.1, §2.3): each writes
  * onto the session's own Task as proposed, for the user to confirm, but for write_tags, whose Tags
- * apply at once; read_attachment reads its Attachments.
+ * apply at once. The planning session reads with `WorkOfficeTools` like every other.
  */
 @Injectable()
 export class PlanningOfficeTools implements OnModuleInit {
@@ -35,7 +25,6 @@ export class PlanningOfficeTools implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly planning: PlanningService,
     private readonly tasks: TaskService,
-    private readonly attachments: AttachmentService,
     private readonly sessionTasks: SessionTasks,
   ) {}
 
@@ -43,7 +32,6 @@ export class PlanningOfficeTools implements OnModuleInit {
     this.registerWritePlan();
     this.registerWriteDefinitionOfDone();
     this.registerProposePipeline();
-    this.registerReadAttachment();
     this.registerWriteTags();
   }
 
@@ -117,28 +105,6 @@ export class PlanningOfficeTools implements OnModuleInit {
     });
   }
 
-  private registerReadAttachment(): void {
-    this.registry.register({
-      name: READ_ATTACHMENT,
-      description:
-        "Reads one of this Task's Attachments: a document's text, a link's address, and an image's or other file's name and kind, since only a document is read as text.",
-      input: z.object({
-        attachmentId: z
-          .string()
-          .describe("The Attachment's id, as your Brief or read_task lists it."),
-      }),
-      run: ({ attachmentId }, { sessionId }) =>
-        answered(async () => {
-          const taskId = await this.taskIn(sessionId);
-          const attachment = await this.attachments.read(attachmentId);
-          if (attachment.owner.kind !== "task" || attachment.owner.taskId !== taskId) {
-            throw new AttachmentNotFound(attachmentId);
-          }
-          return this.readingOf(attachment);
-        }),
-    });
-  }
-
   private registerWriteTags(): void {
     this.registry.register({
       name: WRITE_TAGS,
@@ -158,21 +124,6 @@ export class PlanningOfficeTools implements OnModuleInit {
           return inUse.length > 0 ? `${now} Other Tags in use: ${inUse.join(", ")}.` : now;
         }),
     });
-  }
-
-  private async readingOf(attachment: Attachment): Promise<string> {
-    const heading = `${attachment.name} (${attachmentKindWords(attachment)})`;
-    if (attachment.kind === "link") {
-      return `${heading}. The Office keeps its address only; fetch it if you need what it says.`;
-    }
-    if (attachment.kind !== "document") {
-      return `${heading}. Only a document is read as text; ask the user what it holds if you need to know.`;
-    }
-    const { text, cut } = await this.attachments.documentText(attachment.id, DOCUMENT_READ_LIMIT);
-    const ending = cut
-      ? `\n\nThe document goes on: these are its first ${DOCUMENT_READ_LIMIT} bytes.`
-      : "";
-    return `${heading}:\n\n${text}${ending}`;
   }
 
   private async taskIn(sessionId: string): Promise<string> {

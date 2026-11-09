@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
+import { READING_OFFICE_TOOLS } from "../../conversations/index.js";
 import { EngineModels, type SessionScript } from "../../engine/index.js";
 import type { Stage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
@@ -59,7 +60,7 @@ async function outcomesOf(taskId: string): Promise<(StageOutcome | undefined)[]>
 }
 
 describe("AgentStageRunner", () => {
-  it("briefs a new session from the record, with the Stage's work and the commands it may run", async () => {
+  it("briefs a new session from the record, with the Stage's work, the commands it may run and every reading tool", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult("Added the dialog.", "Left: the list's refresh.")),
     ]);
@@ -83,8 +84,7 @@ describe("AgentStageRunner", () => {
           web: false,
         },
         officeTools: [
-          "read_task",
-          "read_attachment",
+          ...READING_OFFICE_TOOLS,
           "open_decision",
           "consult",
           "attach_file",

@@ -92,18 +92,36 @@ function personInstructions({
 export const PROPOSE_SKILL_TOOL = "propose_skill";
 
 /**
- * The Office tools a chat session works with records by (spec §6), as the Projects, People and Work
- * modules register them, and Conversations `propose_skill`: they read records, capture an Idea,
- * create a Task and draft a skill as a Proposal, and change no file.
+ * The Office tool that reads a Role's whole card, which People registers: whoever drafts a change
+ * gives each field whole, and their session's copy of the card may be old or lack the instructions.
  */
-export const CHAT_OFFICE_TOOLS = [
+export const READ_ROLE_TOOL = "read_role";
+
+/**
+ * The Office tools every session reads The Office's records with (spec §6), Agent Stages included:
+ * Projects, people and their Roles, and every Task, Idea and Initiative, the links between them and
+ * all their Attachments, as the Projects, People and Work modules register them. Each session's
+ * list starts from these and adds only its own writing tools.
+ */
+export const READING_OFFICE_TOOLS = [
   "list_projects",
   "list_people",
+  READ_ROLE_TOOL,
   "list_tasks",
   "read_task",
-  "read_initiative",
   "list_ideas",
   "read_idea",
+  "read_initiative",
+  "read_attachment",
+] as const;
+
+/**
+ * The Office tools a chat session works with (spec §6): it reads every record, captures an Idea,
+ * creates a Task and drafts a skill as a Proposal (Conversations' `propose_skill`), and changes no
+ * file.
+ */
+export const CHAT_OFFICE_TOOLS = [
+  ...READING_OFFICE_TOOLS,
   "capture_idea",
   "create_task",
   PROPOSE_SKILL_TOOL,
@@ -123,12 +141,6 @@ export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
  * their session holds the version it started with, and a draft of an old copy would undo an edit.
  */
 export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
-
-/**
- * The Office tool that reads a Role's whole card, which People registers: whoever drafts a change
- * gives each field whole, and their session's copy of the card may be old or lack the instructions.
- */
-export const READ_ROLE_TOOL = "read_role";
 
 /** The Office tool the Office Manager points the user to someone with, a Link card; named as above. */
 export const POST_LINK_CARD_TOOL = "post_link_card";
@@ -181,7 +193,6 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
     ? [
         ...CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task"),
         PROPOSE_ROLE_TOOL,
-        READ_ROLE_TOOL,
         PROPOSE_OFFICE_SETTING_TOOL,
         READ_OFFICE_INSTRUCTIONS_TOOL,
         POST_LINK_CARD_TOOL,
@@ -222,16 +233,12 @@ export function roleOfficeTools(roleKey: string): readonly string[] {
 export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
 
 /**
- * The Office tools a Consultant works a Consultation with: they read the records the Task rests on
- * and give their answer. They open no Decision and consult no one, so a Consultation never nests.
+ * The Office tools a Consultant works a Consultation with: they read every record, the Task's and
+ * any other, and give their answer. They open no Decision and consult no one, so a Consultation
+ * never nests.
  */
 export const CONSULTATION_OFFICE_TOOLS = [
-  "list_projects",
-  "list_people",
-  "list_tasks",
-  "read_task",
-  "list_ideas",
-  "read_idea",
+  ...READING_OFFICE_TOOLS,
   ANSWER_CONSULTATION_TOOL,
 ] as const;
 

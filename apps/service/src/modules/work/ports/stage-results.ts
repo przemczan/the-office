@@ -1,3 +1,5 @@
+import type { AllStageResults } from "../domain/record-words.js";
+
 /** What a Task's Stages did, for the Brief of a person's Thread on it. */
 export interface TaskStageResults {
   /** Each run's result as a line of a Brief, in the order they ran. */
@@ -12,4 +14,5 @@ export interface TaskStageResults {
  */
 export abstract class StageResults {
   abstract of(taskId: string, roleKey: string): Promise<TaskStageResults>;
+  abstract ofTask(taskId: string): Promise<AllStageResults>;
 }

@@ -39,7 +39,29 @@ describe("a Task's Stage results, for a person's Thread", () => {
     });
   });
 
+  it("gives every Handover note for the whole Task, with its Stage and Role", async () => {
+    const words = wordsOf([
+      aRun("implement", "Fixed it.", "Left: the logout page."),
+      aRun("review", "Looks right.", "Left: nothing."),
+      aRun("implement", "Fixed the review's finding.", "Left: none."),
+    ]);
+
+    await expect(words.ofTask("task")).resolves.toEqual({
+      lines: [
+        "- Implement (Agent Stage): done. Fixed it.",
+        "- Review (Agent Stage): done. Looks right.",
+        "- Implement (Agent Stage): done. Fixed the review's finding.",
+      ],
+      handoverNotes: [
+        { stageName: "Implement", roleKey: "oscar", note: "Left: the logout page." },
+        { stageName: "Review", roleKey: "rui", note: "Left: nothing." },
+        { stageName: "Implement", roleKey: "oscar", note: "Left: none." },
+      ],
+    });
+  });
+
   it("is empty before any Stage ran", async () => {
+    await expect(wordsOf([]).ofTask("task")).resolves.toEqual({ lines: [], handoverNotes: [] });
     await expect(wordsOf([]).of("task", "oscar")).resolves.toEqual({
       lines: [],
       handoverNotes: [],

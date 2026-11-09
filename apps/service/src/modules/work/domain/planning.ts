@@ -1,6 +1,7 @@
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
 import type { Idea } from "./idea.js";
+import { linkedRecordsSection, type TaskLinks } from "./linked-records.js";
 import type { Task } from "./task.js";
 import { descriptionSection } from "./task-description.js";
 
@@ -21,7 +22,7 @@ export const MAKE_A_PLAN_OPENING =
  * What the Planner does in a Task's planning Thread, after their card's instructions. The same for
  * every planning session, so it stays in the cached prefix.
  */
-export const PLANNING_INSTRUCTIONS = `In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file, and ${READ_ONLY_SHELL_RULE}. With The Office's tools you read its records of Projects, people, Tasks and Ideas, and the Task's Attachments with read_attachment. Ask the user what you need to know, then agree with them on the Plan (how it will be done, and the files and folders it expects to change) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. Write each onto the Task as you agree on it, with write_plan (its files to change too, so Start can warn of another Task in progress changing the same), write_definition_of_done and propose_pipeline: each shows as proposed until the user confirms or edits it, and once the Plan and the Definition of Done are confirmed the user marks the Task Ready. Give the Task a few Tags to find it by with write_tags, reusing Tags already in use where they fit; they apply at once. The user may edit them on the Task, so read it with read_task before you rewrite one. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.`;
+export const PLANNING_INSTRUCTIONS = `In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file, and ${READ_ONLY_SHELL_RULE}. With The Office's tools you read its records of Projects, people, Tasks, Ideas and Initiatives, the Task's and any other, and any of their Attachments with read_attachment. Ask the user what you need to know, then agree with them on the Plan (how it will be done, and the files and folders it expects to change) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. Write each onto the Task as you agree on it, with write_plan (its files to change too, so Start can warn of another Task in progress changing the same), write_definition_of_done and propose_pipeline: each shows as proposed until the user confirms or edits it, and once the Plan and the Definition of Done are confirmed the user marks the Task Ready. Give the Task a few Tags to find it by with write_tags, reusing Tags already in use where they fit; they apply at once. The user may edit them on the Task, so read it with read_task before you rewrite one. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.`;
 
 /** The Project as a planning Brief names it. */
 export interface PlanningProject {
@@ -45,8 +46,8 @@ export interface PlanningRecord {
   readonly task: Task;
   readonly project: PlanningProject;
   readonly worktree: { readonly path: string; readonly branch: string };
-  /** The Idea the Task was shaped from, if it was. */
-  readonly idea: Idea | undefined;
+  /** The records the Task is linked to: the Idea it was shaped from among them. */
+  readonly links: TaskLinks;
   readonly attachments: readonly Attachment[];
   /** The library's Pipelines, which the Planner proposes one of. */
   readonly pipelines: readonly PlanningPipeline[];
@@ -54,14 +55,14 @@ export interface PlanningRecord {
 
 /**
  * A planning Thread's Brief (spec §2.5): the Task's title and Description, where it came from, its
- * Attachments, the Project's commands, the Pipelines to propose from, and the Plan and Definition of Done once
+ * linked records, its Attachments, the Project's commands, the Pipelines to propose from, and the Plan and Definition of Done once
  * written, each marked confirmed or not.
  */
 export function planningBrief({
   task,
   project,
   worktree,
-  idea,
+  links,
   attachments,
   pipelines,
 }: PlanningRecord): string {
@@ -70,7 +71,8 @@ export function planningBrief({
     `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${project.name}.`,
     descriptionSection(task.description),
     `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${project.baseBranch}.`,
-    originSection(idea, task.description),
+    originSection(links.idea, task.description),
+    linkedRecordsSection(links),
     attachmentsSection(attachments),
     `## The Project's commands\n\n${commandLines(project.commands).join("\n")}`,
     pipelinesSection(task, pipelines),

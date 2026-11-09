@@ -5,32 +5,26 @@ import {
   type InitiativeThreadRequest,
   type InitiativeThreadSetup,
   type InitiativeThreadSource,
+  READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
 import {
   ADD_DEPENDENCY,
   ADD_TASK,
-  READ_INITIATIVE,
   REMOVE_DEPENDENCY,
   WRITE_OUTCOME,
   WRITE_TASK_DESCRIPTION,
   WRITE_TASK_TITLE,
 } from "../office-tools/shaping-office-tools.js";
-import { LIST_IDEAS, LIST_TASKS, READ_IDEA, READ_TASK } from "../office-tools/work-office-tools.js";
 
 /**
- * The Office tools of a shaping session: it reads The Office's records and changes its own
- * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left out, since a Task made there would be no part of it.
+ * The Office tools of a shaping session: it reads every record and Attachment and changes its own
+ * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left
+ * out, since a Task made there would be no part of it.
  */
 export const SHAPING_OFFICE_TOOLS = [
-  "list_projects",
-  "list_people",
-  LIST_TASKS,
-  READ_TASK,
-  LIST_IDEAS,
-  READ_IDEA,
-  READ_INITIATIVE,
+  ...READING_OFFICE_TOOLS,
   WRITE_OUTCOME,
   ADD_TASK,
   ADD_DEPENDENCY,

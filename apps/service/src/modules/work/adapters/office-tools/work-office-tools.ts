@@ -3,11 +3,14 @@ import { CAPTURE_IDEA_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
+import { IdeaRecords } from "../../application/idea-records.js";
 import { IdeaService } from "../../application/idea-service.js";
+import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
+import { attachmentKindWords, type Attachment } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
-import { ideaRecordText, whereOf } from "../../domain/record-words.js";
+import { whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
@@ -19,11 +22,19 @@ export const LIST_TASKS = "list_tasks";
 export const READ_TASK = "read_task";
 export const LIST_IDEAS = "list_ideas";
 export const READ_IDEA = "read_idea";
+export const READ_ATTACHMENT = "read_attachment";
 export const CREATE_TASK = "create_task";
 
 /**
- * The Office tools a chat works with Work's records by (spec §6): it reads Tasks and Ideas,
- * captures an Idea and creates a Task in Backlog, each in the name of the person in the session.
+ * How much of a document read_attachment answers with, so one large file can't fill the session's
+ * context; about 15k tokens of English.
+ */
+export const DOCUMENT_READ_LIMIT = 60_000;
+
+/**
+ * The Office tools sessions work with Work's records by (spec §6): every session reads every Task,
+ * Idea and Attachment, whatever it is on; a chat also captures an Idea and creates a Task in
+ * Backlog, each in the name of the person in the session.
  */
 @Injectable()
 export class WorkOfficeTools implements OnModuleInit {
@@ -32,6 +43,8 @@ export class WorkOfficeTools implements OnModuleInit {
     private readonly tasks: TaskService,
     private readonly taskRecords: TaskRecords,
     private readonly ideas: IdeaService,
+    private readonly ideaRecords: IdeaRecords,
+    private readonly initiatives: InitiativeService,
     private readonly attachments: AttachmentService,
     private readonly sessionPeople: SessionPeople,
     private readonly ideaCards: IdeaCards,
@@ -42,6 +55,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registerReadTask();
     this.registerListIdeas();
     this.registerReadIdea();
+    this.registerReadAttachment();
     this.registerCaptureIdea();
     this.registerCreateTask();
   }
@@ -70,7 +84,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_TASK,
       description:
-        "Reads one Task's record: its state, priority and Pipeline, its Plan, its Definition of Done, its Attachments, the Idea it came from, the Tasks that must be Done before it can start, and its state changes with who or what made each.",
+        "Reads any Task's record, archived ones too: its state, priority and Pipeline, its Description, Plan and Definition of Done, its linked records (the Tasks it waits for and that wait for it, the Idea it came from and its Initiative, each with its id), its Attachments by id, its Stage results with every Handover note, and its state changes with who or what made each.",
       input: z.object({ taskId: z.string().describe("The Task's id, as list_tasks gives it.") }),
       run: ({ taskId }) => answered(() => this.taskRecords.recordText(taskId)),
     });
@@ -95,13 +109,30 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_IDEA,
       description:
-        "Reads one Idea's record: its notes, who captured it and when, its Attachments, and the Task it was shaped into.",
-      input: z.object({ ideaId: z.string().describe("The Idea's id, as list_ideas gives it.") }),
-      run: ({ ideaId }) =>
+        "Reads any Idea's record: its notes, who captured it and when, its Attachments by id, and the Task or Initiative it was shaped into, with its id.",
+      input: z.object({
+        ideaId: z.string().describe("The Idea's id, as list_ideas or another record gives it."),
+      }),
+      run: ({ ideaId }) => answered(() => this.ideaRecords.recordText(ideaId)),
+    });
+  }
+
+  private registerReadAttachment(): void {
+    this.registry.register({
+      name: READ_ATTACHMENT,
+      description:
+        "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, and names what it belongs to: a document's text, a link's address, and an image's or other file's name and kind, since only a document is read as text.",
+      input: z.object({
+        attachmentId: z
+          .string()
+          .describe(
+            "The Attachment's id, as your Brief, read_task, read_idea or read_initiative lists it.",
+          ),
+      }),
+      run: ({ attachmentId }) =>
         answered(async () => {
-          const idea = await this.ideas.read(ideaId);
-          const attachments = await this.attachments.listOf({ kind: "idea", ideaId: idea.id });
-          return ideaRecordText(idea, attachments);
+          const attachment = await this.attachments.read(attachmentId);
+          return `${await this.ownerWords(attachment)}\n\n${await this.readingOf(attachment)}`;
         }),
     });
   }
@@ -156,6 +187,36 @@ export class WorkOfficeTools implements OnModuleInit {
           return `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Pipeline ${task.pipelineId}.`;
         }),
     });
+  }
+
+  private async ownerWords({ owner }: Attachment): Promise<string> {
+    switch (owner.kind) {
+      case "task": {
+        const task = await this.tasks.read(owner.taskId);
+        return `Attached to Task ${task.id}: ${task.title}${isArchived(task) ? " (archived)" : ""}.`;
+      }
+      case "idea":
+        return `Attached to Idea ${owner.ideaId}: ${(await this.ideas.read(owner.ideaId)).title}.`;
+      case "initiative": {
+        const { id, name } = await this.initiatives.read(owner.initiativeId);
+        return `Attached to Initiative ${id}: ${name}.`;
+      }
+    }
+  }
+
+  private async readingOf(attachment: Attachment): Promise<string> {
+    const heading = `${attachment.name} (${attachmentKindWords(attachment)})`;
+    if (attachment.kind === "link") {
+      return `${heading}. The Office keeps its address only; fetch it if you need what it says.`;
+    }
+    if (attachment.kind !== "document") {
+      return `${heading}. Only a document is read as text; ask the user what it holds if you need to know.`;
+    }
+    const { text, cut } = await this.attachments.documentText(attachment.id, DOCUMENT_READ_LIMIT);
+    const ending = cut
+      ? `\n\nThe document goes on: these are its first ${DOCUMENT_READ_LIMIT} bytes.`
+      : "";
+    return `${heading}:\n\n${text}${ending}`;
   }
 }
 

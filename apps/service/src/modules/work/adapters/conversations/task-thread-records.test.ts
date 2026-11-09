@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OPEN_DECISION_TOOL, taskSchema, type Task, type TaskState } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { TaskThreadSetups, type TaskThreadRequest } from "../../../conversations/index.js";
+import {
+  READING_OFFICE_TOOLS,
+  TaskThreadSetups,
+  type TaskThreadRequest,
+} from "../../../conversations/index.js";
 import { TaskService } from "../../application/task-service.js";
 import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
 import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
@@ -85,6 +89,11 @@ describe("a person's Thread on a Task's session", () => {
     expect(setup.brief).toContain("- Implement (Agent): done. Fixed it.");
     expect(setup.brief).toContain("2 files changed");
     expect(setup.brief).toContain("Left: the logout page.");
+  });
+
+  it("gives a person's Thread and a planning session every reading tool", () => {
+    expect(ASKING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+    expect(PLANNING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
   });
 
   it("gives no read-write tool, and no Decision", () => {

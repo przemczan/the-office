@@ -17,6 +17,7 @@ const task: BriefTask = {
   plan: "",
   definitionOfDone: [],
   attachmentLines: [],
+  linkedRecordsSection: undefined,
   projectName: "Admin panel",
   baseBranch: "main",
   worktree: {
@@ -66,6 +67,21 @@ describe("agentStageRecord", () => {
         hardSwitchesSection(HARD_SWITCHES),
       ].join("\n\n"),
     );
+  });
+
+  it("lists the Task's linked records, as Work words them, before its Attachments", () => {
+    const linkedRecordsSection =
+      "## Linked records\n\n- Waits for: Add the session store (Task t-2), Done; read_task reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment.";
+
+    const record = agentStageRecord({
+      task: { ...task, linkedRecordsSection },
+      earlier: [],
+      diffSummary: undefined,
+      commands: allowedCommands("read-only-git", {}, GIT),
+      hardSwitches: HARD_SWITCHES,
+    });
+
+    expect(record).toContain(`${linkedRecordsSection}\n\n## Attachments\n\nNone.`);
   });
 
   it("names each earlier Stage's result, with its Handover note, and the diff so far", () => {

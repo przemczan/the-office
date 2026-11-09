@@ -5,9 +5,10 @@ import {
   type TaskThreadRequest,
   type TaskThreadSetup,
   type TaskThreadSource,
+  READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
-import { IdeaService } from "../../application/idea-service.js";
+import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { ASKING_INSTRUCTIONS, askingBrief } from "../../domain/asking.js";
 import { PLANNER, PLANNING_INSTRUCTIONS, planningBrief } from "../../domain/planning.js";
@@ -19,17 +20,11 @@ import { ProjectWorktrees, type TaskWorktree } from "../../ports/project-worktre
 import { StageResults } from "../../ports/stage-results.js";
 
 /**
- * The Office tools of a planning session: it reads records and the Task's Attachments, writes the
- * Plan and the Definition of Done, proposes a Pipeline and opens Decisions.
+ * The Office tools of a planning session: it reads every record and Attachment, writes the Plan and
+ * the Definition of Done onto its own Task, proposes a Pipeline, sets Tags and opens Decisions.
  */
 export const PLANNING_OFFICE_TOOLS = [
-  "list_projects",
-  "list_people",
-  "list_tasks",
-  "read_task",
-  "list_ideas",
-  "read_idea",
-  "read_attachment",
+  ...READING_OFFICE_TOOLS,
   "write_plan",
   "write_definition_of_done",
   "propose_pipeline",
@@ -37,16 +32,11 @@ export const PLANNING_OFFICE_TOOLS = [
   OPEN_DECISION_TOOL,
 ] as const;
 
-/** The Office tools of a person's Thread on a Task: it reads records and changes none (spec §2.4). */
-export const ASKING_OFFICE_TOOLS = [
-  "list_projects",
-  "list_people",
-  "list_tasks",
-  "read_task",
-  "list_ideas",
-  "read_idea",
-  "read_attachment",
-] as const;
+/**
+ * The Office tools of a person's Thread on a Task: it reads every record and Attachment and changes
+ * none (spec §2.4).
+ */
+export const ASKING_OFFICE_TOOLS = READING_OFFICE_TOOLS;
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Planner's
@@ -61,7 +51,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   constructor(
     private readonly setups: TaskThreadSetups,
     private readonly tasks: TaskService,
-    private readonly ideas: IdeaService,
+    private readonly taskRecords: TaskRecords,
     private readonly attachments: AttachmentService,
     private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
@@ -151,9 +141,9 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   }
 
   private async planning(task: Task, project: KnownProject): Promise<TaskThreadSetup> {
-    const [worktree, idea, attachments, pipelines] = await Promise.all([
+    const [worktree, links, attachments, pipelines] = await Promise.all([
       this.worktrees.find(task.projectId, task.id),
-      task.originIdeaId === undefined ? undefined : this.ideas.read(task.originIdeaId),
+      this.taskRecords.linksOf(task),
       this.attachments.listOf({ kind: "task", taskId: task.id }),
       this.pipelines.list(),
     ]);
@@ -165,7 +155,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       projectSkillsOff: project.projectSkillsOff,
       instructions: PLANNING_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
-      brief: planningBrief({ task, project, worktree, idea, attachments, pipelines }),
+      brief: planningBrief({ task, project, worktree, links, attachments, pipelines }),
       asking: false,
       sessionRefusal: CLOSED_TASK_CONVERSATION_WORDS[task.state],
     };

@@ -183,6 +183,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
     plan: "Add a rename dialog to the device page.",
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
     attachmentLines: ["- mockup.png (image, image/png, 2048 bytes) · Attachment a-1"],
+    linkedRecordsSection: undefined,
     project: {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Admin panel",

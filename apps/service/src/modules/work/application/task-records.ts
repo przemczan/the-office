@@ -1,11 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import { attachmentLines } from "../domain/attachment.js";
+import { linkedRecordsSection, type TaskLinks } from "../domain/linked-records.js";
 import { taskRecordText } from "../domain/record-words.js";
 import type { Task } from "../domain/task.js";
 import { descriptionSection } from "../domain/task-description.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
+import { StageResults } from "../ports/stage-results.js";
 import { AttachmentService } from "./attachment-service.js";
+import { IdeaService } from "./idea-service.js";
+import { InitiativeService } from "./initiative-service.js";
 import { TaskService } from "./task-service.js";
 
 /** A Task's record, as a session working on the Task reads it. */
@@ -14,6 +18,8 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
   readonly descriptionSection: string;
   /** Each of its Attachments, as a line of a Brief; none when it has none. */
   readonly attachmentLines: readonly string[];
+  /** The records it is linked to, as the section of a Brief the Planner's has too; none without any. */
+  readonly linkedRecordsSection: string | undefined;
   readonly project: Pick<
     KnownProject,
     "id" | "name" | "baseBranch" | "commands" | "useProjectSkills" | "projectSkillsOff"
@@ -29,7 +35,10 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
 export class TaskRecords {
   constructor(
     private readonly tasks: TaskService,
+    private readonly ideas: IdeaService,
+    private readonly initiatives: InitiativeService,
     private readonly attachments: AttachmentService,
+    private readonly stageResults: StageResults,
     private readonly projects: KnownProjects,
     private readonly worktrees: ProjectWorktrees,
   ) {}
@@ -39,8 +48,9 @@ export class TaskRecords {
     const task = await this.tasks.read(taskId);
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
-    const [attachments, worktree] = await Promise.all([
+    const [attachments, links, worktree] = await Promise.all([
       this.attachments.listOf({ kind: "task", taskId }),
+      this.linksOf(task),
       this.worktrees.find(task.projectId, taskId),
     ]);
     return {
@@ -49,6 +59,7 @@ export class TaskRecords {
       plan: task.plan,
       definitionOfDone: task.definitionOfDone,
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
+      linkedRecordsSection: linkedRecordsSection(links),
       project: {
         id: project.id,
         name: project.name,
@@ -67,11 +78,22 @@ export class TaskRecords {
    */
   async recordText(taskId: string): Promise<string> {
     const task = await this.tasks.read(taskId);
-    const [attachments, blockers, stateChanges] = await Promise.all([
+    const [attachments, links, stageResults, stateChanges] = await Promise.all([
       this.attachments.listOf({ kind: "task", taskId }),
-      this.tasks.blockersOf(task),
+      this.linksOf(task),
+      this.stageResults.ofTask(taskId),
       this.tasks.stateChangesOf(taskId),
     ]);
-    return taskRecordText(task, attachments, blockers, stateChanges);
+    return taskRecordText(task, { attachments, links, stageResults, stateChanges });
+  }
+
+  /** The records the Task is linked to, archived and dropped ones too. */
+  async linksOf(task: Task): Promise<TaskLinks> {
+    const [dependencies, idea, initiative] = await Promise.all([
+      this.tasks.dependenciesOf(task),
+      task.originIdeaId === undefined ? undefined : this.ideas.read(task.originIdeaId),
+      task.initiativeId === undefined ? undefined : this.initiatives.read(task.initiativeId),
+    ]);
+    return { ...dependencies, idea, initiative };
   }
 }

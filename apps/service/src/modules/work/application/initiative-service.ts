@@ -29,6 +29,7 @@ import {
   sameTitleWords,
   type InitiativeEdit,
 } from "../domain/initiative-edit.js";
+import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import { InitiativeNotShaping } from "../domain/initiative-not-shaping.js";
 import { InitiativeRefused } from "../domain/initiative-refused.js";
@@ -165,13 +166,15 @@ export class InitiativeService implements OnModuleInit {
    */
   async recordText(id: string): Promise<string> {
     const initiative = await this.read(id);
-    const [board, attachments] = await Promise.all([
+    const [idea, board, attachments] = await Promise.all([
+      this.ideas.find(initiative.originIdeaId),
       this.tasks.list(),
       this.attachments.listOf({ kind: "initiative", initiativeId: id }),
     ]);
+    if (!idea) throw new IdeaNotFound(initiative.originIdeaId);
     const tasks = tasksByInitiative(board).get(id) ?? [];
     const byId = new Map(board.map((task) => [task.id, task]));
-    return initiativeRecordText(initiative, tasks, byId, attachments);
+    return initiativeRecordText(initiative, idea, tasks, byId, attachments);
   }
 
   /** Makes it active, its Tasks in Shaping moving to Backlog; done at once when its Tasks already are. */
