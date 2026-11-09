@@ -81,7 +81,7 @@ export function GroupedBoard(props: GroupedBoardProps): ReactNode {
           )}
         </div>
       </div>
-      {grouping.kind === "all" && grouping.groups.length === 0 && (
+      {grouping.kind === "all" && grouping.nothingMatches && (
         <div className="board-nothing">{NOTHING_MATCHES}</div>
       )}
       {grouping.kind === "all" && grouping.leftOut.length > 0 && (

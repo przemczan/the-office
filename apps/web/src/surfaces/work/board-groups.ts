@@ -39,8 +39,13 @@ export type BoardGroups =
       readonly kind: "all";
       /** Each group with a card to show, in the board's order. */
       readonly groups: readonly BoardGroup[];
-      /** Those with cards in the Projects shown that search, Priority or Blocked left with none. */
+      /**
+       * Those with cards in the Projects shown that search, Priority or Blocked left with none,
+       * named under the groups; none when no group is left, as `nothingMatches` says it.
+       */
       readonly leftOut: readonly BoardGroup[];
+      /** The board has cards, but the filters leave none: one block says so. */
+      readonly nothingMatches: boolean;
     };
 
 export interface BoardGroupsInput {
@@ -96,12 +101,16 @@ export function boardGroups({
   const onTheBoard = [...byInitiative, groupOf(NO_INITIATIVE, undefined)].filter(
     ({ onBoard }) => onBoard.length > 0,
   );
+  const groups = onTheBoard.filter(({ shown }) => shown.length > 0);
+  const nothingMatches = groups.length === 0 && onTheBoard.length > 0;
   return {
     kind: "all",
-    groups: onTheBoard.filter(({ shown }) => shown.length > 0),
-    leftOut: onTheBoard.filter(
-      ({ inProjects, shown }) => inProjects.length > 0 && shown.length === 0,
-    ),
+    groups,
+    leftOut:
+      groups.length === 0
+        ? []
+        : onTheBoard.filter(({ inProjects, shown }) => inProjects.length > 0 && shown.length === 0),
+    nothingMatches,
   };
 }
 

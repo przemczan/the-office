@@ -158,11 +158,30 @@ describe("boardGroups", () => {
     );
   });
 
-  it("leaves no group when nothing matches", () => {
+  it("leaves no group when nothing matches, saying so once rather than naming each group", () => {
     const groups = all(groupsOf({ matches: () => false }));
 
     expect(groups.groups).toEqual([]);
-    expect(keys(groups.leftOut)).toEqual(["pairing", "sync", "billing", NO_INITIATIVE]);
+    expect(groups.leftOut).toEqual([]);
+    expect(groups.nothingMatches).toBe(true);
+  });
+
+  it("says nothing matches when the Project filter hides every card", () => {
+    const groups = all(groupsOf({ inProjectFilter: () => false }));
+
+    expect(groups.groups).toEqual([]);
+    expect(groups.nothingMatches).toBe(true);
+  });
+
+  it("doesn't say nothing matches while the board has no card at all", () => {
+    const groups = all(groupsOf({ tasks: [] }));
+
+    expect(groups.groups).toEqual([]);
+    expect(groups.nothingMatches).toBe(false);
+  });
+
+  it("says nothing matches only while no group shows", () => {
+    expect(all(groupsOf()).nothingMatches).toBe(false);
   });
 });
 
