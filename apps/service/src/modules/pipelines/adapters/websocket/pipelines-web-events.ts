@@ -24,6 +24,11 @@ import {
   WentBackToStage,
 } from "../../domain/stage-run-events.js";
 import {
+  StageTemplateAdded,
+  StageTemplateRemoved,
+  StageTemplateSaved,
+} from "../../domain/stage-template-events.js";
+import {
   TaskStagesEdited,
   TaskStagesMade,
   TaskStagesReset,
@@ -36,7 +41,8 @@ type WebEventOf<Type extends PipelinesWebEvent["type"]> = Omit<
 
 /**
  * The walk's events reach the web, naming the Task whose Stages changed, so an open Task page
- * refetches its Stages block; the library's name the Pipeline, so every list of it refetches.
+ * refetches its Stages block; the library's name the Pipeline or the Stage template, so every list
+ * of it refetches.
  */
 @Injectable()
 export class PipelinesWebEvents implements OnModuleInit {
@@ -47,6 +53,7 @@ export class PipelinesWebEvents implements OnModuleInit {
     this.forwardWalkEvents();
     this.forwardGateEvents();
     this.forwardLibraryEvents();
+    this.forwardStageTemplateEvents();
   }
 
   private forwardLibraryEvents(): void {
@@ -62,6 +69,24 @@ export class PipelinesWebEvents implements OnModuleInit {
       type: "pipeline.removed",
       pipelineId: event.pipelineId,
     }));
+  }
+
+  private forwardStageTemplateEvents(): void {
+    this.forwarding.forward(StageTemplateAdded, (event): WebEventOf<"stage-template.added"> => ({
+      type: "stage-template.added",
+      stageTemplateId: event.stageTemplateId,
+    }));
+    this.forwarding.forward(StageTemplateSaved, (event): WebEventOf<"stage-template.saved"> => ({
+      type: "stage-template.saved",
+      stageTemplateId: event.stageTemplateId,
+    }));
+    this.forwarding.forward(
+      StageTemplateRemoved,
+      (event): WebEventOf<"stage-template.removed"> => ({
+        type: "stage-template.removed",
+        stageTemplateId: event.stageTemplateId,
+      }),
+    );
   }
 
   private forwardStageRunEvents(): void {

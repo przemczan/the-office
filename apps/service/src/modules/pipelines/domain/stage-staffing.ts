@@ -25,25 +25,20 @@ export function staffingProblems(
   fromIndex: number,
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
-  return problemsOnAgentStages(
-    stages,
-    fromIndex,
-    roles,
-    (filling) => vacancyProblem(filling) ?? talkOnlyProblem(filling),
-  );
-}
-
-function problemsOnAgentStages(
-  stages: readonly Stage[],
-  fromIndex: number,
-  roles: ReadonlyMap<string, RoleFilling>,
-  problemOf: (filling: RoleFilling) => string | undefined,
-): StageProblem[] {
   return stages.flatMap((stage, stageIndex) => {
-    if (stageIndex < fromIndex || stage.kind !== "agent" || stage.role.trim() === "") return [];
-    const problem = problemOf(roles.get(stage.role) ?? { title: stage.role, person: undefined });
+    const problem = stageIndex < fromIndex ? undefined : stageStaffingProblem(stage, roles);
     return problem ? [problemOnStage(stage, stageIndex, problem)] : [];
   });
+}
+
+/** Why nobody can work the Stage, when it is an Agent Stage with a Role chosen. */
+export function stageStaffingProblem(
+  stage: Stage,
+  roles: ReadonlyMap<string, RoleFilling>,
+): string | undefined {
+  if (stage.kind !== "agent" || stage.role.trim() === "") return undefined;
+  const filling = roles.get(stage.role) ?? { title: stage.role, person: undefined };
+  return vacancyProblem(filling) ?? talkOnlyProblem(filling);
 }
 
 function vacancyProblem({ title, person, letGoPerson }: RoleFilling): string | undefined {

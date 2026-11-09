@@ -4,6 +4,7 @@ import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.js";
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
+import { StageTemplateLibraryController } from "./adapters/http/stage-template-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
@@ -25,6 +26,7 @@ import { ResolveStageGit } from "./application/resolve-stage-git.js";
 import { StageRunWaits } from "./application/stage-run-waits.js";
 import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
+import { StageTemplateLibraryEditor } from "./application/stage-template-library-editor.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
 import { StageRunners } from "./application/stage-runners.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
@@ -102,7 +104,12 @@ export class PipelinesModule {
         BusyWorkModule,
         ...imports,
       ],
-      controllers: [TaskStagesController, TaskGateController, PipelineLibraryController],
+      controllers: [
+        TaskStagesController,
+        TaskGateController,
+        PipelineLibraryController,
+        StageTemplateLibraryController,
+      ],
       providers: [
         { provide: StartedTasks, useExisting: startedTasks },
         { provide: TaskRecords, useExisting: taskRecords },
@@ -123,6 +130,7 @@ export class PipelinesModule {
         TaskStagesService,
         RolesNamedInStages,
         PipelineLibraryEditor,
+        StageTemplateLibraryEditor,
         StaffingHolds,
         StageRunners,
         StageInterpreter,

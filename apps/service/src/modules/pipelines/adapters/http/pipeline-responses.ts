@@ -5,6 +5,7 @@ import type {
   StageProblem as StageProblemResponse,
   StageRun as StageRunResponse,
   StageRunOutcome as StageRunOutcomeResponse,
+  StageTemplate as StageTemplateResponse,
   TaskStage as TaskStageResponse,
   TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
@@ -12,6 +13,7 @@ import type { Pipeline, StageProblem } from "../../domain/pipeline.js";
 import type { Stage } from "../../domain/stage.js";
 import type { StageProgress, TaskProgress } from "../../domain/stage-progress.js";
 import type { GateAction, StageOutcome, StageRun } from "../../domain/stage-run.js";
+import type { StageTemplate } from "../../domain/stage-template.js";
 import { latestTestResults } from "../../domain/test-results.js";
 
 export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
@@ -21,6 +23,10 @@ export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
     description: pipeline.description,
     stages: pipeline.stages.map(toStageResponse),
   };
+}
+
+export function toStageTemplateResponse({ id, stage }: StageTemplate): StageTemplateResponse {
+  return { id, stage: toStageResponse(stage) };
 }
 
 export function toStageProblemResponse({ stageIndex, text }: StageProblem): StageProblemResponse {

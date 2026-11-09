@@ -750,6 +750,13 @@
       "when": 1794181471092,
       "tag": "0106_project_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1794212724799,
+      "tag": "0107_stage_templates",
+      "breakpoints": true
     }
   ]
 }

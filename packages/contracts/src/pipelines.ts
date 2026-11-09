@@ -264,6 +264,33 @@ export const pipelineCheckSchema = z.object({
 export type PipelineCheck = z.infer<typeof pipelineCheckSchema>;
 
 /**
+ * A Stage template (spec §2.3): a Stage kept in the Pipeline library to add to a Pipeline or a
+ * Task's Stages as a copy. Its name is its Stage's; it never has `onFailure`, which only a Pipeline
+ * gives meaning.
+ */
+export const stageTemplateSchema = z.object({ id: z.string().min(1), stage: stageSchema });
+export type StageTemplate = z.infer<typeof stageTemplateSchema>;
+
+export const stageTemplateListSchema = z.array(stageTemplateSchema);
+
+/**
+ * POST /stage-templates and PUT /stage-templates/:id: the template's Stage as the user edited it,
+ * or a Stage saved as a template; an `onFailure` in it is dropped.
+ */
+export const stageTemplateEditSchema = z.strictObject({ stage: stageSchema });
+export type StageTemplateEdit = z.infer<typeof stageTemplateEditSchema>;
+
+/**
+ * POST /stage-templates/check: a template as the editor holds it; `stageTemplateId` names the one
+ * being saved, so its own name isn't taken, and is absent for a new one. It answers a
+ * `pipelineCheckSchema`: what a save would be refused for, and the Role flags it saves anyway.
+ */
+export const stageTemplateCheckRequestSchema = stageTemplateEditSchema.extend({
+  stageTemplateId: z.string().min(1).optional(),
+});
+export type StageTemplateCheckRequest = z.infer<typeof stageTemplateCheckRequestSchema>;
+
+/**
  * 422 from PUT /tasks/:id/stages: every reason the edit can't be saved, as words like every refusal's
  * and on the Stage each concerns.
  */
@@ -276,13 +303,19 @@ export const stagesEditRefusalSchema = z.object({
 export type StagesEditRefusal = z.infer<typeof stagesEditRefusalSchema>;
 
 /**
- * Pipelines' events the web receives: the library's name the Pipeline, the others the Task whose
- * Stages changed.
+ * Pipelines' events the web receives: the library's name the Pipeline or the Stage template, the
+ * others the Task whose Stages changed.
  */
 export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("pipeline.added"), pipelineId: z.string() }),
   webEventSchema.extend({ type: z.literal("pipeline.saved"), pipelineId: z.string() }),
   webEventSchema.extend({ type: z.literal("pipeline.removed"), pipelineId: z.string() }),
+  webEventSchema.extend({ type: z.literal("stage-template.added"), stageTemplateId: z.string() }),
+  webEventSchema.extend({ type: z.literal("stage-template.saved"), stageTemplateId: z.string() }),
+  webEventSchema.extend({
+    type: z.literal("stage-template.removed"),
+    stageTemplateId: z.string(),
+  }),
   webEventSchema.extend({ type: z.literal("task-stages.made"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task-stages.edited"), taskId: z.uuid() }),
   /** The Pipeline was swapped before Start: the Task follows the library again. */

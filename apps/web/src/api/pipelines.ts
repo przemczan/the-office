@@ -22,6 +22,8 @@ import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const PIPELINES_KEY: readonly unknown[] = ["pipelines"];
 
+const STAGE_TEMPLATES_KEY: readonly unknown[] = ["stage-templates"];
+
 /** Apart from the Task's key, or the walk's and Work's events would read a run's whole output again. */
 const COMMAND_OUTPUTS_KEY: readonly unknown[] = ["stage-run-command-outputs"];
 
@@ -135,6 +137,11 @@ function staleLibrary(): readonly (readonly unknown[])[] {
   return [PIPELINES_KEY];
 }
 
+/** A change to a Stage template makes every list of them stale. */
+function staleStageTemplates(): readonly (readonly unknown[])[] {
+  return [STAGE_TEMPLATES_KEY];
+}
+
 /** Each of the walk's events makes the Stages of the Task it names stale. */
 function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
   return [taskStagesKey(taskIdOf(event))];
@@ -161,6 +168,9 @@ export const pipelineEventInvalidations: Readonly<
   "pipeline.added": staleLibrary,
   "pipeline.saved": staleLibrary,
   "pipeline.removed": staleLibrary,
+  "stage-template.added": staleStageTemplates,
+  "stage-template.saved": staleStageTemplates,
+  "stage-template.removed": staleStageTemplates,
   "task-stages.made": staleTaskStages,
   "task-stages.edited": staleTaskStages,
   "task-stages.reset": staleTaskStages,

@@ -37,46 +37,62 @@ export function problemOnStage(stage: Stage, stageIndex: number, problem: string
   };
 }
 
+/**
+ * What makes one Stage unable to run whatever Stages are around it: a name, and its kind's own
+ * fields. A Stage template is checked with these alone; a Pipeline adds the rules about neighbours.
+ */
+export function singleStageProblems(stage: Stage): string[] {
+  return [...nameProblems(stage, []), ...kindProblems(stage)];
+}
+
 function problemsOfStage(stage: Stage, earlierStages: readonly Stage[]): string[] {
-  const problems = identityProblems(stage, earlierStages);
-  if (stage.kind === "agent") problems.push(...agentStageProblems(stage, earlierStages.at(-1)));
-  if (stage.kind === "script" && stage.command !== "publish" && stage.publishTarget) {
-    problems.push("only a Publish Stage has a publish target.");
-  }
-  if (stage.kind === "script" && stage.command !== "publish" && stage.afterConflict) {
-    problems.push("only a Publish Stage says what follows a conflict.");
-  }
+  const problems = [
+    ...keyProblems(stage, earlierStages),
+    ...nameProblems(stage, earlierStages),
+    ...kindProblems(stage),
+  ];
+  if (stage.kind === "agent") problems.push(...continueProblems(stage, earlierStages.at(-1)));
   if (stage.kind !== "gate" && stage.onFailure) {
     problems.push(...onFailureProblems(stage.onFailure, earlierStages));
   }
   return problems;
 }
 
-function identityProblems(stage: Stage, earlierStages: readonly Stage[]): string[] {
+function keyProblems(stage: Stage, earlierStages: readonly Stage[]): string[] {
+  return earlierStages.some((earlier) => earlier.key === stage.key)
+    ? [`another Stage has the key "${stage.key}".`]
+    : [];
+}
+
+function nameProblems(stage: Stage, earlierStages: readonly Stage[]): string[] {
+  if (stage.name.trim() === "") return ["give it a name."];
+  return earlierStages.some((earlier) => earlier.name === stage.name)
+    ? [`another Stage is named "${stage.name}".`]
+    : [];
+}
+
+function kindProblems(stage: Stage): string[] {
   const problems: string[] = [];
-  if (earlierStages.some((earlier) => earlier.key === stage.key)) {
-    problems.push(`another Stage has the key "${stage.key}".`);
+  if (stage.kind === "agent") {
+    if (stage.role.trim() === "") problems.push("choose who works it.");
+    if (!isPositiveWholeNumber(stage.budget)) {
+      problems.push("its budget must be a whole number of tokens above 0.");
+    }
   }
-  if (stage.name.trim() === "") problems.push("give it a name.");
-  else if (earlierStages.some((earlier) => earlier.name === stage.name)) {
-    problems.push(`another Stage is named "${stage.name}".`);
+  if (stage.kind === "script" && stage.command !== "publish" && stage.publishTarget) {
+    problems.push("only a Publish Stage has a publish target.");
+  }
+  if (stage.kind === "script" && stage.command !== "publish" && stage.afterConflict) {
+    problems.push("only a Publish Stage says what follows a conflict.");
   }
   return problems;
 }
 
-function agentStageProblems(stage: AgentStage, previous: Stage | undefined): string[] {
-  const problems: string[] = [];
-  if (stage.role.trim() === "") problems.push("choose who works it.");
-  if (!isPositiveWholeNumber(stage.budget)) {
-    problems.push("its budget must be a whole number of tokens above 0.");
-  }
-  if (
-    stage.session === "continue" &&
+function continueProblems(stage: AgentStage, previous: Stage | undefined): string[] {
+  return stage.session === "continue" &&
     (previous?.kind !== "agent" || previous.role !== stage.role)
-  ) {
-    problems.push("continuing a session needs the same Role in the Stage before.");
-  }
-  return problems;
+    ? ["continuing a session needs the same Role in the Stage before."]
+    : [];
 }
 
 function onFailureProblems(onFailure: OnFailure, earlierStages: readonly Stage[]): string[] {

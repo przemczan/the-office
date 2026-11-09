@@ -1,5 +1,6 @@
 export { AlarmResumes } from "./application/alarm-resumes.js";
 export { PipelineLibrary } from "./application/pipeline-library.js";
+export { StageTemplateLibrary } from "./application/stage-template-library.js";
 export { StageResultWords } from "./application/stage-result-words.js";
 export { TaskStagesService } from "./application/task-stages-service.js";
 export { UsageHistory } from "./application/usage-history.js";

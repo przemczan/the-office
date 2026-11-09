@@ -1,16 +1,23 @@
 import { Catch, HttpStatus, type ArgumentsHost, type ExceptionFilter } from "@nestjs/common";
 import type { PipelineRemovalRefusal } from "@the-office/contracts";
 import type { Response } from "express";
-import { PipelineRemovalRefused, UnknownPipeline } from "../../domain/pipeline-library-refusals.js";
+import {
+  PipelineRemovalRefused,
+  UnknownPipeline,
+  UnknownStageTemplate,
+} from "../../domain/pipeline-library-refusals.js";
 
-/** Answers the library editor's refusals as Nest answers its errors, with `message` for the web. */
-@Catch(PipelineRemovalRefused, UnknownPipeline)
-export class PipelineLibraryRefusalsFilter implements ExceptionFilter<
-  PipelineRemovalRefused | UnknownPipeline
-> {
-  catch(error: PipelineRemovalRefused | UnknownPipeline, host: ArgumentsHost): void {
+type LibraryRefusal = PipelineRemovalRefused | UnknownPipeline | UnknownStageTemplate;
+
+/**
+ * Answers the library's refusals, of its Pipelines and its Stage templates, as Nest answers its
+ * errors, with `message` for the web.
+ */
+@Catch(PipelineRemovalRefused, UnknownPipeline, UnknownStageTemplate)
+export class PipelineLibraryRefusalsFilter implements ExceptionFilter<LibraryRefusal> {
+  catch(error: LibraryRefusal, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
-    if (error instanceof UnknownPipeline) {
+    if (error instanceof UnknownPipeline || error instanceof UnknownStageTemplate) {
       response
         .status(HttpStatus.NOT_FOUND)
         .json({ statusCode: HttpStatus.NOT_FOUND, message: error.message });

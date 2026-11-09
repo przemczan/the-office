@@ -13,3 +13,11 @@ export class UnknownPipeline extends Error {
     this.name = "UnknownPipeline";
   }
 }
+
+/** The library has no Stage template by this id. */
+export class UnknownStageTemplate extends Error {
+  constructor(readonly stageTemplateId: string) {
+    super(`There is no Stage template "${stageTemplateId}".`);
+    this.name = "UnknownStageTemplate";
+  }
+}

@@ -41,17 +41,26 @@ export class RoleFillings {
    */
   async permissionProblems(stages: readonly Stage[], fromIndex: number): Promise<StageProblem[]> {
     const problems = await Promise.all(
-      stages.map(async (stage, stageIndex) => {
-        if (stageIndex < fromIndex || stage.kind !== "agent" || !stage.permissions) return [];
-        const person = await this.people.find(stage.role);
-        if (!person) return [];
-        return permissionNarrowingProblems(
-          stage.role,
-          person.card.permissionProfile,
-          stage.permissions,
-        ).map((problem) => problemOnStage(stage, stageIndex, problem));
-      }),
+      stages.map(async (stage, stageIndex) =>
+        stageIndex < fromIndex
+          ? []
+          : (await this.stagePermissionProblems(stage)).map((problem) =>
+              problemOnStage(stage, stageIndex, problem),
+            ),
+      ),
     );
     return problems.flat();
+  }
+
+  /** `permissionProblems` of one Stage, worded without saying which Stage it is. */
+  async stagePermissionProblems(stage: Stage): Promise<string[]> {
+    if (stage.kind !== "agent" || !stage.permissions) return [];
+    const person = await this.people.find(stage.role);
+    if (!person) return [];
+    return permissionNarrowingProblems(
+      stage.role,
+      person.card.permissionProfile,
+      stage.permissions,
+    );
   }
 }
