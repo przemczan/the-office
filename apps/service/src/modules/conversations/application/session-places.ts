@@ -16,6 +16,7 @@ import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
 import { ProjectBases } from "../ports/project-bases.js";
+import { NO_MASK, ProjectOutputMasks, type TextMask } from "../ports/project-output-masks.js";
 import { Briefs } from "./briefs.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { taskThreadRequest, TaskThreadSetups } from "./task-thread-setups.js";
@@ -36,6 +37,8 @@ export interface SessionPlace {
         readonly projectSkillsOff: readonly string[];
       }
     | undefined;
+  /** Hides the Project's Secret variables in what the session writes into the Thread. */
+  readonly mask: TextMask;
   readonly officeTools: readonly string[];
   /** A held call has a Thread to wait in: a Stage's, or the Planner's in Planning. */
   readonly callsCanWait: boolean;
@@ -70,6 +73,7 @@ export class SessionPlaces {
     private readonly taskThreads: TaskThreadSetups,
     private readonly initiativeThreads: InitiativeThreadSetups,
     private readonly changesAllowed: ChangesAllowedRepository,
+    private readonly masks: ProjectOutputMasks,
   ) {}
 
   async of(thread: Thread): Promise<SessionPlace> {
@@ -96,6 +100,7 @@ export class SessionPlaces {
         useProjectSkills: setup.useProjectSkills,
         projectSkillsOff: setup.projectSkillsOff,
       },
+      mask: await this.masks.outputMaskOf(setup.projectId),
       officeTools: thread.consultation ? CONSULTATION_OFFICE_TOOLS : setup.officeTools,
       callsCanWait: !thread.consultation && !setup.asking,
       workstation: false,
@@ -144,6 +149,7 @@ export class SessionPlaces {
       folder: homedir(),
       environment: serviceEnvironment(),
       project: undefined,
+      mask: NO_MASK,
       workstation: true,
       refusalAdvice: undefined,
       instructions: (person) => caretakerChatInstructions(person, true),
@@ -173,12 +179,13 @@ export class SessionPlaces {
 
   private basesPlace(
     thread: Thread,
-  ): Pick<SessionPlace, "folder" | "environment" | "project" | "ready"> {
+  ): Pick<SessionPlace, "folder" | "environment" | "project" | "mask" | "ready"> {
     return {
       folder: this.bases.folder,
       // The service's own: such a session runs no Project command, so no Project's changes to it.
       environment: serviceEnvironment(),
       project: undefined,
+      mask: NO_MASK,
       ready: async () => {
         const projects = await this.bases.refresh();
         this.logger.log(`Thread ${thread.id} reads ${projects.length} Projects' base branches.`);

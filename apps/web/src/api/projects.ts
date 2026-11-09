@@ -20,7 +20,7 @@ import {
   type EnvironmentCheck,
   type Mark,
   type Project,
-  type ProjectEnvironment,
+  type ProjectEnvironmentEdit,
   type ProjectCommandKey,
   type ProjectImageFromRepository,
   type ProjectImageKey,
@@ -189,7 +189,7 @@ export function changeInstallInputs(
 /** Starts a check of `environment`; the Project keeps it only when every check passes. */
 export function startEnvironmentCheck(
   id: string,
-  environment: ProjectEnvironment,
+  environment: ProjectEnvironmentEdit,
 ): Promise<EnvironmentCheck> {
   return sendToApi(
     "POST",

@@ -12,6 +12,7 @@ import {
   type NewProject,
   type Project,
   type ProjectEnvironment,
+  type ProjectEnvironmentEdit,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
@@ -46,7 +47,7 @@ const FAILS = `node -e "process.exit(2)"`;
 const NEEDS_GREETING = `node -e "process.exit(process.env.GREETING === 'hello' ? 0 : 1)"`;
 const SLEEPS = `node -e "setTimeout(() => {}, 60000)"`;
 const GREETING: ProjectEnvironment = {
-  set: [{ name: "GREETING", value: "hello" }],
+  set: [{ name: "GREETING", value: "hello", secret: false }],
   unset: [],
   prependPath: [],
 };
@@ -117,11 +118,11 @@ async function addProject(fields: Partial<NewProject> = {}): Promise<Project> {
 /** Starts a check and waits for it to finish. */
 async function checked(
   project: Project,
-  environment: ProjectEnvironment = GREETING,
+  environment: ProjectEnvironmentEdit = GREETING,
 ): Promise<EnvironmentCheck> {
   const finished = new Promise<void>((resolve) => {
     const unsubscribe = app.get(EventBus).subscribe(EnvironmentCheckFinished, (event) => {
-      if (event.check.projectId !== project.id) return;
+      if (event.projectId !== project.id) return;
       unsubscribe();
       resolve();
     });
@@ -273,11 +274,22 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     });
 
     const refused = await send("POST", `/projects/${project.id}/environment-check`, {
-      environment: { set: [{ name: "A=B", value: "" }], unset: [], prependPath: ["relative"] },
+      environment: {
+        set: [
+          { name: "A=B", value: "", secret: false },
+          { name: "SHORT", value: "12345", secret: true },
+          { name: "TOKEN", value: "plain", secret: false },
+          { name: "TOKEN", value: "a-secret-token", secret: true },
+        ],
+        unset: [],
+        prependPath: ["relative"],
+      },
     });
     expect(refused.status).toBe(422);
     expect(projectRefusalSchema.parse(await refused.json()).reasons).toEqual([
       "A variable's name can't have \"=\" in it: A=B.",
+      "The value of the Secret variable SHORT is shorter than 6 characters, so hiding it in output could hide ordinary text.",
+      "TOKEN is both a plain and a Secret variable: make it one or the other.",
       'A folder put in front of PATH is a full path; "relative" is not.',
     ]);
 
@@ -291,6 +303,66 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     expect(second.status).toBe(422);
     expect(projectRefusalSchema.parse(await second.json()).reasons).toEqual([
       "An environment check is already running for this Project.",
+    ]);
+  });
+
+  it("gives a Secret variable to the commands, hides it in their output and never sends it back", async () => {
+    // The command checks the value by its length, so the value itself is nowhere but in the variable.
+    const printsToken = `node -e "console.log('token: ' + process.env.NPM_TOKEN); process.exit(process.env.NPM_TOKEN?.length === 10 ? 0 : 1)"`;
+    const project = await addProject({
+      commands: { install: PASSES, build: PASSES, lint: PASSES, test: printsToken },
+    });
+    published = [];
+
+    const check = await checked(project, {
+      set: [{ name: "NPM_TOKEN", secret: true, value: "npm_s3cret" }],
+      unset: [],
+      prependPath: [],
+    });
+
+    expect(check.state).toBe("passed");
+    expect(check.checks[4]).toMatchObject({
+      run: { output: expect.stringContaining("token: [secret NPM_TOKEN]") as unknown },
+    });
+    const shown = {
+      set: [{ name: "NPM_TOKEN", secret: true, valueSet: true }],
+      unset: [],
+      prependPath: [],
+    };
+    expect(check.environment).toEqual(shown);
+    await expect(environmentOf(project)).resolves.toEqual(shown);
+    expect(JSON.stringify(published)).not.toContain("npm_s3cret");
+    expect(
+      JSON.stringify(await (await send("GET", `/projects/${project.id}`)).json()),
+    ).not.toContain("npm_s3cret");
+
+    // Left out, the value is kept: the test still finds it.
+    const again = await checked(project, {
+      set: [{ name: "NPM_TOKEN", secret: true }],
+      unset: [],
+      prependPath: [],
+    });
+    expect(again.state).toBe("passed");
+    await expect(environmentOf(project)).resolves.toEqual(shown);
+
+    // Removed, it is gone.
+    const removed = await checked(project, { set: [], unset: [], prependPath: [] });
+    expect(removed.state).toBe("failed");
+    expect(removed.checks[4]).toMatchObject({
+      run: { output: expect.stringContaining("token: undefined") as unknown },
+    });
+  });
+
+  it("refuses a Secret variable left without a value when none is kept", async () => {
+    const project = await addProject();
+
+    const refused = await send("POST", `/projects/${project.id}/environment-check`, {
+      environment: { set: [{ name: "NPM_TOKEN", secret: true }], unset: [], prependPath: [] },
+    });
+
+    expect(refused.status).toBe(422);
+    expect(projectRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Give the Secret variable NPM_TOKEN a value.",
     ]);
   });
 

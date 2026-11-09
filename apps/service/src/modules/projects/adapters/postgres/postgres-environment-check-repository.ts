@@ -4,6 +4,7 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { EnvironmentCheck } from "../../domain/environment-check.js";
 import { EnvironmentCheckRepository } from "../../ports/environment-check-repository.js";
 import { environmentChecks } from "./environment-checks.schema.js";
+import { environmentOfStored } from "./stored-environment.js";
 
 type EnvironmentCheckRow = typeof environmentChecks.$inferSelect;
 
@@ -47,7 +48,7 @@ function toRow(check: EnvironmentCheck): EnvironmentCheckRow {
 function toEnvironmentCheck(row: EnvironmentCheckRow): EnvironmentCheck {
   return {
     projectId: row.projectId,
-    environment: row.environment,
+    environment: environmentOfStored(row.environment),
     state: row.state,
     checks: row.checks,
     startedAt: row.startedAt,

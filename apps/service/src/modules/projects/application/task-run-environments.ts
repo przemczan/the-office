@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import type { ProjectEnvironment } from "../domain/project-environment.js";
+import type { OutputMask } from "../domain/output-mask.js";
+import type { ProjectEnvironment, ProjectVariable } from "../domain/project-environment.js";
 import type { FinishedCommand } from "../ports/command-runner.js";
 
 /** A Task whose commands run in its run environment, and what its image is made from. */
@@ -11,6 +12,8 @@ export interface TaskInRunEnvironment {
   readonly installCommand: string;
   /** The Project's Install inputs, relative to the worktree. */
   readonly installInputs: readonly string[];
+  /** The Project's `set` variables, which the install runs with as the image builds. */
+  readonly installVariables: readonly ProjectVariable[];
 }
 
 /** Told when a command waits for a free run environment, and when that wait is over. */
@@ -24,6 +27,8 @@ export interface TaskRunEnvironmentCommand {
   readonly commandLine: string;
   /** The Project's own: none of the service's variables reach the run environment. */
   readonly environment: ProjectEnvironment;
+  /** Hides the Project's Secret variables in the output, the file written as it runs too. */
+  readonly mask: OutputMask;
   /** Counted from when the command starts, never from a wait before it. */
   readonly timeoutMs: number;
   /** Ends a wait at once, with nothing run, or the command running. */

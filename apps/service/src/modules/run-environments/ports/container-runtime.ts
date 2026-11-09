@@ -8,6 +8,11 @@ export interface ImageBuild {
   /** Relative to the context. */
   readonly dockerfile: string;
   readonly args: Readonly<Record<string, string>>;
+  /**
+   * Values the build's `RUN --mount=type=secret` lines read, by id: given to the runtime from its
+   * CLI's environment, so they are in no command line, image layer or build argument.
+   */
+  readonly secrets: Readonly<Record<string, string>>;
   readonly target?: string;
   readonly labels: Labels;
 }
@@ -23,12 +28,27 @@ export interface ComposeProject {
   readonly services: readonly string[];
 }
 
+/**
+ * Hides the Project's Secret variables in output as it streams to a file: Projects' `OutputMask`,
+ * as Run environments needs it.
+ */
+export interface StreamedOutputMask {
+  chunks(): { next(chunk: Uint8Array): Uint8Array; end(): Uint8Array };
+}
+
 /** A command line run in one of a compose project's services. */
 export interface Execution {
   readonly service: string;
   readonly user?: string;
   /** A POSIX shell script, run by `/bin/sh -c`. */
   readonly script: string;
+  /**
+   * The variables the script runs with, set over the service's own. Given to the runtime by name,
+   * their values in its CLI's environment, so no value is ever in a command line.
+   */
+  readonly variables: Readonly<Record<string, string>>;
+  /** Masks the output on its way to the file. */
+  readonly mask: StreamedOutputMask;
   readonly timeoutMs: number;
   readonly signal?: AbortSignal;
 }

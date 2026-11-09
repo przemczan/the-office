@@ -3,6 +3,7 @@ import {
   imageKeyOf,
   imageNameOf,
   installDockerfile,
+  installSecrets,
   type ImageInputs,
 } from "./run-environment-image.js";
 
@@ -15,6 +16,10 @@ const INPUTS: ImageInputs = {
   ],
   installCommand: "npm ci",
   installInputs: [{ path: "package-lock.json", content: bytes('{"lockfileVersion":3}') }],
+  installVariables: [
+    { name: "CI", value: "1", secret: false },
+    { name: "NPM_TOKEN", value: "npm_s3cret", secret: true },
+  ],
 };
 
 describe("imageKeyOf", () => {
@@ -52,6 +57,25 @@ describe("imageKeyOf", () => {
     expect(imageKeyOf({ ...INPUTS, installCommand: "npm install" })).not.toBe(imageKeyOf(INPUTS));
   });
 
+  it("changes with a plain variable's value and a Secret variable's name, not its value", () => {
+    const withVariables = (installVariables: ImageInputs["installVariables"]): string =>
+      imageKeyOf({ ...INPUTS, installVariables });
+
+    expect(
+      withVariables([
+        { name: "CI", value: "2", secret: false },
+        { name: "NPM_TOKEN", value: "npm_s3cret", secret: true },
+      ]),
+    ).not.toBe(imageKeyOf(INPUTS));
+    expect(withVariables([{ name: "CI", value: "1", secret: false }])).not.toBe(imageKeyOf(INPUTS));
+    expect(
+      withVariables([
+        { name: "CI", value: "1", secret: false },
+        { name: "NPM_TOKEN", value: "another-token", secret: true },
+      ]),
+    ).toBe(imageKeyOf(INPUTS));
+  });
+
   it("tells a file's contents from its path", () => {
     const one = { ...INPUTS, installInputs: [{ path: "ab", content: bytes("c") }] };
     const other = { ...INPUTS, installInputs: [{ path: "a", content: bytes("bc") }] };
@@ -66,7 +90,7 @@ describe("imageNameOf and installDockerfile", () => {
   });
 
   it("run the install command over the definition's image, exactly as kept", () => {
-    expect(installDockerfile("node:22", "npm ci && echo 'done'")).toBe(
+    expect(installDockerfile("node:22", "npm ci && echo 'done'", [])).toBe(
       [
         "FROM node:22",
         "COPY install-inputs/ /office-install/",
@@ -75,6 +99,18 @@ describe("imageNameOf and installDockerfile", () => {
         "",
       ].join("\n"),
     );
-    expect(installDockerfile("node:22", undefined)).not.toContain("RUN");
+    expect(installDockerfile("node:22", undefined, ["CI"])).not.toContain("RUN");
+  });
+
+  it("give the install the Project's variables as BuildKit secrets, no value in the file", () => {
+    const dockerfile = installDockerfile("node:22", "npm ci", ["CI", "NPM_TOKEN"]);
+
+    expect(dockerfile).toContain(
+      'RUN --mount=type=secret,id=OFFICE_VARIABLE_0,env=CI --mount=type=secret,id=OFFICE_VARIABLE_1,env=NPM_TOKEN ["/bin/sh","-c","npm ci"]',
+    );
+    expect(installSecrets(INPUTS.installVariables)).toEqual({
+      OFFICE_VARIABLE_0: "1",
+      OFFICE_VARIABLE_1: "npm_s3cret",
+    });
   });
 });

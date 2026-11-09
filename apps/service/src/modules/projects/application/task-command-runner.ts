@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { CommandRun } from "../domain/command-run.js";
+import { OutputMask } from "../domain/output-mask.js";
 import type { Project } from "../domain/project.js";
 import { commandRunOf, ProjectCommandRunner } from "./project-command-runner.js";
 import {
@@ -69,11 +70,12 @@ export class TaskCommandRunner {
         inAgentBash: writtenByAgent,
       });
     }
+    const mask = OutputMask.of(project.environment);
     const finished = await this.runEnvironments.run(
       taskInRunEnvironment(project, taskId, worktree),
-      { commandLine, environment: project.environment, timeoutMs, signal, wait, outputFile },
+      { commandLine, environment: project.environment, mask, timeoutMs, signal, wait, outputFile },
     );
-    return commandRunOf(commandLine, finished);
+    return commandRunOf(commandLine, finished, mask);
   }
 }
 
@@ -88,5 +90,6 @@ function taskInRunEnvironment(
     worktree,
     installCommand: project.commands.install,
     installInputs: project.installInputs,
+    installVariables: project.environment.set,
   };
 }

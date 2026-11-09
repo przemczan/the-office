@@ -1,6 +1,7 @@
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { OutputMask } from "../../../projects/index.js";
 import { TaskStateChanged } from "../../../work/index.js";
 import {
   runEnvironmentsTestbed,
@@ -63,7 +64,12 @@ describe.skipIf(missing !== undefined)(
 
     beforeAll(async () => {
       testbed = await runEnvironmentsTestbed(runtime, OPTIONS);
-      task = { ...taskIn(testbed, "task-1"), installCommand: "echo installed > marker" };
+      // The install sees the Project's variables, a Secret variable as a BuildKit secret.
+      task = {
+        ...taskIn(testbed, "task-1"),
+        installCommand: 'test "$INSTALL_TOKEN" = s3cret-install && echo installed > marker',
+        installVariables: [{ name: "INSTALL_TOKEN", value: "s3cret-install", secret: true }],
+      };
       await writeFiles(task.worktree, DEFINITION);
       await testbed.environments.prepare(task, join(testbed.folder, "prepare.log"));
     }, REAL_RUNTIME_TEST.timeout);
@@ -87,17 +93,28 @@ describe.skipIf(missing !== undefined)(
           "  wget -q -O from-web.txt http://web:8080/ && break; sleep 1",
           "done",
           'echo "variable: $GREETING"',
+          'echo "secret: $SECRET_TOKEN"',
           "cat /office-install/marker",
           "exit 3",
         ].join("\n"),
-        environment: { set: [{ name: "GREETING", value: "hello" }], unset: [], prependPath: [] },
+        environment: {
+          set: [
+            { name: "GREETING", value: "hello" },
+            { name: "SECRET_TOKEN", value: "s3cret-token" },
+          ],
+          unset: [],
+          prependPath: [],
+        },
+        mask: new OutputMask([{ name: "SECRET_TOKEN", value: "s3cret-token" }]),
         timeoutMs: 60_000,
         outputFile: output,
       });
 
       expect(end).toMatchObject({ exitCode: 3 });
       expect(await readFile(join(task.worktree, "from-web.txt"), "utf8")).toBe("hello-from-web\n");
-      expect(await readFile(output, "utf8")).toBe("variable: hello\ninstalled\n");
+      expect(await readFile(output, "utf8")).toBe(
+        "variable: hello\nsecret: [secret SECRET_TOKEN]\ninstalled\n",
+      );
     });
 
     it("gives the Task its own network and volume, and limits every service", async () => {
@@ -120,12 +137,14 @@ describe.skipIf(missing !== undefined)(
       const slow = await testbed.environments.run(task, {
         commandLine: "sleep 30",
         environment: { set: [], unset: [], prependPath: [] },
+        mask: OutputMask.NONE,
         timeoutMs: 1_000,
         outputFile: join(testbed.folder, "slow.log"),
       });
       const next = await testbed.environments.run(task, {
         commandLine: "true",
         environment: { set: [], unset: [], prependPath: [] },
+        mask: OutputMask.NONE,
         timeoutMs: 60_000,
         outputFile: join(testbed.folder, "next.log"),
       });

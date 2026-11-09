@@ -73,6 +73,10 @@ import {
   type SessionMcpServersStandIn,
 } from "./session-mcp-servers.fixtures.js";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
+import { ProjectOutputMasks } from "../ports/project-output-masks.js";
+import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+
+const outputMasks = new ProjectOutputMasksForTests();
 
 type Step = SessionScript[number];
 
@@ -165,6 +169,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       { provide: RoleCards, useValue: roleCards },
       { provide: EngineCascade, useValue: cascade },
       { provide: ProjectBases, useValue: bases },
+      { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },

@@ -44,7 +44,12 @@ export async function imageInputsOf(task: TaskInWorktree): Promise<ImageInputs> 
   const installInputs = await Promise.all(
     task.installInputs.map((input) => keyedFile(task.worktree, join(task.worktree, input))),
   );
-  return { definitionFiles, installCommand: task.installCommand, installInputs };
+  return {
+    definitionFiles,
+    installCommand: task.installCommand,
+    installInputs,
+    installVariables: task.installVariables,
+  };
 }
 
 async function keyedFile(worktree: string, path: string): Promise<KeyedFile> {

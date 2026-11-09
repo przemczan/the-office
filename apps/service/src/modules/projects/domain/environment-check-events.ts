@@ -1,9 +1,13 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { CheckState, EnvironmentCheck } from "./environment-check.js";
+import type { Check, CheckState, EnvironmentCheckState } from "./environment-check.js";
 
+/** A check of the Project's environment started. Like the others, it carries no environment. */
 export class EnvironmentCheckStarted extends DomainEvent {
-  constructor(readonly check: EnvironmentCheck) {
-    super(check.startedAt);
+  constructor(
+    readonly projectId: string,
+    startedAt: Date,
+  ) {
+    super(startedAt);
   }
 }
 
@@ -11,7 +15,7 @@ export class EnvironmentCheckStarted extends DomainEvent {
 export class EnvironmentCheckProgressed extends DomainEvent {
   constructor(
     readonly projectId: string,
-    readonly step: EnvironmentCheck["checks"][number]["step"],
+    readonly step: Check["step"],
     readonly state: CheckState,
   ) {
     super();
@@ -20,7 +24,11 @@ export class EnvironmentCheckProgressed extends DomainEvent {
 
 /** The check passed, failed or was stopped; a passed one saved its environment first. */
 export class EnvironmentCheckFinished extends DomainEvent {
-  constructor(readonly check: EnvironmentCheck) {
-    super(check.finishedAt);
+  constructor(
+    readonly projectId: string,
+    readonly state: EnvironmentCheckState,
+    finishedAt: Date,
+  ) {
+    super(finishedAt);
   }
 }

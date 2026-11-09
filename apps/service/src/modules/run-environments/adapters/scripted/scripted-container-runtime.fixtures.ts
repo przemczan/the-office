@@ -10,7 +10,13 @@ import {
   type ImageBuild,
   type LabelledImage,
   type LabelledResource,
+  type StreamedOutputMask,
 } from "../../ports/container-runtime.js";
+
+/** Masks nothing, for a check whose Project has no Secret variables. */
+export const NO_MASK: StreamedOutputMask = {
+  chunks: () => ({ next: (chunk) => chunk, end: () => new Uint8Array() }),
+};
 
 /** What a scripted check does: its output, its exit code, and when it ends. */
 export type ScriptedExecution = (
@@ -71,7 +77,13 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
       throw new ContainerRuntimeFailed(`The compose project ${project.name} isn't running.`);
     }
     const { output, exitCode } = await this.onExec(execution);
-    await write(outputFile, output ?? "");
+    // As the runtime streams it: masked, chunk by chunk.
+    const masked = execution.mask.chunks();
+    const bytes = Buffer.from(output ?? "", "utf8");
+    await write(
+      outputFile,
+      Buffer.concat([masked.next(bytes), masked.end()].map((chunk) => Buffer.from(chunk))),
+    );
     return { exitCode };
   }
 
@@ -141,7 +153,7 @@ function carries(have: Labels, wanted: Labels): boolean {
   return Object.entries(wanted).every(([name, value]) => have[name] === value);
 }
 
-async function write(file: string, text: string): Promise<void> {
+async function write(file: string, text: string | Buffer): Promise<void> {
   await mkdir(dirname(file), { recursive: true });
   await appendFile(file, text);
 }

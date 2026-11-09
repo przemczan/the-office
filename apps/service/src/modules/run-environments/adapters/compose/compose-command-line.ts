@@ -3,6 +3,7 @@ import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { Transform, type Writable } from "node:stream";
 import { finished } from "node:stream/promises";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { startProgram } from "../../../../platform/os/program.js";
@@ -17,6 +18,7 @@ import {
   type LabelledImage,
   type LabelledResource,
   type ResourceKind,
+  type StreamedOutputMask,
 } from "../../ports/container-runtime.js";
 
 /** The container runtime's CLI, Docker Engine with its Compose plugin (docs/container-runtime.md). */
@@ -37,9 +39,13 @@ const LISTED_LABELS = Object.values(LABEL);
 
 interface Invocation {
   readonly arguments: readonly string[];
+  /** Set over the service's own environment for the CLI, which reads them by name. */
+  readonly variables?: Readonly<Record<string, string>>;
   readonly timeoutMs: number;
   /** Streams stdout and stderr there; else stdout is kept, for a listing. */
   readonly outputFile?: string;
+  /** Masks what is streamed to `outputFile`. */
+  readonly mask?: StreamedOutputMask;
   readonly signal?: AbortSignal;
   readonly workingFolder?: string;
 }
@@ -74,22 +80,8 @@ export class ComposeCommandLine extends ContainerRuntime {
 
   async buildImage(build: ImageBuild, outputFile: string): Promise<void> {
     await this.required(`The image ${build.image} couldn't be built`, {
-      arguments: [
-        "build",
-        "--progress",
-        "plain",
-        "--tag",
-        build.image,
-        "--file",
-        join(build.context, build.dockerfile),
-        ...labelArguments(build.labels),
-        ...Object.entries(build.args).flatMap(([name, value]) => [
-          "--build-arg",
-          `${name}=${value}`,
-        ]),
-        ...(build.target === undefined ? [] : ["--target", build.target]),
-        build.context,
-      ],
+      arguments: buildArguments(build),
+      variables: build.secrets,
       timeoutMs: LONG_TIMEOUT_MS,
       outputFile,
     });
@@ -127,18 +119,11 @@ export class ComposeCommandLine extends ContainerRuntime {
     outputFile: string,
   ): Promise<ExecutionEnd> {
     const ended = await this.invoke({
-      arguments: [
-        ...composeArguments(project),
-        "exec",
-        "--no-TTY",
-        ...(execution.user === undefined ? [] : ["--user", execution.user]),
-        execution.service,
-        "/bin/sh",
-        "-c",
-        execution.script,
-      ],
+      arguments: execArguments(project, execution),
+      variables: execution.variables,
       timeoutMs: execution.timeoutMs,
       outputFile,
+      mask: execution.mask,
       workingFolder: project.projectDirectory,
       ...(execution.signal === undefined ? {} : { signal: execution.signal }),
     });
@@ -267,14 +252,16 @@ export class ComposeCommandLine extends ContainerRuntime {
     }
     const workingFolder = invocation.workingFolder ?? this.neutralFolder;
     await mkdir(workingFolder, { recursive: true });
-    const output = invocation.outputFile ? await appendingTo(invocation.outputFile) : undefined;
+    const output = invocation.outputFile
+      ? await appendingTo(invocation.outputFile, invocation.mask)
+      : undefined;
     const { processTrees } = this.operatingSystem;
     const child = startProgram(
       {
         command: RUNTIME,
         arguments: invocation.arguments,
         workingFolder,
-        environment: runtimeEnvironment(),
+        environment: { ...runtimeEnvironment(), ...invocation.variables },
       },
       processTrees,
     );
@@ -283,9 +270,9 @@ export class ComposeCommandLine extends ContainerRuntime {
     let outputFailed: Error | undefined;
     if (output) {
       // Piped, so a slow disk holds the command back instead of its output filling memory.
-      child.stdout.pipe(output, { end: false });
-      child.stderr.pipe(output, { end: false });
-      output.on("error", (error) => {
+      child.stdout.pipe(output.input, { end: false });
+      child.stderr.pipe(output.input, { end: false });
+      output.file.on("error", (error) => {
         outputFailed ??= error;
         if (child.pid !== undefined) void processTrees.end(child.pid);
       });
@@ -313,8 +300,8 @@ export class ComposeCommandLine extends ContainerRuntime {
     clearTimeout(timer);
     invocation.signal?.removeEventListener("abort", stop);
     if (output && outputFailed === undefined) {
-      output.end();
-      await finished(output).catch((error: unknown) => {
+      output.input.end();
+      await finished(output.file).catch((error: unknown) => {
         outputFailed ??= error instanceof Error ? error : new Error(String(error));
       });
     }
@@ -330,6 +317,42 @@ export class ComposeCommandLine extends ContainerRuntime {
       errorTail: errorTail.text().trim(),
     };
   }
+}
+
+/**
+ * `compose exec` of the script, its variables given by name alone (`--env NAME`), which the CLI
+ * takes from its own environment: no value is ever in the command line.
+ */
+export function execArguments(project: ComposeProject, execution: Execution): string[] {
+  return [
+    ...composeArguments(project),
+    "exec",
+    "--no-TTY",
+    ...(execution.user === undefined ? [] : ["--user", execution.user]),
+    ...Object.keys(execution.variables).flatMap((name) => ["--env", name]),
+    execution.service,
+    "/bin/sh",
+    "-c",
+    execution.script,
+  ];
+}
+
+/** `build` of the image, each secret given from the CLI's environment by its id. */
+export function buildArguments(build: ImageBuild): string[] {
+  return [
+    "build",
+    "--progress",
+    "plain",
+    "--tag",
+    build.image,
+    "--file",
+    join(build.context, build.dockerfile),
+    ...labelArguments(build.labels),
+    ...Object.entries(build.args).flatMap(([name, value]) => ["--build-arg", `${name}=${value}`]),
+    ...Object.keys(build.secrets).flatMap((id) => ["--secret", `id=${id},env=${id}`]),
+    ...(build.target === undefined ? [] : ["--target", build.target]),
+    build.context,
+  ];
 }
 
 function composeArguments(project: ComposeProject): string[] {
@@ -370,9 +393,26 @@ function runtimeEnvironment(): Record<string, string> {
   );
 }
 
-async function appendingTo(file: string): Promise<WriteStream> {
+/** Where a command's output goes: `input`, masked on its way to `file`. */
+interface OutputStream {
+  readonly input: Writable;
+  readonly file: WriteStream;
+}
+
+async function appendingTo(
+  file: string,
+  mask: StreamedOutputMask | undefined,
+): Promise<OutputStream> {
   await mkdir(dirname(file), { recursive: true });
-  return createWriteStream(file, { flags: "a" });
+  const stream = createWriteStream(file, { flags: "a" });
+  if (mask === undefined) return { input: stream, file: stream };
+  const masked = mask.chunks();
+  const input = new Transform({
+    transform: (chunk: Buffer, _encoding, done) => done(null, masked.next(chunk)),
+    flush: (done) => done(null, masked.end()),
+  });
+  input.pipe(stream);
+  return { input, file: stream };
 }
 
 function notStarted(error: Error & { code?: string }): string {

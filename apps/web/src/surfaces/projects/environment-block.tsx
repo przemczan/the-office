@@ -4,21 +4,26 @@ import type {
   CommandCheck,
   EnvironmentCheck,
   Project,
+  ProjectEnvironmentEdit,
   WorktreeCheck,
 } from "@the-office/contracts";
-import { Badge, Button, Icon, Input, Textarea } from "@the-office/ui";
+import { Badge, Button, Icon, IconButton, Input, Textarea } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { projectQueries, startEnvironmentCheck } from "../../api/projects.ts";
+import { SecretValueInput } from "../../shell/secret-value-input.tsx";
 import {
   checkBadge,
   commandCheckLabel,
   draftOf,
   environmentOf,
   runSummary,
+  secretValueKept,
+  withNewSecret,
   worktreeCheckDetail,
   worktreeCheckLabel,
   type EnvironmentDraft,
+  type SecretVariableDraft,
 } from "./environment-labels.ts";
 import { ProjectBlock } from "./project-block.tsx";
 
@@ -188,7 +193,7 @@ function EnvironmentEditor({
   const [problems, setProblems] = useState<readonly string[]>([]);
   const queryClient = useQueryClient();
   const starting = useMutation({
-    mutationFn: (environment: Project["environment"]) =>
+    mutationFn: (environment: ProjectEnvironmentEdit) =>
       startEnvironmentCheck(project.id, environment),
     onSuccess: (started) => {
       queryClient.setQueryData(projectQueries.environmentCheck(project.id).queryKey, {
@@ -227,6 +232,12 @@ function EnvironmentEditor({
         disabled={running}
         style={{ fontFamily: "var(--font-mono)" }}
       />
+      <SecretVariables
+        secrets={draft.secrets}
+        change={(secrets) => change({ secrets })}
+        add={() => setDraft(withNewSecret(draft))}
+        disabled={running}
+      />
       <Input
         label="Variables to remove"
         hint="Names The Office would pass on from its own environment, separated by commas."
@@ -263,5 +274,95 @@ function EnvironmentEditor({
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * The Project's Secret variables: given to its commands and Agents as the others are, their
+ * values never shown again once saved and hidden wherever they would appear in output.
+ */
+function SecretVariables({
+  secrets,
+  change,
+  add,
+  disabled,
+}: {
+  readonly secrets: readonly SecretVariableDraft[];
+  readonly change: (secrets: readonly SecretVariableDraft[]) => void;
+  readonly add: () => void;
+  readonly disabled: boolean;
+}): ReactNode {
+  const changeOne = (changed: SecretVariableDraft): void =>
+    change(secrets.map((each) => (each.key === changed.key ? changed : each)));
+  return (
+    <div className="environment-secrets" role="group" aria-label="Secret variables">
+      <div className="environment-secrets-head">
+        <span className="environment-secrets-title">Secret variables</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconLeft={<Icon name="plus" size={14} />}
+          onClick={add}
+          disabled={disabled}
+        >
+          Add a Secret variable
+        </Button>
+      </div>
+      <p className="project-block-note">
+        {secrets.length === 0
+          ? "None yet. Add one for a token a command needs, such as NPM_TOKEN; its value is never shown again once saved."
+          : "A value is never shown again once saved, and shows as [secret NAME] in output. It takes one line of at least 6 characters."}
+      </p>
+      {secrets.map((secret) => (
+        <SecretVariableRow
+          key={secret.key}
+          secret={secret}
+          change={changeOne}
+          remove={() => change(secrets.filter((each) => each.key !== secret.key))}
+          disabled={disabled}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SecretVariableRow({
+  secret,
+  change,
+  remove,
+  disabled,
+}: {
+  readonly secret: SecretVariableDraft;
+  readonly change: (secret: SecretVariableDraft) => void;
+  readonly remove: () => void;
+  readonly disabled: boolean;
+}): ReactNode {
+  const called =
+    secret.name.trim() === "" ? "the new Secret variable" : `the Secret variable ${secret.name}`;
+  return (
+    <fieldset className="environment-secret" aria-label={called}>
+      <Input
+        label="Name"
+        value={secret.name}
+        onChange={(event) => change({ ...secret, name: event.target.value })}
+        disabled={disabled}
+        inputStyle={{ fontFamily: "var(--font-mono)" }}
+      />
+      <SecretValueInput
+        label="Value"
+        typed={secret.typed}
+        set={secretValueKept(secret)}
+        change={(typed) => change({ ...secret, typed })}
+        removable={false}
+        disabled={disabled}
+      />
+      <IconButton
+        size="sm"
+        icon={<Icon name="x" size={14} />}
+        label={`Remove ${called}`}
+        onClick={remove}
+        disabled={disabled}
+      />
+    </fieldset>
   );
 }

@@ -1,5 +1,9 @@
-import type { Project as ProjectResponse } from "@the-office/contracts";
+import type {
+  ProjectEnvironment as ProjectEnvironmentResponse,
+  Project as ProjectResponse,
+} from "@the-office/contracts";
 import type { Project } from "../../domain/project.js";
+import { shownEnvironment, type ProjectEnvironment } from "../../domain/project-environment.js";
 
 export function toProjectResponse(project: Project): ProjectResponse {
   return {
@@ -15,11 +19,7 @@ export function toProjectResponse(project: Project): ProjectResponse {
     installInputs: [...project.installInputs],
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
-    environment: {
-      set: project.environment.set.map(({ name, value }) => ({ name, value })),
-      unset: [...project.environment.unset],
-      prependPath: [...project.environment.prependPath],
-    },
+    environment: toEnvironmentResponse(project.environment),
     useProjectSkills: project.useProjectSkills,
     projectSkillsOff: [...project.projectSkillsOff],
     projectDefault: project.projectDefault && { ...project.projectDefault },
@@ -32,5 +32,19 @@ export function toProjectResponse(project: Project): ProjectResponse {
     runEnvironment: project.runEnvironment,
     projectLimit: project.projectLimit,
     addedAt: project.addedAt.toISOString(),
+  };
+}
+
+/** The environment as the web sees it: a Secret variable's value never leaves the service. */
+export function toEnvironmentResponse(environment: ProjectEnvironment): ProjectEnvironmentResponse {
+  const shown = shownEnvironment(environment);
+  return {
+    set: shown.set.map((variable) =>
+      variable.secret
+        ? { name: variable.name, secret: true, valueSet: variable.valueSet }
+        : { name: variable.name, secret: false, value: variable.value },
+    ),
+    unset: [...shown.unset],
+    prependPath: [...shown.prependPath],
   };
 }

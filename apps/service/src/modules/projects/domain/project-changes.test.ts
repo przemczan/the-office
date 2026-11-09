@@ -143,7 +143,11 @@ describe("changeInstallInputs", () => {
 });
 
 describe("changeEnvironment", () => {
-  const environment = { set: [{ name: "CI", value: "1" }], unset: [], prependPath: ["/opt/bin"] };
+  const environment = {
+    set: [{ name: "CI", value: "1", secret: false }],
+    unset: [],
+    prependPath: ["/opt/bin"],
+  };
 
   it("keeps the environment and announces it", () => {
     const change = changeEnvironment(aProject(), environment);
@@ -151,6 +155,22 @@ describe("changeEnvironment", () => {
     expect(change?.project.environment).toEqual(environment);
     expect(change?.event).toBeInstanceOf(ProjectEnvironmentChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", environment });
+  });
+
+  it("announces a Secret variable by its name alone", () => {
+    const withSecret = {
+      ...environment,
+      set: [...environment.set, { name: "NPM_TOKEN", value: "npm_s3cret", secret: true }],
+    };
+
+    const change = changeEnvironment(aProject(), withSecret);
+
+    expect(change?.project.environment).toEqual(withSecret);
+    expect(change?.event.environment.set).toEqual([
+      { name: "CI", value: "1", secret: false },
+      { name: "NPM_TOKEN", secret: true, valueSet: true },
+    ]);
+    expect(JSON.stringify(change?.event)).not.toContain("npm_s3cret");
   });
 
   it("changes nothing when the Project already has that environment", () => {

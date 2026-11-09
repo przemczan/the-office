@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import type { RunEnvironmentDefinition } from "./run-environment-definition.js";
 
+/** A variable the install command runs with while the image builds: the Project's `set`. */
+export interface InstallVariable {
+  readonly name: string;
+  readonly value: string;
+  /** A Secret variable, whose value is in no image layer and not in the key. */
+  readonly secret: boolean;
+}
+
 /** A Task whose checks run in a run environment, and what its image is made from. */
 export interface TaskInWorktree {
   readonly taskId: string;
@@ -12,6 +20,8 @@ export interface TaskInWorktree {
   readonly installCommand: string | undefined;
   /** The Project's Install inputs, relative to the worktree. */
   readonly installInputs: readonly string[];
+  /** The variables the install command runs with as the image builds. */
+  readonly installVariables: readonly InstallVariable[];
 }
 
 /** How a check changes the variables it runs with: the Project's environment (spec §5.5). */
@@ -147,18 +157,38 @@ function composeLiteral(text: string): string {
 }
 
 /**
+ * The variable the Project's `set` variable at `index` is carried into the service under: the
+ * runtime's CLI holds the value in its own environment, and a Project's name, such as PATH or
+ * DOCKER_HOST, would change how the CLI itself runs.
+ */
+export function carrierOf(index: number): string {
+  return `OFFICE_VARIABLE_${index}`;
+}
+
+/**
+ * The values a check runs with, by their carriers (carrierOf), which the runtime gives by name
+ * (`Execution.variables`), so no value is in the script or a command line.
+ */
+export function commandVariables(environment: CommandEnvironment): Record<string, string> {
+  return Object.fromEntries(environment.set.map(({ value }, index) => [carrierOf(index), value]));
+}
+
+/**
  * The shell script a check runs as in the service: in the worktree, with the Project's environment
- * applied over the service's own, and the command line last, so its exit code is the script's.
+ * applied over the service's own, each `set` variable taken from its carrier, and the command line
+ * last, so its exit code is the script's.
  */
 export function commandScript(
   commandLine: string,
   folder: string,
   environment: CommandEnvironment,
 ): string {
+  const carriers = environment.set.map((_, index) => carrierOf(index));
   return [
     `cd ${quoted(folder)} || exit 125`,
     ...(environment.unset.length > 0 ? [`unset ${environment.unset.map(quoted).join(" ")}`] : []),
-    ...environment.set.map(({ name, value }) => `export ${name}=${quoted(value)}`),
+    ...environment.set.map(({ name }, index) => `export ${name}="$${carrierOf(index)}"`),
+    ...(carriers.length > 0 ? [`unset ${carriers.join(" ")}`] : []),
     ...(environment.prependPath.length > 0
       ? [`export PATH=${quoted(environment.prependPath.join(":"))}:"$PATH"`]
       : []),

@@ -15,6 +15,7 @@ import { RunEnvironmentCreated, RunEnvironmentRemoved } from "../domain/run-envi
 import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
 import {
   commandScript,
+  commandVariables,
   composeOverrideOf,
   composeProjectNameOf,
   IDLE_STOP_MS,
@@ -29,6 +30,7 @@ import {
   ContainerRuntimeFailed,
   type ComposeProject,
   type ExecutionEnd,
+  type StreamedOutputMask,
 } from "../ports/container-runtime.js";
 import { KnownTasks } from "../ports/known-tasks.js";
 import { RunEnvironmentSettings } from "../ports/run-environment-settings.js";
@@ -60,6 +62,8 @@ export interface SlotOptions {
 export interface RunEnvironmentCommand extends SlotOptions {
   readonly commandLine: string;
   readonly environment: CommandEnvironment;
+  /** Hides the Project's Secret variables in what reaches `outputFile`. */
+  readonly mask: StreamedOutputMask;
   /** Counted from when the check starts, never from a wait for a slot before it. */
   readonly timeoutMs: number;
   /** Where its output goes as it runs. */
@@ -184,6 +188,8 @@ export class RunEnvironments implements OnModuleInit {
             ? {}
             : { user: environment.definition.user }),
           script: commandScript(command.commandLine, task.worktree, command.environment),
+          variables: commandVariables(command.environment),
+          mask: command.mask,
           timeoutMs: command.timeoutMs,
           ...(command.signal === undefined ? {} : { signal: command.signal }),
         },

@@ -91,9 +91,9 @@ async function aTask(
     commands: { ...aProject().commands, build: RUN_TEST_SUITE, test: RUN_TEST_SUITE, ...commands },
     environment: {
       set: [
-        { name: "TEST_SUITE", value: join(repository.folder, "test-suite.cjs") },
-        { name: "RUN_LOG", value: runLog },
-        { name: "PASS_FROM_RUN", value: String(passFromRun) },
+        { name: "TEST_SUITE", value: join(repository.folder, "test-suite.cjs"), secret: false },
+        { name: "RUN_LOG", value: runLog, secret: false },
+        { name: "PASS_FROM_RUN", value: String(passFromRun), secret: false },
       ],
       unset: [],
       prependPath: [],
@@ -237,6 +237,7 @@ describe("ScriptCommands.run with the Project's run environment On", REAL_GIT_TE
           worktree: worktreePath,
           installCommand: project.commands.install,
           installInputs: project.installInputs,
+          installVariables: project.environment.set,
         },
         command: expect.objectContaining({
           commandLine: RUN_TEST_SUITE,

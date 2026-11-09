@@ -37,6 +37,7 @@ import {
 } from "./project-events.js";
 import {
   sameEnvironment,
+  shownEnvironment,
   UNCHANGED_ENVIRONMENT,
   type ProjectEnvironment,
 } from "./project-environment.js";
@@ -200,7 +201,7 @@ export function changeEnvironment(
   if (sameEnvironment(project.environment, environment)) return undefined;
   return {
     project: { ...project, environment },
-    event: new ProjectEnvironmentChanged(project.id, environment),
+    event: new ProjectEnvironmentChanged(project.id, shownEnvironment(environment)),
   };
 }
 

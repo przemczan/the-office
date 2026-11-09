@@ -123,7 +123,7 @@ describe("ProjectCommandRunner with ShellCommandRunner", () => {
     await mkdir(tools, { recursive: true });
 
     const commandRun = await run("node print-environment.cjs", {
-      set: [{ name: "GREETING", value: "hello" }],
+      set: [{ name: "GREETING", value: "hello", secret: false }],
       unset: ["LEFT_OVER"],
       prependPath: [tools],
     });
@@ -135,6 +135,32 @@ describe("ProjectCommandRunner with ShellCommandRunner", () => {
       "DATABASE_URL=",
       `PATH starts with ${tools}`,
     ]);
+  });
+
+  it("hides a Secret variable it prints, in its output and its file, cut across chunks too", async () => {
+    await writeFile(
+      join(folder, "print-token.cjs"),
+      `process.stdout.write("token: " + process.env.NPM_TOKEN.slice(0, 5));
+setTimeout(() => process.stdout.write(process.env.NPM_TOKEN.slice(5) + " done\\n"), 200);`,
+    );
+    const outputFile = join(folder, "token.log");
+
+    const ran = await runner.run({
+      commandLine: "node print-token.cjs",
+      folder,
+      environment: {
+        set: [{ name: "NPM_TOKEN", value: "npm_s3cret", secret: true }],
+        unset: [],
+        prependPath: [],
+      },
+      timeoutMs: 20_000,
+      outputFile,
+    });
+
+    expect(ran.outcome).toBe("passed");
+    expect(ran.output).toBe("token: [secret NPM_TOKEN] done");
+    expect(ran.wholeOutput).toBe("token: [secret NPM_TOKEN] done");
+    expect(await readFile(outputFile, "utf8")).toBe("token: [secret NPM_TOKEN] done\n");
   });
 
   it("ends a command that runs out of time, with every process it started", async () => {

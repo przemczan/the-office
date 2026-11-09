@@ -30,6 +30,20 @@ describe("commandEnvironment", () => {
     });
   });
 
+  it("gives Secret variables as plain ones: commands and Agents' sessions run with them", () => {
+    expect(
+      commandEnvironment(
+        { HOME: "/home/office" },
+        {
+          set: [{ name: "NPM_TOKEN", value: "npm_s3cret", secret: true }],
+          unset: [],
+          prependPath: [],
+        },
+        onLinux,
+      ),
+    ).toEqual({ HOME: "/home/office", NPM_TOKEN: "npm_s3cret" });
+  });
+
   it("removes, then sets, then puts folders in front of PATH with a colon on Linux", () => {
     const inherited = { PATH: "/usr/bin", JAVA_HOME: "/opt/java-17", GRADLE_OPTS: "-Xmx1g" };
 
@@ -37,8 +51,8 @@ describe("commandEnvironment", () => {
       inherited,
       {
         set: [
-          { name: "JAVA_HOME", value: "/opt/java-21" },
-          { name: "NODE_ENV", value: "test" },
+          { name: "JAVA_HOME", value: "/opt/java-21", secret: false },
+          { name: "NODE_ENV", value: "test", secret: false },
         ],
         unset: ["GRADLE_OPTS"],
         prependPath: ["/opt/java-21/bin", "/opt/gradle/bin"],
@@ -74,7 +88,7 @@ describe("commandEnvironment", () => {
     const variables = commandEnvironment(
       inherited,
       {
-        set: [{ name: "java_home", value: "C:\\java-21" }],
+        set: [{ name: "java_home", value: "C:\\java-21", secret: false }],
         unset: ["gradle_opts"],
         prependPath: ["C:\\java-21\\bin"],
       },

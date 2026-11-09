@@ -19,6 +19,7 @@ export {
   type TaskRunEnvironmentRunner,
 } from "./application/task-run-environments.js";
 export type { FinishedCommand } from "./ports/command-runner.js";
+export { OutputMask } from "./domain/output-mask.js";
 export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
 export {
   EnvironmentCheckFinished,

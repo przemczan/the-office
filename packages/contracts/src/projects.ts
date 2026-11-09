@@ -85,14 +85,46 @@ export const addProjectSchema = newProjectSchema.extend({
 });
 export type AddProject = z.infer<typeof addProjectSchema>;
 
-/** How the Project's commands and Agents change the variables they inherit. */
+/** A plain variable, shown and saved with its value. */
+const plainVariableSchema = z.object({
+  name: z.string(),
+  secret: z.literal(false),
+  value: z.string(),
+});
+
+/**
+ * How the Project's commands and Agents change the variables they inherit. A Secret variable's
+ * value is never sent back once saved, only whether one is set.
+ */
 export const projectEnvironmentSchema = z.object({
-  set: z.array(z.object({ name: z.string(), value: z.string() })),
+  set: z.array(
+    z.discriminatedUnion("secret", [
+      plainVariableSchema,
+      z.object({ name: z.string(), secret: z.literal(true), valueSet: z.boolean() }),
+    ]),
+  ),
   unset: z.array(z.string()),
   /** Folders put in front of PATH, in this order. */
   prependPath: z.array(z.string()),
 });
 export type ProjectEnvironment = z.infer<typeof projectEnvironmentSchema>;
+export type ProjectVariable = ProjectEnvironment["set"][number];
+
+/**
+ * An environment to check, as the Project page saves it: a Secret variable without a `value`, or
+ * with an empty one, keeps the value kept under its name.
+ */
+export const projectEnvironmentEditSchema = z.object({
+  set: z.array(
+    z.discriminatedUnion("secret", [
+      plainVariableSchema,
+      z.object({ name: z.string(), secret: z.literal(true), value: z.string().optional() }),
+    ]),
+  ),
+  unset: z.array(z.string()),
+  prependPath: z.array(z.string()),
+});
+export type ProjectEnvironmentEdit = z.infer<typeof projectEnvironmentEditSchema>;
 
 /**
  * Which part of the Office identity the base branch's remote needs, and what of it is missing:
@@ -321,7 +353,7 @@ export const latestEnvironmentCheckSchema = z.object({ check: environmentCheckSc
 export type LatestEnvironmentCheck = z.infer<typeof latestEnvironmentCheckSchema>;
 
 /** POST /projects/:id/environment-check */
-export const environmentCheckStartSchema = z.object({ environment: projectEnvironmentSchema });
+export const environmentCheckStartSchema = z.object({ environment: projectEnvironmentEditSchema });
 export type EnvironmentCheckStart = z.infer<typeof environmentCheckStartSchema>;
 
 /** What a refused change answers: every reason, also joined into Nest's `message`. */

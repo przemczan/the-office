@@ -38,6 +38,7 @@ import {
 } from "../domain/project-changes.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
+import { OutputMask } from "../domain/output-mask.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import {
   proposedCommandsProblems,
@@ -186,6 +187,15 @@ export class ProjectService {
     to: ProjectCommandFields,
   ): Promise<Project> {
     return this.updateTogether(id, (project) => changeCommandsAsProposed(project, from, to));
+  }
+
+  /**
+   * Hides the Project's Secret variables in what its sessions write (spec §6), as it reads now; a
+   * Project gone hides nothing, as nothing of it runs any more.
+   */
+  async outputMaskOf(id: string): Promise<OutputMask> {
+    const project = await this.find(id);
+    return project ? OutputMask.of(project.environment) : OutputMask.NONE;
   }
 
   /** For the environment check, once it passed with the environment. */

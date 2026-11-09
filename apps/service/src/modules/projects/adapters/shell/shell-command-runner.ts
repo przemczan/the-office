@@ -7,6 +7,7 @@ import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { ShellProgram } from "../../../../platform/os/shell.js";
 import type { CommandOutcome } from "../../domain/command-run.js";
+import { OutputMask } from "../../domain/output-mask.js";
 import {
   CommandRunner,
   type CommandToRun,
@@ -45,7 +46,9 @@ export class ShellCommandRunner extends CommandRunner {
     const startedAt = performance.now();
     const output = new OutputEnd(OUTPUT_LIMIT_BYTES);
     const file =
-      command.outputFile === undefined ? undefined : await outputFile(command.outputFile);
+      command.outputFile === undefined
+        ? undefined
+        : await outputFile(command.outputFile, command.mask ?? OutputMask.NONE);
     let ending: Ending;
     try {
       ending = await this.runToEnd(command, (chunk) => {
@@ -144,17 +147,21 @@ interface OutputFile {
   close(): Promise<void>;
 }
 
-/** Opens `path` for a command's output, made or replaced, its folder made if missing. */
-async function outputFile(path: string): Promise<OutputFile> {
+/**
+ * Opens `path` for a command's output, made or replaced, its folder made if missing. What is
+ * written there is masked as it comes, so no Secret variable's value reaches the file.
+ */
+async function outputFile(path: string, mask: OutputMask): Promise<OutputFile> {
   await mkdir(dirname(path), { recursive: true });
   const stream = createWriteStream(path);
   await once(stream, "open");
   // A file that can't take more, such as on a full disk, ends short: the run goes on, its output's
   // end kept in memory as always.
   stream.on("error", () => undefined);
+  const masked = mask.chunks();
   return {
-    write: (chunk) => stream.write(chunk),
-    close: () => new Promise((resolve) => stream.end(resolve)),
+    write: (chunk) => stream.write(masked.next(chunk)),
+    close: () => new Promise((resolve) => stream.end(masked.end(), resolve)),
   };
 }
 

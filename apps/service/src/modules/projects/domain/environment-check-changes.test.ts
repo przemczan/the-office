@@ -15,7 +15,7 @@ import { aProject } from "./project.fixtures.js";
 const startedAt = new Date("2026-10-25T10:00:00.000Z");
 const finishedAt = new Date("2026-10-25T10:03:00.000Z");
 const environment = {
-  set: [{ name: "JAVA_HOME", value: "/opt/java-21" }],
+  set: [{ name: "JAVA_HOME", value: "/opt/java-21", secret: false }],
   unset: [],
   prependPath: [],
 };
@@ -66,7 +66,7 @@ describe("startEnvironmentCheck", () => {
       startedAt,
       finishedAt: undefined,
     });
-    expect(event).toEqual(new EnvironmentCheckStarted(check));
+    expect(event).toEqual(new EnvironmentCheckStarted("admin-panel", startedAt));
   });
 });
 
@@ -98,7 +98,7 @@ describe("finishEnvironmentCheck", () => {
     const { check, event } = finishEnvironmentCheck(allRanBut(), finishedAt, false);
 
     expect(check).toMatchObject({ state: "passed", finishedAt });
-    expect(event).toEqual(new EnvironmentCheckFinished(check));
+    expect(event).toEqual(new EnvironmentCheckFinished("admin-panel", "passed", finishedAt));
   });
 
   it("fails when one check failed", () => {

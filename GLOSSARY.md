@@ -376,6 +376,10 @@ _Avoid_: LSP server, code intelligence
 A named value an MCP server needs (an environment variable or a header), plain or secret, set Office-wide and overridden on a Project's page.
 _Avoid_: Variable, parameter, credential, config
 
+**Secret variable**:
+A variable in a Project's environment whose value is never shown again once it is saved, and shows as `[secret NAME]` wherever it would appear in output. Its commands and Agents get it as they get the others.
+_Avoid_: Secret, credential, hidden variable, masked variable
+
 **Office Manager**:
 The person the user goes to by default: it drafts Roles for the user to confirm, captures Ideas, answers for the state of The Office and redirects the user to whoever is responsible.
 _Avoid_: Receptionist, HR, router

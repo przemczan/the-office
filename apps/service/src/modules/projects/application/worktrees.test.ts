@@ -12,6 +12,7 @@ import {
   REAL_GIT_TEST,
 } from "../adapters/git/temporary-repository.fixtures.js";
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
+import { OutputMask } from "../domain/output-mask.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
@@ -48,7 +49,11 @@ beforeAll(async () => {
     path: repository.path,
     commands: { ...aProject().commands, install: COUNTING_INSTALL },
     installInputs: ["package-lock.json"],
-    environment: { set: [{ name: "INSTALL_LOG", value: installLog }], unset: [], prependPath: [] },
+    environment: {
+      set: [{ name: "INSTALL_LOG", value: installLog, secret: false }],
+      unset: [],
+      prependPath: [],
+    },
   });
 });
 
@@ -166,6 +171,7 @@ describe("Worktrees.prepare, by the Project's Run environment setting", REAL_GIT
         command: {
           commandLine: COUNTING_INSTALL,
           environment: project.environment,
+          mask: OutputMask.NONE,
           timeoutMs: 30 * 60_000,
           signal,
           wait,
@@ -236,7 +242,7 @@ describe("Worktrees.install", REAL_GIT_TEST, () => {
 
     const changedEnvironment = {
       ...project.environment,
-      set: [...project.environment.set, { name: "EXTRA", value: "1" }],
+      set: [...project.environment.set, { name: "EXTRA", value: "1", secret: false }],
     };
     await worktrees.install(changedCommand, worktree.path, { environment: changedEnvironment });
     expect(await installs()).toBe(count + 3);

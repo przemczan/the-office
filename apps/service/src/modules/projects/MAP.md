@@ -7,6 +7,7 @@
 **Traps:**
 
 - An image's bytes never change: every upload is a new id, so its address is cached for good and replacing one needs no cache busting; don't overwrite a file under an id. Its size limit is held twice, `IMAGE_SIZE_LIMIT` in the platform, for what doesn't come through the upload route, and the contracts' `IMAGE_UPLOAD_BYTES` for `uploadBody` and the web, as only adapters import the contracts; the controller's test at exactly the limit keeps them equal. The content route's headers are what stop an SVG's script when its address is opened directly, so keep them.
+- A Secret variable's value never leaves the service (spec 5.5, "Secret variables"): responses and events take the environment through `shownEnvironment` (`toEnvironmentResponse`), and the environment check events carry no environment at all. Only the stored check record keeps the value, since a check started with the value left out takes it from there (`editedEnvironment`). Rows saved before Secret variables have no `secret` flag (`environmentOfStored`). Output is masked by one `OutputMask` (domain, exported for the run environment's command): in `commandRunOf` and, chunk by chunk, in every file written while a command runs; Conversations gets it through `ProjectService.outputMaskOf`, bound to its `ProjectOutputMasks` port in app.module.ts.
 - A `CommandRun` carries a command's output twice: `output`, filtered for an Agent to read, and `wholeOutput`, the last 64 KB for the user's Stage history. The shell runner's 16 MB tail feeds both, so `filteredOutput` sees failures long before the end; don't shrink it to the 64 KB. An environment check keeps only the first (`CheckedCommandRun`).
 - A worktree's install record (`installFingerprint`) holds where the install ran: the host, or the run environment's image by its key (`TaskRunEnvironments.imageOf`, nothing built). Turning the setting on or off, or a new image, installs again, so what was installed in one place is never used in the other; the host's leaves the place out, so records made before run environments still hold.
 - A run environment that can't be made or started gives the command `could-not-run` with why in its output, never a run on the host; a stop while waiting gives `stopped` with nothing run. Both come back as a `CommandRun`, so the test re-run, restore, moved files and screenshots work as on the host.
@@ -24,7 +25,7 @@
 
 ## Public entry (`index.ts`)
 
-BaseCheckouts, BaseCheckout, CommittedFiles, ProjectService, EngineLevelsChecks, EngineLevelsCheck, EngineLevelsSave, RunEnvironmentSetUpRegistry, RunEnvironmentSetUp, ProjectsFromRepositories, TaskRunEnvironments, CommandWait, TaskRunEnvironmentCommand, TaskInRunEnvironment, TaskRunEnvironmentRunner, FinishedCommand, TaskWorktrees, SessionWorktree, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectCommandChanged, ProjectDefaultChanged, ProjectDefaultPipelineChanged, ProjectEnvironmentChanged, ProjectImageChanged, ProjectInstallInputsChanged, ProjectLimitChanged, ProjectMarkChanged, ProjectPublishingModeChanged, ProjectRoleOverrideChanged, ProjectRunEnvironmentChanged, ProjectSkillUseChanged, ProjectUseForEveryRoleChanged, ProjectUseProjectSkillsChanged, NewProject, ProjectEngineLevels, ProjectRoleOverride, RunEnvironmentAnswer, RunEnvironmentSetting, ProjectNotFound, ProjectRefused, proposedCommandFields, ProjectCommandFields, ProjectsModule
+BaseCheckouts, BaseCheckout, CommittedFiles, ProjectService, EngineLevelsChecks, EngineLevelsCheck, EngineLevelsSave, RunEnvironmentSetUpRegistry, RunEnvironmentSetUp, ProjectsFromRepositories, TaskRunEnvironments, CommandWait, TaskRunEnvironmentCommand, TaskInRunEnvironment, TaskRunEnvironmentRunner, FinishedCommand, OutputMask, TaskWorktrees, SessionWorktree, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectCommandChanged, ProjectDefaultChanged, ProjectDefaultPipelineChanged, ProjectEnvironmentChanged, ProjectImageChanged, ProjectInstallInputsChanged, ProjectLimitChanged, ProjectMarkChanged, ProjectPublishingModeChanged, ProjectRoleOverrideChanged, ProjectRunEnvironmentChanged, ProjectSkillUseChanged, ProjectUseForEveryRoleChanged, ProjectUseProjectSkillsChanged, NewProject, ProjectEngineLevels, ProjectRoleOverride, RunEnvironmentAnswer, RunEnvironmentSetting, ProjectNotFound, ProjectRefused, proposedCommandFields, ProjectCommandFields, ProjectsModule
 
 ## Domain events
 
@@ -100,7 +101,7 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectService, EngineLevelsChecks,
 - `environment-checks.controller.ts`: EnvironmentChecksController
 - `project-images.controller.ts`: ProjectImagesController
 - `project-refusals.filter.ts`: ProjectRefusalsFilter
-- `project-responses.ts`: toProjectResponse
+- `project-responses.ts`: toProjectResponse, toEnvironmentResponse
 - `project-server-values.controller.ts`: ProjectServerValuesController
 - `projects.controller.ts`: ProjectsController
 - `repository-clones.controller.ts`: RepositoryClonesController
@@ -118,6 +119,7 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectService, EngineLevelsChecks,
 - `postgres-environment-check-repository.ts`: PostgresEnvironmentCheckRepository
 - `postgres-project-repository.ts`: PostgresProjectRepository
 - `projects.schema.ts`: projects
+- `stored-environment.ts`: StoredEnvironment, environmentOfStored
 - Tests: postgres-project-repository.test.ts
 
 ### adapters/shell/
@@ -171,8 +173,9 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectService, EngineLevelsChecks,
 - `environment-check-changes.ts`: EnvironmentCheckChange, startEnvironmentCheck, progressEnvironmentCheck, finishEnvironmentCheck
 - `environment-check-events.ts`: EnvironmentCheckStarted, EnvironmentCheckProgressed, EnvironmentCheckFinished
 - `environment-check.ts`: CheckState, CheckedCommandRun, CheckedBase, WorktreeCheck, CommandCheck, Check, EnvironmentCheckState, EnvironmentCheck
+- `output-mask.ts`: SecretValue, MaskedChunks, OutputMask
 - `project-changes.ts`: ProjectChange, ProjectChanges, asProjectChanges, changeCommandsAsProposed, moveEngineLevels, addProject, changeCommand, changeInstallInputs, changeEnvironment, changePublishingMode, changeRunEnvironment, finishRunEnvironmentSetUp, changeProjectLimit, changeMark, changeImage, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse
-- `project-environment.ts`: ProjectVariable, ProjectEnvironment, UNCHANGED_ENVIRONMENT, trimmedEnvironment, environmentProblems, sameEnvironment
+- `project-environment.ts`: ProjectVariable, ProjectEnvironment, VariableEdit, ProjectEnvironmentEdit, ShownVariable, ShownEnvironment, UNCHANGED_ENVIRONMENT, SECRET_VALUE_MIN_LENGTH, editedEnvironment, shownEnvironment, trimmedEnvironment, environmentProblems, sameEnvironment
 - `project-events.ts`: ProjectAdded, ProjectCommandChanged, ProjectInstallInputsChanged, ProjectEnvironmentChanged, ProjectPublishingModeChanged, ProjectRunEnvironmentChanged, ProjectLimitChanged, ProjectMarkChanged, ProjectImageChanged, ProjectDefaultPipelineChanged, ProjectDefaultChanged, ProjectUseForEveryRoleChanged, ProjectRoleOverrideChanged, ProjectUseProjectSkillsChanged, ProjectSkillUseChanged
 - `project-image.ts`: PROJECT_IMAGE_KEYS, ProjectImageKey, ProjectImageMediaType, ProjectImage, ProjectImageNotFound
 - `project-not-found.ts`: ProjectNotFound
@@ -184,7 +187,7 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectService, EngineLevelsChecks,
 - `repository-clone-events.ts`: RepositoryCloneStarted, RepositoryCloneProgressed, RepositoryCloneFinished
 - `repository-clone.ts`: CloneProgress, RepositoryCloneOutcome, RepositoryClone, RepositoryCloneNotFound
 - `resolve.ts`: ResolveStart, ResolveEnd, mergedBase, mergeMessage
-- Tests: command-run.test.ts, environment-check-changes.test.ts, project-changes.test.ts, project-environment.test.ts, project.test.ts, proposed-commands.test.ts, publication.test.ts
+- Tests: command-run.test.ts, environment-check-changes.test.ts, output-mask.test.ts, project-changes.test.ts, project-environment.test.ts, project.test.ts, proposed-commands.test.ts, publication.test.ts
 
 ### ports/
 

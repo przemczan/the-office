@@ -1,4 +1,5 @@
 import type { CommandOutcome } from "../domain/command-run.js";
+import type { OutputMask } from "../domain/output-mask.js";
 
 export interface CommandToRun {
   readonly commandLine: string;
@@ -12,6 +13,8 @@ export interface CommandToRun {
   readonly signal?: AbortSignal;
   /** Where its whole output is written too, as it comes; the file is made or replaced. */
   readonly outputFile?: string;
+  /** Hides the Project's Secret variables in what is written to `outputFile`. */
+  readonly mask?: OutputMask;
   /**
    * Runs it in the Bash Agents have, not the Project's shell: a line an Agent wrote, judged by its
    * Office rules as that Bash would run it, so cmd.exe can't read it another way.

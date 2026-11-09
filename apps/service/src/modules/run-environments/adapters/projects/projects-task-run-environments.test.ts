@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  OutputMask,
   TaskRunEnvironments,
   type TaskInRunEnvironment,
   type TaskRunEnvironmentCommand,
@@ -54,13 +55,19 @@ async function aTask(taskId: string): Promise<TaskInRunEnvironment> {
     worktree,
     installCommand: "npm ci",
     installInputs: ["package-lock.json"],
+    installVariables: [],
   };
 }
 
 function aCommand(fields: Partial<TaskRunEnvironmentCommand> = {}): TaskRunEnvironmentCommand {
   return {
     commandLine: "npm test",
-    environment: { set: [{ name: "CI", value: "1" }], unset: ["HOME"], prependPath: [] },
+    environment: {
+      set: [{ name: "CI", value: "1", secret: false }],
+      unset: ["HOME"],
+      prependPath: [],
+    },
+    mask: OutputMask.NONE,
     timeoutMs: 60_000,
     ...fields,
   };
@@ -70,8 +77,10 @@ describe("Projects' run environments", () => {
   it("runs the command in the Task's run environment with only the Project's variables, its output read back", async () => {
     const task = await aTask("task-1");
     let script = "";
+    let variables = {};
     runtime.onExec = (execution) => {
       script = execution.script;
+      variables = execution.variables;
       return Promise.resolve({ output: "FAIL renames a device\n", exitCode: 1 });
     };
 
@@ -83,7 +92,16 @@ describe("Projects' run environments", () => {
       output: "FAIL renames a device\n",
       droppedOutputBytes: 0,
     });
-    expect(script).toBe(`cd '${task.worktree}' || exit 125\nunset 'HOME'\nexport CI='1'\nnpm test`);
+    expect(script).toBe(
+      [
+        `cd '${task.worktree}' || exit 125`,
+        "unset 'HOME'",
+        'export CI="$OFFICE_VARIABLE_0"',
+        "unset OFFICE_VARIABLE_0",
+        "npm test",
+      ].join("\n"),
+    );
+    expect(variables).toEqual({ OFFICE_VARIABLE_0: "1" });
     // Its output folder goes with the run.
     expect(await readdir(testbed.folders.commandOutputs)).toEqual([]);
   });
@@ -100,6 +118,37 @@ describe("Projects' run environments", () => {
     expect(finished).toMatchObject({ outcome: "passed", output: "1 passed\n" });
     await expect(readFile(outputFile, "utf8")).resolves.toBe("1 passed\n");
     expect(await readdir(testbed.folders.commandOutputs)).toEqual([]);
+  });
+
+  it("hides a Secret variable in the output file as it streams, and in the output read back", async () => {
+    const task = await aTask("task-1");
+    const outputFile = join(testbed.folder, "sessions", "s-1", "office-tools", "token.log");
+    runtime.onExec = () => Promise.resolve({ output: "token: npm_s3cret\n", exitCode: 0 });
+
+    const finished = await registry.run(
+      task,
+      aCommand({ outputFile, mask: new OutputMask([{ name: "NPM_TOKEN", value: "npm_s3cret" }]) }),
+    );
+
+    expect(finished).toMatchObject({ output: "token: [secret NPM_TOKEN]\n" });
+    await expect(readFile(outputFile, "utf8")).resolves.toBe("token: [secret NPM_TOKEN]\n");
+  });
+
+  it("builds the image with the Project's variables as secrets, none of their values in the build", async () => {
+    const task = {
+      ...(await aTask("task-1")),
+      installVariables: [
+        { name: "CI", value: "1", secret: false },
+        { name: "NPM_TOKEN", value: "npm_s3cret", secret: true },
+      ],
+    };
+
+    await registry.run(task, aCommand());
+
+    const install = runtime.builds.find(({ dockerfile }) => dockerfile === "Dockerfile");
+    expect(install?.secrets).toEqual({ OFFICE_VARIABLE_0: "1", OFFICE_VARIABLE_1: "npm_s3cret" });
+    expect(install?.args).toEqual({});
+    expect(install?.image).not.toContain("npm_s3cret");
   });
 
   it("names the image the Task's commands run in by its key, a new one when an Install input changes", async () => {

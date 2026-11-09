@@ -65,6 +65,7 @@ import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { OfficeInstructions } from "./office-instructions.js";
+import { ProjectOutputMasks, type TextMask } from "../ports/project-output-masks.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
@@ -207,6 +208,7 @@ export class StageThreads {
     private readonly memory: SessionMemory,
     private readonly approvalHolds: ApprovalHolds,
     private readonly officeInstructions: OfficeInstructions,
+    private readonly masks: ProjectOutputMasks,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -412,6 +414,7 @@ export class StageThreads {
         canInterrupt,
         model: applying.model,
         folder: request.folder,
+        mask: await this.masks.outputMaskOf(request.projectId),
         began: now,
       },
       move,
@@ -503,6 +506,7 @@ export class StageThreads {
         canInterrupt,
         model: applying.model,
         folder: request.folder,
+        mask: await this.masks.outputMaskOf(request.projectId),
         began: now,
       },
       move,
@@ -588,7 +592,7 @@ export class StageThreads {
    * again, and delivered once a turn has taken the work, as a barge-in is.
    */
   private async live(
-    { threadId, roleKey, engine, canInterrupt, model, folder, began }: StageWorkPlace,
+    { threadId, roleKey, engine, canInterrupt, model, folder, mask, began }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
     carried: CarriedMessages | undefined,
@@ -596,7 +600,7 @@ export class StageThreads {
     let carrying = carried;
     if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "waiting");
     const events = session.events[Symbol.asyncIterator]();
-    const logger = { roleKey, folder, handingOver: false };
+    const logger = { roleKey, folder, handingOver: false, mask };
     const bargeIns = new BargeIns((message) => session.send(message, "next"));
     this.bargeIns.set(threadId, bargeIns);
     let turnRunning = true;
@@ -760,6 +764,8 @@ interface StageWorkPlace {
   readonly canInterrupt: boolean;
   readonly model: string;
   readonly folder: string;
+  /** Hides the Project's Secret variables in what the session writes into the Thread. */
+  readonly mask: TextMask;
   readonly began: Date;
 }
 
