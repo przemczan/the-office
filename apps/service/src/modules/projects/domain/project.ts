@@ -48,7 +48,7 @@ export interface Project {
   /** What every Task branches from and publishes to. */
   readonly baseBranch: string;
   readonly mark: ProjectMark;
-  /** Drawn on the mark's colour in place of its label; null when the Project has none. */
+  /** Shown in place of the mark's label and colour; null when the Project has none. */
   readonly icon: ProjectImage | null;
   /** The larger image on the Project's page and card; null when the Project has none. */
   readonly logo: ProjectImage | null;

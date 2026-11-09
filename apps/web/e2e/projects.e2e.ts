@@ -95,6 +95,7 @@ const LIGHT_CUSTOM_COLOUR = { value: "#ffee88", background: "rgb(255, 238, 136)"
 const DARK_CUSTOM_COLOUR = { value: "#3366cc", background: "rgb(51, 102, 204)", label: WHITE };
 const PAGE_LIKE_CUSTOM_COLOUR = { value: "#ffffff", background: WHITE, label: GRAY_950 };
 const TILE_EDGE_WIDTH = "1px";
+const NO_TILE = { background: "rgba(0, 0, 0, 0)", edgeWidth: "0px" };
 /* oxlint-enable office/restricted-syntax */
 
 async function expectCustomMark(
@@ -104,6 +105,12 @@ async function expectCustomMark(
   await expect(mark).toHaveClass(/colour-custom/);
   await expect(mark).toHaveCSS("background-color", colours.background);
   await expect(mark).toHaveCSS("color", colours.label);
+}
+
+/** An Icon stands in for the mark's colour too, so nothing shows in its corners. */
+async function expectNoTile(mark: Locator): Promise<void> {
+  await expect(mark).toHaveCSS("background-color", NO_TILE.background);
+  await expect(mark).toHaveCSS("border-top-width", NO_TILE.edgeWidth);
 }
 
 async function expectLoadedImage(image: Locator): Promise<void> {
@@ -833,7 +840,9 @@ test("an Icon replaces the letters everywhere, without a reload, until it is rem
   await expect(
     page.getByText("PNG, JPEG, WebP or SVG, at most 2 MB. Each is saved as soon as it is picked."),
   ).toBeVisible();
-  await expect(row.getByText("in place of its letters, wherever the mark shows")).toBeVisible();
+  await expect(
+    row.getByText("in place of the mark's letters and colour, wherever the mark shows"),
+  ).toBeVisible();
   await expect(row.getByText("No Icon")).toBeVisible();
   await expect(row.getByRole("button", { name: "Remove" })).toBeHidden();
   await expect(iconNote).toBeHidden();
@@ -905,7 +914,7 @@ test("a Logo stands for the Project on its page and card, and the mark comes bac
   await expect(card.locator(".project-mark")).toHaveText("AP");
 });
 
-test("without a Logo the Icon stands in, on its colour in the dark palette too", async ({
+test("without a Logo the Icon stands in, with no tile behind it in the dark palette too", async ({
   page,
 }) => {
   const project = await addedProject(page, "Both images");
@@ -919,8 +928,18 @@ test("without a Logo the Icon stands in, on its colour in the dark palette too",
 
   await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
 
-  await expectLoadedImage(page.locator(".project-head .project-mark img"));
+  const head = page.locator(".project-head .project-mark");
+  await expectLoadedImage(head.locator("img"));
   await expect(page.locator(".project-head .project-logo")).toBeHidden();
+  await expectNoTile(head);
+
+  await page.getByRole("radio", { name: "Custom" }).check();
+  await page.getByLabel("Custom colour").fill(DARK_CUSTOM_COLOUR.value);
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByText("Mark saved for Both images.")).toBeVisible();
+  await expect(head).toHaveClass(/colour-custom/);
+  await expectNoTile(head);
 });
 
 test("a replaced image shows at once, and its old address answers no more", async ({ page }) => {
@@ -1226,6 +1245,8 @@ test("an Icon that can't be loaded leaves the letters and the colour", async ({ 
   const head = page.locator(".project-head .project-mark");
   await expect(head).toHaveText("AP");
   await expect(head).toHaveClass(/colour-violet/);
+  await expect(head).not.toHaveClass(/has-icon/);
+  await expect(head).not.toHaveCSS("background-color", NO_TILE.background);
 });
 
 test("an SVG's script runs neither where The Office draws it nor at its own address", async ({

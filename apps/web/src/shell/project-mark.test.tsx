@@ -11,6 +11,7 @@ describe("ProjectMark", () => {
 
     expect(markup).toContain(">AP</span>");
     expect(markup).toContain("colour-teal");
+    expect(markup).not.toContain("has-icon");
     expect(markup).not.toContain("<img");
   });
 
@@ -18,13 +19,13 @@ describe("ProjectMark", () => {
     expect(renderToStaticMarkup(<ProjectMark project={PROJECT} />)).toContain(">AP</span>");
   });
 
-  it("draws the Icon on the colour in place of the letters", () => {
+  it("draws the Icon in place of the letters and the colour", () => {
     const markup = renderToStaticMarkup(
       <ProjectMark project={{ ...PROJECT, id: "admin-panel", icon: ICON }} />,
     );
 
     expect(markup).toContain('src="/api/projects/admin-panel/images/an-image/content"');
-    expect(markup).toContain("colour-teal");
+    expect(markup).toContain("has-icon");
     expect(markup).not.toContain("AP<");
   });
 });
