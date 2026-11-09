@@ -67,7 +67,8 @@ export interface HeldAtStart {
  * refusal (not Ready, a vacant Role, a person who only talks) stops Start; a wait (a Task it waits
  * for not yet Done or Dropped, the fire alarm, a scheduled Office update, the Office-wide limit, its
  * Project limit, its person's Task limit, a cap it would pass) only holds the Task until its
- * blockers end, the all clear, a desk, its Project and its person are free, and the cap allows it. Both are empty when it can start.
+ * blockers end, the all clear, a desk, its Project and its person are free, and the cap allows it.
+ * Both are empty when it can start.
  */
 export interface StartReasons {
   readonly refusals: readonly string[];
