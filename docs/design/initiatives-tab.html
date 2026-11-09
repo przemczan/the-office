@@ -991,7 +991,7 @@
         </div>
         <div>
           <h2>Order and cards</h2>
-          <p>Active and Shaping: newest first, as today. Done and Dropped: the one that ended last on top, by a new <code>doneAt</code> or <code>droppedAt</code>. An Active card drops its badge (the section says it) and adds what moves now: Tasks waiting on you, in progress and blocked. A Shaping card shows its Tasks so far instead of progress. An ended row: name, Projects, final count and when it ended.</p>
+          <p>Active and Shaping: newest first, as today. Done and Dropped: the one that ended last on top, by a new <code>doneAt</code> or <code>droppedAt</code>, filled in for those already ended from their Tasks' recorded moves where there are any; one with no date sits last. An Active card drops its badge (the section says it) and adds what moves now: Tasks waiting on you, in progress and blocked. A Shaping card shows its Tasks so far instead of progress. An ended row: name, Projects, final count and when it ended.</p>
         </div>
         <div>
           <h2>Folds, counts and empty states</h2>
@@ -1091,7 +1091,8 @@
           outcome: "Notifications reach Slack as well as the browser.",
           projectIds: ["the-office"],
           createdAt: "2026-10-22T09:00:00.000Z",
-          droppedAt: "2026-11-01T16:20:00.000Z",
+          /* Dropped while Active before the build: that changes no Task, so no record dates it. */
+          droppedAt: null,
         }),
         initiative(8, {
           name: "Billing export",
@@ -1246,12 +1247,22 @@
       /** A record with no Project always shows (use-project-filter.ts). */
       const shows = ({ projectIds }) => state.projects === "all" || projectIds.length === 0 || projectIds.some((id) => state.projects.includes(id));
       const isOpen = (sectionState) => state.folds[sectionState] ?? false;
-      const SECTIONS = {
-        active: { name: "Active", order: (a, b) => b.createdAt.localeCompare(a.createdAt) },
-        shaping: { name: "Shaping", order: (a, b) => b.createdAt.localeCompare(a.createdAt) },
-        done: { name: "Done", order: (a, b) => b.doneAt.localeCompare(a.doneAt), endedAt: (i) => i.doneAt },
-        dropped: { name: "Dropped", order: (a, b) => b.droppedAt.localeCompare(a.droppedAt), endedAt: (i) => i.droppedAt },
+      const newestCreatedFirst = (a, b) => b.createdAt.localeCompare(a.createdAt);
+      /** The one that ended last on top; one with no date (ended before the build, unrecorded) after, newest created first. */
+      const lastEndedFirst = (endedAt) => (a, b) => {
+        const [aEnded, bEnded] = [endedAt(a), endedAt(b)];
+        if (aEnded && bEnded) return bEnded.localeCompare(aEnded);
+        if (aEnded || bEnded) return aEnded ? -1 : 1;
+        return newestCreatedFirst(a, b);
       };
+      const SECTIONS = {
+        active: { name: "Active", order: newestCreatedFirst },
+        shaping: { name: "Shaping", order: newestCreatedFirst },
+        done: { name: "Done", endedAt: (i) => i.doneAt },
+        dropped: { name: "Dropped", endedAt: (i) => i.droppedAt },
+      };
+      SECTIONS.done.order = lastEndedFirst(SECTIONS.done.endedAt);
+      SECTIONS.dropped.order = lastEndedFirst(SECTIONS.dropped.endedAt);
       /** Every Initiative in the state, and those the Project filter shows, in the section's order. */
       function inState(sectionState) {
         const all = state.initiatives.filter((i) => i.state === sectionState).toSorted(SECTIONS[sectionState].order);
@@ -1370,7 +1381,7 @@
           <span class="ended-name">${escapeHtml(i.name)}</span>
           <span class="ended-projects">${projectMarks(i.projectIds)}</span>
           <span class="ended-count">${count}</span>
-          <span class="ended-when">${SECTIONS[i.state].name} ${dayOf(when)}</span>
+          <span class="ended-when">${when ? `${SECTIONS[i.state].name} ${dayOf(when)}` : ""}</span>
         </a>`;
       }
       function stateHead(sectionState, count, hint) {
@@ -1394,10 +1405,11 @@
         if (shown.length === 0) return "";
         const open = isOpen(sectionState);
         const latest = shown[0];
+        const latestEnded = SECTIONS[sectionState].endedAt(latest);
         return `<section class="ended" aria-label="${SECTIONS[sectionState].name}">
           <button type="button" class="ended-fold" aria-expanded="${open}" data-action="fold" data-value="${sectionState}">
             <span class="ended-fold-name">${icon("chevron-right", 14)}<span class="state-dot ${sectionState}"></span>${SECTIONS[sectionState].name} <span class="state-count">${shown.length}</span></span>
-            ${open ? "" : `<span class="ended-latest">Latest: ${escapeHtml(latest.name)}, ${dayOf(SECTIONS[sectionState].endedAt(latest))}</span>`}
+            ${open || !latestEnded ? "" : `<span class="ended-latest">Latest: ${escapeHtml(latest.name)}, ${dayOf(latestEnded)}</span>`}
           </button>
           ${open ? shown.map(endedRow).join("") : ""}
         </section>`;
@@ -1491,8 +1503,8 @@
           preset: { folds: { done: true, dropped: true }, stateFilter: "done" },
           note: {
             today: "Today nothing folds: the ended Initiatives are already in the grid.",
-            "state-filter": "<strong>Done</strong> picked: a row per Initiative, the one done last on top, each with its Projects, its final count and when it was done. Nothing folds here; each state is a list of its own.",
-            any: "<strong>Done and Dropped unfolded:</strong> a row per Initiative, the one that ended last on top (by the proposed <code>doneAt</code> and <code>droppedAt</code>), each with its Projects, its final count and when it ended. The fold is remembered in this browser for each section.",
+            "state-filter": "<strong>Done</strong> picked: a row per Initiative, the one done last on top, each with its Projects, its final count and when it was done. Pick Dropped to see one with no date. Nothing folds here; each state is a list of its own.",
+            any: "<strong>Done and Dropped unfolded:</strong> a row per Initiative, the one that ended last on top (by the proposed <code>doneAt</code> and <code>droppedAt</code>), each with its Projects, its final count and when it ended. Slack notifications was dropped while Active before the build, which no record dates, so it sits last with <strong>no date</strong>. The fold is remembered in this browser for each section.",
           },
         },
         project: {
