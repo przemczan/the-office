@@ -1,5 +1,5 @@
 import { singleStageProblems, type StageProblem } from "./pipeline.js";
-import type { Stage } from "./stage.js";
+import { sameAsKept, type Stage } from "./stage.js";
 import { StageTemplateAdded, StageTemplateSaved } from "./stage-template-events.js";
 import { stageStaffingProblem, type RoleFilling } from "./stage-staffing.js";
 
@@ -40,6 +40,26 @@ export function stageTemplateProblems(
     ...(nameTaken ? [`another Stage template is named "${kept.name}".`] : []),
     ...singleStageProblems(kept),
   ].map(templateProblem);
+}
+
+/**
+ * Every reason a Proposal of the template's new Stage (`to`) can't be saved on it now: its Stage
+ * changed since the Proposal was drafted (`from`), nothing would change, or the new Stage breaks a
+ * rule a template save keeps.
+ */
+export function proposedStageProblems(
+  template: StageTemplate,
+  from: Stage,
+  to: Stage,
+  otherTemplates: readonly StageTemplate[],
+): StageProblem[] {
+  if (!sameAsKept(template.stage, from)) {
+    return [{ text: `The ${template.stage.name} Stage template changed since this was proposed.` }];
+  }
+  if (sameAsKept(from, templateStage(to))) {
+    return [{ text: "Nothing changes: give the template's Stage as it should be, whole." }];
+  }
+  return stageTemplateProblems(to, otherTemplates);
 }
 
 /** What the editor flags but saves: an Agent Stage whose Role nobody can work. */

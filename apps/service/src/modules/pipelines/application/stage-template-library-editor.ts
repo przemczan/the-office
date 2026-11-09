@@ -7,6 +7,7 @@ import { UnknownStageTemplate } from "../domain/pipeline-library-refusals.js";
 import type { Stage } from "../domain/stage.js";
 import {
   addedStageTemplate,
+  proposedStageProblems,
   savedStageTemplate,
   stageTemplateFlags,
   stageTemplateProblems,
@@ -52,10 +53,30 @@ export class StageTemplateLibraryEditor {
       const templates = await this.repository.list();
       if (!templates.some((template) => template.id === id)) throw new UnknownStageTemplate(id);
       refuseProblems(stage, othersThan(id, templates));
-      const { template, event } = savedStageTemplate(id, stage);
-      await this.repository.save(template);
-      await this.events.publish(event);
-      return template;
+      return this.store(id, stage);
+    });
+  }
+
+  /** Every reason a Proposal of the template's new Stage can't be saved now; it saves nothing. */
+  async proposedStageProblems(id: string, from: Stage, to: Stage): Promise<StageProblem[]> {
+    const templates = await this.repository.list();
+    const template = templates.find((each) => each.id === id);
+    if (!template) return [{ text: new UnknownStageTemplate(id).message }];
+    return proposedStageProblems(template, from, to, othersThan(id, templates));
+  }
+
+  /**
+   * Saves a Proposal's Stage (`to`) on the template, as long as its Stage is still the one the
+   * Proposal was drafted from (`from`); refused otherwise.
+   */
+  async saveProposedStage(id: string, from: Stage, to: Stage): Promise<StageTemplate> {
+    return this.changes.run(STAGE_TEMPLATES, async () => {
+      const templates = await this.repository.list();
+      const template = templates.find((each) => each.id === id);
+      if (!template) throw new UnknownStageTemplate(id);
+      const problems = proposedStageProblems(template, from, to, othersThan(id, templates));
+      if (problems.length > 0) throw new StagesEditRefused(problems);
+      return this.store(id, to);
     });
   }
 
@@ -83,6 +104,13 @@ export class StageTemplateLibraryEditor {
         ...(await this.roleFillings.stagePermissionProblems(stage)).map(templateProblem),
       ],
     };
+  }
+
+  private async store(id: string, stage: Stage): Promise<StageTemplate> {
+    const { template, event } = savedStageTemplate(id, stage);
+    await this.repository.save(template);
+    await this.events.publish(event);
+    return template;
   }
 }
 

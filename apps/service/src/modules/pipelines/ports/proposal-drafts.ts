@@ -8,6 +8,17 @@ export interface ProposedPipelineChange {
   readonly to: readonly Stage[];
 }
 
+/** Devops' new Stage for a Stage template, and its Stage now, as a Proposal carries them. */
+export interface ProposedStageTemplateChange {
+  readonly kind: "stage-template";
+  readonly templateId: string;
+  readonly from: Stage;
+  readonly to: Stage;
+}
+
+/** What Pipelines drafts as a Proposal. */
+export type ProposedLibraryChange = ProposedPipelineChange | ProposedStageTemplateChange;
+
 /** The Proposals, which the Conversations module keeps; the composition root binds it. */
 export abstract class ProposalDrafts {
   /**
@@ -17,6 +28,6 @@ export abstract class ProposalDrafts {
    */
   abstract draft(
     sessionId: string,
-    change: ProposedPipelineChange,
+    change: ProposedLibraryChange,
   ): Promise<{ readonly id: string }>;
 }

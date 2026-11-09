@@ -317,6 +317,9 @@ export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 /** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
+/** The Office tool Devops drafts a Proposal of a Stage template's Stage with, hidden alike. */
+export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
+
 /** The Office tool Devops drafts a Project to onboard with, hidden alike behind its card. */
 export const PROPOSE_PROJECT_TOOL = "propose_project";
 
@@ -406,6 +409,16 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     pipelineId: z.string(),
     from: z.array(stageSchema),
     to: z.array(stageSchema),
+  }),
+  /**
+   * Devops' new Stage for a Stage template, and its Stage when drafted (now). Applying is refused
+   * once it changed.
+   */
+  z.object({
+    kind: z.literal("stage-template"),
+    templateId: z.string(),
+    from: stageSchema,
+    to: stageSchema,
   }),
   /**
    * A Project Devops drafted to onboard: applying it adds the Project and its Onboard Task, Ready

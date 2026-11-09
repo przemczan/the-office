@@ -20,6 +20,7 @@ import {
   roleSchema,
   sizeThresholdSchema,
   SIZE_THRESHOLD_TOKENS,
+  stageTemplateSchema,
   taskSchema,
   taskStagesSchema,
   threadListSchema,
@@ -3784,6 +3785,89 @@ test("the user asks Nina from a Project's Commands and a library Pipeline, and a
   } finally {
     await repository.remove();
   }
+});
+
+test("the user asks Nina from a Stage template and applies her Proposal; a stale one is refused", async ({
+  page,
+}) => {
+  const template = stageTemplateSchema.parse(
+    await (
+      await page.request.post("/api/stage-templates", {
+        data: {
+          stage: {
+            kind: "agent",
+            key: "review",
+            name: `Review ${Date.now()}`,
+            role: "developer",
+            brief: "Review the change.",
+            session: "fresh",
+            budget: 100_000,
+            optional: false,
+          },
+        },
+      })
+    ).json(),
+  );
+  const nina = chatWith(page, "Nina");
+
+  // Asked from the open template, Nina's chat opens on a new Thread with the question.
+  await page.goto(`/settings/pipelines/stage-templates/${template.id}`);
+  await page.getByRole("button", { name: "Ask Nina", exact: true }).click();
+  await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
+    `Can you propose a change to the ${template.stage.name} Stage template? `,
+  );
+  const threadId = await chatThreadShown(page);
+
+  await seedProposal(
+    threadId,
+    {
+      kind: "stage-template",
+      templateId: template.id,
+      from: template.stage,
+      to: { ...template.stage, budget: 150_000 },
+    },
+    "devops",
+  );
+  // Drafted from a Stage the user has changed since.
+  await seedProposal(
+    threadId,
+    {
+      kind: "stage-template",
+      templateId: template.id,
+      from: { ...template.stage, brief: "Review it." },
+      to: { ...template.stage, brief: "Review it twice." },
+    },
+    "devops",
+  );
+  await page.goto(
+    `/settings/pipelines/stage-templates/${template.id}?chat=devops&thread=${threadId}`,
+  );
+
+  const cards = nina.getByRole("region", {
+    name: `Proposal: Change the ${template.stage.name} Stage template`,
+  });
+  const budget = cards.filter({ hasText: "150k tokens" });
+  await expect(budget.getByRole("listitem")).toHaveText("Budget100k tokens150k tokens");
+  await budget.getByRole("button", { name: "Apply change" }).click();
+  await expect(budget).toContainText("Applied");
+  // The open template follows, saved, with no draft of its own to keep.
+  await expect(page.getByLabel("Budget")).toHaveValue("150");
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  const saved = stageTemplateSchema.parse(
+    await (await page.request.get(`/api/stage-templates/${template.id}`)).json(),
+  );
+  expect(saved.stage).toEqual({ ...template.stage, budget: 150_000 });
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-devops-stage-template-proposal.png"),
+  });
+
+  const stale = cards.filter({ hasText: "Review it twice." });
+  await stale.getByRole("button", { name: "Apply change" }).click();
+  await expect(stale).toContainText("The change can't be applied yet");
+  await expect(stale).toContainText(
+    `The ${template.stage.name} Stage template changed since this was proposed.`,
+  );
+  await expect(stale.getByRole("button", { name: "Apply change" })).toBeVisible();
 });
 
 test("the user asks Nina to onboard a Project, applies her Proposal and finds its Onboard Task Ready", async ({

@@ -6,6 +6,7 @@ import {
   PROPOSE_SKILL_INSTALL_TOOL as CONTRACT_PROPOSE_SKILL_INSTALL_TOOL,
   PROPOSE_SKILL_TOOL as CONTRACT_PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL as CONTRACT_PROPOSE_SKILL_UPDATE_TOOL,
+  PROPOSE_STAGE_TEMPLATE_TOOL as CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL,
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -19,6 +20,7 @@ import {
   consultationInstructions,
   LIST_PIPELINES_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
+  LIST_STAGE_TEMPLATES_TOOL,
   POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
@@ -30,6 +32,7 @@ import {
   PROPOSE_SKILL_INSTALL_TOOL,
   PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
+  PROPOSE_STAGE_TEMPLATE_TOOL,
   READ_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
   roleOfficeTools,
@@ -180,12 +183,14 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools(OFFICE_MANAGER)).toContain(PROPOSE_SKILL_TOOL);
   });
 
-  it("gives Devops reading the library and drafting Project commands, Pipelines, Projects and skill installs and updates as Proposals", () => {
+  it("gives Devops reading the library and drafting Project commands, Pipelines, Stage templates, Projects and skill installs and updates as Proposals", () => {
     expect(chatOfficeTools(DEVOPS)).toEqual([
       ...CHAT_OFFICE_TOOLS,
       LIST_PIPELINES_TOOL,
       PROPOSE_PROJECT_COMMANDS_TOOL,
       PROPOSE_LIBRARY_PIPELINE_TOOL,
+      LIST_STAGE_TEMPLATES_TOOL,
+      PROPOSE_STAGE_TEMPLATE_TOOL,
       PROPOSE_PROJECT_TOOL,
       LIST_SOURCE_SKILLS_TOOL,
       PROPOSE_SKILL_INSTALL_TOOL,
@@ -194,6 +199,7 @@ describe("chatOfficeTools", () => {
       READ_REPOSITORY_TOOL,
     ]);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(PROPOSE_STAGE_TEMPLATE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_SKILL_INSTALL_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_SKILL_UPDATE_TOOL);
   });
@@ -201,6 +207,7 @@ describe("chatOfficeTools", () => {
   it("names the Proposal tools as the web does", () => {
     expect(PROPOSE_PROJECT_COMMANDS_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL);
     expect(PROPOSE_LIBRARY_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL);
+    expect(PROPOSE_STAGE_TEMPLATE_TOOL).toBe(CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL);
     expect(PROPOSE_PROJECT_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_TOOL);
     expect(PROPOSE_SKILL_INSTALL_TOOL).toBe(CONTRACT_PROPOSE_SKILL_INSTALL_TOOL);
     expect(PROPOSE_SKILL_UPDATE_TOOL).toBe(CONTRACT_PROPOSE_SKILL_UPDATE_TOOL);

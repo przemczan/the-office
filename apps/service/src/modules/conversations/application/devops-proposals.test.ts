@@ -11,6 +11,7 @@ import {
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_TOOL,
+  PROPOSE_STAGE_TEMPLATE_TOOL,
   pipelineSchema,
   projectListSchema,
   projectOnboardingListSchema,
@@ -18,10 +19,13 @@ import {
   proposalSchema,
   skillReviewSchema,
   skillSchema,
+  stageTemplateListSchema,
+  stageTemplateSchema,
   taskSchema,
   type Pipeline,
   type Project,
   type Stage,
+  type StageTemplate,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
@@ -40,6 +44,7 @@ import {
   NINA_ROLE_CARDS,
   noProjectBases,
 } from "../adapters/http/devops-chat.fixtures.js";
+import { LIST_STAGE_TEMPLATES_TOOL } from "../domain/session-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 
@@ -517,6 +522,109 @@ describe("A skill drafted as a Proposal in a chat, through the scripted engine",
     expect(skillSchema.parse(await chat.read(`/skills/${name}`)).description).toBe("Mine.");
   }, 30_000);
 });
+
+describe("Devops' Proposals of a Stage template, through the scripted engine", () => {
+  it("lists the Stage templates in the shape the propose tool takes them", async () => {
+    const template = await aStageTemplate();
+
+    const listed = await chat.ninaCalls(LIST_STAGE_TEMPLATES_TOOL, {});
+
+    expect(listed.isError).toBe(false);
+    expect(stageTemplateListSchema.parse(JSON.parse(listed.text))).toContainEqual(template);
+  }, 30_000);
+
+  it("drafts a template's new Stage from a chat, changing nothing until it is applied with a click", async () => {
+    const template = await aStageTemplate();
+    const stage = { ...template.stage, brief: "Review the change, then the tests it touched." };
+
+    const [proposal] = await chat.ninaProposes([
+      PROPOSE_STAGE_TEMPLATE_TOOL,
+      { template: template.id, stage },
+    ]);
+
+    expect(proposal?.change).toEqual({
+      kind: "stage-template",
+      templateId: template.id,
+      from: template.stage,
+      to: stage,
+    });
+    expect(await aTemplateNow(template.id)).toEqual(template);
+    const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(response.status).toBe(200);
+    expect(proposalSchema.parse(await response.json()).status.kind).toBe("applied");
+    expect(await aTemplateNow(template.id)).toEqual({ id: template.id, stage });
+    // The whole app and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("refuses drafting for an unknown template and for a Stage a template save refuses", async () => {
+    const template = await aStageTemplate();
+    const other = await aStageTemplate();
+
+    const unknown = await chat.ninaCalls(PROPOSE_STAGE_TEMPLATE_TOOL, {
+      template: "no-such-template",
+      stage: template.stage,
+    });
+    const refused = await chat.ninaCalls(PROPOSE_STAGE_TEMPLATE_TOOL, {
+      template: template.id,
+      stage: { ...template.stage, name: other.stage.name, role: " " },
+    });
+
+    expect(unknown).toEqual({
+      text: 'There is no Stage template "no-such-template".',
+      isError: true,
+    });
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toContain(`Another Stage template is named "${other.stage.name}".`);
+    expect(refused.text).toContain("Choose who works it.");
+    expect(await aTemplateNow(template.id)).toEqual(template);
+  }, 30_000);
+
+  it("refuses applying once the template changed since it was drafted; the Proposal stays open", async () => {
+    const template = await aStageTemplate();
+    const [proposal] = await chat.ninaProposes([
+      PROPOSE_STAGE_TEMPLATE_TOOL,
+      { template: template.id, stage: { ...template.stage, budget: 200_000 } },
+    ]);
+    // The user edits it by hand first.
+    const edited = stageTemplateSchema.parse(
+      await (
+        await chat.api("PUT", `/stage-templates/${template.id}`, {
+          stage: { ...template.stage, budget: 50_000 },
+        })
+      ).json(),
+    );
+
+    const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+
+    expect(await chat.reasonsOf(response)).toEqual([
+      `The ${template.stage.name} Stage template changed since this was proposed.`,
+    ]);
+    expect((await chat.readProposal(proposal?.id ?? "")).status.kind).toBe("open");
+    expect(await aTemplateNow(template.id)).toEqual(edited);
+  }, 30_000);
+});
+
+/** A Stage template of the test's own: the shared database's built-ins stay as they are. */
+async function aStageTemplate(): Promise<StageTemplate> {
+  const response = await chat.api("POST", "/stage-templates", {
+    stage: {
+      kind: "agent",
+      key: "review",
+      name: `Review ${randomUUID().slice(0, 8)}`,
+      role: "developer",
+      brief: "Review the change.",
+      session: "fresh",
+      budget: 100_000,
+      optional: false,
+    },
+  });
+  expect(response.status).toBe(201);
+  return stageTemplateSchema.parse(await response.json());
+}
+
+async function aTemplateNow(id: string): Promise<StageTemplate> {
+  return stageTemplateSchema.parse(await chat.read(`/stage-templates/${id}`));
+}
 
 /** A repository of the test's own with one commit on main. */
 async function aRepository(): Promise<string> {

@@ -24,7 +24,7 @@ import {
   threadQueries,
 } from "../../api/conversations.ts";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
-import { pipelineQueries } from "../../api/pipelines.ts";
+import { pipelineQueries, stageTemplateQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
@@ -62,6 +62,7 @@ import {
   ProposedSkillInstallFields,
   ProposedSkillUpdateFields,
   ProposedStageChanges,
+  ProposedStageFieldChanges,
 } from "./devops-proposal-changes.tsx";
 import "./conversation.css";
 
@@ -103,7 +104,8 @@ const OFFICE_LIMITS: Record<
  * A Proposal as a card in the drafting person's chat (spec §2.4): a new Role to hire, from scratch
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
- * an Initiative, or Devops' change to a Project's commands or a library Pipeline's Stages, a
+ * an Initiative, or Devops' change to a Project's commands, a library Pipeline's Stages or a Stage
+ * template's Stage, a
  * Project to onboard, a skill to install from a Source or its update, or a written skill drafted
  * in a chat. Nothing changes until the user applies it; "Not now" declines it.
  */
@@ -113,6 +115,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
   const presets = useQuery(roleCardQueries.presets()).data;
   const projects = useQuery(projectQueries.list()).data;
   const pipelines = useQuery(pipelineQueries.list()).data;
+  const stageTemplates = useQuery(stageTemplateQueries.list()).data;
   const roleTitles: RoleTitles = new Map(options?.knownRoles.map(({ key, title }) => [key, title]));
   const { change } = proposal;
   switch (change.kind) {
@@ -197,6 +200,21 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             proposal={proposal}
             changes={[pipelineQueries.list().queryKey]}
             appliedToast={`${name} changed. Tasks that haven't started follow it.`}
+            openNote={STALE_NOTE}
+          />
+        </ProposalFrame>
+      );
+    }
+    case "stage-template": {
+      const name =
+        stageTemplates?.find(({ id }) => id === change.templateId)?.stage.name ?? change.from.name;
+      return (
+        <ProposalFrame title={`Change the ${name} Stage template`}>
+          <ProposedStageFieldChanges from={change.from} to={change.to} roles={roles ?? []} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[stageTemplateQueries.list().queryKey]}
+            appliedToast={`${name} changed. Pipelines and Tasks it was added to keep their copy.`}
             openNote={STALE_NOTE}
           />
         </ProposalFrame>

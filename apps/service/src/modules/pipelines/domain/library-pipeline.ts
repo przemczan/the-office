@@ -1,8 +1,7 @@
-import { isDeepStrictEqual } from "node:util";
 import { ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE } from "./built-in-pipelines.js";
 import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
-import type { Stage } from "./stage.js";
+import { sameAsKept, type Stage } from "./stage.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
 
 /** What the user writes of a library Pipeline in the library editor; its id stays. */
@@ -72,10 +71,10 @@ export function proposedStagesProblems(
   to: readonly Stage[],
   otherPipelines: readonly Pipeline[],
 ): StageProblem[] {
-  if (!sameStages(pipeline.stages, from)) {
+  if (!sameAsKept(pipeline.stages, from)) {
     return [{ text: `${pipeline.name}'s Stages changed since this was proposed.` }];
   }
-  if (sameStages(from, to)) {
+  if (sameAsKept(from, to)) {
     return [
       { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
     ];
@@ -86,15 +85,6 @@ export function proposedStagesProblems(
 /** The Pipeline with a Proposal's Stages, under its own name and description. */
 export function proposedEdit(pipeline: Pipeline, stages: readonly Stage[]): PipelineEdit {
   return { name: pipeline.name, description: pipeline.description, stages };
-}
-
-/** Stages alike as they are kept, where a field left out and one left undefined are the same. */
-function sameStages(one: readonly Stage[], other: readonly Stage[]): boolean {
-  return isDeepStrictEqual(asKept(one), asKept(other));
-}
-
-function asKept(stages: readonly Stage[]): unknown {
-  return JSON.parse(JSON.stringify(stages));
 }
 
 /** A Pipeline made from scratch, which `pipelineEditProblems` allowed. */

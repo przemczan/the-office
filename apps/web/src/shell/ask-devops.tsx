@@ -4,8 +4,8 @@ import { AskInChatButton, useAskInChat, type AskInChat } from "./chat/ask-in-cha
 import { useHired } from "./use-hired.ts";
 
 /**
- * Devops' Role, by the preset's fixed key: they onboard Projects, propose Project commands and
- * library Pipelines, and install skills from a Source.
+ * Devops' Role, by the preset's fixed key: they onboard Projects, propose Project commands,
+ * library Pipelines and Stage templates, and install skills from a Source.
  */
 const DEVOPS = "devops";
 

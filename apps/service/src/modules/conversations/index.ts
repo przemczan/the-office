@@ -49,10 +49,13 @@ export type {
   ProposedPipelineChange,
   ProposedProject,
   ProposedSettingChange,
+  ProposedStageTemplateChange,
 } from "./domain/proposal.js";
 export {
   LIST_PIPELINES_TOOL,
+  LIST_STAGE_TEMPLATES_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
+  PROPOSE_STAGE_TEMPLATE_TOOL,
 } from "./domain/session-instructions.js";
 export { ProposalRefused } from "./domain/proposal-refused.js";
