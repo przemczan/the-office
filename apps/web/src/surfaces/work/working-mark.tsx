@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import type { CurrentStage } from "@the-office/contracts";
 import { Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
+import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 
@@ -26,13 +28,42 @@ export function usePeopleWorking(): (taskId: string) => readonly PersonWorking[]
   };
 }
 
-/** Who is working on the Task now: their avatars with the live dot, the names on hover. */
-export function WorkingMark({ people }: { readonly people: readonly PersonWorking[] }): ReactNode {
-  const words = `Working now: ${people.map(({ name }) => name).join(", ")}`;
+/** A started Task's current Stage, from `GET /now`; undefined before its first Stage run. */
+export function useCurrentStage(): (taskId: string) => CurrentStage | undefined {
+  const { data: now } = useQuery(nowQueries.now());
+  return (taskId) => now?.running.find((task) => task.taskId === taskId)?.stage ?? undefined;
+}
+
+/**
+ * The name of the Task's current Stage while one of the people working on it is the one working
+ * that Stage; undefined in Planning, at a Script Stage or a Gate, or while someone else is working.
+ */
+export function stageWorkedNow(
+  people: readonly PersonWorking[],
+  stage: CurrentStage | undefined,
+): string | undefined {
+  const worker = stage?.role;
+  return worker && people.some(({ roleKey }) => roleKey === worker) ? stage.name : undefined;
+}
+
+/**
+ * Who is working on the Task now: their avatars with the live dot, the names on hover, and the
+ * Stage's name before them when it is theirs.
+ */
+export function WorkingMark({
+  people,
+  stageName,
+}: {
+  readonly people: readonly PersonWorking[];
+  readonly stageName?: string | undefined;
+}): ReactNode {
+  const names = people.map(({ name }) => name).join(", ");
+  const words = `Working now: ${stageName ? `${names} · ${stageName}` : names}`;
   const others = people.length - AVATARS_SHOWN;
   return (
     <Tooltip content={words}>
       <span className="working-mark" role="img" aria-label={words}>
+        {stageName && <span className="working-mark-stage">{stageName}</span>}
         <span className="live-dot" />
         <span className="working-mark-avatars">
           {people.slice(0, AVATARS_SHOWN).map(({ roleKey, name }) => (

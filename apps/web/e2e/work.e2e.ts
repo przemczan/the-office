@@ -538,6 +538,80 @@ test("a card shows who is working as they start and stop, and stays one link tha
   ]);
 });
 
+test("a card names the current Stage beside the person working it, on one line however long", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Stage worked now", "SW");
+  const task = await createdTask(page, project, "Stage card");
+  const stageName = "Implement every part of the Plan across the service and the web app";
+  // Paused, as a Task in progress would take a desk from a test alongside; only the Caretaker is
+  // sure to be hired here.
+  await queryOfficeDatabase(`update tasks set state = 'paused' where id = $1`, [task.id]);
+  await queryOfficeDatabase(
+    `insert into task_stages (task_id, pipeline_id, stages, made_at) values ($1, 'full', $2, now())`,
+    [
+      task.id,
+      JSON.stringify([
+        {
+          kind: "agent",
+          key: "implement",
+          name: stageName,
+          optional: false,
+          role: "caretaker",
+          brief: "Implement the Plan.",
+          session: "fresh",
+          budget: 100000,
+        },
+      ]),
+    ],
+  );
+  const stageThread = await seedWaitingThread(task.id, "caretaker");
+  await queryOfficeDatabase(
+    `insert into stage_runs (id, task_id, stage_key, number, thread_id, session, started_at)
+     values ($1, $2, 'implement', 1, $3, 'fresh', now())`,
+    [crypto.randomUUID(), task.id, stageThread],
+  );
+  const roles = roleListSchema.parse(await (await page.request.get("/api/roles")).json());
+  const caretaker = roles.find(({ key }) => key === "caretaker")?.card.name;
+  const words = `Working now: ${caretaker} · ${stageName}`;
+
+  await page.goto("/work");
+  await page.getByRole("button", { name: /^Project filter:/ }).click();
+  await page.getByRole("button", { name: "Show only Stage worked now" }).click();
+  const card = page.getByRole("article", { name: task.title });
+  await expect(card).toBeVisible();
+  await expect(card.locator(".working-mark-stage")).toHaveCount(0);
+
+  await moveThreadTo(page, stageThread, "answering", "Implementing");
+  const mark = card.getByRole("img", { name: words });
+  await expect(mark).toBeVisible();
+  const shownName = mark.locator(".working-mark-stage");
+  await expect(shownName).toHaveText(stageName);
+  // Cut short with an ellipsis, beside the Paused badge on the foot's one line.
+  expect(await shownName.evaluate((name) => name.scrollWidth > name.clientWidth)).toBe(true);
+  const badgeBox = await card.locator(".board-card-foot > :first-child").boundingBox();
+  const markBox = await mark.boundingBox();
+  expect(
+    Math.abs(
+      (badgeBox?.y ?? 0) +
+        (badgeBox?.height ?? 0) / 2 -
+        ((markBox?.y ?? 0) + (markBox?.height ?? 0) / 2),
+    ),
+  ).toBeLessThan(4);
+
+  await mark.hover();
+  await expect(page.getByRole("tooltip")).toHaveText(words);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-working-mark-stage.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-working-mark-stage.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Nothing stays behind for the tests alongside: nobody answering, no Task at a desk.
+  await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [stageThread]);
+  await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [task.id]);
+});
+
 test("a Task's priority and Drop are in its menu, and the Project page counts its Tasks", async ({
   page,
 }) => {
@@ -643,7 +717,7 @@ test("a Task moves to another Project from its menu, and one whose history wasn'
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task-refused.png") });
 });
 
-test('the user tags a Task in "+ Task" and on its page, and the board shows its Tags', async ({
+test('the user tags a Task in "+ Task" and on its page, and the board finds it by them without showing them', async ({
   page,
 }) => {
   const project = await addedProject(page, "Tagged work", "TW");
@@ -667,8 +741,13 @@ test('the user tags a Task in "+ Task" and on its page, and the board shows its 
 
   await page.goBack();
   const card = page.getByRole("article", { name: "Pair over BLE" });
-  await expect(card).toContainText("ble");
-  await expect(card).toContainText("needs-review");
+  await expect(card).toBeVisible();
+  await expect(card).not.toContainText("ble");
+  await expect(card).not.toContainText("needs-review");
+  // The board's search still finds the Task by its Tags.
+  await page.getByLabel("Search Tasks").fill("needs-review");
+  await expect(page).toHaveURL(/query=needs-review/);
+  await expect(card).toBeVisible();
 
   // The whole card opens the Task, not only its title.
   // Its bottom corner, away from the title, sits under the title's link.

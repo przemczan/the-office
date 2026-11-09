@@ -23,7 +23,13 @@ import { MakeAPlanButton } from "./planning-actions.tsx";
 import { QueuedCardMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters } from "./use-board-filters.ts";
-import { usePeopleWorking, WorkingMark, type PersonWorking } from "./working-mark.tsx";
+import {
+  stageWorkedNow,
+  useCurrentStage,
+  usePeopleWorking,
+  WorkingMark,
+  type PersonWorking,
+} from "./working-mark.tsx";
 
 const EDGES: Partial<Record<TaskState, string>> = {
   "in-progress": "edge-running",
@@ -59,6 +65,7 @@ export function Board(): ReactNode {
   const waitingOnYou = useWaitingOnYouInItsState();
   const planner = usePlanner()?.card.name;
   const peopleWorkingOn = usePeopleWorking();
+  const currentStageOf = useCurrentStage();
 
   const cardsOf = (column: Column): Task[] =>
     cardsIn(column, matching.filter(inProjectFilter), queue);
@@ -113,27 +120,31 @@ export function Board(): ReactNode {
                 }}
                 onDrop={(event) => drop(column, event)}
               >
-                {cards.map((task) => (
-                  <BoardCard
-                    key={task.id}
-                    task={task}
-                    projects={projects.data}
-                    planner={planner}
-                    waiting={waitingOnYou(task)}
-                    queued={queuedEntryOf(task, queue)}
-                    blockers={blockingTasksOf(task, tasks.data ?? [])}
-                    peopleWorking={peopleWorkingOn(task.id)}
-                    dragging={dragged?.id === task.id}
-                    dropBefore={
-                      target !== undefined && "before" in target && target.before === task.id
-                    }
-                    onDragStart={() => setDragged(task)}
-                    onDragEnd={() => {
-                      setDragged(undefined);
-                      setTarget(undefined);
-                    }}
-                  />
-                ))}
+                {cards.map((task) => {
+                  const peopleWorking = peopleWorkingOn(task.id);
+                  return (
+                    <BoardCard
+                      key={task.id}
+                      task={task}
+                      projects={projects.data}
+                      planner={planner}
+                      waiting={waitingOnYou(task)}
+                      queued={queuedEntryOf(task, queue)}
+                      blockers={blockingTasksOf(task, tasks.data ?? [])}
+                      peopleWorking={peopleWorking}
+                      stageName={stageWorkedNow(peopleWorking, currentStageOf(task.id))}
+                      dragging={dragged?.id === task.id}
+                      dropBefore={
+                        target !== undefined && "before" in target && target.before === task.id
+                      }
+                      onDragStart={() => setDragged(task)}
+                      onDragEnd={() => {
+                        setDragged(undefined);
+                        setTarget(undefined);
+                      }}
+                    />
+                  );
+                })}
                 {cards.length === 0 && <div className="board-empty">Nothing here</div>}
               </div>
             </section>
@@ -157,6 +168,7 @@ function BoardCard({
   queued,
   blockers,
   peopleWorking,
+  stageName,
   dragging,
   dropBefore,
   onDragStart,
@@ -174,6 +186,8 @@ function BoardCard({
   readonly blockers: readonly Task[];
   /** The names of the people working on it now. */
   readonly peopleWorking: readonly PersonWorking[];
+  /** The current Stage's name while one of them works it. */
+  readonly stageName: string | undefined;
   readonly dragging: boolean;
   readonly dropBefore: boolean;
   readonly onDragStart: () => void;
@@ -220,11 +234,6 @@ function BoardCard({
       </div>
       <div className="board-card-meta">
         {project ? <ProjectMark project={project} /> : task.projectId}
-        {task.tags.map((tag) => (
-          <span key={tag} className="board-card-tag">
-            {tag}
-          </span>
-        ))}
       </div>
       {blockers.length > 0 && <BlockedMark blockers={blockers} />}
       {(foot || usageEstimate || someoneWorking) && (
@@ -234,7 +243,7 @@ function BoardCard({
           {someoneWorking && (
             // Above the title's stretched link for its tooltip, so a press is passed on to the link.
             <span className="board-card-working" onClick={() => titleLink.current?.click()}>
-              <WorkingMark people={peopleWorking} />
+              <WorkingMark people={peopleWorking} stageName={stageName} />
             </span>
           )}
         </div>

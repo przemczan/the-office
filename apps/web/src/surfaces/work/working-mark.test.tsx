@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { CurrentStage } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
-import { WorkingMark, type PersonWorking } from "./working-mark.tsx";
+import { stageWorkedNow, WorkingMark, type PersonWorking } from "./working-mark.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -22,6 +23,29 @@ function rendered(mark: ReactNode): HTMLElement {
 function working(...names: readonly string[]): readonly PersonWorking[] {
   return names.map((name) => ({ roleKey: name.toLowerCase(), name }));
 }
+
+function stage(name: string, role: string | null): CurrentStage {
+  return { key: name.toLowerCase(), name, role, since: "2026-11-09T09:00:00.000Z" };
+}
+
+describe("stageWorkedNow", () => {
+  it("names the current Stage while one of the people working works it", () => {
+    expect(stageWorkedNow(working("Angela", "Jim"), stage("Implement", "jim"))).toBe("Implement");
+  });
+
+  it("names none at a Script Stage or a Gate, which no Role works", () => {
+    expect(stageWorkedNow(working("Jim"), stage("Tests", null))).toBeUndefined();
+  });
+
+  it("names none while the people working aren't the one working the Stage", () => {
+    expect(stageWorkedNow(working("Angela"), stage("Implement", "jim"))).toBeUndefined();
+  });
+
+  it("names none before the first Stage run, as in Planning, or with nobody working", () => {
+    expect(stageWorkedNow(working("Jim"), undefined)).toBeUndefined();
+    expect(stageWorkedNow([], stage("Implement", "jim"))).toBeUndefined();
+  });
+});
 
 describe("WorkingMark", () => {
   it("names the people working, with an avatar each and the live dot", () => {
@@ -44,5 +68,20 @@ describe("WorkingMark", () => {
     expect(mark.querySelector("[role=img]")?.getAttribute("aria-label")).toBe(
       "Working now: Michael, Angela, Jim, Pam, Dwight",
     );
+  });
+
+  it("shows the Stage's name before the avatars, and says it", () => {
+    const mark = rendered(<WorkingMark people={working("Jim Halpert")} stageName="Implement" />);
+
+    expect(mark.querySelector(".working-mark-stage")?.textContent).toBe("Implement");
+    expect(mark.querySelector("[role=img]")?.getAttribute("aria-label")).toBe(
+      "Working now: Jim Halpert · Implement",
+    );
+  });
+
+  it("shows no Stage name without one", () => {
+    const mark = rendered(<WorkingMark people={working("Jim Halpert")} />);
+
+    expect(mark.querySelector(".working-mark-stage")).toBeNull();
   });
 });

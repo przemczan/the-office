@@ -167,15 +167,39 @@
   z-index: 1;
 }
 
+/* A basis of 0 keeps the mark on the foot's line: it takes what is left at the right and cuts a long
+   Stage name short rather than wrapping. */
 .board-card-working {
-  margin-left: auto;
+  display: flex;
+  flex: 1 1 0;
+  justify-content: flex-end;
+  min-width: 0;
   cursor: pointer;
+}
+
+/* The tooltip's trigger wraps the mark, so it has to shrink too. */
+.board-card-working > .tooltip-trigger {
+  display: flex;
+  min-width: 0;
 }
 
 .working-mark {
   display: inline-flex;
   align-items: center;
+  min-width: 0;
   color: var(--fg-3);
+}
+
+.working-mark > :not(.working-mark-stage) {
+  flex: none;
+}
+
+.working-mark-stage {
+  min-width: 0;
+  margin-right: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Positioned, so the live dot's ring pulses under the avatars. */
@@ -204,17 +228,6 @@
   align-items: center;
   gap: 6px;
   font: var(--type-caption);
-}
-
-.board-card-tag {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 4px;
-  background: var(--neutral-subtle);
-  color: var(--neutral-fg);
-  font: 500 10px/1 var(--font-sans);
 }
 
 .board-card-blocked {
