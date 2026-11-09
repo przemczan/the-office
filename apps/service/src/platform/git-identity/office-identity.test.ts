@@ -450,6 +450,9 @@ async function gitCommand(
 ): Promise<{ exitCode: number; stderr: string }> {
   return run("git", [...configArguments, ...gitArguments], {
     env: environment,
+    // Outside any repository: git reads the one it finds in its working directory, and a worktree's
+    // .git can point where a run environment doesn't mount.
+    cwd: tmpdir(),
     timeout: 20_000,
     windowsHide: true,
   }).then(
