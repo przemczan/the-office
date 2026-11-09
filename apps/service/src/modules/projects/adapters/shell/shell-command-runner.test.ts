@@ -123,7 +123,7 @@ describe("ProjectCommandRunner with ShellCommandRunner", () => {
     await mkdir(tools, { recursive: true });
 
     const commandRun = await run("node print-environment.cjs", {
-      set: [{ name: "GREETING", value: "hello" }],
+      set: [{ name: "GREETING", value: "hello", secret: false }],
       unset: ["LEFT_OVER"],
       prependPath: [tools],
     });
@@ -135,6 +135,61 @@ describe("ProjectCommandRunner with ShellCommandRunner", () => {
       "DATABASE_URL=",
       `PATH starts with ${tools}`,
     ]);
+  });
+
+  it("hides a Secret variable it prints, in its output and its file, cut across chunks too", async () => {
+    await writeFile(
+      join(folder, "print-token.cjs"),
+      `process.stdout.write("token: " + process.env.NPM_TOKEN.slice(0, 5));
+setTimeout(() => process.stdout.write(process.env.NPM_TOKEN.slice(5) + " done\\n"), 200);`,
+    );
+    const outputFile = join(folder, "token.log");
+
+    const ran = await runner.run({
+      commandLine: "node print-token.cjs",
+      folder,
+      environment: {
+        set: [{ name: "NPM_TOKEN", value: "npm_s3cret", secret: true }],
+        unset: [],
+        prependPath: [],
+      },
+      timeoutMs: 20_000,
+      outputFile,
+    });
+
+    expect(ran.outcome).toBe("passed");
+    expect(ran.output).toBe("token: [secret NPM_TOKEN] done");
+    expect(ran.wholeOutput).toBe("token: [secret NPM_TOKEN] done");
+    expect(await readFile(outputFile, "utf8")).toBe("token: [secret NPM_TOKEN] done\n");
+  });
+
+  it("hides a Secret variable whose start falls in the output dropped past the limit", async () => {
+    // The value is cut across two chunks, and 16 MiB follow its end, so the first chunk is dropped
+    // and the kept end starts in the middle of the value. The failure next to it keeps that line
+    // in the filtered output.
+    await writeFile(
+      join(folder, "print-token-then-more.cjs"),
+      `process.stdout.write("token: " + process.env.NPM_TOKEN.slice(0, 6));
+setTimeout(() => {
+  const more = ("x".repeat(15) + "\\n").repeat(1024 * 1024);
+  process.stdout.write(process.env.NPM_TOKEN.slice(6) + " was refused: error\\n" + more);
+}, 200);`,
+    );
+
+    const ran = await runner.run({
+      commandLine: "node print-token-then-more.cjs",
+      folder,
+      environment: {
+        set: [{ name: "NPM_TOKEN", value: "npm_s3cretTail", secret: true }],
+        unset: [],
+        prependPath: [],
+      },
+      timeoutMs: 20_000,
+    });
+
+    expect(ran.outcome).toBe("passed");
+    expect(ran.wholeOutput.includes("cretTail")).toBe(false);
+    expect(ran.output.includes("cretTail")).toBe(false);
   });
 
   it("ends a command that runs out of time, with every process it started", async () => {

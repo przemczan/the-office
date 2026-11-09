@@ -126,6 +126,14 @@ class NoProjectBases {
   }
 }
 
+/** No Project has Secret variables: what a session writes is kept as it is. */
+@Injectable()
+class NoProjectOutputMasks {
+  outputMaskOf(): Promise<{ mask: (text: string) => string }> {
+    return Promise.resolve({ mask: (text) => text });
+  }
+}
+
 /** Projects' list_projects, which a shaping session is given, on the registry the sessions read. */
 @Injectable()
 class ListProjectsStandIn {
@@ -141,6 +149,7 @@ class ListProjectsStandIn {
 
 const STAND_INS = [
   NoProjectBases,
+  NoProjectOutputMasks,
   KnownProjectsForTests,
   KnownEngineCascadeForTests,
   NewProjectsForTests,
@@ -185,6 +194,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   const conversations = ConversationsModule.register({
     imports: [StandInsModule],
     projectBases: NoProjectBases,
+    projectOutputMasks: NoProjectOutputMasks,
   });
   ({ app } = await startTestApplication({
     database: true,

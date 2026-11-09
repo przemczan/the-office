@@ -39,7 +39,7 @@ export function startEnvironmentCheck(
     startedAt,
     finishedAt: undefined,
   };
-  return { check, event: new EnvironmentCheckStarted(check) };
+  return { check, event: new EnvironmentCheckStarted(projectId, startedAt) };
 }
 
 /** Puts `updated` in the place of the check for the same step. */
@@ -75,5 +75,5 @@ export function finishEnvironmentCheck(
       ? "passed"
       : "failed";
   const check = { ...environmentCheck, state, checks, finishedAt };
-  return { check, event: new EnvironmentCheckFinished(check) };
+  return { check, event: new EnvironmentCheckFinished(check.projectId, state, finishedAt) };
 }

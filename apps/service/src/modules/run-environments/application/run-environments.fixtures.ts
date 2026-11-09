@@ -91,5 +91,6 @@ export function taskIn(
     worktree,
     installCommand: "echo installed",
     installInputs: ["package-lock.json"],
+    installVariables: [],
   };
 }

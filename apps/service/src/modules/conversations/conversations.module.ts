@@ -64,17 +64,23 @@ import { WorkRecords } from "./application/work-records.js";
 import { ConversationsSettings } from "./ports/conversations-settings.js";
 import { OfficeInstructionsRepository } from "./ports/office-instructions-repository.js";
 import { ProjectBases } from "./ports/project-bases.js";
+import { ProjectOutputMasks } from "./ports/project-output-masks.js";
 import { ThreadRepository } from "./ports/thread-repository.js";
 
 export interface ConversationsModuleOptions {
-  /** The modules that provide `projectBases`. */
+  /** The modules that provide `projectBases` and `projectOutputMasks`. */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly projectBases: Type<ProjectBases>;
+  readonly projectOutputMasks: Type<ProjectOutputMasks>;
 }
 
 @Module({})
 export class ConversationsModule {
-  static register({ imports, projectBases }: ConversationsModuleOptions): DynamicModule {
+  static register({
+    imports,
+    projectBases,
+    projectOutputMasks,
+  }: ConversationsModuleOptions): DynamicModule {
     return {
       module: ConversationsModule,
       // A chat is with a person, whose Role card sets their session; the engine runs it with
@@ -91,6 +97,7 @@ export class ConversationsModule {
       providers: [
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
         { provide: ProjectBases, useExisting: projectBases },
+        { provide: ProjectOutputMasks, useExisting: projectOutputMasks },
         { provide: ConversationsSettings, useClass: PostgresConversationsSettings },
         { provide: OfficeInstructionsRepository, useClass: PostgresOfficeInstructionsRepository },
         { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },

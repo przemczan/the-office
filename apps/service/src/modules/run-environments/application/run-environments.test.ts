@@ -2,7 +2,10 @@ import { access, mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskStateChanged } from "../../work/index.js";
-import { ScriptedContainerRuntime } from "../adapters/scripted/scripted-container-runtime.fixtures.js";
+import {
+  NO_MASK,
+  ScriptedContainerRuntime,
+} from "../adapters/scripted/scripted-container-runtime.fixtures.js";
 import {
   RunEnvironmentCreated,
   RunEnvironmentImageBuilt,
@@ -49,6 +52,7 @@ function command(
   return {
     commandLine: "npm test",
     environment: { set: [{ name: "CI", value: "1" }], unset: [], prependPath: [] },
+    mask: NO_MASK,
     timeoutMs: 60_000,
     outputFile,
     ...extra,
@@ -201,7 +205,14 @@ describe("RunEnvironments.run", () => {
 
     expect(end).toMatchObject({ exitCode: 1 });
     expect(await readFile(outputOf("check"), "utf8")).toContain("3 tests failed\n");
-    expect(script).toBe(`cd '${task.worktree}' || exit 125\nexport CI='1'\nnpm test`);
+    expect(script).toBe(
+      [
+        `cd '${task.worktree}' || exit 125`,
+        'export CI="$OFFICE_VARIABLE_0"',
+        "unset OFFICE_VARIABLE_0",
+        "npm test",
+      ].join("\n"),
+    );
   });
 
   it("counts as busy work while it runs", async () => {

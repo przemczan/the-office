@@ -94,6 +94,7 @@ export class AppModule {
     const conversations = ConversationsModule.register({
       imports: [projects, engineCascade],
       projectBases: BaseCheckouts,
+      projectOutputMasks: ProjectService,
     });
     const work = WorkModule.register({
       imports: [

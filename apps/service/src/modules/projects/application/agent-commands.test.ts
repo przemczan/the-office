@@ -109,6 +109,7 @@ async function aTask({
       set: Object.entries({ INSTALL_LOG: installLog, ...variables }).map(([name, value]) => ({
         name,
         value,
+        secret: false,
       })),
       unset: [],
       prependPath: [],

@@ -1,6 +1,7 @@
 import type { EngineSessions } from "../../engine/index.js";
 import type { MessageDraft } from "../domain/message.js";
 import { toolActivitySummary } from "../domain/tool-activity.js";
+import type { TextMask } from "../ports/project-output-masks.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
 export type SessionEvent =
@@ -12,6 +13,8 @@ export interface SessionLogger {
   readonly folder: string;
   /** The person writes their Handover note in the turn running now. */
   readonly handingOver: boolean;
+  /** Hides the Project's Secret variables before a line is kept or sent live. */
+  readonly mask: TextMask;
 }
 
 /**
@@ -20,16 +23,16 @@ export interface SessionLogger {
  */
 export function sessionLogLines(
   event: SessionEvent,
-  { roleKey, folder, handingOver }: SessionLogger,
+  { roleKey, folder, handingOver, mask }: SessionLogger,
 ): MessageDraft[] {
   switch (event.kind) {
-    case "text":
+    case "text": {
       if (event.withinToolCall !== undefined) return [];
+      const text = mask.mask(event.text);
       return [
-        handingOver
-          ? { kind: "handover-note", roleKey, text: event.text }
-          : { kind: "person", roleKey, text: event.text },
+        handingOver ? { kind: "handover-note", roleKey, text } : { kind: "person", roleKey, text },
       ];
+    }
     case "tool-call":
       if (event.withinToolCall !== undefined) return [];
       return [
@@ -37,11 +40,11 @@ export function sessionLogLines(
           kind: "tool-activity",
           roleKey,
           tool: event.tool,
-          summary: toolActivitySummary(event.input, folder),
+          summary: mask.mask(toolActivitySummary(event.input, folder)),
         },
       ];
     case "tool-refused":
-      return [{ kind: "refusal", roleKey, tool: event.tool, reason: event.reason }];
+      return [{ kind: "refusal", roleKey, tool: event.tool, reason: mask.mask(event.reason) }];
     case "mcp-server-not-started":
       return [{ kind: "mcp-server-not-started", server: event.server, reason: event.reason }];
     default:

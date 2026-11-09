@@ -112,6 +112,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           const conversations = ConversationsModule.register({
             imports: [projects, engineCascade],
             projectBases: BaseCheckouts,
+            projectOutputMasks: ProjectService,
           });
           let url: string;
           ({ app, url } = await startTestApplication({

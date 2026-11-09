@@ -19,6 +19,7 @@ import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { EnvironmentChecks } from "../../application/environment-checks.js";
 import type { Check, CheckedCommandRun, EnvironmentCheck } from "../../domain/environment-check.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
+import { toEnvironmentResponse } from "./project-responses.js";
 
 @Controller("projects/:id/environment-check")
 @UseFilters(ProjectRefusalsFilter)
@@ -45,11 +46,7 @@ export class EnvironmentChecksController {
 function toEnvironmentCheckResponse(check: EnvironmentCheck): EnvironmentCheckResponse {
   return {
     projectId: check.projectId,
-    environment: {
-      set: check.environment.set.map(({ name, value }) => ({ name, value })),
-      unset: [...check.environment.unset],
-      prependPath: [...check.environment.prependPath],
-    },
+    environment: toEnvironmentResponse(check.environment),
     state: check.state,
     checks: check.checks.map(toCheckResponse),
     startedAt: check.startedAt.toISOString(),

@@ -9,7 +9,12 @@ import {
 } from "../domain/environment-check-changes.js";
 import type { EnvironmentCheckStarted } from "../domain/environment-check-events.js";
 import type { Project } from "../domain/project.js";
-import { trimmedEnvironment, type ProjectEnvironment } from "../domain/project-environment.js";
+import {
+  editedEnvironment,
+  trimmedEnvironment,
+  type ProjectEnvironment,
+  type ProjectEnvironmentEdit,
+} from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { EnvironmentCheckRepository } from "../ports/environment-check-repository.js";
 import { GitCommandFailed } from "../ports/git.js";
@@ -52,12 +57,16 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
   ) {}
 
   /**
-   * Starts a check of `given` and returns it as it starts; it goes on in the background. Refuses
-   * with every reason, running nothing, when the environment breaks a rule or a check is running.
+   * Starts a check of `given` and returns it as it starts; it goes on in the background. A Secret
+   * variable given without a value keeps the one the last check tried, or else the Project's.
+   * Refuses with every reason, running nothing, when the environment breaks a rule or a check is
+   * running.
    */
-  async start(projectId: string, given: ProjectEnvironment): Promise<EnvironmentCheck> {
+  async start(projectId: string, given: ProjectEnvironmentEdit): Promise<EnvironmentCheck> {
     const project = await this.projects.read(projectId);
-    const environment = trimmedEnvironment(given);
+    const lastTried = await this.repository.find(projectId);
+    const kept = [...(lastTried ? [lastTried.environment] : []), project.environment];
+    const environment = trimmedEnvironment(editedEnvironment(given, kept));
     const problems = this.rules.environmentProblems(environment);
     // Nothing is awaited from here until the check is held, so two starts can't both pass.
     if (this.running.has(projectId)) {

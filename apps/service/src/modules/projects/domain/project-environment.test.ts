@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  editedEnvironment,
   environmentProblems,
   sameEnvironment,
+  shownEnvironment,
   trimmedEnvironment,
   UNCHANGED_ENVIRONMENT,
+  type ProjectEnvironment,
 } from "./project-environment.js";
 
 describe("trimmedEnvironment", () => {
@@ -11,14 +14,14 @@ describe("trimmedEnvironment", () => {
     expect(
       trimmedEnvironment({
         set: [
-          { name: " JAVA_HOME ", value: " /opt/java-21 " },
-          { name: " ", value: "" },
+          { name: " JAVA_HOME ", value: " /opt/java-21 ", secret: false },
+          { name: " ", value: "", secret: false },
         ],
         unset: [" NODE_OPTIONS", ""],
         prependPath: [" /opt/gradle/bin ", "  "],
       }),
     ).toEqual({
-      set: [{ name: "JAVA_HOME", value: " /opt/java-21 " }],
+      set: [{ name: "JAVA_HOME", value: " /opt/java-21 ", secret: false }],
       unset: ["NODE_OPTIONS"],
       prependPath: ["/opt/gradle/bin"],
     });
@@ -29,7 +32,7 @@ describe("environmentProblems", () => {
   it("takes named variables", () => {
     expect(
       environmentProblems({
-        set: [{ name: "JAVA_HOME", value: "/opt/java-21" }],
+        set: [{ name: "JAVA_HOME", value: "/opt/java-21", secret: false }],
         unset: ["NODE_OPTIONS"],
         prependPath: ["/opt/gradle/bin"],
       }),
@@ -40,10 +43,10 @@ describe("environmentProblems", () => {
     expect(
       environmentProblems({
         set: [
-          { name: "", value: "orphan" },
-          { name: "A=B", value: "" },
-          { name: "CI", value: "1" },
-          { name: "CI", value: "true" },
+          { name: "", value: "orphan", secret: false },
+          { name: "A=B", value: "", secret: false },
+          { name: "CI", value: "1", secret: false },
+          { name: "CI", value: "true", secret: false },
         ],
         unset: ["X=Y"],
         prependPath: [],
@@ -57,9 +60,113 @@ describe("environmentProblems", () => {
   });
 });
 
+const secret = (name: string, value: string) => ({ name, value, secret: true });
+
+describe("environmentProblems of Secret variables", () => {
+  it("takes a one-line value of at least 6 characters", () => {
+    expect(
+      environmentProblems({ set: [secret("NPM_TOKEN", "npm_ab")], unset: [], prependPath: [] }),
+    ).toEqual([]);
+  });
+
+  it("refuses a short, empty or multi-line value, and a name also used for a plain one", () => {
+    expect(
+      environmentProblems({
+        set: [
+          secret("SHORT", "12345"),
+          secret("EMPTY", ""),
+          secret("LINES", "first line\nsecond"),
+          { name: "TOKEN", value: "plain", secret: false },
+          secret("TOKEN", "a-secret-token"),
+        ],
+        unset: [],
+        prependPath: [],
+      }),
+    ).toEqual([
+      "The value of the Secret variable SHORT is shorter than 6 characters, so hiding it in output could hide ordinary text.",
+      "Give the Secret variable EMPTY a value.",
+      "The value of the Secret variable LINES has a line break: it takes one line.",
+      "TOKEN is both a plain and a Secret variable: make it one or the other.",
+    ]);
+  });
+});
+
+describe("editedEnvironment", () => {
+  const kept: ProjectEnvironment = {
+    set: [
+      { name: "NPM_TOKEN", value: "kept-token", secret: true },
+      { name: "PLAIN", value: "kept-plain", secret: false },
+    ],
+    unset: [],
+    prependPath: [],
+  };
+
+  it("keeps a Secret variable's value when the edit leaves it out or empty", () => {
+    expect(
+      editedEnvironment(
+        {
+          set: [
+            { name: " NPM_TOKEN ", secret: true },
+            { name: "NPM_TOKEN", secret: true, value: "" },
+            { name: "PLAIN", secret: false, value: "" },
+          ],
+          unset: [],
+          prependPath: [],
+        },
+        [UNCHANGED_ENVIRONMENT, kept],
+      ).set,
+    ).toEqual([
+      { name: "NPM_TOKEN", value: "kept-token", secret: true },
+      { name: "NPM_TOKEN", value: "kept-token", secret: true },
+      { name: "PLAIN", value: "", secret: false },
+    ]);
+  });
+
+  it("takes a new value, and leaves one never kept empty", () => {
+    expect(
+      editedEnvironment(
+        {
+          set: [
+            { name: "NPM_TOKEN", secret: true, value: "new-token" },
+            { name: "PLAIN", secret: true },
+          ],
+          unset: [],
+          prependPath: [],
+        },
+        [kept],
+      ).set,
+    ).toEqual([
+      { name: "NPM_TOKEN", value: "new-token", secret: true },
+      { name: "PLAIN", value: "", secret: true },
+    ]);
+  });
+});
+
+describe("shownEnvironment", () => {
+  it("shows a Secret variable by its name alone", () => {
+    expect(
+      shownEnvironment({
+        set: [
+          { name: "CI", value: "1", secret: false },
+          { name: "NPM_TOKEN", value: "kept-token", secret: true },
+        ],
+        unset: ["X"],
+        prependPath: ["/opt/bin"],
+      }),
+    ).toEqual({
+      set: [
+        { name: "CI", value: "1", secret: false },
+        { name: "NPM_TOKEN", secret: true, valueSet: true },
+      ],
+      unset: ["X"],
+      prependPath: ["/opt/bin"],
+    });
+  });
+});
+
 describe("sameEnvironment", () => {
   const environment = {
-    set: [{ name: "CI", value: "1" }],
+    set: [{ name: "CI", value: "1", secret: false }],
     unset: ["NODE_OPTIONS"],
     prependPath: ["/opt/bin"],
   };
@@ -67,8 +174,17 @@ describe("sameEnvironment", () => {
   it("compares each part in order", () => {
     expect(sameEnvironment(environment, { ...environment })).toBe(true);
     expect(
-      sameEnvironment(environment, { ...environment, set: [{ name: "CI", value: "2" }] }),
+      sameEnvironment(environment, {
+        ...environment,
+        set: [{ name: "CI", value: "2", secret: false }],
+      }),
     ).toBe(false);
     expect(sameEnvironment(environment, UNCHANGED_ENVIRONMENT)).toBe(false);
+    expect(
+      sameEnvironment(environment, {
+        ...environment,
+        set: [{ name: "CI", value: "1", secret: true }],
+      }),
+    ).toBe(false);
   });
 });

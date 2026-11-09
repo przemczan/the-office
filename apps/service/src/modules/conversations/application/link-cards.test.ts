@@ -56,6 +56,10 @@ import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-f
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
 import { PostgresChangesAllowedRepository } from "../adapters/postgres/postgres-changes-allowed-repository.js";
 import { sessionMcpServersStandIn } from "./session-mcp-servers.fixtures.js";
+import { ProjectOutputMasks } from "../ports/project-output-masks.js";
+import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+
+const outputMasks = new ProjectOutputMasksForTests();
 
 type Step = SessionScript[number];
 
@@ -148,6 +152,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: RoleCards, useValue: roleCards },
       { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       { provide: ProjectBases, useValue: bases },
+      { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: sessionMcpServersStandIn().service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },

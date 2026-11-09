@@ -62,13 +62,9 @@ export class ProjectWebEvents implements OnModuleInit {
         projectId: event.projectId,
       }),
     );
-    this.forwarding.forward(EnvironmentCheckStarted, (event) =>
-      checkChanged(event.check.projectId),
-    );
+    this.forwarding.forward(EnvironmentCheckStarted, (event) => checkChanged(event.projectId));
     this.forwarding.forward(EnvironmentCheckProgressed, (event) => checkChanged(event.projectId));
-    this.forwarding.forward(EnvironmentCheckFinished, (event) =>
-      checkChanged(event.check.projectId),
-    );
+    this.forwarding.forward(EnvironmentCheckFinished, (event) => checkChanged(event.projectId));
     this.forwarding.forward(
       ProjectInstallInputsChanged,
       (event): WebEventOf<"project.install-inputs-changed"> => ({

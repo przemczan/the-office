@@ -84,6 +84,10 @@ import { PostgresChangesAllowedRepository } from "../postgres/postgres-changes-a
 import { ChatActivity } from "../../application/chat-activity.js";
 import { ChatActivityRepository } from "../../ports/chat-activity-repository.js";
 import { PostgresChatActivityRepository } from "../postgres/postgres-chat-activity-repository.js";
+import { ProjectOutputMasks } from "../../ports/project-output-masks.js";
+import { ProjectOutputMasksForTests } from "../../ports/project-output-masks.fixtures.js";
+
+const outputMasks = new ProjectOutputMasksForTests();
 
 let app: INestApplication;
 let url: string;
@@ -133,6 +137,7 @@ beforeEach(async () => {
       { provide: RoleCards, useValue: roleCards },
       { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       { provide: ProjectBases, useValue: bases },
+      { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
       OfficeInstructions,

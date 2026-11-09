@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
 import { filteredOutput, wholeOutputOf, type CommandRun } from "../domain/command-run.js";
+import { OutputMask } from "../domain/output-mask.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { CommandRunner, type FinishedCommand } from "../ports/command-runner.js";
 import { commandEnvironment } from "./command-environment.js";
@@ -35,6 +36,7 @@ export class ProjectCommandRunner {
     outputFile,
     inAgentBash,
   }: ProjectCommand): Promise<CommandRun> {
+    const mask = OutputMask.of(environment);
     const finished = await this.runner.run({
       commandLine,
       folder,
@@ -42,9 +44,10 @@ export class ProjectCommandRunner {
       timeoutMs,
       signal,
       outputFile,
+      mask,
       inAgentBash,
     });
-    return commandRunOf(commandLine, finished);
+    return commandRunOf(commandLine, finished, mask);
   }
 
   /** The variables a Project with this environment runs its commands with. */
@@ -53,14 +56,22 @@ export class ProjectCommandRunner {
   }
 }
 
-/** A finished command as it is recorded, its output filtered and kept whole, wherever it ran. */
-export function commandRunOf(commandLine: string, finished: FinishedCommand): CommandRun {
+/**
+ * A finished command as it is recorded, wherever it ran: its output filtered and kept whole, each
+ * Secret variable's value hidden in both.
+ */
+export function commandRunOf(
+  commandLine: string,
+  finished: FinishedCommand,
+  mask: OutputMask,
+): CommandRun {
+  const output = mask.mask(finished.output);
   return {
     commandLine,
     outcome: finished.outcome,
     exitCode: finished.exitCode,
     durationMs: finished.durationMs,
-    output: filteredOutput(finished.output),
-    wholeOutput: wholeOutputOf(finished.output, finished.droppedOutputBytes),
+    output: filteredOutput(output),
+    wholeOutput: wholeOutputOf(output, finished.droppedOutputBytes),
   };
 }

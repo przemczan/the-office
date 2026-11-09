@@ -40,7 +40,15 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
 
   async run(
     task: TaskInRunEnvironment,
-    { commandLine, environment, timeoutMs, signal, wait, ...given }: TaskRunEnvironmentCommand,
+    {
+      commandLine,
+      environment,
+      mask,
+      timeoutMs,
+      signal,
+      wait,
+      ...given
+    }: TaskRunEnvironmentCommand,
   ): Promise<FinishedCommand> {
     const inWorktree = await this.taskInWorktree(task);
     await mkdir(this.folders.commandOutputs, { recursive: true });
@@ -55,6 +63,7 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
       const end = await this.environments.run(inWorktree, {
         commandLine,
         environment,
+        mask,
         timeoutMs,
         outputFile,
         startOutputFile: join(folder, "start.log"),
@@ -82,6 +91,7 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
       worktree: task.worktree,
       installCommand: task.installCommand.trim() === "" ? undefined : task.installCommand,
       installInputs: task.installInputs,
+      installVariables: task.installVariables,
     };
   }
 }

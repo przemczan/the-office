@@ -1055,6 +1055,49 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   border-top: 1px solid var(--border-subtle);
 }
 
+.environment-secrets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.environment-secrets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.environment-secrets-title {
+  font: var(--type-body-sm);
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.environment-secrets .project-block-note {
+  margin: 0;
+}
+
+.environment-secret {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: start;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* The remove button lines up with the fields, below their labels. */
+.environment-secret > :last-child {
+  margin-top: 22px;
+}
+
+@container page (max-width: 664px) {
+  .environment-secret {
+    grid-template-columns: 1fr;
+  }
+}
+
 .environment-reasons {
   margin: 0;
   padding-left: 18px;

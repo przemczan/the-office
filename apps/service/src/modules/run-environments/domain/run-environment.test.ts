@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RunEnvironmentDefinition } from "./run-environment-definition.js";
 import {
   commandScript,
+  commandVariables,
   composeOverrideOf,
   composeProjectNameOf,
   type TaskInWorktree,
@@ -25,6 +26,7 @@ const TASK: TaskInWorktree = {
   worktree: "/data/worktrees/shop/6d4250e7",
   installCommand: "npm ci",
   installInputs: ["package-lock.json"],
+  installVariables: [],
 };
 
 const LIMITS = { cpus: 2, memoryMegabytes: 4096, processes: 1024 };
@@ -103,10 +105,28 @@ describe("commandScript", () => {
       [
         "cd '/w/it'\\''s' || exit 125",
         "unset 'CI'",
-        "export NODE_ENV='test '\\''quoted'\\'''",
+        'export NODE_ENV="$OFFICE_VARIABLE_0"',
+        "unset OFFICE_VARIABLE_0",
         `export PATH='/opt/a:/opt/b':"$PATH"`,
         "npm test",
       ].join("\n"),
     );
+  });
+
+  it("holds no variable's value: the runtime gives each under its carrier, by name", () => {
+    const environment = {
+      set: [
+        { name: "NPM_TOKEN", value: "npm_s3cret" },
+        { name: "CI", value: "1" },
+      ],
+      unset: [],
+      prependPath: [],
+    };
+
+    expect(commandScript("npm test", "/w", environment)).not.toContain("npm_s3cret");
+    expect(commandVariables(environment)).toEqual({
+      OFFICE_VARIABLE_0: "npm_s3cret",
+      OFFICE_VARIABLE_1: "1",
+    });
   });
 });

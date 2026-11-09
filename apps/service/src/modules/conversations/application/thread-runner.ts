@@ -61,6 +61,7 @@ import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { StageThreads } from "./stage-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import type { TextMask } from "../ports/project-output-masks.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
@@ -102,6 +103,8 @@ interface LiveSession {
   readonly roleKey: string;
   /** Where it works, which its tool calls are summed up against. */
   readonly folder: string;
+  /** Hides the Project's Secret variables in what it writes into the Thread. */
+  readonly mask: TextMask;
   /** The Office tools it started with: a running session can't change them. */
   readonly officeTools: readonly string[];
   /** The person writes their Handover note in the turn running now; the session ends after it. */
@@ -552,13 +555,14 @@ export class ThreadRunner implements OnModuleDestroy {
   private watch(
     threadId: string,
     roleKey: string,
-    { folder, officeTools }: Pick<SessionPlace, "folder" | "officeTools">,
+    { folder, mask, officeTools }: Pick<SessionPlace, "folder" | "mask" | "officeTools">,
     session: EngineSession,
   ): void {
     const live: LiveSession = {
       session,
       roleKey,
       folder,
+      mask,
       officeTools,
       handingOver: false,
       idle: undefined,

@@ -4,6 +4,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   OFFICE_IDENTITY_SETTINGS_PATH,
   IMAGE_UPLOAD_BYTES,
+  environmentCheckSchema,
+  latestEnvironmentCheckSchema,
   projectSchema,
   repositoryCloneSchema,
   type NewProject,
@@ -611,6 +613,111 @@ test("the environment check shows each check, and saves the environment only onc
   await page.reload();
   await expect(page.getByLabel("Variables to set")).toHaveValue("GREETING=hello");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-environment.png") });
+});
+
+test("a Secret variable is set, kept and removed, and its value never comes back", async ({
+  page,
+}) => {
+  // Three checks run in turn.
+  test.setTimeout(120_000);
+  const passes = `node -e "process.exit(0)"`;
+  const token = "npm_e2e_s3cret";
+  const project = await addedProject(page, "Secret variables", {
+    install: passes,
+    build: passes,
+    lint: passes,
+    test: `node -e "console.log('token: ' + (process.env.NPM_TOKEN ?? 'none'))"`,
+  });
+  await page.goto(`/projects/${project.id}`);
+  const secrets = page.getByRole("group", { name: "Secret variables" });
+  const checks = page.getByRole("list", { name: "Environment checks" });
+  const run = page.getByRole("button", { name: "Run the environment check" });
+  /** Runs a check and waits for that one to pass: the badge says Ready from the one before too. */
+  const runCheck = async (): Promise<void> => {
+    const starting = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/environment-check") && response.request().method() === "POST",
+    );
+    await run.click();
+    const { startedAt } = environmentCheckSchema.parse(await (await starting).json());
+    await expect
+      .poll(
+        async () => {
+          const address = `/api/projects/${project.id}/environment-check`;
+          const { check } = latestEnvironmentCheckSchema.parse(
+            await (await page.request.get(address)).json(),
+          );
+          return check?.startedAt === startedAt ? check.state : "not yet";
+        },
+        { timeout: 30_000 },
+      )
+      .toBe("passed");
+    await expect(page.getByText("Ready", { exact: true })).toBeVisible();
+  };
+  /** The test check's output, from a fresh page, where each passed check shows it on a press. */
+  const testOutput = async (): Promise<Locator> => {
+    await page.reload();
+    // Test is the last check.
+    const testCheck = checks.getByRole("listitem").last();
+    await testCheck.getByRole("button", { name: "Show the output" }).click();
+    return testCheck.getByLabel("Output");
+  };
+
+  // A short value, or a name used for a plain variable too, is refused with why.
+  await secrets.getByRole("button", { name: "Add a Secret variable" }).click();
+  const added = secrets.getByRole("group", { name: "the new Secret variable" });
+  await added.getByLabel("Name").fill("NPM_TOKEN");
+  const row = secrets.getByRole("group", { name: "the Secret variable NPM_TOKEN" });
+  await row.getByLabel("Value").fill("12345");
+  await page.getByLabel("Variables to set").fill("NPM_TOKEN=plain");
+  await run.click();
+  const reasons = page.getByRole("alert").filter({ hasText: "Secret variable" });
+  await expect(reasons).toContainText(
+    "The value of the Secret variable NPM_TOKEN is shorter than 6 characters",
+  );
+  await expect(reasons).toContainText(
+    "NPM_TOKEN is both a plain and a Secret variable: make it one or the other.",
+  );
+
+  // Set: the commands get it, and its output hides it.
+  await page.getByLabel("Variables to set").fill("");
+  await row.getByLabel("Value").fill(token);
+  await runCheck();
+  await expect(await testOutput()).toHaveText("token: [secret NPM_TOKEN]");
+
+  // Kept: never shown again, in the page or the API, and given again when left empty.
+  await page.reload();
+  await expect(row.getByLabel("Value")).toHaveValue("");
+  await expect(
+    row.getByText("A value is set. It is never shown; type a new one to replace it."),
+  ).toBeVisible();
+  await expect(row.getByRole("button", { name: "Remove the value" })).toHaveCount(0);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-project-environment-secrets.png"),
+  });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await secrets.screenshot({
+    path: path.join(SCREENSHOTS, "dark-1600-project-environment-secrets.png"),
+  });
+  await page.emulateMedia({ colorScheme: "light" });
+  await runCheck();
+  await expect(await testOutput()).toHaveText("token: [secret NPM_TOKEN]");
+  await expect(page.locator("body")).not.toContainText(token);
+  for (const address of [
+    `/api/projects/${project.id}`,
+    `/api/projects/${project.id}/environment-check`,
+  ]) {
+    expect(await (await page.request.get(address)).text()).not.toContain(token);
+  }
+
+  // Removed: the commands no longer get it.
+  await row.getByRole("button", { name: "Remove the Secret variable NPM_TOKEN" }).click();
+  await runCheck();
+  await expect(await testOutput()).toHaveText("token: none");
+  const saved = projectSchema.parse(
+    await (await page.request.get(`/api/projects/${project.id}`)).json(),
+  );
+  expect(saved.environment.set).toEqual([]);
 });
 
 test("the mark is changed in Appearance: previewed, saved, and shown on the head and the card", async ({

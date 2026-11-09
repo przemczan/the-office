@@ -9,6 +9,7 @@ import {
   imageKeyOf,
   imageNameOf,
   installDockerfile,
+  installSecrets,
   INSTALL_INPUTS_FOLDER,
 } from "../domain/run-environment-image.js";
 import { officeLabels, type TaskInWorktree } from "../domain/run-environment.js";
@@ -98,6 +99,7 @@ export class RunEnvironmentImages {
           context: join(task.worktree, context),
           dockerfile,
           args,
+          secrets: {},
           ...(target === undefined ? {} : { target }),
           labels,
         },
@@ -111,7 +113,14 @@ export class RunEnvironmentImages {
     try {
       await this.writeInstallContext(task, context, from);
       await this.runtime.buildImage(
-        { image, context, dockerfile: "Dockerfile", args: {}, labels },
+        {
+          image,
+          context,
+          dockerfile: "Dockerfile",
+          args: {},
+          secrets: installSecrets(task.installVariables),
+          labels,
+        },
         outputFile,
       );
     } finally {
@@ -135,7 +144,11 @@ export class RunEnvironmentImages {
       // An Install input not there yet is left out, as its absence is in the key.
       await copyFile(join(task.worktree, input), target).catch(() => undefined);
     }
-    await writeFile(join(context, "Dockerfile"), installDockerfile(from, task.installCommand));
+    const variableNames = task.installVariables.map(({ name }) => name);
+    await writeFile(
+      join(context, "Dockerfile"),
+      installDockerfile(from, task.installCommand, variableNames),
+    );
   }
 }
 

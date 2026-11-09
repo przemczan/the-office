@@ -18,7 +18,7 @@
 - `default-pipeline-block.tsx`: DefaultPipelineBlock
 - `engine-block.tsx`: EngineBlock
 - `environment-block.tsx`: EnvironmentBlock
-- `environment-labels.ts`: checkBadge, worktreeCheckLabel, worktreeCheckDetail, commandCheckLabel, runSummary, formatDuration, EnvironmentDraft, draftOf, environmentOf
+- `environment-labels.ts`: checkBadge, worktreeCheckLabel, worktreeCheckDetail, commandCheckLabel, runSummary, formatDuration, SecretVariableDraft, EnvironmentDraft, draftOf, withNewSecret, secretValueKept, environmentOf
 - `github-repository-picker.tsx`: useGitHubRepositoriesEarly, GitHubRepositoryPicker
 - `github-repository-words.ts`: RepositoryRow, repositoryRowsOf, repositoryKeyOf, matchIn, pushedWords
 - `mark-picker.tsx`: MarkPicker
@@ -37,4 +37,4 @@
 - `server-values-draft.ts`: ServerValuesDraft, serverValuesDraftOf, serverValuesChangeOf, officeWideWords, projectValueWords, leavesServerOut
 - `skills-block.tsx`: SkillsBlock
 - `work-block.tsx`: WorkBlock
-- Tests: github-repository-words.test.ts, remote-needs-words.test.ts, server-values-draft.test.ts
+- Tests: environment-labels.test.ts, github-repository-words.test.ts, remote-needs-words.test.ts, server-values-draft.test.ts

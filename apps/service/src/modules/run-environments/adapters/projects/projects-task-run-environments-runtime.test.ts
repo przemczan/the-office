@@ -2,6 +2,7 @@ import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  OutputMask,
   TaskRunEnvironments,
   type TaskInRunEnvironment,
   type TaskRunEnvironmentCommand,
@@ -35,7 +36,12 @@ function aCommand(
 ): TaskRunEnvironmentCommand {
   return {
     commandLine,
-    environment: { set: [{ name: "GREETING", value: "hello" }], unset: [], prependPath: [] },
+    environment: {
+      set: [{ name: "GREETING", value: "hello", secret: false }],
+      unset: [],
+      prependPath: [],
+    },
+    mask: OutputMask.NONE,
     timeoutMs: 60_000,
     ...fields,
   };
@@ -86,6 +92,7 @@ describe.skipIf(missing !== undefined)(
         worktree,
         installCommand: "echo installed",
         installInputs: ["package-lock.json"],
+        installVariables: [],
       };
     }
 

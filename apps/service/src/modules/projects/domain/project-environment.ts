@@ -2,6 +2,11 @@
 export interface ProjectVariable {
   readonly name: string;
   readonly value: string;
+  /**
+   * A Secret variable: its value is never shown again once saved, and is hidden wherever it would
+   * appear in output (spec §6).
+   */
+  readonly secret: boolean;
 }
 
 /**
@@ -17,8 +22,72 @@ export interface ProjectEnvironment {
   readonly prependPath: readonly string[];
 }
 
+/** A variable as the Project page saves it: a Secret variable without a value keeps its own. */
+export type VariableEdit =
+  | { readonly name: string; readonly secret: false; readonly value: string }
+  | { readonly name: string; readonly secret: true; readonly value?: string };
+
+/** The environment as the Project page saves it, its Secret variables' values left out to keep. */
+export interface ProjectEnvironmentEdit {
+  readonly set: readonly VariableEdit[];
+  readonly unset: readonly string[];
+  readonly prependPath: readonly string[];
+}
+
+/** A variable as it is shown: a Secret variable by its name alone. */
+export type ShownVariable =
+  | { readonly name: string; readonly secret: false; readonly value: string }
+  | { readonly name: string; readonly secret: true; readonly valueSet: boolean };
+
+/** The environment as the page, the API and events see it: no Secret variable's value. */
+export interface ShownEnvironment {
+  readonly set: readonly ShownVariable[];
+  readonly unset: readonly string[];
+  readonly prependPath: readonly string[];
+}
+
 /** A Project's environment until its first environment check: the inherited one, unchanged. */
 export const UNCHANGED_ENVIRONMENT: ProjectEnvironment = { set: [], unset: [], prependPath: [] };
+
+/** The shortest value a Secret variable takes, so hiding it in output never hides ordinary text. */
+export const SECRET_VALUE_MIN_LENGTH = 6;
+
+/**
+ * The environment an edit describes, each Secret variable left without a value taking the one
+ * kept under its name in the first of `kept` that has it (the last check's try, then the
+ * Project's own). One with no value anywhere stays empty, for environmentProblems to refuse.
+ */
+export function editedEnvironment(
+  edit: ProjectEnvironmentEdit,
+  kept: readonly ProjectEnvironment[],
+): ProjectEnvironment {
+  const keptValueOf = (name: string): string =>
+    kept
+      .flatMap((environment) => environment.set)
+      .find((variable) => variable.secret && variable.name === name)?.value ?? "";
+  return {
+    set: edit.set.map((variable): ProjectVariable => {
+      const name = variable.name.trim();
+      if (!variable.secret) return { name, value: variable.value, secret: false };
+      const value =
+        variable.value === undefined || variable.value === "" ? keptValueOf(name) : variable.value;
+      return { name, value, secret: true };
+    }),
+    unset: edit.unset,
+    prependPath: edit.prependPath,
+  };
+}
+
+/** The environment without its Secret variables' values. */
+export function shownEnvironment(environment: ProjectEnvironment): ShownEnvironment {
+  return {
+    set: environment.set.map(({ name, value, secret }): ShownVariable =>
+      secret ? { name, secret, valueSet: value !== "" } : { name, secret, value },
+    ),
+    unset: [...environment.unset],
+    prependPath: [...environment.prependPath],
+  };
+}
 
 /**
  * The environment as it is kept: names and folders without the spaces around them, and without
@@ -27,7 +96,7 @@ export const UNCHANGED_ENVIRONMENT: ProjectEnvironment = { set: [], unset: [], p
 export function trimmedEnvironment(environment: ProjectEnvironment): ProjectEnvironment {
   return {
     set: environment.set
-      .map(({ name, value }) => ({ name: name.trim(), value }))
+      .map((variable) => ({ ...variable, name: variable.name.trim() }))
       .filter(({ name, value }) => name !== "" || value !== ""),
     unset: environment.unset.map((name) => name.trim()).filter((name) => name !== ""),
     prependPath: environment.prependPath
@@ -42,19 +111,45 @@ export function trimmedEnvironment(environment: ProjectEnvironment): ProjectEnvi
  */
 export function environmentProblems(environment: ProjectEnvironment): string[] {
   const problems: string[] = [];
-  for (const { name, value } of environment.set) {
-    const problem = variableNameProblem(name);
+  for (const variable of environment.set) {
+    const problem = variableNameProblem(variable.name);
     if (problem) problems.push(problem);
-    if (value.includes("\0")) problems.push(`The value of ${name} has a NUL character.`);
+    problems.push(...valueProblems(variable));
   }
-  const setNames = environment.set.map((variable) => variable.name);
-  const repeated = setNames.filter((each, index) => setNames.indexOf(each) !== index);
-  for (const name of new Set(repeated)) problems.push(`${name} is set more than once.`);
+  problems.push(...repeatedNameProblems(environment.set));
   for (const name of environment.unset) {
     const problem = variableNameProblem(name);
     if (problem) problems.push(problem);
   }
   return problems;
+}
+
+function valueProblems({ name, value, secret }: ProjectVariable): string[] {
+  if (value.includes("\0")) return [`The value of ${name} has a NUL character.`];
+  if (!secret) return [];
+  if (value === "") return [`Give the Secret variable ${name} a value.`];
+  if (/[\r\n]/.test(value)) {
+    return [`The value of the Secret variable ${name} has a line break: it takes one line.`];
+  }
+  if (value.length < SECRET_VALUE_MIN_LENGTH) {
+    return [
+      `The value of the Secret variable ${name} is shorter than ${SECRET_VALUE_MIN_LENGTH} characters, so hiding it in output could hide ordinary text.`,
+    ];
+  }
+  return [];
+}
+
+function repeatedNameProblems(variables: readonly ProjectVariable[]): string[] {
+  const names = variables.map((variable) => variable.name);
+  const repeated = new Set(names.filter((each, index) => names.indexOf(each) !== index));
+  return [...repeated].map((name) => {
+    const kinds = new Set(
+      variables.filter((each) => each.name === name).map((each) => each.secret),
+    );
+    return kinds.size > 1
+      ? `${name} is both a plain and a Secret variable: make it one or the other.`
+      : `${name} is set more than once.`;
+  });
 }
 
 function variableNameProblem(name: string): string | undefined {
@@ -65,7 +160,11 @@ function variableNameProblem(name: string): string | undefined {
 
 export function sameEnvironment(one: ProjectEnvironment, other: ProjectEnvironment): boolean {
   return (
-    sameList(one.set, other.set, (a, b) => a.name === b.name && a.value === b.value) &&
+    sameList(
+      one.set,
+      other.set,
+      (a, b) => a.name === b.name && a.value === b.value && a.secret === b.secret,
+    ) &&
     sameList(one.unset, other.unset, (a, b) => a === b) &&
     sameList(one.prependPath, other.prependPath, (a, b) => a === b)
   );

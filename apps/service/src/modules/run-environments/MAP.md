@@ -6,6 +6,8 @@
 
 **Traps:**
 
+- No variable's value is ever in a command line or the script (spec 5.5, "Secret variables"): `exec` gets each `set` variable by its carrier name alone (`carrierOf`, `--env OFFICE_VARIABLE_<n>`), its value in the compose CLI's environment, and the script exports it back under its own name; the install's build gets every `set` variable as a BuildKit secret by the same carrier ids (`installSecrets`). A Project's own names never go into the CLI's environment, where `PATH` or `DOCKER_HOST` would change the CLI. The output file is masked as it streams (`Execution.mask`), and the scripted runtime masks as the real one does.
+
 - The Run environment routes live here, not in Projects or Work: this module imports Work's `index.ts` (for `TaskStateChanged`), and Work imports Projects', so neither could reach the definition's reading without an import cycle.
 - Everything carries `office.instance`, a digest of the Office data directory, and the sweep and every removal look only at this instance's: the tests', the e2e service's and The Office's own share one runtime. Don't sweep by `office.managed` alone.
 - The sweep runs from `office.ts`, never `onApplicationBootstrap`, so a test app never asks the runtime for anything; `remove` asks it only for a Task that has a folder or a running environment.
@@ -46,8 +48,8 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, Reading, RunEnvironmentDefi
 ### adapters/compose/
 
 - `compose-command-line.fixtures.ts`: REAL_RUNTIME_TEST, realRuntimeMissing, ContainerLimits, containerLimitsOf
-- `compose-command-line.ts`: ComposeCommandLine
-- Tests: compose-command-line.test.ts
+- `compose-command-line.ts`: ComposeCommandLine, execArguments, buildArguments
+- Tests: compose-arguments.test.ts, compose-command-line.test.ts
 
 ### adapters/http/
 
@@ -71,7 +73,7 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, Reading, RunEnvironmentDefi
 
 ### adapters/scripted/
 
-- `scripted-container-runtime.fixtures.ts`: ScriptedExecution, ScriptedContainerRuntime
+- `scripted-container-runtime.fixtures.ts`: NO_MASK, ScriptedExecution, ScriptedContainerRuntime
 
 ### adapters/work/
 
@@ -93,15 +95,15 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, Reading, RunEnvironmentDefi
 - `jsonc.ts`: parseJsonc
 - `run-environment-definition.ts`: DEFINITION_FOLDER, DEFINITION_FILE, ServiceImage, RunEnvironmentDefinition, DevcontainerSettings, ComposeFileText, Reading, DefinitionFileText, DefinitionReading, DefinitionStatus, definitionStatusOf, definitionProblemsOf, readDevcontainer, readDefinition
 - `run-environment-events.ts`: RunEnvironmentCreated, RunEnvironmentRemoved, RunEnvironmentImageBuilt
-- `run-environment-image.ts`: KeyedFile, ImageInputs, INSTALL_FOLDER, INSTALL_INPUTS_FOLDER, imageKeyOf, imageNameOf, baseImageNameOf, installDockerfile
+- `run-environment-image.ts`: KeyedFile, ImageInputs, INSTALL_FOLDER, INSTALL_INPUTS_FOLDER, imageKeyOf, imageNameOf, baseImageNameOf, installDockerfile, installSecrets
 - `run-environment-refused.ts`: RunEnvironmentRefused
 - `run-environment-setting-refused.ts`: RunEnvironmentSettingRefused, RunEnvironmentProjectNotFound
-- `run-environment.ts`: TaskInWorktree, CommandEnvironment, RunEnvironmentLimits, RunEnvironmentOptions, DEFAULT_RUN_ENVIRONMENT_OPTIONS, IDLE_STOP_MS, LABEL, Labels, instanceIdOf, officeLabels, taskLabels, composeProjectNameOf, composeOverrideOf, commandScript
+- `run-environment.ts`: InstallVariable, TaskInWorktree, CommandEnvironment, RunEnvironmentLimits, RunEnvironmentOptions, DEFAULT_RUN_ENVIRONMENT_OPTIONS, IDLE_STOP_MS, LABEL, Labels, instanceIdOf, officeLabels, taskLabels, composeProjectNameOf, composeOverrideOf, carrierOf, commandVariables, commandScript
 - Tests: jsonc.test.ts, run-environment-definition.test.ts, run-environment-image.test.ts, run-environment.test.ts
 
 ### ports/
 
-- `container-runtime.ts`: ImageBuild, ComposeProject, Execution, ExecutionEnd, ResourceKind, LabelledResource, LabelledImage, ContainerRuntime, ContainerRuntimeFailed
+- `container-runtime.ts`: ImageBuild, ComposeProject, StreamedOutputMask, Execution, ExecutionEnd, ResourceKind, LabelledResource, LabelledImage, ContainerRuntime, ContainerRuntimeFailed
 - `known-tasks.ts`: KnownTask, KnownTasks
 - `project-settings.ts`: RunEnvironmentSetting, ProjectSetting, ProjectSettings
 - `repository-files.ts`: RepositoryFiles

@@ -86,6 +86,10 @@ import {
 } from "./session-mcp-servers.fixtures.js";
 import { GitHubModule } from "../../github/index.js";
 import { signedInWithGitHubForTests } from "../../github/index.fixtures.js";
+import { ProjectOutputMasks } from "../ports/project-output-masks.js";
+import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+
+const outputMasks = new ProjectOutputMasksForTests();
 
 /** The user token of the sign-in the app holds, which no session's options may carry. */
 const GITHUB_USER_TOKEN = "ghu_session_check_token";
@@ -232,6 +236,7 @@ async function startOn(
       { provide: RoleCards, useValue: roleCards },
       { provide: EngineCascade, useValue: cascade },
       { provide: ProjectBases, useValue: bases },
+      { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
@@ -1091,6 +1096,50 @@ describe("a Thread on a Task", () => {
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBe(taskId);
     await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBeUndefined();
     await expect(threads.personInSession(session?.id ?? "")).resolves.toBe(roleKey);
+  });
+
+  it("hides the Project's Secret variables in the person's words and tool calls, stored and live", async () => {
+    const taskId = randomUUID();
+    outputMasks.masks.set("admin-panel", {
+      mask: (text) => text.replaceAll("npm_s3cret", "[secret NPM_TOKEN]"),
+    });
+    await startWith(
+      started(
+        {
+          step: "event",
+          event: {
+            kind: "tool-call",
+            callId: "c-1",
+            tool: "Bash",
+            officeTool: false,
+            input: { command: "npm whoami --token npm_s3cret" },
+            withinToolCall: undefined,
+          },
+        },
+        ...aTurn("brief", "The token npm_s3cret works."),
+      ),
+    );
+    const live: DomainEvent[] = [];
+    app.get(EventBus).subscribeToEveryEvent((event: DomainEvent) => void live.push(event));
+
+    try {
+      const opened = await planningThread(taskId);
+      await runner.send(opened.id, PLAN_IT);
+      const log = await answered(opened.id, 4);
+
+      expect(drafts(log).slice(2)).toEqual([
+        {
+          kind: "tool-activity",
+          roleKey,
+          tool: "Bash",
+          summary: "npm whoami --token [secret NPM_TOKEN]",
+        },
+        { kind: "person", roleKey, text: "The token [secret NPM_TOKEN] works." },
+      ]);
+      expect(JSON.stringify(live)).not.toContain("npm_s3cret");
+    } finally {
+      outputMasks.masks.clear();
+    }
   });
 
   it("ends the Task's waiting sessions before its worktree is removed, and no other Task's", async () => {

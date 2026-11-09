@@ -46,6 +46,7 @@ beforeAll(async () => {
       ConversationsModule.register({
         imports: [projects, engineCascade],
         projectBases: BaseCheckouts,
+        projectOutputMasks: ProjectService,
       }),
     ],
   }));

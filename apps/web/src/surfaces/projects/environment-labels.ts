@@ -4,6 +4,7 @@ import type {
   EnvironmentCheck,
   Project,
   ProjectEnvironment,
+  ProjectEnvironmentEdit,
   WorktreeCheck,
 } from "@the-office/contracts";
 import { COMMAND_LABELS } from "../../shell/project-words.ts";
@@ -75,28 +76,64 @@ export function formatDuration(durationMs: number): string {
   return rest === 0 ? `${minutes} min` : `${minutes} min ${rest} s`;
 }
 
+/** A Secret variable as the editor shows it: its name, and a value only once typed. */
+export interface SecretVariableDraft {
+  /** Its place among the rows, which stays while its name is edited. */
+  readonly key: number;
+  readonly name: string;
+  /** The name a value is kept under, or undefined for a row added since. */
+  readonly keptName: string | undefined;
+  /** The value typed; undefined keeps the one kept. */
+  readonly typed: string | undefined;
+}
+
 /** The environment as the editor shows it: one `NAME=value` and one folder per line. */
 export interface EnvironmentDraft {
   readonly set: string;
+  readonly secrets: readonly SecretVariableDraft[];
   readonly unset: string;
   readonly prependPath: string;
 }
 
 export function draftOf(environment: ProjectEnvironment): EnvironmentDraft {
   return {
-    set: environment.set.map(({ name, value }) => `${name}=${value}`).join("\n"),
+    set: environment.set
+      .flatMap((variable) => (variable.secret ? [] : [`${variable.name}=${variable.value}`]))
+      .join("\n"),
+    secrets: environment.set
+      .filter((variable) => variable.secret)
+      .map((variable, key) => ({
+        key,
+        name: variable.name,
+        keptName: variable.valueSet ? variable.name : undefined,
+        typed: undefined,
+      })),
     unset: environment.unset.join(", "),
     prependPath: environment.prependPath.join("\n"),
   };
 }
 
+/** A new, empty row for a Secret variable. */
+export function withNewSecret(draft: EnvironmentDraft): EnvironmentDraft {
+  const key = Math.max(-1, ...draft.secrets.map((secret) => secret.key)) + 1;
+  return {
+    ...draft,
+    secrets: [...draft.secrets, { key, name: "", keptName: undefined, typed: undefined }],
+  };
+}
+
+/** Whether saving keeps a value for the row: one is kept under the name it has now. */
+export function secretValueKept(secret: SecretVariableDraft): boolean {
+  return secret.keptName !== undefined && secret.keptName === secret.name.trim();
+}
+
 /**
  * The environment the draft describes, or the lines it can't read. The service checks the
- * rest of the rules.
+ * rest of the rules; a Secret variable without a typed value keeps the one kept.
  */
 export function environmentOf(
   draft: EnvironmentDraft,
-): { readonly environment: ProjectEnvironment } | { readonly problems: readonly string[] } {
+): { readonly environment: ProjectEnvironmentEdit } | { readonly problems: readonly string[] } {
   const lines = draft.set.split(/\r?\n/).filter((line) => line.trim() !== "");
   const problems = lines
     .filter((line) => !line.includes("="))
@@ -104,10 +141,21 @@ export function environmentOf(
   if (problems.length > 0) return { problems };
   return {
     environment: {
-      set: lines.map((line) => {
-        const equals = line.indexOf("=");
-        return { name: line.slice(0, equals), value: line.slice(equals + 1) };
-      }),
+      set: [
+        ...lines.map((line) => {
+          const equals = line.indexOf("=");
+          return {
+            name: line.slice(0, equals),
+            secret: false as const,
+            value: line.slice(equals + 1),
+          };
+        }),
+        ...draft.secrets.map(({ name, typed }) => ({
+          name,
+          secret: true as const,
+          ...(typed === undefined ? {} : { value: typed }),
+        })),
+      ],
       unset: draft.unset.split(","),
       prependPath: draft.prependPath.split(/\r?\n/),
     },

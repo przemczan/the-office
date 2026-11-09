@@ -7,6 +7,7 @@ import type { ProjectChanges } from "../../domain/project-changes.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
 import { projects } from "./projects.schema.js";
+import { environmentOfStored } from "./stored-environment.js";
 
 type ProjectRow = typeof projects.$inferSelect;
 
@@ -100,7 +101,7 @@ function toProject(row: ProjectRow): Project {
     installInputs: row.installInputs,
     publishingMode: row.publishingMode,
     defaultPipeline: row.defaultPipeline,
-    environment: row.environment,
+    environment: environmentOfStored(row.environment),
     useProjectSkills: row.useProjectSkills,
     projectSkillsOff: row.projectSkillsOff,
     projectDefault: projectDefaultOf(row),

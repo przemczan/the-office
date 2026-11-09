@@ -6,7 +6,7 @@ import type {
   PublishingMode,
   RunEnvironmentSetting,
 } from "../../domain/project.js";
-import type { ProjectEnvironment } from "../../domain/project-environment.js";
+import type { StoredEnvironment } from "./stored-environment.js";
 import type { ProjectImage } from "../../domain/project-image.js";
 
 export const projects = pgTable(
@@ -32,7 +32,7 @@ export const projects = pgTable(
     publishingMode: text("publishing_mode").$type<PublishingMode>().notNull(),
     defaultPipeline: text("default_pipeline").notNull(),
     environment: jsonb("environment")
-      .$type<ProjectEnvironment>()
+      .$type<StoredEnvironment>()
       .notNull()
       .default({ set: [], unset: [], prependPath: [] }),
     useProjectSkills: boolean("use_project_skills").notNull(),

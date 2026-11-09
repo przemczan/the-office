@@ -7,6 +7,7 @@ import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { ShellProgram } from "../../../../platform/os/shell.js";
 import type { CommandOutcome } from "../../domain/command-run.js";
+import { OutputMask } from "../../domain/output-mask.js";
 import {
   CommandRunner,
   type CommandToRun,
@@ -46,13 +47,19 @@ export class ShellCommandRunner extends CommandRunner {
     const output = new OutputEnd(OUTPUT_LIMIT_BYTES);
     const file =
       command.outputFile === undefined ? undefined : await outputFile(command.outputFile);
+    // Masked before the output's end is cut, so a cut can't fall inside a Secret variable's value
+    // and leave the rest of it showing.
+    const masked = (command.mask ?? OutputMask.NONE).chunks();
+    const take = (bytes: Uint8Array): void => {
+      const chunk = Buffer.from(bytes);
+      output.add(chunk);
+      file?.write(chunk);
+    };
     let ending: Ending;
     try {
-      ending = await this.runToEnd(command, (chunk) => {
-        output.add(chunk);
-        file?.write(chunk);
-      });
+      ending = await this.runToEnd(command, (chunk) => take(masked.next(chunk)));
     } finally {
+      take(masked.end());
       await file?.close();
     }
     const durationMs = Math.round(performance.now() - startedAt);

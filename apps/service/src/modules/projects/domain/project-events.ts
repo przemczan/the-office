@@ -7,7 +7,7 @@ import type {
   PublishingMode,
   RunEnvironmentSetting,
 } from "./project.js";
-import type { ProjectEnvironment } from "./project-environment.js";
+import type { ShownEnvironment } from "./project-environment.js";
 import type { ProjectImage, ProjectImageKey } from "./project-image.js";
 
 export class ProjectAdded extends DomainEvent {
@@ -37,11 +37,11 @@ export class ProjectInstallInputsChanged extends DomainEvent {
   }
 }
 
-/** Saved by an environment check that passed with it. */
+/** Saved by an environment check that passed with it; its Secret variables by their names alone. */
 export class ProjectEnvironmentChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
-    readonly environment: ProjectEnvironment,
+    readonly environment: ShownEnvironment,
   ) {
     super();
   }
