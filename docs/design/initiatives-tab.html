@@ -1,0 +1,1563 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Initiatives tab · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, copied as they were on 2026-11-09) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-inverse: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --surface-hover: var(--gray-25);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+      /* packages/ui/src/appearance/densities/comfortable.css */
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+      }
+
+      /* ---------- Base (design-system/tokens/base.css) ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      @supports selector(::-webkit-scrollbar) {
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          border: 3px solid transparent;
+          border-radius: var(--radius-full);
+          background: var(--border-strong) padding-box;
+        }
+      }
+      @supports not selector(::-webkit-scrollbar) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: var(--border-strong) transparent;
+        }
+      }
+      :is(button, a, input, select, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: badge, select, progress, project chip, tabs ---------- */
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-badge);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.sm {
+        height: 20px;
+        padding: 0 6px;
+        font-size: var(--text-2xs);
+      }
+      .badge.dot::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .select {
+        position: relative;
+        display: inline-flex;
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .select select {
+        min-width: 0;
+        max-width: 100%;
+        height: var(--control-md);
+        padding: 0 28px 0 10px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        text-overflow: ellipsis;
+        appearance: none;
+        cursor: pointer;
+      }
+      .select svg {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        color: var(--fg-3);
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+      /* ProgressBar, size sm, tone success */
+      .progress {
+        flex: none;
+        width: 100%;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--border);
+      }
+      .progress span {
+        display: block;
+        height: 100%;
+        background: var(--success);
+      }
+      /* shell/project-chip.tsx: the Project's mark and name */
+      .project-mark {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 5px;
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .project-mark::before {
+        content: "";
+        flex: none;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: var(--mark);
+      }
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: -1px;
+        padding: 8px 0;
+        border-bottom: 2px solid transparent;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .tab.on {
+        border-color: var(--accent);
+        color: var(--fg-1);
+      }
+      .tab-count {
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .stage {
+        display: grid;
+        gap: 12px;
+        padding: 16px 24px 40px;
+      }
+      .scenario-note {
+        max-width: 120ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .address {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .address code {
+        overflow-wrap: anywhere;
+        font: 500 var(--text-xs) / 1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(640px, calc(100vh - 250px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(640px, min(844px, calc(100vh - 250px)));
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 12px 28px;
+        max-width: 1400px;
+        margin-top: 8px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p {
+        margin: 0 0 6px;
+      }
+
+      /* ---------- The app's frame: rail, top bar ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail-item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .frame.w-390 .top {
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .top h1 {
+        flex: none;
+        margin: 0;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+      }
+      .crumb {
+        min-width: 0;
+        overflow: hidden;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .main {
+        position: relative;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        container: page / inline-size;
+      }
+      .toast {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        z-index: 20;
+        max-width: min(420px, calc(100% - 32px));
+        padding: 10px 14px;
+        border-radius: var(--radius-lg);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        font: var(--type-body-sm);
+        box-shadow: var(--shadow-3);
+      }
+
+      /* ---------- Work (apps/web/src/surfaces/work/work.css and shell.css, re-drawn) ---------- */
+      .work-page {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-panel);
+        min-width: 0;
+        padding: var(--pad-page);
+      }
+      .in-other-projects-note {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-card);
+        background: none;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        text-align: left;
+        cursor: pointer;
+      }
+      .in-other-projects-note svg {
+        flex: none;
+      }
+      .in-other-projects-show {
+        flex: none;
+        color: var(--accent-subtle-fg);
+        font-weight: 500;
+      }
+      .empty-card {
+        padding: 40px 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        text-align: center;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      /* Today's cards, kept by the proposal for Active and Shaping. */
+      .initiative-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--gap-card);
+      }
+      .initiative-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: var(--pad-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .initiative-card:hover {
+        border-color: var(--border-strong);
+      }
+      .initiative-card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .initiative-card-name {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-weight: 600;
+      }
+      .initiative-card-sub {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .initiative-card-outcome {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+
+      /* ---------- New: the Initiatives by state ---------- */
+      .by-state {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        min-width: 0;
+      }
+      .by-state.one-state {
+        gap: 14px;
+      }
+      .state-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+      }
+      /* As .panel > h2 on Ideas and Now: the name, its count, a hint at the end. */
+      .state-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        margin: 0 2px;
+      }
+      .state-head h2 {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font: 600 13px/1 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .state-count {
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+      /* The state badge's own colour, so a section reads as the badge it replaces. */
+      .state-dot {
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--dot);
+      }
+      .state-dot.active {
+        --dot: var(--info);
+      }
+      .state-dot.shaping {
+        --dot: var(--warning);
+      }
+      .state-dot.done {
+        --dot: var(--success);
+      }
+      .state-dot.dropped {
+        --dot: var(--danger);
+      }
+      .state-hint {
+        margin-left: auto;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .state-none {
+        margin: 0;
+        padding: 12px 14px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-card);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .initiative-card-outcome.unwritten {
+        color: var(--fg-3);
+      }
+      .initiative-card-progress {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 12px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .initiative-card-progress .progress {
+        flex: 0 1 140px;
+        min-width: 64px;
+      }
+      .initiative-card-now {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .now-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .now-item svg {
+        flex: none;
+        color: var(--fg-3);
+      }
+      .now-item.live::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      .initiative-card-nothing {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--warning-fg);
+      }
+      .initiative-card-nothing svg {
+        flex: none;
+        margin-top: 1px;
+      }
+      /* Done and Dropped: one card each, a fold in its head, a row per Initiative (as Ideas' Dropped). */
+      .ended {
+        min-width: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      /* packages/ui FoldButton, holding the state and its count. */
+      .ended-fold {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        width: 100%;
+        padding: 12px 16px;
+        border: 0;
+        border-radius: var(--radius-card);
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .ended-fold:hover {
+        background: var(--surface-hover);
+      }
+      .ended-fold-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font: 600 13px/1 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .ended-fold-name > svg {
+        flex: none;
+        color: var(--fg-3);
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .ended-fold[aria-expanded="true"] .ended-fold-name > svg {
+        transform: rotate(90deg);
+      }
+      .ended-latest {
+        min-width: 0;
+        margin-left: auto;
+        overflow: hidden;
+        font: var(--type-caption);
+        color: var(--fg-3);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .ended-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 120px 104px;
+        align-items: center;
+        gap: 4px 20px;
+        padding: 10px 16px;
+        border-top: 1px solid var(--border-subtle);
+        font: var(--type-body-sm);
+      }
+      .ended-row:last-child {
+        border-radius: 0 0 var(--radius-card) var(--radius-card);
+      }
+      .ended-row:hover {
+        background: var(--surface-hover);
+      }
+      .ended-name {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-weight: 500;
+        color: var(--fg-1);
+      }
+      .ended-projects {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        font: var(--type-caption);
+      }
+      .ended-count {
+        font: var(--type-caption);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .ended-when {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        text-align: right;
+        white-space: nowrap;
+      }
+      /* The alternative: one state at a time, chosen by a chip kept in the address. */
+      .state-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .state-chip {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: var(--type-caption);
+        cursor: pointer;
+      }
+      .state-chip:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .state-chip[aria-pressed="true"] {
+        border-color: var(--border-strong);
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+
+      /* ---------- Widths: by the page's own width (container `page`), as work.css does ---------- */
+      @container page (max-width: 924px) {
+        .initiative-cards {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      @container page (max-width: 639px) {
+        .work-page {
+          gap: 16px;
+          padding: 16px 12px;
+        }
+        .tabs {
+          gap: 4px 14px;
+        }
+        .by-state {
+          gap: 22px;
+        }
+        .by-state .initiative-card {
+          padding: 12px 14px;
+        }
+        /* The outcome is on the Initiative's page; here the name, Projects and progress say enough. */
+        .by-state .initiative-card-outcome {
+          display: none;
+        }
+        .state-hint {
+          flex-basis: 100%;
+          margin-left: 16px;
+        }
+        .ended-latest {
+          display: none;
+        }
+        .ended-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px 10px;
+        }
+        .ended-name {
+          flex-basis: 100%;
+        }
+        /* A Project shows as its mark alone; its name stays for screen readers and on hover. */
+        .ended-projects .project-name {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip-path: inset(50%);
+          white-space: nowrap;
+        }
+        .ended-projects {
+          gap: 4px;
+        }
+        .ended-when {
+          margin-left: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <p class="address" id="address"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+      <section class="reference" aria-label="What it proposes">
+        <div>
+          <h2>Sections by state</h2>
+          <p><strong>Active</strong> first, then <strong>Shaping</strong>, each as today's cards, two across on a wide page. <strong>Done</strong> and <strong>Dropped</strong> sit at the foot, each one card with a fold, folded at first, a row per Initiative. No two states share a list, and a Dropped one is never beside an Active one.</p>
+        </div>
+        <div>
+          <h2>Order and cards</h2>
+          <p>Active and Shaping: newest first, as today. Done and Dropped: the one that ended last on top, by a new <code>doneAt</code> or <code>droppedAt</code>. An Active card drops its badge (the section says it) and adds what moves now: Tasks waiting on you, in progress and blocked. A Shaping card shows its Tasks so far instead of progress. An ended row: name, Projects, final count and when it ended.</p>
+        </div>
+        <div>
+          <h2>Folds, counts and empty states</h2>
+          <p>A fold is remembered in this browser, per section, as the Work board's groups are. Each section counts the Initiatives it shows. Active and Shaping always show, saying what would fill them when empty; Done and Dropped leave the page when they have none. The note of other Projects stays above, as today.</p>
+        </div>
+        <div>
+          <h2>About the mock</h2>
+          <p>Its data follows <code>Initiative</code> and <code>Task</code> in <code>packages/contracts</code>, with the proposed <code>doneAt</code> and <code>droppedAt</code>. The Project filter, the folds and the State filter's chips work; opening an Initiative shows a toast. It uses the Geist fonts only where they are installed, and makes no network requests.</p>
+        </div>
+      </section>
+    </main>
+    <script>
+      /* ---------- Icons (lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        "triangle-alert": '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+        "eye-off":
+          '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13 13 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/>',
+        home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+        kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+      const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const dayOf = (iso) => {
+        const date = new Date(iso);
+        return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
+      };
+      const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+
+      /* ---------- Mock data: `Initiative` and `Task` as packages/contracts/src/work.ts has them ---------- */
+      const uuid = (n) => `7a1d${String(n).padStart(4, "0")}-3b2c-4d5e-8f60-${String(n).padStart(12, "0")}`;
+      const PROJECTS = [
+        { id: "the-office", name: "the-office", mark: "#f23d0f" },
+        { id: "not-astray", name: "not-astray", mark: "#14a38b" },
+        { id: "notnullsoft", name: "notnullsoft", mark: "#7c5cd6" },
+      ];
+      const CTO_NAME = "Michael";
+      /** `doneAt` and `droppedAt` are proposed (see the README): when it moved to Done or to Dropped. */
+      const initiative = (n, fields) => ({
+        id: uuid(n),
+        outcome: "",
+        originIdeaId: uuid(900 + n),
+        projectIds: [],
+        createdBy: { kind: "person", roleKey: "cto" },
+        doneAt: null,
+        droppedAt: null,
+        ...fields,
+      });
+      /** GET /initiatives: the newest first. */
+      const ALL_INITIATIVES = [
+        initiative(1, {
+          name: "Board by Initiative",
+          state: "active",
+          outcome: "The Work board can be laid out by Initiative, so a glance shows how far each effort is and what is left in it.",
+          projectIds: ["the-office"],
+          createdAt: "2026-11-09T11:02:00.000Z",
+        }),
+        initiative(2, { name: "Onboarding tour for new users", state: "shaping", createdAt: "2026-11-08T15:40:00.000Z" }),
+        initiative(3, {
+          name: "Release notes from Handover notes",
+          state: "shaping",
+          outcome: "Each release has notes written from its Tasks' Handover notes, ready to publish.",
+          projectIds: ["the-office"],
+          createdAt: "2026-11-07T09:30:00.000Z",
+        }),
+        initiative(4, {
+          name: "Offline sync for the field app: keep changes while out of signal and settle conflicts once back online",
+          state: "active",
+          outcome: "Field workers keep working without signal; their changes reach the server once they are back online, and conflicts settle by rules they can read.",
+          projectIds: ["not-astray", "notnullsoft"],
+          createdAt: "2026-11-03T14:10:00.000Z",
+        }),
+        initiative(5, {
+          name: "Search across Threads",
+          state: "active",
+          outcome: "Any message in any Thread can be found from the top bar.",
+          projectIds: ["the-office"],
+          createdAt: "2026-11-01T10:00:00.000Z",
+        }),
+        initiative(6, {
+          name: "Run environments on Linux",
+          state: "active",
+          outcome: "Every Agent run works in a Linux container with a Postgres of its own, the same on any workstation.",
+          projectIds: ["the-office", "not-astray"],
+          createdAt: "2026-10-28T08:45:00.000Z",
+        }),
+        initiative(7, {
+          name: "Slack notifications",
+          state: "dropped",
+          outcome: "Notifications reach Slack as well as the browser.",
+          projectIds: ["the-office"],
+          createdAt: "2026-10-22T09:00:00.000Z",
+          droppedAt: "2026-11-01T16:20:00.000Z",
+        }),
+        initiative(8, {
+          name: "Billing export",
+          state: "done",
+          outcome: "Invoices export to CSV on a schedule set in Settings.",
+          projectIds: ["notnullsoft"],
+          createdAt: "2026-10-12T16:20:00.000Z",
+          doneAt: "2026-11-03T12:10:00.000Z",
+        }),
+        initiative(9, {
+          name: "Map tiles from a second provider",
+          state: "dropped",
+          outcome: "The map keeps working when the first tile provider is down.",
+          projectIds: ["not-astray"],
+          createdAt: "2026-10-08T11:00:00.000Z",
+          droppedAt: "2026-10-20T10:00:00.000Z",
+        }),
+        initiative(10, {
+          name: "Dark palette",
+          state: "done",
+          outcome: "The app reads well in a dark room, in a palette of its own.",
+          projectIds: ["the-office"],
+          createdAt: "2026-10-02T08:00:00.000Z",
+          doneAt: "2026-10-25T17:45:00.000Z",
+        }),
+        initiative(11, {
+          name: "Route planner v2",
+          state: "done",
+          outcome: "Drivers plan a day's route in one screen, with turn-by-turn steps.",
+          projectIds: ["not-astray", "notnullsoft"],
+          createdAt: "2026-09-20T08:00:00.000Z",
+          doneAt: "2026-10-14T15:00:00.000Z",
+        }),
+      ];
+      const task = (n, fields) => ({
+        id: uuid(n),
+        title: "",
+        description: "",
+        projectId: "the-office",
+        priority: "normal",
+        tags: [],
+        state: "backlog",
+        pausedByAlarm: false,
+        plan: "",
+        planConfirmed: false,
+        filesToChange: [],
+        estimatedTokens: null,
+        definitionOfDone: [],
+        definitionOfDoneConfirmed: false,
+        pipelineId: "full",
+        proposedPipeline: null,
+        blockedBy: [],
+        originIdeaId: null,
+        initiativeId: null,
+        projectMoves: [],
+        createdBy: { kind: "user" },
+        createdAt: "2026-11-01T10:00:00.000Z",
+        archivedAt: null,
+        ...fields,
+      });
+      const of = (n) => ({ initiativeId: uuid(n) });
+      /** GET /tasks: every Task, archived and in Shaping too. */
+      const TASKS = [
+        task(10, { ...of(1), title: "Design the Work board's group by Initiative view", state: "done" }),
+        task(11, { ...of(1), title: "Build group by Initiative on the Work board", state: "in-progress", blockedBy: [uuid(10)] }),
+        task(12, { ...of(1), title: "Remember folded groups in this browser", blockedBy: [uuid(11)] }),
+        task(13, { ...of(1), title: "Redesign the Initiatives tab", state: "ready" }),
+        task(30, { ...of(3), title: "Collect Handover notes per release", state: "shaping" }),
+        task(31, { ...of(3), title: "Write release notes from them", state: "shaping", blockedBy: [uuid(30)] }),
+        task(40, { ...of(4), title: "Keep pending changes in IndexedDB", projectId: "not-astray", state: "done" }),
+        task(41, { ...of(4), title: "Sync endpoint", projectId: "notnullsoft", state: "done" }),
+        task(42, { ...of(4), title: "Retry queue with backoff", projectId: "not-astray", state: "ready" }),
+        task(43, { ...of(4), title: "Rules for settling conflicts", projectId: "notnullsoft", state: "waiting-on-you", priority: "high" }),
+        task(44, { ...of(4), title: "Conflict screen wording", projectId: "not-astray", state: "waiting-on-you" }),
+        task(45, { ...of(4), title: "Sync status in the header", projectId: "not-astray", blockedBy: [uuid(42)] }),
+        task(46, { ...of(4), title: "Offline banner copy", projectId: "notnullsoft", state: "planning" }),
+        task(47, { ...of(4), title: "Spike: CRDT libraries", projectId: "notnullsoft", state: "dropped" }),
+        task(50, { ...of(5), title: "Index Thread messages", state: "dropped" }),
+        task(51, { ...of(5), title: "Search box in the top bar", state: "dropped" }),
+        task(60, { ...of(6), title: "Devcontainer for not-astray", projectId: "not-astray", state: "in-progress" }),
+        task(61, { ...of(6), title: "CPU limit: an Automatic option", state: "done" }),
+        task(62, { ...of(6), title: "A Postgres of its own per run environment", state: "done" }),
+        task(63, { ...of(6), title: "Docs: setting up a run environment", priority: "low" }),
+        task(64, { ...of(6), title: "Pick a container runtime", state: "done", archivedAt: "2026-11-02T03:00:00.000Z" }),
+        task(70, { ...of(7), title: "Slack webhook in Settings", state: "done", archivedAt: "2026-11-02T03:00:00.000Z" }),
+        task(71, { ...of(7), title: "Message format for Decisions" }),
+        task(72, { ...of(7), title: "Retry failed posts" }),
+        task(80, { ...of(8), title: "CSV export of invoices", projectId: "notnullsoft", state: "done" }),
+        task(81, { ...of(8), title: "Export schedule in Settings", projectId: "notnullsoft", state: "done" }),
+        task(82, { ...of(8), title: "Export format spike", projectId: "notnullsoft", state: "done", archivedAt: "2026-10-30T03:00:00.000Z" }),
+        task(90, { ...of(9), title: "Second tile provider adapter", projectId: "not-astray", state: "dropped" }),
+        task(91, { ...of(9), title: "Tile provider switch in Settings", projectId: "not-astray", state: "dropped" }),
+        task(100, { ...of(10), title: "Dark palette contrast", state: "done" }),
+        task(101, { ...of(10), title: "Palette switch in Settings", state: "done" }),
+        task(110, { ...of(11), title: "Route planner API v2", projectId: "notnullsoft", state: "done" }),
+        task(111, { ...of(11), title: "Planner screen", projectId: "not-astray", state: "done" }),
+        task(112, { ...of(11), title: "Turn-by-turn list", projectId: "not-astray", state: "done" }),
+        task(113, { ...of(11), title: "Spike: offline routes", projectId: "not-astray", state: "dropped" }),
+        task(114, { ...of(11), title: "End-to-end tests for the planner", projectId: "not-astray", state: "done" }),
+      ];
+
+      /* ---------- The tab's rules (initiative-words.ts, dependency-words.ts, use-project-filter.ts) ---------- */
+      const findTask = (id) => TASKS.find((candidate) => candidate.id === id);
+      const tasksOfInitiative = (initiativeOf) => TASKS.filter(({ initiativeId }) => initiativeId === initiativeOf.id);
+      const blockingTasksOf = (t) => t.blockedBy.map(findTask).filter((blocker) => blocker && blocker.state !== "done" && blocker.state !== "dropped");
+      const NOT_STARTED = ["backlog", "planning", "ready"];
+      function initiativeProgress(initiativeTasks) {
+        const counted = initiativeTasks.filter(({ state }) => state !== "dropped");
+        return {
+          done: counted.filter(({ state }) => state === "done").length,
+          counted: counted.length,
+          readyToStart: counted.filter((t) => t.state === "ready" && blockingTasksOf(t).length === 0).length,
+        };
+      }
+      function progressWords({ done, counted, readyToStart }) {
+        const ready = readyToStart > 0 ? ` · ${readyToStart} ready to start` : "";
+        return `${done} of ${counted} ${counted === 1 ? "Task" : "Tasks"} done${ready}`;
+      }
+      /** New: what moves in an Active Initiative now, from its Tasks' states. */
+      function whatMovesNow(initiativeTasks) {
+        return {
+          waitingOnYou: initiativeTasks.filter(({ state }) => state === "waiting-on-you").length,
+          inProgress: initiativeTasks.filter(({ state }) => state === "in-progress" || state === "paused").length,
+          blocked: initiativeTasks.filter((t) => NOT_STARTED.includes(t.state) && blockingTasksOf(t).length > 0).length,
+        };
+      }
+      const INITIATIVE_STATES = {
+        shaping: ["warning", `Shaping with ${CTO_NAME}`],
+        active: ["info", "Active"],
+        done: ["success", "Done"],
+        dropped: ["danger", "Dropped"],
+      };
+
+      /* ---------- State, as the address and this browser hold it ---------- */
+      const state = {
+        layout: "proposed",
+        scenario: "all",
+        width: "wide",
+        palette: "light",
+        /** The scenario's Initiatives. */
+        initiatives: ALL_INITIATIVES,
+        /** The Project filter, remembered per browser: "all" or the Projects shown. */
+        projects: "all",
+        /** Proposed: each ended section's fold the user set, in this browser's local storage. */
+        folds: {},
+        /** The State filter (the alternative): ?state=, Active when left out. */
+        stateFilter: "active",
+        toast: undefined,
+      };
+      let toastTimer;
+
+      /** A record with no Project always shows (use-project-filter.ts). */
+      const shows = ({ projectIds }) => state.projects === "all" || projectIds.length === 0 || projectIds.some((id) => state.projects.includes(id));
+      const isOpen = (sectionState) => state.folds[sectionState] ?? false;
+      const SECTIONS = {
+        active: { name: "Active", order: (a, b) => b.createdAt.localeCompare(a.createdAt) },
+        shaping: { name: "Shaping", order: (a, b) => b.createdAt.localeCompare(a.createdAt) },
+        done: { name: "Done", order: (a, b) => b.doneAt.localeCompare(a.doneAt), endedAt: (i) => i.doneAt },
+        dropped: { name: "Dropped", order: (a, b) => b.droppedAt.localeCompare(a.droppedAt), endedAt: (i) => i.droppedAt },
+      };
+      /** Every Initiative in the state, and those the Project filter shows, in the section's order. */
+      function inState(sectionState) {
+        const all = state.initiatives.filter((i) => i.state === sectionState).toSorted(SECTIONS[sectionState].order);
+        return { all, shown: all.filter(shows) };
+      }
+
+      /* ---------- The app ---------- */
+      function render() {
+        const root = document.documentElement;
+        root.dataset.palette = state.palette;
+        if (state.palette === "dark") root.dataset.theme = "dark";
+        else delete root.dataset.theme;
+        renderBar();
+        document.getElementById("note").innerHTML = `${LAYOUTS[state.layout].note} ${SCENARIOS[state.scenario].note[state.layout] ?? SCENARIOS[state.scenario].note.any}`;
+        document.getElementById("address").innerHTML = `<span>Address</span><code>${addressOf()}</code><span>· the Project filter is this browser's, never in the address${state.layout === "proposed" ? "; so are the folds" : ""}</span>`;
+        const main = document.querySelector(".main");
+        const scrollTop = main ? main.scrollTop : 0;
+        const frame = document.getElementById("frame");
+        frame.className = `frame w-${state.width}`;
+        frame.innerHTML = app();
+        document.querySelector(".main").scrollTop = scrollTop;
+      }
+      const addressOf = () => (state.layout === "state-filter" && state.stateFilter !== "active" ? `/work/initiatives?state=${state.stateFilter}` : "/work/initiatives");
+      function app() {
+        const rail = ["home", "kanban", "users", "folder"].map((name) => `<span class="rail-item${name === "kanban" ? " on" : ""}">${icon(name, 18)}</span>`).join("");
+        const projectChoice = state.projects === "all" ? "all" : state.projects[0];
+        const projectOptions = [["all", "All projects"], ...PROJECTS.map(({ id, name }) => [id, name])]
+          .map(([value, label]) => `<option value="${value}"${value === projectChoice ? " selected" : ""}>${label}</option>`)
+          .join("");
+        return `<div class="app">
+          <nav class="rail" aria-label="The Office"><span class="rail-mark">O</span>${rail}</nav>
+          <header class="top"><h1>Work</h1><span class="crumb">Initiatives</span><span class="grow"></span>
+            <span class="select"><select data-action="project-filter" aria-label="Projects shown">${projectOptions}</select>${icon("chevron-down", 13)}</span></header>
+          <div class="main"><div class="work-page">
+            <div class="work-tabs"><div class="tabs" role="tablist"><span class="tab">Tasks</span><span class="tab">Ideas <span class="tab-count">2</span></span><span class="tab on" aria-selected="true">Initiatives</span><span class="tab">Archived</span></div></div>
+            ${initiativesTab()}
+          </div></div>
+          ${state.toast ? `<div class="toast" role="status">${state.toast}</div>` : ""}
+        </div>`;
+      }
+      function initiativesTab() {
+        if (state.initiatives.length === 0) return `<div class="empty-card">No Initiatives yet. Shape an Idea into one from Ideas.</div>`;
+        const elsewhere = state.initiatives.filter((i) => !shows(i)).length;
+        const note = elsewhere
+          ? `<button type="button" class="in-other-projects-note" data-action="all-projects">${icon("eye-off")}<span>${elsewhere} more ${elsewhere === 1 ? "Initiative" : "Initiatives"} in other Projects</span><span class="grow"></span><span class="in-other-projects-show">Show all projects</span></button>`
+          : "";
+        return note + LAYOUTS[state.layout].draw();
+      }
+      const projectMarks = (projectIds) =>
+        projectIds.length === 0
+          ? `<span>No Project yet</span>`
+          : projectIds
+              .map((id) => {
+                const project = PROJECTS.find((candidate) => candidate.id === id);
+                return `<span class="project-mark" style="--mark:${project.mark}" title="${project.name}"><span class="project-name">${project.name}</span></span>`;
+              })
+              .join("");
+      const stateBadge = (i) => `<span class="badge dot ${INITIATIVE_STATES[i.state][0]}">${INITIATIVE_STATES[i.state][1]}</span>`;
+      const progressBar = ({ done, counted }) => `<span class="progress" aria-hidden="true"><span style="width:${(done / Math.max(counted, 1)) * 100}%"></span></span>`;
+      const outcomeOf = (i) =>
+        i.outcome === "" ? `<span class="initiative-card-outcome unwritten">Outcome not written yet.</span>` : `<span class="initiative-card-outcome">${escapeHtml(i.outcome)}</span>`;
+      const opens = (i) => `href="#" data-action="open" aria-label="${escapeHtml(i.name)}"`;
+
+      /* Today (initiatives-list.tsx): one grid, newest first, every state mixed. */
+      function todayList() {
+        const shown = state.initiatives.filter(shows);
+        if (shown.length === 0) return "";
+        const cards = shown.map((i) => {
+          const progress = initiativeProgress(tasksOfInitiative(i));
+          return `<a class="initiative-card" ${opens(i)}>
+            <span class="initiative-card-head"><span class="initiative-card-name">${escapeHtml(i.name)}</span>${stateBadge(i)}</span>
+            <span class="initiative-card-sub">${projectMarks(i.projectIds)}</span>
+            ${outcomeOf(i)}
+            ${progressBar(progress)}
+            <span class="initiative-card-sub">${progressWords(progress)}</span>
+          </a>`;
+        });
+        return `<div class="initiative-cards">${cards.join("")}</div>`;
+      }
+
+      /* ---------- Proposed: a section per state ---------- */
+      function activeCard(i) {
+        const initiativeTasks = tasksOfInitiative(i);
+        const progress = initiativeProgress(initiativeTasks);
+        const now = whatMovesNow(initiativeTasks);
+        const waiting = now.waitingOnYou ? `<span class="badge sm warning" title="Tasks waiting on you">${icon("hand", 12)}${now.waitingOnYou} waiting on you</span>` : "";
+        const moving = [
+          now.inProgress ? `<span class="now-item live">${now.inProgress} in progress</span>` : "",
+          now.blocked ? `<span class="now-item">${icon("lock", 12)}${now.blocked} blocked</span>` : "",
+        ].join("");
+        const progressLine =
+          progress.counted === 0
+            ? `<span class="initiative-card-nothing">${icon("triangle-alert", 13)}${initiativeTasks.length ? "No Task left: every one was dropped. Add a Task, or drop the Initiative, on its page." : "No Task yet. Add one on its page."}</span>`
+            : `<span class="initiative-card-progress">${progressBar(progress)}<span>${progressWords(progress)}</span></span>${moving ? `<span class="initiative-card-now">${moving}</span>` : ""}`;
+        return `<a class="initiative-card" ${opens(i)}>
+          <span class="initiative-card-head"><span class="initiative-card-name">${escapeHtml(i.name)}</span>${waiting}</span>
+          <span class="initiative-card-sub">${projectMarks(i.projectIds)}</span>
+          ${outcomeOf(i)}
+          ${progressLine}
+        </a>`;
+      }
+      function shapingCard(i) {
+        const count = tasksOfInitiative(i).length;
+        return `<a class="initiative-card" ${opens(i)}>
+          <span class="initiative-card-head"><span class="initiative-card-name">${escapeHtml(i.name)}</span></span>
+          <span class="initiative-card-sub">${projectMarks(i.projectIds)}</span>
+          ${outcomeOf(i)}
+          <span class="initiative-card-sub">${count ? `${plural(count, "Task", "Tasks")} so far, in Shaping` : "No Task yet"}</span>
+        </a>`;
+      }
+      function endedRow(i) {
+        const progress = initiativeProgress(tasksOfInitiative(i));
+        const count = progress.counted === 0 ? "No Task done" : `${progress.done} of ${plural(progress.counted, "Task", "Tasks")} done`;
+        const when = SECTIONS[i.state].endedAt(i);
+        return `<a class="ended-row" ${opens(i)}>
+          <span class="ended-name">${escapeHtml(i.name)}</span>
+          <span class="ended-projects">${projectMarks(i.projectIds)}</span>
+          <span class="ended-count">${count}</span>
+          <span class="ended-when">${SECTIONS[i.state].name} ${dayOf(when)}</span>
+        </a>`;
+      }
+      function stateHead(sectionState, count, hint) {
+        return `<div class="state-head"><h2><span class="state-dot ${sectionState}"></span>${SECTIONS[sectionState].name} <span class="state-count">${count}</span></h2>${hint ? `<span class="state-hint">${hint}</span>` : ""}</div>`;
+      }
+      const NONE_WORDS = {
+        active: { anywhere: "Nothing Active. An Initiative becomes Active when you confirm it from Shaping.", filtered: "No Active Initiative in the Projects shown." },
+        shaping: { anywhere: "Nothing being shaped. Shape an Idea into an Initiative from Ideas.", filtered: "No Initiative being shaped in the Projects shown." },
+        done: { anywhere: "No Initiative is Done yet. One is Done once every Task it keeps is Done.", filtered: "No Done Initiative in the Projects shown." },
+        dropped: { anywhere: "No Initiative was dropped.", filtered: "No Dropped Initiative in the Projects shown." },
+      };
+      const noneLine = (sectionState, all) => `<p class="state-none">${NONE_WORDS[sectionState][all.length ? "filtered" : "anywhere"]}</p>`;
+      function openSection(sectionState, card, hint) {
+        const { all, shown } = inState(sectionState);
+        const body = shown.length ? `<div class="initiative-cards">${shown.map(card).join("")}</div>` : noneLine(sectionState, all);
+        return `<section class="state-section" aria-label="${SECTIONS[sectionState].name}">${stateHead(sectionState, shown.length, hint)}${body}</section>`;
+      }
+      /** Done or Dropped: left out with none to show, else one card folded at first. */
+      function endedSection(sectionState) {
+        const { shown } = inState(sectionState);
+        if (shown.length === 0) return "";
+        const open = isOpen(sectionState);
+        const latest = shown[0];
+        return `<section class="ended" aria-label="${SECTIONS[sectionState].name}">
+          <button type="button" class="ended-fold" aria-expanded="${open}" data-action="fold" data-value="${sectionState}">
+            <span class="ended-fold-name">${icon("chevron-right", 14)}<span class="state-dot ${sectionState}"></span>${SECTIONS[sectionState].name} <span class="state-count">${shown.length}</span></span>
+            ${open ? "" : `<span class="ended-latest">Latest: ${escapeHtml(latest.name)}, ${dayOf(SECTIONS[sectionState].endedAt(latest))}</span>`}
+          </button>
+          ${open ? shown.map(endedRow).join("") : ""}
+        </section>`;
+      }
+      function proposed() {
+        return `<div class="by-state">
+          ${openSection("active", activeCard, "Their Tasks are on the board")}
+          ${openSection("shaping", shapingCard, `With ${CTO_NAME}, until you confirm them`)}
+          ${endedSection("done")}
+          ${endedSection("dropped")}
+        </div>`;
+      }
+
+      /* ---------- The alternative: a State filter, one state at a time ---------- */
+      function stateFiltered() {
+        const chips = Object.keys(SECTIONS)
+          .map((key) => `<button type="button" class="state-chip" aria-pressed="${state.stateFilter === key}" data-action="state" data-value="${key}"><span class="state-dot ${key}"></span>${SECTIONS[key].name} <span class="state-count">${inState(key).shown.length}</span></button>`)
+          .join("");
+        const { all, shown } = inState(state.stateFilter);
+        let body;
+        if (shown.length === 0) body = noneLine(state.stateFilter, all);
+        else if (state.stateFilter === "active") body = `<div class="initiative-cards">${shown.map(activeCard).join("")}</div>`;
+        else if (state.stateFilter === "shaping") body = `<div class="initiative-cards">${shown.map(shapingCard).join("")}</div>`;
+        else body = `<section class="ended" aria-label="${SECTIONS[state.stateFilter].name}">${shown.map(endedRow).join("")}</section>`;
+        return `<div class="by-state one-state"><div class="state-chips" role="group" aria-label="State">${chips}</div>${body}</div>`;
+      }
+
+      /* ---------- What the controls do ---------- */
+      function showToast(words) {
+        clearTimeout(toastTimer);
+        state.toast = words;
+        render();
+        toastTimer = setTimeout(() => {
+          state.toast = undefined;
+          render();
+        }, 2600);
+      }
+      function bindApp(frame) {
+        frame.addEventListener("click", (event) => {
+          const target = event.target.closest("[data-action]");
+          if (!target || target.tagName === "SELECT") return;
+          event.preventDefault();
+          const { action, value } = target.dataset;
+          if (action === "fold") {
+            state.folds = { ...state.folds, [value]: !isOpen(value) };
+            render();
+          } else if (action === "state") {
+            state.stateFilter = value;
+            render();
+          } else if (action === "all-projects") {
+            state.projects = "all";
+            render();
+          } else if (action === "open") showToast("Opens the Initiative's page (/work/initiatives/:initiativeId).");
+        });
+        frame.addEventListener("change", (event) => {
+          if (event.target.dataset.action !== "project-filter") return;
+          state.projects = event.target.value === "all" ? "all" : [event.target.value];
+          render();
+        });
+      }
+
+      /* ---------- Layouts and scenarios ---------- */
+      const LAYOUTS = {
+        today: {
+          label: "Today",
+          draw: todayList,
+          note: "<strong>Today:</strong> one grid of cards, newest first, every state mixed: an Active one sits between Shaping ones, a Dropped one beside a Done one, and the Initiatives that need nothing more take as much room as those still moving.",
+        },
+        proposed: {
+          label: "Proposed",
+          draw: proposed,
+          note: "<strong>Proposed:</strong> a section per state, in one page. <strong>Active</strong> first, then <strong>Shaping</strong>, as cards; <strong>Done</strong> and <strong>Dropped</strong> at the foot, each folded to one line with its count and the latest to end, as Ideas folds its Dropped.",
+        },
+        "state-filter": {
+          label: "State filter (alternative)",
+          draw: stateFiltered,
+          note: "<strong>State filter</strong>, the alternative compared: one state at a time, picked with a chip that counts its Initiatives and kept in the address (<code>?state=</code>, Active when left out). Each list is short and a link can point at Done, but Shaping hides behind a chip while you look at Active.",
+        },
+      };
+      const SCENARIOS = {
+        all: {
+          label: "Every state",
+          preset: {},
+          note: {
+            today: "Eleven Initiatives across the-office, not-astray and notnullsoft: four Active, two Shaping, three Done, two Dropped.",
+            any: "Eleven Initiatives across three Projects. Offline sync has two Tasks <strong>waiting on you</strong>, shown on its card; Search across Threads is Active with <strong>every Task dropped</strong>, so its card says so instead of “0 of 0 Tasks done”. Onboarding tour has <strong>no outcome</strong> and no Project yet.",
+          },
+        },
+        unfolded: {
+          label: "Ended unfolded",
+          preset: { folds: { done: true, dropped: true }, stateFilter: "done" },
+          note: {
+            today: "Today nothing folds: the ended Initiatives are already in the grid.",
+            "state-filter": "<strong>Done</strong> picked: a row per Initiative, the one done last on top, each with its Projects, its final count and when it was done. Nothing folds here; each state is a list of its own.",
+            any: "<strong>Done and Dropped unfolded:</strong> a row per Initiative, the one that ended last on top (by the proposed <code>doneAt</code> and <code>droppedAt</code>), each with its Projects, its final count and when it ended. The fold is remembered in this browser for each section.",
+          },
+        },
+        project: {
+          label: "Project filter: not-astray",
+          preset: { projects: ["not-astray"] },
+          note: {
+            today: "<strong>The Project filter</strong> shows not-astray alone: the grid narrows, still mixed, and the note above counts the rest.",
+            any: "<strong>The Project filter</strong> shows not-astray alone: each section counts the Initiatives it shows, and the note above counts the rest, as today. Onboarding tour has no Project yet, so it shows whatever the filter.",
+          },
+        },
+        "none-shaping": {
+          label: "Nothing Shaping or Dropped",
+          preset: { initiatives: ALL_INITIATIVES.filter(({ state: s }) => s !== "shaping" && s !== "dropped") },
+          note: {
+            today: "With nothing being shaped and nothing dropped, today's grid just has fewer cards.",
+            "state-filter": "<strong>Nothing Shaping or Dropped:</strong> their chips still show, counting 0; pick one to see its line saying what would fill it.",
+            any: "<strong>Nothing Shaping or Dropped:</strong> Shaping still shows, in one line saying what would fill it; Dropped, with nothing to fold, leaves the page.",
+          },
+        },
+        empty: {
+          label: "No Initiatives",
+          preset: { initiatives: [] },
+          note: { any: "<strong>No Initiatives at all:</strong> one empty card says how to make one, as today, in every layout." },
+        },
+      };
+      const DEFAULTS = { initiatives: ALL_INITIATIVES, projects: "all", folds: {}, stateFilter: "active", toast: undefined };
+      function applyScenario(key) {
+        clearTimeout(toastTimer);
+        document.querySelector(".main")?.scrollTo(0, 0);
+        Object.assign(state, DEFAULTS, SCENARIOS[key].preset, { scenario: key });
+        render();
+      }
+
+      const WIDTHS = [
+        ["wide", "Wide"],
+        ["900", "900px"],
+        ["390", "390px"],
+      ];
+      const PALETTES = [
+        ["light", "Light"],
+        ["dark", "Dark"],
+      ];
+      function segments(action, options, current) {
+        return `<div class="segments">${options.map(([value, label]) => `<button type="button" data-action="${action}" data-value="${value}" aria-pressed="${current === value}">${label}</button>`).join("")}</div>`;
+      }
+      function renderBar() {
+        const layouts = Object.entries(LAYOUTS).map(([key, { label }]) => [key, label]);
+        const scenarios = Object.entries(SCENARIOS).map(([key, { label }]) => [key, label]);
+        document.getElementById("bar").innerHTML = `<span class="bar-title">The Initiatives tab</span><span class="bar-tag">PROPOSAL</span>
+          <div class="control"><span class="control-label">Layout</span>${segments("layout", layouts, state.layout)}</div>
+          <div class="control"><span class="control-label">Width</span>${segments("width", WIDTHS, state.width)}</div>
+          <div class="control"><span class="control-label">Palette</span>${segments("palette", PALETTES, state.palette)}</div>
+          <span class="bar-break"></span>
+          <div class="control"><span class="control-label">Scenario</span>${segments("scenario", scenarios, state.scenario)}</div>`;
+      }
+      document.getElementById("bar").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action]");
+        if (!button) return;
+        const { action, value } = button.dataset;
+        if (action === "scenario") return applyScenario(value);
+        state[action] = value;
+        render();
+      });
+      bindApp(document.getElementById("frame"));
+      applyScenario("all");
+    </script>
+  </body>
+</html>
