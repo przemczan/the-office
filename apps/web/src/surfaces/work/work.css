@@ -685,9 +685,12 @@
   text-align: center;
 }
 
-.stage-mark {
+/* On the root, so a Stage's layout around its mark can be computed from the mark's size. */
+:root {
   --stage-mark-size: 24px;
+}
 
+.stage-mark {
   position: relative;
   z-index: 1;
   display: grid;
@@ -806,6 +809,11 @@
   content: "";
   position: absolute;
   inset: 0;
+}
+
+/* The mark sits above the button's cover but is no control: a click on it goes to the button. */
+.pipeline-rail-stage .stage-mark {
+  pointer-events: none;
 }
 
 .pipeline-rail-worker .person-tag,
@@ -963,14 +971,17 @@
   min-width: 0;
 }
 
+/* The strip scrolls sideways, so it clips; the room above the mark holds the running ring at its largest. */
 .pipeline-in-small-stage {
+  --room-above-stage-mark: 18px;
+
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
   align-items: center;
   width: 100%;
-  padding: 4px 6px 6px;
+  padding: var(--room-above-stage-mark) 6px 10px;
   border: 0;
   border-radius: var(--radius-md);
   background: none;
@@ -983,7 +994,7 @@
 .pipeline-in-small-stage::before {
   content: "";
   position: absolute;
-  top: 15px;
+  top: calc(var(--room-above-stage-mark) + var(--stage-mark-size) / 2 - 1px);
   right: 0;
   left: 0;
   height: 2px;

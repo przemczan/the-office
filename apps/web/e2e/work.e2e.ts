@@ -1843,6 +1843,36 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await page.keyboard.press("Escape");
   await expect(gateHistory).toHaveCount(0);
   await expect(stageButton("UI acceptance")).toBeFocused();
+
+  // A press on a Stage's mark opens it too, as the mark is no control of its own.
+  const implementMark = rail
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("button", { name: "Implement", exact: true }) })
+    .locator(".stage-mark");
+  const markBox = await implementMark.boundingBox();
+  if (!markBox) throw new Error("Implement's mark is not on the page");
+  const markCentre = { x: markBox.x + markBox.width / 2, y: markBox.y + markBox.height / 2 };
+  expect(
+    await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.textContent ?? null,
+      markCentre,
+    ),
+  ).toBe("Implement");
+  await page.mouse.click(markCentre.x, markCentre.y);
+  await expect(implementHistory).toBeVisible();
+
+  // The Stages in small leave room above each mark for the running ring at its largest: 3px out
+  // from the mark, scaled 1.9 times.
+  const stagesInSmall = implementHistory.getByRole("list", { name: "Stages" });
+  const stripTop = (await stagesInSmall.boundingBox())?.y ?? Number.NaN;
+  const markInSmall = (await stagesInSmall.locator(".stage-mark").first().boundingBox()) ?? {
+    y: Number.NaN,
+    width: Number.NaN,
+  };
+  const ringReach = ((markInSmall.width + 6) * 1.9 - markInSmall.width) / 2;
+  expect(markInSmall.y - stripTop).toBeGreaterThanOrEqual(ringReach);
+  await page.keyboard.press("Escape");
+  await expect(implementHistory).toHaveCount(0);
   await stageButton("UI acceptance").click();
   await waiting.getByRole("button", { name: "Answer it in Needs you" }).click();
   await expect(gateHistory).toHaveCount(0);
