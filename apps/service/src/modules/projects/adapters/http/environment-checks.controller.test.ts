@@ -216,6 +216,25 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     await expect(environmentOf(project)).resolves.toEqual({ set: [], unset: [], prependPath: [] });
   });
 
+  it("skips the commands that aren't set, runs the others and saves the environment", async () => {
+    const project = await addProject({
+      commands: { install: "", build: "", lint: PASSES, test: NEEDS_GREETING },
+    });
+
+    const check = await checked(project);
+
+    expect(check.state).toBe("passed");
+    expect(states(check)).toEqual([
+      ["worktree", "passed"],
+      ["install", "skipped"],
+      ["build", "skipped"],
+      ["lint", "passed"],
+      ["test", "passed"],
+    ]);
+    expect(check.checks[1]).not.toHaveProperty("run");
+    await expect(environmentOf(project)).resolves.toEqual(GREETING);
+  });
+
   it("skips the rest when the install fails", async () => {
     const project = await addProject({
       commands: { install: FAILS, build: PASSES, lint: PASSES, test: PASSES },

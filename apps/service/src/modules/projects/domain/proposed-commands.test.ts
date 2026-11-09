@@ -35,6 +35,16 @@ describe("proposedCommandsProblems", () => {
     ).toEqual([]);
   });
 
+  it("sets a command the Project doesn't have yet", () => {
+    const project = aProject({ commands: { ...aProject().commands, test: "" } });
+
+    expect(proposedCommandFields(project, { test: "npm test" })).toEqual({
+      from: { test: "" },
+      to: { test: "npm test" },
+    });
+    expect(proposedCommandsProblems(project, { test: "" }, { test: "npm test" })).toEqual([]);
+  });
+
   it("refuses a change once a field it rewrites changed since it was drafted", () => {
     const project = aProject({
       commands: { ...aProject().commands, test: "vitest run" },

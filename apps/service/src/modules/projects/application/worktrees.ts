@@ -5,7 +5,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
 import type { CommandRun } from "../domain/command-run.js";
-import type { Project } from "../domain/project.js";
+import { isCommandSet, type Project } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import {
   Git,
@@ -336,7 +336,8 @@ export class Worktrees {
 
   /**
    * Runs `install` unless the worktree's record says the same install passed there last: the same
-   * command, install inputs and environment, in the same place.
+   * command, install inputs and environment, in the same place. A Project whose install command
+   * isn't set has nothing to install; the record holds the command, so setting it installs next.
    */
   private async installOnce(
     project: Project,
@@ -345,6 +346,7 @@ export class Worktrees {
     environment: ProjectEnvironment,
     install: () => Promise<CommandRun>,
   ): Promise<Installation> {
+    if (!isCommandSet(project.commands.install)) return { kind: "up-to-date" };
     const record = await this.git.worktreeRecordPath(worktreePath, INSTALL_RECORD);
     const fingerprint = await installFingerprint(project, worktreePath, environment, place);
     if ((await readFile(record, "utf8").catch(() => undefined)) === fingerprint) {

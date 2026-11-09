@@ -98,6 +98,19 @@ describe("Worktrees.prepare", REAL_GIT_TEST, () => {
     );
   });
 
+  it("installs nothing while the install command isn't set, and installs once it is", async () => {
+    const taskId = aTaskId();
+    const notSet = { ...project, commands: { ...project.commands, install: "" } };
+    const before = await installs();
+
+    const first = await worktrees.prepare(notSet, taskId);
+    const set = await worktrees.prepare(project, taskId);
+
+    expect(first.installation).toEqual({ kind: "up-to-date" });
+    expect(set.installation).toMatchObject({ kind: "ran", run: { outcome: "passed" } });
+    expect(await installs()).toBe(before + 1);
+  });
+
   it("gives the worktree back as the Task left it, without installing again", async () => {
     const taskId = aTaskId();
     const { worktree } = await worktrees.prepare(project, taskId);

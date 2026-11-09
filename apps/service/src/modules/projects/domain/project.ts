@@ -156,7 +156,7 @@ export function newProjectProblems(project: NewProject): string[] {
   const wrongMark = markProblem(project.mark);
   if (wrongMark) problems.push(wrongMark);
   for (const key of PROJECT_COMMAND_KEYS) {
-    const problem = commandProblem(key, project.commands[key]);
+    const problem = commandLineProblem(key, project.commands[key]);
     if (problem) problems.push(problem);
   }
   problems.push(...installInputsProblems(project.installInputs));
@@ -187,11 +187,27 @@ export function projectLimitProblem(projectLimit: number): string | undefined {
   return undefined;
 }
 
-/** Why a command line can't be saved, or undefined when it can. */
+/**
+ * Why a command line can't be set in place of the one the Project has, or undefined when it can:
+ * once a command is set it can be changed but not cleared.
+ */
 export function commandProblem(key: ProjectCommandKey, commandLine: string): string | undefined {
   if (commandLine.trim() === "") return `The ${key} command can't be empty.`;
+  return commandLineProblem(key, commandLine);
+}
+
+/** Why a command line given while adding a Project can't be saved; a blank one is saved as not set. */
+export function commandLineProblem(
+  key: ProjectCommandKey,
+  commandLine: string,
+): string | undefined {
   if (/[\r\n]/.test(commandLine)) return `The ${key} command must be one line.`;
   return undefined;
+}
+
+/** Whether the Project has this command: one left blank while adding it is not set. */
+export function isCommandSet(commandLine: string): boolean {
+  return commandLine.trim() !== "";
 }
 
 /**

@@ -68,6 +68,20 @@ describe("startEnvironmentCheck", () => {
     });
     expect(event).toEqual(new EnvironmentCheckStarted("admin-panel", startedAt));
   });
+
+  it("skips a command that isn't set from the start", () => {
+    const commands = { ...aProject().commands, install: "", lint: "" };
+
+    const { check } = startEnvironmentCheck("admin-panel", commands, environment, startedAt);
+
+    expect(check.checks.map((each) => each.state)).toEqual([
+      "waiting",
+      "skipped",
+      "waiting",
+      "skipped",
+      "waiting",
+    ]);
+  });
 });
 
 describe("progressEnvironmentCheck", () => {
@@ -121,6 +135,19 @@ describe("finishEnvironmentCheck", () => {
       "skipped",
       "skipped",
     ]);
+  });
+
+  it("passes when every check passed but the commands that aren't set", () => {
+    const commands = { ...aProject().commands, install: "", lint: "" };
+    const notSet = startEnvironmentCheck("admin-panel", commands, environment, startedAt).check;
+    const ran = notSet.checks
+      .filter((each) => each.state === "waiting")
+      .reduce(
+        (check, each) => progressEnvironmentCheck(check, { ...each, state: "passed" }).check,
+        notSet,
+      );
+
+    expect(finishEnvironmentCheck(ran, finishedAt, false).check.state).toBe("passed");
   });
 
   it("is stopped when The Office stopped it, whatever its checks", () => {

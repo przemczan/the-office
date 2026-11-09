@@ -140,7 +140,11 @@ function CommandCheckLine({ check }: { readonly check: CommandCheck }): ReactNod
       <CheckIcon state={check.state} />
       <span className="environment-check-label">
         {commandCheckLabel(check)}
-        <code className="environment-check-command">{check.commandLine}</code>
+        {check.commandLine === "" ? (
+          <span className="environment-check-detail">Not set</span>
+        ) : (
+          <code className="environment-check-command">{check.commandLine}</code>
+        )}
       </span>
       {(check.run || output !== "") && (
         <span className="environment-check-meta">

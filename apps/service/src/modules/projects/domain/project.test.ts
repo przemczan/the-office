@@ -20,7 +20,6 @@ describe("newProjectProblems", () => {
       path: "",
       baseBranch: "",
       mark: { label: "", colour: "violet" },
-      commands: { install: "", build: "npm run build", lint: "npm run lint", test: " " },
     });
 
     expect(newProjectProblems(blank)).toEqual([
@@ -28,8 +27,20 @@ describe("newProjectProblems", () => {
       "Give the path to the repository.",
       "Give the base branch.",
       "The mark's label is 1 to 3 letters or digits.",
-      "The install command can't be empty.",
-      "The test command can't be empty.",
+    ]);
+  });
+
+  it("passes a Project whose commands are left blank, as they can be set later", () => {
+    const commands = { install: "", build: " ", lint: "", test: "" };
+
+    expect(newProjectProblems(aNewProject({ commands }))).toEqual([]);
+  });
+
+  it("refuses a command given in more than one line", () => {
+    const commands = { install: "", build: "npm ci\nnpm run build", lint: "", test: "" };
+
+    expect(newProjectProblems(aNewProject({ commands }))).toEqual([
+      "The build command must be one line.",
     ]);
   });
 
@@ -73,6 +84,10 @@ describe("commandProblem", () => {
     expect(commandProblem("build", "npm ci\nnpm run build")).toBe(
       "The build command must be one line.",
     );
+  });
+
+  it("refuses a blank line, as a command once set can't be cleared", () => {
+    expect(commandProblem("lint", " ")).toBe("The lint command can't be empty.");
   });
 });
 

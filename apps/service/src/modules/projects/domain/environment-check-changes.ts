@@ -9,7 +9,7 @@ import {
   EnvironmentCheckProgressed,
   EnvironmentCheckStarted,
 } from "./environment-check-events.js";
-import { PROJECT_COMMAND_KEYS, type ProjectCommands } from "./project.js";
+import { isCommandSet, PROJECT_COMMAND_KEYS, type ProjectCommands } from "./project.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 
 /** An environment check after a change, with the event that announces it. */
@@ -18,6 +18,7 @@ export interface EnvironmentCheckChange<Event> {
   readonly event: Event;
 }
 
+/** Starts a check of every command the Project has; one that isn't set is skipped from the start. */
 export function startEnvironmentCheck(
   projectId: string,
   commands: ProjectCommands,
@@ -32,7 +33,7 @@ export function startEnvironmentCheck(
       { step: "worktree", state: "waiting" },
       ...PROJECT_COMMAND_KEYS.map((key): CommandCheck => ({
         step: key,
-        state: "waiting",
+        state: isCommandSet(commands[key]) ? "waiting" : "skipped",
         commandLine: commands[key],
       })),
     ],
@@ -58,8 +59,8 @@ export function progressEnvironmentCheck(
 }
 
 /**
- * Ends the check: passed when every check passed, stopped when The Office stopped it, failed
- * otherwise. Checks that never ran are skipped.
+ * Ends the check: passed when every check passed or was a command not set, stopped when The Office
+ * stopped it, failed otherwise. Checks that never ran are skipped.
  */
 export function finishEnvironmentCheck(
   environmentCheck: EnvironmentCheck,
@@ -71,9 +72,13 @@ export function finishEnvironmentCheck(
   );
   const state: EnvironmentCheckState = stopped
     ? "stopped"
-    : checks.every((each) => each.state === "passed")
+    : checks.every((each) => each.state === "passed" || isNotSet(each))
       ? "passed"
       : "failed";
   const check = { ...environmentCheck, state, checks, finishedAt };
   return { check, event: new EnvironmentCheckFinished(check.projectId, state, finishedAt) };
+}
+
+function isNotSet(check: Check): boolean {
+  return check.step !== "worktree" && !isCommandSet(check.commandLine);
 }

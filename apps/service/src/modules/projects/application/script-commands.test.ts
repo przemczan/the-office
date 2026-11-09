@@ -211,6 +211,25 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
     expect(runs.map(({ outcome }) => outcome)).toEqual(["could-not-run"]);
   });
 
+  it.each(["build", "test"] as const)(
+    "runs nothing for a %s command that isn't set and can't pass, saying how to set it",
+    async (key) => {
+      const { project, taskId, runLog } = await aTask(1, { [key]: "" });
+
+      const runs = await scriptCommands.run(project, taskId, key, "stage-run");
+
+      expect(runs).toEqual([
+        expect.objectContaining({
+          commandLine: "",
+          outcome: "could-not-run",
+          output: `The Project has no ${key} command yet. Set it on the Project's page, or ask Devops.`,
+          movedFiles: undefined,
+        }),
+      ]);
+      expect(await exists(runLog)).toBe(false);
+    },
+  );
+
   it("runs a failing build once and leaves what it changed for the Stage's commit", async () => {
     const { project, taskId, worktreePath } = await aTask(Number.MAX_SAFE_INTEGER);
 

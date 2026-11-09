@@ -33,6 +33,9 @@ const COMMAND_EXAMPLES: Readonly<Record<ProjectCommandKey, string>> = {
   test: "npm test",
 };
 
+const COMMANDS_HINT =
+  "Optional. Leave any you don't know yet: set them later on the Project's page, or ask Devops.";
+
 const SOURCE_ICONS: Readonly<Record<ProjectSource["whereItIs"], string>> = {
   folder: "folder",
   "git-url": "link",
@@ -128,20 +131,22 @@ export function ProjectDetailsStep({
           onChange={(pipelineId) => onChange({ defaultPipeline: pipelineId })}
         />
       </div>
-      <div className="add-project-columns">
-        {COMMAND_KEYS.map((key) => (
-          <Input
-            key={key}
-            label={COMMAND_LABELS[key]}
-            placeholder={COMMAND_EXAMPLES[key]}
-            value={draft.commands[key]}
-            onChange={(event) =>
-              onChange({ commands: { ...draft.commands, [key]: event.target.value } })
-            }
-            inputStyle={{ fontFamily: "var(--font-mono)" }}
-          />
-        ))}
-      </div>
+      <Field label="Commands" hint={COMMANDS_HINT}>
+        <div className="add-project-columns">
+          {COMMAND_KEYS.map((key) => (
+            <Input
+              key={key}
+              label={COMMAND_LABELS[key]}
+              placeholder={COMMAND_EXAMPLES[key]}
+              value={draft.commands[key]}
+              onChange={(event) =>
+                onChange({ commands: { ...draft.commands, [key]: event.target.value } })
+              }
+              inputStyle={{ fontFamily: "var(--font-mono)" }}
+            />
+          ))}
+        </div>
+      </Field>
       <Input
         label={INSTALL_INPUTS_LABEL}
         hint="Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once."

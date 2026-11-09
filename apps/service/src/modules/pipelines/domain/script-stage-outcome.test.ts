@@ -43,6 +43,14 @@ describe("scriptStageOutcome", () => {
     });
   });
 
+  it("fails with why alone when the Project has no such command yet", () => {
+    const why = "The Project has no test command yet. Set it on the Project's page, or ask Devops.";
+
+    expect(
+      scriptStageOutcome([aRun({ commandLine: "", outcome: "could-not-run", output: why })]),
+    ).toEqual({ status: "failed", error: why });
+  });
+
   it("refuses runs that never happened", () => {
     expect(() => scriptStageOutcome([])).toThrow("ran no times");
   });

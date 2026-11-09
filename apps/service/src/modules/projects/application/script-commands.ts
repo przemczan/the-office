@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import type { CommandRun } from "../domain/command-run.js";
-import type { Project, ProjectCommandKey } from "../domain/project.js";
+import { isCommandSet, type Project, type ProjectCommandKey } from "../domain/project.js";
 import { keepingScreenshots } from "./screenshots-folder.js";
 import { TaskCommandRunner } from "./task-command-runner.js";
 import type { CommandWait } from "./task-run-environments.js";
@@ -63,6 +63,7 @@ export class ScriptCommands {
     stageRunId: string,
     options: ScriptCommandOptions = {},
   ): Promise<readonly ScriptCommandRun[]> {
+    if (!isCommandSet(project.commands[key])) return [commandNotSetRun(key)];
     if (key !== "test")
       return [{ ...(await this.runOnce(project, taskId, key, options)), movedFiles: undefined }];
     const first = await this.runTests(project, taskId, join(stageRunId, "1"), options);
@@ -126,4 +127,18 @@ export class ScriptCommands {
   private outputFolder(name: string): string {
     return join(this.officeData.folder("test-output"), name);
   }
+}
+
+/** A Stage whose command the Project hasn't set can't run it, so it never passes on its own. */
+function commandNotSetRun(key: ScriptCommandKey): ScriptCommandRun {
+  const output = `The Project has no ${key} command yet. Set it on the Project's page, or ask Devops.`;
+  return {
+    commandLine: "",
+    outcome: "could-not-run",
+    exitCode: undefined,
+    durationMs: 0,
+    output,
+    wholeOutput: output,
+    movedFiles: undefined,
+  };
 }

@@ -122,6 +122,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
       if (worktree && (await this.install(project, worktree, running))) {
         for (const check of running.check.checks) {
           if (check.step === "worktree" || check.step === "install") continue;
+          if (check.state === "skipped") continue;
           await this.runCommand(check, worktree, running);
         }
       }
@@ -168,13 +169,17 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     return reason === undefined ? problem : `${reason} ${problem}`;
   }
 
-  /** Whether the install passed. The Project's own install command is the one frozen at start. */
+  /**
+   * Whether the install passed, or there is nothing to install as the Project's install command
+   * isn't set. The Project's own install command is the one frozen at start.
+   */
   private async install(
     project: Project,
     worktree: ThrowawayWorktree,
     running: RunningCheck,
   ): Promise<boolean> {
     const check = commandCheck(running.check, "install");
+    if (check.state === "skipped") return true;
     await this.progress(running, { ...check, state: "running" });
     const installation = await this.worktrees.install(
       { ...project, commands: { ...project.commands, install: check.commandLine } },

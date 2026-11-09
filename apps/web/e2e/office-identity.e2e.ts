@@ -201,7 +201,7 @@ test.describe.serial("Sign in with GitHub", () => {
     await expect(list.getByRole("button", { name: "office-user/left-alone" })).toBeEnabled();
   });
 
-  test("picking a repository clones it in its row, then step 2 shows it as the source", async ({
+  test("picking a repository clones it in its row, then step 2 adds it with only a name", async ({
     page,
   }) => {
     const repository = await createTemporaryRepository();
@@ -231,15 +231,28 @@ test.describe.serial("Sign in with GitHub", () => {
       await expect(dialog.locator(".dialog-bar")).toContainText("Step 1 of 2");
       await repositoryList(page).getByRole("button", { name: "office-user/picked-notes" }).click();
       await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
+      await expect(dialog).toContainText(
+        "Optional. Leave any you don't know yet: set them later on the Project's page, or ask Devops.",
+      );
+      // A name is enough: the commands are left for later.
       await dialog.getByLabel("Name").fill("Picked notes");
-      await dialog.getByLabel("Install", { exact: true }).fill("npm ci");
-      await dialog.getByLabel("Build").fill("npm run build");
-      await dialog.getByLabel("Lint").fill("npm run lint");
-      await dialog.getByLabel("Test").fill("npm test");
       await dialog.getByRole("button", { name: "Add the Project" }).click();
 
       await expect(page).toHaveURL(/\/projects\/picked-notes$/);
       await expect(page.getByText(url)).toBeVisible();
+      await page.goto("/projects/picked-notes/commands");
+      const commandLines = page.locator(".command-row").filter({ hasNot: page.getByText("None") });
+      await expect(commandLines.locator(".command-empty")).toHaveText([
+        "Not set",
+        "Not set",
+        "Not set",
+        "Not set",
+      ]);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1280-commands-not-set.png") });
+      await page.getByRole("button", { name: "Change the test command" }).click();
+      await page.getByLabel("Test command").fill("npm test");
+      await page.keyboard.press("Enter");
+      await expect(page.locator(".command-line")).toHaveText(["npm test"]);
     } finally {
       await repository.remove();
     }

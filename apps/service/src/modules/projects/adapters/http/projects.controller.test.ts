@@ -144,6 +144,14 @@ describe("POST /api/projects", () => {
     expect(webEvents()).toEqual([{ type: "project.added", projectId: project.id }]);
   });
 
+  it("adds a Project with every command left blank, each saved as not set", async () => {
+    const project = await addProject({
+      commands: { install: "", build: " ", lint: "", test: "" },
+    });
+
+    expect(project.commands).toEqual({ install: "", build: "", lint: "", test: "" });
+  });
+
   it("keeps the repository's folder without a trailing separator", async () => {
     const project = await addProject({ path: `${repository.path}/src/../` });
 
@@ -286,6 +294,19 @@ describe("PUT /api/projects/:id/commands/:key", () => {
 
     expect(response.status).toBe(200);
     expect(published).toEqual([]);
+  });
+
+  it("sets a command the Project was added without", async () => {
+    const project = await addProject({
+      commands: { install: "", build: "", lint: "", test: "" },
+    });
+
+    const response = await send("PUT", `/projects/${project.id}/commands/test`, {
+      commandLine: "npm test",
+    });
+
+    expect(response.status).toBe(200);
+    expect(projectSchema.parse(await response.json()).commands.test).toBe("npm test");
   });
 
   it("refuses an empty command, and a command that isn't one of the four", async () => {

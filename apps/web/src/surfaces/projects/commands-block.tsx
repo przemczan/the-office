@@ -33,7 +33,7 @@ interface CommandsRow {
   /** The line as the Project keeps it, which the editor starts from. */
   readonly line: string;
   /** What the row shows when `line` is empty. */
-  readonly emptyLine?: string;
+  readonly emptyLine: string;
   readonly savedMessage: string;
   isUnchanged(line: string): boolean;
   save(line: string): Promise<Project>;
@@ -91,6 +91,8 @@ function rowsOf(project: Project): CommandsRow[] {
       changeLabel: `Change the ${COMMAND_LABELS[key].toLowerCase()} command`,
       inputLabel: `${COMMAND_LABELS[key]} command`,
       line: project.commands[key],
+      // Left blank when the Project was added: it can be set here, but once set not cleared.
+      emptyLine: "Not set",
       savedMessage: COMMAND_SAVED[key],
       isUnchanged: (line) => line.trim() === project.commands[key],
       save: (line) => changeCommand(project.id, key, line),
