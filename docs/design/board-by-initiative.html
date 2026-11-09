@@ -1177,6 +1177,14 @@
       .group-cell.drop-refused {
         border: 1px dashed var(--danger);
       }
+      .group-empty {
+        padding: 14px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        text-align: center;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
       .groups-hidden-note {
         margin: 0;
         font: var(--type-caption);
@@ -1687,6 +1695,8 @@
             .join(" · ");
           return `<section class="board-group folded" aria-label="${name}">${head}${perColumn ? `<div class="group-folded-counts">${perColumn}</div>` : ""}</section>`;
         }
+        // Only the Initiative filter shows a group with no card: it says why rather than six empty columns.
+        if (group.shown.length === 0) return `<section class="board-group" aria-label="${name}">${head}<div class="group-empty">${emptyGroupWords(group)}</div></section>`;
         const cells = COLUMNS.map((column) => {
           const cards = cardsIn(column, group.shown);
           const frozen = state.frozenDrag;
@@ -1696,6 +1706,12 @@
             <h4>${column.label} <span class="board-count">${cards.length}</span></h4><div class="board-cards">${cards.map(card).join("")}</div></section>`;
         }).join("");
         return `<section class="board-group" aria-label="${name}">${head}<div class="board">${cells}</div></section>`;
+      }
+      function emptyGroupWords({ initiative: initiativeOf, onBoard, inProjects }) {
+        if (onBoard.length === 0)
+          return initiativeOf?.state === "shaping" ? "Its Tasks join the board once the Initiative is confirmed." : "None of its Tasks is on the board.";
+        if (inProjects.length === 0) return "Its Tasks on the board are in Projects the Project filter hides.";
+        return "None of its Tasks on the board matches the filters.";
       }
       function boardNote(grouped) {
         const words = grouped
@@ -1885,7 +1901,7 @@
         off: {
           label: "Grouping off",
           preset: { grouped: false },
-          note: "<strong>Grouping off</strong>, the board as it is today: a column per state. <strong>Group by Initiative</strong> sits at the filter bar's first row's end, apart from the filters. Proposed for this board too: below a page about 1250px wide its columns wrap into two rows of three, and at 600px or so they stack, instead of the board scrolling sideways.",
+          note: "<strong>Grouping off</strong>, the board as it is today: a column per state. <strong>Group by Initiative</strong> sits at the filter bar's first row's end, apart from the filters. Proposed for this board too: below a page about 1250px wide its columns wrap into two rows of three, and below about 640px they stack, instead of the board scrolling sideways.",
         },
         on: {
           label: "Grouping on",
@@ -1900,7 +1916,7 @@
         initiative: {
           label: "Initiative filter set",
           preset: { filters: { initiative: OFFLINE_SYNC.id } },
-          note: "<strong>The Initiative filter</strong> set to Offline sync: only its group shows, always open, so its name has no fold, and Fold all isn't offered. The Saved view Offline sync is on, as it holds the same filters; the grouping isn't part of it, so picking a view never turns grouping on or off.",
+          note: "<strong>The Initiative filter</strong> set to Offline sync: only its group shows, always open, so its name has no fold, and Fold all isn't offered. The Saved view Offline sync is on, as it holds the same filters; the grouping isn't part of it, so picking a view never turns grouping on or off. Pick Release notes from Handover notes, still being shaped, to see a group with no card: one line says why, in place of six empty columns.",
         },
         project: {
           label: "Project filter: not-astray",
