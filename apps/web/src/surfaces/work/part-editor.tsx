@@ -29,6 +29,7 @@ export function PartEditor({
 }): ReactNode {
   const [text, setText] = useState(initial);
   const mentioning = useMentions(text, setText);
+  const field = { "aria-label": label, hint, rows: 6, value: text, autoFocus: true };
   return (
     <form
       className="task-part-editor"
@@ -38,24 +39,9 @@ export function PartEditor({
       }}
     >
       {mentions ? (
-        <MentionField
-          aria-label={label}
-          hint={hint}
-          rows={6}
-          value={text}
-          onChange={setText}
-          mentions={mentioning}
-          autoFocus
-        />
+        <MentionField {...field} onChange={setText} mentions={mentioning} />
       ) : (
-        <Textarea
-          aria-label={label}
-          hint={hint}
-          rows={6}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          autoFocus
-        />
+        <Textarea {...field} onChange={(event) => setText(event.target.value)} />
       )}
       <div className="task-part-actions">
         <Button size="sm" type="submit" loading={saving} iconLeft={<Icon name="check" size={14} />}>
