@@ -84,7 +84,7 @@ function WorkstationDetails({ load }: { readonly load: WorkstationLoad }): React
             name="Use now"
             value={
               <>
-                <Meter percent={cpu.use?.percent ?? 0} />
+                {cpu.use && <Meter percent={cpu.use.percent} />}
                 <b>{cpuUseWords(cpu.use)}</b>
               </>
             }

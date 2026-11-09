@@ -10,8 +10,14 @@ import { Workstation } from "./workstation.js";
 export const SHORTEST_MEASURE_MS = 500;
 
 /**
+ * Above this, the read before is too old to give the use now (a tab hidden for an hour would
+ * average over that hour), so the read measures afresh, as the first one does.
+ */
+export const LONGEST_MEASURE_MS = 10_000;
+
+/**
  * Reads the workstation's load on demand, with no job of its own: the CPU use is measured since
- * the read before, so the first read has none yet.
+ * the read before, so the first read, and one long after the read before, has none yet.
  */
 @Injectable()
 export class WorkstationLoadReader {
@@ -48,8 +54,10 @@ export class WorkstationLoadReader {
 
   private cpuUse(cores: readonly CoreTimes[]): CpuUse | null {
     const at = this.workstation.monotonicMilliseconds();
-    if (this.lastMeasure && at - this.lastMeasure.at < SHORTEST_MEASURE_MS) return this.lastUse;
-    this.lastUse = cpuUseBetween(this.lastMeasure?.cores, cores);
+    const sinceLast = this.lastMeasure && at - this.lastMeasure.at;
+    if (sinceLast !== undefined && sinceLast < SHORTEST_MEASURE_MS) return this.lastUse;
+    const recent = sinceLast !== undefined && sinceLast <= LONGEST_MEASURE_MS;
+    this.lastUse = cpuUseBetween(recent ? this.lastMeasure?.cores : undefined, cores);
     this.lastMeasure = { at, cores };
     return this.lastUse;
   }

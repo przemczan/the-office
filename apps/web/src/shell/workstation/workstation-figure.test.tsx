@@ -116,6 +116,7 @@ it("says Measuring… rather than 0% before the first CPU measure", () => {
   act(() => figure().click());
   expect(panel()?.textContent).toContain("Use nowMeasuring…");
   expect(panel()?.textContent).not.toContain("0%");
+  expect(panel()?.querySelector('[aria-label="CPU"] .shell-strip-meter')).toBeNull();
   expect(panel()?.querySelector('[aria-label="Use per core"]')).toBeNull();
 });
 
