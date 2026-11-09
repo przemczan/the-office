@@ -2331,7 +2331,7 @@
         },
         list: {
           label: "The Thread list",
-          note: "<strong>The Thread list.</strong> One column: the list is a step back from the open Thread (‹ Threads), with New thread at its top. Each Thread shows its title, whether the cache is warm, when it last moved, and an Ember dot if it answered unseen. The person's name in the head is the switch to someone else, with the drawer staying open.",
+          note: "<strong>The Thread list.</strong> One column: the list is a step back from the open Thread (‹ Threads, with New thread beside it, which starts another Thread with the same person in one click), and has New thread at its top too. Each Thread shows its title, whether the cache is warm, when it last moved, and an Ember dot if it answered unseen. The person's name in the head is the switch to someone else, with the drawer staying open.",
           set: () => {
             session.roleKey = "devops";
             session.threadId = "dwight-disk";
@@ -2717,7 +2717,7 @@
           thread.display.messages.length === 0
             ? `<div class="thread-column"><p class="office-line">Write the first message: it gives the Thread its title.</p></div>`
             : threadColumn(thread.display.messages, answeringNow ? thread.roleKey : null);
-        return `<div class="thread-bar"><button type="button" class="back" data-action="to-list" title="Every Thread with ${role.card.name}">${ICON.chevronLeft()}Threads${othersAnswered ? '<span class="dot answered"></span>' : ""}</button><span class="thread-bar-title" title="${escapeHtml(thread.title ?? "New thread")}">${escapeHtml(thread.title ?? "New thread")}</span>${detailsSwitch()}</div>
+        return `<div class="thread-bar"><button type="button" class="back" data-action="to-list" title="Every Thread with ${role.card.name}">${ICON.chevronLeft()}Threads${othersAnswered ? '<span class="dot answered"></span>' : ""}</button><button type="button" class="icon-button" data-action="new-thread" aria-label="New thread" title="New thread">${ICON.plus()}</button><span class="thread-bar-title" title="${escapeHtml(thread.title ?? "New thread")}">${escapeHtml(thread.title ?? "New thread")}</span>${detailsSwitch()}</div>
           ${allowChangesBar(thread)}
           <div class="thread" data-scroll="thread">${body}</div>
           <div class="composer"><div class="composer-to"><span class="context-dot${thread.context.cacheWarm ? " warm" : ""}"></span>To <strong>${role.card.name}</strong> · ${cache}</div>

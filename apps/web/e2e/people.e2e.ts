@@ -1012,13 +1012,9 @@ async function chatThreadShown(page: Page): Promise<string> {
   return (JSON.parse(chat ?? "{}") as { threadId?: string }).threadId ?? "";
 }
 
-/** New thread sits in the Thread list, a step back from the open Thread. */
+/** New thread sits in the Thread list and in the open Thread's bar, beside ‹ Threads. */
 async function startNewThread(chat: Locator) {
-  const back = chat.getByRole("button", { name: "Threads", exact: true });
-  const newThread = chat.getByRole("button", { name: "New thread", exact: true });
-  await expect(back.or(newThread)).toBeVisible();
-  if (await back.isVisible()) await back.click();
-  await newThread.click();
+  await chat.getByRole("button", { name: "New thread", exact: true }).click();
 }
 
 function contextLabel(page: Page) {
@@ -1091,9 +1087,13 @@ test("a Thread is renamed, and an old one stays readable and continues", async (
   await chat.getByRole("button", { name: "Save" }).click();
   await expect(chat.getByRole("heading", { name: "Deploys" })).toBeVisible();
 
-  await startNewThread(chat);
+  // New thread in the open Thread's bar starts and opens one in a click, without the list.
+  const threadBar = chat.locator(".thread-view-head");
+  await threadBar.getByRole("button", { name: "New thread", exact: true }).click();
   await expect(chat.getByRole("heading", { name: "New thread" })).toBeVisible();
+  await expect(chat.getByText(/^Threads · /)).toHaveCount(0);
   await chat.getByRole("button", { name: "Threads", exact: true }).click();
+  await expect(chat.getByText("Threads · 2")).toBeVisible();
   await chat.getByRole("button", { name: /^Deploys/ }).click();
   await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
   await chat.getByRole("textbox", { name: "Message" }).fill("Thanks.");

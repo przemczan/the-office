@@ -297,11 +297,22 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
   }
   return (
     <div className="chat-main">
+      {refusal && <div className="chat-main-refusal">{refusal}</div>}
       <ShownThread
         key={shown.id}
         thread={shown}
         personName={role.card.name}
         othersAnswered={list.some(({ id, answered }) => id !== shown.id && answered === true)}
+        newThread={
+          <IconButton
+            icon={<Icon name="plus" size={14} />}
+            label="New thread"
+            size="sm"
+            disabled={starting.isPending}
+            aria-busy={starting.isPending}
+            onClick={() => starting.mutate()}
+          />
+        }
       />
     </div>
   );
@@ -386,10 +397,13 @@ function ShownThread({
   thread,
   personName,
   othersAnswered,
+  newThread,
 }: {
   readonly thread: Thread;
   readonly personName: string;
   readonly othersAnswered: boolean;
+  /** Starts another Thread with the same person, beside the way back to the list. */
+  readonly newThread: ReactNode;
 }): ReactNode {
   const chat = useChat();
   useReportingSeen(thread.id);
@@ -398,16 +412,19 @@ function ShownThread({
       threadId={thread.id}
       personName={personName}
       back={
-        <button
-          type="button"
-          className="chat-back"
-          title={`Every Thread with ${personName}`}
-          onClick={chat.showThreadList}
-        >
-          <Icon name="chevron-left" size={14} />
-          Threads
-          {othersAnswered && <span className="chat-dot answered" />}
-        </button>
+        <>
+          <button
+            type="button"
+            className="chat-back"
+            title={`Every Thread with ${personName}`}
+            onClick={chat.showThreadList}
+          >
+            <Icon name="chevron-left" size={14} />
+            Threads
+            {othersAnswered && <span className="chat-dot answered" />}
+          </button>
+          {newThread}
+        </>
       }
     />
   );
