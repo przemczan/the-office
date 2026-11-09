@@ -24,6 +24,7 @@ export function ThreadView({
   back,
   readOnlyReason,
   openPage,
+  onLeaveOutOpenPage,
 }: {
   readonly threadId: string;
   readonly personName: string;
@@ -33,6 +34,7 @@ export function ThreadView({
   readonly readOnlyReason?: string | undefined;
   /** The page open beside it, which the next message goes with. */
   readonly openPage?: OpenPage | undefined;
+  readonly onLeaveOutOpenPage?: () => void;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId));
   if (!thread.data) return null;
@@ -56,6 +58,7 @@ export function ThreadView({
         readOnlyReason={readOnlyReason}
         keepsDraft
         openPage={openPage}
+        onLeaveOutOpenPage={onLeaveOutOpenPage}
       />
     </section>
   );

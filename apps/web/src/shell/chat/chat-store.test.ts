@@ -77,3 +77,55 @@ describe("the chat's place", () => {
     expect(chat.place().isOpen).toBe(true);
   });
 });
+
+describe("the left-out Open page", () => {
+  const aTask = { kind: "task", taskId: "a-task" } as const;
+  const anotherTask = { kind: "task", taskId: "another-task" } as const;
+
+  it("stays left out while that page stays open, whatever the drawer does", () => {
+    const chat = createChatStore(aStorage());
+    chat.open("planner", "a-thread");
+    chat.leaveOut(aTask);
+
+    chat.openPageChanged({ ...aTask });
+    chat.showThread("another-thread");
+    chat.open("devops");
+    chat.close();
+    chat.open();
+
+    expect(chat.leftOutPage()).toEqual(aTask);
+  });
+
+  it("comes back once another page opens, and stays back on returning", () => {
+    const chat = createChatStore(aStorage());
+    chat.leaveOut(aTask);
+
+    chat.openPageChanged(anotherTask);
+    expect(chat.leftOutPage()).toBeUndefined();
+
+    chat.openPageChanged(aTask);
+    expect(chat.leftOutPage()).toBeUndefined();
+  });
+
+  it("comes back once a page with no Open page opens", () => {
+    const chat = createChatStore(aStorage());
+    chat.leaveOut(aTask);
+
+    chat.openPageChanged(undefined);
+
+    expect(chat.leftOutPage()).toBeUndefined();
+  });
+
+  it("tells the drawer when it changes", () => {
+    const chat = createChatStore(aStorage());
+    let changes = 0;
+    chat.subscribe(() => (changes += 1));
+
+    chat.leaveOut(aTask);
+    chat.openPageChanged(aTask);
+    chat.openPageChanged(anotherTask);
+    chat.openPageChanged(aTask);
+
+    expect(changes).toBe(2);
+  });
+});

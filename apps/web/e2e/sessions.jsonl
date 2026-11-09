@@ -155,6 +155,14 @@
 {"step":"event","event":{"kind":"text","text":"Nothing open came with that one.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-left-out"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
+{"step":"send","message":{"id":"open-page-still-left-out","text":"Still without it?"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"Still nothing open with it.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-still-left-out"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30300,"window":1000000}}
+{"step":"send","message":{"id":"open-page-again","text":"And with it again?"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"The Task is open beside the chat again.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-again"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30400,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-known-work","text":"Jan creates a Task with its Plan and Definition of Done"}}
 {"step":"event","event":{"kind":"tool-call","callId":"known-work-1","tool":"create_task","officeTool":true,"input":{"title":"Show the build number in the footer","projectId":"known-work","plan":"Read the build number from the environment and show it in the footer, small and muted.","filesToChange":["src/footer.tsx"],"definitionOfDone":["The footer shows the build number.","The tests pass."]},"withinToolCall":null}}
