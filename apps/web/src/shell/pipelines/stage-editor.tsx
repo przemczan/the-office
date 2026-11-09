@@ -1,74 +1,33 @@
-import {
-  afterConflictSchema,
-  effortSchema,
-  publishTargetSchema,
-  type AfterConflict,
-  type PublishTarget,
-  type Role,
-  type RoleCardOptions,
-  type Stage,
-  type StageProblem,
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type {
+  Role,
+  RoleCardOptions,
+  Stage,
+  StageProblem,
+  StageTemplate,
 } from "@the-office/contracts";
-import {
-  Alert,
-  Button,
-  Checkbox,
-  Field,
-  Icon,
-  IconButton,
-  Input,
-  Select,
-  Textarea,
-} from "@the-office/ui";
+import { Button, Icon, IconButton, Menu } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { addStageTemplate, stageTemplateQueries } from "../../api/pipelines.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
+import { RefusalAlert } from "../refusal-alert.tsx";
+import { useToast } from "../toasts.tsx";
+import { thousands, whoWorks } from "./pipeline-words.ts";
+import { StageCheckAlerts } from "./stage-check-alerts.tsx";
 import {
   addStage,
-  canContinue,
+  addStageFrom,
   canMove,
-  failureTargets,
   moveStage,
   removeStage,
-  replaceStage,
-  STAGE_COMMANDS,
+  STAGE_KIND_ICONS,
   STAGE_KIND_NAMES,
-  withCommand,
-  withRole,
-  type AgentStage,
+  withoutFailureRule,
+  type AddedStage,
   type StageCommand,
-  type StageKind,
 } from "./stage-edits.ts";
-import { StagePermissionFields } from "./stage-permission-fields.tsx";
+import { StageForm } from "./stage-form.tsx";
 import "./stage-editor.css";
-
-const KIND_ICONS: Readonly<Record<StageKind, string>> = {
-  agent: "user",
-  script: "terminal",
-  gate: "hand",
-};
-
-const COMMAND_NAMES: Readonly<Record<StageCommand, string>> = {
-  test: "Test",
-  lint: "Lint",
-  build: "Build",
-  publish: "Publish",
-};
-
-const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
-  "publishing-mode": "By the Project's publishing mode",
-  "branch-only": "Push the branch only (proof of concept)",
-};
-
-const AFTER_CONFLICT_NAMES: Readonly<Record<AfterConflict, string>> = {
-  publish: "Publish automatically",
-  review: "Wait at a Gate for your review",
-};
-
-/** The most times a failure may go back, as the click-through offers. */
-const MOST_ROUNDS = 9;
-
-/** A Select's value for "keep the Role's effort": the Stage leaves it out. */
-const ROLE_DEFAULT = "";
 
 export interface StageEditorProps {
   readonly stages: readonly Stage[];
@@ -108,26 +67,13 @@ export function StageEditor(props: StageEditorProps): ReactNode {
   const [open, setOpen] = useState<number | undefined>();
   const lockedStages = lockedNotes.length;
   const flagged = new Set([...problems, ...flags].map(({ stageIndex }) => stageIndex));
+  const openAdded = (added: AddedStage): void => {
+    onChange(added.stages);
+    setOpen(added.index);
+  };
   return (
     <div className="stage-editor">
-      {problems.length > 0 && (
-        <Alert tone="warning" title={problemsTitle}>
-          <ul className="refusal-reasons" aria-label="Problems">
-            {problems.map(({ text }) => (
-              <li key={text}>{text}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
-      {flags.length > 0 && (
-        <Alert tone="info" title="This can be saved, though nobody works these Stages yet">
-          <ul className="refusal-reasons" aria-label="Flags">
-            {flags.map(({ text }) => (
-              <li key={text}>{text}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
+      <StageCheckAlerts problems={problems} flags={flags} problemsTitle={problemsTitle} />
       <ol className="stage-editor-stages" aria-label="Stages">
         {stages.map((stage, index) => (
           <StageEditorRow
@@ -156,16 +102,15 @@ export function StageEditor(props: StageEditorProps): ReactNode {
             key={kind}
             size="sm"
             variant="secondary"
-            iconLeft={<Icon name={KIND_ICONS[kind]} size={14} />}
-            onClick={() => {
-              const added = addStage(stages, kind, lockedStages);
-              onChange(added.stages);
-              setOpen(added.index);
-            }}
+            iconLeft={<Icon name={STAGE_KIND_ICONS[kind]} size={14} />}
+            onClick={() => openAdded(addStage(stages, kind, lockedStages))}
           >
             {STAGE_KIND_NAMES[kind]}
           </Button>
         ))}
+        <FromTemplateMenu
+          onPick={(template) => openAdded(addStageFrom(stages, template, lockedStages))}
+        />
       </div>
       <p className="stage-editor-rules">
         <Icon name="info" size={14} />
@@ -189,11 +134,12 @@ interface StageEditorRowProps extends StageEditorProps {
 
 function StageEditorRow(props: StageEditorRowProps): ReactNode {
   const { stages, index, lockedNote, flagged, open, onToggle, onMove, onRemove } = props;
+  const savingAsTemplate = useSaveAsTemplate();
   const stage = stages[index];
   if (!stage) return null;
   const locked = lockedNote !== undefined;
   const lockedStages = props.lockedNotes.length;
-  const name = stage.name.trim() || STAGE_KIND_NAMES[stage.kind];
+  const name = shownName(stage);
   const classes = [
     "stage-editor-row",
     locked && "stage-editor-row-locked",
@@ -203,7 +149,7 @@ function StageEditorRow(props: StageEditorRowProps): ReactNode {
   return (
     <li className={classes.join(" ")} aria-label={name}>
       <span className="stage-editor-kind" title={STAGE_KIND_NAMES[stage.kind]}>
-        <Icon name={KIND_ICONS[stage.kind]} size={13} />
+        <Icon name={STAGE_KIND_ICONS[stage.kind]} size={13} />
       </span>
       <div className="stage-editor-body">
         <button
@@ -216,7 +162,13 @@ function StageEditorRow(props: StageEditorRowProps): ReactNode {
           <StageSummary {...props} stage={stage} name={name} />
           {locked && <div className="stage-editor-detail">{lockedNote}</div>}
         </button>
-        {open && !locked && <StageForm {...props} stage={stage} />}
+        {open && !locked && <StageForm {...props} />}
+        {savingAsTemplate.error && (
+          <RefusalAlert
+            title={`${name} wasn't saved as a Stage template`}
+            error={savingAsTemplate.error}
+          />
+        )}
       </div>
       {locked ? (
         <span className="stage-editor-lock" title="Already started">
@@ -246,6 +198,13 @@ function StageEditorRow(props: StageEditorRowProps): ReactNode {
           />
           <IconButton
             size="sm"
+            icon={<Icon name="bookmark-plus" size={14} />}
+            label={`Save ${name} as a template`}
+            disabled={savingAsTemplate.isPending}
+            onClick={() => savingAsTemplate.mutate(stage)}
+          />
+          <IconButton
+            size="sm"
             icon={<Icon name="trash-2" size={14} />}
             label={`Remove ${name}`}
             onClick={onRemove}
@@ -254,6 +213,69 @@ function StageEditorRow(props: StageEditorRowProps): ReactNode {
       )}
     </li>
   );
+}
+
+/**
+ * "From a template": the Stage templates by name with their kind's icon, each added as a copy; with
+ * none, where to make one.
+ */
+function FromTemplateMenu({
+  onPick,
+}: {
+  readonly onPick: (template: StageTemplate) => void;
+}): ReactNode {
+  const templates = useQuery(stageTemplateQueries.list());
+  const [open, setOpen] = useState(false);
+  const listed = templates.data ?? [];
+  return (
+    <Menu
+      open={open}
+      onOpenChange={setOpen}
+      align="start"
+      width={260}
+      trigger={
+        <Button
+          size="sm"
+          variant="secondary"
+          iconLeft={<Icon name="bookmark" size={14} />}
+          iconRight={<Icon name="chevron-down" size={14} />}
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          From a template
+        </Button>
+      }
+      items={
+        listed.length > 0
+          ? listed.map((template) => ({
+              label: template.stage.name,
+              icon: <Icon name={STAGE_KIND_ICONS[template.stage.kind]} size={14} />,
+              onSelect: () => onPick(template),
+            }))
+          : [
+              {
+                label: templates.error
+                  ? "The Stage templates can't be read"
+                  : "No Stage template yet. Make one in Settings › Pipelines, or save a Stage as one.",
+                disabled: true,
+              },
+            ]
+      }
+    />
+  );
+}
+
+/** Save as template: the Stage added to the templates as it is, without its failure rule. */
+function useSaveAsTemplate() {
+  const queryClient = useQueryClient();
+  const showToast = useToast();
+  return useMutation({
+    mutationFn: (stage: Stage) => addStageTemplate(withoutFailureRule(stage)),
+    onSuccess: async ({ stage }) => {
+      await queryClient.invalidateQueries(stageTemplateQueries.list());
+      showToast(`${shownName(stage)} saved as a Stage template.`);
+    },
+  });
 }
 
 /** "Implement · Ada" over "fresh session · 250k budget · on failure back to …". */
@@ -293,308 +315,7 @@ function StageSummary({
   );
 }
 
-function whoWorks(
-  stage: Stage,
-  roles: readonly Role[],
-  commandLines: StageEditorProps["commandLines"],
-): string {
-  if (stage.kind === "gate") return "waits for you";
-  if (stage.kind === "script") return commandLines?.[stage.command] ?? COMMAND_NAMES[stage.command];
-  return roles.find(({ key }) => key === stage.role)?.card.name ?? "nobody yet";
-}
-
-function StageForm(props: StageEditorRowProps & { readonly stage: Stage }): ReactNode {
-  const { stage, stages, index, onChange } = props;
-  const change = (changed: Stage): void => onChange(replaceStage(stages, index, changed));
-  return (
-    <div className="stage-editor-form">
-      <Input
-        label="Name"
-        hint={
-          stage.kind === "gate"
-            ? "A label for you; the Agents don't read it or act on it"
-            : undefined
-        }
-        value={stage.name}
-        onChange={(event) => change({ ...stage, name: event.target.value })}
-      />
-      {stage.kind === "agent" && <RoleSelect {...props} stage={stage} />}
-      {stage.kind === "script" && (
-        <Select
-          label="Project command"
-          hint="Runs with no Agent; the result is recorded"
-          value={stage.command}
-          options={STAGE_COMMANDS.map((command) => ({
-            value: command,
-            label: commandChoice(command, props.commandLines),
-          }))}
-          onChange={(command) => {
-            const chosen = STAGE_COMMANDS.find((offered) => offered === command);
-            if (chosen) change(withCommand(stage, chosen));
-          }}
-        />
-      )}
-      {stage.kind === "script" && stage.command === "publish" && (
-        <PublishFields stage={stage} change={change} />
-      )}
-      {stage.kind === "gate" && (
-        <Input
-          label="What you see"
-          disabled
-          value="The diff, results, Attachments and screenshots so far"
-        />
-      )}
-      {stage.kind === "agent" && <AgentFields {...props} stage={stage} change={change} />}
-      {stage.kind !== "gate" && (
-        <div className="stage-editor-wide">
-          <Field label="On failure">
-            <FailureFields {...props} stage={stage} change={change} />
-          </Field>
-        </div>
-      )}
-      <div className="stage-editor-wide">
-        <Checkbox
-          label="Optional: skipped when the Definition of Done is already met"
-          checked={stage.optional}
-          onChange={(optional) => change({ ...stage, optional })}
-        />
-      </div>
-    </div>
-  );
-}
-
-/**
- * Who may work an Agent Stage: anyone hired with a Task limit. The current choice stays listed
- * when it no longer qualifies, so the problem shows instead of the Stage silently changing.
- */
-function RoleSelect({
-  stage,
-  stages,
-  index,
-  roles,
-  options,
-  onChange,
-}: StageEditorRowProps & { readonly stage: AgentStage }): ReactNode {
-  const working = roles.filter(({ card, letGoAt }) => card.taskLimit !== "none" && !letGoAt);
-  const current = roles.find(({ key }) => key === stage.role);
-  const choices = working.map(({ key, card }) => ({
-    value: key,
-    label: `${card.name} · ${card.title}`,
-  }));
-  if (stage.role !== "" && !working.some(({ key }) => key === stage.role)) {
-    choices.push({ value: stage.role, label: unavailableLabel(stage.role, current, options) });
-  }
-  return (
-    <Select
-      label="Who works it"
-      hint="Only people with a Task limit"
-      placeholder="Choose…"
-      value={stage.role}
-      options={choices}
-      onChange={(role) => onChange(replaceStage(stages, index, withRole(stages, index, role)))}
-    />
-  );
-}
-
-function AgentFields({
-  stage,
-  stages,
-  index,
-  roles,
-  options,
-  change,
-}: StageEditorRowProps & {
-  readonly stage: AgentStage;
-  readonly change: (stage: Stage) => void;
-}): ReactNode {
-  const continuing = canContinue(stages, index);
-  const role = roles.find(({ key }) => key === stage.role);
-  return (
-    <>
-      <Select
-        label="Session"
-        hint={continuing ? undefined : "Continuing needs the same Role in the Stage before"}
-        value={stage.session}
-        options={[
-          { value: "fresh", label: "Fresh, with a brief" },
-          ...(continuing || stage.session === "continue"
-            ? [{ value: "continue", label: "Continue the previous Stage's session" }]
-            : []),
-        ]}
-        onChange={(session) =>
-          change({ ...stage, session: session === "continue" ? "continue" : "fresh" })
-        }
-      />
-      <BudgetInput stage={stage} change={change} />
-      <Select
-        label="Effort"
-        value={stage.effort ?? ROLE_DEFAULT}
-        options={[
-          { value: ROLE_DEFAULT, label: "Role default" },
-          ...effortSchema.options.map((effort) => ({
-            value: effort,
-            label: EFFORT_LABELS[effort],
-          })),
-        ]}
-        onChange={(effort) => change({ ...stage, effort: effortSchema.safeParse(effort).data })}
-      />
-      <div className="stage-editor-wide">
-        <Textarea
-          label="Brief"
-          hint="Filled with the Task's Plan, Definition of Done and earlier results"
-          rows={2}
-          value={stage.brief}
-          onChange={(event) => change({ ...stage, brief: event.target.value })}
-        />
-      </div>
-      <StagePermissionFields stage={stage} role={role} options={options} change={change} />
-    </>
-  );
-}
-
-/** The budget in thousands of tokens, kept as typed until it is a number above 0. */
-function BudgetInput({
-  stage,
-  change,
-}: {
-  readonly stage: AgentStage;
-  readonly change: (stage: Stage) => void;
-}): ReactNode {
-  const [typed, setTyped] = useState(String(thousands(stage.budget)));
-  return (
-    <Input
-      label="Budget"
-      hint="Reaching it asks you"
-      type="number"
-      min={1}
-      suffix="k tokens"
-      value={typed}
-      onChange={(event) => {
-        setTyped(event.target.value);
-        const budget = Math.round(Number(event.target.value) * 1000);
-        if (event.target.value !== "" && budget > 0) change({ ...stage, budget });
-      }}
-    />
-  );
-}
-
-function PublishFields({
-  stage,
-  change,
-}: {
-  readonly stage: Extract<Stage, { kind: "script" }>;
-  readonly change: (changed: Stage) => void;
-}): ReactNode {
-  return (
-    <>
-      <Select
-        label="Publishes"
-        value={stage.publishTarget ?? "publishing-mode"}
-        options={publishTargetSchema.options.map((target) => ({
-          value: target,
-          label: PUBLISH_TARGET_NAMES[target],
-        }))}
-        onChange={(target) => {
-          const chosen = publishTargetSchema.options.find((offered) => offered === target);
-          if (chosen) change({ ...stage, publishTarget: chosen });
-        }}
-      />
-      {stage.publishTarget !== "branch-only" && (
-        <Select
-          label="After a conflict"
-          hint="The Task's person resolves it and the Project's Test runs first"
-          value={stage.afterConflict ?? "publish"}
-          options={afterConflictSchema.options.map((afterConflict) => ({
-            value: afterConflict,
-            label: AFTER_CONFLICT_NAMES[afterConflict],
-          }))}
-          onChange={(afterConflict) => {
-            const chosen = afterConflictSchema.options.find((offered) => offered === afterConflict);
-            if (chosen) change({ ...stage, afterConflict: chosen });
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-function FailureFields({
-  stage,
-  stages,
-  index,
-  change,
-}: StageEditorRowProps & {
-  readonly stage: Exclude<Stage, { kind: "gate" }>;
-  readonly change: (stage: Stage) => void;
-}): ReactNode {
-  const targets = failureTargets(stages, index);
-  const onFailure = stage.onFailure;
-  const choices = [
-    { value: "", label: "Ask you" },
-    ...targets.map(({ key, name }) => ({ value: key, label: `Go back to ${name}` })),
-  ];
-  if (onFailure && !targets.some(({ key }) => key === onFailure.goBackTo)) {
-    const target = stages.find(({ key }) => key === onFailure.goBackTo);
-    choices.push({
-      value: onFailure.goBackTo,
-      label: `Go back to ${target?.name ?? onFailure.goBackTo} (not earlier)`,
-    });
-  }
-  return (
-    <div className="stage-editor-failure">
-      <Select
-        aria-label="On failure"
-        value={onFailure?.goBackTo ?? ""}
-        options={choices}
-        onChange={(goBackTo) =>
-          change({
-            ...stage,
-            onFailure: goBackTo === "" ? undefined : { goBackTo, rounds: onFailure?.rounds ?? 2 },
-          })
-        }
-      />
-      {onFailure && (
-        <>
-          <span>at most</span>
-          <Select
-            aria-label="Rounds"
-            value={String(onFailure.rounds)}
-            options={Array.from({ length: MOST_ROUNDS }, (_unused, at) => String(at + 1))}
-            onChange={(rounds) =>
-              change({ ...stage, onFailure: { ...onFailure, rounds: Number(rounds) } })
-            }
-          />
-          <span>{onFailure.rounds === 1 ? "time" : "times"}, then ask you</span>
-        </>
-      )}
-    </div>
-  );
-}
-
-function commandChoice(
-  command: StageCommand,
-  commandLines: StageEditorProps["commandLines"],
-): string {
-  if (commandLines === undefined) return `${COMMAND_NAMES[command]} (each Project's own command)`;
-  const line = commandLines[command];
-  return `${COMMAND_NAMES[command]} · ${line === "" ? "not set" : line}`;
-}
-
-function roleTitle(roleKey: string, options: RoleCardOptions): string {
-  return options.knownRoles.find(({ key }) => key === roleKey)?.title ?? roleKey;
-}
-
-/** Why the Role a Stage names, though nobody can work it, still shows in the "Who works it" list. */
-function unavailableLabel(
-  roleKey: string,
-  current: Role | undefined,
-  options: RoleCardOptions,
-): string {
-  if (!current) return `${roleTitle(roleKey, options)} (nobody fills it)`;
-  const { name, title } = current.card;
-  return `${name} · ${title} (${current.letGoAt ? "let go" : "talks only"})`;
-}
-
-function thousands(tokens: number): number {
-  return Math.round(tokens / 1000);
+/** A Stage's name, or its kind's while it has none. */
+function shownName(stage: Stage): string {
+  return stage.name.trim() || STAGE_KIND_NAMES[stage.kind];
 }

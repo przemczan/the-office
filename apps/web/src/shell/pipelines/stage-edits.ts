@@ -1,4 +1,4 @@
-import type { Stage } from "@the-office/contracts";
+import type { Stage, StageTemplate } from "@the-office/contracts";
 import { withPermissions } from "./stage-permissions.ts";
 
 /**
@@ -16,6 +16,13 @@ export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
   agent: "Agent Stage",
   script: "Script Stage",
   gate: "Gate",
+};
+
+/** Each kind's icon, in the Stage editor and the Stage templates' list. */
+export const STAGE_KIND_ICONS: Readonly<Record<StageKind, string>> = {
+  agent: "user",
+  script: "terminal",
+  gate: "hand",
 };
 
 export const STAGE_COMMANDS: readonly StageCommand[] = ["test", "lint", "build", "publish"];
@@ -37,19 +44,56 @@ export function addStage(
   stages: readonly Stage[],
   kind: StageKind,
   lockedStages: number,
-): { readonly stages: readonly Stage[]; readonly index: number } {
-  const index = kind === "gate" && stages.length > lockedStages ? stages.length - 1 : stages.length;
+): AddedStage {
+  return placed(stages, newStage(kind, "", NEW_STAGE_NAMES[kind]), lockedStages);
+}
+
+/**
+ * A copy of the Stage template's Stage, added where a new Stage of its kind goes. A copy, never a
+ * link: it gets its own key, keeps its name unless another Stage has it, and has no failure rule,
+ * which only names a Stage of the list it goes into.
+ */
+export function addStageFrom(
+  stages: readonly Stage[],
+  template: StageTemplate,
+  lockedStages: number,
+): AddedStage {
+  return placed(stages, withoutFailureRule(template.stage), lockedStages);
+}
+
+/** A Stage as a Stage template keeps it: no failure rule, which only a Pipeline gives meaning. */
+export function withoutFailureRule(stage: Stage): Stage {
+  if (stage.kind === "gate") return stage;
+  const { onFailure: _onFailure, ...rest } = stage;
+  return rest;
+}
+
+/** The Stages after an addition, and where the added one is. */
+export interface AddedStage {
+  readonly stages: readonly Stage[];
+  readonly index: number;
+}
+
+function placed(stages: readonly Stage[], stage: Stage, lockedStages: number): AddedStage {
+  const index =
+    stage.kind === "gate" && stages.length > lockedStages ? stages.length - 1 : stages.length;
   const name = unique(
-    NEW_STAGE_NAMES[kind],
-    stages.map((stage) => stage.name),
+    stage.name.trim() || NEW_STAGE_NAMES[stage.kind],
+    stages.map((other) => other.name),
     " ",
   );
   const key = unique(
-    slugOf(name),
-    stages.map((stage) => stage.key),
+    slugOf(name) || slugOf(NEW_STAGE_NAMES[stage.kind]),
+    stages.map((other) => other.key),
     "-",
   );
-  return { stages: stages.toSpliced(index, 0, newStage(kind, key, name)), index };
+  return { stages: stages.toSpliced(index, 0, { ...stage, key, name }), index };
+}
+
+/** A new Stage of `kind` on its own, as a Stage template made from scratch starts. */
+export function standaloneStage(kind: StageKind): Stage {
+  const name = NEW_STAGE_NAMES[kind];
+  return newStage(kind, slugOf(name), name);
 }
 
 /** The Stage dropped, and every failure rule that went back to it with it. */

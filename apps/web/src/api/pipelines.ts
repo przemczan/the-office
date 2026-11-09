@@ -7,6 +7,8 @@ import {
   pipelineUseSchema,
   stageRunCommandOutputsSchema,
   stagesCheckSchema,
+  stageTemplateListSchema,
+  stageTemplateSchema,
   taskStagesSchema,
   type Pipeline,
   type PipelineCheckRequest,
@@ -14,6 +16,8 @@ import {
   type PipelinesWebEvent,
   type SendBack,
   type Stage,
+  type StageTemplate,
+  type StageTemplateCheckRequest,
   type TaskStages,
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
@@ -75,6 +79,20 @@ export const pipelineQueries = {
     }),
 };
 
+export const stageTemplateQueries = {
+  list: () =>
+    queryOptions({
+      queryKey: STAGE_TEMPLATES_KEY,
+      queryFn: ({ signal }) => getFromApi("/stage-templates", stageTemplateListSchema, signal),
+    }),
+  /** What saving a Stage template would be refused for and what it only flags. */
+  check: (request: StageTemplateCheckRequest) =>
+    queryOptions({
+      queryKey: [...STAGE_TEMPLATES_KEY, "check", request],
+      queryFn: () => sendToApi("POST", "/stage-templates/check", request, pipelineCheckSchema),
+    }),
+};
+
 /** A Pipeline made from scratch in the library. */
 export function addPipeline(edit: PipelineEdit): Promise<Pipeline> {
   return sendToApi("POST", "/pipelines", edit, pipelineSchema);
@@ -92,6 +110,20 @@ export function savePipeline(pipelineId: string, edit: PipelineEdit): Promise<Pi
 
 export function removePipeline(pipelineId: string): Promise<void> {
   return deleteFromApi(pipelinePath(pipelineId));
+}
+
+/** A Stage template made from scratch, or a Stage saved as one; its failure rule is dropped. */
+export function addStageTemplate(stage: Stage): Promise<StageTemplate> {
+  return sendToApi("POST", "/stage-templates", { stage }, stageTemplateSchema);
+}
+
+/** The template saved: Pipelines and Tasks that added it keep their copy as it was. */
+export function saveStageTemplate(stageTemplateId: string, stage: Stage): Promise<StageTemplate> {
+  return sendToApi("PUT", stageTemplatePath(stageTemplateId), { stage }, stageTemplateSchema);
+}
+
+export function removeStageTemplate(stageTemplateId: string): Promise<void> {
+  return deleteFromApi(stageTemplatePath(stageTemplateId));
 }
 
 /** Edit for this Task: the Task's Stages replaced, the library Pipeline left as it is. */
@@ -114,6 +146,10 @@ export function dropAtGate(taskId: string): Promise<TaskStages> {
 
 function pipelinePath(pipelineId: string): `/${string}` {
   return `/pipelines/${encodeURIComponent(pipelineId)}`;
+}
+
+function stageTemplatePath(stageTemplateId: string): `/${string}` {
+  return `/stage-templates/${encodeURIComponent(stageTemplateId)}`;
 }
 
 function stagesPath(taskId: string): `/${string}` {

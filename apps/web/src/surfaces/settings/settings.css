@@ -305,6 +305,13 @@
   align-items: start;
 }
 
+.library-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 .library-detail {
   display: flex;
   flex-direction: column;

@@ -1,6 +1,21 @@
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import type { EngineSettings, NotificationTiming } from "@the-office/contracts";
+import {
+  pipelineSchema,
+  projectSchema,
+  stageTemplateListSchema,
+  stageTemplateSchema,
+  taskSchema,
+  taskStagesSchema,
+  type EngineSettings,
+  type NewProject,
+  type NotificationTiming,
+  type Pipeline,
+  type Project,
+  type Stage,
+  type StageTemplate,
+} from "@the-office/contracts";
+import { createTemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -358,6 +373,256 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
     page.getByText("Onboarding uses the Onboard Pipeline, so it stays in the library."),
   ).toBeVisible();
 });
+
+// Script Stages and Gates only, as nobody may fill a Role in this file (see the Pipeline test above).
+test("the user makes a Stage template from scratch, edits it and removes it in Settings › Pipelines", async ({
+  page,
+}) => {
+  const name = `Lint first ${Date.now()}`;
+  await page.goto("/settings/pipelines");
+  const templates = page.getByRole("navigation", { name: "Stage templates" });
+  // The built-in Stages are templates from the start.
+  await expect(templates.getByRole("link", { name: /^Implement/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "New template" }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Script Stage" }).click();
+  await expect(page.getByText("Not in the Stage templates yet")).toBeVisible();
+  // A template has no loop target to go back to.
+  await expect(page.getByLabel("On failure")).toHaveCount(0);
+  const nameField = page.getByLabel("Name", { exact: true });
+  // Problems from the service's check hold Save.
+  await nameField.fill("Implement");
+  await expect(page.getByText('Another Stage template is named "Implement".')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add the template" })).toBeDisabled();
+  await nameField.fill(name);
+  await page
+    .getByLabel("Project command")
+    .selectOption({ label: "Lint (each Project's own command)" });
+  await page.getByRole("button", { name: "Add the template" }).click();
+
+  await expect(page.getByText(`${name} added to the Stage templates.`)).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/pipelines\/stage-templates\/[\da-f-]{36}$/);
+  const item = templates.getByRole("link", { name: new RegExp(`^${name}`) });
+  await expect(item).toContainText("Lint");
+  await expect(item).toHaveAttribute("aria-current", "page");
+  await screenshotEachLook(page, templates, "settings-stage-template");
+
+  await page
+    .getByLabel("Project command")
+    .selectOption({ label: "Build (each Project's own command)" });
+  await page.getByText("Optional: skipped when the Definition of Done is already met").click();
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await page.getByRole("button", { name: "Save the template" }).click();
+  await expect(
+    page.getByText("Stage template saved. Pipelines and Tasks that added it keep their copy."),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Project command")).toHaveValue("build");
+  await expect(item).toContainText("Build");
+
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page.getByText("Pipelines and Tasks that added it keep their copy.")).toBeVisible();
+  await page.getByRole("button", { name: "Remove the template" }).click();
+  await expect(page.getByText(`${name} removed from the Stage templates.`)).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/pipelines$/);
+  await expect(item).toHaveCount(0);
+});
+
+test("Save as template on a library Pipeline's Stage lists it among the Stage templates", async ({
+  page,
+}) => {
+  const stageName = `Smoke test ${Date.now()}`;
+  const pipeline = await addedPipeline(page, `Smoke ${Date.now()}`, [
+    {
+      kind: "script",
+      key: "tests",
+      name: "Tests",
+      optional: false,
+      command: "test",
+    },
+    {
+      kind: "script",
+      key: "smoke",
+      name: stageName,
+      optional: true,
+      command: "build",
+      onFailure: { goBackTo: "tests", rounds: 2 },
+    },
+  ]);
+  await page.goto(`/settings/pipelines/${pipeline.id}`);
+  await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
+  await expect(page.getByText(`${stageName} saved as a Stage template.`)).toBeVisible();
+  const templates = page.getByRole("navigation", { name: "Stage templates" });
+  await expect(templates.getByRole("link", { name: new RegExp(stageName) })).toBeVisible();
+  const saved = (await stageTemplates(page)).find(({ stage }) => stage.name === stageName);
+  // Kept without its failure rule, which names a Stage of the Pipeline.
+  expect(saved?.stage).toEqual({
+    kind: "script",
+    key: "smoke",
+    name: stageName,
+    optional: true,
+    command: "build",
+  });
+
+  // Saved again, the name is taken: the service's reason shows.
+  await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
+  await expect(page.getByText(`${stageName} wasn't saved as a Stage template`)).toBeVisible();
+  await expect(page.getByText(`Another Stage template is named "${stageName}".`)).toBeVisible();
+  await removeStageTemplate(page, saved);
+});
+
+test("a Stage added from a template is a copy: it saves in a library Pipeline and in Edit for this Task, and editing the template leaves it as it was", async ({
+  page,
+}) => {
+  const stamp = Date.now();
+  const templateName = `Publish preview ${stamp}`;
+  const added = await page.request.post("/api/stage-templates", {
+    data: {
+      stage: {
+        kind: "script",
+        key: "publish-preview",
+        name: templateName,
+        optional: true,
+        command: "publish",
+        publishTarget: "branch-only",
+      },
+    },
+  });
+  const template = stageTemplateSchema.parse(await added.json());
+  const pipeline = await addedPipeline(page, `Preview ${Date.now()}`, [
+    { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
+  ]);
+  const copied = {
+    kind: "script",
+    name: templateName,
+    optional: true,
+    command: "publish",
+    publishTarget: "branch-only",
+  };
+
+  // In a library Pipeline.
+  await page.goto(`/settings/pipelines/${pipeline.id}`);
+  await page.getByRole("button", { name: "From a template" }).click();
+  await page.getByRole("menu").getByRole("button", { name: templateName }).click();
+  const row = page
+    .getByRole("list", { name: "Stages" })
+    .getByRole("listitem", { name: templateName, exact: true });
+  await expect(row.getByLabel("Project command")).toHaveValue("publish");
+  await expect(row.getByLabel("Publishes")).toHaveValue("branch-only");
+  await page.getByRole("button", { name: "Save the Pipeline" }).click();
+  await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
+  await page.reload();
+  await expect(row).toContainText("pushes the branch only");
+  const savedStages = (await libraryPipeline(page, pipeline.id)).stages;
+  // Its own key, from its name, as any added Stage's.
+  expect(savedStages[1]).toEqual({ ...copied, key: `publish-preview-${stamp}` });
+  await page.locator(".settings-split").screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-settings-stage-from-template.png"),
+  });
+
+  // In Edit for this Task.
+  const repository = await createTemporaryRepository();
+  try {
+    // Following the Pipeline above, whose Stages nobody needs to be hired for.
+    const project = await addedProject(
+      page,
+      repository.path,
+      `Templates ${Date.now()}`,
+      pipeline.id,
+    );
+    const created = await page.request.post("/api/tasks", {
+      data: { title: "Copy a Stage template in", projectId: project.id, priority: "normal" },
+    });
+    const { id: taskId } = taskSchema.parse(await created.json());
+    await page.goto(`/tasks/${taskId}`);
+    await page.getByRole("button", { name: "Edit for this Task" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "From a template" }).click();
+    await dialog.getByRole("menu").getByRole("button", { name: templateName }).click();
+    // The Task's Stages already hold the Pipeline's copy, so this one is named apart.
+    const copyName = `${templateName} 2`;
+    await expect(
+      dialog.getByRole("listitem", { name: copyName, exact: true }).getByLabel("Publishes"),
+    ).toHaveValue("branch-only");
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-from-template.png"),
+    });
+    await dialog.getByRole("button", { name: "Save for this Task" }).click();
+    await expect(page.getByText("Stages saved for Copy a Stage template in.")).toBeVisible();
+    await page.reload();
+    const taskStages = async (): Promise<Stage[]> =>
+      (
+        taskStagesSchema.parse(await (await page.request.get(`/api/tasks/${taskId}/stages`)).json())
+          .stages ?? []
+      ).map(({ stage }) => stage);
+    const copy = (await taskStages()).find(({ name }) => name === copyName);
+    expect(copy).toEqual({ ...copied, name: copyName, key: `publish-preview-${stamp}-2` });
+
+    // Editing the template, then removing it, leaves every copy as it was.
+    await page.goto(`/settings/pipelines/stage-templates/${template.id}`);
+    await page.getByLabel("Publishes").selectOption({ label: "By the Project's publishing mode" });
+    await page.getByRole("button", { name: "Save the template" }).click();
+    await expect(page.getByText("Stage template saved.", { exact: false })).toBeVisible();
+    expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
+    expect((await taskStages()).find(({ name }) => name === copyName)).toEqual(copy);
+    await removeStageTemplate(page, template);
+    expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
+  } finally {
+    await repository.remove();
+  }
+});
+
+async function addedPipeline(
+  page: Page,
+  name: string,
+  stages: readonly Stage[],
+): Promise<Pipeline> {
+  const response = await page.request.post("/api/pipelines", {
+    data: { name, description: "", stages },
+  });
+  expect(response.status()).toBe(201);
+  return pipelineSchema.parse(await response.json());
+}
+
+async function libraryPipeline(page: Page, pipelineId: string): Promise<Pipeline> {
+  return pipelineSchema.parse(
+    await (await page.request.get(`/api/pipelines/${pipelineId}`)).json(),
+  );
+}
+
+async function stageTemplates(page: Page): Promise<StageTemplate[]> {
+  return stageTemplateListSchema.parse(
+    await (await page.request.get("/api/stage-templates")).json(),
+  );
+}
+
+async function removeStageTemplate(page: Page, template: StageTemplate | undefined): Promise<void> {
+  if (!template) return;
+  const response = await page.request.delete(`/api/stage-templates/${template.id}`);
+  expect(response.status()).toBe(204);
+}
+
+/** A Project of the test's own, through the API, so its Task can be edited for itself. */
+async function addedProject(
+  page: Page,
+  repositoryPath: string,
+  name: string,
+  defaultPipeline: string,
+): Promise<Project> {
+  const newProject: NewProject = {
+    name,
+    path: repositoryPath,
+    baseBranch: "main",
+    mark: { label: "ST", colour: "violet" },
+    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installInputs: [],
+    publishingMode: "push-and-pull-request",
+    defaultPipeline,
+  };
+  const response = await page.request.post("/api/projects", { data: newProject });
+  expect(response.status()).toBe(201);
+  return projectSchema.parse(await response.json());
+}
 
 // Nothing is saved: people.e2e.ts saves engines, and a Save sends every engine whole.
 test("Settings › Engines' rows hold one line each, a long name cut beside the Office default", async ({

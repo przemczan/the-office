@@ -1,8 +1,36 @@
-import type { Stage } from "@the-office/contracts";
+import type { Role, Stage } from "@the-office/contracts";
+import type { StageCommand } from "./stage-edits.ts";
+
+export const STAGE_COMMAND_NAMES: Readonly<Record<StageCommand, string>> = {
+  test: "Test",
+  lint: "Lint",
+  build: "Build",
+  publish: "Publish",
+};
 
 /** The Stages in order, as the library's list shows them: "Implement → Tests → Publish". */
 export function stagesLine({ stages }: { readonly stages: readonly Stage[] }): string {
   return stages.map(({ name }) => name).join(" → ");
+}
+
+/**
+ * Who works the Stage, as its row says: the Role's person, its command (as the Project runs it, when
+ * `commandLines` names one), or "waits for you" for a Gate.
+ */
+export function whoWorks(
+  stage: Stage,
+  roles: readonly Role[],
+  commandLines?: Readonly<Record<StageCommand, string>>,
+): string {
+  if (stage.kind === "gate") return "waits for you";
+  if (stage.kind === "script")
+    return commandLines?.[stage.command] ?? STAGE_COMMAND_NAMES[stage.command];
+  return roles.find(({ key }) => key === stage.role)?.card.name ?? "nobody yet";
+}
+
+/** Tokens in thousands, as a budget is typed and shown. */
+export function thousands(tokens: number): number {
+  return Math.round(tokens / 1000);
 }
 
 /** How a Stage fares in a change of a Pipeline's Stages, by its key. */

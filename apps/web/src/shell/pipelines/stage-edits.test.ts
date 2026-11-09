@@ -2,6 +2,7 @@ import type { Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   addStage,
+  addStageFrom,
   canContinue,
   canMove,
   failureTargets,
@@ -67,6 +68,29 @@ describe("the Stage editor's changes", () => {
 
   it("adds a Gate at the end once every Stage has started", () => {
     expect(addStage(quickFix, "gate", 3).index).toBe(3);
+  });
+
+  it("adds a Stage template as a copy where its kind goes, with its own key and no failure rule", () => {
+    const template = { id: "tests", stage: { ...tests, key: "tests", name: "Lint first" } };
+    const added = addStageFrom(quickFix, template, 0);
+    expect(added.index).toBe(3);
+    expect(added.stages[3]).toEqual({
+      kind: "script",
+      key: "lint-first",
+      name: "Lint first",
+      optional: false,
+      command: "test",
+    });
+
+    const uiAcceptance: Stage = { kind: "gate", key: "ui", name: "UI acceptance", optional: false };
+    expect(addStageFrom(quickFix, { id: "ui", stage: uiAcceptance }, 0).index).toBe(2);
+  });
+
+  it("names a Stage template's copy apart from the Stages it joins", () => {
+    const added = addStageFrom(quickFix, { id: "tests", stage: tests }, 0);
+    expect(added.stages[3]).toMatchObject({ key: "tests-2", name: "Tests 2" });
+    expect(added.stages[3]).not.toHaveProperty("onFailure");
+    expect(addStageFrom(quickFix, { id: "implement", stage: implement }, 3).index).toBe(3);
   });
 
   it("drops a Stage with every failure rule that went back to it", () => {

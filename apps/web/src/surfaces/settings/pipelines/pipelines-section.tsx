@@ -1,56 +1,110 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import type { Pipeline } from "@the-office/contracts";
-import { Button, Card, Icon, PickList, PickListItem } from "@the-office/ui";
+import type { Pipeline, Role, StageTemplate } from "@the-office/contracts";
+import { Button, Card, Icon, Menu, PickList, PickListItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleCardQueries, roleQueries } from "../../../api/people.ts";
-import { duplicatePipeline, pipelineQueries } from "../../../api/pipelines.ts";
+import {
+  duplicatePipeline,
+  pipelineQueries,
+  stageTemplateQueries,
+} from "../../../api/pipelines.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { LibraryPipelineForm } from "./library-pipeline-form.tsx";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
-import { stagesLine } from "../../../shell/pipelines/pipeline-words.ts";
+import { stagesLine, whoWorks } from "../../../shell/pipelines/pipeline-words.ts";
+import {
+  STAGE_KIND_ICONS,
+  STAGE_KIND_NAMES,
+  type StageKind,
+} from "../../../shell/pipelines/stage-edits.ts";
 import { pipelineUseLine } from "./pipeline-use-words.ts";
+import { StageTemplateForm, type StageTemplateOpened } from "./stage-template-form.tsx";
+
+/** What the detail column shows when the user is making something new. */
+type Making =
+  { readonly what: "pipeline" } | { readonly what: "stage-template"; readonly kind: StageKind };
 
 /**
  * Settings › Pipelines (prototypes/app/settings.js `pipelinesSection`): the library beside the open
- * Pipeline, which the user edits, duplicates or removes, and "New Pipeline" made from scratch.
+ * Pipeline, which the user edits, duplicates or removes, and "New Pipeline" made from scratch; under
+ * it the Stage templates, each opened in the same place.
  */
 export function PipelinesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Pipelines" });
-  const { pipelineId } = useParams({ strict: false });
+  const { pipelineId, stageTemplateId } = useParams({ strict: false });
   const library = useQuery(pipelineQueries.list());
+  const templates = useQuery(stageTemplateQueries.list());
   const roles = useQuery(roleQueries.list());
   const options = useQuery(roleCardQueries.options());
-  const [making, setMaking] = useState(false);
+  const [making, setMaking] = useState<Making | undefined>();
   if (library.error)
     return <RefusalAlert title="The library can't be read" error={library.error} />;
-  if (!library.data || !roles.data || !options.data) return null;
-  const open = making
-    ? undefined
-    : (library.data.find(({ id }) => id === pipelineId) ?? library.data[0]);
+  if (templates.error)
+    return <RefusalAlert title="The Stage templates can't be read" error={templates.error} />;
+  if (!library.data || !templates.data || !roles.data || !options.data) return null;
+  const openTemplate = making ? undefined : templates.data.find(({ id }) => id === stageTemplateId);
+  const open =
+    making || openTemplate
+      ? undefined
+      : (library.data.find(({ id }) => id === pipelineId) ?? library.data[0]);
+  const openedTemplate = templateOpened(openTemplate, making);
+  const stopMaking = (): void => setMaking(undefined);
   return (
     <div className="settings-split">
-      <LibraryList
-        library={library.data}
-        open={open}
-        making={making}
-        onMake={() => setMaking(true)}
-        onOpen={() => setMaking(false)}
-      />
-      <div className="library-detail">
-        {open && <PipelineHead pipeline={open} />}
-        <LibraryPipelineForm
-          // Each Pipeline, and each new one, starts its own draft.
-          key={open?.id ?? "new"}
-          pipeline={open}
-          roles={roles.data}
-          options={options.data}
-          onDone={() => setMaking(false)}
+      <div className="library-lists">
+        <LibraryList
+          library={library.data}
+          open={open}
+          making={making?.what === "pipeline"}
+          onMake={() => setMaking({ what: "pipeline" })}
+          onOpen={stopMaking}
         />
+        <StageTemplateList
+          templates={templates.data}
+          open={openTemplate}
+          roles={roles.data}
+          onMake={(kind) => setMaking({ what: "stage-template", kind })}
+          onOpen={stopMaking}
+        />
+      </div>
+      <div className="library-detail">
+        {openedTemplate ? (
+          <StageTemplateForm
+            // Each template, and each new one, starts its own draft.
+            key={
+              openedTemplate.template ? openedTemplate.template.id : `new-${openedTemplate.kind}`
+            }
+            opened={openedTemplate}
+            roles={roles.data}
+            options={options.data}
+            onDone={stopMaking}
+          />
+        ) : (
+          <>
+            {open && <PipelineHead pipeline={open} />}
+            <LibraryPipelineForm
+              // Each Pipeline, and each new one, starts its own draft.
+              key={open?.id ?? "new"}
+              pipeline={open}
+              roles={roles.data}
+              options={options.data}
+              onDone={stopMaking}
+            />
+          </>
+        )}
       </div>
     </div>
   );
+}
+
+function templateOpened(
+  template: StageTemplate | undefined,
+  making: Making | undefined,
+): StageTemplateOpened | undefined {
+  if (template) return { template };
+  return making?.what === "stage-template" ? { kind: making.kind } : undefined;
 }
 
 function LibraryList({
@@ -148,6 +202,113 @@ function LibraryItem({
         <Link
           to="/settings/pipelines/$pipelineId"
           params={{ pipelineId: id }}
+          onClick={onOpen}
+          {...parts}
+        />
+      )}
+    />
+  );
+}
+
+/**
+ * The Stage templates: "New template" in the head, a menu of the kinds, then a row per
+ * template as a link to its address.
+ */
+function StageTemplateList({
+  templates,
+  open,
+  roles,
+  onMake,
+  onOpen,
+}: {
+  readonly templates: readonly StageTemplate[];
+  readonly open: StageTemplate | undefined;
+  readonly roles: readonly Role[];
+  readonly onMake: (kind: StageKind) => void;
+  readonly onOpen: () => void;
+}): ReactNode {
+  return (
+    <PickList
+      name="Stage templates"
+      count={templates.length}
+      action={<NewStageTemplateMenu onMake={onMake} />}
+      empty="No Stage template yet. Make one with New template, or use Save as template on a Stage in a Pipeline."
+    >
+      {templates.map((template) => (
+        <StageTemplateItem
+          key={template.id}
+          template={template}
+          roles={roles}
+          picked={template.id === open?.id}
+          onOpen={onOpen}
+        />
+      ))}
+    </PickList>
+  );
+}
+
+function NewStageTemplateMenu({
+  onMake,
+}: {
+  readonly onMake: (kind: StageKind) => void;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  return (
+    <Menu
+      open={open}
+      onOpenChange={setOpen}
+      align="end"
+      width={200}
+      trigger={
+        <Button
+          size="sm"
+          variant="secondary"
+          iconLeft={<Icon name="plus" size={14} />}
+          // No chevron: beside "Stage templates" and its count, the column has no room for one.
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          New template
+        </Button>
+      }
+      items={(["agent", "script", "gate"] as const).map((kind) => ({
+        label: STAGE_KIND_NAMES[kind],
+        icon: <Icon name={STAGE_KIND_ICONS[kind]} size={14} />,
+        onSelect: () => onMake(kind),
+      }))}
+    />
+  );
+}
+
+/** A template in the list, flagged when it needs fixing or names a Role nobody fills. */
+function StageTemplateItem({
+  template,
+  roles,
+  picked,
+  onOpen,
+}: {
+  readonly template: StageTemplate;
+  readonly roles: readonly Role[];
+  readonly picked: boolean;
+  readonly onOpen: () => void;
+}): ReactNode {
+  const { id, stage } = template;
+  const check = useQuery(stageTemplateQueries.check({ stage, stageTemplateId: id }));
+  const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  return (
+    <PickListItem
+      picked={picked}
+      icon={{
+        glyph: <Icon name={STAGE_KIND_ICONS[stage.kind]} size={15} strokeWidth={1.6} />,
+        label: STAGE_KIND_NAMES[stage.kind],
+      }}
+      name={stage.name}
+      line={whoWorks(stage, roles)}
+      warning={needsFixing ? "Needs fixing" : undefined}
+      renderLink={(parts) => (
+        <Link
+          to="/settings/pipelines/stage-templates/$stageTemplateId"
+          params={{ stageTemplateId: id }}
           onClick={onOpen}
           {...parts}
         />
