@@ -551,13 +551,12 @@ test("the board groups by Initiative, kept in its address, its folds remembered,
   const reordered = ["Grouped radio third", "Grouped radio first", "Grouped radio second"];
   await expect.poll(() => titlesInGroup(page, "Backlog", "Grouped radio")).toEqual(reordered);
 
-  await radioBacklog
-    .getByRole("article", { name: "Grouped radio first" })
-    .dragTo(
-      page
-        .getByRole("region", { name: "Backlog, No Initiative", exact: true })
-        .getByRole("article", { name: "Grouped loose first" }),
-    );
+  const looseCard = page
+    .getByRole("region", { name: "Backlog, No Initiative", exact: true })
+    .getByRole("article", { name: "Grouped loose first" });
+  // Both cards in view before the drag: a page scrolled mid-drag can lose the drop.
+  await looseCard.scrollIntoViewIfNeeded();
+  await radioBacklog.getByRole("article", { name: "Grouped radio first" }).dragTo(looseCard);
   await expect(
     page.getByText(
       "A card moves only within its own group: the board doesn't change a Task's Initiative.",
