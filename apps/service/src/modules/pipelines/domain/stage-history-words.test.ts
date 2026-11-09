@@ -170,6 +170,29 @@ describe("stageHistoryWords", () => {
   it("answers plainly for a Task with no runs", () => {
     expect(stageHistoryWords(stages, [])).toBe("The Task has no Stage runs yet.");
   });
+
+  it("leaves the earliest runs out when their words alone would crowd the outputs out, keeping the latest", () => {
+    const longNote = "A long Handover note. ".repeat(250);
+    const runs = Array.from({ length: 40 }, (_, index) =>
+      aStageRun({
+        number: index + 1,
+        stageKey: "tests",
+        commandRuns: [aCommand({ output: `the output of run ${index + 1}` })],
+        outcome: { status: "done", summary: "Ran.", handoverNote: longNote },
+      }),
+    );
+
+    const words = stageHistoryWords(stages, runs);
+    const shown = words.match(/^## Run \d+/gm) ?? [];
+
+    expect(words.length).toBeLessThanOrEqual(STAGE_HISTORY_READ_LIMIT);
+    expect(shown.at(-1)).toBe("## Run 40");
+    expect(words).toContain("```\nthe output of run 40\n```");
+    expect(words).not.toContain("## Run 1\n");
+    expect(words).toContain(
+      `The Task's Stage runs, 40 in the order they ran: the ${40 - shown.length} earliest are left out to keep this answer within 60000 characters.`,
+    );
+  });
 });
 
 describe("stageRunWords", () => {

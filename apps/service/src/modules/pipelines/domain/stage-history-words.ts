@@ -20,22 +20,52 @@ export const STAGE_HISTORY_READ_LIMIT = 60_000;
 const CUT_NOTE_ROOM = 120;
 
 /**
+ * How much of the answer the runs' words may take in the whole history, so their outputs keep the
+ * rest: past it, the earliest runs are left out, as the latest are the ones a diagnosis needs.
+ */
+const HISTORY_WORDS_ROOM = STAGE_HISTORY_READ_LIMIT / 2;
+
+/**
  * A Task's Stage history as text (spec §2.3), in the order the runs ran: each run with its Stage,
  * its times, outcome, Handover note, Decisions, engine and tokens, and every Project command with
- * its filtered output. Capped as `STAGE_HISTORY_READ_LIMIT` says, each output keeping its end.
+ * its filtered output. Capped as `STAGE_HISTORY_READ_LIMIT` says: the earliest runs are left out
+ * when their words alone would crowd the outputs out, and each output keeps its end.
  */
 export function stageHistoryWords(stages: readonly Stage[], runs: readonly StageRun[]): string {
   if (runs.length === 0) return "The Task has no Stage runs yet.";
-  const parts = runs.flatMap((run) => [
-    ...runParts(stages, run, filteredOutputs(run)),
-    wordsPart("\n\n"),
-  ]);
+  const shown = latestRunsParts(runs.map((run) => runParts(stages, run, filteredOutputs(run))));
+  const parts = shown.flatMap((run) => [...run, wordsPart("\n\n")]);
   return capped([
-    wordsPart(
-      `The Task's Stage runs, ${runs.length} in the order they ran. Each command shows its filtered output; read one run by its number for each command's whole output.\n\n`,
-    ),
+    wordsPart(`${historyHeading(runs.length, runs.length - shown.length)}\n\n`),
     ...parts.slice(0, -1),
   ]);
+}
+
+function historyHeading(runCount: number, leftOut: number): string {
+  const order =
+    leftOut === 0
+      ? `The Task's Stage runs, ${runCount} in the order they ran.`
+      : `The Task's Stage runs, ${runCount} in the order they ran: the ${leftOut} earliest are left out to keep this answer within ${STAGE_HISTORY_READ_LIMIT} characters.`;
+  return `${order} Each command shows its filtered output; read one run by its number for each command's whole output.`;
+}
+
+/** The latest runs whose words fit `HISTORY_WORDS_ROOM`, the last run always among them. */
+function latestRunsParts(runsParts: readonly Part[][]): Part[][] {
+  const shown: Part[][] = [];
+  let room = HISTORY_WORDS_ROOM;
+  for (const parts of runsParts.toReversed()) {
+    const length = wordsLength(parts);
+    if (shown.length > 0 && length > room) break;
+    shown.unshift(parts);
+    room -= length;
+  }
+  return shown;
+}
+
+function wordsLength(parts: readonly Part[]): number {
+  return parts
+    .filter(({ kind }) => kind === "text")
+    .reduce((sum, { text }) => sum + text.length, 0);
 }
 
 /**
@@ -301,9 +331,7 @@ function durationWords(ms: number): string {
  */
 function capped(parts: readonly Part[]): string {
   const outputs = parts.filter(({ kind }) => kind === "output").map(({ text }) => text);
-  const fixed = parts
-    .filter(({ kind }) => kind === "text")
-    .reduce((sum, { text }) => sum + text.length, 0);
+  const fixed = wordsLength(parts);
   const fenceRoom = outputs.length * 16;
   const whole = fixed + fenceRoom + outputs.reduce((sum, output) => sum + output.length, 0);
   const shares =
