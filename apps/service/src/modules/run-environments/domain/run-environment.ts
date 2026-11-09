@@ -31,11 +31,62 @@ export interface CommandEnvironment {
   readonly prependPath: readonly string[];
 }
 
+/**
+ * The CPU limit's choice: Automatic follows this computer's cores (`automaticCpusOf`), Fixed puts
+ * one number on every service.
+ */
+export type CpuLimitChoice = "automatic" | "fixed";
+
+/** The CPU limit; the fixed number is kept while Automatic is chosen, for the next switch back. */
+export interface CpuLimit {
+  readonly choice: CpuLimitChoice;
+  readonly fixedCpus: number;
+}
+
 /** Each run environment's limits, set Office-wide (spec §5.5, "Limits"). */
 export interface RunEnvironmentLimits {
-  readonly cpus: number;
+  readonly cpuLimit: CpuLimit;
   readonly memoryMegabytes: number;
   readonly processes: number;
+}
+
+/** The cores Automatic leaves to The Office and the rest of the computer. */
+export const CORES_LEFT_FOR_THE_HOST = 2;
+/** Automatic's cap on every service but the checks' one, such as Postgres. */
+export const OTHER_SERVICES_CPUS = 2;
+
+/** What Automatic gives each run environment on a computer with this many cores. */
+export interface AutomaticCpus {
+  readonly checksCpus: number;
+  readonly otherServicesCpus: number;
+}
+
+/**
+ * Every run environment gets the same caps rather than a share of the cores: the container runtime
+ * weighs running containers equally, so one running Task can use the idle cores and two split them.
+ */
+export function automaticCpusOf(hostCores: number): AutomaticCpus {
+  const checksCpus = Math.max(1, hostCores - CORES_LEFT_FOR_THE_HOST);
+  return { checksCpus, otherServicesCpus: Math.min(OTHER_SERVICES_CPUS, checksCpus) };
+}
+
+/** The CPUs one service of a run environment may use. */
+export function serviceCpusOf(
+  cpuLimit: CpuLimit,
+  hostCores: number,
+  isChecksService: boolean,
+): number {
+  if (cpuLimit.choice === "fixed") return cpuLimit.fixedCpus;
+  const automatic = automaticCpusOf(hostCores);
+  return isChecksService ? automatic.checksCpus : automatic.otherServicesCpus;
+}
+
+/** Why a CPU limit can't be saved on this computer, in the UI's words; undefined when it can. */
+export function cpuLimitProblemOf(cpuLimit: CpuLimit, hostCores: number): string | undefined {
+  if (cpuLimit.fixedCpus < 1 || cpuLimit.fixedCpus > hostCores) {
+    return `A fixed CPU limit is between 1 and this computer's ${hostCores} cores.`;
+  }
+  return undefined;
 }
 
 /** The Office-wide settings of run environments. */
@@ -47,7 +98,11 @@ export interface RunEnvironmentOptions {
 
 /** The spec's defaults, until Settings changes them. */
 export const DEFAULT_RUN_ENVIRONMENT_OPTIONS: RunEnvironmentOptions = {
-  limits: { cpus: 2, memoryMegabytes: 4096, processes: 1024 },
+  limits: {
+    cpuLimit: { choice: "automatic", fixedCpus: 2 },
+    memoryMegabytes: 4096,
+    processes: 1024,
+  },
   runEnvironmentsAtOnce: 2,
 };
 
@@ -89,7 +144,8 @@ export function composeProjectNameOf(instance: string, taskId: string): string {
  * The compose file The Office puts over the repository's: the image and the worktree on the
  * checks' service, The Office's labels on every service, network and volume, and the limits on
  * every service. Compose takes a later file's values over an earlier one's, so the definition can't
- * undo any of it.
+ * undo any of it. No service gets `cpu_shares`: the runtime's default weight is already equal, and
+ * an explicit 1024 would lower it under cgroup v2.
  */
 export function composeOverrideOf(
   definition: RunEnvironmentDefinition,
@@ -97,6 +153,7 @@ export function composeOverrideOf(
   image: string,
   instance: string,
   limits: RunEnvironmentLimits,
+  hostCores: number,
 ): Record<string, unknown> {
   const labels = { ...taskLabels(instance, task.taskId), [LABEL.project]: task.projectId };
   const services = Object.fromEntries(
@@ -104,7 +161,7 @@ export function composeOverrideOf(
       service,
       {
         labels,
-        cpus: limits.cpus,
+        cpus: serviceCpusOf(limits.cpuLimit, hostCores, service === definition.service),
         mem_limit: `${limits.memoryMegabytes}m`,
         // No swap above the memory limit, so the limit holds.
         memswap_limit: `${limits.memoryMegabytes}m`,

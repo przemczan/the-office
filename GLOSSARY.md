@@ -250,6 +250,10 @@ _Avoid_: Setup, initialization, provisioning
 A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile, and On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else adds the Project's "Set up the run environment" Task, in which Devops writes it, and its Done turns the setting On.
 _Avoid_: dev container, sandbox
 
+**CPU limit**:
+The CPUs each service of a run environment may use, set Office-wide in Settings › Office limits: Automatic (the default) follows this computer's cores, the checks' service getting all but 2 and every other service 2; Fixed gives every service one number. A change applies from each run environment's next start.
+_Avoid_: CPU cap, CPU quota, cpus
+
 **Stage**:
 One step of a Pipeline: work by an Agent in a Role, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)

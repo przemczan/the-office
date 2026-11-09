@@ -16,6 +16,7 @@ import { roleEventInvalidations } from "./api/people.ts";
 import { pipelineEventInvalidations } from "./api/pipelines.ts";
 import { projectEventInvalidations, repositoryCloneEventInvalidations } from "./api/projects.ts";
 import { officeUpdateEventInvalidations } from "./api/office-updates.ts";
+import { runEnvironmentEventInvalidations } from "./api/run-environments.ts";
 import { skillEventInvalidations } from "./api/skills.ts";
 import { workEventInvalidations } from "./api/work.ts";
 import { router } from "./router.tsx";
@@ -32,6 +33,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...officeUpdateEventInvalidations,
   ...mcpServerEventInvalidations,
   ...gitHubEventInvalidations,
+  ...runEnvironmentEventInvalidations,
   ...engineEventInvalidations,
   ...threadEventInvalidations,
   ...workEventInvalidations,

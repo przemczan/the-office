@@ -60,7 +60,11 @@ describe.skipIf(missing !== undefined)(
     beforeAll(async () => {
       process.env[HOST_ONLY] = "leaked";
       testbed = await runEnvironmentsTestbed(runtime, {
-        limits: { cpus: 1, memoryMegabytes: 256, processes: 128 },
+        limits: {
+          cpuLimit: { choice: "fixed", fixedCpus: 1 },
+          memoryMegabytes: 256,
+          processes: 128,
+        },
         runEnvironmentsAtOnce: 1,
       });
       new ProjectsTaskRunEnvironments(

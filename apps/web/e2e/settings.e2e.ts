@@ -67,6 +67,48 @@ test("Office limits keeps the desks, the size threshold and the Archive period a
   await expect(archivePeriod).toHaveText("30 days");
 });
 
+// The e2e files share one database: the CPU limit goes back to Automatic at the end. The cores are
+// the e2e machine's, so the numbers are matched by their shape.
+test("Office limits keeps the run environments' CPU limit across reloads", async ({ page }) => {
+  await page.goto("/settings/office-limits");
+  const card = page.locator("section:not(:has(section))", {
+    hasText: "CPUs per run environment",
+  });
+  const automatic = card.getByRole("tab", { name: "Automatic" });
+  const fixed = card.getByRole("tab", { name: "Fixed" });
+  const fixedCpus = card.getByRole("status", { name: "the CPUs per service" });
+  await expect(automatic).toHaveAttribute("aria-selected", "true");
+  await expect(
+    card.getByText(/^Automatic follows this computer's cores: the checks get \d+ of its \d+,/),
+  ).toBeVisible();
+  await expect(
+    card.getByText("A change applies from each run environment's next start; running ones keep"),
+  ).toBeVisible();
+  await expect(fixedCpus).toBeHidden();
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-settings-office-limits-run-environments.png"),
+  });
+
+  await fixed.click();
+  await expect(fixed).toHaveAttribute("aria-selected", "true");
+  await expect(fixedCpus).toHaveText(/^\d+ CPUs?$/);
+  const savedCpus = await fixedCpus.textContent();
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-settings-office-limits-run-environments-fixed.png"),
+  });
+
+  await page.reload();
+  await expect(fixed).toHaveAttribute("aria-selected", "true");
+  await expect(fixedCpus).toHaveText(savedCpus ?? "");
+
+  await automatic.click();
+  await expect(automatic).toHaveAttribute("aria-selected", "true");
+  await expect(fixedCpus).toBeHidden();
+  await page.reload();
+  await expect(automatic).toHaveAttribute("aria-selected", "true");
+});
+
 // The e2e files share one database: the text is emptied at the end, as every other file's sessions
 // would get it.
 test("Office instructions keeps a saved text across reloads", async ({ page }) => {

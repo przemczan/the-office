@@ -24,7 +24,11 @@ import {
 import { ComposeCommandLine } from "./compose-command-line.js";
 
 const OPTIONS: RunEnvironmentOptions = {
-  limits: { cpus: 1, memoryMegabytes: 256, processes: 128 },
+  limits: {
+    cpuLimit: { choice: "fixed", fixedCpus: 1 },
+    memoryMegabytes: 256,
+    processes: 128,
+  },
   runEnvironmentsAtOnce: 2,
 };
 

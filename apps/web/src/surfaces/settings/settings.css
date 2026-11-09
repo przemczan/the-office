@@ -347,3 +347,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* The Run environments card: Automatic or Fixed, and the fixed number beside it. */
+.cpu-limit-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

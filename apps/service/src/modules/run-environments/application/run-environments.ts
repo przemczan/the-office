@@ -35,6 +35,7 @@ import {
 import { KnownTasks } from "../ports/known-tasks.js";
 import { RunEnvironmentSettings } from "../ports/run-environment-settings.js";
 import { readDefinitionIn } from "./definition-files.js";
+import { HostCores } from "./host-cores.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
@@ -103,6 +104,7 @@ export class RunEnvironments implements OnModuleInit {
     private readonly folders: RunEnvironmentFolders,
     private readonly knownTasks: KnownTasks,
     private readonly settings: RunEnvironmentSettings,
+    private readonly hostCores: HostCores,
     private readonly schedule: Schedule,
     private readonly busyWork: BusyWork,
     private readonly events: EventBus,
@@ -330,7 +332,16 @@ export class RunEnvironments implements OnModuleInit {
     const override = join(folder, OVERRIDE_FILE);
     await writeFile(
       override,
-      stringifyYaml(composeOverrideOf(definition, task, image, this.folders.instance, limits)),
+      stringifyYaml(
+        composeOverrideOf(
+          definition,
+          task,
+          image,
+          this.folders.instance,
+          limits,
+          this.hostCores.count,
+        ),
+      ),
     );
     return {
       name: composeProjectNameOf(this.folders.instance, task.taskId),

@@ -9,6 +9,7 @@ import type { RunEnvironmentOptions, TaskInWorktree } from "../domain/run-enviro
 import type { ContainerRuntime } from "../ports/container-runtime.js";
 import { KnownTasks, type KnownTask } from "../ports/known-tasks.js";
 import { RunEnvironmentSettingsForTests } from "../ports/run-environment-settings.fixtures.js";
+import { HostCores } from "./host-cores.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
@@ -27,6 +28,9 @@ export class KnownTasksForTests extends KnownTasks {
     return task ? Promise.resolve(task) : Promise.reject(new Error(`No Task ${id}.`));
   }
 }
+
+/** The cores the testbed's computer has, whatever machine runs the test. */
+const TESTBED_HOST_CORES = 4;
 
 /** RunEnvironments wired by hand on the runtime given, in an Office data directory of its own. */
 export interface RunEnvironmentsTestbed {
@@ -59,6 +63,7 @@ export async function runEnvironmentsTestbed(
     folders,
     knownTasks,
     settings,
+    new HostCores(TESTBED_HOST_CORES),
     schedule,
     busyWork,
     events,

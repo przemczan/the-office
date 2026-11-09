@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { CpuLimit } from "./run-environment.js";
 
 /** A Task's run environment was started for the first time: its compose project is up. */
 export class RunEnvironmentCreated extends DomainEvent {
@@ -24,6 +25,13 @@ export class RunEnvironmentImageBuilt extends DomainEvent {
     readonly projectId: string,
     readonly image: string,
   ) {
+    super();
+  }
+}
+
+/** Settings saved a new CPU limit; each run environment's next start reads it. */
+export class RunEnvironmentCpuLimitChanged extends DomainEvent {
+  constructor(readonly cpuLimit: CpuLimit) {
     super();
   }
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "run_environment_settings" ADD COLUMN "cpu_limit" text DEFAULT 'automatic' NOT NULL;--> statement-breakpoint
+ALTER TABLE "run_environment_settings" ADD CONSTRAINT "run_environment_settings_cpu_limit" CHECK ("run_environment_settings"."cpu_limit" in ('automatic', 'fixed'));

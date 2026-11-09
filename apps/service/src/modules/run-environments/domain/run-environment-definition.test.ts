@@ -193,6 +193,15 @@ networks:
     ]);
   });
 
+  // The override sets no shares, so the runtime's equal default weight is what holds.
+  it("reports CPU shares a service sets of its own", () => {
+    expect(
+      definitionProblems("services:\n  app:\n    image: node:22\n    cpu_shares: 4096\n"),
+    ).toEqual([
+      'The service app in .devcontainer/compose.yaml sets "cpu_shares": The Office sets every service\'s limits.',
+    ]);
+  });
+
   it("reports a build setting The Office doesn't support", () => {
     expect(
       definitionProblems("services:\n  app:\n    build:\n      context: .\n      ssh: [default]\n"),

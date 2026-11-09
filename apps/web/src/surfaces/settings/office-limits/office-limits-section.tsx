@@ -17,11 +17,12 @@ import {
 import { tokensShort } from "../../../shell/conversation/context-words.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
+import { RunEnvironmentsCard } from "./run-environments-card.tsx";
 import { UsageCard } from "./usage-card.tsx";
 
 /**
- * Settings › Office limits: the desks, the usage measures and caps, the size threshold and the
- * Archive period.
+ * Settings › Office limits: the desks, the usage measures and caps, the size threshold, the
+ * Archive period and the run environments' CPU limit.
  */
 export function OfficeLimitsSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Office limits" });
@@ -31,6 +32,7 @@ export function OfficeLimitsSection(): ReactNode {
       <UsageCard />
       <SizeThresholdCard />
       <ArchiveCard />
+      <RunEnvironmentsCard />
     </>
   );
 }
