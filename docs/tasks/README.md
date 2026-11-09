@@ -80,7 +80,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 50 | [Office instructions: general guidelines for everyone](50-office-instructions.md) | Settings | done |
 | 38 | Archive, and moving Tasks between Projects: run as the Initiative `145c5f3c-bf2b-4bf3-b3cb-760ad58655f8` | Work | done |
 | 39 | Attachment versions | Work and the Task page | postponed |
-| 40 | Stage templates in the Pipeline library | Projects | todo |
+| 40 | Stage templates in the Pipeline library: run as the Initiative `3aac6565-55c3-405c-bda4-58e6c6261591` | Projects | in progress |
 | 41 | The Graphite and Paper palettes, the densities, skill usage counts | Settings | todo |
 | 42 | Email and chat-app Notifications | Now | todo |
 | 43 | Talking to The Office from chat apps | Conversations | todo |
