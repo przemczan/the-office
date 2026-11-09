@@ -17,7 +17,7 @@ From [13](../../.scratch/the-office/issues/13-first-slice.md), with [16](../../.
 | Context policy | All of [2.5](2.5-context-policy.md) |
 | Skills | The library from uploads and skills written in place; review before use; assignment on the Role card; "everyone"; the per-session plugin folder |
 | Permissions | All of [6](6-permissions-and-safety.md) except holding an enforced Hard switch's call, which no tier 1 Role needs ([9](README.md#defaults)); every Consult value falls back to the user; the preset profiles, not yet editable |
-| Shell | A3 · Desk: rail, top bar with Idea, status strip (needs you, tokens today, 5-hour window); Now; the Needs you panel; the Task page; the chat drawer; the theme layers with Light and Dark |
+| Shell | A3 · Desk: rail, top bar with Idea, status strip (needs you, tokens today, 5-hour window, Workstation figure); Now; the Needs you panel; the Task page; the chat drawer; the theme layers with Light and Dark |
 | Notifications | In-app and desktop; the kinds tree in code |
 
 ## Tier 2: the all-day workspace

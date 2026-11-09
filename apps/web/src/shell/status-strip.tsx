@@ -19,11 +19,13 @@ import { useNeedsYou } from "./notifications/use-needs-you.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
 import { TokenCount } from "./token-count.tsx";
 import { UsageFigure } from "./usage-figure.tsx";
+import { WorkstationFigure } from "./workstation/workstation-figure.tsx";
 
 /**
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
  * user in the Projects shown, which opens the Needs you panel, desks in use, tokens today, the usage figure, Tasks
- * touched and done since the user left, an Office update while one is scheduled, and the fire
+ * touched and done since the user left, then on the right the Workstation figure (polled on its
+ * own, so it shows while Now loads), an Office update while one is scheduled, and the fire
  * alarm's state, its desks at 0 while it is on.
  * While the web has lost the service it says so first,
  * and the Office's own Notifications (the window, the engine) show here until they clear, by the
@@ -55,6 +57,7 @@ export function StatusStrip(): ReactNode {
       })}
       {now && <Figures now={now} />}
       <span className="shell-grow" />
+      <WorkstationFigure />
       <ScheduledUpdate />
       <DesktopPermission />
       {now && (

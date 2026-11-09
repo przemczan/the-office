@@ -324,6 +324,40 @@ test.describe("the usage figure", () => {
   });
 });
 
+test.describe("the Workstation figure", () => {
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+
+  test("shows the CPU use and cores, measured from the next read, and opens the panel", async ({
+    page,
+  }) => {
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+    const figure = strip.getByRole("button", { name: /^Workstation: / });
+
+    // The service measures over the time since its last read, which the next 2 s poll gives.
+    await expect(figure).toHaveAccessibleName(/^Workstation: \d+% CPU, \d+ cores?$/);
+    await expect(figure).toHaveText(/^\d+%CPU · \d+ cores?$/);
+
+    await figure.click();
+    const panel = page.getByRole("dialog", { name: "Workstation" });
+    await expect(panel.getByRole("heading", { name: "CPU" })).toBeVisible();
+    await expect(panel.getByRole("heading", { name: "Memory" })).toBeVisible();
+    await expect(panel).toContainText(/Used[\d.]+ GB \/ [\d.]+ GB/);
+    await expect(panel.getByRole("list", { name: "Use per core" })).toBeVisible();
+    await expect(panel).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: path.join(SCREENSHOTS, "workstation-panel.png") });
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+
+    // Narrow, it keeps the icon and the % alone.
+    await page.setViewportSize({ width: 700, height: 900 });
+    await expect(figure.locator("b")).toHaveText(/^\d+%$/);
+    await expect(figure.locator("b")).toBeVisible();
+    await expect(figure.locator(".shell-strip-workstation-detail")).toBeHidden();
+  });
+});
+
 test.describe("losing the service", () => {
   test.use({ colorScheme: "light" });
 

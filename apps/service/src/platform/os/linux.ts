@@ -58,6 +58,7 @@ export function linux({ variables, homeDirectory, userId }: UserEnvironment): Op
       posix.join(homeDirectory, "snap", "firefox"),
     ],
     sshPrograms: { ssh: "ssh", keygen: "ssh-keygen", keyscan: "ssh-keyscan" },
+    hasLoadAverage: true,
     sameVariableName: (one, other) => one === other,
     gitHomeDirectory: (commandVariables) => commandVariables["HOME"] || homeDirectory,
     restrictToOwner: (path, kind) => chmod(path, kind === "folder" ? 0o700 : 0o600),

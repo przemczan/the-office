@@ -150,6 +150,10 @@ _Avoid_: Rate, pricing, price table
 Where a reading of the usage windows came from: the account's usage endpoint, or the rate-limit headers of the engine's last model reply. The two round differently, so the window % per token a Usage estimate uses is learnt only from successive readings of one source; a reading whose source is unknown is paired with none.
 _Avoid_: Full answer, short answer, kind
 
+**Workstation figure**:
+The status strip's CPU and memory figures for the computer The Office runs on: the CPU use now and its logical cores, opening a panel with the CPU, the memory, The Office's own memory and the uptime; refreshed every 2 s while the tab is visible.
+_Avoid_: System monitor, host stats, machine load
+
 **Files to change**:
 The files and folders a Plan expects to change, written by the Planner with the Plan and confirmed with it; a folder covers the files under it. Start weighs an Overlap on them.
 _Avoid_: Touch set, affected files, scope

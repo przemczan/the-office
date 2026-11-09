@@ -69,6 +69,7 @@ import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
 import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
+import { WorkstationModule } from "./platform/workstation/workstation.module.js";
 
 // The Office's own git checkout, from this file in apps/service/src/ or dist/.
 const OFFICE_CHECKOUT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -189,6 +190,7 @@ export class AppModule {
         TelemetryModule,
         WebAppModule.register(webApp),
         work,
+        WorkstationModule,
       ],
     };
   }

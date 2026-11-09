@@ -68,6 +68,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     get sshPrograms() {
       return gitForWindowsSsh(variables);
     },
+    hasLoadAverage: false,
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
     gitHomeDirectory: (commandVariables) => gitForWindowsHome(commandVariables, homeDirectory),
     restrictToOwner: (path, kind) => icaclsOwnerOnly(variables, path, kind),

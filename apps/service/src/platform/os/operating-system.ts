@@ -43,6 +43,8 @@ export interface OperatingSystem {
   readonly claudeCodeBinaries: readonly string[];
   /** The OpenSSH programs The Office's git runs: on Windows, the ones Git for Windows bundles. */
   readonly sshPrograms: SshPrograms;
+  /** Whether the system reports a load average: Node's `loadavg()` gives zeros on Windows. */
+  readonly hasLoadAverage: boolean;
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
   /**

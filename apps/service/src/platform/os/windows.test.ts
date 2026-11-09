@@ -46,6 +46,10 @@ describe("windows", () => {
     );
   });
 
+  it("has no load average", () => {
+    expect(windows({ variables: {}, homeDirectory }).hasLoadAverage).toBe(false);
+  });
+
   describe("paths", () => {
     const { paths } = windows({ variables: {}, homeDirectory });
 

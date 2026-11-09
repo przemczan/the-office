@@ -35,6 +35,10 @@ describe("linux", () => {
     expect(linux({ variables: {}, homeDirectory }).officeUpdateRefusal).toBeUndefined();
   });
 
+  it("reports a load average", () => {
+    expect(linux({ variables: {}, homeDirectory }).hasLoadAverage).toBe(true);
+  });
+
   describe("paths", () => {
     const { paths } = linux({ variables: {}, homeDirectory });
 
