@@ -25,7 +25,7 @@ export interface SessionPerson {
 export function chatInstructions(person: SessionPerson, roleKey: string): string {
   return [
     ...personInstructions(person),
-    `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.`,
+    `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title.`,
     // Devops reached for Grep on the repository it onboarded, refused outside its folders (task 33's run).
     ...(roleKey === DEVOPS ? [READ_REPOSITORY_RULE] : []),
   ].join("\n\n");

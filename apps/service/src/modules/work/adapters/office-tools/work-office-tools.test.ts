@@ -111,6 +111,7 @@ describe("create_task", () => {
     );
     expect(task).toMatchObject({
       title: "Fix the login redirect",
+      description: "",
       state: "backlog",
       priority: "normal",
       pipelineId: "quick-fix",
@@ -120,6 +121,19 @@ describe("create_task", () => {
       text: `Created the Task "Fix the login redirect" (Task ${task?.id}) in Backlog in ${projectId}, on the Pipeline quick-fix.`,
       isError: false,
     });
+  });
+
+  it("saves the Description the person gives, trimmed", async () => {
+    await call(CREATE_TASK, {
+      title: "Remember the last Project",
+      description: "  The Add Task form should start on the Project I used last.\n",
+      projectId,
+    });
+
+    const task = (await work.app.get(TaskService).list()).find(
+      (candidate) => candidate.title === "Remember the last Project",
+    );
+    expect(task?.description).toBe("The Add Task form should start on the Project I used last.");
   });
 
   it("refuses a Project The Office doesn't know, with every reason", async () => {

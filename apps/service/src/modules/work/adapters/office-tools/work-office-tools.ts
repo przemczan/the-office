@@ -135,16 +135,22 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: CREATE_TASK,
       description:
-        "Creates a Task in Backlog in your name, in one Project, when the user asks for one or agrees to it. It follows the Project's default Pipeline; planning it comes after.",
+        "Creates a Task in Backlog in your name, in one Project, when the user asks for one or agrees to it. It follows the Project's default Pipeline; planning it comes after. Give it a title and, when the user said what it is for, a Description the Planner plans from.",
       input: z.object({
         title: z.string().describe("One line naming the outcome."),
+        description: z
+          .string()
+          .optional()
+          .describe(
+            "What the Task is for, in the user's own words; none when the title says it all.",
+          ),
         projectId: z.string().describe("The Project's id, as list_projects gives it."),
         priority: z.enum(PRIORITIES).optional().describe("Normal unless the user says otherwise."),
       }),
-      run: ({ title, projectId, priority }, { sessionId }) =>
+      run: ({ title, description, projectId, priority }, { sessionId }) =>
         answered(async () => {
           const task = await this.tasks.create(
-            { title, projectId, priority: priority ?? "normal" },
+            { title, description, projectId, priority: priority ?? "normal" },
             await personInSession(this.sessionPeople, sessionId),
           );
           return `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Pipeline ${task.pipelineId}.`;
