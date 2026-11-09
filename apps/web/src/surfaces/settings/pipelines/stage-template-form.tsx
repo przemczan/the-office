@@ -9,6 +9,7 @@ import {
   saveStageTemplate,
   stageTemplateQueries,
 } from "../../../api/pipelines.ts";
+import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
 import { StageCheckAlerts } from "../../../shell/pipelines/stage-check-alerts.tsx";
 import {
   STAGE_KIND_ICONS,
@@ -29,7 +30,9 @@ export type StageTemplateOpened =
 /**
  * The open Stage template in the Stage editor's own form, saved or discarded as a whole; a new one
  * is added the same way. Problems the service would refuse hold Save; a Role nobody fills is only
- * flagged. A template has no "On failure": going back names a Stage only a Pipeline has.
+ * flagged. A template has no "On failure": going back names a Stage only a Pipeline has. A draft
+ * with no changes follows the saved template, so one changed elsewhere, such as by a Proposal
+ * applied in a chat, shows as saved.
  */
 export function StageTemplateForm({
   opened,
@@ -45,9 +48,20 @@ export function StageTemplateForm({
 }): ReactNode {
   const { template } = opened;
   const saved = template ? template.stage : standaloneStage(opened.kind);
+  const savedText = JSON.stringify(saved);
   const [draft, setDraft] = useState<Stage>(saved);
+  const [followed, setFollowed] = useState(savedText);
+  // Counts the times the draft followed the saved template, to start the fields' own typing over.
+  const [follows, setFollows] = useState(0);
+  if (followed !== savedText) {
+    setFollowed(savedText);
+    if (JSON.stringify(draft) === followed) {
+      setDraft(saved);
+      setFollows(follows + 1);
+    }
+  }
   const [removing, setRemoving] = useState(false);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  const dirty = JSON.stringify(draft) !== savedText;
   const check = useQuery({
     ...stageTemplateQueries.check({ stage: draft, stageTemplateId: template?.id }),
     placeholderData: keepPreviousData,
@@ -83,6 +97,14 @@ export function StageTemplateForm({
             {name}
           </span>
         }
+        actions={
+          template && (
+            <AskDevopsButton
+              label={(person) => `Ask ${person}`}
+              draft={`Can you propose a change to the ${template.stage.name} Stage template? `}
+            />
+          )
+        }
       >
         <p className="settings-note">
           {STAGE_KIND_NAMES[draft.kind]} template. Adding it to a Pipeline or a Task copies it in:
@@ -95,6 +117,7 @@ export function StageTemplateForm({
             problemsTitle="The Stage template can't be saved yet"
           />
           <StageForm
+            key={follows}
             stages={[draft]}
             index={0}
             onChange={([changed]) => changed && setDraft(changed)}

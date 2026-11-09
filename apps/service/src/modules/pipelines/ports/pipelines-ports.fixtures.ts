@@ -9,7 +9,7 @@ import { PipelineRoleSources } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
-import { ProposalDrafts, type ProposedPipelineChange } from "./proposal-drafts.js";
+import { ProposalDrafts, type ProposedLibraryChange } from "./proposal-drafts.js";
 import {
   StageDecisions,
   type OpenedStageDecision,
@@ -798,9 +798,9 @@ export class TaskPublishingForTests extends TaskPublishing {
 /** Conversations' Proposals: what was drafted, by session. */
 @Injectable()
 export class ProposalDraftsForTests extends ProposalDrafts {
-  readonly drafted: { readonly sessionId: string; readonly change: ProposedPipelineChange }[] = [];
+  readonly drafted: { readonly sessionId: string; readonly change: ProposedLibraryChange }[] = [];
 
-  draft(sessionId: string, change: ProposedPipelineChange): Promise<{ readonly id: string }> {
+  draft(sessionId: string, change: ProposedLibraryChange): Promise<{ readonly id: string }> {
     this.drafted.push({ sessionId, change });
     return Promise.resolve({ id: randomUUID() });
   }

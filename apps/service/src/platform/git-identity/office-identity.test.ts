@@ -27,8 +27,6 @@ import {
 } from "./user-credentials.fixtures.js";
 
 const run = promisify(execFile);
-/** Where git runs, so the checkout's own .git, unreachable in a run environment, plays no part. */
-const OUTSIDE_ANY_REPOSITORY = tmpdir();
 const operatingSystem = currentOperatingSystem();
 const [bash] = operatingSystem.agentShells;
 const gitLfsInstalled = await isGitLfsInstalled();
@@ -451,8 +449,10 @@ async function gitCommand(
   environment: Readonly<Record<string, string | undefined>>,
 ): Promise<{ exitCode: number; stderr: string }> {
   return run("git", [...configArguments, ...gitArguments], {
-    cwd: OUTSIDE_ANY_REPOSITORY,
     env: environment,
+    // Outside any repository: git reads the one it finds in its working directory, and a worktree's
+    // .git can point where a run environment doesn't mount.
+    cwd: tmpdir(),
     timeout: 20_000,
     windowsHide: true,
   }).then(

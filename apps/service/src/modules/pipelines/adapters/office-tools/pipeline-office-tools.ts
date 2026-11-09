@@ -3,7 +3,9 @@ import { stageSchema } from "@the-office/contracts";
 import { z } from "zod";
 import {
   LIST_PIPELINES_TOOL,
+  LIST_STAGE_TEMPLATES_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
+  PROPOSE_STAGE_TEMPLATE_TOOL,
   ProposalRefused,
 } from "../../../conversations/index.js";
 import {
@@ -14,24 +16,30 @@ import {
 import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
 import { StageProjectCommands } from "../../application/stage-project-commands.js";
+import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf, PROJECT_COMMAND_KEYS } from "../../domain/agent-command.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
 import { ProposalDrafts } from "../../ports/proposal-drafts.js";
-import { toPipelineResponse } from "../http/pipeline-responses.js";
+import { toPipelineResponse, toStageTemplateResponse } from "../http/pipeline-responses.js";
 
-const DRAFTED =
+const PIPELINE_DRAFTED =
   "The Proposal is in this Thread as a card, with the Pipeline's Stages now and as proposed; nothing changes until the user applies it, and it is refused if the Stages change first. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
+const STAGE_TEMPLATE_DRAFTED =
+  "The Proposal is in this Thread as a card, with the template's Stage now and as proposed; nothing changes until the user applies it, and it is refused if the template changes first. Don't wait for it: tell the user what you propose and why, in a line or two.";
+
 /**
- * The Office tools Devops reads the Pipeline library and proposes a library Pipeline's new Stages
- * with (spec §2.3). Proposing changes nothing itself, so it sits behind no Hard switch: the user's
- * click on the Proposal is the approval. Both return at once.
+ * The Office tools Devops reads the Pipeline library and its Stage templates with, and proposes a
+ * library Pipeline's new Stages or a template's new Stage with (spec §2.3). Proposing changes
+ * nothing itself, so it sits behind no Hard switch: the user's click on the Proposal is the
+ * approval. They all return at once.
  */
 @Injectable()
 export class PipelineOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly library: PipelineLibrary,
+    private readonly stageTemplates: StageTemplateLibrary,
     private readonly proposals: ProposalDrafts,
     private readonly branchUpdate: StageBranchUpdate,
     private readonly projectCommands: StageProjectCommands,
@@ -40,6 +48,8 @@ export class PipelineOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registerListPipelines();
     this.registerProposePipeline();
+    this.registerListStageTemplates();
+    this.registerProposeStageTemplate();
     this.registerUpdateBranch();
     this.registerRunProjectCommand();
   }
@@ -111,7 +121,7 @@ export class PipelineOfficeTools implements OnModuleInit {
         if (!pipeline) {
           return { text: `The library has no Pipeline "${pipelineId}".`, isError: true };
         }
-        return drafted(() =>
+        return drafted(PIPELINE_DRAFTED, () =>
           this.proposals.draft(sessionId, {
             kind: "pipeline",
             pipelineId: pipeline.id,
@@ -122,13 +132,61 @@ export class PipelineOfficeTools implements OnModuleInit {
       },
     });
   }
+
+  private registerListStageTemplates(): void {
+    this.registry.register({
+      name: LIST_STAGE_TEMPLATES_TOOL,
+      description:
+        "Lists the Stage templates: each template's id and Stage, as JSON in the shape propose_stage_template takes it.",
+      input: z.object({}),
+      run: async () => ({
+        text: JSON.stringify(
+          (await this.stageTemplates.list()).map(toStageTemplateResponse),
+          null,
+          2,
+        ),
+        isError: false,
+      }),
+    });
+  }
+
+  private registerProposeStageTemplate(): void {
+    this.registry.register({
+      name: PROPOSE_STAGE_TEMPLATE_TOOL,
+      description:
+        "Drafts a new Stage for a Stage template as a Proposal the user applies with a click. It shows in this Thread as a card, with the Stage now and the one proposed, and changes nothing until the user applies it. A template keeps no loop target. It returns at once.",
+      input: z.object({
+        template: z.string().describe("The template's id, as list_stage_templates gives it."),
+        stage: stageSchema.describe(
+          "The template's Stage as it should be, whole, in the shape list_stage_templates gives it.",
+        ),
+      }),
+      run: async ({ template: templateId, stage }, { sessionId }) => {
+        const template = await this.stageTemplates.find(templateId.trim());
+        if (!template) {
+          return { text: `There is no Stage template "${templateId}".`, isError: true };
+        }
+        return drafted(STAGE_TEMPLATE_DRAFTED, () =>
+          this.proposals.draft(sessionId, {
+            kind: "stage-template",
+            templateId: template.id,
+            from: template.stage,
+            to: stage,
+          }),
+        );
+      },
+    });
+  }
 }
 
-/** Drafts with `draft`, answering the Agent that it is drafted, or with why it was refused. */
-async function drafted(draft: () => Promise<unknown>): Promise<OfficeToolResult> {
+/** Drafts with `draft`, answering the Agent `draftedText`, or with why it was refused. */
+async function drafted(
+  draftedText: string,
+  draft: () => Promise<unknown>,
+): Promise<OfficeToolResult> {
   try {
     await draft();
-    return { text: DRAFTED, isError: false };
+    return { text: draftedText, isError: false };
   } catch (error) {
     if (error instanceof ProposalRefused) return { text: error.message, isError: true };
     throw error;

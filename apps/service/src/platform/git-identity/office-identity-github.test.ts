@@ -221,9 +221,10 @@ async function gitCommand(
   environment: Readonly<Record<string, string | undefined>>,
 ): Promise<{ exitCode: number; stderr: string }> {
   return run("git", [...gitArguments], {
-    // Outside any repository, so the checkout's own .git, unreachable in a run environment, plays no part.
-    cwd: tmpdir(),
     env: environment,
+    // Outside any repository: git reads the one it finds in its working directory, and a worktree's
+    // .git can point where a run environment doesn't mount.
+    cwd: tmpdir(),
     timeout: 30_000,
     windowsHide: true,
   }).then(

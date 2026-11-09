@@ -1,7 +1,12 @@
-import type { ProjectCommandFields, ProposedChange, Stage } from "@the-office/contracts";
+import type { ProjectCommandFields, ProposedChange, Role, Stage } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { stageChanges, stagesLine, type StageChange } from "../pipelines/pipeline-words.ts";
+import {
+  stageChanges,
+  stageFieldChanges,
+  stagesLine,
+  type StageChange,
+} from "../pipelines/pipeline-words.ts";
 import {
   COMMAND_KEYS,
   COMMAND_LABELS,
@@ -79,6 +84,25 @@ export function ProposedStageChanges({
         ))}
       </dl>
     </>
+  );
+}
+
+/** A Stage template's Stage from now to as proposed: each field the change rewrites. */
+export function ProposedStageFieldChanges({
+  from,
+  to,
+  roles,
+}: {
+  readonly from: Stage;
+  readonly to: Stage;
+  readonly roles: readonly Role[];
+}): ReactNode {
+  return (
+    <ul className="proposal-changes">
+      {stageFieldChanges(from, to, roles).map((change) => (
+        <ChangeRow key={change.label} {...change} />
+      ))}
+    </ul>
   );
 }
 

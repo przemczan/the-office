@@ -2,8 +2,6 @@ import {
   afterConflictSchema,
   effortSchema,
   publishTargetSchema,
-  type AfterConflict,
-  type PublishTarget,
   type Role,
   type RoleCardOptions,
   type Stage,
@@ -11,7 +9,12 @@ import {
 import { Checkbox, Field, Input, Select, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { EFFORT_LABELS } from "../engine-words.ts";
-import { STAGE_COMMAND_NAMES, thousands } from "./pipeline-words.ts";
+import {
+  AFTER_CONFLICT_NAMES,
+  PUBLISH_TARGET_NAMES,
+  STAGE_COMMAND_NAMES,
+  thousands,
+} from "./pipeline-words.ts";
 import {
   canContinue,
   failureTargets,
@@ -24,16 +27,6 @@ import {
 } from "./stage-edits.ts";
 import { StagePermissionFields } from "./stage-permission-fields.tsx";
 import "./stage-editor.css";
-
-const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
-  "publishing-mode": "By the Project's publishing mode",
-  "branch-only": "Push the branch only (proof of concept)",
-};
-
-const AFTER_CONFLICT_NAMES: Readonly<Record<AfterConflict, string>> = {
-  publish: "Publish automatically",
-  review: "Wait at a Gate for your review",
-};
 
 /** The most times a failure may go back, as the click-through offers. */
 const MOST_ROUNDS = 9;

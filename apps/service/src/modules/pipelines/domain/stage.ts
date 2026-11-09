@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { StagePermissions } from "./stage-permissions.js";
 
 /** One step of a Pipeline (spec §2.3): work by an Agent in a Role, a Project command, or a Gate. */
@@ -96,4 +97,19 @@ export function newlyNamedRoles(
   already: ReadonlySet<string>,
 ): readonly string[] {
   return [...named].filter((roleKey) => !already.has(roleKey));
+}
+
+/**
+ * Stages alike as they are kept, where a field left out and one left undefined are the same: a
+ * Proposal's Stages come back from storage without the fields left undefined.
+ */
+export function sameAsKept(
+  one: Stage | readonly Stage[],
+  other: Stage | readonly Stage[],
+): boolean {
+  return isDeepStrictEqual(asKept(one), asKept(other));
+}
+
+function asKept(stages: Stage | readonly Stage[]): unknown {
+  return JSON.parse(JSON.stringify(stages));
 }

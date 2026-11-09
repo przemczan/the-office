@@ -209,11 +209,9 @@ describe("on the Office identity", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     execFileSync(
       "git",
       ["config", "--global", `url.${SSH_REMOTE}.insteadOf`, "https://rewritten.example/"],
-      {
-        // Outside any repository, so the checkout's own .git, unreachable in a run environment, plays no part.
-        cwd: tmpdir(),
-        env: user.environment,
-      },
+      // Outside any repository: git reads the one it finds in its working directory, and a
+      // worktree's .git can point where a run environment doesn't mount.
+      { env: user.environment, cwd: tmpdir() },
     );
   });
 

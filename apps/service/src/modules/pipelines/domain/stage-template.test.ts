@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 import {
   addedStageTemplate,
+  proposedStageProblems,
   savedStageTemplate,
   stageTemplateFlags,
   stageTemplateProblems,
@@ -70,6 +71,38 @@ describe("stageTemplateProblems", () => {
         [],
       ),
     ).toEqual([]);
+  });
+});
+
+describe("proposedStageProblems", () => {
+  const proposed = agentStage({ brief: "Implement the Plan, then run the tests you touched." });
+
+  it("allows a new Stage for a template whose Stage is as it was when proposed", () => {
+    // A field left undefined is the same as one left out, as the Stage is kept.
+    const drafted = { ...implement.stage, effort: undefined };
+
+    expect(proposedStageProblems(implement, drafted, proposed, [])).toEqual([]);
+  });
+
+  it("refuses it once the template's Stage changed since", () => {
+    const changed: StageTemplate = { ...implement, stage: agentStage({ budget: 50_000 }) };
+
+    expect(proposedStageProblems(changed, implement.stage, proposed, [])).toEqual([
+      { text: "The Implement Stage template changed since this was proposed." },
+    ]);
+  });
+
+  it("refuses what a template save refuses, and a Stage that changes nothing", () => {
+    const tests: StageTemplate = { id: "tests", stage: scriptStage() };
+
+    expect(
+      proposedStageProblems(implement, implement.stage, agentStage({ name: "tests" }), [tests]),
+    ).toEqual([{ text: 'Another Stage template is named "tests".' }]);
+    // The loop target a template doesn't keep changes nothing either.
+    const withLoop = agentStage({ onFailure: { goBackTo: "plan", rounds: 1 } });
+    expect(proposedStageProblems(implement, implement.stage, withLoop, [])).toEqual([
+      { text: "Nothing changes: give the template's Stage as it should be, whole." },
+    ]);
   });
 });
 

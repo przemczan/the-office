@@ -160,6 +160,12 @@ export const PROPOSE_PROJECT_TOOL = "propose_project";
 /** The Office tool Devops reads the Pipeline library with, which Pipelines registers. */
 export const LIST_PIPELINES_TOOL = "list_pipelines";
 
+/** The Office tool Devops reads the Stage templates with, which Pipelines registers. */
+export const LIST_STAGE_TEMPLATES_TOOL = "list_stage_templates";
+
+/** The Office tool Devops drafts a Proposal of a Stage template's Stage with; named as above. */
+export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
+
 /** The Office tool Devops reads the skills a Source holds with. */
 export const LIST_SOURCE_SKILLS_TOOL = "list_source_skills";
 
@@ -207,9 +213,9 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
 
 /**
  * The Office tools a Role's person has in their chat and their Stage Threads alike, for what the
- * Role looks after: Devops reads the Pipeline library, proposes Project commands and library
- * Pipelines, drafts a Project to onboard, and installs and updates skills from a Source (spec
- * §2.1, §2.2, §2.3, §2.6).
+ * Role looks after: Devops reads the Pipeline library, proposes Project commands, library
+ * Pipelines and Stage templates, drafts a Project to onboard, and installs and updates skills from
+ * a Source (spec §2.1, §2.2, §2.3, §2.6).
  */
 export function roleOfficeTools(roleKey: string): readonly string[] {
   return roleKey === DEVOPS
@@ -217,6 +223,8 @@ export function roleOfficeTools(roleKey: string): readonly string[] {
         LIST_PIPELINES_TOOL,
         PROPOSE_PROJECT_COMMANDS_TOOL,
         PROPOSE_LIBRARY_PIPELINE_TOOL,
+        LIST_STAGE_TEMPLATES_TOOL,
+        PROPOSE_STAGE_TEMPLATE_TOOL,
         PROPOSE_PROJECT_TOOL,
         LIST_SOURCE_SKILLS_TOOL,
         PROPOSE_SKILL_INSTALL_TOOL,

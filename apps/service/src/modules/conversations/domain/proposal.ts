@@ -18,6 +18,7 @@ export interface ProposedChanges {
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
   readonly pipeline: ProposedPipelineChange;
+  readonly "stage-template": ProposedStageTemplateChange;
   readonly project: ProposedProject;
   readonly "skill-install": ProposedSkillInstall;
   readonly "skill-update": ProposedSkillUpdate;
@@ -150,6 +151,17 @@ export interface ProposedPipelineChange {
   readonly pipelineId: string;
   readonly from: readonly PipelineStage[];
   readonly to: readonly PipelineStage[];
+}
+
+/**
+ * Devops' new Stage for a Stage template (spec §2.3), and its Stage when drafted (`from`);
+ * Pipelines refuses to apply it once it changed. Kept unread, as a Pipeline's Stages are.
+ */
+export interface ProposedStageTemplateChange {
+  readonly kind: "stage-template";
+  readonly templateId: string;
+  readonly from: PipelineStage;
+  readonly to: PipelineStage;
 }
 
 /**

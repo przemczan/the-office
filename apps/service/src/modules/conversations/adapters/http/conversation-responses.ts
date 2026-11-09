@@ -206,6 +206,13 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         from: STAGES.parse(change.from),
         to: STAGES.parse(change.to),
       };
+    case "stage-template":
+      return {
+        kind: "stage-template",
+        templateId: change.templateId,
+        from: stageSchema.parse(change.from),
+        to: stageSchema.parse(change.to),
+      };
     case "project":
       return {
         kind: "project",
