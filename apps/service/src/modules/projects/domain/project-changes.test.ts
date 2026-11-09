@@ -174,7 +174,11 @@ describe("changeProjectLimit", () => {
     const change = changeProjectLimit(aProject(), PROJECT_LIMIT_MAX);
 
     expect(change?.project.projectLimit).toBe(PROJECT_LIMIT_MAX);
-    expect(change?.event).toEqual(new ProjectLimitChanged("admin-panel", PROJECT_LIMIT_MAX));
+    expect(change?.event).toBeInstanceOf(ProjectLimitChanged);
+    expect(change?.event).toMatchObject({
+      projectId: "admin-panel",
+      projectLimit: PROJECT_LIMIT_MAX,
+    });
   });
 
   it("changes nothing when the Project already has that limit", () => {
