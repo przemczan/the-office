@@ -14,9 +14,10 @@ import { whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
+import type { WrittenPlanAndDefinitionOfDone } from "../../domain/written-parts.js";
 import { IdeaCards } from "../../ports/idea-cards.js";
 import { SessionPeople } from "../../ports/session-people.js";
-import { answered, personInSession } from "./work-tool-answers.js";
+import { answered, personInSession, WorkToolRefused } from "./work-tool-answers.js";
 
 export const LIST_TASKS = "list_tasks";
 export const READ_TASK = "read_task";
@@ -166,7 +167,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: CREATE_TASK,
       description:
-        "Creates a Task in Backlog in your name, in one Project, when the user asks for one or agrees to it. It follows the Project's default Pipeline; planning it comes after. Give it a title and, when the user said what it is for, a Description the Planner plans from.",
+        "Creates a Task in Backlog in your name, in one Project, when the user asks for one or agrees to it. It follows the Project's default Pipeline. Give it a title and, when the user said what it is for, a Description the Planner plans from. When it is already known how the Task will be done and what must be true when it is, give it both a Plan and a Definition of Done, or neither: they land Not confirmed, and the user confirms each on the Task page and marks the Task Ready without Planning, or plans it from them.",
       input: z.object({
         title: z.string().describe("One line naming the outcome."),
         description: z
@@ -177,14 +178,44 @@ export class WorkOfficeTools implements OnModuleInit {
           ),
         projectId: z.string().describe("The Project's id, as list_projects gives it."),
         priority: z.enum(PRIORITIES).optional().describe("Normal unless the user says otherwise."),
+        plan: z
+          .string()
+          .optional()
+          .describe(
+            "How the Task will be done, as Markdown, in plain words whoever implements it can follow. Only with a Definition of Done.",
+          ),
+        filesToChange: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "The files and folders the Plan expects to change, as paths from the repository's root; a folder covers everything under it. Only with a Plan.",
+          ),
+        estimatedTokens: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(
+            "The tokens (input, output and cache writes) you expect the whole Pipeline to use, every Stage together. Only with a Plan.",
+          ),
+        definitionOfDone: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "What must be true when the Task is done, one plain-language statement each that can be checked. Only with a Plan.",
+          ),
       }),
-      run: ({ title, description, projectId, priority }, { sessionId }) =>
+      run: ({ title, description, projectId, priority, ...parts }, { sessionId }) =>
         answered(async () => {
           const task = await this.tasks.create(
             { title, description, projectId, priority: priority ?? "normal" },
             await personInSession(this.sessionPeople, sessionId),
+            writtenPartsGiven(parts),
           );
-          return `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Pipeline ${task.pipelineId}.`;
+          const created = `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Pipeline ${task.pipelineId}.`;
+          return parts.plan === undefined
+            ? created
+            : `${created} Its Plan and Definition of Done are Not confirmed until the user confirms each on the Task page.`;
         }),
     });
   }
@@ -226,4 +257,33 @@ function taskLine(task: Task): string {
 
 function ideaLine(idea: Idea): string {
   return `- ${idea.title} (Idea ${idea.id}) · ${whereOf(idea.projectId)} · ${idea.state}`;
+}
+
+const HALF_A_PAIR =
+  "Give both the Plan and the Definition of Done, or neither: Ready needs both, so one alone helps nobody.";
+const PLAN_DETAILS_WITHOUT_PLAN =
+  "Files to change and a token estimate are part of the Plan: give them only with a Plan.";
+
+interface GivenParts {
+  readonly plan?: string | undefined;
+  readonly filesToChange?: readonly string[] | undefined;
+  readonly estimatedTokens?: number | undefined;
+  readonly definitionOfDone?: readonly string[] | undefined;
+}
+
+/** Both parts, or none; half of the pair is refused before any Task is made. */
+function writtenPartsGiven({
+  plan,
+  filesToChange,
+  estimatedTokens,
+  definitionOfDone,
+}: GivenParts): WrittenPlanAndDefinitionOfDone | undefined {
+  const problems: string[] = [];
+  if ((plan === undefined) !== (definitionOfDone === undefined)) problems.push(HALF_A_PAIR);
+  if (plan === undefined && (filesToChange !== undefined || estimatedTokens !== undefined)) {
+    problems.push(PLAN_DETAILS_WITHOUT_PLAN);
+  }
+  if (problems.length > 0) throw new WorkToolRefused(problems.join(" "));
+  if (plan === undefined || definitionOfDone === undefined) return undefined;
+  return { plan: { plan, filesToChange, estimatedTokens }, definitionOfDone };
 }

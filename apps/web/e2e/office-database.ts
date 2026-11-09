@@ -25,16 +25,17 @@ export const E2E_DATABASE_URL = Object.assign(new URL(E2E_DATABASE_SERVER), {
 
 /**
  * Runs `query` on the end-to-end service's database, for what a test seeds that no screen makes
- * yet, such as a Task's own Stages before the Stage editor (task 15).
+ * yet, such as a Task's own Stages before the Stage editor (task 15), or reads what no screen shows,
+ * such as a Task's state changes; answers the rows it returns.
  */
 export async function queryOfficeDatabase(
   query: string,
   values: readonly unknown[],
-): Promise<void> {
+): Promise<readonly Record<string, unknown>[]> {
   const client = new Client({ connectionString: E2E_DATABASE_URL, connectionTimeoutMillis: 5_000 });
   try {
     await client.connect();
-    await client.query(query, [...values]);
+    return (await client.query<Record<string, unknown>>(query, [...values])).rows;
   } finally {
     await client.end();
   }

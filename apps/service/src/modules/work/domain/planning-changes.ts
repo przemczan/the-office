@@ -1,6 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { THE_USER } from "./author.js";
-import { filesToChangeProblems, normalizedFilesToChange } from "./files-to-change.js";
+import { normalizedFilesToChange } from "./files-to-change.js";
 import type { ProposedPipeline, Task } from "./task.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
 import {
@@ -16,6 +16,14 @@ import {
 } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { CONFIRM_ITS_INITIATIVE, NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
+import {
+  definitionOfDoneProblems,
+  planProblems,
+  trimmedStatements,
+  writtenPlanProblems,
+  type PlanWriting,
+  type WrittenPlan,
+} from "./written-parts.js";
 
 /*
  * The Planner proposes the Plan, the Definition of Done and a Pipeline on a Task in Planning; the
@@ -23,15 +31,6 @@ import { CONFIRM_ITS_INITIATIVE, NOT_STARTED_STATES, TASK_STATE_NAMES } from "./
  * §2.3). Writing a part again, by either, leaves it unconfirmed; the same words change nothing. The
  * Plan's files to change go with it: written, saved and confirmed together.
  */
-
-/** A Plan as written: its words, the files it expects to change and its token estimate. */
-export interface PlanWriting {
-  readonly plan: string;
-  /** Undefined keeps those the Task has. */
-  readonly filesToChange?: readonly string[] | undefined;
-  /** Undefined keeps the Task's own. */
-  readonly estimatedTokens?: number | undefined;
-}
 
 export function proposePlan(
   task: Task,
@@ -65,8 +64,6 @@ export function confirmPlan(task: Task): TaskChange<TaskPlanConfirmed> | undefin
   return { task: { ...task, planConfirmed: true }, event: new TaskPlanConfirmed(task.id) };
 }
 
-type WrittenPlan = Pick<Task, "plan" | "filesToChange" | "estimatedTokens">;
-
 function writtenPlan(
   task: Task,
   { plan, filesToChange, estimatedTokens }: PlanWriting,
@@ -76,14 +73,6 @@ function writtenPlan(
     filesToChange: filesToChange ? normalizedFilesToChange(filesToChange) : task.filesToChange,
     estimatedTokens: estimatedTokens ?? task.estimatedTokens,
   };
-}
-
-function writtenPlanProblems({ plan, filesToChange, estimatedTokens }: WrittenPlan): string[] {
-  return [
-    ...planProblems(plan),
-    ...filesToChangeProblems(filesToChange),
-    ...estimatedTokensProblems(estimatedTokens),
-  ];
 }
 
 function samePlan(task: Task, written: WrittenPlan): boolean {
@@ -98,7 +87,7 @@ export function proposeDefinitionOfDone(
   task: Task,
   statements: readonly string[],
 ): TaskChange<TaskDefinitionOfDoneProposed> | undefined {
-  const trimmed = statements.map((statement) => statement.trim());
+  const trimmed = trimmedStatements(statements);
   refuseWith([
     ...proposingProblems(task, "The Definition of Done"),
     ...definitionOfDoneProblems(trimmed),
@@ -115,7 +104,7 @@ export function saveDefinitionOfDone(
   task: Task,
   statements: readonly string[],
 ): TaskChange<TaskDefinitionOfDoneSaved> | undefined {
-  const trimmed = statements.map((statement) => statement.trim());
+  const trimmed = trimmedStatements(statements);
   refuseWith([
     ...changingProblems(task, "Definition of Done"),
     ...definitionOfDoneProblems(trimmed),
@@ -210,23 +199,6 @@ function changingProblems(task: Task, part: string): string[] {
   }
   if (NOT_STARTED_STATES.includes(task.state)) return [];
   return [`A Task keeps its ${part} once it has started.`];
-}
-
-function planProblems(plan: string): string[] {
-  return plan === "" ? ["The Plan can't be empty."] : [];
-}
-
-function estimatedTokensProblems(estimatedTokens: number | undefined): string[] {
-  return estimatedTokens === undefined ||
-    (Number.isSafeInteger(estimatedTokens) && estimatedTokens > 0)
-    ? []
-    : ["The token estimate must be a whole number above 0."];
-}
-
-function definitionOfDoneProblems(statements: readonly string[]): string[] {
-  if (statements.length === 0) return ["A Definition of Done needs at least one statement."];
-  if (statements.includes("")) return ["A statement of the Definition of Done can't be empty."];
-  return [];
 }
 
 function sameStatements(given: readonly string[], kept: readonly string[]): boolean {

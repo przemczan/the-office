@@ -5139,3 +5139,74 @@ test.describe("the chat drawer", () => {
     await expect(openPage.getByRole("link", { name: /Ada/ })).toBeVisible();
   });
 });
+
+test("Jan creates a Task with its Plan and Definition of Done, and the user confirms both and marks it Ready without Planning", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Known work", "KW");
+    expect(project.id).toBe("known-work");
+    const title = "Show the build number in the footer";
+    const { id: threadId } = threadSchema.parse(
+      await (await page.request.post("/api/chats/planner/threads")).json(),
+    );
+    const sent = await page.request.post(`/api/threads/${threadId}/messages`, {
+      data: { text: "Make a Task for the build number in the footer; we know how." },
+    });
+    expect(sent.ok()).toBe(true);
+    const createdTask = async () =>
+      taskListSchema
+        .parse(await (await page.request.get("/api/tasks")).json())
+        .find((task) => task.projectId === project.id && task.title === title);
+    await expect.poll(async () => (await createdTask())?.state).toBe("backlog");
+    const task = await createdTask();
+    if (!task) throw new Error("Jan created no Task.");
+
+    // Both parts landed as Jan wrote them, Not confirmed: Mark Ready waits for the user.
+    await page.goto(`/tasks/${task.id}`);
+    const record = page.getByRole("region", { name: "Record" });
+    const plan = record.getByRole("region", { name: "Plan", exact: true });
+    const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
+    const markReady = page.getByRole("button", { name: "Mark Ready" });
+    await expect(plan).toContainText("Read the build number from the environment");
+    await expect(plan).toContainText("src/footer.tsx");
+    await expect(plan.getByText("Not confirmed", { exact: true })).toBeVisible();
+    await expect(definitionOfDone).toContainText("The footer shows the build number.");
+    await expect(definitionOfDone.getByText("Not confirmed", { exact: true })).toBeVisible();
+    await expect(markReady).toHaveCount(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-given-parts.png") });
+
+    await plan.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
+    await expect(markReady).toHaveCount(0);
+    await definitionOfDone.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
+    await expect(markReady).toBeEnabled();
+    await markReady.click();
+    await expect(page.getByText(`${title} is Ready. Starting it is your call.`)).toBeVisible();
+
+    // Straight from Backlog to Ready, created by Jan's Role: no Planning, no planning Thread.
+    const stateChanges = await queryOfficeDatabase(
+      "SELECT from_state, to_state, changed_by FROM task_state_changes WHERE task_id = $1 ORDER BY id",
+      [task.id],
+    );
+    expect(stateChanges).toEqual([
+      {
+        from_state: null,
+        to_state: "backlog",
+        changed_by: { kind: "person", roleKey: "planner" },
+      },
+      { from_state: "backlog", to_state: "ready", changed_by: { kind: "user" } },
+    ]);
+    const threads = threadListSchema.parse(
+      await (await page.request.get(`/api/tasks/${task.id}/threads`)).json(),
+    );
+    expect(threads).toEqual([]);
+
+    // Nothing of it is left to weigh on the next tests' Start.
+    expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
+  } finally {
+    await repository.remove();
+  }
+});

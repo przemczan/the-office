@@ -156,3 +156,10 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-left-out"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-known-work","text":"Jan creates a Task with its Plan and Definition of Done"}}
+{"step":"event","event":{"kind":"tool-call","callId":"known-work-1","tool":"create_task","officeTool":true,"input":{"title":"Show the build number in the footer","projectId":"known-work","plan":"Read the build number from the environment and show it in the footer, small and muted.","filesToChange":["src/footer.tsx"],"definitionOfDone":["The footer shows the build number.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"known-work-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I created the Task with its Plan and Definition of Done, for you to confirm.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-known-work"],"usage":{"input":3,"output":120,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
+{"step":"end"}

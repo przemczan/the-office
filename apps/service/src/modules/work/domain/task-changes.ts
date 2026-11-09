@@ -20,6 +20,7 @@ import {
   type StateChangeCause,
 } from "./state-change.js";
 import { TaskRefused } from "./task-refused.js";
+import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "./written-parts.js";
 import {
   NOT_STARTED_STATES,
   STARTED_STATES,
@@ -59,8 +60,9 @@ export interface NewTaskSetting {
 }
 
 /**
- * A new Task starts in Backlog, unplanned, or in Shaping when its Initiative is still being shaped.
- * Refuses with every reason.
+ * A new Task starts in Backlog, or in Shaping when its Initiative is still being shaped: unplanned,
+ * or with a Plan and a Definition of Done written by whoever creates it, both unconfirmed until the
+ * user confirms them (spec §2.1). Refuses with every reason.
  */
 export function createTask(
   id: string,
@@ -68,20 +70,19 @@ export function createTask(
   setting: NewTaskSetting,
   createdAt: Date,
   state: Extract<Task["state"], "shaping" | "backlog"> = "backlog",
+  written?: WrittenPlanAndDefinitionOfDone,
 ): TaskChange<TaskCreated> {
   const newTask = trimmedNewTask(given);
-  const problems = newTaskProblems(newTask);
+  const { parts, problems: partsProblems } = writtenParts(written);
+  const problems = [...newTaskProblems(newTask), ...partsProblems];
   if (problems.length > 0) throw new TaskRefused(problems);
   const task: Task = {
     id,
     ...newTask,
     state,
     order: setting.order,
-    plan: "",
+    ...parts,
     planConfirmed: false,
-    filesToChange: [],
-    estimatedTokens: undefined,
-    definitionOfDone: [],
     definitionOfDoneConfirmed: false,
     pipelineId: setting.pipelineId,
     proposedPipeline: undefined,

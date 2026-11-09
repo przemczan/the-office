@@ -16,7 +16,7 @@ export const PLANNING_THREAD_TITLE = "Planning";
  * from the record in the Brief (spec §2.1).
  */
 export const MAKE_A_PLAN_OPENING =
-  "Plan this Task from its title and its Description in your Brief: the user has nothing more to add yet. Read what you need in the worktree, then write the Plan, the Definition of Done and the Pipeline that fits, for the user to confirm. Open a Decision only for a choice that is the user's to make.";
+  "Plan this Task from its title and its Description in your Brief, and from its Plan and Definition of Done when your Brief has them: rework those rather than start over. The user has nothing more to add yet. Read what you need in the worktree, then write the Plan, the Definition of Done and the Pipeline that fits, for the user to confirm. Open a Decision only for a choice that is the user's to make.";
 
 /**
  * What the Planner does in a Task's planning Thread, after their card's instructions. The same for

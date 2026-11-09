@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CAPTURE_IDEA_TOOL } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
+import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import type { AttachmentOwner } from "../../domain/attachment.js";
 import { THE_USER } from "../../domain/author.js";
@@ -155,7 +157,98 @@ describe("create_task", () => {
       isError: true,
     });
   });
+
+  it("takes an optional Plan, with its files and estimate, and an optional Definition of Done", () => {
+    const [tool] = work.app.get(OfficeToolRegistry).named([CREATE_TASK]);
+    const schema = z.toJSONSchema(tool!.input) as {
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+
+    expect(Object.keys(schema.properties)).toEqual(
+      expect.arrayContaining(["plan", "filesToChange", "estimatedTokens", "definitionOfDone"]),
+    );
+    expect(schema.required.toSorted()).toEqual(["projectId", "title"]);
+  });
+
+  it("creates a Task with both parts, Not confirmed, created by the person in the session", async () => {
+    const result = await call(CREATE_TASK, {
+      title: "Rename the Save button",
+      projectId,
+      plan: "  Rename it in the editor.\n",
+      filesToChange: ["./apps/web/src/editor.tsx"],
+      estimatedTokens: 40_000,
+      definitionOfDone: [" The button reads Keep. ", "The e2e test passes."],
+    });
+
+    const [task] = (await work.app.get(TaskService).list()).filter(
+      (candidate) => candidate.projectId === projectId,
+    );
+    expect(task).toMatchObject({
+      state: "backlog",
+      plan: "Rename it in the editor.",
+      filesToChange: ["apps/web/src/editor.tsx"],
+      estimatedTokens: 40_000,
+      planConfirmed: false,
+      definitionOfDone: ["The button reads Keep.", "The e2e test passes."],
+      definitionOfDoneConfirmed: false,
+      createdBy: { kind: "person", roleKey: "planner" },
+    });
+    expect(result).toEqual({
+      text: `Created the Task "Rename the Save button" (Task ${task?.id}) in Backlog in ${projectId}, on the Pipeline quick-fix. Its Plan and Definition of Done are Not confirmed until the user confirms each on the Task page.`,
+      isError: false,
+    });
+    expect(await work.app.get(TaskRecords).recordText(task!.id)).toContain(
+      "created in Backlog, by the person in the Role planner",
+    );
+  });
+
+  it.each([
+    ["a Plan alone", { plan: "Do it." }, HALF_A_PAIR],
+    ["a Definition of Done alone", { definitionOfDone: ["It is done."] }, HALF_A_PAIR],
+    [
+      "files to change without a Plan",
+      { filesToChange: ["src"] },
+      "Files to change and a token estimate are part of the Plan: give them only with a Plan.",
+    ],
+    [
+      "an estimate with a Definition of Done but no Plan",
+      { estimatedTokens: 1_000, definitionOfDone: ["It is done."] },
+      `${HALF_A_PAIR} Files to change and a token estimate are part of the Plan: give them only with a Plan.`,
+    ],
+  ])("refuses %s with the reason, and creates no Task", async (_case, parts, reason) => {
+    const result = await call(CREATE_TASK, { title: "Half planned", projectId, ...parts });
+
+    expect(result).toEqual({ text: reason, isError: true });
+    expect(
+      (await work.app.get(TaskService).list()).filter(
+        (candidate) => candidate.projectId === projectId,
+      ),
+    ).toEqual([]);
+  });
+
+  it("refuses an empty Plan or statement with every reason, and creates no Task", async () => {
+    const result = await call(CREATE_TASK, {
+      title: "Planned badly",
+      projectId,
+      plan: " ",
+      definitionOfDone: ["It works.", " "],
+    });
+
+    expect(result).toEqual({
+      text: "The Plan can't be empty. A statement of the Definition of Done can't be empty.",
+      isError: true,
+    });
+    expect(
+      (await work.app.get(TaskService).list()).filter(
+        (candidate) => candidate.projectId === projectId,
+      ),
+    ).toEqual([]);
+  });
 });
+
+const HALF_A_PAIR =
+  "Give both the Plan and the Definition of Done, or neither: Ready needs both, so one alone helps nobody.";
 
 describe("reading Tasks and Ideas", () => {
   it("lists a Project's Tasks and reads one's record with its Attachments", async () => {

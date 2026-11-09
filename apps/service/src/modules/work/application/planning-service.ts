@@ -12,8 +12,8 @@ import {
   proposePlan,
   saveDefinitionOfDone,
   savePlan,
-  type PlanWriting,
 } from "../domain/planning-changes.js";
+import type { PlanWriting } from "../domain/written-parts.js";
 import type { ProposedPipeline, Task } from "../domain/task.js";
 import {
   changeTaskState,

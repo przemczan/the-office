@@ -93,6 +93,60 @@ describe("createTask", () => {
       ),
     ).toThrow(new TaskRefused(["A Task's title must be one line."]));
   });
+
+  it("keeps a given Plan and Definition of Done, trimmed and unconfirmed, in Backlog", () => {
+    const cto = { kind: "person", roleKey: "cto" } as const;
+    const { task, stateChange } = createTask(
+      "task-9",
+      { title: "Fix the login redirect", projectId: "admin-panel", priority: "normal" },
+      { ...setting, createdBy: cto },
+      createdAt,
+      "backlog",
+      {
+        plan: {
+          plan: "  Keep the page in the sign-in link.\n",
+          filesToChange: ["./src/login/", "src/login"],
+          estimatedTokens: 30_000,
+        },
+        definitionOfDone: [" Signing in lands on the page I came from. "],
+      },
+    );
+
+    expect(task).toMatchObject({
+      state: "backlog",
+      plan: "Keep the page in the sign-in link.",
+      planConfirmed: false,
+      filesToChange: ["src/login"],
+      estimatedTokens: 30_000,
+      definitionOfDone: ["Signing in lands on the page I came from."],
+      definitionOfDoneConfirmed: false,
+    });
+    expect(stateChange).toEqual({ from: undefined, to: "backlog", at: createdAt, by: cto });
+  });
+
+  it("refuses a given Plan and Definition of Done that can't be kept, with the title's reasons", () => {
+    expect(() =>
+      createTask(
+        "task-9",
+        { title: " ", projectId: "admin-panel", priority: "normal" },
+        setting,
+        createdAt,
+        "backlog",
+        {
+          plan: { plan: " ", filesToChange: ["../outside"], estimatedTokens: 0 },
+          definitionOfDone: [],
+        },
+      ),
+    ).toThrow(
+      new TaskRefused([
+        "Give the Task a title.",
+        "The Plan can't be empty.",
+        "Files to change stay inside the repository: ../outside.",
+        "The token estimate must be a whole number above 0.",
+        "A Definition of Done needs at least one statement.",
+      ]),
+    );
+  });
 });
 
 describe("changePriority", () => {

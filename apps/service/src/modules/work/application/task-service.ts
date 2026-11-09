@@ -27,6 +27,7 @@ import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { STARTED_STATES } from "../domain/task-states.js";
+import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "../domain/written-parts.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
@@ -43,11 +44,18 @@ export class TaskService {
     private readonly events: EventBus,
   ) {}
 
-  /** A new Task in Backlog, following the Project's default Pipeline, last on the board. */
-  async create(given: NewTask, createdBy: Author): Promise<Task> {
+  /**
+   * A new Task in Backlog, following the Project's default Pipeline, last on the board, with a Plan
+   * and a Definition of Done, unconfirmed, when its creator writes both.
+   */
+  async create(
+    given: NewTask,
+    createdBy: Author,
+    written?: WrittenPlanAndDefinitionOfDone,
+  ): Promise<Task> {
     const project = await this.projects.find(given.projectId);
     if (!project) {
-      const problems = newTaskProblems(given);
+      const problems = [...newTaskProblems(given), ...writtenParts(written).problems];
       throw new TaskRefused([...problems, `There is no Project "${given.projectId}".`]);
     }
     const { task, event } = await this.repository.create((takenOrders) =>
@@ -62,6 +70,8 @@ export class TaskService {
           createdBy,
         },
         new Date(),
+        "backlog",
+        written,
       ),
     );
     await this.events.publish(event);
