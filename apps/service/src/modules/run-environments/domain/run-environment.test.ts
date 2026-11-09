@@ -105,6 +105,14 @@ describe("composeOverrideOf", () => {
     });
   });
 
+  it("holds a fixed number saved on a bigger computer to this one's cores", () => {
+    const fixed = { ...LIMITS, cpuLimit: { choice: "fixed", fixedCpus: 12 } } as const;
+
+    expect(overrideWith(fixed, 4)).toMatchObject({
+      services: { app: { cpus: 4 }, postgres: { cpus: 4 } },
+    });
+  });
+
   // An explicit 1024 would lower each container's cgroup v2 weight below the runtime's default.
   it("sets no service's CPU shares", () => {
     expect(override).not.toHaveProperty("services.app.cpu_shares");

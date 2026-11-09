@@ -70,13 +70,16 @@ export function automaticCpusOf(hostCores: number): AutomaticCpus {
   return { checksCpus, otherServicesCpus: Math.min(OTHER_SERVICES_CPUS, checksCpus) };
 }
 
-/** The CPUs one service of a run environment may use. */
+/**
+ * The CPUs one service of a run environment may use. A fixed number saved on a computer with more
+ * cores is held to this one's, since the container runtime refuses to start a service asking for more.
+ */
 export function serviceCpusOf(
   cpuLimit: CpuLimit,
   hostCores: number,
   isChecksService: boolean,
 ): number {
-  if (cpuLimit.choice === "fixed") return cpuLimit.fixedCpus;
+  if (cpuLimit.choice === "fixed") return Math.min(cpuLimit.fixedCpus, hostCores);
   const automatic = automaticCpusOf(hostCores);
   return isChecksService ? automatic.checksCpus : automatic.otherServicesCpus;
 }
