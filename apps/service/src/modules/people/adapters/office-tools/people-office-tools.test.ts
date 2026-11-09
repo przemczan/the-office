@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
+import { PersonRecords } from "../../application/person-records.js";
 import type { RoleService, RoleWithAssignments } from "../../application/role-service.js";
 import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
@@ -14,7 +15,12 @@ function toolsOver(roles: RoleWithAssignments[]): PeopleOfficeTools {
       return found ? Promise.resolve(found) : Promise.reject(new RoleNotFound(key));
     },
   };
-  return new PeopleOfficeTools(new OfficeToolRegistry(), service as RoleService);
+  const roleService = service as RoleService;
+  return new PeopleOfficeTools(
+    new OfficeToolRegistry(),
+    roleService,
+    new PersonRecords(roleService),
+  );
 }
 
 describe("list_people", () => {
@@ -155,7 +161,7 @@ describe("People's Office tools", () => {
   it("are registered as the module starts", () => {
     const registry = new OfficeToolRegistry();
 
-    new PeopleOfficeTools(registry, {} as RoleService).onModuleInit();
+    new PeopleOfficeTools(registry, {} as RoleService, {} as PersonRecords).onModuleInit();
 
     expect(registry.named([LIST_PEOPLE, READ_ROLE]).map(({ name }) => name)).toEqual([
       LIST_PEOPLE,
@@ -172,7 +178,11 @@ describe("People's Office tools", () => {
       }
     }
 
-    new PeopleOfficeTools(new RecordingRegistry(), {} as RoleService).onModuleInit();
+    new PeopleOfficeTools(
+      new RecordingRegistry(),
+      {} as RoleService,
+      {} as PersonRecords,
+    ).onModuleInit();
 
     expect(registered).toEqual([LIST_PEOPLE, READ_ROLE]);
   });

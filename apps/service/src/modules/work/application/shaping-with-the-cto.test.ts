@@ -134,6 +134,12 @@ class NoProjectOutputMasks {
   }
 }
 
+class NoProjectRecords {
+  of(): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+}
+
 /** Projects' list_projects, which a shaping session is given, on the registry the sessions read. */
 @Injectable()
 class ListProjectsStandIn {
@@ -150,6 +156,7 @@ class ListProjectsStandIn {
 const STAND_INS = [
   NoProjectBases,
   NoProjectOutputMasks,
+  NoProjectRecords,
   KnownProjectsForTests,
   KnownEngineCascadeForTests,
   NewProjectsForTests,
@@ -195,6 +202,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     imports: [StandInsModule],
     projectBases: NoProjectBases,
     projectOutputMasks: NoProjectOutputMasks,
+    projectRecords: NoProjectRecords,
   });
   ({ app } = await startTestApplication({
     database: true,

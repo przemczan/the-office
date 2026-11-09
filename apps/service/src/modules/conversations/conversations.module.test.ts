@@ -13,6 +13,7 @@ import { EngineCascadeModule } from "../people/index.js";
 import {
   BaseCheckouts,
   EngineLevelsChecks,
+  ProjectRecords,
   ProjectService,
   ProjectsModule,
 } from "../projects/index.js";
@@ -47,6 +48,7 @@ beforeAll(async () => {
         imports: [projects, engineCascade],
         projectBases: BaseCheckouts,
         projectOutputMasks: ProjectService,
+        projectRecords: ProjectRecords,
       }),
     ],
   }));

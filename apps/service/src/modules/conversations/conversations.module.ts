@@ -65,13 +65,15 @@ import { ConversationsSettings } from "./ports/conversations-settings.js";
 import { OfficeInstructionsRepository } from "./ports/office-instructions-repository.js";
 import { ProjectBases } from "./ports/project-bases.js";
 import { ProjectOutputMasks } from "./ports/project-output-masks.js";
+import { ProjectRecordSource } from "./ports/project-record-source.js";
 import { ThreadRepository } from "./ports/thread-repository.js";
 
 export interface ConversationsModuleOptions {
-  /** The modules that provide `projectBases` and `projectOutputMasks`. */
+  /** The modules that provide `projectBases`, `projectOutputMasks` and `projectRecords`. */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly projectBases: Type<ProjectBases>;
   readonly projectOutputMasks: Type<ProjectOutputMasks>;
+  readonly projectRecords: Type<ProjectRecordSource>;
 }
 
 @Module({})
@@ -80,6 +82,7 @@ export class ConversationsModule {
     imports,
     projectBases,
     projectOutputMasks,
+    projectRecords,
   }: ConversationsModuleOptions): DynamicModule {
     return {
       module: ConversationsModule,
@@ -98,6 +101,7 @@ export class ConversationsModule {
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
         { provide: ProjectBases, useExisting: projectBases },
         { provide: ProjectOutputMasks, useExisting: projectOutputMasks },
+        { provide: ProjectRecordSource, useExisting: projectRecords },
         { provide: ConversationsSettings, useClass: PostgresConversationsSettings },
         { provide: OfficeInstructionsRepository, useClass: PostgresOfficeInstructionsRepository },
         { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },

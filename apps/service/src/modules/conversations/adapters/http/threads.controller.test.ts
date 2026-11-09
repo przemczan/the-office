@@ -50,6 +50,7 @@ import { AllowChanges } from "../../application/allow-changes.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { MentionedRecords } from "../../application/mentioned-records.js";
+import { openPageRecordProviders } from "../../application/open-page-records.fixtures.js";
 import { WorkRecords } from "../../application/work-records.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DecisionAnswered, ThreadRenamed } from "../../domain/conversation-events.js";
@@ -159,6 +160,7 @@ beforeEach(async () => {
       { provide: ChatActivityRepository, useClass: PostgresChatActivityRepository },
       ChatActivity,
       MentionedRecords,
+      ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
       DecisionService,
@@ -488,6 +490,7 @@ describe("a Thread", () => {
         text: "Check the cache, please.",
         delivery: "delivered",
         handoverNoteFrom: roleKey,
+        openPage: { kind: "person", roleKey: devops },
       },
     ]);
 
@@ -500,6 +503,7 @@ describe("a Thread", () => {
         text: "Read the deploy workflow.",
         delivery: "delivered",
         handoverNoteFrom: null,
+        openPage: null,
       },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
@@ -524,6 +528,7 @@ describe("a Thread", () => {
         text: "Check the cache, please.",
         delivery: "delivered",
         handoverNoteFrom: roleKey,
+        openPage: { kind: "person", roleKey: devops },
       },
     ]);
     const titled = threadSchema.parse(await (await get(`/threads/${thread.id}`)).json());
@@ -577,6 +582,33 @@ describe("a Thread", () => {
     expect(threadRefusalSchema.parse(await chatOff.json()).reasons[0]).toMatch(
       /^Chat is off for Jan/,
     );
+  });
+
+  it("keeps the Open page a message was sent with, and refuses one that isn't a page", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = threadSchema.parse(
+      await (await send("POST", `/chats/${roleKey}/threads`)).json(),
+    );
+    const openPage = { kind: "project", projectId: "admin-panel" } as const;
+
+    const sent = await send("POST", `/threads/${thread.id}/messages`, {
+      text: "Where does it publish?",
+      openPage,
+    });
+    const notAPage = await send("POST", `/threads/${thread.id}/messages`, {
+      text: "Hello.",
+      openPage: { kind: "task", taskId: "not-an-id" },
+    });
+
+    expect(sent.status).toBe(202);
+    expect(notAPage.status).toBe(400);
+    const messages = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages`)).json(),
+    );
+    expect(messages.find(({ kind }) => kind === "user")).toMatchObject({
+      text: "Where does it publish?",
+      openPage,
+    });
   });
 
   it("is not found when it isn't there", async () => {

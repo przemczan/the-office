@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import type { BaseCheckouts } from "../../application/base-checkouts.js";
 import type { LocalRepositories } from "../../application/local-repositories.js";
+import { ProjectRecords } from "../../application/project-records.js";
 import type { ProjectService } from "../../application/project-service.js";
 import type { RepositoriesByUrl } from "../../application/repositories-by-url.js";
 import { aProject } from "../../domain/project.fixtures.js";
@@ -25,8 +26,7 @@ function toolsOver(projects: Project[]): ProjectOfficeTools {
   };
   return new ProjectOfficeTools(
     new OfficeToolRegistry(),
-    service as ProjectService,
-    bases as BaseCheckouts,
+    new ProjectRecords(service as ProjectService, bases as BaseCheckouts),
     {} as LocalRepositories,
     {} as RepositoriesByUrl,
   );
@@ -35,8 +35,7 @@ function toolsOver(projects: Project[]): ProjectOfficeTools {
 function toolsReadingUrls(read: RepositoriesByUrl["read"]): ProjectOfficeTools {
   return new ProjectOfficeTools(
     new OfficeToolRegistry(),
-    {} as ProjectService,
-    {} as BaseCheckouts,
+    {} as ProjectRecords,
     {} as LocalRepositories,
     { read } as RepositoriesByUrl,
   );
@@ -45,8 +44,7 @@ function toolsReadingUrls(read: RepositoriesByUrl["read"]): ProjectOfficeTools {
 function toolsReading(read: LocalRepositories["read"]): ProjectOfficeTools {
   return new ProjectOfficeTools(
     new OfficeToolRegistry(),
-    {} as ProjectService,
-    {} as BaseCheckouts,
+    {} as ProjectRecords,
     { read } as LocalRepositories,
     {} as RepositoriesByUrl,
   );
@@ -84,8 +82,7 @@ describe("list_projects", () => {
     const registry = new OfficeToolRegistry();
     const tools = new ProjectOfficeTools(
       registry,
-      {} as ProjectService,
-      {} as BaseCheckouts,
+      {} as ProjectRecords,
       {} as LocalRepositories,
       {} as RepositoriesByUrl,
     );

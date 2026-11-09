@@ -34,6 +34,13 @@ import {
   type Mention,
   type MentionedRecord,
 } from "../domain/mention.js";
+import {
+  briefWithOpenPageRecord,
+  openPageToGive,
+  withOpenPageRecord,
+  type OpenPage,
+  type OpenPageRecord,
+} from "../domain/open-page.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import type { Thread, ThreadSession } from "../domain/thread.js";
 import {
@@ -89,6 +96,31 @@ interface Answer {
   /** The Decision the message answers, which opens again if the answer never reaches a session. */
   readonly answers: Decision | undefined;
 }
+
+/** What the user's message comes with, besides its text. */
+export interface SentWith {
+  /** The records it mentions, by their links in it. */
+  readonly mentions?: readonly Mention[];
+  /** Whose Handover note it started from, by their Role's key, when a Link card gave it. */
+  readonly handoverNoteFrom?: string;
+  /** The page open beside the chat drawer as it was sent (spec §2.4). */
+  readonly openPage?: OpenPage;
+}
+
+/** The records the session is given with a message, read as it is sent. */
+interface GivenRecords {
+  readonly mentioned: readonly MentionedRecord[];
+  /** The Open page's record for a session that starts on the message. */
+  readonly openPage: OpenPageRecord | undefined;
+  /** The Open page's record for a running or resumed session, unless it has it already. */
+  readonly ofRunningSession: () => Promise<OpenPageRecord | undefined>;
+}
+
+const NO_RECORDS: GivenRecords = {
+  mentioned: [],
+  openPage: undefined,
+  ofRunningSession: () => Promise.resolve(undefined),
+};
 
 /** The Consultant who answers a Decision in the user's place. */
 export interface Answerer {
@@ -150,21 +182,20 @@ export class ThreadRunner implements OnModuleDestroy {
    * written. Into a Stage Thread while its Stage runs, the message lands at the next safe point
    * instead (barge-in). Refused while the person is still answering in this Thread, when nobody
    * fills their Role any more, or in a chat, when their Chat is off. The session gets the record
-   * of each Task, Idea or Decision the message mentions with it; the log keeps the message as
-   * written, with whose Handover note it started from (`handoverNoteFrom`) when a Link card gave it.
+   * of each Task, Idea or Decision the message mentions with it, and the Open page's; the log keeps
+   * the message as written, with its Open page and whose Handover note it started from
+   * (`handoverNoteFrom`) when a Link card gave it.
    */
-  async send(
-    threadId: string,
-    text: string,
-    mentions: readonly Mention[] = [],
-    handoverNoteFrom?: string,
-  ): Promise<Thread> {
+  async send(threadId: string, text: string, sent: SentWith = {}): Promise<Thread> {
     const thread = await this.threadOf(threadId);
     if (thread.stageThread && thread.state === "answering") {
       return this.stageThreads.bargeIn(threadId, text);
     }
     const current = await this.personOf(thread);
     if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
+    const { mentions = [], handoverNoteFrom } = sent;
+    // Only the chat drawer sends one: a Task's or an Initiative's Threads are about their record.
+    const openPage = thread.home.kind === "chat" ? sent.openPage : undefined;
     const said: Message = {
       kind: "user",
       id: randomUUID(),
@@ -173,15 +204,26 @@ export class ThreadRunner implements OnModuleDestroy {
       delivery: "delivered",
       at: new Date(),
       handoverNoteFrom,
+      openPage,
     };
-    const records = await this.mentionedRecords.read(mentions);
+    const ofBrief = openPageToGive({ openPage, mentions, log: [], newSession: true });
+    const given: GivenRecords = {
+      mentioned: await this.mentionedRecords.read(mentions),
+      openPage: ofBrief && (await this.mentionedRecords.openPage(ofBrief)),
+      ofRunningSession: async () => {
+        if (!openPage) return undefined;
+        const log = await this.repository.messages(threadId);
+        const page = openPageToGive({ openPage, mentions, log, newSession: false });
+        return page && (await this.mentionedRecords.openPage(page));
+      },
+    };
     return this.take(
       thread,
       current,
       { id: said.id, text },
       (latest, opening) => beginAnswer(latest, { ...opening, said }),
       undefined,
-      records,
+      given,
     );
   }
 
@@ -271,8 +313,8 @@ export class ThreadRunner implements OnModuleDestroy {
   /**
    * The person takes `said` under the Context policy's move: `begin` logs it and sets the Thread
    * answering, and the session answers once the call that asked returns. `said` may answer a
-   * Decision, which opens again when the session never starts. The records it mentions brief a new
-   * session, or come with it into a running or resumed one.
+   * Decision, which opens again when the session never starts. The records given with it brief a
+   * new session, or come with it into a running or resumed one.
    */
   private async take<Event extends DomainEvent>(
     thread: Thread,
@@ -280,12 +322,15 @@ export class ThreadRunner implements OnModuleDestroy {
     said: Answer["said"],
     begin: (latest: Thread, opening: Opening) => ThreadChange<Event>,
     answers?: Decision,
-    mentioned: readonly MentionedRecord[] = [],
+    given: GivenRecords = NO_RECORDS,
   ): Promise<Thread> {
     const opened = await this.places.of(thread);
-    const place = { ...opened, brief: briefWithMentionedRecords(opened.brief, mentioned) };
+    const brief = briefWithMentionedRecords(opened.brief, given.mentioned);
+    const place = { ...opened, brief: briefWithOpenPageRecord(brief, given.openPage) };
     const { newSession, ...move } = await this.moveFor(thread, current, place, new Date());
     const { decision } = move;
+    // Read before the message is logged, so the log holds only the messages before it.
+    const openPage = newSession ? undefined : await given.ofRunningSession();
     const answering = await this.change(thread.id, (latest) =>
       begin(latest, {
         personName: current.card.name,
@@ -294,8 +339,12 @@ export class ThreadRunner implements OnModuleDestroy {
         brief: place.brief.text,
       }),
     );
+    const withRecords = withOpenPageRecord(
+      withMentionedRecords(said.text, given.mentioned),
+      openPage,
+    );
     this.answerInBackground(answering, {
-      said: newSession ? said : { ...said, text: withMentionedRecords(said.text, mentioned) },
+      said: newSession ? said : { ...said, text: withRecords },
       briefed: briefedMessage(place.brief.text, said.text),
       ...move,
       replaced: newSession ? thread.session : undefined,

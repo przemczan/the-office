@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { openPageSchema } from "./open-page.js";
 import { roleCardSchema } from "./people.js";
 import { newProjectSchema, projectCommandFieldsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
@@ -192,11 +193,13 @@ export type PeopleWorking = z.infer<typeof peopleWorkingSchema>;
 
 /**
  * POST /threads/:id/messages: the user's message, which the person answers; `handoverNoteFrom`
- * when it is the Handover note a Link card gave them, by its writer's Role key.
+ * when it is the Handover note a Link card gave them, by its writer's Role key; `openPage` when it
+ * was sent from the chat drawer beside a record's page.
  */
 export const newMessageSchema = z.object({
   text: z.string(),
   handoverNoteFrom: z.string().min(1).optional(),
+  openPage: openPageSchema.optional(),
 });
 export type NewMessage = z.infer<typeof newMessageSchema>;
 
@@ -536,6 +539,8 @@ export const messageSchema = z.discriminatedUnion("kind", [
     delivery: messageDeliverySchema,
     /** Who wrote the Handover note the user sent from a Link card, by their Role's key. */
     handoverNoteFrom: z.string().nullable(),
+    /** The page open beside the chat drawer as the user sent it, if any. */
+    openPage: openPageSchema.nullable(),
   }),
   z.object({ ...messageFields, kind: z.literal("person"), roleKey: z.string(), text: z.string() }),
   /** A few lines the person wrote for whoever continues, when The Office asked for them. */

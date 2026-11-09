@@ -40,6 +40,7 @@ import {
 import {
   BaseCheckouts,
   EngineLevelsChecks,
+  ProjectRecords,
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
@@ -95,6 +96,7 @@ export class AppModule {
       imports: [projects, engineCascade],
       projectBases: BaseCheckouts,
       projectOutputMasks: ProjectService,
+      projectRecords: ProjectRecords,
     });
     const work = WorkModule.register({
       imports: [

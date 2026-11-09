@@ -201,18 +201,20 @@ export class ThreadsController {
   }
 
   /**
-   * The user's message, mentioning a record by linking to its page, and saying whose Handover note
-   * it started from when a Link card gave it; the person's answer comes into the log as it is
-   * written.
+   * The user's message, mentioning a record by linking to its page, with the page open beside the
+   * chat drawer, and saying whose Handover note it started from when a Link card gave it; the
+   * person's answer comes into the log as it is written.
    */
   @Post("threads/:id/messages")
   @HttpCode(HttpStatus.ACCEPTED)
   async send(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(newMessageSchema)) { text, handoverNoteFrom }: NewMessage,
+    @Body(new ContractPipe(newMessageSchema)) { text, handoverNoteFrom, openPage }: NewMessage,
   ): Promise<ThreadResponse> {
     const mentions = recordLinksIn(text).map(toMention);
-    return this.toResponse(await this.runner.send(id, text, mentions, handoverNoteFrom));
+    return this.toResponse(
+      await this.runner.send(id, text, { mentions, handoverNoteFrom, openPage }),
+    );
   }
 
   private async toResponse(thread: Thread): Promise<ThreadResponse> {

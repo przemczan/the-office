@@ -1,5 +1,6 @@
 import type { ContextMove, ContextReason } from "./context-policy.js";
 import type { DecisionAnswer } from "./decision.js";
+import type { OpenPage } from "./open-page.js";
 
 /**
  * What The Office's log of a Thread holds, which is what the UI shows (spec §2.4): the engine's
@@ -78,6 +79,8 @@ interface UserMessage {
    * the one a Link card gave them: the message is the user's own, edited or not.
    */
   readonly handoverNoteFrom?: string;
+  /** The page open beside the chat drawer as the user sent it (spec §2.4), kept for the log. */
+  readonly openPage?: OpenPage;
 }
 
 /**

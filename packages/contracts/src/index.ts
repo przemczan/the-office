@@ -9,6 +9,7 @@ export * from "./mcp-servers.js";
 export * from "./notifications.js";
 export * from "./office-identity.js";
 export * from "./office-updates.js";
+export * from "./open-page.js";
 export * from "./people.js";
 export * from "./pipelines.js";
 export * from "./project-filter.js";

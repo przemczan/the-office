@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { roleQueries } from "../../api/people.ts";
+import { OpenPageChip } from "../open-page-chip.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
 import { roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
@@ -292,6 +293,11 @@ function Turn({
           <div className="message-text">
             <MarkdownText text={message.text} />
           </div>
+          {message.kind === "user" && message.openPage && (
+            <p className="message-open-page">
+              With <OpenPageChip page={message.openPage} /> open
+            </p>
+          )}
           {stageThread && message.kind === "user" && <DeliveryMark delivery={message.delivery} />}
         </div>
       ))}

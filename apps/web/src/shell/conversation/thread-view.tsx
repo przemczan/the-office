@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
-import type { Thread } from "@the-office/contracts";
+import type { OpenPage, Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { homeThreadsQuery, renameThread, threadQueries } from "../../api/conversations.ts";
@@ -23,6 +23,7 @@ export function ThreadView({
   personName,
   back,
   readOnlyReason,
+  openPage,
 }: {
   readonly threadId: string;
   readonly personName: string;
@@ -30,6 +31,8 @@ export function ThreadView({
   readonly back?: ReactNode;
   /** Why nothing more can be written here; the Thread stays readable and has no composer. */
   readonly readOnlyReason?: string | undefined;
+  /** The page open beside it, which the next message goes with. */
+  readonly openPage?: OpenPage | undefined;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId));
   if (!thread.data) return null;
@@ -52,6 +55,7 @@ export function ThreadView({
         personName={personName}
         readOnlyReason={readOnlyReason}
         keepsDraft
+        openPage={openPage}
       />
     </section>
   );

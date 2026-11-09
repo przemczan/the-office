@@ -47,6 +47,7 @@ import {
 import {
   BaseCheckouts,
   EngineLevelsChecks,
+  ProjectRecords,
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
@@ -101,6 +102,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             imports: [projects, engineCascade],
             projectBases: BaseCheckouts,
             projectOutputMasks: ProjectService,
+            projectRecords: ProjectRecords,
           });
           let url: string;
           ({ app, url } = await startTestApplication({

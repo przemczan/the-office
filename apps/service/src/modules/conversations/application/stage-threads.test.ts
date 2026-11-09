@@ -53,6 +53,7 @@ import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { MentionedRecords } from "./mentioned-records.js";
+import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
@@ -187,6 +188,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
       StageDecisions,
