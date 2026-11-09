@@ -46,16 +46,20 @@ export class ShellCommandRunner extends CommandRunner {
     const startedAt = performance.now();
     const output = new OutputEnd(OUTPUT_LIMIT_BYTES);
     const file =
-      command.outputFile === undefined
-        ? undefined
-        : await outputFile(command.outputFile, command.mask ?? OutputMask.NONE);
+      command.outputFile === undefined ? undefined : await outputFile(command.outputFile);
+    // Masked before the output's end is cut, so a cut can't fall inside a Secret variable's value
+    // and leave the rest of it showing.
+    const masked = (command.mask ?? OutputMask.NONE).chunks();
+    const take = (bytes: Uint8Array): void => {
+      const chunk = Buffer.from(bytes);
+      output.add(chunk);
+      file?.write(chunk);
+    };
     let ending: Ending;
     try {
-      ending = await this.runToEnd(command, (chunk) => {
-        output.add(chunk);
-        file?.write(chunk);
-      });
+      ending = await this.runToEnd(command, (chunk) => take(masked.next(chunk)));
     } finally {
+      take(masked.end());
       await file?.close();
     }
     const durationMs = Math.round(performance.now() - startedAt);
@@ -147,21 +151,17 @@ interface OutputFile {
   close(): Promise<void>;
 }
 
-/**
- * Opens `path` for a command's output, made or replaced, its folder made if missing. What is
- * written there is masked as it comes, so no Secret variable's value reaches the file.
- */
-async function outputFile(path: string, mask: OutputMask): Promise<OutputFile> {
+/** Opens `path` for a command's output, made or replaced, its folder made if missing. */
+async function outputFile(path: string): Promise<OutputFile> {
   await mkdir(dirname(path), { recursive: true });
   const stream = createWriteStream(path);
   await once(stream, "open");
   // A file that can't take more, such as on a full disk, ends short: the run goes on, its output's
   // end kept in memory as always.
   stream.on("error", () => undefined);
-  const masked = mask.chunks();
   return {
-    write: (chunk) => stream.write(masked.next(chunk)),
-    close: () => new Promise((resolve) => stream.end(masked.end(), resolve)),
+    write: (chunk) => stream.write(chunk),
+    close: () => new Promise((resolve) => stream.end(resolve)),
   };
 }
 
