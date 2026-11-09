@@ -203,8 +203,8 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
 /**
  * The Office tools a Role's person has in their chat and their Stage Threads alike, for what the
  * Role looks after: Devops reads the Pipeline library, proposes Project commands, library
- * Pipelines and Stage templates, drafts a Project to onboard, and installs and updates skills from a Source (spec
- * §2.1, §2.2, §2.3, §2.6).
+ * Pipelines and Stage templates, drafts a Project to onboard, and installs and updates skills from
+ * a Source (spec §2.1, §2.2, §2.3, §2.6).
  */
 export function roleOfficeTools(roleKey: string): readonly string[] {
   return roleKey === DEVOPS

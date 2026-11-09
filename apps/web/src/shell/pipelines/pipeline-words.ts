@@ -6,7 +6,7 @@ import type {
   StagePermissions,
 } from "@the-office/contracts";
 import { EFFORT_LABELS } from "../engine-words.ts";
-import { editLabel, RUN_LABELS, webLabel } from "../role-card-words.ts";
+import { editLabel, hardSwitchValueLabel, RUN_LABELS, webLabel } from "../role-card-words.ts";
 import type { StageCommand } from "./stage-edits.ts";
 
 export const STAGE_COMMAND_NAMES: Readonly<Record<StageCommand, string>> = {
@@ -48,7 +48,8 @@ const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFiel
   { label: "Brief", words: (stage) => agentOnly(stage, ({ brief }) => brief) },
   {
     label: "Permissions",
-    words: (stage) => agentOnly(stage, ({ permissions }) => permissionsWords(permissions)),
+    words: (stage, roles) =>
+      agentOnly(stage, ({ permissions }) => permissionsWords(permissions, roles)),
   },
   {
     label: "Publishes",
@@ -104,14 +105,22 @@ function budgetWords(budget: number): string {
   return `${thousands(budget)}k tokens`;
 }
 
-/** What a Stage narrows of its Role card's permission profile, or that it keeps the card's. */
-function permissionsWords(permissions: StagePermissions | undefined): string {
-  const mcpTools = Object.keys(permissions?.mcpTools ?? {}).length;
+/**
+ * What a Stage narrows of its Role card's permission profile, or that it keeps the card's. Each
+ * MCP tool is named with its setting, so a change of one tool alone still reads as a change.
+ */
+function permissionsWords(
+  permissions: StagePermissions | undefined,
+  roles: readonly Role[],
+): string {
+  const roleTitles = new Map(roles.map(({ key, card }) => [key, card.title]));
   const narrowed = [
     ...(permissions?.edit === false ? [editLabel(false)] : []),
     ...(permissions?.run ? [RUN_LABELS[permissions.run]] : []),
     ...(permissions?.web === false ? [webLabel(false)] : []),
-    ...(mcpTools > 0 ? [`${mcpTools} MCP ${mcpTools === 1 ? "tool" : "tools"} set`] : []),
+    ...Object.entries(permissions?.mcpTools ?? {})
+      .toSorted(([one], [other]) => one.localeCompare(other))
+      .map(([tool, value]) => `${tool}: ${hardSwitchValueLabel(value, roleTitles)}`),
   ];
   return narrowed.length > 0 ? narrowed.join("; ") : "The Role card's";
 }

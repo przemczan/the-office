@@ -30,8 +30,9 @@ const STAGE_TEMPLATE_DRAFTED =
 
 /**
  * The Office tools Devops reads the Pipeline library and its Stage templates with, and proposes a
- * library Pipeline's new Stages or a template's new Stage with (spec §2.3). Proposing changes nothing itself, so it sits behind no Hard switch: the user's
- * click on the Proposal is the approval. Both return at once.
+ * library Pipeline's new Stages or a template's new Stage with (spec §2.3). Proposing changes
+ * nothing itself, so it sits behind no Hard switch: the user's click on the Proposal is the
+ * approval. They all return at once.
  */
 @Injectable()
 export class PipelineOfficeTools implements OnModuleInit {

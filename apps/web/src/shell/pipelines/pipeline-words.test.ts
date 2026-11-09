@@ -74,6 +74,26 @@ describe("stageFieldChanges", () => {
     ]);
   });
 
+  it("names each MCP tool with its setting, so a change of one tool alone shows", () => {
+    const titled = [{ key: "devops", card: { name: "Nina", title: "Devops" } }] as Role[];
+    const allowed: Stage = {
+      ...implement,
+      permissions: { mcpTools: { "github/create_issue": { kind: "allowed" } } },
+    };
+    const consulting: Stage = {
+      ...implement,
+      permissions: { mcpTools: { "github/create_issue": { kind: "consult", role: "devops" } } },
+    };
+
+    expect(stageFieldChanges(allowed, consulting, titled)).toEqual([
+      {
+        label: "Permissions",
+        from: "github/create_issue: Allowed",
+        to: "github/create_issue: Consult Devops",
+      },
+    ]);
+  });
+
   it("reads a field the Stage's kind lacks as None", () => {
     expect(stageFieldChanges(PUBLISH, { ...PUBLISH, publishTarget: "branch-only" }, [])).toEqual([
       {

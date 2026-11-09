@@ -105,9 +105,8 @@ const OFFICE_LIMITS: Record<
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
  * an Initiative, or Devops' change to a Project's commands, a library Pipeline's Stages or a Stage
- * template's Stage, a
- * Project to onboard, a skill to install from a Source or its update, or a written skill drafted
- * in a chat. Nothing changes until the user applies it; "Not now" declines it.
+ * template's Stage, a Project to onboard, a skill to install from a Source or its update, or a
+ * written skill drafted in a chat. Nothing changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
