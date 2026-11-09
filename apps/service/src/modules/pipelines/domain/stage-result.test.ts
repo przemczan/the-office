@@ -9,6 +9,9 @@ const asked = {
   recommendation: { option: 1, reason: "Users look there first." },
 };
 
+/** How many statements the Task's Definition of Done has. */
+const STATEMENTS = 3;
+
 describe("STAGE_RESULT_SCHEMA", () => {
   it("is flat, and requires the Handover note and the Definition of Done report only when done", () => {
     expect(STAGE_RESULT_SCHEMA).toMatchObject({
@@ -25,6 +28,7 @@ describe("STAGE_RESULT_SCHEMA", () => {
       "summary",
       "handoverNote",
       "definitionOfDoneMet",
+      "definitionOfDoneOutOfReach",
       "failureReason",
       "screenshots",
     ]);
@@ -43,6 +47,7 @@ describe("readStageResult", () => {
           definitionOfDoneMet: [1, 3],
         },
         undefined,
+        STATEMENTS,
       ),
     ).toEqual({
       valid: true,
@@ -63,6 +68,7 @@ describe("readStageResult", () => {
           handoverNote: "Look at the router.",
         },
         undefined,
+        STATEMENTS,
       ),
     ).toEqual({
       valid: true,
@@ -86,8 +92,67 @@ describe("readStageResult", () => {
           screenshots: ["dialog/open.png", "home.png"],
         },
         undefined,
+        STATEMENTS,
       ),
     ).toMatchObject({ valid: true, screenshots: ["dialog/open.png", "home.png"] });
+  });
+
+  it("reads the statements out of reach, with why, and leaves them out when none is listed", () => {
+    const outOfReach = [{ statement: 3, why: "It runs on the user's workstation." }];
+    const done = {
+      status: "done",
+      summary: "Built.",
+      handoverNote: "All set.",
+      definitionOfDoneMet: [1],
+    };
+
+    expect(
+      readStageResult({ ...done, definitionOfDoneOutOfReach: outOfReach }, undefined, STATEMENTS),
+    ).toMatchObject({ valid: true, outcome: { ...done, definitionOfDoneOutOfReach: outOfReach } });
+    const listedNone = readStageResult(
+      { ...done, definitionOfDoneOutOfReach: [] },
+      undefined,
+      STATEMENTS,
+    );
+    expect(listedNone.valid && listedNone.outcome).not.toHaveProperty("definitionOfDoneOutOfReach");
+  });
+
+  it("asks to correct a statement out of reach that is also met, or that the Definition of Done doesn't have", () => {
+    const done = { status: "done", summary: "Built.", handoverNote: "All set." };
+
+    expect(
+      readStageResult(
+        {
+          ...done,
+          definitionOfDoneMet: [1, 2],
+          definitionOfDoneOutOfReach: [{ statement: 2, why: "No access." }],
+        },
+        undefined,
+        STATEMENTS,
+      ),
+    ).toEqual({
+      valid: false,
+      problems:
+        '"definitionOfDoneMet" and "definitionOfDoneOutOfReach" both name statement 2: a statement you can\'t verify isn\'t met, so list it only as out of reach.',
+    });
+    expect(
+      readStageResult(
+        {
+          ...done,
+          definitionOfDoneMet: [],
+          definitionOfDoneOutOfReach: [
+            { statement: 4, why: "No access." },
+            { statement: 5, why: "No access." },
+          ],
+        },
+        undefined,
+        STATEMENTS,
+      ),
+    ).toEqual({
+      valid: false,
+      problems:
+        '"definitionOfDoneOutOfReach" names statements 4, 5, which the Definition of Done doesn\'t have: it has 3.',
+    });
   });
 
   it("needs the Decision the Agent opened with a tool, keeping the Handover note and no screenshots, whatever the status", () => {
@@ -97,6 +162,7 @@ describe("readStageResult", () => {
       readStageResult(
         { status: "needs_decision", summary: "Asked.", handoverNote: "Waiting." },
         asked,
+        STATEMENTS,
       ),
     ).toEqual({ valid: true, outcome, screenshots: [] });
     expect(
@@ -109,9 +175,10 @@ describe("readStageResult", () => {
           screenshots: ["home.png"],
         },
         asked,
+        STATEMENTS,
       ),
     ).toEqual({ valid: true, outcome, screenshots: [] });
-    expect(readStageResult(undefined, asked)).toEqual({
+    expect(readStageResult(undefined, asked, STATEMENTS)).toEqual({
       valid: true,
       outcome: { status: "needs-decision", ...asked },
       screenshots: [],
@@ -119,17 +186,23 @@ describe("readStageResult", () => {
   });
 
   it("says what is wrong, for the Agent to correct", () => {
-    expect(readStageResult({ status: "done", summary: "Built." }, undefined)).toEqual({
+    expect(readStageResult({ status: "done", summary: "Built." }, undefined, STATEMENTS)).toEqual({
       valid: false,
       problems: 'status "done" requires "handoverNote".',
     });
     expect(
-      readStageResult({ status: "done", summary: "Built.", handoverNote: "All set." }, undefined),
+      readStageResult(
+        { status: "done", summary: "Built.", handoverNote: "All set." },
+        undefined,
+        STATEMENTS,
+      ),
     ).toEqual({ valid: false, problems: 'status "done" requires "definitionOfDoneMet".' });
-    expect(readStageResult({ data: { status: "done" } }, undefined)).toMatchObject({
+    expect(readStageResult({ data: { status: "done" } }, undefined, STATEMENTS)).toMatchObject({
       valid: false,
     });
-    expect(readStageResult({ status: "needs_decision", summary: "Asked." }, undefined)).toEqual({
+    expect(
+      readStageResult({ status: "needs_decision", summary: "Asked." }, undefined, STATEMENTS),
+    ).toEqual({
       valid: false,
       problems:
         'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.',

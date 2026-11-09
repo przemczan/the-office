@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GATE_REACHED } from "./gate.js";
-import { nextMove, reportedMet, unmetStatements } from "./pipeline-walk.js";
+import { nextMove, reportedMet, reportedOutOfReach, unmetStatements } from "./pipeline-walk.js";
 import {
   RESOLVE_GATE_KEY,
   RESOLVE_KEY,
@@ -53,6 +53,13 @@ const meeting = (...met: number[]): StageOutcome => ({
   status: "done",
   summary: "Done.",
   definitionOfDoneMet: met,
+});
+/** A report meeting `met`, with `outOfReach` out of reach. */
+const outOfReach = (met: number[], ...statements: number[]): StageOutcome => ({
+  status: "done",
+  summary: "Done.",
+  definitionOfDoneMet: met,
+  definitionOfDoneOutOfReach: statements.map((statement) => ({ statement, why: "Live." })),
 });
 const failed = (error: string): StageOutcome => ({ status: "failed", error });
 const asks: StageOutcome = {
@@ -684,7 +691,12 @@ describe("nextMove", () => {
       expect(nextMove(stages, ran, DEFINITION_OF_DONE)).toEqual({
         move: "ask",
         run: ran[2],
-        question: { kind: "definition-of-done", unmet: ["The name shows"], again: stages[2] },
+        question: {
+          kind: "definition-of-done",
+          unmet: ["The name shows"],
+          outOfReach: [],
+          again: stages[2],
+        },
       });
     });
 
@@ -707,6 +719,33 @@ describe("nextMove", () => {
           round: 1,
           rounds: 1,
           guidance: "Show it bold.",
+        },
+      });
+    });
+
+    it("asks with the statements the last report says are out of reach, with why", () => {
+      const ran = allRan(outOfReach([2], 1));
+
+      expect(nextMove(stages, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: {
+          kind: "definition-of-done",
+          unmet: ["The name shows"],
+          outOfReach: [{ statement: "The name shows", why: "Live." }],
+        },
+      });
+    });
+
+    it("carries only the statements one more round can address, leaving the rest to the user", () => {
+      const answer = { kind: "one-more-round", guidance: undefined } as const;
+      const ran = allRan(outOfReach([], 2), decided("definition-of-done", answer));
+
+      expect(nextMove(stages, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: stages[2],
+        carriedFailure: {
+          error:
+            "The Definition of Done isn't reported met:\n- The name shows\n\nThe user checks these themselves, as you reported you can't verify them where you work:\n- The name persists",
         },
       });
     });
@@ -903,5 +942,25 @@ describe("reportedMet", () => {
     expect(reportedMet(ran)).toEqual([2]);
     expect(reportedMet([...ran, ...runs(["look", meeting()])])).toEqual([]);
     expect(reportedMet([])).toEqual([]);
+  });
+});
+
+describe("reportedOutOfReach", () => {
+  it("reads the last report, so a later one takes back what it leaves out", () => {
+    const ran = runs(
+      ["write", outOfReach([], 1, 2)],
+      ["look", outOfReach([1], 2)],
+      ["check", done],
+    );
+
+    expect(reportedOutOfReach(ran)).toEqual([{ statement: 2, why: "Live." }]);
+    expect(reportedOutOfReach([...ran, ...runs(["look", meeting(1)])])).toEqual([]);
+    expect(reportedOutOfReach([])).toEqual([]);
+  });
+
+  it("counts only statements not reported met", () => {
+    expect(reportedOutOfReach(runs(["look", outOfReach([1], 1, 2)]))).toEqual([
+      { statement: 2, why: "Live." },
+    ]);
   });
 });

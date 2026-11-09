@@ -201,7 +201,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       await this.events.publish(
         new StageRunThreadOpened(work.run.taskId, work.run.id, work.run.stageKey),
       );
-      const result = await this.resultOf(work, thread);
+      const result = await this.resultOf(work, thread, task.definitionOfDone.length);
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();
       if (asked) await this.keep(work, asked);
@@ -417,6 +417,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   private async resultOf(
     work: StageWork<"agent">,
     thread: StageThread,
+    statementCount: number,
   ): Promise<StageOutcome | undefined> {
     const { interruption } = work;
     const stopListening = interruption.onNow(() => {
@@ -425,7 +426,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       });
     });
     try {
-      return await this.readResult(work, thread);
+      return await this.readResult(work, thread, statementCount);
     } catch (error) {
       // An engine that can't interrupt ends the session instead, so the turn read fails.
       if (interruption.now) return undefined;
@@ -438,6 +439,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   private async readResult(
     work: StageWork<"agent">,
     thread: StageThread,
+    statementCount: number,
   ): Promise<StageOutcome | undefined> {
     let tokens = NO_STAGE_TOKENS;
     const counted = async (turn: StageTurn): Promise<StageTurn> => {
@@ -451,7 +453,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (work.interruption.requested) return undefined;
     const first = await this.withScreenshots(
       work,
-      readingOf(firstTurn, await thread.askedDecision()),
+      readingOf(firstTurn, await thread.askedDecision(), statementCount),
     );
     if (first.valid) return first.outcome;
     // The correction is another engine call, so the budget is checked before it too.
@@ -466,7 +468,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (work.interruption.requested) return undefined;
     const corrected = await this.withScreenshots(
       work,
-      readingOf(correctedTurn, await thread.askedDecision()),
+      readingOf(correctedTurn, await thread.askedDecision(), statementCount),
     );
     if (corrected.valid) return corrected.outcome;
     return {
@@ -501,11 +503,12 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
 function readingOf(
   { output, problem }: StageTurn,
   asked: AskedDecision | undefined,
+  statementCount: number,
 ): StageResultReading {
   if (output === undefined && !asked) {
     return { valid: false, problems: problem ?? "The turn ended without a result." };
   }
-  return readStageResult(output, asked);
+  return readStageResult(output, asked, statementCount);
 }
 
 function changedGitItself(problem: string, handoverNote: string | undefined): StageOutcome {

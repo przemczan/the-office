@@ -15,6 +15,12 @@ export interface StageDecision {
   readonly recommendation: StageRecommendation;
 }
 
+/** A Definition of Done statement an Agent can't verify where it works, by its number from 1. */
+export interface OutOfReachStatement {
+  readonly statement: number;
+  readonly why: string;
+}
+
 /**
  * How a Stage run ends (spec §2.3), with what the next Stage or the user needs from it. An Agent
  * Stage's also carries its Handover note (spec §2.5), which the next Brief hands on.
@@ -28,6 +34,11 @@ export type StageOutcome = (
        * numbers in its Brief, from 1. Undefined for a Script Stage, which reports none.
        */
       readonly definitionOfDoneMet?: readonly number[];
+      /**
+       * The statements the Agent says it can't verify where it works, with why (Out of reach); none
+       * listed leaves it undefined.
+       */
+      readonly definitionOfDoneOutOfReach?: readonly OutOfReachStatement[];
       /** The pull request a Publish opened. Undefined on runs stored before it was kept. */
       readonly pullRequestUrl?: string;
       /** Set on an optional Stage's run recorded as skipped, which ran nothing. */

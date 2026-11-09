@@ -99,6 +99,7 @@ describe("walkDecision", () => {
     const decision = walkDecision(aRun("implement", { status: "done", summary: "Done." }), {
       kind: "definition-of-done",
       unmet: ["The name persists"],
+      outOfReach: [],
       again: implement,
     });
 
@@ -106,6 +107,10 @@ describe("walkDecision", () => {
       kind: "definition-of-done",
       draft: {
         options: ['Run "Implement" once more', "Mark the Task Done", "Drop the Task"],
+        recommendation: {
+          option: 0,
+          reason: "What is left goes into its Brief, so the Agent can finish it.",
+        },
       },
       options: [
         { kind: "one-more-round", guidance: undefined },
@@ -113,7 +118,47 @@ describe("walkDecision", () => {
         { kind: "drop" },
       ],
     });
-    expect(decision.draft.context).toContain("Not reported met:\n- The name persists");
+    expect(decision.draft.context).toBe(
+      "Not reported met:\n- The name persists\n\nOr answer in your own words: your answer guides one more round.",
+    );
+  });
+
+  it("lists what the Stage can address apart from what the user checks, still recommending one more round", () => {
+    const decision = walkDecision(aRun("implement", { status: "done", summary: "Done." }), {
+      kind: "definition-of-done",
+      unmet: ["The name persists", "It runs on Windows"],
+      outOfReach: [{ statement: "It runs on Windows", why: "Only the workstation runs Windows." }],
+      again: implement,
+    });
+
+    expect(decision.draft.context).toBe(
+      '"Implement" can address:\n- The name persists\n\n"Implement" can\'t verify these, so check them yourself:\n- It runs on Windows (Only the workstation runs Windows.)\n\nOr answer in your own words: your answer guides one more round.',
+    );
+    expect(decision.draft.recommendation.option).toBe(0);
+    expect(decision.options[0]).toEqual({ kind: "one-more-round", guidance: undefined });
+  });
+
+  it("recommends marking the Task Done when the Stage can address none, the user checking them first", () => {
+    const decision = walkDecision(aRun("implement", { status: "done", summary: "Done." }), {
+      kind: "definition-of-done",
+      unmet: ["It runs on Windows"],
+      outOfReach: [{ statement: "It runs on Windows", why: "Only the workstation runs Windows." }],
+      again: implement,
+    });
+
+    expect(decision.draft).toMatchObject({
+      options: ['Run "Implement" once more', "Mark the Task Done", "Drop the Task"],
+      recommendation: {
+        option: 1,
+        reason:
+          'Another round of "Implement" can\'t meet them: check those statements yourself first, then mark it done.',
+      },
+    });
+    expect(decision.draft.context).toContain(
+      '"Implement" can\'t verify these, so check them yourself:\n- It runs on Windows (Only the workstation runs Windows.)',
+    );
+    expect(decision.draft.context).not.toContain("can address");
+    expect(decision.options[1]).toEqual({ kind: "mark-done" });
   });
 
   it("asks whether to run again a Stage The Office restarted during, or drop the Task", () => {
@@ -414,9 +459,10 @@ describe("asksTheCtoFirst", () => {
       ),
     ).toBe(false);
     expect(
-      asksTheCtoFirst({ kind: "definition-of-done", unmet: ["It exports."], again: implement }, [
-        run,
-      ]),
+      asksTheCtoFirst(
+        { kind: "definition-of-done", unmet: ["It exports."], outOfReach: [], again: implement },
+        [run],
+      ),
     ).toBe(false);
   });
 });

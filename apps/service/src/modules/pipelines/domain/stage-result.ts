@@ -26,6 +26,17 @@ const stageResult = z.object({
     .describe(
       "Required when status is done: the numbers of the Definition of Done statements the work now meets, as the Brief numbers them; leave out any it doesn't meet yet.",
     ),
+  definitionOfDoneOutOfReach: z
+    .array(
+      z.object({
+        statement: z.int().min(1).describe("The statement's number, as the Brief numbers it."),
+        why: z.string().min(1).describe("Why you can't verify it where you work."),
+      }),
+    )
+    .optional()
+    .describe(
+      "With status done: the Definition of Done statements you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, each with why. Never count them as met; one that just isn't finished yet doesn't go here.",
+    ),
   failureReason: z.string().min(1).optional().describe("Required when status is failed."),
   screenshots: z
     .array(z.string().min(1))
@@ -79,11 +90,13 @@ export type StageResultReading =
  * began, if any (spec §9): the Stage then waits on that Decision whatever status the result gives,
  * as the tool told the Agent to end its turn, keeping the result's Handover note and none of its
  * screenshots. Without one,
- * needs_decision asks nothing, so it is corrected like any other mismatch.
+ * needs_decision asks nothing, so it is corrected like any other mismatch. `statementCount` is how
+ * many statements the Task's Definition of Done has, which the out of reach ones are checked against.
  */
 export function readStageResult(
   output: unknown,
   asked: StageDecision | undefined,
+  statementCount: number,
 ): StageResultReading {
   // The Stage runs again once the Decision is answered, and lists its screenshots as it ends then.
   if (asked) return { valid: true, outcome: askedOutcome(asked, output), screenshots: [] };
@@ -94,9 +107,35 @@ export function readStageResult(
   if (missing) {
     return { valid: false, problems: `status "${result.status}" requires "${missing}".` };
   }
+  const outOfReachProblem = outOfReachProblemOf(result, statementCount);
+  if (outOfReachProblem) return { valid: false, problems: outOfReachProblem };
   const outcome = outcomeOf(result);
   if (!outcome) return { valid: false, problems: NO_DECISION_OPENED };
   return { valid: true, outcome, screenshots: result.screenshots ?? [] };
+}
+
+/** A statement out of reach the Definition of Done doesn't have, or that is also reported met. */
+function outOfReachProblemOf(
+  { definitionOfDoneMet, definitionOfDoneOutOfReach }: StageResult,
+  statementCount: number,
+): string | undefined {
+  const outOfReach = (definitionOfDoneOutOfReach ?? []).map(({ statement }) => statement);
+  const unknown = outOfReach.filter((statement) => statement > statementCount);
+  if (unknown.length > 0) {
+    return `"definitionOfDoneOutOfReach" names ${numbersWords(unknown)}, which the Definition of Done doesn't have: it has ${statementCount}.`;
+  }
+  const met = new Set(definitionOfDoneMet);
+  const both = outOfReach.filter((statement) => met.has(statement));
+  if (both.length > 0) {
+    return `"definitionOfDoneMet" and "definitionOfDoneOutOfReach" both name ${numbersWords(both)}: a statement you can't verify isn't met, so list it only as out of reach.`;
+  }
+  return undefined;
+}
+
+function numbersWords(statements: readonly number[]): string {
+  return statements.length === 1
+    ? `statement ${statements.join("")}`
+    : `statements ${statements.join(", ")}`;
 }
 
 /** Undefined for needs_decision, which asks nothing without a Decision opened. */
@@ -105,12 +144,20 @@ function outcomeOf({
   summary,
   handoverNote,
   definitionOfDoneMet,
+  definitionOfDoneOutOfReach,
   failureReason,
 }: StageResult): StageOutcome | undefined {
   const note = handoverNote === undefined ? {} : { handoverNote };
   switch (status) {
     case "done":
-      return { status: "done", summary, ...note, definitionOfDoneMet: definitionOfDoneMet ?? [] };
+      return {
+        status: "done",
+        summary,
+        ...note,
+        definitionOfDoneMet: definitionOfDoneMet ?? [],
+        ...(definitionOfDoneOutOfReach !== undefined &&
+          definitionOfDoneOutOfReach.length > 0 && { definitionOfDoneOutOfReach }),
+      };
     case "needs_decision":
       return undefined;
     case "failed":

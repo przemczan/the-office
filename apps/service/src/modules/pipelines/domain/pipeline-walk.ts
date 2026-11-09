@@ -8,12 +8,20 @@ import type { Stage } from "./stage.js";
 import type {
   BudgetReached,
   CarriedFailure,
+  OutOfReachStatement,
   SentBack,
+  StageOutcome,
   StageRun,
   StageRunDecision,
   WalkAnswer,
   WalkDecisionKind,
 } from "./stage-run.js";
+
+/** An unmet Definition of Done statement Out of reach, in its words, with why. */
+export interface UnmetOutOfReach {
+  readonly statement: string;
+  readonly why: string;
+}
 
 /** What the walk stops to ask the user, before The Office words it as a Decision. */
 export type WalkQuestion =
@@ -31,11 +39,13 @@ export type WalkQuestion =
   | { readonly kind: "branch-moved"; readonly stage: Stage; readonly error: string }
   /**
    * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
-   * `again`, the last Agent Stage (or the last Stage when there is none).
+   * `again`, the last Agent Stage (or the last Stage when there is none). `outOfReach` are those
+   * of `unmet` the last report says it can't verify, which another round can't address.
    */
   | {
       readonly kind: "definition-of-done";
       readonly unmet: readonly string[];
+      readonly outOfReach: readonly UnmetOutOfReach[];
       readonly again: Stage;
     };
 
@@ -141,10 +151,27 @@ export function nextMove(
  * Script Stages report none. `runs` are the Task's, oldest first.
  */
 export function reportedMet(runs: readonly StageRun[]): readonly number[] {
+  return lastReport(runs)?.definitionOfDoneMet ?? [];
+}
+
+/**
+ * The statements Out of reach, by their numbers with why: from the same report as `reportedMet`,
+ * so a later report takes back what it leaves out. Only statements not Reported met count.
+ */
+export function reportedOutOfReach(runs: readonly StageRun[]): readonly OutOfReachStatement[] {
+  const report = lastReport(runs);
+  const met = new Set(report?.definitionOfDoneMet);
+  return (report?.definitionOfDoneOutOfReach ?? []).filter(({ statement }) => !met.has(statement));
+}
+
+/** The last Agent Stage run's done outcome with a Definition of Done report. */
+function lastReport(
+  runs: readonly StageRun[],
+): Extract<StageOutcome, { status: "done" }> | undefined {
   const reports = runs.flatMap(({ outcome }) =>
-    outcome?.status === "done" && outcome.definitionOfDoneMet ? [outcome.definitionOfDoneMet] : [],
+    outcome?.status === "done" && outcome.definitionOfDoneMet ? [outcome] : [],
   );
-  return reports.at(-1) ?? [];
+  return reports.at(-1);
 }
 
 /** The Definition of Done statements not Reported met. */
@@ -154,6 +181,45 @@ export function unmetStatements(
 ): string[] {
   const met = new Set(reportedMet(runs));
   return definitionOfDone.filter((_statement, index) => !met.has(index + 1));
+}
+
+/** The unmet statements Out of reach, in the words of the Definition of Done, with why. */
+function outOfReachStatements(
+  definitionOfDone: readonly string[],
+  runs: readonly StageRun[],
+): UnmetOutOfReach[] {
+  return reportedOutOfReach(runs).flatMap(({ statement, why }) => {
+    const words = definitionOfDone[statement - 1];
+    return words === undefined ? [] : [{ statement: words, why }];
+  });
+}
+
+/** The unmet statements another round of `again` can address: those not Out of reach. */
+export function addressableStatements(
+  unmet: readonly string[],
+  outOfReach: readonly UnmetOutOfReach[],
+): string[] {
+  const unreachable = new Set(outOfReach.map(({ statement }) => statement));
+  return unmet.filter((statement) => !unreachable.has(statement));
+}
+
+/** Definition of Done statements as a list, one line each. */
+export function statementList(statements: readonly string[]): string {
+  return statements.map((statement) => `- ${statement}`).join("\n");
+}
+
+/**
+ * The failure one more round carries: the statements it can address, the others left to the user.
+ * With none to address, the user still chose the round, so it carries every unmet statement.
+ */
+function definitionOfDoneCarried(
+  unmet: readonly string[],
+  outOfReach: readonly UnmetOutOfReach[],
+): string {
+  const addressable = addressableStatements(unmet, outOfReach);
+  const notMet = `The Definition of Done isn't reported met:\n${statementList(addressable.length > 0 ? addressable : unmet)}`;
+  if (addressable.length === 0 || outOfReach.length === 0) return notMet;
+  return `${notMet}\n\nThe user checks these themselves, as you reported you can't verify them where you work:\n${statementList(outOfReach.map(({ statement }) => statement))}`;
 }
 
 /** Moves the walk past the run; a move that stops it is returned. */
@@ -417,7 +483,8 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
   const unmet = unmetStatements(walk.definitionOfDone, walk.replayed);
   if (unmet.length === 0) return undefined;
   const again = walk.stages.findLast(({ kind }) => kind === "agent") ?? last;
-  const question = { kind: "definition-of-done", unmet, again } as const;
+  const outOfReach = outOfReachStatements(walk.definitionOfDone, walk.replayed);
+  const question = { kind: "definition-of-done", unmet, outOfReach, again } as const;
   const waiting = waitingOn(run, "definition-of-done", question);
   if (waiting) return waiting;
   const answer = answerOf(run, "definition-of-done");
@@ -429,7 +496,7 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
     case "one-more-round": {
       const round = (walk.roundsUsed.get(DEFINITION_OF_DONE_ROUNDS) ?? 0) + 1;
       walk.roundsUsed.set(DEFINITION_OF_DONE_ROUNDS, round);
-      const error = `The Definition of Done isn't reported met:\n${unmet.map((statement) => `- ${statement}`).join("\n")}`;
+      const error = definitionOfDoneCarried(unmet, outOfReach);
       walk.position = {
         index: walk.stages.indexOf(again),
         carriedFailure: {

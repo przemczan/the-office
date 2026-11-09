@@ -1,4 +1,9 @@
-import type { WalkQuestion } from "./pipeline-walk.js";
+import {
+  addressableStatements,
+  statementList,
+  type UnmetOutOfReach,
+  type WalkQuestion,
+} from "./pipeline-walk.js";
 import { isResolveStage } from "./resolve-stages.js";
 import type { Stage } from "./stage.js";
 import { tokensWords } from "./stage-budget.js";
@@ -48,7 +53,7 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
     case "budget":
       return budgetDecision(question.stage, question.reached);
     case "definition-of-done":
-      return definitionOfDoneNotMet(question.unmet, question.again);
+      return definitionOfDoneNotMet(question.unmet, question.outOfReach, question.again);
     case "restart":
       return restartDecision(question.stage, run);
     case "base-moved":
@@ -270,18 +275,38 @@ function conflictWithNobodyToResolve(stage: Stage, error: string): WalkDecision 
   };
 }
 
-function definitionOfDoneNotMet(unmet: readonly string[], again: Stage): WalkDecision {
-  const statements = unmet.map((statement) => `- ${statement}`).join("\n");
+/**
+ * The Definition of Done not reported met: the statements `again` can address apart from those
+ * Out of reach, which the user checks. With none to address, another round can't meet them, so
+ * Mark it done is recommended.
+ */
+function definitionOfDoneNotMet(
+  unmet: readonly string[],
+  outOfReach: readonly UnmetOutOfReach[],
+  again: Stage,
+): WalkDecision {
+  const addressable = addressableStatements(unmet, outOfReach);
+  const context = notMetContext(unmet, addressable, outOfReach, again);
+  const recommendation =
+    addressable.length > 0
+      ? {
+          option: 0,
+          reason:
+            outOfReach.length === 0
+              ? "What is left goes into its Brief, so the Agent can finish it."
+              : "What it can address goes into its Brief, so the Agent can finish it; the rest is yours to check.",
+        }
+      : {
+          option: 1,
+          reason: `Another round of "${again.name}" can't meet them: check those statements yourself first, then mark it done.`,
+        };
   return {
     kind: "definition-of-done",
     draft: {
       question: "The Pipeline ended, but the Definition of Done isn't reported met. What now?",
-      context: `Not reported met:\n${statements}\n\n${GUIDANCE_HINT}`,
+      context: `${context}\n\n${GUIDANCE_HINT}`,
       options: [`Run "${again.name}" once more`, MARK_DONE, DROP_THE_TASK],
-      recommendation: {
-        option: 0,
-        reason: "What is left goes into its Brief, so the Agent can finish it.",
-      },
+      recommendation,
     },
     options: [
       { kind: "one-more-round", guidance: undefined },
@@ -289,6 +314,20 @@ function definitionOfDoneNotMet(unmet: readonly string[], again: Stage): WalkDec
       { kind: "drop" },
     ],
   };
+}
+
+/** The unmet statements as one list, or apart: what `again` can address and what the user checks. */
+function notMetContext(
+  unmet: readonly string[],
+  addressable: readonly string[],
+  outOfReach: readonly UnmetOutOfReach[],
+  again: Stage,
+): string {
+  if (outOfReach.length === 0) return `Not reported met:\n${statementList(unmet)}`;
+  const unreachable = outOfReach.map(({ statement, why }) => `- ${statement} (${why})`).join("\n");
+  const userChecks = `"${again.name}" can't verify these, so check them yourself:\n${unreachable}`;
+  if (addressable.length === 0) return userChecks;
+  return `"${again.name}" can address:\n${statementList(addressable)}\n\n${userChecks}`;
 }
 
 function moreRounds(rounds: number): string {

@@ -270,6 +270,10 @@ _Avoid_: Run log, Stage details
 A Definition of Done statement that the last Agent to report on it says is met; an Agent's word, which nobody verified, and a later run can take it back.
 _Avoid_: Checked, verified, done
 
+**Out of reach**:
+A Definition of Done statement the last Agent to report says it can't verify where it works, with why, such as a live check on the user's workstation; the user checks it, as another round of the Stage can't.
+_Avoid_: Unverifiable, manual check, skipped
+
 **Before Ready**:
 The read-only card on a Task page that lists what Ready needs (Plan confirmed, Definition of Done confirmed, Pipeline chosen, No Decision open), each unmet line linking to where it is settled; it takes Needs you's place when nothing waits, and is not part of Needs you.
 _Avoid_: To confirm, checklist
