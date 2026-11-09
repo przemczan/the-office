@@ -21,7 +21,7 @@ import { useToast } from "../../shell/toasts.tsx";
 
 const IMAGE_NAMES: Readonly<Record<ProjectImageKey, string>> = { icon: "Icon", logo: "Logo" };
 const WHERE_IT_SHOWS: Readonly<Record<ProjectImageKey, string>> = {
-  icon: "Shows on the mark's colour in place of its letters, wherever the mark shows.",
+  icon: "Shows in place of the mark's letters and colour, wherever the mark shows.",
   logo: "Stands for the Project on its page and its card, in place of the mark.",
 };
 

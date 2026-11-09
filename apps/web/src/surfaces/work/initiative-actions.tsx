@@ -1,12 +1,14 @@
 import type { Initiative } from "@the-office/contracts";
 import { Button, Icon, IconButton, Menu, type MenuItem } from "@the-office/ui";
+import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { confirmInitiative, dropInitiative } from "../../api/work.ts";
+import { confirmInitiative, dropInitiative, taskQueries } from "../../api/work.ts";
 import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import { droppedWords } from "./initiative-words.ts";
-import { NewTaskDialog } from "./new-task-dialog.tsx";
+import { canHoldBack } from "./dependency-words.ts";
+import { droppedWords, tasksOfInitiative } from "./initiative-words.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 
 /**
@@ -15,6 +17,7 @@ import { useInitiativeChange } from "./use-initiative-change.ts";
  */
 export function InitiativeActions({ initiative }: { readonly initiative: Initiative }): ReactNode {
   const [adding, setAdding] = useState(false);
+  const tasks = useQuery(taskQueries.list());
   const open = initiative.state === "shaping" || initiative.state === "active";
   return (
     <>
@@ -29,7 +32,13 @@ export function InitiativeActions({ initiative }: { readonly initiative: Initiat
         </Button>
       )}
       <InitiativeMenu initiative={initiative} />
-      {adding && <NewTaskDialog initiative={initiative} onClose={() => setAdding(false)} />}
+      {adding && (
+        <NewTaskDialog
+          initiative={initiative}
+          canWaitFor={tasksOfInitiative(initiative, tasks.data ?? []).filter(canHoldBack)}
+          onClose={() => setAdding(false)}
+        />
+      )}
     </>
   );
 }

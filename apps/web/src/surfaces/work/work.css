@@ -27,18 +27,6 @@
   padding-left: 18px;
 }
 
-.must-wait-for {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.must-wait-for-task {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 /* ---- the board: a column per state, cards by priority then manual order */
 .board {
   display: grid;
@@ -603,30 +591,6 @@
   content: "·";
   margin-right: 14px;
   color: var(--border-strong);
-}
-
-.tags-input {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.tags-input-box {
-  flex: 1;
-  min-width: 96px;
-  height: 28px;
-  padding: 0 6px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font: 400 13px/1 var(--font-sans);
-  color: var(--fg-1);
-}
-
-.tags-input-box:focus-visible {
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-control);
 }
 
 .pipeline-rail-place {

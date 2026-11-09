@@ -1,6 +1,7 @@
 import { Tag } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { withTag } from "./tag-words.ts";
+import "./tags-input.css";
 
 /**
  * A Task's Tags as chips, each removable, and a box adding one on Enter or a comma, suggesting the
