@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { Initiative, NewTask, Project, Task } from "@the-office/contracts";
-import { Button, Checkbox, Dialog, Field, Input, RadioGroup, Textarea } from "@the-office/ui";
+import { Button, Checkbox, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { addTaskToInitiative, createTask, initiativeQueries, taskQueries } from "../../api/work.ts";
+import { MentionField } from "../mentions/mention-field.tsx";
+import { useMentions } from "../mentions/mention-picker.tsx";
 import { ProjectChip } from "../project-chip.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
@@ -13,7 +15,10 @@ import { TagsInput } from "./tags-input.tsx";
 import { TASK_STATE_NAMES } from "./work-words.ts";
 import "./new-task-dialog.css";
 
-type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string };
+type NewTaskDraft = Omit<NewTask, "projectId" | "description"> & {
+  readonly projectId?: string;
+  readonly description: string;
+};
 
 /**
  * The top bar's Create › Task: a title, a Description if the user wants, its Project and any Tags;
@@ -43,6 +48,9 @@ export function NewTaskDialog({
     priority: "normal",
     tags: [],
   });
+  const mentions = useMentions(draft.description, (description) =>
+    setDraft((current) => ({ ...current, description })),
+  );
   const [blockedBy, setBlockedBy] = useState<ReadonlySet<string>>(new Set());
   const projectId =
     draft.projectId ?? initiative?.projectIds[0] ?? startingProjectId ?? projects.data?.[0]?.id;
@@ -92,7 +100,8 @@ export function NewTaskDialog({
         className="dialog-stack"
         onSubmit={(event) => {
           event.preventDefault();
-          if (projectId !== undefined) creating.mutate({ ...draft, projectId });
+          if (projectId === undefined) return;
+          creating.mutate({ ...draft, description: mentions.linked(draft.description), projectId });
         }}
       >
         {creating.error && <RefusalAlert title="The Task can't be added" error={creating.error} />}
@@ -102,12 +111,13 @@ export function NewTaskDialog({
           onChange={(event) => setDraft({ ...draft, title: event.target.value })}
           autoFocus
         />
-        <Textarea
+        <MentionField
           label="Description"
-          hint="Optional. What you want, in your own words; the title alone is enough to plan from."
+          hint="Optional. What you want, in your own words; type @ to mention a Task, Initiative, Decision or Idea. The title alone is enough to plan from."
           rows={4}
           value={draft.description}
-          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          onChange={(description) => setDraft({ ...draft, description })}
+          mentions={mentions}
         />
         <Field label="Project">
           {projects.data?.length === 0 ? (

@@ -1005,6 +1005,64 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await expect(markReady).toHaveCount(0);
 });
 
+test("the user mentions a Task with @ in a new Task's Description, and its page shows the chip that opens it", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Mentioning work", "MW");
+  const mentioned = await createdTask(page, project, "Ledger totals round to cents");
+  await page.goto(`/projects/${project.id}`);
+  await createFromTopBar(page, "Task");
+  const dialog = page.getByRole("dialog", { name: "New Task" });
+  await dialog.getByLabel("Title").fill("Invoices show the ledger totals");
+  const description = dialog.getByRole("textbox", { name: "Description" });
+  await description.fill("Use the totals from ");
+  await description.pressSequentially("@ledger tot");
+  const option = dialog.getByRole("option", { name: /Ledger totals round to cents/ });
+  await expect(option).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-new-task-mention.png") });
+
+  // Esc closes the picker alone; the window stays with what was written.
+  await description.press("Escape");
+  await expect(option).toBeHidden();
+  await expect(dialog).toBeVisible();
+  await description.pressSequentially("a");
+  await expect(option).toBeVisible();
+  await description.press("Enter");
+  await expect(description).toHaveValue("Use the totals from @Ledger totals round to cents ");
+  await description.pressSequentially("as they are.");
+  await dialog.getByRole("button", { name: "Add the Task" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/tasks\//);
+
+  const descriptionBlock = page
+    .getByRole("region", { name: "Record" })
+    .getByRole("region", { name: "Description" });
+  const chip = descriptionBlock.getByRole("link", { name: "Ledger totals round to cents" });
+  await expect(chip).toHaveClass(/record-mention/);
+  await expect(descriptionBlock).toContainText(
+    "Use the totals from Ledger totals round to cents as they are.",
+  );
+
+  // Edited again, the mention reads as the link it was saved as, and @ offers records there too.
+  await descriptionBlock.getByRole("button", { name: "Edit" }).click();
+  const editor = descriptionBlock.getByRole("textbox", { name: "Description" });
+  await expect(editor).toHaveValue(
+    `Use the totals from [@Ledger totals round to cents](/tasks/${mentioned.id}) as they are.`,
+  );
+  await editor.press("End");
+  await editor.pressSequentially(" Like @ledger");
+  const offered = descriptionBlock.getByRole("option", { name: /Ledger totals round to cents/ });
+  await expect(offered).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-description-mention.png") });
+  await editor.press("Escape");
+  await expect(offered).toBeHidden();
+  await expect(editor).toBeVisible();
+  await descriptionBlock.getByRole("button", { name: "Cancel" }).click();
+
+  await chip.click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${mentioned.id}`));
+});
+
 test("the board's filters narrow it by search, priority and Blocked, kept in its address until Clear", async ({
   page,
 }) => {

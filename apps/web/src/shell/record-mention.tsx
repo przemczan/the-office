@@ -5,7 +5,7 @@ import { Icon } from "@the-office/ui";
 import { createContext, useContext, type ReactNode } from "react";
 import { decisionQueries } from "../api/conversations.ts";
 import { ideaQueries, initiativeQueries, taskQueries } from "../api/work.ts";
-import { MENTION_KINDS } from "./conversation/mention-words.ts";
+import { MENTION_KINDS } from "./mentions/mention-words.ts";
 import "./record-mention.css";
 
 /**

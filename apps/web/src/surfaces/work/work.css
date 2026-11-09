@@ -1902,6 +1902,11 @@
   background: var(--surface);
 }
 
+/* The `@` picker opens under the Description's field and may reach past the fold. */
+.record-fold:has(.mention-picker) {
+  overflow: visible;
+}
+
 .record-fold-row {
   display: flex;
   gap: 10px;

@@ -12,8 +12,9 @@ import {
   type Mentionable,
   type MentionQuery,
 } from "./mention-words.ts";
+import "./mentions.css";
 
-/** What the composer wires into its field, and the picker it shows over it. */
+/** What a field wires in to mention records, and the picker it shows by it. */
 export interface Mentions {
   readonly onCaret: (field: HTMLTextAreaElement) => void;
   readonly onKeyDownFirst: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
@@ -27,9 +28,10 @@ export interface Mentions {
 }
 
 /**
- * Mentions in a composer (prototypes/app/conversation.js, the @ picker): typing `@` offers the
- * Tasks, open Decisions and Ideas whose words match; arrows move, Enter or Tab picks, Esc closes.
- * The draft shows `@` and the record's name; the message sent links it to the record's page.
+ * Mentions in a field (prototypes/app/conversation.js, the @ picker), the chat's composer or a Task's
+ * Description: typing `@` offers the Tasks, Initiatives, open Decisions and Ideas whose words match;
+ * arrows move, Enter or Tab picks, Esc closes. The text shows `@` and the record's name; the text
+ * sent or saved links it to the record's page.
  */
 export function useMentions(draft: string, setDraft: (draft: string) => void): Mentions {
   const field = useRef<HTMLTextAreaElement>(null);
