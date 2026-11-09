@@ -4,6 +4,7 @@ import { Badge, Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { reasonsBesideBlockers } from "./queue-reasons.ts";
 
 /** The Task's place in the queue for Start; undefined while it isn't queued. */
 export function useQueued(taskId: string): QueuedTask | undefined {
@@ -20,6 +21,22 @@ export function QueuedMark({ queued }: { readonly queued: QueuedTask }): ReactNo
       <span>
         Place {queued.place} · {queued.reasons.join(" ")}
       </span>
+    </span>
+  );
+}
+
+/**
+ * A board card's short "Queued": only the waits beside its blockers, which the card names in its
+ * "Blocked by" line, and no place, which the Queued column's order shows.
+ */
+export function QueuedCardMark({ queued }: { readonly queued: QueuedTask }): ReactNode {
+  const reasons = reasonsBesideBlockers(queued.reasons);
+  return (
+    <span className="queued-mark">
+      <Badge tone="info" size="sm">
+        Queued
+      </Badge>
+      {reasons.length > 0 && <span>{reasons.join(" ")}</span>}
     </span>
   );
 }

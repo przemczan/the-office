@@ -20,7 +20,7 @@ import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
 import { MakeAPlanButton } from "./planning-actions.tsx";
-import { QueuedMark } from "./queue-parts.tsx";
+import { QueuedCardMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters } from "./use-board-filters.ts";
 import { usePeopleWorking, WorkingMark, type PersonWorking } from "./working-mark.tsx";
@@ -181,7 +181,7 @@ function BoardCard({
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);
   const movable = NOT_STARTED.includes(task.state) && !queued;
-  const foot = queued ? <QueuedMark queued={queued} /> : footOf(task, planner, waiting);
+  const foot = queued ? <QueuedCardMark queued={queued} /> : footOf(task, planner, waiting);
   // Only Ready Tasks, queued ones too, have one.
   const usageEstimate = useUsageEstimate(task.id);
   const titleLink = useRef<HTMLAnchorElement>(null);

@@ -55,7 +55,8 @@ A Task in Shaping (Shaping â†’ Backlog is the Initiative's Confirm alone, spec Â
 - `planning-parts.tsx`: DescriptionBlock, DefinitionOfDoneBlock, PlanBlock, useRecordChange
 - `planning-words.ts`: statementsOf, leavesReadyWords, definitionOfDoneSummary, NO_DESCRIPTION, descriptionSummary, planSummary
 - `pull-request-button.tsx`: PullRequestButton
-- `queue-parts.tsx`: useQueued, QueuedMark, QueueActions
+- `queue-parts.tsx`: useQueued, QueuedMark, QueuedCardMark, QueueActions
+- `queue-reasons.ts`: reasonsBesideBlockers
 - `record-block.tsx`: RecordBlock
 - `record-blocks.ts`: PartBlock, recordBlockElementId, bringIntoView, useShowRecordBlock
 - `record-fold.tsx`: RecordFold
@@ -97,4 +98,4 @@ A Task in Shaping (Shaping â†’ Backlog is the Initiative's Confirm alone, spec Â
 - `use-timeline-scroll.ts`: TimelineScroll, chapterElementId, useTimelineScroll
 - `work-page.tsx`: WorkPage
 - `working-mark.tsx`: PersonWorking, usePeopleWorking, WorkingMark
-- Tests: archive-words.test.ts, board-columns.test.ts, board-filters.test.ts, board-placement.test.ts, changes-words.test.ts, conversation-drawer-address.test.ts, conversation-fit.test.ts, conversation-tabs.test.ts, dependency-words.test.ts, initiative-words.test.ts, move-task-dialog.test.tsx, needs-you-words.test.ts, new-messages.test.ts, planning-parts.test.tsx, planning-words.test.ts, pull-request-button.test.tsx, record-folds.test.ts, resume-words.test.ts, run-details.test.tsx, stage-history-words.test.ts, stage-rail-words.test.ts, stage-words.test.ts, tag-words.test.ts, threads-seen.test.ts, timeline-words.test.ts, to-line.test.ts, working-mark.test.tsx
+- Tests: archive-words.test.ts, board-columns.test.ts, board-filters.test.ts, board-placement.test.ts, changes-words.test.ts, conversation-drawer-address.test.ts, conversation-fit.test.ts, conversation-tabs.test.ts, dependency-words.test.ts, initiative-words.test.ts, move-task-dialog.test.tsx, needs-you-words.test.ts, new-messages.test.ts, planning-parts.test.tsx, planning-words.test.ts, pull-request-button.test.tsx, queue-reasons.test.ts, record-folds.test.ts, resume-words.test.ts, run-details.test.tsx, stage-history-words.test.ts, stage-rail-words.test.ts, stage-words.test.ts, tag-words.test.ts, threads-seen.test.ts, timeline-words.test.ts, to-line.test.ts, working-mark.test.tsx

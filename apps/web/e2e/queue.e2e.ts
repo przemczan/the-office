@@ -131,8 +131,9 @@ test("queued Tasks show their place and reason on the board, the Task page and N
 
   await page.goto("/work");
   const card = page.getByRole("article", { name: "Queued sync of the inbox" });
-  await expect(card).toContainText("Queued");
-  await expect(card).toContainText(`Place 2 · ${ONLY_DESK}`);
+  // The card says why it waits; its place is the Queued column's order.
+  await expect(card).toContainText(`Queued${ONLY_DESK}`);
+  await expect(card).not.toContainText("Place");
 
   await page.goto("/now");
   const queue = page.getByRole("article", { name: /^Queued: / });
@@ -179,8 +180,8 @@ test("the Queued column holds queued Tasks by place, narrows with the filters, a
   await expect(queuedColumn).toContainText("They start by themselves when their turn comes");
   await expect(ready).toContainText("Starting is your call");
   await expect(queuedColumn.getByRole("article")).toHaveText([
-    new RegExp(`${first.title}.*Place 1 · ${ONLY_DESK}`),
-    new RegExp(`${second.title}.*Place 2 · ${ONLY_DESK}`),
+    new RegExp(`${first.title}.*Queued${ONLY_DESK}`),
+    new RegExp(`${second.title}.*Queued${ONLY_DESK}`),
   ]);
   await expect(ready.getByRole("article")).toHaveText([new RegExp(notQueued.title)]);
   const left = taskSchema.parse(await (await page.request.get(`/api/tasks/${first.id}`)).json());
@@ -199,8 +200,8 @@ test("the Queued column holds queued Tasks by place, narrows with the filters, a
   const movedUp = await page.request.post(`/api/queue/${second.id}/move-up`);
   expect(movedUp.ok()).toBe(true);
   await expect(queuedColumn.getByRole("article")).toHaveText([
-    new RegExp(`${second.title}.*Place 1`),
-    new RegExp(`${first.title}.*Place 2`),
+    new RegExp(second.title),
+    new RegExp(first.title),
   ]);
 
   expect((await page.request.delete(`/api/queue/${second.id}`)).ok()).toBe(true);
@@ -238,7 +239,7 @@ test("a Task moves from Ready to Queued as it is queued and to In progress as th
 
   const start = await page.request.post(`/api/tasks/${task.id}/start`, { data: {} });
   expect(start.ok()).toBe(true);
-  await expect(card("Queued")).toContainText("Place");
+  await expect(card("Queued")).toContainText(`Blocked by ${blocker.title}`);
   await expect(card("Ready")).toBeHidden();
 
   expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).ok()).toBe(true);
@@ -415,7 +416,7 @@ test("a Ready Task's Usage estimate shows on its card, in the Task head's notes,
     "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
   );
   const queuedCard = page.getByRole("article", { name: planned.title });
-  await expect(queuedCard).toContainText(`Place 1 · ${CAP_WAIT}`);
+  await expect(queuedCard).toContainText(`Queued${CAP_WAIT}`);
   await expect(estimateOn(planned.title)).toHaveText(PLANNER_WORDS);
 
   await page.goto("/now");
@@ -624,7 +625,12 @@ test("a blocked Task offers only the queue, shows its blocker as the reason, and
   await expect(page.getByText(new RegExp(`^Place \\d+ · ${reason}$`))).toBeVisible();
 
   await page.goto("/work");
-  await expect(page.getByRole("article", { name: task.title })).toContainText(reason);
+  // The card names its blocker once, in its "Blocked by" line, and its Queued line no more.
+  const card = page.getByRole("article", { name: task.title });
+  await expect(card).toContainText(`Blocked by ${blocker.title}`);
+  await expect(card.getByRole("link", { name: blocker.title })).toHaveCount(1);
+  await expect(card).not.toContainText(reason);
+  await expect(card.locator(".queued-mark")).toHaveText("Queued");
   await page.goto("/now");
   const queuedOnNow = page.getByRole("article", { name: `Queued: ${task.title}` });
   await expect(queuedOnNow).toContainText(reason);
