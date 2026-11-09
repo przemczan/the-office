@@ -2,7 +2,10 @@ import { sql } from "drizzle-orm";
 import { integer, jsonb, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 import type { Stage } from "../../domain/stage.js";
 
-/** The library's Stage templates; its migration seeds the built-ins, in `builtInStageTemplates`' order. */
+/**
+ * The library's Stage templates; its migration seeds the built-ins, in `builtInStageTemplates`'
+ * order.
+ */
 export const stageTemplates = pgTable(
   "stage_templates",
   {

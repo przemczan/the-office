@@ -9,9 +9,10 @@ import { PipelineRepository } from "./ports/pipeline-repository.js";
 import { StageTemplateRepository } from "./ports/stage-template-repository.js";
 
 /**
- * The library alone, its Pipelines and Stage templates, for the modules that read it: the rest of Pipelines calls Work and
- * Projects, so they and the others must not import PipelinesModule. The library editor, which asks
- * them who uses a Pipeline, lives in PipelinesModule and writes through the repository exported here.
+ * The library alone, its Pipelines and Stage templates, for the modules that read it: the rest of
+ * Pipelines calls Work and Projects, so they and the others must not import PipelinesModule. The
+ * library's editors, the Pipelines' asking them who uses a Pipeline, live in PipelinesModule and
+ * write through the repositories exported here.
  */
 @Module({
   controllers: [PipelinesController, StageTemplatesController],
