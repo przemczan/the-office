@@ -1013,7 +1013,8 @@ test("the user mentions a Task with @ in a new Task's Description, and its page 
   await page.goto(`/projects/${project.id}`);
   await createFromTopBar(page, "Task");
   const dialog = page.getByRole("dialog", { name: "New Task" });
-  await dialog.getByLabel("Title").fill("Invoices show the ledger totals");
+  // No "invoice" in the title: the chat's mention test searches for it in the same database.
+  await dialog.getByLabel("Title").fill("Statements show the ledger totals");
   const description = dialog.getByRole("textbox", { name: "Description" });
   await description.fill("Use the totals from ");
   await description.pressSequentially("@ledger tot");
