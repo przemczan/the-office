@@ -351,6 +351,262 @@
   color: var(--fg-3);
 }
 
+/* ---- Group by Initiative: its switch apart from the filters, as it narrows nothing */
+.board-layout {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+/*
+ * The column heads once, above the groups: the frame sticks to the top as the page scrolls, and the
+ * board sets its scrollLeft to the groups', so the heads move with them sideways. Heads and groups
+ * lay out the same row, so the columns stay under their heads.
+ */
+.board-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(220px, 1fr));
+  gap: var(--gap-card);
+  align-items: start;
+}
+
+.board-heads-frame {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  overflow: hidden;
+  margin-top: calc(var(--gap-panel) * -1);
+  padding-top: var(--gap-panel);
+  background: var(--bg);
+}
+
+.board-heads {
+  min-width: min-content;
+  padding: 0 11px 6px;
+}
+
+.board-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.board-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 600 13px/1 var(--font-sans);
+  color: var(--fg-1);
+}
+
+/* One scroller for every group, so no group scrolls on its own; its width is the visible part. */
+.board-groups {
+  overflow-x: auto;
+  padding-bottom: 4px;
+  container: board-groups / inline-size;
+}
+
+.board-groups-track {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  min-width: min-content;
+}
+
+.board-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.board-group.folded {
+  gap: 4px;
+}
+
+/* A header, a folded line and an empty group's line stay in the visible part as the board scrolls. */
+.board-group-pinned {
+  position: sticky;
+  left: 11px;
+  box-sizing: border-box;
+  align-self: flex-start;
+  width: calc(100cqw - 22px);
+}
+
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 0 2px;
+}
+
+.group-head > .fold-button {
+  flex: 0 1 auto;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 4px 2px 0;
+  border-radius: var(--radius-md);
+}
+
+.group-head > .fold-button:hover {
+  background: var(--control-hover);
+}
+
+.group-head > .fold-button > svg {
+  margin-top: 2px;
+}
+
+.group-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: var(--type-card-title);
+  color: var(--fg-1);
+}
+
+.group-name.no-initiative {
+  color: var(--fg-2);
+}
+
+.group-sub {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.group-projects {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.group-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-progress-bar {
+  width: 64px;
+}
+
+.group-end {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.group-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: var(--radius-md);
+  font: 500 var(--text-xs) / 1.4 var(--font-sans);
+  color: var(--accent-subtle-fg);
+}
+
+.group-open:hover {
+  background: var(--control-hover);
+}
+
+.group-folded-counts {
+  padding: 0 2px 0 22px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.group-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+
+.group-cell .board-cards {
+  min-height: 36px;
+}
+
+/* While a card is dragged: the one column of its group it can land in. */
+.group-cell.drop-ok {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.group-empty {
+  padding: 14px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.groups-left-out-note {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.board-nothing {
+  padding: 28px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  text-align: center;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+@container page (max-width: 639px) {
+  .board-layout {
+    flex-basis: 100%;
+    margin-left: 0;
+    padding: 6px 0 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .board-layout > button {
+    margin-left: auto;
+  }
+
+  .group-head > .fold-button {
+    flex-basis: 100%;
+  }
+
+  .group-projects,
+  .group-progress-bar,
+  .group-folded-counts,
+  .group-open-words {
+    display: none;
+  }
+
+  .group-sub {
+    padding-left: 22px;
+  }
+}
+
 /* ---- Ideas: the new ones as cards, the shaped and dropped as lists */
 .ideas-page {
   display: grid;

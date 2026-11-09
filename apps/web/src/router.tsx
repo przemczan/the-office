@@ -47,6 +47,7 @@ import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { ArchivedTasks } from "./surfaces/work/archived-tasks.tsx";
 import { Board } from "./surfaces/work/board.tsx";
 import { boardFiltersOf } from "./surfaces/work/board-filters.ts";
+import { boardGroupingOf, type BoardGrouping } from "./surfaces/work/board-grouping.ts";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
 import { InitiativePage } from "./surfaces/work/initiative-page.tsx";
 import { InitiativesList } from "./surfaces/work/initiatives-list.tsx";
@@ -112,9 +113,14 @@ const boardRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "/",
   component: Board,
-  validateSearch: boardFiltersOf,
+  validateSearch: (search: Record<string, unknown>): BoardFilters & BoardGrouping => ({
+    ...boardFiltersOf(search),
+    ...boardGroupingOf(search),
+  }),
   // The router keeps keys validateSearch leaves out, so an old address's Tags need removing here.
-  search: { middlewares: [stripSearchParams<BoardFilters & { tags?: unknown }>(["tags"])] },
+  search: {
+    middlewares: [stripSearchParams<BoardFilters & BoardGrouping & { tags?: unknown }>(["tags"])],
+  },
   staticData: { title: "Work" },
 });
 

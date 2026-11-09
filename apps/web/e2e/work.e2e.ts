@@ -462,6 +462,124 @@ test("dragging a card reorders its column, and the order survives a reload", asy
   await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(reordered);
 });
 
+/** An Initiative made active in the database, as confirming one needs the CTO's session; gives its id. */
+async function seedActiveInitiative(page: Page, name: string, createdAt: string): Promise<string> {
+  const idea = await page.request.post("/api/ideas", {
+    data: { title: name, notes: "", projectId: null },
+  });
+  expect(idea.status()).toBe(201);
+  const { id: ideaId } = ideaSchema.parse(await idea.json());
+  const initiativeId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into initiatives (id, name, outcome, state, origin_idea_id, created_by, created_at)
+     values ($1, $2, '', 'active', $3, $4, $5)`,
+    [initiativeId, name, ideaId, { kind: "user" }, createdAt],
+  );
+  return initiativeId;
+}
+
+/** A Task in Backlog, part of the Initiative. */
+async function seedTaskOf(
+  page: Page,
+  project: Project,
+  title: string,
+  initiativeId: string | null,
+): Promise<void> {
+  const task = await createdTask(page, project, title);
+  await queryOfficeDatabase(`update tasks set initiative_id = $2 where id = $1`, [
+    task.id,
+    initiativeId,
+  ]);
+}
+
+/** The cards' titles in a group's column, top to bottom. */
+function titlesInGroup(page: Page, state: string, group: string): Promise<string[]> {
+  return page
+    .getByRole("region", { name: `${state}, ${group}`, exact: true })
+    .getByRole("article")
+    .evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-label") ?? ""));
+}
+
+test("the board groups by Initiative, kept in its address, its folds remembered, a card reordering only inside its group", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Grouped work", "GW");
+  const radio = await seedActiveInitiative(page, "Grouped radio", "2026-11-09T10:00:00.000Z");
+  const display = await seedActiveInitiative(page, "Grouped display", "2026-11-08T10:00:00.000Z");
+  const radioTitles = ["Grouped radio first", "Grouped radio second", "Grouped radio third"];
+  for (const title of radioTitles) await seedTaskOf(page, project, title, radio);
+  await seedTaskOf(page, project, "Grouped display first", display);
+  await seedTaskOf(page, project, "Grouped loose first", null);
+  await page.goto("/work");
+  // Only this Project's cards, so the groups other tests leave stay out.
+  await page.getByRole("button", { name: /^Project filter:/ }).click();
+  await page.getByRole("button", { name: "Show only Grouped work" }).click();
+
+  const layout = page.getByRole("group", { name: "Layout" });
+  await layout.getByRole("switch").click();
+  await expect(page).toHaveURL(/group=initiative/);
+  await page.reload();
+  await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+  const groups = page.locator(".board-group");
+  await expect
+    .poll(() =>
+      groups.evaluateAll((shown) => shown.map((group) => group.getAttribute("aria-label"))),
+    )
+    .toEqual(["Grouped radio", "Grouped display", "No Initiative"]);
+  const radioGroup = page.getByRole("region", { name: "Grouped radio", exact: true });
+  await expect(radioGroup.getByText("3 on the board")).toBeVisible();
+  await expect(radioGroup.getByText("0 of 3 Tasks done")).toBeVisible();
+  await expect(
+    radioGroup.getByRole("link", { name: "Open Initiative Grouped radio" }),
+  ).toBeVisible();
+
+  const displayGroup = page.getByRole("region", { name: "Grouped display", exact: true });
+  const displayFold = displayGroup.getByRole("button", { name: "Grouped display", exact: true });
+  await displayFold.click();
+  await expect(displayFold).toHaveAttribute("aria-expanded", "false");
+  await expect(displayGroup.getByText("Backlog 1", { exact: true })).toBeVisible();
+  await expect(displayGroup.getByRole("article")).toHaveCount(0);
+  await page.reload();
+  await expect(displayFold).toHaveAttribute("aria-expanded", "false");
+  await expect(page).not.toHaveURL(/fold/);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-grouped.png") });
+
+  const radioBacklog = page.getByRole("region", { name: "Backlog, Grouped radio", exact: true });
+  await radioBacklog
+    .getByRole("article", { name: "Grouped radio third" })
+    .dragTo(radioBacklog.getByRole("article", { name: "Grouped radio first" }));
+  const reordered = ["Grouped radio third", "Grouped radio first", "Grouped radio second"];
+  await expect.poll(() => titlesInGroup(page, "Backlog", "Grouped radio")).toEqual(reordered);
+
+  await radioBacklog
+    .getByRole("article", { name: "Grouped radio first" })
+    .dragTo(
+      page
+        .getByRole("region", { name: "Backlog, No Initiative", exact: true })
+        .getByRole("article", { name: "Grouped loose first" }),
+    );
+  await expect(
+    page.getByText(
+      "A card moves only within its own group: the board doesn't change a Task's Initiative.",
+    ),
+  ).toBeVisible();
+  await page.reload();
+  await expect.poll(() => titlesInGroup(page, "Backlog", "Grouped radio")).toEqual(reordered);
+  await expect
+    .poll(() => titlesInGroup(page, "Backlog", "No Initiative"))
+    .toEqual(["Grouped loose first"]);
+
+  await page
+    .getByRole("search", { name: "Filter the board" })
+    .getByRole("combobox", { name: "Initiative" })
+    .selectOption({ label: "Grouped display" });
+  await expect(groups).toHaveCount(1);
+  // Alone, its group is always open, its name plain.
+  await expect(displayGroup.getByRole("article", { name: "Grouped display first" })).toBeVisible();
+  await expect(displayFold).toHaveCount(0);
+  await expect(layout.getByRole("button", { name: /Fold all|Unfold all/ })).toHaveCount(0);
+});
+
 test("a card shows who is working as they start and stop, and stays one link that drags", async ({
   page,
 }) => {

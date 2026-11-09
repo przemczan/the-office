@@ -1,5 +1,5 @@
 import type { BoardFilters, Initiative, Priority } from "@the-office/contracts";
-import { Button, Icon, Input, Select } from "@the-office/ui";
+import { Button, Icon, Input, Select, Switch } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { boardFiltersOf, hasBoardFilters, withBoardFilter } from "./board-filters.ts";
@@ -7,18 +7,33 @@ import { SavedViewsRow } from "./saved-views.tsx";
 
 const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
+/** Fold all and Unfold all, offered while more than one group shows and none is picked. */
+export interface GroupsFolding {
+  /** Every group shown is folded, so the button unfolds them. */
+  readonly allFolded: boolean;
+  readonly onFoldAll: (open: boolean) => void;
+}
+
 /**
  * The board's filters (prototypes/app/work.js `filterBar`): search, priority, Initiative, Blocked,
- * and the Saved views of them.
+ * and the Saved views of them; then, apart, Group by Initiative, which lays the board out and
+ * narrows nothing.
  */
 export function FilterBar({
   filters,
   initiatives,
   onChange,
+  grouped,
+  onGroupedChange,
+  folding,
 }: {
   readonly filters: BoardFilters;
   readonly initiatives: readonly Initiative[];
   readonly onChange: (filters: BoardFilters) => void;
+  readonly grouped: boolean;
+  readonly onGroupedChange: (grouped: boolean) => void;
+  /** Undefined while Fold all isn't offered. */
+  readonly folding: GroupsFolding | undefined;
 }): ReactNode {
   return (
     <div className="board-filters" role="search" aria-label="Filter the board">
@@ -71,6 +86,19 @@ export function FilterBar({
             Clear
           </Button>
         )}
+        <div className="board-layout" role="group" aria-label="Layout">
+          <Switch
+            size="sm"
+            label="Group by Initiative"
+            checked={grouped}
+            onChange={onGroupedChange}
+          />
+          {folding && (
+            <Button size="sm" variant="ghost" onClick={() => folding.onFoldAll(folding.allFolded)}>
+              {folding.allFolded ? "Unfold all" : "Fold all"}
+            </Button>
+          )}
+        </div>
       </div>
       <SavedViewsRow filters={filters} onChange={onChange} />
     </div>

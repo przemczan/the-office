@@ -9,6 +9,7 @@ import {
   withBoardFilter,
   withoutBoardFilters,
 } from "./board-filters.ts";
+import { boardGroupingOf } from "./board-grouping.ts";
 
 function aTask(id: string, fields: Partial<Task> = {}): Task {
   return {
@@ -104,6 +105,27 @@ describe("withoutBoardFilters", () => {
       chat: "cto",
       needsYou: true,
     });
+  });
+
+  it("keeps the grouping, so Clear and a Saved view leave it as it is", () => {
+    expect(withoutBoardFilters({ priority: "high", group: "initiative" })).toEqual({
+      group: "initiative",
+    });
+  });
+});
+
+describe("boardGroupingOf", () => {
+  it("reads ?group=initiative, apart from the filters", () => {
+    const search = { group: "initiative", priority: "high" };
+
+    expect(boardGroupingOf(search)).toEqual({ group: "initiative" });
+    expect(boardFiltersOf(search)).toEqual({ priority: "high" });
+  });
+
+  it("leaves out any other value", () => {
+    expect(boardGroupingOf({})).toEqual({});
+    expect(boardGroupingOf({ group: "project" })).toEqual({});
+    expect(boardGroupingOf({ group: true })).toEqual({});
   });
 });
 
