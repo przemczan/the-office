@@ -163,9 +163,10 @@ function StageEditorRow(props: StageEditorRowProps): ReactNode {
           {locked && <div className="stage-editor-detail">{lockedNote}</div>}
         </button>
         {open && !locked && <StageForm {...props} />}
-        {savingAsTemplate.error && (
+        {savingAsTemplate.error && savingAsTemplate.variables && (
           <RefusalAlert
-            title={`${name} wasn't saved as a Stage template`}
+            // Named as sent: the Stage may be renamed since.
+            title={`${shownName(savingAsTemplate.variables)} wasn't saved as a Stage template`}
             error={savingAsTemplate.error}
           />
         )}
