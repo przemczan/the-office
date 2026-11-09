@@ -92,7 +92,7 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 | §2.2, §4 | Office instructions: one text from Settings in every person's session on every engine, versioned as a Role card is, and a Proposal of the Office Manager | 50 |
 | §2.1 | Archive; moving Tasks between Projects until In progress, the Plan marked for the Planner to re-check | 38 |
 | §2.1 | Attachment versions: postponed until after tier 3 (2026-11-08) | 39 |
-| §2.3 | Stage templates in the Pipeline library, copied into a Pipeline when added, the built-in Stages among them | 40 |
+| §2.3 | Stage templates in Settings › Pipelines, beside the Pipelines: made from scratch or with Save as template on any Stage in a Stage editor, edited and removed there (never refused); added to a Pipeline or a Task's Stages as a copy; the built-in Stages seeded once as templates; Ask Devops on a template, answered with a Proposal of its new Stage | 40 |
 | §4, §2.6 | The Graphite and Paper palettes; the densities; skill usage counts | 41 |
 | §2.7 | Email and chat-app Notifications (WhatsApp first) | 42 |
 | §2.4, §8 | Talking to The Office from chat apps (WhatsApp first) | 43 |

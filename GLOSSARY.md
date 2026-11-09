@@ -239,8 +239,8 @@ A named, ordered set of Stages that a Task's work follows.
 _Avoid_: Workflow, flow, process
 
 **Pipeline library**:
-The Office-wide set of Pipelines that Projects and Tasks choose from, edited in Settings or changed by Devops' Proposals.
-_Avoid_: Pipeline catalog, templates
+The Office-wide set of Pipelines that Projects and Tasks choose from, with the Stage templates beside them, edited in Settings or changed by Devops' Proposals.
+_Avoid_: Pipeline catalog, Pipeline templates
 
 **Onboarding**:
 Making a Project build and test in a fresh worktree on the workstation, done by Devops in the Project's Onboard Task.
@@ -253,6 +253,10 @@ _Avoid_: dev container, sandbox
 **Stage**:
 One step of a Pipeline: work by an Agent in a Role, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)
+
+**Stage template**:
+A Stage kept in the Pipeline library to add to a Pipeline or a Task's Stages as a copy; made from scratch or saved from a Stage, the built-in Stages among them.
+_Avoid_: Stage preset, Stage blueprint
 
 **Gate**:
 A Stage at which the Task waits for the user to look at the work so far and let it continue.
