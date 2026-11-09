@@ -1,12 +1,19 @@
+import { availableParallelism } from "node:os";
 import { defineConfig, devices } from "@playwright/test";
 
 // Off OFFICE_PORT, so the tests run beside npm run dev.
 const PORT = 4390;
 
+// Half the cores, as Playwright's default, but counted by availableParallelism: Playwright counts
+// os.cpus(), the host's every core even in a run environment capped at two, where that many
+// Chromiums beside the service exhaust its CPU and memory and the tests time out.
+const WORKERS = Math.max(1, Math.floor(availableParallelism() / 2));
+
 export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
   outputDir: "e2e-results/artifacts",
+  workers: WORKERS,
   forbidOnly: !!process.env["CI"],
   reporter: [["list"]],
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
