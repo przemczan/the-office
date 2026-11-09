@@ -210,6 +210,8 @@ describe("on the Office identity", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
       "git",
       ["config", "--global", `url.${SSH_REMOTE}.insteadOf`, "https://rewritten.example/"],
       {
+        // Outside any repository, so the checkout's own .git, unreachable in a run environment, plays no part.
+        cwd: tmpdir(),
         env: user.environment,
       },
     );
