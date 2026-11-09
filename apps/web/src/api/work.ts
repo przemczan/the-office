@@ -423,6 +423,11 @@ export function moveUpInQueue(taskId: string): Promise<void> {
   return sendToApiWithNoAnswer("POST", `/queue/${encodeURIComponent(taskId)}/move-up`, {});
 }
 
+/** Move to top: the first place in the queue, ahead of every other queued Task. */
+export function moveToTopOfQueue(taskId: string): Promise<void> {
+  return sendToApiWithNoAnswer("POST", `/queue/${encodeURIComponent(taskId)}/move-to-top`, {});
+}
+
 /** Pause: held once the Agent's current turn ends, its edits kept (spec §2.4). */
 export function pauseTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/pause`, {}, taskSchema);

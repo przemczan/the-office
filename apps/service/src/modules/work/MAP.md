@@ -59,6 +59,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, RunEnvironmentSetUps,
 - `GET /queue`: QueueController.list
 - `DELETE /queue/:taskId`: QueueController.takeOut
 - `POST /queue/:taskId/move-up`: QueueController.moveUp
+- `POST /queue/:taskId/move-to-top`: QueueController.moveToTop
 - `GET /saved-views`: SavedViewsController.list
 - `POST /saved-views`: SavedViewsController.save
 - `DELETE /saved-views/:id`: SavedViewsController.remove
@@ -240,7 +241,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, RunEnvironmentSetUps,
 - `planning.ts`: PLANNER, PLANNING_THREAD_TITLE, MAKE_A_PLAN_OPENING, PLANNING_INSTRUCTIONS, PlanningProject, PlanningPipeline, PlanningRecord, planningBrief, planSections, attachmentsSection, confirmationWords
 - `project-filter.ts`: ProjectFilter, isInProjectFilter
 - `queue-events.ts`: TaskQueued, LeavingQueue, TaskLeftQueue, TaskQueueReasonsChanged, TaskMovedUpInQueue
-- `queue.ts`: QueuedTask, OverlapChoice, Starting, startOrQueue, queueOrder, Release, releaseQueue, moveUpInQueue
+- `queue.ts`: QueuedTask, OverlapChoice, Starting, startOrQueue, queueOrder, Release, releaseQueue, moveUpInQueue, moveToTopOfQueue
 - `record-words.ts`: HandoverNote, AllStageResults, TaskRecordParts, taskRecordText, initiativeRecordText, ShapedInto, ideaRecordText, whereOf
 - `run-environment-set-up.ts`: SET_UP_RUN_ENVIRONMENT_PIPELINE, RUN_ENVIRONMENT_SET_UP_TITLE, runEnvironmentSetUpPlan, RUN_ENVIRONMENT_SET_UP_DEFINITION_OF_DONE, createRunEnvironmentSetUpTask, isOpenRunEnvironmentSetUp
 - `saved-view-events.ts`: SavedViewSaved, SavedViewRemoved

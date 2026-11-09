@@ -33,7 +33,7 @@ export class TaskQueueReasonsChanged extends DomainEvent {
   }
 }
 
-/** The user moved the Task up one place in the queue, past the one ahead of it. */
+/** The user moved the Task up in the queue: one place, or to the top. */
 export class TaskMovedUpInQueue extends DomainEvent {
   constructor(readonly taskId: string) {
     super();

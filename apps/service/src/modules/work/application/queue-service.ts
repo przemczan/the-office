@@ -8,7 +8,13 @@ import { ProjectLimitChanged } from "../../projects/index.js";
 import { AllClearGiven } from "../domain/fire-alarm-events.js";
 import { OfficeWideLimitChanged, UsageSettingsChanged } from "../domain/office-limit-events.js";
 import { nextCapRelease } from "../domain/cap-waits.js";
-import { moveUpInQueue, queueOrder, releaseQueue, type QueuedTask } from "../domain/queue.js";
+import {
+  moveToTopOfQueue,
+  moveUpInQueue,
+  queueOrder,
+  releaseQueue,
+  type QueuedTask,
+} from "../domain/queue.js";
 import {
   TaskLeftQueue,
   TaskMovedUpInQueue,
@@ -126,6 +132,12 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   /** Move up: one place, past the Task ahead of it. */
   async moveUp(taskId: string): Promise<void> {
     await this.queue.reorder((queue) => moveUpInQueue(queue, taskId));
+    await this.events.publish(new TaskMovedUpInQueue(taskId));
+  }
+
+  /** Move to top: to the first place, ahead of every other queued Task. */
+  async moveToTop(taskId: string): Promise<void> {
+    await this.queue.reorder((queue) => moveToTopOfQueue(queue, taskId));
     await this.events.publish(new TaskMovedUpInQueue(taskId));
   }
 

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "./task.js";
 import { TaskQueued } from "./queue-events.js";
-import { moveUpInQueue, queueOrder, releaseQueue, startOrQueue, type QueuedTask } from "./queue.js";
+import {
+  moveToTopOfQueue,
+  moveUpInQueue,
+  queueOrder,
+  releaseQueue,
+  startOrQueue,
+  type QueuedTask,
+} from "./queue.js";
 import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
 import { nextMidnight } from "./cap-waits.js";
@@ -448,5 +455,27 @@ describe("moveUpInQueue", () => {
 
   it("orders the queue by place", () => {
     expect(queueOrder(queue).map(({ taskId }) => taskId)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("moveToTopOfQueue", () => {
+  const queue = [queued("c", 7), queued("a", 2), queued("b", 5)];
+
+  it("puts the Task ahead of the first one, leaving the others' places", () => {
+    const moved = moveToTopOfQueue(queue, "c");
+    expect(moved).toEqual([queued("c", 1)]);
+    const reordered = queue.map(
+      (task) => moved.find(({ taskId }) => taskId === task.taskId) ?? task,
+    );
+    expect(queueOrder(reordered).map(({ taskId }) => taskId)).toEqual(["c", "a", "b"]);
+  });
+
+  it("refuses the Task first in the queue, or one not in it", () => {
+    expect(() => moveToTopOfQueue(queue, "a")).toThrow(
+      new TaskRefused(["The Task is already first in the queue."]),
+    );
+    expect(() => moveToTopOfQueue(queue, "z")).toThrow(
+      new TaskRefused(["The Task isn't in the queue."]),
+    );
   });
 });

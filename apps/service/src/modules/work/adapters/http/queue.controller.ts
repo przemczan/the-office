@@ -38,4 +38,11 @@ export class QueueController {
   async moveUp(@Param("taskId", ParseUUIDPipe) taskId: string): Promise<void> {
     await this.queue.moveUp(taskId);
   }
+
+  /** Move to top: to the first place, ahead of every other queued Task. */
+  @Post(":taskId/move-to-top")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async moveToTop(@Param("taskId", ParseUUIDPipe) taskId: string): Promise<void> {
+    await this.queue.moveToTop(taskId);
+  }
 }

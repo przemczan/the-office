@@ -1,0 +1,10 @@
+.split-button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+/* The two halves share the border between them. */
+.split-button > :last-child {
+  margin-inline-start: -1px;
+}

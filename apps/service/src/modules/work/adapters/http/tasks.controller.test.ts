@@ -1319,6 +1319,28 @@ describe("The queue", () => {
     expect(await ownQueue()).toEqual([b.id]);
   });
 
+  it("moves a queued Task to the top, keeping the others' order, and refuses one first or not queued", async () => {
+    await deskTaken();
+    const [a, b, c] = [await ownReadyTask(), await ownReadyTask(), await ownReadyTask()];
+    for (const task of [a, b, c]) await requestStart(task.id);
+    const notQueued = await ownReadyTask();
+    work.published.length = 0;
+
+    const movedToTop = await sendJson(work, "POST", `/queue/${c.id}/move-to-top`);
+    const firstMovedToTop = await sendJson(work, "POST", `/queue/${c.id}/move-to-top`);
+    const notQueuedMovedToTop = await sendJson(work, "POST", `/queue/${notQueued.id}/move-to-top`);
+
+    expect(movedToTop.status).toBe(204);
+    expect(await ownQueue()).toEqual([c.id, a.id, b.id]);
+    expect(webEventsOf(work)).toEqual([{ type: "task.moved-up-in-queue", taskId: c.id }]);
+    expect(workRefusalSchema.parse(await firstMovedToTop.json()).reasons).toEqual([
+      "The Task is already first in the queue.",
+    ]);
+    expect(workRefusalSchema.parse(await notQueuedMovedToTop.json()).reasons).toEqual([
+      "The Task isn't in the queue.",
+    ]);
+  });
+
   it("starts a queued Task when Settings raises the limit", async () => {
     await deskTaken();
     const second = await ownReadyTask();

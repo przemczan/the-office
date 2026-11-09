@@ -355,7 +355,8 @@ export type QueuedTask = z.infer<typeof queuedTaskSchema>;
 
 /**
  * GET /queue: every queued Task, first place first. DELETE /queue/:taskId takes one out;
- * POST /queue/:taskId/move-up moves it one place up.
+ * POST /queue/:taskId/move-up moves it one place up; POST /queue/:taskId/move-to-top moves it to
+ * the first place.
  */
 export const queueSchema = z.array(queuedTaskSchema);
 

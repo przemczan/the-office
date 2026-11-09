@@ -122,14 +122,16 @@ async function showOnly(page: Page, project: Project): Promise<void> {
   await page.getByRole("button", { name: `Show only ${project.name}` }).click();
 }
 
-test("queued Tasks show their place and reason on the board, the Task page and Now; the user moves one up and takes one out", async ({
+test("queued Tasks show their place and reason on the board, the Task page and Now; the user moves one up, then to the top, and takes one out", async ({
   page,
 }) => {
   const project = await addedProject(page, "Queue desk", "QD");
   const first = await readyTask(page, project, "Queued export as CSV");
   const second = await readyTask(page, project, "Queued sync of the inbox");
+  const third = await readyTask(page, project, "Queued backup of the photos");
   await queued(first);
   await queued(second);
+  await queued(third);
 
   await page.goto("/work");
   const card = page.getByRole("article", { name: "Queued sync of the inbox" });
@@ -142,24 +144,47 @@ test("queued Tasks show their place and reason on the board, the Task page and N
   await expect(queue).toHaveText([
     new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
     new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
+    new RegExp(`Queued backup of the photos.*Place 3 · ${ONLY_DESK}`),
   ]);
 
-  await page.goto(`/tasks/${second.id}`);
-  await expect(page.getByText(`Place 2 · ${ONLY_DESK}`)).toBeVisible();
+  await page.goto(`/tasks/${third.id}`);
+  await expect(page.getByText(`Place 3 · ${ONLY_DESK}`)).toBeVisible();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
-  await page.getByRole("button", { name: "Move up" }).click();
-  await expect(page.getByText(`Place 1 · ${ONLY_DESK}`)).toBeVisible();
-  // The first in the queue can't move further up.
-  await expect(page.getByRole("button", { name: "Move up" })).toBeHidden();
+  const moveUp = page.getByRole("button", { name: "Move up", exact: true });
+  const moreWays = page.getByRole("button", { name: "More ways to move up" });
+  await moveUp.click();
+  await expect(page.getByText(`Place 2 · ${ONLY_DESK}`)).toBeVisible();
 
+  await moreWays.click();
+  await expect(moreWays).toHaveAttribute("aria-expanded", "true");
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("button")).toHaveText(["Move to top"]);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-move-to-top.png") });
+  await menu.getByRole("button", { name: "Move to top" }).click();
+  await expect(page.getByText("Moved to the top of the queue.")).toBeVisible();
+  await expect(page.getByText(`Place 1 · ${ONLY_DESK}`)).toBeVisible();
+  await expect(menu).toBeHidden();
+  // The first in the queue can't move further up.
+  await expect(moveUp).toBeHidden();
+  await expect(moreWays).toBeHidden();
+
+  await page.goto("/now");
+  await expect(queue).toHaveText([
+    new RegExp(`Queued backup of the photos.*Place 1 · ${ONLY_DESK}`),
+    new RegExp(`Queued export as CSV.*Place 2 · ${ONLY_DESK}`),
+    new RegExp(`Queued sync of the inbox.*Place 3 · ${ONLY_DESK}`),
+  ]);
+
+  await page.goto(`/tasks/${third.id}`);
   await page.getByRole("button", { name: "Take out of the queue" }).click();
   await expect(page.getByText("Taken out of the queue; it stays Ready.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
 
   await page.goto("/now");
-  await expect(queue).toHaveCount(1);
-  await expect(queue).toContainText(`Queued export as CSV`);
-  await expect(queue).toContainText(`Place 1 · ${ONLY_DESK}`);
+  await expect(queue).toHaveText([
+    new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
+    new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
+  ]);
 });
 
 test("the Queued column holds queued Tasks by place, narrows with the filters, and its cards stay put; Ready keeps the rest", async ({
@@ -595,12 +620,19 @@ test("the notes above a Ready Task each take a line of their own, in order, unde
   await page.reload();
   await expect(lines).toHaveText([`QueuedPlace 2 · ${ONLY_DESK}`]);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-queued.png") });
-  const moveUp = actions.getByRole("button", { name: "Move up" });
+  const moveUp = actions.getByRole("button", { name: "Move up", exact: true });
+  const moreWays = actions.getByRole("button", { name: "More ways to move up" });
   const takeOut = actions.getByRole("button", { name: "Take out of the queue" });
-  await expect(moveUp).toBeVisible();
-  await expect(takeOut).toBeVisible();
+  await expect(moveUp).toBeInViewport();
+  await expect(takeOut).toBeInViewport();
   const takeOutBox = await takeOut.boundingBox();
-  expect((await moveUp.boundingBox())!.y).toBe(takeOutBox!.y);
+  const moveUpBox = await moveUp.boundingBox();
+  const moreWaysBox = await moreWays.boundingBox();
+  expect(moveUpBox!.y).toBe(takeOutBox!.y);
+  // The split button's halves are one control: the arrow joined to Move up's right, as tall.
+  expect(moreWaysBox!.y).toBe(moveUpBox!.y);
+  expect(moreWaysBox!.height).toBe(moveUpBox!.height);
+  expect(moreWaysBox!.x).toBeCloseTo(moveUpBox!.x + moveUpBox!.width - 1, 0);
   const [queuedLine] = await boxesOf(lines);
   expect(queuedLine!.top).toBeGreaterThanOrEqual(takeOutBox!.y + takeOutBox!.height);
 });

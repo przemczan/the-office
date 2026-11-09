@@ -183,6 +183,19 @@ export function moveUpInQueue(queue: readonly QueuedTask[], taskId: string): Que
   ];
 }
 
+/**
+ * Move to top: the Task takes a place ahead of the first one, so no other Task's place changes.
+ * Places are only ever sorted, so one below 1 is fine. Refuses as Move up does.
+ */
+export function moveToTopOfQueue(queue: readonly QueuedTask[], taskId: string): QueuedTask[] {
+  const ordered = queueOrder(queue);
+  const moved = ordered.find((queued) => queued.taskId === taskId);
+  if (!moved) throw new TaskRefused(["The Task isn't in the queue."]);
+  const first = ordered[0]!;
+  if (first.taskId === taskId) throw new TaskRefused(["The Task is already first in the queue."]);
+  return [{ ...moved, place: first.place - 1 }];
+}
+
 function lastPlace(queue: readonly QueuedTask[]): number {
   return Math.max(0, ...queue.map(({ place }) => place));
 }

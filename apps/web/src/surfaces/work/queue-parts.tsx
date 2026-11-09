@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueuedTask } from "@the-office/contracts";
-import { Badge, Button, Icon } from "@the-office/ui";
+import { Badge, Button, Icon, SplitButton } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
+import { moveToTopOfQueue, moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { reasonsBesideBlockers } from "./queue-reasons.ts";
 
@@ -41,7 +41,10 @@ export function QueuedCardMark({ queued }: { readonly queued: QueuedTask }): Rea
   );
 }
 
-/** "Move up" (but for the first in the queue) and "Take out of the queue". */
+/**
+ * "Move up", with "Move to top" in its menu (but for the first in the queue), and "Take out of the
+ * queue".
+ */
 export function QueueActions({
   queued,
   size = "md",
@@ -50,19 +53,28 @@ export function QueueActions({
   readonly size?: "sm" | "md";
 }): ReactNode {
   const movingUp = useQueueChange(moveUpInQueue, "Moved up in the queue.");
+  const movingToTop = useQueueChange(moveToTopOfQueue, "Moved to the top of the queue.");
   const takingOut = useQueueChange(takeOutOfQueue, "Taken out of the queue; it stays Ready.");
   return (
     <>
       {queued.place > 1 && (
-        <Button
+        <SplitButton
           variant="secondary"
           size={size}
           iconLeft={<Icon name="arrow-up" size={14} />}
-          loading={movingUp.isPending}
+          loading={movingUp.isPending || movingToTop.isPending}
           onClick={() => movingUp.mutate(queued.taskId)}
+          menuLabel="More ways to move up"
+          items={[
+            {
+              label: "Move to top",
+              icon: <Icon name="arrow-up-to-line" size={14} />,
+              onSelect: () => movingToTop.mutate(queued.taskId),
+            },
+          ]}
         >
           Move up
-        </Button>
+        </SplitButton>
       )}
       <Button
         variant="ghost"

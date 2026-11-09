@@ -161,6 +161,7 @@ export {
 } from "./overlays.tsx";
 export { FoldButton } from "./fold-button.tsx";
 export { LinkButton } from "./link-button.tsx";
+export { SplitButton, type SplitButtonProps } from "./split-button.tsx";
 export { Stepper, type StepperProps } from "./stepper.tsx";
 export {
   PickList,
