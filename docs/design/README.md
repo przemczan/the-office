@@ -12,6 +12,63 @@ Pages here are **proposals**: interactive mock-ups to look at and compare before
 
 - [**Add a Project**](add-project.html), **adopted** with **Recent first** as the GitHub list (the user's choice of 2026-11-07) by the Task "Build the redesigned Add a Project window", which changed [spec 4.1](../spec/4.1-ui-rules.md)'s Windows; By owner and Search first stay for comparing. For Add a Project, this page is the UI spec; the click-through is local and wasn't changed. Proposed for the Task "redesign adding a new project window", from the user's note: the window jumps as the source changes, and From GitHub shows nothing while it loads, then a long list that isn't pleasant. A switcher shows the window Today and Proposed, the small and large windows by the same rule, the three GitHub list designs, every state of the GitHub source with a fast and a slow replay, both palettes, wide and 600px, and a short browser window; dashed lines mark where the window's top and bar were before each change. See [Add a Project: what it proposes](#add-a-project-what-it-proposes).
 
+- [**Group by Initiative**](board-by-initiative.html), **proposed** for the Task "Design the Work board's group by Initiative view", for the build Task that waits for it: a switch that lays the Work board out in a group per Initiative, each with a header and its Tasks in the six columns, and a group for Tasks with no Initiative. A switcher shows grouping off and on, a group folded, the Initiative filter set, the Project filter narrowing the groups, Priority leaving groups without a match, a drag inside a group and a drop refused outside it, at wide, 900px and 390px, in the Light and Dark palettes; the switch, folds, filters, Saved views and drag and drop all work. See [Group by Initiative: what it proposes](#group-by-initiative-what-it-proposes).
+
+## Group by Initiative: what it proposes
+
+One recommendation for each question, with why.
+
+1. **The switch:** "Group by Initiative", the `packages/ui` `Switch` (size sm, with its label), at the **end of the filter bar's first row**, set apart by a hairline, rather than beside the Initiative select. It changes how the board is laid out, not which Tasks it shows, so it sits apart from the filters, and Clear, which clears filters, leaves it as it is. While it is on and more than one group shows, **Fold all** (Unfold all once every group is folded) sits beside it. At 390px it takes a line of its own under the filters.
+2. **The address:** `?group=initiative`, beside the filters' keys, read in the board's route next to `boardFiltersOf` by its own function, any other value left out. A link with it opens the board grouped, and a reload keeps it. Going to Work from the rail opens it ungrouped, as it opens with no filters.
+3. **Saved views keep filters only**, not the grouping. A view is "on" while the filters are its own (`sameBoardFilters`); if it held the grouping, turning the switch would turn the view off, and picking a view would switch the grouping under the user. The glossary's Saved view, "a named set of the Work board's filters", stays true. Picking a view keeps the grouping as it is.
+4. **A group's header**, on one line where it fits:
+   - the **fold**, the `packages/ui` `FoldButton`, holding the **name**, which wraps however long it is;
+   - the **state badge** (`InitiativeStateBadge`);
+   - its **Projects** (`InitiativeProjects`);
+   - **progress**: a small `ProgressBar` and `progressWords`, such as "1 of 6 Tasks done · 2 ready to start", from `initiativeProgress` over every Task of the Initiative, archived and in Shaping too;
+   - at the end, the **count of its cards**: "4 on the board", or "3 of 7 shown" while a filter hides some of them (the Project filter included);
+   - **Open Initiative**, a link to `/work/initiatives/$initiativeId`. The name folds rather than links, as a fold's line does everywhere else in the app.
+
+   At 390px the name takes the first line; the Projects, the bar and the link's words fold away, leaving the badge, the progress words, the count and the link's arrow.
+5. **No Initiative:** a group of its own named **No Initiative**, with "Tasks that aren't part of an Initiative" where an Initiative's badge and progress would be, its count, and no link. It comes **last**, under every Initiative, so the board reads as the Initiatives first, and the work outside them after.
+6. **Folding:** a folded group shows its header and, under it, its cards per column, the empty ones left out ("Backlog 1 · In progress 1 · Done 2"); at 390px the header's count alone. A fold is **remembered in this browser**, per group (by the Initiative's id, or `none`), in local storage, as `record-folds.ts` keeps a record's blocks: the board is opened often, and folding the same groups again each time would be a chore. The address doesn't carry it: a shared link shouldn't fold someone's groups, and one key per group would make the address long. A **Done or Dropped Initiative's group starts folded**, as nothing in it waits on anyone, until the user unfolds it.
+7. **The order of the groups:** as the Initiatives tab lists them, **newest first** (`GET /initiatives` already answers in that order), with the Active ones before those that ended, and No Initiative last. Initiatives have no manual order, and an order taken from the cards (the board order of each group's first Task) would move whole groups as a card is dragged, its priority changes or it starts, under the user's pointer. An Initiative still being shaped has its Tasks off the board, so it has no group. A Done or Dropped Initiative keeps a group while it has cards on the board, until they are archived.
+8. **The filters:**
+   - **The Project filter** narrows the cards as today; a group with no card in the Projects shown leaves the board. The header's Projects and progress stay the Initiative's own, as they are its facts; its count says how many of its cards show. The note of how many more Tasks are in other Projects stays above the board, as today.
+   - **The Initiative filter** shows that group alone, always open, with no fold (its name shows plain), and Fold all isn't offered. Its options stay as today.
+   - **Search, Priority and Blocked** narrow each group's cards. A group they leave with no card is left out, and a line under the groups names those left out ("No Task matches the filters in Run environments on Linux, Billing export, so their groups are left out"), so nothing disappears unexplained. When no group is left, one block says nothing matches.
+   - **The column counts:** while the columns sit in a row, their heads show once, above the groups, sticking to the top as the page scrolls, each counting the cards shown in all the groups. Once the columns wrap, each group's columns carry their own head with the count in that group.
+9. **Drag and drop:** within a column **inside the card's own group** only. While a card is dragged, the one column of its group it can land in is outlined. `placementAmong` is given that group's cards in the column, so the card lands between the neighbours the user dropped it between; dropped among another priority, it takes it, as today. A drop into another group is refused with a toast, "A card moves only within its own group: the board doesn't change a Task's Initiative.", and a drop into another column with today's. A Task's Initiative is set when the Task is added to it, and the board never changes it. The note under the board says "…within its column, inside its own group…".
+10. **The board's width** (proposed for the board with grouping off too, as a group's columns follow the same rule): the six columns sit in a row while the page is about 1250px wide or more (columns of about 190px), wrap into two rows of three below that, and stack, one under another, on a page under about 640px. Today the board scrolls sideways under about 1400px, which a group can't do: each group would scroll on its own and its columns would lose the heads above them. Stacked, an empty column takes one line, and inside a group it leaves the stack. Nothing scrolls sideways at any width.
+
+**Jira's group by epic**, the reference: Jira lays a board out in swimlanes, one per epic, under column heads shared by all of them, each swimlane with a header that folds, and the issues without an epic in a swimlane of their own at the bottom. This design takes those: one group per Initiative under the column heads shown once, a header that folds, Fold all, groups with nothing to show left out, and No Initiative last. It doesn't take:
+
+- dragging a card into another swimlane to change its epic: a Task's Initiative is set when it is added to it, so a drop there is refused;
+- a "Group by" menu with several choices: one switch, since Initiative is the only grouping asked for; a select can replace it if a second comes;
+- an epic's colour on its swimlane: Initiatives have none, and a colour on a card is its Project's mark;
+- ordering the swimlanes by the epics' rank: Initiatives have no rank, so newest first, as the Initiatives tab;
+- a board that scrolls sideways: the columns wrap and stack instead.
+
+It adds what an epic's swimlane header doesn't carry: the Initiative's state, its Projects, its progress over every Task, and the link to its page.
+
+**This design's names**, not glossary terms: Group by Initiative (the switch), a group and its header, No Initiative (the group), Fold all and Unfold all, "on the board" and "shown" (the header's count), and Grouping off and Grouping on (the scenarios).
+
+### What the build needs that the app doesn't have
+
+- **No service change and no new data.** `Task.initiativeId` puts each card in its group, and `GET /initiatives` gives each header its name, state, Projects and order (newest first). Progress is worked out in the web app by `initiativeProgress` from `GET /tasks`, which already holds every Task, archived and in Shaping too, as the Initiatives tab does it.
+- **No contract change.** The grouping stays out of `BoardFilters`, as a Saved view doesn't hold it: the board's route reads `group` beside the filters, and `withoutBoardFilters` already keeps a key that isn't a filter, so Clear and picking a view leave it.
+- **The folds' memory:** a small store for the groups' folds in this browser, made as `record-folds.ts`'s is (its own storage key, the same pattern), never sent to the service.
+- **The board's columns in one part**, given a set of cards, so a group draws them as the board does. With grouping on, the column heads move above the groups while the columns sit in a row. The wrap at 1250px and 640px is a container query on the page's width, as `work.css` already uses for the Initiatives tab.
+- **[Spec 2.1](../spec/2.1-work.md)**, beside "Saved views and the Project filter": "The Work board can be grouped by Initiative: a group for each Initiative with cards on the board, newest first, Active ones before those that ended, then No Initiative; the grouping is kept in the address, never in a Saved view; a group's fold is remembered in this browser. A card is dragged only within its column inside its own group."
+- **[Spec 4](../spec/4-ux-direction.md)**'s Work board line, or **[spec 4.1](../spec/4.1-ui-rules.md)**'s Narrow rule: "The Work board's six columns sit in a row while the page has room for them, in two rows of three below that, and stacked on a narrow page; the board doesn't scroll sideways."
+- **No test moves:** `apps/web/e2e/work.e2e.ts` drags cards found by their role and runs at 1600px wide, where the six columns still sit in a row. The build adds its own tests.
+
+### About the mock
+
+- Its data follows `Initiative`, `Task` and `QueuedTask` in `packages/contracts/src/work.ts`: five Initiatives across the-office, not-astray and notnullsoft, one with a long name, one Done (Billing export), one still being shaped (with no group, as its Task is in Shaping), two archived Tasks counted in progress but off the board, Tasks with no Initiative, and cards in every column, Queued included. Its search matches titles only, standing in for the service's.
+- The Project filter is a select in the top bar, and Open Initiative shows a toast rather than leaving the page.
+- Like the chat drawer's page, it uses the Geist fonts only where they are installed.
+
 ## Add a Project: what it proposes
 
 1. **Windows pinned to the top:** every window's top sits 7% from the top of the browser window, 24px at least, rather than in the middle. That is where the large window already sits, 86% high and centred, so the large one doesn't move and the small and medium ones line up with it. A window that grows then grows downwards only.

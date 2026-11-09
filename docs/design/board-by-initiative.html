@@ -1,0 +1,1968 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Group by Initiative · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, copied as they were on 2026-11-09) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-100: #ffe0d4;
+        --ember-300: #ff9370;
+        --ember-400: #ff6638;
+        --ember-500: #f23d0f;
+        --ember-600: #cc2f07;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-inverse: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --surface-hover: var(--gray-25);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+      /* packages/ui/src/appearance/densities/comfortable.css */
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+      }
+
+      /* ---------- Base (design-system/tokens/base.css) ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      @supports selector(::-webkit-scrollbar) {
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          border: 3px solid transparent;
+          border-radius: var(--radius-full);
+          background: var(--border-strong) padding-box;
+        }
+      }
+      @supports not selector(::-webkit-scrollbar) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: var(--border-strong) transparent;
+        }
+      }
+      :is(button, a, input, select, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: badge, button, switch, select, input, avatar, progress ---------- */
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-badge);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.sm {
+        height: 18px;
+        padding: 0 6px;
+        font-size: var(--text-2xs);
+      }
+      .badge.dot::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        background: none;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+        font-size: var(--text-xs);
+      }
+      .btn.xs {
+        height: 24px;
+        padding: 0 8px;
+        font-size: var(--text-xs);
+      }
+      .btn.secondary {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-1);
+      }
+      .btn.secondary:hover,
+      .btn.ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn.ghost {
+        color: var(--fg-2);
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      /* design-system/components/forms/Switch.jsx, size sm, with its label */
+      .switch-row {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        color: var(--fg-1);
+        cursor: pointer;
+      }
+      .switch {
+        position: relative;
+        flex: none;
+        width: 28px;
+        height: 16px;
+        border-radius: var(--radius-full);
+        background: var(--gray-200);
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch-row[aria-checked="true"] .switch {
+        background: var(--accent);
+      }
+      .switch-row[aria-checked="true"] .switch::after {
+        left: 14px;
+      }
+      .select {
+        position: relative;
+        display: inline-flex;
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .select select {
+        min-width: 0;
+        max-width: 100%;
+        height: var(--control-sm);
+        padding: 0 28px 0 10px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        font: var(--type-caption);
+        text-overflow: ellipsis;
+        appearance: none;
+        cursor: pointer;
+      }
+      .select svg {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        color: var(--fg-3);
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+      .input {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        color: var(--fg-3);
+      }
+      .input input {
+        flex: 1;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: none;
+        font: var(--type-caption);
+        color: var(--fg-1);
+      }
+      .input input::placeholder {
+        color: var(--fg-3);
+      }
+      .input:focus-within {
+        border-color: var(--accent);
+      }
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        color: var(--white);
+        font: 600 8px/1 var(--font-sans);
+      }
+      .progress {
+        flex: none;
+        width: 64px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--border);
+      }
+      .progress span {
+        display: block;
+        height: 100%;
+        background: var(--success);
+      }
+      .project-mark {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 5px;
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .project-mark::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: var(--mark);
+      }
+      .tabs {
+        display: flex;
+        gap: 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: -1px;
+        padding: 8px 0;
+        border-bottom: 2px solid transparent;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .tab.on {
+        border-color: var(--accent);
+        color: var(--fg-1);
+      }
+      .tab-count {
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .stage {
+        display: grid;
+        gap: 12px;
+        padding: 16px 24px 40px;
+      }
+      .scenario-note {
+        max-width: 120ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .address {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .address code {
+        overflow-wrap: anywhere;
+        font: 500 var(--text-xs) / 1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(640px, calc(100vh - 250px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(640px, min(844px, calc(100vh - 250px)));
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 12px 28px;
+        max-width: 1400px;
+        margin-top: 8px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p {
+        margin: 0 0 6px;
+      }
+
+      /* ---------- The app's frame: rail, top bar ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail-item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .frame.w-390 .top {
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .top h1 {
+        flex: none;
+        margin: 0;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+      }
+      .crumb {
+        min-width: 0;
+        overflow: hidden;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      /* The Project filter's trigger (shell/project-filter), a select in the mock. */
+      .project-filter .select select {
+        height: var(--control-md);
+        font: var(--type-body-sm);
+      }
+      .main {
+        position: relative;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        container: page / inline-size;
+      }
+
+      /* ---------- Work (apps/web/src/surfaces/work/work.css, re-drawn) ---------- */
+      .work-page {
+        --across: 3;
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-panel);
+        min-width: 0;
+        padding: var(--pad-page);
+      }
+      .work-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .board-filters {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .board-filters-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+      }
+      .board-filters-search {
+        flex: 1;
+        min-width: 220px;
+        max-width: 420px;
+      }
+      .board-filters-group {
+        display: inline-flex;
+        gap: 4px;
+      }
+      .board-filters .select {
+        max-width: min(240px, 100%);
+      }
+      .board-filters-label {
+        width: 44px;
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+      .board-filter-chip,
+      .board-view-chip {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 5px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: var(--type-caption);
+        cursor: pointer;
+      }
+      .board-filter-chip:hover,
+      .board-view-chip:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .board-filter-chip[aria-pressed="true"],
+      .board-view-chip[aria-pressed="true"] {
+        border-color: var(--border-strong);
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+      /* New: how the board is laid out, apart from what it shows, at the first row's end. */
+      .board-layout {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        padding-left: 12px;
+        border-left: 1px solid var(--border);
+      }
+      .in-other-projects-note {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-card);
+        background: none;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        text-align: left;
+        cursor: pointer;
+      }
+      .in-other-projects-show {
+        color: var(--accent-subtle-fg);
+        font-weight: 500;
+      }
+
+      /* The board: today's six columns, in a row while the page has room, else wrapped (proposed). */
+      .board {
+        display: grid;
+        grid-template-columns: repeat(var(--across), minmax(0, 1fr));
+        gap: var(--gap-card);
+        align-items: start;
+      }
+      .board-column {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        background: var(--surface-sunken);
+      }
+      .board-column h3,
+      .board-head h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 2px 2px 0;
+        font: 600 13px/1 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .board-count {
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+      .board-hint {
+        padding: 0 2px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .board-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 48px;
+      }
+      .board-empty {
+        padding: 16px 8px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        text-align: center;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .board-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--edge, var(--border));
+        border-radius: 8px;
+        background: var(--surface);
+      }
+      .board-card.edge-running,
+      .board-card.edge-done {
+        --edge: var(--success);
+      }
+      .board-card.edge-decision,
+      .board-card.edge-paused {
+        --edge: var(--warning);
+      }
+      .board-card.edge-failed {
+        --edge: var(--danger);
+      }
+      .board-card[draggable="true"] {
+        cursor: grab;
+      }
+      .board-card.dragging {
+        opacity: 0.4;
+      }
+      .board-card.drop-before {
+        box-shadow: 0 -3px 0 0 var(--accent);
+      }
+      .board-card:has(.board-card-title:hover) {
+        border-color: var(--border-strong);
+      }
+      .board-card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .priority-icon {
+        flex: none;
+        margin-top: 2px;
+        color: var(--fg-3);
+      }
+      .priority-icon.high {
+        color: var(--danger);
+      }
+      .board-card-title {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font: 500 13px/1.35 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .board-card-title::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+      }
+      .board-card :is(button, a:not(.board-card-title), .board-card-working) {
+        position: relative;
+        z-index: 1;
+      }
+      .board-card-meta,
+      .board-card-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+      }
+      .board-card-tag {
+        display: inline-flex;
+        align-items: center;
+        height: 18px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 10px/1 var(--font-sans);
+      }
+      .board-card-blocked {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        font: var(--type-caption);
+        line-height: 1.4;
+        color: var(--fg-2);
+      }
+      .board-card-blocked svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--fg-3);
+      }
+      .board-card-blocked a {
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+      }
+      .board-card-note,
+      .queued-reason {
+        color: var(--fg-2);
+      }
+      .board-card-working {
+        position: relative;
+        display: inline-flex;
+        margin-left: auto;
+      }
+      .board-card-working.live::after {
+        content: "";
+        position: absolute;
+        right: -2px;
+        bottom: -2px;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 0 2px var(--surface);
+      }
+      .board-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .board-note svg {
+        flex: none;
+        margin-top: 1px;
+      }
+
+      /* ---------- New: the groups ---------- */
+      .board-groups {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-card);
+        min-width: 0;
+      }
+      /* The column heads, once above the groups, while the columns sit in a row. */
+      .board-heads {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        display: none;
+        grid-template-columns: repeat(var(--across), minmax(0, 1fr));
+        gap: var(--gap-card);
+        margin: calc(var(--gap-card) * -1) 0 0;
+        padding: var(--gap-card) 11px 6px;
+        background: var(--bg);
+      }
+      .board-head {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+        padding: 0 10px;
+      }
+      .board-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .board-group.folded {
+        gap: 4px;
+      }
+      .group-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        min-width: 0;
+        padding: 0 2px;
+      }
+      /* packages/ui FoldButton, holding the name. */
+      .fold-button {
+        display: flex;
+        flex: 0 1 auto;
+        align-items: flex-start;
+        gap: 6px;
+        min-width: 0;
+        padding: 2px 4px 2px 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .fold-button:hover {
+        background: var(--control-hover);
+      }
+      .fold-button > svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--fg-3);
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .fold-button[aria-expanded="true"] > svg {
+        transform: rotate(90deg);
+      }
+      .group-name {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .group-name.alone {
+        padding: 2px 0 2px 2px;
+      }
+      .group-name.none {
+        color: var(--fg-2);
+      }
+      .group-sub {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        min-width: 0;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .group-projects {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+      }
+      .group-progress {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .group-end {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .group-open {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 4px;
+        border-radius: var(--radius-md);
+        font: 500 var(--text-xs) / 1.4 var(--font-sans);
+        color: var(--accent-subtle-fg);
+      }
+      .group-open:hover {
+        background: var(--control-hover);
+      }
+      .group-folded-counts {
+        padding: 0 2px 0 22px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .group-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 8px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .group-cell h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 2px 2px 0;
+        font: 600 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .group-cell .board-cards {
+        min-height: 36px;
+      }
+      /* While a card is dragged: the one cell it can land in, and one it was refused from. */
+      .group-cell.drop-ok,
+      .board-column.drop-ok {
+        border-color: var(--accent);
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+      .group-cell.drop-refused {
+        border: 1px dashed var(--danger);
+      }
+      .groups-hidden-note {
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .board-nothing {
+        padding: 28px 16px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-card);
+        text-align: center;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .toast {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        z-index: 20;
+        max-width: min(420px, calc(100% - 32px));
+        padding: 10px 14px;
+        border-radius: var(--radius-lg);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        font: var(--type-body-sm);
+        box-shadow: var(--shadow-3);
+      }
+
+      /* ---------- Widths: by the page's own width (container `page`), as work.css does ---------- */
+      @container page (min-width: 1248px) {
+        .work-page {
+          --across: 6;
+        }
+        .board-heads {
+          display: grid;
+        }
+        .board-group .group-cell h4 {
+          display: none;
+        }
+      }
+      @container page (max-width: 639px) {
+        .work-page {
+          --across: 1;
+          gap: 16px;
+          padding: 16px 12px;
+        }
+        .board-filters {
+          padding: 10px;
+        }
+        .board-filters-search {
+          flex-basis: 100%;
+          min-width: 0;
+          max-width: none;
+        }
+        .board-layout {
+          flex-basis: 100%;
+          margin-left: 0;
+          padding: 6px 0 0;
+          border-top: 1px solid var(--border);
+          border-left: 0;
+        }
+        .board-layout .btn {
+          margin-left: auto;
+        }
+        /* Stacked, an empty column says so in one line; in a group it leaves the stack. */
+        .board-column .board-hint {
+          display: none;
+        }
+        .board-column .board-empty {
+          padding: 6px 8px;
+        }
+        .board-column .board-cards {
+          min-height: 0;
+        }
+        .group-cell.empty {
+          display: none;
+        }
+        .group-head .fold-button {
+          flex-basis: 100%;
+        }
+        .group-projects,
+        .group-progress .progress,
+        .group-folded-counts,
+        .group-open-words {
+          display: none;
+        }
+        .group-sub {
+          padding-left: 22px;
+        }
+        .tabs {
+          gap: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <p class="address" id="address"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+      <section class="reference" aria-label="What it proposes">
+        <div>
+          <h2>The switch and the address</h2>
+          <p><strong>Group by Initiative</strong> is a switch at the end of the filter bar's first row, apart from the filters: it lays the board out and narrows nothing. It is kept in the address as <code>?group=initiative</code>, beside the filters. Clear and the Saved views leave it as it is; a Saved view holds filters only.</p>
+        </div>
+        <div>
+          <h2>A group</h2>
+          <p>One per Initiative with a card on the board: its header, then its Tasks in the six columns. The header shows the name first, then the state, the Projects, the progress over every Task of the Initiative, the cards it has on the board (or how many show of them), and Open Initiative. <strong>No Initiative</strong> comes last.</p>
+        </div>
+        <div>
+          <h2>Folding and order</h2>
+          <p>A group folds to its header and its cards per column. The fold is remembered in this browser per group, never in the address; a Done or Dropped Initiative's group starts folded. Groups follow the Initiatives tab's order, newest first, Active ones before those that ended.</p>
+        </div>
+        <div>
+          <h2>Filters and drag</h2>
+          <p>The Project filter and the other filters hide a group with nothing to show, and a line names the ones hidden by search, Priority or Blocked; the Initiative filter shows its group alone, open. A card reorders within its column inside its group; a drop anywhere else is refused with a toast.</p>
+        </div>
+        <div>
+          <h2>About the mock</h2>
+          <p>Its data follows <code>Task</code> and <code>Initiative</code> in <code>packages/contracts</code>; the search here matches titles only, standing in for the service's. Drag and drop, the switch, folds, filters, Saved views and the Project filter all work. It uses the Geist fonts only where they are installed, and makes no network requests.</p>
+        </div>
+      </section>
+    </main>
+    <script>
+      /* ---------- Icons (lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        "grip-vertical":
+          '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+        "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+        "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+        minus: '<path d="M5 12h14"/>',
+        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        "arrow-up-right": '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        "eye-off":
+          '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13 13 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/>',
+        home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+        kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+      const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+      /* ---------- Mock data: `Initiative`, `Task` and `QueuedTask` as packages/contracts/src/work.ts has them ---------- */
+      const uuid = (n) => `5f0c${String(n).padStart(4, "0")}-9a1b-4c2d-8e3f-${String(n).padStart(12, "0")}`;
+      const PROJECTS = [
+        { id: "the-office", name: "the-office", mark: "#f23d0f" },
+        { id: "not-astray", name: "not-astray", mark: "#14a38b" },
+        { id: "notnullsoft", name: "notnullsoft", mark: "#7c5cd6" },
+      ];
+      const CTO = { kind: "person", roleKey: "cto" };
+      const initiative = (n, fields) => ({ id: uuid(n), outcome: "", originIdeaId: uuid(900 + n), createdBy: CTO, ...fields });
+      /** GET /initiatives: the newest first. */
+      const INITIATIVES = [
+        initiative(1, { name: "Board by Initiative", state: "active", projectIds: ["the-office"], createdAt: "2026-11-09T11:02:00.000Z" }),
+        initiative(2, { name: "Release notes from Handover notes", state: "shaping", projectIds: ["the-office"], createdAt: "2026-11-07T09:30:00.000Z" }),
+        initiative(3, {
+          name: "Offline sync for the field app: keep changes while out of signal and settle conflicts once back online",
+          state: "active",
+          projectIds: ["not-astray", "notnullsoft"],
+          createdAt: "2026-11-03T14:10:00.000Z",
+        }),
+        initiative(4, { name: "Run environments on Linux", state: "active", projectIds: ["the-office", "not-astray"], createdAt: "2026-10-28T08:45:00.000Z" }),
+        initiative(5, { name: "Billing export", state: "done", projectIds: ["notnullsoft"], createdAt: "2026-10-12T16:20:00.000Z" }),
+      ];
+      const [BOARD_BY_INITIATIVE, , OFFLINE_SYNC, RUN_ENVIRONMENTS] = INITIATIVES;
+      const task = (n, fields) => ({
+        id: uuid(n),
+        title: "",
+        description: "",
+        projectId: "the-office",
+        priority: "normal",
+        tags: [],
+        state: "backlog",
+        pausedByAlarm: false,
+        plan: "",
+        planConfirmed: false,
+        filesToChange: [],
+        estimatedTokens: null,
+        definitionOfDone: [],
+        definitionOfDoneConfirmed: false,
+        pipelineId: "full",
+        proposedPipeline: null,
+        blockedBy: [],
+        originIdeaId: null,
+        initiativeId: null,
+        projectMoves: [],
+        createdBy: { kind: "user" },
+        createdAt: `2026-11-0${(n % 9) + 1}T10:00:00.000Z`,
+        archivedAt: null,
+        ...fields,
+      });
+      const of = (n) => ({ initiativeId: uuid(n) });
+      const PRIORITY_RANK = { high: 0, normal: 1, low: 2 };
+      /** GET /tasks: every Task, archived and Shaping ones too, in the board's order (priority, then manual order). */
+      let TASKS = [
+        task(1, { ...of(1), title: "Design the Work board's group by Initiative view", state: "in-progress", priority: "high", tags: ["board"] }),
+        task(2, { ...of(1), title: "Build group by Initiative on the Work board", state: "planning", blockedBy: [uuid(1)], tags: ["board"] }),
+        task(3, { ...of(1), title: "Remember folded groups in this browser", state: "backlog", priority: "low" }),
+        task(20, { ...of(2), title: "Collect Handover notes per release", state: "shaping" }),
+        task(4, { ...of(3), title: "Keep pending changes in IndexedDB", projectId: "not-astray", state: "ready", priority: "high" }),
+        task(5, { ...of(3), title: "Retry queue with backoff", projectId: "not-astray", state: "ready" }),
+        task(6, { ...of(3), title: "Rules for settling conflicts", projectId: "notnullsoft", state: "waiting-on-you", priority: "high" }),
+        task(7, { ...of(3), title: "Sync status in the header", projectId: "not-astray", state: "backlog", priority: "low" }),
+        task(26, { ...of(3), title: "Offline banner copy", projectId: "notnullsoft", state: "backlog", priority: "low", tags: ["copy"] }),
+        task(8, { ...of(3), title: "Sync endpoint", projectId: "notnullsoft", state: "done" }),
+        task(9, { ...of(3), title: "Spike: CRDT libraries", projectId: "notnullsoft", state: "dropped", priority: "low" }),
+        task(10, { ...of(4), title: "Devcontainer for not-astray", projectId: "not-astray", state: "in-progress" }),
+        task(11, { ...of(4), title: "CPU limit: an Automatic option", state: "done" }),
+        task(12, { ...of(4), title: "A Postgres of its own per run environment", state: "done" }),
+        task(13, { ...of(4), title: "Docs: setting up a run environment", state: "backlog", priority: "low", tags: ["docs"] }),
+        task(14, { ...of(4), title: "Pick a container runtime", state: "done", archivedAt: "2026-11-02T03:00:00.000Z" }),
+        task(15, { ...of(5), title: "CSV export of invoices", projectId: "notnullsoft", state: "done" }),
+        task(16, { ...of(5), title: "Export schedule in Settings", projectId: "notnullsoft", state: "done" }),
+        task(17, { ...of(5), title: "Export format spike", projectId: "notnullsoft", state: "done", archivedAt: "2026-10-30T03:00:00.000Z" }),
+        task(22, { title: "Crash on an empty route list", projectId: "not-astray", state: "paused", priority: "high", tags: ["bug"] }),
+        task(18, { title: "Toast covers the status strip", state: "backlog", tags: ["bug"] }),
+        task(21, { title: "Landing page copy", projectId: "notnullsoft", state: "planning" }),
+        task(19, { title: "Upgrade TanStack Router", state: "ready" }),
+        task(25, { title: "Cache map tiles", projectId: "not-astray", state: "ready" }),
+        task(23, { title: "Dark palette contrast", state: "done", priority: "low" }),
+        task(24, { title: "Tag suggestions in + Task", state: "backlog", priority: "low" }),
+      ].sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
+      /** GET /queue: first place first. */
+      const QUEUE = [
+        { taskId: uuid(5), place: 1, queuedAt: "2026-11-09T12:00:00.000Z", reasons: ["No desk free."], behind: [] },
+        { taskId: uuid(19), place: 2, queuedAt: "2026-11-09T12:05:00.000Z", reasons: ["No desk free."], behind: [] },
+      ];
+      /** GET /saved-views: the board's filters under a name; never the grouping. */
+      const SAVED_VIEWS = [
+        { id: uuid(801), name: "High priority", filters: { priority: "high" } },
+        { id: uuid(802), name: "Offline sync", filters: { initiative: OFFLINE_SYNC.id } },
+      ];
+      /** For display only: who works on a Task now (GET /people-working), the Planner's name. */
+      const WORKING = { [uuid(1)]: { initials: "St", colour: "#7c5cd6", live: true }, [uuid(10)]: { initials: "Ji", colour: "#2f6bdb", live: true } };
+      const PLANNER = "Angela";
+
+      /* ---------- The board's rules (board-columns.ts, board-filters.ts, initiative-words.ts) ---------- */
+      const findTask = (id) => TASKS.find((candidate) => candidate.id === id);
+      const queuedEntryOf = (t) => (t.state === "ready" ? QUEUE.find(({ taskId }) => taskId === t.id) : undefined);
+      const inStates = (...states) => (t) => states.includes(t.state);
+      const COLUMNS = [
+        { key: "backlog", label: "Backlog", holds: inStates("backlog"), hint: "Not planned yet" },
+        { key: "planning", label: "Planning", holds: inStates("planning"), hint: `Plan and Definition of Done with ${PLANNER}` },
+        { key: "ready", label: "Ready", holds: (t) => t.state === "ready" && !queuedEntryOf(t), hint: "Starting is your call" },
+        {
+          key: "queued",
+          label: "Queued",
+          holds: (t) => queuedEntryOf(t) !== undefined,
+          inOrder: (cards) => cards.toSorted((a, b) => queuedEntryOf(a).place - queuedEntryOf(b).place),
+          hint: "They start by themselves when their turn comes",
+        },
+        { key: "in-progress", label: "In progress", holds: inStates("in-progress", "waiting-on-you", "paused"), hint: "Agents work its Pipeline" },
+        { key: "done", label: "Done", holds: inStates("done", "dropped"), hint: "Done and dropped" },
+      ];
+      const cardsIn = (column, tasks) => {
+        const cards = tasks.filter(column.holds);
+        return column.inOrder ? column.inOrder(cards) : cards;
+      };
+      const NOT_STARTED = ["shaping", "backlog", "planning", "ready"];
+      const isOnBoard = (t) => t.state !== "shaping" && t.archivedAt === null;
+      const blockingTasksOf = (t) =>
+        t.blockedBy.map(findTask).filter((blocker) => blocker && blocker.state !== "done" && blocker.state !== "dropped");
+      function initiativeProgress(initiativeTasks) {
+        const counted = initiativeTasks.filter(({ state }) => state !== "dropped");
+        return {
+          done: counted.filter(({ state }) => state === "done").length,
+          counted: counted.length,
+          readyToStart: counted.filter((t) => t.state === "ready" && blockingTasksOf(t).length === 0).length,
+        };
+      }
+      function progressWords({ done, counted, readyToStart }) {
+        const ready = readyToStart > 0 ? ` · ${readyToStart} ready to start` : "";
+        return `${done} of ${counted} ${counted === 1 ? "Task" : "Tasks"} done${ready}`;
+      }
+      const INITIATIVE_STATES = {
+        shaping: ["warning", "Shaping with Michael"],
+        active: ["info", "Active"],
+        done: ["success", "Done"],
+        dropped: ["danger", "Dropped"],
+      };
+      const PRIORITY_NAMES = { high: "High", normal: "Normal", low: "Low" };
+
+      /* ---------- State, as the address, this browser and the drag hold it ---------- */
+      const state = {
+        scenario: "on",
+        width: "wide",
+        palette: "light",
+        /** ?group=initiative */
+        grouped: true,
+        /** ?query= ?priority= ?initiative= ?blocked= */
+        filters: {},
+        /** The Project filter, remembered per browser: "all" or the Projects shown. */
+        projects: "all",
+        /** Each group's fold the user set, by Initiative id or "none"; this browser's local storage. */
+        folds: {},
+        dragging: undefined,
+        frozenDrag: undefined,
+        toast: undefined,
+      };
+      let toastTimer;
+
+      const inProjectFilter = (t) => state.projects === "all" || state.projects.includes(t.projectId);
+      const showsProjects = (projectIds) => state.projects === "all" || projectIds.some((id) => state.projects.includes(id));
+      function matchesFilters(t) {
+        const { query, priority, initiative: initiativeId, blocked } = state.filters;
+        return (
+          (query === undefined || t.title.toLowerCase().includes(query.trim().toLowerCase())) &&
+          (priority === undefined || t.priority === priority) &&
+          (initiativeId === undefined || t.initiativeId === initiativeId) &&
+          (blocked === undefined || blockingTasksOf(t).length > 0)
+        );
+      }
+      const hasFilters = () => Object.values(state.filters).some((value) => value !== undefined);
+      const sameFilters = (one, other) =>
+        (one.query ?? "").trim() === (other.query ?? "").trim() &&
+        one.priority === other.priority &&
+        one.initiative === other.initiative &&
+        one.blocked === other.blocked;
+
+      /** Active (and Shaping) Initiatives newest first, then those that ended, newest first; No Initiative last. */
+      function groupsInOrder() {
+        const ended = (initiativeOf) => (initiativeOf.state === "done" || initiativeOf.state === "dropped" ? 1 : 0);
+        const ordered = INITIATIVES.toSorted((a, b) => ended(a) - ended(b) || b.createdAt.localeCompare(a.createdAt));
+        return [
+          ...ordered.map((initiativeOf) => ({ key: initiativeOf.id, initiative: initiativeOf, holds: (t) => t.initiativeId === initiativeOf.id })),
+          { key: "none", initiative: undefined, holds: (t) => t.initiativeId === null },
+        ].map((group) => {
+          const onBoard = TASKS.filter((t) => isOnBoard(t) && group.holds(t));
+          const inProjects = onBoard.filter(inProjectFilter);
+          const shown = inProjects.filter(matchesFilters);
+          return { ...group, onBoard, inProjects, shown };
+        });
+      }
+      /** Which groups show: the Initiative filter's alone; else each with a card the filters leave. */
+      function boardGroups() {
+        const all = groupsInOrder();
+        const chosen = state.filters.initiative;
+        if (chosen !== undefined) return { shown: all.filter((group) => group.key === chosen), hiddenByFilters: [] };
+        return {
+          shown: all.filter((group) => group.shown.length > 0),
+          hiddenByFilters: all.filter((group) => group.shown.length === 0 && group.inProjects.length > 0),
+        };
+      }
+      const startsOpen = (group) => !group.initiative || !["done", "dropped"].includes(group.initiative.state);
+      const isOpen = (group) => state.filters.initiative !== undefined || (state.folds[group.key] ?? startsOpen(group));
+
+      /* ---------- The app ---------- */
+      function render() {
+        const root = document.documentElement;
+        root.dataset.palette = state.palette;
+        if (state.palette === "dark") root.dataset.theme = "dark";
+        else delete root.dataset.theme;
+        renderBar();
+        document.getElementById("note").innerHTML = SCENARIOS[state.scenario].note;
+        document.getElementById("address").innerHTML = `<span>Address</span><code>${escapeHtml(addressOf())}</code><span>· the Project filter is this browser's, never in the address</span>`;
+        const searchFocused = document.activeElement?.id === "board-search";
+        const main = document.querySelector(".main");
+        const scrollTop = main ? main.scrollTop : 0;
+        const frame = document.getElementById("frame");
+        frame.className = `frame w-${state.width}`;
+        frame.innerHTML = app();
+        document.querySelector(".main").scrollTop = scrollTop;
+        if (searchFocused) {
+          const search = document.getElementById("board-search");
+          search.focus();
+          search.setSelectionRange(search.value.length, search.value.length);
+        }
+      }
+      function addressOf() {
+        const params = new URLSearchParams();
+        const { query, priority, initiative: initiativeId, blocked } = state.filters;
+        if (state.grouped) params.set("group", "initiative");
+        if (query) params.set("query", query);
+        if (priority) params.set("priority", priority);
+        if (initiativeId) params.set("initiative", initiativeId);
+        if (blocked) params.set("blocked", "true");
+        const search = params.toString();
+        return `/work${search ? `?${search}` : ""}`;
+      }
+      function app() {
+        const rail = ["home", "kanban", "users", "folder"]
+          .map((name) => `<span class="rail-item${name === "kanban" ? " on" : ""}">${icon(name, 18)}</span>`)
+          .join("");
+        const projectChoice = state.projects === "all" ? "all" : state.projects[0];
+        const projectOptions = [["all", "All projects"], ...PROJECTS.map(({ id, name }) => [id, name])]
+          .map(([value, label]) => `<option value="${value}"${value === projectChoice ? " selected" : ""}>${label}</option>`)
+          .join("");
+        return `<div class="app">
+          <nav class="rail" aria-label="The Office"><span class="rail-mark">O</span>${rail}</nav>
+          <header class="top"><h1>Work</h1><span class="crumb">Tasks by state</span><span class="grow"></span>
+            <span class="project-filter"><span class="select">${selectHtml("project-filter", "Projects shown", projectOptions)}</span></span></header>
+          <div class="main"><div class="work-page">
+            <div class="work-tabs"><div class="tabs" role="tablist"><span class="tab on">Tasks</span><span class="tab">Ideas <span class="tab-count">2</span></span><span class="tab">Initiatives</span><span class="tab">Archived</span></div>
+              <button type="button" class="btn secondary">${icon("plus")}Task</button></div>
+            ${filterBar()}
+            ${inOtherProjectsNote()}
+            ${state.grouped ? groupedBoard() : board()}
+          </div></div>
+          ${state.toast ? `<div class="toast" role="status">${state.toast}</div>` : ""}
+        </div>`;
+      }
+      function selectHtml(action, label, options) {
+        return `<select data-action="${action}" aria-label="${label}">${options}</select>${icon("chevron-down", 13)}`;
+      }
+
+      /* filter-bar.tsx, with the switch added at the first row's end */
+      function filterBar() {
+        const { query, priority, initiative: initiativeId, blocked } = state.filters;
+        const chips = ["high", "normal", "low"]
+          .map((value) => {
+            const name = value === "normal" ? "minus" : value === "high" ? "arrow-up" : "arrow-down";
+            return `<button type="button" class="board-filter-chip" aria-pressed="${priority === value}" data-action="priority" data-value="${value}">${icon(name, 13)}${PRIORITY_NAMES[value]}</button>`;
+          })
+          .join("");
+        const offered = INITIATIVES.filter(({ id, projectIds }) => showsProjects(projectIds) || id === initiativeId);
+        const initiativeOptions = [`<option value="">Any Initiative</option>`, ...offered.map(({ id, name }) => `<option value="${id}"${id === initiativeId ? " selected" : ""}>${escapeHtml(name)}</option>`)].join("");
+        const { shown } = boardGroups();
+        const foldable = state.grouped && state.filters.initiative === undefined && shown.length > 1;
+        const allFolded = foldable && shown.every((group) => !isOpen(group));
+        const views = SAVED_VIEWS.map(
+          (view) => `<button type="button" class="board-view-chip" aria-pressed="${sameFilters(view.filters, state.filters)}" data-action="view" data-value="${view.id}">${view.name}</button>`,
+        ).join("");
+        return `<div class="board-filters" role="search" aria-label="Filter the board">
+          <div class="board-filters-row">
+            <div class="board-filters-search"><label class="input">${icon("search")}<input id="board-search" type="search" aria-label="Search Tasks" placeholder="Search Tasks, Plans and Definitions of Done" value="${escapeHtml(query ?? "")}" /></label></div>
+            <div class="board-filters-group" role="group" aria-label="Priority">${chips}</div>
+            <span class="select">${selectHtml("initiative", "Initiative", initiativeOptions)}</span>
+            <button type="button" class="board-filter-chip" aria-pressed="${blocked === true}" data-action="blocked">${icon("lock", 13)}Blocked</button>
+            ${hasFilters() ? `<button type="button" class="btn sm ghost" data-action="clear">Clear</button>` : ""}
+            <span class="board-layout">
+              <button type="button" class="switch-row" role="switch" aria-checked="${state.grouped}" data-action="group">Group by Initiative<span class="switch"></span></button>
+              ${foldable ? `<button type="button" class="btn xs ghost" data-action="fold-all">${allFolded ? "Unfold all" : "Fold all"}</button>` : ""}
+            </span>
+          </div>
+          <div class="board-filters-row" role="group" aria-label="Views"><span class="board-filters-label">Views</span>${views}</div>
+        </div>`;
+      }
+      function inOtherProjectsNote() {
+        const elsewhere = TASKS.filter((t) => isOnBoard(t) && matchesFilters(t) && !inProjectFilter(t)).length;
+        if (elsewhere === 0) return "";
+        return `<button type="button" class="in-other-projects-note" data-action="all-projects">${icon("eye-off")}${elsewhere} more ${elsewhere === 1 ? "Task" : "Tasks"} in other Projects<span class="grow"></span><span class="in-other-projects-show">Show all projects</span></button>`;
+      }
+
+      /* Grouping off: board.tsx as it is, its columns wrapping as the page narrows. */
+      function board() {
+        const matching = TASKS.filter((t) => isOnBoard(t) && inProjectFilter(t) && matchesFilters(t));
+        const columns = COLUMNS.map((column) => {
+          const cards = cardsIn(column, matching);
+          return `<section class="board-column" aria-label="${column.label}" data-column="${column.key}" data-group="all">
+            <h3>${column.label} <span class="board-count">${cards.length}</span></h3><div class="board-hint">${column.hint}</div>
+            <div class="board-cards">${cards.map(card).join("") || `<div class="board-empty">Nothing here</div>`}</div></section>`;
+        }).join("");
+        return `<div class="board">${columns}</div>${boardNote(false)}`;
+      }
+
+      /* Grouping on: the column heads once, then a group per Initiative and No Initiative. */
+      function groupedBoard() {
+        const { shown, hiddenByFilters } = boardGroups();
+        const heads = COLUMNS.map((column) => {
+          const count = shown.reduce((sum, group) => sum + cardsIn(column, group.shown).length, 0);
+          return `<div class="board-head"><h3>${column.label} <span class="board-count">${count}</span></h3><div class="board-hint">${column.hint}</div></div>`;
+        }).join("");
+        const groups = shown.map(groupHtml).join("");
+        const hidden = hiddenByFilters.length
+          ? `<p class="groups-hidden-note">No Task matches the filters in ${hiddenByFilters.map((group) => `<strong>${group.initiative ? escapeHtml(group.initiative.name) : "No Initiative"}</strong>`).join(", ")}, so ${hiddenByFilters.length === 1 ? "its group is" : "their groups are"} left out.</p>`
+          : "";
+        const nothing = shown.length === 0 ? `<div class="board-nothing">No Task on the board matches the filters. Clear them, or show all projects.</div>` : "";
+        return `<div class="board-groups"><div class="board-heads" aria-hidden="true">${heads}</div>${groups}${nothing}${hidden}</div>${boardNote(true)}`;
+      }
+      function groupHtml(group) {
+        const open = isOpen(group);
+        const alone = state.filters.initiative !== undefined;
+        const name = group.initiative ? escapeHtml(group.initiative.name) : "No Initiative";
+        const nameClass = `group-name${group.initiative ? "" : " none"}`;
+        const label = alone
+          ? `<span class="${nameClass} alone">${name}</span>`
+          : `<button type="button" class="fold-button" aria-expanded="${open}" data-action="fold" data-group="${group.key}">${icon("chevron-right")}<span class="${nameClass}">${name}</span></button>`;
+        const count =
+          group.shown.length === group.onBoard.length ? `${group.onBoard.length} on the board` : `${group.shown.length} of ${group.onBoard.length} shown`;
+        let sub = "";
+        let openLink = "";
+        if (group.initiative) {
+          const [tone, stateName] = INITIATIVE_STATES[group.initiative.state];
+          const progress = initiativeProgress(TASKS.filter((t) => t.initiativeId === group.initiative.id));
+          const share = progress.counted === 0 ? 0 : Math.round((progress.done / progress.counted) * 100);
+          const projects = group.initiative.projectIds
+            .map((id) => PROJECTS.find((project) => project.id === id))
+            .map((project) => `<span class="project-mark" style="--mark:${project.mark}">${project.name}</span>`)
+            .join("");
+          sub = `<span class="group-sub"><span class="badge ${tone} dot sm">${stateName}</span><span class="group-projects">${projects}</span>
+            <span class="group-progress"><span class="progress" role="img" aria-label="${share}% done"><span style="width:${share}%"></span></span>${progressWords(progress)}</span></span>`;
+          openLink = `<a class="group-open" href="#" data-action="open-initiative" aria-label="Open Initiative ${name}"><span class="group-open-words">Open Initiative</span>${icon("arrow-up-right", 13)}</a>`;
+        } else {
+          sub = `<span class="group-sub">Tasks that aren't part of an Initiative</span>`;
+        }
+        const head = `<div class="group-head">${label}${sub}<span class="group-end"><span>${count}</span>${openLink}</span></div>`;
+        if (!open) {
+          const perColumn = COLUMNS.map((column) => [column.label, cardsIn(column, group.shown).length])
+            .filter(([, cards]) => cards > 0)
+            .map(([columnLabel, cards]) => `${columnLabel} ${cards}`)
+            .join(" · ");
+          return `<section class="board-group folded" aria-label="${name}">${head}${perColumn ? `<div class="group-folded-counts">${perColumn}</div>` : ""}</section>`;
+        }
+        const cells = COLUMNS.map((column) => {
+          const cards = cardsIn(column, group.shown);
+          const frozen = state.frozenDrag;
+          const drop =
+            frozen && frozen.ok === `${group.key}:${column.key}` ? " drop-ok" : frozen && frozen.refused === `${group.key}:${column.key}` ? " drop-refused" : "";
+          return `<section class="group-cell${cards.length === 0 ? " empty" : ""}${drop}" aria-label="${column.label}, ${name}" data-column="${column.key}" data-group="${group.key}">
+            <h4>${column.label} <span class="board-count">${cards.length}</span></h4><div class="board-cards">${cards.map(card).join("")}</div></section>`;
+        }).join("");
+        return `<section class="board-group" aria-label="${name}">${head}<div class="board">${cells}</div></section>`;
+      }
+      function boardNote(grouped) {
+        const words = grouped
+          ? "Drag a card that has not started to reorder it within its column, inside its own group; dropping it among another priority takes that priority. Queued cards keep their place in the queue."
+          : "Drag a card that has not started to reorder it within its column; dropping it among another priority takes that priority. Queued cards keep their place in the queue.";
+        return `<p class="board-note">${icon("grip-vertical", 13)}${words}</p>`;
+      }
+
+      /* BoardCard in board.tsx */
+      const EDGES = { "in-progress": "edge-running", "waiting-on-you": "edge-decision", paused: "edge-paused", done: "edge-done", dropped: "edge-failed" };
+      function card(t) {
+        const queued = queuedEntryOf(t);
+        const movable = NOT_STARTED.includes(t.state) && !queued;
+        const project = PROJECTS.find(({ id }) => id === t.projectId);
+        const frozen = state.frozenDrag;
+        const classes = ["board-card", EDGES[t.state], frozen?.dragged === t.id && "dragging", frozen?.before === t.id && "drop-before"].filter(Boolean).join(" ");
+        const priorityIcon = t.priority === "high" ? "arrow-up" : t.priority === "low" ? "arrow-down" : "minus";
+        const blockers = blockingTasksOf(t);
+        const blocked = blockers.length
+          ? `<div class="board-card-blocked">${icon("lock", 12)}<span>Blocked by ${blockers.map((blocker) => `<a href="#" data-action="none">${escapeHtml(blocker.title)}</a>`).join(", ")}</span></div>`
+          : "";
+        const working = WORKING[t.id];
+        const workingMark = working
+          ? `<span class="board-card-working${working.live ? " live" : ""}"><span class="avatar" style="background:${working.colour}">${working.initials}</span></span>`
+          : "";
+        const foot = (queued ? `<span class="badge info sm">Queued</span><span class="queued-reason">${queued.reasons.join(" ")}</span>` : footOf(t)) + workingMark;
+        const tags = t.tags.map((tag) => `<span class="board-card-tag">${tag}</span>`).join("");
+        return `<article class="${classes}" aria-label="${escapeHtml(t.title)}" data-task-id="${t.id}" draggable="${movable}">
+          <div class="board-card-head"><span class="priority-icon ${t.priority}" title="${PRIORITY_NAMES[t.priority]} priority">${icon(priorityIcon, 13)}</span>
+            <a class="board-card-title" href="#" data-action="none" draggable="false">${escapeHtml(t.title)}</a>
+            <button type="button" class="icon-button" aria-label="More">${icon("ellipsis")}</button></div>
+          <div class="board-card-meta"><span class="project-mark" style="--mark:${project.mark}">${project.name}</span>${tags}</div>
+          ${blocked}${foot ? `<div class="board-card-foot">${foot}</div>` : ""}</article>`;
+      }
+      function footOf(t) {
+        switch (t.state) {
+          case "backlog":
+            return `<button type="button" class="btn xs secondary">Plan</button>`;
+          case "planning":
+            return `<span class="board-card-note">Planning with ${PLANNER}</span>`;
+          case "waiting-on-you":
+            return `<span class="badge warning sm">Waiting on you</span>`;
+          case "paused":
+            return `<span class="badge warning sm">Paused</span>`;
+          case "dropped":
+            return `<span class="badge danger sm">Dropped</span>`;
+          default:
+            return "";
+        }
+      }
+
+      /* ---------- Drag and drop: within a column, inside the card's own group ---------- */
+      const GROUP_REFUSAL = "A card moves only within its own group: the board doesn't change a Task's Initiative.";
+      const COLUMN_REFUSAL = "A Task changes state through its actions: Plan, Mark Ready, Start.";
+      const groupKeyOf = (t) => t.initiativeId ?? "none";
+      const cellOf = (element) => element.closest("[data-column]");
+      function showToast(words, lasts = true) {
+        state.toast = words;
+        clearTimeout(toastTimer);
+        if (lasts) toastTimer = setTimeout(() => ((state.toast = undefined), render()), 4000);
+        render();
+      }
+      /** placementAmong (board-placement.ts): the neighbours are the cards shown in this column of this group. */
+      function placementAmong(cards, t, beforeId) {
+        if (beforeId === t.id) return undefined;
+        const others = cards.filter(({ id }) => id !== t.id);
+        const at = beforeId === undefined ? others.length : others.findIndex(({ id }) => id === beforeId);
+        if (at < 0) return undefined;
+        const above = others[at - 1]?.id ?? null;
+        const previous = cards[cards.findIndex(({ id }) => id === t.id) - 1]?.id ?? null;
+        return above === previous ? undefined : { above, below: others[at]?.id ?? null };
+      }
+      function place(t, { above, below }) {
+        const neighbour = findTask(below ?? above);
+        const others = TASKS.filter(({ id }) => id !== t.id);
+        const at = below !== null ? others.findIndex(({ id }) => id === below) : others.findIndex(({ id }) => id === above) + 1;
+        const placed = { ...t, priority: neighbour.priority };
+        TASKS = [...others.slice(0, at), placed, ...others.slice(at)];
+        if (placed.priority !== t.priority) showToast(`${t.title} is now ${PRIORITY_NAMES[placed.priority].toLowerCase()} priority.`);
+        else render();
+      }
+      function cellCards(cell) {
+        const column = COLUMNS.find(({ key }) => key === cell.dataset.column);
+        const group = cell.dataset.group;
+        const tasks = TASKS.filter((t) => isOnBoard(t) && inProjectFilter(t) && matchesFilters(t) && (group === "all" || groupKeyOf(t) === group));
+        return cardsIn(column, tasks);
+      }
+      function clearDropMarks() {
+        document.querySelectorAll(".drop-before, .drop-ok").forEach((element) => element.classList.remove("drop-before", "drop-ok"));
+      }
+      function bindDrag(frame) {
+        frame.addEventListener("dragstart", (event) => {
+          const element = event.target.closest?.("[data-task-id]");
+          if (!element) return;
+          state.frozenDrag = undefined;
+          state.dragging = findTask(element.dataset.taskId);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", state.dragging.id);
+          element.classList.add("dragging");
+          const column = COLUMNS.find((candidate) => candidate.holds(state.dragging));
+          const group = state.grouped ? groupKeyOf(state.dragging) : "all";
+          frame.querySelector(`[data-column="${column.key}"][data-group="${group}"]`)?.classList.add("drop-ok");
+        });
+        frame.addEventListener("dragover", (event) => {
+          if (!state.dragging || !cellOf(event.target)) return;
+          event.preventDefault();
+          document.querySelectorAll(".drop-before").forEach((element) => element.classList.remove("drop-before"));
+          event.target.closest("[data-task-id]")?.classList.add("drop-before");
+        });
+        frame.addEventListener("drop", (event) => {
+          const cell = cellOf(event.target);
+          const dragged = state.dragging;
+          if (!cell || !dragged) return;
+          event.preventDefault();
+          state.dragging = undefined;
+          clearDropMarks();
+          const column = COLUMNS.find(({ key }) => key === cell.dataset.column);
+          if (cell.dataset.group !== "all" && cell.dataset.group !== groupKeyOf(dragged)) return showToast(GROUP_REFUSAL);
+          if (!column.holds(dragged)) return showToast(COLUMN_REFUSAL);
+          const placement = placementAmong(cellCards(cell), dragged, event.target.closest("[data-task-id]")?.dataset.taskId);
+          if (placement) place(dragged, placement);
+          else render();
+        });
+        frame.addEventListener("dragend", () => {
+          state.dragging = undefined;
+          clearDropMarks();
+          document.querySelectorAll(".dragging").forEach((element) => element.classList.remove("dragging"));
+        });
+      }
+
+      /* ---------- What the controls do ---------- */
+      function setFilter(key, value) {
+        state.filters = { ...state.filters, [key]: value === "" ? undefined : value };
+        state.frozenDrag = undefined;
+        render();
+      }
+      function bindApp(frame) {
+        frame.addEventListener("click", (event) => {
+          const target = event.target.closest("[data-action]");
+          if (!target || target.tagName === "SELECT") return;
+          const { action, value } = target.dataset;
+          if (target.tagName === "A") event.preventDefault();
+          if (action === "group") {
+            state.grouped = !state.grouped;
+            state.frozenDrag = undefined;
+            render();
+          } else if (action === "fold") {
+            const group = boardGroups().shown.find(({ key }) => key === target.dataset.group);
+            state.folds = { ...state.folds, [group.key]: !isOpen(group) };
+            state.frozenDrag = undefined;
+            render();
+          } else if (action === "fold-all") {
+            const { shown } = boardGroups();
+            const open = shown.every((group) => !isOpen(group));
+            state.folds = Object.fromEntries(shown.map(({ key }) => [key, open]));
+            render();
+          } else if (action === "priority") setFilter("priority", state.filters.priority === value ? undefined : value);
+          else if (action === "blocked") setFilter("blocked", state.filters.blocked ? undefined : true);
+          else if (action === "clear") {
+            state.filters = {};
+            render();
+          } else if (action === "view") {
+            const view = SAVED_VIEWS.find(({ id }) => id === value);
+            state.filters = sameFilters(view.filters, state.filters) ? {} : { ...view.filters };
+            render();
+          } else if (action === "all-projects") {
+            state.projects = "all";
+            render();
+          } else if (action === "open-initiative") showToast("Opens the Initiative's page (/work/initiatives/:initiativeId).");
+        });
+        frame.addEventListener("change", (event) => {
+          const { action } = event.target.dataset;
+          if (action === "initiative") setFilter("initiative", event.target.value);
+          if (action === "project-filter") {
+            state.projects = event.target.value === "all" ? "all" : [event.target.value];
+            render();
+          }
+        });
+        frame.addEventListener("input", (event) => {
+          if (event.target.id === "board-search") setFilter("query", event.target.value.trim() === "" ? undefined : event.target.value);
+        });
+        bindDrag(frame);
+      }
+
+      /* ---------- The scenarios ---------- */
+      const SCENARIOS = {
+        off: {
+          label: "Grouping off",
+          preset: { grouped: false },
+          note: "<strong>Grouping off</strong>, the board as it is today: a column per state. <strong>Group by Initiative</strong> sits at the filter bar's first row's end, apart from the filters. Proposed for this board too: below a page about 1250px wide its columns wrap into two rows of three, and at 600px or so they stack, instead of the board scrolling sideways.",
+        },
+        on: {
+          label: "Grouping on",
+          preset: {},
+          note: "<strong>Grouping on</strong> (<code>?group=initiative</code>): a group for each Initiative with a card on the board, Active ones newest first, then those that ended, then <strong>No Initiative</strong>. Each header: the name, its state, its Projects, progress over every Task of the Initiative (Run environments on Linux counts an archived one), its cards on the board and Open Initiative. Billing export is Done, so its group starts folded. Release notes from Handover notes is being shaped: its Tasks are off the board, so it has no group.",
+        },
+        folded: {
+          label: "A group folded",
+          preset: { folds: { [RUN_ENVIRONMENTS.id]: false } },
+          note: "<strong>Run environments on Linux, folded</strong> by the user: its header stays, with its cards per column under it. The fold is remembered in this browser for each group, and isn't in the address. <strong>Fold all</strong> beside the switch folds every group, then reads Unfold all.",
+        },
+        initiative: {
+          label: "Initiative filter set",
+          preset: { filters: { initiative: OFFLINE_SYNC.id } },
+          note: "<strong>The Initiative filter</strong> set to Offline sync: only its group shows, always open, so its name has no fold, and Fold all isn't offered. The Saved view Offline sync is on, as it holds the same filters; the grouping isn't part of it, so picking a view never turns grouping on or off.",
+        },
+        project: {
+          label: "Project filter: not-astray",
+          preset: { projects: ["not-astray"] },
+          note: "<strong>The Project filter</strong> shows not-astray alone. A group shows only with a card in it, so Board by Initiative and Billing export leave; the header's count says how many show of its cards on the board (3 of 7 shown), while its progress and Projects stay the Initiative's own. The note above the board counts the rest, as today, and the Initiative select offers only Initiatives in those Projects.",
+        },
+        nomatch: {
+          label: "Priority leaves groups empty",
+          preset: { filters: { priority: "high" } },
+          note: "<strong>Priority High</strong>: Run environments on Linux and Billing export have no High Task, so their groups are left out, and a line under the groups names them, so nothing disappears unexplained. The column counts count the cards that show. Search and Blocked work the same way.",
+        },
+        "drag-in": {
+          label: "Drag inside a group",
+          preset: { frozenDrag: { dragged: uuid(26), before: uuid(7), ok: `${OFFLINE_SYNC.id}:backlog` } },
+          note: "<strong>Dragging Offline banner copy</strong> above Sync status in the header: it can land only in Backlog inside its own group, outlined, and the line marks where. It is placed between that group's neighbours (<code>placementAmong</code> given the group's cards). Drag any card that hasn't started to try it.",
+        },
+        "drag-out": {
+          label: "Drop refused",
+          preset: { frozenDrag: { dragged: uuid(13), refused: "none:backlog" }, toast: GROUP_REFUSAL },
+          note: "<strong>Docs: setting up a run environment</strong> dropped into No Initiative's Backlog: refused, the card stays where it was and a toast says why, as a drop into another column is today. The board never changes a Task's Initiative.",
+        },
+      };
+      const DEFAULTS = { grouped: true, filters: {}, projects: "all", folds: {}, frozenDrag: undefined, toast: undefined };
+      function applyScenario(key) {
+        clearTimeout(toastTimer);
+        document.querySelector(".main")?.scrollTo(0, 0);
+        Object.assign(state, DEFAULTS, structuredClone(SCENARIOS[key].preset), { scenario: key });
+        render();
+      }
+
+      const WIDTHS = [
+        ["wide", "Wide"],
+        ["900", "900px"],
+        ["390", "390px"],
+      ];
+      const PALETTES = [
+        ["light", "Light"],
+        ["dark", "Dark"],
+      ];
+      function segments(action, options, current) {
+        return `<div class="segments">${options
+          .map(([value, label]) => `<button type="button" data-action="${action}" data-value="${value}" aria-pressed="${current === value}">${label}</button>`)
+          .join("")}</div>`;
+      }
+      function renderBar() {
+        const scenarios = Object.entries(SCENARIOS).map(([key, { label }]) => [key, label]);
+        document.getElementById("bar").innerHTML = `<span class="bar-title">Group by Initiative</span><span class="bar-tag">PROPOSAL</span>
+          <div class="control"><span class="control-label">Width</span>${segments("width", WIDTHS, state.width)}</div>
+          <div class="control"><span class="control-label">Palette</span>${segments("palette", PALETTES, state.palette)}</div>
+          <span class="bar-break"></span>
+          <div class="control"><span class="control-label">Scenario</span>${segments("scenario", scenarios, state.scenario)}</div>`;
+      }
+      document.getElementById("bar").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action]");
+        if (!button) return;
+        const { action, value } = button.dataset;
+        if (action === "scenario") return applyScenario(value);
+        state[action] = value;
+        render();
+      });
+      bindApp(document.getElementById("frame"));
+      applyScenario("on");
+    </script>
+  </body>
+</html>
