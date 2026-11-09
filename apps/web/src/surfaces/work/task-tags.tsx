@@ -3,8 +3,8 @@ import type { Task } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { changeTags, TASKS, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { tagsInUse } from "./tag-words.ts";
-import { TagsInput } from "./tags-input.tsx";
+import { tagsInUse } from "../../shell/work/tag-words.ts";
+import { TagsInput } from "../../shell/work/tags-input.tsx";
 
 /**
  * The Task's Tags on its page, saved as each is added or removed, in any state. Each save sends the

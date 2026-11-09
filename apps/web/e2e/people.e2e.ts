@@ -45,6 +45,7 @@ import {
   createTemporaryRepository,
   type TemporaryRepository,
 } from "./temporary-repository.ts";
+import { createFromTopBar } from "./top-bar.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -4821,7 +4822,7 @@ test.describe("the chat drawer", () => {
     await expect(page.getByRole("menu", { name: "Chat with" })).toHaveCount(0);
     await expect(jan).toBeVisible();
 
-    await page.getByRole("button", { name: "Idea", exact: true }).click();
+    await createFromTopBar(page, "Idea");
     const idea = page.getByRole("dialog", { name: "Capture an Idea" });
     await expect(idea).toBeVisible();
     await page.keyboard.press("Escape");

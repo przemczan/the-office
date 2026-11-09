@@ -5,33 +5,33 @@ import { Button, Checkbox, Dialog, Field, Input, RadioGroup, Textarea } from "@t
 import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { addTaskToInitiative, createTask, initiativeQueries, taskQueries } from "../../api/work.ts";
-import { ProjectChip } from "../../shell/project-chip.tsx";
-import { onlyProjectShown } from "../../shell/project-filter/project-filter-choices.ts";
-import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
-import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { useToast } from "../../shell/toasts.tsx";
-import { TASK_STATE_NAMES } from "../../shell/work/work-words.ts";
-import { canHoldBack } from "./dependency-words.ts";
-import { tasksOfInitiative } from "./initiative-words.ts";
+import { ProjectChip } from "../project-chip.tsx";
+import { RefusalAlert } from "../refusal-alert.tsx";
+import { useToast } from "../toasts.tsx";
 import { tagsInUse } from "./tag-words.ts";
 import { TagsInput } from "./tags-input.tsx";
+import { TASK_STATE_NAMES } from "./work-words.ts";
+import "./new-task-dialog.css";
 
 type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string };
 
 /**
- * "+ Task": a title, a Description if the user wants, its Project and any Tags; it starts in
- * Backlog, and its page opens. Given an
- * Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in the Initiative's
- * first Project unless another is chosen, and waiting for any of its Tasks that can still hold it
- * back; it starts in Shaping while the Initiative does, and the user stays on the Initiative to add
- * the next. Otherwise it is in the one Project the
- * Project filter shows, or the first.
+ * The top bar's Create › Task: a title, a Description if the user wants, its Project and any Tags;
+ * it starts in Backlog, in `projectId` unless another is chosen (else the first Project), and its
+ * page opens. Given an Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in
+ * the Initiative's first Project unless another is chosen, and waiting for any of `canWaitFor`, the
+ * Initiative's Tasks that can still hold it back, the user chooses; it starts in Shaping while the
+ * Initiative does, and the user stays on the Initiative to add the next.
  */
 export function NewTaskDialog({
+  projectId: startingProjectId = null,
   initiative,
+  canWaitFor = [],
   onClose,
 }: {
+  readonly projectId?: string | null;
   readonly initiative?: Initiative;
+  readonly canWaitFor?: readonly Task[];
   readonly onClose: () => void;
 }): ReactNode {
   const formId = useId();
@@ -44,14 +44,8 @@ export function NewTaskDialog({
     tags: [],
   });
   const [blockedBy, setBlockedBy] = useState<ReadonlySet<string>>(new Set());
-  const { filter } = useProjectFilter();
   const projectId =
-    draft.projectId ??
-    initiative?.projectIds[0] ??
-    onlyProjectShown(filter) ??
-    projects.data?.[0]?.id;
-  const candidates =
-    initiative && tasks.data ? tasksOfInitiative(initiative, tasks.data).filter(canHoldBack) : [];
+    draft.projectId ?? initiative?.projectIds[0] ?? startingProjectId ?? projects.data?.[0]?.id;
   const queryClient = useQueryClient();
   const showToast = useToast();
   const navigate = useNavigate();
@@ -95,7 +89,7 @@ export function NewTaskDialog({
     >
       <form
         id={formId}
-        className="work-form"
+        className="dialog-stack"
         onSubmit={(event) => {
           event.preventDefault();
           if (projectId !== undefined) creating.mutate({ ...draft, projectId });
@@ -136,9 +130,9 @@ export function NewTaskDialog({
             onChange={(tags) => setDraft({ ...draft, tags: [...tags] })}
           />
         </Field>
-        {candidates.length > 0 && (
+        {canWaitFor.length > 0 && (
           <MustWaitFor
-            candidates={candidates}
+            candidates={canWaitFor}
             projects={projects.data}
             chosen={blockedBy}
             onChange={setBlockedBy}

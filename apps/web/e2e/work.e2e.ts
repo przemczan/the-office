@@ -26,6 +26,7 @@ import {
   createTemporaryRepository,
   type TemporaryRepository,
 } from "./temporary-repository.ts";
+import { createFromTopBar } from "./top-bar.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -347,7 +348,12 @@ test("a tool call opened at the end of a Stage's Thread comes into view, the pag
 test("the user captures an Idea from Now in a few keystrokes", async ({ page }) => {
   await page.goto("/now");
 
-  await page.getByRole("button", { name: "Idea", exact: true }).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByRole("menu").getByRole("button")).toHaveText(["Task", "Idea"]);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-create-menu.png") });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await createFromTopBar(page, "Idea");
   await page.keyboard.type("Nightly dependency updates");
   await page.keyboard.press("Enter");
 
@@ -378,7 +384,7 @@ test("an Idea with Attachments is shaped into a Task in Backlog, and another is 
   const project = await addedProject(page, "Usage reports", "UR");
   await page.goto(`/projects/${project.id}`);
 
-  await page.getByRole("button", { name: "Idea", exact: true }).click();
+  await createFromTopBar(page, "Idea");
   const capture = page.getByRole("dialog").filter({ hasText: "Capture an Idea" });
   await capture.getByLabel("Idea").fill("Export usage as CSV");
   await capture.getByLabel("Notes").fill("Monthly, per Project, for the accountant.");
@@ -419,7 +425,7 @@ test("an Idea with Attachments is shaped into a Task in Backlog, and another is 
   // Other files' Ideas may have become Tasks already, so this one's row is named in full.
   await expect(page.getByText("· became Export usage as CSV")).toBeVisible();
 
-  await page.getByRole("button", { name: "Idea", exact: true }).click();
+  await createFromTopBar(page, "Idea");
   await page.keyboard.type("Voice notes to the Office Manager");
   await page.keyboard.press("Enter");
   const dropped = page.getByRole("article", { name: "Voice notes to the Office Manager" });
@@ -717,13 +723,13 @@ test("a Task moves to another Project from its menu, and one whose history wasn'
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task-refused.png") });
 });
 
-test('the user tags a Task in "+ Task" and on its page, and the board finds it by them without showing them', async ({
+test("the user tags a Task in Create › Task and on its page, and the board finds it by them without showing them", async ({
   page,
 }) => {
   const project = await addedProject(page, "Tagged work", "TW");
   await page.goto("/work");
 
-  await page.getByRole("button", { name: "Task", exact: true }).click();
+  await createFromTopBar(page, "Task");
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Title").fill("Pair over BLE");
   await dialog.getByRole("radiogroup").locator("label").filter({ hasText: project.name }).click();
@@ -780,12 +786,19 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   page,
 }) => {
   const project = await addedProject(page, "Described work", "DW");
-  await page.goto("/work");
-  await page.getByRole("button", { name: "Task", exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  await page.goto(`/projects/${project.id}`);
+  await createFromTopBar(page, "Task");
+  const dialog = page.getByRole("dialog", { name: "New Task" });
   await dialog.getByLabel("Title").fill("Export keeps the filters");
   await dialog.getByLabel("Description").fill("The CSV export uses **the filters on screen**.");
-  await dialog.getByRole("radiogroup").locator("label").filter({ hasText: project.name }).click();
+  // It starts in the Project whose page it was created on.
+  await expect(
+    dialog
+      .getByRole("radiogroup")
+      .locator("label")
+      .filter({ hasText: project.name })
+      .getByRole("radio"),
+  ).toHaveAttribute("aria-checked", "true");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-new-task.png") });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
@@ -1314,7 +1327,7 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     attachments.getByRole("link", { name: "https://example.com/sign-in" }),
   ).toHaveAttribute("target", "_blank");
 
-  await page.getByRole("button", { name: "Idea", exact: true }).click();
+  await createFromTopBar(page, "Idea");
   await page.keyboard.type("Remember the page per tab");
   await page.keyboard.press("Enter");
   await expect(page.getByText("Idea captured: Remember the page per tab.")).toBeVisible();

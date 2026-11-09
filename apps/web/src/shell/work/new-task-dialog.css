@@ -1,0 +1,12 @@
+/* The New Task dialog's "Must wait for": the Initiative's Tasks it can wait for. */
+.must-wait-for {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.must-wait-for-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
