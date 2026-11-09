@@ -6,8 +6,8 @@ import {
   PROJECT_LIMIT_MAX,
   projectSchema,
   taskSchema,
+  type AddProject,
   type ApiEngine,
-  type NewProject,
   type Project,
   type StartAnswer,
   type StartCheck,
@@ -64,10 +64,11 @@ test.afterEach(async () => {
 
 /**
  * A Project that may start as many Tasks at once as The Office, so only the wait a test is about
- * holds its Tasks: these tests start one beside another in the same Project.
+ * holds its Tasks: these tests start one beside another in the same Project. Its run environment
+ * is answered Off, so the run environment question never joins the Task head's notes.
  */
 async function addedProject(page: Page, name: string, label: string): Promise<Project> {
-  const newProject: NewProject = {
+  const newProject: AddProject = {
     name,
     path: repository.path,
     baseBranch: "main",
@@ -76,6 +77,7 @@ async function addedProject(page: Page, name: string, label: string): Promise<Pr
     installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
+    runEnvironmentAnswer: "no",
   };
   const added = await page.request.post("/api/projects", { data: newProject });
   expect(added.status()).toBe(201);
