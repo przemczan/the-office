@@ -1,10 +1,10 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { BoardFilters, Task } from "@the-office/contracts";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { taskQueries } from "../../api/work.ts";
 import { boardFilter, boardFiltersOf, withoutBoardFilters } from "./board-filters.ts";
-import { boardGroupingOf } from "./board-grouping.ts";
+import { boardGroupingOf, createBoardGroupingStore } from "./board-grouping.ts";
 
 export interface BoardFiltering {
   readonly filters: BoardFilters;
@@ -45,17 +45,25 @@ export function useBoardFilters(tasks: readonly Task[]): BoardFiltering {
 export interface BoardGroupingSwitch {
   /** Whether the board is grouped by Initiative. */
   readonly grouped: boolean;
-  /** Sets it in the board's address, keeping everything else there. */
+  /** Remembers it in this browser and sets it in the board's address, keeping everything else there. */
   readonly change: (grouped: boolean) => void;
 }
 
-/** Group by Initiative, kept in the board's address as `?group=initiative`. */
+const groupingStore = createBoardGroupingStore();
+
+/**
+ * Group by Initiative: the board's address says it as `?group=initiative`; an address without
+ * `group` follows the choice last made in this browser.
+ */
 export function useBoardGrouping(): BoardGroupingSwitch {
   const search = useSearch({ from: "/work/" });
+  const remembered = useSyncExternalStore(groupingStore.subscribe, groupingStore.current);
   const navigate = useNavigate();
   return {
-    grouped: boardGroupingOf(search).group === "initiative",
-    change: (grouped) =>
+    // The address only ever holds `group=initiative`, as turning the switch off removes it.
+    grouped: boardGroupingOf(search).group === "initiative" || remembered,
+    change: (grouped) => {
+      groupingStore.remember(grouped);
       void navigate({
         to: "/work",
         search: ({ group: _group, ...previous }) => ({
@@ -63,6 +71,7 @@ export function useBoardGrouping(): BoardGroupingSwitch {
           ...(grouped && { group: "initiative" as const }),
         }),
         replace: true,
-      }),
+      });
+    },
   };
 }

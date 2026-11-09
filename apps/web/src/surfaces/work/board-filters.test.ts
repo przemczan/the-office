@@ -9,7 +9,6 @@ import {
   withBoardFilter,
   withoutBoardFilters,
 } from "./board-filters.ts";
-import { boardGroupingOf } from "./board-grouping.ts";
 
 function aTask(id: string, fields: Partial<Task> = {}): Task {
   return {
@@ -111,21 +110,6 @@ describe("withoutBoardFilters", () => {
     expect(withoutBoardFilters({ priority: "high", group: "initiative" })).toEqual({
       group: "initiative",
     });
-  });
-});
-
-describe("boardGroupingOf", () => {
-  it("reads ?group=initiative, apart from the filters", () => {
-    const search = { group: "initiative", priority: "high" };
-
-    expect(boardGroupingOf(search)).toEqual({ group: "initiative" });
-    expect(boardFiltersOf(search)).toEqual({ priority: "high" });
-  });
-
-  it("leaves out any other value", () => {
-    expect(boardGroupingOf({})).toEqual({});
-    expect(boardGroupingOf({ group: "project" })).toEqual({});
-    expect(boardGroupingOf({ group: true })).toEqual({});
   });
 });
 

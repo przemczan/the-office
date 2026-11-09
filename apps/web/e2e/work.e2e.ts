@@ -500,7 +500,7 @@ function titlesInGroup(page: Page, state: string, group: string): Promise<string
     .evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-label") ?? ""));
 }
 
-test("the board groups by Initiative, kept in its address, its folds remembered, a card reordering only inside its group", async ({
+test("the board groups by Initiative, kept in its address and remembered, its folds remembered, a card reordering only inside its group", async ({
   page,
 }) => {
   const project = await addedProject(page, "Grouped work", "GW");
@@ -577,6 +577,16 @@ test("the board groups by Initiative, kept in its address, its folds remembered,
   await expect(displayGroup.getByRole("article", { name: "Grouped display first" })).toBeVisible();
   await expect(displayFold).toHaveCount(0);
   await expect(layout.getByRole("button", { name: /Fold all|Unfold all/ })).toHaveCount(0);
+
+  // Remembered in this browser: an address without `group` opens the board as last chosen.
+  await page.goto("/work");
+  await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+  await expect(groups.first()).toBeVisible();
+  await layout.getByRole("switch").click();
+  await expect(page).not.toHaveURL(/group=/);
+  await page.goto("/work");
+  await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+  await expect(groups).toHaveCount(0);
 });
 
 test("a card shows who is working as they start and stop, and stays one link that drags", async ({
