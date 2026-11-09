@@ -323,7 +323,8 @@ describe("AgentCommands.run with the Project's run environment On", REAL_GIT_TES
       },
     );
 
-    expect(end).toMatchObject({ kind: "install-failed", run: { outcome: "stopped" } });
+    // No install command is set, so nothing installs and the wait is the test command's own.
+    expect(end).toMatchObject({ kind: "ran", run: { outcome: "stopped" } });
     expect(wait.started).toHaveBeenCalledOnce();
     expect(wait.ended).toHaveBeenCalledOnce();
     expect(await worktreeHas(task, "checked.txt")).toBe(false);
