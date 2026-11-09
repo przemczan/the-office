@@ -636,6 +636,23 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   font-variant-numeric: tabular-nums;
 }
 
+.project-limit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.project-limit-label {
+  flex: 1;
+  min-width: 0;
+  font: var(--type-body-sm);
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
 .project-block-error {
   margin: 10px 0 0;
   font: var(--type-caption);

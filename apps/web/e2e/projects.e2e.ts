@@ -501,6 +501,34 @@ test("the install inputs are changed beside the install command", async ({ page 
   );
 });
 
+test("the Project limit starts at 1, is changed in Overview › Work, and is kept after a reload", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Project limit");
+  await page.goto(`/projects/${project.id}`);
+  const limit = page.getByRole("status", { name: "running Tasks at once in this Project" });
+  await expect(limit).toHaveText("1");
+  await expect(
+    page.getByRole("button", { name: "Lower running Tasks at once in this Project" }),
+  ).toBeDisabled();
+
+  const raise = page.getByRole("button", { name: "Raise running Tasks at once in this Project" });
+  await raise.click();
+  await expect(limit).toHaveText("2");
+  await expect(raise).toBeEnabled();
+  await raise.click();
+  await expect(limit).toHaveText("3");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-limit.png") });
+
+  await page.reload();
+  await expect(limit).toHaveText("3");
+  await expect(
+    page.getByText(
+      "Lowering it lets running Tasks finish; nothing new starts in this Project until one ends.",
+    ),
+  ).toBeVisible();
+});
+
 test("the default Pipeline picker lists the library, the built-ins first", async ({ page }) => {
   const project = await addedProject(page, "Pipeline choice");
   await page.goto(`/projects/${project.id}/default-pipeline`);

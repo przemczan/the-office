@@ -22,6 +22,7 @@ const conditions: StartConditions = {
   ],
   person: { name: "Ada", taskLimit: 2 },
   officeWideLimit: 3,
+  project: { name: "Admin panel", projectLimit: 2 },
   usage: NO_USAGE_AT_START,
   officeUpdateHold: undefined,
 };
@@ -67,7 +68,7 @@ describe("startTask", () => {
     expect(startTask(ready, scriptsOnly, held([]), THE_USER).task.personRole).toBeUndefined();
   });
 
-  it("starts beside another Task in progress in the same Project", () => {
+  it("starts beside another Task in progress in the same Project, below its Project limit", () => {
     const other = started("a", { projectId: "admin-panel" });
 
     expect(startTask(ready, conditions, held([other]), THE_USER).task.state).toBe("in-progress");
@@ -128,10 +129,60 @@ describe("startReasons", () => {
     });
   });
 
-  it("doesn't stop at another Task started in the same Project", () => {
+  it("doesn't stop at another Task started in the same Project, below its Project limit", () => {
     const other = started("a", { projectId: "admin-panel" });
 
     expect(startReasons(ready, conditions, held([other]))).toEqual(nothing);
+  });
+
+  it.each(["in-progress", "waiting-on-you", "paused"] as const)(
+    "waits while a Task %s in the same Project counts against its Project limit",
+    (state) => {
+      const others = [
+        started("a", { state, projectId: "admin-panel" }),
+        started("b", { projectId: "admin-panel" }),
+      ];
+
+      expect(startReasons(ready, conditions, held(others))).toEqual(
+        waiting("The Project limit is reached: 2 of Admin panel's Tasks are started."),
+      );
+    },
+  );
+
+  it("waits at a Project limit of 1 with one of the Project's Tasks started", () => {
+    const one = { ...conditions, project: { name: "Admin panel", projectLimit: 1 } };
+
+    expect(startReasons(ready, one, held([started("a", { projectId: "admin-panel" })]))).toEqual(
+      waiting("The Project limit is reached: 1 of Admin panel's Tasks is started."),
+    );
+  });
+
+  it("never counts another Project's started Tasks against the Project limit", () => {
+    const one = { ...conditions, project: { name: "Admin panel", projectLimit: 1 } };
+
+    expect(startReasons(ready, one, held([started("a"), started("b")]))).toEqual(nothing);
+  });
+
+  it("waits when more of the Project's Tasks are started than a lowered Project limit allows", () => {
+    const lowered = { ...conditions, project: { name: "Admin panel", projectLimit: 1 } };
+    const others = [
+      started("a", { projectId: "admin-panel" }),
+      started("b", { projectId: "admin-panel" }),
+    ];
+
+    expect(startReasons(ready, lowered, held(others))).toEqual(
+      waiting("The Project limit is reached: 2 of Admin panel's Tasks are started."),
+    );
+  });
+
+  it("weighs no Project limit for a Project the Projects module no longer knows", () => {
+    const unknown = { ...conditions, project: undefined };
+    const others = [
+      started("a", { projectId: "admin-panel" }),
+      started("b", { projectId: "admin-panel" }),
+    ];
+
+    expect(startReasons(ready, unknown, held(others))).toEqual(nothing);
   });
 
   it.each(["in-progress", "waiting-on-you", "paused"] as const)(

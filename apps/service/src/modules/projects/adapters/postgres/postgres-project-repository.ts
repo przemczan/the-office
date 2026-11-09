@@ -76,6 +76,7 @@ function toRow(project: Project): ProjectRow {
     roleOverrides: project.roleOverrides,
     runEnvironment: project.runEnvironment,
     runEnvironmentSetUpProblems: [...project.runEnvironmentSetUpProblems],
+    projectLimit: project.projectLimit,
     addedAt: project.addedAt,
   };
 }
@@ -107,6 +108,7 @@ function toProject(row: ProjectRow): Project {
     roleOverrides: row.roleOverrides,
     runEnvironment: row.runEnvironment,
     runEnvironmentSetUpProblems: row.runEnvironmentSetUpProblems,
+    projectLimit: row.projectLimit,
     addedAt: row.addedAt,
   };
 }

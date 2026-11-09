@@ -123,7 +123,7 @@ The top bar's choice of which Projects every surface shows; Office-wide numbers,
 _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 
 **Queue**:
-The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
+The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
 _Avoid_: Backlog (a Task state), waiting list, pending
 
 **Overlap**:
@@ -136,7 +136,7 @@ _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
 **Window cap**:
 A Claude Code engine's cap, one for each window, on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
-_Avoid_: Quota gate, budget, limit (the Office-wide limit and Task limits count desks), threshold
+_Avoid_: Quota gate, budget, limit (the Office-wide limit, Project limits and Task limits count started Tasks), threshold
 
 **Daily cap**:
 An engine's cap on the tokens, or the dollars, used on it in one day; a Start that would pass it, with its Usage estimate, waits in the Queue until midnight. Off unless set.
@@ -331,6 +331,10 @@ _Avoid_: Expert, advisor, Staff
 **Task limit**:
 How many of a person's Agents may work Stages at once; "none" means the person only talks and never works a Stage.
 _Avoid_: Capacity, slots, concurrency
+
+**Project limit**:
+How many of a Project's Tasks may be started at once (In progress, Waiting on you or Paused), 1 unless the user raises it on the Project page; only the Project's own Tasks count against it.
+_Avoid_: Project capacity, parallelism, concurrency
 
 **Hard switch**:
 One of the few actions on a Role card that need someone's say whatever the Agent thinks (run installs, publish outside the Pipeline, change Roles), set to Allowed, Consult a person, Ask me or Never.

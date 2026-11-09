@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   asProjectChanges,
   changeCommand,
@@ -63,6 +65,26 @@ describe("PostgresProjectRepository", () => {
     await repository.add(project);
 
     await expect(repository.find(project.id)).resolves.toEqual(project);
+  });
+
+  it("keeps the Project limit", async () => {
+    const project = { ...aProjectOfItsOwn(), projectLimit: 4 };
+
+    await repository.add(project);
+
+    await expect(repository.find(project.id)).resolves.toEqual(project);
+  });
+
+  it("reads a Project limit of 1 for a Project saved without one, as those added before it were", async () => {
+    const id = `project-${randomUUID()}`;
+    await app.get<Database>(DATABASE).execute(sql`
+      insert into projects (id, name, path, base_branch, mark_label, mark_colour, install_command,
+        build_command, lint_command, test_command, publishing_mode, default_pipeline,
+        use_project_skills, added_at)
+      values (${id}, 'Older', '/work/older', 'main', 'OL', 'teal', 'npm ci', 'npm run build',
+        'npm run lint', 'npm test', 'merge', 'full', true, now())`);
+
+    expect((await repository.find(id))?.projectLimit).toBe(1);
   });
 
   it("lists Projects in the order they were added", async () => {

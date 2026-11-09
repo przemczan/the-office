@@ -33,6 +33,7 @@ export {
   ProjectEnvironmentChanged,
   ProjectImageChanged,
   ProjectInstallInputsChanged,
+  ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,

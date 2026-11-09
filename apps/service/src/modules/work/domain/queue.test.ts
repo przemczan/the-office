@@ -10,11 +10,15 @@ import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 const NOW = new Date("2026-10-29T09:00:00.000Z");
 const NO_CHOICE = { now: NOW, onOverlap: undefined };
 
+/** A Project limit high enough that only the tests about it reach it. */
+const ROOMY_PROJECT = { name: "Admin panel", projectLimit: 12 };
+
 function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartConditions {
   return {
     stages: [{ name: "Implement", role }, { name: "Tests" }],
     person: { name: `The ${role}`, taskLimit },
     officeWideLimit,
+    project: ROOMY_PROJECT,
     usage: NO_USAGE_AT_START,
     officeUpdateHold: undefined,
   };
@@ -230,6 +234,41 @@ describe("releaseQueue", () => {
 
     expect(release.started.map(({ task }) => task.id)).toEqual(["c"]);
     expect(release.waiting.map(({ taskId }) => taskId)).toEqual(["a"]);
+  });
+
+  it("starts another Project's Task past one its Project limit holds", () => {
+    const projectA = { ...conditionsFor("developer", 3), project: { name: "A", projectLimit: 1 } };
+    const projectB = { ...conditionsFor("developer", 3), project: { name: "B", projectLimit: 1 } };
+    const tasks = [
+      started("x", "developer", { projectId: "a" }),
+      ready("a", { projectId: "a" }),
+      ready("b", { projectId: "b" }),
+    ];
+
+    const release = releaseQueue([queued("a", 1), queued("b", 2)], alarmOff(tasks), (id) =>
+      id === "a" ? projectA : projectB,
+    );
+
+    expect(release.started.map(({ task }) => task.id)).toEqual(["b"]);
+    expect(release.waiting).toEqual([
+      queued("a", 1, ["The Project limit is reached: 1 of A's Tasks is started."]),
+    ]);
+  });
+
+  it("starts a Task its Project limit held once one of its Project's Tasks ends", () => {
+    const projectA = { ...conditionsFor("developer", 3), project: { name: "A", projectLimit: 1 } };
+    const tasks = [
+      started("x", "developer", { projectId: "a", state: "done" }),
+      ready("a", { projectId: "a" }),
+    ];
+
+    const release = releaseQueue(
+      [queued("a", 1, ["The Project limit is reached: 1 of A's Tasks is started."])],
+      alarmOff(tasks),
+      () => projectA,
+    );
+
+    expect(release.started.map(({ task }) => task.id)).toEqual(["a"]);
   });
 
   it("takes out a Task whose turn meets a refusal, with the reasons", () => {

@@ -1,0 +1,2 @@
+ALTER TABLE "projects" ADD COLUMN "project_limit" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_project_limit" CHECK ("projects"."project_limit" > 0);

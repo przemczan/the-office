@@ -9,6 +9,7 @@ import {
   changeImage,
   changeMark,
   changeProjectDefault,
+  changeProjectLimit,
   changePublishingMode,
   changeRoleOverride,
   changeRunEnvironment,
@@ -26,6 +27,7 @@ import {
   ProjectEnvironmentChanged,
   ProjectImageChanged,
   ProjectInstallInputsChanged,
+  ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
@@ -34,6 +36,7 @@ import {
   ProjectSkillUseChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
+import { PROJECT_LIMIT_MAX } from "./project.js";
 import { aNewProject, aProject } from "./project.fixtures.js";
 import { ProjectRefused } from "./project-refused.js";
 
@@ -163,6 +166,25 @@ describe("changePublishingMode", () => {
     expect(change?.event).toBeInstanceOf(ProjectPublishingModeChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", publishingMode: "merge" });
     expect(changePublishingMode(aProject(), "push-and-pull-request")).toBeUndefined();
+  });
+});
+
+describe("changeProjectLimit", () => {
+  it("changes how many of the Project's Tasks may be started at once, and announces it", () => {
+    const change = changeProjectLimit(aProject(), PROJECT_LIMIT_MAX);
+
+    expect(change?.project.projectLimit).toBe(PROJECT_LIMIT_MAX);
+    expect(change?.event).toEqual(new ProjectLimitChanged("admin-panel", PROJECT_LIMIT_MAX));
+  });
+
+  it("changes nothing when the Project already has that limit", () => {
+    expect(changeProjectLimit(aProject({ projectLimit: 3 }), 3)).toBeUndefined();
+  });
+
+  it.each([0, PROJECT_LIMIT_MAX + 1, 1.5])("refuses %s with the reason", (projectLimit) => {
+    expect(() => changeProjectLimit(aProject(), projectLimit)).toThrow(
+      new ProjectRefused(["The Project limit is a whole number of Tasks from 1 to 12."]),
+    );
   });
 });
 

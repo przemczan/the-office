@@ -70,7 +70,6 @@
 ### office-limits/
 
 - `office-limits-section.tsx`: OfficeLimitsSection
-- `stepper.tsx`: StepperProps, Stepper
 - `usage-card.tsx`: UsageCard
 - `usage-settings-draft.ts`: CapKind, CapsText, UsageSettingsDraft, draftOf, withMeasure, capTextOf, withCapText, capFieldProblem, usageSettingsOf, draftChanged
 - Tests: usage-settings-draft.test.ts

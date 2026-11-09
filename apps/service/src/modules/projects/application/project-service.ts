@@ -25,6 +25,7 @@ import {
   changeInstallInputs,
   changeMark,
   changeProjectDefault,
+  changeProjectLimit,
   changePublishingMode,
   changeRoleOverride,
   changeRunEnvironment,
@@ -216,6 +217,11 @@ export class ProjectService {
     definitionProblems: readonly string[],
   ): Promise<Project> {
     return this.update(id, (project) => finishRunEnvironmentSetUp(project, definitionProblems));
+  }
+
+  /** Lowering it stops no started Task: nothing new starts in the Project until enough end. */
+  async changeProjectLimit(id: string, projectLimit: number): Promise<Project> {
+    return this.update(id, (project) => changeProjectLimit(project, projectLimit));
   }
 
   async changeMark(id: string, mark: ProjectMark): Promise<Project> {

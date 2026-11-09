@@ -2,6 +2,7 @@ import { z } from "zod";
 import { engineModelSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
+import { OFFICE_WIDE_LIMIT_MAX } from "./work.js";
 
 export const projectCommandKeySchema = z.enum(["install", "build", "lint", "test"]);
 export type ProjectCommandKey = z.infer<typeof projectCommandKeySchema>;
@@ -186,6 +187,8 @@ export const projectSchema = newProjectSchema.extend({
   /** At most one per Role. */
   roleOverrides: z.array(projectRoleOverrideSchema),
   runEnvironment: runEnvironmentSettingSchema,
+  /** How many of the Project's Tasks may be started at once (spec §2.1). */
+  projectLimit: z.int(),
   addedAt: z.iso.datetime(),
 });
 export type Project = z.infer<typeof projectSchema>;
@@ -209,6 +212,15 @@ export type InstallInputsChange = z.infer<typeof installInputsChangeSchema>;
 /** PUT /projects/:id/publishing-mode */
 export const publishingModeChangeSchema = z.object({ publishingMode: publishingModeSchema });
 export type PublishingModeChange = z.infer<typeof publishingModeChangeSchema>;
+
+/** The Project page's stepper: more could never be started at once across The Office. */
+export const PROJECT_LIMIT_MAX = OFFICE_WIDE_LIMIT_MAX;
+
+/** PUT /projects/:id/project-limit */
+export const projectLimitSchema = z.object({
+  projectLimit: z.int().min(1).max(PROJECT_LIMIT_MAX),
+});
+export type ProjectLimitChange = z.infer<typeof projectLimitSchema>;
 
 /** PUT /projects/:id/mark: the label and colour together. */
 export const markChangeSchema = z.object({ mark: projectMarkSchema });
@@ -348,6 +360,10 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     /** The Run environment setting changed, or a set-up Task's Done left it as it was. */
     type: z.literal("project.run-environment-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.project-limit-changed"),
     projectId: z.string(),
   }),
   webEventSchema.extend({

@@ -8,6 +8,7 @@ import {
   projectCommandKeySchema,
   publishingModeChangeSchema,
   projectDefaultChangeSchema,
+  projectLimitSchema,
   projectSkillListSchema,
   roleOverrideChangeSchema,
   useForEveryRoleChangeSchema,
@@ -20,6 +21,7 @@ import {
   type MarkChange,
   type Project as ProjectResponse,
   type ProjectDefaultChange,
+  type ProjectLimitChange,
   type RoleOverrideChange,
   type UseForEveryRoleChange,
   type ProjectRemoteNeeds,
@@ -87,6 +89,14 @@ export class ProjectsController {
     @Body(new ContractPipe(publishingModeChangeSchema)) { publishingMode }: PublishingModeChange,
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.projects.changePublishingMode(id, publishingMode));
+  }
+
+  @Put(":id/project-limit")
+  async changeProjectLimit(
+    @Param("id") id: string,
+    @Body(new ContractPipe(projectLimitSchema)) { projectLimit }: ProjectLimitChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeProjectLimit(id, projectLimit));
   }
 
   @Put(":id/mark")

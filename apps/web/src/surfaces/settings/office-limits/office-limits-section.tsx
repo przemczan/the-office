@@ -4,7 +4,7 @@ import {
   OFFICE_WIDE_LIMIT_MAX,
   SIZE_THRESHOLD_TOKENS,
 } from "@the-office/contracts";
-import { Card } from "@the-office/ui";
+import { Card, Stepper } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { changeSizeThreshold, sizeThresholdQuery } from "../../../api/conversations.ts";
 import { nowQueries } from "../../../api/notifications.ts";
@@ -17,7 +17,6 @@ import {
 import { tokensShort } from "../../../shell/conversation/context-words.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
-import { Stepper } from "./stepper.tsx";
 import { UsageCard } from "./usage-card.tsx";
 
 /**

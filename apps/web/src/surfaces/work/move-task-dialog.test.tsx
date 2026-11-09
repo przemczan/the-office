@@ -62,6 +62,7 @@ function aProject(id: string, name: string, defaultPipeline = "full"): Project {
     useForEveryRole: false,
     roleOverrides: [],
     runEnvironment: "not-decided",
+    projectLimit: 1,
     addedAt: "2026-11-01T10:00:00.000Z",
   };
 }

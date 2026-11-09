@@ -46,7 +46,10 @@ import { WorkSettings } from "./work-settings.js";
 /** The one Project id KnownProjectsForTests doesn't know. */
 export const UNKNOWN_PROJECT = "no-such-project";
 
-/** Knows every Project but UNKNOWN_PROJECT, each with Quick fix as its default Pipeline. */
+/**
+ * Knows every Project but UNKNOWN_PROJECT, each with Quick fix as its default Pipeline and a
+ * Project limit as high as the Office-wide limit's maximum, so only the other limits hold a Start.
+ */
 @Injectable()
 export class KnownProjectsForTests extends KnownProjects {
   async find(id: string): Promise<KnownProject | undefined> {
@@ -59,6 +62,7 @@ export class KnownProjectsForTests extends KnownProjects {
       commands: { install: "npm install", build: "", lint: "npm run lint", test: "npm test" },
       useProjectSkills: true,
       projectSkillsOff: [],
+      projectLimit: 12,
     };
   }
 }

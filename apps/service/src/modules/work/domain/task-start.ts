@@ -28,6 +28,12 @@ export interface StartingPerson {
   readonly taskLimit: TaskLimit;
 }
 
+/** The Task's Project, as far as its Project limit goes. */
+export interface StartingProject {
+  readonly name: string;
+  readonly projectLimit: number;
+}
+
 /** What Start weighs besides the Tasks already started, gathered from the other modules. */
 export interface StartConditions {
   /** The Stages of the Task's Pipeline, or undefined when the library has no such Pipeline. */
@@ -36,6 +42,8 @@ export interface StartConditions {
   readonly person: StartingPerson | undefined;
   /** The Office setting: how many Tasks may be started at once across The Office. */
   readonly officeWideLimit: number;
+  /** The Task's Project; undefined when the Projects module no longer knows it. */
+  readonly project: StartingProject | undefined;
   /** What the Task is expected to use, against the caps of the engines it spends on. */
   readonly usage: UsageAtStart;
   /** Why a scheduled Office update holds every Start, in the UI's words; undefined when none is. */
@@ -58,8 +66,8 @@ export interface HeldAtStart {
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
  * refusal (not Ready, a vacant Role, a person who only talks) stops Start; a wait (a Task it waits
  * for not yet Done or Dropped, the fire alarm, a scheduled Office update, the Office-wide limit, its
- * person's Task limit, a cap it would pass) only holds the Task until its blockers end, the all
- * clear, a desk and its person are free, and the cap allows it. Both are empty when it can start.
+ * Project limit, its person's Task limit, a cap it would pass) only holds the Task until its
+ * blockers end, the all clear, a desk, its Project and its person are free, and the cap allows it. Both are empty when it can start.
  */
 export interface StartReasons {
   readonly refusals: readonly string[];
@@ -95,6 +103,7 @@ export function startReasons(
       ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
       ...(conditions.officeUpdateHold ? [conditions.officeUpdateHold] : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
+      ...projectLimitWaits(task, conditions.project, others),
       ...taskLimitWaits(stage, conditions.person, others),
       ...capWaitsAtStart(conditions.usage).waits,
     ],
@@ -150,6 +159,19 @@ function officeWideLimitWaits(limit: number, others: readonly Task[]): string[] 
   if (others.length < limit) return [];
   const desks = limit === 1 ? "the only desk is" : `all ${limit} desks are`;
   return [`The Office-wide limit is reached: ${desks} in use.`];
+}
+
+/** Only the Project's own started Tasks count, so a full Project never holds another's Task. */
+function projectLimitWaits(
+  task: Task,
+  project: StartingProject | undefined,
+  others: readonly Task[],
+): string[] {
+  if (!project) return [];
+  const started = others.filter((other) => other.projectId === task.projectId).length;
+  if (started < project.projectLimit) return [];
+  const verb = started === 1 ? "is" : "are";
+  return [`The Project limit is reached: ${started} of ${project.name}'s Tasks ${verb} started.`];
 }
 
 function taskLimitWaits(

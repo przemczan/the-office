@@ -30,6 +30,7 @@ export function toProjectResponse(project: Project): ProjectResponse {
       model,
     })),
     runEnvironment: project.runEnvironment,
+    projectLimit: project.projectLimit,
     addedAt: project.addedAt.toISOString(),
   };
 }

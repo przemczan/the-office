@@ -14,6 +14,7 @@ import {
   ProjectEnvironmentChanged,
   ProjectImageChanged,
   ProjectInstallInputsChanged,
+  ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRunEnvironmentChanged,
@@ -86,6 +87,13 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectRunEnvironmentChanged,
       (event): WebEventOf<"project.run-environment-changed"> => ({
         type: "project.run-environment-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectLimitChanged,
+      (event): WebEventOf<"project.project-limit-changed"> => ({
+        type: "project.project-limit-changed",
         projectId: event.projectId,
       }),
     );

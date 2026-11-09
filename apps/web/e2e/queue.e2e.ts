@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   engineSettingsSchema,
   nowSchema,
+  PROJECT_LIMIT_MAX,
   projectSchema,
   taskSchema,
   type ApiEngine,
@@ -61,6 +62,10 @@ test.afterEach(async () => {
   await queryOfficeDatabase("delete from queue", []);
 });
 
+/**
+ * A Project that may start as many Tasks at once as The Office, so only the wait a test is about
+ * holds its Tasks: these tests start one beside another in the same Project.
+ */
 async function addedProject(page: Page, name: string, label: string): Promise<Project> {
   const newProject: NewProject = {
     name,
@@ -72,9 +77,14 @@ async function addedProject(page: Page, name: string, label: string): Promise<Pr
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
   };
-  const response = await page.request.post("/api/projects", { data: newProject });
-  expect(response.status()).toBe(201);
-  return projectSchema.parse(await response.json());
+  const added = await page.request.post("/api/projects", { data: newProject });
+  expect(added.status()).toBe(201);
+  const { id } = projectSchema.parse(await added.json());
+  const roomy = await page.request.put(`/api/projects/${id}/project-limit`, {
+    data: { projectLimit: PROJECT_LIMIT_MAX },
+  });
+  expect(roomy.status()).toBe(200);
+  return projectSchema.parse(await roomy.json());
 }
 
 /** A Ready Task, its Plan and Definition of Done confirmed, as planning leaves one. */
@@ -237,6 +247,45 @@ test("a Task moves from Ready to Queued as it is queued and to In progress as th
 
   // Its walk has no more to prove here.
   await page.request.post(`/api/tasks/${task.id}/drop`);
+});
+
+test("Start queues a Task its Project limit holds, with the limit as the reason on the board and Now, and raising the limit starts it", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue limit", "QL");
+  const atOnce = await page.request.put(`/api/projects/${project.id}/project-limit`, {
+    data: { projectLimit: 1 },
+  });
+  expect(atOnce.ok()).toBe(true);
+  const running = await readyTask(page, project, "Limit rework the export");
+  // In progress without a walk: Start's only part here is the Project limit.
+  await queryOfficeDatabase(`update tasks set state = 'in-progress' where id = $1`, [running.id]);
+  const task = await readyTask(page, project, "Limit sync of the inbox");
+  const projectLimit = `The Project limit is reached: 1 of ${project.name}'s Tasks is started.`;
+
+  const start = await page.request.post(`/api/tasks/${task.id}/start`, { data: {} });
+  expect(start.ok()).toBe(true);
+
+  await page.goto("/work");
+  await showOnly(page, project);
+  const card = (name: string) => column(page, name).getByRole("article", { name: task.title });
+  await expect(card("Queued")).toContainText(projectLimit);
+  await page.goto("/now");
+  await expect(page.getByRole("article", { name: `Queued: ${task.title}` })).toContainText(
+    projectLimit,
+  );
+
+  const raised = await page.request.put(`/api/projects/${project.id}/project-limit`, {
+    data: { projectLimit: 2 },
+  });
+  expect(raised.ok()).toBe(true);
+  await page.goto("/work");
+  await showOnly(page, project);
+  await expect(card("In progress")).toBeVisible();
+
+  // Its walk has no more to prove here.
+  await page.request.post(`/api/tasks/${task.id}/drop`);
+  await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [running.id]);
 });
 
 test("the six columns scroll sideways inside the board when they don't fit, none cut off", async ({

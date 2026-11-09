@@ -67,6 +67,16 @@ export class ProjectRunEnvironmentChanged extends DomainEvent {
   }
 }
 
+/** A raised limit may start the Project's queued Tasks; a lowered one stops no started Task. */
+export class ProjectLimitChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly projectLimit: number,
+  ) {
+    super();
+  }
+}
+
 export class ProjectMarkChanged extends DomainEvent {
   constructor(
     readonly projectId: string,

@@ -1,5 +1,6 @@
-import { Icon, IconButton } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { Icon } from "../../../design-system/components/core/Icon.jsx";
+import { IconButton } from "../../../design-system/components/core/IconButton.jsx";
 
 export interface StepperProps {
   /** What the number is, for the buttons' labels and the read-out. */
@@ -14,7 +15,10 @@ export interface StepperProps {
   readonly onChange: (value: number) => void;
 }
 
-/** A number changed a step at a time between its bounds (prototypes/app/settings.js). */
+/**
+ * A number changed a step at a time between its bounds (prototypes/app/settings.js): Settings ›
+ * Office limits and the Project page. The design system has none, hence this here.
+ */
 export function Stepper({
   label,
   value,

@@ -2,10 +2,12 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
 import {
   commandProblem,
+  DEFAULT_PROJECT_LIMIT,
   installInputsProblems,
   markProblem,
   newProjectProblems,
   PROJECT_COMMAND_KEYS,
+  projectLimitProblem,
   trimmedInstallInputs,
   trimmedMark,
   trimmedNewProject,
@@ -24,6 +26,7 @@ import {
   ProjectEnvironmentChanged,
   ProjectImageChanged,
   ProjectInstallInputsChanged,
+  ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectRoleOverrideChanged,
@@ -146,6 +149,7 @@ export function addProject(
     roleOverrides: [],
     runEnvironment: "not-decided",
     runEnvironmentSetUpProblems: [],
+    projectLimit: DEFAULT_PROJECT_LIMIT,
     addedAt,
   };
   return { project, event: new ProjectAdded(project) };
@@ -256,6 +260,20 @@ function runEnvironmentChange(
   return {
     project: { ...project, runEnvironment, runEnvironmentSetUpProblems: setUpProblems },
     event: new ProjectRunEnvironmentChanged(project.id, runEnvironment, setUpProblems),
+  };
+}
+
+/** Undefined when the Project already has that limit. */
+export function changeProjectLimit(
+  project: Project,
+  projectLimit: number,
+): ProjectChange<ProjectLimitChanged> | undefined {
+  const problem = projectLimitProblem(projectLimit);
+  if (problem) throw new ProjectRefused([problem]);
+  if (project.projectLimit === projectLimit) return undefined;
+  return {
+    project: { ...project, projectLimit },
+    event: new ProjectLimitChanged(project.id, projectLimit),
   };
 }
 

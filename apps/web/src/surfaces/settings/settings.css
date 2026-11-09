@@ -193,20 +193,6 @@
   margin-top: 4px;
 }
 
-.stepper {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.stepper output {
-  min-width: 36px;
-  font: 600 20px/1 var(--font-sans);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  color: var(--fg-1);
-}
-
 .stepper-note {
   margin-top: 12px;
 }

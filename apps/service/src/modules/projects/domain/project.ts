@@ -81,8 +81,16 @@ export interface Project {
    * of the definition on its branch; empty when it turned On or none has been Done.
    */
   readonly runEnvironmentSetUpProblems: readonly string[];
+  /** How many of the Project's Tasks may be started at once (spec §2.1), 1 to `PROJECT_LIMIT_MAX`. */
+  readonly projectLimit: number;
   readonly addedAt: Date;
 }
+
+/** Every Project starts with one Task at a time; the user raises it on the Project page. */
+export const DEFAULT_PROJECT_LIMIT = 1;
+
+/** The Office-wide limit's maximum, as more could never be started at once. */
+export const PROJECT_LIMIT_MAX = 12;
 
 /** The Project's levels of the engine cascade, which People resolves. */
 export type ProjectEngineLevels = Pick<
@@ -169,6 +177,14 @@ export function markProblem(mark: ProjectMark): string | undefined {
 
 function isMarkColour(colour: string): boolean {
   return NAMED_MARK_COLOURS.some((named) => named === colour) || CUSTOM_MARK_COLOUR.test(colour);
+}
+
+/** Why a Project limit can't be saved, or undefined when it can. */
+export function projectLimitProblem(projectLimit: number): string | undefined {
+  if (!Number.isInteger(projectLimit) || projectLimit < 1 || projectLimit > PROJECT_LIMIT_MAX) {
+    return `The Project limit is a whole number of Tasks from 1 to ${PROJECT_LIMIT_MAX}.`;
+  }
+  return undefined;
 }
 
 /** Why a command line can't be saved, or undefined when it can. */

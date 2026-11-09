@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import {
   officeUpdateSchema,
   pipelineSchema,
+  PROJECT_LIMIT_MAX,
   projectSchema,
   queueSchema,
   startAnswerSchema,
@@ -473,6 +474,11 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
     ).json(),
   );
   ownProjectIds = [project.id];
+  // These Tasks start beside each other in the one Project, so only the waits under test hold them.
+  const roomy = await send("PUT", `/projects/${project.id}/project-limit`, {
+    projectLimit: PROJECT_LIMIT_MAX,
+  });
+  expect(roomy.status).toBe(200);
   return {
     app,
     engine,

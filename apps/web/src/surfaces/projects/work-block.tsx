@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Project, Task } from "@the-office/contracts";
+import { PROJECT_LIMIT_MAX, type Project, type Task } from "@the-office/contracts";
+import { Stepper } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { changeProjectLimit, projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
 import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { ProjectBlock } from "./project-block.tsx";
@@ -21,7 +23,10 @@ const TILES: readonly Tile[] = [
   },
 ];
 
-/** How many of the Project's Tasks are where, with the board one click away. */
+/**
+ * How many of the Project's Tasks are where, with the board one click away, and how many may run
+ * at once.
+ */
 export function WorkBlock({ project }: { readonly project: Project }): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const waitsOnYou = useWaitingOnYou();
@@ -46,6 +51,39 @@ export function WorkBlock({ project }: { readonly project: Project }): ReactNode
           </div>
         ))}
       </div>
+      <ProjectLimitRow project={project} />
     </ProjectBlock>
+  );
+}
+
+/** The Project limit, saved at once: Start queues a Task of this Project beyond it. */
+function ProjectLimitRow({ project }: { readonly project: Project }): ReactNode {
+  const queryClient = useQueryClient();
+  const saving = useMutation({
+    mutationFn: (projectLimit: number) => changeProjectLimit(project.id, projectLimit),
+    onSuccess: (saved) => queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved),
+  });
+  return (
+    <>
+      <div className="project-limit-row">
+        <b className="project-limit-label">Running Tasks at once in this Project</b>
+        <Stepper
+          label="running Tasks at once in this Project"
+          value={project.projectLimit}
+          min={1}
+          max={PROJECT_LIMIT_MAX}
+          disabled={saving.isPending}
+          onChange={(projectLimit) => saving.mutate(projectLimit)}
+        />
+      </div>
+      <p className="project-block-note">
+        Lowering it lets running Tasks finish; nothing new starts in this Project until one ends.
+      </p>
+      {saving.error && (
+        <p className="project-block-error" role="alert">
+          {saving.error.message}
+        </p>
+      )}
+    </>
   );
 }

@@ -4,6 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { UsageWindowsRead } from "../../engine/index.js";
 import { RoleCardChanged } from "../../people/index.js";
+import { ProjectLimitChanged } from "../../projects/index.js";
 import { AllClearGiven } from "../domain/fire-alarm-events.js";
 import { OfficeWideLimitChanged, UsageSettingsChanged } from "../domain/office-limit-events.js";
 import { nextCapRelease } from "../domain/cap-waits.js";
@@ -28,8 +29,8 @@ import { StartsSinceReading } from "./starts-since-reading.js";
 
 /**
  * The one Office-wide queue for Start (spec §2.1, "A queue for Start"): its Tasks start by
- * themselves, first place first among those that can, whenever a blocker may have ended, a desk or
- * a person may have freed up or a cap may allow it; the user takes one out or moves it up. The
+ * themselves, first place first among those that can, whenever a blocker may have ended, a desk, a
+ * Project or a person may have freed up or a cap may allow it; the user takes one out or moves it up. The
  * queue is kept, so it releases on after a restart.
  */
 @Injectable()
@@ -58,6 +59,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     // Or held by one more, which its reasons name.
     this.events.subscribe(TaskDependencyAdded, () => this.release());
     this.events.subscribe(OfficeWideLimitChanged, () => this.release());
+    // A Project's limit may have been raised.
+    this.events.subscribe(ProjectLimitChanged, () => this.release());
     // A cap may have been raised, or its measure unticked.
     this.events.subscribe(UsageSettingsChanged, () => this.release());
     // A person's Task limit may have been raised.

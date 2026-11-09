@@ -229,6 +229,11 @@ export function changeMark(id: string, mark: Mark): Promise<Project> {
   return sendToApi("PUT", `${projectPath(id)}/mark`, { mark }, projectSchema);
 }
 
+/** How many of the Project's Tasks may be started at once; lowering it stops none. */
+export function changeProjectLimit(id: string, projectLimit: number): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/project-limit`, { projectLimit }, projectSchema);
+}
+
 /** Replaces the Project's Icon or Logo, or gives it one. */
 export function uploadProjectImage(id: string, key: ProjectImageKey, file: File): Promise<Project> {
   return sendFileToApi(`${projectPath(id)}/images/${key}`, file, projectSchema);
@@ -348,6 +353,7 @@ export const projectEventInvalidations: Readonly<
   "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.run-environment-changed": () => [PROJECTS, RUN_ENVIRONMENTS],
+  "project.project-limit-changed": () => [PROJECTS],
   "project.mark-changed": () => [PROJECTS],
   "project.image-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],

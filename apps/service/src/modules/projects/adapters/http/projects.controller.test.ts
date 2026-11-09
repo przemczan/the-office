@@ -9,6 +9,7 @@ import {
   projectSkillListSchema,
   projectRefusalSchema,
   projectRemoteNeedsSchema,
+  PROJECT_LIMIT_MAX,
   projectSchema,
   projectWebEventSchema,
   taskChangesSchema,
@@ -126,7 +127,7 @@ function webEvents(): unknown[] {
 }
 
 describe("POST /api/projects", () => {
-  it("adds a Project with an id from its name and the skills switch on", async () => {
+  it("adds a Project with an id from its name, the skills switch on and a Project limit of 1", async () => {
     const newProject = aNewProject({ name: " Admin panel ", baseBranch: " main " });
     const response = await send("POST", "/projects", newProject);
 
@@ -138,6 +139,7 @@ describe("POST /api/projects", () => {
       name: "Admin panel",
       baseBranch: "main",
       useProjectSkills: true,
+      projectLimit: 1,
     });
     expect(webEvents()).toEqual([{ type: "project.added", projectId: project.id }]);
   });
@@ -437,6 +439,54 @@ describe("PUT /api/projects/:id/publishing-mode and /default-pipeline", () => {
 
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ reasons: ['There is no Pipeline "nightly".'] });
+  });
+});
+
+describe("PUT /api/projects/:id/project-limit", () => {
+  // At the contract's maximum, so the domain's own bound is no lower.
+  it("changes how many of the Project's Tasks may be started at once and announces it", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/project-limit`, {
+      projectLimit: PROJECT_LIMIT_MAX,
+    });
+
+    expect(response.status).toBe(200);
+    expect(projectSchema.parse(await response.json()).projectLimit).toBe(PROJECT_LIMIT_MAX);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).projectLimit).toBe(PROJECT_LIMIT_MAX);
+    expect(webEvents()).toEqual([{ type: "project.project-limit-changed", projectId: project.id }]);
+  });
+
+  it("sends no event for the limit the Project already has", async () => {
+    const project = await addProject();
+    published = [];
+
+    await send("PUT", `/projects/${project.id}/project-limit`, { projectLimit: 1 });
+
+    expect(published).toEqual([]);
+  });
+
+  it.each([0, PROJECT_LIMIT_MAX + 1, 1.5])("refuses %s with the reason", async (projectLimit) => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/project-limit`, { projectLimit });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      message: expect.stringContaining("projectLimit"),
+    });
+    expect(published).toEqual([]);
+  });
+
+  it("says when the Project doesn't exist", async () => {
+    const response = await send("PUT", "/projects/no-such-project/project-limit", {
+      projectLimit: 2,
+    });
+
+    expect(response.status).toBe(404);
   });
 });
 

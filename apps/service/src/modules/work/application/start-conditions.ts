@@ -8,6 +8,7 @@ import { firstAgentStage, type StartConditions } from "../domain/task-start.js";
 import type { UsageSettings } from "../domain/usage-settings.js";
 import { AccountWindows } from "../ports/account-windows.js";
 import { KnownPeople } from "../ports/known-people.js";
+import { KnownProjects } from "../ports/known-projects.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { OfficeLimits } from "./office-limits.js";
@@ -25,7 +26,7 @@ interface OfficeUsageAtStart {
 }
 
 /**
- * Gathers what Start weighs from the other modules: the Task's Pipeline, its person, the limit,
+ * Gathers what Start weighs from the other modules: the Task's Pipeline, its person, the limits,
  * and its Usage estimate against the windows and the Daily caps of the engines it spends on.
  */
 @Injectable()
@@ -33,6 +34,7 @@ export class StartConditionsReader {
   constructor(
     private readonly pipelines: KnownPipelines,
     private readonly people: KnownPeople,
+    private readonly projects: KnownProjects,
     private readonly limits: OfficeLimits,
     private readonly tasks: TaskRepository,
     private readonly estimates: UsageEstimates,
@@ -69,8 +71,9 @@ export class StartConditionsReader {
     const engineNames = new Map(engines.map(({ id, name }) => [id, name] as const));
     const officeUpdateHold = this.updateHold.isScheduled() ? OFFICE_UPDATE_SCHEDULED : undefined;
     return async (task) => {
-      const [pipeline, usage] = await Promise.all([
+      const [pipeline, project, usage] = await Promise.all([
         this.pipelines.find(task.pipelineId),
+        this.projects.find(task.projectId),
         this.usageOf(task, everyTask, usageSettings, { daily, engineNames, now }),
       ]);
       const stage = pipeline && firstAgentStage(pipeline.stages);
@@ -79,6 +82,7 @@ export class StartConditionsReader {
         stages: pipeline?.stages,
         person: person?.card,
         officeWideLimit,
+        project: project && { name: project.name, projectLimit: project.projectLimit },
         usage,
         officeUpdateHold,
       };
