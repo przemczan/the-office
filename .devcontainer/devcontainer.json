@@ -1,0 +1,9 @@
+{
+  "name": "the-office",
+  "dockerComposeFile": "compose.yaml",
+  "service": "checks",
+  "runServices": ["checks", "postgres"],
+  "overrideCommand": true,
+  "shutdownAction": "stopCompose",
+  "remoteUser": "root"
+}
