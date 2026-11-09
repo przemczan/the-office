@@ -49,7 +49,7 @@ export function StatusStrip(): ReactNode {
         return (
           <span key={notification.id} className="shell-strip-stat shell-strip-office">
             <span className="shell-dot reconnecting" />
-            {person ? `${person}: ${notification.line}` : notification.line}
+            {person ? `${person.name}: ${notification.line}` : notification.line}
           </span>
         );
       })}

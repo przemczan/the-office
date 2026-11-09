@@ -99,7 +99,7 @@
 - `use-placed-list.ts`: usePlacedList
 - `use-tab-visible.ts`: useTabVisible
 - `user-activity.ts`: pageAt, useReportingActivity
-- Tests: engine-words.test.ts, mark-colours.test.ts, markdown-text.test.tsx, menu-placement.test.ts, person-avatar.test.tsx, project-mark.test.tsx, rail-store.test.ts, role-card-words.test.ts, secret-value.test.ts, time.test.ts, token-words.test.ts, unified-diff.test.ts, user-activity.test.ts
+- Tests: engine-words.test.ts, mark-colours.test.ts, markdown-text.test.tsx, menu-placement.test.ts, person-avatar.test.tsx, project-mark.test.tsx, rail-store.test.ts, role-card-words.test.ts, secret-value.test.ts, status-strip.test.tsx, time.test.ts, token-words.test.ts, unified-diff.test.ts, user-activity.test.ts
 
 ### shell/attachments/
 
