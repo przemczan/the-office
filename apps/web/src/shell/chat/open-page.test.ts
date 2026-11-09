@@ -56,6 +56,11 @@ describe("the Open page of the routes matched", () => {
     });
   });
 
+  it("is none on an address naming no record the service would take", () => {
+    expect(openPageOf(matched("/tasks/$taskId", { taskId: "not-an-id" }))).toBeUndefined();
+    expect(openPageOf(matched("/work/ideas", {}, { idea: "not-an-id" }))).toBeUndefined();
+  });
+
   it("is none on any other page", () => {
     expect(openPageOf(matched("/now"))).toBeUndefined();
     expect(openPageOf(matched("/work/"))).toBeUndefined();

@@ -1,5 +1,5 @@
 import { useMatches, type RegisteredRouter, type RouteIds } from "@tanstack/react-router";
-import type { OpenPage } from "@the-office/contracts";
+import { openPageSchema, type OpenPage } from "@the-office/contracts";
 
 type RouteId = RouteIds<RegisteredRouter["routeTree"]>;
 
@@ -20,12 +20,13 @@ export interface MatchedRoute {
 /**
  * The Open page (spec §2.4) of the routes matched now: a Task's page (a Decision window on it
  * still the Task), an Initiative's, an Idea open on Work › Ideas, a person's or a Project's page,
- * any of their tabs or sections. Undefined on any other page.
+ * any of their tabs or sections. Undefined on any other page, and on an address naming no record
+ * the service would take, such as a mistyped Task id, so a message can still be sent there.
  */
 export function openPageOf(matches: readonly MatchedRoute[]): OpenPage | undefined {
   for (const { routeId, params, search } of matches) {
     const page = pageOf(routeId, params, search);
-    if (page) return page;
+    if (page) return openPageSchema.safeParse(page).data;
   }
   return undefined;
 }
