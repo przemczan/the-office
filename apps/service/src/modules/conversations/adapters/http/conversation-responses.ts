@@ -108,7 +108,11 @@ export function toMessageResponse(
   const fields = { ...message, at: at.toISOString() };
   switch (fields.kind) {
     case "user":
-      return { ...fields, handoverNoteFrom: fields.handoverNoteFrom ?? null };
+      return {
+        ...fields,
+        handoverNoteFrom: fields.handoverNoteFrom ?? null,
+        openPage: fields.openPage ?? null,
+      };
     case "link-card": {
       const { to, taskId, ...card } = fields;
       return { ...card, to: { roleKey: to, letGo: letGo.has(to) }, taskId: taskId ?? null };

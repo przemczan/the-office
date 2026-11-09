@@ -147,3 +147,12 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-seen"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-open-page","text":"Jan answers beside the Task's page the user has open"}}
+{"step":"event","event":{"kind":"text","text":"I read the Task open beside the chat.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-open-page"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"open-page-left-out","text":"And without it?"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"Nothing open came with that one.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-left-out"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
+{"step":"end"}

@@ -1189,3 +1189,15 @@
 .composer-note-text {
   flex: 1;
 }
+
+/* The Open page's chip sits in the line's text, as a Mention sits in a message. */
+.composer-open-page .composer-note-text {
+  min-width: 0;
+}
+
+/* The page a message was sent beside, under it (spec §2.4). */
+.message-open-page {
+  margin: 4px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}

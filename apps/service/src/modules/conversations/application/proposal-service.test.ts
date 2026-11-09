@@ -57,6 +57,7 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { MentionedRecords } from "./mentioned-records.js";
+import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
 import { ProposalService } from "./proposal-service.js";
 import { RoleProposals } from "./role-proposals.js";
@@ -182,6 +183,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
       ProposalAppliers,

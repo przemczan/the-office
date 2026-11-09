@@ -18,6 +18,7 @@ import { PersonAvatars } from "./application/person-avatars.js";
 import { RoleCards } from "./application/role-cards.js";
 import { RoleOverrideChecks } from "./application/role-override-checks.js";
 import { RoleOverrideMoves } from "./application/role-override-moves.js";
+import { PersonRecords } from "./application/person-records.js";
 import { RoleService } from "./application/role-service.js";
 import { AvatarFiles } from "./ports/avatar-files.js";
 import { MemoryRepository } from "./ports/memory-repository.js";
@@ -45,8 +46,9 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleCards,
     RoleWebEvents,
     PeopleOfficeTools,
+    PersonRecords,
   ],
-  exports: [RoleCards, RoleService, RoleOverrideChecks, MemoryService],
+  exports: [RoleCards, RoleService, RoleOverrideChecks, MemoryService, PersonRecords],
 })
 export class PeopleModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

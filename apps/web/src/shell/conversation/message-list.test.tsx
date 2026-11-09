@@ -108,6 +108,7 @@ it("leaves a reader who scrolled up where they are, until they send something th
     kind: "user",
     text: "Three",
     handoverNoteFrom: null,
+    openPage: null,
     delivery: "waiting",
   });
   show();

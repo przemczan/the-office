@@ -21,6 +21,7 @@ import {
   sizeThresholdSchema,
   SIZE_THRESHOLD_TOKENS,
   stageTemplateSchema,
+  taskListSchema,
   taskSchema,
   taskStagesSchema,
   threadListSchema,
@@ -5066,5 +5067,74 @@ test.describe("the chat drawer", () => {
     await page.keyboard.press("Escape");
     await expect(page.locator(".conversation-drawer.open")).toHaveCount(0);
     await expect(chatWith(page, "Jan")).toBeVisible();
+  });
+
+  // The engine replays the last session in e2e/sessions.jsonl: Jan answers beside a Task's page.
+  test("sends the Open page with a message, shows it on the message, and leaves it out once", async ({
+    page,
+  }) => {
+    const tasks = taskListSchema.parse(await (await page.request.get("/api/tasks")).json());
+    const [task] = tasks;
+    if (!task) throw new Error("No Task to look at.");
+    await page.goto(`/tasks/${task.id}`);
+    await chatButton(page).click();
+    await personPicker(page).getByRole("button", { name: /^Jan/ }).click();
+    const jan = chatWith(page, "Jan");
+    const starting = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith("/api/chats/planner/threads"),
+    );
+    await startNewThread(jan);
+    const { id: threadId } = threadSchema.parse(await (await starting).json());
+    await expect.poll(() => chatThreadShown(page)).toBe(threadId);
+
+    const openPage = jan.getByRole("note").filter({ hasText: "Open page:" });
+    await expect(openPage.getByRole("link", { name: task.title })).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-open-page.png") });
+    const message = jan.getByRole("textbox", { name: "Message" });
+    const sent = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" && request.url().endsWith(`/threads/${threadId}/messages`),
+    );
+    await message.fill("What is left on it?");
+    await message.press("Enter");
+    expect((await sent).postDataJSON()).toEqual({
+      text: "What is left on it?",
+      openPage: { kind: "task", taskId: task.id },
+    });
+    await expect(jan.getByText("I read the Task open beside the chat.")).toBeVisible();
+    const withTask = jan.locator(".message-open-page");
+    await expect(withTask).toHaveText(`With ${task.title} open`);
+    // The session started with the Task's record in its Brief.
+    await detailsSwitch(jan).click();
+    await jan.locator("summary", { hasText: "Brief" }).click();
+    await expect(jan.getByText("The page the user has open")).toBeVisible();
+    await expect(jan.getByText(`${task.title} (Task ${task.id})`).first()).toBeVisible();
+    await detailsSwitch(jan).click();
+
+    await openPage.getByRole("button", { name: "Leave out" }).click();
+    await expect(openPage).toHaveCount(0);
+    const leftOut = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" && request.url().endsWith(`/threads/${threadId}/messages`),
+    );
+    await message.fill("And without it?");
+    await message.press("Enter");
+    expect((await leftOut).postDataJSON()).toEqual({ text: "And without it?" });
+    await expect(jan.getByText("Nothing open came with that one.")).toBeVisible();
+    await expect(withTask).toHaveCount(1);
+    // Left out of that message only: the next one goes with the page again.
+    await expect(openPage.getByRole("link", { name: task.title })).toBeVisible();
+
+    await page.reload();
+    await expect(chatWith(page, "Jan").locator(".message-open-page")).toHaveText(
+      `With ${task.title} open`,
+    );
+    await page.getByRole("link", { name: "People" }).first().click();
+    await expect(page).toHaveURL(/\/people$/);
+    await expect(openPage).toHaveCount(0);
+    await page.goto("/people/developer");
+    await expect(openPage.getByRole("link", { name: /Ada/ })).toBeVisible();
   });
 });

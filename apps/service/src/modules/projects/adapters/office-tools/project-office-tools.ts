@@ -1,13 +1,11 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
-import { BaseCheckouts } from "../../application/base-checkouts.js";
 import { LocalRepositories, type LocalRepository } from "../../application/local-repositories.js";
-import { ProjectService } from "../../application/project-service.js";
+import { ProjectRecords } from "../../application/project-records.js";
 import { RepositoriesByUrl, type RepositoryByUrl } from "../../application/repositories-by-url.js";
 import type { ManifestFile, RepositoryFolder } from "../../application/repository-folder.js";
 import type { LocalBranch } from "../../ports/git.js";
-import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 
 export const LIST_PROJECTS = "list_projects";
@@ -43,8 +41,7 @@ const LISTED_BRANCHES = 30;
 export class ProjectOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
-    private readonly projects: ProjectService,
-    private readonly bases: BaseCheckouts,
+    private readonly records: ProjectRecords,
     private readonly localRepositories: LocalRepositories,
     private readonly repositoriesByUrl: RepositoriesByUrl,
   ) {}
@@ -60,18 +57,7 @@ export class ProjectOfficeTools implements OnModuleInit {
       description:
         "Lists the Projects The Office works on: each one's base branch and where a chat reads it, its commands, how it publishes and its default Pipeline.",
       input: z.object({}),
-      run: async () => {
-        const projects = await this.projects.list();
-        if (projects.length === 0)
-          return { text: "The Office works on no Project yet.", isError: false };
-        const checkouts = new Map(
-          (await this.bases.list()).map((checkout) => [checkout.projectId, checkout.folder]),
-        );
-        const text = projects
-          .map((project) => projectRecord(project, checkouts.get(project.id)))
-          .join("\n\n");
-        return { text, isError: false };
-      },
+      run: async () => ({ text: await this.records.everyone(), isError: false }),
     };
   }
 
@@ -160,16 +146,4 @@ function listedText(names: readonly string[]): string {
 
 function manifestText({ name, text, cut }: ManifestFile): string {
   return `## ${name}${cut ? " (its start; the file goes on)" : ""}\n\n${text}`;
-}
-
-function projectRecord(project: Project, checkout: string | undefined): string {
-  const { install, build, lint, test } = project.commands;
-  return [
-    `${project.name} (id ${project.id})`,
-    `- Base branch: ${project.baseBranch}${checkout ? `, read-only in chats at ${checkout}` : ""}`,
-    `- Commands: install \`${install || "none"}\`, build \`${build || "none"}\`, lint \`${lint || "none"}\`, test \`${test || "none"}\``,
-    `- Install inputs: ${project.installInputs.length > 0 ? project.installInputs.join(", ") : "none"}`,
-    `- Publishing: ${project.publishingMode === "merge" ? `merge into ${project.baseBranch}` : "push and open a pull request"}`,
-    `- Default Pipeline: ${project.defaultPipeline}`,
-  ].join("\n");
 }

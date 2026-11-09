@@ -33,6 +33,7 @@ import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { BaseBranchFiles } from "./application/base-branch-files.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
+import { ProjectRecords } from "./application/project-records.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
@@ -145,12 +146,14 @@ export class ProjectsModule implements NestModule {
         CommittedFiles,
         ProjectWebEvents,
         ProjectOfficeTools,
+        ProjectRecords,
       ],
       exports: [
         BaseCheckouts,
         CommittedFiles,
         EngineLevelsChecks,
         RunEnvironmentSetUpRegistry,
+        ProjectRecords,
         ProjectService,
         ProjectsFromRepositories,
         TaskRunEnvironments,

@@ -15,7 +15,15 @@ function fromPerson(id: string, roleKey = "developer"): Message {
 }
 
 function fromUser(id: string, handoverNoteFrom: string | null = null): Message {
-  return { id, at, kind: "user", text: id, delivery: "delivered", handoverNoteFrom };
+  return {
+    id,
+    at,
+    kind: "user",
+    text: id,
+    delivery: "delivered",
+    handoverNoteFrom,
+    openPage: null,
+  };
 }
 
 function toolCall(id: string): Message {

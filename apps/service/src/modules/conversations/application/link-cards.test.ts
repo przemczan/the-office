@@ -37,6 +37,7 @@ import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { LinkCards } from "./link-cards.js";
 import { MentionedRecords } from "./mentioned-records.js";
+import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
@@ -174,6 +175,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
       LinkCards,

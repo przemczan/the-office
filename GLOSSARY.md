@@ -186,8 +186,12 @@ _Avoid_: Delegation, escalation (for this), handoff
 A Task, Initiative, Idea or Decision named in a chat message, picked with `@` or pasted as the link to its page; the Agent there is given its record with the message.
 _Avoid_: Reference, tag, attachment (an Attachment is added to a record, not named in a message)
 
+**Open page**:
+The Task, Initiative, Idea, person or Project whose page is open beside the chat drawer as the user sends a message there; the person answering is given its record with the message, unless the user leaves it out of that message.
+_Avoid_: Current page, page context, focus, selection
+
 **Brief**:
-What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, the records mentioned in the message it starts on, and the previous Stage's Handover note.
+What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, the records mentioned in the message it starts on and its Open page's, and the previous Stage's Handover note.
 _Avoid_: Prompt, context dump, summary
 
 **Details**:

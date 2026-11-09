@@ -40,7 +40,15 @@ const EVERY_KIND: {
   readonly [Kind in Message["kind"]]: readonly [Extract<Message, { kind: Kind }>, string];
 } = {
   user: [
-    { at, id: "1", kind: "user", text: "Mine", delivery: "delivered", handoverNoteFrom: null },
+    {
+      at,
+      id: "1",
+      kind: "user",
+      text: "Mine",
+      delivery: "delivered",
+      handoverNoteFrom: null,
+      openPage: null,
+    },
     "Mine",
   ],
   person: [{ at, id: "2", kind: "person", roleKey: "developer", text: "Theirs" }, "Theirs"],
@@ -116,7 +124,7 @@ function fromPerson(id: string, text: string): Message {
 }
 
 function written(id: string, text: string, delivery: MessageDelivery): Message {
-  return { at, id, kind: "user", text, delivery, handoverNoteFrom: null };
+  return { at, id, kind: "user", text, delivery, handoverNoteFrom: null, openPage: null };
 }
 
 const LONG_COMMAND = `npm run build &&\n  ${"node scripts/deploy.ts --verbose ".repeat(8)}`;

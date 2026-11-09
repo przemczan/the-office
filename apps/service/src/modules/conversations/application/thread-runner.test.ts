@@ -65,6 +65,7 @@ import { AllowChanges } from "./allow-changes.js";
 import { StageThreads } from "./stage-threads.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { MentionedRecords } from "./mentioned-records.js";
+import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
@@ -118,6 +119,9 @@ const tasksWithoutSessions = new Set<string>();
 const tasksAsked = new Set<string>();
 /** The records of Tasks and Ideas as the Work module words them, by id. */
 const workRecords = new Map<string, string>();
+/** The people's and Projects' short records, as People and Projects word them, by key and id. */
+const personRecords = new Map<string, string>();
+const projectRecords = new Map<string, string>();
 
 let threads: ThreadService;
 let runner: ThreadRunner;
@@ -257,6 +261,7 @@ async function startOn(
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
+      ...openPageRecordProviders(personRecords, projectRecords),
       WorkRecords,
       StageThreads,
       InterruptedAnswers,
@@ -1631,13 +1636,15 @@ describe("a message mentioning records", () => {
     const chat = await threads.startInChat(roleKey);
     const said = "Compare [@Export CSV](/tasks/x) with [@Dark mode](/work/ideas?idea=y).";
 
-    await runner.send(chat.id, said, [
-      { kind: "task", taskId },
-      { kind: "idea", ideaId },
-      { kind: "decision", decisionId: decision.id },
-      { kind: "initiative", initiativeId },
-      { kind: "task", taskId: missingTaskId },
-    ]);
+    await runner.send(chat.id, said, {
+      mentions: [
+        { kind: "task", taskId },
+        { kind: "idea", ideaId },
+        { kind: "decision", decisionId: decision.id },
+        { kind: "initiative", initiativeId },
+        { kind: "task", taskId: missingTaskId },
+      ],
+    });
     const log = await answered(chat.id, 3);
 
     const brief = engine.sessions[1]?.received[0];
@@ -1674,7 +1681,9 @@ describe("a message mentioning records", () => {
     await runner.send(chat.id, "Hello.");
     await answered(chat.id, 3);
 
-    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", [{ kind: "task", taskId }]);
+    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", {
+      mentions: [{ kind: "task", taskId }],
+    });
     const log = await answered(chat.id, 5);
 
     expect(engine.sessions).toHaveLength(1);
@@ -1687,6 +1696,158 @@ describe("a message mentioning records", () => {
       text: "Look at [@Export CSV](/tasks/x).",
       delivery: "delivered",
     });
+  });
+});
+
+describe("a message sent with an Open page", () => {
+  const OPEN_PAGE_HEADING = "\n\n## The page the user has open\n\n";
+
+  it("briefs a new session with the Open page's record and keeps it on the message", async () => {
+    await startWith(started(...aTurn("brief", "I see Jan.")));
+    personRecords.set("planner", "Jan · Planner (Role planner)");
+    const chat = await threads.startInChat(roleKey);
+    const openPage = { kind: "person", roleKey: "planner" } as const;
+
+    await runner.send(chat.id, "What does this person do?", { openPage });
+    const log = await answered(chat.id, 3);
+
+    const brief = engine.sessions[0]?.received[0];
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    expect(text).toContain(
+      `${OPEN_PAGE_HEADING}Jan · Planner (Role planner)\n\n## The user's message`,
+    );
+    expect(drafts(log)[1]).toEqual({
+      kind: "user",
+      text: "What does this person do?",
+      delivery: "delivered",
+      openPage,
+    });
+  });
+
+  it("gives a running session the Open page only when it changed since the previous message", async () => {
+    await startWith(
+      started(
+        ...aTurn("brief", "Hello."),
+        sent("m-2"),
+        ...aTurn("m-2", "Same page."),
+        sent("m-3"),
+        ...aTurn("m-3", "Another page."),
+      ),
+    );
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    projectRecords.set("admin-panel", "Admin panel (id admin-panel)");
+    const chat = await threads.startInChat(roleKey);
+    const onTask = { openPage: { kind: "task", taskId } } as const;
+    await runner.send(chat.id, "Hello.", onTask);
+    await answered(chat.id, 3);
+
+    await runner.send(chat.id, "And its tests?", onTask);
+    await answered(chat.id, 5);
+    await runner.send(chat.id, "Where does it publish?", {
+      openPage: { kind: "project", projectId: "admin-panel" },
+    });
+    await answered(chat.id, 7);
+
+    expect(engine.sessions).toHaveLength(1);
+    const messages = engine.sessions[0]?.received.flatMap((step) =>
+      step.step === "send" ? [step.message.text] : [],
+    );
+    expect(messages).toEqual([
+      "And its tests?",
+      `Where does it publish?${OPEN_PAGE_HEADING}Admin panel (id admin-panel)`,
+    ]);
+  });
+
+  it("gives a resumed session the Open page after a message left without one", async () => {
+    await startWith(
+      started(
+        ...aTurn("brief", "Hello."),
+        sent("m-2"),
+        ...aTurn("m-2", "Nothing open."),
+        sent("m-3"),
+        ...aTurn("m-3", "Open again."),
+      ),
+    );
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    const chat = await threads.startInChat(roleKey);
+    const onTask = { openPage: { kind: "task", taskId } } as const;
+    await runner.send(chat.id, "Hello.", onTask);
+    await answered(chat.id, 3);
+
+    await runner.send(chat.id, "Left out.");
+    await answered(chat.id, 5);
+    await runner.send(chat.id, "Back on it.", onTask);
+    await answered(chat.id, 7);
+
+    const messages = engine.sessions[0]?.received.flatMap((step) =>
+      step.step === "send" ? [step.message.text] : [],
+    );
+    expect(messages).toEqual([
+      "Left out.",
+      `Back on it.${OPEN_PAGE_HEADING}Export CSV (Task) · Plan: write the exporter.`,
+    ]);
+  });
+
+  it("gives a fresh session's Brief the Open page again", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")), started(...aTurn("brief", "Fresh.")));
+    const ideaId = randomUUID();
+    workRecords.set(ideaId, "Dark mode (Idea) · Notes: for the night shift.");
+    const chat = await threads.startInChat(roleKey);
+    const onIdea = { openPage: { kind: "idea", ideaId } } as const;
+    await runner.send(chat.id, "Hello.", onIdea);
+    await answered(chat.id, 3);
+
+    await threads.chooseOverride(chat.id, "start-fresh");
+    await runner.send(chat.id, "Start over.", onIdea);
+    await answered(chat.id, 6);
+
+    const brief = engine.sessions[1]?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toContain(
+      `${OPEN_PAGE_HEADING}Dark mode (Idea) · Notes: for the night shift.`,
+    );
+  });
+
+  it("gives none in a Task's own Thread, which is about its record already", async () => {
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    await startWith(started(...aTurn("brief", "What must be true when it is done?")));
+    const opened = await planningThread(taskId);
+
+    await runner.send(opened.id, PLAN_IT, { openPage: { kind: "task", taskId } });
+    const log = await answered(opened.id, 3);
+
+    const brief = engine.sessions[0]?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).not.toContain(
+      "## The page the user has open",
+    );
+    const message = drafts(log).find((draft) => draft.kind === "user");
+    expect(message?.kind === "user" && message.openPage).toBeUndefined();
+  });
+
+  it("gives no Open page the message mentions already, and words one that is gone", async () => {
+    await startWith(started(...aTurn("brief", "Hello."), sent("m-2"), ...aTurn("m-2", "Read it.")));
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Hello.", { openPage: { kind: "person", roleKey: "gone" } });
+    await answered(chat.id, 3);
+
+    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", {
+      mentions: [{ kind: "task", taskId }],
+      openPage: { kind: "task", taskId },
+    });
+    await answered(chat.id, 5);
+
+    const brief = engine.sessions[0]?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toContain(
+      `${OPEN_PAGE_HEADING}The Office has no Role gone.`,
+    );
+    const next = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(next?.step === "send" && next.message.text).toBe(
+      "Look at [@Export CSV](/tasks/x).\n\n## Records the user mentioned\n\nExport CSV (Task) · Plan: write the exporter.",
+    );
   });
 });
 

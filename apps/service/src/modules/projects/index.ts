@@ -1,5 +1,6 @@
 export { BaseCheckouts, type BaseCheckout } from "./application/base-checkouts.js";
 export { CommittedFiles } from "./application/committed-files.js";
+export { ProjectRecords } from "./application/project-records.js";
 export { ProjectService } from "./application/project-service.js";
 export {
   EngineLevelsChecks,
