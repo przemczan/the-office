@@ -157,10 +157,8 @@ class SliceReader implements DocumentReader {
   }
 
   private closing(total: number): string {
-    if (total === 0) return "The document is empty.";
-    if (this.fromLine > total) {
-      return `The document has ${lineCountWords(total)}; fromLine ${this.fromLine} is past its end.`;
-    }
+    const outside = outsideWords(this.fromLine, total);
+    if (outside !== undefined) return outside;
     const shown =
       this.lastShown === this.fromLine
         ? `Line ${this.fromLine} of ${amount(total)}`
@@ -260,9 +258,8 @@ class SearchReader implements DocumentReader {
   }
 
   private closing(total: number): string {
-    if (this.fromLine > total) {
-      return `The document has ${lineCountWords(total)}; fromLine ${this.fromLine} is past its end.`;
-    }
+    const outside = outsideWords(this.fromLine, total);
+    if (outside !== undefined) return outside;
     const from = this.fromLine === 1 ? "" : ` from line ${this.fromLine} on`;
     if (this.matchesShown === 0) return `No line${from} holds the phrase.`;
     const shown = `${matchesWords(this.matchesShown)}${from} shown, up to line ${this.lastMatch}`;
@@ -270,6 +267,15 @@ class SearchReader implements DocumentReader {
       ? `${shown}; none after it: the search reached the end of the document.`
       : `${shown}; ${amount(this.matchesAfter)} more after it. Search on with fromLine ${this.lastMatch + 1}.`;
   }
+}
+
+/** What a reading answers when the document has no line from `fromLine` on. */
+function outsideWords(fromLine: number, total: number): string | undefined {
+  if (total === 0) return "The document is empty.";
+  if (fromLine > total) {
+    return `The document has ${lineCountWords(total)}; fromLine ${fromLine} is past its end.`;
+  }
+  return undefined;
 }
 
 function matchesWords(count: number): string {

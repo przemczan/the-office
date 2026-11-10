@@ -139,6 +139,10 @@ describe("a search", () => {
     );
   });
 
+  it("says an empty document is empty", () => {
+    expect(read([], search("ptp"))).toEqual({ lineCount: 0, text: "The document is empty." });
+  });
+
   it("stops at the budget, counting the matches after it and saying where to search on", () => {
     const many = Array.from(
       { length: 1_000 },
