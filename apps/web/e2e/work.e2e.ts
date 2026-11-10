@@ -713,6 +713,11 @@ test("the Initiatives tab is a board by state, Dropped folded at the foot of Don
     fullPage: true,
   });
   await page.emulateMedia({ colorScheme: "light" });
+
+  // Waiting on you holds a desk: free it, or later tests find every desk in use.
+  await queryOfficeDatabase(`update tasks set state = 'dropped' where title = $1`, [
+    `Sync queue ${word}`,
+  ]);
 });
 
 test("an ended Initiative is archived from its card, found from the board's search in the Archived tab, and restored to Done", async ({
