@@ -11,25 +11,38 @@ function MarkdownHeading({ children }: { readonly children?: ReactNode }): React
   return <p className="markdown-heading">{children}</p>;
 }
 
-const REMARK_PLUGINS = [remarkGfm, remarkBreaks];
+/** A link to a Task, Decision or Idea shows as its chip; any other opens in a new tab. */
+function MarkdownLink({
+  href,
+  children,
+}: {
+  readonly href?: string;
+  readonly children?: ReactNode;
+}): ReactNode {
+  const record = href === undefined ? undefined : recordLinkOf(href);
+  if (record) return <RecordMention link={record} written={children} />;
+  return (
+    <a href={href} target="_blank" rel="noreferrer noopener">
+      {children}
+    </a>
+  );
+}
 
-const COMPONENTS: Components = {
+const MESSAGE_PLUGINS = [remarkGfm, remarkBreaks];
+
+const MESSAGE_COMPONENTS: Components = {
   h1: MarkdownHeading,
   h2: MarkdownHeading,
   h3: MarkdownHeading,
   h4: MarkdownHeading,
   h5: MarkdownHeading,
   h6: MarkdownHeading,
-  a: ({ href, children }) => {
-    const record = href === undefined ? undefined : recordLinkOf(href);
-    if (record) return <RecordMention link={record} written={children} />;
-    return (
-      <a href={href} target="_blank" rel="noreferrer noopener">
-        {children}
-      </a>
-    );
-  },
+  a: MarkdownLink,
 };
+
+const DOCUMENT_PLUGINS = [remarkGfm];
+
+const DOCUMENT_COMPONENTS: Components = { a: MarkdownLink };
 
 /**
  * Text written by people and The Office, in Markdown. Raw HTML shows as text (there is no raw HTML
@@ -46,8 +59,8 @@ export function MarkdownText({
 }): ReactNode {
   const markdown = (
     <Markdown
-      remarkPlugins={REMARK_PLUGINS}
-      components={COMPONENTS}
+      remarkPlugins={MESSAGE_PLUGINS}
+      components={MESSAGE_COMPONENTS}
       disallowedElements={inline ? INLINE_ONLY : undefined}
       unwrapDisallowed={inline}
     >
@@ -58,6 +71,21 @@ export function MarkdownText({
     <span className="markdown-text">{markdown}</span>
   ) : (
     <div className="markdown-text">{markdown}</div>
+  );
+}
+
+/**
+ * A whole Markdown file, such as a document Attachment, with the safety rules and links of
+ * `MarkdownText`. Its headings stay headings, and line breaks follow Markdown, so a paragraph
+ * wrapped in the file reads as one.
+ */
+export function MarkdownDocument({ text }: { readonly text: string }): ReactNode {
+  return (
+    <div className="markdown-text markdown-document">
+      <Markdown remarkPlugins={DOCUMENT_PLUGINS} components={DOCUMENT_COMPONENTS}>
+        {text}
+      </Markdown>
+    </div>
   );
 }
 

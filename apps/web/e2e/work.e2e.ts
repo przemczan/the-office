@@ -411,9 +411,14 @@ test("an Idea with Attachments is shaped into a Task in Backlog, and another is 
     "https://example.com/csv",
   );
   await card.getByRole("button", { name: "format.md" }).click();
-  await expect(page.getByRole("dialog").filter({ hasText: "format.md" })).toContainText(
-    "One row per day.",
-  );
+  const format = page.getByRole("dialog").filter({ hasText: "format.md" });
+  await expect(format.getByRole("heading", { name: "CSV format" })).toBeVisible();
+  await expect(format).not.toContainText("# CSV format");
+  await expect(format).toContainText("One row per day.");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-document.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-document.png") });
+  await page.emulateMedia({ colorScheme: "light" });
   await page
     .getByRole("dialog")
     .filter({ hasText: "format.md" })
@@ -1706,9 +1711,9 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   await expect(page.getByRole("tab", { name: "Attachments" })).toContainText("4");
   await page.reload();
   await attachments.getByRole("button", { name: "plan.md" }).click();
-  await expect(page.getByRole("dialog").filter({ hasText: "plan.md" })).toContainText(
-    "Keep the path.",
-  );
+  const plan = page.getByRole("dialog").filter({ hasText: "plan.md" });
+  await expect(plan.getByRole("heading", { name: "Plan", exact: true })).toBeVisible();
+  await expect(plan).toContainText("Keep the path.");
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await attachments.getByRole("button", { name: "View screen.png" }).click();
   const original = page

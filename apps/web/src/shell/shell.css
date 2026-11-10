@@ -1214,14 +1214,6 @@ body,
   color: var(--fg-2);
 }
 
-.attachment-document {
-  margin: 0;
-  font: var(--type-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
 .attachment-html-preview {
   display: block;
   width: 100%;

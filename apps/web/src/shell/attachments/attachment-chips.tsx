@@ -3,6 +3,7 @@ import { isHtmlFile, type Attachment } from "@the-office/contracts";
 import { Alert, Dialog, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { attachmentContentUrl, attachmentQueries } from "../../api/work.ts";
+import { MarkdownDocument } from "../markdown-text.tsx";
 import { HtmlPreviewDialog } from "./html-preview-dialog.tsx";
 
 const KIND_ICONS: Readonly<Record<Attachment["kind"], string>> = {
@@ -92,7 +93,7 @@ function OpenedHere({
   );
 }
 
-/** A document's Markdown, as written. */
+/** A document's Markdown, rendered as a whole file. */
 export function DocumentDialog({
   document,
   onClose,
@@ -104,7 +105,7 @@ export function DocumentDialog({
   return (
     <Dialog size="large" title={document.name} onClose={onClose}>
       {text.error && <Alert tone="danger" title={text.error.message} />}
-      {text.data !== undefined && <pre className="attachment-document">{text.data}</pre>}
+      {text.data !== undefined && <MarkdownDocument text={text.data} />}
     </Dialog>
   );
 }
