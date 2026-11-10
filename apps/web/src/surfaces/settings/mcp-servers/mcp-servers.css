@@ -40,7 +40,7 @@
   flex-direction: column;
   gap: 10px;
   margin: 0;
-  padding: 12px;
+  padding: var(--pad-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
 }
@@ -95,7 +95,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 8px;
-  padding: 8px 10px;
+  padding: var(--pad-row);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
 }

@@ -382,7 +382,7 @@
   gap: var(--space-3);
   width: 100%;
   min-width: 0;
-  padding: 10px var(--space-3);
+  padding: var(--pad-row);
   border: 0;
   background: transparent;
   color: var(--fg-1);
@@ -618,7 +618,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
 }
 
 .work-tile {
-  padding: 10px 12px;
+  padding: var(--pad-card);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--surface-sunken);
@@ -863,7 +863,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding: 6px 10px;
+  padding: var(--pad-row);
   border-bottom: 1px solid var(--border-subtle);
   font: var(--type-caption);
 }

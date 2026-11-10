@@ -723,7 +723,7 @@
 .decision-box {
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
+  padding: var(--pad-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);

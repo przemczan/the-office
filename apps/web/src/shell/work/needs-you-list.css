@@ -2,7 +2,7 @@
 /* A card of its own under the head, read at a glance; in a Thread it stays a short form. */
 .needs-you-list .message {
   max-width: none;
-  padding: 14px 16px;
+  padding: var(--pad-card);
   font: 400 var(--text-body) / 1.45 var(--font-sans);
 }
 
