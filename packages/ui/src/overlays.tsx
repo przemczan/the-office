@@ -20,13 +20,12 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "../../../design-system/components/core/Button.jsx";
 import { Icon } from "../../../design-system/components/core/Icon.jsx";
-import { IconButton } from "../../../design-system/components/core/IconButton.jsx";
 import {
   Drawer as DesignSystemDrawer,
   type DrawerProps,
 } from "../../../design-system/components/overlays/Drawer.jsx";
+import { Button, IconButton } from "./sized-controls.tsx";
 import {
   tooltipPlace,
   TOOLTIP_WINDOW_MARGIN_PX,

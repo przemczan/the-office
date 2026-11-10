@@ -1,7 +1,9 @@
 import {
   APPEARANCE_RULES,
   applyAppearance,
+  DENSITIES,
   PALETTES,
+  type Density,
   type Palette,
   type PaletteBase,
 } from "./apply-appearance.ts";
@@ -13,6 +15,8 @@ export interface Appearance {
   readonly base: PaletteBase;
   /** The palette the user chose, or undefined while the system's light or dark is followed. */
   readonly chosenPalette: Palette | undefined;
+  /** The density shown: the one the user chose, or Comfortable. */
+  readonly density: Density;
 }
 
 /** The appearance of this browser, in the shape React's `useSyncExternalStore` reads. */
@@ -22,25 +26,33 @@ export interface AppearanceStore {
   choosePalette(palette: Palette): void;
   /** Forgets the chosen palette, so the system's light or dark is shown again. */
   followSystem(): void;
+  chooseDensity(density: Density): void;
   subscribe(onChange: () => void): () => void;
 }
 
 const SYSTEM_DARK = "(prefers-color-scheme: dark)";
 
-/** Keeps the chosen palette in local storage, or for this page alone where storage is blocked. */
+/**
+ * Keeps the chosen palette and density in local storage, or for this page alone where storage is
+ * blocked.
+ */
 export function createAppearanceStore(): AppearanceStore {
-  let chosenPalette = storedPalette();
-  let appearance = apply(chosenPalette);
+  let chosenPalette = stored(APPEARANCE_RULES.paletteKey, PALETTES);
+  let chosenDensity = stored(APPEARANCE_RULES.densityKey, DENSITIES);
+  let appearance = apply(chosenPalette, chosenDensity);
   const listeners = new Set<() => void>();
 
   const update = (): void => {
-    appearance = apply(chosenPalette);
+    appearance = apply(chosenPalette, chosenDensity);
     for (const listener of listeners) listener();
   };
-  // Another tab chose a palette.
+  // Another tab chose a palette or a density, or cleared what this browser keeps.
   const onStorage = (event: StorageEvent): void => {
-    if (event.key !== null && event.key !== APPEARANCE_RULES.storageKey) return;
-    chosenPalette = storedPalette();
+    const { key } = event;
+    if (key !== null && key !== APPEARANCE_RULES.paletteKey && key !== APPEARANCE_RULES.densityKey)
+      return;
+    chosenPalette = stored(APPEARANCE_RULES.paletteKey, PALETTES);
+    chosenDensity = stored(APPEARANCE_RULES.densityKey, DENSITIES);
     update();
   };
 
@@ -48,20 +60,17 @@ export function createAppearanceStore(): AppearanceStore {
     current: () => appearance,
     choosePalette: (palette) => {
       chosenPalette = palette;
-      try {
-        localStorage.setItem(APPEARANCE_RULES.storageKey, palette);
-      } catch {
-        // Storage is blocked: the choice lasts until the page is closed.
-      }
+      keep(APPEARANCE_RULES.paletteKey, palette);
       update();
     },
     followSystem: () => {
       chosenPalette = undefined;
-      try {
-        localStorage.removeItem(APPEARANCE_RULES.storageKey);
-      } catch {
-        // Storage is blocked: nothing was kept.
-      }
+      keep(APPEARANCE_RULES.paletteKey, undefined);
+      update();
+    },
+    chooseDensity: (density) => {
+      chosenDensity = density;
+      keep(APPEARANCE_RULES.densityKey, density);
       update();
     },
     subscribe: (onChange) => {
@@ -80,17 +89,37 @@ export function createAppearanceStore(): AppearanceStore {
   };
 }
 
-function apply(chosenPalette: Palette | undefined): Appearance {
-  applyAppearance(APPEARANCE_RULES, chosenPalette ?? null);
-  const palette = document.documentElement.dataset.palette as Palette;
-  return { palette, base: PALETTES[palette].base, chosenPalette };
+function apply(chosenPalette: Palette | undefined, chosenDensity: Density | undefined): Appearance {
+  applyAppearance(APPEARANCE_RULES, {
+    palette: chosenPalette ?? null,
+    density: chosenDensity ?? null,
+  });
+  const { palette, density } = document.documentElement.dataset as {
+    palette: Palette;
+    density: Density;
+  };
+  return { palette, base: PALETTES[palette].base, chosenPalette, density };
 }
 
-function storedPalette(): Palette | undefined {
+/** What local storage keeps under the key, if it is one of the choices. */
+function stored<Choice extends string>(
+  key: string,
+  choices: Readonly<Record<Choice, unknown>>,
+): Choice | undefined {
   try {
-    const stored = localStorage.getItem(APPEARANCE_RULES.storageKey);
-    return stored !== null && Object.hasOwn(PALETTES, stored) ? (stored as Palette) : undefined;
+    const value = localStorage.getItem(key);
+    return value !== null && Object.hasOwn(choices, value) ? (value as Choice) : undefined;
   } catch {
     return undefined;
+  }
+}
+
+/** Keeps the choice, or forgets it when undefined. */
+function keep(key: string, value: string | undefined): void {
+  try {
+    if (value === undefined) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Storage is blocked: the choice lasts until the page is closed.
   }
 }

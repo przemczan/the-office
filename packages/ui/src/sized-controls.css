@@ -1,0 +1,13 @@
+/* The design system's Select at the chosen density (sized-controls.tsx). Its height is an inline
+   style that no prop reaches, hence !important, on each size's step from --control-h. */
+select[data-control-size="sm"] {
+  height: var(--control-h) !important;
+}
+
+select[data-control-size="md"] {
+  height: calc(var(--control-h) + 4px) !important;
+}
+
+select[data-control-size="lg"] {
+  height: calc(var(--control-h) + 12px) !important;
+}

@@ -17,44 +17,74 @@ export const PALETTES = {
 
 export type Palette = keyof typeof PALETTES;
 
+/** The densities (spec §4), from the tightest. Each has its file in `densities/`. */
+export const DENSITIES = {
+  compact: { name: "Compact" },
+  comfortable: { name: "Comfortable" },
+  relaxed: { name: "Relaxed" },
+} as const satisfies Record<string, { readonly name: string }>;
+
+export type Density = keyof typeof DENSITIES;
+
 /** What `applyAppearance` needs, passed in so that it can run on its own before the first paint. */
 export interface AppearanceRules {
   /** Where the chosen palette is kept, in local storage. */
-  readonly storageKey: string;
+  readonly paletteKey: string;
   /** The design system's alias set (`data-theme`) each palette starts from. */
   readonly bases: Readonly<Record<string, string>>;
-  readonly density: string;
+  /** Where the chosen density is kept, in local storage. */
+  readonly densityKey: string;
+  readonly densities: readonly string[];
+  /** The density shown until another is chosen. */
+  readonly defaultDensity: string;
 }
 
 export const APPEARANCE_RULES: AppearanceRules = {
-  storageKey: "the-office.palette",
+  paletteKey: "the-office.palette",
   bases: Object.fromEntries(Object.entries(PALETTES).map(([id, { base }]) => [id, base])),
-  // Tier 1 ships Comfortable only.
-  density: "comfortable",
+  densityKey: "the-office.density",
+  densities: Object.keys(DENSITIES),
+  defaultDensity: "comfortable" satisfies Density,
 };
+
+/** A palette and a density as chosen; null where none is. */
+export interface AppearanceChoice {
+  readonly palette: string | null;
+  readonly density: string | null;
+}
 
 /**
  * Sets the appearance on `<html>`: the chosen palette, or until one is chosen the system's light or
- * dark, with the density. The choice is read from local storage unless given. It also runs as an
- * inline script before the first paint (see vite.ts), so it reads nothing but its arguments and the
- * page's globals.
+ * dark, and the chosen density, or Comfortable. The choice is read from local storage unless given.
+ * It also runs as an inline script before the first paint (see vite.ts), so it reads nothing but its
+ * arguments and the page's globals.
  */
-export function applyAppearance(rules: AppearanceRules, chosenPalette?: string | null): void {
-  let chosen = chosenPalette;
-  if (chosen === undefined) {
+export function applyAppearance(rules: AppearanceRules, choice?: AppearanceChoice): void {
+  // Inside, as the inline script is this function's text alone.
+  // oxlint-disable-next-line unicorn/consistent-function-scoping
+  const kept = (key: string): string | null => {
     try {
-      chosen = localStorage.getItem(rules.storageKey);
+      return localStorage.getItem(key);
     } catch {
-      // Storage is blocked (a private window): follow the system.
-      chosen = null;
+      // Storage is blocked (a private window): nothing is kept.
+      return null;
     }
-  }
+  };
+  const chosenPalette = choice === undefined ? kept(rules.paletteKey) : choice.palette;
+  const chosenDensity = choice === undefined ? kept(rules.densityKey) : choice.density;
   const systemPalette = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  const palette = chosen !== null && Object.hasOwn(rules.bases, chosen) ? chosen : systemPalette;
+  const palette =
+    chosenPalette !== null && Object.hasOwn(rules.bases, chosenPalette)
+      ? chosenPalette
+      : systemPalette;
+  const density =
+    chosenDensity !== null && rules.densities.includes(chosenDensity)
+      ? chosenDensity
+      : rules.defaultDensity;
   const root = document.documentElement;
   root.dataset.theme = rules.bases[palette];
   root.dataset.palette = palette;
-  root.dataset.density = rules.density;
+  root.dataset.density = density;
 }
 
 /** applyAppearance as an inline script for the page's head, run before the first paint. */

@@ -2,7 +2,7 @@
 .office-identity-card-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--gap-card);
 }
 
 .office-identity-row {
@@ -46,7 +46,7 @@
   gap: 6px;
   margin: 0;
   padding-left: 18px;
-  line-height: 1.5;
+  line-height: var(--line);
 }
 
 .known-hosts {

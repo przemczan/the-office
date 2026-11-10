@@ -160,6 +160,63 @@ for (const { palette, base } of CHOSEN_PALETTES) {
   });
 }
 
+/** Where the browser keeps the chosen density (packages/ui's APPEARANCE_RULES). */
+const DENSITY_STORAGE_KEY = "the-office.density";
+
+/**
+ * Compact and Relaxed, in Light: a palette and a density are separate layers, so the palettes run
+ * in Comfortable above and the densities in Light here, plus Graphite in Compact and Paper in
+ * Relaxed once.
+ */
+const CHOSEN_DENSITIES = [
+  { density: "compact", palette: "light", widths: [1600, 600] },
+  { density: "relaxed", palette: "light", widths: [1600, 600] },
+  { density: "compact", palette: "graphite", widths: [1600] },
+  { density: "relaxed", palette: "paper", widths: [1600] },
+] as const;
+
+for (const { density, palette, widths } of CHOSEN_DENSITIES) {
+  for (const width of widths) {
+    test.describe(`${density} in ${palette}, ${width} wide`, { tag: "@full" }, () => {
+      test.use({ viewport: { width, height: 900 } });
+
+      test("the rail opens each surface at that density, none wider than the window", async ({
+        page,
+      }) => {
+        await page.addInitScript(
+          (kept) => {
+            for (const [key, chosen] of kept) localStorage.setItem(key, chosen);
+          },
+          [
+            [PALETTE_STORAGE_KEY, palette],
+            [DENSITY_STORAGE_KEY, density],
+          ] as const,
+        );
+        await page.goto("/now");
+        const html = page.locator("html");
+        await expect(html).toHaveAttribute("data-density", density);
+        await expect(html).toHaveAttribute("data-palette", palette);
+        const rail = page.getByRole("navigation", { name: "Surfaces" });
+        for (const surface of SURFACES) {
+          await rail.getByRole("link", { name: surface.name, exact: true }).click();
+
+          await expect(page).toHaveURL(new RegExp(`${surface.path}$`));
+          await expect(page.getByRole("heading", { level: 1 })).toHaveText(surface.name);
+          const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
+          expect(sideways, `${surface.name} scrolls sideways`).toBe(0);
+          await page.mouse.move(width / 2, 600);
+          await page.screenshot({
+            path: path.join(
+              SCREENSHOTS,
+              `${palette}-${density}-${width}-${surface.name.toLowerCase()}.png`,
+            ),
+          });
+        }
+      });
+    });
+  }
+}
+
 test.describe("the palette", { tag: "@full" }, () => {
   test.use({ colorScheme: "light" });
 

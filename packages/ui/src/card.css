@@ -1,0 +1,59 @@
+/* The Card's parts (card.tsx): every card pads --pad-card, its header sits --gap-card above its
+   body, and an edge-to-edge body (a table) has a divided header instead. */
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: var(--pad-card);
+  padding-bottom: 0;
+}
+
+.card-head[data-edge-to-edge] {
+  padding-bottom: var(--gap-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-head h3 {
+  margin: 0;
+  font: var(--type-card-title);
+  color: var(--fg-1);
+}
+
+.card-head p {
+  margin: 2px 0 0;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px -4px 0 0;
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--pad-card);
+}
+
+.card-body[data-under-head] {
+  padding-top: var(--gap-card);
+}
+
+.card-body[data-edge-to-edge] {
+  padding: 0;
+}
+
+.card-foot {
+  padding: var(--pad-card);
+  border-top: 1px solid var(--border);
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}

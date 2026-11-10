@@ -64,7 +64,7 @@
   flex: 1;
   margin: 0;
   font: var(--type-caption);
-  line-height: 1.5;
+  line-height: var(--line);
   color: var(--fg-2);
 }
 
@@ -258,8 +258,8 @@
 }
 
 .mark-picker-custom input {
-  width: 28px;
-  height: 28px;
+  width: var(--control-h);
+  height: var(--control-h);
   padding: 2px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -353,7 +353,7 @@
   justify-content: center;
   gap: 10px;
   padding: 24px 16px;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
   text-align: center;
 }
@@ -475,14 +475,14 @@ button.github-repository:disabled :is(.github-repository-words, .github-reposito
 
 .github-repository-description {
   overflow: hidden;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .github-repository-problem {
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--danger-fg);
   overflow-wrap: anywhere;
 }
@@ -497,7 +497,7 @@ button.github-repository:disabled :is(.github-repository-words, .github-reposito
   flex: none;
   align-items: center;
   gap: var(--space-1-5);
-  min-height: 28px;
+  min-height: var(--control-h);
 }
 
 .github-repository-clone-hint {
@@ -536,7 +536,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
 .github-sign-in p {
   max-width: 52ch;
   margin: 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
 }
 
@@ -596,7 +596,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
 
 .project-block-text {
   margin: 10px 0 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
 }
 
@@ -937,7 +937,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   display: grid;
   grid-template-columns: 15px minmax(0, 1fr);
   gap: 2px 8px;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
 }
 
@@ -1175,7 +1175,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
 
 .appearance-images-intro {
   margin: 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
 }
 
@@ -1232,7 +1232,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  min-height: 28px;
+  min-height: var(--control-h);
 }
 
 .version-tile-name {
@@ -1254,7 +1254,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   gap: var(--space-1-5);
   min-height: 112px;
   padding: var(--space-3);
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
   cursor: pointer;
   background: var(--bg);

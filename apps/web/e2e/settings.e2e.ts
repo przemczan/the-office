@@ -882,4 +882,52 @@ test.describe("Appearance", { tag: "@full" }, () => {
     await page.emulateMedia({ colorScheme: "light" });
     await expect(html).toHaveAttribute("data-palette", "light");
   });
+
+  test("switches to Compact and to Relaxed, each kept across reloads", async ({ page }) => {
+    await page.goto("/settings/appearance");
+    const html = page.locator("html");
+    const density = page.getByRole("group", { name: "Density" });
+    const settingsPage = page.locator(".settings-page");
+    await expect(density.getByRole("button", { name: "Comfortable" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(html).toHaveAttribute("data-density", "comfortable");
+
+    // Each card previews its own density, whatever density is shown.
+    const previewHeights = await density
+      .locator(".density-preview")
+      .evaluateAll((previews) => previews.map((preview) => preview.getBoundingClientRect().height));
+    expect(previewHeights).toEqual(previewHeights.toSorted((a, b) => a - b));
+    expect(new Set(previewHeights).size).toBe(3);
+
+    for (const [name, shown, pagePadding] of [
+      ["Compact", "compact", 16],
+      ["Relaxed", "relaxed", 32],
+      ["Comfortable", "comfortable", 24],
+    ] as const) {
+      await density.getByRole("button", { name }).click();
+      await expect(html).toHaveAttribute("data-density", shown);
+      await page.reload();
+      await expect(html).toHaveAttribute("data-density", shown);
+      await expect(density.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+      // The page pads --pad-page at that density.
+      const padding = await settingsPage.evaluate(
+        (element) => getComputedStyle(element).paddingTop,
+      );
+      expect(Number.parseFloat(padding)).toBe(pagePadding);
+      // A density changes no colour.
+      await expect(html).toHaveAttribute("data-palette", "dark");
+      for (const width of [1600, 600]) {
+        await page.setViewportSize({ width, height: 900 });
+        const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
+        expect(sideways).toBe(0);
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${shown}-${width}-settings-appearance.png`),
+          fullPage: true,
+        });
+      }
+      await page.setViewportSize({ width: 1600, height: 900 });
+    }
+  });
 });

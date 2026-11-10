@@ -9,7 +9,7 @@ let browserAppearance: AppearanceStore | undefined;
 
 /** This browser's appearance, and the ways to change it, which every tab then shows. */
 export function useAppearance(): Appearance &
-  Pick<AppearanceStore, "choosePalette" | "followSystem"> {
+  Pick<AppearanceStore, "choosePalette" | "followSystem" | "chooseDensity"> {
   browserAppearance ??= createAppearanceStore();
   // The same snapshot when rendered to markup, as tests do with a page's document at hand.
   const appearance = useSyncExternalStore(
@@ -21,5 +21,6 @@ export function useAppearance(): Appearance &
     ...appearance,
     choosePalette: browserAppearance.choosePalette,
     followSystem: browserAppearance.followSystem,
+    chooseDensity: browserAppearance.chooseDensity,
   };
 }

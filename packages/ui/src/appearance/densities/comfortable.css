@@ -1,6 +1,7 @@
-/* Comfortable: the air around cards, rows, panels and pages, and the size of item text. A density
-   remaps spacing and size aliases only, never the layout (prototypes/themes.md). */
-:root[data-density="comfortable"] {
+/* Comfortable, the default: the air around cards, rows, panels and pages, and the size of item
+   text. A density remaps spacing and size aliases only, never a colour or the layout (spec §4).
+   An attribute selector rather than :root, so a preview can draw a part at another density. */
+[data-density="comfortable"] {
   --pad-card: 16px 18px;
   --gap-card: 12px;
   --pad-row: 14px 18px;

@@ -1,0 +1,13 @@
+/* Relaxed: more air around cards, rows, panels and pages, and larger item text (spec §4). */
+[data-density="relaxed"] {
+  --pad-card: 22px 24px;
+  --gap-card: 16px;
+  --pad-row: 18px 24px;
+  --pad-page: 32px;
+  --gap-panel: 28px;
+  --radius-card: 12px;
+  --text-item: 15px;
+  --text-body: 14px;
+  --control-h: 32px;
+  --line: 1.6;
+}

@@ -94,7 +94,7 @@
   min-height: 0;
   overflow: auto;
   padding: var(--space-4) var(--space-5);
-  font: var(--type-body);
+  font: 400 var(--text-item) / var(--line) var(--font-sans);
 }
 
 /* A body's parts one under another: a refusal above the words, or two paragraphs. */
@@ -107,7 +107,7 @@
 /* Words in a window's body, or a step's. */
 .dialog-text {
   margin: 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   line-height: 1.55;
   color: var(--fg-2);
 }

@@ -21,8 +21,15 @@ declare global {
 // any Icon renders. Icons are looked up by name, so the whole set is kept.
 if (typeof window !== "undefined") window.lucide = { icons };
 
-export { PALETTES, type Palette, type PaletteBase } from "./appearance/apply-appearance.ts";
+export {
+  DENSITIES,
+  PALETTES,
+  type Density,
+  type Palette,
+  type PaletteBase,
+} from "./appearance/apply-appearance.ts";
 export type { Appearance } from "./appearance/appearance-store.ts";
+export { DensityPreview } from "./appearance/density-preview.tsx";
 export { PalettePreview } from "./appearance/palette-preview.tsx";
 export { PaletteSwatch } from "./appearance/palette-swatch.tsx";
 export { useAppearance } from "./appearance/use-appearance.ts";
@@ -48,17 +55,13 @@ export {
 } from "../../../design-system/components/charts/Sparkline.jsx";
 export { Avatar, type AvatarProps } from "../../../design-system/components/core/Avatar.jsx";
 export { Badge, type BadgeProps } from "../../../design-system/components/core/Badge.jsx";
-export { Button, type ButtonProps } from "../../../design-system/components/core/Button.jsx";
-export { Card, type CardProps } from "../../../design-system/components/core/Card.jsx";
+export { type ButtonProps } from "../../../design-system/components/core/Button.jsx";
+export { type CardProps } from "../../../design-system/components/core/Card.jsx";
 export { Icon, type IconProps } from "../../../design-system/components/core/Icon.jsx";
-export {
-  IconButton,
-  type IconButtonProps,
-} from "../../../design-system/components/core/IconButton.jsx";
+export { type IconButtonProps } from "../../../design-system/components/core/IconButton.jsx";
 export { Logo, type LogoProps } from "../../../design-system/components/core/Logo.jsx";
 export { Tag, type TagProps } from "../../../design-system/components/core/Tag.jsx";
 export {
-  DataTable,
   type DataTableColumn,
   type DataTableProps,
 } from "../../../design-system/components/data/DataTable.jsx";
@@ -90,7 +93,6 @@ export { Toast, type ToastProps } from "../../../design-system/components/feedba
 export { Checkbox, type CheckboxProps } from "../../../design-system/components/forms/Checkbox.jsx";
 export {
   Field,
-  Input,
   type FieldProps,
   type InputProps,
 } from "../../../design-system/components/forms/Input.jsx";
@@ -102,12 +104,10 @@ export {
   type RadioProps,
 } from "../../../design-system/components/forms/Radio.jsx";
 export {
-  SegmentedControl,
   type SegmentedControlProps,
   type SegmentedOption,
 } from "../../../design-system/components/forms/SegmentedControl.jsx";
 export {
-  Select,
   type SelectOption,
   type SelectProps,
 } from "../../../design-system/components/forms/Select.jsx";
@@ -159,6 +159,15 @@ export {
   type DialogStep,
   type TooltipProps,
 } from "./overlays.tsx";
+export { Card } from "./card.tsx";
+export {
+  Button,
+  DataTable,
+  IconButton,
+  Input,
+  SegmentedControl,
+  Select,
+} from "./sized-controls.tsx";
 export { FoldButton } from "./fold-button.tsx";
 export { LinkButton } from "./link-button.tsx";
 export { SplitButton, type SplitButtonProps } from "./split-button.tsx";

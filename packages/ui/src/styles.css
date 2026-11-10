@@ -4,9 +4,14 @@
 @import "./appearance/palettes/dark.css";
 @import "./appearance/palettes/graphite.css";
 @import "./appearance/palettes/paper.css";
+@import "./appearance/densities/compact.css";
 @import "./appearance/densities/comfortable.css";
+@import "./appearance/densities/relaxed.css";
 @import "./appearance/palette-swatch.css";
 @import "./appearance/palette-preview.css";
+@import "./appearance/density-preview.css";
+@import "./card.css";
+@import "./sized-controls.css";
 @import "./dialog.css";
 @import "./fold-button.css";
 @import "./link-button.css";

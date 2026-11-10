@@ -1,0 +1,13 @@
+/* Compact: tighter cards, rows, panels and pages, and smaller item text (spec §4). */
+[data-density="compact"] {
+  --pad-card: 10px 12px;
+  --gap-card: 6px;
+  --pad-row: 8px 12px;
+  --pad-page: 16px;
+  --gap-panel: 12px;
+  --radius-card: 6px;
+  --text-item: 13px;
+  --text-body: 12px;
+  --control-h: 24px;
+  --line: 1.4;
+}

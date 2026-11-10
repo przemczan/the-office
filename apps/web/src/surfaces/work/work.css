@@ -277,7 +277,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 28px;
+  height: var(--control-h);
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -302,7 +302,7 @@
 .board-view-chip {
   display: inline-flex;
   align-items: center;
-  height: 28px;
+  height: var(--control-h);
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -559,7 +559,7 @@
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-lg);
   text-align: center;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
 }
 
@@ -574,7 +574,7 @@
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-card);
   text-align: center;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
 }
 
@@ -646,7 +646,7 @@
 .idea-card-title {
   flex: 1;
   min-width: 0;
-  font: 500 14px/1.35 var(--font-sans);
+  font: 500 var(--text-item) / 1.35 var(--font-sans);
   color: var(--fg-1);
 }
 
@@ -661,7 +661,7 @@
 
 .idea-card-notes {
   margin: 4px 0 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   line-height: 1.55;
   color: var(--fg-2);
   white-space: pre-wrap;
@@ -777,7 +777,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--task-page-gap);
-  padding: 16px var(--pad-page) 24px;
+  padding: 16px var(--pad-page) var(--pad-page);
 }
 
 .task-page > .task-columns {
@@ -894,7 +894,7 @@
 .pipeline-rail-removed {
   margin: 0;
   padding: 8px 16px 16px;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-2);
 }
 
@@ -1349,7 +1349,7 @@
   border-radius: var(--radius-lg);
   background: var(--surface);
   cursor: pointer;
-  font: var(--type-body);
+  font: 400 var(--text-item) / var(--line) var(--font-sans);
   text-align: left;
   color: var(--fg-1);
 }
@@ -1537,7 +1537,7 @@
   flex-direction: column;
   gap: 10px;
   max-width: 72ch;
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   overflow-wrap: anywhere;
   color: var(--fg-1);
 }
@@ -1684,7 +1684,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--fg-2);
 }
 
@@ -1705,7 +1705,7 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--gap-card);
 }
 
 .needs-you-head h3 {
@@ -1728,7 +1728,7 @@
 }
 
 .needs-you-summary {
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
   color: var(--fg-2);
 }
 
@@ -1794,7 +1794,7 @@
 /* Stretched to the row, so the slim bar, which sticks only inside it, stays while the conversation
    beside it runs longer than the record. */
 .task-record-column {
-  --record-column-gap: 12px;
+  --record-column-gap: var(--gap-card);
 
   display: flex;
   flex-direction: column;
@@ -1853,8 +1853,8 @@
 .changes-open-file {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: calc(var(--control-h) - 4px);
+  height: calc(var(--control-h) - 4px);
   border-radius: 4px;
   color: var(--fg-3);
 }
@@ -1942,7 +1942,7 @@
 
 .record-fold-body {
   padding: 2px 18px 16px 16px;
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
 }
 
 .record-fold-head .task-block-title {
@@ -1956,7 +1956,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--fg-2);
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1967,14 +1967,14 @@
 
 .task-plan-text {
   max-width: 72ch;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   line-height: 1.55;
 }
 
 .task-plan,
 .task-quiet {
   margin: 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   line-height: 1.55;
   white-space: pre-wrap;
 }
@@ -1995,7 +1995,7 @@
 .task-files-to-change ul {
   margin: 0;
   padding-left: 18px;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   line-height: 1.55;
 }
 
@@ -2062,8 +2062,8 @@
   gap: 6px;
   margin: 0;
   padding-left: 18px;
-  font: var(--type-body-sm);
-  line-height: 1.5;
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  line-height: var(--line);
 }
 
 .task-dod-met {
@@ -2079,8 +2079,8 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font: var(--type-body-sm);
-  line-height: 1.5;
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  line-height: var(--line);
 }
 
 .task-checklist > li {
@@ -2631,7 +2631,7 @@
 .task-part-note {
   margin: 0;
   color: var(--fg-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
 }
 
 /* The Planner's Pipeline proposal, at the rail's foot and centred. */
@@ -2648,7 +2648,7 @@
 .pipeline-proposal p {
   max-width: 72ch;
   margin: 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   line-height: 1.55;
 }
 
@@ -2992,7 +2992,7 @@
 .task-graph-column {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--gap-card);
 }
 
 .task-graph-node {

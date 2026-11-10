@@ -150,10 +150,9 @@
 .message {
   max-width: 92%;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: var(--surface-sunken);
-  font: var(--type-body-sm);
-  line-height: 1.55;
+  font: 400 var(--text-body) / 1.55 var(--font-sans);
   color: var(--fg-1);
 }
 
@@ -183,8 +182,7 @@
   display: grid;
   grid-template-columns: var(--turn-gutter) minmax(0, 1fr);
   min-width: 0;
-  font: var(--type-body);
-  line-height: 1.6;
+  font: 400 var(--text-item) / 1.6 var(--font-sans);
   color: var(--fg-1);
 }
 
@@ -506,7 +504,7 @@
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-1);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -550,7 +548,7 @@
 
 .message-details-hidden {
   margin: 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   color: var(--fg-3);
 }
 
@@ -608,8 +606,7 @@
   padding: 12px 16px;
   border-top: 1px solid var(--border-subtle);
   color: var(--fg-3);
-  font: var(--type-body-sm);
-  line-height: 1.5;
+  font: 400 var(--text-body) / var(--line) var(--font-sans);
 }
 
 .thread-read-only svg {
@@ -776,7 +773,7 @@
 .decision-window .decision-recommendation,
 .decision-window .decision-hint {
   margin: 0;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
 }
 
 .decision-free-answer {
@@ -788,7 +785,7 @@
 
 /* One line, beside its button. !important: the design system's Textarea styles itself inline. */
 .needs-you-list .decision-free-answer textarea {
-  height: var(--control-md) !important;
+  height: calc(var(--control-h) + 4px) !important;
   padding-block: 5px !important;
   box-shadow: none !important;
   resize: none !important;

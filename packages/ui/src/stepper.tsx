@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "../../../design-system/components/core/Icon.jsx";
-import { IconButton } from "../../../design-system/components/core/IconButton.jsx";
+import { IconButton } from "./sized-controls.tsx";
 
 export interface StepperProps {
   /** What the number is, for the buttons' labels and the read-out. */

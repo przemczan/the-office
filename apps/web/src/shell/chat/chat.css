@@ -195,7 +195,7 @@
 }
 
 .chat-person .chat-person-who b {
-  font-size: var(--text-md);
+  font-size: var(--text-item);
 }
 
 .chat-person-who span {
@@ -391,7 +391,7 @@
   flex: none;
   align-items: center;
   gap: 3px;
-  height: var(--control-sm);
+  height: var(--control-h);
   margin-left: 6px;
   padding: 0 8px 0 4px;
   border: 0;

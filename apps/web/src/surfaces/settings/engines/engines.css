@@ -34,7 +34,7 @@
 .engine-tab {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--gap-card);
 }
 
 .engine-fields {
@@ -47,7 +47,7 @@
 .api-endpoint-models {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--gap-card);
 }
 
 .api-endpoint-model {
@@ -183,7 +183,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
   overflow-wrap: anywhere;
 }
 

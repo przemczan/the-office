@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Button, type ButtonProps } from "../../../design-system/components/core/Button.jsx";
+import type { ButtonProps } from "../../../design-system/components/core/Button.jsx";
 import { Icon } from "../../../design-system/components/core/Icon.jsx";
 import { Menu, type MenuItem } from "../../../design-system/components/overlays/Menu.jsx";
+import { Button } from "./sized-controls.tsx";
 
 export interface SplitButtonProps {
   readonly children: ReactNode;

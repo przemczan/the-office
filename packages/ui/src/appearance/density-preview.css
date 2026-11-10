@@ -1,0 +1,51 @@
+/* A density's card and rows in miniature, for choosing it in Settings. Drawn at half size, so that
+   the three densities' true proportions fit side by side. */
+.density-preview {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 0;
+}
+
+.density-preview > * {
+  zoom: 0.5;
+}
+
+.density-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  padding: var(--pad-card);
+  margin-bottom: var(--gap-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.density-preview-row {
+  display: block;
+  padding: var(--pad-row);
+  border-bottom: 2px solid var(--border-subtle);
+  background: var(--surface);
+}
+
+/* A line of text, as tall as the text is large. */
+.density-preview i {
+  display: block;
+  width: 70%;
+  height: var(--text-body);
+  border-radius: 4px;
+  background: var(--fg-3);
+  opacity: 0.6;
+}
+
+.density-preview-card i:first-child {
+  width: 50%;
+  height: var(--text-item);
+  background: var(--fg-2);
+}
