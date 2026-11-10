@@ -67,6 +67,7 @@ export const skillVersions = pgTable(
 export const sessionSkills = pgTable("session_skills", {
   sessionId: text("session_id").primaryKey(),
   skills: jsonb("skills").$type<SessionSkill[]>().notNull(),
+  projectId: text("project_id"),
   projectSkills: jsonb("project_skills").$type<ProjectSkillName[]>().notNull(),
   projectSkillsOff: text("project_skills_off")
     .array()
@@ -74,6 +75,31 @@ export const sessionSkills = pgTable("session_skills", {
     .default(sql`'{}'`),
   preparedAt: timestamp("prepared_at", { withTimezone: true }).notNull(),
 });
+
+/**
+ * Each Skill use of the last 7 days: of a library skill by its name, which a removed skill takes
+ * along, or of a Project skill by its Project and key.
+ */
+export const skillUses = pgTable(
+  "skill_uses",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    usedAt: timestamp("used_at", { withTimezone: true }).notNull(),
+    sessionId: text("session_id").notNull(),
+    skillName: text("skill_name").references(() => skills.name, { onDelete: "cascade" }),
+    projectId: text("project_id"),
+    projectSkillKey: text("project_skill_key"),
+  },
+  (table) => [
+    check(
+      "skill_uses_library_or_project_skill",
+      sql`(${table.skillName} IS NOT NULL AND ${table.projectId} IS NULL AND ${table.projectSkillKey} IS NULL) OR (${table.skillName} IS NULL AND ${table.projectId} IS NOT NULL AND ${table.projectSkillKey} IS NOT NULL)`,
+    ),
+    index("skill_uses_skill_name").on(table.skillName, table.usedAt),
+    index("skill_uses_project_skill").on(table.projectId, table.projectSkillKey, table.usedAt),
+    index("skill_uses_used_at").on(table.usedAt),
+  ],
+);
 
 /** Each library skill assigned to a Role, by the Role's key; a removed skill takes its own along. */
 export const roleSkills = pgTable(

@@ -16,8 +16,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { OfficeKnownHosts } from "../../../../platform/git-identity/office-known-hosts.js";
-import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
+import { FIRST_CLAUDE_CODE_ENGINE, SkillCalled } from "../../../engine/index.js";
 import { McpServerLibrary } from "../../../mcp-servers/index.js";
+import { SessionSkills } from "../../../skills/index.js";
 import {
   EngineLevelsChecks,
   type EngineLevelsSave,
@@ -546,6 +547,7 @@ describe("the repository's own skills", () => {
           path: ".claude/skills/deploy",
           listedAtStart: true,
           alsoInLibrary: false,
+          usesInLast7Days: 0,
         },
       ]);
       expect(projectSchema.parse(await switched.json()).useProjectSkills).toBe(false);
@@ -554,6 +556,47 @@ describe("the repository's own skills", () => {
       ]);
     } finally {
       await rm(join(repository.path, ".claude"), { recursive: true, force: true });
+    }
+  });
+
+  it("gives each its uses in the Project in the last 7 days, two of one key alike", async () => {
+    const skillMd = "---\nname: deploy\ndescription: Deploys.\n---\nDeploy it.\n";
+    for (const folder of [repository.path, join(repository.path, "apps", "web")]) {
+      await mkdir(join(folder, ".claude", "skills", "deploy"), { recursive: true });
+      await writeFile(join(folder, ".claude", "skills", "deploy", "SKILL.md"), skillMd);
+    }
+    try {
+      const project = await addProject();
+      const sessionId = randomUUID();
+      await app.get(SessionSkills).prepare({
+        sessionId,
+        roleKey: "developer",
+        project: {
+          id: project.id,
+          folder: repository.path,
+          useProjectSkills: true,
+          projectSkillsOff: [],
+        },
+      });
+      await app
+        .get(EventBus)
+        .publish(new SkillCalled(sessionId, "claude-code", "deploy", new Date()));
+      await app.get(SessionSkills).forget(sessionId);
+
+      const listed = await fetch(`${url}/api/projects/${project.id}/skills`);
+
+      expect(
+        projectSkillListSchema.parse(await listed.json()).map(({ path, usesInLast7Days }) => ({
+          path,
+          usesInLast7Days,
+        })),
+      ).toEqual([
+        { path: ".claude/skills/deploy", usesInLast7Days: 1 },
+        { path: "apps/web/.claude/skills/deploy", usesInLast7Days: 1 },
+      ]);
+    } finally {
+      await rm(join(repository.path, ".claude"), { recursive: true, force: true });
+      await rm(join(repository.path, "apps"), { recursive: true, force: true });
     }
   });
 

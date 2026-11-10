@@ -48,6 +48,8 @@ export const skillSchema = z.object({
   addedAt: z.iso.datetime(),
   /** When the current version was saved. */
   savedAt: z.iso.datetime(),
+  /** Its Skill uses in the last 7 days, a rolling window (spec §2.6). */
+  usesInLast7Days: z.number().int().nonnegative(),
 });
 export type Skill = z.infer<typeof skillSchema>;
 
@@ -148,10 +150,19 @@ export const projectSkillSchema = z.object({
   listedAtStart: z.boolean(),
   /** The library has a skill of the same name, which a session with both also lists. */
   alsoInLibrary: z.boolean(),
+  /** Its Skill uses in this Project in the last 7 days, counted by its key (spec §2.6). */
+  usesInLast7Days: z.number().int().nonnegative(),
 });
 export type ProjectSkill = z.infer<typeof projectSkillSchema>;
 
 export const projectSkillListSchema = z.array(projectSkillSchema);
+
+/** The skill a Skill use counted for: a library skill by its name, a Project skill by its key. */
+export const usedSkillSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("library"), skillName: z.string() }),
+  z.object({ kind: z.literal("project"), projectId: z.string(), key: z.string() }),
+]);
+export type UsedSkill = z.infer<typeof usedSkillSchema>;
 
 /** The library's events the web receives; each names the skill, so its queries refresh. */
 export const skillWebEventSchema = z.discriminatedUnion("type", [
@@ -168,5 +179,7 @@ export const skillWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("skill.removed"), skillName: z.string() }),
   /** The Role's skills changed, from its card or from Settings › Skills. */
   webEventSchema.extend({ type: z.literal("skill.role-skills-changed"), roleKey: z.string() }),
+  /** A session used a skill, so its count in the last 7 days grew. */
+  webEventSchema.extend({ type: z.literal("skill.used"), skill: usedSkillSchema }),
 ]);
 export type SkillWebEvent = z.infer<typeof skillWebEventSchema>;

@@ -117,7 +117,12 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills.prepare({
       sessionId,
       roleKey: await aRoleWith(tdd),
-      project: { folder: checkout.path, useProjectSkills: true, projectSkillsOff: [] },
+      project: {
+        id: "admin-panel",
+        folder: checkout.path,
+        useProjectSkills: true,
+        projectSkillsOff: [],
+      },
     });
 
     expect(prepared.folder).toBe(sessionFolder(sessionId));
@@ -134,7 +139,12 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
       roleKey: aName("role"),
-      project: { folder: checkout.path, useProjectSkills: false, projectSkillsOff: [] },
+      project: {
+        id: "admin-panel",
+        folder: checkout.path,
+        useProjectSkills: false,
+        projectSkillsOff: [],
+      },
     });
 
     expect(prepared.names).toEqual([]);
@@ -146,7 +156,12 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
       roleKey: aName("role"),
-      project: { folder: checkout.path, useProjectSkills: true, projectSkillsOff: ["deploy"] },
+      project: {
+        id: "admin-panel",
+        folder: checkout.path,
+        useProjectSkills: true,
+        projectSkillsOff: ["deploy"],
+      },
     });
 
     expect(prepared.names).toEqual(["ship"]);
@@ -180,7 +195,12 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
       roleKey: await aRoleWith(name),
-      project: { folder: checkout.path, useProjectSkills: true, projectSkillsOff: [] },
+      project: {
+        id: "admin-panel",
+        folder: checkout.path,
+        useProjectSkills: true,
+        projectSkillsOff: [],
+      },
     });
 
     expect(prepared.suffixMatches).toEqual([
@@ -455,7 +475,12 @@ async function preparedWhileOn(
     return await on.get(SessionSkills).prepare({
       sessionId: randomUUID(),
       roleKey: aName("role"),
-      project: { folder: worktree, useProjectSkills: true, projectSkillsOff: [] },
+      project: {
+        id: "admin-panel",
+        folder: worktree,
+        useProjectSkills: true,
+        projectSkillsOff: [],
+      },
     });
   } finally {
     await skills.turnOff(skill);

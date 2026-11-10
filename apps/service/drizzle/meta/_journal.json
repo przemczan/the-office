@@ -806,6 +806,13 @@
       "when": 1794339452105,
       "tag": "0114_attachment_text",
       "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1794341865901,
+      "tag": "0115_skill_uses",
+      "breakpoints": true
     }
   ]
 }

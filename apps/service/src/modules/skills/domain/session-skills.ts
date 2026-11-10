@@ -77,6 +77,8 @@ export function projectSkillNameOf({ path, text }: ProjectSkillFile): ProjectSki
 export interface SessionSkillRecord {
   readonly sessionId: string;
   readonly skills: readonly SessionSkill[];
+  /** The Project the session works in, or undefined for one outside any Project. */
+  readonly projectId: string | undefined;
   /** The Project's skills and commands it may use: those the Project has on. */
   readonly projectSkills: readonly ProjectSkillName[];
   /** The keys of the Project's skills and commands it found that the Project has off. */
@@ -114,6 +116,7 @@ export interface ProjectSkillUse {
 export function sessionSkillRecord(
   sessionId: string,
   skills: readonly SessionSkill[],
+  projectId: string | undefined,
   projectSkills: readonly ProjectSkillName[],
   { useProjectSkills, projectSkillsOff }: ProjectSkillUse,
   preparedAt: Date,
@@ -123,6 +126,7 @@ export function sessionSkillRecord(
   return {
     sessionId,
     skills,
+    projectId,
     projectSkills: projectSkills.filter((skill) => !isOff(skill)),
     projectSkillsOff: projectSkills.filter(isOff).map((skill) => skill.key),
     preparedAt,

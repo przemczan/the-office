@@ -81,11 +81,19 @@ describe("sessionSkillRecord", () => {
   const projectSkills = [deploy, release, reviewSkill, ship];
 
   it("allows the Project's skills when the Project uses them, expecting those at the top", () => {
-    const record = sessionSkillRecord("s-1", [review], projectSkills, allOn, preparedAt);
+    const record = sessionSkillRecord(
+      "s-1",
+      [review],
+      "admin-panel",
+      projectSkills,
+      allOn,
+      preparedAt,
+    );
 
     expect(record).toEqual({
       sessionId: "s-1",
       skills: [review],
+      projectId: "admin-panel",
       projectSkills,
       projectSkillsOff: [],
       preparedAt,
@@ -102,7 +110,14 @@ describe("sessionSkillRecord", () => {
   });
 
   it("turns each of the Project's skills and commands off when the Project doesn't use them", () => {
-    const record = sessionSkillRecord("s-1", [review], projectSkills, allOff, preparedAt);
+    const record = sessionSkillRecord(
+      "s-1",
+      [review],
+      "admin-panel",
+      projectSkills,
+      allOff,
+      preparedAt,
+    );
 
     expect(allowedSkillNames(record)).toEqual(["office:review"]);
     expect(expectedSkillNames(record)).toEqual(["office:review"]);
@@ -118,6 +133,7 @@ describe("sessionSkillRecord", () => {
     const record = sessionSkillRecord(
       "s-1",
       [],
+      "admin-panel",
       projectSkills,
       { useProjectSkills: true, projectSkillsOff: ["deploy", "release"] },
       preparedAt,
@@ -132,6 +148,7 @@ describe("sessionSkillRecord", () => {
     const record = sessionSkillRecord(
       "s-1",
       [],
+      "admin-panel",
       [deploy, ship],
       { useProjectSkills: true, projectSkillsOff: ["deploy", "ship"] },
       preparedAt,
@@ -145,6 +162,7 @@ describe("sessionSkillRecord", () => {
     const record = sessionSkillRecord(
       "s-1",
       [review],
+      "admin-panel",
       [reviewSkill],
       { useProjectSkills: true, projectSkillsOff: ["review"] },
       preparedAt,
@@ -159,6 +177,7 @@ describe("sessionSkillRecord", () => {
     const record = sessionSkillRecord(
       "s-1",
       [],
+      "admin-panel",
       [deploy],
       { useProjectSkills: true, projectSkillsOff: ["removed"] },
       preparedAt,
@@ -169,7 +188,7 @@ describe("sessionSkillRecord", () => {
   });
 
   it("has no Project skills for a session outside a Project", () => {
-    const record = sessionSkillRecord("s-1", [review], [], allOn, preparedAt);
+    const record = sessionSkillRecord("s-1", [review], undefined, [], allOn, preparedAt);
 
     expect(allowedSkillNames(record)).toEqual(["office:review"]);
     expect(skillOverridesOf(record)).toEqual({});
@@ -179,7 +198,16 @@ describe("sessionSkillRecord", () => {
 describe("suffixMatches", () => {
   it("reports an allowed Project skill named as one of the session's library skills", () => {
     expect(
-      suffixMatches(sessionSkillRecord("s-1", [review], [deploy, reviewSkill], allOn, preparedAt)),
+      suffixMatches(
+        sessionSkillRecord(
+          "s-1",
+          [review],
+          "admin-panel",
+          [deploy, reviewSkill],
+          allOn,
+          preparedAt,
+        ),
+      ),
     ).toEqual([
       "The Project's skill review also allows the library's office:review, which this session has too.",
     ]);
@@ -187,7 +215,9 @@ describe("suffixMatches", () => {
 
   it("reports nothing when the Project's skills are off", () => {
     expect(
-      suffixMatches(sessionSkillRecord("s-1", [review], [reviewSkill], allOff, preparedAt)),
+      suffixMatches(
+        sessionSkillRecord("s-1", [review], "admin-panel", [reviewSkill], allOff, preparedAt),
+      ),
     ).toEqual([]);
   });
 });

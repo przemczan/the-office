@@ -1,9 +1,10 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryKey } from "@tanstack/react-query";
 import {
   skillListSchema,
   skillReviewSchema,
   skillSchema,
   skillUpdateDiffSchema,
+  skillWebEventSchema,
   type PinnedVersion,
   type Skill,
   type SkillEdit,
@@ -96,6 +97,7 @@ export const skillEventInvalidations: Readonly<
   "skill.updated": () => [SKILLS],
   "skill.removed": () => [SKILLS, ["projects"], ["roles"]],
   "skill.role-skills-changed": () => [SKILLS, ["roles"]],
+  "skill.used": (event) => usedSkillKeys(skillWebEventSchema.parse(event)),
 };
 
 function updateDiffQuery(from: PinnedVersion, to: PinnedVersion): URLSearchParams {
@@ -109,4 +111,10 @@ function updateDiffQuery(from: PinnedVersion, to: PinnedVersion): URLSearchParam
 
 function skillPath(name: string): `/${string}` {
   return `/skills/${encodeURIComponent(name)}`;
+}
+
+/** A use changes only its skill's count: the library's, or its Project's own skills. */
+function usedSkillKeys(event: SkillWebEvent): readonly QueryKey[] {
+  if (event.type !== "skill.used" || event.skill.kind === "library") return [SKILLS];
+  return [["projects", event.skill.projectId, "skills"]];
 }

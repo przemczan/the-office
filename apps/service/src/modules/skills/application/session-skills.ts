@@ -43,6 +43,8 @@ const NO_PROJECT_SKILLS: ProjectSkillUse = { useProjectSkills: false, projectSki
 
 /** Where a session works, when it works in a Project's checkout. */
 export interface SessionProject extends ProjectSkillUse {
+  /** The Project's id, which its skills' uses are counted under. */
+  readonly id: string;
   /** The checkout the session works in, such as a Task's worktree. */
   readonly folder: string;
 }
@@ -85,6 +87,7 @@ export class SessionSkills {
     const record = sessionSkillRecord(
       sessionId,
       skills.map(({ skill }) => skill),
+      project?.id,
       projectSkills,
       project ?? NO_PROJECT_SKILLS,
       new Date(),

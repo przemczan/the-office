@@ -32,6 +32,7 @@ export {
   SkillUpdateFound,
   SkillUpdateGone,
   SkillUpdated,
+  SkillUsed,
   SkillVersionSaved,
 } from "./domain/skill-events.js";
 export { SkillsModule } from "./skills.module.js";

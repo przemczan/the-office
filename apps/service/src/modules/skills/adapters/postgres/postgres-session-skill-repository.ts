@@ -50,6 +50,7 @@ function toRow(record: SessionSkillRecord): SessionSkillRow {
   return {
     sessionId: record.sessionId,
     skills: record.skills.map(({ name, version, filesHash }) => ({ name, version, filesHash })),
+    projectId: record.projectId ?? null,
     projectSkills: record.projectSkills.map(({ key, listedAs }) => ({ key, listedAs })),
     projectSkillsOff: [...record.projectSkillsOff],
     preparedAt: record.preparedAt,
@@ -60,6 +61,7 @@ function toRecord(row: SessionSkillRow): SessionSkillRecord {
   return {
     sessionId: row.sessionId,
     skills: row.skills,
+    projectId: row.projectId ?? undefined,
     projectSkills: row.projectSkills,
     projectSkillsOff: row.projectSkillsOff,
     preparedAt: row.preparedAt,

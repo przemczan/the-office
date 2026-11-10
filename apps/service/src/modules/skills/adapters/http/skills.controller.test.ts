@@ -12,6 +12,7 @@ import {
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { SkillCalled } from "../../../engine/index.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
@@ -23,8 +24,11 @@ import {
   SkillEveryoneChanged,
   SkillRemoved,
   SkillTurnedOn,
+  SkillUsed,
 } from "../../domain/skill-events.js";
 import { SkillsModule } from "../../skills.module.js";
+import { SessionSkillRepository } from "../../ports/session-skill-repository.js";
+import { aRecord } from "../postgres/postgres-session-skill-repository.fixtures.js";
 import { aZip } from "../zip/zip.fixtures.js";
 import { aName, reasonsOf, skillMd } from "./skills.controller.fixtures.js";
 
@@ -220,6 +224,39 @@ describe("PUT /api/skills/:name/roles", () => {
     expect(webEvents().slice(1)).toEqual([
       roleSkillsChanged(first),
       ...[first, second].toSorted().map(roleSkillsChanged),
+    ]);
+  });
+});
+
+describe("GET /api/skills", () => {
+  it("gives each skill its uses in the last 7 days, each use announced to the web", async () => {
+    const skill = await write(aName());
+    const session = aRecord({
+      skills: [{ name: skill.name, version: skill.version, filesHash: skill.filesHash }],
+    });
+    await app.get(SessionSkillRepository).add(session);
+
+    const called = (name: string) =>
+      app
+        .get(EventBus)
+        .publish(new SkillCalled(session.sessionId, "claude-code", name, new Date()));
+    await called(`office:${skill.name}`);
+    await called(skill.name);
+    await called("init");
+
+    const listed = skillListSchema.parse(await (await fetch(`${url}/api/skills`)).json());
+    expect(listed.find(({ name }) => name === skill.name)?.usesInLast7Days).toBe(2);
+    const forwarding = app.get(WebEventForwarding);
+    const used = published.filter((event) => event instanceof SkillUsed);
+    expect(used.map((event) => forwarding.toWebEvent(event))).toEqual([
+      expect.objectContaining({
+        type: "skill.used",
+        skill: { kind: "library", skillName: skill.name },
+      }),
+      expect.objectContaining({
+        type: "skill.used",
+        skill: { kind: "library", skillName: skill.name },
+      }),
     ]);
   });
 });

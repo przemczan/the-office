@@ -15,6 +15,7 @@ export {
   EngineAdded,
   EngineDown,
   EngineRemoved,
+  SkillCalled,
   UsageWindowsChanged,
   UsageWindowsRead,
 } from "./domain/engine-events.js";

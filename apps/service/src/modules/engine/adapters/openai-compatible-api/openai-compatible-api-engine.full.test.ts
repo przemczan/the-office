@@ -390,6 +390,13 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
       const { events } = await oneTurn(options({ skills: allowingProject() }));
 
+      // Reported as Claude Code reports them, so EngineSessions counts a Skill use on every engine.
+      const calls = events.filter((event) => event.kind === "tool-call");
+      expect(calls).toMatchObject([
+        { tool: "Skill", officeTool: false, input: { skill: "office:tdd" } },
+        { tool: "Skill", officeTool: false, input: { skill: "/ops:deploy" } },
+        { tool: "Skill", officeTool: false, input: { skill: "review" } },
+      ]);
       const results = events.filter((event) => event.kind === "tool-result");
       expect(results).toMatchObject([
         {

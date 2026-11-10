@@ -121,7 +121,7 @@ export class ProjectsController {
   @Get(":id/skills")
   async skills(@Param("id") id: string): Promise<ProjectSkill[]> {
     const project = await this.projects.read(id);
-    return projectSkillListSchema.parse(await this.projectSkills.of(project.path));
+    return projectSkillListSchema.parse(await this.projectSkills.of(project.id, project.path));
   }
 
   @Put(":id/use-project-skills")

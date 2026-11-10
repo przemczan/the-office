@@ -6,6 +6,7 @@ export function aRecord(fields: Partial<SessionSkillRecord> = {}): SessionSkillR
   return {
     sessionId: randomUUID(),
     skills: [{ name: "tdd", version: 2, filesHash: "a".repeat(64) }],
+    projectId: "admin-panel",
     projectSkills: [
       { key: "deploy", listedAs: "deploy" },
       { key: "release", listedAs: undefined },

@@ -4,6 +4,18 @@ import type { TokenUsage, TurnEndedEvent } from "../../ports/session-events.js";
 import { sessionEvents, TurnTokens, usageWindows } from "./sdk-events.js";
 import { message, RESULT } from "./sdk-events.fixtures.js";
 
+/** An Agent's Skill call, or a subagent's under `parent`. */
+const skillCall = (parent: string | null) =>
+  message({
+    type: "assistant",
+    parent_tool_use_id: parent,
+    message: {
+      content: [
+        { type: "tool_use", id: "call-skill", name: "Skill", input: { skill: "office:tdd" } },
+      ],
+    },
+  });
+
 describe("sessionEvents", () => {
   it("names the subagent's tool call on what a subagent does", () => {
     const [event] = sessionEvents(
@@ -15,6 +27,27 @@ describe("sessionEvents", () => {
     );
 
     expect(event).toEqual({ kind: "text", text: "Found it.", withinToolCall: "call-task" });
+  });
+
+  it("reports a Skill call, a subagent's too, by the skill it names, on both Claude Code adapters", () => {
+    expect([...sessionEvents(skillCall(null)), ...sessionEvents(skillCall("call-task"))]).toEqual([
+      {
+        kind: "tool-call",
+        callId: "call-skill",
+        tool: "Skill",
+        officeTool: false,
+        input: { skill: "office:tdd" },
+        withinToolCall: undefined,
+      },
+      {
+        kind: "tool-call",
+        callId: "call-skill",
+        tool: "Skill",
+        officeTool: false,
+        input: { skill: "office:tdd" },
+        withinToolCall: "call-task",
+      },
+    ]);
   });
 
   it("reports tool results as text, and nothing for the caller's own messages or replays", () => {

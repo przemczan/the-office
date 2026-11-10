@@ -2,7 +2,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
-import { EngineDown } from "../domain/engine-events.js";
+import { EngineDown, SkillCalled } from "../domain/engine-events.js";
+import { calledSkill } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
 import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
 import { withLeftOutLanguageServers } from "../domain/language-servers.js";
@@ -233,6 +234,7 @@ export class EngineSessions {
         await this.readUsageWindows(settings, session);
       },
       turnEnded: (usage) => this.turnEnded(settings, usage),
+      skillCalled: (skill) => this.skillCalled(sessionId, engine.id, skill),
       failed: async (error) => {
         if (!isRefusal(error)) await this.engineDown(sessionId, engine, error);
       },
@@ -291,6 +293,11 @@ export class EngineSessions {
     }
   }
 
+  /** The bus logs a handler that fails to count the use: the session runs on. */
+  private async skillCalled(sessionId: string, engineId: EngineId, skill: string): Promise<void> {
+    await this.events.publish(new SkillCalled(sessionId, engineId, skill, new Date()));
+  }
+
   private async engineDown(sessionId: string, engine: Engine, error: unknown): Promise<void> {
     const reason = messageOf(error);
     this.logger.error(`The engine ${engine.id} is down for session ${sessionId}: ${reason}`);
@@ -301,6 +308,8 @@ export class EngineSessions {
 interface SessionWatch {
   readonly rateLimited: () => Promise<void>;
   readonly turnEnded: (usage: TokenUsage) => Promise<void>;
+  /** The session's Agent or a subagent called the Skill tool for `skill`. */
+  readonly skillCalled: (skill: string) => Promise<void>;
   readonly failed: (error: unknown) => Promise<void>;
   /** The session's events have closed or failed: it runs no more. */
   readonly ended: () => void;
@@ -373,6 +382,10 @@ class WatchedSession implements EngineSession {
       this.spans.turnEnded(event);
       // Counted before the turn is reported, so a reading or the day's use read once it ended includes it.
       await this.watch.turnEnded(event.usage);
+    }
+    if (event.kind === "tool-call") {
+      const skill = calledSkill(event.tool, event.input);
+      if (skill !== undefined) await this.watch.skillCalled(skill);
     }
     if (event.kind === "rate-limit" && !this.readingWindows) {
       this.readingWindows = true;

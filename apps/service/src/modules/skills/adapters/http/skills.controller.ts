@@ -35,6 +35,7 @@ import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { RoleSkills } from "../../application/role-skills.js";
 import { SkillLibrary } from "../../application/skill-library.js";
 import { SkillUpdates } from "../../application/skill-updates.js";
+import { SkillUses } from "../../application/skill-uses.js";
 import type { PinnedVersion } from "../../domain/installed-source.js";
 import type { Skill } from "../../domain/skill.js";
 import { SkillRefusalsFilter } from "./skill-refusals.filter.js";
@@ -46,13 +47,18 @@ export class SkillsController {
     private readonly library: SkillLibrary,
     private readonly roleSkills: RoleSkills,
     private readonly updates: SkillUpdates,
+    private readonly uses: SkillUses,
   ) {}
 
   @Get()
   async list(): Promise<SkillResponse[]> {
-    const roles = await this.roleSkills.bySkill();
-    return (await this.library.list()).map((skill) =>
-      toSkillResponse(skill, roles.get(skill.name) ?? []),
+    const [skills, roles, uses] = await Promise.all([
+      this.library.list(),
+      this.roleSkills.bySkill(),
+      this.uses.libraryCounts(),
+    ]);
+    return skills.map((skill) =>
+      toSkillResponse(skill, roles.get(skill.name) ?? [], uses.get(skill.name) ?? 0),
     );
   }
 
@@ -145,7 +151,7 @@ export class SkillsController {
     @Body(new ContractPipe(skillRolesChangeSchema)) { roles }: SkillRolesChange,
   ): Promise<SkillResponse> {
     const assigned = await this.roleSkills.assignSkill(name, roles);
-    return toSkillResponse(await this.library.read(name), assigned);
+    return this.response(await this.library.read(name), assigned);
   }
 
   @Delete(":name")
@@ -154,8 +160,12 @@ export class SkillsController {
     await this.library.remove(name);
   }
 
-  private async response(skill: Skill): Promise<SkillResponse> {
-    return toSkillResponse(skill, (await this.roleSkills.bySkill()).get(skill.name) ?? []);
+  private async response(skill: Skill, assigned?: readonly string[]): Promise<SkillResponse> {
+    const [roles, uses] = await Promise.all([
+      assigned ?? this.roleSkills.bySkill().then((bySkill) => bySkill.get(skill.name) ?? []),
+      this.uses.libraryCounts(),
+    ]);
+    return toSkillResponse(skill, roles, uses.get(skill.name) ?? 0);
   }
 }
 
@@ -163,7 +173,11 @@ function pinnedVersion(tag: string | undefined, commit: string): PinnedVersion {
   return tag === undefined ? { commit } : { tag, commit };
 }
 
-function toSkillResponse(skill: Skill, roles: readonly string[]): SkillResponse {
+function toSkillResponse(
+  skill: Skill,
+  roles: readonly string[],
+  usesInLast7Days: number,
+): SkillResponse {
   return {
     name: skill.name,
     description: skill.description,
@@ -177,5 +191,6 @@ function toSkillResponse(skill: Skill, roles: readonly string[]): SkillResponse 
     roles: [...roles],
     addedAt: skill.addedAt.toISOString(),
     savedAt: skill.savedAt.toISOString(),
+    usesInLast7Days,
   };
 }

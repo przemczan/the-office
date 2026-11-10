@@ -65,6 +65,21 @@ export class EngineAccountChanged extends DomainEvent {
   }
 }
 
+/**
+ * A session's Agent, or one of its subagents, called the Skill tool, on any engine, so its owner
+ * can count a Skill use (spec §2.6). `skill` is as the call names it, without a leading `/`.
+ */
+export class SkillCalled extends DomainEvent {
+  constructor(
+    readonly sessionId: string,
+    readonly engineId: EngineId,
+    readonly skill: string,
+    readonly calledAt: Date,
+  ) {
+    super();
+  }
+}
+
 /** The engine could not start a session, or stopped running one: its program didn't start or its stream died. */
 export class EngineDown extends DomainEvent {
   constructor(

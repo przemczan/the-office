@@ -29,6 +29,14 @@ describe("PostgresSessionSkillRepository", () => {
     await expect(repository.find(record.sessionId)).resolves.toEqual(record);
   });
 
+  it("keeps a session outside any Project with no Project", async () => {
+    const record = aRecord({ projectId: undefined, projectSkills: [] });
+
+    await repository.add(record);
+
+    await expect(repository.find(record.sessionId)).resolves.toEqual(record);
+  });
+
   it("forgets a session's record", async () => {
     const record = aRecord();
     await repository.add(record);

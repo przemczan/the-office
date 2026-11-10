@@ -11,6 +11,7 @@ import {
   SkillUpdateFound,
   SkillUpdateGone,
   SkillUpdated,
+  SkillUsed,
   SkillVersionSaved,
 } from "../../domain/skill-events.js";
 
@@ -19,7 +20,7 @@ type WebEventOf<Type extends SkillWebEvent["type"]> = Omit<
   "occurredAt"
 >;
 
-/** Every library event reaches the web, naming the skill, so an open page refetches it. */
+/** Every library event and each Skill use reach the web, naming the skill, so an open page refetches it. */
 @Injectable()
 export class SkillWebEvents implements OnModuleInit {
   constructor(private readonly forwarding: WebEventForwarding) {}
@@ -71,5 +72,9 @@ export class SkillWebEvents implements OnModuleInit {
         roleKey: event.change.roleKey,
       }),
     );
+    this.forwarding.forward(SkillUsed, (event): WebEventOf<"skill.used"> => ({
+      type: "skill.used",
+      skill: event.use.skill,
+    }));
   }
 }

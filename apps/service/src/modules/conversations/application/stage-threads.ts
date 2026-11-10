@@ -471,6 +471,7 @@ export class StageThreads {
         sessionId: session.id,
         roleKey: role.roleKey,
         project: {
+          id: request.projectId,
           folder: request.folder,
           useProjectSkills: request.useProjectSkills,
           projectSkillsOff: request.projectSkillsOff,

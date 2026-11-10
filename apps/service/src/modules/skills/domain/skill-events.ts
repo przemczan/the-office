@@ -2,6 +2,7 @@ import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { PinnedVersion } from "./installed-source.js";
 import type { RoleSkillsChange } from "./role-skills.js";
 import type { Skill } from "./skill.js";
+import type { SkillUse } from "./skill-uses.js";
 
 /** It arrives waiting for review. */
 export class SkillAdded extends DomainEvent {
@@ -80,5 +81,12 @@ export class SkillRemoved extends DomainEvent {
 export class RoleSkillsChanged extends DomainEvent {
   constructor(readonly change: RoleSkillsChange) {
     super(change.changedAt);
+  }
+}
+
+/** A session used a skill it got from The Office, so the skill's count in the last 7 days grew. */
+export class SkillUsed extends DomainEvent {
+  constructor(readonly use: SkillUse) {
+    super(use.usedAt);
   }
 }

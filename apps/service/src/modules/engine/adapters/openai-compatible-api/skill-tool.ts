@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
+import { SKILL_TOOL, skillNameOf } from "../../domain/skill-calls.js";
 import {
   builtInTool,
   failure,
@@ -26,12 +27,11 @@ const ARGUMENTS_PLACEHOLDER = "$ARGUMENTS";
 export function skillTool(skills: readonly ListedSkill[]): BuiltInTool {
   const byName = new Map(skills.map((skill) => [skill.name, skill]));
   return builtInTool({
-    name: "Skill",
+    name: SKILL_TOOL,
     description: skillToolDescription(skills),
     input: skillInput,
     run: async ({ skill, args }) => {
-      // The model may write a skill's name as the user invokes it, `/name`.
-      const listed = byName.get(skill.replace(/^\//, ""));
+      const listed = byName.get(skillNameOf(skill));
       if (listed === undefined) return failure(`Unknown skill: ${skill}`);
       return loaded(listed, args);
     },

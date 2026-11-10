@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
-import { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
+import {
+  EngineDown,
+  SkillCalled,
+  UsageWindowsChanged,
+  UsageWindowsRead,
+} from "../domain/engine-events.js";
 import { DEFAULT_ENGINE_SETTINGS } from "../domain/engine-settings.js";
 import {
   FIRST_CLAUDE_CODE_ENGINE,
@@ -249,6 +254,19 @@ function twoEngines(scripts: {
   };
 }
 
+/** An event of a tool call by the Agent, or by a subagent within `withinToolCall`. */
+function toolCall(
+  callId: string,
+  tool: string,
+  input: unknown,
+  withinToolCall: string | undefined = undefined,
+): SessionScript[number] {
+  return {
+    step: "event",
+    event: { kind: "tool-call", callId, tool, officeTool: false, input, withinToolCall },
+  };
+}
+
 const WINDOWS = {
   fiveHour: { percentUsed: 12, resetsAt: new Date("2026-10-25T18:00:00Z") },
   sevenDay: { percentUsed: 31, resetsAt: new Date("2026-10-30T09:00:00Z") },
@@ -482,6 +500,29 @@ describe("EngineSessions", () => {
       }),
     ).rejects.toThrow(new EngineNotListed("gone"));
     expect(published).toEqual([]);
+  });
+
+  it("announces each Skill call, a subagent's too, by the name without a leading /, and no other tool's", async () => {
+    const { sessions, published } = setUp([
+      [
+        { step: "start", brief: { id: "brief", text: "Begin." } },
+        toolCall("c-1", "Skill", { skill: "office:review" }),
+        toolCall("c-2", "Read", { file_path: "/work/task-1/README.md", skill: "office:review" }),
+        toolCall("c-3", "Skill", { skill: "/deploy", args: "now" }, "agent-1"),
+        toolCall("c-4", "Skill", { name: "deploy" }),
+        turnEnded("brief", 0.01),
+        { step: "end" },
+      ],
+    ]);
+
+    await oneTurn(sessions, SETTINGS);
+
+    const calls = published.filter((event) => event instanceof SkillCalled);
+    expect(calls.map(({ engineId, skill }) => ({ engineId, skill }))).toEqual([
+      { engineId: FIRST_CLAUDE_CODE_ENGINE.id, skill: "office:review" },
+      { engineId: FIRST_CLAUDE_CODE_ENGINE.id, skill: "deploy" },
+    ]);
+    expect(calls[0]?.calledAt).toBeInstanceOf(Date);
   });
 
   it("announces the engine down when a session's stream dies, and its reader learns why", async () => {
