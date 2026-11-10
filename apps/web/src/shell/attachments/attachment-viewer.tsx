@@ -47,7 +47,8 @@ export function AttachmentViewer({
   const original = attachmentContentUrl(image.id);
   return (
     <Dialog
-      size="large"
+      size="extra-large"
+      maximizable
       title={image.name}
       onClose={onClose}
       actions={

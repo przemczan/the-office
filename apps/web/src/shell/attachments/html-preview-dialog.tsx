@@ -17,8 +17,9 @@ export function HtmlPreviewDialog({
   const original = attachmentContentUrl(file.id);
   return (
     <Dialog
-      size="large"
+      size="extra-large"
       keepsHeight
+      maximizable
       title={file.name}
       onClose={onClose}
       actions={

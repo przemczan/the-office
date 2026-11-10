@@ -1,7 +1,8 @@
-/* The window of docs/spec/4.1-ui-rules.md#windows: three sizes, a head with its X, a body that
-   scrolls while the head and the bar stay, a step over the bar, and the bar with Close on the right.
-   Every window's top sits 7% from the top of the browser window, 24px at least, so windows of every
-   size line up and one that grows grows downwards; the large one, 86% high, fills the room between. */
+/* The window of docs/spec/4.1-ui-rules.md#windows: four sizes, a head with its X (and Maximize on a
+   preview), a body that scrolls while the head and the bar stay, a step over the bar, and the bar
+   with Close on the right. Every window's top sits 7% from the top of the browser window, 24px at
+   least, so windows of every size line up and one that grows grows downwards; the large and extra
+   large ones, 86% high, fill the room between. */
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -47,6 +48,27 @@
 
 .dialog-frame.large.keeps-height {
   height: min(86vh, 100%);
+}
+
+.dialog-frame.extra-large {
+  max-width: min(1600px, 94vw);
+  max-height: 86vh;
+}
+
+.dialog-frame.extra-large.keeps-height {
+  height: min(86vh, 100%);
+}
+
+/* Maximized, a window fills the browser window but for a margin, where the dimmed backdrop still
+   shows it is a window. */
+.dialog-backdrop.maximized {
+  padding: var(--space-4);
+}
+
+.dialog-frame.maximized {
+  max-width: none;
+  max-height: none;
+  height: 100%;
 }
 
 .dialog-head {

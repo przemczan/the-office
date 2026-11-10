@@ -2471,6 +2471,32 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await original.close();
     expect(reachedOut).toEqual([]);
     await page.context().unroute(addressesOfTheDesign, answerTheDesign);
+    // The preview is extra large, wider than a large window, and maximizes to the browser window
+    // but for its margin, then restores.
+    const ownSize = await preview.boundingBox();
+    expect(ownSize?.width).toBeGreaterThan(1180);
+    await preview.getByRole("button", { name: "Maximize" }).click();
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error("The page has no viewport");
+    const maximizedMargin = 16;
+    await expect
+      .poll(() => preview.boundingBox())
+      .toEqual({
+        x: maximizedMargin,
+        y: maximizedMargin,
+        width: viewport.width - 2 * maximizedMargin,
+        height: viewport.height - 2 * maximizedMargin,
+      });
+    await screenshotInEveryPalette(page, "gate-html-preview-maximized");
+    await preview.getByRole("button", { name: "Restore" }).click();
+    await expect.poll(() => preview.boundingBox()).toEqual(ownSize);
+    // Esc still closes it maximized, and it opens again at its own size.
+    await preview.getByRole("button", { name: "Maximize" }).click();
+    await page.keyboard.press("Escape");
+    await expect(preview).toHaveCount(0);
+    await designChip.click();
+    await expect(preview.getByRole("button", { name: "Maximize" })).toBeVisible();
+    await expect.poll(() => preview.boundingBox()).toEqual(ownSize);
     await page.keyboard.press("Escape");
     await expect(preview).toHaveCount(0);
 

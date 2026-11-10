@@ -1,5 +1,5 @@
-// `Dialog` is the window of docs/spec/4.1-ui-rules.md#windows: three sizes and one frame, closed only
-// by Escape, its X or its Close button. The design system's Drawer closes on a press on its dimmed
+// `Dialog` is the window of docs/spec/4.1-ui-rules.md#windows: four sizes and one frame, which a
+// preview can maximize, closed only by Escape, its X or its Close button. The design system's Drawer closes on a press on its dimmed
 // backdrop, so a press landing on the backdrop itself is stopped before its handler sees it.
 // design-system/ stays as exported, hence the wrapper rather than an edit there. The conversation's
 // drawer on the Task and Initiative pages is the exception, closing on a press outside: a side view
@@ -50,19 +50,28 @@ interface DialogContentProps {
   /** The bar's actions, on the left: the main one first, a destructive one last. Close is added on the right. */
   readonly actions?: ReactNode;
   readonly step?: DialogStep;
+  /**
+   * Offers Maximize next to the X: the window fills the browser window, less a margin, until
+   * Restore. Each opening starts at the window's own size.
+   */
+  readonly maximizable?: boolean;
   readonly onClose: () => void;
 }
 
-/** A confirmation (small), a form (medium), or something to read or look at (large). */
-export type DialogSize = "small" | "medium" | "large";
+/**
+ * A confirmation (small), a form (medium), something to read or look at (large), or something to
+ * look at closely, such as a preview (extra large).
+ */
+export type DialogSize = "small" | "medium" | "large" | "extra-large";
 
 type DialogSizeProps =
   | { readonly size: "small"; readonly keepsHeight?: never }
   | {
-      readonly size: "medium" | "large";
+      readonly size: "medium" | "large" | "extra-large";
       /**
        * For a window whose content changes as the user moves inside it, so it doesn't jump: 640px
-       * high when medium, 86% of the browser window when large, less when the browser is shorter.
+       * high when medium, 86% of the browser window when large or extra large, less when the
+       * browser is shorter.
        */
       readonly keepsHeight?: boolean;
     };
@@ -94,25 +103,41 @@ export function Dialog({
   children,
   actions,
   step,
+  maximizable = false,
   onClose,
 }: DialogProps): ReactNode {
   const titleId = useId();
   const frame = useRef<HTMLDivElement>(null);
+  const [maximized, setMaximized] = useState(false);
   useCloseOnEscape(open, onClose, frame);
+  // A window kept mounted while closed opens again at its own size.
+  if (!open && maximized) setMaximized(false);
   if (!open) return null;
+  const isMaximized = maximizable && maximized;
+  const frameClasses = ["dialog-frame", size];
+  if (keepsHeight) frameClasses.push("keeps-height");
+  if (isMaximized) frameClasses.push("maximized");
   // On the body, so a window opened from inside a card is over the whole page and takes none of the
   // card's styles.
   return createPortal(
-    <div className="dialog-backdrop">
+    <div className={`dialog-backdrop${isMaximized ? " maximized" : ""}`}>
       <div
         ref={frame}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`dialog-frame ${size}${keepsHeight ? " keeps-height" : ""}`}
+        className={frameClasses.join(" ")}
       >
         <header className="dialog-head">
           <h2 id={titleId}>{title}</h2>
+          {maximizable && (
+            <IconButton
+              icon={<Icon name={isMaximized ? "minimize-2" : "maximize-2"} />}
+              label={isMaximized ? "Restore" : "Maximize"}
+              size="sm"
+              onClick={() => setMaximized(!isMaximized)}
+            />
+          )}
           <IconButton icon={<Icon name="x" />} label="Close (Esc)" size="sm" onClick={onClose} />
         </header>
         <div className="dialog-body">{children}</div>

@@ -103,7 +103,7 @@ export function DocumentDialog({
 }): ReactNode {
   const text = useQuery(attachmentQueries.document(document.id));
   return (
-    <Dialog size="large" title={document.name} onClose={onClose}>
+    <Dialog size="extra-large" maximizable title={document.name} onClose={onClose}>
       {text.error && <Alert tone="danger" title={text.error.message} />}
       {text.data !== undefined && <MarkdownDocument text={text.data} />}
     </Dialog>

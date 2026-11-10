@@ -1163,15 +1163,21 @@ body,
   object-position: top left;
 }
 
+/* The figure fills the window's body, so the picture takes the room the caption leaves. At the
+   window's own size its height grows with the picture, hence the picture's own cap; maximized, the
+   window's height is fixed and the picture grows to fill it. */
 .attachment-viewer {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  height: 100%;
   margin: 0;
 }
 
 .attachment-viewer-image {
   display: block;
+  flex: 0 1 auto;
+  min-height: 0;
   max-width: 100%;
   max-height: 65vh;
   margin: 0 auto;
@@ -1181,7 +1187,13 @@ body,
   background: var(--surface-sunken);
 }
 
+.dialog-frame.maximized .attachment-viewer-image {
+  flex: 1 1 0;
+  max-height: none;
+}
+
 .attachment-viewer-caption {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

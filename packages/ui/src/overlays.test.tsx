@@ -70,6 +70,15 @@ const button = (scope: string, name: string): Element | undefined =>
 
 const barButtons = (): string[] => [...document.querySelectorAll(".dialog-bar button")].map(nameOf);
 
+const frame = (): Element | null => document.querySelector("[role=dialog]");
+
+/** A preview kept mounted while closed, as a window opened and closed again. */
+function Preview({ open }: { readonly open: boolean }): ReactNode {
+  return (
+    <Dialog open={open} size="extra-large" maximizable title="report.html" onClose={() => {}} />
+  );
+}
+
 describe.each([
   [
     "Dialog",
@@ -154,10 +163,52 @@ describe("Dialog's frame", () => {
     expect(document.querySelector(".dialog-body")?.textContent).toBe("Waits for your review");
   });
 
-  it.each(["small", "medium", "large"] as const)("takes its size: %s", (size) => {
+  it.each(["small", "medium", "large", "extra-large"] as const)("takes its size: %s", (size) => {
     show(<Dialog size={size} title="Drop" onClose={() => {}} />);
 
     expect(document.querySelector("[role=dialog]")?.className).toBe(`dialog-frame ${size}`);
+  });
+
+  it("offers no Maximize unless it is maximizable", () => {
+    show(<Dialog size="extra-large" title="report.html" onClose={() => {}} />);
+
+    expect(button(".dialog-head", "Maximize")).toBeUndefined();
+  });
+
+  it("maximizes, and Restore brings back its own size", () => {
+    show(<Dialog size="extra-large" maximizable title="report.html" onClose={() => {}} />);
+
+    pressOn(button(".dialog-head", "Maximize"));
+
+    expect(frame()?.className).toBe("dialog-frame extra-large maximized");
+    expect(backdrop()?.className).toBe("dialog-backdrop maximized");
+    expect(button(".dialog-head", "Maximize")).toBeUndefined();
+
+    pressOn(button(".dialog-head", "Restore"));
+
+    expect(frame()?.className).toBe("dialog-frame extra-large");
+    expect(backdrop()?.className).toBe("dialog-backdrop");
+    expect(button(".dialog-head", "Maximize")).toBeDefined();
+  });
+
+  it("opens again at its own size after it was closed maximized", () => {
+    show(<Preview open />);
+    pressOn(button(".dialog-head", "Maximize"));
+
+    show(<Preview open={false} />);
+    show(<Preview open />);
+
+    expect(document.querySelector("[role=dialog]")?.className).toBe("dialog-frame extra-large");
+  });
+
+  it("closes from its X while maximized", () => {
+    const onClose = vi.fn<() => void>();
+    show(<Dialog size="extra-large" maximizable title="report.html" onClose={onClose} />);
+    pressOn(button(".dialog-head", "Maximize"));
+
+    pressOn(button(".dialog-head", "Close (Esc)"));
+
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("keeps one height when large and asked to", () => {
