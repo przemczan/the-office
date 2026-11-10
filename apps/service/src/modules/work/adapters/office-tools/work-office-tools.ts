@@ -15,7 +15,7 @@ import {
   type StoredFileAttachment,
 } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
-import { whereOf } from "../../domain/record-words.js";
+import { whereOf } from "../../domain/linked-records.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";

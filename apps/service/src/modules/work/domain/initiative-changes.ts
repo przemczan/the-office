@@ -263,11 +263,6 @@ export function tasksByInitiative(board: readonly Task[]): ReadonlyMap<string, r
   return byInitiative;
 }
 
-/** The Projects an Initiative spans: its Tasks', each once, in the order its Tasks come. */
-export function initiativeProjectIds(tasks: readonly Pick<Task, "projectId">[]): string[] {
-  return [...new Set(tasks.map(({ projectId }) => projectId))];
-}
-
 /** `endedAt` is the moment of a move to Done or Dropped, from which its Archive period counts. */
 function moveTo(
   initiative: Initiative,

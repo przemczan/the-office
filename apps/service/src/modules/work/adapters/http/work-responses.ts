@@ -17,13 +17,12 @@ import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
-import type { Initiative } from "../../domain/initiative.js";
+import { initiativeProjectIds, type Initiative } from "../../domain/initiative.js";
 import {
   ARCHIVE_PAGE_SIZE,
   type ArchivePage,
   type ArchiveSearch,
 } from "../../domain/initiative-archive.js";
-import { initiativeProjectIds } from "../../domain/initiative-changes.js";
 import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";

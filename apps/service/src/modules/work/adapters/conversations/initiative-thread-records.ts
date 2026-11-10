@@ -8,8 +8,7 @@ import {
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
-import type { Initiative } from "../../domain/initiative.js";
-import { initiativeProjectIds } from "../../domain/initiative-changes.js";
+import { initiativeProjectIds, type Initiative } from "../../domain/initiative.js";
 import {
   INITIATIVE_PLANNING_INSTRUCTIONS,
   initiativePlanningBrief,

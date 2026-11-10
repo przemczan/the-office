@@ -9,10 +9,10 @@ import {
   confirmInitiative,
   dropInitiative,
   finishInitiative,
-  initiativeProjectIds,
   removeDependencyOfItsTask,
   writeOutcome,
 } from "./initiative-changes.js";
+import { initiativeProjectIds } from "./initiative.js";
 import { InitiativeOutcomeWritten, InitiativeStateChanged } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";

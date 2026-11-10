@@ -38,3 +38,8 @@ export interface Initiative {
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   readonly planningAutoMode: boolean;
 }
+
+/** The Projects an Initiative spans: its Tasks', each once, in the order its Tasks come. */
+export function initiativeProjectIds(tasks: readonly { readonly projectId: string }[]): string[] {
+  return [...new Set(tasks.map(({ projectId }) => projectId))];
+}

@@ -759,7 +759,7 @@ describe("linked records", () => {
     const ideaRecord = await call(READ_IDEA, { ideaId: idea.id });
 
     expect(taskRecord.text).toContain(
-      `- Shaped from: Voice notes (Idea ${idea.id}), shaped; read_idea reads it`,
+      `- Shaped from: Voice notes (Idea ${idea.id}), in the Project ${projectId}, shaped; read_idea reads it`,
     );
     expect(ideaRecord.text).toContain(
       `- Shaped into: Voice notes (Task ${task.id}), Backlog; read_task reads it`,
@@ -788,7 +788,7 @@ describe("linked records", () => {
     expect(taskRecord.text).toContain(`- Part of: ${initiativeLine}`);
     expect(ideaRecord.text).toContain(`- Shaped into: ${initiativeLine}`);
     expect(initiativeRecord.text).toContain(
-      `- Shaped from: Usage exports (Idea ${idea.id}), shaped; read_idea reads it`,
+      `- Shaped from: Usage exports (Idea ${idea.id}), in the Project ${projectId}, shaped; read_idea reads it`,
     );
   });
 });

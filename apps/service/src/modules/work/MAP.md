@@ -246,7 +246,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `idea-refused.ts`: IdeaRefused
 - `idea.ts`: IdeaState, Idea, NewIdea, trimmedNewIdea, newIdeaProblems
 - `initiative-archive.ts`: ARCHIVE_PAGE_SIZE, ArchiveStateFilter, ArchiveSearch, ArchivedInitiative, ArchivePage, isInitiativeArchived, isEndedOnTheBoard, archiveInitiative, restoreInitiative, initiativeArchivePeriodStart, archiveInitiativeIfDue
-- `initiative-changes.ts`: InitiativeChange, InitiativeTasksChange, confirmInitiative, dropInitiative, finishInitiative, addTaskToInitiative, InitiativeChangeRoute, writeOutcome, addCtoTask, requireCtoTaskAllowed, addDependencyOfItsTask, removeDependencyOfItsTask, changeTitleOfItsTask, changeDescriptionOfItsTask, tasksByInitiative, initiativeProjectIds
+- `initiative-changes.ts`: InitiativeChange, InitiativeTasksChange, confirmInitiative, dropInitiative, finishInitiative, addTaskToInitiative, InitiativeChangeRoute, writeOutcome, addCtoTask, requireCtoTaskAllowed, addDependencyOfItsTask, removeDependencyOfItsTask, changeTitleOfItsTask, changeDescriptionOfItsTask, tasksByInitiative
 - `initiative-edit.ts`: InitiativeEdit, newTaskOf, sameTitleWords, sameDescriptionWords, initiativeEditProblems
 - `initiative-events.ts`: InitiativeCreated, InitiativeStateChanged, InitiativeArchived, InitiativeRestored, InitiativeOutcomeWritten, InitiativePlanningStarted
 - `initiative-not-found.ts`: InitiativeNotFound
@@ -254,8 +254,8 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `initiative-planning.ts`: INITIATIVE_PLANNING_THREAD_TITLE, INITIATIVE_PLANNING_OPENING, INITIATIVE_PLANNING_INSTRUCTIONS, initiativePlanningProblems, startInitiativePlanning, startPlanningInInitiative, unplannedBlockers, InitiativePlanningProject, InitiativePlanningRecord, initiativePlanningBrief
 - `initiative-refused.ts`: InitiativeRefused
 - `initiative-section.ts`: LONG_PLAN_CHARACTERS, initiativeSection
-- `initiative.ts`: INITIATIVE_STATES, InitiativeState, Initiative
-- `linked-records.ts`: TaskLinks, linkedRecordsSection, linkedRecordLines, linkedTaskWords, linkedIdeaWords, linkedInitiativeWords
+- `initiative.ts`: INITIATIVE_STATES, InitiativeState, Initiative, initiativeProjectIds
+- `linked-records.ts`: TaskLinks, linkedRecordsSection, linkedRecordLines, linkedTaskWords, linkedIdeaWords, whereOf, linkedInitiativeWords
 - `manual-order.ts`: boardOrder, orderAfter, Neighbours, placementBetween, compareOrders
 - `office-limit-events.ts`: OfficeWideLimitChanged, ArchivePeriodChanged, UsageSettingsChanged
 - `onboarding.ts`: ONBOARD_PIPELINE, ONBOARD_TASK_TITLE, onboardTaskPlan, ONBOARD_TASK_DEFINITION_OF_DONE, createOnboardTask, OnboardingState, ProjectOnboarding, projectOnboardingOf
@@ -265,7 +265,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `project-filter.ts`: ProjectFilter, isInProjectFilter
 - `queue-events.ts`: TaskQueued, LeavingQueue, TaskLeftQueue, TaskQueueReasonsChanged, TaskMovedUpInQueue
 - `queue.ts`: QueuedTask, OverlapChoice, Starting, startOrQueue, queueOrder, Release, releaseQueue, moveUpInQueue, moveToTopOfQueue
-- `record-words.ts`: HandoverNote, AllStageResults, TaskRecordParts, taskRecordText, InitiativeRecord, initiativeRecordText, outcomeWords, initiativeTaskLine, ShapedInto, ideaRecordText, whereOf
+- `record-words.ts`: HandoverNote, AllStageResults, TaskRecordParts, taskRecordText, InitiativeRecord, initiativeRecordText, outcomeWords, initiativeTaskLine, ShapedInto, ideaRecordText
 - `run-environment-set-up.ts`: SET_UP_RUN_ENVIRONMENT_PIPELINE, RUN_ENVIRONMENT_SET_UP_TITLE, runEnvironmentSetUpPlan, RUN_ENVIRONMENT_SET_UP_DEFINITION_OF_DONE, createRunEnvironmentSetUpTask, isOpenRunEnvironmentSetUp
 - `saved-view-events.ts`: SavedViewSaved, SavedViewRemoved
 - `saved-view-not-found.ts`: SavedViewNotFound

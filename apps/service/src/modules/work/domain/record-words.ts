@@ -1,14 +1,14 @@
 import { attachmentLines, type Attachment } from "./attachment.js";
 import { authorWords } from "./author.js";
 import type { Idea } from "./idea.js";
-import type { Initiative } from "./initiative.js";
-import { initiativeProjectIds } from "./initiative-changes.js";
+import { initiativeProjectIds, type Initiative } from "./initiative.js";
 import {
   linkedIdeaWords,
   linkedInitiativeWords,
   linkedRecordLines,
   linkedTaskWords,
   type TaskLinks,
+  whereOf,
 } from "./linked-records.js";
 import { stateChangeLines, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
@@ -217,9 +217,4 @@ function shapedIntoWords(shapedInto: ShapedInto): string {
   return shapedInto.kind === "task"
     ? linkedTaskWords(shapedInto.task)
     : linkedInitiativeWords(shapedInto.initiative);
-}
-
-/** In a Project or Office-wide, as an Agent reads an Idea's place. */
-export function whereOf(projectId: string | undefined): string {
-  return projectId === undefined ? "Office-wide" : `in the Project ${projectId}`;
 }

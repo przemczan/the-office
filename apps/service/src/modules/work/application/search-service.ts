@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import type { Attachment, AttachmentOwner } from "../domain/attachment.js";
 import type { Idea } from "../domain/idea.js";
-import type { Initiative } from "../domain/initiative.js";
-import { initiativeProjectIds, tasksByInitiative } from "../domain/initiative-changes.js";
+import { initiativeProjectIds, type Initiative } from "../domain/initiative.js";
+import { tasksByInitiative } from "../domain/initiative-changes.js";
 import { boardOrder } from "../domain/manual-order.js";
 import { isInProjectFilter, type ProjectFilter } from "../domain/project-filter.js";
 import { SEARCH_RESULT_LIMIT, searchWords } from "../domain/search.js";

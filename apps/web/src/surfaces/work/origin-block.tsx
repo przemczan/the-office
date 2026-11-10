@@ -4,13 +4,15 @@ import type { ProjectMove } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { ideaQueries, initiativeQueries } from "../../api/work.ts";
+import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold, type FoldedRecord } from "./record-folds.ts";
 
 /**
- * Where a record came from: the Idea it was shaped from, linked to it on the Ideas page, and for a
- * Task the Initiative it is part of, by its name now, and the Projects it moved from.
+ * Where a record came from: the Idea it was shaped from, linked to it on the Ideas page with the
+ * Project it was captured in, and for a Task the Initiative it is part of, by its name now, and the
+ * Projects it moved from.
  */
 export function OriginBlock({
   record,
@@ -29,7 +31,10 @@ export function OriginBlock({
     ...initiativeQueries.one(initiativeId ?? ""),
     enabled: initiativeId !== null,
   }).data;
-  const projects = useQuery({ ...projectQueries.list(), enabled: projectMoves.length > 0 }).data;
+  const projects = useQuery({
+    ...projectQueries.list(),
+    enabled: ideaId !== null || projectMoves.length > 0,
+  }).data;
   if (!idea && !initiative && projectMoves.length === 0) return null;
   const nameOf = (projectId: string) =>
     projects?.find(({ id }) => id === projectId)?.name ?? projectId;
@@ -47,6 +52,7 @@ export function OriginBlock({
             <Link to="/work/ideas" search={{ idea: idea.id }}>
               {idea.title}
             </Link>{" "}
+            <ProjectChip projectId={idea.projectId} projects={projects} />{" "}
             <span className="task-quiet">· captured {dayAndClockOf(idea.capturedAt)}</span>
           </p>
           {idea.notes !== "" && <p className="task-quiet">{idea.notes}</p>}
