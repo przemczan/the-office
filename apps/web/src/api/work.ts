@@ -521,7 +521,10 @@ export function removeAttachment(id: string): Promise<void> {
   return deleteFromApi(`/attachments/${encodeURIComponent(id)}`);
 }
 
-/** Where a file Attachment opens: images, Markdown and HTML show, any other file downloads. */
+/**
+ * Where a file Attachment's content is: images, Markdown and HTML show inline, any other file
+ * downloads; a `download` link saves any of them (`AttachmentDownloadLink`).
+ */
 export function attachmentContentUrl(id: string): string {
   return `/api/attachments/${encodeURIComponent(id)}/content`;
 }

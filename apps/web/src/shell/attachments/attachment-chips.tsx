@@ -4,6 +4,7 @@ import { Alert, Dialog, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { attachmentContentUrl, attachmentQueries } from "../../api/work.ts";
 import { MarkdownDocument } from "../markdown-text.tsx";
+import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
 import { HtmlPreviewDialog } from "./html-preview-dialog.tsx";
 
 const KIND_ICONS: Readonly<Record<Attachment["kind"], string>> = {
@@ -67,12 +68,15 @@ function AttachmentOpener({
       </button>
     );
   }
+  if (attachment.kind === "file") {
+    return (
+      <AttachmentDownloadLink className="attachment-open" file={attachment}>
+        {label}
+      </AttachmentDownloadLink>
+    );
+  }
   const href = attachment.kind === "link" ? attachment.url : attachmentContentUrl(attachment.id);
-  return attachment.kind === "file" ? (
-    <a className="attachment-open" href={href} download={attachment.name}>
-      {label}
-    </a>
-  ) : (
+  return (
     <a className="attachment-open" href={href} target="_blank" rel="noopener noreferrer">
       {label}
     </a>
@@ -93,7 +97,7 @@ function OpenedHere({
   );
 }
 
-/** A document's Markdown, rendered as a whole file. */
+/** A document's Markdown, rendered as a whole file, with Download for the file itself. */
 export function DocumentDialog({
   document,
   onClose,
@@ -103,7 +107,13 @@ export function DocumentDialog({
 }): ReactNode {
   const text = useQuery(attachmentQueries.document(document.id));
   return (
-    <Dialog size="extra-large" maximizable title={document.name} onClose={onClose}>
+    <Dialog
+      size="extra-large"
+      maximizable
+      title={document.name}
+      onClose={onClose}
+      actions={<AttachmentDownloadLink className="link-button" file={document} />}
+    >
       {text.error && <Alert tone="danger" title={text.error.message} />}
       {text.data !== undefined && <MarkdownDocument text={text.data} />}
     </Dialog>

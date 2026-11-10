@@ -1714,14 +1714,22 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   const plan = page.getByRole("dialog").filter({ hasText: "plan.md" });
   await expect(plan.getByRole("heading", { name: "Plan", exact: true })).toBeVisible();
   await expect(plan).toContainText("Keep the path.");
+  const [planDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    plan.getByRole("link", { name: "Download" }).click(),
+  ]);
+  expect(planDownload.suggestedFilename()).toBe("plan.md");
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await attachments.getByRole("button", { name: "View screen.png" }).click();
-  const original = page
-    .getByRole("dialog")
-    .filter({ hasText: "screen.png" })
-    .getByRole("link", { name: "Open the original" });
+  const viewer = page.getByRole("dialog").filter({ hasText: "screen.png" });
+  const original = viewer.getByRole("link", { name: "Open the original" });
   const image = await page.request.get((await original.getAttribute("href")) ?? "");
   expect(image.headers()["content-type"]).toBe("image/png");
+  const [imageDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    viewer.getByRole("link", { name: "Download" }).click(),
+  ]);
+  expect(imageDownload.suggestedFilename()).toBe("screen.png");
   await page.keyboard.press("Escape");
   const download = page.waitForEvent("download");
   await attachments.getByRole("link", { name: "export.zip" }).click();

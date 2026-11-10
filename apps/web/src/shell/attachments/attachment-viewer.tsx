@@ -6,6 +6,7 @@ import { roleQueries } from "../../api/people.ts";
 import { attachmentContentUrl } from "../../api/work.ts";
 import { dayAndClockOf } from "../time.ts";
 import { authorName } from "../work/work-words.ts";
+import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
 
 /** An image the viewer steps to, with the round it came in when there are several. */
 export interface ViewedImage {
@@ -81,10 +82,13 @@ export function AttachmentViewer({
             {roundName !== undefined && ` · ${roundName}`} · Added by{" "}
             {authorName(image.addedBy, roles)}, {dayAndClockOf(image.addedAt)}
           </span>
-          <a href={original} target="_blank" rel="noopener noreferrer">
-            <Icon name="external-link" size={14} />
-            Open the original
-          </a>
+          <span className="attachment-viewer-links">
+            <a href={original} target="_blank" rel="noopener noreferrer">
+              <Icon name="external-link" size={14} />
+              Open the original
+            </a>
+            <AttachmentDownloadLink file={image} />
+          </span>
         </figcaption>
       </figure>
     </Dialog>

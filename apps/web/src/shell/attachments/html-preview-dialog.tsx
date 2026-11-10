@@ -2,6 +2,7 @@ import type { Attachment } from "@the-office/contracts";
 import { Dialog, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { attachmentContentUrl } from "../../api/work.ts";
+import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
 
 /**
  * An HTML file, live in a frame. The service's Content-Security-Policy keeps it sandboxed wherever
@@ -28,10 +29,7 @@ export function HtmlPreviewDialog({
             <Icon name="external-link" size={14} />
             Open the original
           </a>
-          <a className="link-button" href={original} download={file.name}>
-            <Icon name="download" size={14} />
-            Download
-          </a>
+          <AttachmentDownloadLink className="link-button" file={file} />
         </>
       }
     >

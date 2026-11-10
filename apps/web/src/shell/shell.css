@@ -1125,7 +1125,13 @@ body,
   color: var(--fg-2);
 }
 
-.attachment-viewer-caption > a {
+.attachment-viewer-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.attachment-viewer-links > a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
