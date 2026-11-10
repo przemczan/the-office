@@ -71,7 +71,7 @@ describe("taskRecordText", () => {
       "- Waits for: Add the session store (Task task-2), Done; read_task reads it",
       "- Waits for: Old approach (Task task-3), Dropped, so it no longer blocks, archived; read_task reads it",
       "- Waiting for it: Remember me (Task task-4), Backlog; read_task reads it",
-      "- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it",
+      "- Shaped from: Export usage as CSV (Idea idea-1), in the Project admin-panel, shaped; read_idea reads it",
       "- Part of: Usage exports (Initiative initiative-1), dropped; read_initiative reads it",
     ]);
   });
@@ -141,7 +141,7 @@ describe("ideaRecordText", () => {
 });
 
 describe("initiativeRecordText", () => {
-  it("names the Idea it was shaped from by title and state", () => {
+  it("names the Idea it was shaped from by title, its Project and state", () => {
     const idea = anIdea({ state: "shaped", initiativeId: "initiative-1" });
 
     expect(
@@ -152,7 +152,25 @@ describe("initiativeRecordText", () => {
         blockers: new Map(),
         attachments: [],
       }),
-    ).toContain("- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it");
+    ).toContain(
+      "- Shaped from: Export usage as CSV (Idea idea-1), in the Project admin-panel, shaped; read_idea reads it",
+    );
+  });
+
+  it("says the Idea it was shaped from is Office-wide when it has no Project", () => {
+    const idea = anIdea({ state: "shaped", initiativeId: "initiative-1", projectId: undefined });
+
+    expect(
+      initiativeRecordText({
+        initiative: anInitiative(),
+        idea,
+        tasks: [],
+        blockers: new Map(),
+        attachments: [],
+      }),
+    ).toContain(
+      "- Shaped from: Export usage as CSV (Idea idea-1), Office-wide, shaped; read_idea reads it",
+    );
   });
 
   it("says when it ended and that it is archived, its state as it was", () => {

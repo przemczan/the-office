@@ -8,6 +8,7 @@ import {
   linkedRecordLines,
   linkedTaskWords,
   type TaskLinks,
+  whereOf,
 } from "./linked-records.js";
 import { stateChangeLines, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
@@ -216,9 +217,4 @@ function shapedIntoWords(shapedInto: ShapedInto): string {
   return shapedInto.kind === "task"
     ? linkedTaskWords(shapedInto.task)
     : linkedInitiativeWords(shapedInto.initiative);
-}
-
-/** In a Project or Office-wide, as an Agent reads an Idea's place. */
-export function whereOf(projectId: string | undefined): string {
-  return projectId === undefined ? "Office-wide" : `in the Project ${projectId}`;
 }

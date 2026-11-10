@@ -258,7 +258,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `initiative-section.ts`: LONG_PLAN_CHARACTERS, initiativeSection
 - `initiative-start.ts`: readyTasksToStart
 - `initiative.ts`: INITIATIVE_STATES, InitiativeState, Initiative, initiativeProjectIds
-- `linked-records.ts`: TaskLinks, linkedRecordsSection, linkedRecordLines, linkedTaskWords, linkedIdeaWords, linkedInitiativeWords
+- `linked-records.ts`: TaskLinks, linkedRecordsSection, linkedRecordLines, linkedTaskWords, linkedIdeaWords, whereOf, linkedInitiativeWords
 - `manual-order.ts`: boardOrder, orderAfter, Neighbours, placementBetween, compareOrders
 - `office-limit-events.ts`: OfficeWideLimitChanged, ArchivePeriodChanged, UsageSettingsChanged
 - `onboarding.ts`: ONBOARD_PIPELINE, ONBOARD_TASK_TITLE, onboardTaskPlan, ONBOARD_TASK_DEFINITION_OF_DONE, createOnboardTask, OnboardingState, ProjectOnboarding, projectOnboardingOf
@@ -268,7 +268,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `project-filter.ts`: ProjectFilter, isInProjectFilter
 - `queue-events.ts`: TaskQueued, LeavingQueue, TaskLeftQueue, TaskQueueReasonsChanged, TaskMovedUpInQueue
 - `queue.ts`: QueuedTask, OverlapChoice, Starting, startOrQueue, queueOrder, Release, releaseQueue, moveUpInQueue, moveToTopOfQueue
-- `record-words.ts`: HandoverNote, AllStageResults, TaskRecordParts, taskRecordText, InitiativeRecord, initiativeRecordText, outcomeWords, initiativeTaskLine, ShapedInto, ideaRecordText, whereOf
+- `record-words.ts`: HandoverNote, AllStageResults, TaskRecordParts, taskRecordText, InitiativeRecord, initiativeRecordText, outcomeWords, initiativeTaskLine, ShapedInto, ideaRecordText
 - `run-environment-set-up.ts`: SET_UP_RUN_ENVIRONMENT_PIPELINE, RUN_ENVIRONMENT_SET_UP_TITLE, runEnvironmentSetUpPlan, RUN_ENVIRONMENT_SET_UP_DEFINITION_OF_DONE, createRunEnvironmentSetUpTask, isOpenRunEnvironmentSetUp
 - `saved-view-events.ts`: SavedViewSaved, SavedViewRemoved
 - `saved-view-not-found.ts`: SavedViewNotFound

@@ -80,7 +80,7 @@ describe("a shaping Thread's session", () => {
       record: [
         `Usage exports (Initiative ${initiative.id})`,
         `- shaping; spans the Project ${api}, the Project ${web}`,
-        `- Shaped from: Usage exports (Idea ${idea.id}), shaped; read_idea reads it`,
+        `- Shaped from: Usage exports (Idea ${idea.id}), Office-wide, shaped; read_idea reads it`,
         `- Created by the user on ${initiative.createdAt}`,
         "",
         "Outcome:",

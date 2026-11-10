@@ -49,9 +49,14 @@ function blockerWords(task: Task): string {
   return linkedTaskWords(task, task.state === "dropped" ? ", so it no longer blocks" : "");
 }
 
-/** A linked Idea in a few words. */
+/** A linked Idea in a few words, with where it is. */
 export function linkedIdeaWords(idea: Idea): string {
-  return `${idea.title} (Idea ${idea.id}), ${idea.state}; read_idea reads it`;
+  return `${idea.title} (Idea ${idea.id}), ${whereOf(idea.projectId)}, ${idea.state}; read_idea reads it`;
+}
+
+/** In a Project or Office-wide, as an Agent reads an Idea's place. */
+export function whereOf(projectId: string | undefined): string {
+  return projectId === undefined ? "Office-wide" : `in the Project ${projectId}`;
 }
 
 /** A linked Initiative in a few words. */
