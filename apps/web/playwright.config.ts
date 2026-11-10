@@ -40,7 +40,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // npm run test:e2e at the root builds the web app and the service first.
+    // Serves the built web app and service: npm run build first (npm run verify does).
     command: "node e2e/serve-office.ts",
     url: `http://127.0.0.1:${PORT}/api/health`,
     env: { OFFICE_PORT: String(PORT) },
