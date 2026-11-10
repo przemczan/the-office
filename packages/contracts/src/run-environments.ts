@@ -44,18 +44,77 @@ export type ProjectRunEnvironment = z.infer<typeof projectRunEnvironmentSchema>;
 export const cpuLimitChoiceSchema = z.enum(["automatic", "fixed"]);
 export type CpuLimitChoice = z.infer<typeof cpuLimitChoiceSchema>;
 
-/**
- * What Settings saves (PUT /settings/run-environment-cpu-limit). The service also refuses a fixed
- * number above this computer's cores.
- */
-export const cpuLimitChangeSchema = z.object({
-  cpuLimit: cpuLimitChoiceSchema,
-  fixedCpus: z.int().min(1),
-});
-export type CpuLimitChange = z.infer<typeof cpuLimitChangeSchema>;
+/** The bounds of a run environments' Office limit, which the Stepper offers and the service keeps. */
+export interface RunEnvironmentLimitBounds {
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+}
 
-/** The CPU limit and what Automatic gives on this computer (GET, and what PUT answers). */
-export const runEnvironmentCpuLimitSchema = cpuLimitChangeSchema.extend({
+/** Settings › Office limits: how many run environments may be running together. */
+export const RUN_ENVIRONMENTS_AT_ONCE: RunEnvironmentLimitBounds = { min: 1, max: 12, step: 1 };
+/** Settings › Office limits: the memory each service of a run environment may use, in MB. */
+export const MEMORY_PER_SERVICE_MEGABYTES: RunEnvironmentLimitBounds = {
+  min: 512,
+  max: 65_536,
+  step: 512,
+};
+/** Settings › Office limits: the processes each service of a run environment may run. */
+export const PROCESSES_PER_SERVICE: RunEnvironmentLimitBounds = {
+  min: 256,
+  max: 65_536,
+  step: 256,
+};
+
+/** Memory as Settings shows it: megabytes in GB, such as "4 GB" or "0.5 GB". */
+export function gigabytesOf(megabytes: number): string {
+  return `${megabytes / 1024} GB`;
+}
+
+const FIXED_CPUS_ERROR = "A fixed CPU limit is a whole number of at least 1.";
+
+/** A whole number inside its bounds and on its steps; anything else is refused with `error`. */
+function boundedLimitSchema(bounds: RunEnvironmentLimitBounds, error: string) {
+  return z
+    .int({ error })
+    .min(bounds.min, { error })
+    .max(bounds.max, { error })
+    .multipleOf(bounds.step, { error });
+}
+
+/**
+ * What Settings saves (PUT /settings/run-environments), the whole set at once. The service also
+ * refuses a fixed CPU number above this computer's cores.
+ */
+export const runEnvironmentOfficeLimitsChangeSchema = z.object({
+  runEnvironmentsAtOnce: boundedLimitSchema(
+    RUN_ENVIRONMENTS_AT_ONCE,
+    `Run environments at once is a whole number between ${RUN_ENVIRONMENTS_AT_ONCE.min} and ` +
+      `${RUN_ENVIRONMENTS_AT_ONCE.max}.`,
+  ),
+  cpuLimit: cpuLimitChoiceSchema,
+  fixedCpus: z.int({ error: FIXED_CPUS_ERROR }).min(1, { error: FIXED_CPUS_ERROR }),
+  memoryMegabytes: boundedLimitSchema(
+    MEMORY_PER_SERVICE_MEGABYTES,
+    `Memory per service is between ${gigabytesOf(MEMORY_PER_SERVICE_MEGABYTES.min)} and ` +
+      `${gigabytesOf(MEMORY_PER_SERVICE_MEGABYTES.max)}, in steps of ` +
+      `${gigabytesOf(MEMORY_PER_SERVICE_MEGABYTES.step)}.`,
+  ),
+  processes: boundedLimitSchema(
+    PROCESSES_PER_SERVICE,
+    `Processes per service is between ${PROCESSES_PER_SERVICE.min} and ` +
+      `${PROCESSES_PER_SERVICE.max}, in steps of ${PROCESSES_PER_SERVICE.step}.`,
+  ),
+});
+export type RunEnvironmentOfficeLimitsChange = z.infer<
+  typeof runEnvironmentOfficeLimitsChangeSchema
+>;
+
+/**
+ * The run environments' Office limits and what Automatic gives on this computer (GET, and what
+ * PUT answers).
+ */
+export const runEnvironmentOfficeLimitsSchema = runEnvironmentOfficeLimitsChangeSchema.extend({
   hostCores: z.int().min(1),
   automatic: z.object({
     /** The checks' service's CPUs. */
@@ -64,10 +123,10 @@ export const runEnvironmentCpuLimitSchema = cpuLimitChangeSchema.extend({
     otherServicesCpus: z.int().min(1),
   }),
 });
-export type RunEnvironmentCpuLimit = z.infer<typeof runEnvironmentCpuLimitSchema>;
+export type RunEnvironmentOfficeLimits = z.infer<typeof runEnvironmentOfficeLimitsSchema>;
 
-/** The CPU limit changed: Settings › Office limits reads it again. */
+/** The run environments' Office limits changed: Settings › Office limits reads them again. */
 export const runEnvironmentWebEventSchema = z.discriminatedUnion("type", [
-  webEventSchema.extend({ type: z.literal("run-environment-cpu-limit.changed") }),
+  webEventSchema.extend({ type: z.literal("run-environment-settings.changed") }),
 ]);
 export type RunEnvironmentWebEvent = z.infer<typeof runEnvironmentWebEventSchema>;

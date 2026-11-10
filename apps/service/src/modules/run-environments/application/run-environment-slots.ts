@@ -55,6 +55,14 @@ export class RunEnvironmentSlots {
   /** Frees the Task's slot, if it holds one, for the first one waiting. */
   async release(taskId: string): Promise<void> {
     if (!this.holders.delete(taskId)) return;
+    await this.admitWaiting();
+  }
+
+  /**
+   * Hands the free slots to the waiting, first come first served: after a release, or once
+   * Settings raised the limit. A lowered limit takes no slot away; new ones wait until fewer hold one.
+   */
+  async admitWaiting(): Promise<void> {
     const limit = await this.limit();
     while (this.holders.size < limit) {
       const next = this.waiting.shift();

@@ -348,7 +348,14 @@
   }
 }
 
-/* The Run environments card: Automatic or Fixed, and the fixed number beside it. */
+/* The Run environments card: its limits one under another. */
+.run-environment-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The CPU limit: Automatic or Fixed, and the fixed number beside it. */
 .cpu-limit-controls {
   display: flex;
   align-items: center;

@@ -1,34 +1,33 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
-  runEnvironmentCpuLimitSchema,
-  type CpuLimitChange,
-  type RunEnvironmentCpuLimit,
+  runEnvironmentOfficeLimitsSchema,
+  type RunEnvironmentOfficeLimits,
+  type RunEnvironmentOfficeLimitsChange,
   type RunEnvironmentWebEvent,
 } from "@the-office/contracts";
 import { getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
-const CPU_LIMIT = ["settings", "run-environment-cpu-limit"] as const;
+const OFFICE_LIMITS = ["settings", "run-environments"] as const;
 
-/** Settings › Office limits: the run environments' CPU limit, and what Automatic gives here. */
-export const cpuLimitQuery = () =>
+/**
+ * Settings › Office limits: the run environments' Office limits, and what Automatic gives here.
+ */
+export const runEnvironmentOfficeLimitsQuery = () =>
   queryOptions({
-    queryKey: CPU_LIMIT,
+    queryKey: OFFICE_LIMITS,
     queryFn: ({ signal }) =>
-      getFromApi("/settings/run-environment-cpu-limit", runEnvironmentCpuLimitSchema, signal),
+      getFromApi("/settings/run-environments", runEnvironmentOfficeLimitsSchema, signal),
   });
 
-export function changeCpuLimit(change: CpuLimitChange): Promise<RunEnvironmentCpuLimit> {
-  return sendToApi(
-    "PUT",
-    "/settings/run-environment-cpu-limit",
-    change,
-    runEnvironmentCpuLimitSchema,
-  );
+export function changeRunEnvironmentOfficeLimits(
+  change: RunEnvironmentOfficeLimitsChange,
+): Promise<RunEnvironmentOfficeLimits> {
+  return sendToApi("PUT", "/settings/run-environments", change, runEnvironmentOfficeLimitsSchema);
 }
 
 export const runEnvironmentEventInvalidations: Readonly<
   Record<RunEnvironmentWebEvent["type"], EventInvalidations[string]>
 > = {
-  "run-environment-cpu-limit.changed": () => [CPU_LIMIT],
+  "run-environment-settings.changed": () => [OFFICE_LIMITS],
 };

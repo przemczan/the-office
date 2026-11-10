@@ -259,8 +259,12 @@ A Project's containers, defined by its repository's `.devcontainer/` (devcontain
 _Avoid_: dev container, sandbox
 
 **CPU limit**:
-The CPUs each service of a run environment may use, set Office-wide in Settings › Office limits: Automatic (the default) follows this computer's cores, the checks' service getting all but 2 and every other service 2; Fixed gives every service one number. A change applies from each run environment's next start.
+The CPUs each service of a run environment may use, set Office-wide in Settings › Office limits: Automatic (the default) follows this computer's cores, the checks' service getting all but 2 and every other service 2; Fixed gives every service one number. A change applies from each run environment's next start. Beside it in the same card, Settings edits Memory per service and Processes per service, which apply the same way.
 _Avoid_: CPU cap, CPU quota, cpus
+
+**Run environments at once**:
+How many run environments may be running together across The Office, 2 by default, set in Settings › Office limits' Run environments card. A Stage past it shows "Waiting for a run environment" until one stops; raising it lets a waiting Stage start at once, lowering it stops none.
+_Avoid_: run environment slots, concurrency limit
 
 **Stage**:
 One step of a Pipeline: work by an Agent in a Role, a Project command run without an Agent, or a Gate.

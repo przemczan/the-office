@@ -67,6 +67,47 @@ test("Office limits keeps the desks, the size threshold and the Archive period a
   await expect(archivePeriod).toHaveText("30 days");
 });
 
+// The e2e files share one database: each limit is raised and put back, never lowered below its
+// default, so no other file's checks wait for a run environment meanwhile.
+test("Office limits keeps the run environments' limits across reloads", async ({ page }) => {
+  await page.goto("/settings/office-limits");
+  const card = page.locator("section:not(:has(section))", {
+    hasText: "CPUs per run environment",
+  });
+  const atOnce = card.getByRole("status", { name: "run environments at once" });
+  const memory = card.getByRole("status", { name: "the memory per service" });
+  const processes = card.getByRole("status", { name: "the processes per service" });
+  // Running Tasks at once is 3 by default, above the 2 run environments at once.
+  const fewerNote = card.getByText(
+    "Running Tasks past 2 wait on their checks: they show “Waiting for a run environment” until one stops.",
+  );
+  await expect(atOnce).toHaveText("2");
+  await expect(memory).toHaveText("4 GB");
+  await expect(processes).toHaveText("1024");
+  await expect(fewerNote).toBeVisible();
+
+  await card.getByRole("button", { name: "Raise run environments at once" }).click();
+  await card.getByRole("button", { name: "Raise the memory per service" }).click();
+  await card.getByRole("button", { name: "Raise the processes per service" }).click();
+  await expect(atOnce).toHaveText("3");
+  await expect(memory).toHaveText("4.5 GB");
+  await expect(processes).toHaveText("1280");
+  await expect(card.getByText(/^Running Tasks past/)).toBeHidden();
+
+  await page.reload();
+  await expect(atOnce).toHaveText("3");
+  await expect(memory).toHaveText("4.5 GB");
+  await expect(processes).toHaveText("1280");
+
+  await card.getByRole("button", { name: "Lower run environments at once" }).click();
+  await card.getByRole("button", { name: "Lower the memory per service" }).click();
+  await card.getByRole("button", { name: "Lower the processes per service" }).click();
+  await expect(atOnce).toHaveText("2");
+  await expect(memory).toHaveText("4 GB");
+  await expect(processes).toHaveText("1024");
+  await expect(fewerNote).toBeVisible();
+});
+
 // The e2e files share one database: the CPU limit goes back to Automatic at the end. The cores are
 // the e2e machine's, so the numbers are matched by their shape.
 test("Office limits keeps the run environments' CPU limit across reloads", async ({ page }) => {

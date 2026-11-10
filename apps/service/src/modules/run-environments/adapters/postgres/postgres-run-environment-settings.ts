@@ -2,7 +2,6 @@ import { Inject, Injectable } from "@nestjs/common";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   DEFAULT_RUN_ENVIRONMENT_OPTIONS,
-  type CpuLimit,
   type RunEnvironmentOptions,
 } from "../../domain/run-environment.js";
 import { RunEnvironmentSettings } from "../../ports/run-environment-settings.js";
@@ -39,19 +38,5 @@ export class PostgresRunEnvironmentSettings extends RunEnvironmentSettings {
       .insert(runEnvironmentSettings)
       .values(values)
       .onConflictDoUpdate({ target: runEnvironmentSettings.id, set: values });
-  }
-
-  async changeCpuLimit({ choice, fixedCpus }: CpuLimit): Promise<void> {
-    const { limits, runEnvironmentsAtOnce } = DEFAULT_RUN_ENVIRONMENT_OPTIONS;
-    const cpuLimit = { cpuLimit: choice, cpus: fixedCpus };
-    await this.database
-      .insert(runEnvironmentSettings)
-      .values({
-        ...cpuLimit,
-        memoryMegabytes: limits.memoryMegabytes,
-        processes: limits.processes,
-        runEnvironmentsAtOnce,
-      })
-      .onConflictDoUpdate({ target: runEnvironmentSettings.id, set: cpuLimit });
   }
 }

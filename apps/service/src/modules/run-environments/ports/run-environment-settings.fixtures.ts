@@ -1,6 +1,5 @@
 import {
   DEFAULT_RUN_ENVIRONMENT_OPTIONS,
-  type CpuLimit,
   type RunEnvironmentOptions,
 } from "../domain/run-environment.js";
 import { RunEnvironmentSettings } from "./run-environment-settings.js";
@@ -17,11 +16,6 @@ export class RunEnvironmentSettingsForTests extends RunEnvironmentSettings {
 
   change(options: RunEnvironmentOptions): Promise<void> {
     this.options = options;
-    return Promise.resolve();
-  }
-
-  changeCpuLimit(cpuLimit: CpuLimit): Promise<void> {
-    this.options = { ...this.options, limits: { ...this.options.limits, cpuLimit } };
     return Promise.resolve();
   }
 }

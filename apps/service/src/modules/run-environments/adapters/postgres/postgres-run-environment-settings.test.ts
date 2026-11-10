@@ -33,12 +33,6 @@ describe("PostgresRunEnvironmentSettings", () => {
     expect(await settings.read()).toEqual(DEFAULT_RUN_ENVIRONMENT_OPTIONS);
   });
 
-  it("saves the CPU limit alone", async () => {
-    await settings.changeCpuLimit(DEFAULT_RUN_ENVIRONMENT_OPTIONS.limits.cpuLimit);
-
-    expect(await settings.read()).toEqual(DEFAULT_RUN_ENVIRONMENT_OPTIONS);
-  });
-
   it("reads Automatic from the column's default, as on a fresh database", async () => {
     const { limits, runEnvironmentsAtOnce } = DEFAULT_RUN_ENVIRONMENT_OPTIONS;
     const values = {
