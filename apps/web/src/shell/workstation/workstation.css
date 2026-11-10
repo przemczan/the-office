@@ -1,0 +1,266 @@
+/* The Workstation figure and its panel (workstation-figure.tsx, workstation-panel.tsx). */
+.shell-strip-workstation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The strip's % says busy or high by its colour too; calm, it stays as the strip's other figures. */
+.shell-strip-workstation b[data-level="busy"] {
+  color: var(--warning-fg);
+}
+
+.shell-strip-workstation b[data-level="high"] {
+  color: var(--danger-fg);
+}
+
+/* Each part with a `data-level` draws in its level's colour: `--level` for a meter, `--level-subtle`
+   under a chart, `--level-fg` for text. Without one (before the first measure) it stays grey. */
+.shell-workstation-panel {
+  --level: var(--fg-3);
+  --level-subtle: var(--surface-sunken);
+  --level-fg: var(--fg-1);
+
+  display: grid;
+  gap: 10px;
+  width: 400px;
+  max-width: calc(100vw - 16px);
+  padding: 10px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.shell-workstation-panel [data-level="calm"] {
+  --level: var(--success);
+  --level-subtle: var(--success-subtle);
+  --level-fg: var(--success-fg);
+}
+
+.shell-workstation-panel [data-level="busy"] {
+  --level: var(--warning);
+  --level-subtle: var(--warning-subtle);
+  --level-fg: var(--warning-fg);
+}
+
+.shell-workstation-panel [data-level="high"] {
+  --level: var(--danger);
+  --level-subtle: var(--danger-subtle);
+  --level-fg: var(--danger-fg);
+}
+
+.shell-workstation-panel b {
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-workstation-panel .floating-menu-heading {
+  padding: 0;
+}
+
+/* ---- head: the model and the Live mark */
+.shell-workstation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.shell-workstation-model {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-1);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-workstation-live {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.shell-workstation-live .live-dot,
+.shell-workstation-live .live-dot::after {
+  background: var(--success);
+}
+
+/* ---- CPU and Memory tiles */
+.shell-workstation-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shell-workstation-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.shell-workstation-panel .shell-workstation-figure {
+  font: var(--type-metric-sm);
+  color: var(--level-fg);
+}
+
+.shell-workstation-tile-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  min-width: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bleeds to the tile's edges, so the chart sits on its foot. */
+.shell-workstation-sparkline {
+  display: block;
+  flex: none;
+  width: calc(100% + 24px);
+  height: 36px;
+  margin: auto -12px -10px;
+}
+
+.shell-workstation-sparkline polygon {
+  fill: var(--level-subtle);
+}
+
+.shell-workstation-sparkline polyline {
+  fill: none;
+  stroke: var(--level);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+/* ---- Use per core */
+.shell-workstation-block {
+  display: grid;
+  gap: 6px;
+}
+
+/* `--columns` is the cores up to 32 a row, so a few fill the width and many wrap into rows. */
+.shell-workstation-cores {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell-workstation-cores li {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: 28px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+}
+
+.shell-workstation-cores i {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  background: var(--level);
+  transition: height var(--duration-base) var(--ease-out);
+}
+
+/* ---- where the memory goes */
+.shell-workstation-split {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+}
+
+.shell-workstation-split i {
+  display: block;
+  height: 100%;
+  transition: width var(--duration-base) var(--ease-out);
+}
+
+.shell-workstation-split .office,
+.shell-workstation-legend .office::before {
+  background: var(--info);
+}
+
+.shell-workstation-split .other,
+.shell-workstation-legend .other::before {
+  background: var(--level);
+}
+
+.shell-workstation-legend .available::before {
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.shell-workstation-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.shell-workstation-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.shell-workstation-legend li::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-xs);
+}
+
+/* ---- foot: load average and uptime */
+.shell-workstation-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.shell-workstation-foot > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.shell-workstation-foot dt {
+  color: var(--fg-3);
+}
+
+.shell-workstation-foot dd {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-workstation-cores i,
+  .shell-workstation-split i {
+    transition: none;
+  }
+}

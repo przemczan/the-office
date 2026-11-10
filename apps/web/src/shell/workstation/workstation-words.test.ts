@@ -4,6 +4,7 @@ import {
   coresWords,
   cpuUseWords,
   loadAverageWords,
+  loadLevel,
   percentWords,
   shareOf,
   speedWords,
@@ -51,5 +52,14 @@ describe("workstation words", () => {
   it("gives a share of a total for a meter, 0 without a total", () => {
     expect(shareOf(4, 16)).toBe(25);
     expect(shareOf(4, 0)).toBe(0);
+  });
+
+  it("is calm below 60%, busy from 60% and high from 85%", () => {
+    expect(loadLevel(0)).toBe("calm");
+    expect(loadLevel(59.9)).toBe("calm");
+    expect(loadLevel(60)).toBe("busy");
+    expect(loadLevel(84.9)).toBe("busy");
+    expect(loadLevel(85)).toBe("high");
+    expect(loadLevel(100)).toBe("high");
   });
 });

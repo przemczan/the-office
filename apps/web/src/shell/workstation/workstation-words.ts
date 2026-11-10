@@ -50,6 +50,19 @@ export function uptimeWords(uptimeSeconds: number): string {
   return `${minutes}m`;
 }
 
+/** How loaded a CPU, core or memory is, which colours its meter: calm, busy from 60%, high from 85%. */
+export type LoadLevel = "calm" | "busy" | "high";
+
+const BUSY_FROM_PERCENT = 60;
+const HIGH_FROM_PERCENT = 85;
+
+/** The level of a use in %. */
+export function loadLevel(percent: number): LoadLevel {
+  if (percent >= HIGH_FROM_PERCENT) return "high";
+  if (percent >= BUSY_FROM_PERCENT) return "busy";
+  return "calm";
+}
+
 /** Of a total in %, for a meter: 0 when the total is unknown. */
 export function shareOf(part: number, total: number): number {
   return total > 0 ? Math.min(100, Math.max(0, (part / total) * 100)) : 0;

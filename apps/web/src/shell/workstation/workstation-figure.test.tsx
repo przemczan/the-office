@@ -53,8 +53,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function render(load: WorkstationLoad): void {
-  queryClient.setQueryData(workstationQueries.load().queryKey, load);
+function render(load: WorkstationLoad, updatedAt?: number): void {
+  queryClient.setQueryData(workstationQueries.load().queryKey, load, { updatedAt });
   act(() =>
     root.render(
       <QueryClientProvider client={queryClient}>
@@ -81,18 +81,41 @@ it("shows the CPU use now and the logical cores", () => {
   expect(figure().getAttribute("aria-label")).toBe("Workstation: 23% CPU, 2 cores");
 });
 
-it("opens the panel with CPU, Memory, The Office and Uptime, and closes it on Esc", () => {
+it("leaves the strip's % untinted while the CPU is calm, and tints it when busy or high", () => {
+  render(LOAD);
+  expect(figure().querySelector("b")?.dataset["level"]).toBeUndefined();
+
+  render({ ...LOAD, cpu: { ...LOAD.cpu, use: { percent: 72, perCore: [70, 74] } } });
+  expect(figure().querySelector("b")?.dataset["level"]).toBe("busy");
+
+  render({ ...LOAD, cpu: { ...LOAD.cpu, use: { percent: 91, perCore: [90, 92] } } });
+  expect(figure().querySelector("b")?.dataset["level"]).toBe("high");
+});
+
+it("opens the panel with the CPU and Memory tiles, the cores, the memory split and the foot, and closes it on Esc", () => {
   render(LOAD);
 
   act(() => figure().click());
 
   const opened = panel();
   expect(opened?.textContent).toContain("Test CPU · 3.2 GHz");
-  expect(opened?.textContent).toContain("1.50 · 1.20 · 1.00");
-  expect(opened?.querySelectorAll('[aria-label="Use per core"] li')).toHaveLength(2);
-  expect(opened?.textContent).toContain("12.0 GB / 16.0 GB");
-  expect(opened?.textContent).toContain("0.5 GB");
-  expect(opened?.textContent).toContain("1d 1h");
+  expect(opened?.querySelector('[aria-label="CPU"]')?.textContent).toBe("CPU23%2 cores");
+  expect(opened?.querySelector('[aria-label="Memory"]')?.textContent).toBe(
+    "Memory75%Used12.0 GB / 16.0 GB",
+  );
+  const cores = opened?.querySelectorAll<HTMLElement>('[aria-label="Use per core"] li');
+  expect([...(cores ?? [])].map((core) => [core.title, core.dataset["level"]])).toEqual([
+    ["Core 1: 10%", "calm"],
+    ["Core 2: 37%", "calm"],
+  ]);
+  expect(opened?.querySelector('[aria-label="Memory in use"]')?.textContent).toBe(
+    "The Office 0.5 GBOther used 11.5 GBAvailable 4.0 GB",
+  );
+  expect(opened?.querySelector<HTMLElement>('[aria-label="Memory"]')?.dataset["level"]).toBe(
+    "busy",
+  );
+  expect(opened?.textContent).toContain("Load average1.50 · 1.20 · 1.001, 5, 15 min");
+  expect(opened?.textContent).toContain("Up for1d 1h");
   expect(figure().getAttribute("aria-expanded")).toBe("true");
 
   act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
@@ -114,10 +137,29 @@ it("says Measuring… rather than 0% before the first CPU measure", () => {
 
   expect(figure().textContent).toBe("Measuring…· 2 cores");
   act(() => figure().click());
-  expect(panel()?.textContent).toContain("Use nowMeasuring…");
+  expect(panel()?.querySelector('[aria-label="CPU"]')?.textContent).toBe("CPUMeasuring…2 cores");
   expect(panel()?.textContent).not.toContain("0%");
-  expect(panel()?.querySelector('[aria-label="CPU"] .shell-strip-meter')).toBeNull();
+  expect(
+    panel()?.querySelector<HTMLElement>('[aria-label="CPU"]')?.dataset["level"],
+  ).toBeUndefined();
   expect(panel()?.querySelector('[aria-label="Use per core"]')).toBeNull();
+});
+
+it("draws each tile's sparkline once there are two reads, kept while the panel was closed", () => {
+  render(LOAD, 1);
+  render({ ...LOAD, cpu: { ...LOAD.cpu, use: { percent: 40, perCore: [30, 50] } } }, 2);
+
+  act(() => figure().click());
+
+  expect(panel()?.querySelectorAll(".shell-workstation-sparkline")).toHaveLength(2);
+});
+
+it("draws no sparkline from a single read", () => {
+  render(LOAD, 1);
+
+  act(() => figure().click());
+
+  expect(panel()?.querySelector(".shell-workstation-sparkline")).toBeNull();
 });
 
 it("reads again every 2 s while the tab is visible, and not while it is hidden", async () => {

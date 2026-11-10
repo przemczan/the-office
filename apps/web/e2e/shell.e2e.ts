@@ -356,6 +356,35 @@ test.describe("the Workstation figure", () => {
     await expect(figure.locator("b")).toBeVisible();
     await expect(figure.locator(".shell-strip-workstation-detail")).toBeHidden();
   });
+
+  test.describe("in Dark on a phone", () => {
+    test.use({ colorScheme: "dark", viewport: { width: 390, height: 844 } });
+
+    test("the panel fits the page and nothing in it scrolls sideways", async ({ page }) => {
+      await page.goto("/now");
+      const figure = page
+        .getByRole("status", { name: "Status strip" })
+        .getByRole("button", { name: /^Workstation: \d+% CPU/ });
+
+      await figure.click();
+      const panel = page.getByRole("dialog", { name: "Workstation" });
+      await expect(panel.getByRole("list", { name: "Use per core" })).toBeVisible();
+      await expect(panel).toBeInViewport({ ratio: 1 });
+      // What could scroll sideways: the page, the panel and any part of it that scrolls.
+      const scrollingSideways = await panel.evaluate(
+        (element) =>
+          [document.documentElement, element, ...element.querySelectorAll("*")].filter(
+            (part) =>
+              (part === document.documentElement ||
+                part === element ||
+                ["auto", "scroll"].includes(getComputedStyle(part).overflowX)) &&
+              part.scrollWidth > part.clientWidth,
+          ).length,
+      );
+      expect(scrollingSideways).toBe(0);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "workstation-panel-dark-phone.png") });
+    });
+  });
 });
 
 test.describe("losing the service", () => {
