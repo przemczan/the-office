@@ -1,0 +1,2872 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sub-agents and processes · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, as docs/design/chat-drawer.html copied them on 2026-11-06) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-100: #ffe0d4;
+        --ember-300: #ff9370;
+        --ember-400: #ff6638;
+        --ember-500: #f23d0f;
+        --ember-600: #cc2f07;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-inverse: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --border-focus: var(--ember-500);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-hover: var(--gray-700);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+        --overlay: color-mix(in oklab, var(--gray-950) 45%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-code: 400 var(--text-xs) / 1.55 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --overlay: color-mix(in oklab, #000 65%, transparent);
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --surface-hover: var(--gray-25);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --primary-hover: #e6e6e2;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+      /* packages/ui/src/appearance/densities/comfortable.css */
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --radius-card: 10px;
+        --text-item: 14px;
+        --text-body: 13px;
+      }
+
+      /* ---------- Base (design-system/tokens/base.css) ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      @supports selector(::-webkit-scrollbar) {
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          border: 3px solid transparent;
+          border-radius: var(--radius-full);
+          background: var(--border-strong) padding-box;
+        }
+      }
+      @supports not selector(::-webkit-scrollbar) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: var(--border-strong) transparent;
+        }
+      }
+      :is(button, textarea, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      @keyframes live {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 55%, transparent);
+        }
+        60% {
+          box-shadow: 0 0 0 4px color-mix(in oklab, var(--success) 0%, transparent);
+        }
+      }
+      @keyframes typing {
+        0%,
+        80%,
+        100% {
+          opacity: 0.25;
+        }
+        40% {
+          opacity: 1;
+        }
+      }
+      @keyframes shimmer {
+        from {
+          background-position: 100% 0;
+        }
+        to {
+          background-position: -100% 0;
+        }
+      }
+      @keyframes arrive {
+        from {
+          background: var(--success-subtle);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: badge, avatar, button, switch, tabs, skeleton ---------- */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-badge);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge.count {
+        height: 18px;
+        padding: 0 6px;
+        font-size: var(--text-2xs);
+      }
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        overflow: hidden;
+        border-radius: 50%;
+        background: var(--avatar-bg, var(--gray-100));
+        color: var(--avatar-fg, var(--gray-700));
+        font-size: 9px;
+        font-weight: 600;
+        line-height: 1;
+      }
+      .avatar.sm {
+        width: 20px;
+        height: 20px;
+        font-size: 8px;
+      }
+      .avatar.jim {
+        --avatar-bg: color-mix(in oklab, var(--teal-500) 22%, var(--surface));
+        --avatar-fg: color-mix(in oklab, var(--teal-500) 70%, var(--fg-1));
+      }
+      .avatar.angela {
+        --avatar-bg: color-mix(in oklab, var(--violet-500) 22%, var(--surface));
+        --avatar-fg: color-mix(in oklab, var(--violet-500) 70%, var(--fg-1));
+      }
+      .avatar.you {
+        --avatar-bg: var(--neutral-subtle);
+        --avatar-fg: var(--fg-2);
+      }
+      /* A Sub-agent's mark: no face, as it isn't a person. */
+      .avatar.agent-mark {
+        border-radius: var(--radius-md);
+        background: var(--neutral-subtle);
+        color: var(--fg-2);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+        font-size: var(--text-xs);
+      }
+      .btn.secondary {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-1);
+      }
+      .btn.secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn.ghost {
+        background: none;
+        color: var(--fg-2);
+      }
+      .btn.ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: var(--control-sm);
+        height: var(--control-sm);
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .switch-label {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .switch {
+        position: relative;
+        width: 28px;
+        height: 16px;
+        border-radius: 8px;
+        background: var(--border-strong);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--white);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch-label[aria-checked="true"] .switch {
+        background: var(--accent);
+      }
+      .switch-label[aria-checked="true"] .switch::after {
+        left: 14px;
+      }
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0 18px;
+        min-width: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: -1px;
+        padding: 10px 0 9px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        font: 500 var(--text-sm) / 1.3 var(--font-sans);
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .tab:hover {
+        color: var(--fg-1);
+      }
+      .tab[aria-selected="true"] {
+        border-bottom-color: var(--accent);
+        color: var(--fg-1);
+      }
+      .tabs .tabs-end {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        padding: 6px 0;
+      }
+      .skeleton {
+        display: block;
+        height: 10px;
+        border-radius: var(--radius-sm);
+        background: linear-gradient(90deg, var(--border) 25%, var(--surface-hover) 50%, var(--border) 75%) 0 0 / 200% 100%;
+        animation: shimmer 1.4s linear infinite;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .dot {
+        display: inline-block;
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .dot.running {
+        background: var(--success);
+        animation: live 1.4s ease-in-out infinite;
+      }
+      .dot.warm {
+        width: 6px;
+        height: 6px;
+        background: var(--success);
+      }
+      .text-link {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--fg-1);
+        font: inherit;
+        font-weight: 500;
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+        cursor: pointer;
+      }
+      .text-link:hover {
+        text-decoration-color: currentColor;
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .stage {
+        display: grid;
+        gap: 14px;
+        padding: 16px 24px 40px;
+      }
+      .scenario-note {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px 12px;
+        max-width: 130ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(640px, calc(100vh - 240px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(640px, min(844px, calc(100vh - 240px)));
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+        gap: 18px 28px;
+        max-width: 1400px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 8px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p,
+      .reference ol,
+      .reference ul {
+        margin: 0 0 8px;
+      }
+      .reference ol,
+      .reference ul {
+        padding-left: 18px;
+      }
+      .reference li + li {
+        margin-top: 4px;
+      }
+      .reference code {
+        font: 400 11.5px/1.5 var(--font-mono);
+      }
+      .reference table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .reference th,
+      .reference td {
+        padding: 5px 8px 5px 0;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      .reference th {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .looks {
+        display: grid;
+        gap: 10px;
+      }
+      .look {
+        display: grid;
+        gap: 4px;
+      }
+      .look > span {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .look .work-line {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        pointer-events: none;
+      }
+      .look-none {
+        padding: 7px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-md);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* ---------- The app: Shell A3 · Desk ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px 48px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .app.w-phone {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .app.w-phone .rail {
+        display: none;
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail-item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .app.w-phone .top {
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .top h1 {
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .crumb {
+        flex: none;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .app.w-phone .crumb {
+        display: none;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .chat-button {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+      }
+      .chat-button.open {
+        background: var(--control-press);
+      }
+      .strip {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        min-width: 0;
+        padding: 0 20px;
+        overflow: hidden;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .app.w-phone .strip {
+        gap: 14px;
+        padding: 0 12px;
+      }
+      .strip b {
+        font: 600 15px/1 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .main {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .app.pushed .main {
+        margin-right: 420px;
+      }
+
+      /* ---------- The pages behind ---------- */
+      .page-scroll {
+        position: absolute;
+        inset: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      .now-page {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        padding: 20px;
+      }
+      .card {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+        padding: var(--pad-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .card h3 {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .ghost-line {
+        display: block;
+        height: 9px;
+        border-radius: var(--radius-sm);
+        background: var(--border);
+      }
+      .task-page {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 440px;
+        height: 100%;
+      }
+      .record {
+        display: grid;
+        align-content: start;
+        gap: 14px;
+        min-width: 0;
+        padding: 18px 22px;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      .record-head {
+        display: grid;
+        gap: 8px;
+      }
+      .record-head h2 {
+        margin: 0;
+        font: 600 20px/1.3 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+      .record-facts {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .pipeline-rail {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .rail-stage {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: 500 var(--text-xs) / 1.2 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .rail-stage.done {
+        color: var(--success-fg);
+      }
+      .rail-stage.now {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .rail-stage.picked {
+        box-shadow: inset 0 0 0 1px var(--accent);
+        color: var(--fg-1);
+      }
+      .record-block p {
+        max-width: 72ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .conversation {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .conversation-tabs {
+        padding: 0 16px;
+      }
+      .conversation-tabs .tab {
+        font-size: var(--text-xs);
+      }
+      .conversation-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--border);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .narrow-page .task-page {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .narrow-page .conversation {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 40;
+        width: min(440px, 100%);
+        box-shadow: var(--shadow-3);
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 39;
+        background: var(--overlay);
+      }
+      .drawer-handle {
+        position: absolute;
+        top: 14px;
+        right: min(440px, 100%);
+        z-index: 41;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-right: 0;
+        border-radius: var(--radius-md) 0 0 var(--radius-md);
+        background: var(--surface);
+        font: 500 var(--text-xs) / 1.2 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .w-phone .drawer-handle {
+        display: none;
+      }
+
+      /* ---------- The chat drawer (docs/design/chat-drawer.html, adopted) ---------- */
+      .chat-drawer {
+        position: absolute;
+        top: 104px;
+        right: 0;
+        bottom: 0;
+        z-index: 30;
+        display: flex;
+        flex-direction: column;
+        width: 420px;
+        min-width: 0;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .chat-drawer.over {
+        box-shadow: var(--shadow-3);
+      }
+      .chat-drawer.fill {
+        top: 0;
+        left: 0;
+        width: auto;
+        border-left: 0;
+      }
+      .drawer-head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 10px 10px 10px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .drawer-head-main {
+        display: grid;
+        flex: 1;
+        gap: 1px;
+        min-width: 0;
+      }
+      .drawer-title {
+        font: var(--type-card-title);
+      }
+      .drawer-sub {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .thread-row {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        padding: 6px 12px 6px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .thread-row-title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        font: 500 var(--text-sm) / 1.3 var(--font-sans);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      /* ---------- The Thread, in Rows (docs/design/thread-dialog.html, adopted by task 53) ---------- */
+      .thread {
+        flex: 1;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .thread-column {
+        --gutter: 34px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 16px 16px 20px;
+      }
+      .turn {
+        display: grid;
+        grid-template-columns: var(--gutter) minmax(0, 1fr);
+        min-width: 0;
+      }
+      .turn-by {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px 6px;
+        margin-bottom: 1px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .turn-by b {
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .said {
+        min-width: 0;
+        max-width: 72ch;
+        font: var(--type-body);
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+      .said p {
+        margin: 0 0 8px;
+      }
+      .said p:last-child {
+        margin-bottom: 0;
+      }
+      .said code {
+        padding: 1px 4px;
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        font: 400 12px/1.5 var(--font-mono);
+      }
+      .in-column {
+        min-width: 0;
+        margin-left: var(--gutter);
+      }
+      .turn + .tools {
+        margin-top: -10px;
+      }
+      .tools {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .tools summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        padding: 2px 6px 2px 0;
+        list-style: none;
+        cursor: pointer;
+      }
+      .tools summary::-webkit-details-marker {
+        display: none;
+      }
+      .tools-chevron {
+        flex: none;
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .tools[open] .tools-chevron {
+        transform: rotate(90deg);
+      }
+      .tools-last {
+        min-width: 0;
+        overflow: hidden;
+        font: 400 11px/1.5 var(--font-mono);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .tools ul {
+        display: grid;
+        gap: 3px;
+        margin: 4px 0 2px 5px;
+        padding: 0 0 0 12px;
+        border-left: 1px solid var(--border-strong);
+        list-style: none;
+      }
+      .tools li {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px;
+        min-width: 0;
+      }
+      .tools li b {
+        font-weight: 500;
+      }
+      .tools li span {
+        font: 400 11px/1.5 var(--font-mono);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .tools li.arrived {
+        animation: arrive 1.2s var(--ease-out);
+      }
+      .office-break {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .office-break::before,
+      .office-break::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .typing {
+        display: inline-flex;
+        gap: 3px;
+        padding: 6px 0;
+      }
+      .typing i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--fg-3);
+        animation: typing 1.2s infinite;
+      }
+      .typing i:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .typing i:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .composer {
+        flex: none;
+        padding: 10px 12px 12px;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .composer-to {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        margin-bottom: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .composer-to strong {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .composer-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+      }
+      .composer-field {
+        flex: 1;
+        min-width: 0;
+        min-height: 44px;
+        padding: 8px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+        resize: none;
+      }
+      .composer-field::placeholder {
+        color: var(--fg-3);
+      }
+      .composer-send {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: var(--primary);
+        color: var(--primary-fg);
+        opacity: 0.4;
+      }
+
+      /* ---------- Proposed: the line above the message input ---------- */
+      /* A composer note (conversation.css, .composer-note), neutral, as it tells and asks nothing. */
+      .work-line {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        padding: 7px 16px;
+        border: 0;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+        text-align: left;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .work-line:hover {
+        background: var(--control-hover);
+      }
+      .chat-drawer .work-line,
+      .stage-thread .work-line {
+        padding: 7px 12px;
+      }
+      .work-line-mark {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 16px;
+        color: var(--fg-3);
+      }
+      .work-line-text {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .work-line-text b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .work-line .failed {
+        font-weight: 500;
+        color: var(--danger-fg);
+      }
+      .work-line-open {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 4px;
+        font-weight: 500;
+        color: var(--fg-2);
+      }
+      .work-line:hover .work-line-open {
+        color: var(--fg-1);
+      }
+      .work-line[aria-expanded="true"] {
+        background: var(--control-press);
+      }
+
+      /* ---------- Windows (spec 4.1): pinned 7% from the top, a large one keeps one height ---------- */
+      .window-backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 200;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 12px;
+        background: var(--overlay);
+      }
+      .window-backdrop::before {
+        content: "";
+        flex: none;
+        height: max(24px, 7%);
+      }
+      .window {
+        display: flex;
+        flex-direction: column;
+        width: min(1180px, 94%);
+        height: 86%;
+        min-height: 0;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .window-head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 12px 12px 12px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .window-head h2 {
+        display: flex;
+        flex: 1;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 10px;
+        min-width: 0;
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .window-head h2 span {
+        min-width: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        overflow-wrap: anywhere;
+      }
+      .window-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .window-bar {
+        display: flex;
+        flex: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        padding: 10px 16px 10px 20px;
+        border-top: 1px solid var(--border);
+      }
+      .window-bar .grow {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* ---------- The Stage history (docs/design/task-page-2.html, adopted by task 51) ---------- */
+      .history {
+        container-type: inline-size;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .history-pipeline {
+        display: flex;
+        flex: none;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-sunken);
+      }
+      .history-body {
+        display: grid;
+        flex: 1;
+        grid-template-columns: 220px minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        min-height: 0;
+      }
+      .history-runs {
+        display: grid;
+        align-content: start;
+        gap: 2px;
+        padding: 8px;
+        overflow-y: auto;
+        border-right: 1px solid var(--border);
+      }
+      .history-run {
+        display: grid;
+        gap: 2px;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .history-run b {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+      }
+      .history-run span {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .history-run[aria-current="true"] {
+        background: var(--surface-selected);
+      }
+      .history-detail {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+      }
+      .history-detail > .tabs {
+        flex: none;
+        padding: 0 16px;
+      }
+      .stage-thread {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .summary-tab {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+        padding: 18px 20px;
+        overflow-y: auto;
+      }
+      .summary-tab p {
+        max-width: 72ch;
+        margin: 0;
+        font: var(--type-body-sm);
+      }
+      @container (max-width: 640px) {
+        .history-body {
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: auto minmax(0, 1fr);
+        }
+        .history-runs {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          padding: 6px 12px;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+        .history-run {
+          padding: 5px 8px;
+        }
+        .history-pipeline {
+          padding: 8px 12px;
+        }
+        .history-detail > .tabs {
+          padding: 0 12px;
+          gap: 0 14px;
+        }
+      }
+
+      /* ---------- Proposed: the view of a session's Sub-agents and Processes ---------- */
+      /* A list and details (spec 4.1's Layout), laid out by its own width, so it reads the same in a window and in a tab. */
+      .view {
+        container-type: inline-size;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+      }
+      .view-body {
+        display: grid;
+        flex: 1;
+        grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        min-height: 0;
+      }
+      .view-list {
+        min-width: 0;
+        padding: 4px 0 12px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        border-right: 1px solid var(--border);
+      }
+      .view-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px 6px;
+      }
+      .view-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 2px 10px;
+        width: 100%;
+        padding: 8px 16px;
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .view-item:hover {
+        background: var(--surface-hover);
+      }
+      .view-item[aria-current="true"] {
+        background: var(--surface-selected);
+      }
+      .view-item[aria-current="true"]::before {
+        content: "";
+        position: absolute;
+        top: 6px;
+        bottom: 6px;
+        left: 0;
+        width: 3px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .view-item-mark {
+        padding-top: 2px;
+        color: var(--fg-3);
+      }
+      .view-item-title {
+        min-width: 0;
+        font: 500 var(--text-sm) / 1.4 var(--font-sans);
+        color: var(--fg-1);
+        overflow-wrap: anywhere;
+      }
+      .view-item-title.command {
+        font: 500 12px/1.5 var(--font-mono);
+      }
+      .view-item-meta {
+        grid-column: 2;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .state {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-weight: 500;
+      }
+      .state.running {
+        color: var(--success-fg);
+      }
+      .state.finished {
+        color: var(--fg-2);
+      }
+      .state.failed {
+        color: var(--danger-fg);
+      }
+      .state.stopped {
+        color: var(--fg-3);
+      }
+      .state .dot.running {
+        width: 6px;
+        height: 6px;
+      }
+      .view-back {
+        display: none;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 9px 14px;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font: 500 var(--text-sm) / 1.3 var(--font-sans);
+        color: var(--fg-2);
+        text-align: left;
+        cursor: pointer;
+      }
+      .view-back:hover {
+        color: var(--fg-1);
+      }
+      .view-detail {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+      }
+      .view-detail-scroll {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      .view-head {
+        display: grid;
+        flex: none;
+        gap: 6px;
+        padding: 16px 20px 12px;
+      }
+      .view-title {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 0;
+        font: var(--type-card-title);
+        overflow-wrap: anywhere;
+      }
+      .view-title svg {
+        flex: none;
+        margin-top: 3px;
+        color: var(--fg-3);
+      }
+      .view-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .view-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .view-section {
+        display: grid;
+        flex: none;
+        gap: 8px;
+        padding: 6px 20px 12px;
+      }
+      .view-section-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px 12px;
+        min-height: 28px;
+      }
+      .prompt {
+        max-width: 72ch;
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+        font: var(--type-body-sm);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .prompt.folded {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+      }
+      .command {
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+        font: var(--type-code);
+        color: var(--fg-1);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .command::before {
+        content: "$ ";
+        color: var(--fg-3);
+      }
+      .output-section {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 220px;
+        padding: 6px 20px 16px;
+      }
+      .output {
+        flex: 1;
+        min-height: 0;
+        margin: 0;
+        padding: 10px 12px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+        font: var(--type-code);
+        color: var(--fg-1);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .output .arrived {
+        animation: arrive 1.2s var(--ease-out);
+      }
+      .output-dropped {
+        display: block;
+        margin: -10px -12px 8px;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+        white-space: normal;
+      }
+      .output-loading {
+        display: grid;
+        gap: 8px;
+        padding: 4px 0;
+      }
+      .following {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .ending {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-lg);
+        background: var(--neutral-subtle);
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+        overflow-wrap: anywhere;
+      }
+      .ending svg {
+        flex: none;
+        margin-top: 2px;
+      }
+      .ending.failed {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .ending.finished {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .reported {
+        max-width: 72ch;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-card);
+        background: var(--info-subtle);
+        font: var(--type-body-sm);
+        overflow-wrap: anywhere;
+      }
+      .reported b {
+        display: block;
+        margin-bottom: 4px;
+        font: 600 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--info-fg);
+      }
+      .detail-empty {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .sub-agent-thread .thread-column {
+        padding: 4px 20px 20px;
+      }
+      @container (max-width: 640px) {
+        .view-body {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .view-list {
+          border-right: 0;
+        }
+        .view[data-pane="details"] .view-list,
+        .view[data-pane="list"] .view-detail {
+          display: none;
+        }
+        .view-back {
+          display: flex;
+        }
+        .view-head {
+          padding: 12px 14px 10px;
+        }
+        .view-section {
+          padding: 6px 14px 12px;
+        }
+        .output-section {
+          padding: 6px 14px 14px;
+        }
+        .sub-agent-thread .thread-column {
+          --gutter: 30px;
+          padding: 4px 14px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+      <section class="reference" id="reference" aria-label="What the page settles"></section>
+    </main>
+    <script>
+      /* ---------- Icons (the app's Icon set, re-drawn) ---------- */
+      const svg = (size, body, extra = "") =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${body}</svg>`;
+      const ICON = {
+        x: (s = 16) => svg(s, '<path d="m4 4 8 8M12 4l-8 8"/>'),
+        chevronLeft: (s = 14) => svg(s, '<path d="m10 3-5 5 5 5"/>'),
+        chevronRight: (s = 12) => svg(s, '<path d="m6 3 5 5-5 5"/>'),
+        tools: (s = 10) => svg(s, '<path d="m6 3 5 5-5 5"/>', 'class="tools-chevron"'),
+        chat: (s = 14) => svg(s, '<path d="M2.5 8a5.5 5.5 0 1 1 2.7 4.7l-2.7.8.8-2.6A5.5 5.5 0 0 1 2.5 8z"/>'),
+        send: (s = 16) => svg(s, '<path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/>', 'stroke-width="1.8"'),
+        check: (s = 12) => svg(s, '<path d="m3 8.5 3 3 7-7"/>'),
+        alert: (s = 14) => svg(s, '<circle cx="8" cy="8" r="6"/><path d="M8 4.8v3.6M8 10.9v.1"/>'),
+        stop: (s = 14) => svg(s, '<circle cx="8" cy="8" r="6"/><rect x="5.8" y="5.8" width="4.4" height="4.4" rx=".6"/>'),
+        lock: (s = 12) => svg(s, '<rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>'),
+        down: (s = 12) => svg(s, '<path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"/>'),
+        /* A Sub-agent: a small agent's face in a frame; a Process: a terminal. */
+        subAgent: (s = 14) =>
+          svg(s, '<rect x="2.5" y="4" width="11" height="9" rx="2.5"/><path d="M8 4V2M6 8v1M10 8v1"/>'),
+        process: (s = 14) => svg(s, '<rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2"/><path d="m4.5 6.5 2 1.8-2 1.8M8.5 10.5h3"/>'),
+        now: (s = 18) => svg(s, '<path d="M2.5 7 8 2.5 13.5 7v6.5h-11z"/><path d="M6.5 13.5v-4h3v4"/>'),
+        work: (s = 18) =>
+          svg(s, '<rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/>'),
+        people: (s = 18) =>
+          svg(s, '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5c.6-2.5 2.3-3.8 4.5-3.8s3.9 1.3 4.5 3.8"/><circle cx="11.5" cy="6" r="2"/><path d="M12 9.7c1.5.2 2.4 1.4 2.8 3.3"/>'),
+        projects: (s = 18) => svg(s, '<path d="M1.5 4.5v8h13v-6.5H8L6.5 4.5z"/>'),
+        settings: (s = 18) =>
+          svg(s, '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="var(--surface)"/><circle cx="10.5" cy="8" r="1.4" fill="var(--surface)"/><circle cx="5" cy="11.5" r="1.4" fill="var(--surface)"/>'),
+      };
+      const esc = (text) =>
+        String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      /* Text with `code` spans, as a Thread renders Markdown's inline code. */
+      const said = (text) => esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+
+      /* ---------- Mock data, in the shapes the spec proposes (2.9: a Sub-agent, a Process) ---------- */
+      /* Times are seconds from when a scenario opens, which the mock's clock shows as 14:06:00. */
+      const SUB_AGENTS = {
+        find: {
+          id: "toolu_01HZ9xQfind",
+          kind: "sub-agent",
+          description: "Find where Threads are read and searched",
+          agentKind: "Explore",
+          background: false,
+          startedBy: "Jim",
+          prompt:
+            "Find every place that reads Threads and their messages, in the service and in the web app.\nSay which table holds a message's text, whether that text is masked before it is stored, and whether anything searches it today.\nList the files, not their contents. Don't change anything.",
+          startedAt: -72,
+          toolCalls: 4,
+          entries: [
+            { tools: [["Grep", '"searchThreads|threadMessages" in apps/service/src'], ["Glob", "apps/service/src/**/postgres-thread-repository*.ts"]] },
+            { text: "Threads are read through `ThreadRepository`; their messages are rows of `thread_messages`. Nothing searches them yet." },
+            {
+              tools: [
+                ["Read", "apps/service/src/modules/conversations/adapters/postgres/postgres-thread-repository.ts"],
+                ["Read", "apps/service/src/modules/conversations/adapters/postgres/threads.schema.ts"],
+              ],
+            },
+          ],
+          coming: [
+            { text: "`thread_messages.text` holds the masked text, so an index on it never sees a secret. A GIN index on `to_tsvector('simple', text)` would serve a search by words." },
+            { tools: [["Grep", '"to_tsvector|using gin" in apps/service/drizzle']] },
+            { text: "No migration uses one yet. Checking how the migrations are numbered…" },
+            { tools: [["Glob", "apps/service/drizzle/00*.sql"]] },
+          ],
+          reportedBack:
+            "Threads are read through `ThreadRepository` (`postgres-thread-repository.ts`); a message's text is in `thread_messages.text`, masked before it is stored. Nothing searches it today. A GIN index on `to_tsvector('simple', text)` in a new migration, 0092, would serve a search by words.",
+        },
+        review: {
+          id: "toolu_01HZ9xQreview",
+          kind: "sub-agent",
+          description: "Review the search migration for locks",
+          agentKind: "general-purpose",
+          background: true,
+          startedBy: "Jim",
+          prompt:
+            "Review apps/service/drizzle/0092_thread_search.sql before it runs on a copy of the data.\nSay whether creating the index locks thread_messages against writes, and for how long on 200,000 rows. Suggest CONCURRENTLY if it does.",
+          startedAt: -30,
+          toolCalls: 2,
+          entries: [
+            { text: "Reading the migration and the tables it touches." },
+            { tools: [["Read", "apps/service/drizzle/0092_thread_search.sql"], ["Read", "apps/service/drizzle/0041_thread_messages.sql"]] },
+          ],
+          coming: [{ text: "`CREATE INDEX` without `CONCURRENTLY` holds a lock that blocks writes to `thread_messages` until it is built." }],
+        },
+        listing: {
+          id: "toolu_01HZ9xQlisting",
+          kind: "sub-agent",
+          description: "Check how the web app lists Threads",
+          agentKind: "Explore",
+          background: false,
+          startedBy: "Jim",
+          prompt: "Find how the web app lists a person's Threads and where a search box would sit. Files only.",
+          startedAt: -260,
+          endedAt: -212,
+          toolCalls: 6,
+          ending: { state: "finished" },
+          entries: [
+            { tools: [["Grep", '"threadQueries.list" in apps/web/src'], ["Read", "apps/web/src/shell/chat/thread-list.tsx"]] },
+            { text: "The chat drawer's Thread list is `thread-list.tsx`, under New thread. A search box fits at its top, above the list." },
+          ],
+          reportedBack: "The Thread list is `apps/web/src/shell/chat/thread-list.tsx`; a search box fits above it, under New thread.",
+        },
+        ranking: {
+          id: "toolu_01HZ9xQranking",
+          kind: "sub-agent",
+          description: "Draft the search ranking",
+          agentKind: "general-purpose",
+          background: true,
+          startedBy: "Jim",
+          prompt: "Draft how search results are ranked: by how well they match, then by how recent. Read every Thread fixture first.",
+          startedAt: -230,
+          endedAt: -95,
+          toolCalls: 31,
+          ending: { state: "failed", reason: "Its turn failed: the model's context window was full." },
+          entries: [
+            { text: "Reading the Thread fixtures first." },
+            { tools: [["Glob", "apps/**/*thread*.fixtures.ts"], ["Read", "apps/service/src/modules/conversations/application/held-calls.fixtures.ts"], ["Read", "apps/web/e2e/sessions.jsonl"]] },
+          ],
+        },
+      };
+
+      const VITE_START = [
+        "> @the-office/web@0.1.0 dev",
+        "> vite --port 5173",
+        "",
+        "  VITE v6.3.5  ready in 812 ms",
+        "",
+        "  ➜  Local:   http://localhost:5173/",
+        "  ➜  Network: use --host to expose",
+        "14:02:31 [vite] (client) page reload src/shell/chat/thread-list.tsx",
+      ];
+      const VITE_MORE = [
+        "[vite] (client) hmr update /src/shell/chat/thread-search.tsx",
+        "[vite] (client) hmr update /src/shell/chat/thread-list.tsx, /src/shell/chat/chat.css",
+        "[vite] (client) hmr update /src/shell/chat/thread-search.tsx (x2)",
+        "[vite] (client) page reload src/api/conversations.ts",
+      ];
+      const TEST_MODULES = [
+        "conversations/application/thread-runner",
+        "conversations/application/stage-threads",
+        "conversations/application/consultations",
+        "conversations/adapters/postgres/postgres-thread-repository",
+        "work/application/task-service",
+        "work/application/initiative-service",
+        "pipelines/application/stage-runner",
+        "engine/application/engine-sessions",
+        "projects/application/worktrees",
+        "skills/application/skill-library",
+      ];
+      const testLine = (n) => {
+        const module = TEST_MODULES[n % TEST_MODULES.length];
+        const tests = 6 + ((n * 7) % 58);
+        const ms = 120 + ((n * 131) % 4200);
+        return ` ✓ src/modules/${module}.${n % 3 === 0 ? "full." : ""}test.ts (${tests} tests) ${ms}ms`;
+      };
+
+      const PROCESSES = {
+        devServer: {
+          id: "b1f9c2e07",
+          kind: "process",
+          description: "Start the web app's dev server",
+          commandLine: "npm run dev -w apps/web",
+          shell: "Bash",
+          startedBy: "Jim",
+          startedAt: -250,
+          output: VITE_START,
+          stream: "vite",
+        },
+        tests: {
+          id: "b7c04a913",
+          kind: "process",
+          description: "Run the Conversations tests",
+          commandLine: "npm run test -w apps/service -- src/modules/conversations",
+          shell: "Bash",
+          startedBy: "Jim",
+          startedAt: -240,
+          endedAt: -128,
+          exitCode: 0,
+          ending: { state: "finished" },
+          output: [
+            "> @the-office/service@0.1.0 test",
+            "> vitest run src/modules/conversations",
+            "",
+            " RUN  v3.2.4 /home/office/worktrees/the-office/4f1c…",
+            "",
+            ...Array.from({ length: 9 }, (_, n) => testLine(n * 10)),
+            "",
+            " Test Files  41 passed (41)",
+            "      Tests  612 passed (612)",
+            "   Duration  108.42s",
+          ],
+        },
+        e2e: {
+          id: "b2e88d1f0",
+          kind: "process",
+          description: "Repeat the search e2e test 20 times",
+          commandLine:
+            "npx playwright test e2e/search.e2e.ts --repeat-each=20 --reporter=line --project=chromium --grep \"finds a Thread by a word in a message\"",
+          shell: "Bash",
+          startedBy: "Jim",
+          startedAt: -300,
+          endedAt: -110,
+          exitCode: 1,
+          ending: { state: "failed" },
+          output: [
+            "Running 20 tests using 4 workers",
+            ...Array.from({ length: 13 }, (_, n) => `  ✓  ${n + 1} [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat${n}) (2.${(n * 3) % 10}s)`),
+            "  ✘  14 [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat13) (30.0s)",
+            ...Array.from({ length: 6 }, (_, n) => `  ✓  ${n + 15} [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat${n + 14}) (2.${(n * 7) % 10}s)`),
+            "",
+            "  1) [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat13)",
+            "",
+            "    Error: Timed out 5000ms waiting for expect(locator).toBeVisible()",
+            "",
+            "    Locator: getByRole('link', { name: 'Try a search index on a copy of the data' })",
+            "    Expected: visible",
+            "    Received: <element(s) not found>",
+            "",
+            "      18 |   await page.getByRole('searchbox', { name: 'Search Threads' }).fill('index');",
+            "    > 19 |   await expect(page.getByRole('link', { name: thread.title })).toBeVisible();",
+            "         |                                                                  ^",
+            "",
+            "  1 failed",
+            "    [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat13)",
+            "  19 passed (3.1m)",
+          ],
+        },
+        log: {
+          id: "b5d3a0c71",
+          kind: "process",
+          description: "Watch the service log",
+          commandLine: "tail -f .office/service.log",
+          shell: "Bash",
+          startedBy: "Jim",
+          startedAt: -290,
+          endedAt: -108,
+          ending: { state: "stopped", by: "agent" },
+          output: [
+            '{"level":"info","time":"14:01:12","context":"ThreadRunner","msg":"Thread 7f2c answering"}',
+            '{"level":"info","time":"14:01:40","context":"RouterExplorer","msg":"Mapped {/api/threads/search, GET} route"}',
+            '{"level":"warn","time":"14:02:05","context":"PostgresThreadRepository","msg":"search took 812 ms"}',
+            '{"level":"info","time":"14:02:58","context":"ThreadRunner","msg":"Thread 7f2c waiting"}',
+          ],
+        },
+        fullTests: {
+          id: "b9a61e4d2",
+          kind: "process",
+          description: "Run every service test",
+          commandLine: "npm run test:full -w apps/service",
+          shell: "Bash",
+          startedBy: "Jim",
+          startedAt: -1460,
+          droppedBytes: 1.9,
+          output: Array.from({ length: 420 }, (_, n) => testLine(n + 3000)),
+          stream: "tests",
+        },
+      };
+
+      const copy = (item, change = {}) => ({
+        ...JSON.parse(JSON.stringify(item)),
+        ...change,
+      });
+      const running = (item) => copy(item, { endedAt: undefined, ending: undefined, exitCode: undefined });
+      const finishedFind = () =>
+        copy(SUB_AGENTS.find, {
+          entries: [...SUB_AGENTS.find.entries, ...SUB_AGENTS.find.coming],
+          coming: [],
+          endedAt: -20,
+          toolCalls: 6,
+          ending: { state: "finished" },
+        });
+
+      /* ---------- Scenarios ---------- */
+      const SCENARIOS = [
+        {
+          key: "running",
+          label: "Running",
+          note: "Jim's session has two Sub-agents and a Process running. The line sits above the message input; the dot is live. Press it to open the view.",
+          items: () => [running(SUB_AGENTS.find), running(SUB_AGENTS.review), running(PROCESSES.devServer)],
+          open: false,
+        },
+        {
+          key: "sub-agent",
+          label: "A Sub-agent",
+          note: "A running Sub-agent: its prompt's first lines, then its messages and tool calls in Rows as they arrive, with the Details switch on its own row. A new one arrives every few seconds.",
+          items: () => [running(SUB_AGENTS.find), running(SUB_AGENTS.review), running(PROCESSES.devServer)],
+          open: true,
+          picked: "toolu_01HZ9xQfind",
+        },
+        {
+          key: "process",
+          label: "A Process",
+          note: "A running Process: its command whole, then its output streaming, following the end. Scroll the output up and it stops following; Jump to the end brings it back.",
+          items: () => [running(SUB_AGENTS.find), running(SUB_AGENTS.review), running(PROCESSES.devServer)],
+          open: true,
+          picked: "b1f9c2e07",
+        },
+        {
+          key: "ended",
+          label: "Finished and failed",
+          note: "Ended ones stay for the rest of the session, under Ended, below the running ones, the one that ended last first. A failed Process keeps its output and says how it ended; the line counts the failures in red.",
+          items: () => [
+            running(SUB_AGENTS.find),
+            running(PROCESSES.devServer),
+            copy(SUB_AGENTS.listing),
+            copy(SUB_AGENTS.ranking),
+            copy(PROCESSES.tests),
+            copy(PROCESSES.e2e),
+            copy(PROCESSES.log),
+          ],
+          open: true,
+          picked: "b2e88d1f0",
+        },
+        {
+          key: "only-ended",
+          label: "Only ended ones left",
+          note: "Nothing runs any more: the line has no dot and says how many ended. It stays until the Thread gets a fresh session. Press it to look back.",
+          items: () => [
+            finishedFind(),
+            copy(SUB_AGENTS.listing),
+            copy(SUB_AGENTS.ranking),
+            copy(PROCESSES.tests),
+            copy(PROCESSES.e2e),
+            copy(PROCESSES.log),
+          ],
+          open: false,
+          picked: "toolu_01HZ9xQfind",
+        },
+        {
+          key: "long",
+          label: "A long output",
+          note: "A Process keeps the last 256 KB of its output. The pane says how much earlier output isn't kept, and only the output scrolls, in its place.",
+          items: () => [running(SUB_AGENTS.find), running(PROCESSES.fullTests)],
+          open: true,
+          picked: "b9a61e4d2",
+        },
+        {
+          key: "late",
+          label: "A page opened late",
+          note: "The page opened while the session was already at work. The line comes with the list's read; the output reads up to where it is, then goes on live, with nothing missed or shown twice (the steps are under the frame).",
+          items: () => [running(SUB_AGENTS.find), running(PROCESSES.devServer), copy(SUB_AGENTS.listing), copy(PROCESSES.tests)],
+          open: true,
+          picked: "b1f9c2e07",
+          late: true,
+        },
+      ];
+
+      const PLACES = [
+        { key: "chat", label: "Chat drawer" },
+        { key: "task", label: "Task page" },
+        { key: "stage", label: "Stage history" },
+      ];
+      const WIDTHS = [
+        { key: "wide", label: "Wide" },
+        { key: "900", label: "900px" },
+        { key: "390", label: "390px" },
+      ];
+      const PALETTES = [
+        { key: "light", label: "Light" },
+        { key: "dark", label: "Dark" },
+      ];
+
+      /* ---------- State ---------- */
+      const state = {
+        place: "chat",
+        scenario: "running",
+        width: "wide",
+        palette: "light",
+        items: [],
+        open: false,
+        picked: undefined,
+        pane: "list",
+        stageTab: "thread",
+        details: true,
+        threadDetails: false,
+        promptOpen: false,
+        following: true,
+        loadingOutput: false,
+        lineLoading: false,
+        openedAt: Date.now(),
+      };
+      let lateTimers = [];
+
+      const scenario = () => SCENARIOS.find((s) => s.key === state.scenario);
+      const now = () => (Date.now() - state.openedAt) / 1000;
+      const isPhone = () => state.width === "390";
+
+      function applyScenario() {
+        const s = scenario();
+        lateTimers.forEach(clearTimeout);
+        lateTimers = [];
+        state.openedAt = Date.now();
+        state.items = s.items();
+        state.open = s.open;
+        state.picked = s.picked ?? state.items[0].id;
+        state.pane = s.open ? "details" : "list";
+        state.stageTab = s.open ? "view" : "thread";
+        state.promptOpen = false;
+        state.following = true;
+        state.loadingOutput = Boolean(s.late);
+        state.lineLoading = Boolean(s.late);
+        if (s.late) {
+          lateTimers.push(setTimeout(() => ((state.lineLoading = false), render()), 450));
+          lateTimers.push(setTimeout(() => ((state.loadingOutput = false), render()), 1100));
+        }
+      }
+
+      /* ---------- Words ---------- */
+      const clock = (seconds) => {
+        const total = 14 * 3600 + 6 * 60 + Math.floor(seconds);
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        return `${h}:${String(m).padStart(2, "0")}`;
+      };
+      const duration = (seconds) => {
+        const s = Math.max(0, Math.floor(seconds));
+        if (s < 60) return `${s}s`;
+        if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+        return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`;
+      };
+      const ranFor = (item) => (item.endedAt ?? now()) - item.startedAt;
+      const stateOf = (item) => item.ending?.state ?? "running";
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+      const kinds = (items) =>
+        [
+          [items.filter((i) => i.kind === "sub-agent").length, "sub-agent", "sub-agents"],
+          [items.filter((i) => i.kind === "process").length, "process", "processes"],
+        ]
+          .filter(([n]) => n > 0)
+          .map(([n, one, many]) => plural(n, one, many))
+          .join(", ");
+
+      /* What the line says (spec 2.9, The UI): what runs, then how many ended and failed. */
+      function lineWords(items) {
+        const live = items.filter((i) => stateOf(i) === "running");
+        const ended = items.filter((i) => stateOf(i) !== "running");
+        const failed = ended.filter((i) => stateOf(i) === "failed").length;
+        if (live.length > 0) {
+          const endedWords = ended.length > 0 ? ` · ${ended.length} ended` : "";
+          const failedWords = failed > 0 ? `, <span class="failed">${failed} failed</span>` : "";
+          return {
+            live: true,
+            html: `<b>${kinds(live)}</b> running${endedWords}${failedWords}`,
+            label: `${kinds(live)} running${endedWords}${failed ? `, ${failed} failed` : ""}`,
+          };
+        }
+        const failedWords = failed > 0 ? ` · <span class="failed">${failed} failed</span>` : "";
+        return {
+          live: false,
+          html: `<b>${kinds(ended)}</b> ended${failedWords}`,
+          label: `${kinds(ended)} ended${failed ? `, ${failed} failed` : ""}`,
+        };
+      }
+
+      const STATE_WORDS = { running: "Running", finished: "Finished", failed: "Failed", stopped: "Stopped" };
+      const STOPPED_BY = {
+        agent: "by the Agent",
+        interrupt: "when the turn was interrupted",
+        "session-end": "with the session",
+        restart: "when The Office restarted",
+      };
+      /* An item's state in the list: the state, then what the user asks next (how long, how it ended). */
+      function stateLine(item) {
+        const st = stateOf(item);
+        const mark = st === "running" ? '<span class="dot running"></span>' : st === "finished" ? ICON.check(11) : "";
+        const how =
+          st === "failed" && item.kind === "process"
+            ? ` · exit code ${item.exitCode}`
+            : st === "stopped"
+              ? ` ${STOPPED_BY[item.ending.by]}`
+              : "";
+        return `<span class="state ${st}">${mark}${STATE_WORDS[st]}${how}</span><span aria-hidden="true">·</span><span data-ran="${esc(item.id)}">${duration(ranFor(item))}</span>`;
+      }
+      function stateBadge(item) {
+        const st = stateOf(item);
+        const look = { running: "success", finished: "", failed: "danger", stopped: "" }[st];
+        const mark = st === "running" ? '<span class="dot running" style="width:6px;height:6px"></span>' : "";
+        return `<span class="badge ${look}">${mark}${STATE_WORDS[st]}</span>`;
+      }
+
+      /* ---------- The line above the message input ---------- */
+      function workLine() {
+        if (state.items.length === 0 || state.lineLoading) return "";
+        const words = lineWords(state.items);
+        const mark = words.live ? '<span class="dot running"></span>' : ICON.subAgent(14);
+        // In the Stage history it switches to the run's tab; elsewhere it opens a window.
+        const opens = state.place === "stage" ? "" : `aria-haspopup="dialog" aria-expanded="${state.open}"`;
+        return `<button class="work-line" data-action="open" ${opens} aria-label="${esc(words.label)}. Show them.">
+          <span class="work-line-mark">${mark}</span>
+          <span class="work-line-text">${words.html}</span>
+          <span class="work-line-open">${isPhone() ? "" : "Show"}${ICON.chevronRight(12)}</span>
+        </button>`;
+      }
+
+      /* ---------- The view: a list and details ---------- */
+      function viewList() {
+        const live = state.items.filter((i) => stateOf(i) === "running");
+        const ended = state.items
+          .filter((i) => stateOf(i) !== "running")
+          .sort((a, b) => b.endedAt - a.endedAt);
+        const group = (title, items) =>
+          items.length === 0
+            ? ""
+            : `<div class="view-group"><span class="overline">${title}</span><span class="badge count">${items.length}</span></div>` +
+              items.map(listItem).join("");
+        return `<nav class="view-list" aria-label="Sub-agents and processes">${group("Running", live)}${group("Ended", ended)}</nav>`;
+      }
+      function listItem(item) {
+        const isProcess = item.kind === "process";
+        const title = item.description || item.commandLine;
+        const kindWords = isProcess ? "Process" : `Sub-agent · ${item.agentKind}`;
+        return `<button class="view-item" data-pick="${esc(item.id)}" aria-current="${item.id === state.picked}">
+          <span class="view-item-mark">${isProcess ? ICON.process(15) : ICON.subAgent(15)}</span>
+          <span class="view-item-title${item.description ? "" : " command"}">${esc(title)}</span>
+          <span class="view-item-meta"><span>${kindWords}</span>·${stateLine(item)}</span>
+        </button>`;
+      }
+
+      function viewDetail() {
+        const item = state.items.find((i) => i.id === state.picked);
+        if (!item) return `<div class="view-detail"></div>`;
+        const back = `<button class="view-back" data-action="back">${ICON.chevronLeft(14)} All sub-agents and processes</button>`;
+        return `<section class="view-detail" aria-label="${esc(item.description)}">${back}${item.kind === "process" ? processDetail(item) : subAgentDetail(item)}</section>`;
+      }
+
+      function detailHead(item) {
+        const isProcess = item.kind === "process";
+        const st = stateOf(item);
+        const facts = [
+          `Started by ${item.startedBy} at ${clock(item.startedAt)}`,
+          st === "running"
+            ? `running for <span data-ran="${esc(item.id)}">${duration(ranFor(item))}</span>`
+            : `ran <span>${duration(ranFor(item))}</span>, until ${clock(item.endedAt)}`,
+          isProcess ? `${item.shell} · id ${item.id}` : `<span data-calls>${plural(item.toolCalls, "tool call", "tool calls")}</span>`,
+        ];
+        const badges = [
+          stateBadge(item),
+          isProcess ? "" : `<span class="badge">${esc(item.agentKind)}</span>`,
+          item.background ? '<span class="badge info">In the background</span>' : "",
+        ].join("");
+        return `<header class="view-head">
+          <h3 class="view-title">${isProcess ? ICON.process(16) : ICON.subAgent(16)}<span>${esc(item.description || item.commandLine)}</span></h3>
+          <div class="view-badges">${badges}</div>
+          <p class="view-facts">${facts.map((f) => `<span>${f}</span>`).join("")}</p>
+        </header>`;
+      }
+
+      function endingStrip(item) {
+        const st = stateOf(item);
+        if (st === "running") return "";
+        if (st === "finished") {
+          return item.kind === "process"
+            ? `<div class="ending finished">${ICON.check(14)}<span>Finished with exit code 0 at ${clock(item.endedAt)}.</span></div>`
+            : "";
+        }
+        if (st === "failed") {
+          const why = item.kind === "process" ? `Failed with exit code ${item.exitCode} at ${clock(item.endedAt)}.` : `Failed at ${clock(item.endedAt)}. ${item.ending.reason}`;
+          return `<div class="ending failed">${ICON.alert(14)}<span>${esc(why)}</span></div>`;
+        }
+        return `<div class="ending">${ICON.stop(14)}<span>Stopped ${STOPPED_BY[item.ending.by]} at ${clock(item.endedAt)}${item.ending.by === "agent" ? " (TaskStop)" : ""}.</span></div>`;
+      }
+
+      function processDetail(item) {
+        const st = stateOf(item);
+        const follow =
+          st !== "running"
+            ? ""
+            : state.following
+              ? '<span class="following" id="following"><span class="dot running" style="width:6px;height:6px"></span>Following the end</span>'
+              : `<button class="btn sm secondary" data-action="jump" id="following">${ICON.down(12)} Jump to the end</button>`;
+        const dropped = item.droppedBytes
+          ? `<span class="output-dropped">${item.droppedBytes} MB of earlier output isn't kept. The last 256 KB show here.</span>`
+          : "";
+        const body = state.loadingOutput
+          ? `<span class="output-loading" role="status" aria-label="Loading the output…">${[92, 78, 85, 60, 70, 44].map((w) => `<span class="skeleton" style="width:${w}%"></span>`).join("")}</span>`
+          : dropped + item.output.map(esc).join("\n");
+        return `<div class="view-detail-scroll">
+          ${detailHead(item)}
+          <div class="view-section"><span class="overline">Command</span><pre class="command">${esc(item.commandLine)}</pre></div>
+          <div class="output-section">
+            <div class="view-section-row"><span class="overline">Output</span>${follow}</div>
+            <pre class="output" id="output" tabindex="0" aria-label="Output" aria-live="off">${body}</pre>
+            ${endingStrip(item)}
+          </div>
+        </div>`;
+      }
+
+      function subAgentDetail(item) {
+        const promptFolded = !state.promptOpen && item.prompt.split("\n").length + item.prompt.length / 90 > 3.2;
+        const detailsSwitch = `<button class="switch-label" role="switch" aria-checked="${state.details}" data-action="details">Details<span class="switch"></span></button>`;
+        return `<div class="view-detail-scroll" id="sub-agent-scroll">
+          ${detailHead(item)}
+          <div class="view-section">
+            <span class="overline">Its prompt</span>
+            <p class="prompt${promptFolded ? " folded" : ""}">${esc(item.prompt)}</p>
+            ${promptFolded ? '<div><button class="text-link" data-action="prompt">Read it in full</button></div>' : ""}
+          </div>
+          <div class="view-section" style="padding-bottom:0">
+            <div class="view-section-row"><span class="overline">Messages and tool calls</span>${detailsSwitch}</div>
+          </div>
+          <div class="sub-agent-thread"><div class="thread-column" id="sub-agent-thread">${subAgentRows(item)}</div></div>
+        </div>`;
+      }
+
+      /* A Sub-agent's messages in Rows: its text as turns, its tool calls folded under them, as a Thread shows its Agent's. */
+      function subAgentRows(item) {
+        const st = stateOf(item);
+        const rows = [];
+        item.entries.forEach((entry, index) => {
+          if (entry.text) rows.push(subAgentTurn(item, entry.text));
+          else if (state.details) rows.push(toolFold(entry.tools, index === item.entries.length - 1 && entry.fresh));
+        });
+        if (!state.details && item.entries.every((e) => !e.text)) {
+          rows.push(`<p class="detail-empty">Nothing written yet. Its tool calls show with Details.</p>`);
+        }
+        if (st === "running") {
+          rows.push(`<div class="in-column"><span class="typing" aria-label="Working"><i></i><i></i><i></i></span></div>`);
+        } else if (item.reportedBack) {
+          rows.push(`<div class="in-column reported"><b>Reported back to ${item.startedBy}</b>${said(item.reportedBack)}</div>`);
+        }
+        const strip = endingStrip(item);
+        if (strip) rows.push(`<div class="in-column">${strip}</div>`);
+        return rows.join("");
+      }
+      function subAgentTurn(item, text) {
+        return `<div class="turn">
+          <span class="avatar agent-mark">${ICON.subAgent(13)}</span>
+          <div style="min-width:0"><div class="turn-by"><b>${esc(item.agentKind)} sub-agent</b><span>${clock(item.startedAt)}</span></div>
+          <div class="said"><p>${said(text)}</p></div></div>
+        </div>`;
+      }
+      function toolFold(tools, fresh) {
+        const last = tools[tools.length - 1];
+        return `<details class="tools in-column"${fresh ? " open" : ""}>
+          <summary>${ICON.tools(10)}<span>${plural(tools.length, "tool call", "tool calls")}</span><span class="tools-last">${esc(last[0])} ${esc(last[1])}</span></summary>
+          <ul>${tools.map(([tool, input]) => `<li${fresh ? ' class="arrived"' : ""}><b>${esc(tool)}</b><span>${esc(input)}</span></li>`).join("")}</ul>
+        </details>`;
+      }
+
+      function view() {
+        return `<div class="view" data-pane="${state.pane}" id="view">
+          <div class="view-body">${viewList()}${viewDetail()}</div>
+        </div>`;
+      }
+
+      /* The window the line opens, in the chat drawer and on the Task page: large, one height, no actions but Close. */
+      function viewWindow() {
+        const where = state.place === "chat" ? "Jim's chat · Try a search index on a copy of the data" : "Jim's Thread on Search across Threads";
+        return `<div class="window-backdrop" data-action="backdrop">
+          <div class="window" role="dialog" aria-modal="true" aria-labelledby="view-title">
+            <div class="window-head">
+              <h2 id="view-title">Sub-agents and processes<span>${esc(where)}</span></h2>
+              <button class="icon-button" data-action="close" aria-label="Close">${ICON.x(16)}</button>
+            </div>
+            <div class="window-body">${view()}</div>
+            <div class="window-bar">
+              <span class="grow">${ICON.lock(12)} Read-only: only the Agent can stop them.</span>
+              <button class="btn secondary" data-action="close">Close</button>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      /* ---------- The Thread behind: Jim's turns ---------- */
+      function jimsThread({ stage = false } = {}) {
+        const intro = stage
+          ? `<div class="office-break">Brief · Implement, run 2</div>`
+          : `<div class="turn"><span class="avatar you">You</span><div style="min-width:0"><div class="turn-by"><b>You</b><span>14:01</span></div><div class="said"><p>Before you build it: does an index on the messages slow down writing them? Try it on a copy of the data.</p></div></div></div>`;
+        const tools = [
+          ["Task", "Check how the web app lists Threads"],
+          ["Bash", "npm run dev -w apps/web (in the background)"],
+          ["Task", "Find where Threads are read and searched"],
+          ["Task", "Review the search migration for locks (in the background)"],
+        ];
+        const fold = state.threadDetails
+          ? `<details class="tools in-column" open><summary>${ICON.tools(10)}<span>4 tool calls</span><span class="tools-last">Task Review the search migration for locks</span></summary><ul>${tools.map(([t, i]) => `<li><b>${t}</b><span>${esc(i)}</span></li>`).join("")}</ul></details>`
+          : "";
+        return `<div class="thread-column">
+          ${intro}
+          <div class="turn"><span class="avatar jim">JH</span><div style="min-width:0"><div class="turn-by"><b>Jim</b><span>Developer</span><span>14:02</span></div>
+            <div class="said"><p>I'll find where messages are written and start the web app, and a sub-agent reviews the migration while the tests run.</p></div></div></div>
+          ${fold}
+          <div class="in-column"><span class="typing" aria-label="Jim is answering"><i></i><i></i><i></i></span></div>
+        </div>`;
+      }
+      function composer({ placeholder, to = true }) {
+        const toLine = to
+          ? `<div class="composer-to">To <span class="avatar sm jim">JH</span><strong>Jim</strong><span class="dot warm"></span><span>cache warm, 41 min left</span></div>`
+          : "";
+        return `<div class="composer">${toLine}<div class="composer-row"><textarea class="composer-field" rows="1" placeholder="${esc(placeholder)}" aria-label="Message"></textarea><button class="composer-send" disabled aria-label="Send">${ICON.send(16)}</button></div></div>`;
+      }
+      const threadDetailsSwitch = () =>
+        `<button class="switch-label" role="switch" aria-checked="${state.threadDetails}" data-action="thread-details">Details<span class="switch"></span></button>`;
+
+      /* ---------- The shell ---------- */
+      /* `overlay`: what lies over the page inside the app, such as the chat drawer or the Stage history. */
+      function shell(title, crumb, mainHtml, { chatOpen = false, overlay = "" } = {}) {
+        const phone = isPhone();
+        const onNow = state.place === "chat";
+        return `<div class="app ${phone ? "w-phone" : ""} ${state.place === "chat" && state.width === "wide" ? "pushed" : ""} ${state.width !== "wide" ? "narrow-page" : ""}">
+          <nav class="rail" aria-label="Surfaces"><span class="rail-mark">O</span>
+            <span class="rail-item ${onNow ? "on" : ""}">${ICON.now()}</span><span class="rail-item ${onNow ? "" : "on"}">${ICON.work()}</span>
+            <span class="rail-item">${ICON.people()}</span><span class="rail-item">${ICON.projects()}</span><span class="rail-item">${ICON.settings()}</span></nav>
+          <header class="top"><span class="crumb">${esc(crumb)}</span><h1>${esc(title)}</h1><span class="grow"></span>
+            <span class="chat-button ${chatOpen ? "open" : ""}">${ICON.chat(14)}${phone ? "" : "Chat"}</span></header>
+          <div class="strip"><span><b>2</b> Needs you</span><span><b>3</b> running</span>${phone ? "" : "<span><b>41%</b> of the 5-hour window</span>"}</div>
+          <main class="main">${mainHtml}</main>
+          ${overlay}
+        </div>`;
+      }
+
+      function nowPage() {
+        const card = (title, lines) =>
+          `<div class="card"><h3>${title}</h3>${lines.map((w) => `<span class="ghost-line" style="width:${w}%"></span>`).join("")}</div>`;
+        return `<div class="page-scroll"><div class="now-page">${card("Needs you", [90, 70, 80])}${card("Running", [85, 60, 75, 50])}${card("Today", [70, 90, 40])}</div></div>`;
+      }
+
+      function chatPlace() {
+        const phone = isPhone();
+        const drawerLook = phone ? "fill" : state.width === "900" ? "over" : "";
+        const drawer = `<aside class="chat-drawer ${drawerLook}" aria-label="Chat">
+          <div class="drawer-head"><span class="avatar jim">JH</span><div class="drawer-head-main"><span class="drawer-title">Jim</span><span class="drawer-sub">Developer · reads and changes code in a Task's worktree</span></div>
+            <button class="icon-button" aria-label="Close the chat">${ICON.x(16)}</button></div>
+          <div class="thread-row"><button class="btn ghost sm">${ICON.chevronLeft(12)} Threads</button><span class="thread-row-title">Try a search index on a copy of the data</span>${threadDetailsSwitch()}</div>
+          <div class="thread">${jimsThread()}</div>
+          ${workLine()}
+          ${composer({ placeholder: "Write to Jim…" })}
+        </aside>`;
+        return shell("Now", "", nowPage(), { chatOpen: true, overlay: drawer });
+      }
+
+      function taskRecord() {
+        return `<div class="record">
+          <div class="record-head"><h2>Search across Threads</h2>
+            <div class="record-facts"><span class="badge success"><span class="dot running" style="width:6px;height:6px"></span>In progress</span><span>the-office</span><span>Implement · Jim</span></div></div>
+          <div class="pipeline-rail"><span class="rail-stage done">${ICON.check(11)} Plan</span><span class="rail-stage now">Implement</span><span class="rail-stage">Review</span><span class="rail-stage">Publish</span></div>
+          <div class="tabs"><button class="tab" aria-selected="true">Overview</button><button class="tab">Changes</button><button class="tab">Attachments</button></div>
+          <div class="card record-block"><h3>Description</h3><p>A search box above the Thread list that finds a Thread by any word in its messages, in the chat drawer and on a Task page.</p></div>
+          <div class="card record-block"><h3>Plan</h3><p>Index the masked text of every message with a GIN index, add GET /api/threads/search, and a search box over the Thread list. Try the index on a copy of the data first.</p></div>
+        </div>`;
+      }
+
+      function taskPlace() {
+        const narrow = state.width !== "wide";
+        const conversation = `<section class="conversation" aria-label="Conversation">
+          <div class="tabs conversation-tabs"><button class="tab"><span class="avatar sm angela">AM</span>Angela</button><button class="tab" aria-selected="true"><span class="avatar sm jim">JH</span>Jim</button>
+            <span class="tabs-end">${threadDetailsSwitch()}</span></div>
+          <div class="thread">${jimsThread()}</div>
+          ${workLine()}
+          ${composer({ placeholder: "Write to Jim…" })}
+        </section>`;
+        const page = `<div class="task-page">${taskRecord()}${narrow ? "" : conversation}</div>`;
+        const drawer = narrow ? `<div class="scrim"></div><span class="drawer-handle">Conversation</span>${conversation}` : "";
+        return shell("Search across Threads", "Work ›", page + drawer);
+      }
+
+      function stagePlace() {
+        const tab = state.stageTab;
+        const count = state.items.length;
+        const tabs = `<div class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="summary" aria-selected="${tab === "summary"}">Summary</button>
+          <button class="tab" role="tab" data-tab="thread" aria-selected="${tab === "thread"}">Thread</button>
+          <button class="tab" role="tab" data-tab="view" aria-selected="${tab === "view"}">Sub-agents and processes <span class="badge count">${count}</span></button>
+          <span class="tabs-end">${tab === "thread" ? threadDetailsSwitch() : tab === "view" ? `<span class="following">${ICON.lock(12)}${isPhone() ? "Read-only" : "Read-only: only the Agent can stop them"}</span>` : ""}</span>
+        </div>`;
+        const body =
+          tab === "summary"
+            ? `<div class="summary-tab"><span class="overline">Outcome</span><p>Still running: the outcome and the Handover note show here once Jim ends the Stage.</p></div>`
+            : tab === "thread"
+              ? `<div class="stage-thread"><div class="thread">${jimsThread({ stage: true })}</div>${workLine()}${composer({ placeholder: "Write to Jim… (lands at the next safe point)", to: false })}</div>`
+              : view();
+        const history = `<div class="window-backdrop">
+          <div class="window" role="dialog" aria-modal="true" aria-labelledby="history-title">
+            <div class="window-head"><h2 id="history-title">Stage history<span>Search across Threads</span></h2><button class="icon-button" aria-label="Close">${ICON.x(16)}</button></div>
+            <div class="window-body"><div class="history">
+              <div class="history-pipeline"><span class="rail-stage done">${ICON.check(11)} Plan</span><span class="rail-stage now picked">Implement</span><span class="rail-stage">Review</span><span class="rail-stage">Publish</span></div>
+              <div class="history-body">
+                <div class="history-runs"><button class="history-run" aria-current="true"><b>Run 2 · Running</b><span>Since 14:01 · 48k tokens</span></button><button class="history-run"><b>Run 1 · Failed</b><span>13:20–13:52 · tests failed</span></button></div>
+                <div class="history-detail">${tabs}${body}</div>
+              </div>
+            </div></div>
+            <div class="window-bar"><span class="grow"></span><button class="btn secondary">Close</button></div>
+          </div>
+        </div>`;
+        return shell("Search across Threads", "Work ›", `<div class="task-page">${taskRecord()}</div>`, { overlay: history });
+      }
+
+      /* ---------- The bar, the note and the reference ---------- */
+      function segments(name, options, current) {
+        return `<div class="control"><span class="control-label">${name}</span><div class="segments">${options
+          .map((o) => `<button data-${name.toLowerCase()}="${o.key}" aria-pressed="${o.key === current}">${o.label}</button>`)
+          .join("")}</div></div>`;
+      }
+      function renderBar() {
+        document.getElementById("bar").innerHTML = `
+          <span class="bar-title">Sub-agents and processes</span><span class="bar-tag">PROPOSAL</span>
+          ${segments("Place", PLACES, state.place)}
+          ${segments("Width", WIDTHS, state.width)}
+          ${segments("Palette", PALETTES, state.palette)}
+          <span class="bar-break"></span>
+          ${segments("Scenario", SCENARIOS, state.scenario)}`;
+      }
+      function renderNote() {
+        const s = scenario();
+        const where = {
+          chat: "In Jim's chat in the chat drawer, the view opens in a large window.",
+          task: "On the Task page, in Jim's tab of the conversation (a drawer on a narrow page), the view opens in a large window.",
+          stage: "In the Stage history, already a window, the view is the run's third tab, beside Summary and Thread; the line in the Thread tab opens it.",
+        }[state.place];
+        const replay = s.late ? '<button class="btn sm secondary" data-action="replay">Replay the late open</button>' : "";
+        document.getElementById("note").innerHTML = `<span><strong>${s.label}.</strong> ${s.note} ${where}</span>${replay}`;
+      }
+
+      function renderReference() {
+        const look = (label, items) =>
+          `<div class="look"><span>${label}</span>${items ? lineMarkup(items) : '<span class="look-none">No line: the session has had none.</span>'}</div>`;
+        const R = (kind) => ({ kind, ending: undefined });
+        const E = (kind, st) => ({ kind, ending: { state: st }, endedAt: 0 });
+        document.getElementById("reference").innerHTML = `
+          <div><h2>The line, in each of its forms</h2><div class="looks">
+            ${look("One Sub-agent running", [R("sub-agent")])}
+            ${look("One Process running (the API engine has Processes only)", [R("process")])}
+            ${look("Both kinds running", [R("sub-agent"), R("sub-agent"), R("process")])}
+            ${look("Running, with some ended", [R("sub-agent"), R("process"), E("sub-agent", "finished"), E("process", "finished"), E("process", "stopped")])}
+            ${look("Running, with a failure among the ended", [R("process"), E("sub-agent", "finished"), E("process", "failed")])}
+            ${look("Only ended ones left", [E("sub-agent", "finished"), E("sub-agent", "finished"), E("process", "stopped")])}
+            ${look("Only ended, one failed", [E("sub-agent", "failed"), E("process", "finished")])}
+            ${look("None yet")}
+          </div></div>
+          <div><h2>A page opened late catches up</h2>
+            <ol>
+              <li>The page subscribes to the Thread's events first and holds what arrives, say output chunks 41 to 44.</li>
+              <li>It reads the output: the read answers up to chunk 42.</li>
+              <li>It shows the read, then the held chunks after 42: 43 and 44. Chunks 41 and 42 are already in the read, so they are dropped: nothing shows twice.</li>
+              <li>Live chunks follow in order. One that skips ahead (46 after 44), or a reconnect, reads again from 44 (<code>?after=44</code>): nothing is missed.</li>
+            </ol>
+            <p>The list works the same way: a start or an end that arrives while it is read makes the page read it again. The output and the messages stream only to a page with the view open.</p>
+          </div>
+          <div><h2>What the view settles</h2>
+            <ul>
+              <li><b>Order:</b> Running on top, then Ended, the one that ended last first. A press on the whole item picks it.</li>
+              <li><b>States:</b> Running (green, live dot), Finished (check), Failed (red, with the exit code or the reason), Stopped (grey, by whom: the Agent, an interrupt, the session's end, a restart).</li>
+              <li><b>A Sub-agent:</b> its kind, whether it runs in the background, its prompt's first lines with Read it in full, its messages and tool calls in Rows with Details, and what it reported back.</li>
+              <li><b>A Process:</b> its description, the command whole and wrapping, its output following the end until scrolled up, how it ended, and the earlier output not kept past 256 KB.</li>
+              <li><b>Read-only:</b> no Stop anywhere. Stopping one from here is later work.</li>
+            </ul>
+          </div>
+          <div><h2>Widths</h2>
+            <table><tr><th>Width</th><th>Line</th><th>View</th></tr>
+              <tr><td>Wide</td><td>Show and a chevron</td><td>List beside the details</td></tr>
+              <tr><td>900px</td><td>The same</td><td>List beside the details (window 846px); in the Stage history the run's tab stacks</td></tr>
+              <tr><td>390px</td><td>A chevron alone; the words wrap</td><td>The list, then the details with ‹ All sub-agents and processes</td></tr>
+            </table>
+            <p>The view lays itself out by its own width (under 640px it stacks), so it reads the same in a window and in a tab. Nothing scrolls sideways: commands and output wrap.</p>
+          </div>`;
+      }
+      function lineMarkup(items) {
+        const words = lineWords(items);
+        const mark = words.live ? '<span class="dot running"></span>' : ICON.subAgent(14);
+        return `<span class="work-line" aria-hidden="true"><span class="work-line-mark">${mark}</span><span class="work-line-text">${words.html}</span><span class="work-line-open">Show${ICON.chevronRight(12)}</span></span>`;
+      }
+
+      /* ---------- Render ---------- */
+      function renderFrame() {
+        const frame = document.getElementById("frame");
+        frame.className = `frame w-${state.width}`;
+        const place = { chat: chatPlace, task: taskPlace, stage: stagePlace }[state.place]();
+        const windowHtml = state.open && state.place !== "stage" ? viewWindow() : "";
+        frame.innerHTML = place + windowHtml;
+        afterRender();
+      }
+      function render() {
+        document.documentElement.dataset.palette = state.palette;
+        document.documentElement.dataset.theme = state.palette;
+        renderBar();
+        renderNote();
+        renderFrame();
+        renderReference();
+      }
+      function afterRender() {
+        const output = document.getElementById("output");
+        if (output && state.following) output.scrollTop = output.scrollHeight;
+        if (output) output.addEventListener("scroll", onOutputScroll);
+        const scroll = document.getElementById("sub-agent-scroll");
+        const item = picked();
+        if (scroll && item && stateOf(item) === "running") scroll.scrollTop = scroll.scrollHeight;
+        document.querySelectorAll(".frame .thread").forEach((thread) => (thread.scrollTop = thread.scrollHeight));
+      }
+      const picked = () => state.items.find((i) => i.id === state.picked);
+      function onOutputScroll(event) {
+        const output = event.currentTarget;
+        const atEnd = output.scrollTop + output.clientHeight >= output.scrollHeight - 8;
+        if (atEnd !== state.following) {
+          state.following = atEnd;
+          const item = picked();
+          const follow = document.getElementById("following");
+          if (follow && item && stateOf(item) === "running") {
+            follow.outerHTML = atEnd
+              ? '<span class="following" id="following"><span class="dot running" style="width:6px;height:6px"></span>Following the end</span>'
+              : `<button class="btn sm secondary" data-action="jump" id="following">${ICON.down(12)} Jump to the end</button>`;
+          }
+        }
+      }
+
+      /* ---------- Live: what streams while the page is open ---------- */
+      let tick = 0;
+      function stream() {
+        tick += 1;
+        const clockNow = clock(now());
+        state.items.forEach((item) => {
+          if (stateOf(item) !== "running") return;
+          if (item.stream === "vite" && tick % 3 === 0) appendOutput(item, [`${clockNow}:${String(Math.floor(now()) % 60).padStart(2, "0")} ${VITE_MORE[(tick / 3) % VITE_MORE.length]}`]);
+          if (item.stream === "tests") appendOutput(item, [testLine(4000 + tick)]);
+          if (item.kind === "sub-agent" && item.coming.length > 0 && tick % 7 === (item.background ? 3 : 0)) appendEntry(item);
+        });
+        document.querySelectorAll("[data-ran]").forEach((el) => {
+          const item = state.items.find((i) => i.id === el.dataset.ran);
+          if (item && stateOf(item) === "running") el.textContent = duration(ranFor(item));
+        });
+      }
+      function appendOutput(item, lines) {
+        item.output.push(...lines);
+        if (item.id !== state.picked || state.loadingOutput) return;
+        const output = document.getElementById("output");
+        if (!output) return;
+        lines.forEach((line) => {
+          const span = document.createElement("span");
+          span.className = "arrived";
+          span.textContent = `\n${line}`;
+          output.appendChild(span);
+        });
+        if (state.following) output.scrollTop = output.scrollHeight;
+      }
+      function appendEntry(item) {
+        const entry = { ...item.coming.shift(), fresh: true };
+        item.entries.forEach((e) => delete e.fresh);
+        item.entries.push(entry);
+        if (entry.tools) item.toolCalls += entry.tools.length;
+        if (item.id !== state.picked) return;
+        const rows = document.getElementById("sub-agent-thread");
+        const scroll = document.getElementById("sub-agent-scroll");
+        if (!rows || !scroll) return;
+        const atEnd = scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - 24;
+        rows.innerHTML = subAgentRows(item);
+        const calls = scroll.querySelector("[data-calls]");
+        if (calls) calls.textContent = plural(item.toolCalls, "tool call", "tool calls");
+        if (atEnd) scroll.scrollTop = scroll.scrollHeight;
+      }
+      setInterval(stream, 1000);
+
+      /* ---------- Events ---------- */
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("button, [data-action]");
+        if (!target) return;
+        const { dataset } = target;
+        if (dataset.place) {
+          state.place = dataset.place;
+          applyScenario();
+          return render();
+        }
+        if (dataset.width) {
+          state.width = dataset.width;
+          return render();
+        }
+        if (dataset.palette) {
+          state.palette = dataset.palette;
+          return render();
+        }
+        if (dataset.scenario) {
+          state.scenario = dataset.scenario;
+          applyScenario();
+          return render();
+        }
+        if (dataset.pick) {
+          state.picked = dataset.pick;
+          state.pane = "details";
+          state.promptOpen = false;
+          state.following = true;
+          return renderFrame();
+        }
+        if (dataset.tab) {
+          state.stageTab = dataset.tab;
+          state.open = dataset.tab === "view";
+          return renderFrame();
+        }
+        switch (dataset.action) {
+          case "open":
+            state.open = true;
+            state.pane = isPhone() ? "list" : "details";
+            if (state.place === "stage") state.stageTab = "view";
+            return renderFrame();
+          case "close":
+            state.open = false;
+            return renderFrame();
+          case "backdrop":
+            // A press on the dimmed backdrop never closes a window (spec 4.1).
+            return;
+          case "back":
+            state.pane = "list";
+            return renderFrame();
+          case "details":
+            state.details = !state.details;
+            return renderFrame();
+          case "thread-details":
+            state.threadDetails = !state.threadDetails;
+            return renderFrame();
+          case "prompt":
+            state.promptOpen = true;
+            return renderFrame();
+          case "jump": {
+            state.following = true;
+            const output = document.getElementById("output");
+            if (output) output.scrollTop = output.scrollHeight;
+            return;
+          }
+          case "replay":
+            applyScenario();
+            return render();
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (state.open && state.place !== "stage") {
+          state.open = false;
+          renderFrame();
+        }
+      });
+
+      applyScenario();
+      render();
+    </script>
+  </body>
+</html>

@@ -20,6 +20,7 @@ The spec is one file per section, so a session reads only the sections its task 
 - [2.6 Skills](2.6-skills.md): the library, adding skills, Project skills, what a session gets.
 - [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults.
 - [2.8 Fire alarm](2.8-fire-alarm.md): the alarm and the all clear (tier 2).
+- [2.9 Sub-agents and processes](2.9-sub-agents-and-processes.md): what a session runs beside its Agent, what each engine reports, how long it is kept, how it streams live, the read-only view (proposed).
 
 ### Tiers and UX
 

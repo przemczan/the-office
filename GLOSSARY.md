@@ -260,7 +260,7 @@ _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
 A named, ordered set of Stages that a Task's work follows.
-_Avoid_: Workflow, flow, process
+_Avoid_: Workflow, flow, process (a Process is a session's background command)
 
 **Pipeline library**:
 The Office-wide set of Pipelines that Projects and Tasks choose from, with the Stage templates beside them, edited in Settings or changed by Devops' Proposals.
@@ -363,6 +363,14 @@ _Avoid_: Search provider, search engine
 **Agent**:
 A Role's person at work on one thing, a Task or a conversation; the same person can be at work on several things at once.
 _Avoid_: Bot, worker, assistant, instance
+
+**Sub-agent**:
+An agent that an Agent's session starts to do part of its work in a context of its own, such as a search or a review, and that reports back to whoever started it; Running, then Finished, Failed or Stopped, and viewable, read-only, for the rest of the session. Only Claude Code engines start them.
+_Avoid_: Subagent, child agent, helper, task (Claude Code's own word for it)
+
+**Process**:
+A command an Agent's session, or one of its Sub-agents, runs in the background, such as a dev server or a long test run, with its output; Running, then Finished, Failed or Stopped, and viewable, read-only, for the rest of the session. Not a Pipeline, and not one of the operating system's processes that Processes per service counts.
+_Avoid_: Background task, shell, job, background command (in the UI)
 
 **Consultant**:
 A person whom other Agents may consult on a Task.
