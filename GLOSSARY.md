@@ -372,6 +372,10 @@ _Avoid_: Permission flag, guard, gate (for this)
 A packaged set of instructions and files from The Office's library that a person may use when the work calls for it.
 _Avoid_: Plugin, tool, ability
 
+**Skill use**:
+One Skill tool call in a session, on any engine, counted for the Skill that session got from The Office under that name; each Skill shows its uses in the last 7 days wherever Skills are listed.
+_Avoid_: Invocation, run, call count
+
 **Source**:
 The git repository an installed Skill comes from (`owner/repo` on GitHub, or a git URL), with the Skill's folder in it. Written and uploaded Skills have none.
 _Avoid_: Origin, registry, upstream
@@ -423,3 +427,11 @@ _Avoid_: Admin, sysadmin, system agent
 **Allow changes**:
 A Caretaker Thread's switch, confirmed by the user, under which the Caretaker can do everything on the workstation but touch secrets; kept per Thread, off in a new one.
 _Avoid_: Admin mode, unlock, elevated mode
+
+**Palette**:
+The set of colours the app is shown in, picked in Settings › Appearance and kept in this browser: Light, Dark, Graphite or Paper, or following the system. Graphite counts as dark and Paper as light. It changes colours only, never layout.
+_Avoid_: Theme, mode, colour scheme
+
+**Density**:
+How much air the app is shown with, picked in Settings › Appearance and kept in this browser: Compact, Comfortable or Relaxed. It changes spacing, control heights and text sizes only, never colours.
+_Avoid_: Size, zoom, scale

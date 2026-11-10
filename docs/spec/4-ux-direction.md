@@ -21,7 +21,41 @@ From [11](../../.scratch/the-office/issues/11-surfaces.md), [16](../../.scratch/
   - **Tool calls:** neighbouring ones fold to one line with their count and the latest call, and open to every call; a lone one is a plain line with nothing to open. Details hides them; with Details off, the latest call sits beside "is working" on one line and opens to show it whole. A call's whole text is kept, line breaks included, and shows at any width: it wraps, and only a very long one scrolls in its place. Messages already stored stay cut at 200 characters, as the rest was never kept (chosen while planning, for the user to review).
   - **The Office's lines** have no box: a run or a day sits on a hairline, the others are small centred notes, and a Thread that spans days opens each day with a line. A failure and an MCP server that didn't start show as a tinted strip.
 - **Every item shows its Project mark and name.** The mark is chosen when a Project is added and changed at any time in the Project page's Appearance section. Its colour may be any colour: one of the four offered, or a custom one the user picks, with the label turning dark or white to stay readable. **Icon and Logo:** Appearance also takes an Icon and a Logo, each a PNG, JPEG, WebP or SVG of at most 2 MB, read from the file's contents and shown as uploaded. Either is uploaded or chosen from the repository in the Repository file browser, which shows only those four kinds by their extensions; a chosen file is copied into The Office and is then treated as an upload, so a later change to it in the repository does nothing until it is chosen again. The Icon shows in place of the mark's letters and colour wherever the mark shows. The Logo has no tile and shows at its own proportions on the Project's page and card, in place of the mark. Each takes a light and a dark version, each uploaded, chosen, replaced or removed on its own and saved as soon as it is picked; wherever the image shows, the version for the palette shown (Settings › Appearance) is used, and switching the palette swaps it without a reload. One version alone shows in both palettes, and a version that can't be loaded gives way to the other. Each version shows in its own tile on the Images card, on that palette's page colour whatever palette is shown, taking a dropped file or a press to browse, and an empty tile says which version shows instead. Either can be removed; Logo falls back to Icon, and Icon to the letters and colour, also when an image can't be loaded. An SVG is only ever shown as an image, so a script inside it can't run. Appearance previews the result beside what is being changed, the Project's page head, its card and its mark beside an item, in the palette shown or the other one, so a mark shows as it will look before it is saved. The Project filter (tier 2) narrows every surface, never Office-wide numbers or the rail badge.
-- **Colour and themes** ([prototypes/themes.md](../../.scratch/the-office/prototypes/themes.md)): muted text, borders and surfaces; status colours, accent, badges and icons at the design system's values; dark mode is dark gray; logos in brand colours. Three layers: design-system tokens untouched; a palette remaps colour aliases only; a density remaps spacing and size aliases only. Components use aliases only. Tier 1 ships Light and Dark.
+- **Colour, palettes and densities:** muted text, borders and surfaces; status colours, accent, badges and icons at the design system's values; dark mode is dark gray; logos in brand colours. Tier 1 ships Light and Dark; tier 3 adds Graphite, Paper and the densities. The values below are the mockup's `themes.css`, attached to the Initiative of build task 41 (the user's answers of 2026-11-10).
+  - **Three layers:** the design system's tokens (ramps, type, motion) are never changed; a **palette** remaps the colour aliases (backgrounds, surfaces, text, borders, status); a **density** remaps the spacing, control and text-size aliases. Components use aliases only, so a palette or a density changes colours and air, never layout. Brand marks use the design system's ramp colours directly, so no palette mutes them. The status colours (badges, edges, dots) and the accent are aliases too, but all four palettes keep the design system's values.
+  - **Palettes**, picked in Settings › Appearance: **Light** (the default, muted), **Dark** (dark gray, not black), **Graphite** (dark, cool) and **Paper** (light and warm, from the brand system's beige), or following the system, which shows Light or Dark. Graphite counts as dark and Paper as light: that decides which version of a Project's Icon and Logo shows, and anything else that follows the palette shown.
+  - **Graphite** sets every alias Dark sets:
+    - `--bg: #15171A`, `--surface: #1C1F23`, `--surface-raised: #23272C`, `--surface-sunken: #111316`, `--surface-hover: #22262B`, `--surface-selected: #2B2522`, `--surface-inverse: #E3E6EA`;
+    - `--sidebar-bg: #15171A`, `--sidebar-fg: #A4ABB5`, `--sidebar-active-bg: #23272C`, `--sidebar-active-fg: #E3E6EA`;
+    - `--fg-1: #D6DAE0`, `--fg-2: #939AA5`, `--fg-3: #6A717C`, `--fg-inverse: #15171A`;
+    - `--border: #262B31`, `--border-subtle: #212529`, `--border-strong: #343A42`;
+    - `--primary: #D6DAE0`, `--primary-fg: #15171A`, `--primary-hover: #E3E6EA`;
+    - `--control-hover: #262B31`, `--control-press: #2E343B`;
+    - `--neutral-subtle: #23272C`, `--neutral-fg: #939AA5`, `--neutral-border: #2E343B`;
+    - `--brand-ink: #F4F4F2`.
+  - **Paper** sets these and keeps Light's values for every other alias (`--primary`, `--primary-fg`, `--primary-hover`, `--surface-inverse`, `--fg-inverse`, `--brand-ink`):
+    - `--bg: #F3EFE8`, `--surface: #FBF9F5`, `--surface-raised: #FFFFFF`, `--surface-sunken: #EDE8DF`, `--surface-hover: #F6F2EB`, `--surface-selected: #F7E9E2`;
+    - `--sidebar-bg: #F3EFE8`, `--sidebar-fg: #7A7369`, `--sidebar-active-bg: #E9E3D9`, `--sidebar-active-fg: #2C2823`;
+    - `--fg-1: #2C2823`, `--fg-2: #6E675E`, `--fg-3: #9A928A`;
+    - `--border: #E6E0D6`, `--border-subtle: #ECE7DE`, `--border-strong: #D9D2C6`;
+    - `--control-hover: #EDE8DF`, `--control-press: #E3DDD2`;
+    - `--neutral-subtle: #EDE8DF`, `--neutral-fg: #6E675E`, `--neutral-border: #E1DBD0`.
+  - **Densities**, picked in Settings › Appearance: **Compact**, **Comfortable** (the default, as built in tier 1) and **Relaxed**. A density changes only these spacing, control and text-size aliases:
+
+    | Alias           | Compact     | Comfortable | Relaxed     |
+    | --------------- | ----------- | ----------- | ----------- |
+    | `--pad-card`    | `10px 12px` | `16px 18px` | `22px 24px` |
+    | `--gap-card`    | `6px`       | `12px`      | `16px`      |
+    | `--pad-row`     | `8px 12px`  | `14px 18px` | `18px 24px` |
+    | `--pad-page`    | `16px`      | `24px`      | `32px`      |
+    | `--gap-panel`   | `12px`      | `20px`      | `28px`      |
+    | `--radius-card` | `6px`       | `10px`      | `12px`      |
+    | `--text-item`   | `13px`      | `14px`      | `15px`      |
+    | `--text-body`   | `12px`      | `13px`      | `14px`      |
+    | `--control-h`   | `24px`      | `28px`      | `32px`      |
+    | `--line`        | `1.4`       | `1.5`       | `1.6`       |
+
+  - The palette and the density are each kept in this browser.
 - **Brand:** the NotNullSoft lockup with a mono product chip reading "The Office" ([design-system/guidelines/brand-admin-lockup.html](../../design-system/guidelines/brand-admin-lockup.html)); Ember is the accent. The design system ([design-system/readme.md](../../design-system/readme.md)) is a component library plus brand; its admin sidebar layout is not used.
 - **Copy:** UI copy follows the design system (sentence case, no "I"/"we", verb + object buttons). Everything an Agent says is content: Agents speak in the first person, and their actions are attributed to the person, never to "System".
 - **Phone** (tier 2): Needs you, passing Gates with screenshots, Running, chatting, a Task's summary, the fire alarm; bottom tabs and one column. Boards, graphs, diffs, Projects and Settings are laptop surfaces.

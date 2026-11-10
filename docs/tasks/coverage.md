@@ -93,7 +93,7 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 | §2.1 | Archive; moving Tasks between Projects until In progress, the Plan marked for the Planner to re-check | 38 |
 | §2.1 | Attachment versions: postponed until after tier 3 (2026-11-08) | 39 |
 | §2.3 | Stage templates in Settings › Pipelines, beside the Pipelines: made from scratch or with Save as template on any Stage in a Stage editor, edited and removed there (never refused); added to a Pipeline or a Task's Stages as a copy; the built-in Stages seeded once as templates; Ask Devops on a template, answered with a Proposal of its new Stage | 40 |
-| §4, §2.6 | The Graphite and Paper palettes; the densities; skill usage counts | 41 |
+| §4, §2.6 | The four palettes (Light, Dark, Graphite, Paper, or following the system); the densities Compact, Comfortable and Relaxed; each skill's Skill uses in the last 7 days, in Settings › Skills and a Project's Project skills | 41 |
 | §2.7 | Email and chat-app Notifications (WhatsApp first) | 42 |
 | §2.4, §8 | Talking to The Office from chat apps (WhatsApp first) | 43 |
 | §6 | Stack-specific checks for installs and publishing | 44 |
