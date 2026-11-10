@@ -1,5 +1,9 @@
-import { isCustomMarkColour, type CustomMarkColour, type Project } from "@the-office/contracts";
-import type { Palette } from "@the-office/ui";
+import {
+  isCustomMarkColour,
+  type CustomMarkColour,
+  type Project,
+  type ProjectImagePalette,
+} from "@the-office/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { markLabelColour } from "./mark-colours.ts";
 import { useShownProjectImage } from "./project-image.ts";
@@ -18,8 +22,8 @@ export function ProjectMark({
   readonly project: Pick<Project, "name" | "mark"> & Partial<Pick<Project, "id" | "icon">>;
   /** md beside an item, xl on a Project's card, page on its page's head. */
   readonly size?: "md" | "xl" | "page";
-  /** The palette whose version shows, when not the one shown, as in a preview of the other. */
-  readonly palette?: Palette;
+  /** The palette whose version shows, when not the base of the one shown, as in a preview. */
+  readonly palette?: ProjectImagePalette;
 }): ReactNode {
   const { colour, label } = project.mark;
   const { address, onError } = useShownProjectImage(project.id, project.icon, palette);

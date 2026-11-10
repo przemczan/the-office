@@ -1,0 +1,37 @@
+/* Graphite: dark and cool, on the design system's dark aliases, whose status colours it keeps
+   (spec §4). */
+:root[data-palette="graphite"] {
+  --bg: #15171a;
+  --surface: #1c1f23;
+  --surface-raised: #23272c;
+  --surface-sunken: #111316;
+  --surface-hover: #22262b;
+  --surface-selected: #2b2522;
+  --surface-inverse: #e3e6ea;
+  --sidebar-bg: #15171a;
+  --sidebar-fg: #a4abb5;
+  --sidebar-active-bg: #23272c;
+  --sidebar-active-fg: #e3e6ea;
+  --fg-1: #d6dae0;
+  --fg-2: #939aa5;
+  --fg-3: #6a717c;
+  --fg-inverse: #15171a;
+  --border: #262b31;
+  --border-subtle: #212529;
+  --border-strong: #343a42;
+  --primary: #d6dae0;
+  --primary-fg: #15171a;
+  --primary-hover: #e3e6ea;
+  --control-hover: #262b31;
+  --control-press: #2e343b;
+  --neutral-subtle: #23272c;
+  --neutral-fg: #939aa5;
+  --neutral-border: #2e343b;
+}
+
+/* Graphite's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-graphite-page: #15171a;
+  --palette-graphite-border: #343a42;
+  --palette-graphite-line: #d6dae0;
+}

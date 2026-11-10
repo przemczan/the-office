@@ -12,3 +12,10 @@
   --neutral-fg: var(--gray-500);
   --neutral-border: var(--gray-100);
 }
+
+/* Light's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-light-page: var(--white);
+  --palette-light-border: var(--gray-200);
+  --palette-light-line: var(--gray-900);
+}

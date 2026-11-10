@@ -43,7 +43,11 @@ describe("the appearance", () => {
 
     const appearance = createAppearanceStore();
 
-    expect(appearance.current()).toEqual({ palette: "dark", chosenPalette: undefined });
+    expect(appearance.current()).toEqual({
+      palette: "dark",
+      base: "dark",
+      chosenPalette: undefined,
+    });
     expect(shownAppearance()).toEqual({ theme: "dark", palette: "dark", density: "comfortable" });
   });
 
@@ -69,7 +73,7 @@ describe("the appearance", () => {
     system.set(false);
     system.set(true);
 
-    expect(reloaded.current()).toEqual({ palette: "light", chosenPalette: "light" });
+    expect(reloaded.current()).toEqual({ palette: "light", base: "light", chosenPalette: "light" });
     expect(shownAppearance()).toEqual({ theme: "light", palette: "light", density: "comfortable" });
   });
 
@@ -80,11 +84,15 @@ describe("the appearance", () => {
 
     appearance.followSystem();
 
-    expect(appearance.current()).toEqual({ palette: "light", chosenPalette: undefined });
+    expect(appearance.current()).toEqual({
+      palette: "light",
+      base: "light",
+      chosenPalette: undefined,
+    });
     const reloaded = createAppearanceStore();
     reloaded.subscribe(() => undefined);
     system.set(true);
-    expect(reloaded.current()).toEqual({ palette: "dark", chosenPalette: undefined });
+    expect(reloaded.current()).toEqual({ palette: "dark", base: "dark", chosenPalette: undefined });
   });
 
   it("shows the palette another tab chose", () => {
@@ -95,26 +103,49 @@ describe("the appearance", () => {
     localStorage.setItem(APPEARANCE_RULES.storageKey, "dark");
     window.dispatchEvent(new StorageEvent("storage", { key: APPEARANCE_RULES.storageKey }));
 
-    expect(appearance.current()).toEqual({ palette: "dark", chosenPalette: "dark" });
+    expect(appearance.current()).toEqual({ palette: "dark", base: "dark", chosenPalette: "dark" });
   });
 
-  it("follows the system when the kept palette is not one tier 1 ships", () => {
+  it.each([
+    { palette: "graphite", base: "dark" },
+    { palette: "paper", base: "light" },
+  ] as const)(
+    "shows a chosen $palette over its $base base, across page loads",
+    ({ palette, base }) => {
+      const system = stubSystem(base === "light");
+      createAppearanceStore().choosePalette(palette);
+
+      const reloaded = createAppearanceStore();
+      reloaded.subscribe(() => undefined);
+      system.set(base === "dark");
+
+      expect(reloaded.current()).toEqual({ palette, base, chosenPalette: palette });
+      expect(shownAppearance()).toEqual({ theme: base, palette, density: "comfortable" });
+    },
+  );
+
+  it("follows the system when the kept palette is not a palette", () => {
     stubSystem(true);
-    localStorage.setItem(APPEARANCE_RULES.storageKey, "graphite");
+    localStorage.setItem(APPEARANCE_RULES.storageKey, "sepia");
 
     expect(createAppearanceStore().current()).toEqual({
       palette: "dark",
+      base: "dark",
       chosenPalette: undefined,
     });
   });
 
-  it("is set by the inline script before the first paint", () => {
-    stubSystem(false);
-    localStorage.setItem(APPEARANCE_RULES.storageKey, "dark");
+  it.each([
+    { palette: "dark", base: "dark" },
+    { palette: "graphite", base: "dark" },
+    { palette: "paper", base: "light" },
+  ])("sets a kept $palette by the inline script before the first paint", ({ palette, base }) => {
+    stubSystem(base === "light");
+    localStorage.setItem(APPEARANCE_RULES.storageKey, palette);
 
     // The script runs as the browser runs an inline script: alone, on the page's globals.
     new Function(appearanceScript())();
 
-    expect(shownAppearance()).toEqual({ theme: "dark", palette: "dark", density: "comfortable" });
+    expect(shownAppearance()).toEqual({ theme: base, palette, density: "comfortable" });
   });
 });

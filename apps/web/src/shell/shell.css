@@ -510,7 +510,8 @@ body,
   font-size: 15px;
 }
 
-/* A mark's colours, for its tile and for the swatches that pick one. */
+/* A mark's colours, for its tile and for the swatches that pick one. Like a brand mark, a mark
+   reads the design system's ramps directly, so no palette mutes it (spec §4). */
 .mark-colour-teal {
   --mark-bg: var(--teal-500);
 }
@@ -564,9 +565,9 @@ body,
   max-height: 72px;
 }
 
-/* A place drawn in a palette's own page colours whatever palette is shown, so an Icon or a Logo is
-   judged on the page it is for. Like the palette preview, its colours are read from the design
-   system's ramps. */
+/* A place drawn in the light or dark base's page colours whatever palette is shown, so an Icon's or
+   a Logo's version is judged on the page it is for. Its colours are fixed, so they are read from the
+   design system's ramps. */
 .palette-stage[data-palette-stage="light"] {
   --bg: var(--gray-50);
   --surface: var(--white);

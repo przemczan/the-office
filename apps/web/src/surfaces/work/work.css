@@ -984,6 +984,8 @@
   transform: rotate(-45deg);
 }
 
+/* A mark's tick or cross sits on the status colour, which every palette keeps, so its colour is
+   fixed too. */
 .stage-mark-done {
   border-color: var(--success);
   background: var(--success);
@@ -1623,7 +1625,7 @@
   color: var(--fg-3);
 }
 
-/* A terminal stays dark in both palettes. */
+/* A terminal stays dark in every palette. */
 .command-log-output {
   overflow-x: auto;
   margin: 0;
@@ -2203,7 +2205,7 @@
   padding: 0 5px;
   border-radius: var(--radius-full);
   background: var(--accent);
-  color: var(--white);
+  color: var(--fg-on-accent);
   font: 700 11px/1 var(--font-sans);
 }
 

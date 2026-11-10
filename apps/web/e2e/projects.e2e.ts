@@ -1281,6 +1281,29 @@ test(
     const card = page.getByRole("link", { name: /Two-toned/ });
     await expect(card.locator(".project-logo")).toHaveAttribute("src", darkAddress);
 
+    // Graphite counts as dark and Paper as light, on the page and in How it looks, which opens on
+    // the version for the palette shown.
+    for (const [name, base, address] of [
+      ["Graphite", "Dark", darkAddress],
+      ["Paper", "Light", lightAddress],
+    ] as const) {
+      await settings.getByRole("group", { name: "Palette" }).getByRole("button", { name }).click();
+      await expect(page.locator("html")).toHaveAttribute("data-palette", name.toLowerCase());
+      await expect(card.locator(".project-logo")).toHaveAttribute("src", address);
+      await page.goto(`/projects/${project.id}/appearance`);
+      await expect(headLogo).toHaveAttribute("src", address);
+      await expect(howItLooks(page).getByRole("tab", { name: base })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      for (const logo of await previewLogos.all())
+        await expect(logo).toHaveAttribute("src", address);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `${name.toLowerCase()}-1600-project-appearance.png`),
+      });
+      await page.goto("/projects");
+    }
+
     await page.goto(`/projects/${project.id}/appearance`);
     await darkTile.getByRole("button", { name: "Remove" }).click();
 

@@ -28,3 +28,10 @@
   --neutral-fg: #9a9a94;
   --neutral-border: #2e2e2b;
 }
+
+/* Dark's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-dark-page: var(--gray-900);
+  --palette-dark-border: var(--gray-700);
+  --palette-dark-line: var(--gray-200);
+}

@@ -1,0 +1,32 @@
+/* Paper: light and warm, from the brand system's beige, on the design system's light aliases. It
+   keeps their primary, inverse and status colours (spec §4). */
+:root[data-palette="paper"] {
+  --bg: #f3efe8;
+  --surface: #fbf9f5;
+  --surface-raised: #ffffff;
+  --surface-sunken: #ede8df;
+  --surface-hover: #f6f2eb;
+  --surface-selected: #f7e9e2;
+  --sidebar-bg: #f3efe8;
+  --sidebar-fg: #7a7369;
+  --sidebar-active-bg: #e9e3d9;
+  --sidebar-active-fg: #2c2823;
+  --fg-1: #2c2823;
+  --fg-2: #6e675e;
+  --fg-3: #9a928a;
+  --border: #e6e0d6;
+  --border-subtle: #ece7de;
+  --border-strong: #d9d2c6;
+  --control-hover: #ede8df;
+  --control-press: #e3ddd2;
+  --neutral-subtle: #ede8df;
+  --neutral-fg: #6e675e;
+  --neutral-border: #e1dbd0;
+}
+
+/* Paper's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-paper-page: #f3efe8;
+  --palette-paper-border: #d9d2c6;
+  --palette-paper-line: #2c2823;
+}

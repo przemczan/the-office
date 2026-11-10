@@ -1,5 +1,5 @@
-import type { Project } from "@the-office/contracts";
-import { Icon, type Palette } from "@the-office/ui";
+import type { Project, ProjectImagePalette } from "@the-office/contracts";
+import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ProjectMark } from "./project-mark.tsx";
 
@@ -14,8 +14,8 @@ export function ProjectChip({
 }: {
   readonly projectId: string | null;
   readonly projects: readonly Project[] | undefined;
-  /** The palette whose Icon version shows, when not the one shown. */
-  readonly palette?: Palette;
+  /** The palette whose Icon version shows, when not the base of the one shown. */
+  readonly palette?: ProjectImagePalette;
 }): ReactNode {
   if (projectId === null) {
     return (

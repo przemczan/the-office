@@ -1,8 +1,19 @@
-/** The palettes tier 1 ships (spec §4), each over the design system's light or dark aliases. */
+/**
+ * The design system's alias set (`data-theme`) a palette starts from. It decides anything that
+ * follows light or dark rather than the palette itself, such as which version of an Icon shows.
+ */
+export type PaletteBase = "light" | "dark";
+
+/**
+ * The palettes (spec §4), each over its base. Each has its file in `palettes/`, which also gives
+ * its swatch and preview colours.
+ */
 export const PALETTES = {
   light: { name: "Light", base: "light" },
   dark: { name: "Dark", base: "dark" },
-} as const satisfies Record<string, { readonly name: string; readonly base: "light" | "dark" }>;
+  graphite: { name: "Graphite", base: "dark" },
+  paper: { name: "Paper", base: "light" },
+} as const satisfies Record<string, { readonly name: string; readonly base: PaletteBase }>;
 
 export type Palette = keyof typeof PALETTES;
 
