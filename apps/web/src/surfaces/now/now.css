@@ -138,7 +138,7 @@
   gap: 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-subtle);
-  font: var(--type-body-sm);
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
 }
 
 .alarm-list li:last-child,

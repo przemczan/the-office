@@ -737,7 +737,7 @@
 .decision-box-main {
   margin: 4px 0 0;
   font-weight: 600;
-  font-size: var(--text-sm);
+  font-size: var(--text-body);
 }
 
 .decision-box-words {
@@ -766,7 +766,7 @@
 
 .decision-window .decision-question {
   font-weight: 600;
-  font-size: var(--text-md);
+  font-size: var(--text-item);
 }
 
 .decision-window .decision-context,

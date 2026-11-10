@@ -81,5 +81,5 @@
 
 .gate-window .gate-question {
   font-weight: 600;
-  font-size: var(--text-md);
+  font-size: var(--text-item);
 }
