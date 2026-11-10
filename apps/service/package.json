@@ -37,6 +37,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "turndown": "7.2.4",
+    "unpdf": "1.9.1",
     "ws": "8.22.0",
     "yaml": "2.9.1",
     "yauzl": "3.4.0",

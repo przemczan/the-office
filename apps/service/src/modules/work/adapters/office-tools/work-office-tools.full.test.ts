@@ -19,10 +19,16 @@ import {
   UNKNOWN_SESSION,
 } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
+import { inArray } from "drizzle-orm";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { AttachmentFiles } from "../../ports/attachment-files.js";
+import { AttachmentRepository } from "../../ports/attachment-repository.js";
+import { aPdf } from "../pdf/pdf.fixtures.js";
+import { attachments as attachmentRows } from "../postgres/work.schema.js";
 import { READ_INITIATIVE } from "./shaping-office-tools.js";
 import {
   CREATE_TASK,
-  DOCUMENT_ANSWER_BUDGET,
+  ATTACHMENT_ANSWER_BUDGET,
   LIST_IDEAS,
   LIST_TASKS,
   READ_ATTACHMENT,
@@ -333,15 +339,27 @@ describe("reading Tasks and Ideas", () => {
   });
 });
 
+/** One rule of a minified style sheet, all on one line. */
+function minifiedRule(index: number): string {
+  return `.r${index}{color:#${String(index).padStart(6, "0")}}`;
+}
+
 /** Attaches a document to its owner. */
 function addDocument(owner: AttachmentOwner, name: string, content: string) {
+  return addFile(owner, name, "text/markdown", content);
+}
+
+/** Attaches a file to its owner, as the user uploads it. */
+function addFile(
+  owner: AttachmentOwner,
+  name: string,
+  mediaType: string,
+  content: string | Uint8Array,
+) {
+  const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
   return work.app
     .get(AttachmentService)
-    .addFile(
-      owner,
-      { name, mediaType: "text/markdown", content: new TextEncoder().encode(content) },
-      THE_USER,
-    );
+    .addFile(owner, { name, mediaType, content: bytes }, THE_USER);
 }
 
 /** The fromLine an answer's last words say to read or search on with, if it goes on. */
@@ -361,7 +379,7 @@ describe("read_attachment", () => {
     await expect(
       call(READ_ATTACHMENT, { attachmentId: notes.id }, "chat-on-no-task"),
     ).resolves.toEqual({
-      text: `Attached to Task ${other.id}: Add the session store.\n\nnotes.md (document, text/markdown, 7 bytes), 1 line:\n\n     1→# Notes\n\nLine 1 of 1: the end of the document.`,
+      text: `Attached to Task ${other.id}: Add the session store.\n\nnotes.md (document, text/markdown, 7 bytes), 1 line:\n\n     1→# Notes\n\nLine 1 of 1: the end of the file.`,
       isError: false,
     });
   });
@@ -376,7 +394,7 @@ describe("read_attachment", () => {
     const result = await call(READ_ATTACHMENT, { attachmentId: notes.id });
 
     expect(result.text).toBe(
-      `Attached to Task ${finished.id}: Finished (archived).\n\nnotes.md (document, text/markdown, 5 bytes), 1 line:\n\n     1→Done.\n\nLine 1 of 1: the end of the document.`,
+      `Attached to Task ${finished.id}: Finished (archived).\n\nnotes.md (document, text/markdown, 5 bytes), 1 line:\n\n     1→Done.\n\nLine 1 of 1: the end of the file.`,
     );
   });
 
@@ -402,10 +420,10 @@ describe("read_attachment", () => {
     const initiativeRead = await call(READ_ATTACHMENT, { attachmentId: outcome.id });
 
     expect(ideaRead.text).toBe(
-      `Attached to Idea ${idea.id}: Voice notes.\n\nidea.md (document, text/markdown, 5 bytes), 1 line:\n\n     1→Idea.\n\nLine 1 of 1: the end of the document.`,
+      `Attached to Idea ${idea.id}: Voice notes.\n\nidea.md (document, text/markdown, 5 bytes), 1 line:\n\n     1→Idea.\n\nLine 1 of 1: the end of the file.`,
     );
     expect(initiativeRead.text).toBe(
-      `Attached to Initiative ${initiative.id}: ${initiative.name}.\n\noutcome.md (document, text/markdown, 8 bytes), 1 line:\n\n     1→Outcome.\n\nLine 1 of 1: the end of the document.`,
+      `Attached to Initiative ${initiative.id}: ${initiative.name}.\n\noutcome.md (document, text/markdown, 8 bytes), 1 line:\n\n     1→Outcome.\n\nLine 1 of 1: the end of the file.`,
     );
   });
 
@@ -455,7 +473,7 @@ describe("read_attachment", () => {
         "     7:raw again",
         "     8-End",
         "",
-        "2 matches shown, up to line 7; none after it: the search reached the end of the document.",
+        "2 matches shown, up to line 7; none after it: the search reached the end of the file.",
       ].join("\n"),
     );
   });
@@ -477,7 +495,7 @@ describe("read_attachment", () => {
     const read = async (input: Record<string, unknown>) => {
       const { text, isError } = await call(READ_ATTACHMENT, { attachmentId: report.id, ...input });
       expect(isError).toBe(false);
-      expect(text.length).toBeLessThanOrEqual(DOCUMENT_ANSWER_BUDGET);
+      expect(text.length).toBeLessThanOrEqual(ATTACHMENT_ANSWER_BUDGET);
       expect(text).toContain("3,000 lines:");
       return text;
     };
@@ -494,7 +512,7 @@ describe("read_attachment", () => {
       readOn = fromLineToGoOn("Read on", text);
     }
     expect(slices.length).toBeGreaterThan(3);
-    expect(text).toMatch(/–3000 of 3,000: the end of the document\.$/);
+    expect(text).toMatch(/–3000 of 3,000: the end of the file\.$/);
 
     // A search pages the same way, and a match's line number starts a slice at that line.
     const search = await read({ search: "and ptp" });
@@ -510,23 +528,159 @@ describe("read_attachment", () => {
     expect(next).toContain(`${searchOn.padStart(6)}:Line ${searchOn} of the report`);
   });
 
-  it("cuts a line longer than an answer can hold, saying so", async () => {
-    const task = await aTaskNamed("Minified");
-    const minified = await addDocument(
+  it("reads a text file that isn't Markdown by its lines, in slices and searches", async () => {
+    const task = await aTaskNamed("Themes");
+    const css = ":root {\n  --accent: #0a84ff;\n}\n.dark {\n  --accent: #409cff;\n}\n";
+    const themes = await addFile({ kind: "task", taskId: task.id }, "themes.css", "text/css", css);
+    const settings = await addFile(
       { kind: "task", taskId: task.id },
-      "minified.md",
-      `${"é".repeat(DOCUMENT_ANSWER_BUDGET * 2)}\n{}`,
+      "settings.json",
+      "application/json",
+      '{\n  "theme": "dark"\n}',
     );
 
-    const { text } = await call(READ_ATTACHMENT, { attachmentId: minified.id });
+    const slice = await call(READ_ATTACHMENT, { attachmentId: themes.id, fromLine: 4 });
+    const search = await call(READ_ATTACHMENT, { attachmentId: themes.id, search: "--ACCENT" });
+    const json = await call(READ_ATTACHMENT, { attachmentId: settings.id });
 
-    expect(text.length).toBeLessThanOrEqual(DOCUMENT_ANSWER_BUDGET);
-    expect(text).toMatch(
-      /Line 1 of 2; one answer holds no more\. Read on with fromLine 2\. Line 1 is longer than one answer can hold, so it is cut: these are its first [\d,]+ of 50,000 characters\.$/,
+    expect(themes).toMatchObject({ kind: "file", text: true });
+    expect(slice.text).toBe(
+      `Attached to Task ${task.id}: Themes.\n\nthemes.css (text file, text/css, 62 bytes), 6 lines:\n\n     4→.dark {\n     5→  --accent: #409cff;\n     6→}\n\nLines 4–6 of 6: the end of the file.`,
+    );
+    expect(search.text).toContain(
+      "     2:  --accent: #0a84ff;\n     3-}\n     4-.dark {\n     5:  --accent: #409cff;",
+    );
+    expect(search.text).toMatch(/2 matches shown, up to line 5; none after it/);
+    expect(json.text).toContain(
+      'settings.json (text file, application/json, 21 bytes), 3 lines:\n\n     1→{\n     2→  "theme": "dark"\n     3→}',
     );
   });
 
-  it("gives a link's address and an image's and other file's name and kind", async () => {
+  it("reads a line longer than an answer to its end, each cut saying where to read on", async () => {
+    const task = await aTaskNamed("Minified");
+    const line = Array.from({ length: 6_000 }, (_, index) => minifiedRule(index)).join("");
+    const minified = await addFile(
+      { kind: "task", taskId: task.id },
+      "app.min.css",
+      "text/css",
+      `${line}\n/* end */`,
+    );
+    expect(line.length).toBeGreaterThan(ATTACHMENT_ANSWER_BUDGET * 4);
+
+    // Read by its id alone, then on from where each cut note says, to the end.
+    const answers: string[] = [];
+    let read: Record<string, unknown> = { attachmentId: minified.id };
+    for (;;) {
+      const { text, isError } = await call(READ_ATTACHMENT, read);
+      expect(isError).toBe(false);
+      answers.push(text);
+      const readOn = /Read on with fromLine (\d+) and fromCharacter (\d+)\.$/.exec(text);
+      if (readOn === null) break;
+      read = {
+        attachmentId: minified.id,
+        fromLine: Number(readOn[1]),
+        fromCharacter: Number(readOn[2]),
+      };
+    }
+
+    expect(answers.length).toBeGreaterThan(4);
+    for (const answer of answers) {
+      expect(answer.length).toBeLessThanOrEqual(ATTACHMENT_ANSWER_BUDGET);
+    }
+    for (const cut of answers.slice(0, -1)) {
+      expect(cut).toMatch(
+        /\n\nLine 1 of 2(, line 1 from character [\d,]+)?\. Line 1 is longer than one answer can hold, so it is cut: these are its characters [\d,]+–[\d,]+ of [\d,]+\. Read on with fromLine 1 and fromCharacter \d+\.$/,
+      );
+    }
+    const last = answers.at(-1) ?? "";
+    expect(last).toMatch(/Lines 1–2 of 2, line 1 from character [\d,]+: the end of the file\.$/);
+    expect(last).toContain("     2→/* end */");
+    const shown = answers.map((answer) => /^ {5}1→(.*)$/m.exec(answer)?.[1] ?? "").join("");
+    expect(shown).toBe(line);
+  });
+
+  it("says when fromCharacter is past the line's end, and refuses it with a search", async () => {
+    const task = await aTaskNamed("Short");
+    const short = await addFile({ kind: "task", taskId: task.id }, "a.txt", "text/plain", "abc\nd");
+
+    const past = await call(READ_ATTACHMENT, {
+      attachmentId: short.id,
+      fromLine: 1,
+      fromCharacter: 9,
+    });
+    const searched = await call(READ_ATTACHMENT, {
+      attachmentId: short.id,
+      search: "a",
+      fromCharacter: 2,
+    });
+
+    expect(past.text).toMatch(
+      /Line 1 has 3 characters; fromCharacter 9 is past its end\. Read on with fromLine 2\.$/,
+    );
+    expect(searched).toEqual({
+      text: "fromCharacter reads on in one line of a slice; leave it out of a search, or leave out search to read the line on.",
+      isError: true,
+    });
+  });
+
+  it("reads a PDF's text by its lines, a marker before each page, and says a scan has none", async () => {
+    const task = await aTaskNamed("Manuals");
+    const manual = await addFile(
+      { kind: "task", taskId: task.id },
+      "manual.pdf",
+      "application/pdf",
+      aPdf(["Connect the camera by USB.", "Open the shutter (bulb)."]),
+    );
+    const scan = await addFile(
+      { kind: "task", taskId: task.id },
+      "scan.pdf",
+      "application/pdf",
+      aPdf(["", ""]),
+    );
+
+    const read = await call(READ_ATTACHMENT, { attachmentId: manual.id });
+    const searched = await call(READ_ATTACHMENT, { attachmentId: manual.id, search: "shutter" });
+    const scanRead = await call(READ_ATTACHMENT, { attachmentId: scan.id });
+
+    expect(manual).toMatchObject({ kind: "file", text: false });
+    expect(read.text).toMatch(
+      /^Attached to Task [^\n]+: Manuals\.\n\nmanual\.pdf \(file, application\/pdf, \d+ bytes\), its text in 4 lines, a marker line before each page:\n\n/,
+    );
+    expect(read.text).toContain(
+      "     1→--- Page 1 of 2 ---\n     2→Connect the camera by USB.\n     3→--- Page 2 of 2 ---\n     4→Open the shutter (bulb).\n\nLines 1–4 of 4: the end of the file.",
+    );
+    expect(searched.text).toContain("     4:Open the shutter (bulb).");
+    expect(scanRead.text).toMatch(
+      /scan\.pdf \(file, application\/pdf, \d+ bytes\)\. This PDF has no text to read, as a scanned one has none; ask the user what it holds if you need to know\.$/,
+    );
+  });
+
+  it("reads a text file and a PDF attached before files were judged, once the start judges them", async () => {
+    const task = await aTaskNamed("Before");
+    const owner = { kind: "task", taskId: task.id } as const;
+    const themes = await addFile(owner, "themes.css", "text/css", ":root {}\n");
+    const manual = await addFile(owner, "manual.pdf", "application/pdf", aPdf(["Page one."]));
+    const database = work.app.get<Database>(DATABASE);
+    await database
+      .update(attachmentRows)
+      .set({ text: null })
+      .where(inArray(attachmentRows.id, [themes.id, manual.id]));
+    await work.app.get(AttachmentFiles).remove(manual.id);
+    await work.app.get(AttachmentFiles).save(manual.id, aPdf(["Page one."]));
+    const unjudged = await call(READ_ATTACHMENT, { attachmentId: themes.id });
+    expect(unjudged.text).toContain("it can't be read");
+
+    await work.app.get(AttachmentService).judgeFilesAttachedBefore();
+
+    const themesRead = await call(READ_ATTACHMENT, { attachmentId: themes.id });
+    const manualRead = await call(READ_ATTACHMENT, { attachmentId: manual.id });
+    expect(themesRead.text).toContain("themes.css (text file, text/css, 9 bytes), 1 line:");
+    expect(manualRead.text).toContain("     2→Page one.");
+    const left = await work.app.get(AttachmentRepository).filesNotJudged();
+    expect(left.map(({ id }) => id)).not.toContain(themes.id);
+  });
+
+  it("gives a link's address, an image's picture, and any other file's name, kind and size", async () => {
     const task = await aTaskNamed("Mockups");
     const attachments = work.app.get(AttachmentService);
     const link = await attachments.addLink(
@@ -534,20 +688,13 @@ describe("read_attachment", () => {
       { name: "Spec", url: "https://example.com/spec" },
       THE_USER,
     );
-    const image = await attachments.addFile(
+    const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]);
+    const image = await addFile({ kind: "task", taskId: task.id }, "screen.png", "image/png", png);
+    const archive = await addFile(
       { kind: "task", taskId: task.id },
-      {
-        name: "screen.png",
-        mediaType: "image/png",
-        content: new TextEncoder().encode("png bytes"),
-      },
-      THE_USER,
-    );
-
-    const archive = await attachments.addFile(
-      { kind: "task", taskId: task.id },
-      { name: "export.zip", mediaType: "application/zip", content: new Uint8Array([80, 75]) },
-      THE_USER,
+      "export.zip",
+      "application/zip",
+      new Uint8Array([80, 75, 3, 4, 0, 0]),
     );
 
     const linkRead = await call(READ_ATTACHMENT, { attachmentId: link.id });
@@ -557,11 +704,13 @@ describe("read_attachment", () => {
     expect(linkRead.text).toBe(
       `Attached to Task ${task.id}: Mockups.\n\nSpec (link to https://example.com/spec). The Office keeps its address only; fetch it if you need what it says.`,
     );
-    expect(imageRead.text).toBe(
-      `Attached to Task ${task.id}: Mockups.\n\nscreen.png (image, image/png, 9 bytes). Only a document is read as text; ask the user what it holds if you need to know.`,
-    );
+    expect(imageRead).toEqual({
+      text: `Attached to Task ${task.id}: Mockups.\n\nscreen.png (image, image/png, 12 bytes).`,
+      isError: false,
+      pictures: [{ name: "screen.png", mediaType: "image/png", content: Buffer.from(png) }],
+    });
     expect(fileRead.text).toBe(
-      `Attached to Task ${task.id}: Mockups.\n\nexport.zip (file, application/zip, 2 bytes). Only a document is read as text; ask the user what it holds if you need to know.`,
+      `Attached to Task ${task.id}: Mockups.\n\nexport.zip (file, application/zip, 6 bytes). It is neither text, a PDF nor an image, so it can't be read; ask the user what it holds if you need to know.`,
     );
   });
 

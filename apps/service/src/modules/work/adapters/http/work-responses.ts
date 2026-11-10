@@ -129,7 +129,13 @@ export function toAttachmentResponse(attachment: Attachment): AttachmentResponse
   };
   return attachment.kind === "link"
     ? { kind: "link", ...fields, url: attachment.url }
-    : { kind: attachment.kind, ...fields, mediaType: attachment.mediaType, size: attachment.size };
+    : {
+        kind: attachment.kind,
+        ...fields,
+        mediaType: attachment.mediaType,
+        size: attachment.size,
+        text: attachment.text,
+      };
 }
 
 export function toSearchResultsResponse(results: SearchResults): SearchResultsResponse {

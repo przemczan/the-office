@@ -35,19 +35,23 @@ interface StoredFile {
   readonly mediaType: string;
   /** In bytes. */
   readonly size: number;
+  /** Whether it is a text file (`isText`), judged once as it is attached; a document always is. */
+  readonly text: boolean;
+}
+
+/** A file as it is attached: as the user uploads it, or as an Agent attaches it. */
+export interface NewFile {
+  readonly name: string;
+  readonly mediaType: string;
+  readonly size: number;
+  /** Whether its bytes are text, by `isText`. */
+  readonly text: boolean;
 }
 
 /** A link as the user gives it. */
 export interface NewLink {
   readonly name: string;
   readonly url: string;
-}
-
-/** A file as the user uploads it. */
-export interface NewFile {
-  readonly name: string;
-  readonly mediaType: string;
-  readonly size: number;
 }
 
 export const ATTACHMENT_SIZE_LIMIT = 50 * 1024 * 1024;
@@ -73,6 +77,11 @@ const MEDIA_TYPES_BY_EXTENSION: Readonly<Record<string, string>> = {
   txt: "text/plain",
   log: "text/plain",
   csv: "text/csv",
+  css: "text/css",
+  js: "text/javascript",
+  xml: "application/xml",
+  yaml: "application/yaml",
+  yml: "application/yaml",
   json: "application/json",
   html: "text/html",
   htm: "text/html",
@@ -93,10 +102,61 @@ export function mediaTypeOf(fileName: string): string {
 }
 
 /** A file's kind, by its name for Markdown and by its media type for images. */
-export function storedFileKind(file: NewFile): StoredFile["kind"] {
+export function storedFileKind(file: Pick<NewFile, "name" | "mediaType">): StoredFile["kind"] {
   if (/\.(md|markdown)$/i.test(file.name.trim())) return "document";
   if (IMAGE_MEDIA_TYPES.has(file.mediaType.toLowerCase())) return "image";
   return "file";
+}
+
+/** How far into a file a NUL byte marks it as binary, as Git and ripgrep tell them apart. */
+const BINARY_PROBE_BYTES = 8 * 1024;
+
+/**
+ * Whether a file's bytes are text (spec §2.1): valid UTF-8 throughout, with no NUL byte in its
+ * first 8 KB, the test the API engine's Read and Grep use.
+ */
+export function isText(content: Uint8Array): boolean {
+  if (content.subarray(0, BINARY_PROBE_BYTES).includes(0)) return false;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(content);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a file is a text file, given whether its bytes are text (`isText`): a document always
+ * is, and an image or a PDF never is, as each is read and shown as what it is.
+ */
+export function isTextFile(
+  file: { readonly kind: StoredFile["kind"]; readonly name: string; readonly mediaType: string },
+  bytesAreText: boolean,
+): boolean {
+  if (file.kind === "document") return true;
+  if (file.kind === "image" || isPdf(file)) return false;
+  return bytesAreText;
+}
+
+/** A PDF, by its media type or its name, as a browser may upload one as plain bytes. */
+export function isPdf(file: { readonly name: string; readonly mediaType: string }): boolean {
+  return file.mediaType.toLowerCase() === "application/pdf" || /\.pdf$/i.test(file.name.trim());
+}
+
+/** An Attachment that is a file, kept in the Office data directory. */
+export type StoredFileAttachment = Exclude<Attachment, { readonly kind: "link" }>;
+
+/**
+ * How an Agent reads a file Attachment (spec §6): a text file by its lines, an image as a picture,
+ * a PDF by the lines of its text, and any other file not at all.
+ */
+export type FileReading = "picture" | "pdf-text" | "lines" | "unreadable";
+
+export function fileReadingOf(file: StoredFileAttachment): FileReading {
+  if (file.text) return "lines";
+  if (file.kind === "image") return "picture";
+  if (isPdf(file)) return "pdf-text";
+  return "unreadable";
 }
 
 /**
@@ -111,11 +171,14 @@ export function attachmentLines(attachments: readonly Attachment[]): string[] {
   );
 }
 
-/** What an Attachment is, in a few words: a link with its address, a file with its kind and size. */
+/**
+ * What an Attachment is, in a few words: a link with its address, a file with its kind and size,
+ * a file of no other kind that is text named a text file.
+ */
 export function attachmentKindWords(attachment: Attachment): string {
-  return attachment.kind === "link"
-    ? `link to ${attachment.url}`
-    : `${attachment.kind}, ${attachment.mediaType}, ${attachment.size} bytes`;
+  if (attachment.kind === "link") return `link to ${attachment.url}`;
+  const kind = attachment.kind === "file" && attachment.text ? "text file" : attachment.kind;
+  return `${kind}, ${attachment.mediaType}, ${attachment.size} bytes`;
 }
 
 /** The link as it is kept: named by its URL when no name is given. */

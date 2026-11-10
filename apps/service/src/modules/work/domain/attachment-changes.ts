@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import {
+  isTextFile,
   newFileProblems,
   newLinkProblems,
   storedFileKind,
@@ -8,6 +9,7 @@ import {
   type AttachmentOwner,
   type NewFile,
   type NewLink,
+  type StoredFileAttachment,
 } from "./attachment.js";
 import { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./attachment-events.js";
 import { AttachmentRefused } from "./attachment-refused.js";
@@ -39,16 +41,26 @@ export function addLink(
   return { attachment, event: new AttachmentAdded(attachment) };
 }
 
-/** Refuses with every reason; the file's kind follows from its name and media type. */
+/**
+ * Refuses with every reason; the file's kind follows from its name and media type, and a document
+ * is a text file whatever its bytes.
+ */
 export function addFile(
   id: string,
   given: NewFile,
   adding: Adding,
-): AttachmentChange<AttachmentAdded> {
+): AttachmentChange<AttachmentAdded> & { readonly attachment: StoredFileAttachment } {
   const file = { ...given, name: given.name.trim() };
   const problems = newFileProblems(file);
   if (problems.length > 0) throw new AttachmentRefused(problems);
-  const attachment: Attachment = { id, kind: storedFileKind(file), ...file, ...adding };
+  const kind = storedFileKind(file);
+  const attachment: StoredFileAttachment = {
+    id,
+    ...file,
+    kind,
+    text: isTextFile({ ...file, kind }, file.text),
+    ...adding,
+  };
   return { attachment, event: new AttachmentAdded(attachment) };
 }
 

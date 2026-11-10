@@ -75,6 +75,7 @@ function anAttachment(
     addedAt,
     mediaType,
     size: 1024,
+    text: kind === "document",
   } as Attachment;
 }
 

@@ -84,7 +84,13 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
       {creating === "idea" && (
         <CaptureIdeaDialog projectId={startingProjectId} onClose={stopCreating} />
       )}
-      {reading && <DocumentDialog document={reading} onClose={() => setReading(undefined)} />}
+      {reading && (
+        <DocumentDialog
+          document={reading}
+          shownAs="markdown"
+          onClose={() => setReading(undefined)}
+        />
+      )}
     </header>
   );
 }

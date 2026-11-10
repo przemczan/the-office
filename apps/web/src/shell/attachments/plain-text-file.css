@@ -1,0 +1,30 @@
+/* The numbers and the lines share one scroll, so each number stays beside its line. */
+.plain-text-file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  overflow: auto;
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+}
+
+.plain-text-file pre {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font: var(--type-mono);
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.plain-text-file-numbers {
+  position: sticky;
+  left: 0;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--fg-3);
+  text-align: right;
+  user-select: none;
+}
+
+.plain-text-file-lines {
+  color: var(--fg-1);
+}

@@ -5,6 +5,7 @@ export type {
   CommandJudgement,
   OfficeTool,
   OfficeToolCall,
+  OfficeToolPicture,
   OfficeToolResult,
 } from "./ports/office-tool.js";
 export { UsageWindowState, type UsageWindowReading } from "./application/usage-window-state.js";

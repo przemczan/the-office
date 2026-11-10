@@ -1,4 +1,4 @@
-import type { Attachment, AttachmentOwner } from "../domain/attachment.js";
+import type { Attachment, AttachmentOwner, StoredFileAttachment } from "../domain/attachment.js";
 
 /**
  * Where Attachments' records are kept, with a document's text for the search; a stored file's
@@ -18,6 +18,12 @@ export abstract class AttachmentRepository {
 
   /** Keeps a document's text, unless it has one already. */
   abstract keepDocumentText(attachmentId: string, text: string): Promise<void>;
+
+  /** Files attached before The Office judged whether a file is text, which it hasn't yet. */
+  abstract filesNotJudged(): Promise<readonly StoredFileAttachment[]>;
+
+  /** Keeps whether a file attached before is a text file, unless it was judged already. */
+  abstract keepJudgement(attachmentId: string, text: boolean): Promise<void>;
 
   /** Nothing happens when it isn't there. */
   abstract remove(id: string): Promise<void>;

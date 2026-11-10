@@ -16,6 +16,7 @@ import {
 import {
   attachmentUploadQuerySchema,
   isHtmlFile,
+  isPlainTextFile,
   newLinkSchema,
   type Attachment as AttachmentResponse,
   type AttachmentUploadQuery,
@@ -118,8 +119,8 @@ export class AttachmentsController {
 
   /**
    * A file's bytes, typed by its kind rather than by the media type it was uploaded with, since it
-   * is opened on The Office's own origin: only images, Markdown and sandboxed HTML show in the
-   * browser.
+   * is opened on The Office's own origin: only images, Markdown, other text files as plain text
+   * and sandboxed HTML show in the browser.
    */
   @Get("attachments/:id/content")
   async content(
@@ -168,15 +169,23 @@ function servingOf(attachment: Attachment): { type: string; disposition: string 
         disposition: dispositionOf("inline", attachment.name),
       };
     default:
-      return isHtmlFile(attachment)
-        ? {
-            type: "text/html; charset=utf-8",
-            disposition: dispositionOf("inline", attachment.name),
-          }
-        : {
-            type: "application/octet-stream",
-            disposition: dispositionOf("attachment", attachment.name),
-          };
+      if (isHtmlFile(attachment)) {
+        return {
+          type: "text/html; charset=utf-8",
+          disposition: dispositionOf("inline", attachment.name),
+        };
+      }
+      // A text file shows as plain text whatever it was uploaded as, so the browser runs nothing.
+      if (isPlainTextFile(attachment)) {
+        return {
+          type: "text/plain; charset=utf-8",
+          disposition: dispositionOf("inline", attachment.name),
+        };
+      }
+      return {
+        type: "application/octet-stream",
+        disposition: dispositionOf("attachment", attachment.name),
+      };
   }
 }
 

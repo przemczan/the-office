@@ -47,6 +47,8 @@ import { EngineProcess } from "../claude-code/engine-process.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { NoLanguageServers } from "../scripted/no-language-servers.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
+import { CLAUDE_CODE_PICTURE_LIMIT } from "../claude-code/office-tools.js";
+import { aNoisyPng, aPlainPng } from "../claude-code/png.fixtures.js";
 import { sdkMcpConfig, sdkOptions } from "./sdk-options.js";
 
 /**
@@ -213,6 +215,52 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       await session.end();
 
       expect(words).toEqual(["tangerine"]);
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 180_000);
+
+  it("shows the model a picture an Office tool answers with, up to the picture limit", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-pictures-"));
+    try {
+      const pictures = {
+        "red.png": aPlainPng(64, 64, [220, 20, 20]),
+        // Random pixels deflate can't shrink, so the file is just under the limit.
+        "noise.png": aNoisyPng(1024, Math.floor((CLAUDE_CODE_PICTURE_LIMIT * 0.98) / 3 / 1024)),
+      };
+      expect(pictures["noise.png"].byteLength).toBeLessThanOrEqual(CLAUDE_CODE_PICTURE_LIMIT);
+      const input = z.object({ name: z.enum(["red.png", "noise.png"]) });
+      const showPicture: OfficeTool = {
+        name: "show_picture",
+        description: "Shows the picture of the name given.",
+        input,
+        run: (given) => {
+          const { name } = input.parse(given);
+          return Promise.resolve({
+            text: `${name}:`,
+            isError: false,
+            pictures: [{ name, mediaType: "image/png", content: pictures[name] }],
+          });
+        },
+      };
+      const session = await liveEngine().start({
+        id: randomUUID(),
+        options: { ...options(folder), officeTools: [showPicture] },
+        brief: message(
+          "Call show_picture with red.png, then with noise.png. Reply with one word: the colour that fills red.png.",
+        ),
+      });
+      const reported: SessionEvent[] = [];
+      for await (const event of session.events) {
+        reported.push(event);
+        if (event.kind === "turn-ended") break;
+      }
+      await session.end();
+
+      const ended = reported.find((event) => event.kind === "turn-ended");
+      expect(ended).toMatchObject({ outcome: "completed" });
+      const replies = reported.flatMap((event) => (event.kind === "text" ? [event.text] : []));
+      expect(replies.join(" ").toLowerCase()).toContain("red");
     } finally {
       await rm(folder, { recursive: true, force: true });
     }

@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { isHtmlFile, type Attachment } from "@the-office/contracts";
+import { isHtmlFile, isPlainTextFile, type Attachment } from "@the-office/contracts";
 import { Alert, Dialog, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { attachmentContentUrl, attachmentQueries } from "../../api/work.ts";
+import { attachmentContentUrl, attachmentQueries, SHOWN_TEXT_LIMIT } from "../../api/work.ts";
 import { MarkdownDocument } from "../markdown-text.tsx";
 import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
 import { HtmlPreviewDialog } from "./html-preview-dialog.tsx";
+import { PlainTextFile } from "./plain-text-file.tsx";
 
 const KIND_ICONS: Readonly<Record<Attachment["kind"], string>> = {
   link: "link",
@@ -16,7 +17,8 @@ const KIND_ICONS: Readonly<Record<Attachment["kind"], string>> = {
 
 /**
  * Attachments as chips that open them: a link at its address, an image in a new tab, a document
- * here as its Markdown, an HTML file here in its preview, any other file as a download.
+ * here as its Markdown, any other text file here as plain text, an HTML file here in its preview,
+ * any other file as a download.
  */
 export function AttachmentChips({
   attachments,
@@ -57,11 +59,14 @@ function AttachmentOpener({
 }): ReactNode {
   const label = (
     <>
-      <Icon name={KIND_ICONS[attachment.kind]} size={14} />
+      <Icon
+        name={isPlainTextFile(attachment) ? KIND_ICONS.document : KIND_ICONS[attachment.kind]}
+        size={14}
+      />
       {attachment.name}
     </>
   );
-  if (attachment.kind === "document" || isHtmlFile(attachment)) {
+  if (attachment.kind === "document" || isPlainTextFile(attachment) || isHtmlFile(attachment)) {
     return (
       <button type="button" className="attachment-open" onClick={onOpenHere}>
         {label}
@@ -93,19 +98,28 @@ function OpenedHere({
   return isHtmlFile(attachment) ? (
     <HtmlPreviewDialog file={attachment} onClose={onClose} />
   ) : (
-    <DocumentDialog document={attachment} onClose={onClose} />
+    <DocumentDialog
+      document={attachment}
+      shownAs={isPlainTextFile(attachment) ? "plain-text" : "markdown"}
+      onClose={onClose}
+    />
   );
 }
 
-/** A document's Markdown, rendered as a whole file, with Download for the file itself. */
+/**
+ * A text file as a whole: a document's Markdown rendered, any other text file as plain text with
+ * its line numbers; its first MB at most, with Download for the file itself.
+ */
 export function DocumentDialog({
   document,
+  shownAs,
   onClose,
 }: {
   readonly document: Pick<Attachment, "id" | "name">;
+  readonly shownAs: "markdown" | "plain-text";
   readonly onClose: () => void;
 }): ReactNode {
-  const text = useQuery(attachmentQueries.document(document.id));
+  const shown = useQuery(attachmentQueries.text(document.id));
   return (
     <Dialog
       size="extra-large"
@@ -114,8 +128,18 @@ export function DocumentDialog({
       onClose={onClose}
       actions={<AttachmentDownloadLink className="link-button" file={document} />}
     >
-      {text.error && <Alert tone="danger" title={text.error.message} />}
-      {text.data !== undefined && <MarkdownDocument text={text.data} />}
+      {shown.error && <Alert tone="danger" title={shown.error.message} />}
+      {shown.data !== undefined &&
+        (shownAs === "markdown" ? (
+          <MarkdownDocument text={shown.data.text} />
+        ) : (
+          <PlainTextFile text={shown.data.text} />
+        ))}
+      {shown.data?.cut && (
+        <p className="dialog-text">
+          This is the file's first {SHOWN_TEXT_LIMIT / 1024 / 1024} MB; the rest is in the download.
+        </p>
+      )}
     </Dialog>
   );
 }

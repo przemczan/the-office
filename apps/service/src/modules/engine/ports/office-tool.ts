@@ -20,11 +20,24 @@ export interface OfficeToolCall {
   judgeCommand(commandLine: string): Promise<CommandJudgement>;
 }
 
-/** What an Office tool answers the Agent. */
+/** A picture an Office tool answers with, such as an image Attachment. */
+export interface OfficeToolPicture {
+  /** What the picture is called, for the words an engine answers in its place. */
+  readonly name: string;
+  /** One of the image types the model reads: PNG, JPEG, GIF or WebP. */
+  readonly mediaType: string;
+  readonly content: Uint8Array;
+}
+
+/**
+ * What an Office tool answers the Agent: words, and pictures for the model to see. Each engine
+ * adapter gives the pictures its own way, or says in words why it can't.
+ */
 export interface OfficeToolResult {
   readonly text: string;
   /** Whether the call failed; the Agent reads `text` either way. */
   readonly isError: boolean;
+  readonly pictures?: readonly OfficeToolPicture[];
 }
 
 /**

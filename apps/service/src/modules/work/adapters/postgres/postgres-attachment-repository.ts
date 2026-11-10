@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, ne, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
+import type { Attachment, AttachmentOwner, StoredFileAttachment } from "../../domain/attachment.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
 import { attachments, attachmentTexts } from "./work.schema.js";
 import { toAttachment, toAttachmentRow } from "./work-rows.js";
@@ -51,6 +51,21 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
       .insert(attachmentTexts)
       .values({ attachmentId, text })
       .onConflictDoNothing();
+  }
+
+  async filesNotJudged(): Promise<readonly StoredFileAttachment[]> {
+    const rows = await this.database
+      .select()
+      .from(attachments)
+      .where(and(ne(attachments.kind, "link"), isNull(attachments.text)));
+    return rows.map(toAttachment).filter((file) => file.kind !== "link");
+  }
+
+  async keepJudgement(attachmentId: string, text: boolean): Promise<void> {
+    await this.database
+      .update(attachments)
+      .set({ text })
+      .where(and(eq(attachments.id, attachmentId), isNull(attachments.text)));
   }
 
   /** Its text goes with it. */

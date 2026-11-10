@@ -22,7 +22,7 @@ export interface TaskLinks {
 export function linkedRecordsSection(links: TaskLinks): string | undefined {
   const lines = linkedRecordLines(links);
   if (lines.length === 0) return undefined;
-  return `## Linked records\n\n${lines.join("\n")}\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment, a long document in slices by line or by searching it for a phrase.`;
+  return `## Linked records\n\n${lines.join("\n")}\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, and an image as a picture where the engine shows one.`;
 }
 
 /**

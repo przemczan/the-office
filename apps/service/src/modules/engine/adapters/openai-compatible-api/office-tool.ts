@@ -1,5 +1,5 @@
 import type { ToolDecision } from "../../domain/office-rules.js";
-import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
+import type { OfficeTool, OfficeToolCall, OfficeToolPicture } from "../../ports/office-tool.js";
 import { OFFICE_TOOL_PREFIX } from "../office-rules/office-tool-names.js";
 import { builtInTool, failure, type BuiltInTool } from "./built-in-tool.js";
 
@@ -24,8 +24,14 @@ export function officeBuiltInTool(
     run: async (input) => {
       const decision = await judge(name, input);
       if (!decision.allowed) return failure(decision.reason);
-      return officeTool.run(input, call);
+      const { text, isError, pictures = [] } = await officeTool.run(input, call);
+      return { text: [text, ...pictures.map(notShownWords)].join("\n\n"), isError };
     },
   });
   return { ...tool, officeTool: true };
+}
+
+/** A tool's answer here is text only, so a picture is named in words instead. */
+function notShownWords({ name }: OfficeToolPicture): string {
+  return `This engine can't see pictures, so ${name} isn't shown. Ask the user what it shows if you need to know.`;
 }

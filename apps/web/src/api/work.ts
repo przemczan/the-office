@@ -293,14 +293,24 @@ export const attachmentQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${ownerPath(owner)}/attachments`, attachmentListSchema, signal),
     }),
-  /** A document Attachment's Markdown, as text; it never changes. */
-  document: (id: string) =>
+  /** A text file Attachment's text, up to `SHOWN_TEXT_LIMIT`; it never changes. */
+  text: (id: string) =>
     queryOptions({
-      queryKey: [...ATTACHMENTS, id, "document"],
-      queryFn: ({ signal }) => readDocument(id, signal),
+      queryKey: [...ATTACHMENTS, id, "text"],
+      queryFn: ({ signal }) => readShownText(id, signal),
       staleTime: Number.POSITIVE_INFINITY,
     }),
 };
+
+/** The most of a text file the document window shows (spec §4.1): the rest is in the download. */
+export const SHOWN_TEXT_LIMIT = 1024 * 1024;
+
+/** A text file's text as the document window shows it. */
+export interface ShownText {
+  readonly text: string;
+  /** Whether the file goes on past `SHOWN_TEXT_LIMIT`. */
+  readonly cut: boolean;
+}
 
 export function captureIdea(newIdea: NewIdea): Promise<Idea> {
   return sendToApi("POST", "/ideas", newIdea, ideaSchema);
@@ -522,17 +532,43 @@ export function removeAttachment(id: string): Promise<void> {
 }
 
 /**
- * Where a file Attachment's content is: images, Markdown and HTML show inline, any other file
- * downloads; a `download` link saves any of them (`AttachmentDownloadLink`).
+ * Where a file Attachment's content is: images, Markdown, other text files as plain text and HTML
+ * show inline, any other file downloads; a `download` link saves any of them
+ * (`AttachmentDownloadLink`).
  */
 export function attachmentContentUrl(id: string): string {
   return `/api/attachments/${encodeURIComponent(id)}/content`;
 }
 
-async function readDocument(id: string, signal?: AbortSignal): Promise<string> {
+/**
+ * Reads no more of the file than the window shows. A cut text ends at its last whole line, unless
+ * that line is all there is, as in a minified file.
+ */
+async function readShownText(id: string, signal?: AbortSignal): Promise<ShownText> {
   const response = await fetch(attachmentContentUrl(id), { signal });
-  if (!response.ok) throw new Error(`The document can't be read: ${response.statusText}.`);
-  return response.text();
+  if (!response.ok || response.body === null) {
+    throw new Error(`The file can't be read: ${response.statusText}.`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let bytesRead = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return { text: text + decoder.decode(), cut: false };
+      const room = SHOWN_TEXT_LIMIT - bytesRead;
+      if (value.byteLength > room) {
+        text += decoder.decode(value.subarray(0, room), { stream: true });
+        const lastLineEnd = text.lastIndexOf("\n");
+        return { text: lastLineEnd > 0 ? text.slice(0, lastLineEnd) : text, cut: true };
+      }
+      text += decoder.decode(value, { stream: true });
+      bytesRead += value.byteLength;
+    }
+  } finally {
+    await reader.cancel();
+  }
 }
 
 /**

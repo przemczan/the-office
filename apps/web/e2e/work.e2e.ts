@@ -1786,7 +1786,8 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   const files = [
     { name: "plan.md", mimeType: "text/markdown", buffer: Buffer.from("# Plan\n\nKeep the path.") },
     { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("not really a png") },
-    { name: "export.zip", mimeType: "application/zip", buffer: Buffer.from("zip bytes") },
+    { name: "themes.css", mimeType: "text/css", buffer: Buffer.from(THEMES_CSS) },
+    { name: "export.zip", mimeType: "application/zip", buffer: Buffer.from([80, 75, 3, 4, 0]) },
   ];
   await page.getByRole("tab", { name: "Attachments" }).click();
   await expect(page).toHaveURL(/recordTab=attachments/);
@@ -1805,7 +1806,7 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   await expect(page.getByText("https://example.com/sign-in attached.")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task.png") });
 
-  await expect(page.getByRole("tab", { name: "Attachments" })).toContainText("4");
+  await expect(page.getByRole("tab", { name: "Attachments" })).toContainText("5");
   await page.reload();
   await attachments.getByRole("button", { name: "plan.md" }).click();
   const plan = page.getByRole("dialog").filter({ hasText: "plan.md" });
@@ -1816,6 +1817,17 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     plan.getByRole("link", { name: "Download" }).click(),
   ]);
   expect(planDownload.suggestedFilename()).toBe("plan.md");
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+  // Any other text file opens in the same window, as plain text with its line numbers.
+  await attachments.getByRole("button", { name: "themes.css" }).click();
+  const themes = page.getByRole("dialog").filter({ hasText: "themes.css" });
+  await expect(themes.locator(".plain-text-file-lines")).toHaveText(THEMES_CSS.trimEnd());
+  await expect(themes.locator(".plain-text-file-numbers")).toHaveText("1\n2\n3\n4\n5\n6\n7");
+  await expect(themes.getByRole("link", { name: "Download" })).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-text-file.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-text-file.png") });
+  await page.emulateMedia({ colorScheme: "light" });
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await attachments.getByRole("button", { name: "View screen.png" }).click();
   const viewer = page.getByRole("dialog").filter({ hasText: "screen.png" });
@@ -1844,6 +1856,16 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     page.getByRole("article", { name: "Remember the page per tab" }).getByText("Task page"),
   ).toBeVisible();
 });
+
+/** A text file that isn't Markdown, which the document window shows as plain text. */
+const THEMES_CSS = `:root {
+  --accent: #0a84ff;
+  --surface: #ffffff;
+}
+.dark {
+  --accent: #409cff;
+}
+`;
 
 /** A PNG chunk: its length, type, data and checksum. */
 function pngChunk(type: string, data: Buffer): Buffer {

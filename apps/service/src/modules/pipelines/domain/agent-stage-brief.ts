@@ -254,7 +254,7 @@ export function earlierResults(
 
 function attachmentsSection(lines: readonly string[]): string {
   if (lines.length === 0) return "## Attachments\n\nNone.";
-  return `## Attachments\n\nRead one with read_attachment, by its id; read a long document in slices by line, or search it for a phrase.\n\n${lines.join("\n")}`;
+  return `## Attachments\n\nRead one with read_attachment, by its id: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase; an image as a picture where the engine shows one; any other file by its name, kind and size.\n\n${lines.join("\n")}`;
 }
 
 function sections(parts: readonly (string | undefined)[]): string {

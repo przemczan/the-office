@@ -3,26 +3,32 @@ import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { Attachment, AttachmentOwner, NewLink } from "../domain/attachment.js";
+import {
+  fileReadingOf,
+  isText,
+  isTextFile,
+  type Attachment,
+  type AttachmentOwner,
+  type NewLink,
+  type StoredFileAttachment,
+} from "../domain/attachment.js";
 import { addFile, addLink, removeAttachment, type Adding } from "../domain/attachment-changes.js";
 import { AttachmentNotFound } from "../domain/attachment-not-found.js";
 import { AttachmentRefused } from "../domain/attachment-refused.js";
 import type { Author } from "../domain/author.js";
 import type { Idea } from "../domain/idea.js";
-import {
-  documentReader,
-  type DocumentPart,
-  type DocumentReading,
-} from "../domain/document-lines.js";
 import { attachingToIdeaProblems } from "../domain/idea-changes.js";
 import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
+import { pdfTextOf } from "../domain/pdf-text.js";
 import { SEARCHED_TEXT_LIMIT, searchedText } from "../domain/search.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
+import { lineReader, type LineReading, type LinesPart } from "../domain/text-lines.js";
 import { AttachmentFiles } from "../ports/attachment-files.js";
 import { AttachmentRepository } from "../ports/attachment-repository.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
+import { PdfPages } from "../ports/pdf-pages.js";
 import { TaskRepository } from "../ports/task-repository.js";
 
 /** A file as it is uploaded: its name, media type and bytes. */
@@ -34,13 +40,20 @@ export interface UploadedFile {
 
 /** A stored file's Attachment with its bytes to read. */
 export interface OpenedFile {
-  readonly attachment: Attachment;
+  readonly attachment: StoredFileAttachment;
   readonly content: Readable;
 }
 
+/** An image Attachment's picture: its media type and bytes. */
+export interface Picture {
+  readonly attachment: StoredFileAttachment;
+  readonly mediaType: string;
+  readonly content: Uint8Array;
+}
+
 /**
- * The Attachments use cases. A file's bytes are written before its record and removed after it,
- * so a record never names a file that isn't there.
+ * The Attachments use cases. A file's bytes, and a PDF's text, are written before its record and
+ * removed after it, so a record never names a file that isn't there.
  */
 @Injectable()
 export class AttachmentService {
@@ -49,6 +62,7 @@ export class AttachmentService {
   constructor(
     private readonly repository: AttachmentRepository,
     private readonly files: AttachmentFiles,
+    private readonly pdfPages: PdfPages,
     private readonly ideas: IdeaRepository,
     private readonly initiatives: InitiativeRepository,
     private readonly tasks: TaskRepository,
@@ -73,16 +87,22 @@ export class AttachmentService {
     const adding = await this.adding(owner, addedBy);
     const { attachment, event } = addFile(
       randomUUID(),
-      { name: file.name, mediaType: file.mediaType, size: file.content.byteLength },
+      {
+        name: file.name,
+        mediaType: file.mediaType,
+        size: file.content.byteLength,
+        text: isText(file.content),
+      },
       adding,
     );
-    const text =
+    const documentText =
       attachment.kind === "document"
         ? await searchedTextOf(Readable.from([file.content]))
         : undefined;
     await this.files.save(attachment.id, file.content);
     try {
-      await this.repository.add(attachment, text);
+      await this.keepPdfText(attachment, file.content);
+      await this.repository.add(attachment, documentText);
     } catch (error) {
       await this.files.remove(attachment.id);
       throw error;
@@ -99,24 +119,18 @@ export class AttachmentService {
 
   /** A link has no file: it opens at its address. */
   async open(id: string): Promise<OpenedFile> {
-    const attachment = await this.read(id);
-    if (attachment.kind === "link") {
-      throw new AttachmentRefused(["A link has no file; open its address instead."]);
-    }
+    const attachment = await this.readFile(id);
     return { attachment, content: await this.files.open(id) };
   }
 
   /**
-   * Reads a document by its lines, as UTF-8, within `budget` characters. The file is streamed line
-   * by line, as a document can be far larger than any answer, and every line is counted.
+   * Reads a text file, or a PDF's text, by its lines, as UTF-8, within `budget` characters. The
+   * text is streamed line by line, as it can be far larger than any answer, and every line is
+   * counted. Any other file is refused.
    */
-  async readDocument(id: string, reading: DocumentReading, budget: number): Promise<DocumentPart> {
-    const attachment = await this.read(id);
-    if (attachment.kind !== "document") {
-      throw new AttachmentRefused(["Only a document is read as text."]);
-    }
-    const reader = documentReader(reading, budget);
-    const content = await this.files.open(id);
+  async readLines(id: string, reading: LineReading, budget: number): Promise<LinesPart> {
+    const reader = lineReader(reading, budget);
+    const content = await this.linesOf(await this.readFile(id));
     const lines = createInterface({ input: content, crlfDelay: Infinity });
     try {
       for await (const line of lines) reader.take(line);
@@ -125,6 +139,16 @@ export class AttachmentService {
       content.destroy();
     }
     return reader.part();
+  }
+
+  /** An image's picture, whole; any other Attachment is refused. */
+  async readPicture(id: string): Promise<Picture> {
+    const attachment = await this.readFile(id);
+    if (fileReadingOf(attachment) !== "picture") {
+      throw new AttachmentRefused(["Only an image is read as a picture."]);
+    }
+    const content = await wholeOf(await this.files.open(id));
+    return { attachment, mediaType: attachment.mediaType, content };
   }
 
   async remove(id: string): Promise<void> {
@@ -147,6 +171,65 @@ export class AttachmentService {
         this.logger.warn(`Could not read document ${document.id}: ${(error as Error).message}`);
       }
     }
+  }
+
+  /**
+   * Judges once whether each file attached before The Office judged files is a text file, and
+   * pulls out a PDF's text. One whose file can't be read is left unjudged, for the next start.
+   */
+  async judgeFilesAttachedBefore(): Promise<void> {
+    for (const file of await this.repository.filesNotJudged()) {
+      try {
+        const content = await wholeOf(await this.files.open(file.id));
+        const text = isTextFile(file, isText(content));
+        await this.keepPdfText({ ...file, text }, content);
+        await this.repository.keepJudgement(file.id, text);
+      } catch (error) {
+        this.logger.warn(`Could not judge file ${file.id}: ${(error as Error).message}`);
+      }
+    }
+  }
+
+  private async readFile(id: string): Promise<StoredFileAttachment> {
+    const attachment = await this.read(id);
+    if (attachment.kind === "link") {
+      throw new AttachmentRefused(["A link has no file; open its address instead."]);
+    }
+    return attachment;
+  }
+
+  private async linesOf(file: StoredFileAttachment): Promise<Readable> {
+    switch (fileReadingOf(file)) {
+      case "lines":
+        return this.files.open(file.id);
+      case "pdf-text":
+        try {
+          return await this.files.openPdfText(file.id);
+        } catch {
+          throw new AttachmentRefused([
+            "The Office couldn't pull the text out of this PDF, so it can't be read.",
+          ]);
+        }
+      case "picture":
+      case "unreadable":
+        throw new AttachmentRefused(["Only a text file or a PDF is read by its lines."]);
+    }
+  }
+
+  /**
+   * Keeps a PDF's text beside it. A PDF its reader can't open keeps none, and reads as such: the
+   * file is attached either way.
+   */
+  private async keepPdfText(file: StoredFileAttachment, content: Uint8Array): Promise<void> {
+    if (fileReadingOf(file) !== "pdf-text") return;
+    let pages: readonly string[];
+    try {
+      pages = await this.pdfPages.textOf(content);
+    } catch (error) {
+      this.logger.warn(`Could not read the PDF ${file.id}: ${(error as Error).message}`);
+      return;
+    }
+    await this.files.savePdfText(file.id, pdfTextOf(pages));
   }
 
   /** A shaped Idea's Attachments went to what it became, so it takes no more. */
@@ -175,6 +258,16 @@ export class AttachmentService {
         return undefined;
     }
   }
+}
+
+async function wholeOf(content: Readable): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  try {
+    for await (const chunk of content) chunks.push(chunk as Uint8Array);
+  } finally {
+    content.destroy();
+  }
+  return Buffer.concat(chunks);
 }
 
 async function searchedTextOf(content: Readable): Promise<string> {

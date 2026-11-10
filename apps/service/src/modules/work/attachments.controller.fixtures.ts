@@ -23,7 +23,7 @@ export function attachmentsHttp(
   async function uploadToTask(
     name: string,
     mediaType: string,
-    content: string,
+    content: string | Uint8Array,
   ): Promise<Attachment> {
     const path = `/tasks/${current().task.id}/attachments/files`;
     const response = await upload(path, name, mediaType, content);

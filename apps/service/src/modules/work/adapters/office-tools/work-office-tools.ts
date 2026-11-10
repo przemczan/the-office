@@ -8,24 +8,35 @@ import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
-import { attachmentKindWords, type Attachment } from "../../domain/attachment.js";
+import {
+  attachmentKindWords,
+  fileReadingOf,
+  type Attachment,
+  type StoredFileAttachment,
+} from "../../domain/attachment.js";
+import type { Idea } from "../../domain/idea.js";
+import { whereOf } from "../../domain/record-words.js";
+import { PRIORITIES, type Task } from "../../domain/task.js";
+import { isArchived } from "../../domain/task-archive.js";
+import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import {
   DEFAULT_CONTEXT_LINES,
   DEFAULT_LINE_COUNT,
   lineCountWords,
   MAX_CONTEXT_LINES,
   MAX_LINE_COUNT,
-  type DocumentReading,
-} from "../../domain/document-lines.js";
-import type { Idea } from "../../domain/idea.js";
-import { whereOf } from "../../domain/record-words.js";
-import { PRIORITIES, type Task } from "../../domain/task.js";
-import { isArchived } from "../../domain/task-archive.js";
-import { TASK_STATE_NAMES } from "../../domain/task-states.js";
+  type LineReading,
+  type LinesPart,
+} from "../../domain/text-lines.js";
 import type { WrittenPlanAndDefinitionOfDone } from "../../domain/written-parts.js";
 import { IdeaCards } from "../../ports/idea-cards.js";
 import { SessionPeople } from "../../ports/session-people.js";
-import { answered, personInSession, WorkToolRefused } from "./work-tool-answers.js";
+import {
+  answered,
+  personInSession,
+  WorkToolRefused,
+  type OfficeToolResult,
+} from "./work-tool-answers.js";
 
 export const LIST_TASKS = "list_tasks";
 export const READ_TASK = "read_task";
@@ -35,7 +46,8 @@ export const READ_ATTACHMENT = "read_attachment";
 export const CREATE_TASK = "create_task";
 
 /**
- * The most characters read_attachment answers a document with, its header included. Claude Code
+ * The most characters read_attachment answers a text file or a PDF's text with, its header
+ * included. Claude Code
  * keeps a tool's answer in the session only up to 50,000 characters; a longer one is saved to a
  * file in the engine's own folder, which Agents may not read, and the session sees a 2 KB preview.
  * Measured on 2026-11-10 with Claude Code 2.1.310 (Agent SDK 0.3.310), on claude-haiku-5-5: an
@@ -44,10 +56,14 @@ export const CREATE_TASK = "create_task";
  * characters (90,000 bytes) came back inline, so the limit counts characters. Half of it leaves
  * a clear margin for a later engine lowering it.
  */
-export const DOCUMENT_ANSWER_BUDGET = 25_000;
+export const ATTACHMENT_ANSWER_BUDGET = 25_000;
 
-/** Room for ", 1,312 lines:" after the heading: a 50 MB document has fewer than 100 million. */
-const LINE_COUNT_ROOM = ", 99,999,999 lines:\n\n".length;
+/**
+ * Room for the words after the heading, a PDF's the longest: a 50 MB file has fewer than 100
+ * million lines.
+ */
+const LINES_HEADING_ROOM = ", its text in 99,999,999 lines, a marker line before each page:\n\n"
+  .length;
 
 /**
  * The Office tools sessions work with Work's records by (spec §6): every session reads every Task,
@@ -139,7 +155,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_ATTACHMENT,
       description:
-        "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, and names what it belongs to: a link's address, an image's or other file's name and kind, and a document's text, since only a document is read as text. A document is read by its lines, each with its number, like a file with Read and Grep: give fromLine and lineCount for a slice of it, or a search phrase for the lines that hold it with a few lines around each. One answer holds only so much, so a long document is read in slices; every answer ends by saying where the document goes on and which fromLine reads on. A search's line numbers are a slice's, so a match's line given as fromLine reads on from it.",
+        "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, names what it belongs to, and answers by what it holds. A text file (a document, a CSS or JSON file, a log: any file whose bytes are text) is read by its lines, each with its number, like a file with Read and Grep: give fromLine and lineCount for a slice of it, or a search phrase for the lines that hold it with a few lines around each. A PDF's text is read the same way, with a marker line before each page. One answer holds only so much, so a long file is read in slices: every answer ends by saying where the file goes on and which fromLine reads on, and a line too long for one answer is cut, its note giving the fromLine and fromCharacter to read on with. A search's line numbers are a slice's, so a match's line given as fromLine reads on from it. An image comes as the picture itself on an engine that shows pictures, else with words saying why it isn't shown. Any other file answers its name, kind and size, as it can't be read; a link its address.",
       input: z.object({
         attachmentId: z
           .string()
@@ -152,7 +168,15 @@ export class WorkOfficeTools implements OnModuleInit {
           .min(1)
           .optional()
           .describe(
-            "For a document: the line the slice or the search starts at, counting from 1. The first line when left out.",
+            "For a text file or a PDF: the line the slice or the search starts at, counting from 1. The first line when left out.",
+          ),
+        fromCharacter: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe(
+            "For a slice: the character of its first line to start at, counting from 1, to read on in a line too long for one answer, as its cut note says. The line's start when left out.",
           ),
         lineCount: z
           .number()
@@ -168,7 +192,7 @@ export class WorkOfficeTools implements OnModuleInit {
           .min(1)
           .optional()
           .describe(
-            "For a document: a phrase to find, matched literally and whatever the case, one line at a time. Answers the lines that hold it instead of a slice.",
+            "For a text file or a PDF: a phrase to find, matched literally and whatever the case, one line at a time. Answers the lines that hold it instead of a slice.",
           ),
         contextLines: z
           .number()
@@ -187,17 +211,63 @@ export class WorkOfficeTools implements OnModuleInit {
           if (attachment.kind === "link") {
             return `${opening}. The Office keeps its address only; fetch it if you need what it says.`;
           }
-          if (attachment.kind !== "document") {
-            return `${opening}. Only a document is read as text; ask the user what it holds if you need to know.`;
+          switch (fileReadingOf(attachment)) {
+            case "lines":
+              return this.linesAnswer(attachment, opening, reading);
+            case "pdf-text":
+              return this.pdfTextAnswer(attachment, opening, reading);
+            case "picture":
+              return this.pictureAnswer(attachment, opening);
+            case "unreadable":
+              return `${opening}. It is neither text, a PDF nor an image, so it can't be read; ask the user what it holds if you need to know.`;
           }
-          const { lineCount, text } = await this.attachments.readDocument(
-            attachment.id,
-            documentReading(reading),
-            DOCUMENT_ANSWER_BUDGET - opening.length - LINE_COUNT_ROOM,
-          );
-          return `${opening}, ${lineCountWords(lineCount)}:\n\n${text}`;
         }),
     });
+  }
+
+  private async linesAnswer(
+    file: StoredFileAttachment,
+    opening: string,
+    reading: ReadingAsked,
+  ): Promise<string> {
+    const { lineCount, text } = await this.readLines(file, opening, reading);
+    return `${opening}, ${lineCountWords(lineCount)}:\n\n${text}`;
+  }
+
+  private async pdfTextAnswer(
+    file: StoredFileAttachment,
+    opening: string,
+    reading: ReadingAsked,
+  ): Promise<string> {
+    const { lineCount, text } = await this.readLines(file, opening, reading);
+    if (lineCount === 0) {
+      return `${opening}. This PDF has no text to read, as a scanned one has none; ask the user what it holds if you need to know.`;
+    }
+    return `${opening}, its text in ${lineCountWords(lineCount)}, a marker line before each page:\n\n${text}`;
+  }
+
+  private readLines(
+    file: StoredFileAttachment,
+    opening: string,
+    reading: ReadingAsked,
+  ): Promise<LinesPart> {
+    return this.attachments.readLines(
+      file.id,
+      lineReading(reading),
+      ATTACHMENT_ANSWER_BUDGET - opening.length - LINES_HEADING_ROOM,
+    );
+  }
+
+  private async pictureAnswer(
+    file: StoredFileAttachment,
+    opening: string,
+  ): Promise<OfficeToolResult> {
+    const { mediaType, content } = await this.attachments.readPicture(file.id);
+    return {
+      text: `${opening}.`,
+      isError: false,
+      pictures: [{ name: file.name, mediaType, content }],
+    };
   }
 
   private registerCaptureIdea(): void {
@@ -300,20 +370,35 @@ export class WorkOfficeTools implements OnModuleInit {
 
 interface ReadingAsked {
   readonly fromLine?: number | undefined;
+  readonly fromCharacter?: number | undefined;
   readonly lineCount?: number | undefined;
   readonly search?: string | undefined;
   readonly contextLines?: number | undefined;
 }
 
-/** A search when a phrase is given, else a slice; a document read by its id alone is its start. */
-function documentReading({
+/**
+ * A search when a phrase is given, else a slice; a file read by its id alone is its start. A
+ * search reads whole lines, so it takes no fromCharacter.
+ */
+function lineReading({
   fromLine,
+  fromCharacter,
   lineCount,
   search,
   contextLines,
-}: ReadingAsked): DocumentReading {
+}: ReadingAsked): LineReading {
+  if (search !== undefined && fromCharacter !== undefined) {
+    throw new WorkToolRefused(
+      "fromCharacter reads on in one line of a slice; leave it out of a search, or leave out search to read the line on.",
+    );
+  }
   return search === undefined
-    ? { kind: "slice", fromLine: fromLine ?? 1, lineCount: lineCount ?? DEFAULT_LINE_COUNT }
+    ? {
+        kind: "slice",
+        fromLine: fromLine ?? 1,
+        fromCharacter: fromCharacter ?? 1,
+        lineCount: lineCount ?? DEFAULT_LINE_COUNT,
+      }
     : {
         kind: "search",
         phrase: search,

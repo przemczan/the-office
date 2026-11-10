@@ -94,7 +94,7 @@ describe("TaskRecords", () => {
         `- Waits for: Rename a device (Task ${blockerId}), Backlog; read_task reads it`,
         `- Waiting for it: Rename a device (Task ${waitingId}), Backlog; read_task reads it`,
         "",
-        "Read them with read_task, read_idea and read_initiative, and their Attachments with read_attachment, a long document in slices by line or by searching it for a phrase.",
+        "Read them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, and an image as a picture where the engine shows one.",
       ].join("\n"),
     );
   });

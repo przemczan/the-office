@@ -172,6 +172,11 @@ export const attachments = pgTable(
     url: text("url"),
     mediaType: text("media_type"),
     size: integer("size"),
+    /**
+     * Whether a file is a text file; null for a link, and for a file attached before The Office
+     * judged it, until the start judges it (`AttachmentService.judgeFilesAttachedBefore`).
+     */
+    text: boolean("text"),
     addedBy: jsonb("added_by").$type<Author>().notNull(),
     addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
   },

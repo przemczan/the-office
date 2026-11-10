@@ -17,10 +17,16 @@ export type OfficeToolResult = Awaited<
 /** A tool call The Office can't act on, answered to the Agent as an error. */
 export class WorkToolRefused extends Error {}
 
-/** Work's refusals answer the Agent in words it can act on; anything else fails the call. */
-export async function answered(read: () => Promise<string>): Promise<OfficeToolResult> {
+/**
+ * Work's refusals answer the Agent in words it can act on; anything else fails the call. Words
+ * alone are a successful answer.
+ */
+export async function answered(
+  read: () => Promise<string | OfficeToolResult>,
+): Promise<OfficeToolResult> {
   try {
-    return { text: await read(), isError: false };
+    const answer = await read();
+    return typeof answer === "string" ? { text: answer, isError: false } : answer;
   } catch (error) {
     if (isWorkRefusal(error)) return { text: error.message, isError: true };
     throw error;

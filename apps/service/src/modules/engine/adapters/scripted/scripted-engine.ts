@@ -398,7 +398,10 @@ export class ScriptedSession implements EngineSession {
           ];
         }
         const result = await this.officeToolResults.get(event.callId);
-        return [result === undefined ? event : { ...event, ...result }];
+        // A Thread logs a tool's words; its pictures are the model's alone.
+        return [
+          result === undefined ? event : { ...event, text: result.text, isError: result.isError },
+        ];
       }
       case "tool-refused":
         // The session judged the MCP call itself, and reported its refusal with the result.

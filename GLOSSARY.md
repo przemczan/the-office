@@ -166,6 +166,10 @@ _Avoid_: Rebase, merge fix, conflict Stage
 Anything attached to an Idea, an Initiative or a Task by the user or an Agent, such as a document, a screenshot, a file or a link; it can be a Task's result.
 _Avoid_: Artifact, asset, output
 
+**Text file**:
+A file Attachment whose bytes are text, a document among them; Agents read it by its lines and it opens in the document window. Its kind stays what it is: a CSS file is a file that is a text file.
+_Avoid_: Plain-text file, source file, text document
+
 **Decision**:
 A question an Agent puts to the user and waits on before continuing.
 _Avoid_: Approval, prompt, question (as a noun for the record)

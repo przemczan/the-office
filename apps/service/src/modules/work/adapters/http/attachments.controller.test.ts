@@ -50,7 +50,7 @@ describe("adding Attachments", () => {
     expect(link.status).toBe(201);
     const document = await uploadToTask("plan.md", "text/markdown", "# Plan");
     const image = await uploadToTask("screen.png", "image/png", "png bytes");
-    const file = await uploadToTask("export.zip", "application/zip", "zip bytes");
+    const file = await uploadToTask("export.zip", "application/zip", new Uint8Array([80, 75, 0]));
 
     const list = attachmentListSchema.parse(
       await (await sendJson(work, "GET", `/tasks/${task.id}/attachments`)).json(),
@@ -64,8 +64,10 @@ describe("adding Attachments", () => {
     expect(document).toMatchObject({
       mediaType: "text/markdown",
       size: 6,
+      text: true,
       addedBy: { kind: "user" },
     });
+    expect(file).toMatchObject({ text: false });
     expect(webEventsOf(work)).toEqual(
       [list[0]?.id, document.id, image.id, file.id].map((attachmentId) => ({
         type: "attachment.added",
@@ -109,5 +111,22 @@ describe("GET /api/attachments/:id/content", () => {
     expect((await contentOf(withCharset)).headers.get("content-type")).toBe(
       "text/html; charset=utf-8",
     );
+  });
+
+  it("serves a text file inline as plain text, whatever it was uploaded as, never sniffed", async () => {
+    const themes = await uploadToTask("themes.css", "text/css", ":root { --accent: red; }");
+    const script = await uploadToTask("page.js", "text/javascript", "alert(1);");
+
+    const response = await contentOf(themes);
+
+    expect(themes).toMatchObject({ kind: "file", text: true });
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(response.headers.get("content-disposition")).toBe(
+      `inline; filename="themes.css"; filename*=UTF-8''themes.css`,
+    );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("content-security-policy")).toBeNull();
+    expect(await response.text()).toBe(":root { --accent: red; }");
+    expect((await contentOf(script)).headers.get("content-type")).toBe("text/plain; charset=utf-8");
   });
 });

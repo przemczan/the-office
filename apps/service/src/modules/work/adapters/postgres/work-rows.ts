@@ -276,11 +276,20 @@ export function toAttachmentRow(attachment: Attachment): AttachmentRow {
     addedAt: attachment.addedAt,
   };
   return attachment.kind === "link"
-    ? { ...fields, url: attachment.url, mediaType: null, size: null }
-    : { ...fields, url: null, mediaType: attachment.mediaType, size: attachment.size };
+    ? { ...fields, url: attachment.url, mediaType: null, size: null, text: null }
+    : {
+        ...fields,
+        url: null,
+        mediaType: attachment.mediaType,
+        size: attachment.size,
+        text: attachment.text,
+      };
 }
 
-/** The table's checks keep each row an Attachment of one owner, and a link or a file. */
+/**
+ * The table's checks keep each row an Attachment of one owner, and a link or a file. A file not
+ * judged yet is read as not text: the start judges every one before the service takes requests.
+ */
 export function toAttachment(row: AttachmentRow): Attachment {
   const fields = {
     id: row.id,
@@ -290,7 +299,13 @@ export function toAttachment(row: AttachmentRow): Attachment {
     addedAt: row.addedAt,
   };
   if (row.kind === "link") return { ...fields, kind: row.kind, url: present(row.url) };
-  return { ...fields, kind: row.kind, mediaType: present(row.mediaType), size: present(row.size) };
+  return {
+    ...fields,
+    kind: row.kind,
+    mediaType: present(row.mediaType),
+    size: present(row.size),
+    text: row.text ?? false,
+  };
 }
 
 function ownerOf(row: AttachmentRow): AttachmentOwner {

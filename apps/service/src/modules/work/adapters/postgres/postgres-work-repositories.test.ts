@@ -100,6 +100,7 @@ describe("PostgresAttachmentRepository", () => {
       name: "screen.png",
       mediaType: "image/png",
       size: 2048,
+      text: false,
       addedBy: THE_USER,
       addedAt: new Date("2026-10-25T09:06:00.000Z"),
     };

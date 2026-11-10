@@ -60,9 +60,7 @@ export class StageScreenshots {
         sizeLimit: SCREENSHOT_SIZE_LIMIT,
       });
       const mediaType = mediaTypeOf(file.name);
-      if (
-        storedFileKind({ name: file.name, mediaType, size: file.content.byteLength }) !== "image"
-      ) {
+      if (storedFileKind({ name: file.name, mediaType }) !== "image") {
         return { problem: `${path} is not a PNG, JPEG, GIF or WebP image.` };
       }
       return { file: { ...file, mediaType } };

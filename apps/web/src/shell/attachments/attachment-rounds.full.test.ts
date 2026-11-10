@@ -32,6 +32,7 @@ function anImage(name: string, addedAt: string): Attachment {
     addedAt,
     mediaType: "image/png",
     size: 1024,
+    text: false,
   };
 }
 

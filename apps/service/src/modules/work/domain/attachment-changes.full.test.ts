@@ -53,17 +53,47 @@ describe("addFile", () => {
     { name: "logo.svg", mediaType: "image/svg+xml", kind: "file" },
     { name: "export.zip", mediaType: "application/zip", kind: "file" },
   ])("keeps $name ($mediaType) as a $kind", ({ name, mediaType, kind }) => {
-    const { attachment, event } = addFile("attachment-2", { name, mediaType, size: 10 }, adding);
+    const { attachment, event } = addFile(
+      "attachment-2",
+      { name, mediaType, size: 10, text: false },
+      adding,
+    );
 
     expect(attachment).toMatchObject({ kind, name, mediaType, size: 10 });
     expect(event).toEqual(new AttachmentAdded(attachment));
   });
 
+  it.each([
+    { name: "plan.md", mediaType: "text/markdown", bytesAreText: false, text: true },
+    { name: "themes.css", mediaType: "text/css", bytesAreText: true, text: true },
+    { name: "logo.svg", mediaType: "image/svg+xml", bytesAreText: true, text: true },
+    { name: "export.zip", mediaType: "application/zip", bytesAreText: false, text: false },
+    { name: "screen.png", mediaType: "image/png", bytesAreText: true, text: false },
+    { name: "manual.pdf", mediaType: "application/pdf", bytesAreText: true, text: false },
+    { name: "manual.PDF", mediaType: "application/octet-stream", bytesAreText: true, text: false },
+  ])(
+    "keeps $name as a text file: $text, its bytes being text: $bytesAreText",
+    ({ name, mediaType, bytesAreText, text }) => {
+      const { attachment } = addFile(
+        "attachment-2",
+        { name, mediaType, size: 10, text: bytesAreText },
+        adding,
+      );
+
+      expect(attachment.text).toBe(text);
+    },
+  );
+
   it("refuses a file over the size limit, or with a folder in its name, with every reason", () => {
     expect(() =>
       addFile(
         "attachment-2",
-        { name: "../big.zip", mediaType: "application/zip", size: ATTACHMENT_SIZE_LIMIT + 1 },
+        {
+          name: "../big.zip",
+          mediaType: "application/zip",
+          size: ATTACHMENT_SIZE_LIMIT + 1,
+          text: false,
+        },
         adding,
       ),
     ).toThrow(
@@ -76,7 +106,7 @@ describe("addFile", () => {
 
   it("refuses a file without a name", () => {
     expect(() =>
-      addFile("attachment-2", { name: " ", mediaType: "text/plain", size: 1 }, adding),
+      addFile("attachment-2", { name: " ", mediaType: "text/plain", size: 1, text: true }, adding),
     ).toThrow(new AttachmentRefused(["Give the Attachment a name."]));
   });
 });

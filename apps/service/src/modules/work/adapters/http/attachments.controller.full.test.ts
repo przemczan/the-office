@@ -105,7 +105,11 @@ describe("GET /api/attachments/:id/content", () => {
   });
 
   it("serves any other file as a download, with its name in full", async () => {
-    const file = await uploadToTask('Zażółć "raport".zip', "application/zip", "zip bytes");
+    const file = await uploadToTask(
+      'Zażółć "raport".zip',
+      "application/zip",
+      new Uint8Array([80, 75, 3, 4, 0, 0]),
+    );
 
     const response = await contentOf(file);
 

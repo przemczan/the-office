@@ -482,9 +482,23 @@ export const attachmentSchema = z.discriminatedUnion("kind", [
     mediaType: z.string(),
     /** In bytes. */
     size: z.int().nonnegative(),
+    /** Whether it is a text file, a document always; an image or a PDF never is (spec §2.1). */
+    text: z.boolean(),
   }),
 ]);
 export type Attachment = z.infer<typeof attachmentSchema>;
+
+/**
+ * Whether a text file Attachment opens in the document window as plain text: not a document,
+ * which renders as Markdown, nor an HTML file, which keeps its sandboxed preview (spec §4.1).
+ */
+export function isPlainTextFile(attachment: {
+  readonly kind: Attachment["kind"];
+  readonly mediaType?: string;
+  readonly text?: boolean;
+}): boolean {
+  return attachment.kind === "file" && attachment.text === true && !isHtmlFile(attachment);
+}
 
 export const attachmentListSchema = z.array(attachmentSchema);
 
