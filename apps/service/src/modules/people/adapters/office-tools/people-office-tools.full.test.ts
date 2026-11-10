@@ -27,7 +27,7 @@ describe("read_role", () => {
         instructions,
         effort: "high",
         roleOverride: { engineId: "claude-code", model: "claude-sonnet-5-5" },
-        capabilities: { sharedMemory: true, chat: false, consultant: true },
+        capabilities: { sharedMemory: true, chat: false, consultant: true, runEnvironment: false },
         permissionProfile: {
           edit: true,
           run: "project-commands",
@@ -66,7 +66,7 @@ describe("read_role", () => {
         [
           "effort: high",
           "Role override: claude-code, claude-sonnet-5-5",
-          'capabilities: {"sharedMemory":true,"chat":false,"consultant":true}',
+          'capabilities: {"sharedMemory":true,"chat":false,"consultant":true,"runEnvironment":false}',
           'permissionProfile: {"edit":true,"run":"project-commands","web":false,"mcpTools":{"github/create_issue":{"kind":"allowed"}}}',
           'hardSwitches: {"runInstalls":{"kind":"consult","role":"devops"},"publishOutsideThePipeline":{"kind":"ask-me"},"changeRoles":{"kind":"never"}}',
           "taskLimit: 2",

@@ -208,6 +208,12 @@ Retired 2026-10-31 (task 33): it measured the engine's read fence, which The Off
 - **Observed:** the control write goes through under each; the three protected writes are refused under each, typed `asyncAgent` with the decision reason "no approval surface in this session", the same as any other refusal for want of approval.
 - **Meaning:** the engine never auto-approves the protected paths, even past a hook `allow`, but its refusal cannot be told apart from any other. §6 now has the hook refuse Agents' writes there first with a clear reason, the engine's protection staying as a backstop.
 
+### permissions.devcontainer
+
+- **Run:** under a hook that allows every Write, a Write to `.devcontainer/devcontainer.json`, and in another session and repository an in-process Office tool, allowed by rule, that writes the same file from the host.
+- **Expected:** the Write is refused by the engine past the hook's `allow`, as `.devcontainer/` is one of its sensitive paths and `permissionPrompts: 'none'` refuses what would prompt (the Set up Stage of notnullsoft's set-up Task, 2026-11-10), and the file is not on disk; the Office tool's call is allowed and the file is on disk.
+- **Meaning:** Agents write the run environment definition through `write_run_environment_definition`, which checks it first (§6, Task e6d52ce4); no allow rule lifts the engine's protection, which stays the backstop. Not recorded yet: the Agent that added it ran where no Claude Code engine was signed in, so it is recorded on Linux and Windows at the next run on a signed-in machine.
+
 ### permissions.hook-after-resume
 
 - **Run:** a hook allows a Write; the session is closed and resumed with a hook that refuses every Write, and asked for another.

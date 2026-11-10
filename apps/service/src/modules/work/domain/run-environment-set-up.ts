@@ -1,3 +1,4 @@
+import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import type { TaskCreated } from "./task-events.js";
@@ -12,6 +13,7 @@ export const RUN_ENVIRONMENT_SET_UP_TITLE = "Set up the run environment";
 export function runEnvironmentSetUpPlan(projectName: string): string {
   return [
     `Write the run environment definition of ${projectName}: .devcontainer/devcontainer.json and a compose file beside it, with the service the checks run in and one for each service the tests need (a database, a cache and so on), from the repository's manifests and its install, build, lint and test commands.`,
+    `Write the files with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}, giving each whole: Write and Edit can't reach .devcontainer/. It checks the definition as The Office reads it and writes the files only when it is valid; otherwise it answers every problem found, for you to fix and write again.`,
     "The Office runs the checks in the service devcontainer.json names, with the worktree mounted at its own path, and sets every service's limits itself. So a service publishes no ports, mounts no folder of this computer (named volumes only), and sets no limits, fixed container name or privileged mode. devcontainer.json sets only name, dockerComposeFile, service, runServices, workspaceFolder, overrideCommand, shutdownAction, remoteUser, containerUser and customizations.",
     "Verify then runs the Test command; Publish ships the definition by the Project's publishing mode. Once this Task is Done with a valid definition on its branch, the Project's Run environment turns On.",
   ].join("\n\n");

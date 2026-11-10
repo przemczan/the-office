@@ -25,6 +25,7 @@ import {
   ProjectDefaultsForTests,
   PipelinesPortsForTestsModule,
   ProposalDraftsForTests,
+  RunEnvironmentDefinitionsForTests,
   StageRoleEnginesForTests,
   StageDecisionsForTests,
   StageThreadsForTests,
@@ -58,6 +59,7 @@ export interface PipelinesApplication {
   readonly usage: TaskUsageForTests;
   readonly threadSessions: TaskThreadSessionsForTests;
   readonly roleEngines: StageRoleEnginesForTests;
+  readonly definitions: RunEnvironmentDefinitionsForTests;
   readonly published: DomainEvent[];
 }
 
@@ -108,6 +110,7 @@ export async function startPipelinesApplication(
         taskThreadSessions: TaskThreadSessionsForTests,
         proposalDrafts: ProposalDraftsForTests,
         stageRoleEngines: StageRoleEnginesForTests,
+        runEnvironmentDefinitions: RunEnvironmentDefinitionsForTests,
       }),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: engineModule }],
@@ -132,6 +135,7 @@ export async function startPipelinesApplication(
     usage: app.get(TaskUsageForTests, { strict: false }),
     threadSessions: app.get(TaskThreadSessionsForTests, { strict: false }),
     roleEngines: app.get(StageRoleEnginesForTests, { strict: false }),
+    definitions: app.get(RunEnvironmentDefinitionsForTests, { strict: false }),
     published,
   };
 }

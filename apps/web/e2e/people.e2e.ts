@@ -348,6 +348,7 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByRole("tab", { name: "Max" }).click();
   await form.getByText("Chat", { exact: true }).click();
   await form.getByText("Consultant", { exact: true }).click();
+  await form.getByText("Run environment", { exact: true }).click();
   await form.getByLabel("Run installs").selectOption("ask-me");
   await form.getByLabel("Publish outside the Pipeline").selectOption("never");
   await form.getByLabel("Runs").selectOption("project-commands");
@@ -384,6 +385,8 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   const capabilities = roleCardGroup(page, "Capabilities").getByRole("listitem");
   await expect(capabilities.filter({ hasText: "Chat" })).toHaveClass("on");
   await expect(capabilities.filter({ hasText: "Consultant" })).toHaveClass("on");
+  // The Developer preset has Run environment on.
+  await expect(capabilities.filter({ hasText: "Run environment" })).not.toHaveClass("on");
   const permissions = roleCardGroup(page, "Permissions");
   await expect(permissions).toContainText("Run installsAsk me");
   await expect(permissions).toContainText("Publish outside the PipelineNever");
@@ -1036,7 +1039,7 @@ test(
     await page.goto("/people/devops/role");
     await expect(roleCardGroup(page, "Work")).toContainText("2 at once");
     const capabilities = roleCardGroup(page, "Capabilities").getByRole("listitem");
-    for (const capability of ["Shared memory", "Chat", "Consultant"]) {
+    for (const capability of ["Shared memory", "Chat", "Consultant", "Run environment"]) {
       await expect(capabilities.filter({ hasText: capability })).toHaveClass("on");
     }
     const permissions = roleCardGroup(page, "Permissions");

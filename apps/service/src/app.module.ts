@@ -47,7 +47,10 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
-import { RunEnvironmentsModule } from "./modules/run-environments/index.js";
+import {
+  RunEnvironmentDefinitions,
+  RunEnvironmentsModule,
+} from "./modules/run-environments/index.js";
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import {
@@ -130,8 +133,14 @@ export class AppModule {
       dayUsage: DayUsage,
       taskTokens: TaskTokens,
     });
+    // Work's Tasks tell the startup sweep which run environments to keep; a Project's Run
+    // environment setting is kept by Projects, and its set-up Task by Work.
+    const runEnvironments = RunEnvironmentsModule.register({
+      imports: [work, projects],
+      knownTasks: TaskService,
+    });
     const pipelines = PipelinesModule.register({
-      imports: [work, PeopleModule, engineCascade, conversations, projects],
+      imports: [work, PeopleModule, engineCascade, conversations, projects, runEnvironments],
       startedTasks: TaskService,
       taskRecords: TaskRecords,
       knownPeople: RoleCards,
@@ -146,6 +155,7 @@ export class AppModule {
       taskThreadSessions: ThreadRunner,
       proposalDrafts: ProposalService,
       stageRoleEngines: PipelineRoleCapabilityChecks,
+      runEnvironmentDefinitions: RunEnvironmentDefinitions,
     });
     return {
       module: AppModule,
@@ -183,9 +193,7 @@ export class AppModule {
         PeopleModule,
         pipelines,
         projects,
-        // Work's Tasks tell the startup sweep which run environments to keep; a Project's Run
-        // environment setting is kept by Projects, and its set-up Task by Work.
-        RunEnvironmentsModule.register({ imports: [work, projects], knownTasks: TaskService }),
+        runEnvironments,
         SkillsModule,
         TelemetryModule,
         WebAppModule.register(webApp),

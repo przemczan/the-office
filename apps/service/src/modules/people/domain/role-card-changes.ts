@@ -23,6 +23,7 @@ const CAPABILITY_KEYS = [
   "sharedMemory",
   "chat",
   "consultant",
+  "runEnvironment",
 ] as const satisfies readonly (keyof Capabilities)[];
 
 /**

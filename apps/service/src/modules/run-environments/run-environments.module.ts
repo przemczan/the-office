@@ -14,6 +14,7 @@ import { PostgresRunEnvironmentSettings } from "./adapters/postgres/postgres-run
 import { RunEnvironmentWebEvents } from "./adapters/websocket/run-environment-web-events.js";
 import { HostCores } from "./application/host-cores.js";
 import { ProjectRunEnvironments } from "./application/project-run-environments.js";
+import { RunEnvironmentDefinitions } from "./application/run-environment-definitions.js";
 import { RunEnvironmentOfficeLimits } from "./application/run-environment-office-limits.js";
 import { RunEnvironmentFolders } from "./application/run-environment-folders.js";
 import { RunEnvironmentImages } from "./application/run-environment-images.js";
@@ -62,6 +63,7 @@ export class RunEnvironmentsModule {
         RunEnvironmentImages,
         RunEnvironmentSlots,
         RunEnvironments,
+        RunEnvironmentDefinitions,
         RunEnvironmentOfficeLimits,
         RunEnvironmentWebEvents,
         { provide: ProjectSettings, useClass: ProjectsSettings },
@@ -71,7 +73,7 @@ export class RunEnvironmentsModule {
         ProjectsSetUpRegistration,
         ProjectsTaskRunEnvironments,
       ],
-      exports: [RunEnvironments],
+      exports: [RunEnvironments, RunEnvironmentDefinitions],
     };
   }
 }

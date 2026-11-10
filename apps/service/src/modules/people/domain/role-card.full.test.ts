@@ -28,7 +28,7 @@ describe("roleCardProblems", () => {
       responsibilities: "",
       instructions: "",
       roleOverride: { engineId: "claude-code", model: "claude-opus-4" },
-      capabilities: { sharedMemory: true, chat: false, consultant: false },
+      capabilities: { sharedMemory: true, chat: false, consultant: false, runEnvironment: false },
       taskLimit: 7,
       hardSwitches: { ...aRoleCard().hardSwitches, runInstalls: consult("developer") },
       permissionProfile: {

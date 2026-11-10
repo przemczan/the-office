@@ -1,4 +1,4 @@
-import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Decision, type DecisionAnswer } from "./decision.js";
 
@@ -248,6 +248,17 @@ export function roleOfficeTools(roleKey: string): readonly string[] {
         PROPOSE_SKILL_UPDATE_TOOL,
       ]
     : [];
+}
+
+/**
+ * The Office tools only an Agent Stage's session gets, as its card's capabilities say: the Run
+ * environment capability writes the run environment definition, in the Task's worktree, which
+ * Write and Edit can't reach (spec §2.2, §6). A chat, a Planning Thread or a Consultation has none.
+ */
+export function stageCapabilityOfficeTools(capabilities: {
+  readonly runEnvironment: boolean;
+}): readonly string[] {
+  return capabilities.runEnvironment ? [WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL] : [];
 }
 
 /**

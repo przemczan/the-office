@@ -19,6 +19,7 @@ export const capabilitiesSchema = z.object({
   sharedMemory: z.boolean(),
   chat: z.boolean(),
   consultant: z.boolean(),
+  runEnvironment: z.boolean(),
 });
 export type Capabilities = z.infer<typeof capabilitiesSchema>;
 
@@ -206,6 +207,7 @@ export const roleCardFieldSchema = z.enum([
   "capabilities.sharedMemory",
   "capabilities.chat",
   "capabilities.consultant",
+  "capabilities.runEnvironment",
   "permissionProfile",
   "hardSwitches.runInstalls",
   "hardSwitches.publishOutsideThePipeline",

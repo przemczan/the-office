@@ -255,7 +255,7 @@ Making a Project build and test in a fresh worktree on the workstation, done by 
 _Avoid_: Setup, initialization, provisioning
 
 **Run environment**:
-A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile, and On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else adds the Project's "Set up the run environment" Task, in which Devops writes it, and its Done turns the setting On.
+A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile, and On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else adds the Project's "Set up the run environment" Task, in which Devops writes it with The Office's `write_run_environment_definition`, which checks it first, and its Done turns the setting On.
 _Avoid_: dev container, sandbox
 
 **CPU limit**:
@@ -305,7 +305,7 @@ A job the user hires for, filled by one named person: its responsibilities, inst
 _Avoid_: Persona, profile, agent type
 
 **Role card**:
-Everything that defines a Role: its person's name and title, responsibilities, instructions, effort, Role override, capabilities (shared memory, chat, Consultant), permission profile, authority, Task limit and Skills.
+Everything that defines a Role: its person's name and title, responsibilities, instructions, effort, Role override, capabilities (shared memory, chat, Consultant, Run environment: in an Agent Stage, writing a Project's run environment definition through The Office's `write_run_environment_definition`), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
 
 **Avatar**:

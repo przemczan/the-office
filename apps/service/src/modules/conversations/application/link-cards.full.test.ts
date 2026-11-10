@@ -102,7 +102,7 @@ function roleOf(roleKey: string): SessionRole | undefined {
     [quietKey]: aPlannerCard({
       name: "Quinn",
       title: "Reviewer",
-      capabilities: { sharedMemory: false, chat: false, consultant: false },
+      capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: false },
     }),
   };
   const card = cards[roleKey];

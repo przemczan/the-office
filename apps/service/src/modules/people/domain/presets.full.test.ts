@@ -18,12 +18,16 @@ describe("PRESETS", () => {
 
   // Spec §2.2's preset table and §9's Task limits.
   it.each([
-    ["planner", { sharedMemory: true, chat: true, consultant: true }, 2],
-    ["developer", { sharedMemory: false, chat: false, consultant: false }, 3],
-    ["reviewer", { sharedMemory: false, chat: false, consultant: false }, 3],
-    ["cto", { sharedMemory: true, chat: true, consultant: true }, 2],
-    ["devops", { sharedMemory: true, chat: true, consultant: true }, 2],
-    ["office-manager", { sharedMemory: true, chat: true, consultant: false }, "none"],
+    ["planner", { sharedMemory: true, chat: true, consultant: true, runEnvironment: false }, 2],
+    ["developer", { sharedMemory: false, chat: false, consultant: false, runEnvironment: true }, 3],
+    ["reviewer", { sharedMemory: false, chat: false, consultant: false, runEnvironment: false }, 3],
+    ["cto", { sharedMemory: true, chat: true, consultant: true, runEnvironment: false }, 2],
+    ["devops", { sharedMemory: true, chat: true, consultant: true, runEnvironment: true }, 2],
+    [
+      "office-manager",
+      { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
+      "none",
+    ],
   ])(
     "give the %s the capabilities %o and a Task limit of %s",
     (roleKey, capabilities, taskLimit) => {

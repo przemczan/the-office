@@ -16,7 +16,7 @@ describe("list_people", () => {
         name: "Jan",
         title: "Planner",
         responsibilities: "Writes Plans with you.",
-        capabilities: { sharedMemory: false, chat: true, consultant: true },
+        capabilities: { sharedMemory: false, chat: true, consultant: true, runEnvironment: false },
         taskLimit: 2,
       }),
     });

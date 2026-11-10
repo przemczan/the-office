@@ -221,7 +221,7 @@ describe("POST /api/roles", () => {
       card: {
         name: "Marta",
         title: "Office Manager",
-        capabilities: { sharedMemory: true, chat: true, consultant: false },
+        capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
         taskLimit: "none",
         hardSwitches: { changeRoles: { kind: "ask-me" } },
       },
@@ -237,7 +237,7 @@ describe("POST /api/roles", () => {
       card: {
         name: "Bob",
         title: "CTO",
-        capabilities: { sharedMemory: true, chat: true, consultant: true },
+        capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
         taskLimit: 2,
         hardSwitches: {
           runInstalls: { kind: "consult", role: "devops" },

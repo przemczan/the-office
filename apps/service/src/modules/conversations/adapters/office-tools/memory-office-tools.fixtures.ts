@@ -35,6 +35,6 @@ export function toolWith(thread: Thread | undefined, refusal?: string) {
 
 export const card = (sharedMemory: boolean, changeRoles: HardSwitchValue) =>
   aPlannerCard({
-    capabilities: { sharedMemory, chat: true, consultant: true },
+    capabilities: { sharedMemory, chat: true, consultant: true, runEnvironment: false },
     hardSwitches: { ...aPlannerCard().hardSwitches, changeRoles },
   });

@@ -53,7 +53,8 @@ describe("the Caretaker's card", () => {
   });
 
   it.each([
-    ["capabilities", { capabilities: { sharedMemory: true, chat: true, consultant: true } }],
+    ["capabilities", { capabilities: { ...caretakerCard.capabilities, consultant: true } }],
+    ["capabilities", { capabilities: { ...caretakerCard.capabilities, runEnvironment: true } }],
     [
       "permission profile",
       { permissionProfile: { ...caretakerCard.permissionProfile, run: "read-only-git" as const } },

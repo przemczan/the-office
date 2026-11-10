@@ -72,7 +72,7 @@ const CTO_ROLE: SessionRole = {
     instructions: "Agree the outcome first, then the Tasks.",
     roleOverride: null,
     effort: "low",
-    capabilities: { sharedMemory: true, chat: true, consultant: true },
+    capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "consult", role: "devops" },

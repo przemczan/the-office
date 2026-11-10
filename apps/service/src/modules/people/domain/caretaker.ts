@@ -9,7 +9,7 @@ import type { RoleCard } from "./role-card.js";
  * changes grants. The rest of the card is the user's to change.
  */
 export const CARETAKER_FIXED_PARTS = {
-  capabilities: { sharedMemory: true, chat: true, consultant: false },
+  capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: true, run: "anything", web: true },
   hardSwitches: { runInstalls: ALLOWED, publishOutsideThePipeline: ALLOWED, changeRoles: NEVER },
   taskLimit: "none",
@@ -30,7 +30,9 @@ export function builtInCardProblems(roleKey: string, card: RoleCard): string[] {
   return [
     ...(isDeepStrictEqual(card.capabilities, fixed.capabilities)
       ? []
-      : ["The Caretaker's capabilities are fixed: Chat and Memory on, not a Consultant."]),
+      : [
+          "The Caretaker's capabilities are fixed: Chat and Memory on, not a Consultant, no Run environment.",
+        ]),
     ...(isDeepStrictEqual({ edit, run, web }, fixed.permissionProfile)
       ? []
       : [

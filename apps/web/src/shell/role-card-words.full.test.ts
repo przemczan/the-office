@@ -122,7 +122,12 @@ describe("the Role card's words", () => {
   });
 
   it("splits a Proposal's whole fields into the parts that change", () => {
-    const capabilities = { sharedMemory: true, chat: true, consultant: false };
+    const capabilities = {
+      sharedMemory: true,
+      chat: true,
+      consultant: false,
+      runEnvironment: false,
+    };
     const hardSwitches = {
       runInstalls: { kind: "consult", role: "devops" },
       publishOutsideThePipeline: { kind: "never" },
@@ -134,7 +139,7 @@ describe("the Role card's words", () => {
         {
           taskLimit: 3,
           effort: "high",
-          capabilities: { ...capabilities, consultant: true },
+          capabilities: { ...capabilities, consultant: true, runEnvironment: false },
           hardSwitches: { ...hardSwitches, runInstalls: { kind: "ask-me" } },
         },
       ),

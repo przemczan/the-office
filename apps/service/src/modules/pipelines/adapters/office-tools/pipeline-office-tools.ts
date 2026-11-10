@@ -12,12 +12,14 @@ import {
 import {
   OfficeToolRegistry,
   RUN_PROJECT_COMMAND_TOOL,
+  WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
   type OfficeToolResult,
 } from "../../../engine/index.js";
 import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
 import { StageHistory } from "../../application/stage-history.js";
 import { StageProjectCommands } from "../../application/stage-project-commands.js";
+import { StageRunEnvironmentDefinitions } from "../../application/stage-run-environment-definitions.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf, PROJECT_COMMAND_KEYS } from "../../domain/agent-command.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
@@ -46,6 +48,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     private readonly branchUpdate: StageBranchUpdate,
     private readonly projectCommands: StageProjectCommands,
     private readonly stageHistory: StageHistory,
+    private readonly runEnvironmentDefinitions: StageRunEnvironmentDefinitions,
   ) {}
 
   onModuleInit(): void {
@@ -55,7 +58,33 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registerProposeStageTemplate();
     this.registerUpdateBranch();
     this.registerRunProjectCommand();
+    this.registerWriteRunEnvironmentDefinition();
     this.registerReadStageHistory();
+  }
+
+  private registerWriteRunEnvironmentDefinition(): void {
+    this.registry.register({
+      name: WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+      description:
+        "Writes the Project's run environment definition into .devcontainer/ of the Task's worktree, where Write and Edit can't reach. Give devcontainer.json and the compose file or files it names, each whole, with its path from the repository's root. The Office checks the definition as it would read it, with any file it names but you don't give read from the worktree: when it is valid, it writes the files, leaving the folder's other files, and answers the service the checks run in; otherwise it writes nothing and answers every problem found. It builds and starts nothing.",
+      input: z.object({
+        files: z
+          .array(
+            z.object({
+              path: z
+                .string()
+                .describe(
+                  "The file's path from the repository's root, inside .devcontainer/, such as .devcontainer/devcontainer.json.",
+                ),
+              text: z.string().describe("The file's whole text."),
+            }),
+          )
+          .describe(
+            "The files to write: devcontainer.json and its compose files, and any other the folder needs.",
+          ),
+      }),
+      run: ({ files }, call) => this.runEnvironmentDefinitions.inSession(files, call),
+    });
   }
 
   private registerReadStageHistory(): void {

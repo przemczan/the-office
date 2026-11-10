@@ -25,6 +25,18 @@ export type ToolDecision =
 /** What only The Office writes in a worktree: git's records and the engine's project settings. */
 const PROTECTED_NAMES: ReadonlySet<string> = new Set([".git", ".claude", ".mcp.json"]);
 
+/**
+ * The repository's run environment definition folder, which Agents write only through The Office's
+ * tool, which checks it first; the engine's own protection refuses it too, without a reason.
+ */
+const RUN_ENVIRONMENT_DEFINITION_FOLDER = ".devcontainer";
+
+/**
+ * The Office tool an Agent Stage writes the run environment definition with, offered to Roles with
+ * the Run environment capability, which the refusal points to. Pipelines registers it.
+ */
+export const WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL = "write_run_environment_definition";
+
 /** Where output written to it goes nowhere: Bash's and cmd.exe's null device, PowerShell's $null. */
 const NULL_DEVICES: ReadonlySet<string> = new Set(["/dev/null", "nul", "$null"]);
 
@@ -120,9 +132,14 @@ export class OfficeRules {
       );
     }
     const names = paths.names(resolved).slice(paths.names(workingFolder).length);
-    return names.some((name) => PROTECTED_NAMES.has(name))
+    if (names.some((name) => PROTECTED_NAMES.has(name))) {
+      return this.advised(
+        "Refused by The Office: .git, .claude and .mcp.json are The Office's to change; Agents never write there.",
+      );
+    }
+    return names[0] === RUN_ENVIRONMENT_DEFINITION_FOLDER
       ? this.advised(
-          "Refused by The Office: .git, .claude and .mcp.json are The Office's to change; Agents never write there.",
+          `Refused by The Office: ${RUN_ENVIRONMENT_DEFINITION_FOLDER}/ is written only with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}, which checks the run environment definition first; only Roles with the Run environment capability have it, in an Agent Stage.`,
         )
       : undefined;
   }

@@ -378,7 +378,7 @@ const DEVELOPER_CARD: SessionRole["card"] = {
   instructions: "Keep each change small.",
   roleOverride: null,
   effort: "low",
-  capabilities: { sharedMemory: false, chat: true, consultant: false },
+  capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: true, run: "read-only-git", web: false, mcpTools: {} },
   hardSwitches: {
     runInstalls: { kind: "never" },

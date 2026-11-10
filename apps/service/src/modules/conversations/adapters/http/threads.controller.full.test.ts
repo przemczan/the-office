@@ -108,7 +108,7 @@ function aPerson(name: string, chat: boolean): string {
   const roleKey = `role-${randomUUID()}`;
   const card = aPlannerCard({
     name,
-    capabilities: { sharedMemory: false, chat, consultant: true },
+    capabilities: { sharedMemory: false, chat, consultant: true, runEnvironment: false },
   });
   people.set(roleKey, { roleKey, cardVersion: 1, card });
   return roleKey;

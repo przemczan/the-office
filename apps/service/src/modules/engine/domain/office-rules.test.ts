@@ -368,6 +368,17 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       },
     );
 
+    it.each([
+      ".devcontainer/devcontainer.json",
+      join(platform.worktree, ".devcontainer", "compose.yaml"),
+    ])("refuses %s, pointing to the tool that writes the run environment definition", (path) => {
+      expect(decide({ kind: "edit", paths: [path] })).toEqual({
+        allowed: false,
+        reason:
+          "Refused by The Office: .devcontainer/ is written only with write_run_environment_definition, which checks the run environment definition first; only Roles with the Run environment capability have it, in an Agent Stage.",
+      });
+    });
+
     it.runIf(platform === WINDOWS)("refuses a protected path in any case on Windows", () => {
       expect(decide({ kind: "edit", paths: [raw`.GIT\config`] })).toMatchObject({ allowed: false });
     });

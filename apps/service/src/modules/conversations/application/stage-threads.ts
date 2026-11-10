@@ -28,6 +28,7 @@ import {
   withLeftOutServers,
   roleOfficeTools,
   sessionOfficeTools,
+  stageCapabilityOfficeTools,
   workThreadInstructions,
   type SessionPerson,
 } from "../domain/session-instructions.js";
@@ -567,7 +568,11 @@ export class StageThreads {
         mcpTools: mcpToolSettingsFor(request.session.profile.mcpTools, mcpServers),
       },
       officeTools: sessionOfficeTools(
-        [...request.session.officeTools, ...roleOfficeTools(roleKey)],
+        [
+          ...request.session.officeTools,
+          ...roleOfficeTools(roleKey),
+          ...stageCapabilityOfficeTools(card.capabilities),
+        ],
         card,
         true,
       ),

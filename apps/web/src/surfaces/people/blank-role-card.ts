@@ -12,7 +12,7 @@ export function blankRoleCard({ taskLimits }: RoleCardOptions): RoleCard {
     instructions: "",
     roleOverride: null,
     effort: "medium",
-    capabilities: { sharedMemory: false, chat: true, consultant: false },
+    capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "ask-me" },

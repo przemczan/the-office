@@ -96,7 +96,7 @@ let decisions: DecisionService;
 let consultations: Consultations;
 
 function roleOf(roleKey: string): SessionRole {
-  const consultant = { sharedMemory: false, chat: true, consultant: true };
+  const consultant = { sharedMemory: false, chat: true, consultant: true, runEnvironment: false };
   const card = aPlannerCard(
     roleKey === consultantKey
       ? { name: "Casey", title: "CTO", capabilities: consultant }
@@ -107,7 +107,12 @@ function roleOf(roleKey: string): SessionRole {
           : {
               name: "Dana",
               title: "Developer",
-              capabilities: { sharedMemory: false, chat: true, consultant: false },
+              capabilities: {
+                sharedMemory: false,
+                chat: true,
+                consultant: false,
+                runEnvironment: false,
+              },
             },
   );
   return { roleKey, cardVersion: 1, card };

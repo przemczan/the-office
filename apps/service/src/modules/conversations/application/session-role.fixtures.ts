@@ -9,7 +9,7 @@ export function aPlannerCard(fields: Partial<SessionRole["card"]> = {}): Session
     instructions: "Plan in conversation: ask what is unclear.",
     roleOverride: null,
     effort: "high",
-    capabilities: { sharedMemory: false, chat: true, consultant: true },
+    capabilities: { sharedMemory: false, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "consult", role: "devops" },

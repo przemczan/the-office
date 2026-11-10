@@ -1,8 +1,11 @@
 import { describe, expect, it, afterEach, beforeEach } from "vitest";
+import { z } from "zod";
 import { OPEN_DECISION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
 import {
   FIRST_CLAUDE_CODE_ENGINE,
+  OfficeToolRegistry,
   ScriptedEngine,
+  WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
   type SessionScript,
   ScriptedEngineModule,
 } from "../../engine/index.js";
@@ -718,5 +721,33 @@ describe("Office tools on a Stage", () => {
 
     expect(answered.map((event) => event.decision.id)).toEqual([id]);
     expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });
+  });
+
+  it("offer write_run_environment_definition only to a Role with the Run environment capability", async () => {
+    await startWith(started(...aTurn({ status: "done" })), started(...aTurn({ status: "done" })));
+    // Pipelines registers it in the service.
+    app.get(OfficeToolRegistry).register({
+      name: WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+      description: WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+      input: z.object({}),
+      run: () => Promise.resolve({ text: "", isError: false }),
+    });
+    const withIt = aPerson("Adam");
+    const withoutIt = aPerson("Ada");
+    const role = people.get(withIt);
+    if (!role) throw new Error("Adam isn't hired.");
+    people.set(withIt, {
+      ...role,
+      card: { ...role.card, capabilities: { ...role.card.capabilities, runEnvironment: true } },
+    });
+
+    await aStageRun(aStage({ roleKey: withIt }));
+    await aStageRun(aStage({ roleKey: withoutIt }));
+
+    const offered = engine.sessions.map(({ options }) =>
+      options.officeTools.map(({ name }) => name),
+    );
+    expect(offered[0]).toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
+    expect(offered[1]).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
   });
 });

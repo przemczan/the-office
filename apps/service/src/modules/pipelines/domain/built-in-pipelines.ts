@@ -1,3 +1,4 @@
+import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import type { Pipeline } from "./pipeline.js";
 
 /** The Roles the Developer and Devops presets are hired into, keyed as People keys them. */
@@ -195,8 +196,7 @@ const setUpRunEnvironment: Pipeline = {
       key: "set-up",
       name: "Set up",
       role: DEVOPS,
-      brief:
-        "Write .devcontainer/ (devcontainer.json and a compose file for the services) for the Project's stack, from its manifests and commands.",
+      brief: `Write .devcontainer/ (devcontainer.json and a compose file for the services) for the Project's stack, from its manifests and commands, with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}: it checks the files and writes them only when they are valid. Write and Edit can't reach .devcontainer/.`,
       session: "fresh",
       budget: 150_000,
       optional: false,

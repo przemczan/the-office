@@ -1,4 +1,5 @@
 import type { Check } from "../../check.ts";
+import { devcontainerCheck } from "./devcontainer.ts";
 import { hookAfterResumeCheck } from "./hook-after-resume.ts";
 import { hookRefusalCheck } from "./hook-refusal.ts";
 import { hookSeesEveryCallCheck } from "./hook-sees-every-call.ts";
@@ -13,5 +14,6 @@ export const permissionsChecks: readonly Check[] = [
   powerShellTwinCheck,
   readFenceOffCheck,
   protectedPathsCheck,
+  devcontainerCheck,
   hookAfterResumeCheck,
 ];

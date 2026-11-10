@@ -10,7 +10,7 @@ export function aProposedCard(fields: Partial<RoleCard> = {}): RoleCard {
     instructions: "Run the tests and try the change as the user would.",
     roleOverride: null,
     effort: "medium",
-    capabilities: { sharedMemory: false, chat: true, consultant: false },
+    capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "never" },

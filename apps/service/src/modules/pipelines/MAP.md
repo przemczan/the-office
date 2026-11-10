@@ -22,6 +22,7 @@
 - `StageGit.start` is the only check that takes a moved HEAD: along the base (`TaskGit.movedAlongBase`) or after the user's Keep (`branchKept`), told to the Agent as `branchNews`. Any other move is a refusal, `branchMoved` on the outcome, walked by `afterBranchMoved`: no round, the user alone. The checks after a Stage (`checkHead`) stay strict; a refusal saves the expected commit, so the next run expects the same place.
 - The Task's first Stage, the one no earlier run has a `headCommit` before, brings the branch to the base in `StageGit.start` (planning made the worktree, maybe hours ago). A conflict gives the branch back and only tells the Agent; a failed fetch doesn't stop the Stage.
 - `run_project_command` (`StageProjectCommands`, the tool's name from Engine's `RUN_PROJECT_COMMAND_TOOL`, which the container runtime's refusal names) runs a command for the Agent of the running Agent Stage through `TaskCommands.runForAgent`: a command line it wrote only once the session's Office rules allow it as its own Bash call (`OfficeToolCall.judgeCommand`, so the profile, git, the secrets and the container runtime hold, and a read-only profile runs only the Project's own commands, by key); a key is not judged. Its output goes to a file in the call's `outputFolder`, which the session may Read. Every such command belongs to its Stage run (`StageCommandRuns`): `AgentStageRunner.work` begins them as the Thread opens and ends them, with everything they started, before the session ends and git is read, whatever ended the Stage (result, failure, Stop, Pause, restart); the run's `commandsSignal` (the fire alarm, The Office shutting down) stops them at once. A call before `begin` or after `end` is refused, so none outlives its run.
+- `write_run_environment_definition` (`StageRunEnvironmentDefinitions`, the name from Engine's `WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL`, which the hook's `.devcontainer/` refusal names) writes the run environment definition for the Agent of the running Agent Stage into its Task's worktree through the `RunEnvironmentDefinitions` port (Run environments' `RunEnvironmentDefinitions`, bound in [app.module.ts](../../app.module.ts)), answering the checks' service or every problem. Conversations' Stage Threads offer it only to a card with the Run environment capability (`stageCapabilityOfficeTools`); migration 0112 gave the built-in Set up Stage's stored brief, its template and open set-up Tasks' Stages the brief that names it, where they still held the old one.
 - `update_branch` (`StageBranchUpdate`) moves HEAD during a run: it saves `headCommit` on the running run, which `StageGit.afterTurn` reads before the after-Stage check, so read `expected` from there after a turn. A merge it leaves is finished by `ResolveStageGit.finish`, on any Stage, found by `TaskGit.mergeInProgress`.
 - A Publish's `pullRequestUrl` comes from `Publication`'s `pull-request-opened`, never from its summary's words; runs stored before it have none.
 - A Stage failing with no retries left is put to the CTO first (`asksTheCtoFirst`, `StageDecisionRequest.putTo`); Conversations falls back to the user when no CTO can be consulted, and `NoRetriesLeft.putTo` says which. The CTO's words come back as a `one-more-round` answer with `guidedBy`, which the Brief names, and a Stage they sent back once goes to the user next time.
@@ -133,6 +134,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `stage-runs.schema.ts`: stageRuns
 - `stage-templates.schema.ts`: stageTemplates
 - `task-stages.schema.ts`: taskStages
+- Tests: set-up-brief-migration.test.ts
 
 ### adapters/websocket/
 
@@ -161,6 +163,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `stage-interpreter.ts`: StageInterpreter
 - `stage-project-commands.ts`: StageProjectCommands
 - `stage-result-words.ts`: HandoverNoteWords, StageResultWords
+- `stage-run-environment-definitions.ts`: StageRunEnvironmentDefinitions
 - `stage-run-interruption.ts`: StageRunInterruption
 - `stage-run-waits.ts`: StageRunWaits
 - `stage-runner.ts`: StageOfKind, StageWork, StageRunner
@@ -170,7 +173,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `task-stages-service.fixtures.ts`: builtIn, quickFix, withGate, refusalOf
 - `task-stages-service.ts`: TaskStagesService
 - `usage-history.ts`: UsageHistory
-- Tests: agent-stage-runner.full.test.ts, agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.full.test.ts, publish-stage.test.ts, roles-named-in-stages.full.test.ts, running-task-test-project-check.test.ts, script-stage-runner.full.test.ts, script-stage-runner.test.ts, staffing-holds.full.test.ts, stage-branch-update.full.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.full.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.full.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.full.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.full.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.full.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.full.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-project-commands.full.test.ts, stage-project-commands.test.ts, stage-result-words.full.test.ts, stage-run-interruption.full.test.ts, stage-run-interruption.test.ts, stage-template-library.test.ts, task-stages-service.full.test.ts, task-stages-service.test.ts, usage-estimates-test-project-check.test.ts, usage-history.full.test.ts
+- Tests: agent-stage-runner.full.test.ts, agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.full.test.ts, publish-stage.test.ts, roles-named-in-stages.full.test.ts, running-task-test-project-check.test.ts, script-stage-runner.full.test.ts, script-stage-runner.test.ts, staffing-holds.full.test.ts, stage-branch-update.full.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.full.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.full.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.full.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.full.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.full.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.full.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-project-commands.full.test.ts, stage-project-commands.test.ts, stage-result-words.full.test.ts, stage-run-environment-definitions.test.ts, stage-run-interruption.full.test.ts, stage-run-interruption.test.ts, stage-template-library.test.ts, task-stages-service.full.test.ts, task-stages-service.test.ts, usage-estimates-test-project-check.test.ts, usage-history.full.test.ts
 
 ### domain/
 
@@ -223,9 +226,10 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 
 - `known-people.ts`: KnownPerson, KnownPeople
 - `pipeline-repository.ts`: PipelineRepository
-- `pipelines-ports.fixtures.ts`: StageRoleEnginesForTests, ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, recordedRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
+- `pipelines-ports.fixtures.ts`: RunEnvironmentDefinitionsForTests, StageRoleEnginesForTests, ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, recordedRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
 - `project-defaults.ts`: ProjectDefault, ProjectDefaults
 - `proposal-drafts.ts`: ProposedPipelineChange, ProposedStageTemplateChange, ProposedLibraryChange, ProposalDrafts
+- `run-environment-definitions.ts`: RunEnvironmentDefinitionFile, RunEnvironmentDefinitionWriting, RunEnvironmentDefinitions
 - `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-decisions.ts`: StageDecisionRequest, OpenedStageDecision, StageDecisions
 - `stage-role-engines.ts`: NewlyNamedStageRoles, StageRoleEngines

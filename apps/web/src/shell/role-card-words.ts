@@ -47,6 +47,12 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
     icon: "life-buoy",
     hint: "Other Agents may consult them on a Task",
   },
+  {
+    key: "runEnvironment",
+    label: "Run environment",
+    icon: "container",
+    hint: "Writes a Project's run environment definition through The Office",
+  },
 ];
 
 /** What the card says, under its Engine field, of each thing the engine declares it can't do. */
@@ -118,6 +124,7 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   "capabilities.sharedMemory": "Shared memory",
   "capabilities.chat": "Chat",
   "capabilities.consultant": "Consultant",
+  "capabilities.runEnvironment": "Run environment",
   permissionProfile: "Permission profile",
   "hardSwitches.runInstalls": HARD_SWITCH_LABELS.runInstalls,
   "hardSwitches.publishOutsideThePipeline": HARD_SWITCH_LABELS.publishOutsideThePipeline,

@@ -46,12 +46,35 @@ import {
 } from "./task-commands.js";
 import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
 import type { BranchUpdate } from "../domain/stage-commit.js";
+import {
+  RunEnvironmentDefinitions,
+  type RunEnvironmentDefinitionFile,
+  type RunEnvironmentDefinitionWriting,
+} from "./run-environment-definitions.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskPublishing } from "./task-publishing.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
 import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
 import { TaskThreadSessions } from "./task-thread-sessions.js";
 import { TaskUsage } from "./task-usage.js";
+
+/** Run environments' check and write in memory: valid unless a test puts what the next gives. */
+@Injectable()
+export class RunEnvironmentDefinitionsForTests extends RunEnvironmentDefinitions {
+  next: RunEnvironmentDefinitionWriting | undefined;
+  /** Every write asked, in order. */
+  readonly writes: { worktree: string; files: readonly RunEnvironmentDefinitionFile[] }[] = [];
+
+  write(
+    worktree: string,
+    files: readonly RunEnvironmentDefinitionFile[],
+  ): Promise<RunEnvironmentDefinitionWriting> {
+    this.writes.push({ worktree, files });
+    return Promise.resolve(
+      this.next ?? { written: true, paths: files.map(({ path }) => path), service: "app" },
+    );
+  }
+}
 
 /** People's capability check: a test names the Roles whose engine can't work an Agent Stage. */
 @Injectable()
@@ -828,6 +851,7 @@ export class PipelinesPortsForTestsModule {
       TaskThreadSessionsForTests,
       ProposalDraftsForTests,
       StageRoleEnginesForTests,
+      RunEnvironmentDefinitionsForTests,
       ProposalAppliers,
       PipelineRoleSources,
     ];

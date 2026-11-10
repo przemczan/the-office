@@ -1,10 +1,12 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, relative, sep } from "node:path";
 import {
   DEFINITION_FILE,
   DEFINITION_FOLDER,
+  definitionFilePathOf,
   readDefinition,
   readDevcontainer,
+  type DefinitionFile,
   type DefinitionFileText,
   type DefinitionReading,
   type Reading,
@@ -33,6 +35,43 @@ export async function readDefinitionWith(fileText: DefinitionFileText): Promise<
     devcontainer.value.composeFiles.map(async (path) => ({ path, text: await fileText(path) })),
   );
   return { found, reading: readDefinition(devcontainer.value, composeFiles) };
+}
+
+/** How writing the definition went: the files written and the checks' service, or every problem. */
+export type DefinitionWriting =
+  | { readonly written: true; readonly paths: readonly string[]; readonly service: string }
+  | { readonly written: false; readonly problems: readonly string[] };
+
+/**
+ * Writes `files` into the worktree's definition folder once the definition they make is valid,
+ * read as `readDefinitionWith` reads it: the given files in place of the worktree's, any other file
+ * it names from the worktree. With any problem, or a path outside the folder, it writes nothing.
+ * The folder's other files stay; nothing is built or started.
+ */
+export async function writeDefinitionIn(
+  worktree: string,
+  files: readonly DefinitionFile[],
+): Promise<DefinitionWriting> {
+  const given = new Map<string, string>();
+  const problems: string[] = [];
+  for (const file of files) {
+    const checked = definitionFilePathOf(file.path);
+    if ("problem" in checked) problems.push(checked.problem);
+    else if (given.has(checked.path)) problems.push(`${checked.path} is given more than once.`);
+    else given.set(checked.path, file.text);
+  }
+  if (files.length === 0) problems.push("Give at least one file to write.");
+  const { reading } = await readDefinitionWith((path) =>
+    given.has(path) ? Promise.resolve(given.get(path)) : textOf(join(worktree, path)),
+  );
+  problems.push(...reading.problems);
+  if (reading.value === undefined || problems.length > 0) return { written: false, problems };
+  for (const [path, text] of given) {
+    const target = join(worktree, ...path.split("/"));
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, text);
+  }
+  return { written: true, paths: [...given.keys()], service: reading.value.service };
 }
 
 /** What the Task's image is made from, read from its worktree. */

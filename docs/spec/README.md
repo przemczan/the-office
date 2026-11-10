@@ -95,5 +95,6 @@ Where each default lives (the old §9):
 - The library editor: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - Stage templates in tier 3, copied into a Pipeline or a Task's Stages when added: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The proof-of-concept publish target: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- Writing the run environment definition: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.

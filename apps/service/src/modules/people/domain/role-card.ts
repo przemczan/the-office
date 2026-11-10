@@ -28,6 +28,11 @@ export interface Capabilities {
   readonly chat: boolean;
   /** Other Agents may consult the person on a Task. */
   readonly consultant: boolean;
+  /**
+   * In an Agent Stage, the person writes the Project's run environment definition through The
+   * Office's tool, which checks it first; Write and Edit can't reach `.devcontainer/` (spec §6).
+   */
+  readonly runEnvironment: boolean;
 }
 
 /**

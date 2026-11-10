@@ -3,7 +3,13 @@ export {
   type RunEnvironmentCommand,
   type SlotOptions,
 } from "./application/run-environments.js";
-export type { Reading, RunEnvironmentDefinition } from "./domain/run-environment-definition.js";
+export type { DefinitionWriting } from "./application/definition-files.js";
+export { RunEnvironmentDefinitions } from "./application/run-environment-definitions.js";
+export type {
+  DefinitionFile,
+  Reading,
+  RunEnvironmentDefinition,
+} from "./domain/run-environment-definition.js";
 export {
   RunEnvironmentCreated,
   RunEnvironmentImageBuilt,

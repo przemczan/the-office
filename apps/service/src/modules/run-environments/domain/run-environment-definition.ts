@@ -437,6 +437,30 @@ function argumentsOf(args: unknown): Readonly<Record<string, string>> | undefine
   return Object.fromEntries(entries.map(([key, value]) => [key, String(value ?? "")]));
 }
 
+/**
+ * A file of the definition as an Agent writes it (spec §6): its path from the repository's root,
+ * inside the definition's folder, with its whole text.
+ */
+export interface DefinitionFile {
+  readonly path: string;
+  readonly text: string;
+}
+
+/**
+ * The path of a file to write into the definition's folder, as a path from the repository's root
+ * with forward slashes, or why it can't be written there.
+ */
+export function definitionFilePathOf(
+  given: string,
+): { readonly path: string } | { readonly problem: string } {
+  const path = posix.normalize(given.trim().replaceAll("\\", "/"));
+  return path.startsWith(`${DEFINITION_FOLDER}/`) && !path.endsWith("/")
+    ? { path }
+    : {
+        problem: `${given} is outside ${DEFINITION_FOLDER}/: give each file's path from the repository's root, inside ${DEFINITION_FOLDER}/, such as ${DEFINITION_FILE}.`,
+      };
+}
+
 /** A path devcontainer.json names, relative to the worktree. */
 function definitionPath(file: string): string {
   return posix.normalize(posix.join(DEFINITION_FOLDER, file.replaceAll("\\", "/")));

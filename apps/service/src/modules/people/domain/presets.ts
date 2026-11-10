@@ -29,7 +29,7 @@ const planner: Preset = {
     ].join("\n\n"),
     roleOverride: null,
     effort: "high",
-    capabilities: { sharedMemory: true, chat: true, consultant: true },
+    capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
@@ -57,7 +57,7 @@ const developer: Preset = {
     ].join("\n\n"),
     roleOverride: null,
     effort: "high",
-    capabilities: { sharedMemory: false, chat: false, consultant: false },
+    capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: true },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
@@ -84,7 +84,7 @@ const reviewer: Preset = {
     ].join("\n\n"),
     roleOverride: null,
     effort: "high",
-    capabilities: { sharedMemory: false, chat: false, consultant: false },
+    capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: false },
     permissionProfile: { edit: false, run: "project-commands", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
@@ -112,7 +112,7 @@ const cto: Preset = {
     ].join("\n\n"),
     roleOverride: null,
     effort: "high",
-    capabilities: { sharedMemory: true, chat: true, consultant: true },
+    capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
@@ -139,7 +139,7 @@ const devops: Preset = {
     ].join("\n\n"),
     roleOverride: null,
     effort: "high",
-    capabilities: { sharedMemory: true, chat: true, consultant: true },
+    capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: true },
     // Onboarding makes a Project build and test in its worktree, so Devops edits and runs there.
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
@@ -166,7 +166,7 @@ const officeManager: Preset = {
     ].join("\n\n"),
     roleOverride: null,
     effort: "medium",
-    capabilities: { sharedMemory: true, chat: true, consultant: false },
+    capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
     // A chat only reads (spec §6), and the Office Manager never works a Stage.
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {

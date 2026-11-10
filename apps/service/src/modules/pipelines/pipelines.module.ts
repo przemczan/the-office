@@ -13,6 +13,7 @@ import { StageBranchUpdate } from "./application/stage-branch-update.js";
 import { StageCommandRuns } from "./application/stage-command-runs.js";
 import { StageHistory } from "./application/stage-history.js";
 import { StageProjectCommands } from "./application/stage-project-commands.js";
+import { StageRunEnvironmentDefinitions } from "./application/stage-run-environment-definitions.js";
 import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js";
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
 import { AlarmResumes } from "./application/alarm-resumes.js";
@@ -38,6 +39,7 @@ import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
 import { StageRoleEngines } from "./ports/stage-role-engines.js";
 import { StageThreads } from "./ports/stage-threads.js";
+import { RunEnvironmentDefinitions } from "./ports/run-environment-definitions.js";
 import { StaffingHoldRepository } from "./ports/staffing-hold-repository.js";
 import { StartedTasks } from "./ports/started-tasks.js";
 import { TaskCommands } from "./ports/task-commands.js";
@@ -52,7 +54,7 @@ import { UsageHistoryModule } from "./usage-history.module.js";
 export interface PipelinesModuleOptions {
   /**
    * The modules that provide the ports below, Work, People (with its engine cascade),
-   * Conversations and Projects, and
+   * Conversations, Projects and Run environments, and
    * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
@@ -70,6 +72,7 @@ export interface PipelinesModuleOptions {
   readonly taskThreadSessions: Type<TaskThreadSessions>;
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly stageRoleEngines: Type<StageRoleEngines>;
+  readonly runEnvironmentDefinitions: Type<RunEnvironmentDefinitions>;
 }
 
 /**
@@ -94,6 +97,7 @@ export class PipelinesModule {
     taskThreadSessions,
     proposalDrafts,
     stageRoleEngines,
+    runEnvironmentDefinitions,
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
@@ -126,6 +130,7 @@ export class PipelinesModule {
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: StageRoleEngines, useExisting: stageRoleEngines },
+        { provide: RunEnvironmentDefinitions, useExisting: runEnvironmentDefinitions },
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
         RoleFillings,
         TaskStagesService,
@@ -141,6 +146,7 @@ export class PipelinesModule {
         StageBranchUpdate,
         StageCommandRuns,
         StageProjectCommands,
+        StageRunEnvironmentDefinitions,
         AgentStageRunner,
         AlarmResumes,
         ScriptStageRunner,

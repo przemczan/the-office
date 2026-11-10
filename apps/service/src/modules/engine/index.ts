@@ -46,7 +46,10 @@ export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";
 export { ModelPrices } from "./application/model-prices.js";
 export { READ_ONLY_GIT_COMMANDS } from "./domain/git-commands.js";
-export { READ_ONLY_SHELL_RULE } from "./domain/office-rules.js";
+export {
+  READ_ONLY_SHELL_RULE,
+  WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+} from "./domain/office-rules.js";
 export { RUN_PROJECT_COMMAND_TOOL } from "./domain/container-runtime-commands.js";
 export { EngineModule } from "./engine.module.js";
 export { EngineAccountsModule } from "./engine-accounts.module.js";
