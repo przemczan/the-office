@@ -8,6 +8,7 @@ import {
   projectQueries,
 } from "../../api/projects.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
+import { skillUsesLabel } from "../../shell/skill-uses.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 
@@ -157,6 +158,8 @@ function SkillDetails({
         </span>
       )}
       <code className="project-skill-path">{skill.path}</code>
+      {/* Counted by its key, so rows that share one show the same count. */}
+      <span>{skillUsesLabel(skill.usesInLast7Days)}</span>
       {!skill.listedAtStart && <span>Listed once a file below it is read.</span>}
       {sameKey.length > 0 && (
         <span>

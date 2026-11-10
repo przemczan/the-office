@@ -5422,3 +5422,71 @@ test(
     }
   },
 );
+
+/** A library skill for the Planner, written by this test alone. */
+const USED_SKILL = "people-skill-uses";
+
+// The engine replays the last session in e2e/sessions.jsonl: Jan calls Skill for a library skill
+// and for the Project's own, once each.
+test(
+  "a session's Skill uses show in Settings › Skills and on the Project's Skills, without a reload",
+  { tag: "@full" },
+  async ({ page, context }) => {
+    const repository = await createTemporaryRepository();
+    await commitFiles(repository, {
+      ".claude/skills/release-notes/SKILL.md":
+        "---\nname: release-notes\ndescription: Writes the release notes.\n---\nList what changed.\n",
+    });
+    try {
+      const project = await addedProject(page, repository, "Skill uses", "SU", PASSING_COMMANDS);
+      const projectSkillsOn = await page.request.put(
+        `/api/projects/${project.id}/use-project-skills`,
+        { data: { useProjectSkills: true } },
+      );
+      expect(projectSkillsOn.status()).toBe(200);
+      const written = await page.request.post("/api/skills", {
+        data: { name: USED_SKILL, description: "Checks the change.", instructions: "Check it." },
+      });
+      expect(written.status()).toBe(201);
+      for (const change of [
+        () => page.request.put(`/api/skills/${USED_SKILL}/state`, { data: { state: "on" } }),
+        () => page.request.put(`/api/skills/${USED_SKILL}/roles`, { data: { roles: ["planner"] } }),
+      ]) {
+        expect((await change()).status()).toBe(200);
+      }
+      const taskId = await readyTask(page, project.id, "Write the release notes");
+
+      // Both lists are open before the use, so the events alone change them.
+      await page.goto("/settings/skills");
+      const libraryRow = page.getByRole("row", { name: new RegExp(USED_SKILL) });
+      await expect(libraryRow.getByText("Not used in the last 7 days")).toBeAttached();
+      const projectPage = await context.newPage();
+      await projectPage.goto(`/projects/${project.id}/skills`);
+      const projectRow = projectPage.getByRole("group", { name: "release-notes" });
+      await expect(projectRow).toContainText("Not used in the last 7 days");
+
+      const { id: threadId } = threadSchema.parse(
+        await (await page.request.post(`/api/tasks/${taskId}/conversation/planner/thread`)).json(),
+      );
+      const sent = await page.request.post(`/api/threads/${threadId}/messages`, {
+        data: { text: "Write the release notes." },
+      });
+      expect(sent.ok()).toBe(true);
+
+      await expect(libraryRow.locator(".skill-uses [aria-hidden='true']")).toHaveText("1");
+      await expect(libraryRow.getByText("Used once in the last 7 days")).toBeAttached();
+      await expect(projectRow).toContainText("Used once in the last 7 days");
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skill-uses-library.png") });
+      await projectPage.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-skill-uses-project.png"),
+      });
+      await projectPage.close();
+
+      // Nothing of it is left to weigh on the next tests' Start or sessions.
+      expect((await page.request.post(`/api/tasks/${taskId}/drop`)).status()).toBe(200);
+      expect((await page.request.delete(`/api/skills/${USED_SKILL}`)).ok()).toBe(true);
+    } finally {
+      await repository.remove();
+    }
+  },
+);

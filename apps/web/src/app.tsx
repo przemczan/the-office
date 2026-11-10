@@ -17,7 +17,7 @@ import { pipelineEventInvalidations } from "./api/pipelines.ts";
 import { projectEventInvalidations, repositoryCloneEventInvalidations } from "./api/projects.ts";
 import { officeUpdateEventInvalidations } from "./api/office-updates.ts";
 import { runEnvironmentEventInvalidations } from "./api/run-environments.ts";
-import { skillEventInvalidations } from "./api/skills.ts";
+import { skillEventCacheUpdates, skillEventInvalidations } from "./api/skills.ts";
 import { workEventInvalidations } from "./api/work.ts";
 import { router } from "./router.tsx";
 
@@ -39,10 +39,12 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...workEventInvalidations,
 };
 
-// The event types that carry what changed, and how they change the cached queries in place.
+// The event types that carry what changed or name exactly what it changes, and how they change the
+// cached queries.
 const EVENT_CACHE_UPDATES: EventCacheUpdates = {
   ...threadEventCacheUpdates,
   ...notificationEventCacheUpdates,
+  ...skillEventCacheUpdates,
 };
 
 export function App(): ReactNode {

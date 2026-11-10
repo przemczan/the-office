@@ -38,7 +38,7 @@ In Settings › Appearance the user picks a palette (Light, Dark, Graphite or Pa
       Read: `apps/service/src/modules/skills/MAP.md`, `apps/service/src/modules/engine/MAP.md`.
 - [ ] 4. The densities in Settings › Appearance, followed on every surface.
       Read: `packages/ui/src/appearance/densities/comfortable.css`, `apps/web/src/MAP.md`, each surface's map.
-- [ ] 5. The counts in Settings › Skills and on a Project's page.
+- [x] 5. The counts in Settings › Skills and on a Project's page.
       Read: `apps/web/src/surfaces/settings/MAP.md`, `apps/web/src/surfaces/projects/MAP.md`.
 - [ ] 6. Close: `npm run verify`, the Progress log to the archive, the task set to done here and in the README.
 
@@ -48,7 +48,7 @@ Steps 1 and 2 are done. Spec 4 holds the palettes' and densities' values from th
 
 The palettes: `packages/ui/src/appearance/palettes/` has a file per palette (`:root[data-palette="…"]` remapping colour aliases, then its swatch and preview colours as `--palette-<id>-page/-border/-line`), and `PALETTES` (`apply-appearance.ts`) lists each with its name and base. `data-theme` is the base (light or dark), `data-palette` the palette; `useAppearance()` gives both, as `palette` and `base`. Anything that follows light or dark (an Icon's or a Logo's version, the lockup's tone, How it looks' first stage) reads `base`; image versions are the contracts' `ProjectImagePalette`, never ui's `Palette`. `palettes.full.test.ts` compares Graphite's and Paper's files with spec 4.
 
-Step 3 is done: Engine's `EngineSessions` publishes `SkillCalled` for every `Skill` call on any engine; Skills' `SkillUses` resolves it against the session's record (`usedSkillOf`, `session_skills.project_id`) and keeps it in `skill_uses` (pruned daily), announced as `skill.used`. `GET /skills` and `GET /projects/:id/skills` give `usesInLast7Days`; the web refetches on `skill.used` but shows nothing yet (step 5).
+Step 3 is done: Engine's `EngineSessions` publishes `SkillCalled` for every `Skill` call on any engine; Skills' `SkillUses` resolves it against the session's record (`usedSkillOf`, `session_skills.project_id`) and keeps it in `skill_uses` (pruned daily), announced as `skill.used`. `GET /skills` and `GET /projects/:id/skills` give `usesInLast7Days`.
 
 Settled with the user, 2026-11-10: Graphite and Paper from `themes.css`; the densities are the three `themes.css` defines; a Skill use is a Skill tool call in any session, on both engines; the count covers the last 7 days, rolling; it shows in Settings › Skills and the Project skills on a Project's page.
 
@@ -58,10 +58,11 @@ Traps for the density step:
 - `--control-h` is 28 px in Comfortable, where the design system's spacing card says 32; spec 4 keeps 28.
 - The e2e shell walk opens Graphite and Paper through local storage (`the-office.palette`), as `colorScheme` emulates only light and dark.
 
-Trap for step 5: a Project skill's count is by its key, so two rows sharing a key show the same count.
+Step 5 is done: Settings › Skills has a Uses column and each Project skill row a line, both in `skillUsesLabel`'s words (`apps/web/src/shell/skill-uses.ts`). `skill.used` refetches, as an exact key, the library list or that Project's skills alone (`skillEventCacheUpdates`), never a skill's review or update diff; a count leaving the window refreshes on focus. A Project skill's count is by its key, so rows sharing a key show the same count. The e2e is the last test of `people.e2e.ts` (`@full`), its script the last in `sessions.jsonl`.
 
 ## Progress
 
 - 2026-11-10 · step 1: spec 4 (palettes, densities with values from themes.css), spec 2.6 (Skill uses), the glossary and this file; next, the Graphite and Paper palettes.
 - 2026-11-10 · step 2: Graphite and Paper in `packages/ui` with a light or dark base read by images, brand tone and How it looks; Settings and the Theme menu list four palettes; unit and e2e tests; next, the service counts skill uses.
 - 2026-11-10 · step 3: Skill calls counted on every engine (Engine's SkillCalled, Skills' skill_uses), usesInLast7Days on GET /skills and GET /projects/:id/skills, skill.used to the web; next, the densities, then the counts in the web.
+- 2026-11-10 · step 5: Settings › Skills' Uses column and a Project skill's uses line in `skillUsesLabel`'s words, refreshed by `skill.used` on exact keys; web and e2e tests; next, close the task.
