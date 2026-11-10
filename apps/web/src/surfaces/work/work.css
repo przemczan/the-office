@@ -2683,6 +2683,30 @@
   gap: 16px;
 }
 
+/* Start Ready Tasks' note under the Initiative's head: a group each for started, queued and refused. */
+.start-ready-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.start-ready-tasks h3 {
+  margin: 0;
+  color: var(--fg-3);
+  font: var(--type-overline);
+}
+
+.start-ready-tasks ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+
+.start-ready-tasks a {
+  color: var(--fg-1);
+  font-weight: 500;
+}
+
 /* Over the Planner's Thread while it plans in auto mode: the Task won't wait for a Confirm. */
 .planning-auto-mode-note {
   margin: 0 0 12px;

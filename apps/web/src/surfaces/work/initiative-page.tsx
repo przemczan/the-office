@@ -4,11 +4,12 @@ import {
   ENDED_INITIATIVE_CONVERSATION_WORDS,
   type Initiative,
   type Project,
+  type ReadyTasksStarted,
   type Role,
   type Task,
 } from "@the-office/contracts";
 import { Alert, Button, Icon } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, startShapingThread, taskQueries } from "../../api/work.ts";
@@ -27,6 +28,7 @@ import { MissingRecord } from "./missing-record.tsx";
 import { OriginBlock } from "./origin-block.tsx";
 import { OutcomeBlock } from "./outcome-block.tsx";
 import { RecordBlock } from "./record-block.tsx";
+import { StartReadyTasksNote } from "./start-ready-tasks.tsx";
 import { TaskGraph } from "./task-graph.tsx";
 import { ThreadTimeline } from "./thread-timeline.tsx";
 
@@ -40,6 +42,10 @@ export function InitiativePage(): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const projects = useQuery(projectQueries.list());
   const cto = useCto();
+  const [readyTasksStarted, setReadyTasksStarted] = useState<{
+    readonly initiativeId: string;
+    readonly started: ReadyTasksStarted;
+  }>();
   usePageHeading({
     title: initiative.data?.name ?? "Work",
     parent: { label: "Initiatives", to: "/work/initiatives" },
@@ -57,7 +63,14 @@ export function InitiativePage(): ReactNode {
         tasks={tasks.data}
         projects={projects.data}
         cto={cto}
+        onStartedReadyTasks={(started) => setReadyTasksStarted({ initiativeId, started })}
       />
+      {readyTasksStarted?.initiativeId === initiativeId && (
+        <StartReadyTasksNote
+          started={readyTasksStarted.started}
+          onClose={() => setReadyTasksStarted(undefined)}
+        />
+      )}
       <TasksBlock
         initiative={record}
         initiativeTasks={initiativeTasks}
@@ -89,12 +102,14 @@ function InitiativeHead({
   tasks,
   projects,
   cto,
+  onStartedReadyTasks,
 }: {
   readonly initiative: Initiative;
   readonly initiativeTasks: readonly Task[];
   readonly tasks: readonly Task[];
   readonly projects: readonly Project[] | undefined;
   readonly cto: Role | undefined;
+  readonly onStartedReadyTasks: (started: ReadyTasksStarted) => void;
 }): ReactNode {
   const planningProgress = planningProgressWords(initiative, initiativeTasks);
   return (
@@ -113,7 +128,7 @@ function InitiativeHead({
       </div>
       <div className="task-head-actions">
         <RestoreInitiativeButton initiative={initiative} />
-        <InitiativeActions initiative={initiative} />
+        <InitiativeActions initiative={initiative} onStartedReadyTasks={onStartedReadyTasks} />
       </div>
     </header>
   );

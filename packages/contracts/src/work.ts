@@ -460,6 +460,25 @@ export const startAnswerSchema = z.object({
 export type StartAnswer = z.infer<typeof startAnswerSchema>;
 
 /**
+ * POST /initiatives/:id/start, Start Ready Tasks: what the normal Start did to each of the
+ * Initiative's Ready Tasks, an Overlap answered with "queue behind". Queued ones carry their place
+ * in the queue after the run and the waits that hold them; refused ones every reason.
+ */
+export const readyTasksStartedSchema = z.object({
+  started: z.array(z.object({ taskId: z.uuid(), title: z.string() })),
+  queued: z.array(
+    z.object({
+      taskId: z.uuid(),
+      title: z.string(),
+      place: z.number().int().positive(),
+      reasons: z.array(z.string()),
+    }),
+  ),
+  refused: z.array(z.object({ taskId: z.uuid(), title: z.string(), reasons: z.array(z.string()) })),
+});
+export type ReadyTasksStarted = z.infer<typeof readyTasksStartedSchema>;
+
+/**
  * GET /tasks/:id/readiness: the "Before Ready" checklist, each condition of Mark Ready with the
  * reasons it isn't met yet, built from the same rules that refuse Mark Ready.
  */

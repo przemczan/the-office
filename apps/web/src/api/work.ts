@@ -13,6 +13,7 @@ import {
   archivePeriodSchema,
   projectOnboardingListSchema,
   readinessSchema,
+  readyTasksStartedSchema,
   savedViewListSchema,
   savedViewSchema,
   searchResultsSchema,
@@ -42,6 +43,7 @@ import {
   type Priority,
   type ProjectFilter,
   type Readiness,
+  type ReadyTasksStarted,
   type SavedView,
   type QueuedTask,
   type StartAnswer,
@@ -352,6 +354,14 @@ export function startShapingThread(id: string): Promise<Initiative> {
  */
 export function planInitiative(id: string, autoMode: boolean): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/planning`, { autoMode }, initiativeSchema);
+}
+
+/**
+ * Start Ready Tasks: the normal Start on each of the Initiative's Ready Tasks, an Overlap queued
+ * behind; what started, what was queued and what was refused.
+ */
+export function startReadyTasks(id: string): Promise<ReadyTasksStarted> {
+  return sendToApi("POST", `${initiativePath(id)}/start`, {}, readyTasksStartedSchema);
 }
 
 /** "Confirm the Initiative": active, or done at once when its Tasks already are. */

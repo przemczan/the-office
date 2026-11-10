@@ -2,12 +2,15 @@ import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   engineSettingsSchema,
+  ideaSchema,
+  initiativeSchema,
   nowSchema,
   PROJECT_LIMIT_MAX,
   projectSchema,
   taskSchema,
   type AddProject,
   type ApiEngine,
+  type Initiative,
   type Project,
   type StartAnswer,
   type StartCheck,
@@ -759,6 +762,93 @@ test(
     await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
   },
 );
+
+/** An active Initiative of the Project's Tasks, each Ready, `waitsFor` naming earlier ones by index. */
+async function initiativeWithReadyTasks(
+  page: Page,
+  project: Project,
+  plans: readonly { readonly title: string; readonly waitsFor?: readonly number[] }[],
+): Promise<{ initiative: Initiative; tasks: Task[] }> {
+  const idea = ideaSchema.parse(
+    await (
+      await page.request.post("/api/ideas", {
+        data: { title: "Imports from spreadsheets", notes: "", projectId: project.id },
+      })
+    ).json(),
+  );
+  const initiative = initiativeSchema.parse(
+    await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+  );
+  const tasks: Task[] = [];
+  for (const { title, waitsFor = [] } of plans) {
+    const added = await page.request.post(`/api/initiatives/${initiative.id}/tasks`, {
+      data: {
+        title,
+        projectId: project.id,
+        priority: "normal",
+        blockedBy: waitsFor.map((index) => tasks[index]?.id),
+      },
+    });
+    expect(added.status()).toBe(201);
+    tasks.push(taskSchema.parse(await added.json()));
+  }
+  expect((await page.request.post(`/api/initiatives/${initiative.id}/confirm`)).status()).toBe(200);
+  await queryOfficeDatabase(
+    `update tasks set state = 'ready', plan = 'Mine.', plan_confirmed = true,
+       definition_of_done = '{Mine.}', definition_of_done_confirmed = true where id = any($1)`,
+    [tasks.map(({ id }) => id)],
+  );
+  return { initiative, tasks };
+}
+
+test("Start Ready Tasks starts an Initiative's Ready Tasks, queues one for its blocker and one behind an Overlap, and says so", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue initiative", "QI");
+  const { initiative, tasks } = await initiativeWithReadyTasks(page, project, [
+    { title: "Read the spreadsheet" },
+    { title: "Map the spreadsheet columns", waitsFor: [0] },
+    { title: "Import the spreadsheet rows" },
+  ]);
+  const [first, blocked, overlapping] = tasks as [Task, Task, Task];
+  await queryOfficeDatabase(
+    `update tasks set files_to_change = '{src/import}' where id = any($1)`,
+    [[first.id, overlapping.id]],
+  );
+
+  await page.goto(`/work/initiatives/${initiative.id}`);
+  await page.getByRole("button", { name: "Start Ready Tasks" }).click();
+
+  await expect(page.getByText("1 started, 2 queued").first()).toBeVisible();
+  const note = page.getByRole("status").filter({ hasText: "Start Ready Tasks:" });
+  await expect(note.getByRole("region", { name: "Started" }).getByRole("listitem")).toHaveText([
+    first.title,
+  ]);
+  await expect(note.getByRole("region", { name: "Queued" }).getByRole("listitem")).toHaveText([
+    /^Map the spreadsheet columns · place \d+: Blocked by "Read the spreadsheet", which must be Done first\.$/,
+    /^Import the spreadsheet rows · place \d+: Queued behind "Read the spreadsheet" until it is Done or Dropped\.$/,
+  ]);
+  await expect(note.getByRole("region", { name: "Refused" })).toBeHidden();
+  await expect(note.getByRole("link", { name: blocked.title })).toHaveAttribute(
+    "href",
+    `/tasks/${blocked.id}`,
+  );
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await note.screenshot({
+      path: path.join(SCREENSHOTS, `${colorScheme}-1600-start-ready-tasks.png`),
+    });
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  await note.getByRole("button", { name: "Dismiss" }).click();
+  await expect(note).toBeHidden();
+
+  // Out of the queue before what they wait for ends, so no release starts a walk.
+  await page.request.post(`/api/tasks/${blocked.id}/drop`);
+  await page.request.post(`/api/tasks/${overlapping.id}/drop`);
+  await page.request.post(`/api/tasks/${first.id}/drop`);
+});
 
 // Here, alone, since the alarm holds every file's Starts and pauses every file's started Tasks;
 // each Task is held at the all clear, so no walk starts after the files that left them.

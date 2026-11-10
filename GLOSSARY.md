@@ -138,6 +138,10 @@ _Avoid_: Backlog (a Task state), waiting list, pending
 Two Tasks in one Project whose Plans expect to change some of the same files; Start warns of it before a Task joins one in progress.
 _Avoid_: Conflict (git's, found at Publish), collision, clash
 
+**Start Ready Tasks**:
+The action on an active Initiative's page that runs Start on each of its Ready Tasks, a blocker inside the Initiative first and the board's order otherwise, every rule of Start applying; a Task that overlaps one already started is queued behind it without asking, one refused doesn't stop the rest, and the page then says what started, what was queued and what was refused.
+_Avoid_: Start all, bulk start, launch the Initiative
+
 **Usage estimate**:
 What a Ready Task's whole Pipeline is expected to use on each engine it uses, in the measures ticked in Settings › Office limits (tokens, the 5-hour window, the 7-day window, cost); from done Tasks of the same Project and Pipeline, else the Planner's estimate in the Plan.
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate

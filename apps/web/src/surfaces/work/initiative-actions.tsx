@@ -1,4 +1,4 @@
-import type { Initiative, Task } from "@the-office/contracts";
+import type { Initiative, ReadyTasksStarted, Task } from "@the-office/contracts";
 import { Button, Icon, IconButton, Menu, Switch, type MenuItem } from "@the-office/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -21,15 +21,23 @@ import { canPlanInitiative } from "./initiative-planning-words.ts";
 import { droppedWords, tasksOfInitiative } from "./initiative-words.ts";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
+import { StartReadyTasksButton } from "./start-ready-tasks.tsx";
 import { useRememberedAutoMode } from "./use-planning.ts";
 
 /**
  * The Initiative page's head actions (prototypes/app/work.js `initiativePage`): "Confirm the
  * Initiative" while shaping, Plan the Initiative while it is active with a Task in Backlog, the
- * link to its planning Thread once it has one, "Add a Task" while it is open, and its menu with
+ * link to its planning Thread once it has one, Start Ready Tasks while it is active with a Ready
+ * Task, its answer going to `onStartedReadyTasks`, "Add a Task" while it is open, and its menu with
  * Drop until it has ended, Archive once it has.
  */
-export function InitiativeActions({ initiative }: { readonly initiative: Initiative }): ReactNode {
+export function InitiativeActions({
+  initiative,
+  onStartedReadyTasks,
+}: {
+  readonly initiative: Initiative;
+  readonly onStartedReadyTasks: (started: ReadyTasksStarted) => void;
+}): ReactNode {
   const [adding, setAdding] = useState(false);
   const tasks = useQuery(taskQueries.list());
   const open = initiative.state === "shaping" || initiative.state === "active";
@@ -39,6 +47,11 @@ export function InitiativeActions({ initiative }: { readonly initiative: Initiat
       {initiative.state === "shaping" && <ConfirmButton initiative={initiative} />}
       <PlanningThreadLink initiative={initiative} />
       <PlanTheInitiative initiative={initiative} initiativeTasks={initiativeTasks} />
+      <StartReadyTasksButton
+        initiative={initiative}
+        initiativeTasks={initiativeTasks}
+        onStarted={onStartedReadyTasks}
+      />
       {open && (
         <Button
           variant="secondary"

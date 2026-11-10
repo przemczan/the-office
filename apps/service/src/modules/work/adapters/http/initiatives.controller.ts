@@ -23,12 +23,14 @@ import {
   type InitiativePlanningRequest,
   type NewInitiativeTask,
   type OutcomeChange,
+  type ReadyTasksStarted,
   type SearchQuery,
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { InitiativePlanning } from "../../application/initiative-planning.js";
 import { InitiativeService } from "../../application/initiative-service.js";
+import { InitiativeStart } from "../../application/initiative-start.js";
 import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
 import {
@@ -45,6 +47,7 @@ export class InitiativesController {
   constructor(
     private readonly initiatives: InitiativeService,
     private readonly planning: InitiativePlanning,
+    private readonly starting: InitiativeStart,
   ) {}
 
   /**
@@ -142,6 +145,30 @@ export class InitiativesController {
     @Body(new ContractPipe(initiativePlanningSchema)) { autoMode }: InitiativePlanningRequest,
   ): Promise<InitiativeResponse> {
     return this.respond(await this.planning.plan(id, autoMode));
+  }
+
+  /**
+   * Start Ready Tasks: the normal Start on each of the Initiative's Ready Tasks, an Overlap queued
+   * behind; what started, what was queued and what was refused, each with its reasons.
+   */
+  @Post(":id/start")
+  @HttpCode(HttpStatus.OK)
+  async startReadyTasks(@Param("id", ParseUUIDPipe) id: string): Promise<ReadyTasksStarted> {
+    const { started, queued, refused } = await this.starting.startReadyTasks(id);
+    return {
+      started: started.map(({ id: taskId, title }) => ({ taskId, title })),
+      queued: queued.map(({ task, place, reasons }) => ({
+        taskId: task.id,
+        title: task.title,
+        place,
+        reasons: [...reasons],
+      })),
+      refused: refused.map(({ task, reasons }) => ({
+        taskId: task.id,
+        title: task.title,
+        reasons: [...reasons],
+      })),
+    };
   }
 
   /** A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it names. */

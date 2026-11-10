@@ -1,8 +1,7 @@
 import { attachmentLines, type Attachment } from "./attachment.js";
 import { authorWords } from "./author.js";
 import type { Idea } from "./idea.js";
-import type { Initiative } from "./initiative.js";
-import { initiativeProjectIds } from "./initiative-changes.js";
+import { initiativeProjectIds, type Initiative } from "./initiative.js";
 import {
   linkedIdeaWords,
   linkedInitiativeWords,
