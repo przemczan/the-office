@@ -62,6 +62,8 @@ export function toInitiativeResponse(
     createdAt: initiative.createdAt.toISOString(),
     endedAt: initiative.endedAt?.toISOString() ?? null,
     archivedAt: initiative.archivedAt?.toISOString() ?? null,
+    planningThreadId: initiative.planningThreadId ?? null,
+    planningAutoMode: initiative.planningAutoMode,
   };
 }
 
@@ -105,6 +107,8 @@ export function toTaskResponse(task: Task): TaskResponse {
     pipelineId: task.pipelineId,
     proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
     autoMode: task.autoMode,
+    initiativePlanningThreadId: task.initiativePlanningThreadId ?? null,
+    markedPlanned: task.markedPlanned,
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     initiativeId: task.initiativeId ?? null,

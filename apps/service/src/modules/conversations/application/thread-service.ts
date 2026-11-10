@@ -23,6 +23,8 @@ import { ThreadRunner } from "./thread-runner.js";
 
 /** A Thread The Office opens on an Initiative, and what it asks the person first. */
 export interface InitiativeThreadOpening extends InitiativeThreadStart {
+  /** The Thread's id, when the caller keeps it before the Thread opens; a new one otherwise. */
+  readonly threadId?: string;
   readonly opening: string;
 }
 
@@ -81,9 +83,13 @@ export class ThreadService {
    * Opens a Thread on an Initiative, where the person starts on `opening` at once, in a new session
    * with the Initiative's Brief. Refused when nobody fills the Role.
    */
-  async startOnInitiative({ opening, ...start }: InitiativeThreadOpening): Promise<Thread> {
+  async startOnInitiative({
+    threadId = randomUUID(),
+    opening,
+    ...start
+  }: InitiativeThreadOpening): Promise<Thread> {
     await this.refuseUnlessFilled(start.roleKey);
-    return this.openWith(startInitiativeThread(randomUUID(), start, new Date()), opening);
+    return this.openWith(startInitiativeThread(threadId, start, new Date()), opening);
   }
 
   private async refuseUnlessFilled(roleKey: string): Promise<void> {
@@ -142,12 +148,24 @@ export class ThreadService {
   }
 
   /**
-   * The Initiative whose Thread has the engine session `sessionId` now, for the Office tools the CTO
-   * shapes it with; undefined for any other session.
+   * The Initiative whose Thread has the engine session `sessionId` now, for the Office tools that
+   * write onto it; undefined for any other session.
    */
   async initiativeInSession(sessionId: string): Promise<string | undefined> {
     const home = (await this.repository.findBySession(sessionId))?.home;
     return home?.kind === "initiative" ? home.initiativeId : undefined;
+  }
+
+  /**
+   * The Thread on an Initiative that has the engine session `sessionId` now, for the Office tools
+   * the Planner plans the Initiative's Tasks with; undefined for any other session.
+   */
+  async initiativeThreadInSession(
+    sessionId: string,
+  ): Promise<{ readonly threadId: string; readonly initiativeId: string } | undefined> {
+    const thread = await this.repository.findBySession(sessionId);
+    if (thread?.home.kind !== "initiative") return undefined;
+    return { threadId: thread.id, initiativeId: thread.home.initiativeId };
   }
 
   /** The Idea the person captured, as its card in the chat whose session is `sessionId`. */

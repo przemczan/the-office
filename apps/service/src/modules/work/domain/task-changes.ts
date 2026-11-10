@@ -13,6 +13,7 @@ import {
   TaskStopped,
 } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
+import { PLANNER } from "./planning.js";
 import {
   BY_THE_FIRE_ALARM,
   BY_THE_PIPELINE,
@@ -87,6 +88,8 @@ export function createTask(
     pipelineId: setting.pipelineId,
     proposedPipeline: undefined,
     autoMode: false,
+    initiativePlanningThreadId: undefined,
+    markedPlanned: false,
     personRole: undefined,
     pausedByAlarm: false,
     madeFor: undefined,
@@ -126,16 +129,33 @@ export function changeTaskState(
 }
 
 /**
- * Backlog → Planning, in auto mode or not, set in the same save so the move and the choice never
- * drift apart. Undefined when the Task is in Planning already, keeping the auto mode it has.
+ * Where a Task is planned: in a planning Thread of its own, moved there by the user, or in its
+ * Initiative's planning Thread, moved there by the Planner as its turn comes (start_planning).
+ */
+export type PlanningThread =
+  { readonly kind: "own" } | { readonly kind: "initiative"; readonly threadId: string };
+
+export const OWN_PLANNING_THREAD: PlanningThread = { kind: "own" };
+
+/**
+ * Backlog → Planning, in auto mode or not and in the Thread it is planned in, set in the same save
+ * so the move and those never drift apart; not marked planned, whatever an earlier planning left.
+ * Undefined when the Task is in Planning already, keeping what it has.
  */
 export function startPlanningTask(
   task: Task,
   autoMode: boolean,
+  thread: PlanningThread = OWN_PLANNING_THREAD,
 ): TaskChange<TaskStateChanged> | undefined {
-  const change = changeTaskState(task, "planning", THE_USER);
+  const by: StateChangeCause =
+    thread.kind === "own" ? THE_USER : { kind: "person", roleKey: PLANNER };
+  const change = changeTaskState(task, "planning", by);
   if (!change) return undefined;
-  return { ...change, task: { ...change.task, autoMode } };
+  const initiativePlanningThreadId = thread.kind === "own" ? undefined : thread.threadId;
+  return {
+    ...change,
+    task: { ...change.task, autoMode, initiativePlanningThreadId, markedPlanned: false },
+  };
 }
 
 /**

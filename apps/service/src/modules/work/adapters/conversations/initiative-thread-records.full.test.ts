@@ -18,7 +18,7 @@ import {
   startWorkApplication,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
-import { SHAPING_OFFICE_TOOLS } from "./shaping-thread-setup.js";
+import { SHAPING_OFFICE_TOOLS } from "./initiative-thread-records.js";
 
 let officeData: string;
 let work: WorkApplication;

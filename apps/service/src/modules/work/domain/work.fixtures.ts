@@ -30,6 +30,7 @@ export function anInitiative(fields: Partial<Initiative> = {}): Initiative {
     originIdeaId: "idea-1",
     createdBy: THE_USER,
     createdAt: new Date("2026-10-25T09:10:00.000Z"),
+    planningAutoMode: false,
     ...fields,
   };
 }
@@ -53,6 +54,8 @@ export function aTask(fields: Partial<Task> = {}): Task {
     pipelineId: "full",
     proposedPipeline: undefined,
     autoMode: false,
+    initiativePlanningThreadId: undefined,
+    markedPlanned: false,
     personRole: undefined,
     pausedByAlarm: false,
     madeFor: undefined,

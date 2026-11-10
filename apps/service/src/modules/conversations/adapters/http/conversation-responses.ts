@@ -88,16 +88,19 @@ export interface CardRecords {
  */
 export function toTaskConversationResponse(tabs: readonly ConversationTab[]): TaskConversation {
   return {
-    tabs: tabs.map(({ roleKey, threadId, stageRunning, consultations }) => ({
-      roleKey,
-      threadId: threadId ?? null,
-      stageRunning,
-      consultations: consultations.map(({ note, answeredAt, ...consultation }) => ({
-        ...consultation,
-        note: note ?? null,
-        answeredAt: answeredAt?.toISOString() ?? null,
-      })),
-    })),
+    tabs: tabs.map(
+      ({ roleKey, threadId, stageRunning, consultations, planningThreadElsewhere }) => ({
+        roleKey,
+        threadId: threadId ?? null,
+        stageRunning,
+        planningThreadElsewhere: planningThreadElsewhere ? { ...planningThreadElsewhere } : null,
+        consultations: consultations.map(({ note, answeredAt, ...consultation }) => ({
+          ...consultation,
+          note: note ?? null,
+          answeredAt: answeredAt?.toISOString() ?? null,
+        })),
+      }),
+    ),
   };
 }
 

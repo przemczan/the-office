@@ -11,6 +11,7 @@ import {
   autoModeSettingSchema,
   engineSettingsSchema,
   ideaSchema,
+  initiativeSchema,
   IMAGE_UPLOAD_BYTES,
   OPEN_DECISION_TOOL,
   pipelineListSchema,
@@ -5546,6 +5547,155 @@ test(
       // Nothing of it is left to weigh on the next tests' Start or sessions.
       expect((await page.request.post(`/api/tasks/${taskId}/drop`)).status()).toBe(200);
       expect((await page.request.delete(`/api/skills/${USED_SKILL}`)).ok()).toBe(true);
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+/** The Tasks the scripted Planner plans by id in its Initiative's planning Thread. */
+const EXPORT_API_TASK = "6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01";
+const EXPORT_BUTTON_TASK = "6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02";
+
+/**
+ * Gives two Tasks the fixed ids the scripted session names, in one statement, so every row that
+ * names them moves at once.
+ */
+async function giveTasksFixedIds(
+  [firstId, first]: readonly [string, string],
+  [secondId, second]: readonly [string, string],
+): Promise<void> {
+  await queryOfficeDatabase(
+    `with moved as (
+       update tasks
+          set id = case id when $1::uuid then $2::uuid else $4::uuid end,
+              blocked_by = array_replace(array_replace(blocked_by, $1::uuid, $2::uuid), $3::uuid, $4::uuid)
+        where id in ($1::uuid, $3::uuid)
+       returning id
+     )
+     update task_state_changes
+        set task_id = case task_id when $1::uuid then $2::uuid else $4::uuid end
+      where task_id in ($1::uuid, $3::uuid)`,
+    [firstId, first, secondId, second],
+  );
+}
+
+// The engine replays the last two sessions in e2e/sessions.jsonl: Bob's on the Initiative's shaping
+// Thread, which opens as the Idea is shaped, then Jan's, who tries Export button first and is
+// refused, as it waits for Export API, then plans Export API and Export button by their ids.
+test(
+  "the user has Jan plan the whole Initiative in auto mode, and its Tasks are Ready in dependency order with nothing clicked",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Initiative planning", "IP");
+      const idea = ideaSchema.parse(
+        await (
+          await page.request.post("/api/ideas", {
+            data: { title: "Usage exports", notes: "", projectId: null },
+          })
+        ).json(),
+      );
+      const initiative = initiativeSchema.parse(
+        await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+      );
+      const add = async (title: string, blockedBy: readonly string[]) =>
+        taskSchema.parse(
+          await (
+            await page.request.post(`/api/initiatives/${initiative.id}/tasks`, {
+              data: { title, projectId: project.id, priority: "normal", blockedBy },
+            })
+          ).json(),
+        );
+      const exportApi = await add("Export API", []);
+      const exportButton = await add("Export button", [exportApi.id]);
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/confirm`)).ok()).toBe(
+        true,
+      );
+      await giveTasksFixedIds(
+        [exportApi.id, EXPORT_API_TASK],
+        [exportButton.id, EXPORT_BUTTON_TASK],
+      );
+
+      await page.goto(`/work/initiatives/${initiative.id}`);
+      const head = page.locator(".task-head");
+      const autoMode = autoModeSwitch(head);
+      // The switch starts at the remembered default.
+      const remembered = autoModeSettingSchema.parse(
+        await (await page.request.get("/api/settings/auto-mode")).json(),
+      ).autoMode;
+      await expect(autoMode).toHaveAttribute("aria-checked", String(remembered));
+      if (!remembered) await head.getByText("Auto mode", { exact: true }).click();
+      await expect(autoMode).toHaveAttribute("aria-checked", "true");
+      await page.getByRole("button", { name: "Plan the Initiative" }).click();
+      await expect(page.getByRole("link", { name: "Planning Thread" })).toBeVisible();
+
+      const read = async (id: string) =>
+        taskSchema.parse(await (await page.request.get(`/api/tasks/${id}`)).json());
+      for (const id of [EXPORT_API_TASK, EXPORT_BUTTON_TASK]) {
+        await expect.poll(async () => (await read(id)).state, { timeout: 30_000 }).toBe("ready");
+      }
+      expect(await read(EXPORT_BUTTON_TASK)).toMatchObject({
+        markedPlanned: true,
+        planConfirmed: true,
+        definitionOfDoneConfirmed: true,
+        filesToChange: ["apps/web/src/usage/export-button.tsx"],
+        pipelineId: "full",
+        tags: ["usage-exports", "web"],
+      });
+      await expect(page.getByText("2 of 2 Tasks planned")).toBeVisible();
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-initiative-planned.png"),
+      });
+
+      // Export button moved to Planning only once Export API was Ready.
+      const moves = await queryOfficeDatabase(
+        `select task_id, from_state, to_state, changed_by from task_state_changes
+          where task_id in ($1, $2) and from_state in ('backlog', 'planning') order by id`,
+        [EXPORT_API_TASK, EXPORT_BUTTON_TASK],
+      );
+      const planner = { kind: "person", roleKey: "planner" };
+      expect(moves).toEqual([
+        {
+          task_id: EXPORT_API_TASK,
+          from_state: "backlog",
+          to_state: "planning",
+          changed_by: planner,
+        },
+        {
+          task_id: EXPORT_API_TASK,
+          from_state: "planning",
+          to_state: "ready",
+          changed_by: expect.objectContaining({ kind: "auto-mode" }),
+        },
+        {
+          task_id: EXPORT_BUTTON_TASK,
+          from_state: "backlog",
+          to_state: "planning",
+          changed_by: planner,
+        },
+        {
+          task_id: EXPORT_BUTTON_TASK,
+          from_state: "planning",
+          to_state: "ready",
+          changed_by: expect.objectContaining({ kind: "auto-mode" }),
+        },
+      ]);
+      const { planningThreadId } = initiativeSchema.parse(
+        await (await page.request.get(`/api/initiatives/${initiative.id}`)).json(),
+      );
+      // Jan called start_planning three times, and each Task moved to Planning once: the first try,
+      // on Export button before Export API was planned, was refused.
+      const log = await (
+        await page.request.get(`/api/threads/${planningThreadId}/messages`)
+      ).text();
+      expect(log.match(/"tool":"start_planning"/g)).toHaveLength(3);
+
+      // Nothing of it is left to weigh on the next tests' Start.
+      for (const id of [EXPORT_API_TASK, EXPORT_BUTTON_TASK]) {
+        expect((await page.request.post(`/api/tasks/${id}/drop`)).status()).toBe(200);
+      }
     } finally {
       await repository.remove();
     }

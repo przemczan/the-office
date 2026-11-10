@@ -94,6 +94,10 @@ _Avoid_: Proposed (for a part's badge), approve
 The choice, made with a switch beside Make a plan, that once the Planner marks the Task planned (`mark_planned`) with no Decision on it open, The Office confirms the Plan, the Definition of Done and the proposed Pipeline on the user's behalf and marks the Task Ready; the last choice is the remembered default, an Office setting, off until first made.
 _Avoid_: Autopilot, auto-accept, autonomous planning
 
+**Plan the Initiative**:
+The action on an active Initiative's page that opens one planning Thread with the Planner on the Initiative, who plans its Backlog Tasks in dependency order, moving each to Planning as its turn comes (`start_planning`) and writing its parts by its Task id, in auto mode or not; that Thread counts as the planning Thread of each Task planned in it.
+_Avoid_: Bulk planning, plan all, batch planning
+
 **Tag**:
 A free-form word on a Task, set by the user or the Planner, to find Tasks by.
 _Avoid_: Label, category; "tag" for a Mention

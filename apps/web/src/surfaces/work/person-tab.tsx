@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type { ConversationTab, TabConsultation, Task, ThreadContext } from "@the-office/contracts";
 import { Card } from "@the-office/ui";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -16,6 +17,7 @@ import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { plannedElsewhereWords } from "./conversation-tabs.ts";
 import { ItsInitiativeLink } from "./its-initiative-link.tsx";
 import { WAITS_FOR_ITS_INITIATIVE } from "./needs-you-words.ts";
 import { MakeAPlan, planningNoteWords } from "./planning-actions.tsx";
@@ -57,7 +59,9 @@ export function TabLog({
           personName={personName}
         />
       ))}
-      {tab.threadId !== null ? (
+      {tab.planningThreadElsewhere !== null ? (
+        <PlannedElsewhere elsewhere={tab.planningThreadElsewhere} personName={personName} />
+      ) : tab.threadId !== null ? (
         <PersonsThread threadId={tab.threadId} personName={personName} />
       ) : (
         <NoThreadYet
@@ -68,6 +72,31 @@ export function TabLog({
         />
       )}
     </>
+  );
+}
+
+/** The Planner's tab while the Task is planned in its Initiative's planning Thread: a link to it. */
+function PlannedElsewhere({
+  elsewhere: { initiativeId, threadId },
+  personName,
+}: {
+  readonly elsewhere: NonNullable<ConversationTab["planningThreadElsewhere"]>;
+  readonly personName: string;
+}): ReactNode {
+  return (
+    <EmptyCard>
+      {plannedElsewhereWords(personName)}
+      <div className="task-conversation-start">
+        <Link
+          className="link-button"
+          to="/work/initiatives/$initiativeId"
+          params={{ initiativeId }}
+          search={{ initiativeThread: threadId }}
+        >
+          Open the planning Thread
+        </Link>
+      </div>
+    </EmptyCard>
   );
 }
 
@@ -168,6 +197,8 @@ export function TabFoot({
   readonly onSent: () => void;
 }): ReactNode {
   const firstMessage = useFirstMessage(task.id, tab.roleKey, onSent);
+  // Its Initiative's planning Thread is where it is planned: no Thread of the Planner's opens here.
+  if (tab.planningThreadElsewhere !== null) return null;
   // Its empty tab already says what it waits for: the note is for a Thread it can't continue.
   if (task.state === "shaping" && tab.threadId === null) return null;
   if (readOnlyReason !== undefined) {

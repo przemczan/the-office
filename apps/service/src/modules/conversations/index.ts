@@ -35,6 +35,7 @@ export {
 } from "./application/thread-service.js";
 export { WorkRecords, type WorkRecordSource } from "./application/work-records.js";
 export { ConversationsModule } from "./conversations.module.js";
+export type { PlanningThreadElsewhere } from "./domain/conversation-tabs.js";
 export {
   DecisionAnswered,
   DecisionOpened,

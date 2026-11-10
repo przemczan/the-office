@@ -288,6 +288,7 @@ async function startOn(
   app.get(TaskThreadSetups).provide({
     planner: "planner",
     readyForPersonsThread: () => Promise.resolve(undefined),
+    planningThreadElsewhere: () => Promise.resolve(undefined),
     setUp: ({ taskId, firstSession }) =>
       Promise.resolve({
         ...(tasksAsked.has(taskId) ? askingSetup(taskId, firstSession) : taskSetup(taskId)),

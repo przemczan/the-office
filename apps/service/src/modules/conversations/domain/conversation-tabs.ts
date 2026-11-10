@@ -11,11 +11,22 @@ export interface TabConsultation {
   readonly answeredAt: Date | undefined;
 }
 
+/**
+ * The Initiative's planning Thread a Task is planned in (Plan the Initiative), which counts as its
+ * planning Thread: no Planner's Thread opens on the Task meanwhile.
+ */
+export interface PlanningThreadElsewhere {
+  readonly initiativeId: string;
+  readonly threadId: string;
+}
+
 /** One person's tab in a Task's conversation (spec §2.4). */
 export interface ConversationTab {
   readonly roleKey: string;
   /** Their one Thread on the Task; undefined until it is opened. */
   readonly threadId: string | undefined;
+  /** On the Planner's tab, while the Task is planned in its Initiative's planning Thread. */
+  readonly planningThreadElsewhere: PlanningThreadElsewhere | undefined;
   readonly stageRunning: boolean;
   /** In the order answered, then those still waiting on the Consultant. */
   readonly consultations: readonly TabConsultation[];
@@ -24,12 +35,14 @@ export interface ConversationTab {
 /**
  * The Task's tabs, from its Threads and the Decisions its Consultations were opened for: the
  * Planner, then each person who ran an Agent Stage in the order they first worked, then each
- * Consultant of a Decision on the Task, from the moment the Consultation starts.
+ * Consultant of a Decision on the Task, from the moment the Consultation starts. The Planner's tab
+ * points to the Initiative's planning Thread while the Task is planned there.
  */
 export function conversationTabs(
   planner: string,
   threads: readonly Thread[],
   decisions: readonly Decision[],
+  planningThreadElsewhere?: PlanningThreadElsewhere,
 ): ConversationTab[] {
   const oldestFirst = threads.toSorted(
     (one, other) => one.startedAt.getTime() - other.startedAt.getTime(),
@@ -45,6 +58,7 @@ export function conversationTabs(
     return {
       roleKey,
       threadId: own.find(isPersonsThread)?.id,
+      planningThreadElsewhere: roleKey === planner ? planningThreadElsewhere : undefined,
       stageRunning: own.some(({ stageThread, state }) => stageThread && state === "answering"),
       consultations: consultations
         .filter((consultation) => consultation.roleKey === roleKey)

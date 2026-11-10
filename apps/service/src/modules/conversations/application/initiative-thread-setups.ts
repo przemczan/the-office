@@ -14,7 +14,7 @@ export interface InitiativeThreadRequest {
  */
 export interface InitiativeThreadSetup {
   /**
-   * What the person does in the Thread, shaping the Initiative, added to their standing
+   * What the person does in the Thread, shaping the Initiative or planning its Tasks, added to their standing
    * instructions. The same for every session of the Thread, so it stays in the cached prefix.
    */
   readonly instructions: string;

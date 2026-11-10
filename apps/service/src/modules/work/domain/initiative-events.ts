@@ -45,3 +45,14 @@ export class InitiativeOutcomeWritten extends DomainEvent {
     super();
   }
 }
+
+/** Plan the Initiative opened its planning Thread with the Planner, in auto mode or not. */
+export class InitiativePlanningStarted extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly threadId: string,
+    readonly autoMode: boolean,
+  ) {
+    super();
+  }
+}

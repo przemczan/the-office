@@ -273,6 +273,7 @@ describe("Auto mode", () => {
       proposedPipeline: null,
     });
     expect(webEventsOf(work)).toEqual([
+      { type: "task.marked-planned", taskId: task.id },
       { type: "task.plan-confirmed", taskId: task.id },
       { type: "task.definition-of-done-confirmed", taskId: task.id },
       { type: "task.pipeline-confirmed", taskId: task.id, pipelineId: "full" },
@@ -310,7 +311,7 @@ describe("Auto mode", () => {
     expect((await readTask(task.id)).state).toBe("ready");
   });
 
-  it("changes nothing when off, or with Plan with…, leaving the user to confirm", async () => {
+  it("only marks the Task planned when off, or with Plan with…, leaving the user to confirm", async () => {
     const off = await proposedWithMakeAPlan(false);
     const planWith = await proposedTask();
     work.published.length = 0;
@@ -328,10 +329,14 @@ describe("Auto mode", () => {
       expect(await readTask(task.id)).toMatchObject({
         state: "planning",
         autoMode: false,
+        markedPlanned: true,
         planConfirmed: false,
       });
     }
-    expect(work.published).toEqual([]);
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.marked-planned", taskId: off.id },
+      { type: "task.marked-planned", taskId: planWith.id },
+    ]);
   });
 
   it("is refused, with the reasons, outside Planning or before the parts are written", async () => {

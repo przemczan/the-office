@@ -21,6 +21,7 @@ import { InitiativeAttachments } from "./attachments-block.tsx";
 import { ConversationDrawerProvider, useDrawerFollowsAddress } from "./conversation-drawer.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
+import { planningProgressWords } from "./initiative-planning-words.ts";
 import { initiativeProgress, progressWords, tasksOfInitiative } from "./initiative-words.ts";
 import { MissingRecord } from "./missing-record.tsx";
 import { OriginBlock } from "./origin-block.tsx";
@@ -31,7 +32,7 @@ import { ThreadTimeline } from "./thread-timeline.tsx";
 
 /**
  * An Initiative's page (prototypes/app/work.js `initiativePage`): its Tasks as a graph across
- * Projects, its record's folds, and its Threads with the CTO as the Task page's timeline.
+ * Projects, its record's folds, and its Threads with the CTO and the Planner as the Task page's timeline.
  */
 export function InitiativePage(): ReactNode {
   const { initiativeId } = useParams({ from: "/work/initiatives/$initiativeId" });
@@ -95,6 +96,7 @@ function InitiativeHead({
   readonly projects: readonly Project[] | undefined;
   readonly cto: Role | undefined;
 }): ReactNode {
+  const planningProgress = planningProgressWords(initiative, initiativeTasks);
   return (
     <header className="task-head">
       <div className="task-head-grow">
@@ -106,6 +108,7 @@ function InitiativeHead({
           </span>
           <InitiativeProjects initiative={initiative} projects={projects} />
           <span>· {progressWords(initiativeProgress(initiativeTasks, tasks))}</span>
+          {planningProgress && <span>· {planningProgress}</span>}
         </div>
       </div>
       <div className="task-head-actions">
@@ -170,7 +173,7 @@ function ShapingNote({ cto }: { readonly cto: Role | undefined }): ReactNode {
   );
 }
 
-/** Its Threads with the CTO; while it is open and has none, the user can start shaping one. */
+/** Its Threads with the CTO and the Planner; while it is open and has none, the user can start shaping one. */
 function InitiativeConversation({
   initiative,
   cto,

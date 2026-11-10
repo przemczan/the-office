@@ -195,12 +195,16 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
   async changeTask<Event extends DomainEvent>(
     id: string,
     taskId: string,
-    change: (initiative: Initiative, task: Task) => TaskChange<Event> | undefined,
+    change: (
+      initiative: Initiative,
+      task: Task,
+      tasks: readonly Task[],
+    ) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>> {
     return this.database.transaction(async (transaction) => {
       const initiative = await heldInitiative(transaction, id);
       const task = await heldTask(transaction, taskId);
-      return saveTask(transaction, task, change(initiative, task));
+      return saveTask(transaction, task, change(initiative, task, await tasksOf(transaction, id)));
     });
   }
 }

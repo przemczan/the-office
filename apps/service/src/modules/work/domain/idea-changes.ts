@@ -102,6 +102,7 @@ export function shapeIdeaIntoInitiative(
     originIdeaId: idea.id,
     createdBy: shapedBy,
     createdAt: at,
+    planningAutoMode: false,
   };
   return {
     ideaShaped: {

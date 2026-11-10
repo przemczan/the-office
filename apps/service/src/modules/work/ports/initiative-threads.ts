@@ -1,5 +1,10 @@
 /** A Thread The Office opens on an Initiative, and what it asks the person first. */
 export interface InitiativeThreadOpening {
+  /**
+   * The Thread's id, when the caller keeps it before the Thread opens, as Plan the Initiative does;
+   * a new one otherwise.
+   */
+  readonly threadId?: string;
   readonly initiativeId: string;
   /** Who answers in it, by the key of the Role they fill. */
   readonly roleKey: string;

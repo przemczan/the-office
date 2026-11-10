@@ -180,6 +180,7 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
     endedAt: initiative.endedAt ?? null,
     archivedAt: initiative.archivedAt ?? null,
     restoredAt: initiative.restoredAt ?? null,
+    planningThreadId: initiative.planningThreadId ?? null,
   };
 }
 
@@ -189,6 +190,7 @@ export function toInitiative(row: InitiativeRow): Initiative {
     endedAt: row.endedAt ?? undefined,
     archivedAt: row.archivedAt ?? undefined,
     restoredAt: row.restoredAt ?? undefined,
+    planningThreadId: row.planningThreadId ?? undefined,
   };
 }
 
@@ -211,6 +213,8 @@ export function toTaskRow(task: Task): TaskRow {
     pipelineId: task.pipelineId,
     proposedPipeline: task.proposedPipeline ?? null,
     autoMode: task.autoMode,
+    initiativePlanningThreadId: task.initiativePlanningThreadId ?? null,
+    markedPlanned: task.markedPlanned,
     personRole: task.personRole ?? null,
     pausedByAlarm: task.pausedByAlarm,
     madeFor: task.madeFor ?? null,
@@ -244,6 +248,8 @@ export function toTask(row: TaskRow): Task {
     pipelineId: row.pipelineId,
     proposedPipeline: row.proposedPipeline ?? undefined,
     autoMode: row.autoMode,
+    initiativePlanningThreadId: row.initiativePlanningThreadId ?? undefined,
+    markedPlanned: row.markedPlanned,
     personRole: row.personRole ?? undefined,
     pausedByAlarm: row.pausedByAlarm,
     madeFor: row.madeFor ?? undefined,

@@ -195,3 +195,39 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-skill-uses"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-shape-usage-exports","text":"Shape the Initiative"}}
+{"step":"event","event":{"kind":"text","text":"What should be true once usage can be exported?","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-shape-usage-exports"],"usage":{"input":3,"output":20,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-plan-the-initiative","text":"Plan the Initiative"}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-1","tool":"start_planning","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-2","tool":"start_planning","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-3","tool":"write_plan","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01","plan":"Add a CSV endpoint for the usage table.","filesToChange":["apps/service/src/usage/export.ts"],"estimatedTokens":400000},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-3","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-4","tool":"write_definition_of_done","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01","statements":["GET /usage.csv answers the usage table as CSV.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-4","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-5","tool":"propose_pipeline","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01","pipelineId":"full","why":"It changes code that needs its tests and a review."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-5","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-6","tool":"write_tags","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01","tags":["usage-exports","api"]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-6","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-7","tool":"mark_planned","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-7","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-8","tool":"start_planning","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-8","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-9","tool":"write_plan","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02","plan":"Add an Export button that downloads the CSV.","filesToChange":["apps/web/src/usage/export-button.tsx"],"estimatedTokens":400000},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-9","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-10","tool":"write_definition_of_done","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02","statements":["The Export button downloads the usage table as CSV.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-10","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-11","tool":"propose_pipeline","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02","pipelineId":"full","why":"It changes code that needs its tests and a review."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-11","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-12","tool":"write_tags","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02","tags":["usage-exports","web"]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-12","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"initiative-planning-13","tool":"mark_planned","officeTool":true,"input":{"taskId":"6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"initiative-planning-13","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I planned Export API, then Export button, which waits for it. I left none.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-plan-the-initiative"],"usage":{"input":3,"output":900,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.03,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
+{"step":"end"}

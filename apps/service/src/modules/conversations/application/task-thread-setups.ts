@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { isPersonsThread, type Thread } from "../domain/thread.js";
+import type { PlanningThreadElsewhere } from "../domain/conversation-tabs.js";
 
 /** A Thread on a Task, as the module keeping Tasks sets its session up. */
 export interface TaskThreadRequest {
@@ -66,6 +67,11 @@ export interface TaskThreadSource {
    * have one, in the UI's words.
    */
   readyForPersonsThread(taskId: string): Promise<string | undefined>;
+  /**
+   * The Initiative's planning Thread the Task is planned in, which counts as its planning Thread;
+   * undefined while it is planned in none, or in one of its own.
+   */
+  planningThreadElsewhere(taskId: string): Promise<PlanningThreadElsewhere | undefined>;
 }
 
 /**
@@ -93,6 +99,10 @@ export class TaskThreadSetups {
 
   readyForPersonsThread(taskId: string): Promise<string | undefined> {
     return this.registered().readyForPersonsThread(taskId);
+  }
+
+  planningThreadElsewhere(taskId: string): Promise<PlanningThreadElsewhere | undefined> {
+    return this.registered().planningThreadElsewhere(taskId);
   }
 
   private registered(): TaskThreadSource {

@@ -35,7 +35,7 @@ import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { StageResults, type TaskStageResults } from "./stage-results.js";
 import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
 import { SessionPeople } from "./session-people.js";
-import { SessionInitiatives } from "./session-initiatives.js";
+import { SessionInitiatives, type SessionInitiativeThread } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
 import { TaskDecisions } from "./task-decisions.js";
 import { TaskThreads, type TaskThreadOpening, type TaskThreadStarting } from "./task-threads.js";
@@ -304,13 +304,23 @@ export class SessionTasksForTests extends SessionTasks {
   }
 }
 
-/** Each session is on the Initiative a test puts it on, and on none otherwise. */
+/**
+ * Each session is on the Initiative a test puts it on, and on none otherwise; in the Thread a test
+ * names, or in one named after the session.
+ */
 @Injectable()
 export class SessionInitiativesForTests extends SessionInitiatives {
   readonly initiatives = new Map<string, string>();
+  readonly threads = new Map<string, string>();
 
   async initiativeInSession(sessionId: string): Promise<string | undefined> {
     return this.initiatives.get(sessionId);
+  }
+
+  async initiativeThreadInSession(sessionId: string): Promise<SessionInitiativeThread | undefined> {
+    const initiativeId = this.initiatives.get(sessionId);
+    if (initiativeId === undefined) return undefined;
+    return { initiativeId, threadId: this.threads.get(sessionId) ?? sessionId };
   }
 }
 
@@ -346,7 +356,7 @@ export class InitiativeThreadsForTests extends InitiativeThreads {
   async startOnInitiative(opening: InitiativeThreadOpening): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;
     this.opened.push(opening);
-    return { id: crypto.randomUUID() };
+    return { id: opening.threadId ?? crypto.randomUUID() };
   }
 }
 

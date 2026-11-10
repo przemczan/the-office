@@ -21,7 +21,7 @@ import {
   webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
-import { SHAPING_OFFICE_TOOLS } from "../conversations/shaping-thread-setup.js";
+import { SHAPING_OFFICE_TOOLS } from "../conversations/initiative-thread-records.js";
 import {
   ADD_DEPENDENCY,
   ADD_TASK,

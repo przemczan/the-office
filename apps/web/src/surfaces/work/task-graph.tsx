@@ -3,6 +3,7 @@ import type { Initiative, Project, Task } from "@the-office/contracts";
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { PLANNING_STEP_WORDS, planningStepOf } from "./initiative-planning-words.ts";
 import {
   taskGraph,
   tasksOfInitiative,
@@ -19,6 +20,7 @@ interface DrawnEdge {
 /**
  * The Initiative's Tasks as a graph (prototypes/app/work.js `graph`): a column per dependency
  * depth, an arrow meaning "must be Done first", and blockers from outside the Initiative dashed.
+ * While the Initiative is planned (Plan the Initiative), each of its Tasks says how far its planning is.
  */
 export function TaskGraph({
   initiative,
@@ -70,6 +72,7 @@ export function TaskGraph({
               <TaskNode
                 key={node.task.id}
                 node={node}
+                initiative={initiative}
                 initiatives={initiatives}
                 projects={projects}
               />
@@ -83,14 +86,19 @@ export function TaskGraph({
 
 function TaskNode({
   node: { task, outside },
+  initiative,
   initiatives,
   projects,
 }: {
   readonly node: GraphNode;
+  readonly initiative: Initiative;
   readonly initiatives: readonly Initiative[] | undefined;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);
+  const step = outside ? undefined : planningStepOf(initiative, task);
+  // Planning and Ready are the state badge's own words: only Waiting and Planned add to it.
+  const stepNote = step === "waiting" || step === "planned" ? PLANNING_STEP_WORDS[step] : undefined;
   return (
     <Link
       to="/tasks/$taskId"
@@ -105,6 +113,7 @@ function TaskNode({
       <span className="task-graph-node-sub">
         <TaskStateBadge state={task.state} />
         {outside && <span>{outsideWords(task, initiatives)}</span>}
+        {stepNote && <span className="task-graph-node-step">{stepNote}</span>}
       </span>
     </Link>
   );

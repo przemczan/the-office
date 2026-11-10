@@ -91,6 +91,8 @@ import { ProjectOutputMasksForTests } from "../../ports/project-output-masks.fix
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
 const outputMasks = new ProjectOutputMasksForTests();
+/** The Initiative's planning Thread each Task is planned in, by the Task's id. */
+const plannedElsewhere = new Map<string, { initiativeId: string; threadId: string }>();
 
 let app: INestApplication;
 
@@ -265,6 +267,7 @@ function setUpEachTest(): void {
     app.get(TaskThreadSetups).provide({
       planner: "planner",
       readyForPersonsThread: () => Promise.resolve(undefined),
+      planningThreadElsewhere: (taskId) => Promise.resolve(plannedElsewhere.get(taskId)),
       setUp: ({ taskId }) =>
         Promise.resolve({
           folder: join(officeData, "worktrees", taskId),
@@ -330,8 +333,20 @@ describe("a Task's conversation", () => {
     const tabs = await get(`/tasks/${taskId}/conversation`);
 
     expect(taskConversationSchema.parse(await tabs.json()).tabs).toEqual([
-      { roleKey: "planner", threadId: null, stageRunning: false, consultations: [] },
-      { roleKey: oscar, threadId: null, stageRunning: true, consultations: [] },
+      {
+        roleKey: "planner",
+        threadId: null,
+        stageRunning: false,
+        consultations: [],
+        planningThreadElsewhere: null,
+      },
+      {
+        roleKey: oscar,
+        threadId: null,
+        stageRunning: true,
+        consultations: [],
+        planningThreadElsewhere: null,
+      },
     ]);
   });
 
@@ -391,6 +406,24 @@ describe("a Task's conversation", () => {
     expect(threadSchema.parse(await again.json()).id).toBe(thread.id);
     const tabs = await get(`/tasks/${taskId}/conversation`);
     expect(taskConversationSchema.parse(await tabs.json()).tabs[1]?.threadId).toBe(thread.id);
+  });
+
+  it("points the Planner's tab to the Initiative's planning Thread a Task is planned in, and opens no Thread of the Planner's on it", async () => {
+    const taskId = randomUUID();
+    const elsewhere = { initiativeId: randomUUID(), threadId: randomUUID() };
+    plannedElsewhere.set(taskId, elsewhere);
+
+    const tabs = taskConversationSchema.parse(
+      await (await get(`/tasks/${taskId}/conversation`)).json(),
+    ).tabs;
+    const opened = await send("POST", `/tasks/${taskId}/conversation/planner/thread`);
+
+    expect(tabs[0]).toMatchObject({ roleKey: "planner", planningThreadElsewhere: elsewhere });
+    expect(opened.status).toBeGreaterThanOrEqual(400);
+    expect(await opened.json()).toMatchObject({
+      reasons: ["This Task is being planned in its Initiative's planning Thread: carry on there."],
+    });
+    plannedElsewhere.delete(taskId);
   });
 
   it("says when a Thread's warm cache goes cold, for the To line to count down", async () => {

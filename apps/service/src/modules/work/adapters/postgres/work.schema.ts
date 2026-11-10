@@ -63,6 +63,9 @@ export const initiatives = pgTable("initiatives", {
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   /** Null until it is first restored from the Archive. */
   restoredAt: timestamp("restored_at", { withTimezone: true }),
+  /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
+  planningThreadId: uuid("planning_thread_id"),
+  planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
 });
 
 export const tasks = pgTable(
@@ -97,6 +100,9 @@ export const tasks = pgTable(
     /** Null while the Planner proposes none. */
     proposedPipeline: jsonb("proposed_pipeline").$type<ProposedPipeline>(),
     autoMode: boolean("auto_mode").notNull().default(false),
+    /** The Initiative's planning Thread it is planned in, kept by Conversations; null otherwise. */
+    initiativePlanningThreadId: uuid("initiative_planning_thread_id"),
+    markedPlanned: boolean("marked_planned").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
     pausedByAlarm: boolean("paused_by_alarm").notNull().default(false),

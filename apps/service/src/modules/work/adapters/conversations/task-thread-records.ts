@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { CLOSED_TASK_CONVERSATION_WORDS, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import {
   TaskThreadSetups,
+  type PlanningThreadElsewhere,
   type TaskThreadRequest,
   type TaskThreadSetup,
   type TaskThreadSource,
@@ -79,11 +80,18 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     const closed = CLOSED_TASK_CONVERSATION_WORDS[task.state];
     if (closed !== undefined) return closed;
     if (task.state === "backlog") return NOTHING_TO_ASK_IN_BACKLOG;
+    if (plannedInItsInitiative(task)) return PLANNED_IN_THE_INITIATIVE;
     // A Task marked Ready from Backlog has no worktree yet.
     await this.worktrees.open(task.projectId, task.id);
     // A Move landing meanwhile would leave the Thread in a Project where the Task has no worktree.
     if (!(await this.tasks.isInProject(task.id, task.projectId))) return MOVED_AS_IT_OPENED;
     return undefined;
+  }
+
+  async planningThreadElsewhere(taskId: string): Promise<PlanningThreadElsewhere | undefined> {
+    const task = await this.tasks.read(taskId);
+    if (!plannedInItsInitiative(task)) return undefined;
+    return { initiativeId: task.initiativeId, threadId: task.initiativePlanningThreadId };
   }
 
   private async asking(
@@ -166,6 +174,23 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
 
 const NOTHING_TO_ASK_IN_BACKLOG =
   "This Task is in Backlog: nothing is written here until Make a plan or Plan with… starts Planning.";
+
+const PLANNED_IN_THE_INITIATIVE =
+  "This Task is being planned in its Initiative's planning Thread, which counts as its planning Thread: carry on there.";
+
+/**
+ * In Planning in its Initiative's planning Thread (Plan the Initiative): it has no planning Thread
+ * of its own, and no worktree, meanwhile.
+ */
+function plannedInItsInitiative(
+  task: Task,
+): task is Task & { readonly initiativeId: string; readonly initiativePlanningThreadId: string } {
+  return (
+    task.state === "planning" &&
+    task.initiativeId !== undefined &&
+    task.initiativePlanningThreadId !== undefined
+  );
+}
 
 /** The Planner plans until the Task is Ready, and again if a Save moves it to Backlog. */
 function plansIt({ state }: Task, roleKey: string): boolean {

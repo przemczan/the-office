@@ -3044,3 +3044,8 @@
   font: var(--type-caption);
   color: var(--fg-3);
 }
+
+/* A Task's planning step while its Initiative is planned (Plan the Initiative). */
+.task-graph-node-step {
+  color: var(--fg-2);
+}

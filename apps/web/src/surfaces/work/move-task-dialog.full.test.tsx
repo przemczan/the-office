@@ -26,6 +26,8 @@ const TASK: Task = {
   plan: "Keep the path.",
   pausedByAlarm: false,
   autoMode: false,
+  initiativePlanningThreadId: null,
+  markedPlanned: false,
   planConfirmed: true,
   filesToChange: [],
   estimatedTokens: null,

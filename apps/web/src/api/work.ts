@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryKey } from "@tanstack/react-query";
 import {
   archivedInitiativesPageSchema,
   autoModeSettingSchema,
@@ -53,6 +53,7 @@ import {
   type TaskPlacement,
   type TaskUsageEstimateList,
   type UsageSettings,
+  type WebEvent,
   type WorkWebEvent,
 } from "@the-office/contracts";
 import {
@@ -345,6 +346,14 @@ export function startShapingThread(id: string): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/shaping`, {}, initiativeSchema);
 }
 
+/**
+ * Plan the Initiative: a new planning Thread with the Planner, who plans its Backlog Tasks at once,
+ * in auto mode or not. The choice becomes the remembered default.
+ */
+export function planInitiative(id: string, autoMode: boolean): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/planning`, { autoMode }, initiativeSchema);
+}
+
 /** "Confirm the Initiative": active, or done at once when its Tasks already are. */
 export function confirmInitiative(id: string): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/confirm`, {}, initiativeSchema);
@@ -584,6 +593,16 @@ async function readShownText(id: string, signal?: AbortSignal): Promise<ShownTex
 }
 
 /**
+ * The Task's conversation tabs (`threadQueries.conversationOnTask`, kept by api/conversations.ts,
+ * which reads this module): written out here, as importing it back would be a cycle.
+ */
+function taskConversationKeys(event: WebEvent): QueryKey[] {
+  return "taskId" in event && typeof event.taskId === "string"
+    ? [["threads", "task", event.taskId, "conversation"]]
+    : [];
+}
+
+/**
  * Each Work event makes its kind stale: ["ideas"], ["initiatives"] and ["tasks"] cover the lists
  * and each record, ["attachments"] every owner's list. Shaping touches several, so each of its
  * events names what it changed; an Initiative spans its Tasks' Projects and is done with them.
@@ -601,8 +620,15 @@ export const workEventInvalidations: Readonly<
   "initiative.outcome-written": () => [INITIATIVES],
   "initiative.archived": () => [INITIATIVES],
   "initiative.restored": () => [INITIATIVES],
+  "initiative.planning-started": () => [INITIATIVES],
   "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
-  "task.state-changed": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
+  // A move to Planning in its Initiative's planning Thread changes the Planner's tab too.
+  "task.state-changed": (event) => [
+    TASKS,
+    INITIATIVES,
+    RUN_ENVIRONMENTS,
+    ...taskConversationKeys(event),
+  ],
   "task.started": () => [TASKS],
   "task.paused": () => [TASKS],
   "task.stopped": () => [TASKS],
@@ -617,6 +643,7 @@ export const workEventInvalidations: Readonly<
   "task.title-changed": () => [TASKS],
   "task.description-changed": () => [TASKS],
   "task.tags-changed": () => [TASKS],
+  "task.marked-planned": () => [TASKS],
   "task.reordered": () => [TASKS],
   "task.dependency-added": () => [TASKS],
   "task.dependency-removed": () => [TASKS],

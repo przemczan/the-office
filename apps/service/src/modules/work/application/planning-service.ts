@@ -9,6 +9,7 @@ import {
   confirmPipeline,
   confirmPlan,
   markingPlannedProblems,
+  markPlanned,
   proposeDefinitionOfDone,
   proposePipeline,
   proposePlan,
@@ -23,12 +24,19 @@ import {
   undoPlanningMove,
   type TaskChange,
 } from "../domain/task-changes.js";
-import type { TaskDefinitionOfDoneSaved, TaskPlanSaved } from "../domain/task-events.js";
+import { startPlanningInInitiative } from "../domain/initiative-planning.js";
+import {
+  TaskMarkedPlanned,
+  type TaskDefinitionOfDoneSaved,
+  type TaskPlanSaved,
+} from "../domain/task-events.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { MOVED_AS_IT_OPENED } from "../domain/task-move.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { readinessLines, stateChangeProblems, type ReadinessLine } from "../domain/task-states.js";
+import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownPeople } from "../ports/known-people.js";
+import type { SessionInitiativeThread } from "../ports/session-initiatives.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
@@ -62,6 +70,7 @@ export type MarkedPlanned =
 export class PlanningService {
   constructor(
     private readonly tasks: TaskRepository,
+    private readonly initiatives: InitiativeRepository,
     private readonly ideas: IdeaService,
     private readonly people: KnownPeople,
     private readonly pipelines: KnownPipelines,
@@ -106,7 +115,10 @@ export class PlanningService {
     const task = await this.tasks.find(taskId);
     if (!task) throw new TaskNotFound(taskId);
     refuseWith(markingPlannedProblems(task));
-    if (!task.autoMode) return { outcome: "for-the-user" };
+    if (!task.autoMode) {
+      await this.update(taskId, markPlanned);
+      return { outcome: "for-the-user" };
+    }
     const openDecisions = await this.decisions.openOn(taskId);
     if (openDecisions > 0) return { outcome: "waiting-for-a-decision", openDecisions };
     if (task.proposedPipeline) await this.refuseUnknownPipeline(task.proposedPipeline.pipelineId);
@@ -114,10 +126,28 @@ export class PlanningService {
       acceptInAutoMode(latest, openDecisions),
     );
     if (event) {
+      await this.events.publish(new TaskMarkedPlanned(taskId));
       for (const confirmation of event.confirmations) await this.events.publish(confirmation);
       await this.events.publish(event.stateChanged);
     }
     return { outcome: "ready", task: ready };
+  }
+
+  /**
+   * start_planning in an Initiative's planning Thread: Backlog → Planning for one of its Tasks, in
+   * the Initiative's auto mode, the Task then planned in that Thread. No worktree is made, as the
+   * Thread reads the base branches: Start makes it, as for a Task marked Ready from Backlog.
+   * Refused with the reasons of `startPlanningInInitiative`.
+   */
+  async startPlanningInInitiative(thread: SessionInitiativeThread, taskId: string): Promise<Task> {
+    const { task, event } = await this.initiatives.changeTask(
+      thread.initiativeId,
+      taskId,
+      (initiative, latest, tasks) =>
+        startPlanningInInitiative(initiative, latest, tasks, thread.threadId),
+    );
+    if (event) await this.events.publish(event);
+    return task;
   }
 
   /** Backlog → Planning: the Task's branch and worktree, then its planning Thread. */

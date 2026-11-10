@@ -9,6 +9,7 @@ import {
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
   TaskDefinitionOfDoneSaved,
+  TaskMarkedPlanned,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
   TaskPlanConfirmed,
@@ -207,10 +208,21 @@ export function markingPlannedProblems(task: Task): string[] {
 }
 
 /**
- * Auto mode accepts a Task marked planned, in one save: it confirms the Plan and the Definition of
- * Done if they aren't yet, and the proposed Pipeline if there is one (with none, the Task keeps the
- * Pipeline it follows; that a proposal is in the library is checked by the caller), then marks it
- * Ready under Ready's usual rules. Its state change names only what auto mode itself confirmed.
+ * The Planner marks the Task planned (mark_planned), with auto mode off: it waits in Planning for
+ * the user to confirm its parts. Undefined when it is marked planned already.
+ */
+export function markPlanned(task: Task): TaskChange<TaskMarkedPlanned> | undefined {
+  refuseWith(markingPlannedProblems(task));
+  if (task.markedPlanned) return undefined;
+  return { task: { ...task, markedPlanned: true }, event: new TaskMarkedPlanned(task.id) };
+}
+
+/**
+ * Auto mode accepts a Task marked planned, in one save: it marks it planned, confirms the Plan and
+ * the Definition of Done if they aren't yet, and the proposed Pipeline if there is one (with none,
+ * the Task keeps the Pipeline it follows; that a proposal is in the library is checked by the
+ * caller), then marks it Ready under Ready's usual rules. Its state change names only what auto
+ * mode itself confirmed.
  */
 export function acceptInAutoMode(
   task: Task,
@@ -223,7 +235,7 @@ export function acceptInAutoMode(
   refuseWith(problems);
   const confirmations: TaskAcceptedInAutoMode["confirmations"][number][] = [];
   const confirmed: AutoModeConfirmation[] = [];
-  let accepted = task;
+  let accepted: Task = { ...task, markedPlanned: true };
   const plan = confirmPlan(accepted);
   if (plan) {
     accepted = plan.task;

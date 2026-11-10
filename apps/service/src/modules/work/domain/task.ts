@@ -73,6 +73,14 @@ export interface Task {
    */
   readonly autoMode: boolean;
   /**
+   * The Initiative's planning Thread it is planned in, from its move to Planning there (Plan the
+   * Initiative's start_planning); undefined when it is planned in a Thread of its own, or not at all.
+   * That Thread counts as its planning Thread: it has none of its own and no worktree meanwhile.
+   */
+  readonly initiativePlanningThreadId: string | undefined;
+  /** Whether the Planner marked it planned (mark_planned) since it last moved to Planning. */
+  readonly markedPlanned: boolean;
+  /**
    * The Role whose person's Task limit it counts against from Start on: the Role of its Pipeline's
    * first Agent Stage, as the click-through counts; undefined before Start or without one.
    */

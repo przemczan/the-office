@@ -13,18 +13,21 @@ import {
 } from "@nestjs/common";
 import {
   archivedInitiativesQuerySchema,
+  initiativePlanningSchema,
   newInitiativeTaskSchema,
   outcomeChangeSchema,
   searchQuerySchema,
   type ArchivedInitiativesPage,
   type ArchivedInitiativesQuery,
   type Initiative as InitiativeResponse,
+  type InitiativePlanningRequest,
   type NewInitiativeTask,
   type OutcomeChange,
   type SearchQuery,
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { InitiativePlanning } from "../../application/initiative-planning.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
@@ -39,7 +42,10 @@ import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 @Controller("initiatives")
 @UseFilters(WorkRefusalsFilter)
 export class InitiativesController {
-  constructor(private readonly initiatives: InitiativeService) {}
+  constructor(
+    private readonly initiatives: InitiativeService,
+    private readonly planning: InitiativePlanning,
+  ) {}
 
   /**
    * Every Initiative matching the query by its name and outcome, every one without, archived ones
@@ -122,6 +128,20 @@ export class InitiativesController {
   async shape(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
     await this.initiatives.startShapingThread(id);
     return this.respond(await this.initiatives.read(id));
+  }
+
+  /**
+   * Plan the Initiative: a new planning Thread with the Planner, who plans its Backlog Tasks at
+   * once, in auto mode or not, which becomes the remembered default; its Threads are listed by
+   * GET /initiatives/:id/threads.
+   */
+  @Post(":id/planning")
+  @HttpCode(HttpStatus.OK)
+  async plan(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(initiativePlanningSchema)) { autoMode }: InitiativePlanningRequest,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.planning.plan(id, autoMode));
   }
 
   /** A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it names. */

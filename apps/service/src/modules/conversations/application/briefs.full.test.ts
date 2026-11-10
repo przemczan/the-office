@@ -73,6 +73,7 @@ beforeAll(async () => {
   app.get(TaskThreadSetups).provide({
     planner: "planner",
     readyForPersonsThread: () => Promise.resolve(undefined),
+    planningThreadElsewhere: () => Promise.resolve(undefined),
     setUp: ({ taskId }: TaskThreadRequest) =>
       Promise.resolve({
         projectId: "admin-panel",

@@ -30,4 +30,11 @@ export interface Initiative {
   readonly archivedAt?: Date;
   /** Its last Restore from the Archive, from which its Archive period counts again. */
   readonly restoredAt?: Date;
+  /**
+   * Its latest planning Thread with the Planner, opened by Plan the Initiative; undefined until it
+   * is first planned. Only this Thread may move its Tasks to Planning (start_planning).
+   */
+  readonly planningThreadId?: string;
+  /** Whether its latest planning Thread plans its Tasks in auto mode. */
+  readonly planningAutoMode: boolean;
 }

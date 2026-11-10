@@ -3,7 +3,7 @@ import type { Decision } from "./decision.js";
 
 /**
  * Where a conversation lives (spec §2.4): a person's chat, a Task's conversation, or an
- * Initiative's, where the CTO shapes it with the user.
+ * Initiative's, where the CTO shapes it with the user and the Planner plans its Tasks.
  */
 export type Home =
   | { readonly kind: "chat"; readonly roleKey: string }

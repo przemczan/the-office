@@ -65,6 +65,9 @@ export function tabLine(
   tab: ConversationTab,
   workedOn: readonly string[],
 ): string {
+  if (isPlanner && tab.planningThreadElsewhere !== null) {
+    return "Plans this Task in the Initiative's planning Thread";
+  }
   if (isPlanner) return tab.threadId === null ? "Hasn't planned this Task" : "Plans this Task";
   if (workedOn.length > 0) return `Worked on ${workedOn.join(" · ")}`;
   if (tab.consultations.some(({ answeredAt }) => answeredAt === null)) {
@@ -84,4 +87,12 @@ export function emptyThreadWords(
   return workedOn.length > 0
     ? `No messages yet. ${ask}: ${personName} worked on ${workedOn.join(" and ")}.`
     : `No messages yet. ${ask}.`;
+}
+
+/**
+ * The Planner's tab while the Task is planned in its Initiative's planning Thread (Plan the
+ * Initiative), which counts as its planning Thread: nothing is written here meanwhile.
+ */
+export function plannedElsewhereWords(personName: string): string {
+  return `${personName} is planning this Task in the Initiative's planning Thread.`;
 }

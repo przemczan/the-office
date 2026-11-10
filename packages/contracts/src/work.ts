@@ -62,8 +62,22 @@ export const initiativeSchema = z.object({
   endedAt: z.iso.datetime().nullable(),
   /** Set while it is in the Archive, a mark beside its Done or Dropped state. */
   archivedAt: z.iso.datetime().nullable(),
+  /**
+   * Its latest planning Thread with the Planner (POST /initiatives/:id/planning), one of its
+   * Threads; null until it is first planned.
+   */
+  planningThreadId: z.uuid().nullable(),
+  /** Whether its latest planning Thread plans its Tasks in auto mode. */
+  planningAutoMode: z.boolean(),
 });
 export type Initiative = z.infer<typeof initiativeSchema>;
+
+/**
+ * POST /initiatives/:id/planning, Plan the Initiative: whether its Tasks are planned in auto mode,
+ * which also becomes the remembered default.
+ */
+export const initiativePlanningSchema = z.object({ autoMode: z.boolean() });
+export type InitiativePlanningRequest = z.infer<typeof initiativePlanningSchema>;
 
 /**
  * GET /initiatives: every Initiative, archived ones too (the Initiatives board leaves those out),
@@ -221,6 +235,13 @@ export const taskSchema = newTaskSchema.extend({
    * open, The Office confirms what is unconfirmed and marks it Ready. Counts only in Planning.
    */
   autoMode: z.boolean(),
+  /**
+   * The Initiative's planning Thread it is planned in, from its move to Planning there; null when
+   * it is planned in a Thread of its own, or not at all.
+   */
+  initiativePlanningThreadId: z.uuid().nullable(),
+  /** Whether the Planner marked it planned since it last moved to Planning. */
+  markedPlanned: z.boolean(),
   /** The Tasks that must be Done before it can start, in the order added; a Dropped one no longer blocks. */
   blockedBy: z.array(z.uuid()),
   originIdeaId: z.uuid().nullable(),
@@ -719,6 +740,11 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.archived"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.restored"), initiativeId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("initiative.planning-started"),
+    initiativeId: z.uuid(),
+    threadId: z.uuid(),
+  }),
   webEventSchema.extend({ type: z.literal("task.created"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.state-changed"),
@@ -746,6 +772,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.title-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.description-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.tags-changed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.marked-planned"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.dependency-added"),

@@ -85,13 +85,18 @@ export abstract class InitiativeRepository {
 
   /**
    * Applies `change` to one Task as stored, holding the Initiative first and then the Task's row,
-   * so whether it has started and whether the Initiative is shaping are both read as they stay.
+   * so whether it has started and whether the Initiative is shaping are both read as they stay; the
+   * Initiative's Tasks are read in the hold, the Task among them as it was before the change.
    * Saves nothing when `change` returns undefined. Throws InitiativeNotFound as `update` does, and
    * TaskNotFound when there is no such Task.
    */
   abstract changeTask<Event extends DomainEvent>(
     id: string,
     taskId: string,
-    change: (initiative: Initiative, task: Task) => TaskChange<Event> | undefined,
+    change: (
+      initiative: Initiative,
+      task: Task,
+      tasks: readonly Task[],
+    ) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>>;
 }

@@ -820,6 +820,13 @@
       "when": 1794343181791,
       "tag": "0116_task_auto_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1794346284346,
+      "tag": "0117_initiative_planning",
+      "breakpoints": true
     }
   ]
 }

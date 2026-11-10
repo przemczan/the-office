@@ -12,6 +12,8 @@ import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadService } from "./thread-service.js";
 
 const NO_TAB = "This person has no tab on this Task.";
+const PLANNED_IN_THE_INITIATIVE =
+  "This Task is being planned in its Initiative's planning Thread: carry on there.";
 
 /** A Task's conversation: one tab per person, each with their one Thread on it (spec §2.4). */
 @Injectable()
@@ -29,8 +31,11 @@ export class TaskConversations {
 
   async tabs(taskId: string): Promise<readonly ConversationTab[]> {
     const threads = await this.repository.listIn({ kind: "task", taskId });
-    const decisions = await this.consultedDecisions(threads);
-    return conversationTabs(this.taskThreads.planner(), threads, decisions);
+    const [decisions, elsewhere] = await Promise.all([
+      this.consultedDecisions(threads),
+      this.taskThreads.planningThreadElsewhere(taskId),
+    ]);
+    return conversationTabs(this.taskThreads.planner(), threads, decisions, elsewhere);
   }
 
   /** Who is working on each Task right now, in one read for the whole board. */
@@ -64,6 +69,8 @@ export class TaskConversations {
   private async findOrOpen(taskId: string, roleKey: string): Promise<Thread> {
     const tab = (await this.tabs(taskId)).find((candidate) => candidate.roleKey === roleKey);
     if (!tab) throw new ThreadRefused([NO_TAB]);
+    // The Initiative's planning Thread is the Task's planning Thread meanwhile: no second one opens.
+    if (tab.planningThreadElsewhere) throw new ThreadRefused([PLANNED_IN_THE_INITIATIVE]);
     if (tab.threadId !== undefined) return this.existing(tab.threadId);
     const refusal = await this.taskThreads.readyForPersonsThread(taskId);
     if (refusal !== undefined) throw new ThreadRefused([refusal]);

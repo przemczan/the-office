@@ -165,6 +165,13 @@ export class TaskPipelineConfirmed extends DomainEvent {
   }
 }
 
+/** The Planner marked the Task planned (mark_planned), in whichever Thread it is planned in. */
+export class TaskMarkedPlanned extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
 /**
  * Auto mode accepted the Task the Planner marked planned, in one save: it confirmed what was
  * unconfirmed and marked it Ready. Never published itself: its `confirmations`, then its

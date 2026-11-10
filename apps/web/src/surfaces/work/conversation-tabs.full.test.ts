@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   emptyThreadWords,
   firstTab,
+  plannedElsewhereWords,
   stageRunningFor,
   stagesWorkedOn,
   tabAsked,
@@ -10,7 +11,14 @@ import {
 } from "./conversation-tabs.ts";
 
 function tab(roleKey: string, overrides: Partial<ConversationTab> = {}): ConversationTab {
-  return { roleKey, threadId: null, stageRunning: false, consultations: [], ...overrides };
+  return {
+    roleKey,
+    threadId: null,
+    stageRunning: false,
+    consultations: [],
+    planningThreadElsewhere: null,
+    ...overrides,
+  };
 }
 
 function thread(id: string, roleKey: string, stageThread = false): Thread {
@@ -101,6 +109,13 @@ describe("tabLine", () => {
   it("says whether the Planner planned", () => {
     expect(tabLine(true, tab("planner"), [])).toBe("Hasn't planned this Task");
     expect(tabLine(true, tab("planner", { threadId: "own" }), [])).toBe("Plans this Task");
+    const elsewhere = { initiativeId: "initiative", threadId: "initiative-planning" };
+    expect(tabLine(true, tab("planner", { planningThreadElsewhere: elsewhere }), [])).toBe(
+      "Plans this Task in the Initiative's planning Thread",
+    );
+    expect(plannedElsewhereWords("Angela")).toBe(
+      "Angela is planning this Task in the Initiative's planning Thread.",
+    );
   });
 
   it("says what anyone else did", () => {

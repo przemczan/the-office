@@ -145,6 +145,11 @@ export const conversationTabSchema = z.object({
   stageRunning: z.boolean(),
   /** In the order answered; none for anyone who answered no Decision on the Task. */
   consultations: z.array(tabConsultationSchema),
+  /**
+   * On the Planner's tab while the Task is planned in its Initiative's planning Thread, which counts
+   * as its planning Thread: the tab links to it, and no Thread of the Planner's opens on the Task.
+   */
+  planningThreadElsewhere: z.object({ initiativeId: z.uuid(), threadId: z.uuid() }).nullable(),
 });
 export type ConversationTab = z.infer<typeof conversationTabSchema>;
 

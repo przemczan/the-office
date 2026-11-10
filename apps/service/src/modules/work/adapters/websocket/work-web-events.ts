@@ -17,6 +17,7 @@ import {
   InitiativeArchived,
   InitiativeCreated,
   InitiativeOutcomeWritten,
+  InitiativePlanningStarted,
   InitiativeRestored,
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
@@ -41,6 +42,7 @@ import {
   TaskDefinitionOfDoneProposed,
   TaskDefinitionOfDoneSaved,
   TaskHeldAtAllClear,
+  TaskMarkedPlanned,
   TaskPaused,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
@@ -155,6 +157,14 @@ export class WorkWebEvents implements OnModuleInit {
       type: "initiative.restored",
       initiativeId: event.initiativeId,
     }));
+    this.forwarding.forward(
+      InitiativePlanningStarted,
+      (event): WebEventOf<"initiative.planning-started"> => ({
+        type: "initiative.planning-started",
+        initiativeId: event.initiativeId,
+        threadId: event.threadId,
+      }),
+    );
   }
 
   private forwardTaskEvents(): void {
@@ -187,6 +197,10 @@ export class WorkWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(TaskResumed, (event): WebEventOf<"task.resumed"> => ({
       type: "task.resumed",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskMarkedPlanned, (event): WebEventOf<"task.marked-planned"> => ({
+      type: "task.marked-planned",
       taskId: event.taskId,
     }));
     this.forwarding.forward(TaskArchived, (event): WebEventOf<"task.archived"> => ({

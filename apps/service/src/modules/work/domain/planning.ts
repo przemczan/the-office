@@ -114,10 +114,7 @@ function pipelinesSection(task: Task, pipelines: readonly PlanningPipeline[]): s
     const pipeline = pipelines.find((candidate) => candidate.id === id);
     return pipeline ? `${pipeline.name} (${id})` : id;
   };
-  const choices = pipelines.map(
-    ({ id, name, description, stages }) =>
-      `- ${id}: ${name} (${stages.map((stage) => stage.name).join(" → ")}). ${description}`,
-  );
+  const choices = pipelineLibraryLines(pipelines);
   const proposal = task.proposedPipeline
     ? `You proposed ${nameOf(task.proposedPipeline.pipelineId)}: ${task.proposedPipeline.reason} It waits for the user to confirm it.`
     : undefined;
@@ -128,6 +125,14 @@ function pipelinesSection(task: Task, pipelines: readonly PlanningPipeline[]): s
   ]
     .filter((part) => part !== undefined)
     .join("\n\n");
+}
+
+/** The library's Pipelines, one line each: its id, name, Stages and when it fits. */
+export function pipelineLibraryLines(pipelines: readonly PlanningPipeline[]): string[] {
+  return pipelines.map(
+    ({ id, name, description, stages }) =>
+      `- ${id}: ${name} (${stages.map((stage) => stage.name).join(" → ")}). ${description}`,
+  );
 }
 
 /** What marking the Task planned does: in auto mode, The Office accepts it; else the user does. */
@@ -155,7 +160,7 @@ function originSection(idea: Idea | undefined, description: string): string {
   return `## Where it came from\n\nThe Idea "${idea.title}". Its notes:\n\n${notes}`;
 }
 
-function commandLines(commands: Readonly<Record<string, string>>): string[] {
+export function commandLines(commands: Readonly<Record<string, string>>): string[] {
   return Object.entries(commands).map(([key, commandLine]) =>
     commandLine === "" ? `- ${key}: none` : `- ${key}: \`${commandLine}\``,
   );

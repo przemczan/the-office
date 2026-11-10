@@ -153,8 +153,8 @@ export interface InitiativeThreadStart {
 }
 
 /**
- * A Thread on an Initiative, where the CTO shapes it with the user, titled by The Office: its first
- * message is The Office's opening, not the user's.
+ * A Thread on an Initiative, where the CTO shapes it with the user or the Planner plans its Tasks,
+ * titled by The Office: its first message is The Office's opening, not the user's.
  */
 export function startInitiativeThread(
   id: string,

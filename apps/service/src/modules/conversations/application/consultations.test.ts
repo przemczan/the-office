@@ -211,6 +211,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   app.get(TaskThreadSetups).provide({
     planner: "planner",
     readyForPersonsThread: () => Promise.resolve(undefined),
+    planningThreadElsewhere: () => Promise.resolve(undefined),
     setUp: ({ taskId }) =>
       Promise.resolve({
         folder: join(officeData, "worktrees", taskId),

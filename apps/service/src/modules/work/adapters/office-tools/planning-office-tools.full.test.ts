@@ -130,7 +130,7 @@ describe("write_plan", () => {
     const dropped = await call(WRITE_PLAN, { plan: "Anything." });
 
     expect(chat).toEqual({
-      text: "This tool works in a Thread on a Task, and this session is on none.",
+      text: "This tool works in a Thread on a Task or in an Initiative's planning Thread, and this session is in neither.",
       isError: true,
     });
     expect(dropped).toEqual({
@@ -261,7 +261,7 @@ describe("mark_planned", () => {
       isError: true,
     });
     expect(accepted).toEqual({
-      text: "Auto mode accepted the Task: it confirmed what wasn't confirmed yet and marked the Task Ready. Planning is done; end your turn.",
+      text: "Auto mode accepted the Task: it confirmed what wasn't confirmed yet and marked the Task Ready. Its planning is done.",
       isError: false,
     });
     expect(await current()).toMatchObject({ state: "ready", planConfirmed: true });

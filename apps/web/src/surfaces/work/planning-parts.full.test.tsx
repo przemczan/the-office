@@ -23,6 +23,8 @@ const RUNNING_TASK: Task = {
   plan: "",
   pausedByAlarm: false,
   autoMode: false,
+  initiativePlanningThreadId: null,
+  markedPlanned: false,
   planConfirmed: true,
   filesToChange: [],
   estimatedTokens: null,

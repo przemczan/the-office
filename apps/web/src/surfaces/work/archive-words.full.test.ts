@@ -14,6 +14,8 @@ function aTask(id: string, archivedAt: string | null): Task {
     plan: "",
     pausedByAlarm: false,
     autoMode: false,
+    initiativePlanningThreadId: null,
+    markedPlanned: false,
     planConfirmed: false,
     filesToChange: [],
     estimatedTokens: null,

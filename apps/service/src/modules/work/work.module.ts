@@ -37,7 +37,7 @@ import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-re
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { TaskThreadRecords } from "./adapters/conversations/task-thread-records.js";
 import { ProjectProposals } from "./adapters/conversations/project-proposals.js";
-import { ShapingThreadSetup } from "./adapters/conversations/shaping-thread-setup.js";
+import { InitiativeThreadRecords } from "./adapters/conversations/initiative-thread-records.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
 import { OnboardingOfficeTools } from "./adapters/office-tools/onboarding-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
@@ -59,6 +59,7 @@ import { AttachmentService } from "./application/attachment-service.js";
 import { FireAlarmService } from "./application/fire-alarm-service.js";
 import { IdeaRecords } from "./application/idea-records.js";
 import { IdeaService } from "./application/idea-service.js";
+import { InitiativePlanning } from "./application/initiative-planning.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
 import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
@@ -241,6 +242,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         SearchService,
         SavedViewService,
         PlanningService,
+        InitiativePlanning,
         StartConditionsReader,
         DailyCaps,
         StartsSinceReading,
@@ -258,7 +260,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         AttachmentOfficeTools,
         OnboardingOfficeTools,
         TaskThreadRecords,
-        ShapingThreadSetup,
+        InitiativeThreadRecords,
         MentionedWorkRecords,
         OfficeLimitProposals,
         InitiativeProposals,

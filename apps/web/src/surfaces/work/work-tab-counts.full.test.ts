@@ -27,6 +27,8 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     proposedPipeline: null,
     pausedByAlarm: false,
     autoMode: false,
+    initiativePlanningThreadId: null,
+    markedPlanned: false,
     blockedBy: [],
     originIdeaId: null,
     initiativeId: null,
@@ -50,6 +52,8 @@ function anInitiative(id: string, fields: Partial<Initiative> = {}): Initiative 
     createdAt: "2026-10-28T10:00:00.000Z",
     endedAt: null,
     archivedAt: null,
+    planningThreadId: null,
+    planningAutoMode: false,
     ...fields,
   };
 }
