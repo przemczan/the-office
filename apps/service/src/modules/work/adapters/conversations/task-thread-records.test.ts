@@ -60,6 +60,7 @@ describe("a person's Thread on a Task's session", () => {
         "write_definition_of_done",
         "propose_pipeline",
         "write_tags",
+        "mark_planned",
       ]),
     );
   });

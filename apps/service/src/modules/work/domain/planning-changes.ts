@@ -2,8 +2,10 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { THE_USER } from "./author.js";
 import { normalizedFilesToChange } from "./files-to-change.js";
 import type { ProposedPipeline, Task } from "./task.js";
-import { withStateChange, type TaskChange } from "./task-changes.js";
+import type { AutoModeConfirmation } from "./state-change.js";
+import { markTaskReady, withStateChange, type TaskChange } from "./task-changes.js";
 import {
+  TaskAcceptedInAutoMode,
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
   TaskDefinitionOfDoneSaved,
@@ -183,6 +185,70 @@ export function confirmPipeline(
   return {
     task: { ...task, pipelineId, proposedPipeline: undefined },
     event: new TaskPipelineConfirmed(task.id, pipelineId),
+  };
+}
+
+/**
+ * Why the Planner can't mark the Task planned (mark_planned): only in Planning, once the Plan and
+ * the Definition of Done are written.
+ */
+export function markingPlannedProblems(task: Task): string[] {
+  if (task.state !== "planning") {
+    return [
+      `A Task is marked planned while it is in Planning; this one is in ${TASK_STATE_NAMES[task.state]}.`,
+    ];
+  }
+  return [
+    ...(task.plan === "" ? ["Write the Plan first, with write_plan."] : []),
+    ...(task.definitionOfDone.length === 0
+      ? ["Write the Definition of Done first, with write_definition_of_done."]
+      : []),
+  ];
+}
+
+/**
+ * Auto mode accepts a Task marked planned, in one save: it confirms the Plan and the Definition of
+ * Done if they aren't yet, and the proposed Pipeline if there is one (with none, the Task keeps the
+ * Pipeline it follows; that a proposal is in the library is checked by the caller), then marks it
+ * Ready under Ready's usual rules. Its state change names only what auto mode itself confirmed.
+ */
+export function acceptInAutoMode(
+  task: Task,
+  openDecisions: number,
+): TaskChange<TaskAcceptedInAutoMode> {
+  const problems = markingPlannedProblems(task);
+  if (problems.length === 0 && !task.autoMode) {
+    problems.push("This Task isn't planned in auto mode: the user confirms it and marks it Ready.");
+  }
+  refuseWith(problems);
+  const confirmations: TaskAcceptedInAutoMode["confirmations"][number][] = [];
+  const confirmed: AutoModeConfirmation[] = [];
+  let accepted = task;
+  const plan = confirmPlan(accepted);
+  if (plan) {
+    accepted = plan.task;
+    confirmations.push(plan.event);
+    confirmed.push({ part: "plan" });
+  }
+  const definitionOfDone = confirmDefinitionOfDone(accepted);
+  if (definitionOfDone) {
+    accepted = definitionOfDone.task;
+    confirmations.push(definitionOfDone.event);
+    confirmed.push({ part: "definition-of-done" });
+  }
+  const proposal = accepted.proposedPipeline;
+  const pipeline = proposal ? confirmPipeline(accepted, proposal.pipelineId) : undefined;
+  if (pipeline) {
+    accepted = pipeline.task;
+    confirmations.push(pipeline.event);
+    confirmed.push({ part: "pipeline", pipelineId: pipeline.event.pipelineId });
+  }
+  const ready = markTaskReady(accepted, openDecisions, { kind: "auto-mode", confirmed });
+  // Undefined only for a Task Ready already, which the Planning check above refused.
+  if (!ready) throw new TaskRefused(["The Task is Ready already."]);
+  return {
+    ...ready,
+    event: new TaskAcceptedInAutoMode(task.id, confirmations, ready.event),
   };
 }
 

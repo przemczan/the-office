@@ -13,6 +13,11 @@ export abstract class WorkSettings {
 
   abstract changeArchivePeriod(archivePeriod: number): Promise<void>;
 
+  /** Whether Make a plan starts in auto mode: the user's last choice, off until first made. */
+  abstract autoMode(): Promise<boolean>;
+
+  abstract changeAutoMode(autoMode: boolean): Promise<void>;
+
   /** The ticked measures and every engine id's caps. */
   abstract usageSettings(): Promise<UsageSettings>;
 

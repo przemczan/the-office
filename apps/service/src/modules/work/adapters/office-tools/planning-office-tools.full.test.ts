@@ -10,9 +10,15 @@ import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
 import { PLANNING_OFFICE_TOOLS } from "../conversations/task-thread-records.js";
 import type { Task } from "../../domain/task.js";
-import { SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
+import {
+  SessionTasksForTests,
+  TaskDecisionsForTests,
+  WorkSettingsForTests,
+} from "../../ports/work-ports.fixtures.js";
+import { WorkSettings } from "../../ports/work-settings.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import {
+  MARK_PLANNED,
   PROPOSE_PIPELINE,
   WRITE_DEFINITION_OF_DONE,
   WRITE_PLAN,
@@ -37,7 +43,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  work = await startWorkApplication(officeData);
+  // Its own settings: Make a plan saves the auto mode default every file would read.
+  work = await startWorkApplication(officeData, [
+    { provide: WorkSettings, useValue: new WorkSettingsForTests() },
+  ]);
   task = await aTaskInPlanning();
   work.app.get(SessionTasksForTests).tasks.set(SESSION, task.id);
 });
@@ -69,7 +78,13 @@ function current(): Promise<Task> {
 
 it("are among a planning session's Office tools", () => {
   expect(PLANNING_OFFICE_TOOLS).toEqual(
-    expect.arrayContaining([WRITE_PLAN, WRITE_DEFINITION_OF_DONE, PROPOSE_PIPELINE, WRITE_TAGS]),
+    expect.arrayContaining([
+      WRITE_PLAN,
+      WRITE_DEFINITION_OF_DONE,
+      PROPOSE_PIPELINE,
+      WRITE_TAGS,
+      MARK_PLANNED,
+    ]),
   );
 });
 
@@ -197,6 +212,66 @@ describe("write_tags", () => {
 
     expect(result).toEqual({
       text: `The Tag "${"x".repeat(33)}" is longer than 32 characters.`,
+      isError: true,
+    });
+  });
+});
+
+async function writeTheParts(): Promise<void> {
+  await call(WRITE_PLAN, { plan: "Keep the requested path through the sign-in." });
+  await call(WRITE_DEFINITION_OF_DONE, { statements: ["Signing in returns to the page."] });
+}
+
+async function inAutoMode(): Promise<void> {
+  const created = await work.app
+    .get(TaskService)
+    .create(
+      { title: "Remember the sort", projectId: `project-${randomUUID()}`, priority: "normal" },
+      THE_USER,
+    );
+  task = await work.app.get(PlanningService).makeAPlan(created.id, true);
+  work.app.get(SessionTasksForTests).tasks.set(SESSION, task.id);
+}
+
+describe("mark_planned", () => {
+  it("leaves the Task for the user to confirm with auto mode off", async () => {
+    await writeTheParts();
+
+    const result = await call(MARK_PLANNED, {});
+
+    expect(result).toEqual({
+      text: "Marked the Task planned. Auto mode is off: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.",
+      isError: false,
+    });
+    expect(await current()).toMatchObject({ state: "planning", planConfirmed: false });
+  });
+
+  it("has auto mode mark the Task Ready, and tells the Planner to wait while a Decision is open", async () => {
+    await inAutoMode();
+    await writeTheParts();
+    const decisions = work.app.get(TaskDecisionsForTests);
+    decisions.open.set(task.id, 1);
+
+    const waiting = await call(MARK_PLANNED, {});
+    decisions.open.delete(task.id);
+    const accepted = await call(MARK_PLANNED, {});
+
+    expect(waiting).toEqual({
+      text: "The Task isn't marked planned: a Decision on it is still open. End your turn; the user's answer comes as your next message. Carry on from it, then call mark_planned again.",
+      isError: true,
+    });
+    expect(accepted).toEqual({
+      text: "Auto mode accepted the Task: it confirmed what wasn't confirmed yet and marked the Task Ready. Planning is done; end your turn.",
+      isError: false,
+    });
+    expect(await current()).toMatchObject({ state: "ready", planConfirmed: true });
+  });
+
+  it("refuses before the Plan and the Definition of Done are written, with the reasons", async () => {
+    const result = await call(MARK_PLANNED, {});
+
+    expect(result).toEqual({
+      text: "Write the Plan first, with write_plan. Write the Definition of Done first, with write_definition_of_done.",
       isError: true,
     });
   });

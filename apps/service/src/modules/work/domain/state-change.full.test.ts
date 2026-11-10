@@ -21,6 +21,13 @@ const HELD: StateChange = {
   by: { kind: "office", reason: "nobody can work its next Stages." },
 };
 
+const accepted = (by: StateChange["by"]): StateChange => ({
+  from: "planning",
+  to: "ready",
+  at: new Date("2026-10-30T12:00:00.000Z"),
+  by,
+});
+
 describe("a Task's state changes on its record", () => {
   it("lists each from its creation, with who or what made it", () => {
     expect(stateChangeLines([CREATED, STARTED, HELD])).toEqual([
@@ -28,6 +35,27 @@ describe("a Task's state changes on its record", () => {
       "- 2026-10-30T09:00:00.000Z: created in Backlog, by the person in the Role cto",
       "- 2026-10-30T10:00:00.000Z: Ready → In progress, by the queue, as its turn came",
       "- 2026-10-30T11:00:00.000Z: In progress → Paused, by The Office: nobody can work its next Stages.",
+    ]);
+  });
+
+  it("names what auto mode confirmed as it marked the Task Ready, and only that", () => {
+    expect(
+      stateChangeLines([
+        accepted({
+          kind: "auto-mode",
+          confirmed: [
+            { part: "plan" },
+            { part: "definition-of-done" },
+            { part: "pipeline", pipelineId: "full" },
+          ],
+        }),
+        accepted({ kind: "auto-mode", confirmed: [{ part: "definition-of-done" }] }),
+        accepted({ kind: "auto-mode", confirmed: [] }),
+      ]).slice(1),
+    ).toEqual([
+      "- 2026-10-30T12:00:00.000Z: Planning → Ready, by auto mode, which confirmed the Plan, the Definition of Done and the Pipeline full",
+      "- 2026-10-30T12:00:00.000Z: Planning → Ready, by auto mode, which confirmed the Definition of Done",
+      "- 2026-10-30T12:00:00.000Z: Planning → Ready, by auto mode",
     ]);
   });
 

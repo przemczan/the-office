@@ -165,6 +165,23 @@ export class TaskPipelineConfirmed extends DomainEvent {
   }
 }
 
+/**
+ * Auto mode accepted the Task the Planner marked planned, in one save: it confirmed what was
+ * unconfirmed and marked it Ready. Never published itself: its `confirmations`, then its
+ * `stateChanged`, are, so everything reacts as to the user's own clicks.
+ */
+export class TaskAcceptedInAutoMode extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly confirmations: readonly (
+      TaskPlanConfirmed | TaskDefinitionOfDoneConfirmed | TaskPipelineConfirmed
+    )[],
+    readonly stateChanged: TaskStateChanged,
+  ) {
+    super();
+  }
+}
+
 /** Who paused a Task: the user, or the fire alarm (spec §2.8), which the all clear resumes. */
 export type PausedBy = "user" | "alarm";
 

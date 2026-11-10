@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { bigint, check, integer, numeric, pgTable, smallint, text } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  integer,
+  numeric,
+  pgTable,
+  smallint,
+  text,
+} from "drizzle-orm/pg-core";
 import type { EngineId } from "../../../engine/index.js";
 import type { UsageMeasure } from "../../domain/usage-estimate.js";
 
@@ -15,6 +24,8 @@ export const workSettings = pgTable(
     usageMeasures: text("usage_measures").array().$type<UsageMeasure[]>(),
     /** In days. */
     archivePeriod: smallint("archive_period"),
+    /** Make a plan's auto mode, as the user last chose it. */
+    autoMode: boolean("auto_mode"),
   },
   (table) => [
     check("work_settings_one_row", sql`${table.id} = 1`),

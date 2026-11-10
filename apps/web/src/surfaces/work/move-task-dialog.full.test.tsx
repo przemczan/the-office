@@ -25,6 +25,7 @@ const TASK: Task = {
   state: "ready",
   plan: "Keep the path.",
   pausedByAlarm: false,
+  autoMode: false,
   planConfirmed: true,
   filesToChange: [],
   estimatedTokens: null,

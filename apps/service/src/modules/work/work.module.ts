@@ -21,6 +21,7 @@ import {
   AttachmentsController,
 } from "./adapters/http/attachments.controller.js";
 import { ArchivePeriodController } from "./adapters/http/archive-period.controller.js";
+import { AutoModeController } from "./adapters/http/auto-mode.controller.js";
 import { FireAlarmController } from "./adapters/http/fire-alarm.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
@@ -185,6 +186,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         AttachmentsController,
         OfficeLimitsController,
         ArchivePeriodController,
+        AutoModeController,
         OnboardingsController,
         SearchController,
         SavedViewsController,

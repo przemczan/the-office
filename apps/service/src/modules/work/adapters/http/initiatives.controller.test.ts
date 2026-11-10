@@ -145,7 +145,7 @@ describe("a Task in Shaping", () => {
     expect(await reasonsFor(task, "POST", "/planning")).toEqual([
       `A Task in Shaping can't move to Planning: ${CONFIRM_FIRST}`,
     ]);
-    expect(await reasonsFor(task, "POST", "/make-a-plan")).toEqual([
+    expect(await reasonsFor(task, "POST", "/make-a-plan", { autoMode: false })).toEqual([
       `A Task in Shaping can't move to Planning: ${CONFIRM_FIRST}`,
     ]);
     expect((await reasonsFor(task, "POST", "/ready"))[0]).toBe(

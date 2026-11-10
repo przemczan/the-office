@@ -13,6 +13,7 @@ function aTask(id: string, archivedAt: string | null): Task {
     state: "done",
     plan: "",
     pausedByAlarm: false,
+    autoMode: false,
     planConfirmed: false,
     filesToChange: [],
     estimatedTokens: null,

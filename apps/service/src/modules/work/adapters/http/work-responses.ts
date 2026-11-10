@@ -104,6 +104,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
     pipelineId: task.pipelineId,
     proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
+    autoMode: task.autoMode,
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     initiativeId: task.initiativeId ?? null,

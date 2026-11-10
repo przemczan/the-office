@@ -67,6 +67,12 @@ export interface Task {
   /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
   readonly proposedPipeline: ProposedPipeline | undefined;
   /**
+   * Whether it is planned in auto mode: chosen at Make a plan, off with Plan with…, and counted only
+   * while it is in Planning. Once the Planner marks it planned with no Decision open, The Office
+   * confirms what is unconfirmed and marks it Ready (`acceptInAutoMode`).
+   */
+  readonly autoMode: boolean;
+  /**
    * The Role whose person's Task limit it counts against from Start on: the Role of its Pipeline's
    * first Agent Stage, as the click-through counts; undefined before Start or without one.
    */

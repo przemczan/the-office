@@ -1,15 +1,16 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { PlanningService } from "../../application/planning-service.js";
+import { PlanningService, type MarkedPlanned } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { SessionTasks } from "../../ports/session-tasks.js";
-import { answered, WorkToolRefused } from "./work-tool-answers.js";
+import { answered, WorkToolRefused, type OfficeToolResult } from "./work-tool-answers.js";
 
 export const WRITE_PLAN = "write_plan";
 export const WRITE_DEFINITION_OF_DONE = "write_definition_of_done";
 export const PROPOSE_PIPELINE = "propose_pipeline";
 export const WRITE_TAGS = "write_tags";
+export const MARK_PLANNED = "mark_planned";
 
 const PROPOSED =
   "It shows on the Task as not confirmed until the user confirms it; end your turn when you want them to look at it.";
@@ -33,6 +34,7 @@ export class PlanningOfficeTools implements OnModuleInit {
     this.registerWriteDefinitionOfDone();
     this.registerProposePipeline();
     this.registerWriteTags();
+    this.registerMarkPlanned();
   }
 
   private registerWritePlan(): void {
@@ -126,6 +128,20 @@ export class PlanningOfficeTools implements OnModuleInit {
     });
   }
 
+  private registerMarkPlanned(): void {
+    this.registry.register({
+      name: MARK_PLANNED,
+      description:
+        "Says this Task is planned: call it once the Plan, the Definition of Done and the Pipeline are written and nothing is left to ask the user. In auto mode, The Office then confirms them and marks the Task Ready; otherwise the user does. Refused outside Planning, or before the Plan and the Definition of Done are written.",
+      input: z.object({}),
+      run: (_input, { sessionId }) =>
+        answered(async () => {
+          const marked = await this.planning.markPlanned(await this.taskIn(sessionId));
+          return markedPlannedWords(marked);
+        }),
+    });
+  }
+
   private async taskIn(sessionId: string): Promise<string> {
     const taskId = await this.sessionTasks.taskInSession(sessionId);
     if (taskId === undefined) {
@@ -134,5 +150,19 @@ export class PlanningOfficeTools implements OnModuleInit {
       );
     }
     return taskId;
+  }
+}
+
+function markedPlannedWords(marked: MarkedPlanned): string | OfficeToolResult {
+  switch (marked.outcome) {
+    case "for-the-user":
+      return "Marked the Task planned. Auto mode is off: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.";
+    case "waiting-for-a-decision":
+      return {
+        text: `The Task isn't marked planned: ${marked.openDecisions === 1 ? "a Decision on it is" : `${marked.openDecisions} Decisions on it are`} still open. End your turn; the user's answer comes as your next message. Carry on from it, then call ${MARK_PLANNED} again.`,
+        isError: true,
+      };
+    case "ready":
+      return "Auto mode accepted the Task: it confirmed what wasn't confirmed yet and marked the Task Ready. Planning is done; end your turn.";
   }
 }

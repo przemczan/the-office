@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   archivedInitiativesPageSchema,
+  autoModeSettingSchema,
   attachmentListSchema,
   attachmentSchema,
   ideaListSchema,
@@ -72,6 +73,7 @@ const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
 const ARCHIVE_PERIOD = ["settings", "archive-period"] as const;
 const USAGE_SETTINGS = ["settings", "usage"] as const;
+const AUTO_MODE = ["settings", "auto-mode"] as const;
 const SAVED_VIEWS = ["saved-views"] as const;
 /** The fire alarm and the Threads it is lifted for. */
 export const FIRE_ALARM = ["fire-alarm"] as const;
@@ -164,6 +166,13 @@ export const archivePeriodQuery = () =>
 export function changeArchivePeriod(archivePeriod: number): Promise<ArchivePeriod> {
   return sendToApi("PUT", "/settings/archive-period", { archivePeriod }, archivePeriodSchema);
 }
+
+/** Whether Make a plan starts in auto mode: the user's last choice there, off until first made. */
+export const autoModeQuery = () =>
+  queryOptions({
+    queryKey: AUTO_MODE,
+    queryFn: ({ signal }) => getFromApi("/settings/auto-mode", autoModeSettingSchema, signal),
+  });
 
 /** Settings › Office limits: the ticked measures and every engine id's caps. */
 export const usageSettingsQuery = () =>
@@ -402,9 +411,12 @@ export function planTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/planning`, {}, taskSchema);
 }
 
-/** Make a plan: the Task moves to Planning, and the Planner starts at once from its record. */
-export function makeAPlan(id: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/make-a-plan`, {}, taskSchema);
+/**
+ * Make a plan: the Task moves to Planning, in auto mode or not, and the Planner starts at once
+ * from its record. The choice becomes the remembered default.
+ */
+export function makeAPlan(id: string, autoMode: boolean): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/make-a-plan`, { autoMode }, taskSchema);
 }
 
 /**
