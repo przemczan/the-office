@@ -205,5 +205,32 @@ describe("the Initiative's planning Thread", () => {
     expect(brief).toContain("- test: `npm test`\n- lint: none");
     expect(brief).toContain("- full: Full (Implement → Review). For most work.");
     expect(brief).toContain("## Auto mode\n\nOn:");
+    expect(brief).not.toContain("## Being planned here");
+  });
+
+  it("names the Tasks this Thread moved to Planning and hasn't marked planned, for a fresh session", () => {
+    const inThisThread = { state: "planning", initiativePlanningThreadId: THREAD } as const;
+    const brief = initiativePlanningBrief({
+      initiative: planning,
+      record: "Initiative: Usage exports",
+      tasks: [
+        { ...first, ...inThisThread },
+        { ...second, ...inThisThread, markedPlanned: true },
+        aTask({ id: "task-c", initiativeId: planning.id, ...inThisThread }),
+        aTask({
+          id: "task-d",
+          initiativeId: planning.id,
+          state: "planning",
+          initiativePlanningThreadId: "an-earlier-thread",
+        }),
+      ],
+      projects: [],
+      pipelines: [],
+    });
+    const section = brief.slice(brief.indexOf("## Being planned here"));
+    expect(section).toContain('- "Export API" (Task task-a)');
+    expect(section).toContain("(Task task-c)");
+    expect(section).not.toContain("task-b");
+    expect(section).not.toContain("task-d");
   });
 });

@@ -313,9 +313,8 @@ describe("a Task planned in its Initiative's planning Thread", () => {
       initiativeId: initiative.id,
       threadId: planning.planningThreadId,
     });
-    await expect(taskThreads.readyForPersonsThread(first.id)).resolves.toBe(
-      "This Task is being planned in its Initiative's planning Thread, which counts as its planning Thread: carry on there.",
-    );
+    // Only the Planner's tab is refused (TaskConversations); anyone else may still be asked.
+    await expect(taskThreads.readyForPersonsThread(first.id)).resolves.toBeUndefined();
     // Make a plan leaves it in Planning there, opening no Thread of its own.
     const plannedAgain = taskSchema.parse(
       await postOk(`/tasks/${first.id}/make-a-plan`, { autoMode: false }),

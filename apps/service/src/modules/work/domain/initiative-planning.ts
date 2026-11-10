@@ -185,10 +185,13 @@ export function initiativePlanningBrief({
     "You are planning an Initiative's Tasks, in its planning Thread.",
     record,
     toPlanSection(tasks, projects),
+    unfinishedSection(initiative, tasks),
     projectsSection(projects),
     `## The Pipelines\n\nPropose the one each Task's Definition of Done needs with propose_pipeline:\n\n${pipelineLibraryLines(pipelines).join("\n")}`,
     autoModeSection(initiative.planningAutoMode),
-  ].join("\n\n");
+  ]
+    .filter((section) => section !== undefined)
+    .join("\n\n");
 }
 
 function toPlanSection(
@@ -215,6 +218,21 @@ function toPlanSection(
     });
   if (lines.length === 0) return "## The Tasks to plan\n\nNone of its Tasks is in Backlog now.";
   return `## The Tasks to plan\n\nIts Tasks in Backlog, each with the Tasks inside the Initiative it waits for:\n\n${lines.join("\n")}`;
+}
+
+/**
+ * The Tasks this Thread moved to Planning and hasn't marked planned, for a fresh session to carry
+ * on with: the earlier session's context, and with it how far it got, is gone.
+ */
+function unfinishedSection(initiative: Initiative, tasks: readonly Task[]): string | undefined {
+  const unfinished = tasks.filter(
+    (task) =>
+      isBeingPlannedInItsInitiative(task) &&
+      task.initiativePlanningThreadId === initiative.planningThreadId,
+  );
+  if (unfinished.length === 0) return undefined;
+  const lines = unfinished.map(({ id, title }) => `- "${title}" (Task ${id})`);
+  return `## Being planned here\n\nThis Thread moved these Tasks to Planning and hasn't marked them planned yet: read each with read_task, finish what its parts lack and call mark_planned for it.\n\n${lines.join("\n")}`;
 }
 
 function projectsSection(projects: readonly InitiativePlanningProject[]): string {

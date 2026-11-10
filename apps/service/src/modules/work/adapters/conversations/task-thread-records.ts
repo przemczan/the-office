@@ -80,8 +80,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     const closed = CLOSED_TASK_CONVERSATION_WORDS[task.state];
     if (closed !== undefined) return closed;
     if (task.state === "backlog") return NOTHING_TO_ASK_IN_BACKLOG;
-    if (plannedInItsInitiative(task)) return PLANNED_IN_THE_INITIATIVE;
-    // A Task marked Ready from Backlog has no worktree yet.
+    // A Task marked Ready from Backlog, or planned in its Initiative's Thread, has no worktree yet.
     await this.worktrees.open(task.projectId, task.id);
     // A Move landing meanwhile would leave the Thread in a Project where the Task has no worktree.
     if (!(await this.tasks.isInProject(task.id, task.projectId))) return MOVED_AS_IT_OPENED;
@@ -174,9 +173,6 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
 
 const NOTHING_TO_ASK_IN_BACKLOG =
   "This Task is in Backlog: nothing is written here until Make a plan or Plan with… starts Planning.";
-
-const PLANNED_IN_THE_INITIATIVE =
-  "This Task is being planned in its Initiative's planning Thread, which counts as its planning Thread: carry on there.";
 
 /**
  * In Planning in its Initiative's planning Thread (Plan the Initiative): it has no planning Thread
