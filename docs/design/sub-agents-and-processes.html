@@ -2296,7 +2296,8 @@
         agent: "by the Agent",
         interrupt: "when the turn was interrupted",
         "session-end": "with the session",
-        restart: "when The Office restarted",
+        // After a restart nothing sees the session, and a command may still run: the words don't claim it stopped.
+        restart: "· ended when The Office restarted",
       };
       /* An item's state in the list: the state, then what the user asks next (how long, how it ended). */
       function stateLine(item) {
@@ -2396,7 +2397,11 @@
           const why = item.kind === "process" ? `Failed with exit code ${item.exitCode} at ${clock(item.endedAt)}.` : `Failed at ${clock(item.endedAt)}. ${item.ending.reason}`;
           return `<div class="ending failed">${ICON.alert(14)}<span>${esc(why)}</span></div>`;
         }
-        return `<div class="ending">${ICON.stop(14)}<span>Stopped ${STOPPED_BY[item.ending.by]} at ${clock(item.endedAt)}${item.ending.by === "agent" ? " (TaskStop)" : ""}.</span></div>`;
+        const words =
+          item.ending.by === "restart"
+            ? `Ended when The Office restarted, at ${clock(item.endedAt)}. It may still be running on the machine.`
+            : `Stopped ${STOPPED_BY[item.ending.by]} at ${clock(item.endedAt)}${item.ending.by === "agent" ? " (TaskStop)" : ""}.`;
+        return `<div class="ending">${ICON.stop(14)}<span>${words}</span></div>`;
       }
 
       function processDetail(item) {
@@ -2668,17 +2673,17 @@
           </div></div>
           <div><h2>A page opened late catches up</h2>
             <ol>
-              <li>The page subscribes to the Thread's events first and holds what arrives, say output chunks 41 to 44.</li>
+              <li>The page subscribes to the output first, scoped to its Thread, and holds what arrives, say output chunks 41 to 44.</li>
               <li>It reads the output: the read answers up to chunk 42.</li>
               <li>It shows the read, then the held chunks after 42: 43 and 44. Chunks 41 and 42 are already in the read, so they are dropped: nothing shows twice.</li>
               <li>Live chunks follow in order. One that skips ahead (46 after 44), or a reconnect, reads again from 44 (<code>?after=44</code>): nothing is missed.</li>
             </ol>
-            <p>The list works the same way: a start or an end that arrives while it is read makes the page read it again. The output and the messages stream only to a page with the view open.</p>
+            <p>The list needs no catch-up: each start, change and end carries the whole item, which the page puts in its list by <code>callId</code>, and a state never goes back from ended to Running, so they apply in any order. The output and the messages stream only to a page with the view open, and only that Thread's.</p>
           </div>
           <div><h2>What the view settles</h2>
             <ul>
               <li><b>Order:</b> Running on top, then Ended, the one that ended last first. A press on the whole item picks it.</li>
-              <li><b>States:</b> Running (green, live dot), Finished (check), Failed (red, with the exit code or the reason), Stopped (grey, by whom: the Agent, an interrupt, the session's end, a restart).</li>
+              <li><b>States:</b> Running (green, live dot), Finished (check), Failed (red, with the exit code or the reason), Stopped (grey, by whom: the Agent, an interrupt, the session's end; or "ended when The Office restarted", which claims no stop).</li>
               <li><b>A Sub-agent:</b> its kind, whether it runs in the background, its prompt's first lines with Read it in full, its messages and tool calls in Rows with Details, and what it reported back.</li>
               <li><b>A Process:</b> its description, the command whole and wrapping, its output following the end until scrolled up, how it ended, and the earlier output not kept past 256 KB.</li>
               <li><b>Read-only:</b> no Stop anywhere. Stopping one from here is later work.</li>
