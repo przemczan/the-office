@@ -87,8 +87,12 @@ The user keeping their edit of the part. It never confirms: a change leaves the 
 _Avoid_: Save and confirm
 
 **Confirm** (a Plan or a Definition of Done):
-The user taking the part as it reads, the only way it becomes confirmed; a part not confirmed yet shows **Not confirmed**, whoever wrote it.
+The user taking the part as it reads, the user's only way to confirm it (Auto mode confirms on their behalf); a part not confirmed yet shows **Not confirmed**, whoever wrote it.
 _Avoid_: Proposed (for a part's badge), approve
+
+**Auto mode** (planning a Task):
+The choice, made with a switch beside Make a plan, that once the Planner marks the Task planned (`mark_planned`) with no Decision on it open, The Office confirms the Plan, the Definition of Done and the proposed Pipeline on the user's behalf and marks the Task Ready; the last choice is the remembered default, an Office setting, off until first made.
+_Avoid_: Autopilot, auto-accept, autonomous planning
 
 **Tag**:
 A free-form word on a Task, set by the user or the Planner, to find Tasks by.

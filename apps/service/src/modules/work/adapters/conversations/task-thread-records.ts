@@ -30,6 +30,7 @@ export const PLANNING_OFFICE_TOOLS = [
   "write_definition_of_done",
   "propose_pipeline",
   "write_tags",
+  "mark_planned",
   OPEN_DECISION_TOOL,
 ] as const;
 

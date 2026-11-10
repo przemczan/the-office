@@ -22,6 +22,7 @@ const MENTIONED_TASK: Task = {
   state: "backlog",
   plan: "",
   pausedByAlarm: false,
+  autoMode: false,
   planConfirmed: false,
   filesToChange: [],
   estimatedTokens: null,

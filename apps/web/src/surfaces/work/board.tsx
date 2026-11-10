@@ -23,7 +23,7 @@ import { boardGroups, groupKeyOf, type BoardGroup } from "./board-groups.ts";
 import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
-import { MakeAPlanButton } from "./planning-actions.tsx";
+import { PlanOnCardButton, planningNoteWords } from "./planning-actions.tsx";
 import { QueuedCardMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters, useBoardGrouping } from "./use-board-filters.ts";
@@ -396,12 +396,12 @@ function BlockedMark({ blockers }: { readonly blockers: readonly Task[] }): Reac
 function footOf(task: Task, planner: string | undefined, waiting: boolean): ReactNode {
   switch (task.state) {
     case "backlog":
-      return planner && <MakeAPlanButton task={task} label="Plan" variant="secondary" size="sm" />;
+      return planner && <PlanOnCardButton task={task} />;
     case "planning":
       return waiting ? (
         <TaskStateBadge state="waiting-on-you" />
       ) : (
-        <span className="board-card-note">Planning with {planner ?? "the Planner"}</span>
+        <span className="board-card-note">{planningNoteWords(task, planner)}</span>
       );
     case "ready":
     case "in-progress":

@@ -14,7 +14,7 @@ import {
 } from "@the-office/contracts";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAKE_A_PLAN_OPENING } from "../../domain/planning.js";
+import { makeAPlanOpening } from "../../domain/planning.js";
 import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { FireAlarmService } from "../../application/fire-alarm-service.js";
@@ -404,14 +404,16 @@ describe("POST /api/tasks/:id/make-a-plan", () => {
     const task = await create({ description: "Land on the page I came from." });
     work.published.length = 0;
 
-    const response = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`);
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, {
+      autoMode: false,
+    });
 
     expect(response.status).toBe(200);
     expect(taskSchema.parse(await response.json()).state).toBe("planning");
     expect(work.app.get(ProjectWorktreesForTests).opened).toContain(`${projectId}/${task.id}`);
     const threads = work.app.get(TaskThreadsForTests);
     expect(threads.started).toEqual([
-      { taskId: task.id, roleKey: "planner", title: "Planning", opening: MAKE_A_PLAN_OPENING },
+      { taskId: task.id, roleKey: "planner", title: "Planning", opening: makeAPlanOpening(false) },
     ]);
     expect(threads.opened).toEqual([]);
     expect(webEventsOf(work)).toEqual([
@@ -423,7 +425,9 @@ describe("POST /api/tasks/:id/make-a-plan", () => {
     const task = await create();
     work.app.get(TaskThreadsForTests).failure = new Error("The engine is signed out.");
 
-    const response = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`);
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, {
+      autoMode: false,
+    });
 
     expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
       "The planning Thread couldn't be opened: The engine is signed out.",

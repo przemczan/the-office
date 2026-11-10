@@ -41,6 +41,18 @@ export class PostgresWorkSettings extends WorkSettings {
       .onConflictDoUpdate({ target: workSettings.id, set: { archivePeriod } });
   }
 
+  async autoMode(): Promise<boolean> {
+    const [row] = await this.database.select().from(workSettings).limit(1);
+    return row?.autoMode ?? false;
+  }
+
+  async changeAutoMode(autoMode: boolean): Promise<void> {
+    await this.database
+      .insert(workSettings)
+      .values({ autoMode })
+      .onConflictDoUpdate({ target: workSettings.id, set: { autoMode } });
+  }
+
   async usageSettings(): Promise<UsageSettings> {
     const [row] = await this.database.select().from(workSettings).limit(1);
     const caps = await this.database.select().from(engineCaps);

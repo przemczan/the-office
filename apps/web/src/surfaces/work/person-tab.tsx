@@ -18,7 +18,7 @@ import { clockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { ItsInitiativeLink } from "./its-initiative-link.tsx";
 import { WAITS_FOR_ITS_INITIATIVE } from "./needs-you-words.ts";
-import { MakeAPlanButton } from "./planning-actions.tsx";
+import { MakeAPlan, planningNoteWords } from "./planning-actions.tsx";
 
 /** What a person's tab reads: their Consultations, then their Thread on the Task. */
 export function TabLog({
@@ -39,8 +39,17 @@ export function TabLog({
   readonly onShown: () => void;
 }): ReactNode {
   useEffect(onShown, [onShown]);
+  const planner = usePlanner();
+  const plansInAutoMode =
+    task.state === "planning" && task.autoMode && tab.roleKey === planner?.key;
   return (
     <>
+      {plansInAutoMode && (
+        <p className="task-quiet planning-auto-mode-note">
+          {planningNoteWords(task, personName)}: once the plan is written, the Task is marked Ready
+          without your Confirm.
+        </p>
+      )}
       {tab.consultations.map((consultation) => (
         <TabConsultationBlock
           key={consultation.threadId}
@@ -102,7 +111,7 @@ function NoThreadYet({
       {planner.card.name} plans from the title
       {task.description !== "" && " and the Description"}, so there is nothing more to write.
       <div className="task-conversation-start">
-        <MakeAPlanButton task={task} />
+        <MakeAPlan task={task} />
       </div>
       <p className="task-quiet">
         Or Plan with {planner.card.name} in the head, to talk it through first.

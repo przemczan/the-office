@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { THE_USER } from "./author.js";
 import {
+  acceptInAutoMode,
   confirmDefinitionOfDone,
   confirmPipeline,
   confirmPlan,
@@ -359,5 +360,74 @@ describe("confirmPipeline", () => {
         "A Task in Shaping keeps its Pipeline as it is: confirm its Initiative first.",
       ]),
     );
+  });
+});
+
+describe("acceptInAutoMode", () => {
+  const PROPOSED = aPlannedTask({
+    autoMode: true,
+    planConfirmed: false,
+    definitionOfDoneConfirmed: false,
+    proposedPipeline: { pipelineId: "document", reason: "A report." },
+  });
+
+  it("confirms every part, the proposed Pipeline among them, and marks the Task Ready by auto mode", () => {
+    const change = acceptInAutoMode(PROPOSED, 0);
+
+    expect(change.task).toMatchObject({
+      state: "ready",
+      planConfirmed: true,
+      definitionOfDoneConfirmed: true,
+      pipelineId: "document",
+      proposedPipeline: undefined,
+    });
+    expect(change.event.confirmations.map((event) => event.constructor)).toEqual([
+      TaskPlanConfirmed,
+      TaskDefinitionOfDoneConfirmed,
+      TaskPipelineConfirmed,
+    ]);
+    expect(change.event.stateChanged).toMatchObject({ from: "planning", to: "ready" });
+    expect(change.stateChange?.by).toEqual({
+      kind: "auto-mode",
+      confirmed: [
+        { part: "plan" },
+        { part: "definition-of-done" },
+        { part: "pipeline", pipelineId: "document" },
+      ],
+    });
+  });
+
+  it("confirms only what isn't confirmed yet, and keeps the Pipeline the Task follows with none proposed", () => {
+    const change = acceptInAutoMode(
+      aPlannedTask({ autoMode: true, definitionOfDoneConfirmed: false }),
+      0,
+    );
+
+    expect(change.task).toMatchObject({ state: "ready", pipelineId: "full" });
+    expect(change.event.confirmations).toHaveLength(1);
+    expect(change.stateChange?.by).toEqual({
+      kind: "auto-mode",
+      confirmed: [{ part: "definition-of-done" }],
+    });
+  });
+
+  it("refuses outside Planning, without both parts, outside auto mode and with a Decision open", () => {
+    expect(() => acceptInAutoMode({ ...PROPOSED, state: "backlog" }, 0)).toThrow(
+      new TaskRefused([
+        "A Task is marked planned while it is in Planning; this one is in Backlog.",
+      ]),
+    );
+    expect(() => acceptInAutoMode({ ...PROPOSED, plan: "", definitionOfDone: [] }, 0)).toThrow(
+      new TaskRefused([
+        "Write the Plan first, with write_plan.",
+        "Write the Definition of Done first, with write_definition_of_done.",
+      ]),
+    );
+    expect(() => acceptInAutoMode({ ...PROPOSED, autoMode: false }, 0)).toThrow(
+      new TaskRefused([
+        "This Task isn't planned in auto mode: the user confirms it and marks it Ready.",
+      ]),
+    );
+    expect(() => acceptInAutoMode(PROPOSED, 1)).toThrow(TaskRefused);
   });
 });

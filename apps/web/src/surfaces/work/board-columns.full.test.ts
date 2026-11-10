@@ -13,6 +13,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     state: "ready",
     plan: "",
     pausedByAlarm: false,
+    autoMode: false,
     planConfirmed: true,
     filesToChange: [],
     estimatedTokens: null,

@@ -1,12 +1,13 @@
 import type { Task } from "@the-office/contracts";
-import { Button, Icon, type ButtonProps } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { Button, Icon, Switch, Tooltip } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import {
   useMakingAPlan,
   useMarkingReady,
   usePlanning,
   useReadyConditionsMet,
+  useRememberedAutoMode,
 } from "./use-planning.ts";
 
 /**
@@ -30,35 +31,66 @@ export function PlanButton({ task }: { readonly task: Task }): ReactNode {
 }
 
 /**
- * Make a plan on a Task in Backlog, or `label` where the place says less: the Planner plans from
- * the title and the Description at once. Nothing while nobody is the Planner, as planning would be
- * refused.
+ * Make a plan on a Task in Backlog, beside its Auto mode switch: the Planner plans from the title
+ * and the Description at once. The switch starts at the remembered default, and the choice made
+ * with Make a plan becomes it. Nothing while nobody is the Planner, as planning would be refused.
  */
-export function MakeAPlanButton({
-  task,
-  label = "Make a plan",
-  variant = "primary",
-  size,
-}: {
-  readonly task: Task;
-  readonly label?: string;
-  readonly variant?: ButtonProps["variant"];
-  readonly size?: ButtonProps["size"];
-}): ReactNode {
+export function MakeAPlan({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner();
   const making = useMakingAPlan();
+  const remembered = useRememberedAutoMode();
+  const [chosen, setChosen] = useState<boolean>();
+  if (!planner || task.state !== "backlog") return null;
+  const autoMode = chosen ?? remembered;
+  return (
+    <div className="make-a-plan">
+      <Button
+        variant="primary"
+        iconLeft={<Icon name="map" size={14} />}
+        loading={making.isPending}
+        onClick={() => making.mutate({ task, autoMode })}
+      >
+        Make a plan
+      </Button>
+      <Switch checked={autoMode} onChange={setChosen} label="Auto mode" />
+    </div>
+  );
+}
+
+/**
+ * The board card's Plan: as Make a plan, in the remembered auto mode, which its tooltip names, as
+ * a card has no room for the switch.
+ */
+export function PlanOnCardButton({ task }: { readonly task: Task }): ReactNode {
+  const planner = usePlanner();
+  const making = useMakingAPlan();
+  const autoMode = useRememberedAutoMode();
   if (!planner || task.state !== "backlog") return null;
   return (
-    <Button
-      variant={variant}
-      size={size}
-      iconLeft={<Icon name="map" size={14} />}
-      loading={making.isPending}
-      onClick={() => making.mutate(task)}
+    <Tooltip
+      content={
+        autoMode
+          ? `${planner.card.name} makes a plan in auto mode: the Task is marked Ready without your Confirm.`
+          : `${planner.card.name} makes a plan for you to confirm. Auto mode is off.`
+      }
     >
-      {label}
-    </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        iconLeft={<Icon name="map" size={14} />}
+        loading={making.isPending}
+        onClick={() => making.mutate({ task, autoMode })}
+      >
+        Plan
+      </Button>
+    </Tooltip>
   );
+}
+
+/** "Planning with Angela", and "in auto mode" when the Task won't wait for the user's Confirm. */
+export function planningNoteWords(task: Task, planner: string | undefined): string {
+  const planning = `Planning with ${planner ?? "the Planner"}`;
+  return task.autoMode ? `${planning}, in auto mode` : planning;
 }
 
 /**

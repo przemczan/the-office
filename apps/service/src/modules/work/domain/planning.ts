@@ -13,16 +13,19 @@ export const PLANNING_THREAD_TITLE = "Planning";
 
 /**
  * What Make a plan asks the Planner first: the user has written nothing, so the Planner plans
- * from the record in the Brief (spec §2.1).
+ * from the record in the Brief (spec §2.1). In auto mode the Planner marks the Task planned
+ * rather than leave the parts for the user to confirm.
  */
-export const MAKE_A_PLAN_OPENING =
-  "Plan this Task from its title and its Description in your Brief, and from its Plan and Definition of Done when your Brief has them: rework those rather than start over. The user has nothing more to add yet. Read what you need in the worktree, then write the Plan, the Definition of Done and the Pipeline that fits, for the user to confirm. Open a Decision only for a choice that is the user's to make.";
+export function makeAPlanOpening(autoMode: boolean): string {
+  const then = autoMode ? "then mark it planned" : "for the user to confirm";
+  return `Plan this Task from its title and its Description in your Brief, and from its Plan and Definition of Done when your Brief has them: rework those rather than start over. The user has nothing more to add yet. Read what you need in the worktree, then write the Plan, the Definition of Done and the Pipeline that fits, ${then}. Open a Decision only for a choice that is the user's to make.`;
+}
 
 /**
  * What the Planner does in a Task's planning Thread, after their card's instructions. The same for
  * every planning session, so it stays in the cached prefix.
  */
-export const PLANNING_INSTRUCTIONS = `In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file, and ${READ_ONLY_SHELL_RULE}. With The Office's tools you read its records of Projects, people, Tasks, Ideas and Initiatives, the Task's and any other, and any of their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size. Ask the user what you need to know, then agree with them on the Plan (how it will be done, and the files and folders it expects to change) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. Write each onto the Task as you agree on it, with write_plan (its files to change too, so Start can warn of another Task in progress changing the same), write_definition_of_done and propose_pipeline: each shows as proposed until the user confirms or edits it, and once the Plan and the Definition of Done are confirmed the user marks the Task Ready. Give the Task a few Tags to find it by with write_tags, reusing Tags already in use where they fit; they apply at once. The user may edit them on the Task, so read it with read_task before you rewrite one. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.`;
+export const PLANNING_INSTRUCTIONS = `In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file, and ${READ_ONLY_SHELL_RULE}. With The Office's tools you read its records of Projects, people, Tasks, Ideas and Initiatives, the Task's and any other, and any of their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size. Ask the user what you need to know, then agree with them on the Plan (how it will be done, and the files and folders it expects to change) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. Write each onto the Task as you agree on it, with write_plan (its files to change too, so Start can warn of another Task in progress changing the same), write_definition_of_done and propose_pipeline: each shows as proposed until the user confirms or edits it, and once the Plan and the Definition of Done are confirmed the user marks the Task Ready. Once the Plan, the Definition of Done and the Pipeline are written and nothing is left to ask, say so with mark_planned; your Brief says what follows. Give the Task a few Tags to find it by with write_tags, reusing Tags already in use where they fit; they apply at once. The user may edit them on the Task, so read it with read_task before you rewrite one. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.`;
 
 /** The Project as a planning Brief names it. */
 export interface PlanningProject {
@@ -76,6 +79,7 @@ export function planningBrief({
     attachmentsSection(attachments),
     `## The Project's commands\n\n${commandLines(project.commands).join("\n")}`,
     pipelinesSection(task, pipelines),
+    autoModeSection(task),
     ...planSections(task),
   ]
     .filter((section) => section !== undefined)
@@ -126,9 +130,19 @@ function pipelinesSection(task: Task, pipelines: readonly PlanningPipeline[]): s
     .join("\n\n");
 }
 
-/** Whether a part of the Task is the user's word yet, as an Agent reads it. */
+/** What marking the Task planned does: in auto mode, The Office accepts it; else the user does. */
+function autoModeSection({ autoMode }: Task): string {
+  return autoMode
+    ? "## Auto mode\n\nOn: once you mark the Task planned with mark_planned and no Decision on it is open, The Office confirms the Plan, the Definition of Done and the proposed Pipeline and marks the Task Ready."
+    : "## Auto mode\n\nOff: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.";
+}
+
+/**
+ * Whether a part of the Task is confirmed yet, as an Agent reads it: by the user or by auto mode,
+ * which the Task's state changes say.
+ */
 export function confirmationWords(confirmed: boolean): string {
-  return confirmed ? "confirmed by the user" : "not yet confirmed by the user";
+  return confirmed ? "confirmed" : "not yet confirmed";
 }
 
 /** The Idea's notes are left out when they are the Description still, which the Brief has already. */

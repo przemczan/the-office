@@ -86,6 +86,7 @@ export function createTask(
     definitionOfDoneConfirmed: false,
     pipelineId: setting.pipelineId,
     proposedPipeline: undefined,
+    autoMode: false,
     personRole: undefined,
     pausedByAlarm: false,
     madeFor: undefined,
@@ -125,6 +126,19 @@ export function changeTaskState(
 }
 
 /**
+ * Backlog → Planning, in auto mode or not, set in the same save so the move and the choice never
+ * drift apart. Undefined when the Task is in Planning already, keeping the auto mode it has.
+ */
+export function startPlanningTask(
+  task: Task,
+  autoMode: boolean,
+): TaskChange<TaskStateChanged> | undefined {
+  const change = changeTaskState(task, "planning", THE_USER);
+  if (!change) return undefined;
+  return { ...change, task: { ...change.task, autoMode } };
+}
+
+/**
  * Planning → Backlog, when planning couldn't begin: a Task is never in Planning without its
  * planning Thread. Undefined when the Task has already left Planning.
  */
@@ -157,16 +171,18 @@ export function moveToBacklogOnConfirm(task: Task): TaskChange<TaskStateChanged>
 
 /**
  * Mark Ready: Backlog or Planning → Ready, refused with every reason, those of the Task's record and the
- * Decisions on it still open. Undefined when the Task is Ready already.
+ * Decisions on it still open; by the user, or by auto mode on their behalf. Undefined when the Task
+ * is Ready already.
  */
 export function markTaskReady(
   task: Task,
   openDecisions: number,
+  by: StateChangeCause = THE_USER,
 ): TaskChange<TaskStateChanged> | undefined {
   if (task.state === "ready") return undefined;
   const problems = [...stateChangeProblems(task, "ready"), ...openDecisionProblems(openDecisions)];
   if (problems.length > 0) throw new TaskRefused(problems);
-  return changeTaskState(task, "ready", THE_USER);
+  return changeTaskState(task, "ready", by);
 }
 
 /**

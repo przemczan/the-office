@@ -217,6 +217,16 @@ export class WorkSettingsForTests extends WorkSettings {
     this.period = archivePeriod;
   }
 
+  private autoModeChoice = false;
+
+  async autoMode(): Promise<boolean> {
+    return this.autoModeChoice;
+  }
+
+  async changeAutoMode(autoMode: boolean): Promise<void> {
+    this.autoModeChoice = autoMode;
+  }
+
   private usage: UsageSettings = DEFAULT_USAGE_SETTINGS;
 
   async usageSettings(): Promise<UsageSettings> {

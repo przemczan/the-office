@@ -1,12 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { THE_USER, type Author } from "../domain/author.js";
-import { MAKE_A_PLAN_OPENING, PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
+import type { Author } from "../domain/author.js";
+import { makeAPlanOpening, PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
 import {
+  acceptInAutoMode,
   confirmDefinitionOfDone,
   confirmPipeline,
   confirmPlan,
+  markingPlannedProblems,
   proposeDefinitionOfDone,
   proposePipeline,
   proposePlan,
@@ -16,8 +18,8 @@ import {
 import type { PlanWriting } from "../domain/written-parts.js";
 import type { ProposedPipeline, Task } from "../domain/task.js";
 import {
-  changeTaskState,
   markTaskReady,
+  startPlanningTask,
   undoPlanningMove,
   type TaskChange,
 } from "../domain/task-changes.js";
@@ -32,6 +34,7 @@ import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { TaskDecisions } from "../ports/task-decisions.js";
 import { TaskThreads } from "../ports/task-threads.js";
+import { WorkSettings } from "../ports/work-settings.js";
 import { IdeaService } from "./idea-service.js";
 
 /**
@@ -45,6 +48,16 @@ import { IdeaService } from "./idea-service.js";
 
 /** How the Planner joins the planning Thread: on the user's first message, or at once. */
 type PlannerJoins = "on-first-message" | "at-once";
+
+/**
+ * What marking a Task planned did: nothing, as the user confirms; nothing yet, as a Decision on it
+ * is open; or, in auto mode, accepted it as Ready.
+ */
+export type MarkedPlanned =
+  | { readonly outcome: "for-the-user" }
+  | { readonly outcome: "waiting-for-a-decision"; readonly openDecisions: number }
+  | { readonly outcome: "ready"; readonly task: Task };
+
 @Injectable()
 export class PlanningService {
   constructor(
@@ -55,25 +68,64 @@ export class PlanningService {
     private readonly worktrees: ProjectWorktrees,
     private readonly threads: TaskThreads,
     private readonly decisions: TaskDecisions,
+    private readonly settings: WorkSettings,
     private readonly events: EventBus,
   ) {}
 
   /**
-   * Plan with…: Backlog → Planning, the Planner waiting for the user's first message. A Task in
-   * Planning already stays as it is, with its Thread; refused with the reason from any other
-   * state, or while nobody is the Planner.
+   * Plan with…: Backlog → Planning, the Planner waiting for the user's first message, with auto
+   * mode off. A Task in Planning already stays as it is, with its Thread; refused with the reason
+   * from any other state, or while nobody is the Planner.
    */
   async plan(taskId: string): Promise<Task> {
-    return this.startPlanning(taskId, "on-first-message");
+    return this.startPlanning(taskId, "on-first-message", false);
   }
 
-  /** Make a plan: as Plan with…, but the Planner starts at once from the title and Description. */
-  async makeAPlan(taskId: string): Promise<Task> {
-    return this.startPlanning(taskId, "at-once");
+  /**
+   * Make a plan: as Plan with…, but the Planner starts at once from the title and Description, in
+   * auto mode or not as the user chose, which becomes the remembered default.
+   */
+  async makeAPlan(taskId: string, autoMode: boolean): Promise<Task> {
+    const task = await this.startPlanning(taskId, "at-once", autoMode);
+    await this.settings.changeAutoMode(autoMode);
+    return task;
+  }
+
+  /** Whether Make a plan starts in auto mode: the user's last choice, off until first made. */
+  async autoMode(): Promise<boolean> {
+    return this.settings.autoMode();
+  }
+
+  /**
+   * The Planner says the Task is planned (mark_planned), refused with the reasons outside Planning
+   * or before the Plan and the Definition of Done are written. With auto mode off nothing changes:
+   * the user confirms. In auto mode, The Office accepts the Task and marks it Ready, unless a
+   * Decision on it is open: the Planner waits for the answer and marks it planned again.
+   */
+  async markPlanned(taskId: string): Promise<MarkedPlanned> {
+    const task = await this.tasks.find(taskId);
+    if (!task) throw new TaskNotFound(taskId);
+    refuseWith(markingPlannedProblems(task));
+    if (!task.autoMode) return { outcome: "for-the-user" };
+    const openDecisions = await this.decisions.openOn(taskId);
+    if (openDecisions > 0) return { outcome: "waiting-for-a-decision", openDecisions };
+    if (task.proposedPipeline) await this.refuseUnknownPipeline(task.proposedPipeline.pipelineId);
+    const { task: ready, event } = await this.tasks.update(taskId, (latest) =>
+      acceptInAutoMode(latest, openDecisions),
+    );
+    if (event) {
+      for (const confirmation of event.confirmations) await this.events.publish(confirmation);
+      await this.events.publish(event.stateChanged);
+    }
+    return { outcome: "ready", task: ready };
   }
 
   /** Backlog → Planning: the Task's branch and worktree, then its planning Thread. */
-  private async startPlanning(taskId: string, plannerJoins: PlannerJoins): Promise<Task> {
+  private async startPlanning(
+    taskId: string,
+    plannerJoins: PlannerJoins,
+    autoMode: boolean,
+  ): Promise<Task> {
     const task = await this.tasks.find(taskId);
     if (!task) throw new TaskNotFound(taskId);
     if (task.state === "planning") return task;
@@ -88,12 +140,12 @@ export class PlanningService {
     const { task: planning, event } = await this.tasks.update(taskId, (latest) => {
       // A Move landed as the worktree was made: it is in the old Project, not the Task's.
       if (latest.projectId !== task.projectId) throw new TaskRefused([MOVED_AS_IT_OPENED]);
-      return changeTaskState(latest, "planning", THE_USER);
+      return startPlanningTask(latest, autoMode);
     });
     // Another call moved it first, and opened its Thread.
     if (!event) return planning;
     await this.events.publish(event);
-    await this.openPlanningThread(taskId, plannerJoins);
+    await this.openPlanningThread(taskId, plannerJoins, autoMode);
     return planning;
   }
 
@@ -101,11 +153,15 @@ export class PlanningService {
    * The Task's planning Thread with the Planner; when it can't be opened, the move to Planning is
    * undone and refused with the reason, so a Task is never in Planning without its Thread.
    */
-  private async openPlanningThread(taskId: string, plannerJoins: PlannerJoins): Promise<void> {
+  private async openPlanningThread(
+    taskId: string,
+    plannerJoins: PlannerJoins,
+    autoMode: boolean,
+  ): Promise<void> {
     const opening = { taskId, roleKey: PLANNER, title: PLANNING_THREAD_TITLE };
     try {
       await (plannerJoins === "at-once"
-        ? this.threads.startOnTask({ ...opening, opening: MAKE_A_PLAN_OPENING })
+        ? this.threads.startOnTask({ ...opening, opening: makeAPlanOpening(autoMode) })
         : this.threads.openOnTask(opening));
     } catch (error) {
       const { event } = await this.tasks.update(taskId, undoPlanningMove);
@@ -213,4 +269,8 @@ export class PlanningService {
       ]);
     }
   }
+}
+
+function refuseWith(problems: readonly string[]): void {
+  if (problems.length > 0) throw new TaskRefused(problems);
 }
