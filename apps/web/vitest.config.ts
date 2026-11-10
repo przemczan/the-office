@@ -4,5 +4,7 @@ import viteConfig from "./vite.config.ts";
 
 export default mergeConfig(
   viteConfig,
-  defineProject({ test: { name: "web", environment: "jsdom" } }),
+  defineProject({
+    test: { name: "web", environment: "jsdom", setupFiles: ["./vitest.setup.ts"] },
+  }),
 );

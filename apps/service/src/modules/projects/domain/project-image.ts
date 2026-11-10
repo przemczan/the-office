@@ -2,6 +2,10 @@
 export const PROJECT_IMAGE_KEYS = ["icon", "logo"] as const;
 export type ProjectImageKey = (typeof PROJECT_IMAGE_KEYS)[number];
 
+/** The palettes an image has a version for: the one for the palette shown is used (spec §2.1). */
+export const PROJECT_IMAGE_PALETTES = ["light", "dark"] as const;
+export type ProjectImagePalette = (typeof PROJECT_IMAGE_PALETTES)[number];
+
 export type ProjectImageMediaType = "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml";
 
 /**
@@ -12,6 +16,11 @@ export interface ProjectImage {
   readonly id: string;
   readonly mediaType: ProjectImageMediaType;
 }
+
+/** An Icon or a Logo, each version null when the Project holds none. */
+export type ProjectImageVersions = Readonly<Record<ProjectImagePalette, ProjectImage | null>>;
+
+export const NO_PROJECT_IMAGE: ProjectImageVersions = { light: null, dark: null };
 
 export class ProjectImageNotFound extends Error {
   constructor(

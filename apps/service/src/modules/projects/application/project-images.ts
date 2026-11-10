@@ -13,6 +13,7 @@ import {
   ProjectImageNotFound,
   type ProjectImage,
   type ProjectImageKey,
+  type ProjectImagePalette,
 } from "../domain/project-image.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
@@ -46,14 +47,19 @@ export class ProjectImages {
     private readonly repositoryFiles: BaseBranchFiles,
   ) {}
 
-  /** Refuses, keeping the image the Project has, bytes that can't be an image. */
-  async change(projectId: string, key: ProjectImageKey, content: Uint8Array): Promise<Project> {
+  /** Refuses, keeping the version the Project has, bytes that can't be an image. */
+  async change(
+    projectId: string,
+    key: ProjectImageKey,
+    palette: ProjectImagePalette,
+    content: Uint8Array,
+  ): Promise<Project> {
     const reading = readImage(content);
     if ("problem" in reading) throw new ProjectRefused([reading.problem]);
     const image: ProjectImage = { id: randomUUID(), mediaType: reading.mediaType };
     await this.files.save(image.id, content);
     try {
-      return await this.keep(projectId, key, image);
+      return await this.keep(projectId, key, palette, image);
     } catch (error) {
       await this.files.remove(image.id);
       throw error;
@@ -64,24 +70,29 @@ export class ProjectImages {
   async changeFromRepository(
     projectId: string,
     key: ProjectImageKey,
+    palette: ProjectImagePalette,
     { commit, path }: RepositoryImageFile,
   ): Promise<Project> {
     const content = await this.repositoryFiles.file(projectId, commit, path, {
       bytes: IMAGE_SIZE_LIMIT,
       problem: IMAGE_TOO_LARGE,
     });
-    return this.change(projectId, key, content);
+    return this.change(projectId, key, palette, content);
   }
 
-  async remove(projectId: string, key: ProjectImageKey): Promise<Project> {
-    return this.keep(projectId, key, null);
+  async remove(
+    projectId: string,
+    key: ProjectImageKey,
+    palette: ProjectImagePalette,
+  ): Promise<Project> {
+    return this.keep(projectId, key, palette, null);
   }
 
   /** Answers only for an image the Project holds now; one it held before is gone. */
   async open(projectId: string, imageId: string): Promise<OpenedProjectImage> {
     const project = await this.repository.find(projectId);
     if (!project) throw new ProjectNotFound(projectId);
-    const image = [project.icon, project.logo].find((held) => held?.id === imageId);
+    const image = heldImages(project).find((held) => held.id === imageId);
     if (!image) throw new ProjectImageNotFound(projectId, imageId);
     return { image, content: await this.files.open(image.id) };
   }
@@ -89,12 +100,13 @@ export class ProjectImages {
   private async keep(
     projectId: string,
     key: ProjectImageKey,
+    palette: ProjectImagePalette,
     image: ProjectImage | null,
   ): Promise<Project> {
     let replaced: ProjectImage | null | undefined;
     const { project, events } = await this.repository.update(projectId, (current) => {
-      replaced = current[key];
-      return asProjectChanges(current, changeImage(current, key, image));
+      replaced = current[key][palette];
+      return asProjectChanges(current, changeImage(current, key, palette, image));
     });
     for (const event of events) await this.events.publish(event);
     if (replaced) await this.removeReplaced(replaced);
@@ -109,4 +121,11 @@ export class ProjectImages {
       this.logger.warn(`Could not remove image ${image.id}: ${(error as Error).message}`);
     }
   }
+}
+
+/** Every version of the Icon and the Logo the Project holds. */
+function heldImages(project: Project): ProjectImage[] {
+  return [project.icon, project.logo]
+    .flatMap(({ light, dark }) => [light, dark])
+    .filter((image) => image !== null);
 }

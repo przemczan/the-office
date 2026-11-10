@@ -24,6 +24,7 @@ import {
   type ProjectCommandKey,
   type ProjectImageFromRepository,
   type ProjectImageKey,
+  type ProjectImagePalette,
   type ProjectMcpServerValues,
   type ProjectRunEnvironment,
   type ProjectServerValuesChange,
@@ -234,22 +235,36 @@ export function changeProjectLimit(id: string, projectLimit: number): Promise<Pr
   return sendToApi("PUT", `${projectPath(id)}/project-limit`, { projectLimit }, projectSchema);
 }
 
-/** Replaces the Project's Icon or Logo, or gives it one. */
-export function uploadProjectImage(id: string, key: ProjectImageKey, file: File): Promise<Project> {
-  return sendFileToApi(`${projectPath(id)}/images/${key}`, file, projectSchema);
+/** One version of the Project's Icon or Logo: the image, and the palette it is for. */
+export interface ProjectImageVersion {
+  readonly key: ProjectImageKey;
+  readonly palette: ProjectImagePalette;
+}
+
+function versionPath(id: string, { key, palette }: ProjectImageVersion): `/${string}` {
+  return `${projectPath(id)}/images/${key}/${palette}`;
+}
+
+/** Replaces that version of the Project's Icon or Logo, or gives it one. */
+export function uploadProjectImage(
+  id: string,
+  version: ProjectImageVersion,
+  file: File,
+): Promise<Project> {
+  return sendFileToApi(versionPath(id, version), file, projectSchema);
 }
 
 /** As an upload, with a copy of the file in the Project's repository at the commit given. */
 export function chooseProjectImage(
   id: string,
-  key: ProjectImageKey,
+  version: ProjectImageVersion,
   file: ProjectImageFromRepository,
 ): Promise<Project> {
-  return sendToApi("POST", `${projectPath(id)}/images/${key}/from-repository`, file, projectSchema);
+  return sendToApi("POST", `${versionPath(id, version)}/from-repository`, file, projectSchema);
 }
 
-export function removeProjectImage(id: string, key: ProjectImageKey): Promise<Project> {
-  return deleteFromApiReturning(`${projectPath(id)}/images/${key}`, projectSchema);
+export function removeProjectImage(id: string, version: ProjectImageVersion): Promise<Project> {
+  return deleteFromApiReturning(versionPath(id, version), projectSchema);
 }
 
 /** Where an Icon or a Logo is read from; a new upload has a new address, so none goes stale. */

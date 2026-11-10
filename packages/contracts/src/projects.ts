@@ -190,10 +190,21 @@ export type ProjectRoleOverride = z.infer<typeof projectRoleOverrideSchema>;
 export const projectImageKeySchema = z.enum(["icon", "logo"]);
 export type ProjectImageKey = z.infer<typeof projectImageKeySchema>;
 
+/** The palette a version of an Icon or a Logo is for, by its name in `/projects/:id/images/:image/:palette`. */
+export const projectImagePaletteSchema = z.enum(["light", "dark"]);
+export type ProjectImagePalette = z.infer<typeof projectImagePaletteSchema>;
+
+/** An Icon or a Logo in its light and dark versions; each is null when the Project holds none. */
+export const projectImageVersionsSchema = z.object({
+  light: imageSchema.nullable(),
+  dark: imageSchema.nullable(),
+});
+export type ProjectImageVersions = z.infer<typeof projectImageVersionsSchema>;
+
 /** What the Repository file browser offers for an Icon or a Logo; the contents still decide. */
 export const PROJECT_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".svg"] as const;
 
-/** POST /projects/:id/images/:image/from-repository: the file to copy, at the commit the browser showed it. */
+/** POST /projects/:id/images/:image/:palette/from-repository: the file to copy, at the commit the browser showed it. */
 export const projectImageFromRepositorySchema = z.object({
   commit: z.string(),
   path: z.string(),
@@ -202,10 +213,10 @@ export type ProjectImageFromRepository = z.infer<typeof projectImageFromReposito
 
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
-  /** Shown in place of the mark's label and colour; null when the Project has none. */
-  icon: imageSchema.nullable(),
-  /** The larger image on the Project's page and card; null when the Project has none. */
-  logo: imageSchema.nullable(),
+  /** Shown in place of the mark's label and colour, in the version for the palette shown. */
+  icon: projectImageVersionsSchema,
+  /** The larger image on the Project's page and card, in the version for the palette shown. */
+  logo: projectImageVersionsSchema,
   /** What the repository was cloned from; null for a Project added by its path. */
   repositoryUrl: z.string().nullable(),
   environment: projectEnvironmentSchema,
@@ -406,6 +417,7 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("project.image-changed"),
     projectId: z.string(),
     key: projectImageKeySchema,
+    palette: projectImagePaletteSchema,
   }),
   webEventSchema.extend({
     type: z.literal("project.default-pipeline-changed"),

@@ -130,19 +130,27 @@ describe("PostgresProjectRepository", () => {
     });
   });
 
-  it("keeps an image, and clears it again, leaving the Project with none", async () => {
+  it("keeps each version of an image, and clears one again, leaving the other", async () => {
     const project = aProject({ id: randomUUID() });
     await repository.add(project);
-    const icon = { id: randomUUID(), mediaType: "image/webp" } as const;
+    const light = { id: randomUUID(), mediaType: "image/webp" } as const;
+    const dark = { id: randomUUID(), mediaType: "image/svg+xml" } as const;
+    const none = { light: null, dark: null };
 
     await repository.update(project.id, (stored) =>
-      asProjectChanges(stored, changeImage(stored, "icon", icon)),
+      asProjectChanges(stored, changeImage(stored, "icon", "light", light)),
     );
-    expect(await repository.find(project.id)).toMatchObject({ icon, logo: null });
+    await repository.update(project.id, (stored) =>
+      asProjectChanges(stored, changeImage(stored, "icon", "dark", dark)),
+    );
+    expect(await repository.find(project.id)).toMatchObject({ icon: { light, dark }, logo: none });
 
     await repository.update(project.id, (stored) =>
-      asProjectChanges(stored, changeImage(stored, "icon", null)),
+      asProjectChanges(stored, changeImage(stored, "icon", "light", null)),
     );
-    expect(await repository.find(project.id)).toMatchObject({ icon: null, logo: null });
+    expect(await repository.find(project.id)).toMatchObject({
+      icon: { light: null, dark },
+      logo: none,
+    });
   });
 });

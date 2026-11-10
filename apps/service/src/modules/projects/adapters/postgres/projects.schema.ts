@@ -7,7 +7,7 @@ import type {
   RunEnvironmentSetting,
 } from "../../domain/project.js";
 import type { StoredEnvironment } from "./stored-environment.js";
-import type { ProjectImage } from "../../domain/project-image.js";
+import { NO_PROJECT_IMAGE, type ProjectImageVersions } from "../../domain/project-image.js";
 
 export const projects = pgTable(
   "projects",
@@ -19,8 +19,8 @@ export const projects = pgTable(
     baseBranch: text("base_branch").notNull(),
     markLabel: text("mark_label").notNull(),
     markColour: text("mark_colour").$type<ProjectMarkColour>().notNull(),
-    icon: jsonb("icon").$type<ProjectImage>(),
-    logo: jsonb("logo").$type<ProjectImage>(),
+    icon: jsonb("icon").$type<ProjectImageVersions>().notNull().default(NO_PROJECT_IMAGE),
+    logo: jsonb("logo").$type<ProjectImageVersions>().notNull().default(NO_PROJECT_IMAGE),
     installCommand: text("install_command").notNull(),
     buildCommand: text("build_command").notNull(),
     lintCommand: text("lint_command").notNull(),

@@ -564,6 +564,44 @@ body,
   max-height: 72px;
 }
 
+/* A place drawn in a palette's own page colours whatever palette is shown, so an Icon or a Logo is
+   judged on the page it is for. Like the palette preview, its colours are read from the design
+   system's ramps. */
+.palette-stage[data-palette-stage="light"] {
+  --bg: var(--gray-50);
+  --surface: var(--white);
+  --surface-raised: var(--white);
+  --surface-hover: var(--gray-25);
+  --fg-1: var(--gray-800);
+  --fg-2: var(--gray-500);
+  --fg-3: var(--gray-400);
+  --border: var(--gray-150);
+  --border-subtle: var(--gray-100);
+  --border-strong: var(--gray-200);
+  --control-hover: var(--gray-100);
+  --control-press: var(--gray-150);
+  --danger-fg: var(--red-700);
+  color: var(--fg-1);
+}
+
+.palette-stage[data-palette-stage="dark"] {
+  --bg: var(--gray-950);
+  --surface: var(--gray-900);
+  --surface-raised: var(--gray-800);
+  --surface-hover: var(--gray-800);
+  --fg-1: var(--gray-100);
+  --fg-2: var(--gray-300);
+  --fg-3: var(--gray-400);
+  --border: var(--gray-800);
+  --border-subtle: var(--gray-800);
+  --border-strong: var(--gray-700);
+  --control-hover: var(--gray-800);
+  --control-press: var(--gray-700);
+  /* The ramp's lightest step that still reads as red on the dark page. */
+  --danger-fg: color-mix(in oklab, var(--red-500) 60%, var(--white));
+  color: var(--fg-1);
+}
+
 /* ---- toasts: the in-app confirmations and Notifications, stacked in the corner */
 .toasts {
   position: fixed;

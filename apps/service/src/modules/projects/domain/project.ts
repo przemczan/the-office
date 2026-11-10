@@ -1,6 +1,6 @@
 import type { EngineModel } from "../../engine/index.js";
 import type { ProjectEnvironment } from "./project-environment.js";
-import type { ProjectImage } from "./project-image.js";
+import type { ProjectImageVersions } from "./project-image.js";
 
 /** The commands a Project runs, each a command line for the platform's shell. */
 export const PROJECT_COMMAND_KEYS = ["install", "build", "lint", "test"] as const;
@@ -48,10 +48,10 @@ export interface Project {
   /** What every Task branches from and publishes to. */
   readonly baseBranch: string;
   readonly mark: ProjectMark;
-  /** Shown in place of the mark's label and colour; null when the Project has none. */
-  readonly icon: ProjectImage | null;
-  /** The larger image on the Project's page and card; null when the Project has none. */
-  readonly logo: ProjectImage | null;
+  /** Shown in place of the mark's label and colour, in the version for the palette shown. */
+  readonly icon: ProjectImageVersions;
+  /** The larger image on the Project's page and card, in the version for the palette shown. */
+  readonly logo: ProjectImageVersions;
   readonly commands: ProjectCommands;
   /**
    * The files whose change makes a worktree install again, as paths inside the repository with

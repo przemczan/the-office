@@ -8,7 +8,7 @@ import { useToast } from "../../shell/toasts.tsx";
 import { AppearancePreview } from "./appearance-preview.tsx";
 import { MarkPicker } from "./mark-picker.tsx";
 import { ProjectBlock } from "./project-block.tsx";
-import { ProjectImageRow } from "./project-image-row.tsx";
+import { ProjectImageVersions } from "./project-image-versions.tsx";
 
 /**
  * The Project's mark and images beside how they look. The mark is saved by a button rather than at
@@ -74,7 +74,7 @@ function MarkCard({
             onDraft(sameMark(mark, project.mark) ? undefined : mark);
           }}
         />
-        {project.icon !== null && (
+        {(project.icon.light !== null || project.icon.dark !== null) && (
           <p className="project-block-note">
             The Icon shows in place of these letters. They come back if it is removed.
           </p>
@@ -118,12 +118,12 @@ function ImagesCard({ project }: { readonly project: Project }): ReactNode {
   return (
     <ProjectBlock icon="image" title="Images">
       <p className="appearance-images-intro">
-        PNG, JPEG, WebP or SVG, at most {IMAGE_LIMIT_IN_MB} MB. Each is saved as soon as it is
-        picked.
+        A light and a dark version each, shown with the palette. One version alone shows in both.
+        PNG, JPEG, WebP or SVG, at most {IMAGE_LIMIT_IN_MB} MB. Saved as soon as picked.
       </p>
-      <div className="project-image-rows">
-        <ProjectImageRow project={project} imageKey="icon" />
-        <ProjectImageRow project={project} imageKey="logo" />
+      <div className="project-image-versions">
+        <ProjectImageVersions project={project} imageKey="icon" />
+        <ProjectImageVersions project={project} imageKey="logo" />
       </div>
     </ProjectBlock>
   );

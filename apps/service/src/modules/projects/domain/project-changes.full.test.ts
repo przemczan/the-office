@@ -276,29 +276,45 @@ describe("changeImage", () => {
   const icon = { id: "first", mediaType: "image/png" } as const;
   const replacement = { id: "second", mediaType: "image/svg+xml" } as const;
 
-  it("gives the Project the image, naming which one in the event", () => {
-    const change = changeImage(aProject(), "icon", icon);
+  it("gives the Project the version, naming the image and its palette in the event", () => {
+    const change = changeImage(aProject(), "icon", "dark", icon);
 
-    expect(change?.project).toMatchObject({ icon, logo: null });
+    expect(change?.project).toMatchObject({
+      icon: { light: null, dark: icon },
+      logo: { light: null, dark: null },
+    });
     expect(change?.event).toBeInstanceOf(ProjectImageChanged);
-    expect(change?.event).toMatchObject({ projectId: "admin-panel", key: "icon", image: icon });
+    expect(change?.event).toMatchObject({
+      projectId: "admin-panel",
+      key: "icon",
+      palette: "dark",
+      image: icon,
+    });
   });
 
-  it("replaces one image and leaves the other", () => {
-    const change = changeImage(aProject({ icon, logo: icon }), "logo", replacement);
+  it("replaces one version and leaves the other version and the other image", () => {
+    const both = { light: icon, dark: icon };
+    const change = changeImage(aProject({ icon: both, logo: both }), "logo", "light", replacement);
 
-    expect(change?.project).toMatchObject({ icon, logo: replacement });
+    expect(change?.project).toMatchObject({ icon: both, logo: { light: replacement, dark: icon } });
   });
 
-  it("removes the image", () => {
-    const change = changeImage(aProject({ logo: icon }), "logo", null);
+  it("removes the version", () => {
+    const change = changeImage(
+      aProject({ logo: { light: icon, dark: icon } }),
+      "logo",
+      "dark",
+      null,
+    );
 
-    expect(change?.project.logo).toBeNull();
-    expect(change?.event).toMatchObject({ key: "logo", image: null });
+    expect(change?.project.logo).toEqual({ light: icon, dark: null });
+    expect(change?.event).toMatchObject({ key: "logo", palette: "dark", image: null });
   });
 
-  it("changes nothing when there is no image to remove", () => {
-    expect(changeImage(aProject(), "icon", null)).toBeUndefined();
+  it("changes nothing when there is no version to remove", () => {
+    expect(
+      changeImage(aProject({ icon: { light: icon, dark: null } }), "icon", "dark", null),
+    ).toBeUndefined();
   });
 });
 

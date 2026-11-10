@@ -39,6 +39,15 @@ const LOGO_FILE = {
   ),
 };
 
+/** The Logo's dark version: the same shape, light on the dark page. */
+const DARK_LOGO_FILE = {
+  name: "logo-dark.svg",
+  mimeType: "image/svg+xml",
+  buffer: Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100"><rect width="400" height="100" fill="white"/></svg>',
+  ),
+};
+
 const TRANSPARENT_ICON_FILE = {
   name: "circle.svg",
   mimeType: "image/svg+xml",
@@ -135,23 +144,45 @@ async function repositoryWithImages(): Promise<TemporaryRepository> {
   return imaged;
 }
 
-/** Opens the row's window at `assets`, where the images are. */
-async function openAssets(page: Page, image: "Icon" | "Logo"): Promise<Locator> {
-  await page
-    .getByRole("group", { name: image })
+type ImageName = "Icon" | "Logo";
+type VersionName = "Light" | "Dark";
+
+/** The image's section on Appearance: its name, where it shows, and a tile for each version. */
+function imageSection(page: Page, image: ImageName): Locator {
+  return page.getByRole("region", { name: image, exact: true });
+}
+
+/** One version's tile, as Light Icon or Dark Logo. */
+function versionTile(page: Page, image: ImageName, version: VersionName = "Light"): Locator {
+  return page.getByRole("group", { name: `${version} ${image}`, exact: true });
+}
+
+/** The file input behind a tile, which a press on the tile opens. */
+function versionFile(page: Page, image: ImageName, version: VersionName = "Light"): Locator {
+  return page.getByLabel(`${version} ${image} file`, { exact: true });
+}
+
+/** Opens the tile's window at `assets`, where the images are. */
+async function openAssets(
+  page: Page,
+  image: ImageName,
+  version: VersionName = "Light",
+): Promise<Locator> {
+  await versionTile(page, image, version)
     .getByRole("button", { name: "Choose from repository" })
     .click();
-  const window = page.getByRole("dialog", { name: `Choose ${image}` });
+  const window = page.getByRole("dialog", { name: `Choose ${version} ${image}` });
   await window.getByRole("button", { name: "assets" }).click();
   return window;
 }
 
 async function chooseFromRepository(
   page: Page,
-  image: "Icon" | "Logo",
+  image: ImageName,
   fileName: string,
+  version: VersionName = "Light",
 ): Promise<void> {
-  const window = await openAssets(page, image);
+  const window = await openAssets(page, image, version);
   await window.getByRole("button", { name: fileName }).click();
   await window.getByRole("button", { name: "Choose file" }).click();
   await expect(window).toBeHidden();
@@ -874,27 +905,27 @@ test(
     await expect(boardMark).toHaveText("AP");
 
     await page.goto(`/projects/${project.id}/appearance`);
-    const row = page.getByRole("group", { name: "Icon" });
+    const row = versionTile(page, "Icon");
     const head = page.locator(".project-head .project-mark");
     const iconNote = page.getByText("The Icon shows in place of these letters.");
     await expect(
-      page.getByText(
-        "PNG, JPEG, WebP or SVG, at most 2 MB. Each is saved as soon as it is picked.",
-      ),
+      page.getByText("PNG, JPEG, WebP or SVG, at most 2 MB. Saved as soon as picked."),
     ).toBeVisible();
     await expect(
-      row.getByText("in place of the mark's letters and colour, wherever the mark shows"),
+      imageSection(page, "Icon").getByText(
+        "in place of the mark's letters and colour, wherever the mark shows",
+      ),
     ).toBeVisible();
-    await expect(row.getByText("No Icon")).toBeVisible();
+    await expect(row.getByText("Drop an image or browse")).toBeVisible();
     await expect(row.getByRole("button", { name: "Remove" })).toBeHidden();
     await expect(iconNote).toBeHidden();
 
-    await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
+    await versionFile(page, "Icon").setInputFiles(ICON_FILE);
 
-    await expect(page.getByText("Icon saved for Iconic.")).toBeVisible();
+    await expect(page.getByText("Light Icon saved for Iconic.")).toBeVisible();
     await expectLoadedImage(head.locator("img"));
-    await expectLoadedImage(row.locator(".project-mark img"));
-    await expect(row.getByText("No Icon")).toBeHidden();
+    await expectLoadedImage(row.locator(".version-tile-image"));
+    await expect(row.getByText("Drop an image or browse")).toBeHidden();
     // The picker edits the letters, so it keeps them; How it looks shows the Icon in their place.
     await expect(page.locator(".mark-picker .project-mark")).toHaveText("AP");
     await expect(iconNote).toBeVisible();
@@ -911,7 +942,7 @@ test(
     );
 
     await page.goto(`/projects/${project.id}/appearance`);
-    await page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Remove" }).click();
+    await versionTile(page, "Icon").getByRole("button", { name: "Remove" }).click();
 
     await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
     await expect(boardMark).toHaveText("AP");
@@ -924,19 +955,21 @@ test(
   async ({ page }) => {
     const project = await addedProject(page, "Logoed");
     await page.goto(`/projects/${project.id}/appearance`);
-    const row = page.getByRole("group", { name: "Logo" });
+    const row = versionTile(page, "Logo");
     // An empty row shows a place for the Logo, not the mark that shows without one.
-    await expect(row.getByText("No Logo")).toBeVisible();
-    await expect(row.locator(".project-mark, .project-logo")).toHaveCount(0);
-    await expect(row.getByText("Stands for the Project on its page and its card")).toBeVisible();
+    await expect(row.getByText("Drop an image or browse")).toBeVisible();
+    await expect(row.locator("img")).toHaveCount(0);
+    await expect(
+      imageSection(page, "Logo").getByText("Stands for the Project on its page and its card"),
+    ).toBeVisible();
 
-    await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
+    await versionFile(page, "Logo").setInputFiles(LOGO_FILE);
 
-    await expect(page.getByText("Logo saved for Logoed.")).toBeVisible();
+    await expect(page.getByText("Light Logo saved for Logoed.")).toBeVisible();
     const headLogo = page.locator(".project-head .project-logo");
     await expectLoadedImage(headLogo);
-    await expectLoadedImage(row.locator(".project-logo"));
-    await expect(row.getByText("No Logo")).toBeHidden();
+    await expectLoadedImage(row.locator(".version-tile-image"));
+    await expect(row.getByText("Drop an image or browse")).toBeHidden();
     // How it looks shows the Logo on the page head and the card, and the mark beside an item.
     await expect(howItLooks(page).locator(".project-logo")).toHaveCount(2);
     await expect(howItLooks(page).locator(".project-mark")).toHaveText(["AP"]);
@@ -953,7 +986,7 @@ test(
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-logo.png") });
 
     await page.goto(`/projects/${project.id}/appearance`);
-    await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
+    await versionTile(page, "Logo").getByRole("button", { name: "Remove" }).click();
 
     await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
     await page.goto("/projects");
@@ -968,13 +1001,13 @@ test(
     const project = await addedProject(page, "Both images");
     await page.emulateMedia({ colorScheme: "dark" });
     await page.goto(`/projects/${project.id}/appearance`);
-    await page.getByLabel("Icon file").setInputFiles(TRANSPARENT_ICON_FILE);
-    await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
+    await versionFile(page, "Icon").setInputFiles(TRANSPARENT_ICON_FILE);
+    await versionFile(page, "Logo").setInputFiles(LOGO_FILE);
     await expectLoadedImage(page.locator(".project-head .project-logo"));
-    await expectLoadedImage(page.getByRole("group", { name: "Icon" }).locator(".project-mark img"));
+    await expectLoadedImage(versionTile(page, "Icon").locator(".version-tile-image"));
     await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-project-images.png") });
 
-    await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
+    await versionTile(page, "Logo").getByRole("button", { name: "Remove" }).click();
 
     const head = page.locator(".project-head .project-mark");
     await expectLoadedImage(head.locator("img"));
@@ -997,18 +1030,18 @@ test(
   async ({ page }) => {
     const project = await addedProject(page, "Reimaged");
     await page.goto(`/projects/${project.id}/appearance`);
-    await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
+    await versionFile(page, "Icon").setInputFiles(ICON_FILE);
     const image = page.locator(".project-head .project-mark img");
     await expectLoadedImage(image);
     const oldAddress = await image.getAttribute("src");
 
-    await page.getByLabel("Icon file").setInputFiles({ ...LOGO_FILE, name: "other.svg" });
+    await versionFile(page, "Icon").setInputFiles({ ...LOGO_FILE, name: "other.svg" });
 
     await expect(image).not.toHaveAttribute("src", oldAddress ?? "");
     await expectLoadedImage(image);
     expect((await page.request.get(oldAddress ?? "")).status()).toBe(404);
     await expect(
-      page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Replace" }),
+      versionTile(page, "Icon").getByRole("button", { name: "Replace", exact: true }),
     ).toBeVisible();
   },
 );
@@ -1019,13 +1052,13 @@ test(
   async ({ page }) => {
     const project = await addedProject(page, "Refusing");
     await page.goto(`/projects/${project.id}/appearance`);
-    await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
+    await versionFile(page, "Icon").setInputFiles(ICON_FILE);
     const image = page.locator(".project-head .project-mark img");
     await expectLoadedImage(image);
     const address = await image.getAttribute("src");
-    const row = page.getByRole("group", { name: "Icon" });
+    const row = versionTile(page, "Icon");
 
-    await page.getByLabel("Icon file").setInputFiles({
+    await versionFile(page, "Icon").setInputFiles({
       name: "renamed.png",
       mimeType: "image/png",
       buffer: Buffer.from("<html>not a picture</html>"),
@@ -1037,7 +1070,7 @@ test(
     await expect(image).toHaveAttribute("src", address ?? "");
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-image-refused.png") });
 
-    await page.getByLabel("Icon file").setInputFiles({
+    await versionFile(page, "Icon").setInputFiles({
       name: "large.png",
       mimeType: "image/png",
       buffer: Buffer.alloc(IMAGE_UPLOAD_BYTES + 1),
@@ -1046,7 +1079,7 @@ test(
     await expect(row.getByRole("alert")).toHaveText("An image may be at most 2 MB.");
     await expect(image).toHaveAttribute("src", address ?? "");
 
-    await page.getByLabel("Icon file").setInputFiles(LOGO_FILE);
+    await versionFile(page, "Icon").setInputFiles(LOGO_FILE);
     await expect(row.getByRole("alert")).toBeHidden();
   },
 );
@@ -1092,15 +1125,15 @@ test(
 
       await chooseFromRepository(page, "Icon", "icon.png");
 
-      await expect(page.getByText("Icon saved for Chosen images.")).toBeVisible();
-      const iconRow = page.getByRole("group", { name: "Icon" });
+      await expect(page.getByText("Light Icon saved for Chosen images.")).toBeVisible();
+      const iconRow = versionTile(page, "Icon");
       await expectLoadedImage(page.locator(".project-head .project-mark img"));
-      await expectLoadedImage(iconRow.locator(".project-mark img"));
-      await expect(iconRow.getByRole("button", { name: "Replace" })).toBeVisible();
+      await expectLoadedImage(iconRow.locator(".version-tile-image"));
+      await expect(iconRow.getByRole("button", { name: "Replace", exact: true })).toBeVisible();
 
       await chooseFromRepository(page, "Logo", "logo.svg");
 
-      await expect(page.getByText("Logo saved for Chosen images.")).toBeVisible();
+      await expect(page.getByText("Light Logo saved for Chosen images.")).toBeVisible();
       await expectLoadedImage(page.locator(".project-head .project-logo"));
 
       await page.goto("/projects");
@@ -1109,7 +1142,7 @@ test(
 
       await page.goto(`/projects/${project.id}/appearance`);
       await page
-        .getByRole("group", { name: "Logo" })
+        .getByRole("group", { name: "Light Logo", exact: true })
         .getByRole("button", { name: "Remove" })
         .click();
       await expectLoadedImage(page.locator(".project-head .project-mark img"));
@@ -1170,7 +1203,7 @@ test(
 
       await chooseFromRepository(page, "Icon", "fake.png");
 
-      const row = page.getByRole("group", { name: "Icon" });
+      const row = versionTile(page, "Icon");
       await expect(row.getByRole("alert")).toHaveText(
         "The file isn't a PNG, JPEG, WebP or SVG image.",
       );
@@ -1193,17 +1226,159 @@ test(
     await imaged.remove();
     await page.goto(`/projects/${project.id}/appearance`);
 
-    await page
-      .getByRole("group", { name: "Icon" })
-      .getByRole("button", { name: "Choose from repository" })
-      .click();
+    await versionTile(page, "Icon").getByRole("button", { name: "Choose from repository" }).click();
 
-    const window = page.getByRole("dialog", { name: "Choose Icon" });
+    const window = page.getByRole("dialog", { name: "Choose Light Icon" });
     const refusal = window.getByRole("status");
     await expect(refusal).toContainText("The base branch can't be read");
     await expect(refusal).not.toContainText("Internal server error");
   },
 );
+
+test(
+  "a dark Logo shows in the dark palette, swapped without a reload, and the light one stands in without it",
+  { tag: "@full" },
+  async ({ page, context }) => {
+    const project = await addedProject(page, "Two-toned");
+    await page.goto(`/projects/${project.id}/appearance`);
+    await versionFile(page, "Logo", "Light").setInputFiles(LOGO_FILE);
+    await expect(page.getByText("Light Logo saved for Two-toned.")).toBeVisible();
+    const darkTile = versionTile(page, "Logo", "Dark");
+    // One version alone shows in both palettes, and the empty tile says so.
+    await expect(darkTile.getByText("Uses the light version")).toBeVisible();
+
+    await versionFile(page, "Logo", "Dark").setInputFiles(DARK_LOGO_FILE);
+
+    await expect(page.getByText("Dark Logo saved for Two-toned.")).toBeVisible();
+    const lightAddress = await imageAddressIn(versionTile(page, "Logo", "Light"));
+    const darkAddress = await imageAddressIn(darkTile);
+    await expect(darkTile.getByText("Uses the light version")).toBeHidden();
+    const headLogo = page.locator(".project-head .project-logo");
+    await expect(headLogo).toHaveAttribute("src", lightAddress);
+    const previewLogos = howItLooks(page).locator(".project-logo");
+    await expect(previewLogos).toHaveCount(2);
+    for (const logo of await previewLogos.all())
+      await expect(logo).toHaveAttribute("src", lightAddress);
+
+    // How it looks shows the other palette on its own, with that palette's version.
+    await howItLooks(page).getByRole("tab", { name: "Dark" }).click();
+    for (const logo of await previewLogos.all())
+      await expect(logo).toHaveAttribute("src", darkAddress);
+    await expect(headLogo).toHaveAttribute("src", lightAddress);
+    await howItLooks(page).getByRole("tab", { name: "Light" }).click();
+
+    const settings = await context.newPage();
+    await settings.goto("/settings/appearance");
+    await settings
+      .getByRole("group", { name: "Palette" })
+      .getByRole("button", { name: "Dark" })
+      .click();
+
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await expect(headLogo).toHaveAttribute("src", darkAddress);
+    await expectLoadedImage(headLogo);
+    await page.goto("/projects");
+    const card = page.getByRole("link", { name: /Two-toned/ });
+    await expect(card.locator(".project-logo")).toHaveAttribute("src", darkAddress);
+
+    await page.goto(`/projects/${project.id}/appearance`);
+    await darkTile.getByRole("button", { name: "Remove" }).click();
+
+    await expect(page.getByText("Dark Logo removed for Two-toned.")).toBeVisible();
+    await expect(darkTile.getByText("Uses the light version")).toBeVisible();
+    await expect(headLogo).toHaveAttribute("src", lightAddress);
+    expect((await page.request.get(darkAddress)).status()).toBe(404);
+    await settings
+      .getByRole("group", { name: "Palette" })
+      .getByRole("button", { name: "Light" })
+      .click();
+    await settings.close();
+  },
+);
+
+test(
+  "a file dropped on a tile is saved, and one too large is refused inside the tile",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Dropped on");
+    await page.goto(`/projects/${project.id}/appearance`);
+    const tile = versionTile(page, "Icon", "Dark");
+    // The zone is named for what a press does, which changes once a version is held.
+    const zone = tile.locator(".version-tile-drop");
+    await expect(zone).toHaveAccessibleName("Upload a Dark Icon");
+
+    await zone.dispatchEvent("dragenter", { dataTransfer: await fileTransfer(page, ICON_FILE) });
+    await expect(zone).toHaveClass(/dragged-over/);
+    await zone.dispatchEvent("drop", { dataTransfer: await fileTransfer(page, ICON_FILE) });
+
+    await expect(page.getByText("Dark Icon saved for Dropped on.")).toBeVisible();
+    await expect(zone).not.toHaveClass(/dragged-over/);
+    await expectLoadedImage(tile.locator(".version-tile-image"));
+    const address = await imageAddressIn(tile);
+    // The light palette shows the dark version, the only one held.
+    await expect(page.locator(".project-head .project-mark img")).toHaveAttribute("src", address);
+    await expect(
+      versionTile(page, "Icon", "Light").getByText("Uses the dark version"),
+    ).toBeVisible();
+
+    await expect(zone).toHaveAccessibleName("Replace the Dark Icon");
+    await zone.dispatchEvent("drop", {
+      dataTransfer: await fileTransfer(page, {
+        name: "large.png",
+        mimeType: "image/png",
+        buffer: Buffer.alloc(IMAGE_UPLOAD_BYTES + 1),
+      }),
+    });
+
+    await expect(tile.getByRole("alert")).toHaveText("An image may be at most 2 MB.");
+    await expect(versionTile(page, "Icon", "Light").getByRole("alert")).toHaveCount(0);
+    await expect(tile.locator(".version-tile-image")).toHaveAttribute("src", address);
+  },
+);
+
+test(
+  "a version tile opens the file picker from the keyboard",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Keyed");
+    await page.goto(`/projects/${project.id}/appearance`);
+    const zone = versionTile(page, "Logo", "Light").getByRole("button", {
+      name: "Upload a Light Logo",
+    });
+    await zone.focus();
+    await expect(zone).toBeFocused();
+    await expect(zone).toHaveCSS("outline-style", "solid");
+
+    const picking = page.waitForEvent("filechooser");
+    await page.keyboard.press("Enter");
+    await (await picking).setFiles(LOGO_FILE);
+
+    await expect(page.getByText("Light Logo saved for Keyed.")).toBeVisible();
+  },
+);
+
+/** The address of the version a tile previews. */
+async function imageAddressIn(tile: Locator): Promise<string> {
+  const image = tile.locator(".version-tile-image");
+  await expectLoadedImage(image);
+  return (await image.getAttribute("src")) ?? "";
+}
+
+/** A drag's data holding one file, made in the page as a drop from the desktop would be. */
+async function fileTransfer(
+  page: Page,
+  file: { readonly name: string; readonly mimeType: string; readonly buffer: Buffer },
+) {
+  return page.evaluateHandle(
+    ({ name, mimeType, base64 }) => {
+      const transfer = new DataTransfer();
+      const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+      transfer.items.add(new File([bytes], name, { type: mimeType }));
+      return transfer;
+    },
+    { name: file.name, mimeType: file.mimeType, base64: file.buffer.toString("base64") },
+  );
+}
 
 for (const colorScheme of ["light", "dark"] as const) {
   for (const width of [1600, 600]) {
@@ -1231,7 +1406,7 @@ for (const colorScheme of ["light", "dark"] as const) {
           await chooseFromRepository(page, "Logo", "logo.svg");
           await expectLoadedImage(page.locator(".project-head .project-logo"));
           const button = page
-            .getByRole("group", { name: "Logo" })
+            .getByRole("group", { name: "Light Logo", exact: true })
             .getByRole("button", { name: "Choose from repository" });
           // Centred, as scrollIntoViewIfNeeded leaves a button a fraction of a pixel past the edge.
           await button.evaluate((element) => element.scrollIntoView({ block: "center" }));
@@ -1241,6 +1416,10 @@ for (const colorScheme of ["light", "dark"] as const) {
           await page.locator(".shell-main").evaluate((main) => main.scrollTo(0, 0));
           await page.screenshot({
             path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-images-appearance.png`),
+          });
+          // Each version's tile on its own palette's page, a light version held and a dark one not.
+          await page.locator(".project-image-versions").screenshot({
+            path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-image-versions.png`),
           });
 
           const fileWindow = await openAssets(page, "Icon");
@@ -1312,15 +1491,17 @@ async function expectAppearanceLaidOut(page: Page, width: number): Promise<void>
 }
 
 test(
-  "an Icon that can't be loaded leaves the letters and the colour",
+  "an Icon whose versions can't be loaded leaves the letters and the colour",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Unloaded");
-    const response = await page.request.post(`/api/projects/${project.id}/images/icon`, {
-      headers: { "Content-Type": "application/octet-stream" },
-      data: ICON_FILE.buffer,
-    });
-    expect(response.status()).toBe(201);
+    for (const palette of ["light", "dark"]) {
+      const response = await page.request.post(
+        `/api/projects/${project.id}/images/icon/${palette}`,
+        { headers: { "Content-Type": "application/octet-stream" }, data: ICON_FILE.buffer },
+      );
+      expect(response.status()).toBe(201);
+    }
     await page.route("**/images/*/content", (route) => route.abort());
 
     await page.goto(`/projects/${project.id}/appearance`);
@@ -1345,7 +1526,7 @@ test(
     const project = await addedProject(page, "Scripted");
     await page.goto(`/projects/${project.id}/appearance`);
 
-    await page.getByLabel("Icon file").setInputFiles(SVG_WITH_A_SCRIPT);
+    await versionFile(page, "Icon").setInputFiles(SVG_WITH_A_SCRIPT);
 
     const image = page.locator(".project-head .project-mark img");
     await expectLoadedImage(image);

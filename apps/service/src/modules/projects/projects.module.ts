@@ -79,7 +79,7 @@ export class ProjectsModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(uploadBody(IMAGE_UPLOAD_BYTES))
-      .forRoutes({ path: "projects/:id/images/:image", method: RequestMethod.POST });
+      .forRoutes({ path: "projects/:id/images/:image/:palette", method: RequestMethod.POST });
   }
 
   static register({ imports, knownPipelines }: ProjectsModuleOptions): DynamicModule {

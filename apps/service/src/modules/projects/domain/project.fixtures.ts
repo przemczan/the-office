@@ -1,5 +1,6 @@
 import type { NewProject, Project } from "./project.js";
 import { UNCHANGED_ENVIRONMENT } from "./project-environment.js";
+import { NO_PROJECT_IMAGE } from "./project-image.js";
 
 export function aNewProject(fields: Partial<NewProject> = {}): NewProject {
   return {
@@ -20,8 +21,8 @@ export function aProject(fields: Partial<Project> = {}): Project {
     id: "admin-panel",
     ...aNewProject(),
     repositoryUrl: null,
-    icon: null,
-    logo: null,
+    icon: NO_PROJECT_IMAGE,
+    logo: NO_PROJECT_IMAGE,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],

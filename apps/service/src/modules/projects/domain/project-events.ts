@@ -8,7 +8,7 @@ import type {
   RunEnvironmentSetting,
 } from "./project.js";
 import type { ShownEnvironment } from "./project-environment.js";
-import type { ProjectImage, ProjectImageKey } from "./project-image.js";
+import type { ProjectImage, ProjectImageKey, ProjectImagePalette } from "./project-image.js";
 
 export class ProjectAdded extends DomainEvent {
   constructor(readonly project: Project) {
@@ -86,11 +86,12 @@ export class ProjectMarkChanged extends DomainEvent {
   }
 }
 
-/** `image` is null when the Project's Icon or Logo was removed. */
+/** `image` is null when that version of the Project's Icon or Logo was removed. */
 export class ProjectImageChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly key: ProjectImageKey,
+    readonly palette: ProjectImagePalette,
     readonly image: ProjectImage | null,
   ) {
     super();

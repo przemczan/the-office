@@ -101,6 +101,7 @@ export class ProjectWebEvents implements OnModuleInit {
       type: "project.image-changed",
       projectId: event.projectId,
       key: event.key,
+      palette: event.palette,
     }));
     this.forwarding.forward(
       ProjectUseProjectSkillsChanged,

@@ -13,9 +13,11 @@ import {
 import {
   projectImageFromRepositorySchema,
   projectImageKeySchema,
+  projectImagePaletteSchema,
   type Project as ProjectResponse,
   type ProjectImageFromRepository,
   type ProjectImageKey,
+  type ProjectImagePalette,
 } from "@the-office/contracts";
 import type { Response } from "express";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -30,30 +32,33 @@ import { toProjectResponse } from "./project-responses.js";
 export class ProjectImagesController {
   constructor(private readonly images: ProjectImages) {}
 
-  @Post("projects/:id/images/:image")
+  @Post("projects/:id/images/:image/:palette")
   async change(
     @Param("id") id: string,
     @Param("image", new ContractPipe(projectImageKeySchema)) image: ProjectImageKey,
+    @Param("palette", new ContractPipe(projectImagePaletteSchema)) palette: ProjectImagePalette,
     @Body() body: unknown,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.images.change(id, image, uploadedBytes(body)));
+    return toProjectResponse(await this.images.change(id, image, palette, uploadedBytes(body)));
   }
 
-  @Post("projects/:id/images/:image/from-repository")
+  @Post("projects/:id/images/:image/:palette/from-repository")
   async changeFromRepository(
     @Param("id") id: string,
     @Param("image", new ContractPipe(projectImageKeySchema)) image: ProjectImageKey,
+    @Param("palette", new ContractPipe(projectImagePaletteSchema)) palette: ProjectImagePalette,
     @Body(new ContractPipe(projectImageFromRepositorySchema)) file: ProjectImageFromRepository,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.images.changeFromRepository(id, image, file));
+    return toProjectResponse(await this.images.changeFromRepository(id, image, palette, file));
   }
 
-  @Delete("projects/:id/images/:image")
+  @Delete("projects/:id/images/:image/:palette")
   async remove(
     @Param("id") id: string,
     @Param("image", new ContractPipe(projectImageKeySchema)) image: ProjectImageKey,
+    @Param("palette", new ContractPipe(projectImagePaletteSchema)) palette: ProjectImagePalette,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.images.remove(id, image));
+    return toProjectResponse(await this.images.remove(id, image, palette));
   }
 
   @Get("projects/:id/images/:imageId/content")

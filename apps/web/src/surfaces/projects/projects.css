@@ -1179,12 +1179,175 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   color: var(--fg-2);
 }
 
-.project-image-rows {
+.appearance-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.project-image-versions {
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
   margin-top: 14px;
+}
+
+.image-versions {
+  display: grid;
+  gap: var(--space-2);
   padding-top: 14px;
   border-top: 1px solid var(--border-subtle);
+}
+
+.image-versions-name {
+  font: var(--type-label);
+}
+
+.image-versions-hint {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+/* Light and Dark side by side, stacked once a tile would be too narrow for its actions. */
+.image-versions-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+/* ---- a version tile: one version of an Icon or a Logo on its palette's own page */
+.version-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+/* As tall as the actions a held version shows, so a tile keeps its height with or without one. */
+.version-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+
+.version-tile-name {
+  font: var(--type-overline);
+  color: var(--fg-2);
+}
+
+.version-tile-held-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.version-tile-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  min-height: 112px;
+  padding: var(--space-3);
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  cursor: pointer;
+  background: var(--bg);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  transition:
+    border-color 120ms,
+    box-shadow 120ms;
+}
+
+.version-tile-drop.held {
+  border-style: solid;
+  border-color: var(--border-subtle);
+}
+
+.version-tile-drop:hover:not([aria-disabled="true"]) {
+  border-color: var(--fg-3);
+}
+
+.version-tile-drop:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.version-tile-drop.dragged-over {
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.version-tile-drop[aria-disabled="true"] {
+  cursor: default;
+}
+
+.version-tile-image {
+  display: block;
+  max-width: 100%;
+  max-height: 80px;
+  object-fit: contain;
+}
+
+.version-tile-words {
+  text-align: center;
+}
+
+.version-tile-browse {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.version-tile-fallback {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* Over the version being replaced, so the tile keeps its size while it saves. */
+.version-tile-busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font: var(--type-label);
+  color: var(--fg-1);
+  background: color-mix(in oklab, var(--bg) 82%, transparent);
+  border-radius: inherit;
+}
+
+.version-tile-busy svg {
+  animation: environment-check-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .version-tile-busy svg {
+    animation: none;
+  }
+}
+
+.version-tile-error {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--danger-fg);
+}
+
+.version-tile-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.version-tile-input {
+  display: none;
 }
 
 /* ---- the Run environment section */

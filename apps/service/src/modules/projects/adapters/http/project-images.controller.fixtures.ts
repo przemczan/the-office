@@ -79,7 +79,10 @@ async function expectGone(path: string): Promise<void> {
   await expect(access(path)).rejects.toThrow("ENOENT");
 }
 
-/** The requests the Project images routes' tests share, on the app and Project `current` gives. */
+/**
+ * The requests the Project images routes' tests share, on the app and Project `current` gives. A
+ * `version` is the image and its palette as the routes name them, such as `icon/light`.
+ */
 export function projectImagesHttp(
   current: () => {
     readonly url: string;
@@ -121,33 +124,33 @@ export function projectImagesHttp(
   }
 
   function upload(
-    image: string,
+    version: string,
     content: Uint8Array,
     id = current().project.id,
   ): Promise<Response> {
-    return fetch(`${current().url}/api/projects/${id}/images/${image}`, {
+    return fetch(`${current().url}/api/projects/${id}/images/${version}`, {
       method: "POST",
       headers: { "Content-Type": "application/octet-stream" },
       body: content,
     });
   }
 
-  async function uploaded(image: string, content: Uint8Array): Promise<Project> {
-    const response = await upload(image, content);
+  async function uploaded(version: string, content: Uint8Array): Promise<Project> {
+    const response = await upload(version, content);
     expect(response.status).toBe(201);
     return projectSchema.parse(await response.json());
   }
 
-  function choose(image: string, file: unknown, id = current().project.id): Promise<Response> {
-    return fetch(`${current().url}/api/projects/${id}/images/${image}/from-repository`, {
+  function choose(version: string, file: unknown, id = current().project.id): Promise<Response> {
+    return fetch(`${current().url}/api/projects/${id}/images/${version}/from-repository`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(file),
     });
   }
 
-  async function chosen(image: string, path: string, at = current().commit): Promise<Project> {
-    const response = await choose(image, { commit: at, path });
+  async function chosen(version: string, path: string, at = current().commit): Promise<Project> {
+    const response = await choose(version, { commit: at, path });
     expect(response.status).toBe(201);
     return projectSchema.parse(await response.json());
   }
@@ -160,8 +163,8 @@ export function projectImagesHttp(
     return new Uint8Array(await (await contentOf(imageId)).arrayBuffer());
   }
 
-  function removeImage(image: string): Promise<Response> {
-    return fetch(`${current().url}/api/projects/${current().project.id}/images/${image}`, {
+  function removeImage(version: string): Promise<Response> {
+    return fetch(`${current().url}/api/projects/${current().project.id}/images/${version}`, {
       method: "DELETE",
     });
   }

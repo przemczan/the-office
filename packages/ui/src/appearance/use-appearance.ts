@@ -11,7 +11,12 @@ let browserAppearance: AppearanceStore | undefined;
 export function useAppearance(): Appearance &
   Pick<AppearanceStore, "choosePalette" | "followSystem"> {
   browserAppearance ??= createAppearanceStore();
-  const appearance = useSyncExternalStore(browserAppearance.subscribe, browserAppearance.current);
+  // The same snapshot when rendered to markup, as tests do with a page's document at hand.
+  const appearance = useSyncExternalStore(
+    browserAppearance.subscribe,
+    browserAppearance.current,
+    browserAppearance.current,
+  );
   return {
     ...appearance,
     choosePalette: browserAppearance.choosePalette,
