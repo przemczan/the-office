@@ -1,6 +1,6 @@
 import type { Project, ProjectImageKey } from "@the-office/contracts";
-import { PALETTES, type Palette } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { IMAGE_PALETTES } from "../../shell/project-image.ts";
 import { VersionTile } from "./version-tile.tsx";
 
 const IMAGE_NAMES: Readonly<Record<ProjectImageKey, string>> = { icon: "Icon", logo: "Logo" };
@@ -26,7 +26,7 @@ export function ProjectImageVersions({
         <div className="image-versions-hint">{WHERE_IT_SHOWS[imageKey]}</div>
       </div>
       <div className="image-versions-tiles">
-        {(Object.keys(PALETTES) as Palette[]).map((palette) => (
+        {IMAGE_PALETTES.map((palette) => (
           <VersionTile
             key={palette}
             project={project}

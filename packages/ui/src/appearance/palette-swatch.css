@@ -1,19 +1,10 @@
-/* A palette's preview in a picker: its surface and border, which no alias of the palette shown
-   can give, so they are read from the design system's ramps. */
+/* A palette's swatch in a picker: its page and border, which no alias of the palette shown can
+   give, so they are the palette's own colours (palette-sample.ts). */
 .palette-swatch {
   display: block;
   width: 14px;
   height: 14px;
-  border: 1px solid;
+  border: 1px solid var(--palette-sample-border);
   border-radius: 4px;
-}
-
-.palette-swatch[data-palette-swatch="light"] {
-  background: var(--white);
-  border-color: var(--gray-200);
-}
-
-.palette-swatch[data-palette-swatch="dark"] {
-  background: var(--gray-900);
-  border-color: var(--gray-700);
+  background: var(--palette-sample-page);
 }

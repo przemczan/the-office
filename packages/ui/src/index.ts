@@ -21,7 +21,7 @@ declare global {
 // any Icon renders. Icons are looked up by name, so the whole set is kept.
 if (typeof window !== "undefined") window.lucide = { icons };
 
-export { PALETTES, type Palette } from "./appearance/apply-appearance.ts";
+export { PALETTES, type Palette, type PaletteBase } from "./appearance/apply-appearance.ts";
 export type { Appearance } from "./appearance/appearance-store.ts";
 export { PalettePreview } from "./appearance/palette-preview.tsx";
 export { PaletteSwatch } from "./appearance/palette-swatch.tsx";

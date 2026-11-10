@@ -2,6 +2,8 @@
 @import "../../../design-system/styles.css";
 @import "./appearance/palettes/light.css";
 @import "./appearance/palettes/dark.css";
+@import "./appearance/palettes/graphite.css";
+@import "./appearance/palettes/paper.css";
 @import "./appearance/densities/comfortable.css";
 @import "./appearance/palette-swatch.css";
 @import "./appearance/palette-preview.css";

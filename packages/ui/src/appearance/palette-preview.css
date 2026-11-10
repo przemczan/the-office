@@ -1,5 +1,5 @@
 /* A palette's page in miniature, for choosing it in Settings. Like the swatch, its colours are the
-   palette's own, read from the design system's ramps, whatever palette is shown. */
+   palette's own (palette-sample.ts), whatever palette is shown. */
 .palette-preview {
   position: relative;
   display: flex;
@@ -9,9 +9,9 @@
   height: 56px;
   padding: 10px 10px 10px 14px;
   box-sizing: border-box;
-  border: 1px solid;
+  border: 1px solid var(--palette-sample-border);
   border-radius: 6px;
-  --palette-preview-line: currentcolor;
+  background: var(--palette-sample-page);
 }
 
 .palette-preview i {
@@ -19,7 +19,7 @@
   width: 80%;
   height: 5px;
   border-radius: 3px;
-  background: var(--palette-preview-line);
+  background: var(--palette-sample-line);
   opacity: 0.7;
 }
 
@@ -39,20 +39,13 @@
   background: var(--ember-500);
 }
 
-.palette-preview[data-palette-preview="light"] {
-  background: var(--white);
-  border-color: var(--gray-200);
-  --palette-preview-line: var(--gray-900);
-}
-
-.palette-preview[data-palette-preview="dark"] {
-  background: var(--gray-900);
-  border-color: var(--gray-700);
-  --palette-preview-line: var(--gray-200);
-}
-
+/* Following the system shows Light or Dark: half of each, with a middle gray that reads on both. */
 .palette-preview[data-palette-preview="system"] {
-  background: linear-gradient(to right, var(--white) 50%, var(--gray-900) 50%);
-  border-color: var(--gray-400);
-  --palette-preview-line: var(--gray-500);
+  background: linear-gradient(
+    to right,
+    var(--palette-light-page) 50%,
+    var(--palette-dark-page) 50%
+  );
+  --palette-sample-border: var(--gray-400);
+  --palette-sample-line: var(--gray-500);
 }

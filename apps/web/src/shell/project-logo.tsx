@@ -1,5 +1,4 @@
-import type { Project } from "@the-office/contracts";
-import type { Palette } from "@the-office/ui";
+import type { Project, ProjectImagePalette } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { ProjectMark } from "./project-mark.tsx";
 import { useShownProjectImage } from "./project-image.ts";
@@ -16,8 +15,8 @@ export function ProjectLogo({
   readonly project: Project;
   /** xl on a Project's card, page on its page's head. */
   readonly size: "xl" | "page";
-  /** The palette whose version shows, when not the one shown, as in a preview of the other. */
-  readonly palette?: Palette;
+  /** The palette whose version shows, when not the base of the one shown, as in a preview. */
+  readonly palette?: ProjectImagePalette;
 }): ReactNode {
   const { address, onError } = useShownProjectImage(project.id, project.logo, palette);
   if (address === undefined) return <ProjectMark project={project} size={size} palette={palette} />;

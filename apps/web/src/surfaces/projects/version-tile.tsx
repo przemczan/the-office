@@ -6,8 +6,9 @@ import {
   type Image,
   type Project,
   type ProjectImageKey,
+  type ProjectImagePalette,
 } from "@the-office/contracts";
-import { Button, Icon, PALETTES, type Palette } from "@the-office/ui";
+import { Button, Icon, PALETTES } from "@the-office/ui";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import {
   chooseProjectImage,
@@ -44,7 +45,7 @@ export function VersionTile({
   readonly imageKey: ProjectImageKey;
   /** What the image is called, such as Logo. */
   readonly imageName: string;
-  readonly palette: Palette;
+  readonly palette: ProjectImagePalette;
 }): ReactNode {
   const versionName = `${PALETTES[palette].name} ${imageName}`;
   const image = project[imageKey][palette];
@@ -229,7 +230,11 @@ function HeldVersion({
 }
 
 /** An empty place, saying which version shows instead when the other one is held. */
-function EmptyVersion({ fallbackPalette }: { readonly fallbackPalette: Palette | undefined }) {
+function EmptyVersion({
+  fallbackPalette,
+}: {
+  readonly fallbackPalette: ProjectImagePalette | undefined;
+}) {
   return (
     <>
       <Icon name="image-up" size={20} strokeWidth={1.6} />

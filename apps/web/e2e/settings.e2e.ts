@@ -830,7 +830,9 @@ test.describe("Appearance", { tag: "@full" }, () => {
   // A system in dark, so each choice shows as a change from what the system gives.
   test.use({ colorScheme: "dark" });
 
-  test("switches Light, Dark and Follow the system, each kept across reloads", async ({ page }) => {
+  test("switches every palette and Follow the system, each kept across reloads", async ({
+    page,
+  }) => {
     await page.goto("/settings/appearance");
     const html = page.locator("html");
     const palette = page.getByRole("group", { name: "Palette" });
@@ -840,18 +842,34 @@ test.describe("Appearance", { tag: "@full" }, () => {
     );
     await expect(html).toHaveAttribute("data-palette", "dark");
 
-    for (const [name, shown] of [
-      ["Light", "light"],
-      ["Dark", "dark"],
+    // Each card previews its own palette, whatever palette is shown.
+    const previewColours = await palette
+      .locator(".palette-preview")
+      .evaluateAll((previews) => previews.map((preview) => getComputedStyle(preview).background));
+    expect(new Set(previewColours).size).toBe(previewColours.length);
+
+    for (const [name, shown, base] of [
+      ["Light", "light", "light"],
+      ["Dark", "dark", "dark"],
+      ["Graphite", "graphite", "dark"],
+      ["Paper", "paper", "light"],
     ] as const) {
       await palette.getByRole("button", { name }).click();
       await expect(html).toHaveAttribute("data-palette", shown);
+      await expect(html).toHaveAttribute("data-theme", base);
       await page.reload();
       await expect(html).toHaveAttribute("data-palette", shown);
+      await expect(html).toHaveAttribute("data-theme", base);
       await expect(palette.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
-      await page.screenshot({
-        path: path.join(SCREENSHOTS, `${shown}-1600-settings-appearance.png`),
-      });
+      for (const width of [1600, 600]) {
+        await page.setViewportSize({ width, height: 900 });
+        const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
+        expect(sideways).toBe(0);
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${shown}-${width}-settings-appearance.png`),
+        });
+      }
+      await page.setViewportSize({ width: 1600, height: 900 });
     }
 
     await palette.getByRole("button", { name: "Follow the system" }).click();

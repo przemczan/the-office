@@ -1,14 +1,16 @@
-import type { Project } from "@the-office/contracts";
-import { Badge, PALETTES, SegmentedControl, useAppearance, type Palette } from "@the-office/ui";
+import type { Project, ProjectImagePalette } from "@the-office/contracts";
+import { Badge, PALETTES, SegmentedControl, useAppearance } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { ProjectChip } from "../../shell/project-chip.tsx";
+import { IMAGE_PALETTES } from "../../shell/project-image.ts";
 import { ProjectLogo } from "../../shell/project-logo.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 
 /**
  * The Project where it shows, drawn by the app's own mark and Logo so it can't drift from them.
- * `project` carries the mark being edited, so the result shows before it is saved. It shows the
- * palette shown until another is picked, on that palette's page with its versions of the images.
+ * `project` carries the mark being edited, so the result shows before it is saved. It shows Light or
+ * Dark, the images' two versions: the base of the palette shown until the other is picked, on that
+ * palette's page with its versions of the images.
  */
 export function AppearancePreview({
   project,
@@ -18,9 +20,9 @@ export function AppearancePreview({
   /** The mark shown is a draft. */
   readonly unsaved: boolean;
 }): ReactNode {
-  const shownPalette = useAppearance().palette;
-  const [pickedPalette, setPickedPalette] = useState<Palette>();
-  const palette = pickedPalette ?? shownPalette;
+  const shownBase = useAppearance().base;
+  const [pickedPalette, setPickedPalette] = useState<ProjectImagePalette>();
+  const palette = pickedPalette ?? shownBase;
   return (
     <ProjectBlock
       icon="eye"
@@ -34,13 +36,13 @@ export function AppearancePreview({
           )}
           <SegmentedControl
             size="sm"
-            options={(Object.keys(PALETTES) as Palette[]).map((id) => ({
+            options={IMAGE_PALETTES.map((id) => ({
               value: id,
               label: PALETTES[id].name,
               title: `Show it in the ${PALETTES[id].name} palette`,
             }))}
             value={palette}
-            onChange={(picked) => setPickedPalette(picked as Palette)}
+            onChange={(picked) => setPickedPalette(picked as ProjectImagePalette)}
           />
         </span>
       }
@@ -83,7 +85,7 @@ function Sample({
   children,
 }: {
   readonly label: string;
-  readonly palette: Palette;
+  readonly palette: ProjectImagePalette;
   readonly children: ReactNode;
 }): ReactNode {
   return (

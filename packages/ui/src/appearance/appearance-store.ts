@@ -1,8 +1,16 @@
-import { APPEARANCE_RULES, applyAppearance, PALETTES, type Palette } from "./apply-appearance.ts";
+import {
+  APPEARANCE_RULES,
+  applyAppearance,
+  PALETTES,
+  type Palette,
+  type PaletteBase,
+} from "./apply-appearance.ts";
 
 export interface Appearance {
   /** The palette shown. */
   readonly palette: Palette;
+  /** The light or dark base of the palette shown. */
+  readonly base: PaletteBase;
   /** The palette the user chose, or undefined while the system's light or dark is followed. */
   readonly chosenPalette: Palette | undefined;
 }
@@ -74,7 +82,8 @@ export function createAppearanceStore(): AppearanceStore {
 
 function apply(chosenPalette: Palette | undefined): Appearance {
   applyAppearance(APPEARANCE_RULES, chosenPalette ?? null);
-  return { palette: document.documentElement.dataset.palette as Palette, chosenPalette };
+  const palette = document.documentElement.dataset.palette as Palette;
+  return { palette, base: PALETTES[palette].base, chosenPalette };
 }
 
 function storedPalette(): Palette | undefined {

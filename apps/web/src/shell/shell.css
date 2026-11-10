@@ -510,7 +510,8 @@ body,
   font-size: 15px;
 }
 
-/* A mark's colours, for its tile and for the swatches that pick one. */
+/* A mark's colours, for its tile and for the swatches that pick one. Like a brand mark, a mark
+   reads the design system's ramps directly, so no palette mutes it (spec §4). */
 .mark-colour-teal {
   --mark-bg: var(--teal-500);
 }

@@ -120,6 +120,46 @@ for (const palette of PALETTES) {
   }
 }
 
+/** Graphite and Paper, which a system's light or dark can't show, so they are chosen in storage. */
+const CHOSEN_PALETTES = [
+  { palette: "graphite", base: "dark" },
+  { palette: "paper", base: "light" },
+] as const;
+/** Where the browser keeps the chosen palette (packages/ui's APPEARANCE_RULES). */
+const PALETTE_STORAGE_KEY = "the-office.palette";
+
+for (const { palette, base } of CHOSEN_PALETTES) {
+  test.describe(`${palette}, 1600 wide`, { tag: "@full" }, () => {
+    // The system says the other base, so the page shows the chosen palette, not the system's.
+    test.use({
+      colorScheme: base === "dark" ? "light" : "dark",
+      viewport: { width: 1600, height: 900 },
+    });
+
+    test("the rail opens each surface in it", async ({ page }) => {
+      await page.addInitScript(({ key, chosen }) => localStorage.setItem(key, chosen), {
+        key: PALETTE_STORAGE_KEY,
+        chosen: palette,
+      });
+      await page.goto("/now");
+      const html = page.locator("html");
+      await expect(html).toHaveAttribute("data-palette", palette);
+      await expect(html).toHaveAttribute("data-theme", base);
+      const rail = page.getByRole("navigation", { name: "Surfaces" });
+      for (const surface of SURFACES) {
+        await rail.getByRole("link", { name: surface.name, exact: true }).click();
+
+        await expect(page).toHaveURL(new RegExp(`${surface.path}$`));
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(surface.name);
+        await page.mouse.move(800, 600);
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${palette}-1600-${surface.name.toLowerCase()}.png`),
+        });
+      }
+    });
+  });
+}
+
 test.describe("the palette", { tag: "@full" }, () => {
   test.use({ colorScheme: "light" });
 
@@ -129,12 +169,39 @@ test.describe("the palette", { tag: "@full" }, () => {
     await expect(html).toHaveAttribute("data-palette", "light");
 
     await page.getByRole("button", { name: "Theme" }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Dark" }).click();
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("button")).toHaveText(["Light", "Dark", "Graphite", "Paper"]);
+    // Each palette shows in its own colours, whatever palette is shown.
+    const swatchColours = await menu
+      .locator(".palette-swatch")
+      .evaluateAll((swatches) =>
+        swatches.map((swatch) => getComputedStyle(swatch).backgroundColor),
+      );
+    expect(new Set(swatchColours).size).toBe(4);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-theme-menu.png") });
+    await menu.getByRole("button", { name: "Dark" }).click();
 
     await expect(html).toHaveAttribute("data-palette", "dark");
     await expect(html).toHaveAttribute("data-theme", "dark");
     await page.reload();
     await expect(html).toHaveAttribute("data-palette", "dark");
+
+    await page.getByRole("button", { name: "Theme" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Graphite" }).click();
+    await expect(html).toHaveAttribute("data-palette", "graphite");
+    await expect(html).toHaveAttribute("data-theme", "dark");
+  });
+
+  test("chosen in one tab, it shows in the others", async ({ page, context }) => {
+    await page.goto("/now");
+    const other = await context.newPage();
+    await other.goto("/now");
+
+    await page.getByRole("button", { name: "Theme" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Paper" }).click();
+
+    await expect(other.locator("html")).toHaveAttribute("data-palette", "paper");
+    await expect(other.locator("html")).toHaveAttribute("data-theme", "light");
   });
 });
 
