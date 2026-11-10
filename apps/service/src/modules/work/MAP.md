@@ -153,7 +153,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `usage-settings.controller.ts`: UsageSettingsController
 - `work-refusals.filter.ts`: WorkRefusalsFilter
 - `work-responses.ts`: toIdeaResponse, toInitiativeResponse, toArchivedInitiativesPageResponse, toTaskResponse, toAttachmentResponse, toSearchResultsResponse, toOwnerResponse, toSavedViewResponse, toQueueResponse, toUsageEstimateResponse, toUsageSettingsResponse
-- Tests: attachments.controller.full.test.ts, attachments.controller.test.ts, ideas.controller.full.test.ts, ideas.controller.test.ts, initiatives.controller.full.test.ts, initiatives.controller.test.ts, office-limits.controller.full.test.ts, saved-views.controller.full.test.ts, saved-views.controller.test.ts, search.controller.full.test.ts, search.controller.test.ts, task-walks.full.test.ts, task-walks.test.ts, tasks.controller.full.test.ts, tasks.controller.test.ts, usage-settings.controller.full.test.ts
+- Tests: attachments.controller.full.test.ts, attachments.controller.test.ts, ideas.controller.full.test.ts, ideas.controller.test.ts, initiatives.controller.full.test.ts, initiatives.controller.test.ts, office-limits.controller.test.ts, saved-views.controller.full.test.ts, saved-views.controller.test.ts, search.controller.full.test.ts, search.controller.test.ts, task-walks.full.test.ts, task-walks.test.ts, tasks.controller.full.test.ts, tasks.controller.test.ts, usage-settings.controller.full.test.ts, usage-settings.controller.test.ts
 
 ### adapters/office-tools/
 

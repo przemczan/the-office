@@ -9,13 +9,11 @@ import {
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EngineModels, FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../../engine/index.js";
 import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
-import { UsageSettingsChanged } from "../../domain/office-limit-events.js";
 import { WorkSettingsForTests } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import {
   sendJson,
   startWorkApplication,
-  webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 
@@ -115,17 +113,6 @@ describe("/api/settings/usage", () => {
     });
   });
 
-  it("keeps the ticked measures and every engine's caps, in the engines' order, and announces them", async () => {
-    const changed = await sendJson(work, "PUT", "/settings/usage", CHANGED);
-
-    expect(changed.status).toBe(200);
-    const kept = { measures: CHANGED.measures, caps: CHANGED.caps.toReversed() };
-    expect(usageSettingsSchema.parse(await changed.json())).toEqual(kept);
-    expect(await readUsageSettings()).toEqual(kept);
-    expect(work.published).toEqual([expect.any(UsageSettingsChanged)]);
-    expect(webEventsOf(work)).toEqual([{ type: "usage-settings.changed" }]);
-  });
-
   it("gives the estimates in the ticked measures alone, and none with no measure ticked", async () => {
     await sendJson(work, "PUT", "/settings/usage", CHANGED);
     const ticked = taskUsageEstimateListSchema.parse(
@@ -141,51 +128,5 @@ describe("/api/settings/usage", () => {
     const none = await sendJson(work, "GET", "/usage-estimates");
 
     expect(await none.json()).toEqual([]);
-  });
-
-  it.each([
-    ["a measure ticked twice", { ...CHANGED, measures: ["tokens", "tokens"] }],
-    ["an engine left out", { ...CHANGED, caps: CHANGED.caps.slice(1) }],
-    ["an engine named twice", { ...CHANGED, caps: [...CHANGED.caps, CHANGED.caps[1]] }],
-    [
-      "an engine it doesn't list",
-      { ...CHANGED, caps: [...CHANGED.caps, { ...CHANGED.caps[0], engineId: "strata" }] },
-    ],
-    [
-      "Window caps on an API engine",
-      {
-        ...CHANGED,
-        caps: CHANGED.caps.map((caps) => ({ ...caps, windows: { fiveHour: 50, sevenDay: 50 } })),
-      },
-    ],
-    [
-      "no Window caps on a Claude Code engine",
-      {
-        ...CHANGED,
-        caps: CHANGED.caps.map(({ windows, ...caps }) =>
-          caps.engineId === "work-account" ? caps : { ...caps, windows },
-        ),
-      },
-    ],
-    [
-      "a Window cap over 100%",
-      {
-        ...CHANGED,
-        caps: [
-          CHANGED.caps[0],
-          CHANGED.caps[1],
-          { ...CHANGED.caps[2], windows: { fiveHour: 101, sevenDay: null } },
-        ],
-      },
-    ],
-    [
-      "a Daily cap of 0 tokens",
-      { ...CHANGED, caps: [{ ...CHANGED.caps[0], dailyTokens: 0 }, ...CHANGED.caps.slice(1)] },
-    ],
-  ])("refuses %s", async (_case, settings) => {
-    const refused = await sendJson(work, "PUT", "/settings/usage", settings);
-
-    expect(refused.status).toBe(400);
-    expect(work.published).toEqual([]);
   });
 });
