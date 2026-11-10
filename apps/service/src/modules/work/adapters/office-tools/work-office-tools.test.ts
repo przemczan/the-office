@@ -22,7 +22,7 @@ import { startWorkApplication, type WorkApplication } from "../../work-applicati
 import { READ_INITIATIVE } from "./shaping-office-tools.js";
 import {
   CREATE_TASK,
-  DOCUMENT_READ_LIMIT,
+  DOCUMENT_ANSWER_BUDGET,
   LIST_IDEAS,
   LIST_TASKS,
   READ_ATTACHMENT,
@@ -344,6 +344,11 @@ function addDocument(owner: AttachmentOwner, name: string, content: string) {
     );
 }
 
+/** The fromLine an answer's last words say to read or search on with, if it goes on. */
+function fromLineToGoOn(goOn: "Read on" | "Search on", answer: string): string | undefined {
+  return new RegExp(`${goOn} with fromLine (\\d+)\\.$`).exec(answer)?.[1];
+}
+
 function aTaskNamed(title: string) {
   return work.app.get(TaskService).create({ title, projectId, priority: "normal" }, THE_USER);
 }
@@ -356,7 +361,7 @@ describe("read_attachment", () => {
     await expect(
       call(READ_ATTACHMENT, { attachmentId: notes.id }, "chat-on-no-task"),
     ).resolves.toEqual({
-      text: `Attached to Task ${other.id}: Add the session store.\n\nnotes.md (document, text/markdown, 7 bytes):\n\n# Notes`,
+      text: `Attached to Task ${other.id}: Add the session store.\n\nnotes.md (document, text/markdown, 7 bytes), 1 line:\n\n     1→# Notes\n\nLine 1 of 1: the end of the document.`,
       isError: false,
     });
   });
@@ -371,7 +376,7 @@ describe("read_attachment", () => {
     const result = await call(READ_ATTACHMENT, { attachmentId: notes.id });
 
     expect(result.text).toBe(
-      `Attached to Task ${finished.id}: Finished (archived).\n\nnotes.md (document, text/markdown, 5 bytes):\n\nDone.`,
+      `Attached to Task ${finished.id}: Finished (archived).\n\nnotes.md (document, text/markdown, 5 bytes), 1 line:\n\n     1→Done.\n\nLine 1 of 1: the end of the document.`,
     );
   });
 
@@ -397,30 +402,131 @@ describe("read_attachment", () => {
     const initiativeRead = await call(READ_ATTACHMENT, { attachmentId: outcome.id });
 
     expect(ideaRead.text).toBe(
-      `Attached to Idea ${idea.id}: Voice notes.\n\nidea.md (document, text/markdown, 5 bytes):\n\nIdea.`,
+      `Attached to Idea ${idea.id}: Voice notes.\n\nidea.md (document, text/markdown, 5 bytes), 1 line:\n\n     1→Idea.\n\nLine 1 of 1: the end of the document.`,
     );
     expect(initiativeRead.text).toBe(
-      `Attached to Initiative ${initiative.id}: ${initiative.name}.\n\noutcome.md (document, text/markdown, 8 bytes):\n\nOutcome.`,
+      `Attached to Initiative ${initiative.id}: ${initiative.name}.\n\noutcome.md (document, text/markdown, 8 bytes), 1 line:\n\n     1→Outcome.\n\nLine 1 of 1: the end of the document.`,
     );
   });
 
-  it("reads the start of a long document, saying it goes on", async () => {
-    const task = await aTaskNamed("Long notes");
-    const long = await addDocument(
+  it("reads a slice of a document by its lines, saying where it goes on", async () => {
+    const task = await aTaskNamed("Notes");
+    const notes = await addDocument(
       { kind: "task", taskId: task.id },
-      "long.md",
-      "é".repeat(DOCUMENT_READ_LIMIT),
+      "notes.md",
+      "one\r\ntwo\r\nthree\r\nfour\r\n",
     );
 
-    const result = await call(READ_ATTACHMENT, { attachmentId: long.id });
+    const result = await call(READ_ATTACHMENT, {
+      attachmentId: notes.id,
+      fromLine: 2,
+      lineCount: 2,
+    });
 
-    // Two bytes a character, so the limit holds half of them, and no half character at its end.
     expect(result.text).toBe(
-      `Attached to Task ${task.id}: Long notes.\n\nlong.md (document, text/markdown, ${DOCUMENT_READ_LIMIT * 2} bytes):\n\n${"é".repeat(DOCUMENT_READ_LIMIT / 2)}\n\nThe document goes on: these are its first ${DOCUMENT_READ_LIMIT} bytes.`,
+      `Attached to Task ${task.id}: Notes.\n\nnotes.md (document, text/markdown, 23 bytes), 4 lines:\n\n     2→two\n     3→three\n\nLines 2–3 of 4. Read on with fromLine 4.`,
     );
   });
 
-  it("gives a link's address and an image's name and kind", async () => {
+  it("searches a document for a phrase, with the lines around each match", async () => {
+    const task = await aTaskNamed("Notes");
+    const notes = await addDocument(
+      { kind: "task", taskId: task.id },
+      "notes.md",
+      ["Intro", "The Z 7II downloads RAW.", "Middle", "Gap", "Gap", "Gap", "raw again", "End"].join(
+        "\n",
+      ),
+    );
+
+    const result = await call(READ_ATTACHMENT, {
+      attachmentId: notes.id,
+      search: "RAW",
+      contextLines: 1,
+    });
+
+    expect(result.text).toBe(
+      [
+        `Attached to Task ${task.id}: Notes.\n\nnotes.md (document, text/markdown, 63 bytes), 8 lines:\n`,
+        "     1-Intro",
+        "     2:The Z 7II downloads RAW.",
+        "     3-Middle",
+        "--",
+        "     6-Gap",
+        "     7:raw again",
+        "     8-End",
+        "",
+        "2 matches shown, up to line 7; none after it: the search reached the end of the document.",
+      ].join("\n"),
+    );
+  });
+
+  it("reads a document far larger than an answer in slices and searches, each within the budget", async () => {
+    const task = await aTaskNamed("Long report");
+    const lines = Array.from(
+      { length: 3_000 },
+      (_, index) =>
+        `Line ${index + 1} of the report, about cameras on USB${index % 100 === 0 ? " and PTP" : ""}.`,
+    );
+    const report = await addDocument(
+      { kind: "task", taskId: task.id },
+      "report.md",
+      lines.join("\n"),
+    );
+    expect(report.kind === "document" && report.size).toBeGreaterThan(100_000);
+
+    const read = async (input: Record<string, unknown>) => {
+      const { text, isError } = await call(READ_ATTACHMENT, { attachmentId: report.id, ...input });
+      expect(isError).toBe(false);
+      expect(text.length).toBeLessThanOrEqual(DOCUMENT_ANSWER_BUDGET);
+      expect(text).toContain("3,000 lines:");
+      return text;
+    };
+
+    // Read by its id alone, the start; then on from where each answer says, to the end.
+    let text = await read({});
+    expect(text).toContain("     1→Line 1 of the report");
+    let readOn = fromLineToGoOn("Read on", text);
+    const slices = [text];
+    while (readOn !== undefined) {
+      text = await read({ fromLine: Number(readOn), lineCount: 1_000 });
+      expect(text).toContain(`${readOn.padStart(6)}→Line ${readOn} of the report`);
+      slices.push(text);
+      readOn = fromLineToGoOn("Read on", text);
+    }
+    expect(slices.length).toBeGreaterThan(3);
+    expect(text).toMatch(/–3000 of 3,000: the end of the document\.$/);
+
+    // A search pages the same way, and a match's line number starts a slice at that line.
+    const search = await read({ search: "and ptp" });
+    expect(search).toContain("  2901:Line 2901 of the report");
+    expect(search).toMatch(/30 matches shown, up to line 2901; none after it/);
+    const fromMatch = await read({ fromLine: 2901, lineCount: 1 });
+    expect(fromMatch).toContain("  2901→Line 2901 of the report, about cameras on USB and PTP.");
+
+    const everyLine = await read({ search: "the report" });
+    const searchOn = fromLineToGoOn("Search on", everyLine) ?? "";
+    expect(searchOn).not.toBe("");
+    const next = await read({ search: "the report", fromLine: Number(searchOn) });
+    expect(next).toContain(`${searchOn.padStart(6)}:Line ${searchOn} of the report`);
+  });
+
+  it("cuts a line longer than an answer can hold, saying so", async () => {
+    const task = await aTaskNamed("Minified");
+    const minified = await addDocument(
+      { kind: "task", taskId: task.id },
+      "minified.md",
+      `${"é".repeat(DOCUMENT_ANSWER_BUDGET * 2)}\n{}`,
+    );
+
+    const { text } = await call(READ_ATTACHMENT, { attachmentId: minified.id });
+
+    expect(text.length).toBeLessThanOrEqual(DOCUMENT_ANSWER_BUDGET);
+    expect(text).toMatch(
+      /Line 1 of 2; one answer holds no more\. Read on with fromLine 2\. Line 1 is longer than one answer can hold, so it is cut: these are its first [\d,]+ of 50,000 characters\.$/,
+    );
+  });
+
+  it("gives a link's address and an image's and other file's name and kind", async () => {
     const task = await aTaskNamed("Mockups");
     const attachments = work.app.get(AttachmentService);
     const link = await attachments.addLink(
@@ -438,14 +544,24 @@ describe("read_attachment", () => {
       THE_USER,
     );
 
+    const archive = await attachments.addFile(
+      { kind: "task", taskId: task.id },
+      { name: "export.zip", mediaType: "application/zip", content: new Uint8Array([80, 75]) },
+      THE_USER,
+    );
+
     const linkRead = await call(READ_ATTACHMENT, { attachmentId: link.id });
-    const imageRead = await call(READ_ATTACHMENT, { attachmentId: image.id });
+    const imageRead = await call(READ_ATTACHMENT, { attachmentId: image.id, search: "png" });
+    const fileRead = await call(READ_ATTACHMENT, { attachmentId: archive.id, fromLine: 5 });
 
     expect(linkRead.text).toBe(
       `Attached to Task ${task.id}: Mockups.\n\nSpec (link to https://example.com/spec). The Office keeps its address only; fetch it if you need what it says.`,
     );
     expect(imageRead.text).toBe(
       `Attached to Task ${task.id}: Mockups.\n\nscreen.png (image, image/png, 9 bytes). Only a document is read as text; ask the user what it holds if you need to know.`,
+    );
+    expect(fileRead.text).toBe(
+      `Attached to Task ${task.id}: Mockups.\n\nexport.zip (file, application/zip, 2 bytes). Only a document is read as text; ask the user what it holds if you need to know.`,
     );
   });
 

@@ -9,6 +9,14 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { attachmentKindWords, type Attachment } from "../../domain/attachment.js";
+import {
+  DEFAULT_CONTEXT_LINES,
+  DEFAULT_LINE_COUNT,
+  lineCountWords,
+  MAX_CONTEXT_LINES,
+  MAX_LINE_COUNT,
+  type DocumentReading,
+} from "../../domain/document-lines.js";
 import type { Idea } from "../../domain/idea.js";
 import { whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
@@ -27,10 +35,19 @@ export const READ_ATTACHMENT = "read_attachment";
 export const CREATE_TASK = "create_task";
 
 /**
- * How much of a document read_attachment answers with, so one large file can't fill the session's
- * context; about 15k tokens of English.
+ * The most characters read_attachment answers a document with, its header included. Claude Code
+ * keeps a tool's answer in the session only up to 50,000 characters; a longer one is saved to a
+ * file in the engine's own folder, which Agents may not read, and the session sees a 2 KB preview.
+ * Measured on 2026-11-10 with Claude Code 2.1.310 (Agent SDK 0.3.310), on claude-haiku-5-5: an
+ * Office-style SDK MCP tool answered 10,000 to 80,000 characters, and the model reported which
+ * answers it saw whole. 50,000 came back inline and 50,001 was saved to a file; 45,000 two-byte
+ * characters (90,000 bytes) came back inline, so the limit counts characters. Half of it leaves
+ * a clear margin for a later engine lowering it.
  */
-export const DOCUMENT_READ_LIMIT = 60_000;
+export const DOCUMENT_ANSWER_BUDGET = 25_000;
+
+/** Room for ", 1,312 lines:" after the heading: a 50 MB document has fewer than 100 million. */
+const LINE_COUNT_ROOM = ", 99,999,999 lines:\n\n".length;
 
 /**
  * The Office tools sessions work with Work's records by (spec §6): every session reads every Task,
@@ -122,18 +139,63 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_ATTACHMENT,
       description:
-        "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, and names what it belongs to: a document's text, a link's address, and an image's or other file's name and kind, since only a document is read as text.",
+        "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, and names what it belongs to: a link's address, an image's or other file's name and kind, and a document's text, since only a document is read as text. A document is read by its lines, each with its number, like a file with Read and Grep: give fromLine and lineCount for a slice of it, or a search phrase for the lines that hold it with a few lines around each. One answer holds only so much, so a long document is read in slices; every answer ends by saying where the document goes on and which fromLine reads on. A search's line numbers are a slice's, so a match's line given as fromLine reads on from it.",
       input: z.object({
         attachmentId: z
           .string()
           .describe(
             "The Attachment's id, as your Brief, read_task, read_idea or read_initiative lists it.",
           ),
+        fromLine: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe(
+            "For a document: the line the slice or the search starts at, counting from 1. The first line when left out.",
+          ),
+        lineCount: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_LINE_COUNT)
+          .optional()
+          .describe(
+            `For a slice: how many lines it gives, ${DEFAULT_LINE_COUNT} when left out. An answer that would grow too long stops sooner and says where to read on.`,
+          ),
+        search: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "For a document: a phrase to find, matched literally and whatever the case, one line at a time. Answers the lines that hold it instead of a slice.",
+          ),
+        contextLines: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_CONTEXT_LINES)
+          .optional()
+          .describe(
+            `For a search: how many lines to show before and after each match, ${DEFAULT_CONTEXT_LINES} when left out.`,
+          ),
       }),
-      run: ({ attachmentId }) =>
+      run: ({ attachmentId, ...reading }) =>
         answered(async () => {
           const attachment = await this.attachments.read(attachmentId);
-          return `${await this.ownerWords(attachment)}\n\n${await this.readingOf(attachment)}`;
+          const opening = `${await this.ownerWords(attachment)}\n\n${attachment.name} (${attachmentKindWords(attachment)})`;
+          if (attachment.kind === "link") {
+            return `${opening}. The Office keeps its address only; fetch it if you need what it says.`;
+          }
+          if (attachment.kind !== "document") {
+            return `${opening}. Only a document is read as text; ask the user what it holds if you need to know.`;
+          }
+          const { lineCount, text } = await this.attachments.readDocument(
+            attachment.id,
+            documentReading(reading),
+            DOCUMENT_ANSWER_BUDGET - opening.length - LINE_COUNT_ROOM,
+          );
+          return `${opening}, ${lineCountWords(lineCount)}:\n\n${text}`;
         }),
     });
   }
@@ -234,21 +296,30 @@ export class WorkOfficeTools implements OnModuleInit {
       }
     }
   }
+}
 
-  private async readingOf(attachment: Attachment): Promise<string> {
-    const heading = `${attachment.name} (${attachmentKindWords(attachment)})`;
-    if (attachment.kind === "link") {
-      return `${heading}. The Office keeps its address only; fetch it if you need what it says.`;
-    }
-    if (attachment.kind !== "document") {
-      return `${heading}. Only a document is read as text; ask the user what it holds if you need to know.`;
-    }
-    const { text, cut } = await this.attachments.documentText(attachment.id, DOCUMENT_READ_LIMIT);
-    const ending = cut
-      ? `\n\nThe document goes on: these are its first ${DOCUMENT_READ_LIMIT} bytes.`
-      : "";
-    return `${heading}:\n\n${text}${ending}`;
-  }
+interface ReadingAsked {
+  readonly fromLine?: number | undefined;
+  readonly lineCount?: number | undefined;
+  readonly search?: string | undefined;
+  readonly contextLines?: number | undefined;
+}
+
+/** A search when a phrase is given, else a slice; a document read by its id alone is its start. */
+function documentReading({
+  fromLine,
+  lineCount,
+  search,
+  contextLines,
+}: ReadingAsked): DocumentReading {
+  return search === undefined
+    ? { kind: "slice", fromLine: fromLine ?? 1, lineCount: lineCount ?? DEFAULT_LINE_COUNT }
+    : {
+        kind: "search",
+        phrase: search,
+        fromLine: fromLine ?? 1,
+        contextLines: contextLines ?? DEFAULT_CONTEXT_LINES,
+      };
 }
 
 function taskLine(task: Task): string {

@@ -52,8 +52,8 @@ describe("a planning Brief", () => {
         "## What the user wants, in their own words\n\nNone: the title is all there is.",
         "## Where you work\n\nThe Task's worktree, at /office/worktrees/admin-panel/task-1 on the branch office/task-1, which started from the freshly fetched main.",
         '## Where it came from\n\nThe Idea "Export usage as CSV". Its notes:\n\nMonthly, per Project, for the accountant.',
-        "## Linked records\n\n- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment.",
-        "## Attachments\n\nRead one with read_attachment, by its id.\n\n- CSV format notes (link to https://example.com/csv) · Attachment attachment-1",
+        "## Linked records\n\n- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment, a long document in slices by line or by searching it for a phrase.",
+        "## Attachments\n\nRead one with read_attachment, by its id; read a long document in slices by line, or search it for a phrase.\n\n- CSV format notes (link to https://example.com/csv) · Attachment attachment-1",
         "## The Project's commands\n\n- install: `npm install`\n- build: `npm run build`\n- lint: none\n- test: `npm test`",
         "## The Pipelines\n\nThe Task follows Full (full) until the user confirms another. Propose the one its Definition of Done needs with propose_pipeline:",
         "- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
@@ -122,7 +122,7 @@ describe("a planning Brief", () => {
         "- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it",
         "- Part of: Usage exports (Initiative initiative-1), active; read_initiative reads it",
         "",
-        "Read them with read_task, read_idea and read_initiative, and their Attachments with read_attachment.",
+        "Read them with read_task, read_idea and read_initiative, and their Attachments with read_attachment, a long document in slices by line or by searching it for a phrase.",
       ].join("\n"),
     );
   });

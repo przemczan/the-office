@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -8,6 +9,11 @@ import { AttachmentNotFound } from "../domain/attachment-not-found.js";
 import { AttachmentRefused } from "../domain/attachment-refused.js";
 import type { Author } from "../domain/author.js";
 import type { Idea } from "../domain/idea.js";
+import {
+  documentReader,
+  type DocumentPart,
+  type DocumentReading,
+} from "../domain/document-lines.js";
 import { attachingToIdeaProblems } from "../domain/idea-changes.js";
 import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
@@ -30,12 +36,6 @@ export interface UploadedFile {
 export interface OpenedFile {
   readonly attachment: Attachment;
   readonly content: Readable;
-}
-
-/** The start of a document's text, and whether the document goes on past it. */
-export interface DocumentText {
-  readonly text: string;
-  readonly cut: boolean;
 }
 
 /**
@@ -106,13 +106,25 @@ export class AttachmentService {
     return { attachment, content: await this.files.open(id) };
   }
 
-  /** A document's text from its start, at most `byteLimit` bytes of it, read as UTF-8. */
-  async documentText(id: string, byteLimit: number): Promise<DocumentText> {
+  /**
+   * Reads a document by its lines, as UTF-8, within `budget` characters. The file is streamed line
+   * by line, as a document can be far larger than any answer, and every line is counted.
+   */
+  async readDocument(id: string, reading: DocumentReading, budget: number): Promise<DocumentPart> {
     const attachment = await this.read(id);
     if (attachment.kind !== "document") {
       throw new AttachmentRefused(["Only a document is read as text."]);
     }
-    return leadingText(await this.files.open(id), byteLimit);
+    const reader = documentReader(reading, budget);
+    const content = await this.files.open(id);
+    const lines = createInterface({ input: content, crlfDelay: Infinity });
+    try {
+      for await (const line of lines) reader.take(line);
+    } finally {
+      lines.close();
+      content.destroy();
+    }
+    return reader.part();
   }
 
   async remove(id: string): Promise<void> {
@@ -166,11 +178,11 @@ export class AttachmentService {
 }
 
 async function searchedTextOf(content: Readable): Promise<string> {
-  return searchedText((await leadingText(content, SEARCHED_TEXT_LIMIT)).text);
+  return searchedText(await leadingText(content, SEARCHED_TEXT_LIMIT));
 }
 
 /** Reads no more of the file than it needs, and never ends on half a character. */
-async function leadingText(content: Readable, byteLimit: number): Promise<DocumentText> {
+async function leadingText(content: Readable, byteLimit: number): Promise<string> {
   const decoder = new TextDecoder("utf-8");
   let text = "";
   let bytesRead = 0;
@@ -180,10 +192,10 @@ async function leadingText(content: Readable, byteLimit: number): Promise<Docume
       const room = byteLimit - bytesRead;
       text += decoder.decode(bytes.subarray(0, room), { stream: true });
       bytesRead += Math.min(bytes.byteLength, room);
-      if (bytes.byteLength > room) return { text, cut: true };
+      if (bytes.byteLength > room) return text;
     }
   } finally {
     content.destroy();
   }
-  return { text: text + decoder.decode(), cut: false };
+  return text + decoder.decode();
 }

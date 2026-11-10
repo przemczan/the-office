@@ -11,8 +11,8 @@ import type {
 } from "./stage-run.js";
 
 /**
- * How much of the Stage history read_stage_history answers with, as read_attachment caps a
- * document, so one long test run can't fill the session's context.
+ * How much of the Stage history read_stage_history answers with, so one long test run can't fill
+ * the session's context.
  */
 export const STAGE_HISTORY_READ_LIMIT = 60_000;
 
