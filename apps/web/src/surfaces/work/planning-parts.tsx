@@ -75,8 +75,9 @@ export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
       {editing ? (
         <PartEditor
           label="Description"
-          hint="What you want, in your own words, in Markdown. The title alone is enough to plan from."
+          hint="What you want, in your own words, in Markdown; type @ to mention a Task, Initiative, Decision or Idea. The title alone is enough to plan from."
           initial={task.description}
+          mentions
           saving={changing.isPending}
           onSave={(text) => changing.mutate(text, { onSuccess: () => setEditing(false) })}
           onCancel={() => setEditing(false)}

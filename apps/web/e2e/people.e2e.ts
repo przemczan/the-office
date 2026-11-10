@@ -5071,7 +5071,7 @@ test.describe("the chat drawer", () => {
   });
 
   // The engine replays the last session in e2e/sessions.jsonl: Jan answers beside a Task's page.
-  test("sends the Open page with a message, shows it on the message, and leaves it out once", async ({
+  test("sends the Open page with a message, shows it on the message, and leaves it out while that page stays open", async ({
     page,
   }) => {
     const tasks = taskListSchema.parse(await (await page.request.get("/api/tasks")).json());
@@ -5125,18 +5125,53 @@ test.describe("the chat drawer", () => {
     expect((await leftOut).postDataJSON()).toEqual({ text: "And without it?" });
     await expect(jan.getByText("Nothing open came with that one.")).toBeVisible();
     await expect(withTask).toHaveCount(1);
-    // Left out of that message only: the next one goes with the page again.
+    // Left out while the page stays open, though the drawer closes and opens again.
+    await expect(openPage).toHaveCount(0);
+    await chatButton(page).click();
+    await chatButton(page).click();
+    await expect(jan.getByText("Nothing open came with that one.")).toBeVisible();
+    await expect(openPage).toHaveCount(0);
+    await sendAndExpect(
+      "Still without it?",
+      { text: "Still without it?" },
+      "Still nothing open with it.",
+    );
+    await expect(openPage).toHaveCount(0);
+
+    // Another page brings the line back, and so does coming back to the Task.
+    await page.getByRole("link", { name: "People" }).first().click();
+    await expect(page).toHaveURL(/\/people$/);
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
     await expect(openPage.getByRole("link", { name: task.title })).toBeVisible();
+    await sendAndExpect(
+      "And with it again?",
+      { text: "And with it again?", openPage: { kind: "task", taskId: task.id } },
+      "The Task is open beside the chat again.",
+    );
+    await expect(withTask).toHaveCount(2);
 
     await page.reload();
-    await expect(chatWith(page, "Jan").locator(".message-open-page")).toHaveText(
+    await expect(chatWith(page, "Jan").locator(".message-open-page")).toHaveText([
       `With ${task.title} open`,
-    );
+      `With ${task.title} open`,
+    ]);
     await page.getByRole("link", { name: "People" }).first().click();
     await expect(page).toHaveURL(/\/people$/);
     await expect(openPage).toHaveCount(0);
     await page.goto("/people/developer");
     await expect(openPage.getByRole("link", { name: /Ada/ })).toBeVisible();
+
+    async function sendAndExpect(text: string, body: object, answer: string): Promise<void> {
+      const sending = page.waitForRequest(
+        (request) =>
+          request.method() === "POST" && request.url().endsWith(`/threads/${threadId}/messages`),
+      );
+      await message.fill(text);
+      await message.press("Enter");
+      expect((await sending).postDataJSON()).toEqual(body);
+      await expect(jan.getByText(answer)).toBeVisible();
+    }
   });
 });
 

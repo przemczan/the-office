@@ -187,7 +187,7 @@ A Thread on a Task in which an Agent asks a Consultant for an answer, or for app
 _Avoid_: Delegation, escalation (for this), handoff
 
 **Mention**:
-A Task, Initiative, Idea or Decision named in a chat message, picked with `@` or pasted as the link to its page; the Agent there is given its record with the message.
+A Task, Initiative, Idea or Decision named in a chat message or in a Task's Description, picked with `@` or pasted as the link to its page; in a chat message the Agent there is given its record with the message, and in a Description the link carries its id for an Agent to read it.
 _Avoid_: Reference, tag, attachment (an Attachment is added to a record, not named in a message)
 
 **Open page**:

@@ -157,6 +157,28 @@ describe.skipIf(missing !== undefined)(
       expect(next).toMatchObject({ exitCode: 0 });
     });
 
+    it("runs a check in the new folder once the worktree is removed and added again", async () => {
+      // As Publish removes the worktree and the next Stage adds it at the same path: the running
+      // containers keep the old folder, and exec into it fails in the runtime with exit code 128.
+      await rm(task.worktree, { recursive: true, force: true });
+      await writeFiles(task.worktree, { ...DEFINITION, "new-folder.txt": "new\n" });
+      const output = join(testbed.folder, "replaced.log");
+      const startOutput = join(testbed.folder, "replaced-start.log");
+
+      const end = await testbed.environments.run(task, {
+        commandLine: "pwd && cat new-folder.txt && echo ok",
+        environment: { set: [], unset: [], prependPath: [] },
+        mask: OutputMask.NONE,
+        timeoutMs: 60_000,
+        outputFile: output,
+        startOutputFile: startOutput,
+      });
+
+      expect(end).toMatchObject({ exitCode: 0 });
+      expect(await readFile(output, "utf8")).toBe(`${task.worktree}\nnew\nok\n`);
+      expect(await readFile(startOutput, "utf8")).toContain("The Task's worktree was replaced");
+    });
+
     it("removes the Task's containers, network and volume by its label when it is Done", async () => {
       const removed = vi.fn<(event: RunEnvironmentRemoved) => void>();
       testbed.events.subscribe(RunEnvironmentRemoved, removed);

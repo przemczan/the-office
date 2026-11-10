@@ -4,7 +4,7 @@ import type { OpenPage } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { roleQueries } from "../api/people.ts";
 import { projectQueries } from "../api/projects.ts";
-import { MENTION_KINDS } from "./conversation/mention-words.ts";
+import { MENTION_KINDS } from "./mentions/mention-words.ts";
 import { PersonAvatar } from "./person-avatar.tsx";
 import { roleName } from "./person-name.ts";
 import { ProjectMark } from "./project-mark.tsx";

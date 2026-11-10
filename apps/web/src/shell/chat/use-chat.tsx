@@ -1,4 +1,5 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { sameOpenPage, type OpenPage } from "@the-office/contracts";
 import {
   createContext,
   useContext,
@@ -8,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createChatStore, tabStorage, type ChatPlace, type ChatStore } from "./chat-store.ts";
+import { useOpenPage } from "./open-page.ts";
 
 /** The chat drawer, and opening, closing and moving inside it. */
 export interface ChatControls extends ChatPlace {
@@ -26,15 +28,50 @@ const ChatContext = createContext<ChatStore | undefined>(undefined);
 export function ChatProvider({ children }: { readonly children: ReactNode }): ReactNode {
   const [store] = useState(() => createChatStore(tabStorage()));
   useOpeningFromTheAddress(store);
+  useFollowingTheOpenPage(store);
   return <ChatContext value={store}>{children}</ChatContext>;
 }
 
 export function useChat(): ChatControls {
-  const store = useContext(ChatContext);
-  if (store === undefined) throw new Error("useChat needs the shell's provider.");
+  const store = useChatStore();
   const place = useSyncExternalStore(store.subscribe, store.place);
   const { open, showThread, showThreadList, close } = store;
   return { ...place, open, showThread, showThreadList, close };
+}
+
+/** What the chat drawer's next message goes with, and leaving it out (spec §2.4). */
+export interface ChatOpenPage {
+  /** The Open page, or undefined on a page with none or once the user left it out. */
+  readonly page: OpenPage | undefined;
+  readonly leaveOut: () => void;
+}
+
+export function useChatOpenPage(): ChatOpenPage {
+  const store = useChatStore();
+  const openPage = useOpenPage();
+  const leftOut = useSyncExternalStore(store.subscribe, store.leftOutPage);
+  const page = openPage && !(leftOut && sameOpenPage(leftOut, openPage)) ? openPage : undefined;
+  return {
+    page,
+    leaveOut: () => {
+      if (page) store.leaveOut(page);
+    },
+  };
+}
+
+function useChatStore(): ChatStore {
+  const store = useContext(ChatContext);
+  if (store === undefined) throw new Error("The chat needs the shell's provider.");
+  return store;
+}
+
+/**
+ * Kept in the provider, which stays mounted while the drawer closes or its Threads change, so only
+ * another page brings a left-out page's line back, and coming back to it shows the line again.
+ */
+function useFollowingTheOpenPage(store: ChatStore): void {
+  const openPage = useOpenPage();
+  useEffect(() => store.openPageChanged(openPage), [store, openPage]);
 }
 
 function useOpeningFromTheAddress(store: ChatStore): void {

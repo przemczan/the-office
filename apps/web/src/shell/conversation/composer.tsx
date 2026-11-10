@@ -1,6 +1,6 @@
 import { Button, Icon, IconButton } from "@the-office/ui";
 import { useEffect, useState, type ReactNode } from "react";
-import { useMentions } from "./mention-picker.tsx";
+import { useMentions } from "../mentions/mention-picker.tsx";
 import { MessageField } from "./message-field.tsx";
 
 /** A Handover note a Link card prefilled, and its writer as every surface names a person. */

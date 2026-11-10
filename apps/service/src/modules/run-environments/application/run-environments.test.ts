@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, rm } from "node:fs/promises";
+import { access, mkdir, readFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskStateChanged } from "../../work/index.js";
@@ -291,6 +291,36 @@ describe("RunEnvironments.run", () => {
       `up ${name}`,
       `exec ${name}`,
     ]);
+  });
+
+  it("starts the run environment again on its worktree when the folder was replaced", async () => {
+    const task = await taskWithDefinition("task-1");
+    await testbed.environments.run(task, command(outputOf("first")));
+    await testbed.environments.run(task, command(outputOf("same folder")));
+    // As Publish removes the worktree and the next Stage adds it again at the same path. The old
+    // folder is moved, not deleted: a running container's mount keeps it, so its inode isn't
+    // reused for the new one, as the filesystem would for a folder nothing holds.
+    await rename(task.worktree, `${task.worktree}-removed`);
+    await writeFiles(task.worktree, DEFINITION);
+    const onWaiting = vi.fn<() => void>();
+
+    const end = await testbed.environments.run(task, command(outputOf("replaced"), { onWaiting }));
+
+    expect(end).toMatchObject({ exitCode: 0 });
+    const name = composeProjectNameOf(testbed.folders.instance, "task-1");
+    expect(runtime.steps.filter((step) => step.endsWith(name))).toEqual([
+      `up ${name}`,
+      `exec ${name}`,
+      `exec ${name}`,
+      `stop ${name}`,
+      `up ${name}`,
+      `exec ${name}`,
+    ]);
+    // Its own slot, freed and taken again, with only one run environment at once.
+    expect(onWaiting).not.toHaveBeenCalled();
+    expect(await readFile(outputOf("replaced"), "utf8")).toContain(
+      "The Task's worktree was replaced; starting the run environment again.",
+    );
   });
 
   it("frees the slot when the run environment doesn't start", async () => {

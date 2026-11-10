@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { sameOpenPage, type NewMessage, type OpenPage, type Thread } from "@the-office/contracts";
+import { type NewMessage, type OpenPage, type Thread } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import { useCallback, useState, type ReactNode } from "react";
 import { sendMessage, threadQueries } from "../../api/conversations.ts";
@@ -19,7 +19,7 @@ import { takesMessages } from "./thread-writing.ts";
  * the timeline doesn't, so its draft goes with the To line. A chat's Thread may have one waiting, and
  * a composer that `keepsDraft` leaves its own there, for when it comes back. Given the Open page, as
  * the chat drawer is, it shows the line that says the message goes with it, which the user can
- * leave out of that message.
+ * leave out.
  */
 export function ThreadComposer({
   thread,
@@ -29,6 +29,7 @@ export function ThreadComposer({
   placeholder,
   keepsDraft = false,
   openPage,
+  onLeaveOutOpenPage,
   onDrafting,
   onSent,
 }: {
@@ -44,6 +45,8 @@ export function ThreadComposer({
   readonly keepsDraft?: boolean;
   /** The page open beside the chat drawer, which the next message goes with (spec §2.4). */
   readonly openPage?: OpenPage | undefined;
+  /** Keeps the Open page out of messages; the chat drawer, which holds it, decides for how long. */
+  readonly onLeaveOutOpenPage?: (() => void) | undefined;
   readonly onDrafting?: (drafting: boolean) => void;
   readonly onSent?: (threadId: string) => void;
 }): ReactNode {
@@ -57,15 +60,11 @@ export function ThreadComposer({
     (draft: string) => threadDrafts.leave(threadId, draft),
     [threadDrafts, threadId],
   );
-  // Left out of the next message only: a page navigated to after shows again.
-  const [leftOut, setLeftOut] = useState<OpenPage | undefined>();
-  const sentWith = openPage && !(leftOut && sameOpenPage(leftOut, openPage)) ? openPage : undefined;
   const queryClient = useQueryClient();
   const sending = useMutation({
     mutationFn: (message: NewMessage) => sendMessage(threadId, message),
     onSuccess: async (answering, { handoverNoteFrom }) => {
       if (handoverNoteFrom !== undefined) handoverNotes.clear(threadId);
-      setLeftOut(undefined);
       threadDrafts.clear(threadId);
       queryClient.setQueryData(threadQueries.one(answering.id).queryKey, answering);
       onSent?.(answering.id);
@@ -82,8 +81,8 @@ export function ThreadComposer({
         // A Stage's session is held at its safe point instead.
         <AlarmNote threadId={threadId} personName={personName} />
       )}
-      {readOnlyReason === undefined && sentWith && (
-        <OpenPageLine page={sentWith} onLeaveOut={() => setLeftOut(sentWith)} />
+      {readOnlyReason === undefined && openPage && onLeaveOutOpenPage && (
+        <OpenPageLine page={openPage} onLeaveOut={onLeaveOutOpenPage} />
       )}
       {readOnlyReason === undefined ? (
         <Composer
@@ -110,7 +109,7 @@ export function ThreadComposer({
             sending.mutateAsync({
               text,
               ...(fromNote && handoverNote ? { handoverNoteFrom: handoverNote.from } : {}),
-              ...(sentWith && { openPage: sentWith }),
+              ...(openPage && { openPage }),
             })
           }
           onLeaveNoteOut={() => handoverNotes.clear(threadId)}
