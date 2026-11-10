@@ -78,19 +78,21 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `size-threshold.controller.ts`: SizeThresholdController
 - `thread-refusals.filter.ts`: ThreadRefusalsFilter
 - `threads.controller.ts`: ThreadsController
-- Tests: conversation-responses.test.ts, threads.controller.test.ts
+- Tests: conversation-responses.test.ts, threads.controller.full.test.ts, threads.controller.test.ts
 
 ### adapters/office-tools/
 
 - `decision-office-tools.ts`: DecisionOfficeTools
 - `link-card-office-tools.ts`: LinkCardOfficeTools
+- `memory-office-tools.fixtures.ts`: Draft, SESSION, toolWith, card
 - `memory-office-tools.ts`: MemoryOfficeTools
 - `project-command-office-tools.ts`: ProjectCommandOfficeTools
 - `proposal-office-tools.ts`: ProposalOfficeTools
 - `refused-to-the-agent.ts`: refusedToTheAgent
+- `role-office-tools.fixtures.ts`: Words, developer, toolWith, input
 - `role-office-tools.ts`: RoleOfficeTools
 - `skill-office-tools.ts`: SkillOfficeTools
-- Tests: memory-office-tools.test.ts, proposal-office-tools.test.ts, role-office-tools.test.ts
+- Tests: memory-office-tools.full.test.ts, memory-office-tools.test.ts, proposal-office-tools.full.test.ts, role-office-tools.full.test.ts, role-office-tools.test.ts
 
 ### adapters/postgres/
 
@@ -99,14 +101,17 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `fire-alarm-lifts.schema.ts`: fireAlarmLifts
 - `office-instructions.schema.ts`: officeInstructionsVersions
 - `postgres-changes-allowed-repository.ts`: PostgresChangesAllowedRepository
+- `postgres-chat-activity-repository.fixtures.ts`: app, database, repository, threads, AT, aThreadWithAnswer, setUpEachTest
 - `postgres-chat-activity-repository.ts`: PostgresChatActivityRepository
 - `postgres-conversations-settings.ts`: PostgresConversationsSettings
 - `postgres-fire-alarm-lift-repository.ts`: PostgresFireAlarmLiftRepository
+- `postgres-office-instructions-repository.fixtures.ts`: ROLLED_BACK, app, database, rolledBack, save, setUpEachTest
 - `postgres-office-instructions-repository.ts`: PostgresOfficeInstructionsRepository
+- `postgres-thread-repository.fixtures.ts`: app, repository, aThreadOfItsOwn, AT, setUpEachTest
 - `postgres-thread-repository.ts`: PostgresThreadRepository
 - `thread-seen.schema.ts`: threadSeen
 - `threads.schema.ts`: SavedPassedOn, ThreadSessionRow, threads, threadMessages, decisions, proposals
-- Tests: postgres-chat-activity-repository.test.ts, postgres-conversations-settings.test.ts, postgres-office-instructions-repository.test.ts, postgres-thread-repository.test.ts
+- Tests: postgres-chat-activity-repository.full.test.ts, postgres-chat-activity-repository.test.ts, postgres-conversations-settings.test.ts, postgres-office-instructions-repository.full.test.ts, postgres-office-instructions-repository.test.ts, postgres-thread-repository.full.test.ts, postgres-thread-repository.test.ts
 
 ### adapters/proposals/
 
@@ -129,6 +134,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `decision-service.ts`: DecisionService
 - `fire-alarm-in-threads.ts`: ThreadsFireAlarm, FireAlarmInThreads
 - `fire-alarm-lifts.ts`: HELD_BY_THE_FIRE_ALARM, FireAlarmLifts
+- `held-calls.fixtures.ts`: SESSION, CALL, request, Setup, heldCallsWith, anApproval, call
 - `held-calls.ts`: HeldCallOutcome, HeldCallRequest, HeldCalls
 - `initiative-thread-setups.ts`: InitiativeThreadRequest, InitiativeThreadSetup, InitiativeThreadSource, InitiativeThreadSetups
 - `interrupted-answers.ts`: InterruptedAnswers
@@ -158,7 +164,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `thread-runner.ts`: SentWith, Answerer, ThreadRunner
 - `thread-service.ts`: InitiativeThreadOpening, TaskThreadStarting, ThreadService
 - `work-records.ts`: WorkRecordSource, WorkRecords
-- Tests: briefs.test.ts, consultations.test.ts, devops-proposals.test.ts, devops-skill-sources.test.ts, held-calls.test.ts, link-cards.test.ts, office-instructions.test.ts, openai-compatible-api-test-project-check.test.ts, proposal-service.test.ts, session-log.test.ts, session-memory.test.ts, stage-threads.test.ts, task-tokens.test.ts, thread-runner.test.ts
+- Tests: briefs.full.test.ts, consultations.full.test.ts, consultations.test.ts, devops-proposals.full.test.ts, devops-skill-sources.full.test.ts, held-calls.full.test.ts, held-calls.test.ts, link-cards.full.test.ts, office-instructions.full.test.ts, office-instructions.test.ts, openai-compatible-api-test-project-check.test.ts, proposal-service.full.test.ts, proposal-service.test.ts, session-log.test.ts, session-memory.full.test.ts, stage-threads.full.test.ts, stage-threads.test.ts, task-tokens.test.ts, thread-runner.test.ts
 
 ### domain/
 
@@ -166,11 +172,12 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `chat-activity.ts`: ChatThreadActivity, AnsweredThread, PersonChatActivity, hasAnswered, chatActivityOfPeople
 - `chat-not-found.ts`: ChatNotFound
 - `consult.ts`: THE_OFFICE, APPROVAL_OPTIONS, approvalQuestion, isApproval, PASS_ON_STEPS, Consult, ConsultedParty, ConsultantPerson, consultantNamed, passedOnTo, consultDecision, consultantAnswerProblems, consultationTitle, consultationOpening
+- `context-policy.fixtures.ts`: NOW, MINUTE, aContinuation
 - `context-policy.ts`: SessionDefault, ContextMove, ContextReason, ContextPolicySettings, DEFAULT_CONTEXT_POLICY_SETTINGS, Continuation, ContextAlternative, ContextDecision, decideContext
 - `conversation-events.ts`: ThreadStarted, ThreadRenamed, ThreadSeen, MessagesLogged, DeliveryMarked, TurnEnded, TokensCounted, ContextOverrideChosen, DecisionOpened, DecisionAnswered, DecisionReopened, ProposalDrafted, ProposalApplied, ProposalDeclined, SizeThresholdChanged, OfficeInstructionsChanged
 - `conversation-tabs.ts`: TabConsultation, ConversationTab, conversationTabs
 - `decision-not-found.ts`: DecisionNotFound
-- `decision.fixtures.ts`: aDecision
+- `decision.fixtures.ts`: aDecision, AT, TASK_HOME, SESSION, DRAFT, WARM, refusalOf
 - `decision.ts`: Recommendation, DecisionDraft, DecisionAnswer, GivenAnswer, PassedOn, Decision, decisionProblems, attachmentProblems, answerProblems, answerWords
 - `held-call.ts`: HeldCallRuling, heldCallRuling
 - `link-card.ts`: LinkedTask, linkCardNote
@@ -195,7 +202,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `thread.ts`: Home, ThreadState, TokenTotals, NO_TOKENS, addTokens, isPersonsThread, tokensSoFar, ThreadSession, ContextOverride, Consultation, Thread
 - `tool-activity.ts`: toolActivitySummary
 - `undelivered-messages.ts`: undeliveredSince, waitingMessageIds, workWithUndelivered
-- Tests: brief.test.ts, chat-activity.test.ts, consult.test.ts, context-policy.test.ts, conversation-tabs.test.ts, decision.test.ts, held-call.test.ts, mention.test.ts, open-page.test.ts, people-working.test.ts, proposal.test.ts, session-instructions.test.ts, thread-changes.test.ts, tool-activity.test.ts
+- Tests: brief.full.test.ts, chat-activity.full.test.ts, consult.full.test.ts, context-policy.full.test.ts, context-policy.test.ts, conversation-tabs.full.test.ts, decision.full.test.ts, decision.test.ts, held-call.test.ts, mention.full.test.ts, open-page.full.test.ts, people-working.full.test.ts, proposal.full.test.ts, proposal.test.ts, session-instructions.full.test.ts, session-instructions.test.ts, thread-changes.full.test.ts, thread-changes.test.ts, tool-activity.full.test.ts
 
 ### ports/
 

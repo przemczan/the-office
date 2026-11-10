@@ -69,10 +69,6 @@ async function returnToOffice(location: string): Promise<URL> {
   return new URL(response.headers.get("location") ?? "", url);
 }
 
-function stateOf(form: GitHubAppManifestForm): string {
-  return new URL(form.action).searchParams.get("state") ?? "";
-}
-
 function failureOf(landing: URL): string | null {
   expect(landing.pathname).toBe(OFFICE_IDENTITY_SETTINGS_PATH);
   return landing.searchParams.get(GITHUB_APP_REGISTRATION_FAILED_PARAMETER);
@@ -83,29 +79,6 @@ function conversions(): number {
 }
 
 describe("/api/github/app", () => {
-  it("gives a form posting the manifest to GitHub's new-App page, sending the browser back to this Office", async () => {
-    const form = await manifestForm();
-
-    const action = new URL(form.action);
-    expect(`${action.origin}${action.pathname}`).toBe(`${github.urls.web}/settings/apps/new`);
-    expect(stateOf(form)).toMatch(/^[\w-]{32}$/);
-    expect(JSON.parse(form.manifest)).toEqual({
-      url,
-      redirect_url: `${url}/api/github/app/registered`,
-      callback_urls: [`${url}/api/github/sign-in/callback`],
-      request_oauth_on_install: false,
-      description: expect.any(String),
-      public: false,
-      default_permissions: {
-        metadata: "read",
-        contents: "write",
-        pull_requests: "write",
-        workflows: "write",
-      },
-    });
-    expect((await manifestForm()).action).not.toBe(form.action);
-  });
-
   it("converts the code GitHub sends back with, keeping the Client ID, client secret, slug and owner and no other secret", async () => {
     const landing = await returnToOffice(await postToGitHub(await manifestForm()));
 
@@ -148,38 +121,5 @@ describe("/api/github/app", () => {
     expect(conversions()).toBe(0);
     expect(apps.app).toBeUndefined();
     expect(published).toEqual([]);
-  });
-
-  it("takes each state once", async () => {
-    const backFromGitHub = await postToGitHub(await manifestForm());
-    await returnToOffice(backFromGitHub);
-
-    const again = await returnToOffice(backFromGitHub);
-
-    expect(failureOf(again)).toContain("wasn't started from this Office");
-    expect(conversions()).toBe(1);
-  });
-
-  it("says why when GitHub refuses the code, keeping nothing", async () => {
-    const form = await manifestForm();
-
-    const landing = await returnToOffice(
-      `${url}/api/github/app/registered?code=unknown&state=${stateOf(form)}`,
-    );
-
-    expect(failureOf(landing)).toBe(
-      "GitHub no longer knows this registration code: a code is used once, within an hour. Register the App again.",
-    );
-    expect(apps.app).toBeUndefined();
-    expect(published).toEqual([]);
-  });
-
-  it("says why when GitHub sends the browser back without a code", async () => {
-    const form = await manifestForm();
-
-    const landing = await returnToOffice(`${url}/api/github/app/registered?state=${stateOf(form)}`);
-
-    expect(failureOf(landing)).toBe("GitHub sent no registration code. Register the App again.");
-    expect(conversions()).toBe(0);
   });
 });

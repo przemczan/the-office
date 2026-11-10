@@ -47,7 +47,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `filesystem-library-folder.ts`: FilesystemLibraryFolder
 - `filesystem-session-folders.ts`: FilesystemSessionFolders
 - `skill-file-folders.ts`: UNFINISHED, writeWhole, writeSkillFiles, readSkillFiles, namesIn, exists
-- Tests: filesystem-library-folder.test.ts, filesystem-session-folders.test.ts
+- Tests: filesystem-library-folder.full.test.ts, filesystem-library-folder.test.ts, filesystem-session-folders.full.test.ts, filesystem-session-folders.test.ts
 
 ### adapters/git/
 
@@ -56,22 +56,24 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `git-source-fetcher.ts`: GitSourceFetcher
 - `project-checkout.fixtures.ts`: ProjectCheckout, createProjectCheckout, projectSkillMd
 - `source-repository.fixtures.ts`: SourceRepository, createSourceRepository, sourceSkillMd
-- Tests: git-project-skill-files.test.ts, git-source-fetcher.test.ts
+- Tests: git-project-skill-files.full.test.ts, git-source-fetcher.full.test.ts
 
 ### adapters/http/
 
 - `skill-refusals.filter.ts`: SkillRefusalsFilter
+- `skills.controller.fixtures.ts`: aName, reasonsOf, skillMd
 - `skills.controller.ts`: SkillsController
-- Tests: skills.controller.test.ts
+- Tests: skills.controller.full.test.ts, skills.controller.test.ts
 
 ### adapters/postgres/
 
 - `everyone-here.fixtures.ts`: EveryoneHereSkillRepository, everyoneHere
 - `postgres-role-skill-repository.ts`: PostgresRoleSkillRepository
+- `postgres-session-skill-repository.fixtures.ts`: aRecord
 - `postgres-session-skill-repository.ts`: PostgresSessionSkillRepository
 - `postgres-skill-repository.ts`: PostgresSkillRepository
 - `skills.schema.ts`: skills, skillVersions, sessionSkills, roleSkills, roleSkillChanges
-- Tests: postgres-role-skill-repository.test.ts, postgres-session-skill-repository.test.ts, postgres-skill-repository.test.ts
+- Tests: postgres-role-skill-repository.full.test.ts, postgres-role-skill-repository.test.ts, postgres-session-skill-repository.full.test.ts, postgres-session-skill-repository.test.ts, postgres-skill-repository.full.test.ts, postgres-skill-repository.test.ts
 
 ### adapters/websocket/
 
@@ -81,7 +83,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 
 - `yauzl-zip-reader.ts`: YauzlZipReader
 - `zip.fixtures.ts`: ZipFixtureEntry, aZip, madeOnWindows
-- Tests: yauzl-zip-reader.test.ts
+- Tests: yauzl-zip-reader.full.test.ts
 
 ### application/
 
@@ -91,7 +93,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `skill-library.ts`: Upload, ReviewedSkill, SkillLibrary
 - `skill-sources.ts`: SkillInstall, SourceSkill, SourceSkills, SkillSources
 - `skill-updates.ts`: SKILL_UPDATE_CHECK, SkillUpdateDraft, AppliedUpdate, SkillUpdates
-- Tests: session-skills.test.ts, skill-library.test.ts, skill-updates.test.ts
+- Tests: session-skills.test.ts, skill-library.full.test.ts, skill-updates.full.test.ts
 
 ### domain/
 
@@ -115,7 +117,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `skill.fixtures.ts`: aNewSkill, aSkill, aSkillFile
 - `skill.ts`: SKILL_SOURCES, SkillSource, SKILL_STATES, SkillState, Skill, NewSkill, DESCRIPTION_LENGTH, LONG_DESCRIPTION_LENGTH, trimmedNewSkill, skillNameProblems, skillDescriptionProblems, longDescriptionWarning, newSkillProblems, skillNameTaken
 - `source-skills.ts`: SourceFolder, SOURCE_FOLDER_LIMITS, sourceFolderTooLarge, installedDraft
-- Tests: installed-source.test.ts, project-skills.test.ts, role-skills.test.ts, session-skills.test.ts, skill-changes.test.ts, skill-draft.test.ts, skill-files.test.ts, skill-md.test.ts, skill-review.test.ts, skill-update.test.ts, skill-upload.test.ts, skill.test.ts, source-skills.test.ts
+- Tests: installed-source.full.test.ts, project-skills.full.test.ts, role-skills.full.test.ts, session-skills.full.test.ts, skill-changes.full.test.ts, skill-draft.full.test.ts, skill-files.full.test.ts, skill-files.test.ts, skill-md.full.test.ts, skill-review.full.test.ts, skill-update.full.test.ts, skill-upload.full.test.ts, skill.full.test.ts, source-skills.full.test.ts
 
 ### ports/
 

@@ -1,0 +1,141 @@
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import type { INestApplication } from "@nestjs/common";
+import {
+  projectRefusalSchema,
+  repositoryCloneSchema,
+  type NewProject,
+  type RepositoryClone,
+} from "@the-office/contracts";
+import { expect } from "vitest";
+import { EventBus } from "../../../../platform/events/event-bus.js";
+import { RepositoryCloneFinished } from "../../domain/repository-clone-events.js";
+import {
+  createTemporaryRepository,
+  gitIn,
+  type TemporaryRepository,
+} from "../git/temporary-repository.fixtures.js";
+
+export const HOST = "https://git.example.test/acme/";
+/** Where `${HOST}missing` really goes: https to a port nothing answers on. */
+export const UNANSWERED = "https://127.0.0.1:1/acme/missing";
+
+/**
+ * Git config, as the user's global config could hold it, that reads a URL on the made-up host as
+ * the bare repository of that name beside the test's repository, since a Repository URL is never
+ * a local path.
+ */
+function madeUpHostConfig(folder: string): Record<string, string> {
+  const local = `${folder.replaceAll("\\", "/")}/`;
+  const insteadOf: [string, string][] = [
+    [local, HOST],
+    // insteadOf is case-sensitive, as Linux's file names are.
+    [`${local}origin.git`, `${HOST}Origin.git`],
+    [UNANSWERED, `${HOST}missing`],
+  ];
+  return Object.fromEntries([
+    ["GIT_CONFIG_COUNT", String(insteadOf.length)],
+    ...insteadOf.flatMap(([to, from], index) => [
+      [`GIT_CONFIG_KEY_${index}`, `url.${to}.insteadOf`],
+      [`GIT_CONFIG_VALUE_${index}`, from],
+    ]),
+  ]);
+}
+
+/**
+ * A temporary repository with bare repositories beside it for the made-up host, which the
+ * process's git config reads URLs on until `forget` is called.
+ */
+export async function aClonesRepository(): Promise<{
+  repository: TemporaryRepository;
+  officeData: string;
+  forget: () => void;
+}> {
+  const repository = await createTemporaryRepository();
+  const officeData = join(repository.folder, "office-data");
+  gitIn(repository.folder, "init", "--quiet", "--bare", "empty.git");
+  gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "shop.git");
+  gitIn(join(repository.folder, "shop.git"), "branch", "release", "main");
+  gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "store.git");
+  gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "depot.git");
+  const madeUpHost = madeUpHostConfig(repository.folder);
+  Object.assign(process.env, madeUpHost);
+  return {
+    repository,
+    officeData,
+    forget: () => {
+      for (const name of Object.keys(madeUpHost)) delete process.env[name];
+    },
+  };
+}
+
+function aClonedProject(path: string, repositoryUrl: string, baseBranch: string): NewProject {
+  return {
+    name: `Cloned ${randomUUID().slice(0, 8)}`,
+    path,
+    repositoryUrl,
+    baseBranch,
+    mark: { label: "CL", colour: "teal" },
+    commands: {
+      install: "npm ci",
+      build: "npm run build",
+      lint: "npm run lint",
+      test: "npm test",
+    },
+    installInputs: [],
+    publishingMode: "push-and-pull-request",
+    defaultPipeline: "full",
+  };
+}
+
+/** The requests the Repository clone routes' tests share, on the app `current` gives. */
+export function repositoryClonesHttp(
+  current: () => {
+    readonly app: INestApplication;
+    readonly url: string;
+    readonly officeData: string;
+  },
+) {
+  function send(method: "GET" | "POST", path: string, body?: unknown): Promise<Response> {
+    return fetch(`${current().url}/api${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      ...(body !== undefined && { body: JSON.stringify(body) }),
+    });
+  }
+
+  /** Starts a clone of `repositoryUrl` and waits for it to finish. */
+  async function cloned(repositoryUrl: string): Promise<RepositoryClone> {
+    const finished = new Promise<string>((resolve) => {
+      const unsubscribe = current()
+        .app.get(EventBus)
+        .subscribe(RepositoryCloneFinished, (event) => {
+          unsubscribe();
+          resolve(event.clone.id);
+        });
+    });
+    const response = await send("POST", "/repositories/clones", { url: repositoryUrl });
+    expect(response.status).toBe(202);
+    const started = repositoryCloneSchema.parse(await response.json());
+    expect(started.state).toBe("cloning");
+    expect(await finished).toBe(started.id);
+    return read(started.id);
+  }
+
+  async function read(cloneId: string): Promise<RepositoryClone> {
+    const response = await send("GET", `/repositories/clones/${cloneId}`);
+    expect(response.status).toBe(200);
+    return repositoryCloneSchema.parse(await response.json());
+  }
+
+  async function refusalOf(repositoryUrl: string): Promise<readonly string[]> {
+    const response = await send("POST", "/repositories/clones", { url: repositoryUrl });
+    expect(response.status).toBe(422);
+    return projectRefusalSchema.parse(await response.json()).reasons;
+  }
+
+  const clonePath = (...names: string[]) =>
+    join(current().officeData, "repositories", "git.example.test", "acme", ...names);
+
+  return { send, cloned, read, refusalOf, clonePath, aClonedProject };
+}

@@ -51,18 +51,20 @@ RoleCards, Consultant, SessionRole, RoleService, PersonRecords, EngineCascade, P
 
 ### adapters/http/
 
+- `avatars.controller.fixtures.ts`: PNG, SVG_WITH_A_SCRIPT, expectRefused
 - `avatars.controller.ts`: AvatarsController
 - `engine-cascade.controller.ts`: EngineCascadeController
 - `memory.controller.ts`: MemoryController
 - `role-refusals.filter.ts`: RoleRefusalsFilter
 - `role-responses.ts`: filledKeys, toRoleResponse
 - `roles.controller.ts`: RolesController
-- Tests: avatars.controller.test.ts, engine-cascade.controller.test.ts, roles.controller.test.ts
+- Tests: avatars.controller.full.test.ts, avatars.controller.test.ts, engine-cascade.controller.test.ts, roles.controller.test.ts
 
 ### adapters/office-tools/
 
+- `people-office-tools.fixtures.ts`: toolsOver
 - `people-office-tools.ts`: LIST_PEOPLE, READ_ROLE, PeopleOfficeTools
-- Tests: people-office-tools.test.ts
+- Tests: people-office-tools.full.test.ts, people-office-tools.test.ts
 
 ### adapters/postgres/
 
@@ -70,7 +72,7 @@ RoleCards, Consultant, SessionRole, RoleService, PersonRecords, EngineCascade, P
 - `postgres-memory-repository.ts`: PostgresMemoryRepository
 - `postgres-role-repository.ts`: PostgresRoleRepository
 - `roles.schema.ts`: roles, roleCardVersions
-- Tests: postgres-memory-repository.test.ts, postgres-role-repository.test.ts
+- Tests: postgres-memory-repository.full.test.ts, postgres-memory-repository.test.ts, postgres-role-repository.full.test.ts, postgres-role-repository.test.ts
 
 ### adapters/websocket/
 
@@ -89,7 +91,7 @@ RoleCards, Consultant, SessionRole, RoleService, PersonRecords, EngineCascade, P
 - `role-override-checks.ts`: RoleOverrideSave, RoleOverrideCheck, RoleOverrideChecks
 - `role-override-moves.ts`: RoleOverrideMoves
 - `role-service.ts`: RoleWithAssignments, RoleCardOptions, RoleService
-- Tests: engine-cascade.test.ts, memory-service.test.ts, person-avatars.test.ts, person-records.test.ts, pipeline-role-capability-checks.test.ts, role-cards.test.ts, role-override-engine-removal.test.ts
+- Tests: engine-cascade.full.test.ts, memory-service.full.test.ts, person-avatars.full.test.ts, person-records.full.test.ts, pipeline-role-capability-checks.full.test.ts, role-cards.full.test.ts, role-override-engine-removal.full.test.ts
 
 ### domain/
 
@@ -116,7 +118,7 @@ RoleCards, Consultant, SessionRole, RoleService, PersonRecords, EngineCascade, P
 - `role.fixtures.ts`: OFFERED_MODELS, aRoleCard, aRole
 - `role.ts`: Role, RoleCardVersion
 - `task-limit.ts`: TaskLimit, LOWEST_TASK_LIMIT, HIGHEST_TASK_LIMIT, taskLimitProblem
-- Tests: caretaker.test.ts, engine-cascade.test.ts, hard-switches.test.ts, mcp-tool-settings.test.ts, memory-note.test.ts, permission-profile.test.ts, pipeline-role-capabilities.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
+- Tests: caretaker.full.test.ts, engine-cascade.full.test.ts, hard-switches.full.test.ts, mcp-tool-settings.full.test.ts, memory-note.full.test.ts, permission-profile.test.ts, pipeline-role-capabilities.full.test.ts, presets.full.test.ts, role-card-changes.full.test.ts, role-card.full.test.ts, role-changes.full.test.ts, role-key.full.test.ts, task-limit.full.test.ts
 
 ### ports/
 

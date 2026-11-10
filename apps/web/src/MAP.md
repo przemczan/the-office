@@ -41,7 +41,7 @@
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations
 - `work.ts`: TASKS, FIRE_ALARM, ideaQueries, ArchivedInitiativesAsked, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, archivePeriodQuery, changeArchivePeriod, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, confirmInitiative, dropInitiative, archiveInitiative, restoreInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, changeDescription, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, takeOutOfQueue, moveUpInQueue, moveToTopOfQueue, pauseTask, stopTask, resumeTask, moveTask, dropTask, archiveTask, restoreTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
 - `workstation.ts`: WORKSTATION_REFRESH_MS, workstationQueries
-- Tests: api-client.test.ts, conversations.test.ts, event-stream.test.ts
+- Tests: api-client.test.ts, conversations.full.test.ts, event-stream.full.test.ts
 
 ### shell/
 
@@ -56,6 +56,7 @@
 - `image-row.tsx`: IMAGE_LIMIT_IN_MB, ImageChanging, ImageRow, ImageRowEmpty
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
 - `mark-colours.ts`: markLabelColour
+- `markdown-text.fixtures.tsx`: rendered, documentOf
 - `markdown-text.tsx`: MarkdownText, MarkdownDocument
 - `menu-placement.ts`: Box, Size, Placement, menuPlacement
 - `open-page-chip.tsx`: OpenPageChip
@@ -102,7 +103,7 @@
 - `use-placed-list.ts`: usePlacedList
 - `use-tab-visible.ts`: useTabVisible
 - `user-activity.ts`: pageAt, useReportingActivity
-- Tests: engine-words.test.ts, mark-colours.test.ts, markdown-text.test.tsx, menu-placement.test.ts, person-avatar.test.tsx, project-mark.test.tsx, rail-store.test.ts, role-card-words.test.ts, secret-value.test.ts, status-strip.test.tsx, time.test.ts, token-words.test.ts, unified-diff.test.ts, user-activity.test.ts
+- Tests: engine-words.full.test.ts, mark-colours.full.test.ts, markdown-text.full.test.tsx, markdown-text.test.tsx, menu-placement.full.test.ts, person-avatar.full.test.tsx, project-mark.full.test.tsx, rail-store.full.test.ts, role-card-words.full.test.ts, secret-value.test.ts, status-strip.full.test.tsx, time.full.test.ts, token-words.full.test.ts, unified-diff.full.test.ts, user-activity.full.test.ts
 
 ### shell/attachments/
 
@@ -115,7 +116,7 @@
 - `attachment-viewer.tsx`: ViewedImage, AttachmentViewer
 - `html-preview-dialog.tsx`: HtmlPreviewDialog
 - `pending-attachment.ts`: PendingAttachment, attach, pendingName
-- Tests: attachment-rounds.test.ts
+- Tests: attachment-rounds.full.test.ts
 
 ### shell/chat/
 
@@ -128,7 +129,7 @@
 - `open-page.ts`: MatchedRoute, openPageOf, useOpenPage
 - `use-chat-people.ts`: useChatPeople, useThreadShown
 - `use-chat.tsx`: ChatControls, ChatProvider, useChat, ChatOpenPage, useChatOpenPage
-- Tests: chat-drawer-width.test.ts, chat-store.test.ts, chat-words.test.ts, open-page.test.ts
+- Tests: chat-drawer-width.full.test.ts, chat-store.full.test.ts, chat-words.full.test.ts, open-page.full.test.ts
 
 ### shell/conversation/
 
@@ -159,7 +160,7 @@
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView, ThreadLog, ThreadTitle
 - `thread-writing.ts`: takesMessages
-- Tests: context-words.test.ts, decision-words.test.ts, details-store.test.ts, link-card-words.test.ts, message-field.test.tsx, message-groups.test.ts, message-list-kinds.test.tsx, message-list.test.tsx, message-visibility.test.ts, office-status-words.test.ts, proposal-card.test.tsx, thread-title.test.ts
+- Tests: context-words.full.test.ts, decision-words.full.test.ts, details-store.full.test.ts, link-card-words.full.test.ts, message-field.full.test.tsx, message-groups.full.test.ts, message-list-kinds.full.test.tsx, message-list.full.test.tsx, message-visibility.full.test.ts, office-status-words.full.test.ts, proposal-card.full.test.tsx, thread-title.full.test.ts
 
 ### shell/fire-alarm/
 
@@ -173,7 +174,7 @@
 - `mention-field.tsx`: MentionField
 - `mention-picker.tsx`: Mentions, useMentions
 - `mention-words.ts`: MENTION_KINDS, MentionKind, Mentionable, MentionQuery, MENTIONS_SHOWN, mentionQueryAt, mentionables, matchingMentionables, withMentionLinks
-- Tests: mention-words.test.ts
+- Tests: mention-words.full.test.ts
 
 ### shell/notifications/
 
@@ -189,7 +190,7 @@
 - `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel
 - `use-needs-you.ts`: useNeedsYou
 - `use-usage-windows.ts`: useUsageWindows
-- Tests: notification-channels.test.tsx, notification-words.test.ts, now-words.test.ts
+- Tests: notification-channels.full.test.tsx, notification-words.full.test.ts, now-words.full.test.ts
 
 ### shell/pipelines/
 
@@ -201,7 +202,7 @@
 - `stage-permission-fields.tsx`: StagePermissionFields
 - `stage-permissions.ts`: narrowerRuns, narrowerSettings, withPermissions, withMcpToolSetting
 - `stages-check.ts`: StagesCheckState, checkAwaited
-- Tests: pipeline-words.test.ts, stage-edits.test.ts, stage-permissions.test.ts, stages-check.test.ts
+- Tests: pipeline-words.full.test.ts, stage-edits.full.test.ts, stage-permissions.full.test.ts, stages-check.full.test.ts
 
 ### shell/project-filter/
 
@@ -210,19 +211,19 @@
 - `project-filter-menu.tsx`: ProjectFilterMenu
 - `project-filter-store.ts`: PROJECT_FILTER_STORAGE_KEY, ProjectFilterStore, createProjectFilterStore
 - `use-project-filter.ts`: ProjectFilterControls, useProjectFilter
-- Tests: project-filter-choices.test.ts, project-filter-store.test.ts
+- Tests: project-filter-choices.full.test.ts, project-filter-store.full.test.ts
 
 ### shell/repository-files/
 
 - `repository-file-browser.tsx`: RepositoryFile, RepositoryFileBrowser
 - `repository-file-window.tsx`: RepositoryFileWindow
-- Tests: repository-file-window.test.tsx
+- Tests: repository-file-window.full.test.tsx
 
 ### shell/search/
 
 - `search-options.ts`: searchWords, peopleMatching, SearchPick, SearchOption, SearchGroup, searchGroups, matchesInOtherProjects
 - `top-bar-search.tsx`: TopBarSearch
-- Tests: search-options.test.ts
+- Tests: search-options.full.test.ts
 
 ### shell/work/
 
@@ -247,7 +248,7 @@
 - `use-planner.ts`: usePlanner
 - `waiting-on-you.ts`: waitsOnYou, waitsOnYouInItsState, useWaitingOnYou, useWaitingOnYouInItsState
 - `work-words.ts`: TASK_STATE_NAMES, STOPPED, taskStateWords, Archived, isArchived, canBeArchived, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName, reportedMetCount, projectIdsOfIdea
-- Tests: gate-card-words.test.ts, gate-words.test.ts, tag-words.test.ts, usage-estimate-words.test.ts, waiting-on-you.test.ts, work-words.test.ts
+- Tests: gate-card-words.full.test.ts, gate-words.full.test.ts, tag-words.full.test.ts, usage-estimate-words.full.test.ts, waiting-on-you.full.test.ts, work-words.full.test.ts
 
 ### shell/workstation/
 
@@ -256,4 +257,4 @@
 - `workstation-panel.tsx`: WorkstationPanel
 - `workstation-sparkline.tsx`: WorkstationSparkline
 - `workstation-words.ts`: MEASURING, percentWords, cpuUseWords, coresWords, bytesWords, speedWords, loadAverageWords, uptimeWords, LoadLevel, loadLevel, shareOf
-- Tests: workstation-figure.test.tsx, workstation-history.test.ts, workstation-words.test.ts
+- Tests: workstation-figure.full.test.tsx, workstation-history.full.test.ts, workstation-words.full.test.ts

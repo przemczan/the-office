@@ -1,31 +1,19 @@
-import { connect as connectTcp } from "node:net";
 import type { INestApplication } from "@nestjs/common";
-import { EVENTS_PATH, serverMessageSchema, webEventSchema } from "@the-office/contracts";
+import { EVENTS_PATH } from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { z } from "zod";
 import { startTestApplication } from "../../../test/test-application.js";
-import { DomainEvent } from "../events/domain-event.js";
 import { EventBus } from "../events/event-bus.js";
 import { EventsModule } from "../events/events.module.js";
 import { EventStreamModule } from "./event-stream.module.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
-
-// The test brings its own events, through the same path a module uses.
-class LampLit extends DomainEvent {
-  constructor(readonly room: string) {
-    super(new Date("2026-10-25T09:00:00.000Z"));
-  }
-}
-class LampDimmed extends DomainEvent {}
-class LampMoved extends DomainEvent {}
-
-const lampLitSchema = webEventSchema.extend({ type: z.literal("lamp.lit"), room: z.string() });
-const lampDimmedSchema = webEventSchema.extend({ type: z.literal("lamp.dimmed") });
-const messageSchema = serverMessageSchema(
-  z.discriminatedUnion("type", [lampLitSchema, lampDimmedSchema]),
-);
-type Message = z.infer<typeof messageSchema>;
+import {
+  LampLit,
+  LampDimmed,
+  messageSchema,
+  type Message,
+  changeSubscription,
+} from "./event-stream.fixtures.js";
 
 let app: INestApplication;
 let bus: EventBus;
@@ -70,16 +58,6 @@ async function connect(): Promise<{ client: WebSocket; next: () => Promise<Messa
   return { client, next };
 }
 
-async function changeSubscription(
-  client: WebSocket,
-  next: () => Promise<Message>,
-  type: "subscribe" | "unsubscribe",
-  events: string[],
-): Promise<Message> {
-  client.send(JSON.stringify({ type, events }));
-  return next();
-}
-
 describe("the event stream", () => {
   it("delivers a forwarded event of a subscribed type, typed by the contract", async () => {
     const { client, next } = await connect();
@@ -96,47 +74,6 @@ describe("the event stream", () => {
     });
   });
 
-  it("leaves out unsubscribed types and events nobody forwards", async () => {
-    const { client, next } = await connect();
-    await changeSubscription(client, next, "subscribe", ["lamp.dimmed"]);
-
-    await bus.publish(new LampLit("hall"));
-    await bus.publish(new LampMoved());
-    await bus.publish(new LampDimmed());
-
-    // Frames arrive in order, so the dimmed event coming first shows the others were not sent.
-    expect(await next()).toMatchObject({ type: "event", event: { type: "lamp.dimmed" } });
-  });
-
-  it("stops delivering a type after unsubscribe", async () => {
-    const { client, next } = await connect();
-    await changeSubscription(client, next, "subscribe", ["lamp.lit", "lamp.dimmed"]);
-
-    expect(await changeSubscription(client, next, "unsubscribe", ["lamp.lit"])).toEqual({
-      type: "subscriptions",
-      events: ["lamp.dimmed"],
-    });
-    await bus.publish(new LampLit("hall"));
-    await bus.publish(new LampDimmed());
-
-    expect(await next()).toMatchObject({ type: "event", event: { type: "lamp.dimmed" } });
-  });
-
-  it("sends a closed client nothing and keeps delivering to the others", async () => {
-    const closing = await connect();
-    const staying = await connect();
-    await changeSubscription(closing.client, closing.next, "subscribe", ["lamp.lit"]);
-    await changeSubscription(staying.client, staying.next, "subscribe", ["lamp.lit"]);
-    await new Promise((resolve) => {
-      closing.client.addEventListener("close", resolve, { once: true });
-      closing.client.close();
-    });
-
-    await bus.publish(new LampLit("hall"));
-
-    expect(await staying.next()).toMatchObject({ type: "event", event: { room: "hall" } });
-  });
-
   it("refuses a message that is not a subscribe or unsubscribe", async () => {
     const { client, next } = await connect();
 
@@ -146,51 +83,6 @@ describe("the event stream", () => {
       type: "refused",
       reason: "Not a subscribe or unsubscribe message.",
     });
-  });
-
-  it("closes open clients as going away when the service shuts down", async () => {
-    const { client } = await connect();
-    const closed = new Promise<number>((resolve) =>
-      client.addEventListener("close", (event) => resolve(event.code), { once: true }),
-    );
-
-    await app.close();
-
-    expect(await closed).toBe(1001);
-  });
-
-  it("shuts down at once though a client never answers the close", async () => {
-    await connect();
-    await connect();
-    // A page that stopped answering, such as a frozen tab: upgraded, then silent.
-    const silent = connectTcp(port, "127.0.0.1").on("error", () => undefined);
-    silent.write(
-      `GET ${EVENTS_PATH} HTTP/1.1\r\nHost: localhost:${port}\r\nUpgrade: websocket\r\n` +
-        "Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
-        "Sec-WebSocket-Version: 13\r\n\r\n",
-    );
-    await new Promise((resolve) => silent.once("data", resolve));
-    const silentEnded = new Promise((resolve) => silent.once("close", resolve));
-
-    const started = Date.now();
-    await app.close();
-    await silentEnded;
-
-    expect(Date.now() - started).toBeLessThan(2_000);
-  });
-
-  it.each([
-    ["from another site's page", { origin: "https://evil.example" }, 403],
-    ["addressed to another name", { headers: { host: "evil.example" } }, 403],
-  ])("refuses a WebSocket %s", async (_, options, status) => {
-    const client = new WsClient(`ws://127.0.0.1:${port}${EVENTS_PATH}`, options);
-
-    const refusedWith = await new Promise((resolve) => {
-      client.on("unexpected-response", (_request, response) => resolve(response.statusCode));
-      client.on("open", () => resolve("open"));
-    });
-
-    expect(refusedWith).toBe(status);
   });
 
   it("refuses a WebSocket on another path", async () => {

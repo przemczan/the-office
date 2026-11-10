@@ -69,229 +69,247 @@ test("Office limits keeps the desks, the size threshold and the Archive period a
 
 // The e2e files share one database: each limit is raised and put back, never lowered below its
 // default, so no other file's checks wait for a run environment meanwhile.
-test("Office limits keeps the run environments' limits across reloads", async ({ page }) => {
-  await page.goto("/settings/office-limits");
-  const card = page.locator("section:not(:has(section))", {
-    hasText: "CPUs per run environment",
-  });
-  const atOnce = card.getByRole("status", { name: "run environments at once" });
-  const memory = card.getByRole("status", { name: "the memory per service" });
-  const processes = card.getByRole("status", { name: "the processes per service" });
-  // Running Tasks at once is 3 by default, above the 2 run environments at once.
-  const fewerNote = card.getByText(
-    "Running Tasks past 2 wait on their checks: they show “Waiting for a run environment” until one stops.",
-  );
-  await expect(atOnce).toHaveText("2");
-  await expect(memory).toHaveText("4 GB");
-  await expect(processes).toHaveText("1024");
-  await expect(fewerNote).toBeVisible();
+test(
+  "Office limits keeps the run environments' limits across reloads",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/settings/office-limits");
+    const card = page.locator("section:not(:has(section))", {
+      hasText: "CPUs per run environment",
+    });
+    const atOnce = card.getByRole("status", { name: "run environments at once" });
+    const memory = card.getByRole("status", { name: "the memory per service" });
+    const processes = card.getByRole("status", { name: "the processes per service" });
+    // Running Tasks at once is 3 by default, above the 2 run environments at once.
+    const fewerNote = card.getByText(
+      "Running Tasks past 2 wait on their checks: they show “Waiting for a run environment” until one stops.",
+    );
+    await expect(atOnce).toHaveText("2");
+    await expect(memory).toHaveText("4 GB");
+    await expect(processes).toHaveText("1024");
+    await expect(fewerNote).toBeVisible();
 
-  await card.getByRole("button", { name: "Raise run environments at once" }).click();
-  await card.getByRole("button", { name: "Raise the memory per service" }).click();
-  await card.getByRole("button", { name: "Raise the processes per service" }).click();
-  await expect(atOnce).toHaveText("3");
-  await expect(memory).toHaveText("4.5 GB");
-  await expect(processes).toHaveText("1280");
-  await expect(card.getByText(/^Running Tasks past/)).toBeHidden();
+    await card.getByRole("button", { name: "Raise run environments at once" }).click();
+    await card.getByRole("button", { name: "Raise the memory per service" }).click();
+    await card.getByRole("button", { name: "Raise the processes per service" }).click();
+    await expect(atOnce).toHaveText("3");
+    await expect(memory).toHaveText("4.5 GB");
+    await expect(processes).toHaveText("1280");
+    await expect(card.getByText(/^Running Tasks past/)).toBeHidden();
 
-  await page.reload();
-  await expect(atOnce).toHaveText("3");
-  await expect(memory).toHaveText("4.5 GB");
-  await expect(processes).toHaveText("1280");
+    await page.reload();
+    await expect(atOnce).toHaveText("3");
+    await expect(memory).toHaveText("4.5 GB");
+    await expect(processes).toHaveText("1280");
 
-  await card.getByRole("button", { name: "Lower run environments at once" }).click();
-  await card.getByRole("button", { name: "Lower the memory per service" }).click();
-  await card.getByRole("button", { name: "Lower the processes per service" }).click();
-  await expect(atOnce).toHaveText("2");
-  await expect(memory).toHaveText("4 GB");
-  await expect(processes).toHaveText("1024");
-  await expect(fewerNote).toBeVisible();
-});
+    await card.getByRole("button", { name: "Lower run environments at once" }).click();
+    await card.getByRole("button", { name: "Lower the memory per service" }).click();
+    await card.getByRole("button", { name: "Lower the processes per service" }).click();
+    await expect(atOnce).toHaveText("2");
+    await expect(memory).toHaveText("4 GB");
+    await expect(processes).toHaveText("1024");
+    await expect(fewerNote).toBeVisible();
+  },
+);
 
 // The e2e files share one database: the CPU limit goes back to Automatic at the end. The cores are
 // the e2e machine's, so the numbers are matched by their shape.
-test("Office limits keeps the run environments' CPU limit across reloads", async ({ page }) => {
-  await page.goto("/settings/office-limits");
-  const card = page.locator("section:not(:has(section))", {
-    hasText: "CPUs per run environment",
-  });
-  const automatic = card.getByRole("tab", { name: "Automatic" });
-  const fixed = card.getByRole("tab", { name: "Fixed" });
-  const fixedCpus = card.getByRole("status", { name: "the CPUs per service" });
-  await expect(automatic).toHaveAttribute("aria-selected", "true");
-  await expect(
-    card.getByText(/^Automatic follows this computer's cores: the checks get \d+ of its \d+,/),
-  ).toBeVisible();
-  await expect(
-    card.getByText("A change applies from each run environment's next start; running ones keep"),
-  ).toBeVisible();
-  await expect(fixedCpus).toBeHidden();
-  await card.scrollIntoViewIfNeeded();
-  await page.screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-settings-office-limits-run-environments.png"),
-  });
+test(
+  "Office limits keeps the run environments' CPU limit across reloads",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/settings/office-limits");
+    const card = page.locator("section:not(:has(section))", {
+      hasText: "CPUs per run environment",
+    });
+    const automatic = card.getByRole("tab", { name: "Automatic" });
+    const fixed = card.getByRole("tab", { name: "Fixed" });
+    const fixedCpus = card.getByRole("status", { name: "the CPUs per service" });
+    await expect(automatic).toHaveAttribute("aria-selected", "true");
+    await expect(
+      card.getByText(/^Automatic follows this computer's cores: the checks get \d+ of its \d+,/),
+    ).toBeVisible();
+    await expect(
+      card.getByText("A change applies from each run environment's next start; running ones keep"),
+    ).toBeVisible();
+    await expect(fixedCpus).toBeHidden();
+    await card.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-settings-office-limits-run-environments.png"),
+    });
 
-  await fixed.click();
-  await expect(fixed).toHaveAttribute("aria-selected", "true");
-  await expect(fixedCpus).toHaveText(/^\d+ CPUs?$/);
-  const savedCpus = await fixedCpus.textContent();
-  await page.screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-settings-office-limits-run-environments-fixed.png"),
-  });
+    await fixed.click();
+    await expect(fixed).toHaveAttribute("aria-selected", "true");
+    await expect(fixedCpus).toHaveText(/^\d+ CPUs?$/);
+    const savedCpus = await fixedCpus.textContent();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-settings-office-limits-run-environments-fixed.png"),
+    });
 
-  await page.reload();
-  await expect(fixed).toHaveAttribute("aria-selected", "true");
-  await expect(fixedCpus).toHaveText(savedCpus ?? "");
+    await page.reload();
+    await expect(fixed).toHaveAttribute("aria-selected", "true");
+    await expect(fixedCpus).toHaveText(savedCpus ?? "");
 
-  await automatic.click();
-  await expect(automatic).toHaveAttribute("aria-selected", "true");
-  await expect(fixedCpus).toBeHidden();
-  await page.reload();
-  await expect(automatic).toHaveAttribute("aria-selected", "true");
-});
+    await automatic.click();
+    await expect(automatic).toHaveAttribute("aria-selected", "true");
+    await expect(fixedCpus).toBeHidden();
+    await page.reload();
+    await expect(automatic).toHaveAttribute("aria-selected", "true");
+  },
+);
 
 // The e2e files share one database: the text is emptied at the end, as every other file's sessions
 // would get it.
-test("Office instructions keeps a saved text across reloads", async ({ page }) => {
-  await page.goto("/settings/office-limits");
-  await page.getByRole("link", { name: "Office instructions" }).click();
-  await expect(page).toHaveURL(/\/settings\/office-instructions$/);
-  const text = page.getByRole("textbox", { name: "Office instructions" });
-  const save = page.getByRole("button", { name: "Save" });
-  await expect(text).toHaveValue("");
-  await expect(save).toBeDisabled();
+test(
+  "Office instructions keeps a saved text across reloads",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/settings/office-limits");
+    await page.getByRole("link", { name: "Office instructions" }).click();
+    await expect(page).toHaveURL(/\/settings\/office-instructions$/);
+    const text = page.getByRole("textbox", { name: "Office instructions" });
+    const save = page.getByRole("button", { name: "Save" });
+    await expect(text).toHaveValue("");
+    await expect(save).toBeDisabled();
 
-  await text.fill("  Write in plain words.\n\nAnswer briefly.  ");
-  await save.click();
-  await expect(page.getByText("Office instructions saved.")).toBeVisible();
-  // What the service kept: the trimmed text.
-  await expect(text).toHaveValue("Write in plain words.\n\nAnswer briefly.");
-  await expect(save).toBeDisabled();
+    await text.fill("  Write in plain words.\n\nAnswer briefly.  ");
+    await save.click();
+    await expect(page.getByText("Office instructions saved.")).toBeVisible();
+    // What the service kept: the trimmed text.
+    await expect(text).toHaveValue("Write in plain words.\n\nAnswer briefly.");
+    await expect(save).toBeDisabled();
 
-  await page.reload();
-  await expect(text).toHaveValue("Write in plain words.\n\nAnswer briefly.");
+    await page.reload();
+    await expect(text).toHaveValue("Write in plain words.\n\nAnswer briefly.");
 
-  for (const colorScheme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme });
-    for (const width of [1600, 380]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.screenshot({
-        path: path.join(SCREENSHOTS, `${colorScheme}-${width}-settings-office-instructions.png`),
-      });
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      for (const width of [1600, 380]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-settings-office-instructions.png`),
+        });
+      }
     }
-  }
 
-  await text.fill("");
-  await save.click();
-  await expect(save).toBeDisabled();
-  await page.reload();
-  await expect(text).toHaveValue("");
-});
+    await text.fill("");
+    await save.click();
+    await expect(save).toBeDisabled();
+    await page.reload();
+    await expect(text).toHaveValue("");
+  },
+);
 
 // The e2e files share one database: the caps are only raised, so no other file's Start waits, and
 // every setting is given back.
-test("Office limits' Usage keeps the ticked measures and the caps across reloads", async ({
-  page,
-}) => {
-  await page.goto("/settings/office-limits");
-  // The Usage card is the only one on Office limits with Save, Discard and its regions.
-  const usage = page;
-  const measures = usage.getByRole("group", { name: "Usage estimates in" });
-  const measure = (name: string) =>
-    measures.locator("label").filter({ hasText: name }).getByRole("checkbox");
-  // Each engine's caps under its name; people.e2e.ts checks an API engine's.
-  const claudeCode = usage.getByRole("region", { name: "Claude Code", exact: true });
-  const fiveHourCap = claudeCode.getByLabel("5-hour window");
-  const dailyTokens = claudeCode.getByLabel("Tokens a day");
-  const save = usage.getByRole("button", { name: "Save" });
+test(
+  "Office limits' Usage keeps the ticked measures and the caps across reloads",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/settings/office-limits");
+    // The Usage card is the only one on Office limits with Save, Discard and its regions.
+    const usage = page;
+    const measures = usage.getByRole("group", { name: "Usage estimates in" });
+    const measure = (name: string) =>
+      measures.locator("label").filter({ hasText: name }).getByRole("checkbox");
+    // Each engine's caps under its name; people.e2e.ts checks an API engine's.
+    const claudeCode = usage.getByRole("region", { name: "Claude Code", exact: true });
+    const fiveHourCap = claudeCode.getByLabel("5-hour window");
+    const dailyTokens = claudeCode.getByLabel("Tokens a day");
+    const save = usage.getByRole("button", { name: "Save" });
 
-  await expect(measure("Tokens")).toHaveAttribute("aria-checked", "true");
-  await expect(measure("5-hour window")).toHaveAttribute("aria-checked", "true");
-  await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
-  await expect(fiveHourCap).toHaveValue("90");
-  await expect(claudeCode.getByLabel("7-day window")).toHaveValue("90");
-  await expect(dailyTokens).toHaveValue("");
-  await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
+    await expect(measure("Tokens")).toHaveAttribute("aria-checked", "true");
+    await expect(measure("5-hour window")).toHaveAttribute("aria-checked", "true");
+    await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
+    await expect(fiveHourCap).toHaveValue("90");
+    await expect(claudeCode.getByLabel("7-day window")).toHaveValue("90");
+    await expect(dailyTokens).toHaveValue("");
+    await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
 
-  await measure("Cost").click();
-  await fiveHourCap.fill("101");
-  await expect(usage.getByText("Give a whole % from 1 to 100")).toBeVisible();
-  await expect(save).toBeDisabled();
-  await fiveHourCap.fill("100");
-  await dailyTokens.fill("900,000,000");
-  await save.click();
-  await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
+    await measure("Cost").click();
+    await fiveHourCap.fill("101");
+    await expect(usage.getByText("Give a whole % from 1 to 100")).toBeVisible();
+    await expect(save).toBeDisabled();
+    await fiveHourCap.fill("100");
+    await dailyTokens.fill("900,000,000");
+    await save.click();
+    await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
 
-  await page.reload();
-  await expect(measure("Cost")).toHaveAttribute("aria-checked", "true");
-  await expect(fiveHourCap).toHaveValue("100");
-  await expect(dailyTokens).toHaveValue("900000000");
+    await page.reload();
+    await expect(measure("Cost")).toHaveAttribute("aria-checked", "true");
+    await expect(fiveHourCap).toHaveValue("100");
+    await expect(dailyTokens).toHaveValue("900000000");
 
-  await dailyTokens.fill("1");
-  await usage.getByRole("button", { name: "Discard" }).click();
-  await expect(dailyTokens).toHaveValue("900000000");
+    await dailyTokens.fill("1");
+    await usage.getByRole("button", { name: "Discard" }).click();
+    await expect(dailyTokens).toHaveValue("900000000");
 
-  await measure("Cost").click();
-  await fiveHourCap.fill("90");
-  await dailyTokens.fill("");
-  await save.click();
-  await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
-  await page.reload();
-  await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
-  await expect(fiveHourCap).toHaveValue("90");
-  await expect(dailyTokens).toHaveValue("");
-});
+    await measure("Cost").click();
+    await fiveHourCap.fill("90");
+    await dailyTokens.fill("");
+    await save.click();
+    await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
+    await expect(fiveHourCap).toHaveValue("90");
+    await expect(dailyTokens).toHaveValue("");
+  },
+);
 
 // The e2e files share one database: only "Alarm lifted with work waiting", which nothing raises
 // yet, is changed, and it is given back to its group.
-test("Notifications shows what goes where, a kind set or inherited, and Reset gives it back", async ({
-  page,
-}) => {
-  await page.goto("/settings");
-  await page.getByRole("link", { name: "Notifications" }).click();
-  await expect(page).toHaveURL(/\/settings\/notifications$/);
-  const grid = page.getByRole("table");
-  await expect(grid.getByRole("columnheader", { name: /Phone/ })).toContainText("Not set up yet");
-  await expect(page.getByText("Never notified: Stage progress, Tasks starting")).toBeVisible();
+test(
+  "Notifications shows what goes where, a kind set or inherited, and Reset gives it back",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/settings");
+    await page.getByRole("link", { name: "Notifications" }).click();
+    await expect(page).toHaveURL(/\/settings\/notifications$/);
+    const grid = page.getByRole("table");
+    await expect(grid.getByRole("columnheader", { name: /Phone/ })).toContainText("Not set up yet");
+    await expect(page.getByText("Never notified: Stage progress, Tasks starting")).toBeVisible();
 
-  const cell = (channel: string, row: string) =>
-    grid.getByRole("button", { name: `${channel} for ${row}`, exact: true });
-  // Ticket 20's defaults: a failed Task also goes to the phone, set on its own row.
-  await expect(cell("Phone", "Task failed")).toHaveAttribute("aria-pressed", "true");
-  await expect(cell("Phone", "Task failed")).toHaveAttribute("title", "Set here");
-  await expect(cell("Phone", "Task done")).toHaveAttribute("aria-pressed", "false");
-  await expect(cell("Desktop", "Task done")).toHaveAttribute("title", "Inherited from Outcomes");
-  await expect(
-    grid.getByRole("row", { name: /^Task done/ }).getByRole("button", { name: "Reset" }),
-  ).toHaveCount(0);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-notifications.png") });
+    const cell = (channel: string, row: string) =>
+      grid.getByRole("button", { name: `${channel} for ${row}`, exact: true });
+    // Ticket 20's defaults: a failed Task also goes to the phone, set on its own row.
+    await expect(cell("Phone", "Task failed")).toHaveAttribute("aria-pressed", "true");
+    await expect(cell("Phone", "Task failed")).toHaveAttribute("title", "Set here");
+    await expect(cell("Phone", "Task done")).toHaveAttribute("aria-pressed", "false");
+    await expect(cell("Desktop", "Task done")).toHaveAttribute("title", "Inherited from Outcomes");
+    await expect(
+      grid.getByRole("row", { name: /^Task done/ }).getByRole("button", { name: "Reset" }),
+    ).toHaveCount(0);
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-settings-notifications.png"),
+    });
 
-  const alarmLifted = cell("Phone", "Alarm lifted with work waiting");
-  const reset = grid
-    .getByRole("row", { name: /^Alarm lifted with work waiting/ })
-    .getByRole("button", { name: "Reset" });
-  await expect(alarmLifted).toHaveAttribute("title", "Inherited from Office");
-  await alarmLifted.click();
-  await expect(alarmLifted).toHaveAttribute("aria-pressed", "true");
-  await expect(alarmLifted).toHaveAttribute("title", "Set here");
+    const alarmLifted = cell("Phone", "Alarm lifted with work waiting");
+    const reset = grid
+      .getByRole("row", { name: /^Alarm lifted with work waiting/ })
+      .getByRole("button", { name: "Reset" });
+    await expect(alarmLifted).toHaveAttribute("title", "Inherited from Office");
+    await alarmLifted.click();
+    await expect(alarmLifted).toHaveAttribute("aria-pressed", "true");
+    await expect(alarmLifted).toHaveAttribute("title", "Set here");
 
-  await page.reload();
-  await expect(alarmLifted).toHaveAttribute("aria-pressed", "true");
-  await reset.click();
-  await expect(alarmLifted).toHaveAttribute("aria-pressed", "false");
-  await expect(alarmLifted).toHaveAttribute("title", "Inherited from Office");
-  await expect(reset).toHaveCount(0);
+    await page.reload();
+    await expect(alarmLifted).toHaveAttribute("aria-pressed", "true");
+    await reset.click();
+    await expect(alarmLifted).toHaveAttribute("aria-pressed", "false");
+    await expect(alarmLifted).toHaveAttribute("title", "Inherited from Office");
+    await expect(reset).toHaveCount(0);
 
-  // Setting a kind back to what its group gives drops the setting: the row inherits again.
-  await cell("In-app", "Alarm lifted with work waiting").click();
-  await expect(reset).toBeVisible();
-  await cell("In-app", "Alarm lifted with work waiting").click();
-  await expect(cell("In-app", "Alarm lifted with work waiting")).toHaveAttribute(
-    "title",
-    "Inherited from Office",
-  );
-  await expect(reset).toHaveCount(0);
-});
+    // Setting a kind back to what its group gives drops the setting: the row inherits again.
+    await cell("In-app", "Alarm lifted with work waiting").click();
+    await expect(reset).toBeVisible();
+    await cell("In-app", "Alarm lifted with work waiting").click();
+    await expect(cell("In-app", "Alarm lifted with work waiting")).toHaveAttribute(
+      "title",
+      "Inherited from Office",
+    );
+    await expect(reset).toHaveCount(0);
+  },
+);
 
 /** "HH:MM" this many hours from the system's time. */
 function hoursFromNow(hours: number): string {
@@ -318,68 +336,70 @@ function timingKept(
 
 // The e2e files share one database: quiet hours are moved at once to hours the clock is outside
 // of, so no other file's Notifications are held, and every change is given back.
-test("At the desk, Quiet hours and batching keep their minutes and quiet hours across reloads", async ({
-  page,
-}) => {
-  await page.goto("/settings/notifications");
-  const away = page.getByRole("spinbutton", { name: "Minutes after you leave" });
-  const batching = page.getByRole("spinbutton", { name: "Minutes Outcomes collapse within" });
-  const quietHours = page.getByRole("checkbox", { name: "Quiet hours" });
-  await expect(
-    page.getByRole("spinbutton", { name: "Minutes the phone is held after use" }),
-  ).toHaveValue("5");
-  await expect(away).toHaveValue("5");
-  await expect(batching).toHaveValue("2");
-  await expect(quietHours).not.toBeChecked();
-  await expect(page.getByText("Off until you set them.")).toBeVisible();
+test(
+  "At the desk, Quiet hours and batching keep their minutes and quiet hours across reloads",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/settings/notifications");
+    const away = page.getByRole("spinbutton", { name: "Minutes after you leave" });
+    const batching = page.getByRole("spinbutton", { name: "Minutes Outcomes collapse within" });
+    const quietHours = page.getByRole("checkbox", { name: "Quiet hours" });
+    await expect(
+      page.getByRole("spinbutton", { name: "Minutes the phone is held after use" }),
+    ).toHaveValue("5");
+    await expect(away).toHaveValue("5");
+    await expect(batching).toHaveValue("2");
+    await expect(quietHours).not.toBeChecked();
+    await expect(page.getByText("Off until you set them.")).toBeVisible();
 
-  const [quietFrom, quietTo] = [hoursFromNow(3), hoursFromNow(4)];
-  const changesKept = timingKept(
-    page,
-    (timing) =>
-      timing.awayMinutes === 7 &&
-      timing.quietHours?.from === quietFrom &&
-      timing.quietHours.to === quietTo,
-  );
-  await away.fill("7");
-  await away.press("Enter");
-  await quietHours.check();
-  const from = page.getByLabel("Quiet hours from");
-  const to = page.getByLabel("Quiet hours to");
-  await expect(from).toHaveValue("22:00");
-  await expect(to).toHaveValue("07:00");
-  await from.fill(quietFrom);
-  await to.fill(quietTo);
-  await changesKept;
-  await expect(page.getByText(/one summary comes when it ends/)).toBeVisible();
-  await page.screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-settings-notification-timing.png"),
-    fullPage: true,
-  });
-  // A minute out of range goes back to what is kept.
-  await batching.fill("0");
-  await batching.blur();
-  await expect(batching).toHaveValue("2");
+    const [quietFrom, quietTo] = [hoursFromNow(3), hoursFromNow(4)];
+    const changesKept = timingKept(
+      page,
+      (timing) =>
+        timing.awayMinutes === 7 &&
+        timing.quietHours?.from === quietFrom &&
+        timing.quietHours.to === quietTo,
+    );
+    await away.fill("7");
+    await away.press("Enter");
+    await quietHours.check();
+    const from = page.getByLabel("Quiet hours from");
+    const to = page.getByLabel("Quiet hours to");
+    await expect(from).toHaveValue("22:00");
+    await expect(to).toHaveValue("07:00");
+    await from.fill(quietFrom);
+    await to.fill(quietTo);
+    await changesKept;
+    await expect(page.getByText(/one summary comes when it ends/)).toBeVisible();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-settings-notification-timing.png"),
+      fullPage: true,
+    });
+    // A minute out of range goes back to what is kept.
+    await batching.fill("0");
+    await batching.blur();
+    await expect(batching).toHaveValue("2");
 
-  await page.reload();
-  await expect(away).toHaveValue("7");
-  await expect(quietHours).toBeChecked();
-  await expect(from).toHaveValue(quietFrom);
-  await expect(to).toHaveValue(quietTo);
+    await page.reload();
+    await expect(away).toHaveValue("7");
+    await expect(quietHours).toBeChecked();
+    await expect(from).toHaveValue(quietFrom);
+    await expect(to).toHaveValue(quietTo);
 
-  const defaultsKept = timingKept(
-    page,
-    (timing) => timing.awayMinutes === 5 && timing.quietHours === null,
-  );
-  await quietHours.uncheck();
-  await away.fill("5");
-  await away.press("Enter");
-  await expect(from).toHaveCount(0);
-  await defaultsKept;
-  await page.reload();
-  await expect(away).toHaveValue("5");
-  await expect(quietHours).not.toBeChecked();
-});
+    const defaultsKept = timingKept(
+      page,
+      (timing) => timing.awayMinutes === 5 && timing.quietHours === null,
+    );
+    await quietHours.uncheck();
+    await away.fill("5");
+    await away.press("Enter");
+    await expect(from).toHaveCount(0);
+    await defaultsKept;
+    await page.reload();
+    await expect(away).toHaveValue("5");
+    await expect(quietHours).not.toBeChecked();
+  },
+);
 
 // The e2e files share one database, and work.e2e.ts walks Full and Quick fix: this test makes
 // Pipelines of its own, with Script Stages and Gates only, as nobody may fill the Developer yet.
@@ -458,202 +478,213 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
 });
 
 // Script Stages and Gates only, as nobody may fill a Role in this file (see the Pipeline test above).
-test("the user makes a Stage template from scratch, edits it and removes it in Settings › Pipelines", async ({
-  page,
-}) => {
-  const name = `Lint first ${Date.now()}`;
-  await page.goto("/settings/pipelines");
-  const templates = page.getByRole("navigation", { name: "Stage templates" });
-  // The built-in Stages are templates from the start.
-  await expect(templates.getByRole("link", { name: /^Implement/ })).toBeVisible();
+test(
+  "the user makes a Stage template from scratch, edits it and removes it in Settings › Pipelines",
+  { tag: "@full" },
+  async ({ page }) => {
+    const name = `Lint first ${Date.now()}`;
+    await page.goto("/settings/pipelines");
+    const templates = page.getByRole("navigation", { name: "Stage templates" });
+    // The built-in Stages are templates from the start.
+    await expect(templates.getByRole("link", { name: /^Implement/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "New template" }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Script Stage" }).click();
-  await expect(page.getByText("Not in the Stage templates yet")).toBeVisible();
-  // A template has no loop target to go back to.
-  await expect(page.getByLabel("On failure")).toHaveCount(0);
-  const nameField = page.getByLabel("Name", { exact: true });
-  // Problems from the service's check hold Save.
-  await nameField.fill("Implement");
-  await expect(page.getByText('Another Stage template is named "Implement".')).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add the template" })).toBeDisabled();
-  await nameField.fill(name);
-  await page
-    .getByLabel("Project command")
-    .selectOption({ label: "Lint (each Project's own command)" });
-  await page.getByRole("button", { name: "Add the template" }).click();
+    await page.getByRole("button", { name: "New template" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Script Stage" }).click();
+    await expect(page.getByText("Not in the Stage templates yet")).toBeVisible();
+    // A template has no loop target to go back to.
+    await expect(page.getByLabel("On failure")).toHaveCount(0);
+    const nameField = page.getByLabel("Name", { exact: true });
+    // Problems from the service's check hold Save.
+    await nameField.fill("Implement");
+    await expect(page.getByText('Another Stage template is named "Implement".')).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add the template" })).toBeDisabled();
+    await nameField.fill(name);
+    await page
+      .getByLabel("Project command")
+      .selectOption({ label: "Lint (each Project's own command)" });
+    await page.getByRole("button", { name: "Add the template" }).click();
 
-  await expect(page.getByText(`${name} added to the Stage templates.`)).toBeVisible();
-  await expect(page).toHaveURL(/\/settings\/pipelines\/stage-templates\/[\da-f-]{36}$/);
-  const item = templates.getByRole("link", { name: new RegExp(`^${name}`) });
-  await expect(item).toContainText("Lint");
-  await expect(item).toHaveAttribute("aria-current", "page");
-  await screenshotEachLook(page, templates, "settings-stage-template");
+    await expect(page.getByText(`${name} added to the Stage templates.`)).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\/pipelines\/stage-templates\/[\da-f-]{36}$/);
+    const item = templates.getByRole("link", { name: new RegExp(`^${name}`) });
+    await expect(item).toContainText("Lint");
+    await expect(item).toHaveAttribute("aria-current", "page");
+    await screenshotEachLook(page, templates, "settings-stage-template");
 
-  await page
-    .getByLabel("Project command")
-    .selectOption({ label: "Build (each Project's own command)" });
-  await page.getByText("Optional: skipped when the Definition of Done is already met").click();
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
-  await page.getByRole("button", { name: "Save the template" }).click();
-  await expect(
-    page.getByText("Stage template saved. Pipelines and Tasks that added it keep their copy."),
-  ).toBeVisible();
-  await page.reload();
-  await expect(page.getByLabel("Project command")).toHaveValue("build");
-  await expect(item).toContainText("Build");
+    await page
+      .getByLabel("Project command")
+      .selectOption({ label: "Build (each Project's own command)" });
+    await page.getByText("Optional: skipped when the Definition of Done is already met").click();
+    await expect(page.getByText("Unsaved changes")).toBeVisible();
+    await page.getByRole("button", { name: "Save the template" }).click();
+    await expect(
+      page.getByText("Stage template saved. Pipelines and Tasks that added it keep their copy."),
+    ).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Project command")).toHaveValue("build");
+    await expect(item).toContainText("Build");
 
-  await page.getByRole("button", { name: "Remove", exact: true }).click();
-  await expect(page.getByText("Pipelines and Tasks that added it keep their copy.")).toBeVisible();
-  await page.getByRole("button", { name: "Remove the template" }).click();
-  await expect(page.getByText(`${name} removed from the Stage templates.`)).toBeVisible();
-  await expect(page).toHaveURL(/\/settings\/pipelines$/);
-  await expect(item).toHaveCount(0);
-});
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect(
+      page.getByText("Pipelines and Tasks that added it keep their copy."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Remove the template" }).click();
+    await expect(page.getByText(`${name} removed from the Stage templates.`)).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\/pipelines$/);
+    await expect(item).toHaveCount(0);
+  },
+);
 
-test("Save as template on a library Pipeline's Stage lists it among the Stage templates", async ({
-  page,
-}) => {
-  const stageName = `Smoke test ${Date.now()}`;
-  const pipeline = await addedPipeline(page, `Smoke ${Date.now()}`, [
-    {
-      kind: "script",
-      key: "tests",
-      name: "Tests",
-      optional: false,
-      command: "test",
-    },
-    {
+test(
+  "Save as template on a library Pipeline's Stage lists it among the Stage templates",
+  { tag: "@full" },
+  async ({ page }) => {
+    const stageName = `Smoke test ${Date.now()}`;
+    const pipeline = await addedPipeline(page, `Smoke ${Date.now()}`, [
+      {
+        kind: "script",
+        key: "tests",
+        name: "Tests",
+        optional: false,
+        command: "test",
+      },
+      {
+        kind: "script",
+        key: "smoke",
+        name: stageName,
+        optional: true,
+        command: "build",
+        onFailure: { goBackTo: "tests", rounds: 2 },
+      },
+    ]);
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
+    await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
+    await expect(page.getByText(`${stageName} saved as a Stage template.`)).toBeVisible();
+    const templates = page.getByRole("navigation", { name: "Stage templates" });
+    await expect(templates.getByRole("link", { name: new RegExp(stageName) })).toBeVisible();
+    const saved = (await stageTemplates(page)).find(({ stage }) => stage.name === stageName);
+    // Kept without its failure rule, which names a Stage of the Pipeline.
+    expect(saved?.stage).toEqual({
       kind: "script",
       key: "smoke",
       name: stageName,
       optional: true,
       command: "build",
-      onFailure: { goBackTo: "tests", rounds: 2 },
-    },
-  ]);
-  await page.goto(`/settings/pipelines/${pipeline.id}`);
-  await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
-  await expect(page.getByText(`${stageName} saved as a Stage template.`)).toBeVisible();
-  const templates = page.getByRole("navigation", { name: "Stage templates" });
-  await expect(templates.getByRole("link", { name: new RegExp(stageName) })).toBeVisible();
-  const saved = (await stageTemplates(page)).find(({ stage }) => stage.name === stageName);
-  // Kept without its failure rule, which names a Stage of the Pipeline.
-  expect(saved?.stage).toEqual({
-    kind: "script",
-    key: "smoke",
-    name: stageName,
-    optional: true,
-    command: "build",
-  });
+    });
 
-  // Saved again, the name is taken: the service's reason shows.
-  await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
-  await expect(page.getByText(`${stageName} wasn't saved as a Stage template`)).toBeVisible();
-  await expect(page.getByText(`Another Stage template is named "${stageName}".`)).toBeVisible();
-  await removeStageTemplate(page, saved);
-});
+    // Saved again, the name is taken: the service's reason shows.
+    await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
+    await expect(page.getByText(`${stageName} wasn't saved as a Stage template`)).toBeVisible();
+    await expect(page.getByText(`Another Stage template is named "${stageName}".`)).toBeVisible();
+    await removeStageTemplate(page, saved);
+  },
+);
 
-test("a Stage added from a template is a copy: it saves in a library Pipeline and in Edit for this Task, and editing the template leaves it as it was", async ({
-  page,
-}) => {
-  const stamp = Date.now();
-  const templateName = `Publish preview ${stamp}`;
-  const added = await page.request.post("/api/stage-templates", {
-    data: {
-      stage: {
-        kind: "script",
-        key: "publish-preview",
-        name: templateName,
-        optional: true,
-        command: "publish",
-        publishTarget: "branch-only",
+test(
+  "a Stage added from a template is a copy: it saves in a library Pipeline and in Edit for this Task, and editing the template leaves it as it was",
+  { tag: "@full" },
+  async ({ page }) => {
+    const stamp = Date.now();
+    const templateName = `Publish preview ${stamp}`;
+    const added = await page.request.post("/api/stage-templates", {
+      data: {
+        stage: {
+          kind: "script",
+          key: "publish-preview",
+          name: templateName,
+          optional: true,
+          command: "publish",
+          publishTarget: "branch-only",
+        },
       },
-    },
-  });
-  const template = stageTemplateSchema.parse(await added.json());
-  const pipeline = await addedPipeline(page, `Preview ${Date.now()}`, [
-    { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
-  ]);
-  const copied = {
-    kind: "script",
-    name: templateName,
-    optional: true,
-    command: "publish",
-    publishTarget: "branch-only",
-  };
-
-  // In a library Pipeline.
-  await page.goto(`/settings/pipelines/${pipeline.id}`);
-  await page.getByRole("button", { name: "From a template" }).click();
-  await page.getByRole("menu").getByRole("button", { name: templateName }).click();
-  const row = page
-    .getByRole("list", { name: "Stages" })
-    .getByRole("listitem", { name: templateName, exact: true });
-  await expect(row.getByLabel("Project command")).toHaveValue("publish");
-  await expect(row.getByLabel("Publishes")).toHaveValue("branch-only");
-  await page.getByRole("button", { name: "Save the Pipeline" }).click();
-  await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
-  await page.reload();
-  await expect(row).toContainText("pushes the branch only");
-  const savedStages = (await libraryPipeline(page, pipeline.id)).stages;
-  // Its own key, from its name, as any added Stage's.
-  expect(savedStages[1]).toEqual({ ...copied, key: `publish-preview-${stamp}` });
-  await page.locator(".settings-split").screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-settings-stage-from-template.png"),
-  });
-
-  // In Edit for this Task.
-  const repository = await createTemporaryRepository();
-  try {
-    // Following the Pipeline above, whose Stages nobody needs to be hired for.
-    const project = await addedProject(
-      page,
-      repository.path,
-      `Templates ${Date.now()}`,
-      pipeline.id,
-    );
-    const created = await page.request.post("/api/tasks", {
-      data: { title: "Copy a Stage template in", projectId: project.id, priority: "normal" },
     });
-    const { id: taskId } = taskSchema.parse(await created.json());
-    await page.goto(`/tasks/${taskId}`);
-    await page.getByRole("button", { name: "Edit for this Task" }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: "From a template" }).click();
-    await dialog.getByRole("menu").getByRole("button", { name: templateName }).click();
-    // The Task's Stages already hold the Pipeline's copy, so this one is named apart.
-    const copyName = `${templateName} 2`;
-    await expect(
-      dialog.getByRole("listitem", { name: copyName, exact: true }).getByLabel("Publishes"),
-    ).toHaveValue("branch-only");
-    await page.screenshot({
-      path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-from-template.png"),
-    });
-    await dialog.getByRole("button", { name: "Save for this Task" }).click();
-    await expect(page.getByText("Stages saved for Copy a Stage template in.")).toBeVisible();
+    const template = stageTemplateSchema.parse(await added.json());
+    const pipeline = await addedPipeline(page, `Preview ${Date.now()}`, [
+      { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
+    ]);
+    const copied = {
+      kind: "script",
+      name: templateName,
+      optional: true,
+      command: "publish",
+      publishTarget: "branch-only",
+    };
+
+    // In a library Pipeline.
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
+    await page.getByRole("button", { name: "From a template" }).click();
+    await page.getByRole("menu").getByRole("button", { name: templateName }).click();
+    const row = page
+      .getByRole("list", { name: "Stages" })
+      .getByRole("listitem", { name: templateName, exact: true });
+    await expect(row.getByLabel("Project command")).toHaveValue("publish");
+    await expect(row.getByLabel("Publishes")).toHaveValue("branch-only");
+    await page.getByRole("button", { name: "Save the Pipeline" }).click();
+    await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
     await page.reload();
-    const taskStages = async (): Promise<Stage[]> =>
-      (
-        taskStagesSchema.parse(await (await page.request.get(`/api/tasks/${taskId}/stages`)).json())
-          .stages ?? []
-      ).map(({ stage }) => stage);
-    const copy = (await taskStages()).find(({ name }) => name === copyName);
-    expect(copy).toEqual({ ...copied, name: copyName, key: `publish-preview-${stamp}-2` });
+    await expect(row).toContainText("pushes the branch only");
+    const savedStages = (await libraryPipeline(page, pipeline.id)).stages;
+    // Its own key, from its name, as any added Stage's.
+    expect(savedStages[1]).toEqual({ ...copied, key: `publish-preview-${stamp}` });
+    await page.locator(".settings-split").screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-settings-stage-from-template.png"),
+    });
 
-    // Editing the template, then removing it, leaves every copy as it was.
-    await page.goto(`/settings/pipelines/stage-templates/${template.id}`);
-    await page.getByLabel("Publishes").selectOption({ label: "By the Project's publishing mode" });
-    await page.getByRole("button", { name: "Save the template" }).click();
-    await expect(page.getByText("Stage template saved.", { exact: false })).toBeVisible();
-    expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
-    expect((await taskStages()).find(({ name }) => name === copyName)).toEqual(copy);
-    await removeStageTemplate(page, template);
-    expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
-  } finally {
-    await repository.remove();
-  }
-});
+    // In Edit for this Task.
+    const repository = await createTemporaryRepository();
+    try {
+      // Following the Pipeline above, whose Stages nobody needs to be hired for.
+      const project = await addedProject(
+        page,
+        repository.path,
+        `Templates ${Date.now()}`,
+        pipeline.id,
+      );
+      const created = await page.request.post("/api/tasks", {
+        data: { title: "Copy a Stage template in", projectId: project.id, priority: "normal" },
+      });
+      const { id: taskId } = taskSchema.parse(await created.json());
+      await page.goto(`/tasks/${taskId}`);
+      await page.getByRole("button", { name: "Edit for this Task" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("button", { name: "From a template" }).click();
+      await dialog.getByRole("menu").getByRole("button", { name: templateName }).click();
+      // The Task's Stages already hold the Pipeline's copy, so this one is named apart.
+      const copyName = `${templateName} 2`;
+      await expect(
+        dialog.getByRole("listitem", { name: copyName, exact: true }).getByLabel("Publishes"),
+      ).toHaveValue("branch-only");
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-from-template.png"),
+      });
+      await dialog.getByRole("button", { name: "Save for this Task" }).click();
+      await expect(page.getByText("Stages saved for Copy a Stage template in.")).toBeVisible();
+      await page.reload();
+      const taskStages = async (): Promise<Stage[]> =>
+        (
+          taskStagesSchema.parse(
+            await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+          ).stages ?? []
+        ).map(({ stage }) => stage);
+      const copy = (await taskStages()).find(({ name }) => name === copyName);
+      expect(copy).toEqual({ ...copied, name: copyName, key: `publish-preview-${stamp}-2` });
+
+      // Editing the template, then removing it, leaves every copy as it was.
+      await page.goto(`/settings/pipelines/stage-templates/${template.id}`);
+      await page
+        .getByLabel("Publishes")
+        .selectOption({ label: "By the Project's publishing mode" });
+      await page.getByRole("button", { name: "Save the template" }).click();
+      await expect(page.getByText("Stage template saved.", { exact: false })).toBeVisible();
+      expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
+      expect((await taskStages()).find(({ name }) => name === copyName)).toEqual(copy);
+      await removeStageTemplate(page, template);
+      expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
+    } finally {
+      await repository.remove();
+    }
+  },
+);
 
 async function addedPipeline(
   page: Page,
@@ -708,44 +739,49 @@ async function addedProject(
 }
 
 // Nothing is saved: people.e2e.ts saves engines, and a Save sends every engine whole.
-test("Settings › Engines' rows hold one line each, a long name cut beside the Office default", async ({
-  page,
-}) => {
-  const longName = "Claude Code on the research team's long-lived account, kept for the night runs";
-  await page.goto("/settings/engines");
-  const list = page.getByRole("navigation", { name: "Engines" });
-  const officeDefault = list.getByRole("button").filter({ hasText: "Office default" });
-  await officeDefault.click();
-  await page.locator(".engine-detail").getByLabel("Name", { exact: true }).fill(longName);
-  // An API endpoint without a model shows its warning mark.
-  await page.getByRole("button", { name: "Add an engine" }).click();
-  await page.getByRole("menu").getByRole("button", { name: "API endpoint", exact: true }).click();
-  await expect(list.getByLabel("It offers no model yet")).toBeVisible();
-  await expect(officeDefault).toContainText(longName);
-  // The kind shows as an icon, and screen readers still read it in the row's text.
-  await expect(officeDefault).toContainText("Claude Code ·");
+test(
+  "Settings › Engines' rows hold one line each, a long name cut beside the Office default",
+  { tag: "@full" },
+  async ({ page }) => {
+    const longName =
+      "Claude Code on the research team's long-lived account, kept for the night runs";
+    await page.goto("/settings/engines");
+    const list = page.getByRole("navigation", { name: "Engines" });
+    const officeDefault = list.getByRole("button").filter({ hasText: "Office default" });
+    await officeDefault.click();
+    await page.locator(".engine-detail").getByLabel("Name", { exact: true }).fill(longName);
+    // An API endpoint without a model shows its warning mark.
+    await page.getByRole("button", { name: "Add an engine" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "API endpoint", exact: true }).click();
+    await expect(list.getByLabel("It offers no model yet")).toBeVisible();
+    await expect(officeDefault).toContainText(longName);
+    // The kind shows as an icon, and screen readers still read it in the row's text.
+    await expect(officeDefault).toContainText("Claude Code ·");
 
-  await screenshotEachLook(page, list, "settings-engines", async () => {
-    const nameCut = await officeDefault
-      .locator(".pick-list-name")
-      .evaluate((name) => name.scrollWidth > name.clientWidth);
-    expect(nameCut).toBe(true);
-  });
-  await page.getByRole("button", { name: "Discard" }).click();
+    await screenshotEachLook(page, list, "settings-engines", async () => {
+      const nameCut = await officeDefault
+        .locator(".pick-list-name")
+        .evaluate((name) => name.scrollWidth > name.clientWidth);
+      expect(nameCut).toBe(true);
+    });
+    await page.getByRole("button", { name: "Discard" }).click();
 
-  // With no engine listed, the list says how to add one.
-  await page.route("**/api/settings/engines", async (route) => {
-    if (route.request().method() !== "GET") return route.fallback();
-    const response = await route.fetch();
-    const saved = (await response.json()) as EngineSettings;
-    return route.fulfill({ response, json: { ...saved, engines: [], officeDefault: null } });
-  });
-  await page.reload();
-  await expect(list).toHaveText(
-    "No engine yet. Add a Claude Code engine or an API endpoint with Add an engine.",
-  );
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-engines-empty.png") });
-});
+    // With no engine listed, the list says how to add one.
+    await page.route("**/api/settings/engines", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const response = await route.fetch();
+      const saved = (await response.json()) as EngineSettings;
+      return route.fulfill({ response, json: { ...saved, engines: [], officeDefault: null } });
+    });
+    await page.reload();
+    await expect(list).toHaveText(
+      "No engine yet. Add a Claude Code engine or an API endpoint with Add an engine.",
+    );
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-settings-engines-empty.png"),
+    });
+  },
+);
 
 /**
  * For each palette and at 1600 and 600 wide: the list's rows all one height, each mark inside its
@@ -790,7 +826,7 @@ async function screenshotEachLook(
   await page.setViewportSize({ width: 1600, height: 900 });
 }
 
-test.describe("Appearance", () => {
+test.describe("Appearance", { tag: "@full" }, () => {
   // A system in dark, so each choice shows as a change from what the system gives.
   test.use({ colorScheme: "dark" });
 

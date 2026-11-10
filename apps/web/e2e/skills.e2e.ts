@@ -91,70 +91,85 @@ test("the user writes a skill, reviews it, turns it on and gives it to everyone"
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skills.png") });
 });
 
-test("editing a written skill makes its next version, waiting for review", async ({ page }) => {
-  const written = await page.request.post("/api/skills", {
-    data: { name: "changelog", description: "Writes a changelog.", instructions: "One line each." },
-  });
-  expect(written.status()).toBe(201);
-  await page.request.put("/api/skills/changelog/state", { data: { state: "on" } });
-  await page.goto("/settings/skills");
+test(
+  "editing a written skill makes its next version, waiting for review",
+  { tag: "@full" },
+  async ({ page }) => {
+    const written = await page.request.post("/api/skills", {
+      data: {
+        name: "changelog",
+        description: "Writes a changelog.",
+        instructions: "One line each.",
+      },
+    });
+    expect(written.status()).toBe(201);
+    await page.request.put("/api/skills/changelog/state", { data: { state: "on" } });
+    await page.goto("/settings/skills");
 
-  await row(page, "changelog").getByRole("button", { name: "Review" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Edit" }).click();
-  await page
-    .getByRole("dialog")
-    .getByLabel("Instructions")
-    .fill("One line each, in the past tense.");
-  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+    await row(page, "changelog").getByRole("button", { name: "Review" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Edit" }).click();
+    await page
+      .getByRole("dialog")
+      .getByLabel("Instructions")
+      .fill("One line each, in the past tense.");
+    await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
 
-  await expect(
-    page.getByText("changelog saved as version 2. It waits for your review."),
-  ).toBeVisible();
-  await expect(page.getByRole("dialog").getByText("in the past tense")).toBeVisible();
-  await expect(row(page, "changelog")).toContainText("Off · waiting for your review");
-  await expect(row(page, "changelog")).toContainText("v2");
-});
+    await expect(
+      page.getByText("changelog saved as version 2. It waits for your review."),
+    ).toBeVisible();
+    await expect(page.getByRole("dialog").getByText("in the past tense")).toBeVisible();
+    await expect(row(page, "changelog")).toContainText("Off · waiting for your review");
+    await expect(row(page, "changelog")).toContainText("v2");
+  },
+);
 
-test("the user uploads a .md and a zipped folder; each arrives off", async ({ page }) => {
-  await openAddASkill(page);
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("tab", { name: "Upload" }).click();
-  await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
-    name: "tdd.md",
-    mimeType: "text/markdown",
-    buffer: Buffer.from(skillMd("tdd", "Test first: red, green, refactor.")),
-  });
-  await upload(page);
-  await expect(page.getByText("tdd uploaded. It is off until you review it.")).toBeVisible();
+test(
+  "the user uploads a .md and a zipped folder; each arrives off",
+  { tag: "@full" },
+  async ({ page }) => {
+    await openAddASkill(page);
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("tab", { name: "Upload" }).click();
+    await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
+      name: "tdd.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from(skillMd("tdd", "Test first: red, green, refactor.")),
+    });
+    await upload(page);
+    await expect(page.getByText("tdd uploaded. It is off until you review it.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Add a skill" }).click();
-  await dialog.getByRole("tab", { name: "Upload" }).click();
-  await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
-    name: "collect.zip",
-    mimeType: "application/zip",
-    buffer: await aZip([
-      { path: "collect/SKILL.md", text: skillMd("collect", "Collects the merged pull requests.") },
-      { path: "collect/scripts/collect.sh", text: "#!/bin/sh\ngit log --merges\n" },
-    ]),
-  });
-  await upload(page);
-  await expect(page.getByText("collect uploaded. It is off until you review it.")).toBeVisible();
+    await page.getByRole("button", { name: "Add a skill" }).click();
+    await dialog.getByRole("tab", { name: "Upload" }).click();
+    await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
+      name: "collect.zip",
+      mimeType: "application/zip",
+      buffer: await aZip([
+        {
+          path: "collect/SKILL.md",
+          text: skillMd("collect", "Collects the merged pull requests."),
+        },
+        { path: "collect/scripts/collect.sh", text: "#!/bin/sh\ngit log --merges\n" },
+      ]),
+    });
+    await upload(page);
+    await expect(page.getByText("collect uploaded. It is off until you review it.")).toBeVisible();
 
-  await expect(row(page, "tdd")).toContainText("Uploaded · one file");
-  await expect(row(page, "collect")).toContainText("Uploaded · folder");
-  await expect(
-    page.getByText(/skills wait for your review before anyone can use them/),
-  ).toBeVisible();
-  await row(page, "collect").getByRole("button", { name: "Review" }).click();
-  await expect(
-    dialog.getByText(
-      "It includes a script. Scripts run with the permissions of whoever uses the skill.",
-    ),
-  ).toBeVisible();
-  await expect(dialog.getByText("scripts/collect.sh")).toBeVisible();
-});
+    await expect(row(page, "tdd")).toContainText("Uploaded · one file");
+    await expect(row(page, "collect")).toContainText("Uploaded · folder");
+    await expect(
+      page.getByText(/skills wait for your review before anyone can use them/),
+    ).toBeVisible();
+    await row(page, "collect").getByRole("button", { name: "Review" }).click();
+    await expect(
+      dialog.getByText(
+        "It includes a script. Scripts run with the permissions of whoever uses the skill.",
+      ),
+    ).toBeVisible();
+    await expect(dialog.getByText("scripts/collect.sh")).toBeVisible();
+  },
+);
 
-test("a zip holding a link is refused with the reason", async ({ page }) => {
+test("a zip holding a link is refused with the reason", { tag: "@full" }, async ({ page }) => {
   await openAddASkill(page);
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("tab", { name: "Upload" }).click();
@@ -206,126 +221,135 @@ async function expectEveryEdgeLinedUp(page: Page): Promise<void> {
   expect(scrollingSideways).toBe(0);
 }
 
-test("a Project's page lists its own skills, read-only, with their switches", async ({ page }) => {
-  await aProjectSkill("deploy", "Deploys the panel.");
-  await aProjectSkill("lint-all", "Lints the panel.");
-  await aProjectSkill("notes", LONG_DESCRIPTION);
-  await aProjectSkill("lint-all", "Lints the web app alone.", "apps/web");
-  const newProject: NewProject = {
-    name: "Own skills",
-    path: repository.path,
-    baseBranch: "main",
-    mark: { label: "OS", colour: "teal" },
-    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
-    installInputs: [],
-    publishingMode: "push-and-pull-request",
-    defaultPipeline: "full",
-  };
-  await page.request.post("/api/skills", {
-    data: { name: "notes", description: "The library's notes.", instructions: "Write them." },
-  });
-  const added = await page.request.post("/api/projects", { data: newProject });
-  const project = projectSchema.parse(await added.json());
-  await page.goto(`/projects/${project.id}/skills`);
+test(
+  "a Project's page lists its own skills, read-only, with their switches",
+  { tag: "@full" },
+  async ({ page }) => {
+    await aProjectSkill("deploy", "Deploys the panel.");
+    await aProjectSkill("lint-all", "Lints the panel.");
+    await aProjectSkill("notes", LONG_DESCRIPTION);
+    await aProjectSkill("lint-all", "Lints the web app alone.", "apps/web");
+    const newProject: NewProject = {
+      name: "Own skills",
+      path: repository.path,
+      baseBranch: "main",
+      mark: { label: "OS", colour: "teal" },
+      commands: {
+        install: "npm ci",
+        build: "npm run build",
+        lint: "npm run lint",
+        test: "npm test",
+      },
+      installInputs: [],
+      publishingMode: "push-and-pull-request",
+      defaultPipeline: "full",
+    };
+    await page.request.post("/api/skills", {
+      data: { name: "notes", description: "The library's notes.", instructions: "Write them." },
+    });
+    const added = await page.request.post("/api/projects", { data: newProject });
+    const project = projectSchema.parse(await added.json());
+    await page.goto(`/projects/${project.id}/skills`);
 
-  await expect(page.getByText("Deploys the panel.")).toBeVisible();
-  await expect(page.getByText(".claude/skills/deploy")).toBeVisible();
-  const skillSwitch = (name: string) =>
-    page.getByRole("group", { name, exact: true }).getByRole("switch");
-  const deploy = skillSwitch("deploy");
-  const notes = skillSwitch("notes");
+    await expect(page.getByText("Deploys the panel.")).toBeVisible();
+    await expect(page.getByText(".claude/skills/deploy")).toBeVisible();
+    const skillSwitch = (name: string) =>
+      page.getByRole("group", { name, exact: true }).getByRole("switch");
+    const deploy = skillSwitch("deploy");
+    const notes = skillSwitch("notes");
 
-  // A skill turns off by itself, and stays off.
-  await deploy.click();
-  await expect(page.getByText("Sessions in Own skills start without deploy.")).toBeVisible();
-  await expect(deploy).toHaveAttribute("aria-checked", "false");
-  await page.reload();
-  await expect(deploy).toHaveAttribute("aria-checked", "false");
-  await expect(notes).toHaveAttribute("aria-checked", "true");
+    // A skill turns off by itself, and stays off.
+    await deploy.click();
+    await expect(page.getByText("Sessions in Own skills start without deploy.")).toBeVisible();
+    await expect(deploy).toHaveAttribute("aria-checked", "false");
+    await page.reload();
+    await expect(deploy).toHaveAttribute("aria-checked", "false");
+    await expect(notes).toHaveAttribute("aria-checked", "true");
 
-  // Only the switch changes a skill: selecting its path to copy it doesn't.
-  const saved = page.waitForRequest(/skill-use$/, { timeout: 500 }).then(
-    () => true,
-    () => false,
-  );
-  await page.getByText(".claude/skills/notes").click();
-  expect(await saved).toBe(false);
+    // Only the switch changes a skill: selecting its path to copy it doesn't.
+    const saved = page.waitForRequest(/skill-use$/, { timeout: 500 }).then(
+      () => true,
+      () => false,
+    );
+    await page.getByText(".claude/skills/notes").click();
+    expect(await saved).toBe(false);
 
-  // The library's skill of the same name matters only while the Project's is on.
-  const alsoInLibrary = page
-    .getByRole("group", { name: "notes", exact: true })
-    .getByText("The library has a skill of this name too");
-  await expect(alsoInLibrary).toBeVisible();
-  await notes.click();
-  await expect(notes).toHaveAttribute("aria-checked", "false");
-  await expect(alsoInLibrary).toBeHidden();
-  await notes.click();
-  await expect(alsoInLibrary).toBeVisible();
+    // The library's skill of the same name matters only while the Project's is on.
+    const alsoInLibrary = page
+      .getByRole("group", { name: "notes", exact: true })
+      .getByText("The library has a skill of this name too");
+    await expect(alsoInLibrary).toBeVisible();
+    await notes.click();
+    await expect(notes).toHaveAttribute("aria-checked", "false");
+    await expect(alsoInLibrary).toBeHidden();
+    await notes.click();
+    await expect(alsoInLibrary).toBeVisible();
 
-  // Two rows of one key are one skill to the engine.
-  const sameKey = page.getByRole("group", { name: "lint-all", exact: true });
-  await expect(sameKey).toHaveCount(2);
-  await expect(sameKey.first()).toContainText("Switches together with");
-  await sameKey.first().getByRole("switch").click();
-  await expect(sameKey.last().getByRole("switch")).toHaveAttribute("aria-checked", "false");
-  await sameKey.first().getByRole("switch").click();
-  await expect(sameKey.last().getByRole("switch")).toHaveAttribute("aria-checked", "true");
+    // Two rows of one key are one skill to the engine.
+    const sameKey = page.getByRole("group", { name: "lint-all", exact: true });
+    await expect(sameKey).toHaveCount(2);
+    await expect(sameKey.first()).toContainText("Switches together with");
+    await sameKey.first().getByRole("switch").click();
+    await expect(sameKey.last().getByRole("switch")).toHaveAttribute("aria-checked", "false");
+    await sameKey.first().getByRole("switch").click();
+    await expect(sameKey.last().getByRole("switch")).toHaveAttribute("aria-checked", "true");
 
-  // A long description holds to three lines, with the whole of it on hover.
-  const long = page.locator(".project-skill-description").filter({ hasText: "release notes" });
-  await expect(long).toHaveAttribute("title", LONG_DESCRIPTION.trim());
-  const clamped = await long.evaluate((part) => {
-    const { lineHeight, height } = getComputedStyle(part);
-    return Number.parseFloat(height) / Number.parseFloat(lineHeight);
-  });
-  expect(Math.round(clamped)).toBe(3);
+    // A long description holds to three lines, with the whole of it on hover.
+    const long = page.locator(".project-skill-description").filter({ hasText: "release notes" });
+    await expect(long).toHaveAttribute("title", LONG_DESCRIPTION.trim());
+    const clamped = await long.evaluate((part) => {
+      const { lineHeight, height } = getComputedStyle(part);
+      return Number.parseFloat(height) / Number.parseFloat(lineHeight);
+    });
+    expect(Math.round(clamped)).toBe(3);
 
-  // The reload clears the toasts off the screenshots.
-  await page.reload();
-  const skillsBlock = page.locator(".project-skills");
-  await expect(deploy).toHaveAttribute("aria-checked", "false");
-  await expectEveryEdgeLinedUp(page);
-  await skillsBlock.screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-project-skills.png"),
-  });
-  await choosePalette(page, "Dark");
-  await skillsBlock.screenshot({
-    path: path.join(SCREENSHOTS, "dark-1600-project-skills.png"),
-  });
-  await choosePalette(page, "Light");
-
-  for (const width of [900, 600]) {
-    await page.setViewportSize({ width, height: 900 });
+    // The reload clears the toasts off the screenshots.
+    await page.reload();
+    const skillsBlock = page.locator(".project-skills");
+    await expect(deploy).toHaveAttribute("aria-checked", "false");
     await expectEveryEdgeLinedUp(page);
     await skillsBlock.screenshot({
-      path: path.join(SCREENSHOTS, `light-${width}-project-skills.png`),
+      path: path.join(SCREENSHOTS, "light-1600-project-skills.png"),
     });
-  }
-  await page.setViewportSize({ width: 1600, height: 900 });
+    await choosePalette(page, "Dark");
+    await skillsBlock.screenshot({
+      path: path.join(SCREENSHOTS, "dark-1600-project-skills.png"),
+    });
+    await choosePalette(page, "Light");
 
-  // The switch for all of them holds each skill's setting until it comes back on.
-  // The Engine block has a switch of its own.
-  const useProjectSkills = page
-    .locator("label")
-    .filter({ hasText: "Use this Project's skills" })
-    .getByRole("switch");
-  await useProjectSkills.click();
+    for (const width of [900, 600]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectEveryEdgeLinedUp(page);
+      await skillsBlock.screenshot({
+        path: path.join(SCREENSHOTS, `light-${width}-project-skills.png`),
+      });
+    }
+    await page.setViewportSize({ width: 1600, height: 900 });
 
-  await expect(
-    page.getByText("Sessions in Own skills start without its own skills."),
-  ).toBeVisible();
-  await expect(useProjectSkills).toHaveAttribute("aria-checked", "false");
-  await expect(notes).toHaveAttribute("tabindex", "-1");
-  await expect(page.locator(".project-skill:not(.off)")).toHaveCount(0);
-  await page.reload();
-  await expect(notes).toHaveAttribute("aria-checked", "true");
-  await skillsBlock.screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-project-skills-all-off.png"),
-  });
-  await notes.click({ force: true });
-  await expect(notes).toHaveAttribute("aria-checked", "true");
-  await useProjectSkills.click();
-  await expect(useProjectSkills).toHaveAttribute("aria-checked", "true");
-  await expect(deploy).toHaveAttribute("aria-checked", "false");
-  await expect(notes).toHaveAttribute("aria-checked", "true");
-});
+    // The switch for all of them holds each skill's setting until it comes back on.
+    // The Engine block has a switch of its own.
+    const useProjectSkills = page
+      .locator("label")
+      .filter({ hasText: "Use this Project's skills" })
+      .getByRole("switch");
+    await useProjectSkills.click();
+
+    await expect(
+      page.getByText("Sessions in Own skills start without its own skills."),
+    ).toBeVisible();
+    await expect(useProjectSkills).toHaveAttribute("aria-checked", "false");
+    await expect(notes).toHaveAttribute("tabindex", "-1");
+    await expect(page.locator(".project-skill:not(.off)")).toHaveCount(0);
+    await page.reload();
+    await expect(notes).toHaveAttribute("aria-checked", "true");
+    await skillsBlock.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-project-skills-all-off.png"),
+    });
+    await notes.click({ force: true });
+    await expect(notes).toHaveAttribute("aria-checked", "true");
+    await useProjectSkills.click();
+    await expect(useProjectSkills).toHaveAttribute("aria-checked", "true");
+    await expect(deploy).toHaveAttribute("aria-checked", "false");
+    await expect(notes).toHaveAttribute("aria-checked", "true");
+  },
+);

@@ -57,10 +57,11 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, Reading, RunEnvironmentDefi
 
 ### adapters/http/
 
+- `project-run-environments.controller.fixtures.ts`: newProjectIn, runEnvironmentOf
 - `project-run-environments.controller.ts`: ProjectRunEnvironmentsController
 - `run-environment-office-limits.controller.ts`: RunEnvironmentOfficeLimitsController
 - `run-environment-refusals.filter.ts`: RunEnvironmentRefusalsFilter
-- Tests: project-run-environments.controller.test.ts, run-environment-office-limits.controller.test.ts
+- Tests: project-run-environments.controller.full.test.ts, project-run-environments.controller.test.ts, run-environment-office-limits.controller.test.ts
 
 ### adapters/postgres/
 
@@ -74,7 +75,7 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, Reading, RunEnvironmentDefi
 - `projects-set-up-registration.ts`: ProjectsSetUpRegistration
 - `projects-settings.ts`: ProjectsSettings, refusedInOurWords
 - `projects-task-run-environments.ts`: ProjectsTaskRunEnvironments
-- Tests: projects-task-run-environments-runtime.test.ts, projects-task-run-environments.test.ts
+- Tests: projects-task-run-environments-runtime.test.ts, projects-task-run-environments.full.test.ts, projects-task-run-environments.test.ts
 
 ### adapters/scripted/
 
@@ -99,7 +100,7 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, Reading, RunEnvironmentDefi
 - `run-environment-slots.ts`: RunEnvironmentSlots
 - `run-environments.fixtures.ts`: KnownTasksForTests, RunEnvironmentsTestbed, runEnvironmentsTestbed, writeFiles, taskIn
 - `run-environments.ts`: SlotOptions, RunEnvironmentCommand, CommandEnd, RunEnvironments
-- Tests: run-environment-slots.test.ts, run-environments.test.ts
+- Tests: run-environment-slots.full.test.ts, run-environments.full.test.ts, run-environments.test.ts
 
 ### domain/
 
@@ -110,7 +111,7 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, Reading, RunEnvironmentDefi
 - `run-environment-refused.ts`: RunEnvironmentRefused
 - `run-environment-setting-refused.ts`: RunEnvironmentSettingRefused, RunEnvironmentProjectNotFound
 - `run-environment.ts`: InstallVariable, TaskInWorktree, CommandEnvironment, CpuLimitChoice, CpuLimit, RunEnvironmentLimits, CORES_LEFT_FOR_THE_HOST, OTHER_SERVICES_CPUS, AutomaticCpus, automaticCpusOf, serviceCpusOf, cpuLimitProblemOf, RunEnvironmentOptions, DEFAULT_RUN_ENVIRONMENT_OPTIONS, IDLE_STOP_MS, LABEL, Labels, instanceIdOf, officeLabels, taskLabels, composeProjectNameOf, composeOverrideOf, carrierOf, commandVariables, commandScript
-- Tests: jsonc.test.ts, run-environment-definition.test.ts, run-environment-image.test.ts, run-environment.test.ts
+- Tests: jsonc.full.test.ts, run-environment-definition.full.test.ts, run-environment-image.full.test.ts, run-environment.full.test.ts
 
 ### ports/
 

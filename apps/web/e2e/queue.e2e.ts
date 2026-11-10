@@ -122,160 +122,166 @@ async function showOnly(page: Page, project: Project): Promise<void> {
   await page.getByRole("button", { name: `Show only ${project.name}` }).click();
 }
 
-test("queued Tasks show their place and reason on the board, the Task page and Now; the user moves one up, then to the top, and takes one out", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue desk", "QD");
-  const first = await readyTask(page, project, "Queued export as CSV");
-  const second = await readyTask(page, project, "Queued sync of the inbox");
-  const third = await readyTask(page, project, "Queued backup of the photos");
-  await queued(first);
-  await queued(second);
-  await queued(third);
+test(
+  "queued Tasks show their place and reason on the board, the Task page and Now; the user moves one up, then to the top, and takes one out",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue desk", "QD");
+    const first = await readyTask(page, project, "Queued export as CSV");
+    const second = await readyTask(page, project, "Queued sync of the inbox");
+    const third = await readyTask(page, project, "Queued backup of the photos");
+    await queued(first);
+    await queued(second);
+    await queued(third);
 
-  await page.goto("/work");
-  const card = page.getByRole("article", { name: "Queued sync of the inbox" });
-  // The card says why it waits; its place is the Queued column's order.
-  await expect(card).toContainText(`Queued${ONLY_DESK}`);
-  await expect(card).not.toContainText("Place");
+    await page.goto("/work");
+    const card = page.getByRole("article", { name: "Queued sync of the inbox" });
+    // The card says why it waits; its place is the Queued column's order.
+    await expect(card).toContainText(`Queued${ONLY_DESK}`);
+    await expect(card).not.toContainText("Place");
 
-  await page.goto("/now");
-  const queue = page.getByRole("article", { name: /^Queued: / });
-  await expect(queue).toHaveText([
-    new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
-    new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
-    new RegExp(`Queued backup of the photos.*Place 3 · ${ONLY_DESK}`),
-  ]);
+    await page.goto("/now");
+    const queue = page.getByRole("article", { name: /^Queued: / });
+    await expect(queue).toHaveText([
+      new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
+      new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
+      new RegExp(`Queued backup of the photos.*Place 3 · ${ONLY_DESK}`),
+    ]);
 
-  await page.goto(`/tasks/${third.id}`);
-  await expect(page.getByText(`Place 3 · ${ONLY_DESK}`)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
-  const moveUp = page.getByRole("button", { name: "Move up", exact: true });
-  const moreWays = page.getByRole("button", { name: "More ways to move up" });
-  await moveUp.click();
-  await expect(page.getByText(`Place 2 · ${ONLY_DESK}`)).toBeVisible();
+    await page.goto(`/tasks/${third.id}`);
+    await expect(page.getByText(`Place 3 · ${ONLY_DESK}`)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
+    const moveUp = page.getByRole("button", { name: "Move up", exact: true });
+    const moreWays = page.getByRole("button", { name: "More ways to move up" });
+    await moveUp.click();
+    await expect(page.getByText(`Place 2 · ${ONLY_DESK}`)).toBeVisible();
 
-  await moreWays.click();
-  await expect(moreWays).toHaveAttribute("aria-expanded", "true");
-  const menu = page.getByRole("menu");
-  await expect(menu.getByRole("button")).toHaveText(["Move to top"]);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-move-to-top.png") });
-  await menu.getByRole("button", { name: "Move to top" }).click();
-  await expect(page.getByText("Moved to the top of the queue.")).toBeVisible();
-  await expect(page.getByText(`Place 1 · ${ONLY_DESK}`)).toBeVisible();
-  await expect(menu).toBeHidden();
-  // The first in the queue can't move further up.
-  await expect(moveUp).toBeHidden();
-  await expect(moreWays).toBeHidden();
+    await moreWays.click();
+    await expect(moreWays).toHaveAttribute("aria-expanded", "true");
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("button")).toHaveText(["Move to top"]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-move-to-top.png") });
+    await menu.getByRole("button", { name: "Move to top" }).click();
+    await expect(page.getByText("Moved to the top of the queue.")).toBeVisible();
+    await expect(page.getByText(`Place 1 · ${ONLY_DESK}`)).toBeVisible();
+    await expect(menu).toBeHidden();
+    // The first in the queue can't move further up.
+    await expect(moveUp).toBeHidden();
+    await expect(moreWays).toBeHidden();
 
-  await page.goto("/now");
-  await expect(queue).toHaveText([
-    new RegExp(`Queued backup of the photos.*Place 1 · ${ONLY_DESK}`),
-    new RegExp(`Queued export as CSV.*Place 2 · ${ONLY_DESK}`),
-    new RegExp(`Queued sync of the inbox.*Place 3 · ${ONLY_DESK}`),
-  ]);
+    await page.goto("/now");
+    await expect(queue).toHaveText([
+      new RegExp(`Queued backup of the photos.*Place 1 · ${ONLY_DESK}`),
+      new RegExp(`Queued export as CSV.*Place 2 · ${ONLY_DESK}`),
+      new RegExp(`Queued sync of the inbox.*Place 3 · ${ONLY_DESK}`),
+    ]);
 
-  await page.goto(`/tasks/${third.id}`);
-  await page.getByRole("button", { name: "Take out of the queue" }).click();
-  await expect(page.getByText("Taken out of the queue; it stays Ready.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+    await page.goto(`/tasks/${third.id}`);
+    await page.getByRole("button", { name: "Take out of the queue" }).click();
+    await expect(page.getByText("Taken out of the queue; it stays Ready.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
 
-  await page.goto("/now");
-  await expect(queue).toHaveText([
-    new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
-    new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
-  ]);
-});
+    await page.goto("/now");
+    await expect(queue).toHaveText([
+      new RegExp(`Queued export as CSV.*Place 1 · ${ONLY_DESK}`),
+      new RegExp(`Queued sync of the inbox.*Place 2 · ${ONLY_DESK}`),
+    ]);
+  },
+);
 
-test("the Queued column holds queued Tasks by place, narrows with the filters, and its cards stay put; Ready keeps the rest", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue column", "QC");
-  const first = await readyTask(page, project, "Column export as CSV");
-  const second = await readyTask(page, project, "Column sync of the inbox");
-  const notQueued = await readyTask(page, project, "Column left to the user");
-  // High, so only the queue's places can put it second.
-  await queryOfficeDatabase(`update tasks set priority = 'high' where id = $1`, [second.id]);
-  await queued(first);
-  await queued(second);
+test(
+  "the Queued column holds queued Tasks by place, narrows with the filters, and its cards stay put; Ready keeps the rest",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue column", "QC");
+    const first = await readyTask(page, project, "Column export as CSV");
+    const second = await readyTask(page, project, "Column sync of the inbox");
+    const notQueued = await readyTask(page, project, "Column left to the user");
+    // High, so only the queue's places can put it second.
+    await queryOfficeDatabase(`update tasks set priority = 'high' where id = $1`, [second.id]);
+    await queued(first);
+    await queued(second);
 
-  await page.goto("/work");
-  await showOnly(page, project);
-  const ready = column(page, "Ready");
-  const queuedColumn = column(page, "Queued");
-  await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 2");
-  await expect(queuedColumn).toContainText("They start by themselves when their turn comes");
-  await expect(ready).toContainText("Starting is your call");
-  await expect(queuedColumn.getByRole("article")).toHaveText([
-    new RegExp(`${first.title}.*Queued${ONLY_DESK}`),
-    new RegExp(`${second.title}.*Queued${ONLY_DESK}`),
-  ]);
-  await expect(ready.getByRole("article")).toHaveText([new RegExp(notQueued.title)]);
-  const left = taskSchema.parse(await (await page.request.get(`/api/tasks/${first.id}`)).json());
-  expect(left.state).toBe("ready");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-queued.png") });
+    await page.goto("/work");
+    await showOnly(page, project);
+    const ready = column(page, "Ready");
+    const queuedColumn = column(page, "Queued");
+    await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 2");
+    await expect(queuedColumn).toContainText("They start by themselves when their turn comes");
+    await expect(ready).toContainText("Starting is your call");
+    await expect(queuedColumn.getByRole("article")).toHaveText([
+      new RegExp(`${first.title}.*Queued${ONLY_DESK}`),
+      new RegExp(`${second.title}.*Queued${ONLY_DESK}`),
+    ]);
+    await expect(ready.getByRole("article")).toHaveText([new RegExp(notQueued.title)]);
+    const left = taskSchema.parse(await (await page.request.get(`/api/tasks/${first.id}`)).json());
+    expect(left.state).toBe("ready");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-queued.png") });
 
-  // A queued card's order is the queue's, and Start is what queues a Task.
-  const firstCard = queuedColumn.getByRole("article", { name: first.title });
-  await expect(firstCard).toHaveAttribute("draggable", "false");
-  await ready.getByRole("article", { name: notQueued.title }).dragTo(firstCard);
-  await expect(
-    page.getByText("A Task changes state through its actions: Plan, Mark Ready, Start."),
-  ).toBeVisible();
-  await expect(ready.getByRole("article", { name: notQueued.title })).toBeVisible();
+    // A queued card's order is the queue's, and Start is what queues a Task.
+    const firstCard = queuedColumn.getByRole("article", { name: first.title });
+    await expect(firstCard).toHaveAttribute("draggable", "false");
+    await ready.getByRole("article", { name: notQueued.title }).dragTo(firstCard);
+    await expect(
+      page.getByText("A Task changes state through its actions: Plan, Mark Ready, Start."),
+    ).toBeVisible();
+    await expect(ready.getByRole("article", { name: notQueued.title })).toBeVisible();
 
-  const movedUp = await page.request.post(`/api/queue/${second.id}/move-up`);
-  expect(movedUp.ok()).toBe(true);
-  await expect(queuedColumn.getByRole("article")).toHaveText([
-    new RegExp(second.title),
-    new RegExp(first.title),
-  ]);
+    const movedUp = await page.request.post(`/api/queue/${second.id}/move-up`);
+    expect(movedUp.ok()).toBe(true);
+    await expect(queuedColumn.getByRole("article")).toHaveText([
+      new RegExp(second.title),
+      new RegExp(first.title),
+    ]);
 
-  expect((await page.request.delete(`/api/queue/${second.id}`)).ok()).toBe(true);
-  await expect(queuedColumn.getByRole("article")).toHaveCount(1);
-  await expect(ready.getByRole("article", { name: second.title })).toBeVisible();
-  await expect(ready.getByRole("article", { name: second.title })).toHaveAttribute(
-    "draggable",
-    "true",
-  );
-  await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 1");
+    expect((await page.request.delete(`/api/queue/${second.id}`)).ok()).toBe(true);
+    await expect(queuedColumn.getByRole("article")).toHaveCount(1);
+    await expect(ready.getByRole("article", { name: second.title })).toBeVisible();
+    await expect(ready.getByRole("article", { name: second.title })).toHaveAttribute(
+      "draggable",
+      "true",
+    );
+    await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 1");
 
-  await queued(second);
-  await page.goto("/work?query=inbox");
-  await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 1");
-  await expect(queuedColumn.getByRole("article")).toHaveText([new RegExp(second.title)]);
-  await page.goto("/work?priority=high");
-  await expect(queuedColumn.getByRole("article")).toHaveText([new RegExp(second.title)]);
-});
+    await queued(second);
+    await page.goto("/work?query=inbox");
+    await expect(queuedColumn.getByRole("heading")).toHaveText("Queued 1");
+    await expect(queuedColumn.getByRole("article")).toHaveText([new RegExp(second.title)]);
+    await page.goto("/work?priority=high");
+    await expect(queuedColumn.getByRole("article")).toHaveText([new RegExp(second.title)]);
+  },
+);
 
-test("a Task moves from Ready to Queued as it is queued and to In progress as the queue starts it, with no reload", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue moves", "QM");
-  const blocker = await readyTask(page, project, "Moves write the schema");
-  const task = await readyTask(page, project, "Moves export the schema");
-  await page.request.post(`/api/tasks/${task.id}/dependencies`, {
-    data: { blockerId: blocker.id },
-  });
+test(
+  "a Task moves from Ready to Queued as it is queued and to In progress as the queue starts it, with no reload",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue moves", "QM");
+    const blocker = await readyTask(page, project, "Moves write the schema");
+    const task = await readyTask(page, project, "Moves export the schema");
+    await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+      data: { blockerId: blocker.id },
+    });
 
-  await page.goto("/work");
-  await showOnly(page, project);
-  const card = (name: string) => column(page, name).getByRole("article", { name: task.title });
-  // Blocked and not queued yet, it still waits for the user.
-  await expect(card("Ready")).toContainText(`Blocked by ${blocker.title}`);
+    await page.goto("/work");
+    await showOnly(page, project);
+    const card = (name: string) => column(page, name).getByRole("article", { name: task.title });
+    // Blocked and not queued yet, it still waits for the user.
+    await expect(card("Ready")).toContainText(`Blocked by ${blocker.title}`);
 
-  const start = await page.request.post(`/api/tasks/${task.id}/start`, { data: {} });
-  expect(start.ok()).toBe(true);
-  await expect(card("Queued")).toContainText(`Blocked by ${blocker.title}`);
-  await expect(card("Ready")).toBeHidden();
+    const start = await page.request.post(`/api/tasks/${task.id}/start`, { data: {} });
+    expect(start.ok()).toBe(true);
+    await expect(card("Queued")).toContainText(`Blocked by ${blocker.title}`);
+    await expect(card("Ready")).toBeHidden();
 
-  expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).ok()).toBe(true);
-  await expect(card("In progress")).toBeVisible();
-  await expect(card("Queued")).toBeHidden();
+    expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).ok()).toBe(true);
+    await expect(card("In progress")).toBeVisible();
+    await expect(card("Queued")).toBeHidden();
 
-  // Its walk has no more to prove here.
-  await page.request.post(`/api/tasks/${task.id}/drop`);
-});
+    // Its walk has no more to prove here.
+    await page.request.post(`/api/tasks/${task.id}/drop`);
+  },
+);
 
 test("Start queues a Task its Project limit holds, with the limit as the reason on the board and Now, and raising the limit starts it", async ({
   page,
@@ -316,223 +322,239 @@ test("Start queues a Task its Project limit holds, with the limit as the reason 
   await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [running.id]);
 });
 
-test("the six columns scroll sideways inside the board when they don't fit, none cut off", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1100, height: 800 });
-  await page.goto("/work");
-  const board = page.locator(".board");
-  const columns = board.getByRole("region");
-  await expect(columns).toHaveCount(6);
+test(
+  "the six columns scroll sideways inside the board when they don't fit, none cut off",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 });
+    await page.goto("/work");
+    const board = page.locator(".board");
+    const columns = board.getByRole("region");
+    await expect(columns).toHaveCount(6);
 
-  const sizes = await board.evaluate((shown) => ({
-    scrollable: shown.scrollWidth - shown.clientWidth,
-    page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  }));
-  expect(sizes.scrollable).toBeGreaterThan(0);
-  expect(sizes.page).toBe(0);
+    const sizes = await board.evaluate((shown) => ({
+      scrollable: shown.scrollWidth - shown.clientWidth,
+      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    }));
+    expect(sizes.scrollable).toBeGreaterThan(0);
+    expect(sizes.page).toBe(0);
 
-  // Sideways only: a column with many cards is taller than the window, which the page scrolls.
-  const shownArea = await board.boundingBox();
-  expect(shownArea).not.toBeNull();
-  const { x: boardLeft, width: boardWidth } = shownArea!;
-  expect(boardLeft + boardWidth).toBeLessThanOrEqual(1100);
-  for (const shown of await columns.all()) {
-    await shown.evaluate((element) =>
-      element.scrollIntoView({ inline: "nearest", block: "nearest" }),
-    );
-    const { x: left, width } = (await shown.boundingBox())!;
-    expect(width).toBeGreaterThanOrEqual(220);
-    expect(left).toBeGreaterThanOrEqual(boardLeft);
-    expect(left + width).toBeLessThanOrEqual(boardLeft + boardWidth);
-  }
-});
+    // Sideways only: a column with many cards is taller than the window, which the page scrolls.
+    const shownArea = await board.boundingBox();
+    expect(shownArea).not.toBeNull();
+    const { x: boardLeft, width: boardWidth } = shownArea!;
+    expect(boardLeft + boardWidth).toBeLessThanOrEqual(1100);
+    for (const shown of await columns.all()) {
+      await shown.evaluate((element) =>
+        element.scrollIntoView({ inline: "nearest", block: "nearest" }),
+      );
+      const { x: left, width } = (await shown.boundingBox())!;
+      expect(width).toBeGreaterThanOrEqual(220);
+      expect(left).toBeGreaterThanOrEqual(boardLeft);
+      expect(left + width).toBeLessThanOrEqual(boardLeft + boardWidth);
+    }
+  },
+);
 
-test("Start says when it only queues the Task, and what holds it", async ({ page }) => {
-  const project = await addedProject(page, "Queue start", "QS");
-  const task = await readyTask(page, project, "Queued badge on the cards");
-  // The Start check and Start answer as the service gives them while only the limit holds a Task;
-  // the queue's own service test covers the queuing itself.
-  const check: StartCheck = {
-    refusals: [],
-    waits: [ONLY_DESK],
-    blockers: [],
-    overlaps: [],
-    usageEstimate: null,
-  };
-  await page.route(`**/api/tasks/${task.id}/start`, async (route) => {
-    if (route.request().method() === "GET") return route.fulfill({ json: check });
-    await queued(task);
-    const answer: StartAnswer = {
-      task: { ...task, state: "ready" },
-      queued: {
-        taskId: task.id,
-        place: 1,
-        queuedAt: new Date().toISOString(),
-        reasons: [ONLY_DESK],
-        behind: [],
-      },
+test(
+  "Start says when it only queues the Task, and what holds it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue start", "QS");
+    const task = await readyTask(page, project, "Queued badge on the cards");
+    // The Start check and Start answer as the service gives them while only the limit holds a Task;
+    // the queue's own service test covers the queuing itself.
+    const check: StartCheck = {
+      refusals: [],
+      waits: [ONLY_DESK],
+      blockers: [],
+      overlaps: [],
+      usageEstimate: null,
     };
-    return route.fulfill({ json: answer });
-  });
+    await page.route(`**/api/tasks/${task.id}/start`, async (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ json: check });
+      await queued(task);
+      const answer: StartAnswer = {
+        task: { ...task, state: "ready" },
+        queued: {
+          taskId: task.id,
+          place: 1,
+          queuedAt: new Date().toISOString(),
+          reasons: [ONLY_DESK],
+          behind: [],
+        },
+      };
+      return route.fulfill({ json: answer });
+    });
 
-  await page.goto(`/tasks/${task.id}`);
-  await expect(page.getByText(`Start joins the queue: ${ONLY_DESK}`)).toBeVisible();
-  await page.getByRole("button", { name: "Start", exact: true }).click();
+    await page.goto(`/tasks/${task.id}`);
+    await expect(page.getByText(`Start joins the queue: ${ONLY_DESK}`)).toBeVisible();
+    await page.getByRole("button", { name: "Start", exact: true }).click();
 
-  await expect(
-    page.getByText(`Queued badge on the cards is queued, place 1: ${ONLY_DESK}`),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
-});
+    await expect(
+      page.getByText(`Queued badge on the cards is queued, place 1: ${ONLY_DESK}`),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
+  },
+);
 
-test("a Ready Task's Usage estimate shows on its card, in the Task head's notes, under the rail and on Now when queued, with where it came from and a cap's wait in the service's words", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue estimates", "QE");
-  const learned = await readyTask(page, project, "Estimate the export's columns");
-  await queryOfficeDatabase(`update tasks set estimated_tokens = 90000 where id = $1`, [
-    learned.id,
-  ]);
-  const planned = await readyTask(page, project, "Estimate the inbox filters");
-  const unknown = await readyTask(page, project, "Estimate the empty state");
-  await queued(planned, CAP_WAIT);
-  // The estimates as the service gives them; Work's own tests cover how they are reached.
-  const fromHistory: UsageEstimate = {
-    basis: { source: "history", tasks: 4 },
-    engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
-  };
-  const estimates: TaskUsageEstimateList = [
-    { taskId: learned.id, usageEstimate: fromHistory },
-    {
-      taskId: planned.id,
-      usageEstimate: {
-        basis: { source: "planner" },
-        engines: [
-          { engineId: "claude-code", tokens: 60_000, fiveHourWindow: 3, cost: 0.6 },
-          { engineId: LOCAL_MODELS.id, tokens: 40_000, cost: null },
-        ],
+test(
+  "a Ready Task's Usage estimate shows on its card, in the Task head's notes, under the rail and on Now when queued, with where it came from and a cap's wait in the service's words",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue estimates", "QE");
+    const learned = await readyTask(page, project, "Estimate the export's columns");
+    await queryOfficeDatabase(`update tasks set estimated_tokens = 90000 where id = $1`, [
+      learned.id,
+    ]);
+    const planned = await readyTask(page, project, "Estimate the inbox filters");
+    const unknown = await readyTask(page, project, "Estimate the empty state");
+    await queued(planned, CAP_WAIT);
+    // The estimates as the service gives them; Work's own tests cover how they are reached.
+    const fromHistory: UsageEstimate = {
+      basis: { source: "history", tasks: 4 },
+      engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
+    };
+    const estimates: TaskUsageEstimateList = [
+      { taskId: learned.id, usageEstimate: fromHistory },
+      {
+        taskId: planned.id,
+        usageEstimate: {
+          basis: { source: "planner" },
+          engines: [
+            { engineId: "claude-code", tokens: 60_000, fiveHourWindow: 3, cost: 0.6 },
+            { engineId: LOCAL_MODELS.id, tokens: 40_000, cost: null },
+          ],
+        },
       },
-    },
-    { taskId: unknown.id, usageEstimate: { basis: { source: "none" }, engines: [] } },
-  ];
-  await page.route("**/api/usage-estimates", (route) => route.fulfill({ json: estimates }));
-  // The estimate names an API engine by its name; listed for this page only, so nothing else sees it.
-  await page.route("**/api/settings/engines", async (route) => {
-    const listed = engineSettingsSchema.parse(await (await route.fetch()).json());
-    await route.fulfill({ json: { ...listed, engines: [...listed.engines, LOCAL_MODELS] } });
-  });
-  const check: StartCheck = {
-    refusals: [],
-    waits: [],
-    blockers: [],
-    overlaps: [],
-    usageEstimate: fromHistory,
-  };
-  await page.route(`**/api/tasks/${learned.id}/start`, (route) => route.fulfill({ json: check }));
-  const HISTORY_WORDS =
-    "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.";
-  const PLANNER_WORDS =
-    "Expected: Claude Code: 60k tokens · 3% of the 5-hour window · $0.60; Local models: 40k tokens · no cost, from the Planner's estimate.";
+      { taskId: unknown.id, usageEstimate: { basis: { source: "none" }, engines: [] } },
+    ];
+    await page.route("**/api/usage-estimates", (route) => route.fulfill({ json: estimates }));
+    // The estimate names an API engine by its name; listed for this page only, so nothing else sees it.
+    await page.route("**/api/settings/engines", async (route) => {
+      const listed = engineSettingsSchema.parse(await (await route.fetch()).json());
+      await route.fulfill({ json: { ...listed, engines: [...listed.engines, LOCAL_MODELS] } });
+    });
+    const check: StartCheck = {
+      refusals: [],
+      waits: [],
+      blockers: [],
+      overlaps: [],
+      usageEstimate: fromHistory,
+    };
+    await page.route(`**/api/tasks/${learned.id}/start`, (route) => route.fulfill({ json: check }));
+    const HISTORY_WORDS =
+      "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.";
+    const PLANNER_WORDS =
+      "Expected: Claude Code: 60k tokens · 3% of the 5-hour window · $0.60; Local models: 40k tokens · no cost, from the Planner's estimate.";
 
-  await page.goto("/work");
-  const estimateOn = (title: string) =>
-    page.getByRole("article", { name: title }).getByRole("note", { name: "Usage estimate" });
-  await expect(estimateOn(learned.title)).toHaveText(HISTORY_WORDS);
-  await expect(estimateOn(unknown.title)).toHaveText(
-    "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
-  );
-  const queuedCard = page.getByRole("article", { name: planned.title });
-  await expect(queuedCard).toContainText(`Queued${CAP_WAIT}`);
-  await expect(estimateOn(planned.title)).toHaveText(PLANNER_WORDS);
+    await page.goto("/work");
+    const estimateOn = (title: string) =>
+      page.getByRole("article", { name: title }).getByRole("note", { name: "Usage estimate" });
+    await expect(estimateOn(learned.title)).toHaveText(HISTORY_WORDS);
+    await expect(estimateOn(unknown.title)).toHaveText(
+      "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
+    );
+    const queuedCard = page.getByRole("article", { name: planned.title });
+    await expect(queuedCard).toContainText(`Queued${CAP_WAIT}`);
+    await expect(estimateOn(planned.title)).toHaveText(PLANNER_WORDS);
 
-  await page.goto("/now");
-  const queuedOnNow = page.getByRole("article", { name: `Queued: ${planned.title}` });
-  await expect(queuedOnNow).toContainText(CAP_WAIT);
-  await expect(queuedOnNow.getByRole("note", { name: "Usage estimate" })).toHaveText(PLANNER_WORDS);
+    await page.goto("/now");
+    const queuedOnNow = page.getByRole("article", { name: `Queued: ${planned.title}` });
+    await expect(queuedOnNow).toContainText(CAP_WAIT);
+    await expect(queuedOnNow.getByRole("note", { name: "Usage estimate" })).toHaveText(
+      PLANNER_WORDS,
+    );
 
-  await page.goto(`/tasks/${learned.id}`);
-  // In the Task head's notes and in the card's place under the rail.
-  await expect(page.getByRole("note", { name: "Usage estimate" })).toHaveText([
-    HISTORY_WORDS,
-    HISTORY_WORDS,
-  ]);
-  await expect(page.getByText("0 of ~90k tokens")).toBeVisible();
-  const plan = page.getByRole("region", { name: "Plan" });
-  await plan.getByRole("button", { name: /^Plan/ }).click();
-  await expect(
-    plan.getByText("The Planner expects the whole Pipeline to use about 90k tokens."),
-  ).toBeVisible();
-});
+    await page.goto(`/tasks/${learned.id}`);
+    // In the Task head's notes and in the card's place under the rail.
+    await expect(page.getByRole("note", { name: "Usage estimate" })).toHaveText([
+      HISTORY_WORDS,
+      HISTORY_WORDS,
+    ]);
+    await expect(page.getByText("0 of ~90k tokens")).toBeVisible();
+    const plan = page.getByRole("region", { name: "Plan" });
+    await plan.getByRole("button", { name: /^Plan/ }).click();
+    await expect(
+      plan.getByText("The Planner expects the whole Pipeline to use about 90k tokens."),
+    ).toBeVisible();
+  },
+);
 
-test("Start warns of an Overlap with a Task in progress, naming it, and queues behind it", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue overlap", "QO");
-  const inProgress = await readyTask(page, project, "Rework the sign-in");
-  // In progress without a walk: Start's only part here is the warning and the queue.
-  await queryOfficeDatabase(
-    `update tasks set state = 'in-progress', files_to_change = '{src/auth}' where id = $1`,
-    [inProgress.id],
-  );
-  const task = await readyTask(page, project, "Keep the redirect after sign-in");
-  await queryOfficeDatabase(
-    `update tasks set files_to_change = '{src/auth/login.ts,README.md}' where id = $1`,
-    [task.id],
-  );
+test(
+  "Start warns of an Overlap with a Task in progress, naming it, and queues behind it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue overlap", "QO");
+    const inProgress = await readyTask(page, project, "Rework the sign-in");
+    // In progress without a walk: Start's only part here is the warning and the queue.
+    await queryOfficeDatabase(
+      `update tasks set state = 'in-progress', files_to_change = '{src/auth}' where id = $1`,
+      [inProgress.id],
+    );
+    const task = await readyTask(page, project, "Keep the redirect after sign-in");
+    await queryOfficeDatabase(
+      `update tasks set files_to_change = '{src/auth/login.ts,README.md}' where id = $1`,
+      [task.id],
+    );
 
-  await page.goto(`/tasks/${task.id}`);
-  const overlap = page.getByRole("note", { name: "Overlap" });
-  await expect(overlap).toHaveText(
-    "Overlap: “Rework the sign-in” is in progress and expects to change some of the same files.",
-  );
-  await expect(page.getByRole("button", { name: "Start anyway" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
-  await page.getByRole("button", { name: "Queue behind it" }).click();
+    await page.goto(`/tasks/${task.id}`);
+    const overlap = page.getByRole("note", { name: "Overlap" });
+    await expect(overlap).toHaveText(
+      "Overlap: “Rework the sign-in” is in progress and expects to change some of the same files.",
+    );
+    await expect(page.getByRole("button", { name: "Start anyway" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
+    await page.getByRole("button", { name: "Queue behind it" }).click();
 
-  await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
-  // Read again after the release that queuing sets off, so its reasons are the release's.
-  await page.reload();
-  await expect(
-    page.getByText(
-      /^Place \d+ · Queued behind "Rework the sign-in" until it is Done or Dropped\.$/,
-    ),
-  ).toBeVisible();
+    await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
+    // Read again after the release that queuing sets off, so its reasons are the release's.
+    await page.reload();
+    await expect(
+      page.getByText(
+        /^Place \d+ · Queued behind "Rework the sign-in" until it is Done or Dropped\.$/,
+      ),
+    ).toBeVisible();
 
-  // Out of the queue before the Task it waits behind ends, so no release starts a walk.
-  await page.request.post(`/api/tasks/${task.id}/drop`);
-  await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
-});
+    // Out of the queue before the Task it waits behind ends, so no release starts a walk.
+    await page.request.post(`/api/tasks/${task.id}/drop`);
+    await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
+  },
+);
 
-test("Start says one sentence for each Task in progress it overlaps", async ({ page }) => {
-  const project = await addedProject(page, "Queue overlaps", "QS");
-  const signIn = await readyTask(page, project, "Rework the sign-in");
-  const signOut = await readyTask(page, project, "Rework the sign-out");
-  await queryOfficeDatabase(
-    `update tasks set state = 'in-progress', files_to_change = '{src/auth}' where id = any($1)`,
-    [[signIn.id, signOut.id]],
-  );
-  const task = await readyTask(page, project, "Keep the redirect after sign-in");
-  await queryOfficeDatabase(`update tasks set files_to_change = '{src/auth}' where id = $1`, [
-    task.id,
-  ]);
+test(
+  "Start says one sentence for each Task in progress it overlaps",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue overlaps", "QS");
+    const signIn = await readyTask(page, project, "Rework the sign-in");
+    const signOut = await readyTask(page, project, "Rework the sign-out");
+    await queryOfficeDatabase(
+      `update tasks set state = 'in-progress', files_to_change = '{src/auth}' where id = any($1)`,
+      [[signIn.id, signOut.id]],
+    );
+    const task = await readyTask(page, project, "Keep the redirect after sign-in");
+    await queryOfficeDatabase(`update tasks set files_to_change = '{src/auth}' where id = $1`, [
+      task.id,
+    ]);
 
-  await page.goto(`/tasks/${task.id}`);
+    await page.goto(`/tasks/${task.id}`);
 
-  await expect(page.getByRole("note", { name: "Overlap" })).toHaveText(
-    /^(Overlap: “Rework the sign-(in|out)” is in progress and expects to change some of the same files\.\s*){2}$/,
-  );
-  await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-in");
-  await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-out");
-  await expect(page.getByRole("button", { name: "Start anyway" })).toBeInViewport({ ratio: 1 });
-  await expect(page.getByRole("button", { name: "Queue behind them" })).toBeInViewport({
-    ratio: 1,
-  });
+    await expect(page.getByRole("note", { name: "Overlap" })).toHaveText(
+      /^(Overlap: “Rework the sign-(in|out)” is in progress and expects to change some of the same files\.\s*){2}$/,
+    );
+    await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-in");
+    await expect(page.getByRole("note", { name: "Overlap" })).toContainText("sign-out");
+    await expect(page.getByRole("button", { name: "Start anyway" })).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole("button", { name: "Queue behind them" })).toBeInViewport({
+      ratio: 1,
+    });
 
-  await queryOfficeDatabase(`update tasks set state = 'dropped' where id = any($1)`, [
-    [signIn.id, signOut.id],
-  ]);
-});
+    await queryOfficeDatabase(`update tasks set state = 'dropped' where id = any($1)`, [
+      [signIn.id, signOut.id],
+    ]);
+  },
+);
 
 /** Each line's top and bottom, read after the words have settled. */
 async function boxesOf(lines: Locator): Promise<{ top: number; bottom: number }[]> {
@@ -544,191 +566,199 @@ function overlapWords(title: string): string {
   return `Overlap: “${title}” is in progress and expects to change some of the same files.`;
 }
 
-test("the notes above a Ready Task each take a line of their own, in order, under the buttons, and a queued Task's place and reasons join them there", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue notes", "QN");
-  const ahead = await readyTask(page, project, "Notes ahead in the queue");
-  const task = await readyTask(page, project, "Notes under the buttons");
-  const LONG_TITLE = "Rework how the sign-in remembers the page it came from ".repeat(6).trim();
-  // The check as the service gives it; the Tasks it names need no walk to be said.
-  let check: StartCheck = {
-    refusals: [],
-    waits: [ONLY_DESK],
-    blockers: [],
-    overlaps: [
-      { taskId: crypto.randomUUID(), title: "Rework the sign-out" },
-      { taskId: crypto.randomUUID(), title: LONG_TITLE },
-    ],
-    usageEstimate: {
-      basis: { source: "history", tasks: 4 },
-      engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
-    },
-  };
-  await page.route(`**/api/tasks/${task.id}/start`, (route) => route.fulfill({ json: check }));
+test(
+  "the notes above a Ready Task each take a line of their own, in order, under the buttons, and a queued Task's place and reasons join them there",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue notes", "QN");
+    const ahead = await readyTask(page, project, "Notes ahead in the queue");
+    const task = await readyTask(page, project, "Notes under the buttons");
+    const LONG_TITLE = "Rework how the sign-in remembers the page it came from ".repeat(6).trim();
+    // The check as the service gives it; the Tasks it names need no walk to be said.
+    let check: StartCheck = {
+      refusals: [],
+      waits: [ONLY_DESK],
+      blockers: [],
+      overlaps: [
+        { taskId: crypto.randomUUID(), title: "Rework the sign-out" },
+        { taskId: crypto.randomUUID(), title: LONG_TITLE },
+      ],
+      usageEstimate: {
+        basis: { source: "history", tasks: 4 },
+        engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
+      },
+    };
+    await page.route(`**/api/tasks/${task.id}/start`, (route) => route.fulfill({ json: check }));
 
-  await page.goto(`/tasks/${task.id}`);
-  const notes = page.locator(".task-head-notes");
-  const lines = notes.locator(".task-head-note, .usage-estimate, .queued-mark");
-  await expect(lines).toHaveText([
-    overlapWords("Rework the sign-out"),
-    overlapWords(LONG_TITLE),
-    `Start joins the queue: ${ONLY_DESK}`,
-    "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.",
-  ]);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-notes.png") });
+    await page.goto(`/tasks/${task.id}`);
+    const notes = page.locator(".task-head-notes");
+    const lines = notes.locator(".task-head-note, .usage-estimate, .queued-mark");
+    await expect(lines).toHaveText([
+      overlapWords("Rework the sign-out"),
+      overlapWords(LONG_TITLE),
+      `Start joins the queue: ${ONLY_DESK}`,
+      "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.",
+    ]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-notes.png") });
 
-  const actions = page.locator(".task-head-actions");
-  await expect(actions).not.toContainText("Overlap");
-  const startAnyway = await actions.getByRole("button", { name: "Start anyway" }).boundingBox();
-  const queueBehind = await actions
-    .getByRole("button", { name: "Queue behind them" })
-    .boundingBox();
-  expect(startAnyway!.y).toBe(queueBehind!.y);
+    const actions = page.locator(".task-head-actions");
+    await expect(actions).not.toContainText("Overlap");
+    const startAnyway = await actions.getByRole("button", { name: "Start anyway" }).boundingBox();
+    const queueBehind = await actions
+      .getByRole("button", { name: "Queue behind them" })
+      .boundingBox();
+    expect(startAnyway!.y).toBe(queueBehind!.y);
 
-  const boxes = await boxesOf(lines);
-  expect(boxes[0]!.top).toBeGreaterThanOrEqual(startAnyway!.y + startAnyway!.height);
-  for (const [index, box] of boxes.slice(1).entries()) {
-    expect(box.top).toBeGreaterThanOrEqual(boxes[index]!.bottom);
-  }
+    const boxes = await boxesOf(lines);
+    expect(boxes[0]!.top).toBeGreaterThanOrEqual(startAnyway!.y + startAnyway!.height);
+    for (const [index, box] of boxes.slice(1).entries()) {
+      expect(box.top).toBeGreaterThanOrEqual(boxes[index]!.bottom);
+    }
 
-  // The long line wraps in the block's full width, its text after the icon, as a short line's is.
-  const block = await notes.boundingBox();
-  const [short, long] = await Promise.all(
-    [0, 1].map((line) => lines.nth(line).locator("span").boundingBox()),
-  );
-  expect(long!.height).toBeGreaterThan(short!.height);
-  expect(long!.x).toBe(short!.x);
-  expect(long!.x + long!.width).toBeGreaterThan(block!.x + block!.width * 0.9);
+    // The long line wraps in the block's full width, its text after the icon, as a short line's is.
+    const block = await notes.boundingBox();
+    const [short, long] = await Promise.all(
+      [0, 1].map((line) => lines.nth(line).locator("span").boundingBox()),
+    );
+    expect(long!.height).toBeGreaterThan(short!.height);
+    expect(long!.x).toBe(short!.x);
+    expect(long!.x + long!.width).toBeGreaterThan(block!.x + block!.width * 0.9);
 
-  const looks = await lines.evaluateAll((shown) =>
-    shown.map((line) => {
-      const { fontSize, color } = getComputedStyle(line);
-      return `${fontSize} ${color}`;
-    }),
-  );
-  expect(new Set(looks).size).toBe(1);
+    const looks = await lines.evaluateAll((shown) =>
+      shown.map((line) => {
+        const { fontSize, color } = getComputedStyle(line);
+        return `${fontSize} ${color}`;
+      }),
+    );
+    expect(new Set(looks).size).toBe(1);
 
-  // A note-less Task's head keeps no block to leave a gap.
-  check = { ...check, waits: [], overlaps: [], usageEstimate: null };
-  await page.reload();
-  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
-  await expect(notes).toHaveCount(0);
+    // A note-less Task's head keeps no block to leave a gap.
+    check = { ...check, waits: [], overlaps: [], usageEstimate: null };
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
+    await expect(notes).toHaveCount(0);
 
-  await queued(ahead);
-  await queued(task);
-  await page.reload();
-  await expect(lines).toHaveText([`QueuedPlace 2 · ${ONLY_DESK}`]);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-queued.png") });
-  const moveUp = actions.getByRole("button", { name: "Move up", exact: true });
-  const moreWays = actions.getByRole("button", { name: "More ways to move up" });
-  const takeOut = actions.getByRole("button", { name: "Take out of the queue" });
-  await expect(moveUp).toBeInViewport();
-  await expect(takeOut).toBeInViewport();
-  const takeOutBox = await takeOut.boundingBox();
-  const moveUpBox = await moveUp.boundingBox();
-  const moreWaysBox = await moreWays.boundingBox();
-  expect(moveUpBox!.y).toBe(takeOutBox!.y);
-  // The split button's halves are one control: the arrow joined to Move up's right, as tall.
-  expect(moreWaysBox!.y).toBe(moveUpBox!.y);
-  expect(moreWaysBox!.height).toBe(moveUpBox!.height);
-  expect(moreWaysBox!.x).toBeCloseTo(moveUpBox!.x + moveUpBox!.width - 1, 0);
-  const [queuedLine] = await boxesOf(lines);
-  expect(queuedLine!.top).toBeGreaterThanOrEqual(takeOutBox!.y + takeOutBox!.height);
-});
+    await queued(ahead);
+    await queued(task);
+    await page.reload();
+    await expect(lines).toHaveText([`QueuedPlace 2 · ${ONLY_DESK}`]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-queued.png") });
+    const moveUp = actions.getByRole("button", { name: "Move up", exact: true });
+    const moreWays = actions.getByRole("button", { name: "More ways to move up" });
+    const takeOut = actions.getByRole("button", { name: "Take out of the queue" });
+    await expect(moveUp).toBeInViewport();
+    await expect(takeOut).toBeInViewport();
+    const takeOutBox = await takeOut.boundingBox();
+    const moveUpBox = await moveUp.boundingBox();
+    const moreWaysBox = await moreWays.boundingBox();
+    expect(moveUpBox!.y).toBe(takeOutBox!.y);
+    // The split button's halves are one control: the arrow joined to Move up's right, as tall.
+    expect(moreWaysBox!.y).toBe(moveUpBox!.y);
+    expect(moreWaysBox!.height).toBe(moveUpBox!.height);
+    expect(moreWaysBox!.x).toBeCloseTo(moveUpBox!.x + moveUpBox!.width - 1, 0);
+    const [queuedLine] = await boxesOf(lines);
+    expect(queuedLine!.top).toBeGreaterThanOrEqual(takeOutBox!.y + takeOutBox!.height);
+  },
+);
 
-test("a blocked Task offers only the queue, shows its blocker as the reason, and starts by itself once the blocker ends", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue blocked", "QB");
-  const blocker = await readyTask(page, project, "Write the export schema");
-  const task = await readyTask(page, project, "Export the schema as CSV");
-  const dependency = await page.request.post(`/api/tasks/${task.id}/dependencies`, {
-    data: { blockerId: blocker.id },
-  });
-  expect(dependency.status()).toBe(200);
-  const reason = 'Blocked by "Write the export schema", which must be Done first.';
+test(
+  "a blocked Task offers only the queue, shows its blocker as the reason, and starts by itself once the blocker ends",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue blocked", "QB");
+    const blocker = await readyTask(page, project, "Write the export schema");
+    const task = await readyTask(page, project, "Export the schema as CSV");
+    const dependency = await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+      data: { blockerId: blocker.id },
+    });
+    expect(dependency.status()).toBe(200);
+    const reason = 'Blocked by "Write the export schema", which must be Done first.';
 
-  await page.goto(`/tasks/${task.id}`);
-  await expect(page.getByText(reason)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
-  await expect(page.getByRole("button", { name: "Start anyway" })).toBeHidden();
-  await page.getByRole("button", { name: "Queue behind it" }).click();
+    await page.goto(`/tasks/${task.id}`);
+    await expect(page.getByText(reason)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Start anyway" })).toBeHidden();
+    await page.getByRole("button", { name: "Queue behind it" }).click();
 
-  await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
-  await expect(page.getByText(new RegExp(`^Place \\d+ · ${reason}$`))).toBeVisible();
+    await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
+    await expect(page.getByText(new RegExp(`^Place \\d+ · ${reason}$`))).toBeVisible();
 
-  await page.goto("/work");
-  // The card names its blocker once, in its "Blocked by" line, and its Queued line no more.
-  const card = page.getByRole("article", { name: task.title });
-  await expect(card).toContainText(`Blocked by ${blocker.title}`);
-  await expect(card.getByRole("link", { name: blocker.title })).toHaveCount(1);
-  await expect(card).not.toContainText(reason);
-  await expect(card.locator(".queued-mark")).toHaveText("Queued");
-  await page.goto("/now");
-  const queuedOnNow = page.getByRole("article", { name: `Queued: ${task.title}` });
-  await expect(queuedOnNow).toContainText(reason);
+    await page.goto("/work");
+    // The card names its blocker once, in its "Blocked by" line, and its Queued line no more.
+    const card = page.getByRole("article", { name: task.title });
+    await expect(card).toContainText(`Blocked by ${blocker.title}`);
+    await expect(card.getByRole("link", { name: blocker.title })).toHaveCount(1);
+    await expect(card).not.toContainText(reason);
+    await expect(card.locator(".queued-mark")).toHaveText("Queued");
+    await page.goto("/now");
+    const queuedOnNow = page.getByRole("article", { name: `Queued: ${task.title}` });
+    await expect(queuedOnNow).toContainText(reason);
 
-  // Now hears of no dependency, only that the reasons of a queued Task changed.
-  const lateBlocker = await readyTask(page, project, "Agree the export columns");
-  await page.request.post(`/api/tasks/${task.id}/dependencies`, {
-    data: { blockerId: lateBlocker.id },
-  });
-  await expect(queuedOnNow).toContainText(lateBlocker.title);
-  await page.request.post(`/api/tasks/${lateBlocker.id}/drop`);
-  await expect(queuedOnNow).not.toContainText(lateBlocker.title);
-  await expect(queuedOnNow).toContainText(reason);
+    // Now hears of no dependency, only that the reasons of a queued Task changed.
+    const lateBlocker = await readyTask(page, project, "Agree the export columns");
+    await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+      data: { blockerId: lateBlocker.id },
+    });
+    await expect(queuedOnNow).toContainText(lateBlocker.title);
+    await page.request.post(`/api/tasks/${lateBlocker.id}/drop`);
+    await expect(queuedOnNow).not.toContainText(lateBlocker.title);
+    await expect(queuedOnNow).toContainText(reason);
 
-  await page.goto(`/tasks/${task.id}`);
-  expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).status()).toBe(200);
-  await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeHidden();
-  await expect(page.getByText(reason)).toBeHidden();
-  const started = taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json());
-  expect(started.state).not.toBe("ready");
+    await page.goto(`/tasks/${task.id}`);
+    expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).status()).toBe(200);
+    await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeHidden();
+    await expect(page.getByText(reason)).toBeHidden();
+    const started = taskSchema.parse(
+      await (await page.request.get(`/api/tasks/${task.id}`)).json(),
+    );
+    expect(started.state).not.toBe("ready");
 
-  // Its walk has no more to prove here.
-  await page.request.post(`/api/tasks/${task.id}/drop`);
-});
+    // Its walk has no more to prove here.
+    await page.request.post(`/api/tasks/${task.id}/drop`);
+  },
+);
 
-test("a blocked Task that also overlaps says Queue behind them, and waits for both", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Queue both", "QT");
-  const inProgress = await readyTask(page, project, "Rework the importer");
-  await queryOfficeDatabase(
-    `update tasks set state = 'in-progress', files_to_change = '{src/import}' where id = $1`,
-    [inProgress.id],
-  );
-  const blocker = await readyTask(page, project, "Name the import formats");
-  const task = await readyTask(page, project, "Import from a spreadsheet");
-  await queryOfficeDatabase(`update tasks set files_to_change = '{src/import}' where id = $1`, [
-    task.id,
-  ]);
-  await page.request.post(`/api/tasks/${task.id}/dependencies`, {
-    data: { blockerId: blocker.id },
-  });
+test(
+  "a blocked Task that also overlaps says Queue behind them, and waits for both",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue both", "QT");
+    const inProgress = await readyTask(page, project, "Rework the importer");
+    await queryOfficeDatabase(
+      `update tasks set state = 'in-progress', files_to_change = '{src/import}' where id = $1`,
+      [inProgress.id],
+    );
+    const blocker = await readyTask(page, project, "Name the import formats");
+    const task = await readyTask(page, project, "Import from a spreadsheet");
+    await queryOfficeDatabase(`update tasks set files_to_change = '{src/import}' where id = $1`, [
+      task.id,
+    ]);
+    await page.request.post(`/api/tasks/${task.id}/dependencies`, {
+      data: { blockerId: blocker.id },
+    });
 
-  await page.goto(`/tasks/${task.id}`);
-  await expect(page.getByRole("note", { name: "Overlap" })).toBeVisible();
-  await expect(
-    page.getByText('Blocked by "Name the import formats", which must be Done first.'),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start anyway" })).toBeHidden();
-  await page.getByRole("button", { name: "Queue behind them" }).click();
+    await page.goto(`/tasks/${task.id}`);
+    await expect(page.getByRole("note", { name: "Overlap" })).toBeVisible();
+    await expect(
+      page.getByText('Blocked by "Name the import formats", which must be Done first.'),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start anyway" })).toBeHidden();
+    await page.getByRole("button", { name: "Queue behind them" }).click();
 
-  await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByText(
-      /^Place \d+ · Blocked by "Name the import formats", which must be Done first\. Queued behind "Rework the importer" until it is Done or Dropped\.$/,
-    ),
-  ).toBeVisible();
+    await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByText(
+        /^Place \d+ · Blocked by "Name the import formats", which must be Done first\. Queued behind "Rework the importer" until it is Done or Dropped\.$/,
+      ),
+    ).toBeVisible();
 
-  // Out of the queue before what it waits for ends, so no release starts a walk.
-  await page.request.post(`/api/tasks/${task.id}/drop`);
-  await page.request.post(`/api/tasks/${blocker.id}/drop`);
-  await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
-});
+    // Out of the queue before what it waits for ends, so no release starts a walk.
+    await page.request.post(`/api/tasks/${task.id}/drop`);
+    await page.request.post(`/api/tasks/${blocker.id}/drop`);
+    await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
+  },
+);
 
 // Here, alone, since the alarm holds every file's Starts and pauses every file's started Tasks;
 // each Task is held at the all clear, so no walk starts after the files that left them.

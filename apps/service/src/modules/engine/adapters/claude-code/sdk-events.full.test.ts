@@ -1,0 +1,259 @@
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { describe, expect, it } from "vitest";
+import type { TokenUsage, TurnEndedEvent } from "../../ports/session-events.js";
+import { sessionEvents, TurnTokens, usageWindows } from "./sdk-events.js";
+import { message, RESULT } from "./sdk-events.fixtures.js";
+
+describe("sessionEvents", () => {
+  it("names the subagent's tool call on what a subagent does", () => {
+    const [event] = sessionEvents(
+      message({
+        type: "assistant",
+        parent_tool_use_id: "call-task",
+        message: { content: [{ type: "text", text: "Found it." }] },
+      }),
+    );
+
+    expect(event).toEqual({ kind: "text", text: "Found it.", withinToolCall: "call-task" });
+  });
+
+  it("reports tool results as text, and nothing for the caller's own messages or replays", () => {
+    const toolResult = message({
+      type: "user",
+      parent_tool_use_id: null,
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "call-1",
+            content: [
+              { type: "text", text: "line one" },
+              { type: "image", source: {} },
+              { type: "text", text: "line two" },
+            ],
+          },
+          { type: "tool_result", tool_use_id: "call-2", content: "refused", is_error: true },
+        ],
+      },
+    });
+    const sent = message({
+      type: "user",
+      parent_tool_use_id: null,
+      message: { role: "user", content: "Read the plan." },
+    });
+    const replayed = message({ ...toolResult, isReplay: true });
+
+    expect(sessionEvents(toolResult)).toEqual([
+      { kind: "tool-result", callId: "call-1", text: "line one\nline two", isError: false },
+      { kind: "tool-result", callId: "call-2", text: "refused", isError: true },
+    ]);
+    expect(sessionEvents(sent)).toEqual([]);
+    expect(sessionEvents(replayed)).toEqual([]);
+  });
+
+  it("falls back to the one message id an older engine names", () => {
+    const [event] = sessionEvents(
+      message({
+        ...RESULT,
+        subtype: "success",
+        is_error: false,
+        result: "",
+        user_message_uuids: undefined,
+        user_message_uuid: "brief",
+      }),
+    );
+
+    expect(event).toMatchObject({ consumedMessageIds: ["brief"] });
+  });
+
+  it("reports a rate limit's status and reset time", () => {
+    const events = sessionEvents(
+      message({
+        type: "rate_limit_event",
+        rate_limit_info: { status: "allowed_warning", resetsAt: 1_793_000_000 },
+      }),
+    );
+
+    expect(events).toEqual([
+      { kind: "rate-limit", status: "warning", resetsAt: new Date(1_793_000_000_000) },
+    ]);
+  });
+
+  it("reports nothing for messages the Office has no use for, or doesn't know", () => {
+    expect(sessionEvents(message({ type: "system", subtype: "init" }))).toEqual([]);
+    expect(sessionEvents(message({ type: "command_lifecycle" }))).toEqual([]);
+  });
+});
+
+/** One frame of an assistant message: its id and its usage, as the engine repeats it. */
+const frame = (id: string, output: number, parent: string | null = null): SDKMessage =>
+  message({
+    type: "assistant",
+    parent_tool_use_id: parent,
+    message: {
+      id,
+      content: [],
+      usage: {
+        input_tokens: 3,
+        output_tokens: output,
+        cache_read_input_tokens: 1000,
+        cache_creation_input_tokens: null,
+      },
+    },
+  });
+
+describe("TurnTokens", () => {
+  it("counts each message once, at its latest frame's usage", () => {
+    const turnTokens = new TurnTokens();
+
+    const first = turnTokens.eventsOf(frame("msg-1", 10));
+    const repeated = turnTokens.eventsOf(frame("msg-1", 10));
+    const grown = turnTokens.eventsOf(frame("msg-1", 40));
+    const next = turnTokens.eventsOf(frame("msg-2", 5));
+
+    expect(first).toEqual([
+      { kind: "turn-tokens", soFar: { input: 3, output: 10, cacheRead: 1000, cacheCreation: 0 } },
+    ]);
+    expect(repeated).toEqual([]);
+    expect(grown).toEqual([
+      { kind: "turn-tokens", soFar: { input: 3, output: 40, cacheRead: 1000, cacheCreation: 0 } },
+    ]);
+    expect(next).toEqual([
+      { kind: "turn-tokens", soFar: { input: 6, output: 45, cacheRead: 2000, cacheCreation: 0 } },
+    ]);
+  });
+
+  it("leaves out a subagent's messages, as the turn's own usage does", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+
+    expect(turnTokens.eventsOf(frame("msg-2", 5, "call-1"))).toEqual([]);
+    expect(turnTokens.eventsOf(frame("msg-3", 7))).toEqual([
+      { kind: "turn-tokens", soFar: { input: 6, output: 17, cacheRead: 2000, cacheCreation: 0 } },
+    ]);
+  });
+
+  it("starts over once the turn ends, and reports nothing for other messages", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+
+    expect(turnTokens.eventsOf(message({ ...RESULT, subtype: "success" }))).toEqual([]);
+    expect(turnTokens.eventsOf(message({ type: "system", subtype: "init" }))).toEqual([]);
+    expect(turnTokens.eventsOf(frame("msg-2", 7))).toEqual([
+      { kind: "turn-tokens", soFar: { input: 3, output: 7, cacheRead: 1000, cacheCreation: 0 } },
+    ]);
+  });
+});
+
+/** A turn's end as the result maps it, with the usage given. */
+const ended = (usage: TokenUsage): TurnEndedEvent => ({
+  kind: "turn-ended",
+  outcome: "interrupted",
+  consumedMessageIds: [],
+  usage,
+  sessionCostUsd: 0,
+  output: undefined,
+  errors: [],
+});
+
+describe("TurnTokens.settled", () => {
+  it("keeps the turn's own usage when it counts every message streamed", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+
+    const settled = turnTokens.settled(
+      ended({ input: 3, output: 250, cacheRead: 1000, cacheCreation: 0 }),
+    );
+
+    expect(settled.usage).toEqual({ input: 3, output: 250, cacheRead: 1000, cacheCreation: 0 });
+  });
+
+  it("counts a message the turn's usage leaves out, as when it was interrupted mid-message", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+    turnTokens.eventsOf(frame("msg-2", 8));
+
+    // The engine's result counted msg-1 alone, its output now final.
+    const settled = turnTokens.settled(
+      ended({ input: 3, output: 250, cacheRead: 1000, cacheCreation: 0 }),
+    );
+
+    expect(settled.usage).toEqual({ input: 6, output: 250, cacheRead: 2000, cacheCreation: 0 });
+  });
+});
+
+describe("usageWindows", () => {
+  it("reads the 5-hour and 7-day windows, a window not begun as unused", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: 12.5, resets_at: "2026-10-25T18:00:00Z" },
+          seven_day: { utilization: null, resets_at: null },
+        },
+      }),
+    ).toEqual({
+      fiveHour: { percentUsed: 12.5, resetsAt: new Date("2026-10-25T18:00:00Z") },
+      sevenDay: { percentUsed: 0, resetsAt: undefined },
+      source: undefined,
+    });
+  });
+
+  it("tells the usage endpoint's own answer by its limits", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: 28, resets_at: "2026-11-02T04:30:00.412337+00:00" },
+          seven_day: { utilization: 26, resets_at: "2026-11-07T08:00:00.412337+00:00" },
+          limits: [],
+        } as never,
+      })?.source,
+    ).toBe("usage-endpoint");
+  });
+
+  it("tells an answer built from the rate-limit headers by its resets at whole seconds", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: 27, resets_at: "2026-11-02T04:30:00.000Z" },
+          seven_day: { utilization: 25, resets_at: "2026-11-07T08:00:00.000Z" },
+        },
+      })?.source,
+    ).toBe("rate-limit-headers");
+  });
+
+  it("leaves the source unknown for the endpoint's answer kept from earlier, without its limits", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: 28, resets_at: "2026-11-02T04:30:00.412337+00:00" },
+          seven_day: { utilization: 26, resets_at: "2026-11-07T08:00:00.000Z" },
+        },
+      })?.source,
+    ).toBe(undefined);
+  });
+
+  it("reads a window without its use or its reset as not begun, so unused", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: null, resets_at: "2026-10-25T18:00:00Z" },
+          seven_day: { utilization: 7, resets_at: null },
+        },
+      }),
+    ).toEqual({
+      fiveHour: { percentUsed: 0, resetsAt: undefined },
+      sevenDay: { percentUsed: 0, resetsAt: undefined },
+      source: undefined,
+    });
+  });
+
+  it("has none for an account without them", () => {
+    expect(usageWindows({ rate_limits_available: false, rate_limits: null })).toBe(undefined);
+  });
+});

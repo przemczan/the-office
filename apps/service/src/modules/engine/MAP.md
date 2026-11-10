@@ -47,12 +47,15 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 ### adapters/agent-sdk/
 
 - `agent-sdk-engine.ts`: AgentSdkEngine
+- `sdk-options.fixtures.ts`: OPTIONS, PRE_TOOL_USE, CONFIG_FOLDER, optionsFor
 - `sdk-options.ts`: SdkSession, sdkOptions, sdkMcpConfig
-- Tests: agent-sdk-engine.test.ts, sdk-options.test.ts, test-project-check.test.ts
+- Tests: agent-sdk-engine.test.ts, sdk-options.full.test.ts, sdk-options.test.ts, test-project-check.test.ts
 
 ### adapters/claude-code/
 
+- `claude-code-cli-accounts.fixtures.ts`: FAKE_CLAUDE, TOKEN, folder, officeData, accounts, setUpEachTest
 - `claude-code-cli-accounts.ts`: ClaudeCodeCli, ClaudeCodeCliAccounts
+- `engine-config-folder.fixtures.ts`: SESSION_ID, officeData, configFolder, decide, keptFile, setUpEachTest
 - `engine-config-folder.ts`: engineConfigFolder, preparedEngineConfigFolder, NotAnEngineConfigFolder, ownEngineConfigFolder, engineIdsWithConfigFolders, removeEngineConfigFolder
 - `engine-credentials.ts`: writePastedToken, removeEngineCredentials, holdsPastedToken
 - `engine-process.ts`: EngineCommand, EngineProcess
@@ -62,24 +65,29 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `mcp-server-starts.ts`: McpServerStarts
 - `office-rules-hook.ts`: officeRulesHook
 - `office-tools.ts`: officeToolAnswer, textAnswer
+- `sdk-events.fixtures.ts`: message, RESULT
 - `sdk-events.ts`: sessionEvents, TurnTokens, usageWindows
 - `session-mcp-servers.ts`: McpServerConfig, mcpServerConfigs
 - `session-office-rules.ts`: ClaudeCodeSessionPlaces, claudeCodeOfficeRules
 - `session-settings.ts`: sessionTools, sessionSettings, sessionEnvironment
+- `start-check.fixtures.ts`: folder, skills, EngineAnswers, anEngine, setUpEachTest
 - `start-check.ts`: StartCheckRequests, startCheckProblems, initProblems
 - `stream-events.ts`: StreamEvents, userMessage, isInit, engineStopped
 - `tool-refusals.ts`: ToolRefusals
-- Tests: claude-code-cli-accounts.test.ts, engine-config-folder.test.ts, engine-task-folder.test.ts, language-server-plugin.test.ts, mcp-config-file.test.ts, office-rules-hook.test.ts, sdk-events.test.ts, start-check.test.ts, stream-events.test.ts, tool-refusals.test.ts
+- Tests: claude-code-cli-accounts.full.test.ts, claude-code-cli-accounts.test.ts, engine-config-folder.full.test.ts, engine-config-folder.test.ts, engine-task-folder.full.test.ts, language-server-plugin.full.test.ts, mcp-config-file.test.ts, office-rules-hook.test.ts, sdk-events.full.test.ts, sdk-events.test.ts, start-check.full.test.ts, start-check.test.ts, stream-events.full.test.ts, tool-refusals.full.test.ts
 
 ### adapters/claude-code-p/
 
+- `claude-code-p-arguments.fixtures.ts`: OPTIONS, SKILLS, HOOK_URL, argumentsFor, flag, settingsOf
 - `claude-code-p-arguments.ts`: TOKEN_VARIABLE, ClaudeCodePSession, claudeCodePArguments, claudeCodePMcpConfig, claudeCodePEnvironment
 - `claude-code-p-engine.ts`: CLAUDE_CODE_P_CAPABILITIES, ClaudeCodePEngine
+- `office-tool-server.fixtures.ts`: ALLOWED, noteTool, connected, result, callNote
 - `office-tool-server.ts`: OfficeToolServer
 - `pinned-binary.ts`: pinnedBinaryPath
 - `session-endpoints.ts`: SESSION_ENDPOINTS_ROUTE, HOOK_ROUTE, EndpointSession, OpenEndpoints, SessionEndpoints
+- `stream-json.fixtures.ts`: FakeEngine, all
 - `stream-json.ts`: StreamMcpServer, StreamJson
-- Tests: claude-code-p-arguments.test.ts, claude-code-p-engine.test.ts, office-tool-server.test.ts, stream-json.test.ts
+- Tests: claude-code-p-arguments.full.test.ts, claude-code-p-arguments.test.ts, claude-code-p-engine.test.ts, office-tool-server.full.test.ts, office-tool-server.test.ts, stream-json.full.test.ts, stream-json.test.ts
 
 ### adapters/http/
 
@@ -89,12 +97,12 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `engine-settings.controller.ts`: EngineSettingsController
 - `session-endpoints.controller.ts`: SessionEndpointsController
 - `session-endpoints.fixtures.ts`: ServedEndpoints, serveSessionEndpoints
-- Tests: engine-accounts.controller.test.ts, engine-settings.controller.test.ts, session-endpoints.controller.test.ts
+- Tests: engine-accounts.controller.full.test.ts, engine-accounts.controller.test.ts, engine-settings.controller.full.test.ts, engine-settings.controller.test.ts, session-endpoints.controller.test.ts
 
 ### adapters/language-servers/
 
 - `workstation-language-servers.ts`: WorkstationLanguageServers
-- Tests: workstation-language-servers.test.ts
+- Tests: workstation-language-servers.full.test.ts
 
 ### adapters/mcp-servers/
 
@@ -124,6 +132,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `fake-chat-completions-server.fixtures.ts`: ScriptedToolCall, ScriptedUsage, ScriptedReply, ScriptedStatus, ScriptedSilence, ScriptedAnswer, AnswerEnd, RecordedRequest, FakeChatCompletionsServer, textReply
 - `file-listing.ts`: ListedFile, listedFiles
 - `file-problems.ts`: fileProblem, isMissing, isBinary
+- `file-tools.fixtures.ts`: folder, context, run, files, setUpEachTest
 - `glob-tool.ts`: GLOB_TOOL
 - `grep-tool.ts`: GREP_TOOL
 - `json-text.ts`: parsedJson
@@ -131,6 +140,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `markdown-file.ts`: MarkdownFile, markdownFile, frontmatterText, markdownFilesIn, textOrNone
 - `mcp-tool.ts`: mcpBuiltInTool
 - `office-tool.ts`: CallJudge, officeBuiltInTool
+- `openai-compatible-api-engine.fixtures.ts`: USAGE, fake, officeData, eachTestOnAFakeServer, endpoint, engineOn, toolCall, READ_ONLY, untilTurnEnds
 - `openai-compatible-api-engine.ts`: OPENAI_COMPATIBLE_API_CAPABILITIES, OpenAiCompatibleApiEngine
 - `project-instructions.ts`: InstructionFile, projectInstructions
 - `read-tool.ts`: READ_TOOL
@@ -147,7 +157,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `web-page.ts`: WebPageLimits, DEFAULT_WEB_PAGE_LIMITS, WebPage, fetchWebPage, sizeInWords, isWebUrl
 - `web-search-tool.ts`: webSearchTool
 - `write-tool.ts`: WRITE_TOOL
-- Tests: chat-completions-client.test.ts, file-tools.test.ts, openai-compatible-api-engine.test.ts, server-sent-events.test.ts, web-tools.test.ts
+- Tests: chat-completions-client.full.test.ts, file-tools.full.test.ts, file-tools.test.ts, openai-compatible-api-engine.full.test.ts, openai-compatible-api-engine.test.ts, server-sent-events.full.test.ts, web-tools.full.test.ts
 
 ### adapters/postgres/
 
@@ -195,7 +205,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `running-engine-sessions.ts`: RunningEngineSessions
 - `usage-window-samples.ts`: UsageWindowSamples
 - `usage-window-state.ts`: UsageWindowReading, UsageWindowState
-- Tests: engine-sessions.test.ts, model-prices.test.ts, office-tool-registry.test.ts, removed-engine-usage.test.ts, usage-window-samples.test.ts, usage-window-state.test.ts
+- Tests: engine-sessions.full.test.ts, engine-sessions.test.ts, model-prices.full.test.ts, office-tool-registry.full.test.ts, removed-engine-usage.full.test.ts, usage-window-samples.full.test.ts, usage-window-state.full.test.ts
 
 ### domain/
 
@@ -208,6 +218,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `engine-events.ts`: UsageWindowsChanged, UsageWindowsRead, EngineAdded, EngineRemoved, EngineAccountChanged, EngineDown
 - `engine-removal.ts`: EngineRemoval, MovedEngineReference, movedEngineReference, movedEngineModel, engineRemovalAmong
 - `engine-settings-refused.ts`: EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE
+- `engine-settings.fixtures.ts`: strata, stored, claudeCodeEdit, strataEdit, editOf, refusal
 - `engine-settings.ts`: SearchEndpoint, EngineSettings, FIRST_OFFICE_DEFAULT, DEFAULT_ENGINE_SETTINGS, ClaudeCodeEngineEdit, ApiEngineEdit, EngineEdit, EngineSettingsEdit, ENGINE_NAME_LENGTH, apiEngines, offeredModelPrices, changedEngineSettings, settingsWithoutEngine
 - `engines.ts`: EngineId, EngineKind, ClaudeCodeEngine, ApiEngine, Engine, CLAUDE_CODE_MODELS, FIRST_CLAUDE_CODE_ENGINE, engineIdFor, offeredModels, hasUsageWindows, EngineModel
 - `git-commands.ts`: READ_ONLY_GIT_COMMANDS, isGit, gitChange
@@ -222,7 +233,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `skill-listing.ts`: listingProblems
 - `usage-window-samples.ts`: POOLED_SAMPLES, PairedReading, UsageWindowSample, UsageWindowRatios, NO_USAGE_WINDOW_RATIOS, sampleBetween, pooledRatios
 - `usage-windows.ts`: UsageWindow, ReadingSource, UsageWindows, sameUsageWindows
-- Tests: directory-change.test.ts, engine-account.test.ts, engine-removal.test.ts, engine-settings.test.ts, engines.test.ts, office-rules.test.ts, pasted-token.test.ts, shell-commands.test.ts, usage-window-samples.test.ts
+- Tests: directory-change.test.ts, engine-account.full.test.ts, engine-removal.full.test.ts, engine-settings.full.test.ts, engine-settings.test.ts, engines.full.test.ts, office-rules.test.ts, pasted-token.test.ts, shell-commands.test.ts, usage-window-samples.full.test.ts
 
 ### ports/
 

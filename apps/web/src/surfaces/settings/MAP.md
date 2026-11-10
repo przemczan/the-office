@@ -33,7 +33,7 @@
 - `engines-section.tsx`: EnginesSection
 - `model-price-fields.ts`: PRICE_KINDS, PriceKind, PRICE_KIND_LABELS, ModelPriceText, NO_PRICE_TEXT, priceTextOf, priceFieldProblem, priceOf
 - `remove-engine-dialog.tsx`: RemoveEngineDialog
-- Tests: engine-account-words.test.ts, engine-list-words.test.ts, engine-removal-words.test.ts, engine-settings-draft.test.ts, model-price-fields.test.ts
+- Tests: engine-account-words.full.test.ts, engine-list-words.full.test.ts, engine-removal-words.full.test.ts, engine-settings-draft.full.test.ts, model-price-fields.full.test.ts
 
 ### mcp-servers/
 
@@ -43,7 +43,7 @@
 - `mcp-server-fields.tsx`: McpServerFields
 - `mcp-servers-section.tsx`: McpServerDialog, McpServersSection
 - `review-mcp-server-dialog.tsx`: ReviewMcpServerDialog
-- Tests: mcp-server-draft.test.ts
+- Tests: mcp-server-draft.full.test.ts
 
 ### notifications/
 
@@ -51,7 +51,7 @@
 - `routing-card.tsx`: RoutingCard
 - `routing-words.ts`: RoutingRow, RoutingGroup, ROUTING_GROUPS, RoutingColumn, ROUTING_COLUMNS, columnNote, isSetHere, cellTitle
 - `timing-cards.tsx`: TimingCards
-- Tests: routing-words.test.ts
+- Tests: routing-words.full.test.ts
 
 ### office-identity/
 
@@ -60,12 +60,12 @@
 - `office-identity-section.tsx`: OfficeIdentitySection
 - `regenerate-ssh-key-dialog.tsx`: RegenerateSshKeyDialog
 - `ssh-key-words.ts`: maskedPublicKey
-- Tests: ssh-key-words.test.ts
+- Tests: ssh-key-words.full.test.ts
 
 ### office-instructions/
 
 - `office-instructions-section.tsx`: OfficeInstructionsSection
-- Tests: office-instructions-section.test.tsx
+- Tests: office-instructions-section.full.test.tsx
 
 ### office-limits/
 
@@ -73,7 +73,7 @@
 - `run-environments-card.tsx`: RunEnvironmentsCard
 - `usage-card.tsx`: UsageCard
 - `usage-settings-draft.ts`: CapKind, CapsText, UsageSettingsDraft, draftOf, withMeasure, capTextOf, withCapText, capFieldProblem, usageSettingsOf, draftChanged
-- Tests: usage-settings-draft.test.ts
+- Tests: usage-settings-draft.full.test.ts
 
 ### pipelines/
 
@@ -81,7 +81,7 @@
 - `pipeline-use-words.ts`: pipelineUseLine
 - `pipelines-section.tsx`: PipelinesSection
 - `stage-template-form.tsx`: StageTemplateOpened, StageTemplateForm
-- Tests: pipeline-use-words.test.ts
+- Tests: pipeline-use-words.full.test.ts
 
 ### skills/
 
@@ -99,4 +99,4 @@
 
 - `updates-section.tsx`: UpdatesSection
 - `updates-words.ts`: lastResultWords, waitingWords
-- Tests: updates-words.test.ts
+- Tests: updates-words.full.test.ts

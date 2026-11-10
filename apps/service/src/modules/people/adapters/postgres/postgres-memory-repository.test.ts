@@ -52,41 +52,4 @@ describe("PostgresMemoryRepository", () => {
 
     await expect(memory.list(roleKey)).resolves.toEqual([newer, older]);
   });
-
-  it("keeps the notes of two sessions writing at once", async () => {
-    roleKey = await aPerson();
-    const notes = Array.from({ length: 8 }, () => aNote());
-
-    await Promise.all(notes.map((note) => memory.append(note)));
-
-    await expect(memory.list(roleKey)).resolves.toHaveLength(8);
-  });
-
-  it("deletes one note, only from its own person", async () => {
-    roleKey = await aPerson();
-    const note = aNote();
-    const keptNote = aNote();
-    await memory.append(note);
-    await memory.append(keptNote);
-    const otherPerson = await aPerson();
-
-    await expect(memory.remove(otherPerson, note.id)).resolves.toBe(false);
-    await expect(memory.remove(roleKey, note.id)).resolves.toBe(true);
-    await expect(memory.remove(roleKey, note.id)).resolves.toBe(false);
-
-    await expect(memory.list(roleKey)).resolves.toEqual([keptNote]);
-  });
-
-  it("clears a person's notes and no one else's", async () => {
-    roleKey = await aPerson();
-    await memory.append(aNote());
-    const otherPerson = await aPerson();
-    const othersNote = aNote({ roleKey: otherPerson });
-    await memory.append(othersNote);
-
-    await memory.clear(roleKey);
-
-    await expect(memory.list(roleKey)).resolves.toEqual([]);
-    await expect(memory.list(otherPerson)).resolves.toEqual([othersNote]);
-  });
 });

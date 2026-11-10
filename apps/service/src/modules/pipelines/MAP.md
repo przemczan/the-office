@@ -83,10 +83,16 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 
 ### ./
 
+- `agent-stage-runner.fixtures.ts`: implement, corrected
 - `index.fixtures.ts`: ownProjectsStartedTasks
 - `pipeline-library.module.ts`: PipelineLibraryModule
 - `pipelines-application.fixtures.ts`: PipelinesApplication, startPipelinesApplication, walkStages, runsOf, anAgentStage, aTurn, anAgentSession, AN_INTERRUPTED_SESSION, aDoneResult, A_WAITING_RESULT, anAskedDecision, asksOnce, answerAsked, answerLastDecision
 - `pipelines.module.ts`: PipelinesModuleOptions, PipelinesModule
+- `publish-stage.fixtures.ts`: implement, publish, reviewedPublish, PULL_REQUEST
+- `stage-interpreter-alarm.fixtures.ts`: implement, review, HELD, open, start, scheduleOf, soundTheAlarm, whileTheFirstTurnRuns, resume, statusesOf
+- `stage-interpreter-decisions.fixtures.ts`: scriptStage, draft, agentDone, A_WAITING, pipelines, aStageThread, startWith, failing, statusesOf, onWaiting, answerFirstOption, statesOf, hireTheCto, failuresPutTo
+- `stage-interpreter-restart.fixtures.ts`: implement, review, tests, RESTART_QUESTION, open, start, close, startUp, aRunLeftRunning, outcomesOf
+- `stage-interpreter-stop.fixtures.ts`: implement, review
 - `usage-history.module.ts`: UsageHistoryModule
 
 ### adapters/conversations/
@@ -97,20 +103,23 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 
 - `gate-refusals.filter.ts`: GateRefusalsFilter
 - `pipeline-library-refusals.filter.ts`: PipelineLibraryRefusalsFilter
+- `pipeline-library.controller.fixtures.ts`: anEdit
 - `pipeline-library.controller.ts`: PipelineLibraryController
 - `pipeline-responses.ts`: toPipelineResponse, toStageTemplateResponse, toStageProblemResponse, toTaskStagesResponse
 - `pipelines.controller.ts`: PipelinesController
 - `stage-template-library.controller.ts`: StageTemplateLibraryController
+- `stage-templates.controller.fixtures.ts`: aStage, refusal
 - `stage-templates.controller.ts`: StageTemplatesController
 - `stages-edit-refusals.filter.ts`: StagesEditRefusalsFilter
 - `task-gate.controller.ts`: TaskGateController
+- `task-stages.controller.fixtures.ts`: tests
 - `task-stages.controller.ts`: TaskStagesController
-- Tests: pipeline-library.controller.test.ts, pipelines.controller.test.ts, stage-templates.controller.test.ts, task-gate.controller.test.ts, task-stages.controller.test.ts
+- Tests: pipeline-library.controller.full.test.ts, pipeline-library.controller.test.ts, pipelines.controller.test.ts, stage-templates.controller.full.test.ts, stage-templates.controller.test.ts, task-gate.controller.test.ts, task-stages.controller.full.test.ts, task-stages.controller.test.ts
 
 ### adapters/office-tools/
 
 - `pipeline-office-tools.ts`: PipelineOfficeTools
-- Tests: stage-history-office-tool.test.ts
+- Tests: stage-history-office-tool.full.test.ts
 
 ### adapters/postgres/
 
@@ -128,7 +137,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 ### adapters/websocket/
 
 - `pipelines-web-events.ts`: PipelinesWebEvents
-- Tests: pipelines-web-events.test.ts
+- Tests: pipelines-web-events.full.test.ts
 
 ### application/
 
@@ -142,6 +151,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `resolve-stage-git.ts`: ResolveBegun, ResolveStageGit
 - `role-fillings.ts`: RoleFillings
 - `roles-named-in-stages.ts`: RolesNamedInStages
+- `script-stage-runner.fixtures.ts`: aScriptStage, tests, passing, failing
 - `script-stage-runner.ts`: ScriptStageRunner
 - `staffing-holds.ts`: StaffingHolds
 - `stage-branch-update.ts`: StageBranchUpdateAnswer, StageBranchUpdate
@@ -157,9 +167,10 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `stage-runners.ts`: StageRunners
 - `stage-template-library-editor.ts`: StageTemplateLibraryEditor
 - `stage-template-library.ts`: StageTemplateLibrary
+- `task-stages-service.fixtures.ts`: builtIn, quickFix, withGate, refusalOf
 - `task-stages-service.ts`: TaskStagesService
 - `usage-history.ts`: UsageHistory
-- Tests: agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.test.ts, roles-named-in-stages.test.ts, running-task-test-project-check.test.ts, script-stage-runner.test.ts, staffing-holds.test.ts, stage-branch-update.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-project-commands.test.ts, stage-result-words.test.ts, stage-run-interruption.test.ts, stage-template-library.test.ts, task-stages-service.test.ts, usage-estimates-test-project-check.test.ts, usage-history.test.ts
+- Tests: agent-stage-runner.full.test.ts, agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.full.test.ts, publish-stage.test.ts, roles-named-in-stages.full.test.ts, running-task-test-project-check.test.ts, script-stage-runner.full.test.ts, script-stage-runner.test.ts, staffing-holds.full.test.ts, stage-branch-update.full.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.full.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.full.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.full.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.full.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.full.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.full.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-project-commands.full.test.ts, stage-project-commands.test.ts, stage-result-words.full.test.ts, stage-run-interruption.full.test.ts, stage-run-interruption.test.ts, stage-template-library.test.ts, task-stages-service.full.test.ts, task-stages-service.test.ts, usage-estimates-test-project-check.test.ts, usage-history.full.test.ts
 
 ### domain/
 
@@ -200,11 +211,13 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, PublishTarget, AfterConflict, StageSession, Effort, OnFailure, AgentStage, ScriptStage, Gate, agentStageRoles, newlyNamedRoles, sameAsKept
 - `stages-edit-refused.ts`: StagesEditRefused
 - `task-stages-events.ts`: TaskStagesMade, TaskStagesEdited, TaskStagesReset
+- `task-stages.fixtures.ts`: implement, tests, review, publish, stages, own, roles, ranOnce
 - `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, isFinished, whyStagesAreKept, TaskOfStages, rolesNamedByOpenTasks, lockedStageCount, firstStageToWork, editProblems, editTaskStages
 - `test-results.ts`: TestResultState, TestResult, latestTestResults
 - `usage-history.ts`: HISTORY_TASKS, StageUsage, StageUsages, PricedTokens, ModelTokens, countedTokens, latestTasksRuns, stageUsages, tokensByModel, dollarsPerToken
+- `walk-decisions.fixtures.ts`: implement, tests, aRun, failed, sentBack
 - `walk-decisions.ts`: DecisionAnswer, WalkDecision, walkDecision, walkAnswerOf, asksTheCtoFirst, agentDecision, AcceptedIssue, acceptedIssues
-- Tests: agent-command.test.ts, agent-stage-brief.test.ts, built-in-pipelines.test.ts, built-in-stage-templates.test.ts, followed-hard-switches.test.ts, gate.test.ts, library-pipeline.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-history-words.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, stage-template.test.ts, task-stages.test.ts, test-results.test.ts, usage-history.test.ts, walk-decisions.test.ts
+- Tests: agent-command.full.test.ts, agent-stage-brief.full.test.ts, built-in-pipelines.full.test.ts, built-in-stage-templates.full.test.ts, followed-hard-switches.full.test.ts, gate.test.ts, library-pipeline.full.test.ts, pipeline-walk.test.ts, pipeline.full.test.ts, pipeline.test.ts, publish.full.test.ts, publish.test.ts, script-stage-outcome.full.test.ts, stage-budget.full.test.ts, stage-commit.full.test.ts, stage-commit.test.ts, stage-history-words.full.test.ts, stage-progress.full.test.ts, stage-result.full.test.ts, stage-result.test.ts, stage-staffing.full.test.ts, stage-template.full.test.ts, task-stages.full.test.ts, task-stages.test.ts, test-results.full.test.ts, usage-history.full.test.ts, walk-decisions.full.test.ts, walk-decisions.test.ts
 
 ### ports/
 

@@ -8,3 +8,6 @@ package-lock.json
 
 # Written by drizzle-kit (npm run db:generate), which reads it back.
 apps/service/drizzle/
+
+# The Office's own working folder in a Task's worktree (screenshots, measurements); never committed.
+.office/

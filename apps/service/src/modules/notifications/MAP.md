@@ -8,7 +8,7 @@
 - In-app and the desktop live in the browser: the service routes each Notification and sends it, with its channels and those quiet hours hold, as `notification.raised` (with the ids it `replaces`: a collapse takes the place of the Outcome or the collapse shown before); the web's channel adapters show it and ignore `phone`. The phone is a channel outside the browser, pushed through `PhonePush` here.
 - Delivery runs on The Office's clock (`Schedule.now`, `Schedule.once`), never `new Date()`; waits are in memory and set again at boot and on a timing change from the open Notifications (`phone_pushed_at`, `held`), so a wait that ends decides again from the latest activity.
 - A Notification that gathers others (`collapsed-outcomes`, `quiet-hours-summary`) is not a kind of the tree, so not a row of the grid; it clears once none it gathers is open. The Outcomes a collapse gathers stay open, out of the list (`shownOf`), until each is handled.
-- Delivery acts only on Notifications the clock has reached (`raisedBy`), and batching only on Outcomes raised within the window before now: tests that raise on a clock of their own (2001 in `notification-service.test.ts`, 2100 in `notification-delivery.test.ts`) stay apart from the other files. The delivery test keeps the timing and the activity in fixtures (`ports/delivery.fixtures.ts`): both are one row for every file.
+- Delivery acts only on Notifications the clock has reached (`raisedBy`), and batching only on Outcomes raised within the window before now: tests that raise on a clock of their own (2001 in `notification-service.full.test.ts`, 2100 in `notification-delivery.full.test.ts`) stay apart from the other files. The delivery test keeps the timing and the activity in fixtures (`ports/delivery.fixtures.ts`): both are one row for every file.
 - The routing is one table for every test file, which run at once: a test that changes it changes only levels no other file raises, and gives them back.
 - Opening a page handles what points to it: the web reports the page with each activity (`POST /activity`), and opening a Task handles its outcomes, opening Now the 5-hour window's.
 - `EventBus.publish` waits for its handlers, so Now is read and announced in the background (`announceInBackground`), one read after a burst of events.
@@ -58,7 +58,7 @@ NotificationsModule
 ### adapters/office-tools/
 
 - `office-status-office-tools.ts`: OfficeStatusOfficeTools
-- Tests: office-status-office-tools.test.ts
+- Tests: office-status-office-tools.full.test.ts
 
 ### adapters/phone/
 
@@ -84,7 +84,7 @@ NotificationsModule
 - `notification-routing.ts`: NotificationRouting
 - `notification-service.ts`: Page, NotificationService
 - `now-service.ts`: NowService
-- Tests: notification-delivery.test.ts, notification-service.test.ts, now-service.test.ts, test-project-check.test.ts
+- Tests: notification-delivery.full.test.ts, notification-service.full.test.ts, now-service.full.test.ts, now-service.test.ts, test-project-check.test.ts
 
 ### domain/
 
@@ -99,7 +99,7 @@ NotificationsModule
 - `office-status.ts`: officeStatusText
 - `task-outcome.ts`: TaskOutcomeKind, TaskOutcome, latestPerTask
 - `user-activity.ts`: AWAY_AFTER_MS, UserActivity, recordActivity
-- Tests: delivery.test.ts, notification-kinds.test.ts, notification-timing.test.ts, notification.test.ts, now.test.ts, office-status.test.ts, user-activity.test.ts
+- Tests: delivery.full.test.ts, notification-kinds.full.test.ts, notification-timing.full.test.ts, notification.full.test.ts, now.full.test.ts, office-status.full.test.ts, user-activity.full.test.ts
 
 ### ports/
 

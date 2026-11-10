@@ -40,13 +40,14 @@ BusyWork, EndBusyWork, OFFICE_UPDATE_SCHEDULED, OfficeUpdateHold, ScheduledOffic
 
 - `command-line-office-checkout.ts`: CommandLineOfficeCheckout
 - `office-checkout.fixtures.ts`: OfficeCheckoutForTests, createOfficeCheckout
-- Tests: command-line-office-checkout.test.ts
+- Tests: command-line-office-checkout.full.test.ts, command-line-office-checkout.test.ts
 
 ### adapters/http/
 
 - `office-update-refusals.filter.ts`: OfficeUpdateRefusalsFilter
+- `office-updates.controller.fixtures.ts`: refusalOf, AnnouncedResults
 - `office-updates.controller.ts`: OfficeUpdatesController
-- Tests: office-updates.controller.test.ts
+- Tests: office-updates.controller.full.test.ts, office-updates.controller.test.ts
 
 ### adapters/websocket/
 
@@ -66,7 +67,7 @@ BusyWork, EndBusyWork, OFFICE_UPDATE_SCHEDULED, OfficeUpdateHold, ScheduledOffic
 - `office-update-refused.ts`: OfficeUpdateRefused
 - `office-update-result.ts`: OfficeUpdateStep, OfficeUpdateResult, stepWords
 - `update-refusal.ts`: CheckoutState, NO_LAUNCHER, LOCAL_CHANGES, NO_UPSTREAM, diverged, updateRefusal
-- Tests: update-refusal.test.ts
+- Tests: update-refusal.full.test.ts
 
 ### ports/
 

@@ -134,25 +134,6 @@ describe("/api/github", () => {
     });
   });
 
-  it("sends the browser to GitHub's authorize page with a state and PKCE, back to this Office", async () => {
-    await registerApp();
-    expect(await state()).toEqual({ status: "signed-out", app: registeredApp() });
-
-    const authorize = await authorizeUrl();
-
-    expect(`${authorize.origin}${authorize.pathname}`).toBe(
-      `${github.urls.web}/login/oauth/authorize`,
-    );
-    expect(Object.fromEntries(authorize.searchParams)).toEqual({
-      client_id: "Iv23liFake1",
-      redirect_uri: `${url}/api/github/sign-in/callback`,
-      state: expect.stringMatching(/^[\w-]{32}$/),
-      scope: "offline_access",
-      code_challenge: expect.stringMatching(/^[\w-]{43}$/),
-      code_challenge_method: "S256",
-    });
-  });
-
   it("exchanges the code GitHub sends back with and keeps the tokens, never showing them", async () => {
     await registerApp();
     published = [];
@@ -197,36 +178,6 @@ describe("/api/github", () => {
     ]);
   });
 
-  it("refuses to sign in again while signed in, and signs out by forgetting the tokens", async () => {
-    await registerApp();
-    await signInThroughGitHub();
-
-    const again = await office("/api/github/sign-in", { method: "POST" });
-    expect(again.status).toBe(409);
-    expect(await again.json()).toMatchObject({
-      message:
-        "Already signed in to GitHub as office-user. Sign out first to sign in as someone else.",
-    });
-
-    published = [];
-    expect((await office("/api/github/sign-in", { method: "DELETE" })).status).toBe(204);
-
-    expect(signIns.signIn).toBeUndefined();
-    expect(await state()).toEqual({ status: "signed-out", app: registeredApp() });
-    expect(webEvents()).toEqual([{ type: "github.changed" }]);
-  });
-
-  it("says so when the user cancels on GitHub", async () => {
-    await registerApp();
-    github.cancelAuthorization = true;
-
-    const landing = await signInThroughGitHub();
-
-    expect(failureOf(landing)).toBe("The sign-in was cancelled on GitHub. Sign in again.");
-    expect(exchanges()).toBe(0);
-    expect(await state()).toEqual({ status: "signed-out", app: registeredApp() });
-  });
-
   it("refuses a code that came back without a state this Office handed out, taking each state once", async () => {
     await registerApp();
     const authorize = await authorizeUrl();
@@ -243,35 +194,6 @@ describe("/api/github", () => {
     }
     expect(exchanges()).toBe(1);
     expect(signIns.signIn).toBeUndefined();
-  });
-
-  it("says why when GitHub refuses the App's client secret", async () => {
-    await registerApp();
-    github.resetClientSecret("Iv23liFake1");
-
-    const landing = await signInThroughGitHub();
-
-    expect(failureOf(landing)).toBe(
-      "GitHub refused the App's Client ID and client secret: the App may have been deleted or its secret reset. Register the App again.",
-    );
-    expect(signIns.signIn).toBeUndefined();
-  });
-
-  it("signs out, saying why, when the App is registered again", async () => {
-    await registerApp();
-    await signInThroughGitHub();
-    published = [];
-
-    await registerApp();
-
-    expect(await state()).toEqual({
-      status: "signed-out",
-      app: registeredApp("the-office-fake-2"),
-      reason: {
-        text: "The GitHub App was registered again, so the sign-in under the one before ended. Sign in again.",
-      },
-    });
-    expect(webEvents()).toEqual([{ type: "github.changed" }, { type: "github.changed" }]);
   });
 
   it("lists the repositories the App is installed on, never showing a token", async () => {
@@ -303,30 +225,5 @@ describe("/api/github", () => {
     for (const secret of [...github.issuedTokens, FAKE_GITHUB_SECRETS.clientSecret]) {
       expect(shown).not.toContain(secret);
     }
-  });
-
-  it("can't list the repositories while signed out", async () => {
-    await registerApp();
-
-    const response = await office("/api/github/repositories");
-
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({
-      message: "Sign in with GitHub first, in Settings › Office identity.",
-    });
-  });
-
-  it("ends a sign-in begun under the App registered before", async () => {
-    await registerApp();
-    const authorize = await authorizeUrl();
-    await registerApp();
-
-    const landing = await signInThroughGitHub(authorize);
-
-    expect(failureOf(landing)).toBe(
-      "The GitHub App was registered again during the sign-in. Sign in again.",
-    );
-    expect(exchanges()).toBe(0);
-    expect(signIns.signIn).toBeUndefined();
   });
 });

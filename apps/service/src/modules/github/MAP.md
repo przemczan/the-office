@@ -51,7 +51,7 @@ GitHubAccess, GitHubPullRequests, PullRequestOnRemote, GITHUB_URLS, GitHubUrls, 
 - `github-return-urls.ts`: RETURN_PATHS, officeOriginOf, returnUrlsOf
 - `github.controller.ts`: GitHubController
 - `query-text.ts`: textOrUndefined
-- Tests: github-app.controller.test.ts, github.controller.test.ts
+- Tests: github-app.controller.full.test.ts, github-app.controller.test.ts, github.controller.full.test.ts, github.controller.test.ts
 
 ### adapters/postgres/
 
@@ -73,7 +73,7 @@ GitHubAccess, GitHubPullRequests, PullRequestOnRemote, GITHUB_URLS, GitHubUrls, 
 - `github-urls.ts`: GitHubUrls, GITHUB_URLS, appInstallUrl, gitHubUrl
 - `pending-states.ts`: PendingStates
 - `sign-in-changes.ts`: SignInChanges
-- Tests: github-access.test.ts, github-pull-requests.test.ts
+- Tests: github-access.full.test.ts, github-access.test.ts, github-pull-requests.full.test.ts, github-pull-requests.test.ts
 
 ### domain/
 
@@ -82,7 +82,7 @@ GitHubAccess, GitHubPullRequests, PullRequestOnRemote, GITHUB_URLS, GitHubUrls, 
 - `github-repository.ts`: GitHubRepository, GitHubAccessFailed, NotSignedInWithGitHub
 - `pull-request.ts`: RepositoryOnGitHub, PullRequestToOpen, PullRequestNotOpened, repositoryOnGitHubOf, fullNameOf, pullRequestRefusal
 - `sign-in.ts`: UserTokens, needsRefresh, usableRefreshToken, SignedOutReason, KeptSignIn, GitHubSignInFailed
-- Tests: pull-request.test.ts
+- Tests: pull-request.full.test.ts
 
 ### ports/
 

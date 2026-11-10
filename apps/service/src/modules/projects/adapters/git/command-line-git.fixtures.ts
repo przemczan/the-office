@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { GitVariables, NewWorktree } from "../../ports/git.js";
 import type { CommandLineGit } from "./command-line-git.js";
@@ -48,4 +48,25 @@ export class WorktreeMaker {
 
 export async function exists(path: string): Promise<boolean> {
   return (await stat(path).catch(() => undefined)) !== undefined;
+}
+
+/**
+ * Makes, for `worktrees()`' repository, a worktree whose branch changes `src/index.ts`, and a
+ * commit beside it that moved on from main.
+ */
+export function movedMainMaker(
+  git: CommandLineGit,
+  worktrees: () => WorktreeMaker,
+): (mainContent: string) => Promise<{ path: string; branch: string; main: string }> {
+  return async (mainContent) => {
+    const worktree = await worktrees().aWorktree();
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const task = 1;\n");
+    await git.commit(worktree.path, "Change index.ts", serviceVariables);
+    const moved = await worktrees().aWorktree();
+    await writeFile(join(moved.path, "src", "index.ts"), mainContent);
+    await writeFile(join(moved.path, `elsewhere-${worktrees().count}.txt`), "elsewhere\n");
+    const main = await git.commit(moved.path, "Move main on", serviceVariables);
+    if (!main) throw new Error("The moved branch committed nothing.");
+    return { path: worktree.path, branch: worktree.branch, main };
+  };
 }

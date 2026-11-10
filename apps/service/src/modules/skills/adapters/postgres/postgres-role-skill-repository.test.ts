@@ -60,25 +60,4 @@ describe("PostgresRoleSkillRepository", () => {
       { roleKey, added: [first], removed: [], changedAt: earlier },
     ]);
   });
-
-  it("keeps both of two changes made at once", async () => {
-    const roleKey = `role-${randomUUID()}`;
-    const [first, second] = [await aSkillOfItsOwn(), await aSkillOfItsOwn()];
-    const at = new Date();
-
-    await Promise.all([adding(roleKey, first, at), adding(roleKey, second, at)]);
-
-    expect(skillsOfRole(await repository.list(), roleKey)).toEqual([first, second].toSorted());
-    await expect(repository.changes(roleKey)).resolves.toHaveLength(2);
-  });
-
-  it("drops a removed skill's assignments", async () => {
-    const roleKey = `role-${randomUUID()}`;
-    const name = await aSkillOfItsOwn();
-    await adding(roleKey, name, new Date());
-
-    await skills.remove(name);
-
-    expect(skillsOfRole(await repository.list(), roleKey)).toEqual([]);
-  });
 });

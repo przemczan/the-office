@@ -1,4 +1,7 @@
-import type { Decision } from "./decision.js";
+import type { ContextDecision } from "./context-policy.js";
+import type { Decision, DecisionDraft } from "./decision.js";
+import type { ThreadSession } from "./thread.js";
+import { ThreadRefused } from "./thread-refused.js";
 
 /** A Decision the Planner opened on a Task, waiting on the user. */
 export function aDecision(fields: Partial<Decision> = {}): Decision {
@@ -17,4 +20,51 @@ export function aDecision(fields: Partial<Decision> = {}): Decision {
     answer: undefined,
     ...fields,
   };
+}
+
+// What decision.test.ts and decision.full.test.ts share besides.
+
+export const AT = new Date("2026-10-25T10:00:00.000Z");
+
+export const TASK_HOME = { kind: "task", taskId: "task-1" } as const;
+
+export const SESSION: ThreadSession = {
+  id: "session-1",
+  roleKey: "planner",
+  engineId: "claude-code",
+  cardVersion: 1,
+  officeInstructionsVersion: 0,
+  startedAt: AT,
+  lastCallAt: AT,
+  contextTokens: 34_000,
+  startContextTokens: 33_000,
+  full: false,
+  changesAllowed: false,
+};
+
+export const DRAFT: DecisionDraft = {
+  question: "Should the export include archived Projects?",
+  context: "Archived Projects have no worktree.",
+  options: ["Only active Projects", "Every Project"],
+  recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+};
+
+export const WARM: ContextDecision = {
+  move: "resume",
+  reason: "cache-warm",
+  cacheWarm: true,
+  cacheWarmUntil: undefined,
+  contextTokens: 34_000,
+  briefTokens: undefined,
+  alternatives: [],
+};
+
+export function refusalOf(change: () => unknown): readonly string[] {
+  try {
+    change();
+  } catch (error) {
+    if (error instanceof ThreadRefused) return error.reasons;
+    throw error;
+  }
+  throw new Error("It wasn't refused.");
 }

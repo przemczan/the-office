@@ -161,190 +161,202 @@ async function titlesIn(page: Page, state: string, titles: readonly string[]): P
   return shown.filter((title) => titles.includes(title));
 }
 
-test("the conversation's foot stays in the window beside the record, and a Thread of only tool activity says so", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Conversation fit", "CF");
-  const task = await createdTask(page, project, "A long conversation");
-  const words = "Enough words to take a line or two in the column, as a real log would read.";
-  await seedThread(
-    task.id,
-    "Long",
-    Array.from({ length: 40 }, () => ({ kind: "person", text: words })),
-  );
-  await page.goto(`/tasks/${task.id}`);
-
-  const conversation = page.getByRole("complementary", { name: "Conversation" });
-  const pageScroller = page.locator(".shell-main");
-  const footBottom = async (): Promise<number> => {
-    const box = await conversation.boundingBox();
-    if (box === null) throw new Error("The conversation shows.");
-    return box.y + box.height;
-  };
-  await expect(conversation.getByText(words).first()).toBeVisible();
-  await pageScroller.evaluate((view) => view.scrollTo({ top: view.scrollHeight }));
-  await expect.poll(footBottom).toBeLessThanOrEqual(900);
-  await pageScroller.evaluate((view) => view.scrollTo({ top: 0 }));
-  await expect.poll(async () => (await conversation.boundingBox())?.height).toBeGreaterThan(300);
-
-  const hidden = "Tool activity is hidden. Turn on Details to see it.";
-  const toolsOnly = await createdTask(page, project, "Only tool activity");
-  await seedThread(
-    toolsOnly.id,
-    "Reading",
-    Array.from({ length: 3 }, (_, index) => ({
-      kind: "tool-activity",
-      tool: "Read",
-      summary: `Read file ${index}`,
-    })),
-  );
-  await page.goto(`/tasks/${toolsOnly.id}`);
-  await expect(conversation.getByText(hidden)).toHaveCount(1);
-  await conversation.getByRole("group", { name: "Details" }).getByRole("switch").click();
-  const fold = conversation.getByText("3 tool calls");
-  await expect(fold).toBeVisible();
-  await expect(conversation.locator(".tool-call-latest")).toHaveText("Read Read file 2");
-  await expect(conversation.getByText(hidden)).toHaveCount(0);
-  await fold.click();
-  await expect(conversation.getByText("Read file 0")).toBeVisible();
-});
-
-test("a tool call's command shows whole in a narrow window, and only a very long one scrolls", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Whole commands", "WC");
-  const task = await createdTask(page, project, "Commands to read");
-  const severalLines = "git status\ngit log --oneline -5";
-  const veryLong = Array.from({ length: 80 }, (_, line) => `echo line ${line}`).join("\n");
-  const unbroken = `npx vitest run ${"apps/service/src/a.test.ts,".repeat(12)}`;
-  await seedThread(task.id, "Commands", [
-    ...SCROLLING_MESSAGES,
-    ...[severalLines, unbroken, veryLong].map((summary) => ({
-      kind: "tool-activity",
-      tool: "Bash",
-      summary,
-    })),
-  ]);
-  await page.setViewportSize({ width: 380, height: 800 });
-  await page.goto(`/tasks/${task.id}`);
-  const handle = page.getByRole("button", { name: /^Conversation/ });
-  await handle.click();
-  const conversation = page.getByRole("complementary", { name: "Conversation" });
-  const details = conversation.getByRole("group", { name: "Details" }).getByRole("switch");
-  await details.click();
-
-  await conversation.getByText("3 tool calls").click();
-  const commands = conversation.locator(".tool-calls .message-summary");
-  await expect(commands).toHaveCount(3);
-  const [lines, wrapped, scrolling] = await Promise.all(
-    (await commands.all()).map((command) => command.evaluate(sizeOf)),
-  );
-  expect([lines?.words, wrapped?.words, scrolling?.words]).toEqual([
-    severalLines,
-    unbroken,
-    veryLong,
-  ]);
-  expect(lines?.overflow).toEqual({ across: 0, down: 0 });
-  expect(wrapped?.overflow).toEqual({ across: 0, down: 0 });
-  expect(wrapped?.height).toBeGreaterThan(lines?.height ?? Infinity);
-  expect(scrolling?.overflow.across).toBe(0);
-  expect(scrolling?.overflow.down).toBeGreaterThan(0);
-  expect(scrolling?.height).toBe(320);
-  await commands.last().scrollIntoViewIfNeeded();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-whole-commands.png") });
-
-  // With Details off the latest command folds to one row beside "is working", and opens to it whole.
-  await queryOfficeDatabase(`update threads set state = 'answering' where home_id = $1`, [task.id]);
-  try {
-    await page.reload();
-    await handle.click();
-    await details.click();
-    const working = conversation.locator(".message-answering");
-    const fold = working.locator("details");
-    const closedLine = await fold.locator(".tool-call-latest").evaluate(sizeOf);
-    const closedRow = await working.evaluate(sizeOf);
-    expect(closedLine.overflow.across).toBeGreaterThan(0);
-    expect(closedLine.overflow.down).toBe(0);
-    expect(closedRow.overflow).toEqual({ across: 0, down: 0 });
-    expect(closedRow.height).toBeLessThan(2 * closedLine.height);
-    await expect(fold.locator(".message-summary")).toBeHidden();
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-working-closed.png") });
-
-    const pageScroller = page.locator(".shell-main");
-    const pageTop = await pageScroller.evaluate((view) => view.scrollTop);
-    await fold.locator("summary").click();
-    const whole = fold.locator(".message-summary");
-    await expect(whole).toBeInViewport({ ratio: 1 });
-    const opened = await whole.evaluate(sizeOf);
-    expect(opened.words).toBe(veryLong);
-    expect(opened.overflow.across).toBe(0);
-    expect(opened.height).toBe(320);
-    expect(await pageScroller.evaluate((view) => view.scrollTop)).toBe(pageTop);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-working-open.png") });
-  } finally {
-    await queryOfficeDatabase(`update threads set state = 'waiting' where home_id = $1`, [task.id]);
-  }
-});
-
-test("a tool call opened at the end of a Stage's Thread comes into view, the page around it still", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Working fold", "WF");
-  const task = await createdTask(page, project, "A Task on a long command");
-  const command = Array.from({ length: 12 }, (_, line) => `echo line ${line}`).join("\n");
-  const threadId = await seedThread(task.id, "Long command", [
-    ...SCROLLING_MESSAGES,
-    { kind: "tool-activity", tool: "Bash", summary: command },
-  ]);
-  const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-  const stages: TaskStages = {
-    stages: [
-      {
-        stage: {
-          kind: "agent",
-          key: "implement",
-          name: "Implement",
-          optional: false,
-          role: "planner",
-          brief: "Do it.",
-          session: "fresh",
-          budget: 100_000,
-        },
-        state: "running",
-        tokens: noTokens,
-        wentBack: null,
-        runs: [{ ...aStageRun(1, at(0), null), threadId, session: "fresh" }],
-      },
-    ],
-    editedForTask: false,
-    lockedStages: 1,
-    testResults: [],
-    definitionOfDoneMet: [],
-  };
-  await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
-  await queryOfficeDatabase(`update threads set state = 'answering' where id = $1`, [threadId]);
-  try {
+test(
+  "the conversation's foot stays in the window beside the record, and a Thread of only tool activity says so",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Conversation fit", "CF");
+    const task = await createdTask(page, project, "A long conversation");
+    const words = "Enough words to take a line or two in the column, as a real log would read.";
+    await seedThread(
+      task.id,
+      "Long",
+      Array.from({ length: 40 }, () => ({ kind: "person", text: words })),
+    );
     await page.goto(`/tasks/${task.id}`);
-    await page
-      .getByRole("region", { name: /^Pipeline · / })
-      .getByRole("button", { name: "Implement", exact: true })
-      .click();
-    const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
-    await history.getByRole("tab", { name: "Thread" }).click();
 
-    const fold = history.locator(".message-answering details");
+    const conversation = page.getByRole("complementary", { name: "Conversation" });
     const pageScroller = page.locator(".shell-main");
-    const pageTop = await pageScroller.evaluate((view) => view.scrollTop);
-    await fold.locator("summary").click();
-    const whole = fold.locator(".message-summary");
-    await expect(whole).toBeInViewport({ ratio: 1 });
-    expect(await whole.textContent()).toBe(command);
-    expect(await pageScroller.evaluate((view) => view.scrollTop)).toBe(pageTop);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-stage-thread-working-open.png") });
-  } finally {
-    await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [threadId]);
-  }
-});
+    const footBottom = async (): Promise<number> => {
+      const box = await conversation.boundingBox();
+      if (box === null) throw new Error("The conversation shows.");
+      return box.y + box.height;
+    };
+    await expect(conversation.getByText(words).first()).toBeVisible();
+    await pageScroller.evaluate((view) => view.scrollTo({ top: view.scrollHeight }));
+    await expect.poll(footBottom).toBeLessThanOrEqual(900);
+    await pageScroller.evaluate((view) => view.scrollTo({ top: 0 }));
+    await expect.poll(async () => (await conversation.boundingBox())?.height).toBeGreaterThan(300);
+
+    const hidden = "Tool activity is hidden. Turn on Details to see it.";
+    const toolsOnly = await createdTask(page, project, "Only tool activity");
+    await seedThread(
+      toolsOnly.id,
+      "Reading",
+      Array.from({ length: 3 }, (_, index) => ({
+        kind: "tool-activity",
+        tool: "Read",
+        summary: `Read file ${index}`,
+      })),
+    );
+    await page.goto(`/tasks/${toolsOnly.id}`);
+    await expect(conversation.getByText(hidden)).toHaveCount(1);
+    await conversation.getByRole("group", { name: "Details" }).getByRole("switch").click();
+    const fold = conversation.getByText("3 tool calls");
+    await expect(fold).toBeVisible();
+    await expect(conversation.locator(".tool-call-latest")).toHaveText("Read Read file 2");
+    await expect(conversation.getByText(hidden)).toHaveCount(0);
+    await fold.click();
+    await expect(conversation.getByText("Read file 0")).toBeVisible();
+  },
+);
+
+test(
+  "a tool call's command shows whole in a narrow window, and only a very long one scrolls",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Whole commands", "WC");
+    const task = await createdTask(page, project, "Commands to read");
+    const severalLines = "git status\ngit log --oneline -5";
+    const veryLong = Array.from({ length: 80 }, (_, line) => `echo line ${line}`).join("\n");
+    const unbroken = `npx vitest run ${"apps/service/src/a.test.ts,".repeat(12)}`;
+    await seedThread(task.id, "Commands", [
+      ...SCROLLING_MESSAGES,
+      ...[severalLines, unbroken, veryLong].map((summary) => ({
+        kind: "tool-activity",
+        tool: "Bash",
+        summary,
+      })),
+    ]);
+    await page.setViewportSize({ width: 380, height: 800 });
+    await page.goto(`/tasks/${task.id}`);
+    const handle = page.getByRole("button", { name: /^Conversation/ });
+    await handle.click();
+    const conversation = page.getByRole("complementary", { name: "Conversation" });
+    const details = conversation.getByRole("group", { name: "Details" }).getByRole("switch");
+    await details.click();
+
+    await conversation.getByText("3 tool calls").click();
+    const commands = conversation.locator(".tool-calls .message-summary");
+    await expect(commands).toHaveCount(3);
+    const [lines, wrapped, scrolling] = await Promise.all(
+      (await commands.all()).map((command) => command.evaluate(sizeOf)),
+    );
+    expect([lines?.words, wrapped?.words, scrolling?.words]).toEqual([
+      severalLines,
+      unbroken,
+      veryLong,
+    ]);
+    expect(lines?.overflow).toEqual({ across: 0, down: 0 });
+    expect(wrapped?.overflow).toEqual({ across: 0, down: 0 });
+    expect(wrapped?.height).toBeGreaterThan(lines?.height ?? Infinity);
+    expect(scrolling?.overflow.across).toBe(0);
+    expect(scrolling?.overflow.down).toBeGreaterThan(0);
+    expect(scrolling?.height).toBe(320);
+    await commands.last().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-whole-commands.png") });
+
+    // With Details off the latest command folds to one row beside "is working", and opens to it whole.
+    await queryOfficeDatabase(`update threads set state = 'answering' where home_id = $1`, [
+      task.id,
+    ]);
+    try {
+      await page.reload();
+      await handle.click();
+      await details.click();
+      const working = conversation.locator(".message-answering");
+      const fold = working.locator("details");
+      const closedLine = await fold.locator(".tool-call-latest").evaluate(sizeOf);
+      const closedRow = await working.evaluate(sizeOf);
+      expect(closedLine.overflow.across).toBeGreaterThan(0);
+      expect(closedLine.overflow.down).toBe(0);
+      expect(closedRow.overflow).toEqual({ across: 0, down: 0 });
+      expect(closedRow.height).toBeLessThan(2 * closedLine.height);
+      await expect(fold.locator(".message-summary")).toBeHidden();
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-working-closed.png") });
+
+      const pageScroller = page.locator(".shell-main");
+      const pageTop = await pageScroller.evaluate((view) => view.scrollTop);
+      await fold.locator("summary").click();
+      const whole = fold.locator(".message-summary");
+      await expect(whole).toBeInViewport({ ratio: 1 });
+      const opened = await whole.evaluate(sizeOf);
+      expect(opened.words).toBe(veryLong);
+      expect(opened.overflow.across).toBe(0);
+      expect(opened.height).toBe(320);
+      expect(await pageScroller.evaluate((view) => view.scrollTop)).toBe(pageTop);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-380-working-open.png") });
+    } finally {
+      await queryOfficeDatabase(`update threads set state = 'waiting' where home_id = $1`, [
+        task.id,
+      ]);
+    }
+  },
+);
+
+test(
+  "a tool call opened at the end of a Stage's Thread comes into view, the page around it still",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Working fold", "WF");
+    const task = await createdTask(page, project, "A Task on a long command");
+    const command = Array.from({ length: 12 }, (_, line) => `echo line ${line}`).join("\n");
+    const threadId = await seedThread(task.id, "Long command", [
+      ...SCROLLING_MESSAGES,
+      { kind: "tool-activity", tool: "Bash", summary: command },
+    ]);
+    const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+    const stages: TaskStages = {
+      stages: [
+        {
+          stage: {
+            kind: "agent",
+            key: "implement",
+            name: "Implement",
+            optional: false,
+            role: "planner",
+            brief: "Do it.",
+            session: "fresh",
+            budget: 100_000,
+          },
+          state: "running",
+          tokens: noTokens,
+          wentBack: null,
+          runs: [{ ...aStageRun(1, at(0), null), threadId, session: "fresh" }],
+        },
+      ],
+      editedForTask: false,
+      lockedStages: 1,
+      testResults: [],
+      definitionOfDoneMet: [],
+    };
+    await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+    await queryOfficeDatabase(`update threads set state = 'answering' where id = $1`, [threadId]);
+    try {
+      await page.goto(`/tasks/${task.id}`);
+      await page
+        .getByRole("region", { name: /^Pipeline · / })
+        .getByRole("button", { name: "Implement", exact: true })
+        .click();
+      const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+      await history.getByRole("tab", { name: "Thread" }).click();
+
+      const fold = history.locator(".message-answering details");
+      const pageScroller = page.locator(".shell-main");
+      const pageTop = await pageScroller.evaluate((view) => view.scrollTop);
+      await fold.locator("summary").click();
+      const whole = fold.locator(".message-summary");
+      await expect(whole).toBeInViewport({ ratio: 1 });
+      expect(await whole.textContent()).toBe(command);
+      expect(await pageScroller.evaluate((view) => view.scrollTop)).toBe(pageTop);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-stage-thread-working-open.png"),
+      });
+    } finally {
+      await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [threadId]);
+    }
+  },
+);
 
 test("the user captures an Idea from Now in a few keystrokes", async ({ page }) => {
   await page.goto("/now");
@@ -365,7 +377,7 @@ test("the user captures an Idea from Now in a few keystrokes", async ({ page }) 
   await expect(card.getByText(/You captured it/)).toBeVisible();
 });
 
-test("an Idea's link opens Ideas at its card, marked", async ({ page }) => {
+test("an Idea's link opens Ideas at its card, marked", { tag: "@full" }, async ({ page }) => {
   const captured = await page.request.post("/api/ideas", {
     data: { title: "Linked Idea for the night shift", notes: "", projectId: null },
   });
@@ -379,94 +391,104 @@ test("an Idea's link opens Ideas at its card, marked", async ({ page }) => {
   ).toHaveAttribute("aria-current", "true");
 });
 
-test("an Idea with Attachments is shaped into a Task in Backlog, and another is dropped", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Usage reports", "UR");
-  await page.goto(`/projects/${project.id}`);
+test(
+  "an Idea with Attachments is shaped into a Task in Backlog, and another is dropped",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Usage reports", "UR");
+    await page.goto(`/projects/${project.id}`);
 
-  await createFromTopBar(page, "Idea");
-  const capture = page.getByRole("dialog").filter({ hasText: "Capture an Idea" });
-  await capture.getByLabel("Idea").fill("Export usage as CSV");
-  await capture.getByLabel("Notes").fill("Monthly, per Project, for the accountant.");
-  await capture.getByRole("button", { name: "Add a file, screenshot or link" }).click();
-  await capture.getByLabel("File to attach").setInputFiles({
-    name: "format.md",
-    mimeType: "text/markdown",
-    buffer: Buffer.from("# CSV format\n\nOne row per day."),
-  });
-  await capture.getByText("Link", { exact: true }).click();
-  await capture.getByLabel("Address").fill("https://example.com/csv");
-  await capture.getByLabel("Name").fill("CSV conventions");
-  await capture.getByRole("button", { name: "Add the link" }).click();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-idea-capture.png") });
-  await capture.getByLabel("Idea").press("Enter");
-  await expect(page.getByText("Idea captured: Export usage as CSV.")).toBeVisible();
+    await createFromTopBar(page, "Idea");
+    const capture = page.getByRole("dialog").filter({ hasText: "Capture an Idea" });
+    await capture.getByLabel("Idea").fill("Export usage as CSV");
+    await capture.getByLabel("Notes").fill("Monthly, per Project, for the accountant.");
+    await capture.getByRole("button", { name: "Add a file, screenshot or link" }).click();
+    await capture.getByLabel("File to attach").setInputFiles({
+      name: "format.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from("# CSV format\n\nOne row per day."),
+    });
+    await capture.getByText("Link", { exact: true }).click();
+    await capture.getByLabel("Address").fill("https://example.com/csv");
+    await capture.getByLabel("Name").fill("CSV conventions");
+    await capture.getByRole("button", { name: "Add the link" }).click();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-idea-capture.png") });
+    await capture.getByLabel("Idea").press("Enter");
+    await expect(page.getByText("Idea captured: Export usage as CSV.")).toBeVisible();
 
-  await page.goto("/work/ideas");
-  const card = page.getByRole("article", { name: "Export usage as CSV" });
-  await expect(card.getByText("Usage reports")).toBeVisible();
-  await expect(card.getByRole("link", { name: "CSV conventions" })).toHaveAttribute(
-    "href",
-    "https://example.com/csv",
-  );
-  await card.getByRole("button", { name: "format.md" }).click();
-  const format = page.getByRole("dialog").filter({ hasText: "format.md" });
-  await expect(format.getByRole("heading", { name: "CSV format" })).toBeVisible();
-  await expect(format).not.toContainText("# CSV format");
-  await expect(format).toContainText("One row per day.");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-document.png") });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-document.png") });
-  await page.emulateMedia({ colorScheme: "light" });
-  await page
-    .getByRole("dialog")
-    .filter({ hasText: "format.md" })
-    .getByRole("button", { name: "Close", exact: true })
-    .click();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-ideas.png") });
+    await page.goto("/work/ideas");
+    const card = page.getByRole("article", { name: "Export usage as CSV" });
+    await expect(card.getByText("Usage reports")).toBeVisible();
+    await expect(card.getByRole("link", { name: "CSV conventions" })).toHaveAttribute(
+      "href",
+      "https://example.com/csv",
+    );
+    await card.getByRole("button", { name: "format.md" }).click();
+    const format = page.getByRole("dialog").filter({ hasText: "format.md" });
+    await expect(format.getByRole("heading", { name: "CSV format" })).toBeVisible();
+    await expect(format).not.toContainText("# CSV format");
+    await expect(format).toContainText("One row per day.");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-document.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-document.png") });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page
+      .getByRole("dialog")
+      .filter({ hasText: "format.md" })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-ideas.png") });
 
-  await card.getByRole("button", { name: "Shape into a Task" }).click();
-  await expect(page.getByText("Export usage as CSV is a Task in Backlog.")).toBeVisible();
-  // Other files' Ideas may have become Tasks already, so this one's row is named in full.
-  await expect(page.getByText("· became Export usage as CSV")).toBeVisible();
+    await card.getByRole("button", { name: "Shape into a Task" }).click();
+    await expect(page.getByText("Export usage as CSV is a Task in Backlog.")).toBeVisible();
+    // Other files' Ideas may have become Tasks already, so this one's row is named in full.
+    await expect(page.getByText("· became Export usage as CSV")).toBeVisible();
 
-  await createFromTopBar(page, "Idea");
-  await page.keyboard.type("Voice notes to the Office Manager");
-  await page.keyboard.press("Enter");
-  const dropped = page.getByRole("article", { name: "Voice notes to the Office Manager" });
-  await dropped.getByRole("button", { name: "More for Voice notes to the Office Manager" }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Drop" }).click();
-  await expect(dropped).toHaveCount(0);
-  await page.getByText(/^Dropped · /).click();
-  await expect(page.getByText("Voice notes to the Office Manager", { exact: true })).toBeVisible();
+    await createFromTopBar(page, "Idea");
+    await page.keyboard.type("Voice notes to the Office Manager");
+    await page.keyboard.press("Enter");
+    const dropped = page.getByRole("article", { name: "Voice notes to the Office Manager" });
+    await dropped
+      .getByRole("button", { name: "More for Voice notes to the Office Manager" })
+      .click();
+    await page.getByRole("menu").getByRole("button", { name: "Drop" }).click();
+    await expect(dropped).toHaveCount(0);
+    await page.getByText(/^Dropped · /).click();
+    await expect(
+      page.getByText("Voice notes to the Office Manager", { exact: true }),
+    ).toBeVisible();
 
-  await page.goto("/work");
-  const task = column(page, "Backlog").getByRole("article", { name: "Export usage as CSV" });
-  await expect(task.getByText("UR")).toBeVisible();
-});
+    await page.goto("/work");
+    const task = column(page, "Backlog").getByRole("article", { name: "Export usage as CSV" });
+    await expect(task.getByText("UR")).toBeVisible();
+  },
+);
 
-test("dragging a card reorders its column, and the order survives a reload", async ({ page }) => {
-  const project = await addedProject(page, "Board order", "BO");
-  const titles = ["Order first", "Order second", "Order third"];
-  for (const title of titles) await createdTask(page, project, title);
-  await page.goto("/work");
-  // Only this Project's cards: one added by a test running alongside moves these under the drag.
-  await page.getByRole("button", { name: /^Project filter:/ }).click();
-  await page.getByRole("button", { name: "Show only Board order" }).click();
-  await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(titles);
+test(
+  "dragging a card reorders its column, and the order survives a reload",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Board order", "BO");
+    const titles = ["Order first", "Order second", "Order third"];
+    for (const title of titles) await createdTask(page, project, title);
+    await page.goto("/work");
+    // Only this Project's cards: one added by a test running alongside moves these under the drag.
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Board order" }).click();
+    await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(titles);
 
-  const backlog = column(page, "Backlog");
-  await backlog
-    .getByRole("article", { name: "Order third" })
-    .dragTo(backlog.getByRole("article", { name: "Order first" }));
+    const backlog = column(page, "Backlog");
+    await backlog
+      .getByRole("article", { name: "Order third" })
+      .dragTo(backlog.getByRole("article", { name: "Order first" }));
 
-  const reordered = ["Order third", "Order first", "Order second"];
-  await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(reordered);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board.png") });
-  await page.reload();
-  await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(reordered);
-});
+    const reordered = ["Order third", "Order first", "Order second"];
+    await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(reordered);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board.png") });
+    await page.reload();
+    await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(reordered);
+  },
+);
 
 /** An Initiative made active in the database, as confirming one needs the CTO's session; gives its id. */
 async function seedActiveInitiative(page: Page, name: string, createdAt: string): Promise<string> {
@@ -526,94 +548,98 @@ function titlesInGroup(page: Page, state: string, group: string): Promise<string
     .evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-label") ?? ""));
 }
 
-test("the board groups by Initiative, kept in its address and remembered, its folds remembered, a card reordering only inside its group", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Grouped work", "GW");
-  const radio = await seedActiveInitiative(page, "Grouped radio", "2026-11-09T10:00:00.000Z");
-  const display = await seedActiveInitiative(page, "Grouped display", "2026-11-08T10:00:00.000Z");
-  const radioTitles = ["Grouped radio first", "Grouped radio second", "Grouped radio third"];
-  for (const title of radioTitles) await seedTaskOf(page, project, title, radio);
-  await seedTaskOf(page, project, "Grouped display first", display);
-  await seedTaskOf(page, project, "Grouped loose first", null);
-  await page.goto("/work");
-  // Only this Project's cards, so the groups other tests leave stay out.
-  await page.getByRole("button", { name: /^Project filter:/ }).click();
-  await page.getByRole("button", { name: "Show only Grouped work" }).click();
+test(
+  "the board groups by Initiative, kept in its address and remembered, its folds remembered, a card reordering only inside its group",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Grouped work", "GW");
+    const radio = await seedActiveInitiative(page, "Grouped radio", "2026-11-09T10:00:00.000Z");
+    const display = await seedActiveInitiative(page, "Grouped display", "2026-11-08T10:00:00.000Z");
+    const radioTitles = ["Grouped radio first", "Grouped radio second", "Grouped radio third"];
+    for (const title of radioTitles) await seedTaskOf(page, project, title, radio);
+    await seedTaskOf(page, project, "Grouped display first", display);
+    await seedTaskOf(page, project, "Grouped loose first", null);
+    await page.goto("/work");
+    // Only this Project's cards, so the groups other tests leave stay out.
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Grouped work" }).click();
 
-  const layout = page.getByRole("group", { name: "Layout" });
-  await layout.getByRole("switch").click();
-  await expect(page).toHaveURL(/group=initiative/);
-  await page.reload();
-  await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "true");
-  const groups = page.locator(".board-group");
-  await expect
-    .poll(() =>
-      groups.evaluateAll((shown) => shown.map((group) => group.getAttribute("aria-label"))),
-    )
-    .toEqual(["Grouped radio", "Grouped display", "No Initiative"]);
-  const radioGroup = page.getByRole("region", { name: "Grouped radio", exact: true });
-  await expect(radioGroup.getByText("3 on the board")).toBeVisible();
-  await expect(radioGroup.getByText("0 of 3 Tasks done")).toBeVisible();
-  await expect(
-    radioGroup.getByRole("link", { name: "Open Initiative Grouped radio" }),
-  ).toBeVisible();
+    const layout = page.getByRole("group", { name: "Layout" });
+    await layout.getByRole("switch").click();
+    await expect(page).toHaveURL(/group=initiative/);
+    await page.reload();
+    await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+    const groups = page.locator(".board-group");
+    await expect
+      .poll(() =>
+        groups.evaluateAll((shown) => shown.map((group) => group.getAttribute("aria-label"))),
+      )
+      .toEqual(["Grouped radio", "Grouped display", "No Initiative"]);
+    const radioGroup = page.getByRole("region", { name: "Grouped radio", exact: true });
+    await expect(radioGroup.getByText("3 on the board")).toBeVisible();
+    await expect(radioGroup.getByText("0 of 3 Tasks done")).toBeVisible();
+    await expect(
+      radioGroup.getByRole("link", { name: "Open Initiative Grouped radio" }),
+    ).toBeVisible();
 
-  const displayGroup = page.getByRole("region", { name: "Grouped display", exact: true });
-  const displayFold = displayGroup.getByRole("button", { name: "Grouped display", exact: true });
-  await displayFold.click();
-  await expect(displayFold).toHaveAttribute("aria-expanded", "false");
-  await expect(displayGroup.getByText("Backlog 1", { exact: true })).toBeVisible();
-  await expect(displayGroup.getByRole("article")).toHaveCount(0);
-  await page.reload();
-  await expect(displayFold).toHaveAttribute("aria-expanded", "false");
-  await expect(page).not.toHaveURL(/fold/);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-grouped.png") });
+    const displayGroup = page.getByRole("region", { name: "Grouped display", exact: true });
+    const displayFold = displayGroup.getByRole("button", { name: "Grouped display", exact: true });
+    await displayFold.click();
+    await expect(displayFold).toHaveAttribute("aria-expanded", "false");
+    await expect(displayGroup.getByText("Backlog 1", { exact: true })).toBeVisible();
+    await expect(displayGroup.getByRole("article")).toHaveCount(0);
+    await page.reload();
+    await expect(displayFold).toHaveAttribute("aria-expanded", "false");
+    await expect(page).not.toHaveURL(/fold/);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-grouped.png") });
 
-  const radioBacklog = page.getByRole("region", { name: "Backlog, Grouped radio", exact: true });
-  await radioBacklog
-    .getByRole("article", { name: "Grouped radio third" })
-    .dragTo(radioBacklog.getByRole("article", { name: "Grouped radio first" }));
-  const reordered = ["Grouped radio third", "Grouped radio first", "Grouped radio second"];
-  await expect.poll(() => titlesInGroup(page, "Backlog", "Grouped radio")).toEqual(reordered);
+    const radioBacklog = page.getByRole("region", { name: "Backlog, Grouped radio", exact: true });
+    await radioBacklog
+      .getByRole("article", { name: "Grouped radio third" })
+      .dragTo(radioBacklog.getByRole("article", { name: "Grouped radio first" }));
+    const reordered = ["Grouped radio third", "Grouped radio first", "Grouped radio second"];
+    await expect.poll(() => titlesInGroup(page, "Backlog", "Grouped radio")).toEqual(reordered);
 
-  const looseCard = page
-    .getByRole("region", { name: "Backlog, No Initiative", exact: true })
-    .getByRole("article", { name: "Grouped loose first" });
-  // Both cards in view before the drag: a page scrolled mid-drag can lose the drop.
-  await looseCard.scrollIntoViewIfNeeded();
-  await radioBacklog.getByRole("article", { name: "Grouped radio first" }).dragTo(looseCard);
-  await expect(
-    page.getByText(
-      "A card moves only within its own group: the board doesn't change a Task's Initiative.",
-    ),
-  ).toBeVisible();
-  await page.reload();
-  await expect.poll(() => titlesInGroup(page, "Backlog", "Grouped radio")).toEqual(reordered);
-  await expect
-    .poll(() => titlesInGroup(page, "Backlog", "No Initiative"))
-    .toEqual(["Grouped loose first"]);
+    const looseCard = page
+      .getByRole("region", { name: "Backlog, No Initiative", exact: true })
+      .getByRole("article", { name: "Grouped loose first" });
+    // Both cards in view before the drag: a page scrolled mid-drag can lose the drop.
+    await looseCard.scrollIntoViewIfNeeded();
+    await radioBacklog.getByRole("article", { name: "Grouped radio first" }).dragTo(looseCard);
+    await expect(
+      page.getByText(
+        "A card moves only within its own group: the board doesn't change a Task's Initiative.",
+      ),
+    ).toBeVisible();
+    await page.reload();
+    await expect.poll(() => titlesInGroup(page, "Backlog", "Grouped radio")).toEqual(reordered);
+    await expect
+      .poll(() => titlesInGroup(page, "Backlog", "No Initiative"))
+      .toEqual(["Grouped loose first"]);
 
-  await page
-    .getByRole("search", { name: "Filter the board" })
-    .getByRole("combobox", { name: "Initiative" })
-    .selectOption({ label: "Grouped display" });
-  await expect(groups).toHaveCount(1);
-  // Alone, its group is always open, its name plain.
-  await expect(displayGroup.getByRole("article", { name: "Grouped display first" })).toBeVisible();
-  await expect(displayFold).toHaveCount(0);
-  await expect(layout.getByRole("button", { name: /Fold all|Unfold all/ })).toHaveCount(0);
+    await page
+      .getByRole("search", { name: "Filter the board" })
+      .getByRole("combobox", { name: "Initiative" })
+      .selectOption({ label: "Grouped display" });
+    await expect(groups).toHaveCount(1);
+    // Alone, its group is always open, its name plain.
+    await expect(
+      displayGroup.getByRole("article", { name: "Grouped display first" }),
+    ).toBeVisible();
+    await expect(displayFold).toHaveCount(0);
+    await expect(layout.getByRole("button", { name: /Fold all|Unfold all/ })).toHaveCount(0);
 
-  // Remembered in this browser: an address without `group` opens the board as last chosen.
-  await page.goto("/work");
-  await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "true");
-  await expect(groups.first()).toBeVisible();
-  await layout.getByRole("switch").click();
-  await expect(page).not.toHaveURL(/group=/);
-  await page.goto("/work");
-  await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "false");
-  await expect(groups).toHaveCount(0);
-});
+    // Remembered in this browser: an address without `group` opens the board as last chosen.
+    await page.goto("/work");
+    await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+    await expect(groups.first()).toBeVisible();
+    await layout.getByRole("switch").click();
+    await expect(page).not.toHaveURL(/group=/);
+    await page.goto("/work");
+    await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+    await expect(groups).toHaveCount(0);
+  },
+);
 
 /** A word no other test's records hold, so a search shows only this test's Initiatives. */
 function aWordOfItsOwn(): string {
@@ -725,406 +751,422 @@ test("the Initiatives tab is a board by state, Dropped folded at the foot of Don
   ]);
 });
 
-test("an ended Initiative is archived from its card, found from the board's search in the Archived tab, and restored to Done", async ({
-  page,
-}) => {
-  const word = aWordOfItsOwn();
-  const name = `Usage reports ${word}`;
-  const initiativeId = await seedInitiative(page, name, {
-    state: "done",
-    createdAt: daysAgo(9),
-    endedAt: daysAgo(3),
-  });
-  // Within the Archive period, so the daily run, which starts with the service, leaves it be.
-  await seedInitiative(page, `Map tiles ${word}`, {
-    state: "dropped",
-    createdAt: daysAgo(40),
-    endedAt: daysAgo(5),
-  });
-  const card = column(page, "Done").getByRole("article", { name });
-  await page.goto(`/work/initiatives?query=${word}`);
-  await column(page, "Done")
-    .getByRole("button", { name: /^Dropped 1/ })
-    .click();
-  await page.getByRole("button", { name: `More for Map tiles ${word}` }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
-  await expect(page.getByText(`Map tiles ${word} is archived.`)).toBeVisible();
+test(
+  "an ended Initiative is archived from its card, found from the board's search in the Archived tab, and restored to Done",
+  { tag: "@full" },
+  async ({ page }) => {
+    const word = aWordOfItsOwn();
+    const name = `Usage reports ${word}`;
+    const initiativeId = await seedInitiative(page, name, {
+      state: "done",
+      createdAt: daysAgo(9),
+      endedAt: daysAgo(3),
+    });
+    // Within the Archive period, so the daily run, which starts with the service, leaves it be.
+    await seedInitiative(page, `Map tiles ${word}`, {
+      state: "dropped",
+      createdAt: daysAgo(40),
+      endedAt: daysAgo(5),
+    });
+    const card = column(page, "Done").getByRole("article", { name });
+    await page.goto(`/work/initiatives?query=${word}`);
+    await column(page, "Done")
+      .getByRole("button", { name: /^Dropped 1/ })
+      .click();
+    await page.getByRole("button", { name: `More for Map tiles ${word}` }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+    await expect(page.getByText(`Map tiles ${word} is archived.`)).toBeVisible();
 
-  await card.getByRole("button", { name: `More for ${name}` }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
-  await expect(page.getByText(`${name} is archived.`)).toBeVisible();
-  await expect(card).toHaveCount(0);
-  await expect(page.getByText(`2 archived Initiatives match “${word}” too.`)).toBeVisible();
+    await card.getByRole("button", { name: `More for ${name}` }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+    await expect(page.getByText(`${name} is archived.`)).toBeVisible();
+    await expect(card).toHaveCount(0);
+    await expect(page.getByText(`2 archived Initiatives match “${word}” too.`)).toBeVisible();
 
-  await page.getByRole("button", { name: "Search the archive" }).click();
-  await expect(page).toHaveURL(new RegExp(`/work/archived\\?kind=initiatives&query=${word}`));
-  const archive = page.getByRole("table");
-  await expect(archive.getByRole("row", { name: new RegExp(name) })).toContainText("Done");
-  const filters = page.getByRole("search", { name: "Filter the archived Initiatives" });
-  await expect(filters.getByRole("button", { name: /^All/ })).toContainText("2");
-  await filters.getByRole("button", { name: /^Dropped/ }).click();
-  await expect(page).toHaveURL(/state=dropped/);
-  await expect(archive.getByRole("row", { name: new RegExp(name) })).toHaveCount(0);
-  await expect(archive).toContainText(`Map tiles ${word}`);
-  await filters.getByRole("button", { name: /^All/ }).click();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-initiatives.png") });
+    await page.getByRole("button", { name: "Search the archive" }).click();
+    await expect(page).toHaveURL(new RegExp(`/work/archived\\?kind=initiatives&query=${word}`));
+    const archive = page.getByRole("table");
+    await expect(archive.getByRole("row", { name: new RegExp(name) })).toContainText("Done");
+    const filters = page.getByRole("search", { name: "Filter the archived Initiatives" });
+    await expect(filters.getByRole("button", { name: /^All/ })).toContainText("2");
+    await filters.getByRole("button", { name: /^Dropped/ }).click();
+    await expect(page).toHaveURL(/state=dropped/);
+    await expect(archive.getByRole("row", { name: new RegExp(name) })).toHaveCount(0);
+    await expect(archive).toContainText(`Map tiles ${word}`);
+    await filters.getByRole("button", { name: /^All/ }).click();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-initiatives.png") });
 
-  await page.goto(`/work/initiatives/${initiativeId}`);
-  await expect(page.locator(".task-head")).toContainText(/Archived \d+ \w+/);
-  await page.screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-archived-initiative-page.png"),
-  });
-  await page.getByRole("button", { name: `Restore ${name}` }).click();
-  await expect(page.getByText(`${name} is back on the board.`)).toBeVisible();
-  await expect(page.locator(".task-head")).not.toContainText("Archived");
+    await page.goto(`/work/initiatives/${initiativeId}`);
+    await expect(page.locator(".task-head")).toContainText(/Archived \d+ \w+/);
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-archived-initiative-page.png"),
+    });
+    await page.getByRole("button", { name: `Restore ${name}` }).click();
+    await expect(page.getByText(`${name} is back on the board.`)).toBeVisible();
+    await expect(page.locator(".task-head")).not.toContainText("Archived");
 
-  await page.goto(`/work/initiatives?query=${word}`);
-  await expect(card).toContainText("Done");
-  await page.goto(`/work/archived?kind=initiatives&query=${word}`);
-  const oldRow = page.getByRole("row", { name: new RegExp(`Map tiles ${word}`) });
-  await oldRow.getByRole("button", { name: `Restore Map tiles ${word}` }).click();
-  await expect(page.getByText(`No archived Initiative matches “${word}”.`)).toBeVisible();
+    await page.goto(`/work/initiatives?query=${word}`);
+    await expect(card).toContainText("Done");
+    await page.goto(`/work/archived?kind=initiatives&query=${word}`);
+    const oldRow = page.getByRole("row", { name: new RegExp(`Map tiles ${word}`) });
+    await oldRow.getByRole("button", { name: `Restore Map tiles ${word}` }).click();
+    await expect(page.getByText(`No archived Initiative matches “${word}”.`)).toBeVisible();
 
-  // The table becomes a list of rows at 390px: nothing scrolls sideways.
-  await archiveInitiative(page, initiativeId);
-  await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto(`/work/archived?kind=initiatives&query=${word}`);
-  await expect(page.getByRole("row", { name: new RegExp(name) })).toBeVisible();
-  await expect(page.getByRole("table").locator("thead")).toBeHidden();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-390-archived-initiatives.png") });
-});
+    // The table becomes a list of rows at 390px: nothing scrolls sideways.
+    await archiveInitiative(page, initiativeId);
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto(`/work/archived?kind=initiatives&query=${word}`);
+    await expect(page.getByRole("row", { name: new RegExp(name) })).toBeVisible();
+    await expect(page.getByRole("table").locator("thead")).toBeHidden();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-390-archived-initiatives.png") });
+  },
+);
 
 async function archiveInitiative(page: Page, initiativeId: string): Promise<void> {
   expect((await page.request.post(`/api/initiatives/${initiativeId}/archive`)).ok()).toBe(true);
 }
 
-test("a card shows who is working as they start and stop, and stays one link that drags", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Working now", "WN");
-  const done = await createdTask(page, project, "Working card done");
-  const titles = ["Working card first", "Working card movable"];
-  await createdTask(page, project, titles[0] ?? "");
-  const movable = await createdTask(page, project, titles[1] ?? "");
-  // Done has no foot of its own, and unlike in progress it takes no desk from a test alongside.
-  await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [done.id]);
-  // Only the Caretaker is sure to be hired here, as hiring lives in people.e2e.ts.
-  const workingThread = await seedWaitingThread(done.id, "caretaker");
-  const movableThread = await seedWaitingThread(movable.id, "caretaker");
-  const roles = roleListSchema.parse(await (await page.request.get("/api/roles")).json());
-  const caretaker = roles.find(({ key }) => key === "caretaker")?.card.name;
-  const words = `Working now: ${caretaker}`;
+test(
+  "a card shows who is working as they start and stop, and stays one link that drags",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Working now", "WN");
+    const done = await createdTask(page, project, "Working card done");
+    const titles = ["Working card first", "Working card movable"];
+    await createdTask(page, project, titles[0] ?? "");
+    const movable = await createdTask(page, project, titles[1] ?? "");
+    // Done has no foot of its own, and unlike in progress it takes no desk from a test alongside.
+    await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [done.id]);
+    // Only the Caretaker is sure to be hired here, as hiring lives in people.e2e.ts.
+    const workingThread = await seedWaitingThread(done.id, "caretaker");
+    const movableThread = await seedWaitingThread(movable.id, "caretaker");
+    const roles = roleListSchema.parse(await (await page.request.get("/api/roles")).json());
+    const caretaker = roles.find(({ key }) => key === "caretaker")?.card.name;
+    const words = `Working now: ${caretaker}`;
 
-  await page.goto("/work");
-  await page.getByRole("button", { name: /^Project filter:/ }).click();
-  await page.getByRole("button", { name: "Show only Working now" }).click();
-  const card = page.getByRole("article", { name: done.title });
-  const mark = card.getByRole("img", { name: words });
+    await page.goto("/work");
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Working now" }).click();
+    const card = page.getByRole("article", { name: done.title });
+    const mark = card.getByRole("img", { name: words });
 
-  // Nobody working: no mark, and a card with nothing else to say keeps having no foot.
-  await expect(card).toBeVisible();
-  await expect(mark).toHaveCount(0);
-  await expect(card.locator(".board-card-foot")).toHaveCount(0);
+    // Nobody working: no mark, and a card with nothing else to say keeps having no foot.
+    await expect(card).toBeVisible();
+    await expect(mark).toHaveCount(0);
+    await expect(card.locator(".board-card-foot")).toHaveCount(0);
 
-  // The Thread's events refresh the mark on the open board, with no reload.
-  await moveThreadTo(page, workingThread, "answering", "Started");
-  await expect(mark).toBeVisible();
+    // The Thread's events refresh the mark on the open board, with no reload.
+    await moveThreadTo(page, workingThread, "answering", "Started");
+    await expect(mark).toBeVisible();
 
-  // The live dot pulses without repainting the board on every frame, and not at all on reduced motion.
-  expect(await animatedProperties(page)).toEqual(["opacity", "transform"]);
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  expect(await animatedProperties(page)).toEqual([]);
-  await page.emulateMedia({ reducedMotion: "no-preference" });
+    // The live dot pulses without repainting the board on every frame, and not at all on reduced motion.
+    expect(await animatedProperties(page)).toEqual(["opacity", "transform"]);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(await animatedProperties(page)).toEqual([]);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
 
-  await mark.hover();
-  await expect(page.getByRole("tooltip")).toHaveText(words);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-working-mark.png") });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-working-mark.png") });
-  await page.emulateMedia({ colorScheme: "light" });
+    await mark.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(words);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-working-mark.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-working-mark.png") });
+    await page.emulateMedia({ colorScheme: "light" });
 
-  await moveThreadTo(page, workingThread, "waiting", "Stopped");
-  await expect(mark).toHaveCount(0);
-  await expect(card.locator(".board-card-foot")).toHaveCount(0);
+    await moveThreadTo(page, workingThread, "waiting", "Stopped");
+    await expect(mark).toHaveCount(0);
+    await expect(card.locator(".board-card-foot")).toHaveCount(0);
 
-  // A Thread waiting on an open Decision shows nobody, however long it stays answering.
-  const decisionId = crypto.randomUUID();
-  await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
+    // A Thread waiting on an open Decision shows nobody, however long it stays answering.
+    const decisionId = crypto.randomUUID();
+    await queryOfficeDatabase(
+      `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
      values ($1, $2, $3, 'caretaker', 'Which way?', 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', '[]', now())`,
-    [decisionId, workingThread, done.id],
-  );
-  await moveThreadTo(page, workingThread, "answering", "Asking");
-  const backlog = column(page, "Backlog");
-  await moveThreadTo(page, movableThread, "answering", "Moving");
-  const movableMark = backlog
-    .getByRole("article", { name: movable.title })
-    .getByRole("img", { name: words });
-  await expect(movableMark).toBeVisible();
-  await expect(mark).toHaveCount(0);
+      [decisionId, workingThread, done.id],
+    );
+    await moveThreadTo(page, workingThread, "answering", "Asking");
+    const backlog = column(page, "Backlog");
+    await moveThreadTo(page, movableThread, "answering", "Moving");
+    const movableMark = backlog
+      .getByRole("article", { name: movable.title })
+      .getByRole("img", { name: words });
+    await expect(movableMark).toBeVisible();
+    await expect(mark).toHaveCount(0);
 
-  // A card with the mark drags by it, and a press on it follows the card's one link.
-  await movableMark.dragTo(backlog.getByRole("article", { name: "Working card first" }));
-  await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(titles.toReversed());
-  await expect(backlog.getByRole("article", { name: movable.title }).getByRole("link")).toHaveCount(
-    1,
-  );
-  await movableMark.click();
-  await expect(page).toHaveURL(new RegExp(`/tasks/${movable.id}`));
+    // A card with the mark drags by it, and a press on it follows the card's one link.
+    await movableMark.dragTo(backlog.getByRole("article", { name: "Working card first" }));
+    await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(titles.toReversed());
+    await expect(
+      backlog.getByRole("article", { name: movable.title }).getByRole("link"),
+    ).toHaveCount(1);
+    await movableMark.click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${movable.id}`));
 
-  // Nothing stays behind for the tests alongside: no Decision in Needs you, nobody answering.
-  await queryOfficeDatabase(`delete from decisions where id = $1`, [decisionId]);
-  await queryOfficeDatabase(`update threads set state = 'waiting' where id = any($1)`, [
-    [workingThread, movableThread],
-  ]);
-});
+    // Nothing stays behind for the tests alongside: no Decision in Needs you, nobody answering.
+    await queryOfficeDatabase(`delete from decisions where id = $1`, [decisionId]);
+    await queryOfficeDatabase(`update threads set state = 'waiting' where id = any($1)`, [
+      [workingThread, movableThread],
+    ]);
+  },
+);
 
-test("a card names the current Stage beside the person working it, on one line however long", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Stage worked now", "SW");
-  const task = await createdTask(page, project, "Stage card");
-  const stageName = "Implement every part of the Plan across the service and the web app";
-  // Paused, as a Task in progress would take a desk from a test alongside; only the Caretaker is
-  // sure to be hired here.
-  await queryOfficeDatabase(`update tasks set state = 'paused' where id = $1`, [task.id]);
-  await queryOfficeDatabase(
-    `insert into task_stages (task_id, pipeline_id, stages, made_at) values ($1, 'full', $2, now())`,
-    [
-      task.id,
-      JSON.stringify([
-        {
-          kind: "agent",
-          key: "implement",
-          name: stageName,
-          optional: false,
-          role: "caretaker",
-          brief: "Implement the Plan.",
-          session: "fresh",
-          budget: 100000,
-        },
-      ]),
-    ],
-  );
-  const stageThread = await seedWaitingThread(task.id, "caretaker");
-  await queryOfficeDatabase(
-    `insert into stage_runs (id, task_id, stage_key, number, thread_id, session, started_at)
+test(
+  "a card names the current Stage beside the person working it, on one line however long",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Stage worked now", "SW");
+    const task = await createdTask(page, project, "Stage card");
+    const stageName = "Implement every part of the Plan across the service and the web app";
+    // Paused, as a Task in progress would take a desk from a test alongside; only the Caretaker is
+    // sure to be hired here.
+    await queryOfficeDatabase(`update tasks set state = 'paused' where id = $1`, [task.id]);
+    await queryOfficeDatabase(
+      `insert into task_stages (task_id, pipeline_id, stages, made_at) values ($1, 'full', $2, now())`,
+      [
+        task.id,
+        JSON.stringify([
+          {
+            kind: "agent",
+            key: "implement",
+            name: stageName,
+            optional: false,
+            role: "caretaker",
+            brief: "Implement the Plan.",
+            session: "fresh",
+            budget: 100000,
+          },
+        ]),
+      ],
+    );
+    const stageThread = await seedWaitingThread(task.id, "caretaker");
+    await queryOfficeDatabase(
+      `insert into stage_runs (id, task_id, stage_key, number, thread_id, session, started_at)
      values ($1, $2, 'implement', 1, $3, 'fresh', now())`,
-    [crypto.randomUUID(), task.id, stageThread],
-  );
-  const roles = roleListSchema.parse(await (await page.request.get("/api/roles")).json());
-  const caretaker = roles.find(({ key }) => key === "caretaker")?.card.name;
-  const words = `Working now: ${caretaker} · ${stageName}`;
+      [crypto.randomUUID(), task.id, stageThread],
+    );
+    const roles = roleListSchema.parse(await (await page.request.get("/api/roles")).json());
+    const caretaker = roles.find(({ key }) => key === "caretaker")?.card.name;
+    const words = `Working now: ${caretaker} · ${stageName}`;
 
-  await page.goto("/work");
-  await page.getByRole("button", { name: /^Project filter:/ }).click();
-  await page.getByRole("button", { name: "Show only Stage worked now" }).click();
-  const card = page.getByRole("article", { name: task.title });
-  await expect(card).toBeVisible();
-  await expect(card.locator(".working-mark-stage")).toHaveCount(0);
+    await page.goto("/work");
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Stage worked now" }).click();
+    const card = page.getByRole("article", { name: task.title });
+    await expect(card).toBeVisible();
+    await expect(card.locator(".working-mark-stage")).toHaveCount(0);
 
-  await moveThreadTo(page, stageThread, "answering", "Implementing");
-  const mark = card.getByRole("img", { name: words });
-  await expect(mark).toBeVisible();
-  const shownName = mark.locator(".working-mark-stage");
-  await expect(shownName).toHaveText(stageName);
-  // Cut short with an ellipsis, beside the Paused badge on the foot's one line.
-  expect(await shownName.evaluate((name) => name.scrollWidth > name.clientWidth)).toBe(true);
-  const badgeBox = await card.locator(".board-card-foot > :first-child").boundingBox();
-  const markBox = await mark.boundingBox();
-  expect(
-    Math.abs(
-      (badgeBox?.y ?? 0) +
-        (badgeBox?.height ?? 0) / 2 -
-        ((markBox?.y ?? 0) + (markBox?.height ?? 0) / 2),
-    ),
-  ).toBeLessThan(4);
+    await moveThreadTo(page, stageThread, "answering", "Implementing");
+    const mark = card.getByRole("img", { name: words });
+    await expect(mark).toBeVisible();
+    const shownName = mark.locator(".working-mark-stage");
+    await expect(shownName).toHaveText(stageName);
+    // Cut short with an ellipsis, beside the Paused badge on the foot's one line.
+    expect(await shownName.evaluate((name) => name.scrollWidth > name.clientWidth)).toBe(true);
+    const badgeBox = await card.locator(".board-card-foot > :first-child").boundingBox();
+    const markBox = await mark.boundingBox();
+    expect(
+      Math.abs(
+        (badgeBox?.y ?? 0) +
+          (badgeBox?.height ?? 0) / 2 -
+          ((markBox?.y ?? 0) + (markBox?.height ?? 0) / 2),
+      ),
+    ).toBeLessThan(4);
 
-  await mark.hover();
-  await expect(page.getByRole("tooltip")).toHaveText(words);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-working-mark-stage.png") });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-working-mark-stage.png") });
-  await page.emulateMedia({ colorScheme: "light" });
+    await mark.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(words);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-working-mark-stage.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-working-mark-stage.png") });
+    await page.emulateMedia({ colorScheme: "light" });
 
-  // Nothing stays behind for the tests alongside: nobody answering, no Task at a desk.
-  await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [stageThread]);
-  await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [task.id]);
-});
+    // Nothing stays behind for the tests alongside: nobody answering, no Task at a desk.
+    await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [stageThread]);
+    await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [task.id]);
+  },
+);
 
-test("a Task's priority and Drop are in its menu, and the Project page counts its Tasks", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Menu and counts", "MC");
-  await createdTask(page, project, "Raise me");
-  await createdTask(page, project, "Drop me");
-  await page.goto("/work");
+test(
+  "a Task's priority and Drop are in its menu, and the Project page counts its Tasks",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Menu and counts", "MC");
+    await createdTask(page, project, "Raise me");
+    await createdTask(page, project, "Drop me");
+    await page.goto("/work");
 
-  const raised = page.getByRole("article", { name: "Raise me" });
-  await raised.getByRole("button", { name: "More for Raise me" }).click();
-  await page.getByRole("menu").getByRole("button", { name: "High" }).click();
-  await expect(raised.getByText("High priority")).toBeAttached();
+    const raised = page.getByRole("article", { name: "Raise me" });
+    await raised.getByRole("button", { name: "More for Raise me" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "High" }).click();
+    await expect(raised.getByText("High priority")).toBeAttached();
 
-  await page
-    .getByRole("article", { name: "Drop me" })
-    .getByRole("button", { name: "More for Drop me" })
-    .click();
-  await page.getByRole("menu").getByRole("button", { name: "Drop…" }).click();
-  await page.getByRole("button", { name: "Drop the Task" }).click();
-  await expect(column(page, "Done").getByRole("article", { name: "Drop me" })).toContainText(
-    "Dropped",
-  );
+    await page
+      .getByRole("article", { name: "Drop me" })
+      .getByRole("button", { name: "More for Drop me" })
+      .click();
+    await page.getByRole("menu").getByRole("button", { name: "Drop…" }).click();
+    await page.getByRole("button", { name: "Drop the Task" }).click();
+    await expect(column(page, "Done").getByRole("article", { name: "Drop me" })).toContainText(
+      "Dropped",
+    );
 
-  await page.goto(`/projects/${project.id}`);
-  const work = page.getByText("Not planned yet").locator("..");
-  await expect(work).toContainText("1");
-});
+    await page.goto(`/projects/${project.id}`);
+    const work = page.getByText("Not planned yet").locator("..");
+    await expect(work).toContainText("1");
+  },
+);
 
-test("a finished Task is archived from its card, found in Archived and by search, and restored in one click", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Archived work", "AW");
-  const task = await createdTask(page, project, "Wombat migration notes");
-  expect((await page.request.post(`/api/tasks/${task.id}/drop`)).ok()).toBe(true);
-  const card = column(page, "Done").getByRole("article", { name: task.title });
-  await page.goto("/work");
+test(
+  "a finished Task is archived from its card, found in Archived and by search, and restored in one click",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Archived work", "AW");
+    const task = await createdTask(page, project, "Wombat migration notes");
+    expect((await page.request.post(`/api/tasks/${task.id}/drop`)).ok()).toBe(true);
+    const card = column(page, "Done").getByRole("article", { name: task.title });
+    await page.goto("/work");
 
-  await card.getByRole("button", { name: `More for ${task.title}` }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
-  await expect(page.getByText(`${task.title} is archived.`)).toBeVisible();
-  await expect(card).toHaveCount(0);
+    await card.getByRole("button", { name: `More for ${task.title}` }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+    await expect(page.getByText(`${task.title} is archived.`)).toBeVisible();
+    await expect(card).toHaveCount(0);
 
-  await page.getByRole("tab", { name: "Archived", exact: true }).click();
-  await expect(page).toHaveURL(/\/work\/archived$/);
-  const row = page.getByRole("row", { name: new RegExp(task.title) });
-  await expect(row).toContainText("Dropped");
-  await expect(row).toContainText(project.name);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-tasks.png") });
+    await page.getByRole("tab", { name: "Archived", exact: true }).click();
+    await expect(page).toHaveURL(/\/work\/archived$/);
+    const row = page.getByRole("row", { name: new RegExp(task.title) });
+    await expect(row).toContainText("Dropped");
+    await expect(row).toContainText(project.name);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-tasks.png") });
 
-  await page.keyboard.press("ControlOrMeta+K");
-  await page.keyboard.type("wombat migration");
-  const found = page
-    .getByRole("listbox", { name: "Found" })
-    .getByRole("option", { name: new RegExp(task.title) });
-  await expect(found).toContainText("Archived");
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
-  await expect(page.locator(".task-head")).toContainText(/Archived \d+ \w+/);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-task-page.png") });
+    await page.keyboard.press("ControlOrMeta+K");
+    await page.keyboard.type("wombat migration");
+    const found = page
+      .getByRole("listbox", { name: "Found" })
+      .getByRole("option", { name: new RegExp(task.title) });
+    await expect(found).toContainText("Archived");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
+    await expect(page.locator(".task-head")).toContainText(/Archived \d+ \w+/);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-task-page.png") });
 
-  await page.goto("/work/archived");
-  await row.getByRole("button", { name: `Restore ${task.title}` }).click();
-  await expect(page.getByText(`${task.title} is back on the board.`)).toBeVisible();
-  await expect(row).toHaveCount(0);
-  await workTab(page, "Tasks").click();
-  await expect(card).toContainText("Dropped");
-});
+    await page.goto("/work/archived");
+    await row.getByRole("button", { name: `Restore ${task.title}` }).click();
+    await expect(page.getByText(`${task.title} is back on the board.`)).toBeVisible();
+    await expect(row).toHaveCount(0);
+    await workTab(page, "Tasks").click();
+    await expect(card).toContainText("Dropped");
+  },
+);
 
 /** One of Work's tabs, apart from the Archived tab's own Tasks and Initiatives. */
 function workTab(page: Page, name: string): Locator {
   return page.locator(".work-tabs").getByRole("tab", { name, exact: true });
 }
 
-test("a Task moves to another Project from its menu, and one whose history wasn't kept is refused with why", async ({
-  page,
-}) => {
-  const from = await addedProject(page, "Move from here", "MF");
-  const to = await addedProject(page, "Move to there", "MT");
-  const task = await createdTask(page, from, "Pair the barcode scanner");
-  const old = await createdTask(page, from, "Older than the history");
-  await queryOfficeDatabase(`delete from task_state_changes where task_id = $1`, [old.id]);
+test(
+  "a Task moves to another Project from its menu, and one whose history wasn't kept is refused with why",
+  { tag: "@full" },
+  async ({ page }) => {
+    const from = await addedProject(page, "Move from here", "MF");
+    const to = await addedProject(page, "Move to there", "MT");
+    const task = await createdTask(page, from, "Pair the barcode scanner");
+    const old = await createdTask(page, from, "Older than the history");
+    await queryOfficeDatabase(`delete from task_state_changes where task_id = $1`, [old.id]);
 
-  await page.goto(`/tasks/${task.id}`);
-  await page.getByRole("button", { name: "More for Pair the barcode scanner" }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("radiogroup").locator("label").filter({ hasText: to.name }).click();
-  await expect(dialog).toContainText(`It follows ${to.name}'s default Pipeline`);
-  await expect(dialog).toContainText("It stays in Backlog.");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task.png") });
-  await dialog.getByRole("button", { name: "Move", exact: true }).click();
+    await page.goto(`/tasks/${task.id}`);
+    await page.getByRole("button", { name: "More for Pair the barcode scanner" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("radiogroup").locator("label").filter({ hasText: to.name }).click();
+    await expect(dialog).toContainText(`It follows ${to.name}'s default Pipeline`);
+    await expect(dialog).toContainText("It stays in Backlog.");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task.png") });
+    await dialog.getByRole("button", { name: "Move", exact: true }).click();
 
-  await expect(dialog).toBeHidden();
-  const origin = page.getByRole("region", { name: "Origin" });
-  await expect(origin).toContainText(`Moved from ${from.name}`);
-  await origin.getByRole("button", { name: /Origin/ }).click();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-moved-task-origin.png") });
-  await page.goto("/work");
-  await expect(
-    page.getByRole("article", { name: "Pair the barcode scanner" }).getByTitle(to.name),
-  ).toBeAttached();
+    await expect(dialog).toBeHidden();
+    const origin = page.getByRole("region", { name: "Origin" });
+    await expect(origin).toContainText(`Moved from ${from.name}`);
+    await origin.getByRole("button", { name: /Origin/ }).click();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-moved-task-origin.png") });
+    await page.goto("/work");
+    await expect(
+      page.getByRole("article", { name: "Pair the barcode scanner" }).getByTitle(to.name),
+    ).toBeAttached();
 
-  await page.goto(`/tasks/${old.id}`);
-  await page.getByRole("button", { name: "More for Older than the history" }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
-  await expect(dialog).toContainText("The Task is older than the state changes The Office keeps");
-  await expect(dialog.getByRole("button", { name: "Move", exact: true })).toHaveCount(0);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task-refused.png") });
-});
+    await page.goto(`/tasks/${old.id}`);
+    await page.getByRole("button", { name: "More for Older than the history" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
+    await expect(dialog).toContainText("The Task is older than the state changes The Office keeps");
+    await expect(dialog.getByRole("button", { name: "Move", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task-refused.png") });
+  },
+);
 
-test("the user tags a Task in Create › Task and on its page, and the board finds it by them without showing them", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Tagged work", "TW");
-  await page.goto("/work");
+test(
+  "the user tags a Task in Create › Task and on its page, and the board finds it by them without showing them",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Tagged work", "TW");
+    await page.goto("/work");
 
-  await createFromTopBar(page, "Task");
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Title").fill("Pair over BLE");
-  await dialog.getByRole("radiogroup").locator("label").filter({ hasText: project.name }).click();
-  const newTags = dialog.getByRole("group", { name: "Tags" });
-  await newTags.getByLabel("Add a Tag").fill("BLE");
-  await newTags.getByLabel("Add a Tag").press("Enter");
-  await newTags.getByLabel("Add a Tag").fill("Needs Review");
-  await newTags.getByLabel("Add a Tag").press("Enter");
-  await expect(newTags).toContainText("ble");
-  await dialog.getByRole("button", { name: "Add the Task" }).click();
-  await expect(dialog).toBeHidden();
-  // The new Task's page opens.
-  await expect(page).toHaveURL(/\/tasks\//);
-  await expect(page.getByRole("heading", { name: "Pair over BLE", level: 2 })).toBeVisible();
+    await createFromTopBar(page, "Task");
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Title").fill("Pair over BLE");
+    await dialog.getByRole("radiogroup").locator("label").filter({ hasText: project.name }).click();
+    const newTags = dialog.getByRole("group", { name: "Tags" });
+    await newTags.getByLabel("Add a Tag").fill("BLE");
+    await newTags.getByLabel("Add a Tag").press("Enter");
+    await newTags.getByLabel("Add a Tag").fill("Needs Review");
+    await newTags.getByLabel("Add a Tag").press("Enter");
+    await expect(newTags).toContainText("ble");
+    await dialog.getByRole("button", { name: "Add the Task" }).click();
+    await expect(dialog).toBeHidden();
+    // The new Task's page opens.
+    await expect(page).toHaveURL(/\/tasks\//);
+    await expect(page.getByRole("heading", { name: "Pair over BLE", level: 2 })).toBeVisible();
 
-  await page.goBack();
-  const card = page.getByRole("article", { name: "Pair over BLE" });
-  await expect(card).toBeVisible();
-  await expect(card).not.toContainText("ble");
-  await expect(card).not.toContainText("needs-review");
-  // The board's search still finds the Task by its Tags.
-  await page.getByLabel("Search Tasks").fill("needs-review");
-  await expect(page).toHaveURL(/query=needs-review/);
-  await expect(card).toBeVisible();
+    await page.goBack();
+    const card = page.getByRole("article", { name: "Pair over BLE" });
+    await expect(card).toBeVisible();
+    await expect(card).not.toContainText("ble");
+    await expect(card).not.toContainText("needs-review");
+    // The board's search still finds the Task by its Tags.
+    await page.getByLabel("Search Tasks").fill("needs-review");
+    await expect(page).toHaveURL(/query=needs-review/);
+    await expect(card).toBeVisible();
 
-  // The whole card opens the Task, not only its title.
-  // Its bottom corner, away from the title, sits under the title's link.
-  const box = await card.boundingBox();
-  await card.click({ position: { x: 6, y: (box?.height ?? 12) - 6 } });
-  await expect(page).toHaveURL(/\/tasks\//);
-  const tags = page.getByRole("group", { name: "Tags" });
-  await tags.getByLabel("Add a Tag").fill("firmware");
-  await tags.getByLabel("Add a Tag").press("Enter");
-  await tags
-    .locator("span", { hasText: "needs-review" })
-    .getByRole("button", { name: "Remove" })
-    .click();
-  await expect(tags).toContainText("firmware");
-  await expect(tags).not.toContainText("needs-review");
-  // The page shows a change as it is sent, so wait for the save itself before reloading.
-  const taskUrl = `/api/tasks/${page.url().split("/").at(-1)}`;
-  await expect
-    .poll(async () => ((await (await page.request.get(taskUrl)).json()) as { tags: string[] }).tags)
-    .toEqual(["ble", "firmware"]);
+    // The whole card opens the Task, not only its title.
+    // Its bottom corner, away from the title, sits under the title's link.
+    const box = await card.boundingBox();
+    await card.click({ position: { x: 6, y: (box?.height ?? 12) - 6 } });
+    await expect(page).toHaveURL(/\/tasks\//);
+    const tags = page.getByRole("group", { name: "Tags" });
+    await tags.getByLabel("Add a Tag").fill("firmware");
+    await tags.getByLabel("Add a Tag").press("Enter");
+    await tags
+      .locator("span", { hasText: "needs-review" })
+      .getByRole("button", { name: "Remove" })
+      .click();
+    await expect(tags).toContainText("firmware");
+    await expect(tags).not.toContainText("needs-review");
+    // The page shows a change as it is sent, so wait for the save itself before reloading.
+    const taskUrl = `/api/tasks/${page.url().split("/").at(-1)}`;
+    await expect
+      .poll(
+        async () => ((await (await page.request.get(taskUrl)).json()) as { tags: string[] }).tags,
+      )
+      .toEqual(["ble", "firmware"]);
 
-  await page.reload();
-  await expect(tags).toContainText("ble");
-  await expect(tags).toContainText("firmware");
-  await expect(tags).not.toContainText("needs-review");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-tags.png") });
-});
+    await page.reload();
+    await expect(tags).toContainText("ble");
+    await expect(tags).toContainText("firmware");
+    await expect(tags).not.toContainText("needs-review");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-tags.png") });
+  },
+);
 
 test("the user adds a Task with a Description, writes its Plan and Definition of Done, and marks it Ready from Backlog", async ({
   page,
@@ -1222,184 +1264,190 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await expect(markReady).toHaveCount(0);
 });
 
-test("the user mentions a Task with @ in a new Task's Description, and its page shows the chip that opens it", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Mentioning work", "MW");
-  const mentioned = await createdTask(page, project, "Ledger totals round to cents");
-  await page.goto(`/projects/${project.id}`);
-  await createFromTopBar(page, "Task");
-  const dialog = page.getByRole("dialog", { name: "New Task" });
-  // No "invoice" in the title: the chat's mention test searches for it in the same database.
-  await dialog.getByLabel("Title").fill("Statements show the ledger totals");
-  const description = dialog.getByRole("textbox", { name: "Description" });
-  await description.fill("Use the totals from ");
-  await description.pressSequentially("@ledger tot");
-  const option = dialog.getByRole("option", { name: /Ledger totals round to cents/ });
-  await expect(option).toBeVisible();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-new-task-mention.png") });
+test(
+  "the user mentions a Task with @ in a new Task's Description, and its page shows the chip that opens it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Mentioning work", "MW");
+    const mentioned = await createdTask(page, project, "Ledger totals round to cents");
+    await page.goto(`/projects/${project.id}`);
+    await createFromTopBar(page, "Task");
+    const dialog = page.getByRole("dialog", { name: "New Task" });
+    // No "invoice" in the title: the chat's mention test searches for it in the same database.
+    await dialog.getByLabel("Title").fill("Statements show the ledger totals");
+    const description = dialog.getByRole("textbox", { name: "Description" });
+    await description.fill("Use the totals from ");
+    await description.pressSequentially("@ledger tot");
+    const option = dialog.getByRole("option", { name: /Ledger totals round to cents/ });
+    await expect(option).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-new-task-mention.png") });
 
-  // Esc closes the picker alone; the window stays with what was written.
-  await description.press("Escape");
-  await expect(option).toBeHidden();
-  await expect(dialog).toBeVisible();
-  await description.pressSequentially("a");
-  await expect(option).toBeVisible();
-  await description.press("Enter");
-  await expect(description).toHaveValue("Use the totals from @Ledger totals round to cents ");
-  await description.pressSequentially("as they are.");
-  await dialog.getByRole("button", { name: "Add the Task" }).click();
-  await expect(dialog).toBeHidden();
-  await expect(page).toHaveURL(/\/tasks\//);
+    // Esc closes the picker alone; the window stays with what was written.
+    await description.press("Escape");
+    await expect(option).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await description.pressSequentially("a");
+    await expect(option).toBeVisible();
+    await description.press("Enter");
+    await expect(description).toHaveValue("Use the totals from @Ledger totals round to cents ");
+    await description.pressSequentially("as they are.");
+    await dialog.getByRole("button", { name: "Add the Task" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/\/tasks\//);
 
-  const descriptionBlock = page
-    .getByRole("region", { name: "Record" })
-    .getByRole("region", { name: "Description" });
-  const chip = descriptionBlock.getByRole("link", { name: "Ledger totals round to cents" });
-  await expect(chip).toHaveClass(/record-mention/);
-  await expect(descriptionBlock).toContainText(
-    "Use the totals from Ledger totals round to cents as they are.",
-  );
+    const descriptionBlock = page
+      .getByRole("region", { name: "Record" })
+      .getByRole("region", { name: "Description" });
+    const chip = descriptionBlock.getByRole("link", { name: "Ledger totals round to cents" });
+    await expect(chip).toHaveClass(/record-mention/);
+    await expect(descriptionBlock).toContainText(
+      "Use the totals from Ledger totals round to cents as they are.",
+    );
 
-  // Edited again, the mention reads as the link it was saved as, and @ offers records there too.
-  await descriptionBlock.getByRole("button", { name: "Edit" }).click();
-  const editor = descriptionBlock.getByRole("textbox", { name: "Description" });
-  await expect(editor).toHaveValue(
-    `Use the totals from [@Ledger totals round to cents](/tasks/${mentioned.id}) as they are.`,
-  );
-  await editor.press("End");
-  await editor.pressSequentially(" Like @ledger");
-  const offered = descriptionBlock.getByRole("option", { name: /Ledger totals round to cents/ });
-  await expect(offered).toBeVisible();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-description-mention.png") });
-  await editor.press("Escape");
-  await expect(offered).toBeHidden();
-  await expect(editor).toBeVisible();
-  await descriptionBlock.getByRole("button", { name: "Cancel" }).click();
+    // Edited again, the mention reads as the link it was saved as, and @ offers records there too.
+    await descriptionBlock.getByRole("button", { name: "Edit" }).click();
+    const editor = descriptionBlock.getByRole("textbox", { name: "Description" });
+    await expect(editor).toHaveValue(
+      `Use the totals from [@Ledger totals round to cents](/tasks/${mentioned.id}) as they are.`,
+    );
+    await editor.press("End");
+    await editor.pressSequentially(" Like @ledger");
+    const offered = descriptionBlock.getByRole("option", { name: /Ledger totals round to cents/ });
+    await expect(offered).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-description-mention.png") });
+    await editor.press("Escape");
+    await expect(offered).toBeHidden();
+    await expect(editor).toBeVisible();
+    await descriptionBlock.getByRole("button", { name: "Cancel" }).click();
 
-  await chip.click();
-  await expect(page).toHaveURL(new RegExp(`/tasks/${mentioned.id}`));
-});
+    await chip.click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${mentioned.id}`));
+  },
+);
 
-test("the board's filters narrow it by search, priority and Blocked, kept in its address until Clear", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Filtered work", "FW");
-  const addTask = async (title: string, fields: Partial<Task>): Promise<Task> => {
-    const response = await page.request.post("/api/tasks", {
-      data: { title, projectId: project.id, priority: "normal", ...fields },
+test(
+  "the board's filters narrow it by search, priority and Blocked, kept in its address until Clear",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Filtered work", "FW");
+    const addTask = async (title: string, fields: Partial<Task>): Promise<Task> => {
+      const response = await page.request.post("/api/tasks", {
+        data: { title, projectId: project.id, priority: "normal", ...fields },
+      });
+      expect(response.status()).toBe(201);
+      return taskSchema.parse(await response.json());
+    };
+    const pairing = await addTask("Filtered pairing handshake", {
+      priority: "high",
+      tags: ["fw-radio"],
     });
-    expect(response.status()).toBe(201);
-    return taskSchema.parse(await response.json());
-  };
-  const pairing = await addTask("Filtered pairing handshake", {
-    priority: "high",
-    tags: ["fw-radio"],
-  });
-  const flash = await addTask("Filtered flash layout", { tags: ["fw-radio"] });
-  await addTask("Filtered manual pages", { priority: "low" });
-  const dependency = await page.request.post(`/api/tasks/${flash.id}/dependencies`, {
-    data: { blockerId: pairing.id },
-  });
-  expect(dependency.ok()).toBe(true);
-  const titles = ["Filtered pairing handshake", "Filtered flash layout", "Filtered manual pages"];
-  const shown = (): Promise<string[]> => titlesIn(page, "Backlog", titles);
-  await page.goto("/work");
-  await expect.poll(shown).toEqual(titles);
-
-  const filters = page.getByRole("search", { name: "Filter the board" });
-  await filters.getByLabel("Search Tasks").fill("handsh");
-  await expect.poll(shown).toEqual(["Filtered pairing handshake"]);
-  await filters.getByRole("button", { name: "Clear" }).click();
-  await expect(filters.getByLabel("Search Tasks")).toHaveValue("");
-  await expect.poll(shown).toEqual(titles);
-
-  await expect(filters.getByRole("group", { name: "Tags" })).toHaveCount(0);
-  await page.goto(`/work?tags=${encodeURIComponent('["fw-radio"]')}`);
-  await expect.poll(shown).toEqual(titles);
-  await expect(page).not.toHaveURL(/tags=/);
-
-  await filters.getByLabel("Search Tasks").fill("fw-radio");
-  await expect.poll(shown).toEqual(["Filtered pairing handshake", "Filtered flash layout"]);
-  await filters.getByRole("button", { name: "Blocked" }).click();
-  await expect.poll(shown).toEqual(["Filtered flash layout"]);
-
-  await page.reload();
-  await expect(filters.getByRole("button", { name: "Blocked" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await expect.poll(shown).toEqual(["Filtered flash layout"]);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-filters.png") });
-
-  await filters.getByRole("button", { name: "Clear" }).click();
-  await filters
-    .getByRole("group", { name: "Priority" })
-    .getByRole("button", { name: "Low" })
-    .click();
-  await expect.poll(shown).toEqual(["Filtered manual pages"]);
-});
-
-test("the Project filter narrows the board and Ideas, remembered by the browser, until Show all projects", async ({
-  page,
-}) => {
-  const alpha = await addedProject(page, "Narrowed alpha", "NA");
-  const beta = await addedProject(page, "Narrowed beta", "NB");
-  // So that alpha and beta are never every Project, whichever other files have run.
-  await addedProject(page, "Narrowed gamma", "NG");
-  await createdTask(page, alpha, "Narrowed alpha telemetry");
-  await createdTask(page, beta, "Narrowed beta telemetry");
-  for (const [title, projectId] of [
-    ["Narrowed beta idea", beta.id],
-    ["Narrowed office-wide idea", null],
-  ] as const) {
-    const response = await page.request.post("/api/ideas", {
-      data: { title, notes: "", projectId },
+    const flash = await addTask("Filtered flash layout", { tags: ["fw-radio"] });
+    await addTask("Filtered manual pages", { priority: "low" });
+    const dependency = await page.request.post(`/api/tasks/${flash.id}/dependencies`, {
+      data: { blockerId: pairing.id },
     });
-    expect(response.status()).toBe(201);
-  }
-  const alphaCard = page.getByRole("article", { name: "Narrowed alpha telemetry" });
-  const betaCard = page.getByRole("article", { name: "Narrowed beta telemetry" });
-  const trigger = page.getByRole("button", { name: /^Project filter:/ });
-  const showAll = page.getByRole("button", { name: /in other Projects.*Show all projects/ });
-  await page.goto("/work");
-  await expect(trigger).toHaveText(/All projects/);
-  await expect(betaCard).toBeVisible();
-  await expect(showAll).toHaveCount(0);
+    expect(dependency.ok()).toBe(true);
+    const titles = ["Filtered pairing handshake", "Filtered flash layout", "Filtered manual pages"];
+    const shown = (): Promise<string[]> => titlesIn(page, "Backlog", titles);
+    await page.goto("/work");
+    await expect.poll(shown).toEqual(titles);
 
-  await trigger.click();
-  await page.getByRole("button", { name: "Show only Narrowed alpha" }).click();
-  await expect(trigger).toHaveText(/Narrowed alpha/);
-  await expect(alphaCard).toBeVisible();
-  await expect(betaCard).toHaveCount(0);
-  await expect(showAll).toBeVisible();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-filter.png") });
+    const filters = page.getByRole("search", { name: "Filter the board" });
+    await filters.getByLabel("Search Tasks").fill("handsh");
+    await expect.poll(shown).toEqual(["Filtered pairing handshake"]);
+    await filters.getByRole("button", { name: "Clear" }).click();
+    await expect(filters.getByLabel("Search Tasks")).toHaveValue("");
+    await expect.poll(shown).toEqual(titles);
 
-  await page.reload();
-  await expect(trigger).toHaveText(/Narrowed alpha/);
-  await expect(betaCard).toHaveCount(0);
-  await page.goto("/work/ideas");
-  await expect(page.getByRole("article", { name: "Narrowed office-wide idea" })).toBeVisible();
-  await expect(page.getByRole("article", { name: "Narrowed beta idea" })).toHaveCount(0);
+    await expect(filters.getByRole("group", { name: "Tags" })).toHaveCount(0);
+    await page.goto(`/work?tags=${encodeURIComponent('["fw-radio"]')}`);
+    await expect.poll(shown).toEqual(titles);
+    await expect(page).not.toHaveURL(/tags=/);
 
-  await trigger.click();
-  const projectsShown = page.getByRole("group", { name: "Projects shown" });
-  await projectsShown.getByRole("button", { name: "Narrowed beta", exact: true }).click();
-  await expect(trigger).toHaveText(/2 projects/);
-  await expect(page.getByRole("article", { name: "Narrowed beta idea" })).toBeVisible();
-  await projectsShown.getByRole("button", { name: "Narrowed alpha", exact: true }).click();
-  await expect(trigger).toHaveText(/Narrowed beta/);
-  await page.keyboard.press("Escape");
-  await expect(projectsShown).toHaveCount(0);
+    await filters.getByLabel("Search Tasks").fill("fw-radio");
+    await expect.poll(shown).toEqual(["Filtered pairing handshake", "Filtered flash layout"]);
+    await filters.getByRole("button", { name: "Blocked" }).click();
+    await expect.poll(shown).toEqual(["Filtered flash layout"]);
 
-  await page.goto("/work");
-  await expect(alphaCard).toHaveCount(0);
-  await expect(betaCard).toBeVisible();
-  await showAll.click();
-  await expect(trigger).toHaveText(/All projects/);
-  await expect(alphaCard).toBeVisible();
-  await expect(showAll).toHaveCount(0);
-});
+    await page.reload();
+    await expect(filters.getByRole("button", { name: "Blocked" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect.poll(shown).toEqual(["Filtered flash layout"]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-filters.png") });
+
+    await filters.getByRole("button", { name: "Clear" }).click();
+    await filters
+      .getByRole("group", { name: "Priority" })
+      .getByRole("button", { name: "Low" })
+      .click();
+    await expect.poll(shown).toEqual(["Filtered manual pages"]);
+  },
+);
+
+test(
+  "the Project filter narrows the board and Ideas, remembered by the browser, until Show all projects",
+  { tag: "@full" },
+  async ({ page }) => {
+    const alpha = await addedProject(page, "Narrowed alpha", "NA");
+    const beta = await addedProject(page, "Narrowed beta", "NB");
+    // So that alpha and beta are never every Project, whichever other files have run.
+    await addedProject(page, "Narrowed gamma", "NG");
+    await createdTask(page, alpha, "Narrowed alpha telemetry");
+    await createdTask(page, beta, "Narrowed beta telemetry");
+    for (const [title, projectId] of [
+      ["Narrowed beta idea", beta.id],
+      ["Narrowed office-wide idea", null],
+    ] as const) {
+      const response = await page.request.post("/api/ideas", {
+        data: { title, notes: "", projectId },
+      });
+      expect(response.status()).toBe(201);
+    }
+    const alphaCard = page.getByRole("article", { name: "Narrowed alpha telemetry" });
+    const betaCard = page.getByRole("article", { name: "Narrowed beta telemetry" });
+    const trigger = page.getByRole("button", { name: /^Project filter:/ });
+    const showAll = page.getByRole("button", { name: /in other Projects.*Show all projects/ });
+    await page.goto("/work");
+    await expect(trigger).toHaveText(/All projects/);
+    await expect(betaCard).toBeVisible();
+    await expect(showAll).toHaveCount(0);
+
+    await trigger.click();
+    await page.getByRole("button", { name: "Show only Narrowed alpha" }).click();
+    await expect(trigger).toHaveText(/Narrowed alpha/);
+    await expect(alphaCard).toBeVisible();
+    await expect(betaCard).toHaveCount(0);
+    await expect(showAll).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-filter.png") });
+
+    await page.reload();
+    await expect(trigger).toHaveText(/Narrowed alpha/);
+    await expect(betaCard).toHaveCount(0);
+    await page.goto("/work/ideas");
+    await expect(page.getByRole("article", { name: "Narrowed office-wide idea" })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Narrowed beta idea" })).toHaveCount(0);
+
+    await trigger.click();
+    const projectsShown = page.getByRole("group", { name: "Projects shown" });
+    await projectsShown.getByRole("button", { name: "Narrowed beta", exact: true }).click();
+    await expect(trigger).toHaveText(/2 projects/);
+    await expect(page.getByRole("article", { name: "Narrowed beta idea" })).toBeVisible();
+    await projectsShown.getByRole("button", { name: "Narrowed alpha", exact: true }).click();
+    await expect(trigger).toHaveText(/Narrowed beta/);
+    await page.keyboard.press("Escape");
+    await expect(projectsShown).toHaveCount(0);
+
+    await page.goto("/work");
+    await expect(alphaCard).toHaveCount(0);
+    await expect(betaCard).toBeVisible();
+    await showAll.click();
+    await expect(trigger).toHaveText(/All projects/);
+    await expect(alphaCard).toBeVisible();
+    await expect(showAll).toHaveCount(0);
+  },
+);
 
 /** An open Decision on the Task, in a Thread of its own, as a Stage's session would ask it. */
 async function seedDecision(
@@ -1468,171 +1516,177 @@ async function catchAnswers(
   return answers;
 }
 
-test("the Project filter narrows Needs you, the status strip and the Projects list, until Show all projects", async ({
-  page,
-}) => {
-  const alpha = await addedProject(page, "Waiting alpha", "WA");
-  const beta = await addedProject(page, "Waiting beta", "WB");
-  await seedDecision(await createdTask(page, alpha, "Waiting alpha export"), "Export as CSV?");
-  await seedDecision(await createdTask(page, beta, "Waiting beta export"), "Export as JSON?");
-  const trigger = page.getByRole("button", { name: /^Project filter:/ });
-  const needsYou = page.getByRole("region", { name: "Needs you" });
-  const alphaDecision = needsYou.getByRole("region", { name: "Decision: Export as CSV?" });
-  const betaDecision = needsYou.getByRole("region", { name: "Decision: Export as JSON?" });
-  const strip = page.getByRole("status", { name: "Status strip" });
-  await page.goto("/now");
-  await expect(alphaDecision).toBeVisible();
-  await expect(betaDecision).toBeVisible();
+test(
+  "the Project filter narrows Needs you, the status strip and the Projects list, until Show all projects",
+  { tag: "@full" },
+  async ({ page }) => {
+    const alpha = await addedProject(page, "Waiting alpha", "WA");
+    const beta = await addedProject(page, "Waiting beta", "WB");
+    await seedDecision(await createdTask(page, alpha, "Waiting alpha export"), "Export as CSV?");
+    await seedDecision(await createdTask(page, beta, "Waiting beta export"), "Export as JSON?");
+    const trigger = page.getByRole("button", { name: /^Project filter:/ });
+    const needsYou = page.getByRole("region", { name: "Needs you" });
+    const alphaDecision = needsYou.getByRole("region", { name: "Decision: Export as CSV?" });
+    const betaDecision = needsYou.getByRole("region", { name: "Decision: Export as JSON?" });
+    const strip = page.getByRole("status", { name: "Status strip" });
+    await page.goto("/now");
+    await expect(alphaDecision).toBeVisible();
+    await expect(betaDecision).toBeVisible();
 
-  await trigger.click();
-  await page.getByRole("button", { name: "Show only Waiting alpha" }).click();
-  await expect(alphaDecision).toBeVisible();
-  await expect(betaDecision).toHaveCount(0);
-  await expect(strip.getByRole("button", { name: /need/ })).toContainText(
-    /^1 needs you\+\d+ in other Projects$/,
-  );
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-filter-now.png") });
+    await trigger.click();
+    await page.getByRole("button", { name: "Show only Waiting alpha" }).click();
+    await expect(alphaDecision).toBeVisible();
+    await expect(betaDecision).toHaveCount(0);
+    await expect(strip.getByRole("button", { name: /need/ })).toContainText(
+      /^1 needs you\+\d+ in other Projects$/,
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-filter-now.png") });
 
-  await page.goto("/projects");
-  await expect(page.getByRole("link", { name: /Waiting alpha/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Waiting beta/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /hidden by the Project filter/ })).toBeVisible();
+    await page.goto("/projects");
+    await expect(page.getByRole("link", { name: /Waiting alpha/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Waiting beta/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /hidden by the Project filter/ })).toBeVisible();
 
-  await page.goto("/now");
-  await needsYou.getByRole("button", { name: /in other Projects.*Show all projects/ }).click();
-  await expect(trigger).toHaveText(/All projects/);
-  await expect(betaDecision).toBeVisible();
-  await expect(strip).not.toContainText("in other Projects");
-});
+    await page.goto("/now");
+    await needsYou.getByRole("button", { name: /in other Projects.*Show all projects/ }).click();
+    await expect(trigger).toHaveText(/All projects/);
+    await expect(betaDecision).toBeVisible();
+    await expect(strip).not.toContainText("in other Projects");
+  },
+);
 
-test("the user saves the board's filters as a view, applies it and removes it", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Viewed work", "VW");
-  for (const [title, priority] of [
-    ["Viewed radio driver", "high"],
-    ["Viewed radio notes", "low"],
-    ["Viewed release checklist", "high"],
-  ] as const) {
-    const response = await page.request.post("/api/tasks", {
-      data: { title, projectId: project.id, priority },
+test(
+  "the user saves the board's filters as a view, applies it and removes it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Viewed work", "VW");
+    for (const [title, priority] of [
+      ["Viewed radio driver", "high"],
+      ["Viewed radio notes", "low"],
+      ["Viewed release checklist", "high"],
+    ] as const) {
+      const response = await page.request.post("/api/tasks", {
+        data: { title, projectId: project.id, priority },
+      });
+      expect(response.status()).toBe(201);
+    }
+    const titles = ["Viewed radio driver", "Viewed release checklist", "Viewed radio notes"];
+    const shown = (): Promise<string[]> => titlesIn(page, "Backlog", titles);
+    await page.goto("/work");
+    await expect.poll(shown).toEqual(titles);
+
+    const filters = page.getByRole("search", { name: "Filter the board" });
+    const views = filters.getByRole("group", { name: "Views" });
+    await filters.getByLabel("Search Tasks").fill("radio");
+    await filters
+      .getByRole("group", { name: "Priority" })
+      .getByRole("button", { name: "High" })
+      .click();
+    await expect.poll(shown).toEqual(["Viewed radio driver"]);
+
+    const name = `Radio work ${Date.now()}`;
+    await views.getByRole("button", { name: "Save view…" }).click();
+    const dialog = page.getByRole("dialog").filter({ hasText: "Save the view" });
+    await dialog.getByLabel("Name").fill(name);
+    await dialog.getByLabel("Name").press("Enter");
+    await expect(dialog).toBeHidden();
+    const view = views.getByRole("button", { name, exact: true });
+    await expect(view).toHaveAttribute("aria-pressed", "true");
+    await expect(views.getByRole("button", { name: "Save view…" })).toBeHidden();
+
+    await filters.getByRole("button", { name: "Clear" }).click();
+    await expect.poll(shown).toEqual(titles);
+    await expect(view).toHaveAttribute("aria-pressed", "false");
+    await view.click();
+    await expect.poll(shown).toEqual(["Viewed radio driver"]);
+    await expect(view).toHaveAttribute("aria-pressed", "true");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-saved-view.png") });
+
+    await view.click();
+    await expect.poll(shown).toEqual(titles);
+
+    await view.click();
+    await views.getByRole("button", { name: `Remove the view ${name}` }).click();
+    await expect(view).toBeHidden();
+    await expect.poll(shown).toEqual(["Viewed radio driver"]);
+  },
+);
+
+test(
+  "the top bar's search finds records and people, follows the Project filter, and opens the pick",
+  { tag: "@full" },
+  async ({ page }) => {
+    const alpha = await addedProject(page, "Searched alpha", "SA");
+    const beta = await addedProject(page, "Searched beta", "SB");
+    // So that alpha is never every Project, whichever other files have run.
+    await addedProject(page, "Searched gamma", "SG");
+    await createdTask(page, alpha, "Quokka redirect");
+    const telemetry = await createdTask(page, beta, "Quokka telemetry");
+    const idea = await page.request.post("/api/ideas", {
+      data: { title: "Quokka office-wide idea", notes: "", projectId: null },
     });
-    expect(response.status()).toBe(201);
-  }
-  const titles = ["Viewed radio driver", "Viewed release checklist", "Viewed radio notes"];
-  const shown = (): Promise<string[]> => titlesIn(page, "Backlog", titles);
-  await page.goto("/work");
-  await expect.poll(shown).toEqual(titles);
+    expect(idea.status()).toBe(201);
+    const document = await page.request.post(
+      `/api/tasks/${telemetry.id}/attachments/files?${new URLSearchParams({ fileName: "quokka-notes.md", mediaType: "text/markdown" })}`,
+      {
+        headers: { "content-type": "application/octet-stream" },
+        data: Buffer.from("# Quokka notes\n\nCount the hops."),
+      },
+    );
+    expect(document.status()).toBe(201);
+    const [preset] = presetListSchema.parse(await (await page.request.get("/api/presets")).json());
+    if (!preset) throw new Error("The Office offers its presets.");
+    const hired = await page.request.post("/api/roles", {
+      data: { card: { ...preset.card, name: "Quinta", title: "Quokka Keeper", skills: [] } },
+    });
+    expect(hired.status()).toBe(201);
+    const { key: keeper } = roleSchema.parse(await hired.json());
 
-  const filters = page.getByRole("search", { name: "Filter the board" });
-  const views = filters.getByRole("group", { name: "Views" });
-  await filters.getByLabel("Search Tasks").fill("radio");
-  await filters
-    .getByRole("group", { name: "Priority" })
-    .getByRole("button", { name: "High" })
-    .click();
-  await expect.poll(shown).toEqual(["Viewed radio driver"]);
+    const search = page.getByRole("combobox", { name: "Search The Office" });
+    const found = page.getByRole("listbox", { name: "Found" });
+    const showAll = page.getByRole("button", {
+      name: /matches in other Projects.*Show all projects/,
+    });
+    await page.goto("/work");
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Searched alpha" }).click();
 
-  const name = `Radio work ${Date.now()}`;
-  await views.getByRole("button", { name: "Save view…" }).click();
-  const dialog = page.getByRole("dialog").filter({ hasText: "Save the view" });
-  await dialog.getByLabel("Name").fill(name);
-  await dialog.getByLabel("Name").press("Enter");
-  await expect(dialog).toBeHidden();
-  const view = views.getByRole("button", { name, exact: true });
-  await expect(view).toHaveAttribute("aria-pressed", "true");
-  await expect(views.getByRole("button", { name: "Save view…" })).toBeHidden();
+    await page.keyboard.press("ControlOrMeta+K");
+    await expect(search).toBeFocused();
+    await page.keyboard.type("quok");
+    await expect(found.getByRole("option", { name: "Quokka redirect" })).toBeVisible();
+    await expect(found.getByRole("option", { name: "Quokka office-wide idea" })).toBeVisible();
+    await expect(found.getByRole("option", { name: "Quokka telemetry" })).toHaveCount(0);
+    await expect(showAll).toHaveText(/2 more matches in other Projects/);
+    await page.keyboard.press("ArrowDown");
+    await expect(found.getByRole("option", { name: "Quokka office-wide idea" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-top-bar-search.png") });
 
-  await filters.getByRole("button", { name: "Clear" }).click();
-  await expect.poll(shown).toEqual(titles);
-  await expect(view).toHaveAttribute("aria-pressed", "false");
-  await view.click();
-  await expect.poll(shown).toEqual(["Viewed radio driver"]);
-  await expect(view).toHaveAttribute("aria-pressed", "true");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-saved-view.png") });
+    await showAll.click();
+    await expect(showAll).toHaveCount(0);
+    await expect(found.getByRole("option", { name: "quokka-notes.md" })).toBeVisible();
+    await search.fill("quokka tele");
+    await expect(found.getByRole("option")).toHaveCount(1);
+    await expect(found.getByRole("option", { name: "Quokka telemetry" })).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/tasks/${telemetry.id}$`));
+    await expect(search).toHaveValue("");
 
-  await view.click();
-  await expect.poll(shown).toEqual(titles);
+    await page.keyboard.press("ControlOrMeta+K");
+    await page.keyboard.type("quokka notes");
+    await found.getByRole("option", { name: "quokka-notes.md" }).click();
+    await expect(page.getByRole("dialog")).toContainText("Count the hops.");
+    await page.keyboard.press("Escape");
 
-  await view.click();
-  await views.getByRole("button", { name: `Remove the view ${name}` }).click();
-  await expect(view).toBeHidden();
-  await expect.poll(shown).toEqual(["Viewed radio driver"]);
-});
-
-test("the top bar's search finds records and people, follows the Project filter, and opens the pick", async ({
-  page,
-}) => {
-  const alpha = await addedProject(page, "Searched alpha", "SA");
-  const beta = await addedProject(page, "Searched beta", "SB");
-  // So that alpha is never every Project, whichever other files have run.
-  await addedProject(page, "Searched gamma", "SG");
-  await createdTask(page, alpha, "Quokka redirect");
-  const telemetry = await createdTask(page, beta, "Quokka telemetry");
-  const idea = await page.request.post("/api/ideas", {
-    data: { title: "Quokka office-wide idea", notes: "", projectId: null },
-  });
-  expect(idea.status()).toBe(201);
-  const document = await page.request.post(
-    `/api/tasks/${telemetry.id}/attachments/files?${new URLSearchParams({ fileName: "quokka-notes.md", mediaType: "text/markdown" })}`,
-    {
-      headers: { "content-type": "application/octet-stream" },
-      data: Buffer.from("# Quokka notes\n\nCount the hops."),
-    },
-  );
-  expect(document.status()).toBe(201);
-  const [preset] = presetListSchema.parse(await (await page.request.get("/api/presets")).json());
-  if (!preset) throw new Error("The Office offers its presets.");
-  const hired = await page.request.post("/api/roles", {
-    data: { card: { ...preset.card, name: "Quinta", title: "Quokka Keeper", skills: [] } },
-  });
-  expect(hired.status()).toBe(201);
-  const { key: keeper } = roleSchema.parse(await hired.json());
-
-  const search = page.getByRole("combobox", { name: "Search The Office" });
-  const found = page.getByRole("listbox", { name: "Found" });
-  const showAll = page.getByRole("button", {
-    name: /matches in other Projects.*Show all projects/,
-  });
-  await page.goto("/work");
-  await page.getByRole("button", { name: /^Project filter:/ }).click();
-  await page.getByRole("button", { name: "Show only Searched alpha" }).click();
-
-  await page.keyboard.press("ControlOrMeta+K");
-  await expect(search).toBeFocused();
-  await page.keyboard.type("quok");
-  await expect(found.getByRole("option", { name: "Quokka redirect" })).toBeVisible();
-  await expect(found.getByRole("option", { name: "Quokka office-wide idea" })).toBeVisible();
-  await expect(found.getByRole("option", { name: "Quokka telemetry" })).toHaveCount(0);
-  await expect(showAll).toHaveText(/2 more matches in other Projects/);
-  await page.keyboard.press("ArrowDown");
-  await expect(found.getByRole("option", { name: "Quokka office-wide idea" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-top-bar-search.png") });
-
-  await showAll.click();
-  await expect(showAll).toHaveCount(0);
-  await expect(found.getByRole("option", { name: "quokka-notes.md" })).toBeVisible();
-  await search.fill("quokka tele");
-  await expect(found.getByRole("option")).toHaveCount(1);
-  await expect(found.getByRole("option", { name: "Quokka telemetry" })).toBeVisible();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`/tasks/${telemetry.id}$`));
-  await expect(search).toHaveValue("");
-
-  await page.keyboard.press("ControlOrMeta+K");
-  await page.keyboard.type("quokka notes");
-  await found.getByRole("option", { name: "quokka-notes.md" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Count the hops.");
-  await page.keyboard.press("Escape");
-
-  await page.keyboard.press("ControlOrMeta+K");
-  await page.keyboard.type("quinta keep");
-  await found.getByRole("option", { name: "Quinta · Quokka Keeper" }).click();
-  await expect(page).toHaveURL(new RegExp(`/people/${keeper}$`));
-});
+    await page.keyboard.press("ControlOrMeta+K");
+    await page.keyboard.type("quinta keep");
+    await found.getByRole("option", { name: "Quinta · Quokka Keeper" }).click();
+    await expect(page).toHaveURL(new RegExp(`/people/${keeper}$`));
+  },
+);
 
 test("a Task's page shows its record, takes Attachments of every kind and opens them", async ({
   page,
@@ -1831,147 +1885,149 @@ test("a Decision with nothing to look at is answered in place, by an answer's li
     .toEqual([{ kind: "free-answer", text: "Keep it for a release, then remove it." }]);
 });
 
-test("a Decision with Attachments is accepted on its card, or answered in its details window", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Decision pictures", "DP");
-  const task = await createdTask(page, project, "Choose a look");
-  const pictures = [];
-  for (const [index, name] of ["today.png", "wider.png", "taller.png", "plain.png"].entries()) {
-    pictures.push(await attachedImage(page, task, name, aPng([60 * index, 120, 200])));
-  }
-  const removed = await attachedImage(page, task, "removed.png", aPng([200, 60, 60]));
-  const link = await page.request.post(`/api/tasks/${task.id}/attachments/links`, {
-    data: { name: "The brand guide", url: "https://example.com/brand-guide" },
-  });
-  expect(link.status()).toBe(201);
-  const { id: linkId } = attachmentSchema.parse(await link.json());
-  const brief = await page.request.post(
-    `/api/tasks/${task.id}/attachments/files?${new URLSearchParams({ fileName: "brief.md", mediaType: "text/markdown" })}`,
-    {
-      headers: { "content-type": "application/octet-stream" },
-      data: Buffer.from("# Brief\n\nKeep it plain."),
-    },
-  );
-  expect(brief.status()).toBe(201);
-  const { id: briefId } = attachmentSchema.parse(await brief.json());
-  const notNamed = await attachedImage(page, task, "not-named.png", aPng([10, 10, 10]));
-  const question = "Which look should the export take?";
-  const seeded = await seedDecision(task, question, [
-    ...pictures.map(({ id }) => id),
-    removed.id,
-    linkId,
-    briefId,
-  ]);
-  expect((await page.request.delete(`/api/attachments/${removed.id}`)).status()).toBe(204);
-  const answers = await catchAnswers(page, seeded);
-
-  // The card: its question, the recommended answer with Accept, and the way to its details.
-  await page.goto(`/tasks/${task.id}`);
-  const card = page
-    .getByRole("region", { name: "Needs you" })
-    .getByRole("region", { name: `Decision: ${question}` });
-  const recommended = card.getByRole("region", { name: "Recommended answer" });
-  await expect(recommended).toContainText("Yes");
-  await expect(recommended).toContainText("It is simpler.");
-  await expect(card.getByRole("region", { name: "Details" })).toContainText(
-    "2 answers · 6 Attachments",
-  );
-  await expect(card.getByRole("button", { name: /^View / })).toHaveCount(0);
-  await expect(card.getByText("Both work.")).toHaveCount(0);
-  await page.screenshot({
-    path: path.join(SCREENSHOTS, "light-1600-decision-with-attachments.png"),
-  });
-  await recommended.getByRole("button", { name: "Accept" }).click();
-  await expect.poll(() => answers).toEqual([{ kind: "option", option: 0 }]);
-
-  // The window: the context, the Attachments it names, every answer with the recommended one
-  // picked, and your own words.
-  await card.getByRole("button", { name: "Open details" }).click();
-  const details = page.getByRole("dialog", { name: /^Decision/ });
-  await expect(details).toContainText(question);
-  await expect(details).toContainText("Both work.");
-  const answerChoices = details.getByRole("radiogroup", { name: "Answers" });
-  await expect(answerChoices.getByRole("radio", { name: /^Yes/ })).toBeChecked();
-  await expect(answerChoices.getByRole("radio", { name: "In your own words" })).not.toBeChecked();
-  await expect(details.getByRole("button", { name: /^View / })).toHaveCount(4);
-  await expect(details.getByRole("link", { name: "The brand guide" })).toBeVisible();
-  await expect(details.getByRole("button", { name: `View ${notNamed.name}` })).toHaveCount(0);
-  await expect(details.getByRole("button", { name: "View removed.png" })).toHaveCount(0);
-  const size = await details.getByRole("button", { name: "View today.png" }).boundingBox();
-  expect(size).toMatchObject({ width: 160, height: 100 });
-  const frame = await details.boundingBox();
-  expect(frame?.width).toBe(1180);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-window.png") });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-decision-window.png") });
-  await page.emulateMedia({ colorScheme: "light" });
-
-  // The Attachment viewer opens over the window, and Esc closes the viewer alone.
-  await details.getByRole("button", { name: "View wider.png" }).click();
-  await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
-  await expect(page.getByText("2 of 4")).toBeVisible();
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("heading", { name: "taller.png" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { name: "taller.png" })).toHaveCount(0);
-  await expect(details).toBeVisible();
-
-  // A document opens over the window just the same.
-  await details.getByRole("button", { name: "brief.md" }).click();
-  await expect(page.getByRole("heading", { name: "brief.md" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { name: "brief.md" })).toHaveCount(0);
-  await expect(details).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(details).toHaveCount(0);
-
-  // The Needs you panel shows the same card: over it, each Esc closes what is on top.
-  await page
-    .getByRole("status", { name: "Status strip" })
-    .getByRole("button", { name: /needs? you/ })
-    .click();
-  const panel = page.getByRole("dialog").filter({ hasText: "oldest first" });
-  await panel.getByRole("button", { name: "Open details" }).click();
-  await details.getByRole("button", { name: "View wider.png" }).click();
-  await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { name: "wider.png" })).toHaveCount(0);
-  await expect(details).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(details).toHaveCount(0);
-  await expect(panel).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
-
-  // Picking another answer, then Answer in the bar.
-  await card.getByRole("button", { name: "Open details" }).click();
-  await answerChoices.getByRole("radio", { name: "No", exact: true }).check();
-  await details.getByRole("button", { name: "Answer", exact: true }).click();
-  await expect
-    .poll(() => answers)
-    .toEqual([
-      { kind: "option", option: 0 },
-      { kind: "option", option: 1 },
-    ]);
-  await expect(details).toHaveCount(0);
-
-  // In your own words: Answer waits for them.
-  await card.getByRole("button", { name: "Open details" }).click();
-  await answerChoices.getByRole("radio", { name: "In your own words" }).check();
-  const answer = details.getByRole("button", { name: "Answer", exact: true });
-  await expect(answer).toBeDisabled();
-  await details.getByLabel("Your answer").fill("Take today's look, a little wider.");
-  await answer.click();
-  await expect
-    .poll(() => answers.at(-1))
-    .toEqual({
-      kind: "free-answer",
-      text: "Take today's look, a little wider.",
+test(
+  "a Decision with Attachments is accepted on its card, or answered in its details window",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Decision pictures", "DP");
+    const task = await createdTask(page, project, "Choose a look");
+    const pictures = [];
+    for (const [index, name] of ["today.png", "wider.png", "taller.png", "plain.png"].entries()) {
+      pictures.push(await attachedImage(page, task, name, aPng([60 * index, 120, 200])));
+    }
+    const removed = await attachedImage(page, task, "removed.png", aPng([200, 60, 60]));
+    const link = await page.request.post(`/api/tasks/${task.id}/attachments/links`, {
+      data: { name: "The brand guide", url: "https://example.com/brand-guide" },
     });
-  await expect(details).toHaveCount(0);
-});
+    expect(link.status()).toBe(201);
+    const { id: linkId } = attachmentSchema.parse(await link.json());
+    const brief = await page.request.post(
+      `/api/tasks/${task.id}/attachments/files?${new URLSearchParams({ fileName: "brief.md", mediaType: "text/markdown" })}`,
+      {
+        headers: { "content-type": "application/octet-stream" },
+        data: Buffer.from("# Brief\n\nKeep it plain."),
+      },
+    );
+    expect(brief.status()).toBe(201);
+    const { id: briefId } = attachmentSchema.parse(await brief.json());
+    const notNamed = await attachedImage(page, task, "not-named.png", aPng([10, 10, 10]));
+    const question = "Which look should the export take?";
+    const seeded = await seedDecision(task, question, [
+      ...pictures.map(({ id }) => id),
+      removed.id,
+      linkId,
+      briefId,
+    ]);
+    expect((await page.request.delete(`/api/attachments/${removed.id}`)).status()).toBe(204);
+    const answers = await catchAnswers(page, seeded);
+
+    // The card: its question, the recommended answer with Accept, and the way to its details.
+    await page.goto(`/tasks/${task.id}`);
+    const card = page
+      .getByRole("region", { name: "Needs you" })
+      .getByRole("region", { name: `Decision: ${question}` });
+    const recommended = card.getByRole("region", { name: "Recommended answer" });
+    await expect(recommended).toContainText("Yes");
+    await expect(recommended).toContainText("It is simpler.");
+    await expect(card.getByRole("region", { name: "Details" })).toContainText(
+      "2 answers · 6 Attachments",
+    );
+    await expect(card.getByRole("button", { name: /^View / })).toHaveCount(0);
+    await expect(card.getByText("Both work.")).toHaveCount(0);
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-decision-with-attachments.png"),
+    });
+    await recommended.getByRole("button", { name: "Accept" }).click();
+    await expect.poll(() => answers).toEqual([{ kind: "option", option: 0 }]);
+
+    // The window: the context, the Attachments it names, every answer with the recommended one
+    // picked, and your own words.
+    await card.getByRole("button", { name: "Open details" }).click();
+    const details = page.getByRole("dialog", { name: /^Decision/ });
+    await expect(details).toContainText(question);
+    await expect(details).toContainText("Both work.");
+    const answerChoices = details.getByRole("radiogroup", { name: "Answers" });
+    await expect(answerChoices.getByRole("radio", { name: /^Yes/ })).toBeChecked();
+    await expect(answerChoices.getByRole("radio", { name: "In your own words" })).not.toBeChecked();
+    await expect(details.getByRole("button", { name: /^View / })).toHaveCount(4);
+    await expect(details.getByRole("link", { name: "The brand guide" })).toBeVisible();
+    await expect(details.getByRole("button", { name: `View ${notNamed.name}` })).toHaveCount(0);
+    await expect(details.getByRole("button", { name: "View removed.png" })).toHaveCount(0);
+    const size = await details.getByRole("button", { name: "View today.png" }).boundingBox();
+    expect(size).toMatchObject({ width: 160, height: 100 });
+    const frame = await details.boundingBox();
+    expect(frame?.width).toBe(1180);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-window.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-decision-window.png") });
+    await page.emulateMedia({ colorScheme: "light" });
+
+    // The Attachment viewer opens over the window, and Esc closes the viewer alone.
+    await details.getByRole("button", { name: "View wider.png" }).click();
+    await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
+    await expect(page.getByText("2 of 4")).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("heading", { name: "taller.png" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "taller.png" })).toHaveCount(0);
+    await expect(details).toBeVisible();
+
+    // A document opens over the window just the same.
+    await details.getByRole("button", { name: "brief.md" }).click();
+    await expect(page.getByRole("heading", { name: "brief.md" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "brief.md" })).toHaveCount(0);
+    await expect(details).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(details).toHaveCount(0);
+
+    // The Needs you panel shows the same card: over it, each Esc closes what is on top.
+    await page
+      .getByRole("status", { name: "Status strip" })
+      .getByRole("button", { name: /needs? you/ })
+      .click();
+    const panel = page.getByRole("dialog").filter({ hasText: "oldest first" });
+    await panel.getByRole("button", { name: "Open details" }).click();
+    await details.getByRole("button", { name: "View wider.png" }).click();
+    await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "wider.png" })).toHaveCount(0);
+    await expect(details).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(details).toHaveCount(0);
+    await expect(panel).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+
+    // Picking another answer, then Answer in the bar.
+    await card.getByRole("button", { name: "Open details" }).click();
+    await answerChoices.getByRole("radio", { name: "No", exact: true }).check();
+    await details.getByRole("button", { name: "Answer", exact: true }).click();
+    await expect
+      .poll(() => answers)
+      .toEqual([
+        { kind: "option", option: 0 },
+        { kind: "option", option: 1 },
+      ]);
+    await expect(details).toHaveCount(0);
+
+    // In your own words: Answer waits for them.
+    await card.getByRole("button", { name: "Open details" }).click();
+    await answerChoices.getByRole("radio", { name: "In your own words" }).check();
+    const answer = details.getByRole("button", { name: "Answer", exact: true });
+    await expect(answer).toBeDisabled();
+    await details.getByLabel("Your answer").fill("Take today's look, a little wider.");
+    await answer.click();
+    await expect
+      .poll(() => answers.at(-1))
+      .toEqual({
+        kind: "free-answer",
+        text: "Take today's look, a little wider.",
+      });
+    await expect(details).toHaveCount(0);
+  },
+);
 
 /** A moment of the morning a test's fixed Stage runs happened in. */
 function at(minute: number): string {
@@ -2325,179 +2381,187 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await page.setViewportSize({ width: 1600, height: 900 });
 });
 
-test("a Task's images show by round, the Gate shows the current one, and the viewer steps through them", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Gallery rounds", "GR");
-  const task = await createdTask(page, project, "Gallery of two rounds");
-  const workStarted = new Date(Date.now() - 60_000).toISOString();
-  const firstLook = await attachedImage(page, task, "first-look.png", aPng([230, 120, 60]));
-  const firstDetail = await attachedImage(page, task, "first-detail.png", aPng([60, 140, 200]));
-  const sentBackAt = new Date(Date.parse(firstDetail.addedAt) + 1).toISOString();
-  const secondLook = await attachedImage(page, task, "second-look.png", aPng([80, 170, 90]));
-  expect(Date.parse(secondLook.addedAt)).toBeGreaterThan(Date.parse(sentBackAt));
-  expect(Date.parse(firstLook.addedAt)).toBeGreaterThan(Date.parse(workStarted));
-  // A send-back is a Gate run's, which only a walk of Agent sessions makes: the Stages are answered
-  // as a walk would leave them, waiting at the Gate again after one send-back.
-  const implement: Stage = {
-    kind: "agent",
-    key: "implement",
-    name: "Implement",
-    optional: false,
-    role: "developer",
-    brief: "Do it.",
-    session: "fresh",
-    budget: 100_000,
-  };
-  const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
-  const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-  const gateReached: StageRun["outcome"] = {
-    status: "done",
-    summary: "The Task reached the Gate and waited for the user.",
-    skipped: false,
-    definitionOfDoneMet: null,
-    pullRequestUrl: null,
-    handoverNote: null,
-  };
-  const stages: TaskStages = {
-    stages: [
-      {
-        stage: implement,
-        state: "done",
-        tokens: noTokens,
-        wentBack: null,
-        runs: [aStageRun(1, workStarted, sentBackAt), aStageRun(3, sentBackAt, sentBackAt)],
-      },
-      {
-        stage: look,
-        state: "waiting-on-you",
-        tokens: noTokens,
-        wentBack: null,
-        runs: [
-          {
-            ...aStageRun(2, sentBackAt, sentBackAt, {
-              kind: "send-back",
-              stageKey: "implement",
-              feedback: "Make the buttons bigger.",
-            }),
-            outcome: gateReached,
-          },
-          { ...aStageRun(4, secondLook.addedAt, null), outcome: gateReached },
-        ],
-      },
-    ],
-    editedForTask: false,
-    lockedStages: 2,
-    testResults: [],
-    definitionOfDoneMet: [],
-  };
-  await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
-  await page.goto(`/tasks/${task.id}`);
+test(
+  "a Task's images show by round, the Gate shows the current one, and the viewer steps through them",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Gallery rounds", "GR");
+    const task = await createdTask(page, project, "Gallery of two rounds");
+    const workStarted = new Date(Date.now() - 60_000).toISOString();
+    const firstLook = await attachedImage(page, task, "first-look.png", aPng([230, 120, 60]));
+    const firstDetail = await attachedImage(page, task, "first-detail.png", aPng([60, 140, 200]));
+    const sentBackAt = new Date(Date.parse(firstDetail.addedAt) + 1).toISOString();
+    const secondLook = await attachedImage(page, task, "second-look.png", aPng([80, 170, 90]));
+    expect(Date.parse(secondLook.addedAt)).toBeGreaterThan(Date.parse(sentBackAt));
+    expect(Date.parse(firstLook.addedAt)).toBeGreaterThan(Date.parse(workStarted));
+    // A send-back is a Gate run's, which only a walk of Agent sessions makes: the Stages are answered
+    // as a walk would leave them, waiting at the Gate again after one send-back.
+    const implement: Stage = {
+      kind: "agent",
+      key: "implement",
+      name: "Implement",
+      optional: false,
+      role: "developer",
+      brief: "Do it.",
+      session: "fresh",
+      budget: 100_000,
+    };
+    const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
+    const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+    const gateReached: StageRun["outcome"] = {
+      status: "done",
+      summary: "The Task reached the Gate and waited for the user.",
+      skipped: false,
+      definitionOfDoneMet: null,
+      pullRequestUrl: null,
+      handoverNote: null,
+    };
+    const stages: TaskStages = {
+      stages: [
+        {
+          stage: implement,
+          state: "done",
+          tokens: noTokens,
+          wentBack: null,
+          runs: [aStageRun(1, workStarted, sentBackAt), aStageRun(3, sentBackAt, sentBackAt)],
+        },
+        {
+          stage: look,
+          state: "waiting-on-you",
+          tokens: noTokens,
+          wentBack: null,
+          runs: [
+            {
+              ...aStageRun(2, sentBackAt, sentBackAt, {
+                kind: "send-back",
+                stageKey: "implement",
+                feedback: "Make the buttons bigger.",
+              }),
+              outcome: gateReached,
+            },
+            { ...aStageRun(4, secondLook.addedAt, null), outcome: gateReached },
+          ],
+        },
+      ],
+      editedForTask: false,
+      lockedStages: 2,
+      testResults: [],
+      definitionOfDoneMet: [],
+    };
+    await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+    await page.goto(`/tasks/${task.id}`);
 
-  await page
-    .getByRole("region", { name: "Gate · UI acceptance" })
-    .getByRole("button", { name: "Show details" })
-    .click();
-  const gateWindow = page.getByRole("dialog", { name: /UI acceptance/ });
-  const gate = gateWindow.getByRole("region", { name: "Attachments" });
-  await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
-  // The Attachment viewer is the one window that opens on another, and Esc closes it first.
-  await gate.getByRole("button", { name: "View second-look.png" }).click();
-  await expect(page.getByRole("heading", { name: "second-look.png" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { name: "second-look.png" })).toHaveCount(0);
-  await gateWindow.getByRole("button", { name: "Close", exact: true }).click();
-  await expect(gateWindow).toHaveCount(0);
+    await page
+      .getByRole("region", { name: "Gate · UI acceptance" })
+      .getByRole("button", { name: "Show details" })
+      .click();
+    const gateWindow = page.getByRole("dialog", { name: /UI acceptance/ });
+    const gate = gateWindow.getByRole("region", { name: "Attachments" });
+    await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
+    // The Attachment viewer is the one window that opens on another, and Esc closes it first.
+    await gate.getByRole("button", { name: "View second-look.png" }).click();
+    await expect(page.getByRole("heading", { name: "second-look.png" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "second-look.png" })).toHaveCount(0);
+    await gateWindow.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(gateWindow).toHaveCount(0);
 
-  await page.getByRole("tab", { name: "Attachments" }).click();
-  const attachments = page.getByRole("region", { name: "Attachments", exact: true });
-  const roundTwo = attachments.getByRole("group", { name: "Round 2" });
-  const roundOne = attachments.getByRole("group", { name: "Round 1" });
-  await expect(roundTwo).toContainText("Sent back: Make the buttons bigger.");
-  await expect(roundTwo.getByRole("button", { name: "View second-look.png" })).toBeVisible();
-  await expect(roundOne.getByRole("button", { name: "View first-look.png" })).toBeHidden();
-  await roundOne.getByText("Round 1").click();
-  await expect(roundOne.getByRole("button", { name: "View first-look.png" })).toBeVisible();
-  await expect(roundOne.getByRole("button", { name: "View first-detail.png" })).toBeVisible();
-  await attachments.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-attachment-rounds.png") });
+    await page.getByRole("tab", { name: "Attachments" }).click();
+    const attachments = page.getByRole("region", { name: "Attachments", exact: true });
+    const roundTwo = attachments.getByRole("group", { name: "Round 2" });
+    const roundOne = attachments.getByRole("group", { name: "Round 1" });
+    await expect(roundTwo).toContainText("Sent back: Make the buttons bigger.");
+    await expect(roundTwo.getByRole("button", { name: "View second-look.png" })).toBeVisible();
+    await expect(roundOne.getByRole("button", { name: "View first-look.png" })).toBeHidden();
+    await roundOne.getByText("Round 1").click();
+    await expect(roundOne.getByRole("button", { name: "View first-look.png" })).toBeVisible();
+    await expect(roundOne.getByRole("button", { name: "View first-detail.png" })).toBeVisible();
+    await attachments.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-task-attachment-rounds.png"),
+    });
 
-  await roundOne.getByRole("button", { name: "View first-look.png" }).click();
-  const viewer = page.getByRole("dialog");
-  await expect(viewer.getByRole("heading", { name: "first-look.png" })).toBeVisible();
-  await expect(viewer).toContainText("1 of 3 · Round 1 · Added by You");
-  await expect(viewer.getByRole("link", { name: "Open the original" })).toHaveAttribute(
-    "href",
-    `/api/attachments/${firstLook.id}/content`,
-  );
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-attachment-viewer.png") });
-  await viewer.getByRole("button", { name: "Next" }).click();
-  await expect(viewer.getByRole("heading", { name: "first-detail.png" })).toBeVisible();
-  await page.keyboard.press("ArrowRight");
-  await expect(viewer.getByRole("heading", { name: "second-look.png" })).toBeVisible();
-  await expect(viewer).toContainText("3 of 3 · Round 2");
-  await expect(viewer.getByRole("button", { name: "Next" })).toBeDisabled();
-  await page.keyboard.press("ArrowLeft");
-  await expect(viewer.getByRole("heading", { name: "first-detail.png" })).toBeVisible();
-  await viewer.getByRole("button", { name: "Previous" }).click();
-  await expect(viewer.getByRole("heading", { name: "first-look.png" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(viewer).toHaveCount(0);
-});
+    await roundOne.getByRole("button", { name: "View first-look.png" }).click();
+    const viewer = page.getByRole("dialog");
+    await expect(viewer.getByRole("heading", { name: "first-look.png" })).toBeVisible();
+    await expect(viewer).toContainText("1 of 3 · Round 1 · Added by You");
+    await expect(viewer.getByRole("link", { name: "Open the original" })).toHaveAttribute(
+      "href",
+      `/api/attachments/${firstLook.id}/content`,
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-attachment-viewer.png") });
+    await viewer.getByRole("button", { name: "Next" }).click();
+    await expect(viewer.getByRole("heading", { name: "first-detail.png" })).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(viewer.getByRole("heading", { name: "second-look.png" })).toBeVisible();
+    await expect(viewer).toContainText("3 of 3 · Round 2");
+    await expect(viewer.getByRole("button", { name: "Next" })).toBeDisabled();
+    await page.keyboard.press("ArrowLeft");
+    await expect(viewer.getByRole("heading", { name: "first-detail.png" })).toBeVisible();
+    await viewer.getByRole("button", { name: "Previous" }).click();
+    await expect(viewer.getByRole("heading", { name: "first-look.png" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(viewer).toHaveCount(0);
+  },
+);
 
-test("a Task's Changes tab lists the files its branch changed with their lines and the diff, and opens them in the editor while the Task has its worktree", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Changes", "CH");
-  const task = await createdTask(page, project, "Back off on reconnect");
-  await commitOnTaskBranch(
-    repository,
-    task.id,
-    "backoff.ts",
-    "export const BACKOFF_MS = 30_000;\nexport const RETRIES = 5;\n",
-  );
-  await page.goto(`/tasks/${task.id}`);
+test(
+  "a Task's Changes tab lists the files its branch changed with their lines and the diff, and opens them in the editor while the Task has its worktree",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Changes", "CH");
+    const task = await createdTask(page, project, "Back off on reconnect");
+    await commitOnTaskBranch(
+      repository,
+      task.id,
+      "backoff.ts",
+      "export const BACKOFF_MS = 30_000;\nexport const RETRIES = 5;\n",
+    );
+    await page.goto(`/tasks/${task.id}`);
 
-  await page.getByRole("tab", { name: /Changes/ }).click();
+    await page.getByRole("tab", { name: /Changes/ }).click();
 
-  await expect(page).toHaveURL(/recordTab=changes/);
-  const changes = page.getByRole("region", { name: "Changes" });
-  await expect(changes.getByText("Files changed · 1")).toBeVisible();
-  await expect(changes.getByRole("listitem")).toContainText(["backoff.ts+2−0"]);
-  // Each file starts folded to its header; a click unfolds it, and "Fold all" folds it again.
-  const diff = changes.getByLabel("Diff of backoff.ts against the base branch");
-  await expect(diff).toHaveCount(0);
-  await changes.getByRole("button", { name: /backoff\.ts/ }).click();
-  await expect(diff).toContainText("+export const BACKOFF_MS = 30_000;");
-  await changes.getByRole("button", { name: "Fold all", exact: true }).click();
-  await expect(diff).toHaveCount(0);
-  await changes.getByRole("button", { name: "Unfold all" }).click();
-  await expect(diff).toBeVisible();
-  await expect(changes.getByText("Tests:")).toBeVisible();
-  await expect(changes.getByText("not run yet")).toBeVisible();
-  // The branch has no worktree yet, so there is nothing to open.
-  await expect(changes.getByRole("link", { name: "Open in editor" })).toHaveCount(0);
-  await expect(changes.getByRole("link", { name: "Open backoff.ts in the editor" })).toHaveCount(0);
+    await expect(page).toHaveURL(/recordTab=changes/);
+    const changes = page.getByRole("region", { name: "Changes" });
+    await expect(changes.getByText("Files changed · 1")).toBeVisible();
+    await expect(changes.getByRole("listitem")).toContainText(["backoff.ts+2−0"]);
+    // Each file starts folded to its header; a click unfolds it, and "Fold all" folds it again.
+    const diff = changes.getByLabel("Diff of backoff.ts against the base branch");
+    await expect(diff).toHaveCount(0);
+    await changes.getByRole("button", { name: /backoff\.ts/ }).click();
+    await expect(diff).toContainText("+export const BACKOFF_MS = 30_000;");
+    await changes.getByRole("button", { name: "Fold all", exact: true }).click();
+    await expect(diff).toHaveCount(0);
+    await changes.getByRole("button", { name: "Unfold all" }).click();
+    await expect(diff).toBeVisible();
+    await expect(changes.getByText("Tests:")).toBeVisible();
+    await expect(changes.getByText("not run yet")).toBeVisible();
+    // The branch has no worktree yet, so there is nothing to open.
+    await expect(changes.getByRole("link", { name: "Open in editor" })).toHaveCount(0);
+    await expect(changes.getByRole("link", { name: "Open backoff.ts in the editor" })).toHaveCount(
+      0,
+    );
 
-  addTaskWorktree(repository, task.id, taskWorktreePath(project.id, task.id));
-  await page.reload();
+    addTaskWorktree(repository, task.id, taskWorktreePath(project.id, task.id));
+    await page.reload();
 
-  // Forward slashes only, a Windows drive letter included.
-  const worktreeUrl = `^vscode://file/[^\\\\]+/worktrees/${project.id}/${task.id}`;
-  await expect(changes.getByRole("link", { name: "Open in editor" })).toHaveAttribute(
-    "href",
-    new RegExp(`${worktreeUrl}$`),
-  );
-  await expect(
-    changes.getByRole("link", { name: "Open backoff.ts in the editor" }),
-  ).toHaveAttribute("href", new RegExp(`${worktreeUrl}/backoff\\.ts$`));
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-changes.png") });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-changes.png") });
-  await page.emulateMedia({ colorScheme: "light" });
+    // Forward slashes only, a Windows drive letter included.
+    const worktreeUrl = `^vscode://file/[^\\\\]+/worktrees/${project.id}/${task.id}`;
+    await expect(changes.getByRole("link", { name: "Open in editor" })).toHaveAttribute(
+      "href",
+      new RegExp(`${worktreeUrl}$`),
+    );
+    await expect(
+      changes.getByRole("link", { name: "Open backoff.ts in the editor" }),
+    ).toHaveAttribute("href", new RegExp(`${worktreeUrl}/backoff\\.ts$`));
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-changes.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-changes.png") });
+    await page.emulateMedia({ colorScheme: "light" });
 
-  await page.getByRole("tab", { name: "Overview" }).click();
-  await expect(page.getByRole("region", { name: "Record" })).toBeVisible();
-});
+    await page.getByRole("tab", { name: "Overview" }).click();
+    await expect(page.getByRole("region", { name: "Record" })).toBeVisible();
+  },
+);

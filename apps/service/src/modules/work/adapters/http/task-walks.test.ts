@@ -1,25 +1,23 @@
-import { execFile } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
-import { promisify } from "node:util";
+import { readFile, writeFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import {
-  officeUpdateSchema,
+  startAnswerSchema,
   pipelineSchema,
   PROJECT_LIMIT_MAX,
   projectSchema,
   queueSchema,
-  startAnswerSchema,
   taskSchema,
   taskStagesSchema,
-  type OfficeUpdate,
   type Pipeline,
   type Task,
   type TaskStage,
 } from "@the-office/contracts";
-import type { INestApplication } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
+import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
+import { promisify } from "node:util";
+import type { INestApplication } from "@nestjs/common";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../../test/test-database.js";
 import { AppModule } from "../../../../app.module.js";
@@ -37,7 +35,6 @@ import {
   updateSystem,
   type OfficeCheckoutForTests,
 } from "../../../office-updates/index.fixtures.js";
-import { BusyWork, OfficeUpdates } from "../../../office-updates/index.js";
 import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
 import { ownProjectsStartedTasks } from "../../../pipelines/index.fixtures.js";
 import { PLANNER } from "../../domain/planning.js";
@@ -45,201 +42,7 @@ import { WorkSettingsForTests } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
 
-/*
- * Tasks walked through their Pipelines by the whole service on the scripted engine and real git: slow
- * scenarios, kept out of tasks.controller.test.ts so neither file holds the run up
- * (apps/service/docs/testing.md).
- */
-
 const run = promisify(execFile);
-
-describe("The queue, through the scripted engine", () => {
-  it(
-    "starts a queued Task by itself once the running one's walk ends Done, through the scripted engine",
-    async () => {
-      const office = await startOffice();
-      try {
-        const pipeline = await office.aPipeline();
-        const first = await office.readyTask(pipeline.id);
-        const second = await office.readyTask(pipeline.id);
-        office.engine.queue(DEVELOPER_SESSION, DEVELOPER_SESSION);
-
-        await office.send("POST", `/tasks/${first.id}/start`);
-        await office.untilState(first.id, "waiting-on-you");
-        const queued = startAnswerSchema.parse(
-          await (await office.send("POST", `/tasks/${second.id}/start`)).json(),
-        );
-        const continued = await office.send("POST", `/tasks/${first.id}/gate/continue`);
-
-        expect(continued.ok).toBe(true);
-        expect(queued.queued?.reasons).toEqual([`${DEVELOPER_NAME} is at the Task limit (1).`]);
-        await office.untilState(first.id, "done");
-        // Released as the first walk ended: the second walks on to its own Gate.
-        await office.untilState(second.id, "waiting-on-you");
-        expect(await office.queue()).toEqual([]);
-        await office.send("POST", `/tasks/${second.id}/drop`);
-      } finally {
-        await office.close();
-      }
-    },
-    REAL_GIT_TEST_MS,
-  );
-});
-
-describe("An Office update, through the scripted engine", () => {
-  it(
-    "waits for a Stage's turn, queues new Starts meanwhile, and not for a Task waiting on you",
-    async () => {
-      const office = await startOffice({ taskLimit: 2 });
-      try {
-        const [newest] = await office.checkout.pushNewer("A newer Office");
-        const pipeline = await office.aPipeline();
-        const first = await office.readyTask(pipeline.id);
-        const second = await office.readyTask(pipeline.id);
-        const ready = vi.fn<() => void>();
-        office.app.get(OfficeUpdates).onReadyToUpdate(ready);
-        const turn = office.holdTurn(first.id);
-        office.engine.queue(DEVELOPER_SESSION);
-
-        await office.send("POST", `/tasks/${first.id}/start`);
-        await turn.started;
-        expect((await office.send("POST", "/office-update/schedule")).status).toBe(204);
-        const queued = startAnswerSchema.parse(
-          await (await office.send("POST", `/tasks/${second.id}/start`)).json(),
-        );
-
-        expect(queued.queued?.reasons).toEqual(["An update is scheduled."]);
-        const scheduled = await officeUpdateOf(office);
-        expect(scheduled.scheduled?.target.commit).toBe(newest);
-        expect(scheduled.scheduled?.busy).toEqual([
-          { kind: "turn", label: `${DEVELOPER_NAME} in the Stage Build` },
-        ]);
-        expect(ready).not.toHaveBeenCalled();
-        turn.release();
-        // At its Gate, Waiting on you: nothing of it is busy.
-        await office.untilState(first.id, "waiting-on-you");
-        await vi.waitFor(() => expect(ready).toHaveBeenCalledOnce());
-        const request = JSON.parse(
-          await readFile(join(office.updateFolder, "request.json"), "utf8"),
-        );
-        expect(request).toEqual({ target: newest });
-        expect((await office.send("DELETE", "/office-update/schedule")).status).toBe(422);
-      } finally {
-        await office.close();
-      }
-    },
-    REAL_GIT_TEST_MS,
-  );
-
-  it(
-    "holds a Task's next Stage at its boundary, and Cancel releases it and the queued Start",
-    async () => {
-      const office = await startOffice({ taskLimit: 2 });
-      // Something else is busy all along, so the update never goes ahead.
-      const endBusy = office.app.get(BusyWork).begin({ kind: "clone", label: "A clone" });
-      try {
-        await office.checkout.pushNewer("A newer Office");
-        const pipeline = await office.aPipeline([
-          developerStage(office, "check", "Check"),
-          REVIEW_GATE,
-        ]);
-        const first = await office.readyTask(pipeline.id);
-        const second = await office.readyTask((await office.aPipeline()).id);
-        const turn = office.holdTurn(first.id);
-        office.engine.queue(DEVELOPER_SESSION, DEVELOPER_SESSION, DEVELOPER_SESSION);
-
-        await office.send("POST", `/tasks/${first.id}/start`);
-        await turn.started;
-        expect((await office.send("POST", "/office-update/schedule")).status).toBe(204);
-        await office.send("POST", `/tasks/${second.id}/start`);
-        turn.release();
-        await vi.waitFor(async () =>
-          expect((await office.stagesOf(first.id))[0]?.runs[0]?.endedAt).toBeTruthy(),
-        );
-        // Long enough for a walk that went on to start its next Stage's run.
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        expect((await office.stagesOf(first.id))[1]?.runs).toEqual([]);
-        expect(await office.queue()).toEqual([second.id]);
-        expect((await office.send("DELETE", "/office-update/schedule")).status).toBe(204);
-        await office.untilState(first.id, "waiting-on-you");
-        await office.untilState(second.id, "waiting-on-you");
-        expect(await office.queue()).toEqual([]);
-      } finally {
-        endBusy();
-        await office.close();
-      }
-    },
-    REAL_GIT_TEST_MS,
-  );
-});
-
-describe("Conflicts at Publish", () => {
-  it(
-    "resolves a conflict at Publish in one merge commit, tests it and waits at a Gate, then fast-forwards the base to it, through the scripted engine",
-    async () => {
-      const office = await startOffice({ taskLimit: 2 });
-      const startToItsGate = async (taskId: string, greeting: string): Promise<void> => {
-        office.engine.queue(DEVELOPER_SESSION);
-        office.engine.editAtStart(taskId, (worktree) =>
-          writeFile(indexIn(worktree), indexWith(greeting)),
-        );
-        expect((await office.send("POST", `/tasks/${taskId}/start`)).ok).toBe(true);
-        await office.untilState(taskId, "waiting-on-you");
-      };
-      const continueGate = async (taskId: string): Promise<void> => {
-        expect((await office.send("POST", `/tasks/${taskId}/gate/continue`)).ok).toBe(true);
-      };
-      try {
-        const pipeline = await office.aPipeline([
-          REVIEW_GATE,
-          { ...PUBLISH, afterConflict: "review" },
-        ]);
-        const first = await office.readyTask(pipeline.id);
-        const second = await office.readyTask(pipeline.id);
-        // Both in progress before either publishes, each changing the same line.
-        await startToItsGate(first.id, "Hello from the first Task.");
-        await startToItsGate(second.id, "Hello from the second Task.");
-        await continueGate(first.id);
-        await office.untilState(first.id, "done");
-        const firstPublished = await gitOut(office.originPath, "rev-parse", "main");
-        let conflicted = "";
-        office.engine.queue(DEVELOPER_SESSION);
-        office.engine.editAtStart(second.id, async (worktree) => {
-          conflicted = await readFile(indexIn(worktree), "utf8");
-          await writeFile(indexIn(worktree), indexWith(RESOLVED_GREETING));
-        });
-
-        await continueGate(second.id);
-
-        await vi.waitFor(
-          async () =>
-            expect(runsByStage(await office.stagesOf(second.id))).toEqual(AT_RESOLVE_GATE),
-          { timeout: 20_000, interval: 100 },
-        );
-        await office.untilState(second.id, "waiting-on-you");
-        expect(conflicted).toContain("<<<<<<<");
-        const branch = `office/${second.id}`;
-        const [merge, ...parents] = (
-          await gitOut(office.repository, "rev-list", "--parents", "--max-count=1", branch)
-        ).split(" ");
-        expect(parents).toHaveLength(2);
-        expect(parents[1]).toBe(firstPublished);
-        expect(await gitOut(office.repository, "show", `${branch}:src/index.ts`)).toBe(
-          indexWith(RESOLVED_GREETING).trim(),
-        );
-
-        await continueGate(second.id);
-        await office.untilState(second.id, "done");
-
-        expect(await gitOut(office.originPath, "rev-parse", "main")).toBe(merge);
-      } finally {
-        await office.close();
-      }
-    },
-    REAL_GIT_TEST_MS,
-  );
-});
 
 const RESOLVED_GREETING = "Hello from both Tasks.";
 
@@ -351,25 +154,12 @@ function holdTurn(engine: EditingEngine, taskId: string): HeldTurn {
   return { started, release };
 }
 
-/** Another Agent Stage of the test's Developer. */
-function developerStage(office: Office, key: string, name: string): object {
-  return {
-    kind: "agent",
-    key,
-    name,
-    optional: false,
-    role: office.developerKey,
-    brief: "Check it.",
-    session: "fresh",
-    budget: 100_000,
-  };
-}
-
-async function officeUpdateOf(office: Office): Promise<OfficeUpdate> {
-  return officeUpdateSchema.parse(await (await office.send("GET", "/office-update")).json());
-}
-
-const REVIEW_GATE = { kind: "gate", key: "review", name: "Review", optional: false } as const;
+const REVIEW_GATE = {
+  kind: "gate",
+  key: "review",
+  name: "Review",
+  optional: false,
+} as const;
 const PUBLISH = {
   kind: "script",
   key: "publish",
@@ -635,3 +425,109 @@ async function aRepository(
 async function gitOut(folder: string, ...gitArguments: string[]): Promise<string> {
   return (await run("git", gitArguments, { cwd: folder })).stdout.trim();
 }
+
+/*
+ * Tasks walked through their Pipelines by the whole service on the scripted engine and real git: slow
+ * scenarios, kept out of tasks.controller.test.ts so neither file holds the run up
+ * (apps/service/docs/testing.md).
+ */
+
+describe("The queue, through the scripted engine", () => {
+  it(
+    "starts a queued Task by itself once the running one's walk ends Done, through the scripted engine",
+    async () => {
+      const office = await startOffice();
+      try {
+        const pipeline = await office.aPipeline();
+        const first = await office.readyTask(pipeline.id);
+        const second = await office.readyTask(pipeline.id);
+        office.engine.queue(DEVELOPER_SESSION, DEVELOPER_SESSION);
+
+        await office.send("POST", `/tasks/${first.id}/start`);
+        await office.untilState(first.id, "waiting-on-you");
+        const queued = startAnswerSchema.parse(
+          await (await office.send("POST", `/tasks/${second.id}/start`)).json(),
+        );
+        const continued = await office.send("POST", `/tasks/${first.id}/gate/continue`);
+
+        expect(continued.ok).toBe(true);
+        expect(queued.queued?.reasons).toEqual([`${DEVELOPER_NAME} is at the Task limit (1).`]);
+        await office.untilState(first.id, "done");
+        // Released as the first walk ended: the second walks on to its own Gate.
+        await office.untilState(second.id, "waiting-on-you");
+        expect(await office.queue()).toEqual([]);
+        await office.send("POST", `/tasks/${second.id}/drop`);
+      } finally {
+        await office.close();
+      }
+    },
+    REAL_GIT_TEST_MS,
+  );
+});
+
+describe("Conflicts at Publish", () => {
+  it(
+    "resolves a conflict at Publish in one merge commit, tests it and waits at a Gate, then fast-forwards the base to it, through the scripted engine",
+    async () => {
+      const office = await startOffice({ taskLimit: 2 });
+      const startToItsGate = async (taskId: string, greeting: string): Promise<void> => {
+        office.engine.queue(DEVELOPER_SESSION);
+        office.engine.editAtStart(taskId, (worktree) =>
+          writeFile(indexIn(worktree), indexWith(greeting)),
+        );
+        expect((await office.send("POST", `/tasks/${taskId}/start`)).ok).toBe(true);
+        await office.untilState(taskId, "waiting-on-you");
+      };
+      const continueGate = async (taskId: string): Promise<void> => {
+        expect((await office.send("POST", `/tasks/${taskId}/gate/continue`)).ok).toBe(true);
+      };
+      try {
+        const pipeline = await office.aPipeline([
+          REVIEW_GATE,
+          { ...PUBLISH, afterConflict: "review" },
+        ]);
+        const first = await office.readyTask(pipeline.id);
+        const second = await office.readyTask(pipeline.id);
+        // Both in progress before either publishes, each changing the same line.
+        await startToItsGate(first.id, "Hello from the first Task.");
+        await startToItsGate(second.id, "Hello from the second Task.");
+        await continueGate(first.id);
+        await office.untilState(first.id, "done");
+        const firstPublished = await gitOut(office.originPath, "rev-parse", "main");
+        let conflicted = "";
+        office.engine.queue(DEVELOPER_SESSION);
+        office.engine.editAtStart(second.id, async (worktree) => {
+          conflicted = await readFile(indexIn(worktree), "utf8");
+          await writeFile(indexIn(worktree), indexWith(RESOLVED_GREETING));
+        });
+
+        await continueGate(second.id);
+
+        await vi.waitFor(
+          async () =>
+            expect(runsByStage(await office.stagesOf(second.id))).toEqual(AT_RESOLVE_GATE),
+          { timeout: 20_000, interval: 100 },
+        );
+        await office.untilState(second.id, "waiting-on-you");
+        expect(conflicted).toContain("<<<<<<<");
+        const branch = `office/${second.id}`;
+        const [merge, ...parents] = (
+          await gitOut(office.repository, "rev-list", "--parents", "--max-count=1", branch)
+        ).split(" ");
+        expect(parents).toHaveLength(2);
+        expect(parents[1]).toBe(firstPublished);
+        expect(await gitOut(office.repository, "show", `${branch}:src/index.ts`)).toBe(
+          indexWith(RESOLVED_GREETING).trim(),
+        );
+
+        await continueGate(second.id);
+        await office.untilState(second.id, "done");
+
+        expect(await gitOut(office.originPath, "rev-parse", "main")).toBe(merge);
+      } finally {
+        await office.close();
+      }
+    },
+    REAL_GIT_TEST_MS,
+  );
+});

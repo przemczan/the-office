@@ -5,8 +5,8 @@
   "scripts": {
     "typecheck": "tsc -p .",
     "build": "vite build",
-    "test:e2e": "playwright test --grep-invert @full",
-    "test:e2e:full": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:full": "playwright test -c playwright.full.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.5",

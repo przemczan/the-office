@@ -47,18 +47,22 @@ test.describe.serial("Sign in with GitHub", () => {
     await api.dispose();
   });
 
-  test("before the App is registered, From GitHub says to register it first", async ({ page }) => {
-    const dialog = await openFromGitHub(page);
+  test(
+    "before the App is registered, From GitHub says to register it first",
+    { tag: "@full" },
+    async ({ page }) => {
+      const dialog = await openFromGitHub(page);
 
-    await expect(
-      dialog.getByRole("heading", { name: "Register the GitHub App first" }),
-    ).toBeVisible();
-    await expect(dialog.getByLabel("Search your repositories")).toBeHidden();
-    await expect(
-      dialog.getByRole("link", { name: "Open Settings › Office identity" }),
-    ).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Use a git URL instead" })).toBeVisible();
-  });
+      await expect(
+        dialog.getByRole("heading", { name: "Register the GitHub App first" }),
+      ).toBeVisible();
+      await expect(dialog.getByLabel("Search your repositories")).toBeHidden();
+      await expect(
+        dialog.getByRole("link", { name: "Open Settings › Office identity" }),
+      ).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Use a git URL instead" })).toBeVisible();
+    },
+  );
 
   test("registering the GitHub App posts its manifest to GitHub and comes back to The Office", async ({
     page,
@@ -90,209 +94,229 @@ test.describe.serial("Sign in with GitHub", () => {
     ).toBeVisible();
   });
 
-  test("signed in, From GitHub lists the repositories Recent first, searched by name, owner and description", async ({
-    page,
-  }) => {
-    await installApp("office-user", [
-      {
-        fullName: "office-user/picked-notes",
-        private: true,
-        pushedAt: "2026-11-05T10:00:00Z",
-        description: "Notes the test picks",
-      },
-      { fullName: "office-user/left-alone", pushedAt: "2026-11-06T10:00:00Z" },
-      {
-        fullName: "office-user/old-attic",
-        pushedAt: "2025-01-01T10:00:00Z",
-        description: "Boxes nobody opens",
-      },
-      { fullName: "office-user/never-served", pushedAt: "2024-06-01T10:00:00Z" },
-    ]);
-    const dialog = await openFromGitHub(page);
-    const list = repositoryList(page);
-    const card = dialog.getByRole("region", { name: /Your repositories/ });
-
-    await expect(list.locator(".github-repository-name")).toHaveText([
-      "left-alone",
-      "picked-notes",
-      "old-attic",
-      "never-served",
-    ]);
-    await expect(card.locator(".github-repositories-count")).toHaveText("4");
-    await expect(
-      card.getByRole("link", { name: "Install the App on more repositories" }),
-    ).toBeVisible();
-    const picked = list.getByRole("button", { name: "office-user/picked-notes" });
-    await expect(picked).toContainText("office-user · main · pushed 5 Nov");
-    await expect(picked).toContainText("Notes the test picks");
-    await expect(picked).toContainText("Private");
-
-    const search = dialog.getByLabel("Search your repositories");
-    await search.fill("NOBODY");
-    await expect(list.locator(".github-repository-name")).toHaveText(["old-attic"]);
-    await expect(list.locator("mark")).toHaveText(["nobody"]);
-    await expect(card.locator(".github-repositories-count")).toHaveText("1 of 4");
-    await search.fill("office-user");
-    await expect(list.getByRole("button")).toHaveCount(4);
-    await search.fill("nothing like it");
-    await expect(card).toContainText("No repository matches “nothing like it”.");
-    await search.fill("");
-    // The search stays put while the rows scroll.
-    const searchTop = (await search.boundingBox())!.y;
-    await list.evaluate((rows) => rows.scrollTo(0, rows.scrollHeight));
-    expect((await search.boundingBox())!.y).toBe(searchTop);
-  });
-
-  test("the list starts loading as the window opens, with the shared loader until it answers", async ({
-    page,
-  }) => {
-    let asked = false;
-    const { held, letGo: answer } = heldBack();
-    await page.route("**/api/github/repositories", async (route) => {
-      asked = true;
-      await held;
-      await route.continue();
-    });
-    await page.goto("/projects");
-    await page.getByRole("button", { name: "Add it yourself" }).click();
-    await expect.poll(() => asked).toBe(true);
-    const dialog = page.getByRole("dialog");
-    await dialog.getByRole("tab", { name: "From GitHub" }).click();
-
-    const loader = dialog.getByRole("status").filter({ hasText: "Loading your repositories…" });
-    await expect(loader).toBeVisible();
-    await expect(dialog.getByLabel("Search your repositories")).toBeVisible();
-    await expect(dialog).not.toContainText("No repository matches");
-    await expect(dialog).not.toContainText("installed on no repository");
-    // Unseen for its first 200ms, then faded in.
-    await expect(loader).toHaveCSS("opacity", "1");
-    for (const colorScheme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme });
-      await page.screenshot({
-        path: path.join(SCREENSHOTS, `${colorScheme}-1280-add-project-loading.png`),
-      });
-    }
-
-    answer();
-    await expect(loader).toBeHidden();
-    await expect(repositoryList(page).getByRole("button").first()).toBeVisible();
-  });
-
-  test("a clone shows its progress in its row, and a failed one its problem there with Try again", async ({
-    page,
-  }) => {
-    const { held, letGo: start } = heldBack();
-    await page.route("**/api/repositories/clones", async (route) => {
-      await held;
-      await route.continue();
-    });
-    await openFromGitHub(page);
-    const list = repositoryList(page);
-    await list.getByRole("button", { name: "office-user/never-served" }).click();
-
-    // Its progress shows in its row while the others wait.
-    const failed = list.getByRole("group", { name: "office-user/never-served" });
-    await expect(failed.getByRole("progressbar")).toBeVisible();
-    await expect(failed).toContainText("Starting the clone");
-    await expect(list.getByRole("button", { name: "office-user/left-alone" })).toBeDisabled();
-    start();
-    await expect(failed.getByRole("alert")).toContainText("The clone failed:");
-    await expect(failed.getByRole("button", { name: "Try again" })).toBeVisible();
-    await expect(list.getByRole("button", { name: "office-user/left-alone" })).toBeEnabled();
-  });
-
-  test("picking a repository clones it in its row, then step 2 adds it with only a name", async ({
-    page,
-  }) => {
-    const repository = await createTemporaryRepository();
-    try {
-      const url = serveRepository(repository, "office-user", "picked-notes");
+  test(
+    "signed in, From GitHub lists the repositories Recent first, searched by name, owner and description",
+    { tag: "@full" },
+    async ({ page }) => {
+      await installApp("office-user", [
+        {
+          fullName: "office-user/picked-notes",
+          private: true,
+          pushedAt: "2026-11-05T10:00:00Z",
+          description: "Notes the test picks",
+        },
+        { fullName: "office-user/left-alone", pushedAt: "2026-11-06T10:00:00Z" },
+        {
+          fullName: "office-user/old-attic",
+          pushedAt: "2025-01-01T10:00:00Z",
+          description: "Boxes nobody opens",
+        },
+        { fullName: "office-user/never-served", pushedAt: "2024-06-01T10:00:00Z" },
+      ]);
       const dialog = await openFromGitHub(page);
-      await repositoryList(page).getByRole("button", { name: "office-user/picked-notes" }).click();
+      const list = repositoryList(page);
+      const card = dialog.getByRole("region", { name: /Your repositories/ });
 
-      const source = dialog.getByRole("group", { name: "Where it is" });
-      await expect(source).toContainText("From GitHub");
-      await expect(source).toContainText("office-user/picked-notes");
-      await expect(source).toContainText("Private");
-      await expect(source).toContainText(/cloned into .*picked-notes/);
-      await expect(dialog.locator(".dialog-bar")).toContainText("Step 2 of 2");
-      await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
-      await expect(dialog.getByLabel("Base branch")).toHaveValue("main");
+      await expect(list.locator(".github-repository-name")).toHaveText([
+        "left-alone",
+        "picked-notes",
+        "old-attic",
+        "never-served",
+      ]);
+      await expect(card.locator(".github-repositories-count")).toHaveText("4");
+      await expect(
+        card.getByRole("link", { name: "Install the App on more repositories" }),
+      ).toBeVisible();
+      const picked = list.getByRole("button", { name: "office-user/picked-notes" });
+      await expect(picked).toContainText("office-user · main · pushed 5 Nov");
+      await expect(picked).toContainText("Notes the test picks");
+      await expect(picked).toContainText("Private");
+
+      const search = dialog.getByLabel("Search your repositories");
+      await search.fill("NOBODY");
+      await expect(list.locator(".github-repository-name")).toHaveText(["old-attic"]);
+      await expect(list.locator("mark")).toHaveText(["nobody"]);
+      await expect(card.locator(".github-repositories-count")).toHaveText("1 of 4");
+      await search.fill("office-user");
+      await expect(list.getByRole("button")).toHaveCount(4);
+      await search.fill("nothing like it");
+      await expect(card).toContainText("No repository matches “nothing like it”.");
+      await search.fill("");
+      // The search stays put while the rows scroll.
+      const searchTop = (await search.boundingBox())!.y;
+      await list.evaluate((rows) => rows.scrollTo(0, rows.scrollHeight));
+      expect((await search.boundingBox())!.y).toBe(searchTop);
+    },
+  );
+
+  test(
+    "the list starts loading as the window opens, with the shared loader until it answers",
+    { tag: "@full" },
+    async ({ page }) => {
+      let asked = false;
+      const { held, letGo: answer } = heldBack();
+      await page.route("**/api/github/repositories", async (route) => {
+        asked = true;
+        await held;
+        await route.continue();
+      });
+      await page.goto("/projects");
+      await page.getByRole("button", { name: "Add it yourself" }).click();
+      await expect.poll(() => asked).toBe(true);
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("tab", { name: "From GitHub" }).click();
+
+      const loader = dialog.getByRole("status").filter({ hasText: "Loading your repositories…" });
+      await expect(loader).toBeVisible();
+      await expect(dialog.getByLabel("Search your repositories")).toBeVisible();
+      await expect(dialog).not.toContainText("No repository matches");
+      await expect(dialog).not.toContainText("installed on no repository");
+      // Unseen for its first 200ms, then faded in.
+      await expect(loader).toHaveCSS("opacity", "1");
       for (const colorScheme of ["light", "dark"] as const) {
         await page.emulateMedia({ colorScheme });
         await page.screenshot({
-          path: path.join(SCREENSHOTS, `${colorScheme}-1280-add-project-step-2.png`),
+          path: path.join(SCREENSHOTS, `${colorScheme}-1280-add-project-loading.png`),
         });
       }
-      await page.emulateMedia({ colorScheme: "light" });
 
-      // Change forgets the clone; picking again clones again.
-      await source.getByRole("button", { name: "Change" }).click();
-      await expect(dialog.locator(".dialog-bar")).toContainText("Step 1 of 2");
-      await repositoryList(page).getByRole("button", { name: "office-user/picked-notes" }).click();
-      await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
-      await expect(dialog).toContainText(
-        "Optional. Leave any you don't know yet: set them later on the Project's page, or ask Devops.",
-      );
-      // A name is enough: the commands are left for later.
-      await dialog.getByLabel("Name").fill("Picked notes");
-      await dialog.getByRole("button", { name: "Add the Project" }).click();
+      answer();
+      await expect(loader).toBeHidden();
+      await expect(repositoryList(page).getByRole("button").first()).toBeVisible();
+    },
+  );
 
-      await expect(page).toHaveURL(/\/projects\/picked-notes$/);
-      await expect(page.getByText(url)).toBeVisible();
-      await page.goto("/projects/picked-notes/commands");
-      const commandLines = page.locator(".command-row").filter({ hasNot: page.getByText("None") });
-      await expect(commandLines.locator(".command-empty")).toHaveText([
-        "Not set",
-        "Not set",
-        "Not set",
-        "Not set",
-      ]);
-      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1280-commands-not-set.png") });
-      await page.getByRole("button", { name: "Change the test command" }).click();
-      await page.getByLabel("Test command").fill("npm test");
-      await page.keyboard.press("Enter");
-      await expect(page.locator(".command-line")).toHaveText(["npm test"]);
-    } finally {
-      await repository.remove();
-    }
-  });
-
-  test("a repository already added shows its Project, can't be picked, and sits at the end", async ({
-    page,
-  }) => {
-    const dialog = await openFromGitHub(page);
-    const list = repositoryList(page);
-
-    await expect(list.locator(".github-repository-name").last()).toHaveText("picked-notes");
-    const added = list.getByRole("group", { name: "office-user/picked-notes" });
-    await expect(added).toContainText("Already added, as the Project Picked notes.");
-    await expect(added).toContainText("Added");
-    await expect(list.getByRole("button", { name: "office-user/picked-notes" })).toHaveCount(0);
-    await expect(list.locator(".github-repositories-group")).toHaveText("Already added");
-    for (const colorScheme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme });
-      await page.screenshot({
-        path: path.join(SCREENSHOTS, `${colorScheme}-1280-add-project-from-github.png`),
+  test(
+    "a clone shows its progress in its row, and a failed one its problem there with Try again",
+    { tag: "@full" },
+    async ({ page }) => {
+      const { held, letGo: start } = heldBack();
+      await page.route("**/api/repositories/clones", async (route) => {
+        await held;
+        await route.continue();
       });
-    }
+      await openFromGitHub(page);
+      const list = repositoryList(page);
+      await list.getByRole("button", { name: "office-user/never-served" }).click();
 
-    await dialog.getByLabel("Search your repositories").fill("notes");
-    await expect(list.locator(".github-repository-name")).toHaveText(["picked-notes"]);
-    await expect(list.locator(".github-repositories-group")).toHaveText("Already added");
-  });
+      // Its progress shows in its row while the others wait.
+      const failed = list.getByRole("group", { name: "office-user/never-served" });
+      await expect(failed.getByRole("progressbar")).toBeVisible();
+      await expect(failed).toContainText("Starting the clone");
+      await expect(list.getByRole("button", { name: "office-user/left-alone" })).toBeDisabled();
+      start();
+      await expect(failed.getByRole("alert")).toContainText("The clone failed:");
+      await expect(failed.getByRole("button", { name: "Try again" })).toBeVisible();
+      await expect(list.getByRole("button", { name: "office-user/left-alone" })).toBeEnabled();
+    },
+  );
 
-  test("From GitHub holds together at 600 wide, nothing scrolling sideways", async ({ page }) => {
-    await page.setViewportSize({ width: 600, height: 800 });
-    const dialog = await openFromGitHub(page);
-    await expect(repositoryList(page).getByRole("button").first()).toBeVisible();
+  test(
+    "picking a repository clones it in its row, then step 2 adds it with only a name",
+    { tag: "@full" },
+    async ({ page }) => {
+      const repository = await createTemporaryRepository();
+      try {
+        const url = serveRepository(repository, "office-user", "picked-notes");
+        const dialog = await openFromGitHub(page);
+        await repositoryList(page)
+          .getByRole("button", { name: "office-user/picked-notes" })
+          .click();
 
-    const body = dialog.locator(".dialog-body");
-    expect(await body.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0);
-    await page.screenshot({
-      path: path.join(SCREENSHOTS, "light-600-add-project-from-github.png"),
-    });
-  });
+        const source = dialog.getByRole("group", { name: "Where it is" });
+        await expect(source).toContainText("From GitHub");
+        await expect(source).toContainText("office-user/picked-notes");
+        await expect(source).toContainText("Private");
+        await expect(source).toContainText(/cloned into .*picked-notes/);
+        await expect(dialog.locator(".dialog-bar")).toContainText("Step 2 of 2");
+        await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
+        await expect(dialog.getByLabel("Base branch")).toHaveValue("main");
+        for (const colorScheme of ["light", "dark"] as const) {
+          await page.emulateMedia({ colorScheme });
+          await page.screenshot({
+            path: path.join(SCREENSHOTS, `${colorScheme}-1280-add-project-step-2.png`),
+          });
+        }
+        await page.emulateMedia({ colorScheme: "light" });
+
+        // Change forgets the clone; picking again clones again.
+        await source.getByRole("button", { name: "Change" }).click();
+        await expect(dialog.locator(".dialog-bar")).toContainText("Step 1 of 2");
+        await repositoryList(page)
+          .getByRole("button", { name: "office-user/picked-notes" })
+          .click();
+        await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
+        await expect(dialog).toContainText(
+          "Optional. Leave any you don't know yet: set them later on the Project's page, or ask Devops.",
+        );
+        // A name is enough: the commands are left for later.
+        await dialog.getByLabel("Name").fill("Picked notes");
+        await dialog.getByRole("button", { name: "Add the Project" }).click();
+
+        await expect(page).toHaveURL(/\/projects\/picked-notes$/);
+        await expect(page.getByText(url)).toBeVisible();
+        await page.goto("/projects/picked-notes/commands");
+        const commandLines = page
+          .locator(".command-row")
+          .filter({ hasNot: page.getByText("None") });
+        await expect(commandLines.locator(".command-empty")).toHaveText([
+          "Not set",
+          "Not set",
+          "Not set",
+          "Not set",
+        ]);
+        await page.screenshot({ path: path.join(SCREENSHOTS, "light-1280-commands-not-set.png") });
+        await page.getByRole("button", { name: "Change the test command" }).click();
+        await page.getByLabel("Test command").fill("npm test");
+        await page.keyboard.press("Enter");
+        await expect(page.locator(".command-line")).toHaveText(["npm test"]);
+      } finally {
+        await repository.remove();
+      }
+    },
+  );
+
+  test(
+    "a repository already added shows its Project, can't be picked, and sits at the end",
+    { tag: "@full" },
+    async ({ page }) => {
+      const dialog = await openFromGitHub(page);
+      const list = repositoryList(page);
+
+      await expect(list.locator(".github-repository-name").last()).toHaveText("picked-notes");
+      const added = list.getByRole("group", { name: "office-user/picked-notes" });
+      await expect(added).toContainText("Already added, as the Project Picked notes.");
+      await expect(added).toContainText("Added");
+      await expect(list.getByRole("button", { name: "office-user/picked-notes" })).toHaveCount(0);
+      await expect(list.locator(".github-repositories-group")).toHaveText("Already added");
+      for (const colorScheme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme });
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${colorScheme}-1280-add-project-from-github.png`),
+        });
+      }
+
+      await dialog.getByLabel("Search your repositories").fill("notes");
+      await expect(list.locator(".github-repository-name")).toHaveText(["picked-notes"]);
+      await expect(list.locator(".github-repositories-group")).toHaveText("Already added");
+    },
+  );
+
+  test(
+    "From GitHub holds together at 600 wide, nothing scrolling sideways",
+    { tag: "@full" },
+    async ({ page }) => {
+      await page.setViewportSize({ width: 600, height: 800 });
+      const dialog = await openFromGitHub(page);
+      await expect(repositoryList(page).getByRole("button").first()).toBeVisible();
+
+      const body = dialog.locator(".dialog-body");
+      expect(await body.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-600-add-project-from-github.png"),
+      });
+    },
+  );
 
   test("signing out forgets who was signed in", async ({ page }) => {
     await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
@@ -302,45 +326,53 @@ test.describe.serial("Sign in with GitHub", () => {
     await expect(page.getByText("Signed in as")).toBeHidden();
   });
 
-  test("signed out, From GitHub says to sign in, with Settings and a git URL instead", async ({
-    page,
-  }) => {
-    const dialog = await openFromGitHub(page);
+  test(
+    "signed out, From GitHub says to sign in, with Settings and a git URL instead",
+    { tag: "@full" },
+    async ({ page }) => {
+      const dialog = await openFromGitHub(page);
 
-    await expect(dialog.getByRole("heading", { name: "Sign in with GitHub first" })).toBeVisible();
-    await expect(dialog.getByLabel("Search your repositories")).toBeHidden();
-    await expect(repositoryList(page)).toBeHidden();
-    await dialog.getByRole("button", { name: "Use a git URL instead" }).click();
-    await expect(dialog.getByLabel("Repository URL")).toBeVisible();
-    await dialog.getByRole("tab", { name: "From GitHub" }).click();
-    await dialog.getByRole("link", { name: "Open Settings › Office identity" }).click();
+      await expect(
+        dialog.getByRole("heading", { name: "Sign in with GitHub first" }),
+      ).toBeVisible();
+      await expect(dialog.getByLabel("Search your repositories")).toBeHidden();
+      await expect(repositoryList(page)).toBeHidden();
+      await dialog.getByRole("button", { name: "Use a git URL instead" }).click();
+      await expect(dialog.getByLabel("Repository URL")).toBeVisible();
+      await dialog.getByRole("tab", { name: "From GitHub" }).click();
+      await dialog.getByRole("link", { name: "Open Settings › Office identity" }).click();
 
+      await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
+    },
+  );
+});
+
+test(
+  "why registering or signing in failed is shown until dismissed",
+  { tag: "@full" },
+  async ({ page }) => {
+    // Where GitHub's return lands the browser when The Office couldn't finish either.
+    const failures = new URLSearchParams({
+      [GITHUB_APP_REGISTRATION_FAILED_PARAMETER]: "GitHub's code expired.",
+      [GITHUB_SIGN_IN_FAILED_PARAMETER]: "You cancelled on GitHub's page.",
+    });
+    await page.goto(`${OFFICE_IDENTITY_SETTINGS_PATH}?${failures}`);
+
+    const registration = page.getByRole("status").filter({ hasText: "wasn't registered" });
+    const signIn = page.getByRole("status").filter({ hasText: "Signing in with GitHub failed" });
+    await expect(registration).toContainText("GitHub's code expired.");
+    await expect(signIn).toContainText("You cancelled on GitHub's page.");
+
+    await registration.getByRole("button", { name: "Dismiss" }).click();
+    await expect(registration).toBeHidden();
+    await signIn.getByRole("button", { name: "Dismiss" }).click();
+
+    await expect(signIn).toBeHidden();
     await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
-  });
-});
+  },
+);
 
-test("why registering or signing in failed is shown until dismissed", async ({ page }) => {
-  // Where GitHub's return lands the browser when The Office couldn't finish either.
-  const failures = new URLSearchParams({
-    [GITHUB_APP_REGISTRATION_FAILED_PARAMETER]: "GitHub's code expired.",
-    [GITHUB_SIGN_IN_FAILED_PARAMETER]: "You cancelled on GitHub's page.",
-  });
-  await page.goto(`${OFFICE_IDENTITY_SETTINGS_PATH}?${failures}`);
-
-  const registration = page.getByRole("status").filter({ hasText: "wasn't registered" });
-  const signIn = page.getByRole("status").filter({ hasText: "Signing in with GitHub failed" });
-  await expect(registration).toContainText("GitHub's code expired.");
-  await expect(signIn).toContainText("You cancelled on GitHub's page.");
-
-  await registration.getByRole("button", { name: "Dismiss" }).click();
-  await expect(registration).toBeHidden();
-  await signIn.getByRole("button", { name: "Dismiss" }).click();
-
-  await expect(signIn).toBeHidden();
-  await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
-});
-
-test.describe("the Office ssh key", () => {
+test.describe("the Office ssh key", { tag: "@full" }, () => {
   test.use({ permissions: ["clipboard-read", "clipboard-write"] });
 
   test("its public half is masked until shown, copied whole either way, never its private half", async ({
@@ -402,34 +434,36 @@ test.describe("the Office ssh key", () => {
   });
 });
 
-test("an Unconfirmed host becomes a Trusted host once its fingerprint is confirmed", async ({
-  page,
-}) => {
-  // Cloning from an ssh host The Office doesn't trust makes it an Unconfirmed host; `.invalid`
-  // never resolves, so the clone itself fails.
-  const host = "unconfirmed.invalid:2222";
-  await page.request.post("/api/repositories/clones", {
-    data: { url: `ssh://git@${host}/office/notes.git` },
-  });
-  await expect
-    .poll(async () => {
-      const knownHosts = knownHostsSchema.parse(
-        await (await page.request.get("/api/office-identity/known-hosts")).json(),
-      );
-      return knownHosts.unconfirmed.map((each) => `${each.host}:${each.port}`);
-    })
-    .toContain(host);
-  await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+test(
+  "an Unconfirmed host becomes a Trusted host once its fingerprint is confirmed",
+  { tag: "@full" },
+  async ({ page }) => {
+    // Cloning from an ssh host The Office doesn't trust makes it an Unconfirmed host; `.invalid`
+    // never resolves, so the clone itself fails.
+    const host = "unconfirmed.invalid:2222";
+    await page.request.post("/api/repositories/clones", {
+      data: { url: `ssh://git@${host}/office/notes.git` },
+    });
+    await expect
+      .poll(async () => {
+        const knownHosts = knownHostsSchema.parse(
+          await (await page.request.get("/api/office-identity/known-hosts")).json(),
+        );
+        return knownHosts.unconfirmed.map((each) => `${each.host}:${each.port}`);
+      })
+      .toContain(host);
+    await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
 
-  const unconfirmed = page.getByRole("listitem", { name: host, exact: true });
-  await unconfirmed.getByRole("button", { name: "Scan" }).click();
-  await expect(unconfirmed).toContainText(E2E_HOST_KEY_FINGERPRINT);
-  await unconfirmed.getByRole("button", { name: "Confirm fingerprint" }).click();
+    const unconfirmed = page.getByRole("listitem", { name: host, exact: true });
+    await unconfirmed.getByRole("button", { name: "Scan" }).click();
+    await expect(unconfirmed).toContainText(E2E_HOST_KEY_FINGERPRINT);
+    await unconfirmed.getByRole("button", { name: "Confirm fingerprint" }).click();
 
-  // Other tests' remotes may still be listed, so only this host's Scan is expected to go.
-  await expect(unconfirmed.getByRole("button", { name: "Scan" })).toBeHidden();
-  const trusted = page.getByRole("listitem", { name: host, exact: true });
-  await expect(trusted.getByRole("list", { name: `Fingerprints of ${host}` })).toHaveText(
-    E2E_HOST_KEY_FINGERPRINT,
-  );
-});
+    // Other tests' remotes may still be listed, so only this host's Scan is expected to go.
+    await expect(unconfirmed.getByRole("button", { name: "Scan" })).toBeHidden();
+    const trusted = page.getByRole("listitem", { name: host, exact: true });
+    await expect(trusted.getByRole("list", { name: `Fingerprints of ${host}` })).toHaveText(
+      E2E_HOST_KEY_FINGERPRINT,
+    );
+  },
+);

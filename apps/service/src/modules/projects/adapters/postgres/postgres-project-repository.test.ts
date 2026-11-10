@@ -1,17 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
-import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import {
-  asProjectChanges,
-  changeCommand,
-  changeCommandsAsProposed,
-  changeImage,
-} from "../../domain/project-changes.js";
+import { asProjectChanges, changeCommand } from "../../domain/project-changes.js";
 import { aProject } from "../../domain/project.fixtures.js";
-import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { PostgresProjectRepository } from "./postgres-project-repository.js";
 
 let app: INestApplication;
@@ -43,95 +35,7 @@ describe("PostgresProjectRepository", () => {
     await expect(repository.find(project.id)).resolves.toEqual(project);
   });
 
-  it("keeps the Project's engine levels", async () => {
-    const project = {
-      ...aProjectOfItsOwn(),
-      projectDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
-      useForEveryRole: true,
-      roleOverrides: [
-        { roleKey: "cto", engineId: "claude-code", model: "claude-opus-5-5" },
-        { roleKey: "reviewer", engineId: "strata", model: "qwen3-coder" },
-      ],
-    };
-
-    await repository.add(project);
-
-    await expect(repository.find(project.id)).resolves.toEqual(project);
-  });
-
-  it("keeps the skills the Project turned off", async () => {
-    const project = { ...aProjectOfItsOwn(), projectSkillsOff: ["deploy", "frontend:notes"] };
-
-    await repository.add(project);
-
-    await expect(repository.find(project.id)).resolves.toEqual(project);
-  });
-
-  it("keeps the Project limit", async () => {
-    const project = { ...aProjectOfItsOwn(), projectLimit: 4 };
-
-    await repository.add(project);
-
-    await expect(repository.find(project.id)).resolves.toEqual(project);
-  });
-
-  it("reads a Project limit of 1 for a Project saved without one, as those added before it were", async () => {
-    const id = `project-${randomUUID()}`;
-    await app.get<Database>(DATABASE).execute(sql`
-      insert into projects (id, name, path, base_branch, mark_label, mark_colour, install_command,
-        build_command, lint_command, test_command, publishing_mode, default_pipeline,
-        use_project_skills, added_at)
-      values (${id}, 'Older', '/work/older', 'main', 'OL', 'teal', 'npm ci', 'npm run build',
-        'npm run lint', 'npm test', 'merge', 'full', true, now())`);
-
-    expect((await repository.find(id))?.projectLimit).toBe(1);
-  });
-
-  it("lists Projects in the order they were added", async () => {
-    const earlier = aProjectOfItsOwn();
-    const later = { ...aProjectOfItsOwn(), addedAt: new Date(earlier.addedAt.getTime() + 1000) };
-    await repository.add(later);
-    await repository.add(earlier);
-
-    const ids = (await repository.list()).map((project) => project.id);
-
-    expect(ids.filter((id) => id === earlier.id || id === later.id)).toEqual([
-      earlier.id,
-      later.id,
-    ]);
-  });
-
-  it("finds nothing for an id it doesn't have", async () => {
-    await expect(repository.find("nowhere")).resolves.toBeUndefined();
-  });
-
   describe("update", () => {
-    it("saves the changes kept together whole and returns them", async () => {
-      const project = aProjectOfItsOwn();
-      await repository.add(project);
-
-      const changes = await repository.update(project.id, (stored) =>
-        changeCommandsAsProposed(
-          stored,
-          { test: stored.commands.test, lint: stored.commands.lint },
-          { test: "npm test -- --run", lint: "oxlint" },
-        ),
-      );
-
-      expect(changes.events).toHaveLength(2);
-      await expect(repository.find(project.id)).resolves.toEqual(changes.project);
-      expect(changes.project.commands).toMatchObject({ test: "npm test -- --run", lint: "oxlint" });
-    });
-
-    it("returns the Project as stored when nothing changes", async () => {
-      const project = aProjectOfItsOwn();
-      await repository.add(project);
-
-      await expect(
-        repository.update(project.id, (stored) => ({ project: stored, events: [] })),
-      ).resolves.toEqual({ project, events: [] });
-    });
-
     it("loses neither of two changes made at once", async () => {
       const project = aProjectOfItsOwn();
       await repository.add(project);
@@ -148,27 +52,5 @@ describe("PostgresProjectRepository", () => {
       const stored = await repository.find(project.id);
       expect(stored?.commands).toMatchObject({ test: "vitest run", lint: "oxlint" });
     });
-
-    it("refuses a Project it doesn't have", async () => {
-      await expect(
-        repository.update("nowhere", (stored) => ({ project: stored, events: [] })),
-      ).rejects.toEqual(new ProjectNotFound("nowhere"));
-    });
-  });
-
-  it("keeps an image, and clears it again, leaving the Project with none", async () => {
-    const project = aProject({ id: randomUUID() });
-    await repository.add(project);
-    const icon = { id: randomUUID(), mediaType: "image/webp" } as const;
-
-    await repository.update(project.id, (stored) =>
-      asProjectChanges(stored, changeImage(stored, "icon", icon)),
-    );
-    expect(await repository.find(project.id)).toMatchObject({ icon, logo: null });
-
-    await repository.update(project.id, (stored) =>
-      asProjectChanges(stored, changeImage(stored, "icon", null)),
-    );
-    expect(await repository.find(project.id)).toMatchObject({ icon: null, logo: null });
   });
 });

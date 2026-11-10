@@ -1,46 +1,25 @@
-import { execFile } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../office-data/office-data-directory.js";
 import { GitCredentialHelper } from "./git-credential-helper.js";
-import { GitHubUserToken } from "./github-user-token.js";
 import { IdentityFolder } from "./identity-folder.js";
 import { OfficeGitHome } from "./office-git-home.js";
-import { NoHostKeyScanner, officeIdentityForTests } from "./office-identity.fixtures.js";
+import { NoHostKeyScanner } from "./office-identity.fixtures.js";
 import { OfficeIdentity, type GitCommandIdentity } from "./office-identity.js";
 import { OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
 import { startTokenGitServer, type TokenGitServer } from "./token-git-server.fixtures.js";
 import { userCredentials, type UserCredentials } from "./user-credentials.fixtures.js";
-
-const run = promisify(execFile);
-const TOKEN = "ghu_office-test-token-0123456789";
-const COMMIT_AS = ["-c", "user.name=Test", "-c", "user.email=test@example.test"];
-
-/** The github module's access as a test sets it: signed in or not, and what the token read does. */
-class TestUserToken extends GitHubUserToken {
-  signedIn = true;
-  read: () => Promise<string | undefined> = () => Promise.resolve(TOKEN);
-  reads = 0;
-  /** Nothing listens on the discard port, so a test that reaches GitHub's list unasked fails. */
-  readonly apiUrl = "http://127.0.0.1:9";
-
-  constructor(readonly webUrl: string) {
-    super();
-  }
-
-  isSignedIn(): Promise<boolean> {
-    return Promise.resolve(this.signedIn);
-  }
-
-  userToken(): Promise<string | undefined> {
-    this.reads += 1;
-    return this.read();
-  }
-}
+import {
+  TOKEN,
+  COMMIT_AS,
+  TestUserToken,
+  bareRepositoryWithOneCommit,
+  basic,
+  gitCommand,
+} from "./office-identity-github.fixtures.js";
 
 describe("OfficeIdentity, GitHub over https with Sign in with GitHub", { timeout: 60_000 }, () => {
   let folder: string;
@@ -131,54 +110,6 @@ describe("OfficeIdentity, GitHub over https with Sign in with GitHub", { timeout
     expect(JSON.stringify(pushed.identity)).not.toContain(TOKEN);
   });
 
-  it("decides that a remote is on GitHub by GitHub's website, as the token is given", async () => {
-    const elsewhere = officeIdentityForTests(
-      join(folder, "office"),
-      new TestUserToken("https://github.example.test"),
-    );
-
-    expect(await elsewhere.needsOf("https://github.example.test/octo/repo.git")).toEqual({
-      kind: "github-https",
-      missing: [],
-    });
-    expect(await elsewhere.needsOf("https://github.com/octo/repo.git")).toEqual({
-      kind: "anonymous-https",
-      host: "github.com",
-    });
-  });
-
-  it("is reached anonymously while signed out, without reading the token", async () => {
-    userToken.signedIn = false;
-
-    const { exitCode, stderr } = await onIdentity(["ls-remote", remote]);
-
-    expect(exitCode).not.toBe(0);
-    expect(stderr).toMatch(/terminal prompts disabled/);
-    expect(userToken.reads).toBe(0);
-    expect(server.authorizations).not.toContain(basic(TOKEN));
-  });
-
-  it("fails the command with the reason when the token can't be had", async () => {
-    userToken.read = () =>
-      Promise.reject(
-        new Error("GitHub couldn't be reached. The GitHub token couldn't be renewed."),
-      );
-
-    const { exitCode, stderr } = await onIdentity(["ls-remote", remote]);
-
-    expect(exitCode).not.toBe(0);
-    expect(stderr).toContain("The GitHub token couldn't be renewed.");
-  });
-
-  it("says Sign in with GitHub ended when a refresh signed the user out", async () => {
-    userToken.read = () => Promise.resolve(undefined);
-
-    const { exitCode, stderr } = await onIdentity(["ls-remote", remote]);
-
-    expect(exitCode).not.toBe(0);
-    expect(stderr).toContain("Settings › Office identity");
-  });
-
   it("gives nothing to a host other than GitHub, nor once the command has exited", async () => {
     const grant = await helper.grant(server.origin, () =>
       Promise.resolve({ kind: "token", token: TOKEN }),
@@ -201,37 +132,3 @@ describe("OfficeIdentity, GitHub over https with Sign in with GitHub", { timeout
     expect(released.status).toBe(403);
   });
 });
-
-async function bareRepositoryWithOneCommit(bare: string, seed: string): Promise<void> {
-  await gitCommand(["init", "-q", "--bare", bare], process.env);
-  await gitCommand(["init", "-q", seed], process.env);
-  await writeFile(join(seed, "README.md"), "seed\n");
-  await gitCommand(["-C", seed, "add", "README.md"], process.env);
-  await gitCommand(["-C", seed, ...COMMIT_AS, "commit", "-qm", "Seed"], process.env);
-  await gitCommand(["-C", seed, "push", "-q", bare, "HEAD:refs/heads/main"], process.env);
-  await gitCommand(["-C", bare, "symbolic-ref", "HEAD", "refs/heads/main"], process.env);
-}
-
-function basic(token: string): string {
-  return `Basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`;
-}
-
-async function gitCommand(
-  gitArguments: readonly string[],
-  environment: Readonly<Record<string, string | undefined>>,
-): Promise<{ exitCode: number; stderr: string }> {
-  return run("git", [...gitArguments], {
-    env: environment,
-    // Outside any repository: git reads the one it finds in its working directory, and a worktree's
-    // .git can point where a run environment doesn't mount.
-    cwd: tmpdir(),
-    timeout: 30_000,
-    windowsHide: true,
-  }).then(
-    ({ stderr }) => ({ exitCode: 0, stderr }),
-    (error: { code?: number; stderr?: string }) => ({
-      exitCode: error.code ?? -1,
-      stderr: error.stderr ?? "",
-    }),
-  );
-}

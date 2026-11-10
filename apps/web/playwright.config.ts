@@ -9,7 +9,8 @@ const PORT = 4390;
 // Chromiums beside the service exhaust its CPU and memory and the tests time out.
 const WORKERS = Math.max(1, Math.floor(availableParallelism() / 2));
 
-export default defineConfig({
+// Every test, run by `npm run test:e2e:full` through playwright.full.config.ts.
+export const fullRun = defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
   outputDir: "e2e-results/artifacts",
@@ -49,3 +50,7 @@ export default defineConfig({
     stdout: "ignore",
   },
 });
+
+// The default run leaves out the tests tagged @full. It is set here, not as --grep-invert, which
+// Playwright doesn't apply to a project others depend on (chromium, before queue and updates).
+export default defineConfig({ ...fullRun, grepInvert: /@full/ });

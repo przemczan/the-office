@@ -1,0 +1,248 @@
+import { describe, expect, it } from "vitest";
+import { APPROVAL_OPTIONS, approvalQuestion } from "./consult.js";
+import { DecisionAnswered, DecisionReopened } from "./conversation-events.js";
+import { answerProblems, answerWords, decisionProblems, type Decision } from "./decision.js";
+import { decisionAnswerMessage } from "./session-instructions.js";
+import {
+  answerDecision,
+  failDecisionAnswer,
+  openDecision,
+  passDecisionOn,
+} from "./thread-changes.js";
+import { aThread } from "./thread.fixtures.js";
+import { aDecision, AT, TASK_HOME, SESSION, DRAFT, WARM, refusalOf } from "./decision.fixtures.js";
+
+describe("what an Agent asks in a Decision", () => {
+  it("is a question with two or more named options, one of them recommended with a reason", () => {
+    expect(decisionProblems(DRAFT)).toEqual([]);
+  });
+
+  it("is refused with every problem at once", () => {
+    expect(
+      decisionProblems({
+        question: " ",
+        context: "",
+        options: ["Yes"],
+        recommendation: { option: 3, reason: "" },
+      }),
+    ).toEqual([
+      "Write the question.",
+      "Give the user at least two options.",
+      "Recommend one of the options.",
+      "Say why you recommend it.",
+    ]);
+    expect(
+      decisionProblems({
+        ...DRAFT,
+        options: ["Every Project", "every project ", ""],
+      }),
+    ).toEqual(["Name every option.", "Give each option a name of its own."]);
+  });
+});
+
+describe("the user's answer", () => {
+  const decision = aDecision();
+
+  it("is one of the options or a free answer, in words", () => {
+    expect(answerProblems(decision, { kind: "option", option: 1 })).toEqual([]);
+    expect(answerProblems(decision, { kind: "option", option: 2 })).toEqual([
+      "Choose one of the Decision's options.",
+    ]);
+    expect(answerProblems(decision, { kind: "free-answer", text: "  " })).toEqual([
+      "Write your answer first.",
+    ]);
+    expect(answerWords(decision, { kind: "option", option: 1 })).toBe("Every Project");
+    expect(answerWords(decision, { kind: "free-answer", text: " Only this year's. " })).toBe(
+      "Only this year's.",
+    );
+  });
+
+  it("reaches the asking session with the question", () => {
+    expect(decisionAnswerMessage(decision, { kind: "option", option: 0 })).toBe(
+      'The user answered your Decision "Should the export include archived Projects?" with the option "Only active Projects".',
+    );
+    expect(
+      decisionAnswerMessage(decision, { kind: "free-answer", text: "Ask me next week." }),
+    ).toBe(
+      'The user answered your Decision "Should the export include archived Projects?" in their own words:\n\nAsk me next week.',
+    );
+  });
+});
+
+describe("opening a Decision", () => {
+  it("is refused in a chat, while another waits, and with what is asked wrong", () => {
+    const opening = { ...DRAFT, id: "decision-2", askedAt: AT };
+
+    expect(refusalOf(() => openDecision(aThread({ session: SESSION }), opening))).toEqual([
+      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+    ]);
+    const waiting = aThread({ home: TASK_HOME, openDecision: aDecision() });
+    expect(refusalOf(() => openDecision(waiting, opening))).toEqual([
+      'Your Decision "Should the export include archived Projects?" still waits on the user. End your turn: their answer comes as your next message.',
+    ]);
+    expect(
+      refusalOf(() => openDecision(aThread({ home: TASK_HOME }), { ...opening, options: [] })),
+    ).toEqual(["Give the user at least two options.", "Recommend one of the options."]);
+  });
+
+  it("names the Task's Attachments it is about, each once", () => {
+    const { decision } = openDecision(aThread({ home: TASK_HOME }), {
+      ...DRAFT,
+      id: "decision-3",
+      askedAt: AT,
+      attachmentIds: ["screenshot", "report", "screenshot"],
+      attachmentsOfTheTask: ["report", "screenshot", "notes"],
+    });
+
+    expect(decision?.attachmentIds).toEqual(["screenshot", "report"]);
+  });
+
+  it("is refused for an Attachment that isn't the Task's", () => {
+    const opening = {
+      ...DRAFT,
+      id: "decision-4",
+      askedAt: AT,
+      attachmentIds: ["screenshot", "of-another-task"],
+      attachmentsOfTheTask: ["screenshot"],
+    };
+
+    expect(refusalOf(() => openDecision(aThread({ home: TASK_HOME }), opening))).toEqual([
+      "A Decision names Attachments of its own Task only, and these aren't: of-another-task.",
+    ]);
+  });
+});
+
+describe("answering a Decision", () => {
+  const open = aDecision({ id: "decision-1" });
+  const waiting = aThread({ home: TASK_HOME, session: SESSION, openDecision: open });
+  const answering = {
+    personName: "Jan",
+    decision: WARM,
+    newSession: undefined,
+    brief: "The record.",
+    decisionId: "decision-1",
+    answer: { kind: "free-answer", text: "Only this year's." },
+    messageId: "message-1",
+    answeredAt: AT,
+  } as const;
+
+  it("logs the answer, closes the Decision and has the person take it", () => {
+    const answered = answerDecision(waiting, answering);
+
+    const decision: Decision = {
+      ...open,
+      answer: { kind: "free-answer", text: "Only this year's.", answeredAt: AT },
+    };
+    expect(answered.decision).toEqual(decision);
+    expect(answered.thread).toMatchObject({ state: "answering", openDecision: undefined });
+    expect(answered.logged).toEqual([
+      {
+        kind: "decision-answer",
+        id: "message-1",
+        threadId: waiting.id,
+        at: AT,
+        decisionId: "decision-1",
+        answer: { kind: "free-answer", text: "Only this year's." },
+      },
+    ]);
+    expect(answered.event).toEqual(new DecisionAnswered(answered.thread, decision, AT));
+  });
+
+  it("logs the move first when the session doesn't simply continue warm", () => {
+    const cold = { ...WARM, move: "fresh", reason: "cache-expired", cacheWarm: false } as const;
+
+    const answered = answerDecision(waiting, { ...answering, decision: cold });
+
+    expect(answered.logged.map(({ kind }) => kind)).toEqual(["context", "decision-answer"]);
+  });
+});
+
+describe("an answer that never reached a session", () => {
+  const answered = aDecision({
+    id: "decision-1",
+    answer: { kind: "option", option: 1, answeredAt: AT },
+  });
+  const failing = aThread({ home: TASK_HOME, state: "answering", session: SESSION });
+
+  it("opens the Decision again, unanswered, logging why the session didn't start", () => {
+    const reopened = failDecisionAnswer(failing, answered, "The engine is down.", AT);
+
+    const decision: Decision = { ...answered, answer: undefined };
+    expect(reopened.decision).toEqual(decision);
+    expect(reopened.thread).toMatchObject({ state: "waiting", openDecision: decision });
+    expect(reopened.logged).toEqual([
+      {
+        kind: "failure",
+        id: expect.any(String),
+        threadId: failing.id,
+        at: AT,
+        reason: "The engine is down.",
+      },
+    ]);
+    expect(reopened.event).toEqual(new DecisionReopened(reopened.thread, decision, AT));
+  });
+
+  it("puts back the session the Thread had when the new one never opened", () => {
+    const fresh = { ...SESSION, id: "session-2" };
+
+    const reopened = failDecisionAnswer(
+      { ...failing, session: fresh },
+      answered,
+      "The engine is down.",
+      AT,
+      { sessionId: "session-2", previous: SESSION },
+    );
+
+    expect(reopened.thread.session).toEqual(SESSION);
+  });
+});
+
+describe("passing an approval on", () => {
+  const approval = aDecision({
+    id: "decision-1",
+    question: approvalQuestion("Install ffmpeg."),
+    options: [...APPROVAL_OPTIONS],
+    putTo: "devops",
+  });
+  const waiting = aThread({ home: TASK_HOME, openDecision: approval });
+  const passing = {
+    decisionId: "decision-1",
+    by: "devops",
+    to: "cto",
+    reason: " It changes every Project's build. ",
+    passedOnAt: AT,
+  };
+
+  it("puts it to the next one up, keeping who passed it on and why", () => {
+    const passed = passDecisionOn(waiting, passing);
+
+    const decision: Decision = {
+      ...approval,
+      putTo: "cto",
+      passedOn: [
+        { roleKey: "devops", reason: "It changes every Project's build.", passedOnAt: AT },
+      ],
+    };
+    expect(passed.decision).toEqual(decision);
+    expect(passed.thread.openDecision).toEqual(decision);
+    expect(passed.event).toEqual(new DecisionReopened(passed.thread, decision, AT));
+  });
+
+  it("puts it to the user when nobody is next", () => {
+    expect(passDecisionOn(waiting, { ...passing, to: undefined }).decision?.putTo).toBeUndefined();
+  });
+
+  it("is refused for a question, without a reason, and by someone it no longer waits on", () => {
+    const question = aThread({
+      home: TASK_HOME,
+      openDecision: aDecision({ id: "decision-1", putTo: "devops" }),
+    });
+    expect(refusalOf(() => passDecisionOn(question, passing))[0]).toMatch(/Only an approval/);
+    expect(refusalOf(() => passDecisionOn(waiting, { ...passing, reason: " " }))).toEqual([
+      "Say why you pass it on.",
+    ]);
+    expect(refusalOf(() => passDecisionOn(waiting, { ...passing, by: "cto" }))[0]).toMatch(
+      /no longer waits on you/,
+    );
+  });
+});

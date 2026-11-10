@@ -74,44 +74,6 @@ describe("/api/saved-views", () => {
     expect(webEventsOf(work)).toEqual([{ type: "saved-view.saved", savedViewId: view.id }]);
   });
 
-  it("never keeps the Project filter", async () => {
-    const response = await saveView({
-      name: aName("Blocked"),
-      filters: { blocked: true, projectIds: ["firmware"] },
-      projectIds: ["firmware"],
-    });
-
-    expect(response.status).toBe(201);
-    const view = savedViewSchema.parse(await response.json());
-    expect(view.filters).toEqual({ blocked: true });
-    expect((await listViews()).find(({ id }) => id === view.id)).toEqual(view);
-  });
-
-  it("never keeps Tags", async () => {
-    const response = await saveView({
-      name: aName("Tagged"),
-      filters: { blocked: true, tags: ["bug"] },
-    });
-
-    expect(response.status).toBe(201);
-    const view = savedViewSchema.parse(await response.json());
-    expect((await listViews()).find(({ id }) => id === view.id)?.filters).toEqual({
-      blocked: true,
-    });
-  });
-
-  it("lists the views in the order saved", async () => {
-    const first = savedViewSchema.parse(
-      await (await saveView({ name: aName("First"), filters: { priority: "low" } })).json(),
-    );
-    const second = savedViewSchema.parse(
-      await (await saveView({ name: aName("Second"), filters: { priority: "high" } })).json(),
-    );
-
-    const ids = (await listViews()).map(({ id }) => id);
-    expect(ids.indexOf(first.id)).toBeLessThan(ids.indexOf(second.id));
-  });
-
   it("refuses a view with no name, no filter or a name taken, with every reason", async () => {
     const name = aName("Taken");
     await saveView({ name, filters: { blocked: true } });
@@ -130,31 +92,5 @@ describe("/api/saved-views", () => {
       `There is already a view named "${name.toUpperCase()}".`,
     ]);
     expect(work.published).toEqual([]);
-  });
-
-  it("refuses filters that aren't the board's", async () => {
-    const response = await saveView({ name: aName("Odd"), filters: { priority: "urgent" } });
-
-    expect(response.status).toBe(400);
-    expect(work.published).toEqual([]);
-  });
-
-  it("removes a view and announces it", async () => {
-    const view = savedViewSchema.parse(
-      await (await saveView({ name: aName("Gone"), filters: { blocked: true } })).json(),
-    );
-    work.published.length = 0;
-
-    const removed = await sendJson(work, "DELETE", `/saved-views/${view.id}`);
-
-    expect(removed.status).toBe(204);
-    expect((await listViews()).map(({ id }) => id)).not.toContain(view.id);
-    expect(webEventsOf(work)).toEqual([{ type: "saved-view.removed", savedViewId: view.id }]);
-  });
-
-  it("answers 404 for a view that isn't there", async () => {
-    const response = await sendJson(work, "DELETE", `/saved-views/${randomUUID()}`);
-
-    expect(response.status).toBe(404);
   });
 });

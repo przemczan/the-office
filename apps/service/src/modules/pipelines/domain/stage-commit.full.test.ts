@@ -2,18 +2,6 @@ import { describe, expect, it } from "vitest";
 import { headProblem, stageCommitMessage } from "./stage-commit.js";
 
 describe("stageCommitMessage", () => {
-  it("names the Stage and the Task in the subject, with the whole result below it", () => {
-    const summary = `${"Renamed devices from their page and the list, ".repeat(2)}with a dialog.`;
-
-    const [subject, body] = stageCommitMessage("Implement", " Rename devices ", {
-      status: "done",
-      summary,
-    }).split("\n\n");
-
-    expect(subject).toBe("Implement: Rename devices");
-    expect(body).toBe(summary);
-  });
-
   it("keeps the subject to one short line when the Task's title is long", () => {
     const title = "Rename devices from their page and the list, ".repeat(2);
 
@@ -66,14 +54,5 @@ describe("headProblem", () => {
 
   it("finds none where The Office left HEAD", () => {
     expect(headProblem(expected, { ...expected })).toBeUndefined();
-  });
-
-  it("tells a switched branch before a moved commit", () => {
-    expect(headProblem(expected, { commit: "b".repeat(40), branch: "main" })).toBe(
-      "the worktree is on the branch main, not the Task's branch office/task",
-    );
-    expect(headProblem(expected, { commit: "b".repeat(40), branch: "office/task" })).toBe(
-      "HEAD moved from aaaaaaaa to bbbbbbbb",
-    );
   });
 });

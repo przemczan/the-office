@@ -111,7 +111,12 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 
 ### ./
 
+- `attachments.controller.fixtures.ts`: attachmentsHttp
 - `index.fixtures.ts`: ownProjectsQueue, workModuleForTests
+- `initiatives.controller.fixtures.ts`: aProjectId, initiativesHttp
+- `search.controller.fixtures.ts`: NONE_IN_OTHER_PROJECTS, searchHttp
+- `task-thread-records.fixtures.ts`: aPersonsThread, taskThreads
+- `tasks.controller.fixtures.ts`: TasksHttpTest, MY_PLAN, nothing, blockedBy, HOUR, MANY_REQUESTS_TEST_MS, tasksHttp
 - `work-application.fixtures.ts`: WorkApplication, startWorkApplication, workModuleForTests, webEventsOf, sendJson
 - `work.module.ts`: WorkModuleOptions, WorkModule
 
@@ -124,7 +129,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `project-proposals.ts`: ProjectProposals
 - `shaping-thread-setup.ts`: SHAPING_OFFICE_TOOLS, ShapingThreadSetup
 - `task-thread-records.ts`: PLANNING_OFFICE_TOOLS, ASKING_OFFICE_TOOLS, TaskThreadRecords
-- Tests: initiative-proposals.test.ts, mentioned-work-records.test.ts, office-limit-proposals.test.ts, shaping-thread-setup.test.ts, task-thread-records.test.ts
+- Tests: initiative-proposals.full.test.ts, mentioned-work-records.full.test.ts, office-limit-proposals.full.test.ts, shaping-thread-setup.full.test.ts, task-thread-records.full.test.ts, task-thread-records.test.ts
 
 ### adapters/filesystem/
 
@@ -148,7 +153,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `usage-settings.controller.ts`: UsageSettingsController
 - `work-refusals.filter.ts`: WorkRefusalsFilter
 - `work-responses.ts`: toIdeaResponse, toInitiativeResponse, toArchivedInitiativesPageResponse, toTaskResponse, toAttachmentResponse, toSearchResultsResponse, toOwnerResponse, toSavedViewResponse, toQueueResponse, toUsageEstimateResponse, toUsageSettingsResponse
-- Tests: attachments.controller.test.ts, ideas.controller.test.ts, initiatives.controller.test.ts, office-limits.controller.test.ts, saved-views.controller.test.ts, search.controller.test.ts, task-walks.test.ts, tasks.controller.test.ts, usage-settings.controller.test.ts
+- Tests: attachments.controller.full.test.ts, attachments.controller.test.ts, ideas.controller.full.test.ts, ideas.controller.test.ts, initiatives.controller.full.test.ts, initiatives.controller.test.ts, office-limits.controller.full.test.ts, saved-views.controller.full.test.ts, saved-views.controller.test.ts, search.controller.full.test.ts, search.controller.test.ts, task-walks.full.test.ts, task-walks.test.ts, tasks.controller.full.test.ts, tasks.controller.test.ts, usage-settings.controller.full.test.ts
 
 ### adapters/office-tools/
 
@@ -158,7 +163,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `shaping-office-tools.ts`: READ_INITIATIVE, WRITE_OUTCOME, ADD_TASK, ADD_DEPENDENCY, REMOVE_DEPENDENCY, WRITE_TASK_TITLE, WRITE_TASK_DESCRIPTION, ShapingOfficeTools
 - `work-office-tools.ts`: LIST_TASKS, READ_TASK, LIST_IDEAS, READ_IDEA, READ_ATTACHMENT, CREATE_TASK, DOCUMENT_ANSWER_BUDGET, WorkOfficeTools
 - `work-tool-answers.ts`: OfficeToolResult, WorkToolRefused, answered, personInSession
-- Tests: attachment-office-tools.test.ts, onboarding-office-tools.test.ts, planning-office-tools.test.ts, shaping-office-tools.test.ts, work-office-tools.test.ts
+- Tests: attachment-office-tools.full.test.ts, attachment-office-tools.test.ts, onboarding-office-tools.full.test.ts, planning-office-tools.full.test.ts, shaping-office-tools.full.test.ts, work-office-tools.full.test.ts
 
 ### adapters/postgres/
 
@@ -171,6 +176,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `postgres-queue-repository.ts`: PostgresQueueRepository
 - `postgres-saved-view-repository.ts`: PostgresSavedViewRepository
 - `postgres-task-repository.ts`: PostgresTaskRepository
+- `postgres-work-repositories.fixtures.ts`: WorkRepositories, startWorkRepositories, aProjectId, workRecords
 - `postgres-work-search.ts`: initiativeVector, PostgresWorkSearch
 - `postgres-work-settings.ts`: PostgresWorkSettings
 - `queue.schema.ts`: queue
@@ -179,7 +185,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, canBeRowId, holdManualOrder, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, heldTask, saveTask, insertTask, keepStateChange, stateChangesOf, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings, engineCaps
 - `work.schema.ts`: ProjectMoveRow, ideas, initiatives, tasks, taskStateChanges, attachments, attachmentTexts
-- Tests: postgres-work-repositories.test.ts
+- Tests: postgres-work-repositories.full.test.ts, postgres-work-repositories.test.ts
 
 ### adapters/websocket/
 
@@ -210,7 +216,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `task-records.ts`: TaskRecord, TaskRecords
 - `task-service.ts`: TaskService
 - `usage-estimates.ts`: TaskUsageEstimate, UsageEstimates
-- Tests: fire-alarm-test-project-check.test.ts, initiative-archiving.test.ts, planning-test-project-check.test.ts, removed-engine-caps.test.ts, shaping-with-the-cto.test.ts, stage-screenshots.test.ts, starts-since-reading.test.ts, task-archiving.test.ts, task-records.test.ts, test-project-check.test.ts
+- Tests: fire-alarm-test-project-check.test.ts, initiative-archiving.full.test.ts, planning-test-project-check.test.ts, removed-engine-caps.full.test.ts, shaping-with-the-cto.full.test.ts, stage-screenshots.test.ts, starts-since-reading.full.test.ts, task-archiving.full.test.ts, task-records.full.test.ts, test-project-check.test.ts
 
 ### domain/
 
@@ -276,7 +282,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `usage-settings.ts`: DEFAULT_WINDOW_CAP, WindowCaps, EngineCaps, UsageSettings, defaultEngineCaps, DEFAULT_USAGE_SETTINGS, namesEveryEngine, windowCapsWhereWindows, everyEngineCaps
 - `work.fixtures.ts`: anIdea, anInitiative, aTask, aPlannedTask, aLink, NO_USAGE_AT_START
 - `written-parts.ts`: PlanWriting, WrittenPlanAndDefinitionOfDone, WrittenPlan, writtenParts, trimmedStatements, writtenPlanProblems, planProblems, definitionOfDoneProblems
-- Tests: asking.test.ts, attachment-changes.test.ts, cap-waits.test.ts, document-lines.test.ts, idea-changes.test.ts, initiative-archive.test.ts, initiative-changes.test.ts, initiative-edit.test.ts, manual-order.test.ts, onboarding.test.ts, planning-changes.test.ts, planning.test.ts, project-filter.test.ts, queue.test.ts, record-words.test.ts, run-environment-set-up.test.ts, search.test.ts, state-change.test.ts, task-archive.test.ts, task-changes.test.ts, task-dependencies.test.ts, task-description.test.ts, task-move.test.ts, task-overlap.test.ts, task-start.test.ts, task-states.test.ts, task-tags.test.ts, usage-estimate.test.ts
+- Tests: asking.full.test.ts, attachment-changes.full.test.ts, cap-waits.full.test.ts, cap-waits.test.ts, document-lines.full.test.ts, idea-changes.full.test.ts, initiative-archive.full.test.ts, initiative-changes.full.test.ts, initiative-edit.full.test.ts, manual-order.full.test.ts, onboarding.full.test.ts, planning-changes.full.test.ts, planning.full.test.ts, project-filter.full.test.ts, queue.full.test.ts, queue.test.ts, record-words.full.test.ts, run-environment-set-up.full.test.ts, search.full.test.ts, state-change.full.test.ts, task-archive.full.test.ts, task-changes.full.test.ts, task-changes.test.ts, task-dependencies.full.test.ts, task-dependencies.test.ts, task-description.full.test.ts, task-move.full.test.ts, task-overlap.full.test.ts, task-start.full.test.ts, task-start.test.ts, task-states.full.test.ts, task-states.test.ts, task-tags.full.test.ts, usage-estimate.full.test.ts
 
 ### ports/
 

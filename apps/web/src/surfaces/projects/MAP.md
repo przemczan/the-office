@@ -37,4 +37,4 @@
 - `server-values-draft.ts`: ServerValuesDraft, serverValuesDraftOf, serverValuesChangeOf, officeWideWords, projectValueWords, leavesServerOut
 - `skills-block.tsx`: SkillsBlock
 - `work-block.tsx`: WorkBlock
-- Tests: environment-labels.test.ts, github-repository-words.test.ts, remote-needs-words.test.ts, server-values-draft.test.ts
+- Tests: environment-labels.full.test.ts, github-repository-words.full.test.ts, remote-needs-words.full.test.ts, server-values-draft.full.test.ts

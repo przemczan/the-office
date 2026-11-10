@@ -72,36 +72,6 @@ describe("the built web app", () => {
     expect(reply.body).toBe(INDEX_HTML);
   });
 
-  it("opens any of its own addresses, for the router to show", async () => {
-    const reply = await get("/settings");
-
-    expect(reply.status).toBe(200);
-    expect(reply.body).toBe(INDEX_HTML);
-  });
-
-  it("serves its assets", async () => {
-    const reply = await get("/assets/index.js");
-
-    expect(reply.status).toBe(200);
-    expect(reply.contentType).toMatch(/javascript/);
-    expect(reply.body).toBe(SCRIPT);
-  });
-
-  it("answers a missing asset with 404, not with the app", async () => {
-    const reply = await get("/assets/gone.js");
-
-    expect(reply.status).toBe(404);
-  });
-
-  it("leaves /api to the API", async () => {
-    const health = await get("/api/health");
-    const unknown = await get("/api/nope");
-
-    expect(health).toMatchObject({ status: 200, body: JSON.stringify({ database: "up" }) });
-    expect(unknown.status).toBe(404);
-    expect(unknown.contentType).toMatch(/^application\/json/);
-  });
-
   it("refuses a page addressed to another host, as the API does", async () => {
     const reply = await get("/", { host: `office.example:${service.port}` });
 

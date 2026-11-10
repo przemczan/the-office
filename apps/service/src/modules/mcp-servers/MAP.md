@@ -41,8 +41,9 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 ### adapters/http/
 
 - `mcp-server-refusals.filter.ts`: McpServerRefusalsFilter
+- `mcp-servers.controller.fixtures.ts`: SECRET, aName, aServer, serverOf, reasonsOf, aFakeServer, PROCESS_TIMEOUT
 - `mcp-servers.controller.ts`: McpServersController
-- Tests: mcp-servers.controller.test.ts
+- Tests: mcp-servers.controller.full.test.ts, mcp-servers.controller.test.ts
 
 ### adapters/postgres/
 
@@ -63,7 +64,7 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 - `project-server-values.ts`: ProjectServerValueView, ProjectMcpServerValues, ProjectServerValues
 - `role-mcp-servers.ts`: McpServerOnCard, RoleMcpServers
 - `session-mcp-servers.ts`: PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, SessionMcpServers
-- Tests: mcp-tools-test-project-check.test.ts, session-mcp-servers.test.ts
+- Tests: mcp-tools-test-project-check.test.ts, session-mcp-servers.full.test.ts, session-mcp-servers.test.ts
 
 ### domain/
 
@@ -77,7 +78,7 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 - `pasted-config.ts`: pastedMcpServer
 - `project-server-values.ts`: ProjectServerValue, ProjectServerValueEdit, editedProjectServerValues, projectServerValuesAfterChange, serverValuesFor, missingRequiredValues, keptValue
 - `session-mcp-servers.ts`: RecordedMcpServer, SessionMcpServerRecord, LeftOutMcpServer, startProblem, sessionTools, recordedMcpServer, resumeProblem
-- Tests: mcp-server-changes.test.ts, pasted-config.test.ts, project-server-values.test.ts, session-mcp-servers.test.ts
+- Tests: mcp-server-changes.full.test.ts, pasted-config.full.test.ts, project-server-values.full.test.ts, session-mcp-servers.full.test.ts
 
 ### ports/
 

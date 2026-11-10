@@ -1,100 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { RESOLVE_KEY } from "./resolve-stages.js";
 import type { Stage } from "./stage.js";
-import {
-  NO_STAGE_TOKENS,
-  type StageOutcome,
-  type StageRun,
-  type StageRunDecision,
-} from "./stage-run.js";
+import { type StageOutcome, type StageRunDecision } from "./stage-run.js";
 import { acceptedIssues, asksTheCtoFirst, walkAnswerOf, walkDecision } from "./walk-decisions.js";
-
-const implement: Stage = {
-  kind: "agent",
-  key: "implement",
-  name: "Implement",
-  optional: false,
-  role: "developer",
-  brief: "Build it.",
-  session: "fresh",
-  budget: 100_000,
-};
-const tests: Stage = {
-  kind: "script",
-  key: "tests",
-  name: "Tests",
-  optional: false,
-  command: "test",
-  onFailure: { goBackTo: "implement", rounds: 3 },
-};
-
-function aRun(
-  stageKey: string,
-  outcome: StageOutcome,
-  decisions: StageRunDecision[] = [],
-): StageRun {
-  return {
-    id: `run-${stageKey}`,
-    taskId: "task-1",
-    stageKey,
-    number: 1,
-    carriedFailure: undefined,
-    threadId: "thread-1",
-    session: "fresh",
-    headCommit: undefined,
-    commandRuns: [],
-    tokens: NO_STAGE_TOKENS,
-    engineId: undefined,
-    engineName: undefined,
-    model: undefined,
-    decisions,
-    heldBy: undefined,
-    waitingSince: undefined,
-    sentBack: undefined,
-    gateAction: undefined,
-    outcome,
-    startedAt: new Date(0),
-    endedAt: new Date(0),
-  };
-}
-
-const failed: StageOutcome = { status: "failed", error: "2 tests fail.\n\nThe output." };
+import { implement, tests, aRun, failed, sentBack } from "./walk-decisions.fixtures.js";
 
 describe("walkDecision", () => {
-  it("offers a failed loop more rounds, its issues recorded, or dropping the Task", () => {
-    const decision = walkDecision(aRun("tests", failed), {
-      kind: "no-retries-left",
-      stage: tests,
-      error: "2 tests fail.",
-    });
-
-    expect(decision).toMatchObject({
-      kind: "no-retries-left",
-      draft: {
-        question: '"Tests" failed, and its rounds are used up. What now?',
-        options: ["Allow 3 more rounds", "Continue with the issues recorded", "Drop the Task"],
-        recommendation: { option: 0 },
-      },
-      options: [{ kind: "more-rounds", rounds: 3 }, { kind: "accept-issues" }, { kind: "drop" }],
-    });
-    expect(decision.draft.context).toContain("2 tests fail.");
-    expect(decision.draft.context).toContain("your answer guides one more round");
-  });
-
-  it("offers a failed Stage without a loop one more round of its own", () => {
-    const decision = walkDecision(aRun("implement", failed), {
-      kind: "no-retries-left",
-      stage: implement,
-      error: "The session ended.",
-    });
-
-    expect(decision.draft.question).toBe(
-      '"Implement" failed, with no round to go back to. What now?',
-    );
-    expect(decision.draft.options[0]).toBe('Run "Implement" once more');
-    expect(decision.options[0]).toEqual({ kind: "one-more-round", guidance: undefined });
-  });
-
   it("names the statements not reported met at the end of the Pipeline", () => {
     const decision = walkDecision(aRun("implement", { status: "done", summary: "Done." }), {
       kind: "definition-of-done",
@@ -194,12 +105,6 @@ describe("walkAnswerOf", () => {
     answer: undefined,
   };
 
-  it("does what the chosen option does", () => {
-    expect(walkAnswerOf(noRetries, { kind: "option", option: 1 })).toEqual({
-      kind: "accept-issues",
-    });
-  });
-
   it("takes the user's own words as guidance for one more round", () => {
     expect(walkAnswerOf(noRetries, { kind: "free-answer", text: " Mock the clock. " })).toEqual({
       kind: "one-more-round",
@@ -281,22 +186,6 @@ describe("the branch-moved Decision", () => {
   const run = aRun("implement", { status: "failed", error, branchMoved: true });
   const question = { kind: "branch-moved", stage: implement, error } as const;
 
-  it("offers to keep the branch, to run the Stage after putting it back, or to drop the Task", () => {
-    const decision = walkDecision(run, question);
-
-    expect(decision.draft.options).toEqual([
-      "Keep the branch as it is",
-      'I put the branch back: run "Implement" again',
-      "Drop the Task",
-    ]);
-    expect(decision.options).toEqual([
-      { kind: "keep-branch", guidance: undefined },
-      { kind: "one-more-round", guidance: undefined },
-      { kind: "drop" },
-    ]);
-    expect(decision.draft.context).toContain(error);
-  });
-
   it("is the user's, not the CTO's", () => {
     expect(asksTheCtoFirst(question, [run])).toBe(false);
   });
@@ -316,42 +205,6 @@ describe("the branch-moved Decision", () => {
 });
 
 describe("the base-moved Decision", () => {
-  it("offers to run Publish again, to continue without publishing, or to drop the Task", () => {
-    const publish: Stage = {
-      kind: "script",
-      key: "publish",
-      name: "Publish",
-      optional: false,
-      command: "publish",
-    };
-    const error =
-      "office/task-1 no longer applies cleanly on main on origin: merging it would conflict in\n- src/index.ts";
-    const run = aRun("publish", {
-      status: "failed",
-      error,
-      baseMoved: { conflictedFiles: ["src/index.ts"] },
-    });
-
-    expect(walkDecision(run, { kind: "base-moved", stage: publish, error })).toEqual({
-      kind: "base-moved",
-      draft: {
-        question:
-          "\"Publish\" can't publish: the Task's branch conflicts with the base branch. What now?",
-        context: `${error}\n\nThe Task has no Agent Stage whose person could resolve the conflict, and no Agent can merge or rebase. "Publish" can run again once the base branch no longer conflicts with the branch.`,
-        options: ['Run "Publish" again', "Continue without publishing", "Drop the Task"],
-        recommendation: {
-          option: 0,
-          reason: "The branch keeps the Task's work; it publishes once the conflict is gone.",
-        },
-      },
-      options: [
-        { kind: "one-more-round", guidance: undefined },
-        { kind: "accept-issues" },
-        { kind: "drop" },
-      ],
-    });
-  });
-
   it("asks the user, after Resolve gave up, to resolve it in the worktree or drop the Task", () => {
     const resolve: Stage = {
       kind: "agent",
@@ -417,25 +270,8 @@ describe("the budget Decision", () => {
   });
 });
 
-function sentBack(guidedBy?: string): StageRunDecision {
-  return {
-    id: "decision-1",
-    kind: "no-retries-left",
-    options: [{ kind: "more-rounds", rounds: 3 }, { kind: "accept-issues" }, { kind: "drop" }],
-    answer: {
-      kind: "one-more-round",
-      guidance: "Mock the clock.",
-      ...(guidedBy !== undefined && { guidedBy }),
-    },
-  };
-}
-
 describe("asksTheCtoFirst", () => {
   const noRetriesLeft = { kind: "no-retries-left", stage: tests, error: "2 tests fail." } as const;
-
-  it("puts a Stage failing with no retries left to the CTO", () => {
-    expect(asksTheCtoFirst(noRetriesLeft, [aRun("tests", failed)])).toBe(true);
-  });
 
   it("asks the user once the CTO sent that Stage back in this walk", () => {
     const runs = [aRun("tests", failed, [sentBack("cto")]), aRun("tests", failed)];

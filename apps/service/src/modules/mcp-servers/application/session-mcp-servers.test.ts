@@ -9,7 +9,6 @@ import { anMcpServer } from "../domain/mcp-server.fixtures.js";
 import { McpServersModule } from "../mcp-servers.module.js";
 import { McpServerRepository } from "../ports/mcp-server-repository.js";
 import { McpServerLibrary } from "./mcp-server-library.js";
-import { ProjectServerValues } from "./project-server-values.js";
 import { RoleMcpServers } from "./role-mcp-servers.js";
 import { SessionMcpServers } from "./session-mcp-servers.js";
 
@@ -72,27 +71,6 @@ describe("prepare", () => {
     });
   });
 
-  it("takes the Project's values over the Office-wide ones", async () => {
-    const roleKey = aName("role");
-    const projectId = aName("project");
-    const github = await assigned(roleKey, {
-      connection: { transport: "streamable-http", url: "https://mcp.example.com" },
-    });
-    await app
-      .get(ProjectServerValues)
-      .change(projectId, github.name, [{ name: "GITHUB_TOKEN", projectValue: "project-token" }]);
-
-    const [server] = (await sessions.prepare(request(roleKey, projectId))).servers;
-    const [inChat] = (await sessions.prepare(request(roleKey))).servers;
-
-    expect(server?.launch).toEqual({
-      transport: "streamable-http",
-      url: "https://mcp.example.com",
-      headers: { GITHUB_TOKEN: "project-token" },
-    });
-    expect(inChat?.launch).toMatchObject({ headers: { GITHUB_TOKEN: "office-token" } });
-  });
-
   it("leaves out a server missing a required value, saying why", async () => {
     const roleKey = aName("role");
     const github = await assigned(roleKey, {
@@ -107,32 +85,6 @@ describe("prepare", () => {
 });
 
 describe("rebuild", () => {
-  it("gives a resumed session the same servers, with the values as they are now", async () => {
-    const roleKey = aName("role");
-    const projectId = aName("project");
-    const github = await assigned(roleKey);
-    const started = request(roleKey, projectId);
-    await sessions.prepare(started);
-    await app
-      .get(ProjectServerValues)
-      .change(projectId, github.name, [{ name: "GITHUB_TOKEN", projectValue: "new-token" }]);
-    await assigned(roleKey);
-
-    const rebuilt = await sessions.rebuild(started.sessionId, "/work/other");
-
-    expect(rebuilt.leftOut).toEqual([]);
-    expect(rebuilt.servers).toEqual([
-      {
-        name: github.name,
-        launch: expect.objectContaining({
-          environmentVariables: { GITHUB_TOKEN: "new-token" },
-          workingFolder: "/work/other",
-        }),
-        tools: github.tools,
-      },
-    ]);
-  });
-
   it("leaves out a server removed, turned off or changed since, saying why", async () => {
     const roleKey = aName("role");
     const removed = await assigned(roleKey);
@@ -161,19 +113,5 @@ describe("rebuild", () => {
         { name: unset.name, reason: "it has no value for GITHUB_TOKEN." },
       ]),
     );
-  });
-
-  it("gives a session with no record none, and forgets a record", async () => {
-    const roleKey = aName("role");
-    await assigned(roleKey);
-    const started = request(roleKey);
-    await sessions.prepare(started);
-
-    await sessions.forget(started.sessionId);
-
-    expect(await sessions.rebuild(started.sessionId, "/work/tree")).toEqual({
-      servers: [],
-      leftOut: [],
-    });
   });
 });

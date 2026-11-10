@@ -271,155 +271,163 @@ test("the user adds a Project from the Projects page and lands on its page", asy
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects.png") });
 });
 
-test("a folder that isn't a repository, or a branch it lacks, is refused with the reason", async ({
-  page,
-}) => {
-  await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
-  await fillTheForm(page, { name: "Nowhere", path: repository.folder, branch: "main" });
-  const add = page.getByRole("button", { name: "Add the Project" });
+test(
+  "a folder that isn't a repository, or a branch it lacks, is refused with the reason",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/projects");
+    await page.getByRole("button", { name: "Add it yourself" }).click();
+    await fillTheForm(page, { name: "Nowhere", path: repository.folder, branch: "main" });
+    const add = page.getByRole("button", { name: "Add the Project" });
 
-  await add.click();
-  // The design system's Alert is a status.
-  const refusal = page.getByRole("dialog").getByRole("status");
-  await expect(refusal).toContainText(`${repository.folder} is not a git repository`);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-refused.png") });
+    await add.click();
+    // The design system's Alert is a status.
+    const refusal = page.getByRole("dialog").getByRole("status");
+    await expect(refusal).toContainText(`${repository.folder} is not a git repository`);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-refused.png") });
 
-  await sourceLine(page).getByRole("button", { name: "Change" }).click();
-  await expect(page.getByRole("dialog").getByLabel("Repository folder")).toHaveValue(
-    repository.folder,
-  );
-  await chooseFolder(page, repository.path);
-  await expect(page.getByRole("dialog").getByLabel("Name")).toHaveValue("Nowhere");
-  await page.getByRole("dialog").getByLabel("Base branch").fill("develop");
-  await add.click();
-  await expect(refusal).toContainText('The repository has no branch "develop".');
-  await expect(page).toHaveURL(/\/projects$/);
-});
+    await sourceLine(page).getByRole("button", { name: "Change" }).click();
+    await expect(page.getByRole("dialog").getByLabel("Repository folder")).toHaveValue(
+      repository.folder,
+    );
+    await chooseFolder(page, repository.path);
+    await expect(page.getByRole("dialog").getByLabel("Name")).toHaveValue("Nowhere");
+    await page.getByRole("dialog").getByLabel("Base branch").fill("develop");
+    await add.click();
+    await expect(refusal).toContainText('The repository has no branch "develop".');
+    await expect(page).toHaveURL(/\/projects$/);
+  },
+);
 
-test("Add a Project goes in two steps in a window that neither moves nor changes height", async ({
-  page,
-}) => {
-  await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
-  const dialog = page.getByRole("dialog");
-  const bar = dialog.locator(".dialog-bar");
-  const box = await dialog.boundingBox();
-  const viewport = page.viewportSize()!;
-  // Pinned to the top: 7% of the browser window from its top, 24px at least.
-  expect(box!.y).toBeCloseTo(Math.max(24, viewport.height * 0.07), 0);
-  expect(box!.height).toBeCloseTo(Math.min(640, viewport.height - 2 * box!.y), 0);
-  const barTop = (await bar.boundingBox())!.y;
-  await expect(bar).toContainText("Step 1 of 2");
+test(
+  "Add a Project goes in two steps in a window that neither moves nor changes height",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/projects");
+    await page.getByRole("button", { name: "Add it yourself" }).click();
+    const dialog = page.getByRole("dialog");
+    const bar = dialog.locator(".dialog-bar");
+    const box = await dialog.boundingBox();
+    const viewport = page.viewportSize()!;
+    // Pinned to the top: 7% of the browser window from its top, 24px at least.
+    expect(box!.y).toBeCloseTo(Math.max(24, viewport.height * 0.07), 0);
+    expect(box!.height).toBeCloseTo(Math.min(640, viewport.height - 2 * box!.y), 0);
+    const barTop = (await bar.boundingBox())!.y;
+    await expect(bar).toContainText("Step 1 of 2");
 
-  await dialog.getByRole("button", { name: "Continue" }).click();
-  await expect(dialog.getByText("Write the repository's folder, as a full path.")).toBeVisible();
-  for (const source of ["A git URL", "From GitHub", "A folder"]) {
-    await dialog.getByRole("tab", { name: source }).click();
+    await dialog.getByRole("button", { name: "Continue" }).click();
+    await expect(dialog.getByText("Write the repository's folder, as a full path.")).toBeVisible();
+    for (const source of ["A git URL", "From GitHub", "A folder"]) {
+      await dialog.getByRole("tab", { name: source }).click();
+      expect(await dialog.boundingBox()).toEqual(box);
+      expect((await bar.boundingBox())!.y).toBe(barTop);
+    }
+
+    await chooseFolder(page, repository.path);
+    await expect(bar).toContainText("Step 2 of 2");
+    await expect(sourceLine(page)).toContainText("A folder");
+    await expect(dialog.getByLabel("Name")).toHaveValue(path.basename(repository.path));
+    await expect(dialog.getByLabel("Repository folder")).toBeHidden();
     expect(await dialog.boundingBox()).toEqual(box);
     expect((await bar.boundingBox())!.y).toBe(barTop);
-  }
+    // Only the body scrolls: the head and the bar stay where they were.
+    await dialog.locator(".dialog-body").evaluate((body) => body.scrollTo(0, body.scrollHeight));
+    await expect(dialog.getByRole("heading", { name: "Add a Project" })).toBeInViewport();
+    expect((await bar.boundingBox())!.y).toBe(barTop);
 
-  await chooseFolder(page, repository.path);
-  await expect(bar).toContainText("Step 2 of 2");
-  await expect(sourceLine(page)).toContainText("A folder");
-  await expect(dialog.getByLabel("Name")).toHaveValue(path.basename(repository.path));
-  await expect(dialog.getByLabel("Repository folder")).toBeHidden();
-  expect(await dialog.boundingBox()).toEqual(box);
-  expect((await bar.boundingBox())!.y).toBe(barTop);
-  // Only the body scrolls: the head and the bar stay where they were.
-  await dialog.locator(".dialog-body").evaluate((body) => body.scrollTo(0, body.scrollHeight));
-  await expect(dialog.getByRole("heading", { name: "Add a Project" })).toBeInViewport();
-  expect((await bar.boundingBox())!.y).toBe(barTop);
+    await sourceLine(page).getByRole("button", { name: "Change" }).click();
+    await expect(bar).toContainText("Step 1 of 2");
+    await expect(dialog.getByLabel("Repository folder")).toHaveValue(repository.path);
+  },
+);
 
-  await sourceLine(page).getByRole("button", { name: "Change" }).click();
-  await expect(bar).toContainText("Step 1 of 2");
-  await expect(dialog.getByLabel("Repository folder")).toHaveValue(repository.path);
-});
+test(
+  "the user adds a Project by its git URL: cloned first, then the form opens from the clone",
+  { tag: "@full" },
+  async ({ page }) => {
+    const url = serveRepository(repository, "acme", "storefront");
+    branchOnHost("acme", "storefront", "release");
+    await page.goto("/projects");
+    await page.getByRole("button", { name: "Add it yourself" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("tab", { name: "A git URL" }).click();
+    const repositoryUrl = dialog.getByLabel("Repository URL");
+    const clone = dialog.getByRole("button", { name: "Clone" });
 
-test("the user adds a Project by its git URL: cloned first, then the form opens from the clone", async ({
-  page,
-}) => {
-  const url = serveRepository(repository, "acme", "storefront");
-  branchOnHost("acme", "storefront", "release");
-  await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("tab", { name: "A git URL" }).click();
-  const repositoryUrl = dialog.getByLabel("Repository URL");
-  const clone = dialog.getByRole("button", { name: "Clone" });
-
-  await repositoryUrl.fill("http://git.example.test/acme/storefront.git");
-  await clone.click();
-  await expect(dialog.getByRole("status")).toContainText(
-    "The Office clones over https and ssh only, not http.",
-  );
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add-git-url.png") });
-
-  await repositoryUrl.fill(url);
-  let ended = cloneEnded(page);
-  await clone.click();
-  await ended;
-  await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
-  await expect(sourceLine(page)).toContainText("A git URL");
-  await expect(sourceLine(page)).toContainText(url);
-  await expect(sourceLine(page)).toContainText(/cloned into .*storefront/);
-  await expect(dialog.locator(".dialog-bar")).toContainText("Step 2 of 2");
-
-  // Change forgets the clone and the name it gave; the URL stays as written.
-  await sourceLine(page).getByRole("button", { name: "Change" }).click();
-  await expect(repositoryUrl).toHaveValue(url);
-  ended = cloneEnded(page);
-  await clone.click();
-  await ended;
-  await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
-  const baseBranch = dialog.getByLabel("Base branch");
-  await expect(baseBranch).toHaveValue("main");
-  await baseBranch.selectOption("release");
-  await dialog.getByLabel("Name").fill("Storefront");
-  await dialog.getByLabel("Install", { exact: true }).fill("npm ci");
-  await dialog.getByLabel("Build").fill("npm run build");
-  await dialog.getByLabel("Lint").fill("npm run lint");
-  await dialog.getByLabel("Test").fill("npm test");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add-cloned.png") });
-
-  await page.getByRole("button", { name: "Add the Project" }).click();
-
-  await expect(page).toHaveURL(/\/projects\/storefront$/);
-  await expect(page.getByText("Repository URL")).toBeVisible();
-  await expect(page.getByText(url)).toBeVisible();
-  await expect(page.getByText("· release")).toBeVisible();
-});
-
-test("a Project's page says which part of the Office identity its remote needs and what is missing", async ({
-  page,
-}) => {
-  // An ssh host of its own: office-identity.e2e.ts confirms its Unconfirmed host's key in parallel.
-  const host = "remote-needs.invalid";
-  const tracking = await createTemporaryRepository();
-  try {
-    const git = (...gitArguments: string[]): void => {
-      execFileSync("git", gitArguments, { cwd: tracking.path, stdio: "ignore" });
-    };
-    git("remote", "add", "origin", `ssh://git@${host}/acme/notes.git`);
-    git("config", "branch.main.remote", "origin");
-    git("config", "branch.main.merge", "refs/heads/main");
-    const project = await addedProject(page, "Remote over ssh", undefined, tracking.path);
-    await page.goto(`/projects/${project.id}`);
-
-    const remoteNeeds = page.locator(".project-remote-needs");
-    await expect(remoteNeeds).toContainText(
-      `Its remote, ${host}, is reached over ssh with the Office ssh key`,
+    await repositoryUrl.fill("http://git.example.test/acme/storefront.git");
+    await clone.click();
+    await expect(dialog.getByRole("status")).toContainText(
+      "The Office clones over https and ssh only, not http.",
     );
-    // Whether the Office ssh key is made yet depends on the files running beside this one.
-    await expect(remoteNeeds).toContainText(`${host}'s host key isn't confirmed yet`);
-    await remoteNeeds.getByRole("link", { name: "Settings › Office identity" }).click();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add-git-url.png") });
 
-    await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
-  } finally {
-    await tracking.remove();
-  }
-});
+    await repositoryUrl.fill(url);
+    let ended = cloneEnded(page);
+    await clone.click();
+    await ended;
+    await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
+    await expect(sourceLine(page)).toContainText("A git URL");
+    await expect(sourceLine(page)).toContainText(url);
+    await expect(sourceLine(page)).toContainText(/cloned into .*storefront/);
+    await expect(dialog.locator(".dialog-bar")).toContainText("Step 2 of 2");
+
+    // Change forgets the clone and the name it gave; the URL stays as written.
+    await sourceLine(page).getByRole("button", { name: "Change" }).click();
+    await expect(repositoryUrl).toHaveValue(url);
+    ended = cloneEnded(page);
+    await clone.click();
+    await ended;
+    await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
+    const baseBranch = dialog.getByLabel("Base branch");
+    await expect(baseBranch).toHaveValue("main");
+    await baseBranch.selectOption("release");
+    await dialog.getByLabel("Name").fill("Storefront");
+    await dialog.getByLabel("Install", { exact: true }).fill("npm ci");
+    await dialog.getByLabel("Build").fill("npm run build");
+    await dialog.getByLabel("Lint").fill("npm run lint");
+    await dialog.getByLabel("Test").fill("npm test");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add-cloned.png") });
+
+    await page.getByRole("button", { name: "Add the Project" }).click();
+
+    await expect(page).toHaveURL(/\/projects\/storefront$/);
+    await expect(page.getByText("Repository URL")).toBeVisible();
+    await expect(page.getByText(url)).toBeVisible();
+    await expect(page.getByText("· release")).toBeVisible();
+  },
+);
+
+test(
+  "a Project's page says which part of the Office identity its remote needs and what is missing",
+  { tag: "@full" },
+  async ({ page }) => {
+    // An ssh host of its own: office-identity.e2e.ts confirms its Unconfirmed host's key in parallel.
+    const host = "remote-needs.invalid";
+    const tracking = await createTemporaryRepository();
+    try {
+      const git = (...gitArguments: string[]): void => {
+        execFileSync("git", gitArguments, { cwd: tracking.path, stdio: "ignore" });
+      };
+      git("remote", "add", "origin", `ssh://git@${host}/acme/notes.git`);
+      git("config", "branch.main.remote", "origin");
+      git("config", "branch.main.merge", "refs/heads/main");
+      const project = await addedProject(page, "Remote over ssh", undefined, tracking.path);
+      await page.goto(`/projects/${project.id}`);
+
+      const remoteNeeds = page.locator(".project-remote-needs");
+      await expect(remoteNeeds).toContainText(
+        `Its remote, ${host}, is reached over ssh with the Office ssh key`,
+      );
+      // Whether the Office ssh key is made yet depends on the files running beside this one.
+      await expect(remoteNeeds).toContainText(`${host}'s host key isn't confirmed yet`);
+      await remoteNeeds.getByRole("link", { name: "Settings › Office identity" }).click();
+
+      await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
+    } finally {
+      await tracking.remove();
+    }
+  },
+);
 
 test("editing a command saves it, and the toast says Tasks run it from their next Script Stage", async ({
   page,
@@ -439,152 +447,176 @@ test("editing a command saves it, and the toast says Tasks run it from their nex
   await expect(page.getByText("npm test -- --run")).toBeVisible();
 });
 
-test("a Project overrides an MCP server's Server values, a secret never shown", async ({
-  page,
-}) => {
-  const server = "e2e-project-values-server";
-  const officeWideSecret = "office-wide-secret-value";
-  const projectSecret = "project-secret-value";
-  await addFakeMcpServer(page, server, [
-    { name: "FAKE_TOKEN", secret: true, required: true, officeWideValue: officeWideSecret },
-    { name: "FAKE_REGION", secret: false, required: false, officeWideValue: "eu" },
-  ]);
-  const project = await addedProject(page, "Values override");
-  await page.goto(`/projects/${project.id}/server-values`);
+test(
+  "a Project overrides an MCP server's Server values, a secret never shown",
+  { tag: "@full" },
+  async ({ page }) => {
+    const server = "e2e-project-values-server";
+    const officeWideSecret = "office-wide-secret-value";
+    const projectSecret = "project-secret-value";
+    await addFakeMcpServer(page, server, [
+      { name: "FAKE_TOKEN", secret: true, required: true, officeWideValue: officeWideSecret },
+      { name: "FAKE_REGION", secret: false, required: false, officeWideValue: "eu" },
+    ]);
+    const project = await addedProject(page, "Values override");
+    await page.goto(`/projects/${project.id}/server-values`);
 
-  const values = page.getByRole("region", { name: `MCP server ${server}` });
-  const token = values.getByRole("listitem", { name: "Server value FAKE_TOKEN" });
-  const region = values.getByRole("listitem", { name: "Server value FAKE_REGION" });
-  await expect(token).toContainText("Office-wide Set");
-  await expect(token).toContainText("This Project The Office-wide value");
-  await expect(region).toContainText("Office-wide eu");
+    const values = page.getByRole("region", { name: `MCP server ${server}` });
+    const token = values.getByRole("listitem", { name: "Server value FAKE_TOKEN" });
+    const region = values.getByRole("listitem", { name: "Server value FAKE_REGION" });
+    await expect(token).toContainText("Office-wide Set");
+    await expect(token).toContainText("This Project The Office-wide value");
+    await expect(region).toContainText("Office-wide eu");
 
-  await values.getByRole("button", { name: `Change ${server}'s values for this Project` }).click();
-  const editor = page.getByRole("form", { name: `MCP server ${server}` });
-  await editor.getByLabel("FAKE_TOKEN for this Project").fill(projectSecret);
-  await expect(editor.getByText("The value you typed is kept on Save.")).toBeVisible();
-  await editor.getByLabel("FAKE_REGION for this Project").fill("us");
-  await editor.getByRole("button", { name: "Save" }).click();
+    await values
+      .getByRole("button", { name: `Change ${server}'s values for this Project` })
+      .click();
+    const editor = page.getByRole("form", { name: `MCP server ${server}` });
+    await editor.getByLabel("FAKE_TOKEN for this Project").fill(projectSecret);
+    await expect(editor.getByText("The value you typed is kept on Save.")).toBeVisible();
+    await editor.getByLabel("FAKE_REGION for this Project").fill("us");
+    await editor.getByRole("button", { name: "Save" }).click();
 
-  await expect(
-    page.getByText(
-      "Server values saved. Sessions in Values override get them from their next start.",
-    ),
-  ).toBeVisible();
-  await expect(token).toContainText("This Project Set");
-  await expect(region).toContainText("This Project us");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-server-values.png") });
+    await expect(
+      page.getByText(
+        "Server values saved. Sessions in Values override get them from their next start.",
+      ),
+    ).toBeVisible();
+    await expect(token).toContainText("This Project Set");
+    await expect(region).toContainText("This Project us");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-server-values.png") });
 
-  // The kept secret is only said to be set, in the editor and over the API.
-  await page.reload();
-  await values.getByRole("button", { name: `Change ${server}'s values for this Project` }).click();
-  await expect(
-    editor.getByText("A value is set. It is never shown; type a new one to replace it."),
-  ).toBeVisible();
-  await expect(editor.getByLabel("FAKE_TOKEN for this Project")).toHaveValue("");
-  await expect(page.locator("body")).not.toContainText(projectSecret);
-  await expect(page.locator("body")).not.toContainText(officeWideSecret);
-  const listed = await (await page.request.get(`/api/projects/${project.id}/server-values`)).text();
-  expect(listed).not.toContain(projectSecret);
-  expect(listed).not.toContain(officeWideSecret);
-});
+    // The kept secret is only said to be set, in the editor and over the API.
+    await page.reload();
+    await values
+      .getByRole("button", { name: `Change ${server}'s values for this Project` })
+      .click();
+    await expect(
+      editor.getByText("A value is set. It is never shown; type a new one to replace it."),
+    ).toBeVisible();
+    await expect(editor.getByLabel("FAKE_TOKEN for this Project")).toHaveValue("");
+    await expect(page.locator("body")).not.toContainText(projectSecret);
+    await expect(page.locator("body")).not.toContainText(officeWideSecret);
+    const listed = await (
+      await page.request.get(`/api/projects/${project.id}/server-values`)
+    ).text();
+    expect(listed).not.toContain(projectSecret);
+    expect(listed).not.toContain(officeWideSecret);
+  },
+);
 
-test("the install inputs are changed beside the install command", async ({ page }) => {
-  const project = await addedProject(page, "Install inputs");
-  await page.goto(`/projects/${project.id}/commands`);
-  await expect(page.getByText("None: a worktree installs once.")).toBeVisible();
+test(
+  "the install inputs are changed beside the install command",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Install inputs");
+    await page.goto(`/projects/${project.id}/commands`);
+    await expect(page.getByText("None: a worktree installs once.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Change the install inputs" }).click();
-  await page.getByLabel("Install inputs").fill("package-lock.json, apps/web/package.json");
-  await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Change the install inputs" }).click();
+    await page.getByLabel("Install inputs").fill("package-lock.json, apps/web/package.json");
+    await page.keyboard.press("Enter");
 
-  await expect(page.getByText("Install inputs saved.")).toBeVisible();
-  await page.reload();
-  await expect(page.getByText("package-lock.json, apps/web/package.json")).toBeVisible();
+    await expect(page.getByText("Install inputs saved.")).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("package-lock.json, apps/web/package.json")).toBeVisible();
 
-  await page.getByRole("button", { name: "Change the install inputs" }).click();
-  await page.getByLabel("Install inputs").fill("../package-lock.json");
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("alert")).toHaveText(
-    'An install input is a path inside the repository; "../package-lock.json" is not.',
-  );
-});
+    await page.getByRole("button", { name: "Change the install inputs" }).click();
+    await page.getByLabel("Install inputs").fill("../package-lock.json");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("alert")).toHaveText(
+      'An install input is a path inside the repository; "../package-lock.json" is not.',
+    );
+  },
+);
 
-test("the Project limit starts at 1, is changed in Overview › Work, and is kept after a reload", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Project limit");
-  await page.goto(`/projects/${project.id}`);
-  const limit = page.getByRole("status", { name: "running Tasks at once in this Project" });
-  await expect(limit).toHaveText("1");
-  await expect(
-    page.getByRole("button", { name: "Lower running Tasks at once in this Project" }),
-  ).toBeDisabled();
+test(
+  "the Project limit starts at 1, is changed in Overview › Work, and is kept after a reload",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Project limit");
+    await page.goto(`/projects/${project.id}`);
+    const limit = page.getByRole("status", { name: "running Tasks at once in this Project" });
+    await expect(limit).toHaveText("1");
+    await expect(
+      page.getByRole("button", { name: "Lower running Tasks at once in this Project" }),
+    ).toBeDisabled();
 
-  const raise = page.getByRole("button", { name: "Raise running Tasks at once in this Project" });
-  await raise.click();
-  await expect(limit).toHaveText("2");
-  await expect(raise).toBeEnabled();
-  await raise.click();
-  await expect(limit).toHaveText("3");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-limit.png") });
+    const raise = page.getByRole("button", { name: "Raise running Tasks at once in this Project" });
+    await raise.click();
+    await expect(limit).toHaveText("2");
+    await expect(raise).toBeEnabled();
+    await raise.click();
+    await expect(limit).toHaveText("3");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-limit.png") });
 
-  await page.reload();
-  await expect(limit).toHaveText("3");
-  await expect(
-    page.getByText(
-      "Lowering it lets running Tasks finish; nothing new starts in this Project until one ends.",
-    ),
-  ).toBeVisible();
-});
+    await page.reload();
+    await expect(limit).toHaveText("3");
+    await expect(
+      page.getByText(
+        "Lowering it lets running Tasks finish; nothing new starts in this Project until one ends.",
+      ),
+    ).toBeVisible();
+  },
+);
 
-test("the default Pipeline picker lists the library, the built-ins first", async ({ page }) => {
-  const project = await addedProject(page, "Pipeline choice");
-  await page.goto(`/projects/${project.id}/default-pipeline`);
-  const picker = page.getByLabel("Default Pipeline");
+test(
+  "the default Pipeline picker lists the library, the built-ins first",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Pipeline choice");
+    await page.goto(`/projects/${project.id}/default-pipeline`);
+    const picker = page.getByLabel("Default Pipeline");
 
-  // Other tests add Pipelines of their own after the built-ins.
-  await expect(picker.locator("option").first()).toHaveText("Full");
-  const options = await picker.locator("option").allTextContents();
-  expect(options.slice(0, 5)).toEqual([
-    "Full",
-    "Quick fix",
-    "Document",
-    "Onboard",
-    "Proof of concept",
-  ]);
-  await picker.selectOption({ label: "Quick fix" });
+    // Other tests add Pipelines of their own after the built-ins.
+    await expect(picker.locator("option").first()).toHaveText("Full");
+    const options = await picker.locator("option").allTextContents();
+    expect(options.slice(0, 5)).toEqual([
+      "Full",
+      "Quick fix",
+      "Document",
+      "Onboard",
+      "Proof of concept",
+    ]);
+    await picker.selectOption({ label: "Quick fix" });
 
-  await expect(page.getByText(`New Tasks in ${project.name} start from Quick fix.`)).toBeVisible();
-  await expect(page.getByText(/^Implement → Tests → Publish\./)).toBeVisible();
-});
+    await expect(
+      page.getByText(`New Tasks in ${project.name} start from Quick fix.`),
+    ).toBeVisible();
+    await expect(page.getByText(/^Implement → Tests → Publish\./)).toBeVisible();
+  },
+);
 
-test("a command changed in one tab shows in another", async ({ page, context }) => {
-  const project = await addedProject(page, "Two tabs");
-  const other = await context.newPage();
-  // The other tab must have subscribed before the change, or it never hears of it.
-  const subscribed = new Promise<void>((resolve) => {
-    other.on("websocket", (socket) => {
-      socket.on("framereceived", ({ payload }) => {
-        if (
-          String(payload).includes('"subscriptions"') &&
-          String(payload).includes("project.command-changed")
-        ) {
-          resolve();
-        }
+test(
+  "a command changed in one tab shows in another",
+  { tag: "@full" },
+  async ({ page, context }) => {
+    const project = await addedProject(page, "Two tabs");
+    const other = await context.newPage();
+    // The other tab must have subscribed before the change, or it never hears of it.
+    const subscribed = new Promise<void>((resolve) => {
+      other.on("websocket", (socket) => {
+        socket.on("framereceived", ({ payload }) => {
+          if (
+            String(payload).includes('"subscriptions"') &&
+            String(payload).includes("project.command-changed")
+          ) {
+            resolve();
+          }
+        });
       });
     });
-  });
-  await other.goto(`/projects/${project.id}/commands`);
-  await subscribed;
-  await page.goto(`/projects/${project.id}/commands`);
+    await other.goto(`/projects/${project.id}/commands`);
+    await subscribed;
+    await page.goto(`/projects/${project.id}/commands`);
 
-  await page.getByRole("button", { name: "Change the lint command" }).click();
-  await page.getByLabel("Lint command").fill("oxlint");
-  await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Change the lint command" }).click();
+    await page.getByLabel("Lint command").fill("oxlint");
+    await page.getByRole("button", { name: "Save" }).click();
 
-  await expect(other.getByText("oxlint", { exact: true })).toBeVisible();
-});
+    await expect(other.getByText("oxlint", { exact: true })).toBeVisible();
+  },
+);
 
 test("the environment check shows each check, and saves the environment only once all pass", async ({
   page,
@@ -727,482 +759,530 @@ test("a Secret variable is set, kept and removed, and its value never comes back
   expect(saved.environment.set).toEqual([]);
 });
 
-test("the mark is changed in Appearance: previewed, saved, and shown on the head and the card", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "New look");
-  await page.goto(`/projects/${project.id}/appearance`);
-  const head = page.locator(".project-head .project-mark");
-  const picker = page.locator(".mark-picker");
-  const preview = howItLooks(page);
-  const save = page.getByRole("button", { name: "Save" });
-  await expect(head).toHaveText("AP");
-  await expect(save).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Discard" })).toBeHidden();
-  await expect(preview.getByText("Not saved")).toBeHidden();
-
-  await picker.getByLabel("Mark label").fill("NL");
-  await picker.getByRole("radio", { name: "Teal" }).check();
-
-  await expect(picker.locator(".project-mark")).toHaveText("NL");
-  await expect(picker.locator(".project-mark")).toHaveClass(/colour-teal/);
-  // Every place the preview draws shows the draft, while the real head keeps the saved mark.
-  await expect(preview.locator(".project-mark")).toHaveText(["NL", "NL", "NL"]);
-  await expect(preview.locator(".project-mark.mark-colour-teal")).toHaveCount(3);
-  await expect(preview.getByText("Not saved")).toBeVisible();
-  await expect(head).toHaveText("AP");
-  await expect(head).toHaveClass(/colour-violet/);
-
-  await save.click();
-
-  await expect(page.getByText("Mark saved for New look.")).toBeVisible();
-  await expect(head).toHaveText("NL");
-  await expect(head).toHaveClass(/colour-teal/);
-  await expect(save).toBeDisabled();
-  await expect(preview.getByText("Not saved")).toBeHidden();
-
-  await page.reload();
-  await expect(page.locator(".project-head .project-mark")).toHaveText("NL");
-  await expect(page.getByLabel("Mark label")).toHaveValue("NL");
-
-  await page.getByRole("link", { name: "Projects", exact: true }).first().click();
-  const card = page.getByRole("link", { name: /New look/ }).locator(".project-mark");
-  await expect(card).toHaveText("NL");
-  await expect(card).toHaveClass(/colour-teal/);
-});
-
-test("Discard shows only while the mark has a draft, and brings back the saved mark", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Second thoughts");
-  await page.goto(`/projects/${project.id}/appearance`);
-  const picker = page.locator(".mark-picker");
-  const discard = page.getByRole("button", { name: "Discard" });
-  await expect(discard).toBeHidden();
-
-  await picker.getByLabel("Mark label").fill("ST");
-  await picker.getByRole("radio", { name: "Ink" }).check();
-  await expect(discard).toBeVisible();
-
-  await discard.click();
-
-  await expect(picker.getByLabel("Mark label")).toHaveValue("AP");
-  await expect(picker.getByRole("radio", { name: "Violet" })).toBeChecked();
-  await expect(howItLooks(page).locator(".project-mark").first()).toHaveText("AP");
-  await expect(howItLooks(page).getByText("Not saved")).toBeHidden();
-  await expect(discard).toBeHidden();
-  await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
-
-  // Typed back to the saved mark, there is nothing to discard either.
-  await picker.getByLabel("Mark label").fill("AQ");
-  await expect(discard).toBeVisible();
-  await picker.getByLabel("Mark label").fill("AP");
-  await expect(discard).toBeHidden();
-});
-
-test("the colours are swatches picked by the keyboard, each named", async ({ page }) => {
-  const project = await addedProject(page, "Keyed");
-  await page.goto(`/projects/${project.id}/appearance`);
-  const colours = page.getByRole("radiogroup", { name: "Colour" });
-  await expect(colours.getByRole("radio")).toHaveCount(5);
-  for (const name of ["Teal", "Violet", "Gray", "Ink", "Custom"]) {
-    await expect(colours.getByRole("radio", { name })).toBeVisible();
-  }
-
-  await colours.getByRole("radio", { name: "Violet" }).focus();
-  await page.keyboard.press("ArrowRight");
-
-  await expect(colours.getByRole("radio", { name: "Gray" })).toBeChecked();
-  await expect(page.locator(".mark-picker .project-mark")).toHaveClass(/colour-gray/);
-  await expect(page.getByRole("tooltip")).toHaveText("Gray");
-});
-
-test("an Icon replaces the letters everywhere, without a reload, until it is removed", async ({
-  page,
-  context,
-}) => {
-  const project = await addedProject(page, "Iconic");
-  const created = await page.request.post("/api/tasks", {
-    data: { title: "Shows the Project's Icon", projectId: project.id, priority: "normal" },
-  });
-  expect(created.status()).toBe(201);
-  const board = await context.newPage();
-  await board.goto("/work");
-  const boardMark = board
-    .locator(".board-card", { hasText: "Shows the Project's Icon" })
-    .locator(".project-mark");
-  await expect(boardMark).toHaveText("AP");
-
-  await page.goto(`/projects/${project.id}/appearance`);
-  const row = page.getByRole("group", { name: "Icon" });
-  const head = page.locator(".project-head .project-mark");
-  const iconNote = page.getByText("The Icon shows in place of these letters.");
-  await expect(
-    page.getByText("PNG, JPEG, WebP or SVG, at most 2 MB. Each is saved as soon as it is picked."),
-  ).toBeVisible();
-  await expect(
-    row.getByText("in place of the mark's letters and colour, wherever the mark shows"),
-  ).toBeVisible();
-  await expect(row.getByText("No Icon")).toBeVisible();
-  await expect(row.getByRole("button", { name: "Remove" })).toBeHidden();
-  await expect(iconNote).toBeHidden();
-
-  await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
-
-  await expect(page.getByText("Icon saved for Iconic.")).toBeVisible();
-  await expectLoadedImage(head.locator("img"));
-  await expectLoadedImage(row.locator(".project-mark img"));
-  await expect(row.getByText("No Icon")).toBeHidden();
-  // The picker edits the letters, so it keeps them; How it looks shows the Icon in their place.
-  await expect(page.locator(".mark-picker .project-mark")).toHaveText("AP");
-  await expect(iconNote).toBeVisible();
-  const previewIcons = howItLooks(page).locator(".project-mark img");
-  await expect(previewIcons).toHaveCount(3);
-  for (const icon of await previewIcons.all()) await expectLoadedImage(icon);
-  await expect(head).not.toHaveText("AP");
-  await expectLoadedImage(boardMark.locator("img"));
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-icon.png") });
-
-  await page.goto("/projects");
-  await expectLoadedImage(page.getByRole("link", { name: /Iconic/ }).locator(".project-mark img"));
-
-  await page.goto(`/projects/${project.id}/appearance`);
-  await page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Remove" }).click();
-
-  await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
-  await expect(boardMark).toHaveText("AP");
-});
-
-test("a Logo stands for the Project on its page and card, and the mark comes back without it", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Logoed");
-  await page.goto(`/projects/${project.id}/appearance`);
-  const row = page.getByRole("group", { name: "Logo" });
-  // An empty row shows a place for the Logo, not the mark that shows without one.
-  await expect(row.getByText("No Logo")).toBeVisible();
-  await expect(row.locator(".project-mark, .project-logo")).toHaveCount(0);
-  await expect(row.getByText("Stands for the Project on its page and its card")).toBeVisible();
-
-  await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
-
-  await expect(page.getByText("Logo saved for Logoed.")).toBeVisible();
-  const headLogo = page.locator(".project-head .project-logo");
-  await expectLoadedImage(headLogo);
-  await expectLoadedImage(row.locator(".project-logo"));
-  await expect(row.getByText("No Logo")).toBeHidden();
-  // How it looks shows the Logo on the page head and the card, and the mark beside an item.
-  await expect(howItLooks(page).locator(".project-logo")).toHaveCount(2);
-  await expect(howItLooks(page).locator(".project-mark")).toHaveText(["AP"]);
-  await expect(page.locator(".project-head .project-mark")).toBeHidden();
-  // Its own proportions, 4 to 1, inside the head's limit.
-  await expect(headLogo).toHaveJSProperty("naturalWidth", 400);
-  const box = await headLogo.boundingBox();
-  expect(box && Math.round(box.width / box.height)).toBe(4);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-logo.png") });
-
-  await page.goto("/projects");
-  const card = page.getByRole("link", { name: /Logoed/ });
-  await expectLoadedImage(card.locator(".project-logo"));
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-logo.png") });
-
-  await page.goto(`/projects/${project.id}/appearance`);
-  await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
-
-  await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
-  await page.goto("/projects");
-  await expect(card.locator(".project-mark")).toHaveText("AP");
-});
-
-test("without a Logo the Icon stands in, with no tile behind it in the dark palette too", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Both images");
-  await page.emulateMedia({ colorScheme: "dark" });
-  await page.goto(`/projects/${project.id}/appearance`);
-  await page.getByLabel("Icon file").setInputFiles(TRANSPARENT_ICON_FILE);
-  await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
-  await expectLoadedImage(page.locator(".project-head .project-logo"));
-  await expectLoadedImage(page.getByRole("group", { name: "Icon" }).locator(".project-mark img"));
-  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-project-images.png") });
-
-  await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
-
-  const head = page.locator(".project-head .project-mark");
-  await expectLoadedImage(head.locator("img"));
-  await expect(page.locator(".project-head .project-logo")).toBeHidden();
-  await expectNoTile(head);
-
-  await page.getByRole("radio", { name: "Custom" }).check();
-  await page.getByLabel("Custom colour").fill(DARK_CUSTOM_COLOUR.value);
-  await page.getByRole("button", { name: "Save" }).click();
-
-  await expect(page.getByText("Mark saved for Both images.")).toBeVisible();
-  await expect(head).toHaveClass(/colour-custom/);
-  await expectNoTile(head);
-});
-
-test("a replaced image shows at once, and its old address answers no more", async ({ page }) => {
-  const project = await addedProject(page, "Reimaged");
-  await page.goto(`/projects/${project.id}/appearance`);
-  await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
-  const image = page.locator(".project-head .project-mark img");
-  await expectLoadedImage(image);
-  const oldAddress = await image.getAttribute("src");
-
-  await page.getByLabel("Icon file").setInputFiles({ ...LOGO_FILE, name: "other.svg" });
-
-  await expect(image).not.toHaveAttribute("src", oldAddress ?? "");
-  await expectLoadedImage(image);
-  expect((await page.request.get(oldAddress ?? "")).status()).toBe(404);
-  await expect(
-    page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Replace" }),
-  ).toBeVisible();
-});
-
-test("a file that isn't an image, or is too large, is refused in its row, and the image stays", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Refusing");
-  await page.goto(`/projects/${project.id}/appearance`);
-  await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
-  const image = page.locator(".project-head .project-mark img");
-  await expectLoadedImage(image);
-  const address = await image.getAttribute("src");
-  const row = page.getByRole("group", { name: "Icon" });
-
-  await page.getByLabel("Icon file").setInputFiles({
-    name: "renamed.png",
-    mimeType: "image/png",
-    buffer: Buffer.from("<html>not a picture</html>"),
-  });
-
-  await expect(row.getByRole("alert")).toHaveText("The file isn't a PNG, JPEG, WebP or SVG image.");
-  await expect(image).toHaveAttribute("src", address ?? "");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-image-refused.png") });
-
-  await page.getByLabel("Icon file").setInputFiles({
-    name: "large.png",
-    mimeType: "image/png",
-    buffer: Buffer.alloc(IMAGE_UPLOAD_BYTES + 1),
-  });
-
-  await expect(row.getByRole("alert")).toHaveText("An image may be at most 2 MB.");
-  await expect(image).toHaveAttribute("src", address ?? "");
-
-  await page.getByLabel("Icon file").setInputFiles(LOGO_FILE);
-  await expect(row.getByRole("alert")).toBeHidden();
-});
-
-test("the window to choose an image shows only images and folders, in any case", async ({
-  page,
-}) => {
-  const imaged = await repositoryWithImages();
-  try {
-    const project = await addedProject(page, "Filtered images", undefined, imaged.path);
+test(
+  "the mark is changed in Appearance: previewed, saved, and shown on the head and the card",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "New look");
     await page.goto(`/projects/${project.id}/appearance`);
+    const head = page.locator(".project-head .project-mark");
+    const picker = page.locator(".mark-picker");
+    const preview = howItLooks(page);
+    const save = page.getByRole("button", { name: "Save" });
+    await expect(head).toHaveText("AP");
+    await expect(save).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Discard" })).toBeHidden();
+    await expect(preview.getByText("Not saved")).toBeHidden();
 
-    const window = await openAssets(page, "Icon");
+    await picker.getByLabel("Mark label").fill("NL");
+    await picker.getByRole("radio", { name: "Teal" }).check();
 
-    await expect(window.locator(".repository-file-entry")).toHaveText([
-      "old",
-      "circle.svg",
-      "fake.png",
-      "icon.png",
-      "logo.svg",
-      "PHOTO.JPG",
-    ]);
-    await expect(window.getByRole("button", { name: "Choose file" })).toBeDisabled();
+    await expect(picker.locator(".project-mark")).toHaveText("NL");
+    await expect(picker.locator(".project-mark")).toHaveClass(/colour-teal/);
+    // Every place the preview draws shows the draft, while the real head keeps the saved mark.
+    await expect(preview.locator(".project-mark")).toHaveText(["NL", "NL", "NL"]);
+    await expect(preview.locator(".project-mark.mark-colour-teal")).toHaveCount(3);
+    await expect(preview.getByText("Not saved")).toBeVisible();
+    await expect(head).toHaveText("AP");
+    await expect(head).toHaveClass(/colour-violet/);
 
-    await window.getByRole("button", { name: "Close" }).last().click();
-    await expect(window).toBeHidden();
-    await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
-  } finally {
-    await imaged.remove();
-  }
-});
+    await save.click();
 
-test("an Icon and a Logo chosen from the repository show everywhere, without a reload", async ({
-  page,
-}) => {
-  const imaged = await repositoryWithImages();
-  try {
-    const project = await addedProject(page, "Chosen images", undefined, imaged.path);
+    await expect(page.getByText("Mark saved for New look.")).toBeVisible();
+    await expect(head).toHaveText("NL");
+    await expect(head).toHaveClass(/colour-teal/);
+    await expect(save).toBeDisabled();
+    await expect(preview.getByText("Not saved")).toBeHidden();
+
+    await page.reload();
+    await expect(page.locator(".project-head .project-mark")).toHaveText("NL");
+    await expect(page.getByLabel("Mark label")).toHaveValue("NL");
+
+    await page.getByRole("link", { name: "Projects", exact: true }).first().click();
+    const card = page.getByRole("link", { name: /New look/ }).locator(".project-mark");
+    await expect(card).toHaveText("NL");
+    await expect(card).toHaveClass(/colour-teal/);
+  },
+);
+
+test(
+  "Discard shows only while the mark has a draft, and brings back the saved mark",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Second thoughts");
     await page.goto(`/projects/${project.id}/appearance`);
+    const picker = page.locator(".mark-picker");
+    const discard = page.getByRole("button", { name: "Discard" });
+    await expect(discard).toBeHidden();
 
-    await chooseFromRepository(page, "Icon", "icon.png");
+    await picker.getByLabel("Mark label").fill("ST");
+    await picker.getByRole("radio", { name: "Ink" }).check();
+    await expect(discard).toBeVisible();
 
-    await expect(page.getByText("Icon saved for Chosen images.")).toBeVisible();
-    const iconRow = page.getByRole("group", { name: "Icon" });
-    await expectLoadedImage(page.locator(".project-head .project-mark img"));
-    await expectLoadedImage(iconRow.locator(".project-mark img"));
-    await expect(iconRow.getByRole("button", { name: "Replace" })).toBeVisible();
+    await discard.click();
 
-    await chooseFromRepository(page, "Logo", "logo.svg");
+    await expect(picker.getByLabel("Mark label")).toHaveValue("AP");
+    await expect(picker.getByRole("radio", { name: "Violet" })).toBeChecked();
+    await expect(howItLooks(page).locator(".project-mark").first()).toHaveText("AP");
+    await expect(howItLooks(page).getByText("Not saved")).toBeHidden();
+    await expect(discard).toBeHidden();
+    await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
 
-    await expect(page.getByText("Logo saved for Chosen images.")).toBeVisible();
-    await expectLoadedImage(page.locator(".project-head .project-logo"));
+    // Typed back to the saved mark, there is nothing to discard either.
+    await picker.getByLabel("Mark label").fill("AQ");
+    await expect(discard).toBeVisible();
+    await picker.getByLabel("Mark label").fill("AP");
+    await expect(discard).toBeHidden();
+  },
+);
+
+test(
+  "the colours are swatches picked by the keyboard, each named",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Keyed");
+    await page.goto(`/projects/${project.id}/appearance`);
+    const colours = page.getByRole("radiogroup", { name: "Colour" });
+    await expect(colours.getByRole("radio")).toHaveCount(5);
+    for (const name of ["Teal", "Violet", "Gray", "Ink", "Custom"]) {
+      await expect(colours.getByRole("radio", { name })).toBeVisible();
+    }
+
+    await colours.getByRole("radio", { name: "Violet" }).focus();
+    await page.keyboard.press("ArrowRight");
+
+    await expect(colours.getByRole("radio", { name: "Gray" })).toBeChecked();
+    await expect(page.locator(".mark-picker .project-mark")).toHaveClass(/colour-gray/);
+    await expect(page.getByRole("tooltip")).toHaveText("Gray");
+  },
+);
+
+test(
+  "an Icon replaces the letters everywhere, without a reload, until it is removed",
+  { tag: "@full" },
+  async ({ page, context }) => {
+    const project = await addedProject(page, "Iconic");
+    const created = await page.request.post("/api/tasks", {
+      data: { title: "Shows the Project's Icon", projectId: project.id, priority: "normal" },
+    });
+    expect(created.status()).toBe(201);
+    const board = await context.newPage();
+    await board.goto("/work");
+    const boardMark = board
+      .locator(".board-card", { hasText: "Shows the Project's Icon" })
+      .locator(".project-mark");
+    await expect(boardMark).toHaveText("AP");
+
+    await page.goto(`/projects/${project.id}/appearance`);
+    const row = page.getByRole("group", { name: "Icon" });
+    const head = page.locator(".project-head .project-mark");
+    const iconNote = page.getByText("The Icon shows in place of these letters.");
+    await expect(
+      page.getByText(
+        "PNG, JPEG, WebP or SVG, at most 2 MB. Each is saved as soon as it is picked.",
+      ),
+    ).toBeVisible();
+    await expect(
+      row.getByText("in place of the mark's letters and colour, wherever the mark shows"),
+    ).toBeVisible();
+    await expect(row.getByText("No Icon")).toBeVisible();
+    await expect(row.getByRole("button", { name: "Remove" })).toBeHidden();
+    await expect(iconNote).toBeHidden();
+
+    await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
+
+    await expect(page.getByText("Icon saved for Iconic.")).toBeVisible();
+    await expectLoadedImage(head.locator("img"));
+    await expectLoadedImage(row.locator(".project-mark img"));
+    await expect(row.getByText("No Icon")).toBeHidden();
+    // The picker edits the letters, so it keeps them; How it looks shows the Icon in their place.
+    await expect(page.locator(".mark-picker .project-mark")).toHaveText("AP");
+    await expect(iconNote).toBeVisible();
+    const previewIcons = howItLooks(page).locator(".project-mark img");
+    await expect(previewIcons).toHaveCount(3);
+    for (const icon of await previewIcons.all()) await expectLoadedImage(icon);
+    await expect(head).not.toHaveText("AP");
+    await expectLoadedImage(boardMark.locator("img"));
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-icon.png") });
 
     await page.goto("/projects");
-    const card = page.getByRole("link", { name: /Chosen images/ });
+    await expectLoadedImage(
+      page.getByRole("link", { name: /Iconic/ }).locator(".project-mark img"),
+    );
+
+    await page.goto(`/projects/${project.id}/appearance`);
+    await page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Remove" }).click();
+
+    await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+    await expect(boardMark).toHaveText("AP");
+  },
+);
+
+test(
+  "a Logo stands for the Project on its page and card, and the mark comes back without it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Logoed");
+    await page.goto(`/projects/${project.id}/appearance`);
+    const row = page.getByRole("group", { name: "Logo" });
+    // An empty row shows a place for the Logo, not the mark that shows without one.
+    await expect(row.getByText("No Logo")).toBeVisible();
+    await expect(row.locator(".project-mark, .project-logo")).toHaveCount(0);
+    await expect(row.getByText("Stands for the Project on its page and its card")).toBeVisible();
+
+    await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
+
+    await expect(page.getByText("Logo saved for Logoed.")).toBeVisible();
+    const headLogo = page.locator(".project-head .project-logo");
+    await expectLoadedImage(headLogo);
+    await expectLoadedImage(row.locator(".project-logo"));
+    await expect(row.getByText("No Logo")).toBeHidden();
+    // How it looks shows the Logo on the page head and the card, and the mark beside an item.
+    await expect(howItLooks(page).locator(".project-logo")).toHaveCount(2);
+    await expect(howItLooks(page).locator(".project-mark")).toHaveText(["AP"]);
+    await expect(page.locator(".project-head .project-mark")).toBeHidden();
+    // Its own proportions, 4 to 1, inside the head's limit.
+    await expect(headLogo).toHaveJSProperty("naturalWidth", 400);
+    const box = await headLogo.boundingBox();
+    expect(box && Math.round(box.width / box.height)).toBe(4);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-logo.png") });
+
+    await page.goto("/projects");
+    const card = page.getByRole("link", { name: /Logoed/ });
     await expectLoadedImage(card.locator(".project-logo"));
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-logo.png") });
 
     await page.goto(`/projects/${project.id}/appearance`);
     await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
-    await expectLoadedImage(page.locator(".project-head .project-mark img"));
-    await page.goto("/projects");
-    await expectLoadedImage(card.locator(".project-mark img"));
-  } finally {
-    await imaged.remove();
-  }
-});
 
-test("a chosen image stays as it was after a new commit, until it is chosen again", async ({
-  page,
-}) => {
-  const imaged = await repositoryWithImages();
-  try {
-    const project = await addedProject(page, "Copied image", undefined, imaged.path);
+    await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+    await page.goto("/projects");
+    await expect(card.locator(".project-mark")).toHaveText("AP");
+  },
+);
+
+test(
+  "without a Logo the Icon stands in, with no tile behind it in the dark palette too",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Both images");
+    await page.emulateMedia({ colorScheme: "dark" });
     await page.goto(`/projects/${project.id}/appearance`);
-    await chooseFromRepository(page, "Icon", "icon.png");
+    await page.getByLabel("Icon file").setInputFiles(TRANSPARENT_ICON_FILE);
+    await page.getByLabel("Logo file").setInputFiles(LOGO_FILE);
+    await expectLoadedImage(page.locator(".project-head .project-logo"));
+    await expectLoadedImage(page.getByRole("group", { name: "Icon" }).locator(".project-mark img"));
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-project-images.png") });
+
+    await page.getByRole("group", { name: "Logo" }).getByRole("button", { name: "Remove" }).click();
+
+    const head = page.locator(".project-head .project-mark");
+    await expectLoadedImage(head.locator("img"));
+    await expect(page.locator(".project-head .project-logo")).toBeHidden();
+    await expectNoTile(head);
+
+    await page.getByRole("radio", { name: "Custom" }).check();
+    await page.getByLabel("Custom colour").fill(DARK_CUSTOM_COLOUR.value);
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByText("Mark saved for Both images.")).toBeVisible();
+    await expect(head).toHaveClass(/colour-custom/);
+    await expectNoTile(head);
+  },
+);
+
+test(
+  "a replaced image shows at once, and its old address answers no more",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Reimaged");
+    await page.goto(`/projects/${project.id}/appearance`);
+    await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
     const image = page.locator(".project-head .project-mark img");
     await expectLoadedImage(image);
-    const address = (await image.getAttribute("src")) ?? "";
+    const oldAddress = await image.getAttribute("src");
 
-    await commitFiles(imaged, { "assets/icon.png": LOGO_FILE.buffer });
-    await page.reload();
+    await page.getByLabel("Icon file").setInputFiles({ ...LOGO_FILE, name: "other.svg" });
 
+    await expect(image).not.toHaveAttribute("src", oldAddress ?? "");
     await expectLoadedImage(image);
-    await expect(image).toHaveAttribute("src", address);
-    const kept = await page.request.get(address);
-    expect((await kept.body()).equals(ICON_FILE.buffer)).toBe(true);
+    expect((await page.request.get(oldAddress ?? "")).status()).toBe(404);
+    await expect(
+      page.getByRole("group", { name: "Icon" }).getByRole("button", { name: "Replace" }),
+    ).toBeVisible();
+  },
+);
 
-    await chooseFromRepository(page, "Icon", "icon.png");
-
-    await expect(image).not.toHaveAttribute("src", address);
-    await expectLoadedImage(image);
-    const chosenAgain = await page.request.get((await image.getAttribute("src")) ?? "");
-    expect((await chosenAgain.body()).equals(LOGO_FILE.buffer)).toBe(true);
-    expect((await page.request.get(address)).status()).toBe(404);
-  } finally {
-    await imaged.remove();
-  }
-});
-
-test("a text file named .png is refused in its row, and the image stays", async ({ page }) => {
-  const imaged = await repositoryWithImages();
-  try {
-    const project = await addedProject(page, "Refused choice", undefined, imaged.path);
+test(
+  "a file that isn't an image, or is too large, is refused in its row, and the image stays",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Refusing");
     await page.goto(`/projects/${project.id}/appearance`);
-    await chooseFromRepository(page, "Icon", "icon.png");
+    await page.getByLabel("Icon file").setInputFiles(ICON_FILE);
     const image = page.locator(".project-head .project-mark img");
     await expectLoadedImage(image);
     const address = await image.getAttribute("src");
-
-    await chooseFromRepository(page, "Icon", "fake.png");
-
     const row = page.getByRole("group", { name: "Icon" });
+
+    await page.getByLabel("Icon file").setInputFiles({
+      name: "renamed.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("<html>not a picture</html>"),
+    });
+
     await expect(row.getByRole("alert")).toHaveText(
       "The file isn't a PNG, JPEG, WebP or SVG image.",
     );
     await expect(image).toHaveAttribute("src", address ?? "");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-image-refused.png") });
 
-    await chooseFromRepository(page, "Icon", "PHOTO.JPG");
+    await page.getByLabel("Icon file").setInputFiles({
+      name: "large.png",
+      mimeType: "image/png",
+      buffer: Buffer.alloc(IMAGE_UPLOAD_BYTES + 1),
+    });
+
+    await expect(row.getByRole("alert")).toHaveText("An image may be at most 2 MB.");
+    await expect(image).toHaveAttribute("src", address ?? "");
+
+    await page.getByLabel("Icon file").setInputFiles(LOGO_FILE);
     await expect(row.getByRole("alert")).toBeHidden();
-  } finally {
+  },
+);
+
+test(
+  "the window to choose an image shows only images and folders, in any case",
+  { tag: "@full" },
+  async ({ page }) => {
+    const imaged = await repositoryWithImages();
+    try {
+      const project = await addedProject(page, "Filtered images", undefined, imaged.path);
+      await page.goto(`/projects/${project.id}/appearance`);
+
+      const window = await openAssets(page, "Icon");
+
+      await expect(window.locator(".repository-file-entry")).toHaveText([
+        "old",
+        "circle.svg",
+        "fake.png",
+        "icon.png",
+        "logo.svg",
+        "PHOTO.JPG",
+      ]);
+      await expect(window.getByRole("button", { name: "Choose file" })).toBeDisabled();
+
+      await window.getByRole("button", { name: "Close" }).last().click();
+      await expect(window).toBeHidden();
+      await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+    } finally {
+      await imaged.remove();
+    }
+  },
+);
+
+test(
+  "an Icon and a Logo chosen from the repository show everywhere, without a reload",
+  { tag: "@full" },
+  async ({ page }) => {
+    const imaged = await repositoryWithImages();
+    try {
+      const project = await addedProject(page, "Chosen images", undefined, imaged.path);
+      await page.goto(`/projects/${project.id}/appearance`);
+
+      await chooseFromRepository(page, "Icon", "icon.png");
+
+      await expect(page.getByText("Icon saved for Chosen images.")).toBeVisible();
+      const iconRow = page.getByRole("group", { name: "Icon" });
+      await expectLoadedImage(page.locator(".project-head .project-mark img"));
+      await expectLoadedImage(iconRow.locator(".project-mark img"));
+      await expect(iconRow.getByRole("button", { name: "Replace" })).toBeVisible();
+
+      await chooseFromRepository(page, "Logo", "logo.svg");
+
+      await expect(page.getByText("Logo saved for Chosen images.")).toBeVisible();
+      await expectLoadedImage(page.locator(".project-head .project-logo"));
+
+      await page.goto("/projects");
+      const card = page.getByRole("link", { name: /Chosen images/ });
+      await expectLoadedImage(card.locator(".project-logo"));
+
+      await page.goto(`/projects/${project.id}/appearance`);
+      await page
+        .getByRole("group", { name: "Logo" })
+        .getByRole("button", { name: "Remove" })
+        .click();
+      await expectLoadedImage(page.locator(".project-head .project-mark img"));
+      await page.goto("/projects");
+      await expectLoadedImage(card.locator(".project-mark img"));
+    } finally {
+      await imaged.remove();
+    }
+  },
+);
+
+test(
+  "a chosen image stays as it was after a new commit, until it is chosen again",
+  { tag: "@full" },
+  async ({ page }) => {
+    const imaged = await repositoryWithImages();
+    try {
+      const project = await addedProject(page, "Copied image", undefined, imaged.path);
+      await page.goto(`/projects/${project.id}/appearance`);
+      await chooseFromRepository(page, "Icon", "icon.png");
+      const image = page.locator(".project-head .project-mark img");
+      await expectLoadedImage(image);
+      const address = (await image.getAttribute("src")) ?? "";
+
+      await commitFiles(imaged, { "assets/icon.png": LOGO_FILE.buffer });
+      await page.reload();
+
+      await expectLoadedImage(image);
+      await expect(image).toHaveAttribute("src", address);
+      const kept = await page.request.get(address);
+      expect((await kept.body()).equals(ICON_FILE.buffer)).toBe(true);
+
+      await chooseFromRepository(page, "Icon", "icon.png");
+
+      await expect(image).not.toHaveAttribute("src", address);
+      await expectLoadedImage(image);
+      const chosenAgain = await page.request.get((await image.getAttribute("src")) ?? "");
+      expect((await chosenAgain.body()).equals(LOGO_FILE.buffer)).toBe(true);
+      expect((await page.request.get(address)).status()).toBe(404);
+    } finally {
+      await imaged.remove();
+    }
+  },
+);
+
+test(
+  "a text file named .png is refused in its row, and the image stays",
+  { tag: "@full" },
+  async ({ page }) => {
+    const imaged = await repositoryWithImages();
+    try {
+      const project = await addedProject(page, "Refused choice", undefined, imaged.path);
+      await page.goto(`/projects/${project.id}/appearance`);
+      await chooseFromRepository(page, "Icon", "icon.png");
+      const image = page.locator(".project-head .project-mark img");
+      await expectLoadedImage(image);
+      const address = await image.getAttribute("src");
+
+      await chooseFromRepository(page, "Icon", "fake.png");
+
+      const row = page.getByRole("group", { name: "Icon" });
+      await expect(row.getByRole("alert")).toHaveText(
+        "The file isn't a PNG, JPEG, WebP or SVG image.",
+      );
+      await expect(image).toHaveAttribute("src", address ?? "");
+
+      await chooseFromRepository(page, "Icon", "PHOTO.JPG");
+      await expect(row.getByRole("alert")).toBeHidden();
+    } finally {
+      await imaged.remove();
+    }
+  },
+);
+
+test(
+  "a Project whose folder has gone says so plainly in the window",
+  { tag: "@full" },
+  async ({ page }) => {
+    const imaged = await repositoryWithImages();
+    const project = await addedProject(page, "Gone folder", undefined, imaged.path);
     await imaged.remove();
-  }
-});
+    await page.goto(`/projects/${project.id}/appearance`);
 
-test("a Project whose folder has gone says so plainly in the window", async ({ page }) => {
-  const imaged = await repositoryWithImages();
-  const project = await addedProject(page, "Gone folder", undefined, imaged.path);
-  await imaged.remove();
-  await page.goto(`/projects/${project.id}/appearance`);
+    await page
+      .getByRole("group", { name: "Icon" })
+      .getByRole("button", { name: "Choose from repository" })
+      .click();
 
-  await page
-    .getByRole("group", { name: "Icon" })
-    .getByRole("button", { name: "Choose from repository" })
-    .click();
-
-  const window = page.getByRole("dialog", { name: "Choose Icon" });
-  const refusal = window.getByRole("status");
-  await expect(refusal).toContainText("The base branch can't be read");
-  await expect(refusal).not.toContainText("Internal server error");
-});
+    const window = page.getByRole("dialog", { name: "Choose Icon" });
+    const refusal = window.getByRole("status");
+    await expect(refusal).toContainText("The base branch can't be read");
+    await expect(refusal).not.toContainText("Internal server error");
+  },
+);
 
 for (const colorScheme of ["light", "dark"] as const) {
   for (const width of [1600, 600]) {
-    test(`Appearance and the window to choose an image hold together, ${colorScheme} at ${width}`, async ({
-      page,
-    }) => {
-      const imaged = await repositoryWithImages();
-      try {
-        const project = await addedProject(
-          page,
-          `Look ${colorScheme} ${width}`,
-          undefined,
-          imaged.path,
-        );
+    test(
+      `Appearance and the window to choose an image hold together, ${colorScheme} at ${width}`,
+      { tag: "@full" },
+      async ({ page }) => {
+        const imaged = await repositoryWithImages();
+        try {
+          const project = await addedProject(
+            page,
+            `Look ${colorScheme} ${width}`,
+            undefined,
+            imaged.path,
+          );
+          await page.setViewportSize({ width, height: 900 });
+          await page.emulateMedia({ colorScheme });
+          await page.goto(`/projects/${project.id}/appearance`);
+          await expectAppearanceLaidOut(page, width);
+          await page.screenshot({
+            path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-appearance.png`),
+          });
+
+          await chooseFromRepository(page, "Icon", "circle.svg");
+          await chooseFromRepository(page, "Logo", "logo.svg");
+          await expectLoadedImage(page.locator(".project-head .project-logo"));
+          const button = page
+            .getByRole("group", { name: "Logo" })
+            .getByRole("button", { name: "Choose from repository" });
+          // Centred, as scrollIntoViewIfNeeded leaves a button a fraction of a pixel past the edge.
+          await button.evaluate((element) => element.scrollIntoView({ block: "center" }));
+          await expect(button).toBeInViewport({ ratio: 1 });
+          await expectAppearanceLaidOut(page, width);
+          await expect(page.getByText(/saved for Look/)).toHaveCount(0);
+          await page.locator(".shell-main").evaluate((main) => main.scrollTo(0, 0));
+          await page.screenshot({
+            path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-images-appearance.png`),
+          });
+
+          const fileWindow = await openAssets(page, "Icon");
+          await fileWindow.getByRole("button", { name: "icon.png" }).click();
+          await expect(fileWindow.getByRole("button", { name: "icon.png" })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+          );
+          await page.screenshot({
+            path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-image-window.png`),
+          });
+        } finally {
+          await imaged.remove();
+        }
+      },
+    );
+
+    test(
+      `the add dialog's mark holds together, ${colorScheme} at ${width}`,
+      { tag: "@full" },
+      async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ colorScheme });
-        await page.goto(`/projects/${project.id}/appearance`);
-        await expectAppearanceLaidOut(page, width);
+        await page.goto("/projects");
+        await page.getByRole("button", { name: "Add it yourself" }).click();
+        await chooseFolder(page, repository.path);
+        const dialog = page.getByRole("dialog");
+        await dialog.getByLabel("Name").fill("Swatched");
+        const colours = dialog.getByRole("radiogroup", { name: "Colour" });
+        await colours.getByRole("radio", { name: "Custom" }).check();
+
+        await expect(colours.getByRole("radio")).toHaveCount(5);
+        await expect(dialog.getByLabel("Custom colour")).toBeVisible();
+        const scrollsSideways = await dialog
+          .locator(".dialog-body")
+          .evaluate((body) => body.scrollWidth > body.clientWidth);
+        expect(scrollsSideways).toBe(false);
         await page.screenshot({
-          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-appearance.png`),
+          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-add-project-mark.png`),
         });
-
-        await chooseFromRepository(page, "Icon", "circle.svg");
-        await chooseFromRepository(page, "Logo", "logo.svg");
-        await expectLoadedImage(page.locator(".project-head .project-logo"));
-        const button = page
-          .getByRole("group", { name: "Logo" })
-          .getByRole("button", { name: "Choose from repository" });
-        // Centred, as scrollIntoViewIfNeeded leaves a button a fraction of a pixel past the edge.
-        await button.evaluate((element) => element.scrollIntoView({ block: "center" }));
-        await expect(button).toBeInViewport({ ratio: 1 });
-        await expectAppearanceLaidOut(page, width);
-        await expect(page.getByText(/saved for Look/)).toHaveCount(0);
-        await page.locator(".shell-main").evaluate((main) => main.scrollTo(0, 0));
-        await page.screenshot({
-          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-images-appearance.png`),
-        });
-
-        const fileWindow = await openAssets(page, "Icon");
-        await fileWindow.getByRole("button", { name: "icon.png" }).click();
-        await expect(fileWindow.getByRole("button", { name: "icon.png" })).toHaveAttribute(
-          "aria-pressed",
-          "true",
-        );
-        await page.screenshot({
-          path: path.join(SCREENSHOTS, `${colorScheme}-${width}-project-image-window.png`),
-        });
-      } finally {
-        await imaged.remove();
-      }
-    });
-
-    test(`the add dialog's mark holds together, ${colorScheme} at ${width}`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme });
-      await page.goto("/projects");
-      await page.getByRole("button", { name: "Add it yourself" }).click();
-      await chooseFolder(page, repository.path);
-      const dialog = page.getByRole("dialog");
-      await dialog.getByLabel("Name").fill("Swatched");
-      const colours = dialog.getByRole("radiogroup", { name: "Colour" });
-      await colours.getByRole("radio", { name: "Custom" }).check();
-
-      await expect(colours.getByRole("radio")).toHaveCount(5);
-      await expect(dialog.getByLabel("Custom colour")).toBeVisible();
-      const scrollsSideways = await dialog
-        .locator(".dialog-body")
-        .evaluate((body) => body.scrollWidth > body.clientWidth);
-      expect(scrollsSideways).toBe(false);
-      await page.screenshot({
-        path: path.join(SCREENSHOTS, `${colorScheme}-${width}-add-project-mark.png`),
-      });
-    });
+      },
+    );
   }
 }
 
@@ -1231,95 +1311,102 @@ async function expectAppearanceLaidOut(page: Page, width: number): Promise<void>
   expect(scrollsSideways).toBe(false);
 }
 
-test("an Icon that can't be loaded leaves the letters and the colour", async ({ page }) => {
-  const project = await addedProject(page, "Unloaded");
-  const response = await page.request.post(`/api/projects/${project.id}/images/icon`, {
-    headers: { "Content-Type": "application/octet-stream" },
-    data: ICON_FILE.buffer,
-  });
-  expect(response.status()).toBe(201);
-  await page.route("**/images/*/content", (route) => route.abort());
+test(
+  "an Icon that can't be loaded leaves the letters and the colour",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Unloaded");
+    const response = await page.request.post(`/api/projects/${project.id}/images/icon`, {
+      headers: { "Content-Type": "application/octet-stream" },
+      data: ICON_FILE.buffer,
+    });
+    expect(response.status()).toBe(201);
+    await page.route("**/images/*/content", (route) => route.abort());
 
-  await page.goto(`/projects/${project.id}/appearance`);
+    await page.goto(`/projects/${project.id}/appearance`);
 
-  const head = page.locator(".project-head .project-mark");
-  await expect(head).toHaveText("AP");
-  await expect(head).toHaveClass(/colour-violet/);
-  await expect(head).not.toHaveClass(/has-icon/);
-  await expect(head).not.toHaveCSS("background-color", NO_TILE.background);
-});
+    const head = page.locator(".project-head .project-mark");
+    await expect(head).toHaveText("AP");
+    await expect(head).toHaveClass(/colour-violet/);
+    await expect(head).not.toHaveClass(/has-icon/);
+    await expect(head).not.toHaveCSS("background-color", NO_TILE.background);
+  },
+);
 
-test("an SVG's script runs neither where The Office draws it nor at its own address", async ({
-  page,
-}) => {
-  const dialogs: string[] = [];
-  page.on("dialog", (dialog) => {
-    dialogs.push(dialog.message());
-    void dialog.dismiss();
-  });
-  const project = await addedProject(page, "Scripted");
-  await page.goto(`/projects/${project.id}/appearance`);
+test(
+  "an SVG's script runs neither where The Office draws it nor at its own address",
+  { tag: "@full" },
+  async ({ page }) => {
+    const dialogs: string[] = [];
+    page.on("dialog", (dialog) => {
+      dialogs.push(dialog.message());
+      void dialog.dismiss();
+    });
+    const project = await addedProject(page, "Scripted");
+    await page.goto(`/projects/${project.id}/appearance`);
 
-  await page.getByLabel("Icon file").setInputFiles(SVG_WITH_A_SCRIPT);
+    await page.getByLabel("Icon file").setInputFiles(SVG_WITH_A_SCRIPT);
 
-  const image = page.locator(".project-head .project-mark img");
-  await expectLoadedImage(image);
-  const address = await image.getAttribute("src");
+    const image = page.locator(".project-head .project-mark img");
+    await expectLoadedImage(image);
+    const address = await image.getAttribute("src");
 
-  await page.goto(address ?? "");
+    await page.goto(address ?? "");
 
-  await expect(page.locator("svg")).toBeAttached();
-  await expect(page.locator("svg")).not.toHaveAttribute("data-script-ran", "yes");
-  expect(dialogs).toEqual([]);
-});
+    await expect(page.locator("svg")).toBeAttached();
+    await expect(page.locator("svg")).not.toHaveAttribute("data-script-ran", "yes");
+    expect(dialogs).toEqual([]);
+  },
+);
 
-test("a custom colour is previewed, saved, and shown everywhere until a named one replaces it", async ({
-  page,
-  context,
-}) => {
-  const project = await addedProject(page, "Custom look");
-  const projectsTab = await context.newPage();
-  await projectsTab.goto("/projects");
-  await page.goto(`/projects/${project.id}/appearance`);
-  const head = page.locator(".project-head .project-mark");
-  const picker = page.locator(".mark-picker");
-  const preview = picker.locator(".project-mark");
-  const customColour = picker.getByLabel("Custom colour");
-  await expect(customColour).toHaveCount(0);
+test(
+  "a custom colour is previewed, saved, and shown everywhere until a named one replaces it",
+  { tag: "@full" },
+  async ({ page, context }) => {
+    const project = await addedProject(page, "Custom look");
+    const projectsTab = await context.newPage();
+    await projectsTab.goto("/projects");
+    await page.goto(`/projects/${project.id}/appearance`);
+    const head = page.locator(".project-head .project-mark");
+    const picker = page.locator(".mark-picker");
+    const preview = picker.locator(".project-mark");
+    const customColour = picker.getByLabel("Custom colour");
+    await expect(customColour).toHaveCount(0);
 
-  await picker.getByRole("radio", { name: "Custom" }).check();
-  await customColour.fill(LIGHT_CUSTOM_COLOUR.value);
+    await picker.getByRole("radio", { name: "Custom" }).check();
+    await customColour.fill(LIGHT_CUSTOM_COLOUR.value);
 
-  await expect(picker.getByText(LIGHT_CUSTOM_COLOUR.value)).toBeVisible();
-  await expectCustomMark(preview, LIGHT_CUSTOM_COLOUR);
-  await expect(head).toHaveClass(/colour-violet/);
+    await expect(picker.getByText(LIGHT_CUSTOM_COLOUR.value)).toBeVisible();
+    await expectCustomMark(preview, LIGHT_CUSTOM_COLOUR);
+    await expect(head).toHaveClass(/colour-violet/);
 
-  await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save" }).click();
 
-  await expect(page.getByText("Mark saved for Custom look.")).toBeVisible();
-  await expectCustomMark(head, LIGHT_CUSTOM_COLOUR);
-  const cardInTheOtherTab = projectsTab
-    .getByRole("link", { name: /Custom look/ })
-    .locator(".project-mark");
-  await expectCustomMark(cardInTheOtherTab, LIGHT_CUSTOM_COLOUR);
+    await expect(page.getByText("Mark saved for Custom look.")).toBeVisible();
+    await expectCustomMark(head, LIGHT_CUSTOM_COLOUR);
+    const cardInTheOtherTab = projectsTab
+      .getByRole("link", { name: /Custom look/ })
+      .locator(".project-mark");
+    await expectCustomMark(cardInTheOtherTab, LIGHT_CUSTOM_COLOUR);
 
-  await page.reload();
-  await expectCustomMark(page.locator(".project-head .project-mark"), LIGHT_CUSTOM_COLOUR);
-  await expect(picker.getByRole("radio", { name: "Custom" })).toBeChecked();
-  await expect(customColour).toHaveValue(LIGHT_CUSTOM_COLOUR.value);
+    await page.reload();
+    await expectCustomMark(page.locator(".project-head .project-mark"), LIGHT_CUSTOM_COLOUR);
+    await expect(picker.getByRole("radio", { name: "Custom" })).toBeChecked();
+    await expect(customColour).toHaveValue(LIGHT_CUSTOM_COLOUR.value);
 
-  await customColour.fill(DARK_CUSTOM_COLOUR.value);
-  await expectCustomMark(preview, DARK_CUSTOM_COLOUR);
+    await customColour.fill(DARK_CUSTOM_COLOUR.value);
+    await expectCustomMark(preview, DARK_CUSTOM_COLOUR);
 
-  await picker.getByRole("radio", { name: "Teal" }).check();
-  await expect(customColour).toHaveCount(0);
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(head).toHaveClass(/colour-teal/);
-  await expect(cardInTheOtherTab).toHaveClass(/colour-teal/);
-  await expect(head).not.toHaveClass(/colour-custom/);
-});
+    await picker.getByRole("radio", { name: "Teal" }).check();
+    await expect(customColour).toHaveCount(0);
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(head).toHaveClass(/colour-teal/);
+    await expect(cardInTheOtherTab).toHaveClass(/colour-teal/);
+    await expect(head).not.toHaveClass(/colour-custom/);
+  },
+);
 
-test("a Project is added with a custom colour", async ({ page }) => {
+test("a Project is added with a custom colour", { tag: "@full" }, async ({ page }) => {
   await page.goto("/projects");
   await page.getByRole("button", { name: "Add it yourself" }).click();
   await fillTheForm(page, { name: "Own colour", path: repository.path, branch: "main" });
@@ -1334,124 +1421,137 @@ test("a Project is added with a custom colour", async ({ page }) => {
   await expectCustomMark(page.locator(".project-head .project-mark"), DARK_CUSTOM_COLOUR);
 });
 
-test("a custom colour stays the same in both palettes, its tile's edge showing", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Pale mark");
-  await page.goto(`/projects/${project.id}/appearance`);
-  const head = page.locator(".project-head .project-mark");
-  await page.getByRole("radio", { name: "Custom" }).check();
-  await page.getByLabel("Custom colour").fill(PAGE_LIKE_CUSTOM_COLOUR.value);
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(head).toHaveClass(/colour-custom/);
+test(
+  "a custom colour stays the same in both palettes, its tile's edge showing",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Pale mark");
+    await page.goto(`/projects/${project.id}/appearance`);
+    const head = page.locator(".project-head .project-mark");
+    await page.getByRole("radio", { name: "Custom" }).check();
+    await page.getByLabel("Custom colour").fill(PAGE_LIKE_CUSTOM_COLOUR.value);
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(head).toHaveClass(/colour-custom/);
 
-  for (const palette of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme: palette });
-    await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
-    await expectCustomMark(head, PAGE_LIKE_CUSTOM_COLOUR);
-    await expect(head).toHaveCSS("border-top-width", TILE_EDGE_WIDTH);
-  }
-});
+    for (const palette of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: palette });
+      await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
+      await expectCustomMark(head, PAGE_LIKE_CUSTOM_COLOUR);
+      await expect(head).toHaveCSS("border-top-width", TILE_EDGE_WIDTH);
+    }
+  },
+);
 
-test("a mark changed in one tab shows in another, on its cards and an untouched Appearance", async ({
-  page,
-  context,
-}) => {
-  const project = await addedProject(page, "Two marks");
-  const projectsTab = await context.newPage();
-  const appearanceTab = await context.newPage();
-  const subscribed = [projectsTab, appearanceTab].map(
-    (tab) =>
-      new Promise<void>((resolve) => {
-        tab.on("websocket", (socket) => {
-          socket.on("framereceived", ({ payload }) => {
-            if (
-              String(payload).includes('"subscriptions"') &&
-              String(payload).includes("project.mark-changed")
-            ) {
-              resolve();
-            }
+test(
+  "a mark changed in one tab shows in another, on its cards and an untouched Appearance",
+  { tag: "@full" },
+  async ({ page, context }) => {
+    const project = await addedProject(page, "Two marks");
+    const projectsTab = await context.newPage();
+    const appearanceTab = await context.newPage();
+    const subscribed = [projectsTab, appearanceTab].map(
+      (tab) =>
+        new Promise<void>((resolve) => {
+          tab.on("websocket", (socket) => {
+            socket.on("framereceived", ({ payload }) => {
+              if (
+                String(payload).includes('"subscriptions"') &&
+                String(payload).includes("project.mark-changed")
+              ) {
+                resolve();
+              }
+            });
           });
-        });
-      }),
-  );
-  await projectsTab.goto("/projects");
-  await appearanceTab.goto(`/projects/${project.id}/appearance`);
-  await Promise.all(subscribed);
-  await page.goto(`/projects/${project.id}/appearance`);
+        }),
+    );
+    await projectsTab.goto("/projects");
+    await appearanceTab.goto(`/projects/${project.id}/appearance`);
+    await Promise.all(subscribed);
+    await page.goto(`/projects/${project.id}/appearance`);
 
-  await page.getByLabel("Mark label").fill("TM");
-  await page.getByRole("button", { name: "Save" }).click();
+    await page.getByLabel("Mark label").fill("TM");
+    await page.getByRole("button", { name: "Save" }).click();
 
-  await expect(
-    projectsTab.getByRole("link", { name: /Two marks/ }).locator(".project-mark"),
-  ).toHaveText("TM");
-  await expect(appearanceTab.getByLabel("Mark label")).toHaveValue("TM");
-  await expect(howItLooks(appearanceTab).locator(".project-mark")).toHaveText(["TM", "TM", "TM"]);
-  await expect(howItLooks(appearanceTab).getByText("Not saved")).toBeHidden();
-});
+    await expect(
+      projectsTab.getByRole("link", { name: /Two marks/ }).locator(".project-mark"),
+    ).toHaveText("TM");
+    await expect(appearanceTab.getByLabel("Mark label")).toHaveValue("TM");
+    await expect(howItLooks(appearanceTab).locator(".project-mark")).toHaveText(["TM", "TM", "TM"]);
+    await expect(howItLooks(appearanceTab).getByText("Not saved")).toBeHidden();
+  },
+);
 
-test("a label that isn't letters or digits is refused in Appearance, and what was typed stays", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Bad label");
-  await page.goto(`/projects/${project.id}/appearance`);
+test(
+  "a label that isn't letters or digits is refused in Appearance, and what was typed stays",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Bad label");
+    await page.goto(`/projects/${project.id}/appearance`);
 
-  await page.getByLabel("Mark label").fill("A-");
-  await page.getByRole("button", { name: "Save" }).click();
+    await page.getByLabel("Mark label").fill("A-");
+    await page.getByRole("button", { name: "Save" }).click();
 
-  await expect(page.getByRole("alert")).toHaveText("The mark's label is 1 to 3 letters or digits.");
-  await expect(page.getByLabel("Mark label")).toHaveValue("A-");
-  await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
+    await expect(page.getByRole("alert")).toHaveText(
+      "The mark's label is 1 to 3 letters or digits.",
+    );
+    await expect(page.getByLabel("Mark label")).toHaveValue("A-");
+    await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
 
-  await page.getByLabel("Mark label").fill("AB");
-  await expect(page.getByRole("alert")).toHaveCount(0);
-});
+    await page.getByLabel("Mark label").fill("AB");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  },
+);
 
-test("an edit made while Appearance saves stays as the next draft", async ({ page }) => {
-  const project = await addedProject(page, "Quick hands");
-  await page.goto(`/projects/${project.id}/appearance`);
-  let finishSave: (() => void) | undefined;
-  const saveHeld = new Promise<void>((resolve) => {
-    finishSave = resolve;
-  });
-  await page.route(`**/api/projects/${project.id}/mark`, async (route) => {
-    await saveHeld;
-    await route.continue();
-  });
-  const label = page.getByLabel("Mark label");
+test(
+  "an edit made while Appearance saves stays as the next draft",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Quick hands");
+    await page.goto(`/projects/${project.id}/appearance`);
+    let finishSave: (() => void) | undefined;
+    const saveHeld = new Promise<void>((resolve) => {
+      finishSave = resolve;
+    });
+    await page.route(`**/api/projects/${project.id}/mark`, async (route) => {
+      await saveHeld;
+      await route.continue();
+    });
+    const label = page.getByLabel("Mark label");
 
-  await label.fill("QH");
-  await page.getByRole("button", { name: "Save" }).click();
-  await label.fill("Q2");
-  finishSave?.();
+    await label.fill("QH");
+    await page.getByRole("button", { name: "Save" }).click();
+    await label.fill("Q2");
+    finishSave?.();
 
-  await expect(page.locator(".project-head .project-mark")).toHaveText("QH");
-  await expect(label).toHaveValue("Q2");
-  await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
-});
+    await expect(page.locator(".project-head .project-mark")).toHaveText("QH");
+    await expect(label).toHaveValue("Q2");
+    await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
+  },
+);
 
-test("the add form's label follows the name until the user writes one, its colour kept", async ({
-  page,
-}) => {
-  await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
-  await chooseFolder(page, repository.path);
-  const form = page.getByRole("dialog");
-  const label = form.getByLabel("Mark label");
+test(
+  "the add form's label follows the name until the user writes one, its colour kept",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.goto("/projects");
+    await page.getByRole("button", { name: "Add it yourself" }).click();
+    await chooseFolder(page, repository.path);
+    const form = page.getByRole("dialog");
+    const label = form.getByLabel("Mark label");
 
-  await form.getByRole("radio", { name: "Violet" }).check();
-  await form.getByLabel("Name").fill("Admin panel");
-  await expect(label).toHaveValue("AP");
-  await form.getByLabel("Name").fill("Billing service tools");
-  await expect(label).toHaveValue("BST");
-  await expect(form.locator(".mark-picker .project-mark")).toHaveClass(/colour-violet/);
+    await form.getByRole("radio", { name: "Violet" }).check();
+    await form.getByLabel("Name").fill("Admin panel");
+    await expect(label).toHaveValue("AP");
+    await form.getByLabel("Name").fill("Billing service tools");
+    await expect(label).toHaveValue("BST");
+    await expect(form.locator(".mark-picker .project-mark")).toHaveClass(/colour-violet/);
 
-  await label.fill("X1");
-  await form.getByLabel("Name").fill("Admin panel");
-  await expect(label).toHaveValue("X1");
-  await expect(form.locator(".mark-picker .project-mark")).toHaveClass(/colour-violet/);
-});
+    await label.fill("X1");
+    await form.getByLabel("Name").fill("Admin panel");
+    await expect(label).toHaveValue("X1");
+    await expect(form.locator(".mark-picker .project-mark")).toHaveClass(/colour-violet/);
+  },
+);
 
 const VALID_RUN_ENVIRONMENT = {
   ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml", "service": "app" }',
@@ -1462,84 +1562,91 @@ function runEnvironmentBlock(page: Page): Locator {
   return page.locator(".section-body");
 }
 
-test("Run environment starts Not decided yet, refuses On without .devcontainer/, and sets one up in a Task", async ({
-  page,
-}) => {
-  const ownRepository = await createTemporaryRepository();
-  try {
-    const project = await addedProject(
-      page,
-      "Run environment set-up",
-      undefined,
-      ownRepository.path,
-    );
-    expect(project.runEnvironment).toBe("not-decided");
-    await page.goto(`/projects/${project.id}/run-environment`);
-    const block = runEnvironmentBlock(page);
-    await expect(block.getByText("Not decided yet")).toBeVisible();
-    await expect(block.getByText("Not found")).toBeVisible();
+test(
+  "Run environment starts Not decided yet, refuses On without .devcontainer/, and sets one up in a Task",
+  { tag: "@full" },
+  async ({ page }) => {
+    const ownRepository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(
+        page,
+        "Run environment set-up",
+        undefined,
+        ownRepository.path,
+      );
+      expect(project.runEnvironment).toBe("not-decided");
+      await page.goto(`/projects/${project.id}/run-environment`);
+      const block = runEnvironmentBlock(page);
+      await expect(block.getByText("Not decided yet")).toBeVisible();
+      await expect(block.getByText("Not found")).toBeVisible();
 
-    await block.getByRole("tab", { name: "On" }).click();
-    await expect(block.getByRole("alert")).toContainText(
-      "Run environment can't be On: the base branch main has no valid .devcontainer/.",
-    );
-    await expect(block.getByRole("alert")).toContainText(
-      "The repository has no .devcontainer/devcontainer.json.",
-    );
-    await expect(block.getByText("Not decided yet")).toBeVisible();
+      await block.getByRole("tab", { name: "On" }).click();
+      await expect(block.getByRole("alert")).toContainText(
+        "Run environment can't be On: the base branch main has no valid .devcontainer/.",
+      );
+      await expect(block.getByRole("alert")).toContainText(
+        "The repository has no .devcontainer/devcontainer.json.",
+      );
+      await expect(block.getByText("Not decided yet")).toBeVisible();
 
-    await block.getByRole("tab", { name: "Off" }).click();
-    await expect(page.getByText(`Checks in ${project.name} run on this computer.`)).toBeVisible();
-    await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
-    await expect(block.getByText("Not decided yet")).toHaveCount(0);
+      await block.getByRole("tab", { name: "Off" }).click();
+      await expect(page.getByText(`Checks in ${project.name} run on this computer.`)).toBeVisible();
+      await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await expect(block.getByText("Not decided yet")).toHaveCount(0);
 
-    await commitFiles(ownRepository, {
-      ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml" }',
-    });
-    await page.reload();
-    await expect(block.getByText("Not valid")).toBeVisible();
-    await expect(block.getByText("devcontainer.json names no service")).toBeVisible();
+      await commitFiles(ownRepository, {
+        ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml" }',
+      });
+      await page.reload();
+      await expect(block.getByText("Not valid")).toBeVisible();
+      await expect(block.getByText("devcontainer.json names no service")).toBeVisible();
 
-    await block.getByRole("button", { name: "Set up run environment" }).click();
-    const taskLink = block.getByRole("link", { name: "Set up the run environment" });
-    await expect(taskLink).toBeVisible();
-    await expect(block).toContainText("Ready, waiting for your Start");
-    await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "project-run-environment.png") });
+      await block.getByRole("button", { name: "Set up run environment" }).click();
+      const taskLink = block.getByRole("link", { name: "Set up the run environment" });
+      await expect(taskLink).toBeVisible();
+      await expect(block).toContainText("Ready, waiting for your Start");
+      await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "project-run-environment.png") });
 
-    await taskLink.click();
-    await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
-  } finally {
-    await ownRepository.remove();
-  }
-});
+      await taskLink.click();
+      await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
+    } finally {
+      await ownRepository.remove();
+    }
+  },
+);
 
-test("Set up run environment turns On at once with a valid .devcontainer/ on the base branch", async ({
-  page,
-}) => {
-  const ownRepository = await createTemporaryRepository();
-  try {
-    await commitFiles(ownRepository, VALID_RUN_ENVIRONMENT);
-    const project = await addedProject(
-      page,
-      "Run environment at once",
-      undefined,
-      ownRepository.path,
-    );
-    await page.goto(`/projects/${project.id}/run-environment`);
-    const block = runEnvironmentBlock(page);
-    await expect(block.getByText("Valid", { exact: true })).toBeVisible();
+test(
+  "Set up run environment turns On at once with a valid .devcontainer/ on the base branch",
+  { tag: "@full" },
+  async ({ page }) => {
+    const ownRepository = await createTemporaryRepository();
+    try {
+      await commitFiles(ownRepository, VALID_RUN_ENVIRONMENT);
+      const project = await addedProject(
+        page,
+        "Run environment at once",
+        undefined,
+        ownRepository.path,
+      );
+      await page.goto(`/projects/${project.id}/run-environment`);
+      const block = runEnvironmentBlock(page);
+      await expect(block.getByText("Valid", { exact: true })).toBeVisible();
 
-    await block.getByRole("button", { name: "Set up run environment" }).click();
+      await block.getByRole("button", { name: "Set up run environment" }).click();
 
-    await expect(page.getByText(/Run environment is On/)).toBeVisible();
-    await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
-    await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
-    await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
-  } finally {
-    await ownRepository.remove();
-  }
-});
+      await expect(page.getByText(/Run environment is On/)).toBeVisible();
+      await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
+      await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
+      await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+    } finally {
+      await ownRepository.remove();
+    }
+  },
+);
 
 /**
  * Adds a Project from the folder in the window, answering its run environment question, which
@@ -1569,74 +1676,88 @@ async function addAnswering(
   return project;
 }
 
-test("Add a Project asks about a run environment: Yes sets one up, No sets Off, Decide later leaves it", async ({
-  page,
-}) => {
-  const withDefinition = await createTemporaryRepository();
-  try {
-    await commitFiles(withDefinition, VALID_RUN_ENVIRONMENT);
-    const block = runEnvironmentBlock(page);
+test(
+  "Add a Project asks about a run environment: Yes sets one up, No sets Off, Decide later leaves it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const withDefinition = await createTemporaryRepository();
+    try {
+      await commitFiles(withDefinition, VALID_RUN_ENVIRONMENT);
+      const block = runEnvironmentBlock(page);
 
-    const later = await addAnswering(
-      page,
-      "Run environment later",
-      repository.path,
-      "Decide later",
+      const later = await addAnswering(
+        page,
+        "Run environment later",
+        repository.path,
+        "Decide later",
+      );
+      expect(later.runEnvironment).toBe("not-decided");
+      await page.goto(`/projects/${later.id}/run-environment`);
+      await expect(block.getByText("Not decided yet")).toBeVisible();
+      await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+
+      const off = await addAnswering(page, "Run environment no", repository.path, "No");
+      expect(off.runEnvironment).toBe("off");
+      await page.goto(`/projects/${off.id}/run-environment`);
+      await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+
+      const setUp = await addAnswering(page, "Run environment yes", repository.path, "Yes");
+      expect(setUp.runEnvironment).toBe("not-decided");
+      await page.goto(`/projects/${setUp.id}/run-environment`);
+      await expect(block.getByRole("link", { name: "Set up the run environment" })).toBeVisible();
+
+      const on = await addAnswering(
+        page,
+        "Run environment yes at once",
+        withDefinition.path,
+        "Yes",
+      );
+      expect(on.runEnvironment).toBe("on");
+      await page.goto(`/projects/${on.id}/run-environment`);
+      await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
+      await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+    } finally {
+      await withDefinition.remove();
+    }
+  },
+);
+
+test(
+  "a Project's menu opens each section at its own address, which survives a reload",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Menu sections");
+    await page.goto(`/projects/${project.id}`);
+    await expect(projectMenu(page).getByRole("link")).toHaveText(
+      SECTIONS.map((section) => section.name),
     );
-    expect(later.runEnvironment).toBe("not-decided");
-    await page.goto(`/projects/${later.id}/run-environment`);
-    await expect(block.getByText("Not decided yet")).toBeVisible();
-    await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
 
-    const off = await addAnswering(page, "Run environment no", repository.path, "No");
-    expect(off.runEnvironment).toBe("off");
-    await page.goto(`/projects/${off.id}/run-environment`);
-    await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
+    // Overview last, as it opens first and its link must also come back from a section.
+    for (const section of [...SECTIONS.slice(1), SECTIONS[0]!]) {
+      await projectMenu(page).getByRole("link", { name: section.name, exact: true }).click();
+      await expect(page).toHaveURL(`/projects/${project.id}${section.address}`);
+      await expectOpenSection(page, project, section);
 
-    const setUp = await addAnswering(page, "Run environment yes", repository.path, "Yes");
-    expect(setUp.runEnvironment).toBe("not-decided");
-    await page.goto(`/projects/${setUp.id}/run-environment`);
-    await expect(block.getByRole("link", { name: "Set up the run environment" })).toBeVisible();
+      await page.reload();
+      await expectOpenSection(page, project, section);
+    }
+  },
+);
 
-    const on = await addAnswering(page, "Run environment yes at once", withDefinition.path, "Yes");
-    expect(on.runEnvironment).toBe("on");
-    await page.goto(`/projects/${on.id}/run-environment`);
-    await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
-    await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
-  } finally {
-    await withDefinition.remove();
-  }
-});
+test(
+  "a Project that doesn't exist says so at each section's address, with the way back",
+  { tag: "@full" },
+  async ({ page }) => {
+    for (const section of SECTIONS) {
+      await page.goto(`/projects/nowhere${section.address}`);
 
-test("a Project's menu opens each section at its own address, which survives a reload", async ({
-  page,
-}) => {
-  const project = await addedProject(page, "Menu sections");
-  await page.goto(`/projects/${project.id}`);
-  await expect(projectMenu(page).getByRole("link")).toHaveText(
-    SECTIONS.map((section) => section.name),
-  );
-
-  // Overview last, as it opens first and its link must also come back from a section.
-  for (const section of [...SECTIONS.slice(1), SECTIONS[0]!]) {
-    await projectMenu(page).getByRole("link", { name: section.name, exact: true }).click();
-    await expect(page).toHaveURL(`/projects/${project.id}${section.address}`);
-    await expectOpenSection(page, project, section);
-
-    await page.reload();
-    await expectOpenSection(page, project, section);
-  }
-});
-
-test("a Project that doesn't exist says so at each section's address, with the way back", async ({
-  page,
-}) => {
-  for (const section of SECTIONS) {
-    await page.goto(`/projects/nowhere${section.address}`);
-
-    await expect(page.getByText('There is no Project "nowhere".')).toBeVisible();
-    await expect(projectMenu(page)).toHaveCount(0);
-    await page.getByRole("link", { name: "Back to Projects" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
-  }
-});
+      await expect(page.getByText('There is no Project "nowhere".')).toBeVisible();
+      await expect(projectMenu(page)).toHaveCount(0);
+      await page.getByRole("link", { name: "Back to Projects" }).click();
+      await expect(page).toHaveURL(/\/projects$/);
+    }
+  },
+);

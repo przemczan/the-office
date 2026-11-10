@@ -51,8 +51,6 @@ function waiting(...waits: string[]): StartReasons {
   return { refusals: [], waits };
 }
 
-const nothing: StartReasons = { refusals: [], waits: [] };
-
 describe("startTask", () => {
   it("moves a Ready Task to In progress, counted against its first Agent Stage's Role", () => {
     const { task, event } = startTask(ready, conditions, held([]), THE_USER);
@@ -60,18 +58,6 @@ describe("startTask", () => {
     expect(task).toEqual({ ...ready, state: "in-progress", personRole: "developer" });
     expect(event).toBeInstanceOf(TaskStarted);
     expect(event).toMatchObject({ taskId: "task-ready", pipelineId: ready.pipelineId });
-  });
-
-  it("counts against nobody when the Pipeline has no Agent Stage", () => {
-    const scriptsOnly = { ...conditions, stages: [{ name: "Tests" }], person: undefined };
-
-    expect(startTask(ready, scriptsOnly, held([]), THE_USER).task.personRole).toBeUndefined();
-  });
-
-  it("starts beside another Task in progress in the same Project, below its Project limit", () => {
-    const other = started("a", { projectId: "admin-panel" });
-
-    expect(startTask(ready, conditions, held([other]), THE_USER).task.state).toBe("in-progress");
   });
 
   it("refuses with every reason, the refusals before the waits", () => {
@@ -100,54 +86,11 @@ describe("startTask", () => {
 });
 
 describe("startReasons", () => {
-  it("is empty when the Task can start", () => {
-    expect(startReasons(ready, conditions, held([started("a"), started("b")]))).toEqual(nothing);
-  });
-
   it("refuses a Task that isn't Ready", () => {
     expect(startReasons({ ...ready, state: "planning" }, conditions, held([]))).toEqual(
       refused("Only a Ready Task can start; this one is in Planning."),
     );
   });
-
-  it("refuses a Pipeline the library doesn't have", () => {
-    expect(startReasons(ready, { ...conditions, stages: undefined }, held([]))).toEqual(
-      refused(`There is no Pipeline "${ready.pipelineId}" in the library.`),
-    );
-  });
-
-  it("still names the blockers and limits of a Task whose Pipeline is gone", () => {
-    const blockers = [aTask({ id: "b1", title: "Queue schema", state: "ready" })];
-    const noPipeline = { ...conditions, stages: undefined, officeWideLimit: 1 };
-
-    expect(startReasons(ready, noPipeline, held([started("a")], blockers))).toEqual({
-      refusals: [`There is no Pipeline "${ready.pipelineId}" in the library.`],
-      waits: [
-        'Blocked by "Queue schema", which must be Done first.',
-        "The Office-wide limit is reached: the only desk is in use.",
-      ],
-    });
-  });
-
-  it("doesn't stop at another Task started in the same Project, below its Project limit", () => {
-    const other = started("a", { projectId: "admin-panel" });
-
-    expect(startReasons(ready, conditions, held([other]))).toEqual(nothing);
-  });
-
-  it.each(["in-progress", "waiting-on-you", "paused"] as const)(
-    "waits while a Task %s in the same Project counts against its Project limit",
-    (state) => {
-      const others = [
-        started("a", { state, projectId: "admin-panel" }),
-        started("b", { projectId: "admin-panel" }),
-      ];
-
-      expect(startReasons(ready, conditions, held(others))).toEqual(
-        waiting("The Project limit is reached: 2 of Admin panel's Tasks are started."),
-      );
-    },
-  );
 
   it("waits at a Project limit of 1 with one of the Project's Tasks started", () => {
     const one = { ...conditions, project: { name: "Admin panel", projectLimit: 1 } };
@@ -157,80 +100,11 @@ describe("startReasons", () => {
     );
   });
 
-  it("never counts another Project's started Tasks against the Project limit", () => {
-    const one = { ...conditions, project: { name: "Admin panel", projectLimit: 1 } };
-
-    expect(startReasons(ready, one, held([started("a"), started("b")]))).toEqual(nothing);
-  });
-
-  it("waits when more of the Project's Tasks are started than a lowered Project limit allows", () => {
-    const lowered = { ...conditions, project: { name: "Admin panel", projectLimit: 1 } };
-    const others = [
-      started("a", { projectId: "admin-panel" }),
-      started("b", { projectId: "admin-panel" }),
-    ];
-
-    expect(startReasons(ready, lowered, held(others))).toEqual(
-      waiting("The Project limit is reached: 2 of Admin panel's Tasks are started."),
-    );
-  });
-
-  it("weighs no Project limit for a Project the Projects module no longer knows", () => {
-    const unknown = { ...conditions, project: undefined };
-    const others = [
-      started("a", { projectId: "admin-panel" }),
-      started("b", { projectId: "admin-panel" }),
-    ];
-
-    expect(startReasons(ready, unknown, held(others))).toEqual(nothing);
-  });
-
-  it.each(["in-progress", "waiting-on-you", "paused"] as const)(
-    "waits while a Task %s counts against the Office-wide limit",
-    (state) => {
-      const others = [started("a", { state }), started("b"), started("c")];
-
-      expect(startReasons(ready, conditions, held(others))).toEqual(
-        waiting("The Office-wide limit is reached: all 3 desks are in use."),
-      );
-    },
-  );
-
   it("waits when more Tasks are started than a lowered Office-wide limit allows", () => {
     const lowered = { ...conditions, officeWideLimit: 1 };
 
     expect(startReasons(ready, lowered, held([started("a"), started("b")]))).toEqual(
       waiting("The Office-wide limit is reached: the only desk is in use."),
-    );
-  });
-
-  it.each(["in-progress", "waiting-on-you", "paused"] as const)(
-    "waits while a Task %s counts against its person's Task limit",
-    (state) => {
-      const others = [
-        started("a", { state, personRole: "developer" }),
-        started("b", { personRole: "developer" }),
-      ];
-
-      expect(startReasons(ready, conditions, held(others))).toEqual(
-        waiting("Ada is at the Task limit (2)."),
-      );
-    },
-  );
-
-  it("doesn't count Tasks that are done, dropped or not started", () => {
-    const others = (["done", "dropped", "ready", "planning"] as const).map((state) =>
-      started(state, { state, projectId: "admin-panel", personRole: "developer" }),
-    );
-
-    expect(startReasons(ready, { ...conditions, officeWideLimit: 1 }, held(others))).toEqual(
-      nothing,
-    );
-  });
-
-  it("refuses when nobody fills the first Agent Stage's Role", () => {
-    expect(startReasons(ready, { ...conditions, person: undefined }, held([]))).toEqual(
-      refused("Nobody fills the Role Implement needs: hire a person for it on People first."),
     );
   });
 
@@ -251,12 +125,6 @@ describe("startReasons", () => {
     );
   });
 
-  it("is no longer held back by a blocker that is Done or Dropped", () => {
-    const blockers = [aTask({ id: "b1", state: "done" }), aTask({ id: "b2", state: "dropped" })];
-
-    expect(startReasons(ready, conditions, held([], blockers))).toEqual(nothing);
-  });
-
   it("waits while the fire alarm is on, before the limits", () => {
     const alarmOn = { ...held([]), fireAlarmOn: true };
 
@@ -264,23 +132,5 @@ describe("startReasons", () => {
       refusals: [],
       waits: ["The fire alarm is on."],
     });
-  });
-
-  it("waits while an Office update is scheduled, with its reason", () => {
-    const updateScheduled = { ...conditions, officeUpdateHold: "An update is scheduled." };
-
-    expect(startReasons(ready, updateScheduled, held([]))).toEqual({
-      refusals: [],
-      waits: ["An update is scheduled."],
-    });
-  });
-
-  it("refuses, never waits, when the first Agent Stage's person only talks", () => {
-    const talker = { ...conditions, person: { name: "Ada", taskLimit: "none" as const } };
-    const theirs = started("a", { personRole: "developer" });
-
-    expect(startReasons(ready, talker, held([theirs]))).toEqual(
-      refused("Ada only talks (Task limit none), so can't work Implement."),
-    );
   });
 });

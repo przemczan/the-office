@@ -76,11 +76,13 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectRecords, ProjectService, Eng
 ### ./
 
 - `index.fixtures.ts`: createTemporaryRepository, gitIn, REAL_GIT_TEST, TemporaryRepository
+- `projects.controller.fixtures.ts`: startProjectsApplication, projectsHttp
 - `projects.module.ts`: ProjectsModuleOptions, ProjectsModule
+- `worktrees.fixtures.ts`: COUNTING_INSTALL, worktreesOnATemporaryRepository
 
 ### adapters/git/
 
-- `command-line-git.fixtures.ts`: serviceVariables, WorktreeMaker, exists
+- `command-line-git.fixtures.ts`: serviceVariables, WorktreeMaker, exists, movedMainMaker
 - `command-line-git.ts`: CommandLineGit
 - `git-branch-tip.ts`: readBranchTip
 - `git-clone.ts`: remoteBranchesOf, reachedUrlOf, cloneRepository, progressOf
@@ -89,7 +91,7 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectRecords, ProjectService, Eng
 - `publishing-testbed.fixtures.ts`: PUBLISHING_TEST, pullRequestText, PullRequestsForTests, PublishingTestbed
 - `repository-locks.ts`: RepositoryLocks
 - `temporary-repository.fixtures.ts`: REAL_GIT_TEST, TemporaryRepository, createTemporaryRepository, gitIn, commitOnOrigin
-- Tests: command-line-git-branches.test.ts, command-line-git-identity.test.ts, command-line-git-locks.test.ts, command-line-git-merges.test.ts, command-line-git-worktrees.test.ts, repository-locks.test.ts
+- Tests: command-line-git-branches.full.test.ts, command-line-git-branches.test.ts, command-line-git-identity.test.ts, command-line-git-locks.test.ts, command-line-git-merges.full.test.ts, command-line-git-merges.test.ts, command-line-git-worktrees.full.test.ts, command-line-git-worktrees.test.ts, repository-locks.test.ts
 
 ### adapters/github/
 
@@ -99,20 +101,23 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectRecords, ProjectService, Eng
 ### adapters/http/
 
 - `base-branch-files.controller.ts`: BaseBranchFilesController
+- `environment-checks.controller.fixtures.ts`: PASSES, FAILS, NEEDS_GREETING, SLEEPS, GREETING, states, CHECK_TIMEOUT, environmentChecksHttp
 - `environment-checks.controller.ts`: EnvironmentChecksController
+- `project-images.controller.fixtures.ts`: PNG, BINARY_PNG, SVG_WITH_A_SCRIPT, commitImages, anImagesRepository, projectImagesHttp
 - `project-images.controller.ts`: ProjectImagesController
 - `project-refusals.filter.ts`: ProjectRefusalsFilter
 - `project-responses.ts`: toProjectResponse, toEnvironmentResponse
 - `project-server-values.controller.ts`: ProjectServerValuesController
 - `projects.controller.ts`: ProjectsController
+- `repository-clones.controller.fixtures.ts`: HOST, UNANSWERED, aClonesRepository, repositoryClonesHttp
 - `repository-clones.controller.ts`: RepositoryClonesController
 - `task-changes.controller.ts`: TaskChangesController
-- Tests: base-branch-files.controller.test.ts, environment-checks.controller.test.ts, project-images.controller.test.ts, projects.controller.test.ts, repository-clones.controller.test.ts
+- Tests: base-branch-files.controller.full.test.ts, base-branch-files.controller.test.ts, environment-checks.controller.full.test.ts, environment-checks.controller.test.ts, project-images.controller.full.test.ts, project-images.controller.test.ts, projects.controller.full.test.ts, projects.controller.test.ts, repository-clones.controller.full.test.ts, repository-clones.controller.test.ts
 
 ### adapters/office-tools/
 
 - `project-office-tools.ts`: LIST_PROJECTS, READ_REPOSITORY, ProjectOfficeTools
-- Tests: project-office-tools.test.ts
+- Tests: project-office-tools.full.test.ts
 
 ### adapters/postgres/
 
@@ -121,12 +126,13 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectRecords, ProjectService, Eng
 - `postgres-project-repository.ts`: PostgresProjectRepository
 - `projects.schema.ts`: projects
 - `stored-environment.ts`: StoredEnvironment, environmentOfStored
-- Tests: postgres-project-repository.test.ts
+- Tests: postgres-project-repository.full.test.ts, postgres-project-repository.test.ts
 
 ### adapters/shell/
 
+- `shell-command-runner.fixtures.ts`: aCommandsFolder
 - `shell-command-runner.ts`: ShellCommandRunner
-- Tests: shell-command-runner.test.ts
+- Tests: shell-command-runner.full.test.ts, shell-command-runner.test.ts
 
 ### adapters/websocket/
 
@@ -166,7 +172,7 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectRecords, ProjectService, Eng
 - `task-run-environments.ts`: TaskInRunEnvironment, CommandWait, TaskRunEnvironmentCommand, TaskRunEnvironmentRunner, TaskRunEnvironments
 - `task-worktrees.ts`: SessionWorktree, TaskWorktrees
 - `worktrees.ts`: BaseBranch, TaskWorktree, InstallOptions, TaskInstallOptions, Installation, TaskChanges, ThrowawayWorktree, Worktrees
-- Tests: agent-commands.test.ts, base-branch-files.test.ts, base-checkouts.test.ts, branch-updates.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, project-images.test.ts, project-levels-engine-removal.test.ts, project-records.test.ts, publishing-branch-only.test.ts, publishing-merge.test.ts, publishing-pull-request.test.ts, repositories-by-url.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
+- Tests: agent-commands.full.test.ts, base-branch-files.full.test.ts, base-checkouts.full.test.ts, branch-updates.full.test.ts, command-environment.full.test.ts, local-repositories.full.test.ts, project-checks.full.test.ts, project-images.full.test.ts, project-levels-engine-removal.full.test.ts, project-records.full.test.ts, publishing-branch-only.full.test.ts, publishing-merge.full.test.ts, publishing-merge.test.ts, publishing-pull-request.full.test.ts, publishing-pull-request.test.ts, repositories-by-url.full.test.ts, repository-url.full.test.ts, resolving.full.test.ts, script-commands.full.test.ts, worktrees.full.test.ts, worktrees.test.ts
 
 ### domain/
 
@@ -189,7 +195,7 @@ BaseCheckouts, BaseCheckout, CommittedFiles, ProjectRecords, ProjectService, Eng
 - `repository-clone-events.ts`: RepositoryCloneStarted, RepositoryCloneProgressed, RepositoryCloneFinished
 - `repository-clone.ts`: CloneProgress, RepositoryCloneOutcome, RepositoryClone, RepositoryCloneNotFound
 - `resolve.ts`: ResolveStart, ResolveEnd, mergedBase, mergeMessage
-- Tests: command-run.test.ts, environment-check-changes.test.ts, output-mask.test.ts, project-changes.test.ts, project-environment.test.ts, project.test.ts, proposed-commands.test.ts, publication.test.ts
+- Tests: command-run.full.test.ts, environment-check-changes.full.test.ts, output-mask.test.ts, project-changes.full.test.ts, project-changes.test.ts, project-environment.full.test.ts, project.full.test.ts, proposed-commands.full.test.ts, publication.test.ts
 
 ### ports/
 

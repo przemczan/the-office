@@ -5,7 +5,6 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   skillListSchema,
-  skillRefusalSchema,
   skillReviewSchema,
   skillSchema,
   skillWebEventSchema,
@@ -24,10 +23,10 @@ import {
   SkillEveryoneChanged,
   SkillRemoved,
   SkillTurnedOn,
-  SkillVersionSaved,
 } from "../../domain/skill-events.js";
 import { SkillsModule } from "../../skills.module.js";
 import { aZip } from "../zip/zip.fixtures.js";
+import { aName, reasonsOf, skillMd } from "./skills.controller.fixtures.js";
 
 let officeData: string;
 let app: INestApplication;
@@ -58,11 +57,6 @@ function webEvents(): unknown[] {
     );
     return webEvent;
   });
-}
-
-/** A name of the test's own, since every test file shares the database. */
-function aName(): string {
-  return `notes-${randomUUID().slice(0, 8)}`;
 }
 
 function send(method: "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<Response> {
@@ -96,14 +90,6 @@ async function reviewOf(name: string) {
   expect(response.status).toBe(200);
   return skillReviewSchema.parse(await response.json());
 }
-
-async function reasonsOf(response: Response): Promise<string[]> {
-  expect(response.status).toBe(422);
-  return skillRefusalSchema.parse(await response.json()).reasons;
-}
-
-const skillMd = (name: string) =>
-  `---\nname: ${name}\ndescription: Writes release notes.\n---\nGroup them.\n`;
 
 describe("POST /api/skills", () => {
   it("adds a written skill, waiting for review, with its SKILL.md to read", async () => {
@@ -139,32 +125,9 @@ describe("POST /api/skills", () => {
 
     expect(await reasonsOf(response)).toEqual([`The library already has ${name}.`]);
   });
-
-  it("refuses with every reason", async () => {
-    const response = await send("POST", "/skills", { name: "", description: "", instructions: "" });
-
-    expect(await reasonsOf(response)).toEqual([
-      "Give the skill a name.",
-      "Give the skill a description: when to use it, in one sentence.",
-      "Give the skill its instructions.",
-    ]);
-  });
 });
 
 describe("POST /api/skills/uploads", () => {
-  it("adds a single .md as the skill's SKILL.md", async () => {
-    const name = aName();
-
-    const response = await upload("/skills/uploads", "anything.md", skillMd(name));
-
-    expect(response.status).toBe(201);
-    expect(skillSchema.parse(await response.json())).toMatchObject({
-      name,
-      source: "uploaded-file",
-      state: "waiting-for-review",
-    });
-  });
-
   it("adds a zipped folder, flagging its script for review", async () => {
     const name = aName();
     const zip = await aZip([
@@ -203,85 +166,6 @@ describe("POST /api/skills/uploads", () => {
     ]);
     expect((await fetch(`${url}/api/skills/${name}`)).status).toBe(404);
   });
-
-  it("refuses a file that is no .md or zip", async () => {
-    const response = await upload("/skills/uploads", "notes.txt", "Notes.");
-
-    expect(await reasonsOf(response)).toEqual(["Upload a single .md file or a zipped folder."]);
-  });
-
-  it("answers 400 for a body that is no file", async () => {
-    const response = await fetch(`${url}/api/skills/uploads?fileName=notes.md`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-
-    expect(response.status).toBe(400);
-  });
-
-  it("answers 413 for an upload larger than the library takes", async () => {
-    const response = await upload("/skills/uploads", "big.md", "x".repeat(10 * 1024 * 1024 + 1));
-
-    expect(response.status).toBe(413);
-    expect(await response.json()).toMatchObject({ message: "An upload may be at most 10 MB." });
-  });
-});
-
-describe("a skill's versions", () => {
-  it("edits a written skill into its next version, back to review", async () => {
-    const name = aName();
-    await write(name);
-    await send("PUT", `/skills/${name}/state`, { state: "on" });
-
-    const response = await send("PUT", `/skills/${name}`, {
-      description: "Writes the release notes.",
-      instructions: "One line each.",
-    });
-
-    expect(response.status).toBe(200);
-    expect(skillSchema.parse(await response.json())).toMatchObject({
-      version: 2,
-      description: "Writes the release notes.",
-      state: "waiting-for-review",
-    });
-    expect((await reviewOf(name)).instructions).toBe("One line each.");
-    expect(published.at(-1)).toBeInstanceOf(SkillVersionSaved);
-  });
-
-  it("uploads the next version of an uploaded skill", async () => {
-    const name = aName();
-    await upload("/skills/uploads", `${name}.md`, skillMd(name));
-
-    const response = await upload(
-      `/skills/${name}/versions`,
-      "notes.md",
-      `${skillMd(name)}\nAnd one more line.\n`,
-    );
-
-    expect(response.status).toBe(201);
-    expect(skillSchema.parse(await response.json())).toMatchObject({ version: 2 });
-  });
-
-  it("refuses an upload that names another skill as its next version", async () => {
-    const name = aName();
-    await upload("/skills/uploads", `${name}.md`, skillMd(name));
-
-    const response = await upload(`/skills/${name}/versions`, "x.md", skillMd("other"));
-
-    expect(await reasonsOf(response)).toEqual([`It names the skill other, not ${name}.`]);
-  });
-
-  it("refuses to edit an uploaded skill in place", async () => {
-    const name = aName();
-    await upload("/skills/uploads", `${name}.md`, skillMd(name));
-
-    const response = await send("PUT", `/skills/${name}`, { description: "x", instructions: "y" });
-
-    expect(await reasonsOf(response)).toEqual([
-      `${name} was uploaded; upload a new version of it instead.`,
-    ]);
-  });
 });
 
 describe("turning a skill on, for everyone, and removing it", () => {
@@ -314,19 +198,6 @@ describe("turning a skill on, for everyone, and removing it", () => {
       { type: "skill.removed", skillName: name },
     ]);
   });
-
-  it("lists the library", async () => {
-    const name = aName();
-    await write(name);
-
-    const response = await fetch(`${url}/api/skills`);
-
-    expect(skillListSchema.parse(await response.json()).map((skill) => skill.name)).toContain(name);
-  });
-
-  it("answers 404 for a skill the library doesn't have", async () => {
-    expect((await send("PUT", "/skills/nowhere/state", { state: "on" })).status).toBe(404);
-  });
 });
 
 function roleSkillsChanged(roleKey: string): unknown {
@@ -350,9 +221,5 @@ describe("PUT /api/skills/:name/roles", () => {
       roleSkillsChanged(first),
       ...[first, second].toSorted().map(roleSkillsChanged),
     ]);
-  });
-
-  it("answers 404 for a skill the library doesn't have", async () => {
-    expect((await send("PUT", "/skills/nowhere/roles", { roles: [] })).status).toBe(404);
   });
 });

@@ -35,59 +35,68 @@ for (const palette of PALETTES) {
     test.describe(`${palette}, ${width} wide`, () => {
       test.use({ colorScheme: palette, viewport: { width, height: 900 } });
 
-      test("the rail opens each surface with its title", async ({ page }) => {
-        await page.goto("/");
+      // The default run opens the surfaces once, in light at full width.
+      test(
+        "the rail opens each surface with its title",
+        { tag: palette === "light" && width === 1600 ? [] : "@full" },
+        async ({ page }) => {
+          await page.goto("/");
 
-        await expect(page).toHaveURL(/\/now$/);
-        await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
-        // Connected to the service, the strip shows the Office's figures and no reconnecting note.
-        const strip = page.getByRole("status", { name: "Status strip" });
-        await expect(strip).toContainText("tokens today");
-        await expect(strip).not.toContainText("Reconnecting");
-        const rail = page.getByRole("navigation", { name: "Surfaces" });
-        for (const surface of SURFACES) {
-          await rail.getByRole("link", { name: surface.name, exact: true }).click();
+          await expect(page).toHaveURL(/\/now$/);
+          await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
+          // Connected to the service, the strip shows the Office's figures and no reconnecting note.
+          const strip = page.getByRole("status", { name: "Status strip" });
+          await expect(strip).toContainText("tokens today");
+          await expect(strip).not.toContainText("Reconnecting");
+          const rail = page.getByRole("navigation", { name: "Surfaces" });
+          for (const surface of SURFACES) {
+            await rail.getByRole("link", { name: surface.name, exact: true }).click();
 
-          await expect(page).toHaveURL(new RegExp(`${surface.path}$`));
-          await expect(page.getByRole("heading", { level: 1 })).toHaveText(surface.name);
-          // Off the rail, so no label covers the page.
+            await expect(page).toHaveURL(new RegExp(`${surface.path}$`));
+            await expect(page.getByRole("heading", { level: 1 })).toHaveText(surface.name);
+            // Off the rail, so no label covers the page.
+            await page.mouse.move(width / 2, 600);
+            await page.screenshot({
+              path: path.join(SCREENSHOTS, `${palette}-${width}-${surface.name.toLowerCase()}.png`),
+            });
+          }
+        },
+      );
+
+      test(
+        "the page follows the rail's width, icon-only and expanded",
+        { tag: "@full" },
+        async ({ page }) => {
+          await page.goto("/now");
+          const rail = page.getByRole("navigation", { name: "Surfaces" });
+          const main = page.locator(".shell-main");
+          const pageStartsAfterRail = async (): Promise<void> => {
+            // Settled once the width transition ends.
+            await expect
+              .poll(async () => {
+                const railBox = await rail.boundingBox();
+                const mainBox = await main.boundingBox();
+                return railBox && mainBox && mainBox.x - (railBox.x + railBox.width);
+              })
+              .toBe(0);
+          };
+
+          await pageStartsAfterRail();
+          expect((await rail.boundingBox())?.width).toBe(56);
+
+          await rail.getByRole("button", { name: "Expand sidebar" }).click();
+          await expect.poll(async () => (await rail.boundingBox())?.width).toBe(208);
+          await pageStartsAfterRail();
+          // No part of the page is pushed past the window's edge.
+          expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
           await page.mouse.move(width / 2, 600);
           await page.screenshot({
-            path: path.join(SCREENSHOTS, `${palette}-${width}-${surface.name.toLowerCase()}.png`),
+            path: path.join(SCREENSHOTS, `${palette}-${width}-now-rail-expanded.png`),
           });
-        }
-      });
+        },
+      );
 
-      test("the page follows the rail's width, icon-only and expanded", async ({ page }) => {
-        await page.goto("/now");
-        const rail = page.getByRole("navigation", { name: "Surfaces" });
-        const main = page.locator(".shell-main");
-        const pageStartsAfterRail = async (): Promise<void> => {
-          // Settled once the width transition ends.
-          await expect
-            .poll(async () => {
-              const railBox = await rail.boundingBox();
-              const mainBox = await main.boundingBox();
-              return railBox && mainBox && mainBox.x - (railBox.x + railBox.width);
-            })
-            .toBe(0);
-        };
-
-        await pageStartsAfterRail();
-        expect((await rail.boundingBox())?.width).toBe(56);
-
-        await rail.getByRole("button", { name: "Expand sidebar" }).click();
-        await expect.poll(async () => (await rail.boundingBox())?.width).toBe(208);
-        await pageStartsAfterRail();
-        // No part of the page is pushed past the window's edge.
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
-        await page.mouse.move(width / 2, 600);
-        await page.screenshot({
-          path: path.join(SCREENSHOTS, `${palette}-${width}-now-rail-expanded.png`),
-        });
-      });
-
-      test(`Now's panels fold to ${panels}`, async ({ page }) => {
+      test(`Now's panels fold to ${panels}`, { tag: "@full" }, async ({ page }) => {
         await page.goto("/now");
 
         const columns = await page
@@ -96,18 +105,22 @@ for (const palette of PALETTES) {
         expect(columns).toBe(panels);
       });
 
-      test("the click-through at the same width, for comparison", async ({ page }) => {
-        test.skip(!existsSync(CLICK_THROUGH), "The click-through is not on this machine.");
-        await page.goto(`${pathToFileURL(CLICK_THROUGH).href}#/now`);
-        await page.screenshot({
-          path: path.join(SCREENSHOTS, `${palette}-${width}-now.click-through.png`),
-        });
-      });
+      test(
+        "the click-through at the same width, for comparison",
+        { tag: "@full" },
+        async ({ page }) => {
+          test.skip(!existsSync(CLICK_THROUGH), "The click-through is not on this machine.");
+          await page.goto(`${pathToFileURL(CLICK_THROUGH).href}#/now`);
+          await page.screenshot({
+            path: path.join(SCREENSHOTS, `${palette}-${width}-now.click-through.png`),
+          });
+        },
+      );
     });
   }
 }
 
-test.describe("the palette", () => {
+test.describe("the palette", { tag: "@full" }, () => {
   test.use({ colorScheme: "light" });
 
   test("chosen in the rail, it is shown at once and kept over the system's", async ({ page }) => {
@@ -125,7 +138,7 @@ test.describe("the palette", () => {
   });
 });
 
-test.describe("the rail's toggle", () => {
+test.describe("the rail's toggle", { tag: "@full" }, () => {
   test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
   test("expands the rail to show its labels, kept over a reload, and collapses it again", async ({
@@ -199,7 +212,7 @@ async function stubEngines(
   });
 }
 
-test.describe("the usage figure", () => {
+test.describe("the usage figure", { tag: "@full" }, () => {
   test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
   // A read still in a route when a test ends would fail it: its response is gone by then.
@@ -324,7 +337,7 @@ test.describe("the usage figure", () => {
   });
 });
 
-test.describe("the Workstation figure", () => {
+test.describe("the Workstation figure", { tag: "@full" }, () => {
   test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
   test("shows the CPU use and cores, measured from the next read, and opens the panel", async ({
@@ -387,7 +400,7 @@ test.describe("the Workstation figure", () => {
   });
 });
 
-test.describe("losing the service", () => {
+test.describe("losing the service", { tag: "@full" }, () => {
   test.use({ colorScheme: "light" });
 
   test('the web raises "service down" itself, in the strip and as a toast, and clears it once back', async ({
@@ -452,7 +465,7 @@ function notification(fields: Partial<Notification> & Pick<Notification, "line">
   };
 }
 
-test.describe("Notifications as the service sends them", () => {
+test.describe("Notifications as the service sends them", { tag: "@full" }, () => {
   test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
   test("collapsed Outcomes take the first one's place in the toast and on the desktop; quiet hours hold the desktop until their summary", async ({
