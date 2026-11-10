@@ -2,16 +2,24 @@ import { authorWords, type Author } from "./author.js";
 import type { TaskState } from "./task.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 
+/** A part of a Task that auto mode confirmed on the user's behalf, the Pipeline by its id. */
+export type AutoModeConfirmation =
+  | { readonly part: "plan" }
+  | { readonly part: "definition-of-done" }
+  | { readonly part: "pipeline"; readonly pipelineId: string };
+
 /**
  * Who or what moved a Task between states: the user, or a person, as an Author; its Pipeline, as a
  * Stage waits on the user, completes or drops it; the fire alarm; the queue, starting it as its turn
- * came; or The Office itself, for the reason it gives.
+ * came; auto mode, marking it Ready with what it confirmed first; or The Office itself, for the
+ * reason it gives.
  */
 export type StateChangeCause =
   | Author
   | { readonly kind: "pipeline" }
   | { readonly kind: "fire-alarm" }
   | { readonly kind: "queue" }
+  | { readonly kind: "auto-mode"; readonly confirmed: readonly AutoModeConfirmation[] }
   | { readonly kind: "office"; readonly reason: string };
 
 export const BY_THE_PIPELINE: StateChangeCause = { kind: "pipeline" };
@@ -60,7 +68,30 @@ function causeWords(cause: StateChangeCause): string {
       return "the fire alarm";
     case "queue":
       return "the queue, as its turn came";
+    case "auto-mode":
+      return autoModeWords(cause.confirmed);
     case "office":
       return `The Office: ${cause.reason}`;
   }
+}
+
+function autoModeWords(confirmed: readonly AutoModeConfirmation[]): string {
+  if (confirmed.length === 0) return "auto mode";
+  return `auto mode, which confirmed ${listWords(confirmed.map(confirmationWords))}`;
+}
+
+function confirmationWords(confirmation: AutoModeConfirmation): string {
+  switch (confirmation.part) {
+    case "plan":
+      return "the Plan";
+    case "definition-of-done":
+      return "the Definition of Done";
+    case "pipeline":
+      return `the Pipeline ${confirmation.pipelineId}`;
+  }
+}
+
+function listWords(words: readonly string[]): string {
+  if (words.length <= 1) return words.join("");
+  return `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
 }

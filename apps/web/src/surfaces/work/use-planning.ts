@@ -5,7 +5,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import type { Task } from "@the-office/contracts";
-import { makeAPlan, markReady, planTask, taskQueries } from "../../api/work.ts";
+import { autoModeQuery, makeAPlan, markReady, planTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useOnPlanned } from "../../shell/work/use-idea-planning.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
@@ -26,23 +26,40 @@ export function usePlanning(): UseMutationResult<Task, Error, Task> {
   });
 }
 
+/** What Make a plan is asked: the Task, and whether it is planned in auto mode. */
+export interface MakingAPlan {
+  readonly task: Task;
+  readonly autoMode: boolean;
+}
+
 /**
  * Make a plan: the Task moves to Planning, and the Planner starts at once from its title and
- * Description, with nothing for the user to write. The page stays where it is.
+ * Description, with nothing for the user to write. The page stays where it is. The auto mode it
+ * was made in is the remembered default from then on.
  */
-export function useMakingAPlan(): UseMutationResult<Task, Error, Task> {
+export function useMakingAPlan(): UseMutationResult<Task, Error, MakingAPlan> {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const planner = usePlanner()?.card.name ?? "The Planner";
   return useMutation({
-    mutationFn: (task: Task) => makeAPlan(task.id),
-    onSuccess: (planning) => {
+    mutationFn: ({ task, autoMode }: MakingAPlan) => makeAPlan(task.id, autoMode),
+    onSuccess: (planning, { autoMode }) => {
       queryClient.setQueryData(taskQueries.one(planning.id).queryKey, planning);
-      showToast(`${planning.title} is in Planning: ${planner} is making a plan.`);
+      queryClient.setQueryData(autoModeQuery().queryKey, { autoMode });
+      showToast(
+        autoMode
+          ? `${planning.title} is in Planning: ${planner} is making a plan, in auto mode.`
+          : `${planning.title} is in Planning: ${planner} is making a plan.`,
+      );
     },
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
   });
+}
+
+/** Whether Make a plan starts in auto mode, as the user last chose; off until it is known. */
+export function useRememberedAutoMode(): boolean {
+  return useQuery(autoModeQuery()).data?.autoMode ?? false;
 }
 
 /** Whether every line of the Task's "Before Ready" checklist is met; false until it is known. */

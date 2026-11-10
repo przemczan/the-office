@@ -2676,6 +2676,18 @@
   display: none;
 }
 
+/* Make a plan, its Auto mode switch beside it. */
+.make-a-plan {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Over the Planner's Thread while it plans in auto mode: the Task won't wait for a Confirm. */
+.planning-auto-mode-note {
+  margin: 0 0 12px;
+}
+
 .task-thread-new {
   display: inline-flex;
   align-items: center;

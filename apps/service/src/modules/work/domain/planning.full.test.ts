@@ -57,6 +57,7 @@ describe("a planning Brief", () => {
         "## The Project's commands\n\n- install: `npm install`\n- build: `npm run build`\n- lint: none\n- test: `npm test`",
         "## The Pipelines\n\nThe Task follows Full (full) until the user confirms another. Propose the one its Definition of Done needs with propose_pipeline:",
         "- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
+        "## Auto mode\n\nOff: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.",
       ].join("\n\n"),
     );
   });
@@ -131,7 +132,7 @@ describe("a planning Brief", () => {
     const brief = planningBrief({ ...RECORD, task: aPlannedTask({ planConfirmed: false }) });
 
     expect(brief).toMatch(
-      /## The Plan, not yet confirmed by the user\n\nKeep the requested path through the sign-in\.\n\n## The Definition of Done, confirmed by the user\n\n- Signing in returns the user to the page they asked for\.$/,
+      /## The Plan, not yet confirmed\n\nKeep the requested path through the sign-in\.\n\n## The Definition of Done, confirmed\n\n- Signing in returns the user to the page they asked for\.$/,
     );
   });
 
@@ -139,7 +140,15 @@ describe("a planning Brief", () => {
     const task = aTask({ proposedPipeline: { pipelineId: "document", reason: "A report." } });
 
     expect(planningBrief({ ...RECORD, task })).toMatch(
-      /For a document as the result\.\n\nYou proposed Document \(document\): A report\. It waits for the user to confirm it\.$/,
+      /For a document as the result\.\n\nYou proposed Document \(document\): A report\. It waits for the user to confirm it\.\n\n## Auto mode/,
+    );
+  });
+
+  it("says what marking the Task planned does in auto mode", () => {
+    const task = aTask({ state: "planning", autoMode: true });
+
+    expect(planningBrief({ ...RECORD, task })).toContain(
+      "## Auto mode\n\nOn: once you mark the Task planned with mark_planned and no Decision on it is open, The Office confirms the Plan, the Definition of Done and the proposed Pipeline and marks the Task Ready.",
     );
   });
 });

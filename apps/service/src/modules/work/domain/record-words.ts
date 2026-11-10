@@ -51,6 +51,7 @@ export function taskRecordText(
   return [
     `${task.title} (Task ${task.id})`,
     `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; Pipeline ${task.pipelineId}`,
+    ...(task.state === "planning" && task.autoMode ? ["- Planning in auto mode"] : []),
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
     ...(task.archivedAt
@@ -62,7 +63,7 @@ export function taskRecordText(
     ),
     ...(task.proposedPipeline
       ? [
-          `- Proposed Pipeline ${task.proposedPipeline.pipelineId}, not yet confirmed by the user: ${task.proposedPipeline.reason}`,
+          `- Proposed Pipeline ${task.proposedPipeline.pipelineId}, not yet confirmed:${task.proposedPipeline.reason}`,
         ]
       : []),
     "",

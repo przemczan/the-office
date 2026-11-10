@@ -15,6 +15,7 @@ import {
 import {
   definitionOfDoneChangeSchema,
   descriptionChangeSchema,
+  makeAPlanSchema,
   newDependencySchema,
   newTaskSchema,
   pipelineChangeSchema,
@@ -26,6 +27,7 @@ import {
   taskPlacementSchema,
   type DefinitionOfDoneChange,
   type DescriptionChange,
+  type MakeAPlan,
   type NewDependency,
   type NewTask,
   type PipelineChange,
@@ -148,13 +150,16 @@ export class TasksController {
   }
 
   /**
-   * Make a plan: the Task moves to Planning, and the Planner starts at once from its title and
-   * Description.
+   * Make a plan: the Task moves to Planning, in auto mode or not, and the Planner starts at once
+   * from its title and Description. The choice becomes the remembered default.
    */
   @Post(":id/make-a-plan")
   @HttpCode(HttpStatus.OK)
-  async makeAPlan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.makeAPlan(id));
+  async makeAPlan(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(makeAPlanSchema)) { autoMode }: MakeAPlan,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.makeAPlan(id, autoMode));
   }
 
   /** Save: the user's Plan, unconfirmed once changed; a change moves a Ready Task to Backlog. */

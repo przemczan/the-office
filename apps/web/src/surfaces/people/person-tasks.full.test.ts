@@ -42,6 +42,7 @@ function aTask(fields: Partial<Task>): Task {
     state: "backlog",
     plan: "",
     pausedByAlarm: false,
+    autoMode: false,
     planConfirmed: false,
     filesToChange: [],
     estimatedTokens: null,

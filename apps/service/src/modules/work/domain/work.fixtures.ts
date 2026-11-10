@@ -52,6 +52,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     definitionOfDoneConfirmed: false,
     pipelineId: "full",
     proposedPipeline: undefined,
+    autoMode: false,
     personRole: undefined,
     pausedByAlarm: false,
     madeFor: undefined,

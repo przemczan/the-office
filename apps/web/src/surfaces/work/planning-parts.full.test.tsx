@@ -22,6 +22,7 @@ const RUNNING_TASK: Task = {
   state: "in-progress",
   plan: "",
   pausedByAlarm: false,
+  autoMode: false,
   planConfirmed: true,
   filesToChange: [],
   estimatedTokens: null,

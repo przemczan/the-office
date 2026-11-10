@@ -1,11 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Role, Skill } from "@the-office/contracts";
-import { Alert, Badge, Button, Card, DataTable, Icon, type DataTableColumn } from "@the-office/ui";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  Icon,
+  Tooltip,
+  type DataTableColumn,
+} from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleQueries } from "../../../api/people.ts";
 import { skillQueries } from "../../../api/skills.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { SkillChip } from "../../../shell/skill-chip.tsx";
+import { skillUsesLabel } from "../../../shell/skill-uses.ts";
 import { AddSkillDialog } from "./add-skill-dialog.tsx";
 import { EditSkillDialog } from "./edit-skill-dialog.tsx";
 import { ReviewSkillDialog } from "./review-skill-dialog.tsx";
@@ -122,6 +132,8 @@ function columns(
     {
       key: "source",
       header: "Source",
+      // A Source's address can be long, and would push the other columns out of view.
+      wrap: true,
       render: (skill) => (
         <>
           <div className="skill-source">{skillSourceLabel(skill)}</div>
@@ -136,6 +148,12 @@ function columns(
       key: "everyone",
       header: "Who has it",
       render: (skill) => <span className="skill-holders">{holdersLabel(skill, roles)}</span>,
+    },
+    {
+      key: "uses",
+      header: "Uses",
+      align: "right",
+      render: (skill) => <SkillUses count={skill.usesInLast7Days} />,
     },
     {
       key: "state",
@@ -182,4 +200,17 @@ function columns(
       ),
     },
   ];
+}
+
+/** The number, read in full on hover or focus, and by a screen reader instead of it. */
+function SkillUses({ count }: { readonly count: number }): ReactNode {
+  const label = skillUsesLabel(count);
+  return (
+    <Tooltip content={label}>
+      <span className="skill-uses" tabIndex={0}>
+        <span aria-hidden="true">{count}</span>
+        <span className="visually-hidden">{label}</span>
+      </span>
+    </Tooltip>
+  );
 }

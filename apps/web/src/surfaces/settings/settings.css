@@ -81,6 +81,13 @@
   color: var(--fg-3);
 }
 
+.skill-uses {
+  font: var(--type-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-2);
+}
+
 .skill-actions {
   display: flex;
   justify-content: flex-end;

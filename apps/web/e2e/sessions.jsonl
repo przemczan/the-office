@@ -36,9 +36,24 @@
 {"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-1","text":"","isError":false}}
 {"step":"event","event":{"kind":"tool-call","callId":"make-a-plan-2","tool":"write_definition_of_done","officeTool":true,"input":{"statements":["A list opens sorted as it was left.","The tests pass."]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"make-a-plan-3","tool":"mark_planned","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-3","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"I read the title and the Description, and wrote the Plan and the Definition of Done.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-make-a-plan"],"usage":{"input":3,"output":300,"cacheRead":0,"cacheCreation":33000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":33300,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-auto-mode","text":"Make a plan in auto mode"}}
+{"step":"event","event":{"kind":"tool-call","callId":"auto-mode-1","tool":"write_plan","officeTool":true,"input":{"plan":"Keep each list's filters in the address, so a shared link opens the same list."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"auto-mode-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"auto-mode-2","tool":"write_definition_of_done","officeTool":true,"input":{"statements":["A shared link opens the list with its filters.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"auto-mode-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"auto-mode-3","tool":"propose_pipeline","officeTool":true,"input":{"pipelineId":"full","why":"It changes code that needs its tests and a review."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"auto-mode-3","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"auto-mode-4","tool":"mark_planned","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"auto-mode-4","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"The Plan, the Definition of Done and the Pipeline are written, and the Task is marked planned.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-auto-mode"],"usage":{"input":3,"output":320,"cacheRead":0,"cacheCreation":33000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":33400,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-implement","text":"Implement the Task"}}
 {"step":"event","event":{"kind":"tool-call","callId":"implement-1","tool":"open_decision","officeTool":true,"input":{"question":"Which page should sign-in return to when the session expired?","context":"An expired session sends the user to sign-in from any page.","options":["The page it started from","The dashboard"],"recommended":1,"why":"The user goes on where they were."},"withinToolCall":null}}
@@ -170,4 +185,13 @@
 {"step":"event","event":{"kind":"text","text":"I created the Task with its Plan and Definition of Done, for you to confirm.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-known-work"],"usage":{"input":3,"output":120,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-skill-uses","text":"Jan uses a library skill and the Project's own skill"}}
+{"step":"event","event":{"kind":"tool-call","callId":"skill-use-1","tool":"Skill","officeTool":false,"input":{"skill":"office:people-skill-uses"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"skill-use-1","text":"Launching skill: office:people-skill-uses","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"skill-use-2","tool":"Skill","officeTool":false,"input":{"skill":"release-notes"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"skill-use-2","text":"Launching skill: release-notes","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I wrote the release notes with both skills.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-skill-uses"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}

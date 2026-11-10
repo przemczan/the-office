@@ -8,6 +8,7 @@ import {
   type Route,
 } from "@playwright/test";
 import {
+  autoModeSettingSchema,
   engineSettingsSchema,
   ideaSchema,
   IMAGE_UPLOAD_BYTES,
@@ -1080,6 +1081,11 @@ function detailsSwitch(place: Locator) {
   return place.getByRole("group", { name: "Details" }).getByRole("switch");
 }
 
+/** The Auto mode switch beside Make a plan, in the Planner's tab of a Task in Backlog. */
+function autoModeSwitch(place: Locator) {
+  return place.locator("label", { hasText: "Auto mode" }).getByRole("switch");
+}
+
 // The engine replays e2e/sessions.jsonl: the Planner's first session, then a fresh one.
 test("the user chats with the Planner, who reads but changes nothing", async ({ page }) => {
   await page.goto("/people");
@@ -1979,9 +1985,12 @@ test("the user has Jan make a plan from the title and the Description, then conf
     "Jan plans from the title and the Description, so there is nothing more to write.",
   );
   await expect(page.getByRole("region", { name: "Before Ready" })).toHaveCount(0);
+  // Auto mode is off until first chosen.
+  await expect(autoModeSwitch(conversation)).toHaveAttribute("aria-checked", "false");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-make-a-plan.png") });
 
-  // The card's Plan is Make a plan too: the board stays open while Jan plans.
+  // The card's Plan is Make a plan too, in the remembered auto mode: the board stays open while
+  // Jan plans.
   await page.goto("/work");
   await page
     .getByRole("region", { name: "Backlog", exact: true })
@@ -2009,9 +2018,13 @@ test("the user has Jan make a plan from the title and the Description, then conf
     "Each list opens sorted as I left it, column and direction.",
   );
 
+  // Jan marked it planned, which with auto mode off leaves it for the user's Confirm.
   const plan = record.getByRole("region", { name: "Plan", exact: true });
   const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
   await expect(plan).toContainText("Remember the sort column and its direction per list");
+  expect(
+    taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json()).state,
+  ).toBe("planning");
   await plan.getByRole("button", { name: "Confirm" }).click();
   await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
   await definitionOfDone.getByRole("button", { name: "Confirm" }).click();
@@ -2020,6 +2033,54 @@ test("the user has Jan make a plan from the title and the Description, then conf
   await expect(markReady).toBeEnabled();
   await markReady.click();
   await expect(page.getByText(`${title} is Ready. Starting it is your call.`)).toBeVisible();
+
+  // Nothing of it is left to weigh on the next tests' Start.
+  expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
+});
+
+// The engine replays the next session in e2e/sessions.jsonl: Jan writes the three parts and marks
+// the Task planned, and auto mode marks it Ready with nothing clicked.
+test("the user has Jan make a plan in auto mode, and the Task is Ready without a Confirm", async ({
+  page,
+}) => {
+  const signInTask = taskSchema.parse(
+    await (await page.request.get(`/api/tasks/${signIn.taskUrl?.split("/").at(-1)}`)).json(),
+  );
+  const title = "Lists keep their filters in the address";
+  const created = await page.request.post("/api/tasks", {
+    data: { title, projectId: signInTask.projectId, priority: "normal" },
+  });
+  const task = taskSchema.parse(await created.json());
+  await page.goto(`/tasks/${task.id}`);
+
+  const conversation = page.getByRole("complementary", { name: "Conversation" });
+  const autoMode = autoModeSwitch(conversation);
+  await expect(autoMode).toHaveAttribute("aria-checked", "false");
+  await conversation.getByText("Auto mode", { exact: true }).click();
+  await expect(autoMode).toHaveAttribute("aria-checked", "true");
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-task-make-a-plan-auto-mode.png"),
+  });
+  await conversation.getByRole("button", { name: "Make a plan" }).click();
+  await expect(
+    page.getByText(`${title} is in Planning: Jan is making a plan, in auto mode.`),
+  ).toBeVisible();
+
+  const record = page.getByRole("region", { name: "Record" });
+  const plan = record.getByRole("region", { name: "Plan", exact: true });
+  const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
+  await expect(plan).toContainText("Keep each list's filters in the address");
+  await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
+  await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
+  const read = async () =>
+    taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json());
+  await expect.poll(async () => (await read()).state).toBe("ready");
+  expect(await read()).toMatchObject({ pipelineId: "full", proposedPipeline: null });
+  await expect(page.getByRole("button", { name: "Mark Ready" })).toHaveCount(0);
+
+  // The choice is The Office's default now, for the next Make a plan and the board's Plan.
+  const remembered = await page.request.get("/api/settings/auto-mode");
+  expect(autoModeSettingSchema.parse(await remembered.json()).autoMode).toBe(true);
 
   // Nothing of it is left to weigh on the next tests' Start.
   expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
@@ -5417,6 +5478,74 @@ test(
 
       // Nothing of it is left to weigh on the next tests' Start.
       expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+/** A library skill for the Planner, written by this test alone. */
+const USED_SKILL = "people-skill-uses";
+
+// The engine replays the last session in e2e/sessions.jsonl: Jan calls Skill for a library skill
+// and for the Project's own, once each.
+test(
+  "a session's Skill uses show in Settings › Skills and on the Project's Skills, without a reload",
+  { tag: "@full" },
+  async ({ page, context }) => {
+    const repository = await createTemporaryRepository();
+    await commitFiles(repository, {
+      ".claude/skills/release-notes/SKILL.md":
+        "---\nname: release-notes\ndescription: Writes the release notes.\n---\nList what changed.\n",
+    });
+    try {
+      const project = await addedProject(page, repository, "Skill uses", "SU", PASSING_COMMANDS);
+      const projectSkillsOn = await page.request.put(
+        `/api/projects/${project.id}/use-project-skills`,
+        { data: { useProjectSkills: true } },
+      );
+      expect(projectSkillsOn.status()).toBe(200);
+      const written = await page.request.post("/api/skills", {
+        data: { name: USED_SKILL, description: "Checks the change.", instructions: "Check it." },
+      });
+      expect(written.status()).toBe(201);
+      for (const change of [
+        () => page.request.put(`/api/skills/${USED_SKILL}/state`, { data: { state: "on" } }),
+        () => page.request.put(`/api/skills/${USED_SKILL}/roles`, { data: { roles: ["planner"] } }),
+      ]) {
+        expect((await change()).status()).toBe(200);
+      }
+      const taskId = await readyTask(page, project.id, "Write the release notes");
+
+      // Both lists are open before the use, so the events alone change them.
+      await page.goto("/settings/skills");
+      const libraryRow = page.getByRole("row", { name: new RegExp(USED_SKILL) });
+      await expect(libraryRow.getByText("Not used in the last 7 days")).toBeAttached();
+      const projectPage = await context.newPage();
+      await projectPage.goto(`/projects/${project.id}/skills`);
+      const projectRow = projectPage.getByRole("group", { name: "release-notes" });
+      await expect(projectRow).toContainText("Not used in the last 7 days");
+
+      const { id: threadId } = threadSchema.parse(
+        await (await page.request.post(`/api/tasks/${taskId}/conversation/planner/thread`)).json(),
+      );
+      const sent = await page.request.post(`/api/threads/${threadId}/messages`, {
+        data: { text: "Write the release notes." },
+      });
+      expect(sent.ok()).toBe(true);
+
+      await expect(libraryRow.locator(".skill-uses [aria-hidden='true']")).toHaveText("1");
+      await expect(libraryRow.getByText("Used once in the last 7 days")).toBeAttached();
+      await expect(projectRow).toContainText("Used once in the last 7 days");
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skill-uses-library.png") });
+      await projectPage.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-skill-uses-project.png"),
+      });
+      await projectPage.close();
+
+      // Nothing of it is left to weigh on the next tests' Start or sessions.
+      expect((await page.request.post(`/api/tasks/${taskId}/drop`)).status()).toBe(200);
+      expect((await page.request.delete(`/api/skills/${USED_SKILL}`)).ok()).toBe(true);
     } finally {
       await repository.remove();
     }

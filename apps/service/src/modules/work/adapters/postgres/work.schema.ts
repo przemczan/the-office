@@ -96,6 +96,7 @@ export const tasks = pgTable(
     pipelineId: text("pipeline_id").notNull(),
     /** Null while the Planner proposes none. */
     proposedPipeline: jsonb("proposed_pipeline").$type<ProposedPipeline>(),
+    autoMode: boolean("auto_mode").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
     pausedByAlarm: boolean("paused_by_alarm").notNull().default(false),

@@ -216,6 +216,11 @@ export const taskSchema = newTaskSchema.extend({
   pipelineId: z.string(),
   /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
   proposedPipeline: proposedPipelineSchema.nullable(),
+  /**
+   * Planned in auto mode, chosen at Make a plan: once the Planner marks it planned with no Decision
+   * open, The Office confirms what is unconfirmed and marks it Ready. Counts only in Planning.
+   */
+  autoMode: z.boolean(),
   /** The Tasks that must be Done before it can start, in the order added; a Dropped one no longer blocks. */
   blockedBy: z.array(z.uuid()),
   originIdeaId: z.uuid().nullable(),
@@ -257,6 +262,13 @@ export const projectOnboardingListSchema = z.array(projectOnboardingSchema);
 /** PUT /tasks/:id/priority */
 export const priorityChangeSchema = z.object({ priority: prioritySchema });
 export type PriorityChange = z.infer<typeof priorityChangeSchema>;
+
+/**
+ * POST /tasks/:id/make-a-plan: whether the Task is planned in auto mode, which also becomes the
+ * remembered default.
+ */
+export const makeAPlanSchema = z.object({ autoMode: z.boolean() });
+export type MakeAPlan = z.infer<typeof makeAPlanSchema>;
 
 /** PUT /tasks/:id/description: the Description as the user rewrote it; empty leaves none. */
 export const descriptionChangeSchema = z.object({ description: z.string() });
@@ -613,6 +625,13 @@ export const archivePeriodSchema = z.object({
   archivePeriod: z.int().min(1).max(ARCHIVE_PERIOD_MAX),
 });
 export type ArchivePeriod = z.infer<typeof archivePeriodSchema>;
+
+/**
+ * GET /settings/auto-mode: whether Make a plan starts in auto mode, the user's last choice there,
+ * off until first made.
+ */
+export const autoModeSettingSchema = z.object({ autoMode: z.boolean() });
+export type AutoModeSetting = z.infer<typeof autoModeSettingSchema>;
 
 /** A Window cap: the % of the window a Start may bring it to. */
 export const windowCapSchema = z.int().min(1).max(100);

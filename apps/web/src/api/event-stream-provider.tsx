@@ -15,7 +15,8 @@ export type EventInvalidations = Readonly<Record<string, (event: WebEvent) => re
 
 /**
  * For event types that carry what changed, how an event of that type changes the cached queries in
- * place, refetching nothing.
+ * place, refetching nothing; or, for those that name exactly which queries they change, refetching
+ * only those, where `EventInvalidations` would take each key as a prefix.
  */
 export type EventCacheUpdates = Readonly<
   Record<string, (event: WebEvent, queryClient: QueryClient) => void>

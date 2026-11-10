@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  autoModeSettingSchema,
   fireAlarmSchema,
   queueSchema,
   startAnswerSchema,
@@ -12,15 +13,20 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
+import { makeAPlanOpening } from "../../domain/planning.js";
 import { TaskPaused } from "../../domain/task-events.js";
+import { TaskRefused } from "../../domain/task-refused.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
+import { TaskRepository } from "../../ports/task-repository.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import {
   FireAlarmRepositoryForTests,
   ProjectWorktreesForTests,
+  TaskDecisionsForTests,
   TaskThreadsForTests,
   TaskTokensForTests,
   UNKNOWN_PROJECT,
@@ -211,6 +217,142 @@ describe("POST /api/tasks/:id/planning", () => {
     expect(webEventsOf(work)).toEqual([
       { type: "task.state-changed", taskId: task.id, from: "backlog", to: "planning" },
     ]);
+  });
+});
+
+/** A Task planned with Make a plan, with what the Planner proposed onto it. */
+async function proposedWithMakeAPlan(autoMode: boolean): Promise<Task> {
+  const task = await create();
+  await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, { autoMode });
+  const planning = work.app.get(PlanningService);
+  await planning.proposePlan(task.id, { plan: "Keep the requested path through the sign-in." });
+  await planning.proposeDefinitionOfDone(task.id, ["Signing in returns to the page asked for."]);
+  await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
+  return task;
+}
+
+async function autoModeSetting(): Promise<boolean> {
+  const response = await sendJson(work, "GET", "/settings/auto-mode");
+  return autoModeSettingSchema.parse(await response.json()).autoMode;
+}
+
+describe("Auto mode", () => {
+  it("is off until chosen, then Make a plan keeps the choice on the Task and as the default", async () => {
+    const before = await autoModeSetting();
+    const task = await create();
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, {
+      autoMode: true,
+    });
+
+    expect(before).toBe(false);
+    expect(taskSchema.parse(await response.json())).toMatchObject({
+      state: "planning",
+      autoMode: true,
+    });
+    expect(await autoModeSetting()).toBe(true);
+    expect(work.app.get(TaskThreadsForTests).started).toEqual([
+      { taskId: task.id, roleKey: "planner", title: "Planning", opening: makeAPlanOpening(true) },
+    ]);
+    const unanswered = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, {});
+    expect(unanswered.status).toBe(400);
+  });
+
+  it("confirms every part and marks the Task Ready in one save once the Planner marks it planned", async () => {
+    const task = await proposedWithMakeAPlan(true);
+    work.published.length = 0;
+
+    const marked = await work.app.get(PlanningService).markPlanned(task.id);
+
+    expect(marked.outcome).toBe("ready");
+    expect(await readTask(task.id)).toMatchObject({
+      state: "ready",
+      planConfirmed: true,
+      definitionOfDoneConfirmed: true,
+      pipelineId: "full",
+      proposedPipeline: null,
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.plan-confirmed", taskId: task.id },
+      { type: "task.definition-of-done-confirmed", taskId: task.id },
+      { type: "task.pipeline-confirmed", taskId: task.id, pipelineId: "full" },
+      { type: "task.state-changed", taskId: task.id, from: "planning", to: "ready" },
+    ]);
+    const changes = await work.app.get(TaskRepository).stateChangesOf(task.id);
+    expect(changes.at(-1)).toMatchObject({
+      from: "planning",
+      to: "ready",
+      by: {
+        kind: "auto-mode",
+        confirmed: [
+          { part: "plan" },
+          { part: "definition-of-done" },
+          { part: "pipeline", pipelineId: "full" },
+        ],
+      },
+    });
+  });
+
+  it("waits while a Decision on the Task is open, and marks it Ready once it is answered", async () => {
+    const task = await proposedWithMakeAPlan(true);
+    const decisions = work.app.get(TaskDecisionsForTests);
+    decisions.open.set(task.id, 1);
+    const planning = work.app.get(PlanningService);
+
+    const waiting = await planning.markPlanned(task.id);
+    const whileOpen = await readTask(task.id);
+    decisions.open.delete(task.id);
+    const answered = await planning.markPlanned(task.id);
+
+    expect(waiting).toEqual({ outcome: "waiting-for-a-decision", openDecisions: 1 });
+    expect(whileOpen).toMatchObject({ state: "planning", planConfirmed: false });
+    expect(answered.outcome).toBe("ready");
+    expect((await readTask(task.id)).state).toBe("ready");
+  });
+
+  it("changes nothing when off, or with Plan with…, leaving the user to confirm", async () => {
+    const off = await proposedWithMakeAPlan(false);
+    const planWith = await proposedTask();
+    work.published.length = 0;
+    const planning = work.app.get(PlanningService);
+
+    const markedOff = await planning.markPlanned(off.id);
+    const markedPlanWith = await planning.markPlanned(planWith.id);
+
+    expect([markedOff, markedPlanWith]).toEqual([
+      { outcome: "for-the-user" },
+      { outcome: "for-the-user" },
+    ]);
+    expect(await autoModeSetting()).toBe(false);
+    for (const task of [off, planWith]) {
+      expect(await readTask(task.id)).toMatchObject({
+        state: "planning",
+        autoMode: false,
+        planConfirmed: false,
+      });
+    }
+    expect(work.published).toEqual([]);
+  });
+
+  it("is refused, with the reasons, outside Planning or before the parts are written", async () => {
+    const task = await create();
+    const planning = work.app.get(PlanningService);
+    const inBacklog = await planning.markPlanned(task.id).catch((error: unknown) => error);
+    await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, { autoMode: true });
+    const unwritten = await planning.markPlanned(task.id).catch((error: unknown) => error);
+
+    expect(inBacklog).toEqual(
+      new TaskRefused([
+        "A Task is marked planned while it is in Planning; this one is in Backlog.",
+      ]),
+    );
+    expect(unwritten).toEqual(
+      new TaskRefused([
+        "Write the Plan first, with write_plan.",
+        "Write the Definition of Done first, with write_definition_of_done.",
+      ]),
+    );
+    expect((await readTask(task.id)).state).toBe("planning");
   });
 });
 
