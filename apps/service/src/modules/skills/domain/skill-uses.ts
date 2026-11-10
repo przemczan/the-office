@@ -32,7 +32,10 @@ export function usedSkillOf(record: SessionSkillRecord, called: string): UsedSki
   const projectSkill =
     record.projectSkills.find((skill) => skill.key === called) ??
     record.projectSkills.find((skill) => skill.listedAs === called);
-  if (projectSkill !== undefined && record.projectId !== undefined) {
+  if (projectSkill !== undefined) {
+    // A record prepared before it kept its Project's id can't count it, and the engine still took
+    // the name for the Project's skill, not a library skill of the same name.
+    if (record.projectId === undefined) return undefined;
     return { kind: "project", projectId: record.projectId, key: projectSkill.key };
   }
   return library.has(called) ? { kind: "library", skillName: called } : undefined;

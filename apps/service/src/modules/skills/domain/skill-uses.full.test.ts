@@ -49,6 +49,14 @@ describe("usedSkillOf", () => {
   it("counts no Project skill for a session outside a Project", () => {
     expect(usedSkillOf({ ...record, projectId: undefined }, "lint")).toBeUndefined();
   });
+
+  it("counts no library skill for a Project skill's name when the record has no Project's id", () => {
+    expect(usedSkillOf({ ...record, projectId: undefined }, "review")).toBeUndefined();
+    expect(usedSkillOf({ ...record, projectId: undefined }, "tdd")).toEqual({
+      kind: "library",
+      skillName: "tdd",
+    });
+  });
 });
 
 describe("skillUseWindowStart", () => {
