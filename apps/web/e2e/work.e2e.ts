@@ -1061,10 +1061,53 @@ test(
   },
 );
 
-/** One of Work's tabs, apart from the Archived tab's own Tasks and Initiatives. */
+/**
+ * One of Work's tabs, apart from the Archived tab's own Tasks and Initiatives, whatever count it
+ * shows.
+ */
 function workTab(page: Page, name: string): Locator {
-  return page.locator(".work-tabs").getByRole("tab", { name, exact: true });
+  return page.locator(".work-tabs").getByRole("tab", { name: new RegExp(`^${name}\\s*\\d*$`) });
 }
+
+test(
+  "Work's tabs count the open Tasks, the new Ideas and the Initiatives in Shaping in the Projects the filter shows",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Counted tabs", "CT");
+    await createdTask(page, project, "Counted kiwi backlog");
+    const ready = await createdTask(page, project, "Counted kiwi ready");
+    const done = await createdTask(page, project, "Counted kiwi done");
+    await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [done.id]);
+    const shaping = await seedInitiative(page, "Counted kiwi shaping", {
+      state: "shaping",
+      createdAt: new Date().toISOString(),
+    });
+    await seedTaskOf(page, project, "Counted kiwi shaped", shaping);
+    await queryOfficeDatabase(`update tasks set state = 'shaping' where title = $1`, [
+      "Counted kiwi shaped",
+    ]);
+    const idea = await page.request.post("/api/ideas", {
+      data: { title: "Counted kiwi idea", notes: "", projectId: project.id },
+    });
+    expect(idea.status()).toBe(201);
+
+    await page.goto("/work");
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Counted tabs" }).click();
+    await expect(workTab(page, "Tasks")).toHaveText("Tasks2");
+    await expect(workTab(page, "Initiatives")).toHaveText("Initiatives1");
+    // The seeded Initiative's Idea is Office-wide, so it's counted as well as the Project's.
+    await expect(workTab(page, "Ideas")).toHaveText(/^Ideas\d+$/);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-work-tab-counts.png") });
+
+    // The board's search narrows the cards, not the count; a Task ending lowers it at once.
+    await page.goto("/work?query=nothing%20like%20this");
+    await expect(page.getByRole("article", { name: "Counted kiwi ready" })).toHaveCount(0);
+    await expect(workTab(page, "Tasks")).toHaveText("Tasks2");
+    expect((await page.request.post(`/api/tasks/${ready.id}/drop`)).ok()).toBe(true);
+    await expect(workTab(page, "Tasks")).toHaveText("Tasks1");
+  },
+);
 
 test(
   "a Task moves to another Project from its menu, and one whose history wasn't kept is refused with why",
