@@ -144,9 +144,15 @@ describe("initiativeRecordText", () => {
   it("names the Idea it was shaped from by title and state", () => {
     const idea = anIdea({ state: "shaped", initiativeId: "initiative-1" });
 
-    expect(initiativeRecordText(anInitiative(), idea, [], new Map(), [])).toContain(
-      "- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it",
-    );
+    expect(
+      initiativeRecordText({
+        initiative: anInitiative(),
+        idea,
+        tasks: [],
+        blockers: new Map(),
+        attachments: [],
+      }),
+    ).toContain("- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it");
   });
 
   it("says when it ended and that it is archived, its state as it was", () => {
@@ -157,7 +163,13 @@ describe("initiativeRecordText", () => {
       archivedAt: new Date("2026-11-29T09:00:00.000Z"),
     });
 
-    const text = initiativeRecordText(initiative, idea, [], new Map(), []);
+    const text = initiativeRecordText({
+      initiative,
+      idea,
+      tasks: [],
+      blockers: new Map(),
+      attachments: [],
+    });
 
     expect(text).toContain("- Dropped on 2026-10-30T09:00:00.000Z");
     expect(text).toContain(

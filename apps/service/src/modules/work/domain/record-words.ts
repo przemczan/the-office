@@ -10,11 +10,11 @@ import {
   linkedTaskWords,
   type TaskLinks,
 } from "./linked-records.js";
-import { confirmationWords } from "./planning.js";
 import { stateChangeLines, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
 import { NO_DESCRIPTION } from "./task-description.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
+import { confirmationWords } from "./written-parts.js";
 
 /** A Handover note with the Stage and the Role whose person wrote it. */
 export interface HandoverNote {
@@ -112,18 +112,30 @@ function handoverNoteLines(notes: readonly HandoverNote[]): string[] {
   ];
 }
 
+/** What an Initiative's record and a planning Brief's Initiative section are worded from. */
+export interface InitiativeRecord {
+  readonly initiative: Initiative;
+  /** The Idea it was shaped from. */
+  readonly idea: Idea;
+  /** Its Tasks, in the order they were added. */
+  readonly tasks: readonly Task[];
+  /** Every Task by its id, where the Tasks its Tasks wait for are looked up. */
+  readonly blockers: ReadonlyMap<string, Task>;
+  readonly attachments: readonly Attachment[];
+}
+
 /**
  * An Initiative's record as an Agent reads it, in its Thread or mentioned in a chat: its state and
- * outcome, the Idea it was shaped from (`idea`), its Attachments, and its Tasks in the order they
- * were added, each with its Project, state and the Tasks it waits for, looked up in `blockers`.
+ * outcome, the Idea it was shaped from, its Attachments, and its Tasks in the order they were
+ * added, each with its Project, state and the Tasks it waits for.
  */
-export function initiativeRecordText(
-  initiative: Initiative,
-  idea: Idea,
-  tasks: readonly Task[],
-  blockers: ReadonlyMap<string, Task>,
-  attachments: readonly Attachment[],
-): string {
+export function initiativeRecordText({
+  initiative,
+  idea,
+  tasks,
+  blockers,
+  attachments,
+}: InitiativeRecord): string {
   return [
     `${initiative.name} (Initiative ${initiative.id})`,
     `- ${initiative.state}; spans ${projectsWords(initiativeProjectIds(tasks))}`,
@@ -139,12 +151,12 @@ export function initiativeRecordText(
       : []),
     "",
     "Outcome:",
-    initiative.outcome === "" ? "Not written yet." : initiative.outcome,
+    outcomeWords(initiative),
     "",
     "Tasks:",
     ...(tasks.length === 0
       ? ["None yet."]
-      : tasks.map((task) => initiativeTaskLine(task, blockers))),
+      : tasks.map((task) => `- ${initiativeTaskLine(task, blockers)}`)),
     "",
     "Attachments:",
     ...attachmentLines(attachments),
@@ -156,8 +168,13 @@ function projectsWords(projectIds: readonly string[]): string {
   return projectIds.map((projectId) => `the Project ${projectId}`).join(", ");
 }
 
-function initiativeTaskLine(task: Task, blockers: ReadonlyMap<string, Task>): string {
-  const line = `- ${task.title} (Task ${task.id}), in the Project ${task.projectId}, ${TASK_STATE_NAMES[task.state]}`;
+export function outcomeWords({ outcome }: Initiative): string {
+  return outcome === "" ? "Not written yet." : outcome;
+}
+
+/** A Task of an Initiative: its Project, state and the Tasks it waits for, looked up in `blockers`. */
+export function initiativeTaskLine(task: Task, blockers: ReadonlyMap<string, Task>): string {
+  const line = `${task.title} (Task ${task.id}), in the Project ${task.projectId}, ${TASK_STATE_NAMES[task.state]}`;
   if (task.blockedBy.length === 0) return line;
   const waitsFor = task.blockedBy.map((blockerId) => {
     const blocker = blockers.get(blockerId);
