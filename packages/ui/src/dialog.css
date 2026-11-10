@@ -65,7 +65,8 @@
   padding: var(--space-4);
 }
 
-.dialog-frame.maximized {
+/* Scoped under the backdrop so it outranks a size's keeps-height rule. */
+.dialog-backdrop.maximized > .dialog-frame.maximized {
   max-width: none;
   max-height: none;
   height: 100%;
