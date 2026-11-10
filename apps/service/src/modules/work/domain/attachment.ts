@@ -163,6 +163,10 @@ export function fileReadingOf(file: StoredFileAttachment): FileReading {
  * Every Attachment on a line of its own, as an Agent reads a record, with the id it reads one by;
  * "None." for none.
  */
+/** How an Agent reads an Attachment listed in its Brief. */
+export const HOW_TO_READ_ATTACHMENTS =
+  "Read one with read_attachment, by its id: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase; an image as a picture where the engine shows one; any other file by its name, kind and size.";
+
 export function attachmentLines(attachments: readonly Attachment[]): string[] {
   if (attachments.length === 0) return ["None."];
   return attachments.map(

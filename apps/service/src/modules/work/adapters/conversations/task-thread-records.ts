@@ -10,6 +10,7 @@ import {
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
+import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { ASKING_INSTRUCTIONS, askingBrief } from "../../domain/asking.js";
@@ -56,6 +57,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     private readonly tasks: TaskService,
     private readonly taskRecords: TaskRecords,
     private readonly attachments: AttachmentService,
+    private readonly initiatives: InitiativeService,
     private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
     private readonly worktrees: ProjectWorktrees,
@@ -150,11 +152,12 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   }
 
   private async planning(task: Task, project: KnownProject): Promise<TaskThreadSetup> {
-    const [worktree, links, attachments, pipelines] = await Promise.all([
+    const [worktree, links, attachments, pipelines, initiative] = await Promise.all([
       this.worktrees.find(task.projectId, task.id),
       this.taskRecords.linksOf(task),
       this.attachments.listOf({ kind: "task", taskId: task.id }),
       this.pipelines.list(),
+      task.initiativeId === undefined ? undefined : this.initiatives.record(task.initiativeId),
     ]);
     return {
       projectId: task.projectId,
@@ -164,7 +167,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       projectSkillsOff: project.projectSkillsOff,
       instructions: PLANNING_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
-      brief: planningBrief({ task, project, worktree, links, attachments, pipelines }),
+      brief: planningBrief({ task, project, worktree, links, attachments, pipelines, initiative }),
       asking: false,
       sessionRefusal: CLOSED_TASK_CONVERSATION_WORDS[task.state],
     };

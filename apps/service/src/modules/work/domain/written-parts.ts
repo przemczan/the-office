@@ -86,3 +86,20 @@ export function definitionOfDoneProblems(statements: readonly string[]): string[
   if (statements.includes("")) return ["A statement of the Definition of Done can't be empty."];
   return [];
 }
+
+/**
+ * Whether a part of the Task is confirmed yet, as an Agent reads it: by the user or by auto mode,
+ * which the Task's state changes say.
+ */
+export function confirmationWords(confirmed: boolean): string {
+  return confirmed ? "confirmed" : "not yet confirmed";
+}
+
+/** The Plan as a Brief gives it: its words, then the files it expects to change. */
+export function planWithFilesToChange({
+  plan,
+  filesToChange,
+}: Pick<Task, "plan" | "filesToChange">): string {
+  if (filesToChange.length === 0) return plan;
+  return `${plan}\n\nFiles to change:\n${filesToChange.map((path) => `- ${path}`).join("\n")}`;
+}

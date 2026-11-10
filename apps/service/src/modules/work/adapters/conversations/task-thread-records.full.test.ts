@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { taskSchema } from "@the-office/contracts";
+import { ideaSchema, initiativeSchema, taskSchema } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   READ_STAGE_HISTORY_TOOL,
@@ -159,6 +159,53 @@ describe("a planning Thread's session", () => {
       sessionRefusal: undefined,
     });
     expect(setup.brief).toContain("- install: `npm install`");
+  });
+
+  it("is briefed with the Initiative the Task is part of, its other Tasks and Attachments", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const idea = ideaSchema.parse(
+      await (
+        await sendJson(work, "POST", "/ideas", { title: "Usage exports", notes: "", projectId })
+      ).json(),
+    );
+    const initiative = initiativeSchema.parse(
+      await (await sendJson(work, "POST", `/ideas/${idea.id}/initiative`)).json(),
+    );
+    const addTask = async (title: string, blockedBy: readonly string[]) =>
+      taskSchema.parse(
+        await (
+          await sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
+            title,
+            projectId,
+            priority: "normal",
+            blockedBy,
+          })
+        ).json(),
+      );
+    const endpoint = await addTask("Export endpoint", []);
+    const button = await addTask("Export button", [endpoint.id]);
+
+    const setup = await work.app.get(TaskThreadSetups).of(planningRequest(button.id));
+
+    expect(setup.brief).toContain(
+      [
+        "## Linked records",
+        "",
+        `- Waits for: Export endpoint (Task ${endpoint.id}), Shaping; read_task reads it`,
+        `- Part of: Usage exports (Initiative ${initiative.id}), shaping; read_initiative reads it`,
+      ].join("\n"),
+    );
+    expect(setup.brief).toContain(
+      [
+        "## The Initiative",
+        `This Task is part of Usage exports (Initiative ${initiative.id}), shaping.`,
+        "Outcome:\nNot written yet.",
+        "Its other Tasks, in the order they were added:",
+        `### Export endpoint (Task ${endpoint.id}), in the Project ${projectId}, Shaping\n\nNo Plan yet.`,
+        "Attachments:\nNone.",
+        "## Attachments",
+      ].join("\n\n"),
+    );
   });
 
   it.each([

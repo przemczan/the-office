@@ -40,7 +40,7 @@ import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import { InitiativeNotShaping } from "../domain/initiative-not-shaping.js";
 import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
-import { initiativeRecordText } from "../domain/record-words.js";
+import { initiativeRecordText, type InitiativeRecord } from "../domain/record-words.js";
 import { searchWords } from "../domain/search.js";
 import { CTO, SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../domain/shaping.js";
 import { newTaskProblems, type NewTask, type Task } from "../domain/task.js";
@@ -181,6 +181,14 @@ export class InitiativeService implements OnModuleInit {
    * InitiativeNotFound when there is no such Initiative.
    */
   async recordText(id: string): Promise<string> {
+    return initiativeRecordText(await this.record(id));
+  }
+
+  /**
+   * What the Initiative's record and a planning Brief's Initiative section are worded from, from one
+   * read of the board. Throws InitiativeNotFound when there is no such Initiative.
+   */
+  async record(id: string): Promise<InitiativeRecord> {
     const initiative = await this.read(id);
     const [idea, board, attachments] = await Promise.all([
       this.ideas.find(initiative.originIdeaId),
@@ -189,8 +197,8 @@ export class InitiativeService implements OnModuleInit {
     ]);
     if (!idea) throw new IdeaNotFound(initiative.originIdeaId);
     const tasks = tasksByInitiative(board).get(id) ?? [];
-    const byId = new Map(board.map((task) => [task.id, task]));
-    return initiativeRecordText(initiative, idea, tasks, byId, attachments);
+    const blockers = new Map(board.map((task) => [task.id, task]));
+    return { initiative, idea, tasks, blockers, attachments };
   }
 
   /** Makes it active, its Tasks in Shaping moving to Backlog; done at once when its Tasks already are. */

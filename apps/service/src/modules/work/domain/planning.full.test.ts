@@ -95,6 +95,35 @@ describe("a planning Brief", () => {
     expect(planningBrief({ ...RECORD, links: NO_LINKS })).not.toContain("## Linked records");
   });
 
+  it("has no Initiative section for a Task outside an Initiative", () => {
+    expect(planningBrief(RECORD)).not.toContain("## The Initiative");
+  });
+
+  it("gives the Initiative the Task is part of after its linked records", () => {
+    const task = aTask({ originIdeaId: "idea-1", initiativeId: "initiative-1" });
+    const initiative = anInitiative({ state: "active" });
+    const brief = planningBrief({
+      ...RECORD,
+      task,
+      links: { ...RECORD.links, initiative },
+      initiative: {
+        initiative,
+        idea: anIdea({ state: "shaped" }),
+        tasks: [task],
+        blockers: new Map([[task.id, task]]),
+        attachments: [],
+      },
+    });
+
+    const sections = brief.split("\n\n## ").map((section) => section.split("\n")[0]);
+    expect(
+      sections.slice(sections.indexOf("Linked records"), sections.indexOf("Attachments")),
+    ).toEqual(["Linked records", "The Initiative"]);
+    expect(brief).toContain(
+      "## The Initiative\n\nThis Task is part of Usage exports (Initiative initiative-1), active.",
+    );
+  });
+
   it("lists every linked record, one line each, with how to read them", () => {
     const links: TaskLinks = {
       waitsFor: [
