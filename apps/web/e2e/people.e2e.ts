@@ -5194,6 +5194,8 @@ test.describe("the chat drawer", () => {
           request.method() === "POST" && request.url().endsWith(`/threads/${threadId}/messages`),
       );
       await message.fill(text);
+      // A drawer opened again refetches its Thread; until then Enter only says Jan is answering.
+      await expect(jan.getByRole("button", { name: "Send (Enter)" })).toBeEnabled();
       await message.press("Enter");
       expect((await sending).postDataJSON()).toEqual(body);
       await expect(jan.getByText(answer)).toBeVisible();
