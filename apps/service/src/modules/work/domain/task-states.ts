@@ -63,7 +63,8 @@ export interface ReadinessLine {
 }
 
 /**
- * Ready requires a Plan and a Definition of Done, each confirmed by the user, no Pipeline proposal
+ * Ready requires a Plan and a Definition of Done, each confirmed by the user or by auto mode on
+ * their behalf, no Pipeline proposal
  * left open (the user takes or declines it, keeping the Pipeline the Task follows) and no Decision
  * on the Task open (spec §2.1). The one list of conditions: the refusals and the checklist
  * both come from it.
