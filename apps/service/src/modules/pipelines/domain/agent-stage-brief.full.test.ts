@@ -71,7 +71,7 @@ describe("agentStageRecord", () => {
 
   it("lists the Task's linked records, as Work words them, before its Attachments", () => {
     const linkedRecordsSection =
-      "## Linked records\n\n- Waits for: Add the session store (Task t-2), Done; read_task reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, and an image as a picture where the engine shows one.";
+      "## Linked records\n\n- Waits for: Add the session store (Task t-2), Done; read_task reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size.";
 
     const record = agentStageRecord({
       task: { ...task, linkedRecordsSection },

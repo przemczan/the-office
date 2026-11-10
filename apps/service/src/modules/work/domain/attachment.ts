@@ -113,7 +113,7 @@ const BINARY_PROBE_BYTES = 8 * 1024;
 
 /**
  * Whether a file's bytes are text (spec §2.1): valid UTF-8 throughout, with no NUL byte in its
- * first 8 KB, the test the API engine's Read and Grep use.
+ * first 8 KB, the NUL test being the one the API engine's Read and Grep use.
  */
 export function isText(content: Uint8Array): boolean {
   if (content.subarray(0, BINARY_PROBE_BYTES).includes(0)) return false;

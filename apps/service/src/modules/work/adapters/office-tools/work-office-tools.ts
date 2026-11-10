@@ -47,9 +47,9 @@ export const CREATE_TASK = "create_task";
 
 /**
  * The most characters read_attachment answers a text file or a PDF's text with, its header
- * included. Claude Code
- * keeps a tool's answer in the session only up to 50,000 characters; a longer one is saved to a
- * file in the engine's own folder, which Agents may not read, and the session sees a 2 KB preview.
+ * included. Claude Code keeps a tool's answer in the session only up to 50,000 characters; a
+ * longer one is saved to a file in the engine's own folder, which Agents may not read, and the
+ * session sees a 2 KB preview.
  * Measured on 2026-11-10 with Claude Code 2.1.310 (Agent SDK 0.3.310), on claude-haiku-5-5: an
  * Office-style SDK MCP tool answered 10,000 to 80,000 characters, and the model reported which
  * answers it saw whole. 50,000 came back inline and 50,001 was saved to a file; 45,000 two-byte
