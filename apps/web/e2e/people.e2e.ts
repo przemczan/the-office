@@ -4583,7 +4583,7 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-initiative.png") });
 
     await page.goto("/work/initiatives");
-    await expect(page.getByRole("link", { name: "Usage exports for customers" })).toContainText(
+    await expect(page.getByRole("article", { name: "Usage exports for customers" })).toContainText(
       "0 of 3 Tasks done",
     );
 

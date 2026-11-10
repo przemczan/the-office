@@ -1,4 +1,5 @@
 import type {
+  ArchivedInitiativesPage as ArchivedInitiativesPageResponse,
   Attachment as AttachmentResponse,
   AttachmentOwner as AttachmentOwnerResponse,
   Author as AuthorResponse,
@@ -17,6 +18,11 @@ import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
+import {
+  ARCHIVE_PAGE_SIZE,
+  type ArchivePage,
+  type ArchiveSearch,
+} from "../../domain/initiative-archive.js";
 import { initiativeProjectIds } from "../../domain/initiative-changes.js";
 import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
@@ -54,6 +60,29 @@ export function toInitiativeResponse(
     projectIds: initiativeProjectIds(tasks),
     createdBy: toAuthorResponse(initiative.createdBy),
     createdAt: initiative.createdAt.toISOString(),
+    endedAt: initiative.endedAt?.toISOString() ?? null,
+    archivedAt: initiative.archivedAt?.toISOString() ?? null,
+  };
+}
+
+/** A page of the Archive, each Initiative with its final count from its Tasks. */
+export function toArchivedInitiativesPageResponse(
+  { initiatives, counts }: ArchivePage,
+  { state, page }: Pick<ArchiveSearch, "state" | "page">,
+): ArchivedInitiativesPageResponse {
+  return {
+    initiatives: initiatives.map(({ initiative, tasks }) => {
+      const counted = tasks.filter((task) => task.state !== "dropped");
+      return {
+        ...toInitiativeResponse(initiative, tasks),
+        tasksDone: counted.filter((task) => task.state === "done").length,
+        tasksCounted: counted.length,
+      };
+    }),
+    page,
+    pageSize: ARCHIVE_PAGE_SIZE,
+    total: state === "all" ? counts.done + counts.dropped : counts[state],
+    counts: { ...counts },
   };
 }
 

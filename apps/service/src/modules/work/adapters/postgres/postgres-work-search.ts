@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { WorkSearch, type SearchMatches } from "../../ports/work-search.js";
-import { searchVectorOf } from "./search-vector.js";
+import { bestFirst, matching, searchVectorOf } from "./search-vector.js";
 import { attachments, attachmentTexts, ideas, initiatives, tasks } from "./work.schema.js";
 import { toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
 
@@ -21,7 +21,8 @@ const taskVector = sql`setweight(${searchVectorOf(tasks.title)}, 'A')
 const ideaVector = sql`setweight(${searchVectorOf(ideas.title)}, 'A')
   || ${searchVectorOf(ideas.notes)}`;
 
-const initiativeVector = sql`setweight(${searchVectorOf(initiatives.name)}, 'A')
+/** Also what the Archive of Initiatives searches (PostgresInitiativeRepository.archived). */
+export const initiativeVector = sql`setweight(${searchVectorOf(initiatives.name)}, 'A')
   || ${searchVectorOf(initiatives.outcome)}`;
 
 const documentVector = sql`setweight(${searchVectorOf(attachments.name)}, 'A')
@@ -38,6 +39,14 @@ export class PostgresWorkSearch extends WorkSearch {
       .select({ id: tasks.id })
       .from(tasks)
       .where(matching(taskVector, words));
+    return new Set(rows.map(({ id }) => id));
+  }
+
+  async matchingInitiativeIds(words: readonly string[]): Promise<ReadonlySet<string>> {
+    const rows = await this.database
+      .select({ id: initiatives.id })
+      .from(initiatives)
+      .where(matching(initiativeVector, words));
     return new Set(rows.map(({ id }) => id));
   }
 
@@ -72,21 +81,4 @@ export class PostgresWorkSearch extends WorkSearch {
       documents: documentRows.map(({ attachment }) => toAttachment(attachment)),
     };
   }
-}
-
-function matching(vector: SQL, words: readonly string[]): SQL {
-  return sql`${vector} @@ ${prefixQuery(words)}`;
-}
-
-function bestFirst(vector: SQL, words: readonly string[]): SQL {
-  return desc(sql`ts_rank(${vector}, ${prefixQuery(words)})`);
-}
-
-/**
- * Every word as a prefix, all of them required. The words are letters and digits only
- * (`searchWords`), so none is read as the query syntax's operators.
- */
-function prefixQuery(words: readonly string[]): SQL {
-  const query = words.map((word) => `${word}:*`).join(" & ");
-  return sql`to_tsquery('simple', ${query})`;
 }

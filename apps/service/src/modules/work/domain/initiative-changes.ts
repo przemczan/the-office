@@ -49,7 +49,7 @@ export function confirmInitiative(
     ]);
   }
   return {
-    ...moveTo(initiative, "active"),
+    ...moveTo(initiative, "active", undefined),
     taskChanges: inShaping(tasks).map(moveToBacklogOnConfirm),
   };
 }
@@ -61,13 +61,14 @@ export function confirmInitiative(
 export function dropInitiative(
   initiative: Initiative,
   tasks: readonly Task[],
+  at: Date,
 ): InitiativeTasksChange<InitiativeStateChanged> | undefined {
   if (initiative.state === "dropped") return undefined;
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
   }
   return {
-    ...moveTo(initiative, "dropped"),
+    ...moveTo(initiative, "dropped", at),
     taskChanges: inShaping(tasks).flatMap(
       (task) => changeTaskState(task, "dropped", THE_USER) ?? [],
     ),
@@ -85,11 +86,12 @@ function inShaping(tasks: readonly Task[]): readonly Task[] {
 export function finishInitiative(
   initiative: Initiative,
   tasks: readonly Pick<Task, "state">[],
+  at: Date,
 ): InitiativeChange<InitiativeStateChanged> | undefined {
   if (initiative.state !== "active") return undefined;
   const kept = tasks.filter(({ state }) => state !== "dropped");
   if (kept.length === 0 || kept.some(({ state }) => state !== "done")) return undefined;
-  return moveTo(initiative, "done");
+  return moveTo(initiative, "done", at);
 }
 
 /**
@@ -266,12 +268,14 @@ export function initiativeProjectIds(tasks: readonly Pick<Task, "projectId">[]):
   return [...new Set(tasks.map(({ projectId }) => projectId))];
 }
 
+/** `endedAt` is the moment of a move to Done or Dropped, from which its Archive period counts. */
 function moveTo(
   initiative: Initiative,
   to: InitiativeState,
+  endedAt: Date | undefined,
 ): InitiativeChange<InitiativeStateChanged> {
   return {
-    initiative: { ...initiative, state: to },
+    initiative: { ...initiative, state: to, endedAt },
     event: new InitiativeStateChanged(initiative.id, initiative.state, to),
   };
 }

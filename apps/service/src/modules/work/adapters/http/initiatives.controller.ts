@@ -8,21 +8,31 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseFilters,
 } from "@nestjs/common";
 import {
+  archivedInitiativesQuerySchema,
   newInitiativeTaskSchema,
   outcomeChangeSchema,
+  searchQuerySchema,
+  type ArchivedInitiativesPage,
+  type ArchivedInitiativesQuery,
   type Initiative as InitiativeResponse,
   type NewInitiativeTask,
   type OutcomeChange,
+  type SearchQuery,
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
-import { toInitiativeResponse, toTaskResponse } from "./work-responses.js";
+import {
+  toArchivedInitiativesPageResponse,
+  toInitiativeResponse,
+  toTaskResponse,
+} from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 /** An Initiative is made by shaping an Idea: POST /ideas/:id/initiative. */
@@ -31,15 +41,33 @@ import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 export class InitiativesController {
   constructor(private readonly initiatives: InitiativeService) {}
 
-  /** Every Initiative, the newest first. */
+  /**
+   * Every Initiative matching the query by its name and outcome, every one without, archived ones
+   * too, the newest first: the Work board, Ideas and mentions name an archived one's Tasks by it.
+   */
   @Get()
-  async list(): Promise<InitiativeResponse[]> {
+  async list(
+    @Query(new ContractPipe(searchQuerySchema)) { query }: SearchQuery,
+  ): Promise<InitiativeResponse[]> {
     const [initiatives, tasks] = await Promise.all([
-      this.initiatives.list(),
+      this.initiatives.list(query),
       this.initiatives.tasksByInitiative(),
     ]);
     return initiatives.map((initiative) =>
       toInitiativeResponse(initiative, tasks.get(initiative.id) ?? []),
+    );
+  }
+
+  /** A page of the Archive, searched, filtered and counted in the store. */
+  @Get("archived")
+  async archived(
+    @Query(new ContractPipe(archivedInitiativesQuerySchema))
+    { query, state, page, project }: ArchivedInitiativesQuery,
+  ): Promise<ArchivedInitiativesPage> {
+    const search = { state, page, projects: project };
+    return toArchivedInitiativesPageResponse(
+      await this.initiatives.archived(query, search),
+      search,
     );
   }
 
@@ -69,6 +97,20 @@ export class InitiativesController {
   @HttpCode(HttpStatus.OK)
   async drop(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
     return this.respond(await this.initiatives.drop(id));
+  }
+
+  /** Takes a Done or Dropped Initiative off the board into the Archive; its state stays. */
+  @Post(":id/archive")
+  @HttpCode(HttpStatus.OK)
+  async archive(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.archive(id));
+  }
+
+  /** Puts an archived Initiative back on the board, in Done or Dropped as it was. */
+  @Post(":id/restore")
+  @HttpCode(HttpStatus.OK)
+  async restore(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.restore(id));
   }
 
   /**

@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  archivedInitiativesPageSchema,
   attachmentListSchema,
   attachmentSchema,
   ideaListSchema,
@@ -22,6 +23,7 @@ import {
   taskSchema,
   taskUsageEstimateListSchema,
   usageSettingsSchema,
+  type ArchiveStateFilter,
   type Attachment,
   type AttachmentOwner,
   type Idea,
@@ -88,12 +90,45 @@ export const ideaQueries = {
     }),
 };
 
+/** What a page of the Archive of Initiatives is asked for. */
+export interface ArchivedInitiativesAsked {
+  readonly query: string;
+  readonly state: ArchiveStateFilter;
+  /** Counting from 1. */
+  readonly page: number;
+  readonly projects: ProjectFilter;
+}
+
 export const initiativeQueries = {
-  /** Every Initiative, the newest first; a Task's events refresh it, as it spans their Projects. */
+  /**
+   * Every Initiative, archived ones too, the newest first; a Task's events refresh it, as it spans
+   * their Projects.
+   */
   list: () =>
     queryOptions({
       queryKey: INITIATIVES,
       queryFn: ({ signal }) => getFromApi("/initiatives", initiativeListSchema, signal),
+    }),
+  /** The Initiatives whose name or outcome the words match, archived ones too. */
+  matching: (query: string) =>
+    queryOptions({
+      queryKey: [...INITIATIVES, "matching", query],
+      queryFn: ({ signal }) =>
+        getFromApi(`/initiatives?query=${encodeURIComponent(query)}`, initiativeListSchema, signal),
+    }),
+  /** A page of the Archive, searched, filtered and counted by the service. */
+  archived: ({ query, state, page, projects }: ArchivedInitiativesAsked) =>
+    queryOptions({
+      queryKey: [...INITIATIVES, "archived", { query, state, page, projects }],
+      queryFn: ({ signal }) => {
+        const search = new URLSearchParams({ query, state, page: String(page) });
+        if (projects !== "all") for (const id of projects) search.append("project", id);
+        return getFromApi(
+          `/initiatives/archived?${search.toString()}`,
+          archivedInitiativesPageSchema,
+          signal,
+        );
+      },
     }),
   one: (id: string) =>
     queryOptions({
@@ -301,6 +336,16 @@ export function dropInitiative(id: string): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/drop`, {}, initiativeSchema);
 }
 
+/** Archive: a Done or Dropped Initiative leaves the board, its state kept. */
+export function archiveInitiative(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/archive`, {}, initiativeSchema);
+}
+
+/** Restore: an archived Initiative returns to the board in the state it had. */
+export function restoreInitiative(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/restore`, {}, initiativeSchema);
+}
+
 /** The user's outcome, while the Initiative is being shaped. */
 export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promise<Initiative> {
   return sendToApi("PUT", `${initiativePath(id)}/outcome`, change, initiativeSchema);
@@ -503,6 +548,8 @@ export const workEventInvalidations: Readonly<
   "initiative.created": () => [INITIATIVES],
   "initiative.state-changed": () => [INITIATIVES],
   "initiative.outcome-written": () => [INITIATIVES],
+  "initiative.archived": () => [INITIATIVES],
+  "initiative.restored": () => [INITIATIVES],
   "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
   "task.state-changed": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
   "task.started": () => [TASKS],

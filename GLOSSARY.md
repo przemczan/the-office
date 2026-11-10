@@ -94,20 +94,20 @@ _Avoid_: Proposed (for a part's badge), approve
 A free-form word on a Task, set by the user or the Planner, to find Tasks by.
 _Avoid_: Label, category; "tag" for a Mention
 
-**Archive** (a Task):
-Taking a Done or Dropped Task off the Work board, by the user or automatically once it has been finished for the Archive period.
+**Archive** (a Task or Initiative):
+Taking a Done or Dropped Task or Initiative off its board (the Work board, or the Initiatives tab), by the user or automatically once it has been finished for the Archive period.
 _Avoid_: Hide, delete, clean up
 
 **Archive period**:
-How many days a Done or Dropped Task stays on the Work board, from when it finished or was last restored, before a daily run archives it; set Office-wide in Settings › Office limits, 30 until changed.
+How many days a Done or Dropped Task or Initiative stays on its board, from when it finished or was last restored, before a daily run archives it; set Office-wide in Settings › Office limits, 30 until changed.
 _Avoid_: Retention, expiry, archive delay
 
 **Archived**:
-A mark on a Done or Dropped Task that is archived; not a state, so the Task stays Done or Dropped.
-_Avoid_: Archived as a Task state, closed
+A mark on a Done or Dropped Task or Initiative that is archived; not a state, so it stays Done or Dropped.
+_Avoid_: Archived as a Task or Initiative state, closed
 
-**Restore** (an archived Task):
-Returning an archived Task to the Work board in the state it had; a dropped Idea has a Restore of its own.
+**Restore** (an archived Task or Initiative):
+Returning an archived Task or Initiative to its board in the state it had; a dropped Idea has a Restore of its own.
 _Avoid_: Unarchive, reopen
 
 **Move** (a Task):

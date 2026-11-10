@@ -12,12 +12,12 @@ const TABS = [
   { value: "tasks", label: "Tasks", to: "/work", crumb: "Tasks by state" },
   { value: "ideas", label: "Ideas", to: "/work/ideas", crumb: "Ideas" },
   { value: "initiatives", label: "Initiatives", to: "/work/initiatives", crumb: "Initiatives" },
-  { value: "archived", label: "Archived", to: "/work/archived", crumb: "Archived Tasks" },
+  { value: "archived", label: "Archived", to: "/work/archived", crumb: "Archived" },
 ] as const;
 
 /**
  * Work (prototypes/app/work.js): the Tasks by state on one board for the Projects the Project
- * filter shows, Ideas, Initiatives, and the archived Tasks.
+ * filter shows, Ideas, Initiatives, and the archived Tasks and Initiatives.
  */
 export function WorkPage(): ReactNode {
   const ideas = useQuery(ideaQueries.list());

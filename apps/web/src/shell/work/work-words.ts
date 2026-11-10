@@ -1,5 +1,13 @@
 import type { BadgeProps } from "@the-office/ui";
-import type { Author, Idea, Priority, Role, Task, TaskState } from "@the-office/contracts";
+import type {
+  Author,
+  Idea,
+  Initiative,
+  Priority,
+  Role,
+  Task,
+  TaskState,
+} from "@the-office/contracts";
 import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
 
 /** Each Task state as the UI names it (spec §2.1). */
@@ -49,9 +57,11 @@ export function isArchived<Archivable extends Pick<Task, "archivedAt">>(
   return task.archivedAt !== null;
 }
 
-/** Only a finished Task can be archived. */
-export function canBeArchived(task: Pick<Task, "state" | "archivedAt">): boolean {
-  return (task.state === "done" || task.state === "dropped") && !isArchived(task);
+/** Only a Done or Dropped Task or Initiative can be archived. */
+export function canBeArchived(
+  record: Pick<Task, "archivedAt"> & { readonly state: Task["state"] | Initiative["state"] },
+): boolean {
+  return (record.state === "done" || record.state === "dropped") && !isArchived(record);
 }
 
 /** The states before In progress: the Task can still be reordered and its priority changed. */

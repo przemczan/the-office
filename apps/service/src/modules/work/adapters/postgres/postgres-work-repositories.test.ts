@@ -443,6 +443,66 @@ describe("migration 0096", () => {
   });
 });
 
+/** A row of a Task's move, as the user made it. */
+function move(task: Task, from: Task["state"], to: Task["state"], at: Date) {
+  return { taskId: task.id, fromState: from, toState: to, changedAt: at, changedBy: THE_USER };
+}
+
+describe("migration 0110", () => {
+  it("dates each ended Initiative's end by its Tasks' moves where one dates it", async () => {
+    const migration = await readFile(
+      new URL("../../../../../drizzle/0110_initiative_ended_at.sql", import.meta.url),
+      "utf8",
+    );
+    const [done, droppedShaping, droppedActive, active] = [
+      await anInitiativeId(),
+      await anInitiativeId(),
+      await anInitiativeId(),
+      await anInitiativeId(),
+    ];
+    const earlier = new Date("2026-09-01T10:00:00.000Z");
+    const later = new Date("2026-09-03T10:00:00.000Z");
+    const dropMoment = new Date("2026-09-05T10:00:00.000Z");
+    const doneTask = await aTaskOf(done, "done");
+    const droppedTask = await aTaskOf(done, "dropped");
+    const shapingTask = await aTaskOf(droppedShaping, "dropped");
+    const leftTask = await aTaskOf(droppedActive, "dropped");
+    const activeTask = await aTaskOf(active, "done");
+
+    const endedAt = await rolledBack(async (transaction) => {
+      for (const [id, state] of [
+        [done, "done"],
+        [droppedShaping, "dropped"],
+        [droppedActive, "dropped"],
+        [active, "active"],
+      ] as const) {
+        await transaction.update(initiativeRows).set({ state }).where(eq(initiativeRows.id, id));
+      }
+      await transaction.insert(taskStateChanges).values([
+        move(doneTask, "in-progress", "done", earlier),
+        move(droppedTask, "backlog", "dropped", later),
+        move(shapingTask, "shaping", "dropped", dropMoment),
+        // Dropped by the user on its own, before its Initiative dropped while Active.
+        move(leftTask, "backlog", "dropped", earlier),
+        move(activeTask, "in-progress", "done", later),
+      ]);
+      for (const statement of migration.split("--> statement-breakpoint")) {
+        await transaction.execute(sql.raw(statement));
+      }
+      const rows = await transaction
+        .select({ id: initiativeRows.id, endedAt: initiativeRows.endedAt })
+        .from(initiativeRows)
+        .where(inArray(initiativeRows.id, [done, droppedShaping, droppedActive, active]));
+      return new Map(rows.map((row) => [row.id, row.endedAt]));
+    });
+
+    expect(endedAt.get(done)).toEqual(later);
+    expect(endedAt.get(droppedShaping)).toEqual(dropMoment);
+    expect(endedAt.get(droppedActive)).toBeNull();
+    expect(endedAt.get(active)).toBeNull();
+  });
+});
+
 const aSavedView = (filters: BoardFilters & { readonly tags?: readonly string[] }) => ({
   id: randomUUID(),
   name: `View ${randomUUID()}`,

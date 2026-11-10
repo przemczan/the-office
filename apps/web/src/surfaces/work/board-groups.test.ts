@@ -56,6 +56,8 @@ function anInitiative(id: string, fields: Partial<Initiative> = {}): Initiative 
     projectIds: ["firmware"],
     createdBy: { kind: "user" },
     createdAt: "2026-10-28T10:00:00.000Z",
+    endedAt: null,
+    archivedAt: null,
     ...fields,
   };
 }

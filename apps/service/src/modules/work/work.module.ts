@@ -74,6 +74,7 @@ import { StartService } from "./application/start-service.js";
 import { UsageEstimates } from "./application/usage-estimates.js";
 import { TaskRecords } from "./application/task-records.js";
 import { TaskArchiving } from "./application/task-archiving.js";
+import { InitiativeArchiving } from "./application/initiative-archiving.js";
 import { TaskService } from "./application/task-service.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
@@ -226,6 +227,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeService,
         TaskService,
         TaskArchiving,
+        InitiativeArchiving,
         OfficeLimits,
         RemovedEngineCaps,
         OnboardingService,
@@ -263,6 +265,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         IdeaService,
         TaskService,
         TaskArchiving,
+        InitiativeArchiving,
         OfficeLimits,
         QueueService,
         RunEnvironmentSetUps,

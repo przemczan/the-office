@@ -28,10 +28,11 @@ function stateChange(from: string, to: string): object {
 }
 
 describe("confirmInitiative", () => {
-  it("makes an Initiative being shaped active", () => {
+  it("makes an Initiative being shaped active, not ended", () => {
     const change = confirmInitiative(anInitiative(), []);
 
     expect(change.initiative).toEqual(anInitiative({ state: "active" }));
+    expect(change.initiative.endedAt).toBeUndefined();
     expect(change.event).toMatchObject(stateChange("shaping", "active"));
     expect(change.taskChanges).toEqual([]);
   });
@@ -60,19 +61,22 @@ describe("confirmInitiative", () => {
 });
 
 describe("dropInitiative", () => {
-  it("drops one being shaped or active, and changes nothing for a dropped one", () => {
-    expect(dropInitiative(anInitiative(), [])?.initiative.state).toBe("dropped");
-    expect(dropInitiative(anInitiative({ state: "active" }), [])?.event).toMatchObject(
+  it("drops one being shaped or active, ending it now, and changes nothing for a dropped one", () => {
+    expect(dropInitiative(anInitiative(), [], at)?.initiative).toMatchObject({
+      state: "dropped",
+      endedAt: at,
+    });
+    expect(dropInitiative(anInitiative({ state: "active" }), [], at)?.event).toMatchObject(
       stateChange("active", "dropped"),
     );
-    expect(dropInitiative(anInitiative({ state: "dropped" }), [])).toBeUndefined();
+    expect(dropInitiative(anInitiative({ state: "dropped" }), [], at)).toBeUndefined();
   });
 
   it("drops its Tasks still in Shaping with it, each move kept, and leaves the others", () => {
     const shaping = aTask({ id: "task-1", state: "shaping" });
     const inProgress = aTask({ id: "task-2", state: "in-progress" });
 
-    const change = dropInitiative(anInitiative(), [shaping, inProgress]);
+    const change = dropInitiative(anInitiative(), [shaping, inProgress], at);
 
     expect(change?.taskChanges.map(({ task }) => [task.id, task.state])).toEqual([
       ["task-1", "dropped"],
@@ -87,11 +91,13 @@ describe("dropInitiative", () => {
   it("changes no Task of an active one", () => {
     const backlog = aTask({ state: "backlog" });
 
-    expect(dropInitiative(anInitiative({ state: "active" }), [backlog])?.taskChanges).toEqual([]);
+    expect(dropInitiative(anInitiative({ state: "active" }), [backlog], at)?.taskChanges).toEqual(
+      [],
+    );
   });
 
   it("refuses a done one", () => {
-    expect(() => dropInitiative(anInitiative({ state: "done" }), [])).toThrow(
+    expect(() => dropInitiative(anInitiative({ state: "done" }), [], at)).toThrow(
       new InitiativeRefused(["A done Initiative can't be dropped."]),
     );
   });
@@ -100,27 +106,30 @@ describe("dropInitiative", () => {
 describe("finishInitiative", () => {
   const active = anInitiative({ state: "active" });
 
-  it("makes an active one done once every Task that isn't Dropped is Done", () => {
-    const change = finishInitiative(active, [
-      aTask({ state: "done" }),
-      aTask({ state: "dropped" }),
-    ]);
+  it("makes an active one done once every Task that isn't Dropped is Done, ending it now", () => {
+    const change = finishInitiative(
+      active,
+      [aTask({ state: "done" }), aTask({ state: "dropped" })],
+      at,
+    );
 
-    expect(change?.initiative).toEqual(anInitiative({ state: "done" }));
+    expect(change?.initiative).toEqual(anInitiative({ state: "done", endedAt: at }));
     expect(change?.event).toMatchObject(stateChange("active", "done"));
   });
 
   it("waits while a Task isn't Done, or none is", () => {
-    expect(finishInitiative(active, [aTask({ state: "done" }), aTask({ state: "ready" })])).toBe(
-      undefined,
-    );
-    expect(finishInitiative(active, [aTask({ state: "dropped" })])).toBeUndefined();
-    expect(finishInitiative(active, [])).toBeUndefined();
+    expect(
+      finishInitiative(active, [aTask({ state: "done" }), aTask({ state: "ready" })], at),
+    ).toBe(undefined);
+    expect(finishInitiative(active, [aTask({ state: "dropped" })], at)).toBeUndefined();
+    expect(finishInitiative(active, [], at)).toBeUndefined();
   });
 
   it("leaves one being shaped for Confirm, and a dropped or done one as it is", () => {
     for (const state of ["shaping", "dropped", "done"] as const) {
-      expect(finishInitiative(anInitiative({ state }), [aTask({ state: "done" })])).toBe(undefined);
+      expect(finishInitiative(anInitiative({ state }), [aTask({ state: "done" })], at)).toBe(
+        undefined,
+      );
     }
   });
 });

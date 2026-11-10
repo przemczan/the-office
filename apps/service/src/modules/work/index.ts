@@ -1,5 +1,6 @@
 export { FireAlarmService } from "./application/fire-alarm-service.js";
 export { IdeaService } from "./application/idea-service.js";
+export { InitiativeArchiving } from "./application/initiative-archiving.js";
 export { OfficeLimits } from "./application/office-limits.js";
 export { QueueService } from "./application/queue-service.js";
 export { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";

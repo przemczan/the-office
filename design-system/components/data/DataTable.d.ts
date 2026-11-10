@@ -16,6 +16,8 @@ export interface DataTableColumn<T=any>{
 }
 /**
  * Data table with sortable headers, row selection, row click, loading skeleton and empty state.
+ * Narrower than 640px, each row becomes a block (the first column on a line of its own, the others
+ * under it, right-aligned ones at its end), so it never scrolls sideways.
  * @startingPoint section="Data" subtitle="Table, stat cards, description list, audit timeline" viewport="700x460"
  */
 export interface DataTableProps<T=any>{
@@ -34,6 +36,8 @@ export interface DataTableProps<T=any>{
   stickyHeader?: boolean;
   empty?: React.ReactNode;
   loading?: boolean;
+  /** a line above each run of rows sharing a group, such as a month; rows come already ordered */
+  groupOf?: (row: T) => string;
   style?: React.CSSProperties;
 }
 export declare function DataTable(props: DataTableProps): JSX.Element;

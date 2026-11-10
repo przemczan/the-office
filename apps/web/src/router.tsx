@@ -44,13 +44,18 @@ import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-li
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
-import { ArchivedTasks } from "./surfaces/work/archived-tasks.tsx";
+import { ArchivedPage } from "./surfaces/work/archived-page.tsx";
+import { archivedSearchOf, type ArchivedSearch } from "./surfaces/work/archive-words.ts";
 import { Board } from "./surfaces/work/board.tsx";
 import { boardFiltersOf } from "./surfaces/work/board-filters.ts";
 import { boardGroupingOf, type BoardGrouping } from "./surfaces/work/board-grouping.ts";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
 import { InitiativePage } from "./surfaces/work/initiative-page.tsx";
-import { InitiativesList } from "./surfaces/work/initiatives-list.tsx";
+import {
+  initiativesFiltersOf,
+  type InitiativesFilters,
+} from "./surfaces/work/initiative-columns.ts";
+import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
@@ -142,14 +147,17 @@ const ideasRoute = createRoute({
 const initiativesRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "initiatives",
-  component: InitiativesList,
+  component: InitiativesBoard,
+  validateSearch: (search: Record<string, unknown>): InitiativesFilters =>
+    initiativesFiltersOf(search),
   staticData: { title: "Work" },
 });
 
 const archivedRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "archived",
-  component: ArchivedTasks,
+  component: ArchivedPage,
+  validateSearch: (search: Record<string, unknown>): ArchivedSearch => archivedSearchOf(search),
   staticData: { title: "Work" },
 });
 

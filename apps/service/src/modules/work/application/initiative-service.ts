@@ -7,6 +7,12 @@ import type { Author } from "../domain/author.js";
 import { shapeIdeaIntoInitiative } from "../domain/idea-changes.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
+  archiveInitiative,
+  restoreInitiative,
+  type ArchivePage,
+  type ArchiveSearch,
+} from "../domain/initiative-archive.js";
+import {
   addCtoTask,
   addDependencyOfItsTask,
   addTaskToInitiative,
@@ -35,6 +41,7 @@ import { InitiativeNotShaping } from "../domain/initiative-not-shaping.js";
 import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
 import { initiativeRecordText } from "../domain/record-words.js";
+import { searchWords } from "../domain/search.js";
 import { CTO, SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../domain/shaping.js";
 import { newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
@@ -48,6 +55,7 @@ import { KnownPeople } from "../ports/known-people.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { ProposalDrafts } from "../ports/proposal-drafts.js";
 import { TaskRepository } from "../ports/task-repository.js";
+import { WorkSearch } from "../ports/work-search.js";
 
 /** The CTO's change as written straight onto the Initiative, or drafted as a Proposal. */
 export type CtoChange =
@@ -71,6 +79,7 @@ export class InitiativeService implements OnModuleInit {
     private readonly people: KnownPeople,
     private readonly threads: InitiativeThreads,
     private readonly proposals: ProposalDrafts,
+    private readonly search: WorkSearch,
     private readonly events: EventBus,
   ) {}
 
@@ -144,9 +153,16 @@ export class InitiativeService implements OnModuleInit {
     return shaped.initiativeCreated.initiative;
   }
 
-  /** Every Initiative, the newest first. */
-  async list(): Promise<readonly Initiative[]> {
-    return this.repository.list();
+  /**
+   * Every Initiative matching `query` by its name and outcome, archived ones too, the newest first;
+   * every Initiative for no words.
+   */
+  async list(query = ""): Promise<readonly Initiative[]> {
+    const every = await this.repository.list();
+    const words = searchWords(query);
+    if (words.length === 0) return every;
+    const matching = await this.search.matchingInitiativeIds(words);
+    return every.filter(({ id }) => matching.has(id));
   }
 
   async read(id: string): Promise<Initiative> {
@@ -185,7 +201,24 @@ export class InitiativeService implements OnModuleInit {
 
   /** Drops it, and its Tasks still in Shaping with it. */
   async drop(id: string): Promise<Initiative> {
-    return this.updateWithTasks(id, dropInitiative);
+    return this.updateWithTasks(id, (initiative, tasks) =>
+      dropInitiative(initiative, tasks, new Date()),
+    );
+  }
+
+  /** Takes a Done or Dropped Initiative off the board into the Archive; its state stays. */
+  async archive(id: string): Promise<Initiative> {
+    return this.update(id, (initiative) => archiveInitiative(initiative, new Date()));
+  }
+
+  /** Puts an archived Initiative back on the board, for a full Archive period from now. */
+  async restore(id: string): Promise<Initiative> {
+    return this.update(id, (initiative) => restoreInitiative(initiative, new Date()));
+  }
+
+  /** A page of the Archive for `query`, filtered and counted as ArchiveSearch says. */
+  async archived(query: string, filters: Omit<ArchiveSearch, "words">): Promise<ArchivePage> {
+    return this.repository.archived({ ...filters, words: searchWords(query) });
   }
 
   /**
@@ -407,7 +440,9 @@ export class InitiativeService implements OnModuleInit {
 
   /** The Initiative once done, or undefined while it isn't. */
   private async finishIfDone(id: string): Promise<Initiative | undefined> {
-    const { initiative, event } = await this.repository.update(id, finishInitiative);
+    const { initiative, event } = await this.repository.update(id, (held, tasks) =>
+      finishInitiative(held, tasks, new Date()),
+    );
     if (!event) return undefined;
     await this.events.publish(event);
     return initiative;

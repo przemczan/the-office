@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Initiative } from "../domain/initiative.js";
+import type { ArchivePage, ArchiveSearch } from "../domain/initiative-archive.js";
 import type { InitiativeChange, InitiativeTasksChange } from "../domain/initiative-changes.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
@@ -25,8 +26,11 @@ export interface InitiativeTasksUpdate<Event extends DomainEvent> extends Initia
 export abstract class InitiativeRepository {
   abstract find(id: string): Promise<Initiative | undefined>;
 
-  /** Every Initiative, the newest first. */
+  /** Every Initiative, archived ones too, the newest first. */
   abstract list(): Promise<readonly Initiative[]>;
+
+  /** A page of the Archive, searched, filtered and counted in the store. */
+  abstract archived(search: ArchiveSearch): Promise<ArchivePage>;
 
   /**
    * Applies `change` to the Initiative as stored, with its Tasks, holding it until the result is

@@ -148,4 +148,20 @@ describe("initiativeRecordText", () => {
       "- Shaped from: Export usage as CSV (Idea idea-1), shaped; read_idea reads it",
     );
   });
+
+  it("says when it ended and that it is archived, its state as it was", () => {
+    const idea = anIdea({ state: "shaped", initiativeId: "initiative-1" });
+    const initiative = anInitiative({
+      state: "dropped",
+      endedAt: new Date("2026-10-30T09:00:00.000Z"),
+      archivedAt: new Date("2026-11-29T09:00:00.000Z"),
+    });
+
+    const text = initiativeRecordText(initiative, idea, [], new Map(), []);
+
+    expect(text).toContain("- Dropped on 2026-10-30T09:00:00.000Z");
+    expect(text).toContain(
+      "- Archived on 2026-11-29T09:00:00.000Z: off the board, its state as it was",
+    );
+  });
 });

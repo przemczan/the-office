@@ -17,6 +17,26 @@ export class InitiativeStateChanged extends DomainEvent {
   }
 }
 
+/** Taken off the Initiatives board into the Archive, by the user or the daily run; its state stays. */
+export class InitiativeArchived extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
+/** Back on the board from the Archive, in the state it had. */
+export class InitiativeRestored extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
 export class InitiativeOutcomeWritten extends DomainEvent {
   constructor(
     readonly initiativeId: string,

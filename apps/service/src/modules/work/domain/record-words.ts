@@ -128,6 +128,14 @@ export function initiativeRecordText(
     `- ${initiative.state}; spans ${projectsWords(initiativeProjectIds(tasks))}`,
     `- Shaped from: ${linkedIdeaWords(idea)}`,
     `- Created by ${authorWords(initiative.createdBy)} on ${initiative.createdAt.toISOString()}`,
+    ...(initiative.endedAt
+      ? [
+          `- ${initiative.state === "done" ? "Done" : "Dropped"} on ${initiative.endedAt.toISOString()}`,
+        ]
+      : []),
+    ...(initiative.archivedAt
+      ? [`- Archived on ${initiative.archivedAt.toISOString()}: off the board, its state as it was`]
+      : []),
     "",
     "Outcome:",
     initiative.outcome === "" ? "Not written yet." : initiative.outcome,

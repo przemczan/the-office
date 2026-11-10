@@ -11,6 +11,7 @@ import {
   roleSchema,
   taskSchema,
   type Attachment,
+  type InitiativeState,
   type NewProject,
   type Project,
   type Stage,
@@ -464,6 +465,25 @@ test("dragging a card reorders its column, and the order survives a reload", asy
 
 /** An Initiative made active in the database, as confirming one needs the CTO's session; gives its id. */
 async function seedActiveInitiative(page: Page, name: string, createdAt: string): Promise<string> {
+  return seedInitiative(page, name, { state: "active", createdAt });
+}
+
+/** An Initiative in any state, made in the database; a Done or Dropped one ended at `endedAt`. */
+async function seedInitiative(
+  page: Page,
+  name: string,
+  {
+    state,
+    createdAt,
+    endedAt = null,
+    outcome = "",
+  }: {
+    readonly state: InitiativeState;
+    readonly createdAt: string;
+    readonly endedAt?: string | null;
+    readonly outcome?: string;
+  },
+): Promise<string> {
   const idea = await page.request.post("/api/ideas", {
     data: { title: name, notes: "", projectId: null },
   });
@@ -471,9 +491,10 @@ async function seedActiveInitiative(page: Page, name: string, createdAt: string)
   const { id: ideaId } = ideaSchema.parse(await idea.json());
   const initiativeId = crypto.randomUUID();
   await queryOfficeDatabase(
-    `insert into initiatives (id, name, outcome, state, origin_idea_id, created_by, created_at)
-     values ($1, $2, '', 'active', $3, $4, $5)`,
-    [initiativeId, name, ideaId, { kind: "user" }, createdAt],
+    `insert into initiatives
+       (id, name, outcome, state, origin_idea_id, created_by, created_at, ended_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [initiativeId, name, outcome, state, ideaId, { kind: "user" }, createdAt, endedAt],
   );
   return initiativeId;
 }
@@ -588,6 +609,187 @@ test("the board groups by Initiative, kept in its address and remembered, its fo
   await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "false");
   await expect(groups).toHaveCount(0);
 });
+
+/** A word no other test's records hold, so a search shows only this test's Initiatives. */
+function aWordOfItsOwn(): string {
+  return `w${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+}
+
+function daysAgo(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+test("the Initiatives tab is a board by state, Dropped folded at the foot of Done and remembered, narrowed by search and Waiting on you", async ({
+  page,
+}) => {
+  const word = aWordOfItsOwn();
+  const project = await addedProject(page, "Initiative board", "IB");
+  await seedInitiative(page, `Telemetry ${word}`, { state: "shaping", createdAt: daysAgo(1) });
+  const active = await seedInitiative(page, `Offline sync ${word}`, {
+    state: "active",
+    createdAt: daysAgo(3),
+    outcome: "Notes open with no network.",
+  });
+  await seedTaskOf(page, project, `Sync queue ${word}`, active);
+  await seedTaskOf(page, project, `Conflict view ${word}`, active);
+  await queryOfficeDatabase(`update tasks set state = 'waiting-on-you' where title = $1`, [
+    `Sync queue ${word}`,
+  ]);
+  await seedInitiative(page, `Usage reports ${word}`, {
+    state: "done",
+    createdAt: daysAgo(20),
+    endedAt: daysAgo(2),
+  });
+  await seedInitiative(page, `Map tiles ${word}`, {
+    state: "dropped",
+    createdAt: daysAgo(20),
+    endedAt: daysAgo(6),
+  });
+  await seedInitiative(page, `Slack notifications ${word}`, {
+    state: "dropped",
+    createdAt: daysAgo(20),
+    endedAt: daysAgo(4),
+  });
+
+  await page.goto(`/work/initiatives?query=${word}`);
+  const shaping = column(page, "Shaping");
+  const activeColumn = column(page, "Active");
+  const done = column(page, "Done");
+  await expect(shaping.getByRole("heading")).toHaveText("Shaping 1");
+  await expect(shaping.getByRole("article", { name: `Telemetry ${word}` })).toContainText(
+    "No Task yet",
+  );
+  const activeCard = activeColumn.getByRole("article", { name: `Offline sync ${word}` });
+  await expect(activeCard).toContainText("0 of 2 Tasks done");
+  await expect(activeCard).toContainText("1 waiting on you");
+  await expect(activeCard).toHaveClass(/edge-decision/);
+  await expect(done.getByRole("article", { name: `Usage reports ${word}` })).toHaveClass(
+    /edge-done/,
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-initiatives-board.png") });
+
+  // Dropped is never mixed with Done: folded at its foot, the latest named, until unfolded.
+  const droppedFold = done.getByRole("button", { name: /^Dropped 2/ });
+  await expect(droppedFold).toHaveAttribute("aria-expanded", "false");
+  await expect(droppedFold).toContainText(`Latest: Slack notifications ${word}`);
+  await expect(done.getByRole("article", { name: `Map tiles ${word}` })).toHaveCount(0);
+  await droppedFold.click();
+  await expect
+    .poll(() =>
+      done
+        .getByRole("article")
+        .evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-label"))),
+    )
+    .toEqual([`Usage reports ${word}`, `Slack notifications ${word}`, `Map tiles ${word}`]);
+  await page.goto("/work");
+  await page.goto(`/work/initiatives?query=${word}`);
+  await expect(droppedFold).toHaveAttribute("aria-expanded", "true");
+  await droppedFold.click();
+
+  // Waiting on you, kept in the address, beside the search, until Clear.
+  const filters = page.getByRole("search", { name: "Filter the Initiatives" });
+  await filters.getByRole("button", { name: /Waiting on you/ }).click();
+  await expect(page).toHaveURL(/waiting=1/);
+  await page.reload();
+  await expect(shaping.getByText("None matches the filters.")).toBeVisible();
+  await expect(activeCard).toBeVisible();
+  await expect(done.getByRole("article")).toHaveCount(0);
+  await filters.getByRole("button", { name: "Clear" }).click();
+  await expect(page).not.toHaveURL(/waiting=|query=/);
+  await expect(page.getByRole("searchbox", { name: "Search Initiatives" })).toHaveValue("");
+  await page.getByRole("searchbox", { name: "Search Initiatives" }).fill(word);
+  await expect(page).toHaveURL(new RegExp(`query=${word}`));
+  await expect(activeColumn.getByRole("article")).toHaveCount(1);
+
+  // At 390px the columns stack and nothing scrolls sideways, in the Dark palette too.
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(activeCard).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "dark-390-initiatives-board.png"),
+    fullPage: true,
+  });
+  await page.emulateMedia({ colorScheme: "light" });
+});
+
+test("an ended Initiative is archived from its card, found from the board's search in the Archived tab, and restored to Done", async ({
+  page,
+}) => {
+  const word = aWordOfItsOwn();
+  const name = `Usage reports ${word}`;
+  const initiativeId = await seedInitiative(page, name, {
+    state: "done",
+    createdAt: daysAgo(9),
+    endedAt: daysAgo(3),
+  });
+  // Within the Archive period, so the daily run, which starts with the service, leaves it be.
+  await seedInitiative(page, `Map tiles ${word}`, {
+    state: "dropped",
+    createdAt: daysAgo(40),
+    endedAt: daysAgo(5),
+  });
+  const card = column(page, "Done").getByRole("article", { name });
+  await page.goto(`/work/initiatives?query=${word}`);
+  await column(page, "Done")
+    .getByRole("button", { name: /^Dropped 1/ })
+    .click();
+  await page.getByRole("button", { name: `More for Map tiles ${word}` }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText(`Map tiles ${word} is archived.`)).toBeVisible();
+
+  await card.getByRole("button", { name: `More for ${name}` }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText(`${name} is archived.`)).toBeVisible();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByText(`2 archived Initiatives match “${word}” too.`)).toBeVisible();
+
+  await page.getByRole("button", { name: "Search the archive" }).click();
+  await expect(page).toHaveURL(new RegExp(`/work/archived\\?kind=initiatives&query=${word}`));
+  const archive = page.getByRole("table");
+  await expect(archive.getByRole("row", { name: new RegExp(name) })).toContainText("Done");
+  const filters = page.getByRole("search", { name: "Filter the archived Initiatives" });
+  await expect(filters.getByRole("button", { name: /^All/ })).toContainText("2");
+  await filters.getByRole("button", { name: /^Dropped/ }).click();
+  await expect(page).toHaveURL(/state=dropped/);
+  await expect(archive.getByRole("row", { name: new RegExp(name) })).toHaveCount(0);
+  await expect(archive).toContainText(`Map tiles ${word}`);
+  await filters.getByRole("button", { name: /^All/ }).click();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-archived-initiatives.png") });
+
+  await page.goto(`/work/initiatives/${initiativeId}`);
+  await expect(page.locator(".task-head")).toContainText(/Archived \d+ \w+/);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-archived-initiative-page.png"),
+  });
+  await page.getByRole("button", { name: `Restore ${name}` }).click();
+  await expect(page.getByText(`${name} is back on the board.`)).toBeVisible();
+  await expect(page.locator(".task-head")).not.toContainText("Archived");
+
+  await page.goto(`/work/initiatives?query=${word}`);
+  await expect(card).toContainText("Done");
+  await page.goto(`/work/archived?kind=initiatives&query=${word}`);
+  const oldRow = page.getByRole("row", { name: new RegExp(`Map tiles ${word}`) });
+  await oldRow.getByRole("button", { name: `Restore Map tiles ${word}` }).click();
+  await expect(page.getByText(`No archived Initiative matches “${word}”.`)).toBeVisible();
+
+  // The table becomes a list of rows at 390px: nothing scrolls sideways.
+  await archiveInitiative(page, initiativeId);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto(`/work/archived?kind=initiatives&query=${word}`);
+  await expect(page.getByRole("row", { name: new RegExp(name) })).toBeVisible();
+  await expect(page.getByRole("table").locator("thead")).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-390-archived-initiatives.png") });
+});
+
+async function archiveInitiative(page: Page, initiativeId: string): Promise<void> {
+  expect((await page.request.post(`/api/initiatives/${initiativeId}/archive`)).ok()).toBe(true);
+}
 
 test("a card shows who is working as they start and stop, and stays one link that drags", async ({
   page,
@@ -809,9 +1011,14 @@ test("a finished Task is archived from its card, found in Archived and by search
   await row.getByRole("button", { name: `Restore ${task.title}` }).click();
   await expect(page.getByText(`${task.title} is back on the board.`)).toBeVisible();
   await expect(row).toHaveCount(0);
-  await page.getByRole("tab", { name: "Tasks", exact: true }).click();
+  await workTab(page, "Tasks").click();
   await expect(card).toContainText("Dropped");
 });
+
+/** One of Work's tabs, apart from the Archived tab's own Tasks and Initiatives. */
+function workTab(page: Page, name: string): Locator {
+  return page.locator(".work-tabs").getByRole("tab", { name, exact: true });
+}
 
 test("a Task moves to another Project from its menu, and one whose history wasn't kept is refused with why", async ({
   page,

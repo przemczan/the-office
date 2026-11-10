@@ -764,6 +764,20 @@
       "when": 1794236793241,
       "tag": "0108_run_environment_cpu_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1794267279050,
+      "tag": "0109_initiative_archive",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1794267280280,
+      "tag": "0110_initiative_ended_at",
+      "breakpoints": true
     }
   ]
 }

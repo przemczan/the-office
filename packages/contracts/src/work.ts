@@ -55,11 +55,67 @@ export const initiativeSchema = z.object({
   projectIds: z.array(z.string()),
   createdBy: authorSchema,
   createdAt: z.iso.datetime(),
+  /**
+   * When it became Done or Dropped; null while it is shaping or active, and for one that ended
+   * before this was kept.
+   */
+  endedAt: z.iso.datetime().nullable(),
+  /** Set while it is in the Archive, a mark beside its Done or Dropped state. */
+  archivedAt: z.iso.datetime().nullable(),
 });
 export type Initiative = z.infer<typeof initiativeSchema>;
 
-/** The newest first. */
+/**
+ * GET /initiatives: every Initiative, archived ones too (the Initiatives board leaves those out),
+ * the newest first; with `query`, those whose name or outcome matches it.
+ */
 export const initiativeListSchema = z.array(initiativeSchema);
+
+/** How many archived Initiatives a page of GET /initiatives/archived holds. */
+export const ARCHIVE_PAGE_SIZE = 25;
+
+export const archiveStateFilterSchema = z.enum(["all", "done", "dropped"]);
+export type ArchiveStateFilter = z.infer<typeof archiveStateFilterSchema>;
+
+/**
+ * The query of GET /initiatives/archived: the words of a search of names and outcomes, the Done /
+ * Dropped / All filter, the page counting from 1, and the Projects the Project filter shows as one
+ * `project` each, every Project when none is named.
+ */
+export const archivedInitiativesQuerySchema = z.object({
+  query: z.string().default(""),
+  state: archiveStateFilterSchema.default("all"),
+  page: z.coerce.number().int().min(1).default(1),
+  project: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((project): ProjectFilter => {
+      const projectIds = typeof project === "string" ? [project] : (project ?? []);
+      return projectIds.length === 0 ? "all" : projectIds;
+    }),
+});
+export type ArchivedInitiativesQuery = z.infer<typeof archivedInitiativesQuerySchema>;
+
+/** An archived Initiative with its final count: its Tasks done of those it kept (not Dropped). */
+export const archivedInitiativeSchema = initiativeSchema.extend({
+  tasksDone: z.number().int().min(0),
+  tasksCounted: z.number().int().min(0),
+});
+export type ArchivedInitiative = z.infer<typeof archivedInitiativeSchema>;
+
+/**
+ * A page of the Archive of Initiatives, the one that ended last on top; `counts` are how many
+ * match each state with the search and the Project filter, `total` how many the state filter
+ * leaves of them.
+ */
+export const archivedInitiativesPageSchema = z.object({
+  initiatives: z.array(archivedInitiativeSchema),
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+  total: z.number().int().min(0),
+  counts: z.object({ done: z.number().int().min(0), dropped: z.number().int().min(0) }),
+});
+export type ArchivedInitiativesPage = z.infer<typeof archivedInitiativesPageSchema>;
 
 /** PUT /initiatives/:id/outcome: the user's outcome, written while the Initiative is being shaped. */
 export const outcomeChangeSchema = z.object({ outcome: z.string() });
@@ -628,6 +684,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     to: initiativeStateSchema,
   }),
   webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.archived"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.restored"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.created"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.state-changed"),

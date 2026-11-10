@@ -3,12 +3,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  archivedInitiativesPageSchema,
   attachmentListSchema,
   ideaSchema,
   initiativeListSchema,
   initiativeSchema,
   taskSchema,
   workRefusalSchema,
+  type ArchivedInitiativesPage,
   type Idea,
   type Initiative,
   type Task,
@@ -531,7 +533,9 @@ describe("an Initiative's Tasks ending", () => {
     work.published.length = 0;
     await end(third, "done");
 
-    expect((await read(initiative)).state).toBe("done");
+    const done = await read(initiative);
+    expect(done).toMatchObject({ state: "done", archivedAt: null });
+    expect(done.endedAt).not.toBeNull();
     expect(webEventsOf(work)).toContainEqual({
       type: "initiative.state-changed",
       initiativeId: initiative.id,
@@ -540,13 +544,163 @@ describe("an Initiative's Tasks ending", () => {
     });
   });
 
-  it("leaves one being shaped for Confirm, which then makes it done at once", async () => {
+  it("leaves one being shaped for Confirm, which then makes it done at once, ended then", async () => {
     const initiative = await shape(await capture());
     await end(await addTask(initiative), "done");
+    expect((await read(initiative)).endedAt).toBeNull();
     expect((await read(initiative)).state).toBe("shaping");
 
-    const confirmed = await post(initiative, "confirm");
+    const confirmed = initiativeSchema.parse(await (await post(initiative, "confirm")).json());
 
-    expect(initiativeSchema.parse(await confirmed.json()).state).toBe("done");
+    expect(confirmed.state).toBe("done");
+    expect(confirmed.endedAt).not.toBeNull();
+  });
+});
+
+/** A word of the test's own, so a search finds only its own Initiatives in the shared database. */
+function aWord(): string {
+  return `w${randomUUID().replaceAll("-", "")}`;
+}
+
+async function shapeNamed(title: string): Promise<Initiative> {
+  const response = await sendJson(work, "POST", "/ideas", { title, notes: "", projectId: null });
+  return shape(ideaSchema.parse(await response.json()));
+}
+
+async function archive(initiative: Initiative, action: "archive" | "restore" = "archive") {
+  return sendJson(work, "POST", `/initiatives/${initiative.id}/${action}`);
+}
+
+async function archivedPage(query: string): Promise<ArchivedInitiativesPage> {
+  const response = await sendJson(work, "GET", `/initiatives/archived?${query}`);
+  expect(response.status).toBe(200);
+  return archivedInitiativesPageSchema.parse(await response.json());
+}
+
+describe("POST /api/initiatives/:id/archive and /restore", () => {
+  it("archives a Dropped Initiative, its state and end kept, and restores it, each announced", async () => {
+    const initiative = await shape(await capture());
+    const dropped = initiativeSchema.parse(await (await post(initiative, "drop")).json());
+    expect(dropped.endedAt).not.toBeNull();
+    work.published.length = 0;
+
+    const archived = initiativeSchema.parse(await (await archive(initiative)).json());
+
+    expect(archived).toMatchObject({ state: "dropped", endedAt: dropped.endedAt });
+    expect(archived.archivedAt).not.toBeNull();
+    const restored = initiativeSchema.parse(await (await archive(initiative, "restore")).json());
+    expect(restored).toMatchObject({ state: "dropped", archivedAt: null });
+    expect(webEventsOf(work)).toEqual([
+      { type: "initiative.archived", initiativeId: initiative.id },
+      { type: "initiative.restored", initiativeId: initiative.id },
+    ]);
+  });
+
+  it("refuses to archive one being shaped or active, saying why", async () => {
+    const initiative = await shape(await capture());
+
+    const refused = await archive(initiative);
+
+    expect(refused.status).toBe(422);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Only a Done or Dropped Initiative can be archived; this one is shaping.",
+    ]);
+  });
+
+  it("keeps an archived one in GET /initiatives, marked, as the Work board names its Tasks by it", async () => {
+    const initiative = await shape(await capture());
+    await post(initiative, "drop");
+    await archive(initiative);
+
+    const listed = initiativeListSchema.parse(
+      await (await sendJson(work, "GET", "/initiatives")).json(),
+    );
+
+    expect(listed.find(({ id }) => id === initiative.id)?.archivedAt).not.toBeNull();
+  });
+});
+
+describe("GET /api/initiatives?query=", () => {
+  it("answers the Initiatives whose name or outcome matches, archived ones too", async () => {
+    const word = aWord();
+    const byName = await shapeNamed(`Offline sync ${word}`);
+    const byOutcome = await shapeNamed("Usage exports");
+    await sendJson(work, "PUT", `/initiatives/${byOutcome.id}/outcome`, {
+      outcome: `Exports run ${word}.`,
+    });
+    const archived = await shapeNamed(`Old sync ${word}`);
+    await post(archived, "drop");
+    await archive(archived);
+
+    const response = await sendJson(work, "GET", `/initiatives?query=${word.slice(0, 12)}`);
+
+    const ids = initiativeListSchema.parse(await response.json()).map(({ id }) => id);
+    expect(ids.toSorted()).toEqual([byName.id, byOutcome.id, archived.id].toSorted());
+  });
+});
+
+describe("GET /api/initiatives/archived", () => {
+  it("answers only archived ones, the one that ended last on top", async () => {
+    const word = aWord();
+    const first = await shapeNamed(`First ${word}`);
+    await post(first, "drop");
+    const second = await shapeNamed(`Second ${word}`);
+    await post(second, "drop");
+    const onTheBoard = await shapeNamed(`Third ${word}`);
+    await post(onTheBoard, "drop");
+    await archive(first);
+    await archive(second);
+
+    const page = await archivedPage(`query=${word}`);
+
+    expect(page.initiatives.map(({ id }) => id)).toEqual([second.id, first.id]);
+    expect(page.initiatives[1]).toMatchObject({ tasksDone: 0, tasksCounted: 0 });
+    expect(page.initiatives[1]?.archivedAt).not.toBeNull();
+    expect(page).toMatchObject({
+      page: 1,
+      pageSize: 25,
+      total: 2,
+      counts: { done: 0, dropped: 2 },
+    });
+  });
+
+  it("gives 25 to a page, filters by state with counts of each, and narrows by the Project filter", async () => {
+    const word = aWord();
+    const projectId = aProjectId();
+    const otherProjectId = aProjectId();
+    for (let index = 0; index < 26; index += 1) {
+      const initiative = await shapeNamed(`Dropped ${index} ${word}`);
+      await post(initiative, "drop");
+      await archive(initiative);
+    }
+    const doneOne = await shapeNamed(`Done ${word}`);
+    await end(await addTask(doneOne, projectId), "done");
+    await post(doneOne, "confirm");
+    await archive(doneOne);
+    const elsewhere = await shapeNamed(`Elsewhere ${word}`);
+    await addTask(elsewhere, otherProjectId);
+    await post(elsewhere, "drop");
+    await archive(elsewhere);
+
+    const firstPage = await archivedPage(`query=${word}`);
+    const secondPage = await archivedPage(`query=${word}&page=2`);
+    const doneOnly = await archivedPage(`query=${word}&state=done`);
+    const inProject = await archivedPage(`query=${word}&project=${projectId}`);
+
+    expect(firstPage.initiatives).toHaveLength(25);
+    expect(firstPage).toMatchObject({ total: 28, counts: { done: 1, dropped: 27 } });
+    expect(secondPage.initiatives).toHaveLength(3);
+    expect(doneOnly.initiatives.map(({ id }) => id)).toEqual([doneOne.id]);
+    expect(doneOnly.initiatives[0]).toMatchObject({ tasksDone: 1, tasksCounted: 1 });
+    expect(doneOnly).toMatchObject({ total: 1, counts: { done: 1, dropped: 27 } });
+    // An Initiative with no Project yet always shows; one only in another Project doesn't.
+    expect(inProject).toMatchObject({ total: 27, counts: { done: 1, dropped: 26 } });
+    expect(inProject.initiatives.map(({ id }) => id)).not.toContain(elsewhere.id);
+  });
+
+  it("refuses a page that isn't a whole number from 1", async () => {
+    const response = await sendJson(work, "GET", "/initiatives/archived?page=0");
+
+    expect(response.status).toBe(400);
   });
 });

@@ -149,7 +149,7 @@ function TaskHead({
             {...((task.state === "in-progress" || task.state === "planning") && { tone: "info" })}
           />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
-          <ArchivedBadge task={task} />
+          <ArchivedBadge record={task} />
         </div>
         <div className="task-head-meta">
           <span className="task-head-priority">

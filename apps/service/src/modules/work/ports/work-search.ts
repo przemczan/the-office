@@ -21,6 +21,9 @@ export abstract class WorkSearch {
   /** The ids of every Task matching all `words`. */
   abstract matchingTaskIds(words: readonly string[]): Promise<ReadonlySet<string>>;
 
+  /** The ids of every Initiative matching all `words`, archived ones too. */
+  abstract matchingInitiativeIds(words: readonly string[]): Promise<ReadonlySet<string>>;
+
   /** Every record of each kind matching all `words`. */
   abstract matches(words: readonly string[]): Promise<SearchMatches>;
 }

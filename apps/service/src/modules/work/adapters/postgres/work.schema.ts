@@ -57,6 +57,12 @@ export const initiatives = pgTable("initiatives", {
     .references((): AnyPgColumn => ideas.id),
   createdBy: jsonb("created_by").$type<Author>().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  /** Null while it is shaping or active, and for one that ended before this was kept. */
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  /** Null while it isn't archived. */
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  /** Null until it is first restored from the Archive. */
+  restoredAt: timestamp("restored_at", { withTimezone: true }),
 });
 
 export const tasks = pgTable(

@@ -1,8 +1,26 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, desc, eq } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  inArray,
+  isNotNull,
+  notExists,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Initiative } from "../../domain/initiative.js";
+import {
+  ARCHIVE_PAGE_SIZE,
+  type ArchivePage,
+  type ArchiveSearch,
+} from "../../domain/initiative-archive.js";
 import type { InitiativeChange, InitiativeTasksChange } from "../../domain/initiative-changes.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import type { Task } from "../../domain/task.js";
@@ -14,6 +32,8 @@ import {
   type InitiativeUpdate,
 } from "../../ports/initiative-repository.js";
 import type { TaskUpdate } from "../../ports/task-repository.js";
+import { initiativeVector } from "./postgres-work-search.js";
+import { matching } from "./search-vector.js";
 import { initiatives, tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
@@ -48,6 +68,58 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       .from(initiatives)
       .orderBy(desc(initiatives.createdAt), asc(initiatives.id));
     return rows.map(toInitiative);
+  }
+
+  async archived({ words, state, page, projects }: ArchiveSearch): Promise<ArchivePage> {
+    const matches = and(
+      isNotNull(initiatives.archivedAt),
+      words.length > 0 ? matching(initiativeVector, words) : undefined,
+      projects === "all" ? undefined : inProjects(projects),
+    );
+    const [countRows, pageRows] = await Promise.all([
+      this.database
+        .select({ state: initiatives.state, count: count() })
+        .from(initiatives)
+        .where(matches)
+        .groupBy(initiatives.state),
+      this.database
+        .select()
+        .from(initiatives)
+        .where(and(matches, state === "all" ? undefined : eq(initiatives.state, state)))
+        // The one that ended last on top; one nothing dates sinks below every dated one.
+        .orderBy(
+          sql`${initiatives.endedAt} DESC NULLS LAST`,
+          desc(initiatives.createdAt),
+          asc(initiatives.id),
+        )
+        .limit(ARCHIVE_PAGE_SIZE)
+        .offset((page - 1) * ARCHIVE_PAGE_SIZE),
+    ]);
+    const tasksOfPage = await this.tasksOfEach(pageRows.map(({ id }) => id));
+    const countOf = (wanted: Initiative["state"]) =>
+      countRows.find((row) => row.state === wanted)?.count ?? 0;
+    return {
+      initiatives: pageRows.map((row) => ({
+        initiative: toInitiative(row),
+        tasks: tasksOfPage.get(row.id) ?? [],
+      })),
+      counts: { done: countOf("done"), dropped: countOf("dropped") },
+    };
+  }
+
+  private async tasksOfEach(ids: readonly string[]): Promise<ReadonlyMap<string, readonly Task[]>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.database
+      .select()
+      .from(tasks)
+      .where(inArray(tasks.initiativeId, [...ids]))
+      .orderBy(asc(tasks.createdAt), asc(tasks.id));
+    const byInitiative = new Map<string, Task[]>();
+    for (const task of rows.map(toTask)) {
+      if (!task.initiativeId) continue;
+      byInitiative.set(task.initiativeId, [...(byInitiative.get(task.initiativeId) ?? []), task]);
+    }
+    return byInitiative;
   }
 
   async update<Event extends DomainEvent>(
@@ -131,6 +203,18 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       return saveTask(transaction, task, change(initiative, task));
     });
   }
+}
+
+/**
+ * The Project filter's rule (`isInProjectFilter`) in the query: an Initiative with no Task, so no
+ * Project yet, always shows; one spanning Projects shows if any of them is chosen.
+ */
+function inProjects(projectIds: readonly string[]): SQL {
+  const ofIt = eq(tasks.initiativeId, initiatives.id);
+  // In parentheses: exists() adds none around a subquery written as SQL.
+  const anyTask = sql`(SELECT 1 FROM ${tasks} WHERE ${ofIt})`;
+  const inChosen = sql`(SELECT 1 FROM ${tasks} WHERE ${ofIt} AND ${inArray(tasks.projectId, [...projectIds])})`;
+  return or(notExists(anyTask), exists(inChosen)) ?? sql`true`;
 }
 
 async function heldInitiative(transaction: Transaction, id: string): Promise<Initiative> {

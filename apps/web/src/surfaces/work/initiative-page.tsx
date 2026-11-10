@@ -16,6 +16,7 @@ import { EmptyCard } from "../../shell/item-card.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { useCto } from "../../shell/work/use-cto.ts";
+import { ArchivedBadge, RestoreInitiativeButton } from "./archive-parts.tsx";
 import { InitiativeAttachments } from "./attachments-block.tsx";
 import { ConversationDrawerProvider, useDrawerFollowsAddress } from "./conversation-drawer.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
@@ -99,12 +100,16 @@ function InitiativeHead({
       <div className="task-head-grow">
         <h2>{initiative.name}</h2>
         <div className="task-head-meta">
-          <InitiativeStateBadge initiative={initiative} cto={cto} />
+          <span className="task-head-badges">
+            <InitiativeStateBadge initiative={initiative} cto={cto} />
+            <ArchivedBadge record={initiative} />
+          </span>
           <InitiativeProjects initiative={initiative} projects={projects} />
           <span>· {progressWords(initiativeProgress(initiativeTasks, tasks))}</span>
         </div>
       </div>
       <div className="task-head-actions">
+        <RestoreInitiativeButton initiative={initiative} />
         <InitiativeActions initiative={initiative} />
       </div>
     </header>

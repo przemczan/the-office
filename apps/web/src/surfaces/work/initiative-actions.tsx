@@ -7,13 +7,16 @@ import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { canBeArchived } from "../../shell/work/work-words.ts";
 import { canHoldBack } from "./dependency-words.ts";
 import { droppedWords, tasksOfInitiative } from "./initiative-words.ts";
+import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 
 /**
  * The Initiative page's head actions (prototypes/app/work.js `initiativePage`): "Confirm the
- * Initiative" while shaping, "Add a Task" while it is open, and its menu with Drop.
+ * Initiative" while shaping, "Add a Task" while it is open, and its menu with Drop until it has
+ * ended, Archive once it has.
  */
 export function InitiativeActions({ initiative }: { readonly initiative: Initiative }): ReactNode {
   const [adding, setAdding] = useState(false);
@@ -73,6 +76,7 @@ function InitiativeMenu({ initiative }: { readonly initiative: Initiative }): Re
   const copyLink = useCopyRecordLink();
   const showToast = useToast();
   const dropping = useInitiativeChange(initiative, () => dropInitiative(initiative.id));
+  const archiving = useArchivingInitiative();
   const items: MenuItem[] = [
     {
       icon: <Icon name="link" size={14} />,
@@ -80,6 +84,13 @@ function InitiativeMenu({ initiative }: { readonly initiative: Initiative }): Re
       onSelect: () => copyLink({ kind: "initiative", initiativeId: initiative.id }),
     },
   ];
+  if (canBeArchived(initiative)) {
+    items.push({
+      icon: <Icon name="archive" size={14} />,
+      label: "Archive",
+      onSelect: () => archiving.mutate(initiative),
+    });
+  }
   if (initiative.state === "shaping" || initiative.state === "active") {
     items.push({
       icon: <Icon name="x" size={14} />,

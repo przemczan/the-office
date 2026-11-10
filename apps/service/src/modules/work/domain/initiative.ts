@@ -21,4 +21,13 @@ export interface Initiative {
   readonly originIdeaId: string;
   readonly createdBy: Author;
   readonly createdAt: Date;
+  /**
+   * When it became Done or Dropped; undefined while it is shaping or active, and for one that ended
+   * before the moment was kept and nothing dates.
+   */
+  readonly endedAt?: Date;
+  /** Set while it is in the Archive (initiative-archive.ts), a Done or Dropped one alone. */
+  readonly archivedAt?: Date;
+  /** Its last Restore from the Archive, from which its Archive period counts again. */
+  readonly restoredAt?: Date;
 }

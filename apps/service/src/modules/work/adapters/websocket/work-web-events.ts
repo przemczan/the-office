@@ -14,8 +14,10 @@ import {
   IdeaShapedIntoInitiative,
 } from "../../domain/idea-events.js";
 import {
+  InitiativeArchived,
   InitiativeCreated,
   InitiativeOutcomeWritten,
+  InitiativeRestored,
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
@@ -145,6 +147,14 @@ export class WorkWebEvents implements OnModuleInit {
         initiativeId: event.initiativeId,
       }),
     );
+    this.forwarding.forward(InitiativeArchived, (event): WebEventOf<"initiative.archived"> => ({
+      type: "initiative.archived",
+      initiativeId: event.initiativeId,
+    }));
+    this.forwarding.forward(InitiativeRestored, (event): WebEventOf<"initiative.restored"> => ({
+      type: "initiative.restored",
+      initiativeId: event.initiativeId,
+    }));
   }
 
   private forwardTaskEvents(): void {

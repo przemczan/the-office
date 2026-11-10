@@ -175,11 +175,21 @@ export function toIdea(row: IdeaRow): Idea {
 }
 
 export function toInitiativeRow(initiative: Initiative): InitiativeRow {
-  return { ...initiative };
+  return {
+    ...initiative,
+    endedAt: initiative.endedAt ?? null,
+    archivedAt: initiative.archivedAt ?? null,
+    restoredAt: initiative.restoredAt ?? null,
+  };
 }
 
 export function toInitiative(row: InitiativeRow): Initiative {
-  return { ...row };
+  return {
+    ...row,
+    endedAt: row.endedAt ?? undefined,
+    archivedAt: row.archivedAt ?? undefined,
+    restoredAt: row.restoredAt ?? undefined,
+  };
 }
 
 export function toTaskRow(task: Task): TaskRow {
