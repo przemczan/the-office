@@ -228,6 +228,7 @@ export function TabFoot({
     <WritingInTab
       key={tab.threadId}
       threadId={tab.threadId}
+      firstMessageDraftKey={firstMessage.draftKey}
       personName={personName}
       personLabel={personLabel}
       onSent={onSent}
@@ -311,15 +312,21 @@ function composerPlaceholder(personName: string): string {
 /** Keyed by Thread, with its draft kept, so each person's stays theirs as the tabs change. */
 function WritingInTab({
   threadId,
+  firstMessageDraftKey,
   personName,
   personLabel,
   onSent,
 }: {
   readonly threadId: string;
+  /** Where the tab kept a draft before its Thread opened, such as Planning opening the Planner's. */
+  readonly firstMessageDraftKey: string;
   readonly personName: string;
   readonly personLabel: string;
   readonly onSent: () => void;
 }): ReactNode {
+  const threadDrafts = useThreadDrafts();
+  // Before the composer below mounts and takes the Thread's draft, so what was typed stays.
+  useState(() => threadDrafts.handOver(firstMessageDraftKey, threadId));
   const thread = useQuery(threadQueries.one(threadId)).data;
   if (!thread) return null;
   return (

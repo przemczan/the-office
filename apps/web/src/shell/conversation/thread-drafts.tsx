@@ -11,6 +11,11 @@ export interface ThreadDrafts {
   waitingIn(threadId: string): string | undefined;
   /** The message was sent. */
   clear(threadId: string): void;
+  /**
+   * Moves the draft written before a Thread opened, kept under `from`, into the Thread, unless one
+   * already waits there.
+   */
+  handOver(from: string, threadId: string): void;
 }
 
 const ThreadDraftsContext = createContext<ThreadDrafts | undefined>(undefined);
@@ -22,6 +27,11 @@ export function ThreadDraftsProvider({ children }: { readonly children: ReactNod
       leave: (threadId, text) => void drafts.current.set(threadId, text),
       waitingIn: (threadId) => drafts.current.get(threadId),
       clear: (threadId) => void drafts.current.delete(threadId),
+      handOver: (from, threadId) => {
+        const handed = drafts.current.get(from);
+        drafts.current.delete(from);
+        if (handed && !drafts.current.get(threadId)) drafts.current.set(threadId, handed);
+      },
     }),
     [],
   );
