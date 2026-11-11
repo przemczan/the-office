@@ -81,6 +81,12 @@ export interface Task {
   /** Whether the Planner marked it planned (mark_planned) since it last moved to Planning. */
   readonly markedPlanned: boolean;
   /**
+   * Whether it has a planning Thread, its own or its Initiative's: set by its move to Planning, and
+   * taken back when that Thread couldn't be opened. A changing Save on a Ready Task takes one that
+   * has back to Planning, and one that hasn't (marked Ready from Backlog) to Backlog (spec §2.1).
+   */
+  readonly hasPlanningThread: boolean;
+  /**
    * The Role whose person's Task limit it counts against from Start on: the Role of its Pipeline's
    * first Agent Stage, as the click-through counts; undefined before Start or without one.
    */

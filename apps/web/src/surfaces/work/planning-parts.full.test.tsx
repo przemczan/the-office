@@ -25,6 +25,7 @@ const RUNNING_TASK: Task = {
   autoMode: false,
   initiativePlanningThreadId: null,
   markedPlanned: false,
+  hasPlanningThread: false,
   planConfirmed: true,
   filesToChange: [],
   estimatedTokens: null,
@@ -190,7 +191,13 @@ describe("the Plan's block", () => {
   });
 
   it("says beside Save what a change does to a Ready Task, and to a queued one", () => {
-    const ready: Task = { ...WRITTEN_TASK, state: "ready", planConfirmed: true };
+    const ready: Task = {
+      ...WRITTEN_TASK,
+      state: "ready",
+      planConfirmed: true,
+      hasPlanningThread: true,
+    };
+    const readyFromBacklog: Task = { ...ready, hasPlanningThread: false };
     const queued: QueuedTask = {
       taskId: ready.id,
       place: 1,
@@ -203,14 +210,19 @@ describe("the Plan's block", () => {
     click(button(page, "Edit"));
     const queuedPage = planPage(ready, [queued]);
     click(button(queuedPage, "Edit"));
+    const neverPlannedPage = planPage(readyFromBacklog);
+    click(button(neverPlannedPage, "Edit"));
     const backlogPage = planPage(WRITTEN_TASK);
     click(button(backlogPage, "Edit"));
 
     expect(page.querySelector(".task-part-note")?.textContent).toBe(
-      "Saving a change moves this Task to Backlog, to confirm and mark Ready again.",
+      "Saving a change moves this Task back to Planning, to confirm and mark Ready again.",
     );
     expect(queuedPage.querySelector(".task-part-note")?.textContent).toBe(
-      "Saving a change takes this Task out of the queue and moves it to Backlog, to confirm and mark Ready again.",
+      "Saving a change takes this Task out of the queue and moves it back to Planning, to confirm and mark Ready again.",
+    );
+    expect(neverPlannedPage.querySelector(".task-part-note")?.textContent).toBe(
+      "Saving a change moves this Task back to Backlog, to confirm and mark Ready again.",
     );
     expect(backlogPage.querySelector(".task-part-note")).toBeNull();
   });

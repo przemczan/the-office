@@ -284,9 +284,9 @@ describe("reorderTask", () => {
 
 describe("undoPlanningMove", () => {
   it("moves a Task in Planning back to Backlog and announces it", () => {
-    const change = undoPlanningMove(aTask({ state: "planning" }));
+    const change = undoPlanningMove(aTask({ state: "planning", hasPlanningThread: true }));
 
-    expect(change?.task.state).toBe("backlog");
+    expect(change?.task).toMatchObject({ state: "backlog", hasPlanningThread: false });
     expect(change?.event).toMatchObject({ taskId: "task-1", from: "planning", to: "backlog" });
   });
 

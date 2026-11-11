@@ -489,8 +489,9 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
     expect(work.published).toEqual([]);
   });
 
-  it("moves a Ready Task to Backlog on a changing Save, by the user", async () => {
+  it("moves a planned Ready Task back to Planning on a changing Save, by the user, keeping its planning Thread", async () => {
     const task = await readyTask();
+    const threads = work.app.get(TaskThreadsForTests).opened.length;
     work.published.length = 0;
 
     const response = await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
@@ -498,24 +499,45 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
     });
 
     expect(taskSchema.parse(await response.json())).toMatchObject({
-      state: "backlog",
+      state: "planning",
       definitionOfDoneConfirmed: false,
       planConfirmed: true,
+      markedPlanned: false,
+      autoMode: false,
+      hasPlanningThread: true,
     });
     expect(webEventsOf(work)).toEqual([
       { type: "task.definition-of-done-saved", taskId: task.id },
-      { type: "task.state-changed", taskId: task.id, from: "ready", to: "backlog" },
+      { type: "task.state-changed", taskId: task.id, from: "ready", to: "planning" },
     ]);
     const changes = await work.app.get(TaskRepository).stateChangesOf(task.id);
     expect(changes.at(-1)).toMatchObject({
       from: "ready",
-      to: "backlog",
+      to: "planning",
       by: { kind: "user" },
     });
+    expect(work.app.get(TaskThreadsForTests).opened).toHaveLength(threads);
 
     await sendJson(work, "POST", `/tasks/${task.id}/definition-of-done/confirm`);
     const again = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
     expect(taskSchema.parse(await again.json()).state).toBe("ready");
+  });
+
+  it("moves a Ready Task never planned (marked Ready from Backlog) to Backlog on a changing Save", async () => {
+    const task = await readyFromBacklog();
+    expect((await readTask(task.id)).hasPlanningThread).toBe(false);
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Edited." });
+
+    expect(taskSchema.parse(await response.json())).toMatchObject({
+      state: "backlog",
+      planConfirmed: false,
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.plan-saved", taskId: task.id },
+      { type: "task.state-changed", taskId: task.id, from: "ready", to: "backlog" },
+    ]);
   });
 });
 
@@ -644,10 +666,9 @@ describe("POST /api/tasks/:id/move", () => {
     ]);
   });
 
-  it("refuses a Task that entered Planning, also once a changing Save took it back from Ready", async () => {
+  it("refuses a Task that entered Planning, also once it has left Planning for Ready", async () => {
     const task = await readyTask();
-    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Edited." });
-    expect((await readTask(task.id)).state).toBe("backlog");
+    expect((await readTask(task.id)).state).toBe("ready");
     work.app.get(ProjectWorktreesForTests).opened.length = 0;
 
     const response = await move(task.id, otherProject());
@@ -873,7 +894,7 @@ describe("The queue", () => {
     return queue.map(({ taskId }) => taskId).filter((taskId) => ownIds.includes(taskId));
   }
 
-  it("takes a queued Task out of the queue when a changing Save moves it to Backlog", async () => {
+  it("takes a queued Task out of the queue when a changing Save moves it back to Planning", async () => {
     await deskTaken();
     const queued = await ownReadyTask();
     await requestStart(queued.id);
@@ -883,7 +904,7 @@ describe("The queue", () => {
     await sendJson(work, "PUT", `/tasks/${queued.id}/plan`, { plan: "Edited." });
 
     expect(await ownQueue()).toEqual([]);
-    expect((await readTask(queued.id)).state).toBe("backlog");
+    expect((await readTask(queued.id)).state).toBe("planning");
     expect(webEventsOf(work)).toContainEqual({
       type: "task.left-queue",
       taskId: queued.id,

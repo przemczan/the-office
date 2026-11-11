@@ -4,11 +4,12 @@ import { join } from "node:path";
 import { OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ASKING_INSTRUCTIONS } from "../../domain/asking.js";
+import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
 import { StageResults } from "../../ports/stage-results.js";
 import { ProjectWorktreesForTests, StageResultsForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
-import { ASKING_OFFICE_TOOLS } from "./task-thread-records.js";
+import { ASKING_OFFICE_TOOLS, PLANNING_OFFICE_TOOLS } from "./task-thread-records.js";
 import { aPersonsThread, taskThreads } from "../../task-thread-records.fixtures.js";
 
 let officeData: string;
@@ -63,5 +64,22 @@ describe("a person's Thread on a Task's session", () => {
         "mark_planned",
       ]),
     );
+  });
+});
+
+describe("the Planner's Thread on a Ready Task", () => {
+  it("keeps Planning's instructions, tools and Brief, saying what a write does to it", async () => {
+    const task = await aTaskIn("ready");
+
+    const setup = await setups().of(aPersonsThread(task.id, "planner"));
+
+    expect(setup).toMatchObject({
+      instructions: PLANNING_INSTRUCTIONS,
+      officeTools: PLANNING_OFFICE_TOOLS,
+      asking: false,
+      sessionRefusal: undefined,
+    });
+    expect(setup.brief).toContain("## The Task is Ready");
+    expect(setup.brief).toContain("takes it back to Planning");
   });
 });

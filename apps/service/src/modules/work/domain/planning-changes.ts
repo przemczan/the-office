@@ -1,8 +1,9 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { THE_USER } from "./author.js";
 import { normalizedFilesToChange } from "./files-to-change.js";
+import { THE_PLANNER } from "./planning.js";
 import type { ProposedPipeline, Task } from "./task.js";
-import type { AutoModeConfirmation } from "./state-change.js";
+import type { AutoModeConfirmation, StateChangeCause } from "./state-change.js";
 import { markTaskReady, withStateChange, type TaskChange } from "./task-changes.js";
 import {
   TaskAcceptedInAutoMode,
@@ -29,11 +30,13 @@ import {
 } from "./written-parts.js";
 
 /*
- * The Planner proposes the Plan, the Definition of Done and a Pipeline on a Task in Planning; the
- * user saves their own words until the Task starts, and confirms each part as it reads (spec §2.1,
- * §2.3). Writing a part again, by either, leaves it unconfirmed; the same words change nothing. The
- * Plan's files to change go with it: written, saved and confirmed together. The Planner writing a
- * part of a Task marked planned takes the mark back: they mark it planned again once it is done.
+ * The Planner proposes the Plan, the Definition of Done and a Pipeline on a Task in Planning or
+ * Ready; the user saves their own words until the Task starts, and confirms each part as it reads
+ * (spec §2.1, §2.3). Writing a part again, by either, leaves it unconfirmed; the same words change
+ * nothing. The Plan's files to change go with it: written, saved and confirmed together. The
+ * Planner writing a part of a Task marked planned takes the mark back: they mark it planned again
+ * once it is done. A change to a Ready Task takes it back to be planned and marked Ready again
+ * (the user's words of 2026-11-11).
  */
 
 export function proposePlan(
@@ -43,13 +46,17 @@ export function proposePlan(
   const written = writtenPlan(task, writing);
   refuseWith([...proposingProblems(task, "The Plan"), ...writtenPlanProblems(written)]);
   if (samePlan(task, written)) return undefined;
-  return {
-    task: { ...task, ...written, planConfirmed: false, markedPlanned: false },
-    event: new TaskPlanProposed(task.id),
-  };
+  return proposedPart(
+    task,
+    { ...task, ...written, planConfirmed: false },
+    (leftReady) => new TaskPlanProposed(task.id, leftReady),
+  );
 }
 
-/** The user's Plan. Changing it leaves it unconfirmed, and a Ready Task goes back to Backlog. */
+/**
+ * The user's Plan. Changing it leaves it unconfirmed, and a Ready Task goes back to Planning, or
+ * to Backlog when it has no planning Thread.
+ */
 export function savePlan(task: Task, writing: PlanWriting): TaskChange<TaskPlanSaved> | undefined {
   const written = writtenPlan(task, writing);
   refuseWith([...changingProblems(task, "Plan"), ...writtenPlanProblems(written)]);
@@ -97,15 +104,11 @@ export function proposeDefinitionOfDone(
     ...definitionOfDoneProblems(trimmed),
   ]);
   if (sameStatements(trimmed, task.definitionOfDone)) return undefined;
-  return {
-    task: {
-      ...task,
-      definitionOfDone: trimmed,
-      definitionOfDoneConfirmed: false,
-      markedPlanned: false,
-    },
-    event: new TaskDefinitionOfDoneProposed(task.id),
-  };
+  return proposedPart(
+    task,
+    { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: false },
+    (leftReady) => new TaskDefinitionOfDoneProposed(task.id, leftReady),
+  );
 }
 
 /** The user's Definition of Done, under the Plan's rules. */
@@ -143,8 +146,10 @@ export function confirmDefinitionOfDone(
 
 /**
  * The user's change to a part, unconfirmed by now. Ready needs both parts confirmed, so a Ready
- * Task goes back to Backlog in the same save: nothing can start it in between. Moved here rather
- * than by `changeTaskState`, as nobody may ask for this move on its own.
+ * Task leaves Ready in the same save, nothing can start it in between: back to Planning, in its
+ * planning Thread and auto mode, to be marked Ready again; or, with no planning Thread to go back
+ * to (marked Ready from Backlog), to Backlog, as a Task is never in Planning without its Thread.
+ * Moved here rather than by `changeTaskState`, as nobody may ask for this move on its own.
  */
 function savedPart<Event extends DomainEvent>(
   task: Task,
@@ -152,13 +157,50 @@ function savedPart<Event extends DomainEvent>(
   announced: (leftReady: TaskStateChanged | undefined) => Event,
 ): TaskChange<Event> {
   if (task.state !== "ready") return { task: saved, event: announced(undefined) };
+  return outOfReady(
+    task,
+    saved,
+    task.hasPlanningThread ? "planning" : "backlog",
+    THE_USER,
+    announced,
+  );
+}
+
+/**
+ * The Planner's change to a part, unconfirmed by now and no longer marked planned. A Ready Task
+ * goes back to Planning in the same save, moved by the Planner, as the user's Save takes it. The
+ * Planner writes here in the Task's own planning Thread (an Initiative's rewrites go through
+ * `rewriteInInitiative`), so from then on the Task is planned in that Thread.
+ */
+function proposedPart<Event extends DomainEvent>(
+  task: Task,
+  proposed: Task,
+  announced: (leftReady: TaskStateChanged | undefined) => Event,
+): TaskChange<Event> {
+  const unmarked: Task = { ...proposed, markedPlanned: false };
+  if (task.state !== "ready") return { task: unmarked, event: announced(undefined) };
+  const inOwnThread: Task = {
+    ...unmarked,
+    initiativePlanningThreadId: undefined,
+    hasPlanningThread: true,
+  };
+  return outOfReady(task, inOwnThread, "planning", THE_PLANNER, announced);
+}
+
+function outOfReady<Event extends DomainEvent>(
+  task: Task,
+  changed: Task,
+  to: Extract<Task["state"], "planning" | "backlog">,
+  by: StateChangeCause,
+  announced: (leftReady: TaskStateChanged | undefined) => Event,
+): TaskChange<Event> {
   return withStateChange(
     {
-      task: { ...saved, state: "backlog" },
-      event: announced(new TaskStateChanged(task.id, "ready", "backlog")),
+      task: { ...changed, state: to, markedPlanned: false },
+      event: announced(new TaskStateChanged(task.id, "ready", to)),
     },
     task,
-    THE_USER,
+    by,
   );
 }
 
@@ -173,14 +215,11 @@ export function proposePipeline(
   refuseWith(problems);
   const current = task.proposedPipeline;
   if (current?.pipelineId === proposal.pipelineId && current.reason === reason) return undefined;
-  return {
-    task: {
-      ...task,
-      proposedPipeline: { pipelineId: proposal.pipelineId, reason },
-      markedPlanned: false,
-    },
-    event: new TaskPipelineProposed(task.id, proposal.pipelineId),
-  };
+  return proposedPart(
+    task,
+    { ...task, proposedPipeline: { pipelineId: proposal.pipelineId, reason } },
+    (leftReady) => new TaskPipelineProposed(task.id, proposal.pipelineId, leftReady),
+  );
 }
 
 /**
@@ -274,10 +313,11 @@ export function acceptInAutoMode(
   };
 }
 
+/** The Planner writes a part in Planning, or in Ready, which the write takes back to Planning. */
 function proposingProblems(task: Task, part: string): string[] {
-  if (task.state === "planning") return [];
+  if (task.state === "planning" || task.state === "ready") return [];
   return [
-    `${part} is proposed while the Task is in Planning; this one is in ${TASK_STATE_NAMES[task.state]}.`,
+    `${part} is proposed while the Task is in Planning or Ready, before it starts; this one is in ${TASK_STATE_NAMES[task.state]}.`,
   ];
 }
 

@@ -44,7 +44,7 @@ export const ASKING_OFFICE_TOOLS = PERSON_READING_OFFICE_TOOLS;
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Planner's
- * until the Task is Ready plans it; every other person's Thread only reads. A Stage's session is
+ * until the Task starts plans it; every other person's Thread only reads. A Stage's session is
  * set up by its Stage, and a Consultation's gets its own tools and instructions from Conversations.
  */
 @Injectable()
@@ -191,7 +191,10 @@ function plannedInItsInitiative(
   );
 }
 
-/** The Planner plans until the Task is Ready, and again if a Save moves it to Backlog. */
+/**
+ * The Planner plans until the Task starts: in Ready too, where writing a part takes it back to
+ * Planning (the user's words of 2026-11-11), and again if a Save moves it to Backlog.
+ */
 function plansIt({ state }: Task, roleKey: string): boolean {
-  return roleKey === PLANNER && ["shaping", "backlog", "planning"].includes(state);
+  return roleKey === PLANNER && ["shaping", "backlog", "planning", "ready"].includes(state);
 }

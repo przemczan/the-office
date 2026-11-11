@@ -76,7 +76,7 @@ describe("a person's Thread on a Task's session", () => {
     expect(setup).toMatchObject({ asking: true, brief: undefined });
   });
 
-  it.each(["ready", "in-progress", "paused"] as const)(
+  it.each(["in-progress", "paused"] as const)(
     "gives the Planner the same read-only tools once the Task is %s",
     async (state) => {
       const task = await aTaskIn(state);

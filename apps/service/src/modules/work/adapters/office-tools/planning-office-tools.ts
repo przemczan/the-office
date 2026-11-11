@@ -21,6 +21,9 @@ export const MARK_PLANNED = "mark_planned";
 const PROPOSED =
   "It shows on the Task as not confirmed until the user confirms it; end your turn when you want them to look at it.";
 
+/** What a write does to a Ready Task, and which Tasks refuse it. */
+const ON_A_READY_TASK = `Works while the Task is in Planning or Ready: a change to a Ready Task takes it back to Planning (and out of the queue), so write one only when the user asks, then call ${MARK_PLANNED} again. Refused once the Task has started, is Done or is Dropped.`;
+
 const TASK_ID = z
   .string()
   .optional()
@@ -30,7 +33,8 @@ const TASK_ID = z
 
 /**
  * The Office tools the Planner plans a Task with (spec §2.1, §2.3): in a Thread on the Task, each
- * writes onto the session's own Task; in an Initiative's planning Thread, onto the Task it names,
+ * writes onto the session's own Task, in Planning or Ready, which a change takes back to Planning;
+ * in an Initiative's planning Thread, onto the Task it names,
  * one the Planner moved to Planning there with start_planning, or an already planned one it
  * rewrites, which goes back into Planning there. Each part is proposed for the user to confirm, but
  * for write_tags, whose Tags apply at once and never move a Task. The planning session reads with
@@ -88,7 +92,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWritePlan(): void {
     this.registry.register({
       name: WRITE_PLAN,
-      description: `Writes the Plan onto the Task: how it will be done, in plain words whoever implements it can follow, with the files it expects to change. It replaces the Plan the Task has; read the Task with read_task first, since the user may have edited it. Start warns the user when a Task in progress in the same Project expects to change some of the same files. ${PROPOSED}`,
+      description: `Writes the Plan onto the Task: how it will be done, in plain words whoever implements it can follow, with the files it expects to change. It replaces the Plan the Task has; read the Task with read_task first, since the user may have edited it. Start warns the user when a Task in progress in the same Project expects to change some of the same files. ${PROPOSED} ${ON_A_READY_TASK}`,
       input: z.object({
         taskId: TASK_ID,
         plan: z.string().describe("The whole Plan, as Markdown."),
@@ -123,7 +127,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWriteDefinitionOfDone(): void {
     this.registry.register({
       name: WRITE_DEFINITION_OF_DONE,
-      description: `Writes the Definition of Done onto the Task: what must be true when it is done, one plain-language statement each that can be checked. It replaces the Definition of Done the Task has; read the Task with read_task first, since the user may have edited it. ${PROPOSED}`,
+      description: `Writes the Definition of Done onto the Task: what must be true when it is done, one plain-language statement each that can be checked. It replaces the Definition of Done the Task has; read the Task with read_task first, since the user may have edited it. ${PROPOSED} ${ON_A_READY_TASK}`,
       input: z.object({
         taskId: TASK_ID,
         statements: z
@@ -146,8 +150,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerProposePipeline(): void {
     this.registry.register({
       name: PROPOSE_PIPELINE,
-      description:
-        "Proposes the Pipeline the Task's work follows, one of those your Brief lists, chosen from the Definition of Done. The Task keeps its Pipeline until the user confirms yours or chooses another.",
+      description: `Proposes the Pipeline the Task's work follows, one of those your Brief lists, chosen from the Definition of Done. The Task keeps its Pipeline until the user confirms yours or chooses another. ${ON_A_READY_TASK}`,
       input: z.object({
         taskId: TASK_ID,
         pipelineId: z.string().describe("The Pipeline's id, as your Brief lists it."),

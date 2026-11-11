@@ -83,7 +83,7 @@ A Task's plain-language statement of what must be true when it is done; the Task
 _Avoid_: Acceptance criteria, DoD (in the UI)
 
 **Save** (a Plan or a Definition of Done):
-The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task to Backlog; the same words change nothing.
+The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task back to Planning, or to Backlog when it was never in Planning; the same words change nothing.
 _Avoid_: Save and confirm
 
 **Confirm** (a Plan or a Definition of Done):

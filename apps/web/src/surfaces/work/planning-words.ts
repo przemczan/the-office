@@ -10,10 +10,17 @@ export function statementsOf(text: string): string[] {
     .filter((line) => line !== "");
 }
 
-/** What a changing Save does to a Ready Task, said before it happens. */
-export function leavesReadyWords(queued: boolean): string {
+/**
+ * What a changing Save does to a Ready Task, said before it happens: back to Planning, or to
+ * Backlog for one never planned (marked Ready from Backlog), as the service moves it.
+ */
+export function leavesReadyWords(
+  { hasPlanningThread }: Pick<Task, "hasPlanningThread">,
+  queued: boolean,
+): string {
   const move = queued ? "takes this Task out of the queue and moves it" : "moves this Task";
-  return `Saving a change ${move} to Backlog, to confirm and mark Ready again.`;
+  const to = hasPlanningThread ? "Planning" : "Backlog";
+  return `Saving a change ${move} back to ${to}, to confirm and mark Ready again.`;
 }
 
 /** The Definition of Done's folded line: where it stands before Start, Reported met from then on. */

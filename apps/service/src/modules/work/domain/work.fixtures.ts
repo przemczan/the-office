@@ -56,6 +56,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     autoMode: false,
     initiativePlanningThreadId: undefined,
     markedPlanned: false,
+    hasPlanningThread: false,
     personRole: undefined,
     pausedByAlarm: false,
     madeFor: undefined,
@@ -71,10 +72,14 @@ export function aTask(fields: Partial<Task> = {}): Task {
   };
 }
 
-/** A Task that may go to Ready: the user confirmed its Plan and its Definition of Done. */
+/**
+ * A Task that may go to Ready: planned in its planning Thread, the user confirmed its Plan and its
+ * Definition of Done.
+ */
 export function aPlannedTask(fields: Partial<Task> = {}): Task {
   return aTask({
     state: "planning",
+    hasPlanningThread: true,
     plan: "Keep the requested path through the sign-in.",
     planConfirmed: true,
     filesToChange: [],

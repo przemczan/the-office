@@ -13,7 +13,7 @@ import {
   TaskStopped,
 } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
-import { PLANNER } from "./planning.js";
+import { THE_PLANNER } from "./planning.js";
 import {
   BY_THE_FIRE_ALARM,
   BY_THE_PIPELINE,
@@ -38,8 +38,6 @@ export interface TaskChange<Event extends DomainEvent> {
   readonly task: Task;
   readonly event: Event;
   readonly stateChange?: StateChange;
-  /** Moves the same save made before `stateChange`, such as Ready → Backlog before Planning. */
-  readonly earlierStateChanges?: readonly StateChange[];
 }
 
 /** The change, with its move kept when it takes the Task to another state. */
@@ -92,6 +90,7 @@ export function createTask(
     autoMode: false,
     initiativePlanningThreadId: undefined,
     markedPlanned: false,
+    hasPlanningThread: false,
     personRole: undefined,
     pausedByAlarm: false,
     madeFor: undefined,
@@ -149,26 +148,32 @@ export function startPlanningTask(
   autoMode: boolean,
   thread: PlanningThread = OWN_PLANNING_THREAD,
 ): TaskChange<TaskStateChanged> | undefined {
-  const by: StateChangeCause =
-    thread.kind === "own" ? THE_USER : { kind: "person", roleKey: PLANNER };
+  const by: StateChangeCause = thread.kind === "own" ? THE_USER : THE_PLANNER;
   const change = changeTaskState(task, "planning", by);
   if (!change) return undefined;
   const initiativePlanningThreadId = thread.kind === "own" ? undefined : thread.threadId;
   return {
     ...change,
-    task: { ...change.task, autoMode, initiativePlanningThreadId, markedPlanned: false },
+    task: {
+      ...change.task,
+      autoMode,
+      initiativePlanningThreadId,
+      markedPlanned: false,
+      hasPlanningThread: true,
+    },
   };
 }
 
 /**
  * Planning → Backlog, when planning couldn't begin: a Task is never in Planning without its
- * planning Thread. Undefined when the Task has already left Planning.
+ * planning Thread, so it has none to go back to either. Undefined when the Task has already left
+ * Planning.
  */
 export function undoPlanningMove(task: Task): TaskChange<TaskStateChanged> | undefined {
   if (task.state !== "planning") return undefined;
   return withStateChange(
     {
-      task: { ...task, state: "backlog" },
+      task: { ...task, state: "backlog", hasPlanningThread: false },
       event: new TaskStateChanged(task.id, "planning", "backlog"),
     },
     task,
