@@ -15,6 +15,9 @@ import { takesMessages } from "../../shell/conversation/thread-writing.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { SubAgentsAndProcessesLine } from "../../shell/sub-agents-and-processes/sub-agents-and-processes-line.tsx";
+import { SubAgentsAndProcessesView } from "../../shell/sub-agents-and-processes/sub-agents-and-processes-view.tsx";
+import { useSubAgentsAndProcesses } from "../../shell/sub-agents-and-processes/use-sub-agents-and-processes.ts";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
 import { bringIntoView } from "./record-blocks.ts";
@@ -61,7 +64,7 @@ export function RunDetails({
   readonly onReadSummary: (run: RunPlace) => void;
   readonly onClose: () => void;
 }): ReactNode {
-  const { stage, state } = taskStage;
+  const { stage } = taskStage;
   const summary = (
     <RunSummary taskStage={taskStage} run={run} roles={roles} names={names} onClose={onClose} />
   );
@@ -80,7 +83,56 @@ export function RunDetails({
       </section>
     );
   }
-  const isLive = run.outcome === null && state === "running";
+  return (
+    <AgentRunDetails
+      threadId={run.threadId}
+      stages={stages}
+      taskStage={taskStage}
+      run={run}
+      tab={tab}
+      personName={stageWorkerWords(taskStage, roles)}
+      head={head}
+      summary={summary}
+      onTab={onTab}
+      onReadSummary={onReadSummary}
+    />
+  );
+}
+
+const SUB_AGENTS_AND_PROCESSES = "sub-agents-and-processes";
+
+/**
+ * An Agent run's Summary and Thread, and its Sub-agents and processes once its Thread had any: the
+ * view as a tab, as no window opens over the Stage history.
+ */
+function AgentRunDetails({
+  threadId,
+  stages,
+  taskStage,
+  run,
+  tab,
+  personName,
+  head,
+  summary,
+  onTab,
+  onReadSummary,
+}: {
+  readonly threadId: string;
+  readonly stages: readonly TaskStage[];
+  readonly taskStage: TaskStage;
+  readonly run: StageRun;
+  readonly tab: RunTab;
+  readonly personName: string;
+  readonly head: ReactNode;
+  readonly summary: ReactNode;
+  readonly onTab: (tab: RunTab) => void;
+  readonly onReadSummary: (run: RunPlace) => void;
+}): ReactNode {
+  const subAgentsAndProcesses = useSubAgentsAndProcesses(threadId) ?? [];
+  const hadAny = subAgentsAndProcesses.length > 0;
+  // Until the list is read, or once a fresh session took it away, its tab shows the Thread.
+  const shownTab = tab === SUB_AGENTS_AND_PROCESSES && !hadAny ? "thread" : tab;
+  const isLive = run.outcome === null && taskStage.state === "running";
   return (
     <section className="run-details" aria-label={`Run ${run.number}`}>
       {head}
@@ -90,27 +142,54 @@ export function RunDetails({
           tabs={[
             { value: "summary", label: "Summary" },
             { value: "thread", label: <>Thread{isLive && <span className="live-dot" />}</> },
+            ...(hadAny
+              ? [
+                  {
+                    value: SUB_AGENTS_AND_PROCESSES,
+                    label: (
+                      <>
+                        Sub-agents and processes{" "}
+                        <Badge size="sm">{subAgentsAndProcesses.length}</Badge>
+                      </>
+                    ),
+                  },
+                ]
+              : []),
           ]}
-          value={tab}
-          onChange={(value) => onTab(value === "thread" ? "thread" : "summary")}
+          value={shownTab}
+          onChange={(value) => onTab(runTabOf(value))}
         />
         {/* Details hides tool activity, which only the Thread has. */}
-        {tab === "thread" && <DetailsSwitch />}
+        {shownTab === "thread" && <DetailsSwitch />}
+        {shownTab === SUB_AGENTS_AND_PROCESSES && (
+          <span className="sub-agents-and-processes-read-only">
+            <Icon name="lock" size={12} />
+            Read-only: only the Agent can stop them
+          </span>
+        )}
       </div>
-      {tab === "summary" ? (
-        <div className="run-details-body">{summary}</div>
-      ) : (
+      {shownTab === "summary" && <div className="run-details-body">{summary}</div>}
+      {shownTab === "thread" && (
         <RunThread
-          key={run.threadId}
-          threadId={run.threadId}
+          key={threadId}
+          threadId={threadId}
           run={run}
-          personName={stageWorkerWords(taskStage, roles)}
+          personName={personName}
           stages={stages}
           onReadSummary={onReadSummary}
+          onShowSubAgentsAndProcesses={() => onTab(SUB_AGENTS_AND_PROCESSES)}
         />
+      )}
+      {shownTab === SUB_AGENTS_AND_PROCESSES && (
+        <SubAgentsAndProcessesView threadId={threadId} personName={personName} />
       )}
     </section>
   );
+}
+
+function runTabOf(value: string): RunTab {
+  if (value === "thread" || value === SUB_AGENTS_AND_PROCESSES) return value;
+  return "summary";
 }
 
 function RunHead({
@@ -286,12 +365,15 @@ function RunThread({
   personName,
   stages,
   onReadSummary,
+  onShowSubAgentsAndProcesses,
 }: {
   readonly threadId: string;
   readonly run: StageRun;
   readonly personName: string;
   readonly stages: readonly TaskStage[];
   readonly onReadSummary: (run: RunPlace) => void;
+  /** Its line switches to the run's tab. */
+  readonly onShowSubAgentsAndProcesses: () => void;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId)).data;
   const [drafting, setDrafting] = useState(false);
@@ -325,20 +407,28 @@ function RunThread({
             autoFocus={false}
             keepsDraft
             onDrafting={setDrafting}
+            onShowSubAgentsAndProcesses={onShowSubAgentsAndProcesses}
           />
         </div>
       ) : (
-        <div className="run-thread-closed">
-          <ReadOnlyNote reason={runThreadClosedWords(run)} />
-          <Link
-            from="/tasks/$taskId"
-            to="."
-            search={(shown) => ({ ...shown, taskThread: thread.roleKey })}
-            resetScroll={false}
-          >
-            Ask {personName} about it
-          </Link>
-        </div>
+        <>
+          <SubAgentsAndProcessesLine
+            thread={thread}
+            personName={personName}
+            onShow={onShowSubAgentsAndProcesses}
+          />
+          <div className="run-thread-closed">
+            <ReadOnlyNote reason={runThreadClosedWords(run)} />
+            <Link
+              from="/tasks/$taskId"
+              to="."
+              search={(shown) => ({ ...shown, taskThread: thread.roleKey })}
+              resetScroll={false}
+            >
+              Ask {personName} about it
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );

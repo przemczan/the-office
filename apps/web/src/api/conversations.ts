@@ -6,10 +6,13 @@ import {
   messageListSchema,
   officeInstructionsSchema,
   peopleWorkingSchema,
+  processOutputSchema,
   proposalListSchema,
   proposalSchema,
   sizeThresholdSchema,
   firstBriefSchema,
+  subAgentMessagesSchema,
+  subAgentsAndProcessesSchema,
   taskConversationSchema,
   threadListSchema,
   threadSchema,
@@ -20,9 +23,11 @@ import {
   type Home,
   type NewMessage,
   type OfficeInstructions,
+  type ProcessOutput,
   type Proposal,
   type ProposalApplication,
   type SizeThreshold,
+  type SubAgentMessages,
   type Thread,
   type ThreadWebEvent,
   type TokenTotals,
@@ -114,7 +119,49 @@ export const threadQueries = {
       queryKey: [...THREADS, id, "messages"],
       queryFn: ({ signal }) => getFromApi(`${threadPath(id)}/messages`, messageListSchema, signal),
     }),
+  /**
+   * The Sub-agents and Processes of the Thread's current session (spec 2.9), as they started. Under
+   * the Thread's key, so its events read it again, as a fresh session takes the old ones away.
+   */
+  subAgentsAndProcesses: (id: string) =>
+    queryOptions({
+      queryKey: [...THREADS, id, "sub-agents-and-processes"],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `${threadPath(id)}/sub-agents-and-processes`,
+          subAgentsAndProcessesSchema,
+          signal,
+        ),
+    }),
 };
+
+/** A Sub-agent's messages and tool calls after `after`; read by the view, never cached. */
+export function readSubAgentMessages(
+  threadId: string,
+  callId: string,
+  after: number,
+  signal?: AbortSignal,
+): Promise<SubAgentMessages> {
+  return getFromApi(
+    `${threadPath(threadId)}/sub-agents/${encodeURIComponent(callId)}/messages?after=${after}`,
+    subAgentMessagesSchema,
+    signal,
+  );
+}
+
+/** A Process's output after `after`; read by the view, never cached. */
+export function readProcessOutput(
+  threadId: string,
+  callId: string,
+  after: number,
+  signal?: AbortSignal,
+): Promise<ProcessOutput> {
+  return getFromApi(
+    `${threadPath(threadId)}/processes/${encodeURIComponent(callId)}/output?after=${after}`,
+    processOutputSchema,
+    signal,
+  );
+}
 
 /** Settings › Office limits: the Context policy's size threshold, in tokens. */
 export const sizeThresholdQuery = () =>
@@ -277,7 +324,8 @@ type CarryingEventType = "thread.tokens-counted";
 
 /**
  * A session's Sub-agents and Processes (spec 2.9): each event carries the item or the new part,
- * which only the view that shows them applies, subscribing while it is open; nothing else refetches.
+ * which only the line and the view of that Thread apply, subscribed to for it while they show
+ * (`shell/sub-agents-and-processes/`); nothing else refetches.
  */
 type SubAgentAndProcessEventType =
   | "thread.sub-agent-started"

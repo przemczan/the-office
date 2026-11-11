@@ -291,3 +291,18 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-row-count"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-a-process","text":"Jan starts a Process that outputs between turns"}}
+{"step":"event","event":{"kind":"tool-call","callId":"process-web-app","tool":"Bash","officeTool":false,"input":{"command":"npm run dev -w apps/web","description":"Start the web app","run_in_background":true},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"process-web-app","text":"Command running in the background with ID: b1f9c2e07","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"process-started","callId":"process-web-app","engineTaskId":"b1f9c2e07","withinToolCall":null,"commandLine":"npm run dev -w apps/web","description":"Start the web app"}}
+{"step":"event","event":{"kind":"process-output","callId":"process-web-app","text":"chunk one: starting the web app\n"}}
+{"step":"event","event":{"kind":"process-output","callId":"process-web-app","text":"chunk two: ready on port 5173\n"}}
+{"step":"event","event":{"kind":"text","text":"The web app runs in the background.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-a-process"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"wait","mark":"process-output-goes-on"}
+{"step":"event","event":{"kind":"process-output","callId":"process-web-app","text":"chunk three: page compiled\n"}}
+{"step":"wait","mark":"process-ends"}
+{"step":"event","event":{"kind":"process-output","callId":"process-web-app","text":"chunk four: stopping\n"}}
+{"step":"event","event":{"kind":"process-ended","callId":"process-web-app","ending":{"state":"finished"},"exitCode":0}}
+{"step":"end"}

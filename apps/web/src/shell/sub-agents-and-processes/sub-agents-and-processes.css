@@ -1,0 +1,513 @@
+/* A session's Sub-agents and Processes (spec 2.9, docs/design/sub-agents-and-processes.html). */
+
+/* ---- the line above the message input: a composer note's place, neutral, as it asks nothing */
+.sub-agents-and-processes-line {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 16px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font: var(--type-caption);
+  color: var(--fg-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.sub-agents-and-processes-line:hover {
+  background: var(--control-hover);
+}
+
+.sub-agents-and-processes-line[aria-expanded="true"] {
+  background: var(--control-press);
+}
+
+.sub-agents-and-processes-line-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  color: var(--fg-3);
+}
+
+.sub-agents-and-processes-line-mark .live-dot {
+  margin-right: 0;
+}
+
+.sub-agents-and-processes-line-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-line-text .counted {
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.sub-agents-and-processes-line-text .failed {
+  font-weight: 500;
+  color: var(--danger-fg);
+}
+
+.sub-agents-and-processes-line-show {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.sub-agents-and-processes-line:hover .sub-agents-and-processes-line-show {
+  color: var(--fg-1);
+}
+
+/* On a phone the chevron alone says it opens. */
+@media (max-width: 480px) {
+  .sub-agents-and-processes-line-show-words {
+    display: none;
+  }
+}
+
+/* Something runs: green, as a running state is, not the blue of a note. */
+.sub-agents-and-processes-line .live-dot,
+.sub-agents-and-processes-line .live-dot::after,
+.sub-agents-and-processes-state .live-dot,
+.sub-agents-and-processes-state .live-dot::after,
+.sub-agents-and-processes-following .live-dot,
+.sub-agents-and-processes-following .live-dot::after {
+  background: var(--success-fg);
+}
+
+/* ---- the window: the view fills its body, framed as the Stage history's run is */
+.sub-agents-and-processes-window-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-width: 0;
+}
+
+.sub-agents-and-processes-window-title > span {
+  min-width: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-read-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.sub-agents-and-processes-window {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+/* ---- the view: a list and details, laid out by its own width */
+.sub-agents-and-processes {
+  container-type: inline-size;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sub-agents-and-processes-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.sub-agents-and-processes-list {
+  min-width: 0;
+  padding: 4px 0 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
+
+.sub-agents-and-processes-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sub-agents-and-processes-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px 6px;
+}
+
+.sub-agents-and-processes-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 2px 10px;
+  width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sub-agents-and-processes-item:hover {
+  background: var(--surface-hover);
+}
+
+.sub-agents-and-processes-item[aria-current="true"] {
+  background: var(--surface-selected);
+}
+
+.sub-agents-and-processes-item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+.sub-agents-and-processes-item-mark {
+  padding-top: 2px;
+  color: var(--fg-3);
+}
+
+.sub-agents-and-processes-item-title {
+  min-width: 0;
+  font: 500 var(--text-sm) / 1.4 var(--font-sans);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-item-title.command {
+  font: 500 12px / 1.5 var(--font-mono);
+}
+
+.sub-agents-and-processes-item-meta {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.sub-agents-and-processes-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.sub-agents-and-processes-state .live-dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 0;
+}
+
+.sub-agents-and-processes-state.running {
+  color: var(--success-fg);
+}
+
+.sub-agents-and-processes-state.failed {
+  color: var(--danger-fg);
+}
+
+.sub-agents-and-processes-state.stopped {
+  color: var(--fg-3);
+}
+
+.sub-agents-and-processes-back {
+  display: none;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font: 500 var(--text-sm) / 1.3 var(--font-sans);
+  color: var(--fg-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sub-agents-and-processes-back:hover {
+  color: var(--fg-1);
+}
+
+.sub-agents-and-processes-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sub-agents-and-processes-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.sub-agents-and-processes-head {
+  display: grid;
+  flex: none;
+  gap: 6px;
+  padding: 16px 20px 12px;
+}
+
+.sub-agents-and-processes-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font: var(--type-card-title);
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-title svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--fg-3);
+}
+
+.sub-agents-and-processes-title > span {
+  min-width: 0;
+}
+
+.sub-agents-and-processes-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sub-agents-and-processes-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.sub-agents-and-processes-section {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 6px 20px 12px;
+}
+
+.sub-agents-and-processes-section-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  min-height: 28px;
+}
+
+.sub-agents-and-processes-prompt {
+  max-width: 72ch;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  font: var(--type-body-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-prompt.folded {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.sub-agents-and-processes-command,
+.sub-agents-and-processes-output {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  font: var(--type-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-command::before {
+  content: "$ ";
+  color: var(--fg-3);
+}
+
+/* Only the output scrolls, in its place: the section takes what the details leave. */
+.sub-agents-and-processes-section.output {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 220px;
+  padding-bottom: 16px;
+}
+
+.sub-agents-and-processes-output {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.sub-agents-and-processes-dropped {
+  display: block;
+  margin: -10px -12px 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font: var(--type-caption);
+  color: var(--fg-2);
+  white-space: normal;
+}
+
+.sub-agents-and-processes-quiet {
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+  white-space: normal;
+}
+
+.sub-agents-and-processes-following {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.sub-agents-and-processes-following .live-dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 0;
+}
+
+.sub-agents-and-processes-ending {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--neutral-border);
+  border-radius: var(--radius-lg);
+  background: var(--neutral-subtle);
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-ending svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.sub-agents-and-processes-ending.failed {
+  border-color: var(--danger-border);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.sub-agents-and-processes-ending.finished {
+  border-color: var(--success-border);
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+
+/* The Sub-agent's Rows: the Thread's own list, which scrolls with the details here. */
+.sub-agents-and-processes-messages {
+  display: grid;
+  flex: none;
+  gap: 12px;
+  padding: 0 20px 20px;
+}
+
+.sub-agents-and-processes-messages > .message-list {
+  padding: 0;
+}
+
+.sub-agents-and-processes-reported {
+  max-width: 72ch;
+  padding: 10px 12px;
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius-card);
+  background: var(--info-subtle);
+  font: var(--type-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.sub-agents-and-processes-reported-head {
+  margin: 0 0 4px;
+  font: 600 var(--text-xs) / 1.3 var(--font-sans);
+  color: var(--info-fg);
+}
+
+@container (max-width: 640px) {
+  .sub-agents-and-processes-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sub-agents-and-processes-list {
+    border-right: 0;
+  }
+
+  .sub-agents-and-processes[data-pane="details"] .sub-agents-and-processes-list,
+  .sub-agents-and-processes[data-pane="list"] .sub-agents-and-processes-details {
+    display: none;
+  }
+
+  .sub-agents-and-processes-back {
+    display: flex;
+  }
+
+  .sub-agents-and-processes-head {
+    padding: 12px 14px 10px;
+  }
+
+  .sub-agents-and-processes-section {
+    padding: 6px 14px 12px;
+  }
+
+  .sub-agents-and-processes-messages {
+    padding: 0 14px 16px;
+  }
+}

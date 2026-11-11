@@ -23,8 +23,8 @@ import {
 
 type CommandRun = StageRun["commandRuns"][number];
 
-/** The tabs of an Agent run's details. */
-export type RunTab = "summary" | "thread";
+/** The tabs of an Agent run's details; the third only for a run whose Thread had any. */
+export type RunTab = "summary" | "thread" | "sub-agents-and-processes";
 
 const COMMAND_OUTCOME_WORDS: Readonly<Record<CommandRun["outcome"], string>> = {
   passed: "passed",

@@ -16,6 +16,7 @@ import {
   OPEN_DECISION_TOOL,
   pipelineListSchema,
   pipelineSchema,
+  processOutputSchema,
   projectSchema,
   recordPath,
   roleCardSchema,
@@ -5894,5 +5895,71 @@ test(
     } finally {
       await repository.remove();
     }
+  },
+);
+
+const WEB_APP_OUTPUT = [
+  "chunk one: starting the web app",
+  "chunk two: ready on port 5173",
+  "chunk three: page compiled",
+  "chunk four: stopping",
+].map((line) => `${line}\n`);
+
+// The engine replays the last session in e2e/sessions.jsonl: Jan starts a Process that prints two
+// chunks and ends the turn, which holds at each `wait` step until the test reaches its mark through
+// the e2e service's own route, as the scripted sessions run inside the service.
+test(
+  "a Process opened late shows its output so far, then each new chunk live and once, and how it ended",
+  { tag: "@full" },
+  async ({ page }) => {
+    const { id: threadId } = threadSchema.parse(
+      await (await page.request.post("/api/chats/planner/threads")).json(),
+    );
+    const sent = await page.request.post(`/api/threads/${threadId}/messages`, {
+      data: { text: "Start the web app and leave it running." },
+    });
+    expect(sent.ok()).toBe(true);
+    // Not found until the Process starts.
+    const outputKept = async () => {
+      const read = await page.request.get(
+        `/api/threads/${threadId}/processes/process-web-app/output`,
+      );
+      return read.ok() ? processOutputSchema.parse(await read.json()).lastSequence : 0;
+    };
+    await expect.poll(outputKept, { timeout: 30_000 }).toBe(2);
+    const reach = async (mark: string) =>
+      expect((await page.request.post(`/api/e2e/marks/${mark}`)).status()).toBe(204);
+
+    // The turn ended with the Process running: the page opens late.
+    await page.goto(`/people?chat=planner&thread=${threadId}`);
+    const jan = chatWith(page, "Jan");
+    await expect(jan.getByText("The web app runs in the background.")).toBeVisible();
+    await jan.getByRole("button", { name: "1 process running. Show them." }).click();
+    const window = page.getByRole("dialog", { name: /^Sub-agents and processes/ });
+    const output = window.getByLabel("Output", { exact: true });
+    await expect(output).toHaveText(WEB_APP_OUTPUT.slice(0, 2).join(""));
+    await expect(window.locator(".sub-agents-and-processes-command")).toHaveText(
+      "npm run dev -w apps/web",
+    );
+    await expect(window.getByText("Following the end")).toBeVisible();
+    await expect(window.getByText("Read-only: only the Agent can stop them")).toBeVisible();
+    await expect(window.getByRole("button", { name: /stop/i })).toHaveCount(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-process-output.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-process-output.png") });
+    await showPalette(page, "light");
+
+    // What comes next arrives live, after what the late read had, with no chunk twice.
+    await reach("process-output-goes-on");
+    await expect(output).toHaveText(WEB_APP_OUTPUT.slice(0, 3).join(""));
+
+    await reach("process-ends");
+    await expect(window.locator(".sub-agents-and-processes-ending.finished")).toContainText(
+      "Finished with exit code 0",
+    );
+    await expect(output).toHaveText(WEB_APP_OUTPUT.join(""));
+    await expect(window.getByText("Following the end")).toHaveCount(0);
+    await window.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(jan.getByRole("button", { name: "1 process ended. Show them." })).toBeVisible();
   },
 );

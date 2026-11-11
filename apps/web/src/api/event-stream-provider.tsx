@@ -4,6 +4,8 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -23,6 +25,12 @@ export type EventCacheUpdates = Readonly<
 >;
 
 const EventStreamContext = createContext<EventStream | undefined>(undefined);
+
+/** What a part needs to receive one Thread's events: `EventStream`'s, or a test's own. */
+export type ThreadEvents = Pick<EventStream, "subscribeToThread">;
+
+/** Provided by `EventStreamProvider`; a test gives its own to send a Thread's events. */
+export const ThreadEventsContext = createContext<ThreadEvents | undefined>(undefined);
 
 /**
  * Keeps the queries fresh from the service's domain events while mounted, refetching the ones an
@@ -45,7 +53,46 @@ export function EventStreamProvider({
     eventStream.start();
     return () => eventStream.stop();
   }, [eventStream]);
-  return <EventStreamContext value={eventStream}>{children}</EventStreamContext>;
+  return (
+    <EventStreamContext value={eventStream}>
+      <ThreadEventsContext value={eventStream}>{children}</ThreadEventsContext>
+    </EventStreamContext>
+  );
+}
+
+/**
+ * Receives the event types for one Thread while mounted (`EventStream.subscribeToThread`), the
+ * only way to receive a thread-scoped type; `onSubscribed` once per connection, the first one
+ * included, for reading again what a lost connection missed. Subscribed again only when the Thread
+ * or the types change, so the callbacks may change on every render. Outside a provider, as in a
+ * test that renders a part alone, nothing is received.
+ */
+export function useThreadEvents({
+  threadId,
+  eventTypes,
+  onEvent,
+  onSubscribed,
+}: {
+  readonly threadId: string;
+  readonly eventTypes: readonly string[];
+  readonly onEvent: (event: WebEvent) => void;
+  readonly onSubscribed?: () => void;
+}): void {
+  const threadEvents = useContext(ThreadEventsContext);
+  const latest = useRef({ onEvent, onSubscribed });
+  useLayoutEffect(() => {
+    latest.current = { onEvent, onSubscribed };
+  });
+  const types = eventTypes.join(" ");
+  useEffect(() => {
+    if (threadEvents === undefined) return;
+    return threadEvents.subscribeToThread({
+      threadId,
+      eventTypes: types.split(" "),
+      onEvent: (event) => latest.current.onEvent(event),
+      onSubscribed: () => latest.current.onSubscribed?.(),
+    });
+  }, [threadEvents, threadId, types]);
 }
 
 /** Whether the web is connected to the service's events, or connecting to them again. */

@@ -7,10 +7,11 @@ import { ContextBar } from "../../shell/conversation/context-bar.tsx";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { threadTitle } from "../../shell/conversation/thread-title.ts";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
+import { SubAgentsAndProcessesLine } from "../../shell/sub-agents-and-processes/sub-agents-and-processes-line.tsx";
 
 /**
  * Under the timeline: the To line, the one composer and the context label of the Thread it names,
- * or why nothing can be written.
+ * or why nothing can be written, under the line of that Thread's Sub-agents and Processes.
  */
 export function TimelineFoot({
   threads,
@@ -33,14 +34,15 @@ export function TimelineFoot({
   readonly onSent: (threadId: string) => void;
   readonly onPick: (threadId: string) => void;
 }): ReactNode {
+  const to = threads.find(({ id }) => id === toId);
   if (readOnlyReason !== undefined) {
     return (
       <div className="timeline-foot">
+        {to && <SubAgentsAndProcessesLine thread={to} personName={personName(to)} />}
         <ReadOnlyNote reason={readOnlyReason} />
       </div>
     );
   }
-  const to = threads.find(({ id }) => id === toId);
   if (to === undefined) return null;
   const title = (thread: Thread): string => threadTitle(thread, personName(thread));
   return (

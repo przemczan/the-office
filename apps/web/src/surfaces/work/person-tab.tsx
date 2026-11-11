@@ -15,6 +15,7 @@ import { EmptyCard } from "../../shell/item-card.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { SubAgentsAndProcessesLineOf } from "../../shell/sub-agents-and-processes/sub-agents-and-processes-line.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { plannedElsewhereWords } from "./conversation-tabs.ts";
@@ -204,6 +205,9 @@ export function TabFoot({
   if (readOnlyReason !== undefined) {
     return (
       <div className="timeline-foot">
+        {tab.threadId !== null && (
+          <SubAgentsAndProcessesLineOf threadId={tab.threadId} personName={personName} />
+        )}
         <ReadOnlyNote reason={readOnlyReason} />
       </div>
     );

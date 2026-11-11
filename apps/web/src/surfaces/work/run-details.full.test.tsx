@@ -1,11 +1,28 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Attachment, Stage, StageRun, TaskStage } from "@the-office/contracts";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
+import type { Attachment, Stage, StageRun, TaskStage, Thread } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { threadQueries } from "../../api/conversations.ts";
+import { ThreadEventsContext } from "../../api/event-stream-provider.tsx";
+import { roleQueries } from "../../api/people.ts";
 import { attachmentQueries } from "../../api/work.ts";
+import {
+  aProcess,
+  TestService,
+  TestThreadEvents,
+  THREAD_ID,
+} from "../../shell/sub-agents-and-processes/sub-agents-and-processes.fixtures.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import { RunDetails } from "./run-details.tsx";
+import type { RunTab } from "./stage-history-words.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -139,5 +156,129 @@ describe("a Gate's run", () => {
 
   it("shows no Attachments heading for a run that has none", () => {
     expect(shownIn(showRun(secondRun, attachments.slice(0, 1)))).toBeNull();
+  });
+});
+
+function tabNames(page: HTMLElement): string[] {
+  return [...page.querySelectorAll('[role="tab"]')].map(({ textContent }) => textContent ?? "");
+}
+
+describe("an Agent run's Sub-agents and processes", () => {
+  const implement = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    role: "developer",
+  } as Stage;
+  const endedRun: StageRun = {
+    ...aRun({
+      id: "00000000-0000-4000-8000-00000000000c",
+      number: 1,
+      startedAt: "2026-11-04T10:00:00.000Z",
+      endedAt: "2026-11-04T11:00:00.000Z",
+    }),
+    threadId: THREAD_ID,
+  };
+  const implementStage: TaskStage = {
+    stage: implement,
+    state: "done",
+    tokens: NO_TOKENS,
+    wentBack: null,
+    runs: [endedRun],
+  };
+  const stageThread = {
+    id: THREAD_ID,
+    home: { kind: "task", taskId: TASK_ID },
+    roleKey: "developer",
+    title: null,
+    state: "waiting",
+    stageThread: true,
+    consultation: null,
+  } as Thread;
+
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.unstubAllGlobals();
+  });
+
+  async function showAgentRun(
+    tab: RunTab,
+    service: TestService,
+    onTab: (tab: RunTab) => void = () => undefined,
+  ): Promise<HTMLElement> {
+    vi.stubGlobal("fetch", service.fetch);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+    });
+    queryClient.setQueryData(roleQueries.list().queryKey, []);
+    queryClient.setQueryData(threadQueries.one(THREAD_ID).queryKey, stageThread);
+    queryClient.setQueryData(threadQueries.messages(THREAD_ID).queryKey, []);
+    const rootRoute = createRootRoute();
+    const taskRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/tasks/$taskId",
+      component: () => (
+        <RunDetails
+          taskId={TASK_ID}
+          stages={[implementStage]}
+          taskStage={implementStage}
+          run={endedRun}
+          tab={tab}
+          roles={[]}
+          names={(key) => key}
+          now={new Date("2026-11-04T13:00:00.000Z")}
+          onTab={onTab}
+          onReadSummary={() => undefined}
+          onClose={() => undefined}
+        />
+      ),
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([taskRoute]),
+      history: createMemoryHistory({ initialEntries: [`/tasks/${TASK_ID}`] }),
+    });
+    const page = document.createElement("div");
+    document.body.append(page);
+    await act(async () => {
+      createRoot(page).render(
+        <QueryClientProvider client={queryClient}>
+          <ThreadEventsContext value={new TestThreadEvents()}>
+            <RouterProvider router={router} />
+          </ThreadEventsContext>
+        </QueryClientProvider>,
+      );
+      await router.load();
+    });
+    for (let round = 0; round < 5; round += 1) {
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+    }
+    return page;
+  }
+
+  it("has no third tab for a run whose Thread had none", async () => {
+    const page = await showAgentRun("thread", new TestService());
+    expect(tabNames(page)).toEqual(["Summary", "Thread"]);
+    expect(page.querySelector(".sub-agents-and-processes-line")).toBeNull();
+  });
+
+  it("shows the view in its third tab, with the count, for a run that had any", async () => {
+    const service = new TestService();
+    service.list = [aProcess(), aProcess({ callId: "toolu_tests" })];
+    const page = await showAgentRun("sub-agents-and-processes", service);
+    expect(tabNames(page)).toEqual(["Summary", "Thread", "Sub-agents and processes 2"]);
+    expect(page.querySelector(".sub-agents-and-processes")).not.toBeNull();
+    expect(page.textContent).toContain("Read-only: only the Agent can stop them");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("switches to that tab from the line in the Thread tab, opening no window", async () => {
+    const service = new TestService();
+    service.list = [aProcess()];
+    const onTab = vi.fn<(tab: RunTab) => void>();
+    const page = await showAgentRun("thread", service, onTab);
+    const line = page.querySelector<HTMLElement>(".sub-agents-and-processes-line");
+    await act(async () => line?.click());
+    expect(onTab).toHaveBeenCalledWith("sub-agents-and-processes");
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 });

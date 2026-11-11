@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import type { Request, Response } from "express";
 import { launch } from "./launch.js";
 import { HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 
@@ -16,6 +17,8 @@ const E2E_DAY_MS = 2000;
  * closes it, so a request sent as that happens fails with ECONNRESET.
  */
 const E2E_KEEP_ALIVE_MS = 10 * 60 * 1000;
+/** `POST` it to release a scripted session's `wait` step (`ScriptedSession.reach`). */
+const E2E_MARK_PATH = "/api/e2e/marks/:mark";
 if (!scripts) throw new Error("The end-to-end service needs OFFICE_ENGINE_SCRIPTS.");
 if (!hostKey) throw new Error("The end-to-end service needs OFFICE_E2E_HOST_KEY.");
 if (!officeCheckout) throw new Error("The end-to-end service needs OFFICE_E2E_CHECKOUT.");
@@ -76,6 +79,14 @@ await launch(
     });
     const server: Server = app.getHttpServer();
     server.keepAliveTimeout = E2E_KEEP_ALIVE_MS;
+    // The scripted sessions run in here, and a test reaches the service over HTTP alone: this
+    // test-only route lets every session's replay go on past its `wait` step with that mark.
+    app
+      .getHttpAdapter()
+      .post(E2E_MARK_PATH, (request: Request<{ mark: string }>, response: Response) => {
+        for (const session of engine.sessions) session.reach(request.params.mark);
+        response.status(204).end();
+      });
     return app;
   },
   officeCheckout,

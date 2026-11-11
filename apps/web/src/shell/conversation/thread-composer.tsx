@@ -8,6 +8,7 @@ import { AlarmNote } from "../fire-alarm/alarm-note.tsx";
 import { OpenPageChip } from "../open-page-chip.tsx";
 import { roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { SubAgentsAndProcessesLine } from "../sub-agents-and-processes/sub-agents-and-processes-line.tsx";
 import { Composer } from "./composer.tsx";
 import { useHandoverNotes } from "./handover-notes.tsx";
 import { useThreadDrafts } from "./thread-drafts.tsx";
@@ -19,7 +20,8 @@ import { takesMessages } from "./thread-writing.ts";
  * the timeline doesn't, so its draft goes with the To line. A chat's Thread may have one waiting, and
  * a composer that `keepsDraft` leaves its own there, for when it comes back. Given the Open page, as
  * the chat drawer is, it shows the line that says the message goes with it, which the user can
- * leave out.
+ * leave out. Right above the message input, or the note saying why there is none, the line says
+ * what Sub-agents and Processes the session runs (spec 2.9).
  */
 export function ThreadComposer({
   thread,
@@ -32,6 +34,7 @@ export function ThreadComposer({
   onLeaveOutOpenPage,
   onDrafting,
   onSent,
+  onShowSubAgentsAndProcesses,
 }: {
   readonly thread: Thread;
   readonly personName: string;
@@ -49,6 +52,8 @@ export function ThreadComposer({
   readonly onLeaveOutOpenPage?: (() => void) | undefined;
   readonly onDrafting?: (drafting: boolean) => void;
   readonly onSent?: (threadId: string) => void;
+  /** What the Sub-agents and processes line does instead of opening its window. */
+  readonly onShowSubAgentsAndProcesses?: (() => void) | undefined;
 }): ReactNode {
   const threadId = thread.id;
   const roles = useQuery(roleQueries.list()).data;
@@ -84,6 +89,11 @@ export function ThreadComposer({
       {readOnlyReason === undefined && openPage && onLeaveOutOpenPage && (
         <OpenPageLine page={openPage} onLeaveOut={onLeaveOutOpenPage} />
       )}
+      <SubAgentsAndProcessesLine
+        thread={thread}
+        personName={personName}
+        onShow={onShowSubAgentsAndProcesses}
+      />
       {readOnlyReason === undefined ? (
         <Composer
           placeholder={
