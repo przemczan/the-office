@@ -1,0 +1,32 @@
+/* Mist: light and cool, a soft blue-grey, on the design system's light aliases. It keeps their
+   primary, inverse and status colours (spec §4). */
+:root[data-palette="mist"] {
+  --bg: #edf1f5;
+  --surface: #f8fafc;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e5eaf0;
+  --surface-hover: #f1f4f8;
+  --surface-selected: #f5e8e3;
+  --sidebar-bg: #edf1f5;
+  --sidebar-fg: #6b7685;
+  --sidebar-active-bg: #e1e7ee;
+  --sidebar-active-fg: #232a33;
+  --fg-1: #232a33;
+  --fg-2: #5c6775;
+  --fg-3: #8d97a4;
+  --border: #dde3ea;
+  --border-subtle: #e5eaf0;
+  --border-strong: #cdd5df;
+  --control-hover: #e5eaf0;
+  --control-press: #dae1e9;
+  --neutral-subtle: #e5eaf0;
+  --neutral-fg: #5c6775;
+  --neutral-border: #d8dfe7;
+}
+
+/* Mist's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-mist-page: #edf1f5;
+  --palette-mist-border: #cdd5df;
+  --palette-mist-line: #232a33;
+}

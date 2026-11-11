@@ -1,0 +1,37 @@
+/* Midnight: dark and blue-tinted, a deep navy rather than black, on the design system's dark
+   aliases, whose status colours it keeps (spec §4). */
+:root[data-palette="midnight"] {
+  --bg: #121826;
+  --surface: #182033;
+  --surface-raised: #1e2740;
+  --surface-sunken: #0e1320;
+  --surface-hover: #1d2539;
+  --surface-selected: #2b2430;
+  --surface-inverse: #e2e7f0;
+  --sidebar-bg: #121826;
+  --sidebar-fg: #a0aabd;
+  --sidebar-active-bg: #1e2740;
+  --sidebar-active-fg: #e2e7f0;
+  --fg-1: #d4dbe7;
+  --fg-2: #929db3;
+  --fg-3: #667189;
+  --fg-inverse: #121826;
+  --border: #232c42;
+  --border-subtle: #1e263a;
+  --border-strong: #303a54;
+  --primary: #d4dbe7;
+  --primary-fg: #121826;
+  --primary-hover: #e2e7f0;
+  --control-hover: #232c42;
+  --control-press: #2b3550;
+  --neutral-subtle: #1e2740;
+  --neutral-fg: #929db3;
+  --neutral-border: #2b3550;
+}
+
+/* Midnight's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-midnight-page: #121826;
+  --palette-midnight-border: #303a54;
+  --palette-midnight-line: #d4dbe7;
+}

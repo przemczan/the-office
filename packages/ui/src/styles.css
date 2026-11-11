@@ -4,6 +4,10 @@
 @import "./appearance/palettes/dark.css";
 @import "./appearance/palettes/graphite.css";
 @import "./appearance/palettes/paper.css";
+@import "./appearance/palettes/midnight.css";
+@import "./appearance/palettes/mist.css";
+@import "./appearance/palettes/mocha.css";
+@import "./appearance/palettes/sage.css";
 @import "./appearance/densities/compact.css";
 @import "./appearance/densities/comfortable.css";
 @import "./appearance/densities/relaxed.css";

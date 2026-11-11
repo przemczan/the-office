@@ -1,0 +1,32 @@
+/* Sage: light and soft, a muted green-grey, on the design system's light aliases. It keeps their
+   primary, inverse and status colours (spec §4). */
+:root[data-palette="sage"] {
+  --bg: #eef1ec;
+  --surface: #f8faf7;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e5e9e2;
+  --surface-hover: #f2f5f0;
+  --surface-selected: #f5e9e2;
+  --sidebar-bg: #eef1ec;
+  --sidebar-fg: #6d7769;
+  --sidebar-active-bg: #e2e7de;
+  --sidebar-active-fg: #262c24;
+  --fg-1: #262c24;
+  --fg-2: #5e685a;
+  --fg-3: #8f988b;
+  --border: #dde3d9;
+  --border-subtle: #e5e9e2;
+  --border-strong: #cdd5c8;
+  --control-hover: #e5e9e2;
+  --control-press: #dbe1d6;
+  --neutral-subtle: #e5e9e2;
+  --neutral-fg: #5e685a;
+  --neutral-border: #d7ddd2;
+}
+
+/* Sage's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-sage-page: #eef1ec;
+  --palette-sage-border: #cdd5c8;
+  --palette-sage-line: #262c24;
+}

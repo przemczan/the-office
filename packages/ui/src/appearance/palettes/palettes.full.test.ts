@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { PALETTES } from "../apply-appearance.ts";
+import { PALETTES, type Palette } from "../apply-appearance.ts";
 
 const SPEC = readFileSync(
   path.resolve(import.meta.dirname, "../../../../../docs/spec/4-ux-direction.md"),
@@ -31,8 +31,38 @@ function fileValues(palette: string): Record<string, string> {
   return Object.fromEntries(values);
 }
 
-describe("the palettes added in tier 3", () => {
-  it.each(["graphite", "paper"] as const)("%s sets exactly spec §4's colour values", (palette) => {
+/** WCAG's relative luminance of a `#rrggbb` colour. */
+function luminance(hex: string): number {
+  const [red = 0, green = 0, blue = 0] = [1, 3, 5].map((start) => {
+    const channel = Number.parseInt(hex.slice(start, start + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+/** WCAG's contrast ratio between two `#rrggbb` colours. */
+function contrast(first: string, second: string): number {
+  const [lighter = 0, darker = 0] = [luminance(first), luminance(second)].toSorted((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+const HEX = /^#[0-9a-f]{6}$/;
+const TEXT_ALIASES = ["--fg-1", "--fg-2"] as const;
+const BACKGROUND_ALIASES = ["--bg", "--surface", "--surface-raised"] as const;
+
+/** Light and Dark are the design system's own aliases; every other palette has its values in the spec. */
+const SPEC_PALETTES = Object.keys(PALETTES).filter(
+  (palette) => palette !== "light" && palette !== "dark",
+) as Palette[];
+
+/** The palettes whose file gives every text and background alias the contrast check reads. */
+const PALETTES_SETTING_TEXT = (Object.keys(PALETTES) as Palette[]).filter((palette) => {
+  const values = fileValues(palette);
+  return [...TEXT_ALIASES, ...BACKGROUND_ALIASES].every((alias) => HEX.test(values[alias] ?? ""));
+});
+
+describe("the palettes after Light and Dark", () => {
+  it.each(SPEC_PALETTES)("%s sets exactly spec §4's colour values", (palette) => {
     // The lockup's ink follows the palette's base (apps/web's brand-tone.ts), so no palette sets it.
     const { "--brand-ink": _brandInk, ...expected } = specValues(PALETTES[palette].name);
 
@@ -40,8 +70,30 @@ describe("the palettes added in tier 3", () => {
     expect(fileValues(palette)).toEqual(expected);
   });
 
-  it("puts Graphite over the dark base and Paper over the light one", () => {
-    expect(PALETTES.graphite.base).toBe("dark");
-    expect(PALETTES.paper.base).toBe("light");
+  it.each([
+    ["graphite", "dark"],
+    ["paper", "light"],
+    ["midnight", "dark"],
+    ["mist", "light"],
+    ["mocha", "dark"],
+    ["sage", "light"],
+  ] as const)("puts %s over the %s base", (palette, base) => {
+    expect(PALETTES[palette].base).toBe(base);
+  });
+});
+
+describe("text contrast", () => {
+  it("is checked on every palette but Light, which takes the design system's own", () => {
+    expect(PALETTES_SETTING_TEXT).toEqual(["dark", ...SPEC_PALETTES]);
+  });
+
+  it.each(PALETTES_SETTING_TEXT)("%s's text reaches 4.5:1 on its backgrounds", (palette) => {
+    const values = fileValues(palette);
+    for (const text of TEXT_ALIASES) {
+      for (const background of BACKGROUND_ALIASES) {
+        const ratio = contrast(values[text] ?? "", values[background] ?? "");
+        expect(ratio, `${text} on ${background}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 });

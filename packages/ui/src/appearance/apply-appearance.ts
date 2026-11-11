@@ -13,6 +13,10 @@ export const PALETTES = {
   dark: { name: "Dark", base: "dark" },
   graphite: { name: "Graphite", base: "dark" },
   paper: { name: "Paper", base: "light" },
+  midnight: { name: "Midnight", base: "dark" },
+  mist: { name: "Mist", base: "light" },
+  mocha: { name: "Mocha", base: "dark" },
+  sage: { name: "Sage", base: "light" },
 } as const satisfies Record<string, { readonly name: string; readonly base: PaletteBase }>;
 
 export type Palette = keyof typeof PALETTES;

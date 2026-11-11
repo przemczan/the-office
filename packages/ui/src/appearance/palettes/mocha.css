@@ -1,0 +1,37 @@
+/* Mocha: dark and warm, a brown-grey, on the design system's dark aliases, whose status colours it
+   keeps (spec §4). */
+:root[data-palette="mocha"] {
+  --bg: #1a1715;
+  --surface: #221e1b;
+  --surface-raised: #2a2521;
+  --surface-sunken: #151210;
+  --surface-hover: #28231f;
+  --surface-selected: #33261f;
+  --surface-inverse: #ebe4dc;
+  --sidebar-bg: #1a1715;
+  --sidebar-fg: #b0a69b;
+  --sidebar-active-bg: #2a2521;
+  --sidebar-active-fg: #ebe4dc;
+  --fg-1: #ddd5cc;
+  --fg-2: #a0958a;
+  --fg-3: #766c62;
+  --fg-inverse: #1a1715;
+  --border: #2e2824;
+  --border-subtle: #28231f;
+  --border-strong: #3c352f;
+  --primary: #ddd5cc;
+  --primary-fg: #1a1715;
+  --primary-hover: #ebe4dc;
+  --control-hover: #2e2824;
+  --control-press: #37302b;
+  --neutral-subtle: #2a2521;
+  --neutral-fg: #a0958a;
+  --neutral-border: #37302b;
+}
+
+/* Mocha's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-mocha-page: #1a1715;
+  --palette-mocha-border: #3c352f;
+  --palette-mocha-line: #ddd5cc;
+}

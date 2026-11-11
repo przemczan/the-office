@@ -120,10 +120,14 @@ for (const palette of PALETTES) {
   }
 }
 
-/** Graphite and Paper, which a system's light or dark can't show, so they are chosen in storage. */
+/** The palettes a system's light or dark can't show, so they are chosen in storage. */
 const CHOSEN_PALETTES = [
   { palette: "graphite", base: "dark" },
   { palette: "paper", base: "light" },
+  { palette: "midnight", base: "dark" },
+  { palette: "mist", base: "light" },
+  { palette: "mocha", base: "dark" },
+  { palette: "sage", base: "light" },
 ] as const;
 /** Where the browser keeps the chosen palette (packages/ui's APPEARANCE_RULES). */
 const PALETTE_STORAGE_KEY = "the-office.palette";
@@ -218,7 +222,7 @@ for (const { density, palette, widths } of CHOSEN_DENSITIES) {
 }
 
 test.describe("the palette", { tag: "@full" }, () => {
-  test.use({ colorScheme: "light" });
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
   test("chosen in the rail, it is shown at once and kept over the system's", async ({ page }) => {
     await page.goto("/now");
@@ -232,6 +236,10 @@ test.describe("the palette", { tag: "@full" }, () => {
       "Dark",
       "Graphite",
       "Paper",
+      "Midnight",
+      "Mist",
+      "Mocha",
+      "Sage",
       "Compact",
       "Comfortable",
       "Relaxed",
@@ -242,7 +250,11 @@ test.describe("the palette", { tag: "@full" }, () => {
       .evaluateAll((swatches) =>
         swatches.map((swatch) => getComputedStyle(swatch).backgroundColor),
       );
-    expect(new Set(swatchColours).size).toBe(4);
+    expect(new Set(swatchColours).size).toBe(8);
+    // Eight palettes and three densities still fit on a window 900 high.
+    const menuBox = await menu.boundingBox();
+    expect(menuBox?.y).toBeGreaterThanOrEqual(0);
+    expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(900);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-theme-menu.png") });
     await menu.getByRole("button", { name: "Dark" }).click();
 
@@ -255,6 +267,13 @@ test.describe("the palette", { tag: "@full" }, () => {
     await page.getByRole("menu").getByRole("button", { name: "Graphite" }).click();
     await expect(html).toHaveAttribute("data-palette", "graphite");
     await expect(html).toHaveAttribute("data-theme", "dark");
+
+    await page.getByRole("button", { name: "Theme" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Sage" }).click();
+    await expect(html).toHaveAttribute("data-palette", "sage");
+    await expect(html).toHaveAttribute("data-theme", "light");
+    await page.reload();
+    await expect(html).toHaveAttribute("data-palette", "sage");
   });
 
   test("chosen in one tab, it shows in the others", async ({ page, context }) => {
@@ -262,11 +281,16 @@ test.describe("the palette", { tag: "@full" }, () => {
     const other = await context.newPage();
     await other.goto("/now");
 
-    await page.getByRole("button", { name: "Theme" }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Paper" }).click();
+    for (const [name, palette, base] of [
+      ["Paper", "paper", "light"],
+      ["Mocha", "mocha", "dark"],
+    ] as const) {
+      await page.getByRole("button", { name: "Theme" }).click();
+      await page.getByRole("menu").getByRole("button", { name }).click();
 
-    await expect(other.locator("html")).toHaveAttribute("data-palette", "paper");
-    await expect(other.locator("html")).toHaveAttribute("data-theme", "light");
+      await expect(other.locator("html")).toHaveAttribute("data-palette", palette);
+      await expect(other.locator("html")).toHaveAttribute("data-theme", base);
+    }
   });
 });
 
