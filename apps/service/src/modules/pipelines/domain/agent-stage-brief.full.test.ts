@@ -34,11 +34,11 @@ const task: BriefTask = {
 
 describe("allowedCommands", () => {
   it("names exactly what the engine allows", () => {
-    expect(allowedCommands("read-only-git", COMMANDS, GIT)).toEqual({
+    expect(allowedCommands("read-only-git", COMMANDS, undefined, GIT)).toEqual({
       permission: { kind: "read-only-git" },
       words: "You may run read-only git (git status, git diff) only.",
     });
-    expect(allowedCommands("project-commands", COMMANDS, GIT)).toEqual({
+    expect(allowedCommands("project-commands", COMMANDS, undefined, GIT)).toEqual({
       permission: {
         kind: "project-commands",
         commandLines: ["npm run build", "npm test", "npm run test:full"],
@@ -46,10 +46,12 @@ describe("allowedCommands", () => {
       words:
         "You may run the Project's commands, exactly as written, and read-only git (git status, git diff):\n\n- build (Build): `npm run build`\n- test (Test): `npm test`\n- test-full (Full tests): `npm run test:full`",
     });
-    expect(allowedCommands("project-commands", [], GIT).words).toBe(
+    expect(allowedCommands("project-commands", [], undefined, GIT).words).toBe(
       "The Project has no commands to run, so you may run read-only git (git status, git diff) only.",
     );
-    expect(allowedCommands("anything", COMMANDS, GIT).permission).toEqual({ kind: "anything" });
+    expect(allowedCommands("anything", COMMANDS, undefined, GIT).permission).toEqual({
+      kind: "anything",
+    });
   });
 });
 
@@ -59,7 +61,7 @@ describe("agentStageRecord", () => {
       task,
       earlier: [],
       diffSummary: undefined,
-      commands: allowedCommands("read-only-git", [], GIT),
+      commands: allowedCommands("read-only-git", [], undefined, GIT),
       hardSwitches: HARD_SWITCHES,
     });
 
@@ -85,7 +87,7 @@ describe("agentStageRecord", () => {
       task: { ...task, linkedRecordsSection },
       earlier: [],
       diffSummary: undefined,
-      commands: allowedCommands("read-only-git", [], GIT),
+      commands: allowedCommands("read-only-git", [], undefined, GIT),
       hardSwitches: HARD_SWITCHES,
     });
 
@@ -104,7 +106,7 @@ describe("agentStageRecord", () => {
         { stageName: "Tests", kind: "script", outcome: { status: "failed", error: "1 fails." } },
       ],
       diffSummary: "2 files changed",
-      commands: allowedCommands("anything", [], GIT),
+      commands: allowedCommands("anything", [], undefined, GIT),
       hardSwitches: HARD_SWITCHES,
     });
 

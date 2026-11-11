@@ -85,6 +85,31 @@ describe("POST /api/pipelines", () => {
 
     expect(pipeline.stages).toEqual(edit.stages);
   });
+
+  it("keeps an Agent Stage's Project commands, and reads them back the same", async () => {
+    const edit = anEdit({ stages: [agentStage({ permissions: { commands: ["test"] } })] });
+    const pipeline = await added(edit);
+
+    const read = await send("GET", `/pipelines/${pipeline.id}`);
+
+    expect(pipelineSchema.parse(await read.json()).stages).toEqual(edit.stages);
+  });
+
+  it("refuses an Agent Stage whose Project commands are an empty list, or name install", async () => {
+    const empty = await send(
+      "POST",
+      "/pipelines",
+      anEdit({ stages: [agentStage({ permissions: { commands: [] } })] }),
+    );
+    const install = await send(
+      "POST",
+      "/pipelines",
+      anEdit({ stages: [agentStage({ permissions: { commands: ["install"] } })] }),
+    );
+
+    expect(empty.status).toBe(400);
+    expect(install.status).toBe(400);
+  });
 });
 
 /** A Role of its own per test, which no other Pipeline in the shared library names. */
@@ -276,7 +301,12 @@ describe("GET /api/pipelines/:id/use", () => {
   it("names the Projects whose default it is and counts its Tasks not started and running", async () => {
     const pipeline = await added();
     const projectId = randomUUID();
-    pipelines.projects.projects.push({ id: projectId, name: "App", defaultPipeline: pipeline.id });
+    pipelines.projects.projects.push({
+      id: projectId,
+      name: "App",
+      defaultPipeline: pipeline.id,
+      commands: [],
+    });
     for (const state of ["backlog", "planning", "paused", "done"]) {
       pipelines.tasks.put(randomUUID(), { state, pipelineId: pipeline.id });
     }

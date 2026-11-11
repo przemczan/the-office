@@ -24,8 +24,8 @@ import {
   STAGE_KIND_NAMES,
   withoutFailureRule,
   type AddedStage,
-  type StageCommand,
 } from "./stage-edits.ts";
+import { namedCommands, type StageCommandSource } from "./stage-commands.ts";
 import { StageForm } from "./stage-form.tsx";
 import "./stage-editor.css";
 
@@ -46,8 +46,8 @@ export interface StageEditorProps {
   /** Everyone hired, who may work an Agent Stage when their Task limit isn't none. */
   readonly roles: readonly Role[];
   readonly options: RoleCardOptions;
-  /** What each command runs in the Task's Project; absent where each Project runs its own. */
-  readonly commandLines?: Readonly<Record<StageCommand, string>>;
+  /** What a Script Stage may run: the Task's Project's commands, or every Project's. */
+  readonly commands?: StageCommandSource;
 }
 
 /**
@@ -285,7 +285,7 @@ function StageSummary({
   stages,
   name,
   roles,
-  commandLines,
+  commands,
 }: StageEditorProps & { readonly stage: Stage; readonly name: string }): ReactNode {
   const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
   const target = onFailure && stages.find(({ key }) => key === onFailure.goBackTo);
@@ -296,7 +296,12 @@ function StageSummary({
     stage.kind === "agent" &&
       stage.effort !== undefined &&
       `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
-    stage.kind === "agent" && stage.permissions !== undefined && "narrowed permission profile",
+    stage.kind === "agent" &&
+      Object.keys(stage.permissions ?? {}).some((part) => part !== "commands") &&
+      "narrowed permission profile",
+    stage.kind === "agent" &&
+      stage.permissions?.commands !== undefined &&
+      `Project commands: ${stage.permissions.commands.join(", ")}`,
     stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
     stage.kind === "script" &&
       stage.afterConflict === "review" &&
@@ -309,7 +314,10 @@ function StageSummary({
   return (
     <>
       <div className="stage-editor-name">
-        {name} <span className="stage-editor-who">· {whoWorks(stage, roles, commandLines)}</span>
+        {name}{" "}
+        <span className="stage-editor-who">
+          · {whoWorks(stage, roles, commands && namedCommands(commands))}
+        </span>
       </div>
       {details.length > 0 && <div className="stage-editor-detail">{details.join(" · ")}</div>}
     </>

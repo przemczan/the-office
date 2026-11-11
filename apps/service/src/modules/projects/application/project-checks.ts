@@ -2,7 +2,16 @@ import { isAbsolute, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { EngineModels, offeredModels, type EngineModel } from "../../engine/index.js";
-import { newProjectProblems, trimmedNewProject, type NewProject } from "../domain/project.js";
+import {
+  missingPipelineCommandsProblems,
+  namedByDefaultPipelineProblems,
+} from "../domain/pipeline-commands.js";
+import {
+  newProjectProblems,
+  trimmedNewProject,
+  type NewProject,
+  type Project,
+} from "../domain/project.js";
 import { environmentProblems, type ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { CLONE_REMOTE, Git, type FolderInspection } from "../ports/git.js";
@@ -32,7 +41,7 @@ export class ProjectChecks {
       ...newProjectProblems(newProject),
       ...this.repositoryUrlProblems(newProject),
       ...(await this.repositoryProblems(newProject)),
-      ...(await this.pipelineProblems(newProject.defaultPipeline)),
+      ...(await this.pipelineProblems(newProject)),
     ];
   }
 
@@ -45,13 +54,35 @@ export class ProjectChecks {
     return [
       ...newProjectProblems(newProject),
       ...this.repositoryUrlProblems(newProject),
-      ...(await this.pipelineProblems(newProject.defaultPipeline)),
+      ...(await this.pipelineProblems(newProject)),
     ];
   }
 
-  async checkDefaultPipeline(pipelineId: string): Promise<void> {
-    const problems = await this.pipelineProblems(pipelineId);
+  /** Refuses a Pipeline the library lacks, or one running a command the Project lacks. */
+  async checkDefaultPipeline(
+    project: Pick<Project, "defaultPipeline" | "commands" | "name">,
+  ): Promise<void> {
+    const problems = await this.pipelineProblems(project);
     if (problems.length > 0) throw new ProjectRefused(problems);
+  }
+
+  /** Refuses removing a command the Project's default Pipeline runs. */
+  async checkCommandRemoval(project: Pick<Project, "defaultPipeline">, key: string): Promise<void> {
+    const problems = await this.commandRemovalProblems(project, [key]);
+    if (problems.length > 0) throw new ProjectRefused(problems);
+  }
+
+  /**
+   * Why the commands can't be removed: the Project's default Pipeline runs one, so the default
+   * stays runnable in its Project. Another Pipeline's Stage fails as could-not-run instead.
+   */
+  async commandRemovalProblems(
+    { defaultPipeline }: Pick<Project, "defaultPipeline">,
+    keys: readonly string[],
+  ): Promise<string[]> {
+    if (keys.length === 0) return [];
+    const pipeline = await this.pipelines.commandsNamedBy(defaultPipeline);
+    return keys.flatMap((key) => namedByDefaultPipelineProblems(key, pipeline));
   }
 
   /** Refuses an engine Settings › Engines doesn't list, or a model it doesn't offer. */
@@ -114,8 +145,15 @@ export class ProjectChecks {
     );
   }
 
-  private async pipelineProblems(pipelineId: string): Promise<string[]> {
-    return (await this.pipelines.has(pipelineId)) ? [] : [`There is no Pipeline "${pipelineId}".`];
+  /** The Pipeline is in the library, and the Project has every command it runs. */
+  private async pipelineProblems({
+    defaultPipeline,
+    commands,
+    name,
+  }: Pick<NewProject, "defaultPipeline" | "commands" | "name">): Promise<string[]> {
+    const pipeline = await this.pipelines.commandsNamedBy(defaultPipeline);
+    if (!pipeline) return [`There is no Pipeline "${defaultPipeline}".`];
+    return missingPipelineCommandsProblems(pipeline, commands, name);
   }
 }
 

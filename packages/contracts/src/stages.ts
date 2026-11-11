@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { effortSchema, hardSwitchValueSchema, runPermissionSchema } from "./people.js";
+import { projectCommandKeySchema } from "./projects.js";
 
 /** "On failure go back to Stage X, at most N times": the Stage's key and its rounds. */
 export const onFailureSchema = z.object({
@@ -18,15 +19,29 @@ export type AfterConflict = z.infer<typeof afterConflictSchema>;
 /**
  * What an Agent Stage states of its Role card's permission profile (spec §6), each absent where the
  * card's stands: it may narrow the profile, never widen it, so editing and the web can only be taken
- * away. MCP tools are keyed `server/tool`, as on the card.
+ * away. MCP tools are keyed `server/tool`, as on the card. `commands` keeps only those of the
+ * Project's commands, by key; absent keeps every one, and install is never among them.
  */
 export const stagePermissionsSchema = z.object({
   edit: z.literal(false).optional(),
   run: runPermissionSchema.optional(),
   web: z.literal(false).optional(),
   mcpTools: z.record(z.string().regex(/^[a-z0-9-]+\/.+$/), hardSwitchValueSchema).optional(),
+  commands: z
+    .array(projectCommandKeySchema)
+    .min(1, "List at least one Project command, or leave the Role card's.")
+    .refine((keys) => new Set(keys).size === keys.length, {
+      error: "A Project command is listed twice.",
+    })
+    .optional(),
 });
 export type StagePermissions = z.infer<typeof stagePermissionsSchema>;
+
+/**
+ * What a Script Stage runs: `publish`, kept for Publish, or a Project command by its key. Install is
+ * never a Stage's, as it runs before every Stage on its own (spec §2.3).
+ */
+export const scriptStageCommandSchema = z.union([z.literal("publish"), projectCommandKeySchema]);
 
 const stageFields = {
   key: z.string().min(1),
@@ -57,7 +72,7 @@ export const stageSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("script"),
     ...stageFields,
-    command: z.enum(["build", "lint", "test", "publish"]),
+    command: scriptStageCommandSchema,
     /**
      * A Publish Stage's alone: by the Project's publishing mode, or pushing the Task's branch only,
      * for a proof of concept. Absent means the publishing mode.

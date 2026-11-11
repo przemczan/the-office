@@ -12,6 +12,7 @@ import { PLANNING_OFFICE_TOOLS } from "../conversations/task-thread-records.js";
 import type { Task } from "../../domain/task.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import {
+  KnownProjectsForTests,
   SessionTasksForTests,
   TaskDecisionsForTests,
   WorkSettingsForTests,
@@ -184,6 +185,36 @@ describe("propose_pipeline", () => {
       ),
       isError: true,
     });
+  });
+});
+
+/** Why a Task of the Project can't follow Full, which runs test, when the Project lacks it. */
+function refusal(projectId: string): string {
+  return `The Pipeline Full runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`;
+}
+
+describe("a Pipeline running a command the Task's Project lacks", () => {
+  const withoutTest = [{ key: "build", name: "Build", commandLine: "npm run build" }];
+
+  it("is refused when the Planner proposes it or the user confirms it, naming the command and the Project", async () => {
+    work.app.get(KnownProjectsForTests).commands.set(task.projectId, withoutTest);
+
+    const proposed = await call(PROPOSE_PIPELINE, { pipelineId: "full", why: "It changes code." });
+    const confirming = work.app.get(PlanningService).confirmPipeline(task.id, "full");
+
+    expect(proposed).toEqual({ text: refusal(task.projectId), isError: true });
+    await expect(confirming).rejects.toThrow(refusal(task.projectId));
+    expect(await current()).toMatchObject({ pipelineId: "quick-fix", proposedPipeline: undefined });
+  });
+
+  it("is refused when auto mode would accept it, as the command was removed since it was proposed", async () => {
+    await inAutoMode();
+    await writeTheParts();
+    await call(PROPOSE_PIPELINE, { pipelineId: "full", why: "It changes code." });
+    work.app.get(KnownProjectsForTests).commands.set(task.projectId, withoutTest);
+
+    expect(await call(MARK_PLANNED, {})).toEqual({ text: refusal(task.projectId), isError: true });
+    expect((await current()).state).toBe("planning");
   });
 });
 

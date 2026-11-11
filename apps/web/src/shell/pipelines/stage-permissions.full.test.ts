@@ -4,6 +4,7 @@ import { withRole } from "./stage-edits.ts";
 import {
   narrowerRuns,
   narrowerSettings,
+  withCommands,
   withMcpToolSetting,
   withPermissions,
 } from "./stage-permissions.ts";
@@ -48,6 +49,13 @@ describe("a Stage's permissions", () => {
     const narrowed = withMcpToolSetting(implement, "github/merge", { kind: "never" });
     expect(narrowed.permissions).toEqual({ mcpTools: { "github/merge": { kind: "never" } } });
     expect(withMcpToolSetting(narrowed, "github/merge", undefined)).toEqual(implement);
+  });
+
+  it("keeps only the Project commands listed, and the Role card's once none is", () => {
+    const narrowed = withCommands(withPermissions(implement, { web: false }), ["test", "lint"]);
+    expect(narrowed.permissions).toEqual({ web: false, commands: ["test", "lint"] });
+    expect(withCommands(narrowed, []).permissions).toEqual({ web: false });
+    expect(withCommands(withCommands(implement, ["test"]), [])).toEqual(implement);
   });
 
   it("drops the MCP tools set when another Role works the Stage", () => {

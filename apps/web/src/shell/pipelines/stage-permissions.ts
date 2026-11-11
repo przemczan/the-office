@@ -64,6 +64,14 @@ export function withMcpToolSetting(
   });
 }
 
+/**
+ * The Stage keeping only the Project commands `keys`; none goes back to the Role card's, every
+ * command, since the service refuses an empty list.
+ */
+export function withCommands(stage: AgentStage, keys: readonly string[]): AgentStage {
+  return withPermissions(stage, { commands: keys.length === 0 ? undefined : [...keys] });
+}
+
 function withoutUndefined<Value extends object>(value: Value): Value {
   return Object.fromEntries(
     Object.entries(value).filter(([, field]) => field !== undefined),

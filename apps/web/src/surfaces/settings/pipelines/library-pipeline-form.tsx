@@ -9,6 +9,7 @@ import {
   removePipeline,
   savePipeline,
 } from "../../../api/pipelines.ts";
+import { useLibraryCommands } from "../../../shell/pipelines/library-commands.ts";
 import { StageEditor } from "../../../shell/pipelines/stage-editor.tsx";
 import { checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
@@ -43,6 +44,7 @@ export function LibraryPipelineForm({
     placeholderData: keepPreviousData,
   });
   const problems = check.data?.problems ?? [];
+  const commands = useLibraryCommands();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -85,6 +87,7 @@ export function LibraryPipelineForm({
             problemsTitle="The Pipeline can't be saved yet"
             roles={roles}
             options={options}
+            commands={commands}
           />
         </div>
       </Card>

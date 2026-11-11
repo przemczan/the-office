@@ -13,6 +13,8 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import type { AgentCommand } from "../domain/agent-command.js";
+import type { Stage } from "../domain/stage.js";
+import { aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
 import { StageProjectCommands } from "./stage-project-commands.js";
 
 const SESSION = "the-stage's-session";
@@ -48,14 +50,14 @@ function tool(): StageProjectCommands {
 async function ranDuringTheStage(
   command: AgentCommand,
   toolCall = call,
+  { stage = implement, taskId = randomUUID() }: { stage?: Stage; taskId?: string } = {},
 ): Promise<OfficeToolResult> {
-  const taskId = randomUUID();
   pipelines.stageThreads.taskOfSession.set(SESSION, taskId);
   let answer: OfficeToolResult | undefined;
   pipelines.stageThreads.whileWorking = async () => {
     answer = await tool().inSession(command, toolCall);
   };
-  await walkStages(pipelines, [implement], taskId);
+  await walkStages(pipelines, [stage], taskId);
   if (!answer) throw new Error("The Stage's turn didn't run.");
   return answer;
 }
@@ -111,6 +113,73 @@ describe("StageProjectCommands", () => {
 
     expect(answer).toEqual({ text: refusal, isError: true });
     expect(pipelines.commands.agentCommands).toEqual([]);
+  });
+});
+
+describe("StageProjectCommands in a Stage narrowed to test", () => {
+  const narrowed = anAgentStage("implement", { permissions: { commands: ["test"] } });
+
+  /** Walks the narrowed Stage of a Task of the-office, with its two test commands. */
+  function ranInTheOffice(command: AgentCommand, toolCall = call): Promise<OfficeToolResult> {
+    const taskId = randomUUID();
+    const record = aTaskRecord();
+    pipelines.records.put(taskId, {
+      ...record,
+      project: {
+        ...record.project,
+        commands: [
+          { key: "test", name: "Tests", commandLine: "npm run verify" },
+          { key: "test-full", name: "Full tests", commandLine: "npm run verify:full" },
+        ],
+      },
+    });
+    return ranDuringTheStage(command, toolCall, { stage: narrowed, taskId });
+  }
+
+  it("refuses test-full by its key before anything runs, naming what the Stage may run", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+
+    const answer = await ranInTheOffice({ key: "test-full" });
+
+    expect(answer).toEqual({
+      text: "The test-full command isn't one this Stage may run; it may run test.",
+      isError: true,
+    });
+    expect(pipelines.commands.agentCommands).toEqual([]);
+  });
+
+  it("runs test, and install, by their keys", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+    ]);
+
+    const test = await ranInTheOffice({ key: "test" });
+    const install = await ranInTheOffice({ key: "install" });
+
+    expect(test.isError).toBe(false);
+    expect(install.isError).toBe(false);
+    expect(pipelines.commands.agentCommands.map(({ command }) => command)).toEqual([
+      { key: "test" },
+      { key: "install" },
+    ]);
+  });
+
+  it("judges a command line the Agent writes out as before", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const judged: string[] = [];
+    const judging = anOfficeToolCall(SESSION, (commandLine) => {
+      judged.push(commandLine);
+      return { allowed: true };
+    });
+
+    const answer = await ranInTheOffice({ commandLine: "npm run verify:full" }, judging);
+
+    expect(judged).toEqual(["npm run verify:full"]);
+    expect(answer.isError).toBe(false);
+    expect(pipelines.commands.agentCommands.map(({ command }) => command)).toEqual([
+      { commandLine: "npm run verify:full" },
+    ]);
   });
 });
 

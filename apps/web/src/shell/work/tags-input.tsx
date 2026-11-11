@@ -5,18 +5,27 @@ import "./tags-input.css";
 
 /**
  * A Task's Tags as chips, each removable, and a box adding one on Enter or a comma, suggesting the
- * Tags in use; Backspace in the empty box removes the last.
+ * Tags in use; Backspace in the empty box removes the last. Other lists of keys, such as a Stage's
+ * Project commands, name the group and the box their own way.
  */
 export function TagsInput({
   tags,
   suggestions,
   onChange,
   disabled = false,
+  label = "Tags",
+  addLabel = "Add a Tag",
+  placeholder = addLabel,
 }: {
   readonly tags: readonly string[];
   readonly suggestions: readonly string[];
   readonly onChange: (tags: readonly string[]) => void;
   readonly disabled?: boolean;
+  /** The group's accessible name. */
+  readonly label?: string;
+  /** The box's accessible name. */
+  readonly addLabel?: string;
+  readonly placeholder?: string;
 }): ReactNode {
   const [word, setWord] = useState("");
   const listId = useId();
@@ -26,7 +35,7 @@ export function TagsInput({
     if (changed !== tags) onChange(changed);
   };
   return (
-    <div className="tags-input" role="group" aria-label="Tags">
+    <div className="tags-input" role="group" aria-label={label}>
       {tags.map((tag) => (
         <Tag
           key={tag}
@@ -37,8 +46,8 @@ export function TagsInput({
       ))}
       <input
         className="tags-input-box"
-        aria-label="Add a Tag"
-        placeholder="Add a Tag"
+        aria-label={addLabel}
+        placeholder={placeholder}
         list={listId}
         value={word}
         disabled={disabled}

@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { RESOLVE_TEST_COMMAND } from "./resolve-stages.js";
 import type { StagePermissions } from "./stage-permissions.js";
 
 /** One step of a Pipeline (spec §2.3): work by an Agent in a Role, a Project command, or a Gate. */
@@ -14,10 +15,13 @@ export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
 };
 
 /**
- * The Project command a Script Stage runs. `publish` is the Project's publishing mode, run by The
- * Office's own git code rather than a command string (spec §9).
+ * What a Script Stage runs: a Project command by its key, or `PUBLISH_COMMAND`, the Project's
+ * publishing mode, run by The Office's own git code rather than a command line (spec §9).
  */
-export type ScriptStageCommand = "build" | "lint" | "test" | "publish";
+export type ScriptStageCommand = string;
+
+/** The command of a Publish Stage, kept from every Project command's keys. */
+export const PUBLISH_COMMAND = "publish";
 
 /**
  * Where a Publish Stage takes the Task's branch (spec §2.3's proof-of-concept publish target): by
@@ -89,6 +93,26 @@ export interface Gate extends StageFields {
 /** The Roles the Agent Stages among `stages` name, each once. */
 export function agentStageRoles(stages: readonly Stage[]): ReadonlySet<string> {
   return new Set(stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])));
+}
+
+/**
+ * The Project commands, by key, that `stage` among `stages` may run: a Script Stage's own, the
+ * Project's `test` for a Publish by the publishing mode, whose conflict Resolve and its Test take
+ * when an Agent Stage can work Resolve, and the keys an Agent Stage narrows its Project commands
+ * to (spec §2.3). The one source every missing-command check reads.
+ */
+export function commandKeysOfStage(stage: Stage, stages: readonly Stage[]): readonly string[] {
+  if (stage.kind === "agent") return stage.permissions?.commands ?? [];
+  if (stage.kind !== "script") return [];
+  if (stage.command !== PUBLISH_COMMAND) return [stage.command];
+  const resolvable =
+    stage.publishTarget !== "branch-only" && stages.some(({ kind }) => kind === "agent");
+  return resolvable ? [RESOLVE_TEST_COMMAND] : [];
+}
+
+/** The Project commands, by key, that `stages` may run, each once. */
+export function commandKeysNamedBy(stages: readonly Stage[]): readonly string[] {
+  return [...new Set(stages.flatMap((stage) => commandKeysOfStage(stage, stages)))];
 }
 
 /** Those of `named` that `already` doesn't hold: the Roles a save of Stages newly names. */

@@ -259,6 +259,17 @@ describe("the Project's commands", () => {
 
     expect(response.status).toBe(422);
   });
+
+  it("refuses to remove a command the Project's default Pipeline runs, naming the Pipeline", async () => {
+    const project = await addProject();
+
+    const response = await send("DELETE", `/projects/${project.id}/commands/test`);
+
+    expect(response.status).toBe(422);
+    expect(projectRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "Full, this Project's default Pipeline, runs test; choose another default first.",
+    ]);
+  });
 });
 
 describe("PUT /api/projects/:id/install-inputs", () => {

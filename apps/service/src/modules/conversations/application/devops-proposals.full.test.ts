@@ -104,7 +104,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
   it("drafts a Project's commands and a library Pipeline's Stages from a chat, each applied with a click", async () => {
     const project = await aProject();
     const pipeline = await aPipeline();
-    const stages = withLint(pipeline.stages);
+    const stages = narrowedToTest(withLint(pipeline.stages));
 
     const drafted = await chat.ninaProposes(
       [
@@ -730,4 +730,13 @@ function withLint(stages: readonly Stage[]): Stage[] {
     command: "lint",
   };
   return [...stages.slice(0, -1), lint, ...stages.slice(-1)];
+}
+
+/** The Stages with each Agent Stage keeping only the Project's test command. */
+function narrowedToTest(stages: readonly Stage[]): Stage[] {
+  return stages.map((stage) =>
+    stage.kind === "agent"
+      ? { ...stage, permissions: { ...stage.permissions, commands: ["test"] } }
+      : stage,
+  );
 }

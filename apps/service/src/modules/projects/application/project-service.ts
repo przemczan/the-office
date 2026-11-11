@@ -44,7 +44,11 @@ import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { OutputMask } from "../domain/output-mask.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
-import { proposedCommandsProblems, type ProposedCommands } from "../domain/proposed-commands.js";
+import {
+  proposedCommandsProblems,
+  removedCommandKeys,
+  type ProposedCommands,
+} from "../domain/proposed-commands.js";
 import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { EngineLevelsChecks } from "./engine-levels-checks.js";
@@ -168,7 +172,9 @@ export class ProjectService {
     return this.update(id, (project) => changeCommand(project, key, change));
   }
 
+  /** Refused while the Project's default Pipeline runs the command (spec §2.1). */
   async removeCommand(id: string, key: string): Promise<Project> {
+    await this.checks.checkCommandRemoval(await this.read(id), key);
     return this.update(id, (project) => removeCommand(project, key));
   }
 
@@ -182,16 +188,24 @@ export class ProjectService {
    */
   async proposedCommandsProblems(id: string, proposed: ProposedCommands): Promise<string[]> {
     const project = await this.find(id);
-    return project
-      ? proposedCommandsProblems(project, proposed)
-      : [new ProjectNotFound(id).message];
+    if (!project) return [new ProjectNotFound(id).message];
+    return [
+      ...proposedCommandsProblems(project, proposed),
+      ...(await this.checks.commandRemovalProblems(project, removedCommandKeys(proposed))),
+    ];
   }
 
   /**
    * Applies a Proposal of commands (spec §2.3) all or nothing: checked against the Project as its
-   * row is held and saved in one go, so a hand edit can't land between fields.
+   * row is held and saved in one go, so a hand edit can't land between fields. Refused while the
+   * default Pipeline runs a command it removes.
    */
   async changeCommandsAsProposed(id: string, proposed: ProposedCommands): Promise<Project> {
+    const removalProblems = await this.checks.commandRemovalProblems(
+      await this.read(id),
+      removedCommandKeys(proposed),
+    );
+    if (removalProblems.length > 0) throw new ProjectRefused(removalProblems);
     return this.updateTogether(id, (project) => changeCommandsAsProposed(project, proposed));
   }
 
@@ -244,8 +258,9 @@ export class ProjectService {
     return this.update(id, (project) => changeMark(project, mark));
   }
 
+  /** Refused for a Pipeline running a command the Project lacks (spec §2.3). */
   async changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {
-    await this.checks.checkDefaultPipeline(defaultPipeline);
+    await this.checks.checkDefaultPipeline({ ...(await this.read(id)), defaultPipeline });
     return this.update(id, (project) => changeDefaultPipeline(project, defaultPipeline));
   }
 

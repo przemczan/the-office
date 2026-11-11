@@ -276,7 +276,12 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     installProblem: string | undefined,
   ): Promise<StageThread> {
     const profile = narrowedPermissionProfile(card.permissionProfile, stage.permissions);
-    const commands = allowedCommands(profile.run, task.project.commands, READ_ONLY_GIT_COMMANDS);
+    const commands = allowedCommands(
+      profile.run,
+      task.project.commands,
+      stage.permissions?.commands,
+      READ_ONLY_GIT_COMMANDS,
+    );
     const answered = answeredQuestion(stage, earlierRuns);
     const held = heldRun(stage, earlierRuns);
     return this.threads.open({
@@ -325,7 +330,12 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (!person || (await this.noEngineListed())) return undefined;
     const task = await this.records.read(taskId);
     const { run } = narrowedPermissionProfile(person.card.permissionProfile, stage.permissions);
-    const commands = allowedCommands(run, task.project.commands, READ_ONLY_GIT_COMMANDS);
+    const commands = allowedCommands(
+      run,
+      task.project.commands,
+      stage.permissions?.commands,
+      READ_ONLY_GIT_COMMANDS,
+    );
     return this.threads.sessionAhead({
       taskId,
       projectId: task.project.id,

@@ -29,7 +29,7 @@ import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
 import { KnownEngineCascade } from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
-import { KnownProjects, type KnownProject } from "./known-projects.js";
+import { KnownProjects, type KnownProject, type KnownProjectCommand } from "./known-projects.js";
 import { NewProjects, type AddedProject } from "./new-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { StageResults, type TaskStageResults } from "./stage-results.js";
@@ -54,6 +54,9 @@ export const UNKNOWN_PROJECT = "no-such-project";
  */
 @Injectable()
 export class KnownProjectsForTests extends KnownProjects {
+  /** A Project's commands a test gives it, by the Project's id; any other has build, lint and test. */
+  readonly commands = new Map<string, readonly KnownProjectCommand[]>();
+
   async find(id: string): Promise<KnownProject | undefined> {
     if (id === UNKNOWN_PROJECT) return undefined;
     return {
@@ -62,7 +65,7 @@ export class KnownProjectsForTests extends KnownProjects {
       baseBranch: "main",
       defaultPipeline: "quick-fix",
       installCommand: "npm install",
-      commands: [
+      commands: this.commands.get(id) ?? [
         { key: "build", name: "Build", commandLine: "" },
         { key: "lint", name: "Lint", commandLine: "npm run lint" },
         { key: "test", name: "Test", commandLine: "npm test" },

@@ -1575,6 +1575,24 @@ test(
       ]);
       await runs.selectOption({ label: "Runs read-only git only" });
       await implement.getByLabel("Web", { exact: true }).selectOption({ label: "No web" });
+      // It keeps only the Project commands listed, picked from the Project's keys.
+      const commandBox = implement.getByLabel("Add a Project command");
+      await expect(commandBox).toHaveAttribute(
+        "placeholder",
+        "Role default: every Project command",
+      );
+      await commandBox.fill("test");
+      await commandBox.press("Enter");
+      await expect(implement.getByRole("group", { name: "Project commands" })).toContainText(
+        "test",
+      );
+      await expect(implement).toContainText("Project commands: test");
+      await implement
+        .getByText("Only these of the Project's commands; never install")
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-stage-editor-project-commands.png"),
+      });
 
       // An Agent Stage moved up behind Implement continues its session with the same Role.
       await dialog.getByRole("button", { name: "Agent Stage", exact: true }).click();
@@ -1632,7 +1650,7 @@ test(
           effort: "high",
           budget: 120_000,
           brief: "Keep the filters in the address.",
-          permissions: { run: "read-only-git", web: false },
+          permissions: { run: "read-only-git", web: false, commands: ["test"] },
         },
         {
           kind: "agent",

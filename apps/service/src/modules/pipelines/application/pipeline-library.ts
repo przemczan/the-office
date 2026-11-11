@@ -1,7 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import type { Pipeline } from "../domain/pipeline.js";
-import { agentStageRoles } from "../domain/stage.js";
+import { agentStageRoles, commandKeysNamedBy } from "../domain/stage.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
+
+/** A library Pipeline's name and the Project commands its Stages run, by key. */
+export interface PipelineCommands {
+  readonly name: string;
+  readonly keys: readonly string[];
+}
 
 /**
  * The Office-wide library of Pipelines, as other modules read it. The library editor in
@@ -21,6 +27,15 @@ export class PipelineLibrary {
 
   async has(id: string): Promise<boolean> {
     return (await this.find(id)) !== undefined;
+  }
+
+  /**
+   * The Pipeline's name and the Project commands, by key, its Stages run (`commandKeysNamedBy`);
+   * undefined for a Pipeline the library lacks.
+   */
+  async commandsNamedBy(id: string): Promise<PipelineCommands | undefined> {
+    const pipeline = await this.find(id);
+    return pipeline && { name: pipeline.name, keys: commandKeysNamedBy(pipeline.stages) };
   }
 
   /** The Roles the library's Agent Stages name, each once. */

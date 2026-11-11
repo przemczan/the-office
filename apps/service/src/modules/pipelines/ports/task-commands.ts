@@ -1,8 +1,14 @@
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 
-/** The Project commands a Script Stage runs; install runs before each Stage instead. */
-export type ScriptCommandKey = "build" | "lint" | "test";
+/** What a Project command does: a test command's run leaves the worktree as it was. */
+export type ScriptCommandKind = "build" | "lint" | "test";
+
+/** A Script Stage's command run: its kind, undefined when the Project has no such key, and its runs. */
+export interface ScriptCommandResult {
+  readonly kind: ScriptCommandKind | undefined;
+  readonly runs: readonly ScriptCommandRun[];
+}
 
 /** Told when a command waits for a free run environment, and when that wait is over. */
 export interface CommandWait {
@@ -42,18 +48,19 @@ export abstract class TaskCommands {
   ): Promise<Installation>;
 
   /**
-   * Runs a Script Stage's Project command in the Task's worktree: after each test run the
-   * worktree is restored and the files it wrote are moved out of it, to a folder named by the
-   * Stage run, and a failing test command runs once more. Returns each run, in order. A stop runs
-   * no other.
+   * Runs a Script Stage's Project command, by its key (never install's), in the Task's worktree:
+   * after each test-kind run the worktree is restored and the files it wrote are moved out of it,
+   * to a folder named by the Stage run, and a failing test command runs once more. Returns the
+   * command's kind and each run, in order; a key the Project lacks, or whose line is blank, gives
+   * a run that couldn't run. A stop runs no other.
    */
   abstract runCommand(
     projectId: string,
     taskId: string,
-    key: ScriptCommandKey,
+    key: string,
     stageRunId: string,
     options: TaskCommandOptions,
-  ): Promise<readonly ScriptCommandRun[]>;
+  ): Promise<ScriptCommandResult>;
 
   /**
    * Runs a command for an Agent at work on the Task (spec §6): one of the Project's by its key, or

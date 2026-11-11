@@ -17,10 +17,12 @@ import {
   webLabel,
   type RoleTitles,
 } from "../role-card-words.ts";
+import { TagsInput } from "../work/tags-input.tsx";
 import type { AgentStage } from "./stage-edits.ts";
 import {
   narrowerRuns,
   narrowerSettings,
+  withCommands,
   withMcpToolSetting,
   withPermissions,
 } from "./stage-permissions.ts";
@@ -36,17 +38,21 @@ interface StagePermissionFieldsProps {
   /** Who works the Stage; undefined while nobody does, when there is no card to narrow. */
   readonly role: Role | undefined;
   readonly options: RoleCardOptions;
+  /** The Projects' command keys, suggested for the Stage's Project commands. */
+  readonly commandKeys: readonly string[];
   readonly change: (stage: AgentStage) => void;
 }
 
 /**
  * The Stage's narrowing of its Role card's permission profile (spec §6): each part offers only
- * what is narrower than the card, so a Stage can't widen it.
+ * what is narrower than the card, so a Stage can't widen it. Its Project commands may name a key
+ * no Project has; the service refuses it once a Pipeline naming it is chosen.
  */
 export function StagePermissionFields({
   stage,
   role,
   options,
+  commandKeys,
   change,
 }: StagePermissionFieldsProps): ReactNode {
   if (!role) return null;
@@ -115,6 +121,25 @@ export function StagePermissionFields({
               onChange={(setting) => change(withMcpToolSetting(stage, key, setting))}
             />
           ))}
+          <div className="stage-editor-wide">
+            <Field
+              label="Project commands"
+              hint="Only these of the Project's commands; never install"
+            >
+              <TagsInput
+                label="Project commands"
+                addLabel="Add a Project command"
+                placeholder={
+                  permissions.commands === undefined
+                    ? cardDefault("every Project command")
+                    : "Add a Project command"
+                }
+                tags={permissions.commands ?? []}
+                suggestions={commandKeys}
+                onChange={(keys) => change(withCommands(stage, keys))}
+              />
+            </Field>
+          </div>
         </div>
       </Field>
     </div>

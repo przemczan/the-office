@@ -4,6 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import type { Author } from "../domain/author.js";
 import { orderAfter } from "../domain/manual-order.js";
+import { missingCommands, missingCommandsWords } from "../domain/pipeline-commands.js";
 import {
   createRunEnvironmentSetUpTask,
   isOpenRunEnvironmentSetUp,
@@ -44,7 +45,8 @@ export class RunEnvironmentSetUps {
 
   /**
    * The Project's open set-up Task, added now when it has none: Ready on "Set up run environment",
-   * in a worktree of its own made now, since the Task skips Planning.
+   * in a worktree of its own made now, since the Task skips Planning. Refused when the Project
+   * lacks a command that Pipeline runs.
    */
   async add(projectId: string, createdBy: Author): Promise<Task> {
     return this.locks.run(projectId, async () => {
@@ -52,8 +54,13 @@ export class RunEnvironmentSetUps {
       if (open) return open;
       const project = await this.projects.find(projectId);
       if (!project) throw new TaskRefused([`There is no Project "${projectId}".`]);
-      if (!(await this.pipelines.find(SET_UP_RUN_ENVIRONMENT_PIPELINE))) {
+      const pipeline = await this.pipelines.commandsNamedBy(SET_UP_RUN_ENVIRONMENT_PIPELINE);
+      if (!pipeline) {
         throw new TaskRefused(["The Pipeline library has no Set up run environment Pipeline."]);
+      }
+      const missing = missingCommands(pipeline, project);
+      if (missing.length > 0) {
+        throw new TaskRefused([missingCommandsWords(pipeline.name, missing, project.name)]);
       }
       const id = randomUUID();
       await this.worktrees.open(projectId, id).catch((error: unknown) => {

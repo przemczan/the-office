@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { READING_OFFICE_TOOLS } from "../../conversations/index.js";
+import type { AgentStage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
 import { STAGE_RESULT_SCHEMA } from "../domain/stage-result.js";
 import { startStageRun } from "../domain/stage-run-changes.js";
@@ -86,6 +87,40 @@ describe("AgentStageRunner", () => {
     expect(pipelines.stageThreads.ended).toEqual([
       { threadId: run?.threadId, handoverNote: "Left: the list's refresh.", closing: undefined },
     ]);
+  });
+
+  it("keeps only the Stage's Project commands, in the Brief and the allowed lines, now and ahead", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const narrowed: AgentStage = {
+      kind: "agent",
+      key: "implement",
+      name: "Implement",
+      optional: false,
+      role: "developer",
+      brief: "Implement the Plan until the Definition of Done is met.",
+      session: "fresh",
+      budget: 100_000,
+      permissions: { commands: ["test", "e2e"] },
+    };
+
+    const taskId = await walkStages(pipelines, [narrowed]);
+    await pipelines.app
+      .get(AgentStageRunner)
+      .sessionAhead(taskId, { stage: narrowed, stages: [narrowed], earlierRuns: [] });
+
+    const [request] = pipelines.stageThreads.requests;
+    expect(request?.session.profile.run).toEqual({
+      kind: "project-commands",
+      commandLines: ["npm test"],
+    });
+    const briefed = "- test (Test): `npm test`";
+    expect(request?.record).toContain(
+      `read-only git (git status, git diff, git log, git show):\n\n${briefed}`,
+    );
+    expect(request?.record).not.toContain("npm run build");
+    const [ahead] = pipelines.stageThreads.askedAhead;
+    expect(ahead?.record).toContain(briefed);
+    expect(ahead?.record).not.toContain("npm run build");
   });
 
   it("narrows the Role card's profile by the Stage's permissions, never widening it, and briefs the narrowed commands", async () => {

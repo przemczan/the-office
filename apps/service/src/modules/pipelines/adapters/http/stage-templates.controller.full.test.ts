@@ -76,6 +76,15 @@ describe("POST /api/stage-templates", () => {
 
     expect((await added(stage)).stage).toEqual(stage);
   });
+
+  it("keeps the Stage's Project commands, and reads them back the same", async () => {
+    const stage = aStage({ permissions: { commands: ["test", "lint"] } });
+    const template = await added(stage);
+
+    const read = await send("GET", `/stage-templates/${template.id}`);
+
+    expect(stageTemplateSchema.parse(await read.json()).stage).toEqual(stage);
+  });
 });
 
 describe("PUT /api/stage-templates/:id", () => {

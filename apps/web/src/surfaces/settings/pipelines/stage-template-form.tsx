@@ -11,6 +11,7 @@ import {
 } from "../../../api/pipelines.ts";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
 import { StageCheckAlerts } from "../../../shell/pipelines/stage-check-alerts.tsx";
+import { useLibraryCommands } from "../../../shell/pipelines/library-commands.ts";
 import {
   STAGE_KIND_ICONS,
   STAGE_KIND_NAMES,
@@ -67,6 +68,7 @@ export function StageTemplateForm({
     placeholderData: keepPreviousData,
   });
   const problems = check.data?.problems ?? [];
+  const commands = useLibraryCommands();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -123,6 +125,7 @@ export function StageTemplateForm({
             onChange={([changed]) => changed && setDraft(changed)}
             roles={roles}
             options={options}
+            commands={commands}
             template
           />
         </div>

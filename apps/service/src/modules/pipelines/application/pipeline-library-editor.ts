@@ -5,6 +5,7 @@ import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import {
   addedPipeline,
   copiedPipeline,
+  missingCommandProblems,
   pipelineEditFlags,
   pipelineEditProblems,
   pipelineUse,
@@ -33,7 +34,8 @@ const LIBRARY = "library";
  * The library editor (spec §2.3): the user adds a Pipeline from scratch or as a copy, saves one, and
  * removes one nobody needs. Saving changes the Tasks that haven't started and follow it; a started
  * Task, or one edited for itself, keeps its own Stages. A save that newly names a Role whose engine
- * can't work an Agent Stage is refused (spec §5.4).
+ * can't work an Agent Stage is refused (spec §5.4), and so is one naming a command a Project running
+ * the Pipeline lacks (spec §2.3).
  */
 @Injectable()
 export class PipelineLibraryEditor {
@@ -51,7 +53,7 @@ export class PipelineLibraryEditor {
   async add(edit: PipelineEdit): Promise<Pipeline> {
     return this.changes.run(LIBRARY, async () => {
       const library = await this.repository.list();
-      await this.refuseProblems(edit, library, library);
+      await this.refuseProblems(undefined, edit, library, library);
       const { pipeline, event } = addedPipeline(randomUUID(), edit);
       await this.repository.add(pipeline);
       await this.events.publish(event);
@@ -75,7 +77,7 @@ export class PipelineLibraryEditor {
     return this.changes.run(LIBRARY, async () => {
       const library = await this.repository.list();
       if (!library.some((pipeline) => pipeline.id === id)) throw new UnknownPipeline(id);
-      await this.refuseProblems(edit, othersThan(id, library), library);
+      await this.refuseProblems(id, edit, othersThan(id, library), library);
       return this.store(id, edit);
     });
   }
@@ -142,6 +144,7 @@ export class PipelineLibraryEditor {
       problems: [
         ...pipelineEditProblems(edit, others),
         ...(await this.roleEngineProblems(edit.stages, library)),
+        ...(await this.missingCommandProblems(pipelineId, edit.stages)),
       ],
       flags: [
         ...pipelineEditFlags(edit, await this.roleFillings.of(edit.stages)),
@@ -158,6 +161,7 @@ export class PipelineLibraryEditor {
   }
 
   private async refuseProblems(
+    pipelineId: string | undefined,
     edit: PipelineEdit,
     others: readonly Pipeline[],
     library: readonly Pipeline[],
@@ -165,6 +169,7 @@ export class PipelineLibraryEditor {
     const problems = [
       ...pipelineEditProblems(edit, others),
       ...(await this.roleEngineProblems(edit.stages, library)),
+      ...(await this.missingCommandProblems(pipelineId, edit.stages)),
     ];
     if (problems.length > 0) throw new StagesEditRefused(problems);
   }
@@ -178,7 +183,21 @@ export class PipelineLibraryEditor {
     return [
       ...proposedStagesProblems(pipeline, from, to, othersThan(pipeline.id, library)),
       ...(await this.roleEngineProblems(to, library)),
+      ...(await this.missingCommandProblems(pipeline.id, to)),
     ];
+  }
+
+  /**
+   * The commands the Stages name that a Project running the Pipeline lacks: one naming it as its
+   * default, or with a not-started Task on it. A new Pipeline has neither.
+   */
+  private async missingCommandProblems(
+    pipelineId: string | undefined,
+    stages: readonly Stage[],
+  ): Promise<StageProblem[]> {
+    if (pipelineId === undefined) return [];
+    const [projects, tasks] = await Promise.all([this.projects.list(), this.tasks.list()]);
+    return missingCommandProblems(pipelineId, stages, projects, tasks);
   }
 
   /**

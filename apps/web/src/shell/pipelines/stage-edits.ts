@@ -1,4 +1,5 @@
 import type { Stage, StageTemplate } from "@the-office/contracts";
+import { PUBLISH_COMMAND } from "./stage-commands.ts";
 import { withPermissions } from "./stage-permissions.ts";
 
 /**
@@ -24,8 +25,6 @@ export const STAGE_KIND_ICONS: Readonly<Record<StageKind, string>> = {
   script: "terminal",
   gate: "hand",
 };
-
-export const STAGE_COMMANDS: readonly StageCommand[] = ["test", "lint", "build", "publish"];
 
 /** Tokens an added Agent Stage may spend, as the click-through's default. */
 const NEW_AGENT_STAGE_BUDGET = 100_000;
@@ -152,9 +151,12 @@ export function withRole(stages: readonly Stage[], index: number, role: string):
     : changed;
 }
 
-/** The Script Stage running another command; only a Publish Stage keeps what Publish alone says. */
+/**
+ * The Script Stage running another command, Publish or any Project command's key; only a Publish
+ * Stage keeps what Publish alone says.
+ */
 export function withCommand(stage: ScriptStage, command: StageCommand): ScriptStage {
-  if (command === "publish") return { ...stage, command };
+  if (command === PUBLISH_COMMAND) return { ...stage, command };
   const { publishTarget: _publishTarget, afterConflict: _afterConflict, ...rest } = stage;
   return { ...rest, command };
 }

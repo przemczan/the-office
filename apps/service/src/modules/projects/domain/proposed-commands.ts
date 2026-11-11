@@ -81,6 +81,11 @@ export function proposedCommands(project: Project, given: CommandsToPropose): Pr
   };
 }
 
+/** The keys of the commands the Proposal removes. */
+export function removedCommandKeys({ commands }: ProposedCommands): string[] {
+  return commands.filter(({ to }) => to === null).map(({ key }) => key);
+}
+
 /**
  * Every reason a Proposal can't apply to the Project as it is: it changes nothing, a field it
  * changes changed since it was drafted (`from`), or a value it proposes breaks a rule the Project

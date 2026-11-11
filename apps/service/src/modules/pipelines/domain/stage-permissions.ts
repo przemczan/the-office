@@ -18,4 +18,9 @@ export interface StagePermissions {
   readonly web?: false;
   /** Keyed `server/tool`; a tool the Role's MCP servers don't have is ignored. */
   readonly mcpTools?: Readonly<Record<string, HardSwitchOnCard>>;
+  /**
+   * The keys of the Project's commands the Stage keeps; absent keeps every one, as the card has no
+   * list of its own. A key the Project lacks adds nothing, and install is never among them.
+   */
+  readonly commands?: string[];
 }
