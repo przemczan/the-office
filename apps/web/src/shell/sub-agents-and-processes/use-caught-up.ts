@@ -23,8 +23,10 @@ export interface CaughtUpStream<Part extends Sequenced> {
   readonly parts: readonly Part[];
   /** Undefined until the first read answers. */
   readonly earlierNotKept: number | undefined;
-  /** Why the last read failed; the next connection reads again. */
+  /** Why the last read failed; the next connection, or `readAgain`, reads again. */
   readonly error: Error | null;
+  /** Reads again from the last part held, holding what arrives meanwhile, as a reconnect does. */
+  readonly readAgain: () => void;
 }
 
 /**
@@ -76,6 +78,10 @@ export function useCaughtUpStream<Part extends Sequenced>({
     setShown(step.state);
     if (step.readAfter !== undefined) readFrom(step.readAfter);
   };
+  const readAgain = (): void => {
+    take({ state: readingAgain(held.current) });
+    readFrom(held.current.lastSequence);
+  };
 
   useThreadEvents({
     threadId,
@@ -83,10 +89,7 @@ export function useCaughtUpStream<Part extends Sequenced>({
     onEvent: (event) => {
       for (const part of partsOf(event)) take(withPart(held.current, part));
     },
-    onSubscribed: () => {
-      take({ state: readingAgain(held.current) });
-      readFrom(held.current.lastSequence);
-    },
+    onSubscribed: readAgain,
   });
-  return { parts: shown.parts, earlierNotKept, error };
+  return { parts: shown.parts, earlierNotKept, error, readAgain };
 }

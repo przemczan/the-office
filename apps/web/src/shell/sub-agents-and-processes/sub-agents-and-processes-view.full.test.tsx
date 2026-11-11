@@ -153,6 +153,25 @@ describe("the list", () => {
     expect(itemTitles(page, "Ended")).toEqual([devServer.description]);
   });
 
+  it("keeps showing the item it showed first as that one ends", async () => {
+    service.list = [devServer, explore];
+    const page = await rendered();
+    expect(item(page, devServer.description)?.getAttribute("aria-current")).toBe("true");
+    const ended = {
+      ...devServer,
+      state: "finished",
+      ending: { state: "finished" },
+      exitCode: 0,
+      endedAt: endedAfter(5000),
+      revision: 2,
+    } as const;
+    await sent(itemEvent("thread.process-ended", ended));
+    expect(item(page, devServer.description)?.getAttribute("aria-current")).toBe("true");
+    expect(page.querySelector(".sub-agents-and-processes-command")?.textContent).toBe(
+      devServer.commandLine,
+    );
+  });
+
   it("stacks the list and the details on a narrow view, with a way back to the list", async () => {
     service.list = [explore, finishedProcess];
     const page = await rendered();
@@ -201,6 +220,24 @@ describe("a Process's details", () => {
       `/api/threads/${THREAD_ID}/processes/${devServer.callId}/output?after=3`,
     );
     expect(output(page).textContent).toBe("line 1\nline 2\nline 3\nline 4\n");
+  });
+
+  it("says when the output can't be read, and Try again reads it, with what came meanwhile", async () => {
+    service.list = [devServer];
+    service.output.set(devServer.callId, [chunk(1), chunk(2)]);
+    service.outputUnreadable = true;
+    const page = await rendered();
+    expect(page.textContent).toContain("The output wasn't read");
+    await sent(outputEvent(devServer.callId, 3, "line 3\n"));
+
+    service.outputUnreadable = false;
+    await pressed(
+      [...page.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("Try again"),
+      ),
+    );
+    expect(page.textContent).not.toContain("The output wasn't read");
+    expect(output(page).textContent).toBe("line 1\nline 2\nline 3\n");
   });
 
   it("follows the end until the reader scrolls up, then offers Jump to the end", async () => {

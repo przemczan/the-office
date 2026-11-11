@@ -105,6 +105,8 @@ export class TestService {
   readonly output = new Map<string, OutputChunk[]>();
   readonly messages = new Map<string, SubAgentMessage[]>();
   earlierOutputNotKept = 0;
+  /** While set, a Process's output can't be read: the service answers 500. */
+  outputUnreadable = false;
   readonly reads: string[] = [];
 
   readonly fetch = async (input: string | URL | Request): Promise<Response> => {
@@ -114,6 +116,12 @@ export class TestService {
     const [, , , , what, callId] = url.pathname.split("/");
     if (what === "sub-agents-and-processes") return answer(this.list);
     if (what === "processes" && callId !== undefined) {
+      if (this.outputUnreadable) {
+        return new Response(JSON.stringify({ message: "The output store is down." }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       const chunks = this.output.get(decodeURIComponent(callId)) ?? [];
       return answer({
         chunks: chunks.filter(({ sequence }) => sequence > after),

@@ -62,6 +62,8 @@ export function SubAgentsAndProcessesView({
   const [pane, setPane] = useState<"list" | "details">("list");
   const { running, ended } = listGroups(items);
   const picked = items.find(({ callId }) => callId === pickedId) ?? running.at(0) ?? ended.at(0);
+  // What shows stays picked, so the details don't move to the next one running as it ends.
+  if (picked !== undefined && picked.callId !== pickedId) setPickedId(picked.callId);
   const pick = (callId: string): void => {
     setPickedId(callId);
     setPane("details");
@@ -253,6 +255,14 @@ function EndingStrip({ item }: { readonly item: SubAgentOrProcess }): ReactNode 
   );
 }
 
+function TryAgain({ onPress }: { readonly onPress: () => void }): ReactNode {
+  return (
+    <Button variant="secondary" size="sm" onClick={onPress}>
+      Try again
+    </Button>
+  );
+}
+
 /**
  * A Process: its command whole, then its output in monospace, following the end while it runs
  * until the reader scrolls up, then Jump to the end. Only the output scrolls.
@@ -324,7 +334,11 @@ function ProcessDetails({
             ))}
         </div>
         {output.error !== null && (
-          <RefusalAlert title="The output wasn't read" error={output.error} />
+          <RefusalAlert
+            title="The output wasn't read"
+            error={output.error}
+            action={<TryAgain onPress={output.readAgain} />}
+          />
         )}
         <pre
           ref={outputBox}
@@ -430,7 +444,11 @@ function SubAgentDetails({
         </div>
         {dropped !== undefined && <p className="sub-agents-and-processes-quiet">{dropped}</p>}
         {messages.error !== null && (
-          <RefusalAlert title="The messages weren't read" error={messages.error} />
+          <RefusalAlert
+            title="The messages weren't read"
+            error={messages.error}
+            action={<TryAgain onPress={messages.readAgain} />}
+          />
         )}
       </div>
       <div className="sub-agents-and-processes-messages">

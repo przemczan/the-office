@@ -24,6 +24,15 @@
   background: var(--control-hover);
 }
 
+/* Inset, as the line, the list's items and the output fill their places edge to edge. */
+.sub-agents-and-processes-line:focus-visible,
+.sub-agents-and-processes-item:focus-visible,
+.sub-agents-and-processes-back:focus-visible,
+.sub-agents-and-processes-output:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
 .sub-agents-and-processes-line[aria-expanded="true"] {
   background: var(--control-press);
 }
