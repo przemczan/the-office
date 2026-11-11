@@ -8,11 +8,11 @@ import type {
   TestResultState,
 } from "@the-office/contracts";
 import { Badge, Button, FoldButton, Icon } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { UnifiedDiffView } from "../../shell/unified-diff-view.tsx";
-import { diffOfFile, editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
+import { diffsOfFiles, editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
 import { RecordBlock } from "./record-block.tsx";
 import { firstLine } from "./stage-words.ts";
 
@@ -51,6 +51,11 @@ export function ChangesView({
   readonly testResults: readonly TestResult[];
 }): ReactNode {
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
+  const diffs = useMemo(() => diffsOfFiles(changes.diff, changes.files), [changes]);
+  const toggle = useCallback(
+    (path: string) => setUnfolded((previous) => toggled(previous, path)),
+    [],
+  );
   if (changes.files.length === 0) {
     return (
       <RecordBlock icon="git-compare" title="Files changed">
@@ -87,10 +92,10 @@ export function ChangesView({
           <FileRow
             key={file.path}
             file={file}
-            diff={diffOfFile(changes.diff, file.path)}
+            diff={diffs.get(file.path)}
             worktreePath={changes.worktreePath}
             unfolded={unfolded.has(file.path)}
-            onToggle={() => setUnfolded(toggled(unfolded, file.path))}
+            onToggle={toggle}
           />
         ))}
       </ul>
@@ -104,9 +109,9 @@ export function ChangesView({
 
 /**
  * A file of the list: its header unfolds its diff, and it opens in the editor while the Task has its
- * worktree and the file.
+ * worktree and the file. Memoised, so folding one file re-renders only its row.
  */
-function FileRow({
+const FileRow = memo(function FileRow({
   file,
   diff,
   worktreePath,
@@ -118,13 +123,17 @@ function FileRow({
   readonly diff: string | undefined;
   readonly worktreePath: string | null;
   readonly unfolded: boolean;
-  readonly onToggle: () => void;
+  readonly onToggle: (path: string) => void;
 }): ReactNode {
   const lines = fileLineWords(file);
   return (
     <li>
       <div className="changes-file-head">
-        <FoldButton className="changes-fold" unfolded={unfolded} onClick={onToggle}>
+        <FoldButton
+          className="changes-fold"
+          unfolded={unfolded}
+          onClick={() => onToggle(file.path)}
+        >
           <span className="changes-path">
             {file.previousPath !== null && `${file.previousPath} → `}
             {file.path}
@@ -163,7 +172,7 @@ function FileRow({
       )}
     </li>
   );
-}
+});
 
 function toggled(paths: ReadonlySet<string>, path: string): ReadonlySet<string> {
   const next = new Set(paths);

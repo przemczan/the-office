@@ -36,12 +36,38 @@ export function editorLink(worktreePath: string, filePath?: string): string {
 }
 
 /**
- * The part of a Task's diff for one changed file, from its "diff --git" line to the next; undefined
- * when the diff stops before it. git quotes a path holding unusual characters.
+ * Each changed file's part of a Task's diff, from its "diff --git" line to the next, by the file's
+ * path; a file the diff stops before is absent. The diff is split once, as it can hold many files.
  */
-export function diffOfFile(diff: string, path: string): string | undefined {
-  return diff.split(/^(?=diff --git )/m).find((file) => {
-    const header = file.split("\n", 1)[0] ?? "";
-    return header.endsWith(` b/${path}`) || header.endsWith(` "b/${path}"`);
-  });
+export function diffsOfFiles(
+  diff: string,
+  files: readonly ChangedFile[],
+): ReadonlyMap<string, string> {
+  const paths = new Set(files.map(({ path }) => path));
+  const diffs = new Map<string, string>();
+  for (const part of diff.split(/^(?=diff --git )/m)) {
+    for (const path of headerPaths(part.split("\n", 1)[0] ?? "")) {
+      if (paths.has(path) && !diffs.has(path)) diffs.set(path, part);
+    }
+  }
+  return diffs;
+}
+
+/**
+ * Every path a "diff --git" header can end with: what follows a " b/", or a ' "b/' up to the closing
+ * quote, as git quotes a path holding unusual characters. An unquoted path may itself hold " b/",
+ * so each one is a candidate.
+ */
+function headerPaths(header: string): string[] {
+  const candidates: string[] = [];
+  for (const [marker, closing] of [
+    [" b/", ""],
+    [' "b/', '"'],
+  ] as const) {
+    if (!header.endsWith(closing)) continue;
+    for (let at = header.indexOf(marker); at !== -1; at = header.indexOf(marker, at + 1)) {
+      candidates.push(header.slice(at + marker.length, header.length - closing.length));
+    }
+  }
+  return candidates;
 }

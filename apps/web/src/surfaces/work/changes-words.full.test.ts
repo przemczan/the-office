@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { diffOfFile, editorLink, fileLineWords } from "./changes-words.ts";
+import type { ChangedFile } from "@the-office/contracts";
+import { diffsOfFiles, editorLink, fileLineWords } from "./changes-words.ts";
 
 describe("fileLineWords", () => {
   it("counts a text file's lines and calls a binary file binary", () => {
@@ -37,7 +38,11 @@ describe("editorLink", () => {
   });
 });
 
-describe("diffOfFile", () => {
+function changed(path: string, previousPath: string | null = null): ChangedFile {
+  return { path, previousPath, lines: { added: 1, removed: 1 }, deleted: false };
+}
+
+describe("diffsOfFiles", () => {
   const diff = [
     "diff --git a/one.ts b/one.ts",
     "--- a/one.ts",
@@ -49,18 +54,51 @@ describe("diffOfFile", () => {
     "new file mode 100644",
     "@@ -0,0 +1 @@",
     "+c",
+    "diff --git a/old/name.ts b/new/name.ts",
+    "similarity index 90%",
+    "rename from old/name.ts",
+    "rename to new/name.ts",
     "",
   ].join("\n");
+  const files = [
+    changed("one.ts"),
+    changed("two words.ts"),
+    changed("new/name.ts", "old/name.ts"),
+    changed("three.ts"),
+  ];
 
   it("finds each file's part of the diff", () => {
-    expect(diffOfFile(diff, "one.ts")).toBe(
+    const diffs = diffsOfFiles(diff, files);
+    expect(diffs.get("one.ts")).toBe(
       "diff --git a/one.ts b/one.ts\n--- a/one.ts\n+++ b/one.ts\n@@ -1 +1 @@\n-a\n+b\n",
     );
-    expect(diffOfFile(diff, "two words.ts")).toMatch(/^diff --git "a\/two words\.ts".*\+c\n$/s);
+    expect(diffs.get("two words.ts")).toMatch(/^diff --git "a\/two words\.ts".*\+c\n$/s);
+    expect(diffs.get("new/name.ts")).toMatch(
+      /^diff --git a\/old\/name\.ts .*rename to new\/name\.ts\n$/s,
+    );
   });
 
   it("finds nothing for a file the diff stops before", () => {
-    expect(diffOfFile(diff, "three.ts")).toBeUndefined();
-    expect(diffOfFile("", "one.ts")).toBeUndefined();
+    expect(diffsOfFiles(diff, files).has("three.ts")).toBe(false);
+    expect(diffsOfFiles("", files).size).toBe(0);
+  });
+
+  it("gives each of a few hundred files its own part", () => {
+    const paths = Array.from({ length: 400 }, (_, index) => `src/file-${index}.ts`);
+    const manyDiffs = paths
+      .map(
+        (path, index) => `diff --git a/${path} b/${path}\n@@ -1 +1 @@\n-${index}\n+${index + 1}\n`,
+      )
+      .join("");
+    const diffs = diffsOfFiles(
+      manyDiffs,
+      paths.map((path) => changed(path)),
+    );
+    expect(diffs.size).toBe(paths.length);
+    paths.forEach((path, index) => {
+      expect(diffs.get(path)).toBe(
+        `diff --git a/${path} b/${path}\n@@ -1 +1 @@\n-${index}\n+${index + 1}\n`,
+      );
+    });
   });
 });

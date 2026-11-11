@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { diffLines } from "./unified-diff.ts";
 import "./unified-diff.css";
 
@@ -11,7 +11,7 @@ export function UnifiedDiffView({
   /** What the diff compares, for whoever can't see the colours. */
   readonly label: string;
 }): ReactNode {
-  const lines = diffLines(diff);
+  const lines = useMemo(() => diffLines(diff), [diff]);
   if (lines.length === 0) return null;
   return (
     <pre className="unified-diff" aria-label={label}>

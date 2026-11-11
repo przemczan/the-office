@@ -1897,6 +1897,10 @@
 
 .changes-diff {
   padding: 4px 0 10px;
+  /* "Unfold all" on a long diff lays out and paints only the diffs on screen; the size stands in for
+     one that is off screen, about a diff at its max-height (unified-diff.css). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
 }
 
 .changes-cut {
