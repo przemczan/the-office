@@ -4655,7 +4655,7 @@ async function addTaskToInitiative(
 
 // The engine replays the last sessions in e2e/sessions.jsonl: Bob writes the outcome while the
 // Initiative is shaped, then proposes a new one once it is active, and answers in a chosen Thread
-// of his tab.
+// of Bob's tab.
 test(
   "the user shapes an Idea into an Initiative with Bob, adds its Tasks, confirms it, applies Bob's Proposal, folds a block, writes in a chosen Thread and drops it",
   { tag: "@full" },
@@ -4889,7 +4889,7 @@ test(
         conversation.getByText("Shapes the outcome and the Tasks with you"),
       ).toBeVisible();
 
-      // Jan has no Thread here yet: planning starts from the head, and the address names his tab.
+      // Jan has no Thread here yet: planning starts from the head, and the address names Jan's tab.
       await tabs.filter({ hasText: "Jan" }).click();
       await expect(page).toHaveURL(/initiativeThread=planner$/);
       await expect(conversation.getByRole("heading", { name: "Jan · Planner" })).toBeVisible();
@@ -4902,7 +4902,7 @@ test(
       await tabs.filter({ hasText: "Bob" }).click();
       await expect(page).toHaveURL(/initiativeThread=cto$/);
 
-      // With a second Thread of Bob's, his tab folds the older one; the To line starts on the
+      // With a second Thread of Bob's, Bob's tab folds the older one; the To line starts on the
       // newest, and the user chooses the older one, which unfolds and goes in the address. Bob
       // answers there.
       const pricingThreadId = await seedOlderInitiativeThread(initiativeId, "Pricing");
@@ -5875,6 +5875,9 @@ test(
         await (await page.request.get(`/api/initiatives/${initiative.id}`)).json(),
       );
       await page.goto(`${initiativeUrl}?initiativeThread=${planningThreadId}`);
+      await expect(
+        page.locator(".conversation-tabs").getByRole("tab", { selected: true }),
+      ).toHaveText(/Jan/);
       const formatCard = page.getByRole("region", { name: `Decision: ${FORMAT_QUESTION}` });
       const rowCountCard = page.getByRole("region", { name: `Decision: ${ROW_COUNT_QUESTION}` });
       await expect(formatCard).toContainText("Invoice export API");
