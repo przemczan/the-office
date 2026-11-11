@@ -2164,7 +2164,6 @@ async function waitForAnotherTaskAndStopWaiting(page: Page, project: Project): P
       .getByText(`Blocked by ${blockerTitle}`),
   ).toBeVisible();
   await page.goto(`/tasks/${blocker.id}`);
-  await dependencies.getByRole("button", { name: /^Dependencies/ }).click();
   await expect(
     dependencies
       .getByRole("region", { name: "Waiting for this Task" })

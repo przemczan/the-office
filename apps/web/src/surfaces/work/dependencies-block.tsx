@@ -10,55 +10,44 @@ import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import {
-  blockerCandidates,
-  blockersOf,
-  dependenciesSummary,
-  waitingFor,
-} from "./dependency-words.ts";
+import { blockerCandidates, blockersOf, waitingFor } from "./dependency-words.ts";
 import { useRecordChange } from "./planning-parts.tsx";
-import { RecordFold } from "./record-fold.tsx";
-import { useFold } from "./record-folds.ts";
+
+/** The Tasks this one waits for and the Tasks waiting for it, in any Project. */
+export function useDependencies(task: Task): {
+  readonly blockers: readonly Task[];
+  readonly waiting: readonly Task[];
+} {
+  const tasks = useQuery(taskQueries.list()).data ?? [];
+  return { blockers: blockersOf(task, tasks), waiting: waitingFor(task, tasks) };
+}
 
 /**
  * What the Task must wait for and what waits for it, in any Project (prototypes/app/task.js
- * `dependencies`). Its blockers are set before it starts; once started, the block shows only when
- * there is something to show.
+ * `dependencies`), as a section of the Description block. Its blockers are set before it starts;
+ * once started, the section shows only when there is something to show.
  */
-export function DependenciesBlock({ task }: { readonly task: Task }): ReactNode {
+export function DependenciesSection({ task }: { readonly task: Task }): ReactNode {
   const tasks = useQuery(taskQueries.list()).data ?? [];
   const projects = useQuery(projectQueries.list()).data;
   const [adding, setAdding] = useState(false);
-  const fold = useFold({ kind: "task", id: task.id }, "dependencies", false);
   const removing = useRecordChange(task, (blockerId: string) =>
     removeDependency(task.id, blockerId),
   );
   const showToast = useToast();
   const changeable = NOT_STARTED.includes(task.state);
-  const blockers = blockersOf(task, tasks);
-  const waiting = waitingFor(task, tasks);
+  const { blockers, waiting } = useDependencies(task);
   if (!changeable && blockers.length === 0 && waiting.length === 0) return null;
   return (
-    <RecordFold
-      fold={fold}
-      icon="square-check"
-      title="Dependencies"
-      summary={dependenciesSummary(blockers, waiting)}
-      side={
-        changeable && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              fold.open();
-              setAdding(true);
-            }}
-          >
+    <section className="task-record-section" aria-label="Dependencies">
+      <div className="task-record-section-head">
+        <h3 className="task-record-section-title">Dependencies</h3>
+        {changeable && (
+          <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
             Add
           </Button>
-        )
-      }
-    >
+        )}
+      </div>
       {blockers.length === 0 && waiting.length === 0 && (
         <p className="task-quiet">It waits for no Task, and none waits for it.</p>
       )}
@@ -90,7 +79,7 @@ export function DependenciesBlock({ task }: { readonly task: Task }): ReactNode 
           onClose={() => setAdding(false)}
         />
       )}
-    </RecordFold>
+    </section>
   );
 }
 

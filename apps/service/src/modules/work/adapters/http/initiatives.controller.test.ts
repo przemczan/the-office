@@ -407,5 +407,6 @@ function libraryWithout(library: PipelineLibrary, retired: ReadonlySet<string>):
   return {
     list: () => library.list(),
     find: async (id) => (retired.has(id) ? undefined : library.find(id)),
+    commandsNamedBy: async (id) => (retired.has(id) ? undefined : library.commandsNamedBy(id)),
   };
 }

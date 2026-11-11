@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Publication, PublishTarget, PullRequestText } from "../domain/publication.js";
 import type { ResolveEnd, ResolveStart } from "../domain/resolve.js";
+import { commandOf, type ProjectCommandKind } from "../domain/project.js";
 import type { Head } from "../ports/git.js";
 import {
   AgentCommands,
@@ -198,8 +199,9 @@ export class TaskWorktrees {
    * Runs a Script Stage's Project command, by its key, in the Task's worktree: after each run of a
    * test command the worktree is restored and the files it wrote are moved to a folder named by `stageRunId`, and
    * a failing test command runs once more. It runs where the Project's Run environment setting
-   * says. Returns each run, in order. `signal` stops the command running, with everything it
-   * started, or its wait for a run environment, and runs no other; `wait` is told of that wait.
+   * says. Returns the command's kind, undefined for a key the Project lacks, and each run, in
+   * order. `signal` stops the command running, with everything it started, or its wait for a run
+   * environment, and runs no other; `wait` is told of that wait.
    */
   async runCommand(
     projectId: string,
@@ -207,9 +209,13 @@ export class TaskWorktrees {
     key: string,
     stageRunId: string,
     options: ScriptCommandOptions,
-  ): Promise<readonly ScriptCommandRun[]> {
+  ): Promise<{
+    readonly kind: ProjectCommandKind | undefined;
+    readonly runs: readonly ScriptCommandRun[];
+  }> {
     const project = await this.projects.read(projectId);
-    return this.scriptCommands.run(project, taskId, key, stageRunId, options);
+    const runs = await this.scriptCommands.run(project, taskId, key, stageRunId, options);
+    return { kind: commandOf(project, key)?.kind, runs };
   }
 
   /**

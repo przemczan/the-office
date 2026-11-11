@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { EngineModels, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
 import { EngineSettingsForTests } from "../../engine/index.fixtures.js";
-import { aNewProject } from "../domain/project.fixtures.js";
+import type { PipelineCommands } from "../domain/pipeline-commands.js";
+import { aNewProject, aProject, startingCommands } from "../domain/project.fixtures.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { Git, type FolderInspection, type Upstream } from "../ports/git.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
@@ -79,8 +80,15 @@ function notUsed(): never {
 }
 
 class FakePipelines extends KnownPipelines {
-  async has(id: string): Promise<boolean> {
-    return ["full", "quick-fix", "document"].includes(id);
+  private readonly pipelines = new Map<string, PipelineCommands>([
+    ["full", { name: "Full", keys: ["test"] }],
+    ["quick-fix", { name: "Quick fix", keys: [] }],
+    ["document", { name: "Document", keys: [] }],
+    ["thorough", { name: "Thorough", keys: ["test-full", "e2e"] }],
+  ]);
+
+  async commandsNamedBy(id: string): Promise<PipelineCommands | undefined> {
+    return this.pipelines.get(id);
   }
 }
 
@@ -193,10 +201,44 @@ describe("ProjectChecks.checkNewProject", () => {
 
 describe("ProjectChecks.checkDefaultPipeline", () => {
   it("passes a known Pipeline and refuses an unknown one", async () => {
-    await expect(checksWith().checkDefaultPipeline("quick-fix")).resolves.toBeUndefined();
-    expect(await reasonsOf(checksWith().checkDefaultPipeline("nightly"))).toEqual([
-      'There is no Pipeline "nightly".',
+    await expect(
+      checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "quick-fix" })),
+    ).resolves.toBeUndefined();
+    expect(
+      await reasonsOf(checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "nightly" }))),
+    ).toEqual(['There is no Pipeline "nightly".']);
+  });
+
+  it("refuses a Pipeline running commands the Project lacks, naming each, and passes one it has, blank or not", async () => {
+    const blankTest = startingCommands().map((command) =>
+      command.key === "test" ? { ...command, commandLine: "" } : command,
+    );
+
+    expect(
+      await reasonsOf(checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "thorough" }))),
+    ).toEqual([
+      "The Pipeline Thorough runs test-full and e2e, which Admin panel has no commands for. Add them to the Project's commands, or choose another default Pipeline.",
     ]);
+    await expect(
+      checksWith().checkDefaultPipeline(aProject({ commands: blankTest })),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses adding a Project whose default Pipeline runs a command it lacks", async () => {
+    const newProject = aNewProject({ defaultPipeline: "thorough" });
+
+    expect(await checksWith().newCloneProblems(newProject)).toEqual([
+      "The Pipeline Thorough runs test-full and e2e, which Admin panel has no commands for. Add them to the Project's commands, or choose another default Pipeline.",
+    ]);
+  });
+});
+
+describe("ProjectChecks.checkCommandRemoval", () => {
+  it("refuses removing a command the default Pipeline runs, and passes any other", async () => {
+    expect(await reasonsOf(checksWith().checkCommandRemoval(aProject(), "test"))).toEqual([
+      "Full, this Project's default Pipeline, runs test; choose another default first.",
+    ]);
+    await expect(checksWith().checkCommandRemoval(aProject(), "lint")).resolves.toBeUndefined();
   });
 });
 

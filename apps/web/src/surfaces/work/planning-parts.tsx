@@ -9,7 +9,6 @@ import { Badge, Button, Icon, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import {
-  changeDescription,
   confirmDefinitionOfDone,
   confirmPlan,
   saveDefinitionOfDone,
@@ -25,8 +24,6 @@ import { DefinitionOfDoneStatements, ReportedMetBadge } from "./definition-of-do
 import { PartEditor } from "./part-editor.tsx";
 import {
   definitionOfDoneSummary,
-  descriptionSummary,
-  NO_DESCRIPTION,
   planSummary,
   leavesReadyWords,
   statementsOf,
@@ -35,63 +32,6 @@ import { useQueued } from "./queue-parts.tsx";
 import { recordBlockElementId, type PartBlock } from "./record-blocks.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold, type Fold } from "./record-folds.ts";
-
-/**
- * The user's Description: what they want, in their own words, which the Planner plans from. It
- * stays editable until the Task starts, and starts open until then, where it is read.
- */
-export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
-  const changing = useRecordChange(task, (description: string) =>
-    changeDescription(task.id, description),
-  );
-  const [editing, setEditing] = useState(false);
-  const editable = NOT_STARTED.includes(task.state);
-  const fold = useFold({ kind: "task", id: task.id }, "description", editable);
-  return (
-    <RecordFold
-      fold={fold}
-      icon="align-left"
-      title="Description"
-      summary={descriptionSummary(task)}
-      side={
-        editable &&
-        !editing && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              fold.open();
-              setEditing(true);
-            }}
-          >
-            Edit
-          </Button>
-        )
-      }
-    >
-      {changing.error && (
-        <RefusalAlert title="The Description wasn't saved" error={changing.error} />
-      )}
-      {editing ? (
-        <PartEditor
-          label="Description"
-          hint="What you want, in your own words, in Markdown; type @ to mention a Task, Initiative, Decision or Idea. The title alone is enough to plan from."
-          initial={task.description}
-          mentions
-          saving={changing.isPending}
-          onSave={(text) => changing.mutate(text, { onSuccess: () => setEditing(false) })}
-          onCancel={() => setEditing(false)}
-        />
-      ) : task.description === "" ? (
-        <p className="task-quiet">{NO_DESCRIPTION}</p>
-      ) : (
-        <div className="task-plan-text">
-          <MarkdownText text={task.description} />
-        </div>
-      )}
-    </RecordFold>
-  );
-}
 
 /**
  * The Plan and the Definition of Done, written by the Planner or the user, are not confirmed until

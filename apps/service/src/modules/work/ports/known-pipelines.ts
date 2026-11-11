@@ -1,3 +1,4 @@
+import type { PipelineCommands } from "../domain/pipeline-commands.js";
 import type { PlanningPipeline } from "../domain/planning.js";
 import type { PipelineStage } from "../domain/usage-estimate.js";
 
@@ -9,6 +10,9 @@ export abstract class KnownPipelines {
   abstract list(): Promise<readonly PlanningPipeline[]>;
 
   abstract find(id: string): Promise<KnownPipeline | undefined>;
+
+  /** The Pipeline's name and the command keys its Stages run; undefined for one the library lacks. */
+  abstract commandsNamedBy(id: string): Promise<PipelineCommands | undefined>;
 }
 
 /** A Pipeline with its Stages' keys and Roles, which a Usage estimate is made of. */

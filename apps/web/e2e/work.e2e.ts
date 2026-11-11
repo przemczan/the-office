@@ -1207,9 +1207,10 @@ test(
     await dialog.getByRole("button", { name: "Move", exact: true }).click();
 
     await expect(dialog).toBeHidden();
-    const origin = page.getByRole("region", { name: "Origin" });
-    await expect(origin).toContainText(`Moved from ${from.name}`);
-    await origin.getByRole("button", { name: /Origin/ }).click();
+    const origin = page
+      .getByRole("region", { name: "Description" })
+      .getByRole("region", { name: "Origin" });
+    await expect(origin).toContainText(`Moved from ${from.name} to ${to.name}`);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-moved-task-origin.png") });
     await page.goto("/work");
     await expect(
@@ -1837,25 +1838,27 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   for (const stage of ["Implement", "Tests", "Review & fix", "Publish"]) {
     await expect(rail.getByText(stage, { exact: true })).toBeVisible();
   }
-  const origin = record.getByRole("region", { name: "Origin" });
-  await expect(origin.getByText("Idea: Sign-in keeps the page")).toBeVisible();
-  await expect(origin.getByText("Users land on the home page.")).toBeHidden();
-  const originFold = origin.getByRole("button", { name: /^Origin/ });
-  await originFold.click();
-  await expect(origin.getByText("Users land on the home page.")).toBeVisible();
-  await expect(originFold).toHaveAttribute("aria-expanded", "true");
-
-  // The fold is this browser's memory of this Task, so it survives a reload.
-  await page.reload();
-  await expect(origin.getByText("Users land on the home page.")).toBeVisible();
-  await originFold.click();
-  await expect(origin.getByText("Users land on the home page.")).toBeHidden();
-  await page.reload();
-  await expect(originFold).toHaveAttribute("aria-expanded", "false");
-  // The Idea's notes are its Description; the Planner may not be hired yet.
-  await expect(record.getByRole("region", { name: "Description" })).toContainText(
+  // The Idea's notes are its Description; the Planner may not be hired yet. The Description
+  // starts open, with the Task's Origin inside it.
+  const description = record.getByRole("region", { name: "Description" });
+  const descriptionFold = description.getByRole("button", { name: /^Description/ });
+  const origin = description.getByRole("region", { name: "Origin" });
+  await expect(descriptionFold).toHaveAttribute("aria-expanded", "true");
+  await expect(description.locator(".task-plan-text")).toContainText(
     "Users land on the home page.",
   );
+  await expect(origin.getByRole("link", { name: "Sign-in keeps the page" })).toBeVisible();
+  await expect(origin.getByText("Users land on the home page.")).toBeVisible();
+
+  // The fold is this browser's memory of this Task, so it survives a reload.
+  await descriptionFold.click();
+  await expect(descriptionFold).toHaveAttribute("aria-expanded", "false");
+  await expect(origin).toBeHidden();
+  await page.reload();
+  await expect(descriptionFold).toHaveAttribute("aria-expanded", "false");
+  await expect(origin).toBeHidden();
+  await descriptionFold.click();
+  await expect(origin).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Conversation" })).toContainText(
     /plans from the title and the Description|Planning opens one with/,
   );

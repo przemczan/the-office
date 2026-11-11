@@ -17,12 +17,13 @@ export const projectCommandFieldsSchema = z.object({
 });
 export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
 
-/** The keys kept for The Office's own use: install runs on its own, publish is Publish's. */
-export const RESERVED_COMMAND_KEYS: readonly string[] = ["install", "publish"];
+/** Keys a command can't take: install's, and Publish's, which isn't a Project command. */
+const RESERVED_PROJECT_COMMAND_KEYS: readonly string[] = ["install", "publish"];
 
 /**
- * A key a Project command may have, wherever something names one: lower-case letters, digits and
- * `-`, starting with a letter, and neither install's nor Publish's.
+ * A key a Project command may take, wherever something names one: lower-case letters, digits and
+ * `-`, starting with a letter, at most 40 characters, and neither install's nor Publish's. Its
+ * messages are the service's own words for each rule (`commandKeyProblems`).
  */
 export const projectCommandKeySchema = z
   .string()
@@ -31,7 +32,7 @@ export const projectCommandKeySchema = z
     /^[a-z][a-z0-9-]*$/,
     `A command's key is lower-case letters, digits and "-", starting with a letter.`,
   )
-  .refine((key) => !RESERVED_COMMAND_KEYS.includes(key), {
+  .refine((key) => !RESERVED_PROJECT_COMMAND_KEYS.includes(key), {
     error: (issue) => `The key "${String(issue.input)}" is kept for The Office's own use.`,
   });
 

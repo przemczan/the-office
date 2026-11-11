@@ -176,6 +176,8 @@ interface Office {
   /** The folder the launcher would share with the service. */
   readonly updateFolder: string;
   readonly developerKey: string;
+  /** The Project of the test's own, with build, lint and test commands. */
+  readonly projectId: string;
   /** The Project's repository, whose `main` tracks the one in a bare `origin` beside it. */
   readonly repository: string;
   readonly originPath: string;
@@ -275,6 +277,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
     checkout,
     updateFolder,
     developerKey,
+    projectId: project.id,
     repository,
     originPath,
     send,
@@ -457,6 +460,68 @@ describe("The queue, through the scripted engine", () => {
         await office.untilState(second.id, "waiting-on-you");
         expect(await office.queue()).toEqual([]);
         await office.send("POST", `/tasks/${second.id}/drop`);
+      } finally {
+        await office.close();
+      }
+    },
+    REAL_GIT_TEST_MS,
+  );
+});
+
+describe("A Pipeline whose Agent Stage narrows its Project commands", () => {
+  it(
+    "is refused for a Task, and as the Project's default, when the Project lacks a key it keeps",
+    async () => {
+      const office = await startOffice();
+      try {
+        const created = await office.send("POST", "/pipelines", {
+          name: `End to end ${randomUUID().slice(0, 8)}`,
+          description: "Its Developer runs only the end-to-end tests.",
+          stages: [
+            {
+              kind: "agent",
+              key: "build",
+              name: "Build",
+              optional: false,
+              role: office.developerKey,
+              brief: "Build it.",
+              session: "fresh",
+              budget: 100_000,
+              permissions: { commands: ["test", "e2e"] },
+            },
+          ],
+        });
+        expect(created.status).toBe(201);
+        const pipeline = pipelineSchema.parse(await created.json());
+        const task = taskSchema.parse(
+          await (
+            await office.send("POST", "/tasks", {
+              title: "Fix the login redirect",
+              projectId: office.projectId,
+              priority: "normal",
+            })
+          ).json(),
+        );
+        await office.send("POST", `/tasks/${task.id}/planning`);
+
+        const chosen = await office.send("PUT", `/tasks/${task.id}/pipeline`, {
+          pipelineId: pipeline.id,
+        });
+        const madeDefault = await office.send(
+          "PUT",
+          `/projects/${office.projectId}/default-pipeline`,
+          { defaultPipeline: pipeline.id },
+        );
+
+        expect(chosen.status).toBe(422);
+        expect(await chosen.json()).toMatchObject({
+          reasons: [expect.stringMatching(new RegExp(`^The Pipeline ${pipeline.name} runs e2e,`))],
+        });
+        expect(madeDefault.status).toBe(422);
+        expect(await madeDefault.json()).toMatchObject({
+          reasons: [expect.stringContaining("e2e")],
+        });
+        await office.send("POST", `/tasks/${task.id}/drop`);
       } finally {
         await office.close();
       }

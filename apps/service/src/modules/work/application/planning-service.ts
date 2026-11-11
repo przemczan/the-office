@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Author } from "../domain/author.js";
+import { missingCommands, missingCommandsWords } from "../domain/pipeline-commands.js";
 import { makeAPlanOpening, PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
 import {
   acceptInAutoMode,
@@ -41,6 +42,7 @@ import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownPeople } from "../ports/known-people.js";
 import type { SessionInitiativeThread } from "../ports/session-initiatives.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
+import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { TaskDecisions } from "../ports/task-decisions.js";
@@ -81,6 +83,7 @@ export class PlanningService {
     private readonly ideas: IdeaService,
     private readonly people: KnownPeople,
     private readonly pipelines: KnownPipelines,
+    private readonly projects: KnownProjects,
     private readonly worktrees: ProjectWorktrees,
     private readonly threads: TaskThreads,
     private readonly decisions: TaskDecisions,
@@ -129,7 +132,9 @@ export class PlanningService {
       await this.update(taskId, markPlanned);
       return { outcome: "for-the-user" };
     }
-    if (task.proposedPipeline) await this.refuseUnknownPipeline(task.proposedPipeline.pipelineId);
+    if (task.proposedPipeline) {
+      await this.refusePipelineFor(task, task.proposedPipeline.pipelineId);
+    }
     const { task: ready, event } = await this.tasks.update(taskId, (latest) =>
       acceptInAutoMode(latest, openDecisions),
     );
@@ -264,7 +269,7 @@ export class PlanningService {
     proposal: ProposedPipeline,
     rewriteFrom?: SessionInitiativeThread,
   ): Promise<Task> {
-    await this.refuseUnknownPipeline(proposal.pipelineId);
+    await this.refusePipelineFor(await this.read(taskId), proposal.pipelineId);
     return this.write(taskId, rewriteFrom, (task) => proposePipeline(task, proposal));
   }
 
@@ -273,7 +278,7 @@ export class PlanningService {
    * it by id only; Pipelines keeps a Task's own Stages, made when it starts or is edited for itself.
    */
   async confirmPipeline(taskId: string, pipelineId: string): Promise<Task> {
-    await this.refuseUnknownPipeline(pipelineId);
+    await this.refusePipelineFor(await this.read(taskId), pipelineId);
     return this.update(taskId, (task) => confirmPipeline(task, pipelineId));
   }
 
@@ -336,10 +341,31 @@ export class PlanningService {
     return task;
   }
 
-  private async refuseUnknownPipeline(pipelineId: string): Promise<void> {
-    if (await this.pipelines.find(pipelineId)) return;
-    const known = (await this.pipelines.list()).map(({ id }) => id).join(", ");
-    throw new TaskRefused([`There is no Pipeline "${pipelineId}". The library has ${known}.`]);
+  /**
+   * Refuses a Pipeline the library lacks, or one running a command the Task's Project lacks: its
+   * Stage would fail, so it is refused here rather than skipped (spec §2.3).
+   */
+  private async refusePipelineFor(
+    task: Pick<Task, "projectId">,
+    pipelineId: string,
+  ): Promise<void> {
+    const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
+    if (!pipeline) {
+      const known = (await this.pipelines.list()).map(({ id }) => id).join(", ");
+      throw new TaskRefused([`There is no Pipeline "${pipelineId}". The library has ${known}.`]);
+    }
+    const project = await this.projects.find(task.projectId);
+    if (!project) return;
+    const missing = missingCommands(pipeline, project);
+    if (missing.length > 0) {
+      throw new TaskRefused([missingCommandsWords(pipeline.name, missing, project.name)]);
+    }
+  }
+
+  private async read(taskId: string): Promise<Task> {
+    const task = await this.tasks.find(taskId);
+    if (!task) throw new TaskNotFound(taskId);
+    return task;
   }
 
   private async refuseWithoutPlanner(): Promise<void> {

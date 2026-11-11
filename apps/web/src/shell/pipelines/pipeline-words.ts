@@ -1,5 +1,6 @@
 import type {
   AfterConflict,
+  ProjectCommand,
   PublishTarget,
   Role,
   Stage,
@@ -7,14 +8,7 @@ import type {
 } from "@the-office/contracts";
 import { EFFORT_LABELS } from "../engine-words.ts";
 import { editLabel, hardSwitchValueLabel, RUN_LABELS, webLabel } from "../role-card-words.ts";
-import type { StageCommand } from "./stage-edits.ts";
-
-export const STAGE_COMMAND_NAMES: Readonly<Record<StageCommand, string>> = {
-  test: "Test",
-  lint: "Lint",
-  build: "Build",
-  publish: "Publish",
-};
+import { commandWords, PUBLISH_COMMAND } from "./stage-commands.ts";
 
 export const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
   "publishing-mode": "By the Project's publishing mode",
@@ -98,7 +92,7 @@ function publishOnly(
   stage: Stage,
   words: (stage: Extract<Stage, { kind: "script" }>) => string,
 ): string | undefined {
-  return stage.kind === "script" && stage.command === "publish" ? words(stage) : undefined;
+  return stage.kind === "script" && stage.command === PUBLISH_COMMAND ? words(stage) : undefined;
 }
 
 function budgetWords(budget: number): string {
@@ -132,17 +126,16 @@ export function stagesLine({ stages }: { readonly stages: readonly Stage[] }): s
 }
 
 /**
- * Who works the Stage, as its row says: the Role's person, its command (as the Project runs it, when
- * `commandLines` names one), or "waits for you" for a Gate.
+ * Who works the Stage, as its row says: the Role's person, its command (by its name when
+ * `commands` has its key, else the key), or "waits for you" for a Gate.
  */
 export function whoWorks(
   stage: Stage,
   roles: readonly Role[],
-  commandLines?: Readonly<Record<StageCommand, string>>,
+  commands?: readonly Pick<ProjectCommand, "key" | "name">[],
 ): string {
   if (stage.kind === "gate") return "waits for you";
-  if (stage.kind === "script")
-    return commandLines?.[stage.command] ?? STAGE_COMMAND_NAMES[stage.command];
+  if (stage.kind === "script") return commandWords(stage.command, commands);
   return roles.find(({ key }) => key === stage.role)?.card.name ?? "nobody yet";
 }
 

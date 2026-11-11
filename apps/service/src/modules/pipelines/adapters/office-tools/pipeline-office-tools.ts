@@ -172,7 +172,7 @@ export class PipelineOfficeTools implements OnModuleInit {
         stages: z
           .array(stageSchema)
           .describe(
-            "The Pipeline's Stages as they should be, all of them in order, in the shape list_pipelines gives them.",
+            "The Pipeline's Stages as they should be, all of them in order, in the shape list_pipelines gives them. A Script Stage's command is publish, for Publish, or a Project command by its key, never install; every Project with the Pipeline as default, or with a Task on it that hasn't started, must have each key it names.",
           ),
       }),
       run: async ({ pipeline: pipelineId, stages }, { sessionId }) => {

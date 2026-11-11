@@ -21,6 +21,9 @@ const RESOLVE_STAGE_KEYS: ReadonlySet<string> = new Set([
  */
 export const RESOLVE_ROUNDS = 3;
 
+/** The Project command the Test after Resolve runs (spec §2.3). */
+export const RESOLVE_TEST_COMMAND = "test";
+
 /** How many times a failing Test after Resolve goes back to Resolve. */
 const RESOLVE_TEST_ROUNDS = 2;
 
@@ -143,7 +146,7 @@ function resolveStages(stages: readonly Stage[], publish: Stage): readonly Stage
     key: RESOLVE_TEST_KEY,
     name: "Test after Resolve",
     optional: false,
-    command: "test",
+    command: RESOLVE_TEST_COMMAND,
     onFailure: { goBackTo: RESOLVE_KEY, rounds: RESOLVE_TEST_ROUNDS },
   };
   const gate: Gate = {

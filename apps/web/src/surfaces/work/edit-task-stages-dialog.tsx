@@ -14,9 +14,8 @@ import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { editTaskStages, pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { setPipeline } from "../../api/work.ts";
-import { projectCommandKeys } from "../../shell/pipelines/project-command-keys.ts";
 import { StageEditor } from "../../shell/pipelines/stage-editor.tsx";
-import type { StageCommand } from "../../shell/pipelines/stage-edits.ts";
+import type { StageCommandSource } from "../../shell/pipelines/stage-commands.ts";
 import { checkAwaited } from "../../shell/pipelines/stages-check.ts";
 import { publishingLabel } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -173,22 +172,18 @@ function EditTaskStagesForm({
           problems={problems}
           roles={roles}
           options={options}
-          commandLines={commandLinesOf(project)}
-          commandKeys={projectCommandKeys([project])}
+          commands={commandsOf(project)}
         />
       </div>
     </Dialog>
   );
 }
 
-/** What each Script Stage's command runs in the Project: its line by key, or how Publish ships. */
-function commandLinesOf(project: Project): Readonly<Record<StageCommand, string>> {
-  const lineOf = (key: string): string =>
-    project.commands.find((command) => command.key === key)?.commandLine ?? "";
+/** What a Script Stage may run in the Task's Project: its commands, and Publish as it ships there. */
+function commandsOf(project: Project): StageCommandSource {
   return {
-    build: lineOf("build"),
-    lint: lineOf("lint"),
-    test: lineOf("test"),
-    publish: publishingLabel(project.publishingMode, project.baseBranch).toLowerCase(),
+    kind: "project",
+    commands: project.commands,
+    publishing: publishingLabel(project.publishingMode, project.baseBranch).toLowerCase(),
   };
 }

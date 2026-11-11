@@ -2,6 +2,7 @@ import {
   afterConflictSchema,
   effortSchema,
   publishTargetSchema,
+  scriptStageCommandSchema,
   type Role,
   type RoleCardOptions,
   type Stage,
@@ -9,21 +10,22 @@ import {
 import { Checkbox, Field, Input, Select, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { EFFORT_LABELS } from "../engine-words.ts";
+import { AFTER_CONFLICT_NAMES, PUBLISH_TARGET_NAMES, thousands } from "./pipeline-words.ts";
 import {
-  AFTER_CONFLICT_NAMES,
-  PUBLISH_TARGET_NAMES,
-  STAGE_COMMAND_NAMES,
-  thousands,
-} from "./pipeline-words.ts";
+  ANOTHER_KEY,
+  commandChoices,
+  commandKeysOf,
+  PUBLISH_COMMAND,
+  type StageCommandSource,
+} from "./stage-commands.ts";
 import {
   canContinue,
   failureTargets,
   replaceStage,
-  STAGE_COMMANDS,
   withCommand,
   withRole,
   type AgentStage,
-  type StageCommand,
+  type ScriptStage,
 } from "./stage-edits.ts";
 import { StagePermissionFields } from "./stage-permission-fields.tsx";
 import "./stage-editor.css";
@@ -34,6 +36,9 @@ const MOST_ROUNDS = 9;
 /** A Select's value for "keep the Role's effort": the Stage leaves it out. */
 const ROLE_DEFAULT = "";
 
+/** The library's choices while the Projects load: Publish, and another key. */
+const NO_PROJECTS: StageCommandSource = { kind: "library", projects: [] };
+
 export interface StageFormProps {
   /** The list the Stage is in; a Stage template is a list of its one Stage. */
   readonly stages: readonly Stage[];
@@ -42,10 +47,8 @@ export interface StageFormProps {
   /** Everyone hired, who may work an Agent Stage when their Task limit isn't none. */
   readonly roles: readonly Role[];
   readonly options: RoleCardOptions;
-  /** What each command runs in the Task's Project; absent where each Project runs its own. */
-  readonly commandLines?: Readonly<Record<StageCommand, string>>;
-  /** The command keys the Projects have, suggested for an Agent Stage's Project commands. */
-  readonly commandKeys?: readonly string[];
+  /** What a Script Stage may run: the Task's Project's commands, or every Project's; none while loading. */
+  readonly commands?: StageCommandSource;
   /** A Stage template's form has no "On failure": going back names an earlier Stage of a Pipeline. */
   readonly template?: boolean;
 }
@@ -78,21 +81,9 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
       />
       {stage.kind === "agent" && <RoleSelect {...props} stage={stage} />}
       {stage.kind === "script" && (
-        <Select
-          label="Project command"
-          hint="Runs with no Agent; the result is recorded"
-          value={stage.command}
-          options={STAGE_COMMANDS.map((command) => ({
-            value: command,
-            label: commandChoice(command, props.commandLines),
-          }))}
-          onChange={(command) => {
-            const chosen = STAGE_COMMANDS.find((offered) => offered === command);
-            if (chosen) change(withCommand(stage, chosen));
-          }}
-        />
+        <CommandFields stage={stage} change={change} source={props.commands ?? NO_PROJECTS} />
       )}
-      {stage.kind === "script" && stage.command === "publish" && (
+      {stage.kind === "script" && stage.command === PUBLISH_COMMAND && (
         <PublishFields stage={stage} change={change} />
       )}
       {stage.kind === "gate" && (
@@ -160,7 +151,7 @@ function AgentFields({
   index,
   roles,
   options,
-  commandKeys = [],
+  commands = NO_PROJECTS,
   change,
 }: StageFormProps & {
   readonly stage: AgentStage;
@@ -210,7 +201,7 @@ function AgentFields({
         stage={stage}
         role={role}
         options={options}
-        commandKeys={commandKeys}
+        commandKeys={commandKeysOf(commands)}
         change={change}
       />
     </>
@@ -336,14 +327,55 @@ function FailureFields({
   );
 }
 
-function commandChoice(
-  command: StageCommand,
-  commandLines: StageFormProps["commandLines"],
-): string {
-  if (commandLines === undefined)
-    return `${STAGE_COMMAND_NAMES[command]} (each Project's own command)`;
-  const line = commandLines[command];
-  return `${STAGE_COMMAND_NAMES[command]} · ${line === "" ? "not set" : line}`;
+/**
+ * The command a Script Stage runs: one the choices offer, or, in the library, another key typed in,
+ * which the Stage takes once it follows the key rules (spec §2.1).
+ */
+function CommandFields({
+  stage,
+  change,
+  source,
+}: {
+  readonly stage: ScriptStage;
+  readonly change: (changed: Stage) => void;
+  readonly source: StageCommandSource;
+}): ReactNode {
+  const [typing, setTyping] = useState(false);
+  const [typed, setTyped] = useState("");
+  const typedKey = scriptStageCommandSchema.safeParse(typed.trim());
+  return (
+    <>
+      <Select
+        label="Project command"
+        hint="Runs with no Agent; the result is recorded"
+        value={typing ? ANOTHER_KEY : stage.command}
+        options={commandChoices(stage.command, source)}
+        onChange={(command) => {
+          setTyping(command === ANOTHER_KEY);
+          if (command === ANOTHER_KEY) setTyped("");
+          else change(withCommand(stage, command));
+        }}
+      />
+      {typing && (
+        <Input
+          label="Command key"
+          hint="Lower-case letters, digits and -, as the Project's commands name it"
+          autoFocus
+          value={typed}
+          error={
+            typed.trim() === "" || typedKey.success
+              ? undefined
+              : `"${typed.trim()}" isn't a command key: lower-case letters, digits and -, starting with a letter, and not install.`
+          }
+          onChange={(event) => {
+            setTyped(event.target.value);
+            const parsed = scriptStageCommandSchema.safeParse(event.target.value.trim());
+            if (parsed.success) change(withCommand(stage, parsed.data));
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 function roleTitle(roleKey: string, options: RoleCardOptions): string {
