@@ -9,7 +9,7 @@ import type { StageOutcome } from "./stage-run.js";
 export function scriptStageOutcome(runs: readonly CommandRun[]): StageOutcome {
   const last = runs.at(-1);
   if (!last) throw new Error("A Script Stage's command ran no times.");
-  // The Project has no such command yet, so nothing ran: its output says how to set it.
+  // The Project lacks the command or hasn't set it, so nothing ran: its output says how to set it.
   if (last.commandLine === "") return { status: "failed", error: last.output };
   const command = `\`${last.commandLine}\``;
   if (last.outcome === "passed") {

@@ -58,12 +58,12 @@ export function projectsHttp(
       path: current().repository.path,
       baseBranch: "main",
       mark: { label: "AP", colour: "teal" },
-      commands: {
-        install: "npm ci",
-        build: "npm run build",
-        lint: "npm run lint",
-        test: "npm test",
-      },
+      installCommand: "npm ci",
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+        { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+      ],
       installInputs: ["package-lock.json"],
       publishingMode: "push-and-pull-request",
       defaultPipeline: "full",
@@ -71,11 +71,17 @@ export function projectsHttp(
     };
   }
 
-  function send(method: "POST" | "PUT", path: string, body: unknown): Promise<Response> {
+  function send(
+    method: "POST" | "PUT" | "DELETE",
+    path: string,
+    body?: unknown,
+  ): Promise<Response> {
     return fetch(`${current().url}/api${path}`, {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      ...(body !== undefined && {
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
     });
   }
 

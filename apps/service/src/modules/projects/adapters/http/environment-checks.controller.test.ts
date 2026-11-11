@@ -76,15 +76,22 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
       state: "passed",
       base: { commit: fetched, fetchedFrom: "origin/main" },
     });
-    expect(check.checks.slice(1)).toEqual(
-      ["install", "build", "lint", "test"].map((step) =>
+    expect(check.checks.slice(1)).toEqual([
+      expect.objectContaining({
+        step: "install",
+        state: "passed",
+        run: expect.objectContaining({ outcome: "passed", exitCode: 0 }),
+      }),
+      ...(["build", "lint", "test"] as const).map((key) =>
         expect.objectContaining({
-          step,
+          step: "command",
+          key,
+          kind: key,
           state: "passed",
           run: expect.objectContaining({ outcome: "passed", exitCode: 0 }),
         }),
       ),
-    );
+    ]);
     await expect(environmentOf(project)).resolves.toEqual(GREETING);
     expect(await throwawayWorktrees(project)).toEqual([]);
     // A check is busy work too, but BusyWorkChanged stays inside the service while no update is scheduled.
@@ -101,7 +108,12 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
 
   it("refuses an environment that breaks a rule, and a second check while one runs", async () => {
     const project = await addProject({
-      commands: { install: PASSES, build: PASSES, lint: PASSES, test: SLEEPS },
+      installCommand: PASSES,
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
+        { key: "test", name: "Test", kind: "test", commandLine: SLEEPS },
+      ],
     });
 
     const refused = await send("POST", `/projects/${project.id}/environment-check`, {
@@ -141,7 +153,12 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     // The command checks the value by its length, so the value itself is nowhere but in the variable.
     const printsToken = `node -e "console.log('token: ' + process.env.NPM_TOKEN); process.exit(process.env.NPM_TOKEN?.length === 10 ? 0 : 1)"`;
     const project = await addProject({
-      commands: { install: PASSES, build: PASSES, lint: PASSES, test: printsToken },
+      installCommand: PASSES,
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
+        { key: "test", name: "Test", kind: "test", commandLine: printsToken },
+      ],
     });
     published = [];
 

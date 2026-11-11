@@ -849,7 +849,7 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
 
 /* ---- the commands */
 .commands {
-  --command-key-width: 88px;
+  --command-key-width: 120px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -875,8 +875,53 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
 .command-key {
   flex: none;
   width: var(--command-key-width);
+  overflow-wrap: anywhere;
+  font: 500 12px/1.3 var(--font-sans);
+  color: var(--fg-2);
+}
+
+.command-meta {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.commands-actions {
+  display: flex;
+  margin-top: 10px;
+}
+
+.command-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--pad-row);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+
+.command-editor:last-child {
+  border-bottom: 0;
+}
+
+.command-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.command-editor-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font: 500 12px/1 var(--font-sans);
   color: var(--fg-2);
+}
+
+.command-editor-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .command-line {

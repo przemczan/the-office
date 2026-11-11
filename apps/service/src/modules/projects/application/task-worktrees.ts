@@ -17,7 +17,6 @@ import { Resolving } from "./resolving.js";
 import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
 import {
   ScriptCommands,
-  type ScriptCommandKey,
   type ScriptCommandOptions,
   type ScriptCommandRun,
 } from "./script-commands.js";
@@ -196,8 +195,8 @@ export class TaskWorktrees {
   }
 
   /**
-   * Runs a Script Stage's Project command in the Task's worktree: after each test run the
-   * worktree is restored and the files it wrote are moved to a folder named by `stageRunId`, and
+   * Runs a Script Stage's Project command, by its key, in the Task's worktree: after each run of a
+   * test command the worktree is restored and the files it wrote are moved to a folder named by `stageRunId`, and
    * a failing test command runs once more. It runs where the Project's Run environment setting
    * says. Returns each run, in order. `signal` stops the command running, with everything it
    * started, or its wait for a run environment, and runs no other; `wait` is told of that wait.
@@ -205,7 +204,7 @@ export class TaskWorktrees {
   async runCommand(
     projectId: string,
     taskId: string,
-    key: ScriptCommandKey,
+    key: string,
     stageRunId: string,
     options: ScriptCommandOptions,
   ): Promise<readonly ScriptCommandRun[]> {
@@ -214,7 +213,7 @@ export class TaskWorktrees {
   }
 
   /**
-   * Runs a command for an Agent at work on the Task: one of the Project's by its key, or a command
+   * Runs a command for an Agent at work on the Task: install or one of the Project's by its key, or a command
    * line it wrote, which the caller has judged. It runs where the Project's Run environment
    * setting says, after an install when its inputs changed, its whole output written to
    * `outputFile` as it runs. `signal` stops it, with everything it started, or its wait for a run

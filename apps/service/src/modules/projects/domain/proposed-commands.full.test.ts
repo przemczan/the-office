@@ -1,76 +1,134 @@
 import { describe, expect, it } from "vitest";
-import { aProject } from "./project.fixtures.js";
-import { proposedCommandFields, proposedCommandsProblems } from "./proposed-commands.js";
+import { aProject, startingCommands } from "./project.fixtures.js";
+import {
+  proposedCommands,
+  proposedCommandsProblems,
+  type ProposedCommands,
+} from "./proposed-commands.js";
 
-describe("proposedCommandFields", () => {
+const TEST = { name: "Test", kind: "test", commandLine: "npm test" } as const;
+const E2E = { name: "End to end", kind: "test", commandLine: "npm run e2e" } as const;
+
+describe("proposedCommands", () => {
   it("keeps only what differs, each with the Project's value now", () => {
     const project = aProject();
 
     expect(
-      proposedCommandFields(project, {
-        test: " npm run test:all ",
-        lint: "npm run lint",
+      proposedCommands(project, {
+        installCommand: " npm install ",
         installInputs: ["package-lock.json", " .nvmrc "],
+        commands: [
+          { key: "test", ...TEST, commandLine: " npm run test:all " },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          { key: "test-e2e", ...E2E },
+        ],
+        removeCommands: ["build"],
       }),
     ).toEqual({
-      from: { test: "npm test", installInputs: ["package-lock.json"] },
-      to: { test: "npm run test:all", installInputs: ["package-lock.json", ".nvmrc"] },
+      installCommand: { from: "npm ci", to: "npm install" },
+      installInputs: { from: ["package-lock.json"], to: ["package-lock.json", ".nvmrc"] },
+      commands: [
+        { key: "test", from: TEST, to: { ...TEST, commandLine: "npm run test:all" } },
+        { key: "test-e2e", from: null, to: E2E },
+        {
+          key: "build",
+          from: { name: "Build", kind: "build", commandLine: "npm run build" },
+          to: null,
+        },
+      ],
     });
-    expect(proposedCommandFields(project, { installInputs: ["package-lock.json"] })).toEqual({
-      from: {},
-      to: {},
+    expect(proposedCommands(project, { installInputs: ["package-lock.json"] })).toEqual({
+      installCommand: undefined,
+      installInputs: undefined,
+      commands: [],
     });
+  });
+
+  it("removes a command also given, and keeps the last of a key given twice", () => {
+    expect(
+      proposedCommands(aProject(), {
+        commands: [
+          { key: "test-e2e", ...E2E },
+          { key: "test-e2e", ...E2E, name: "E2E" },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "oxlint" },
+        ],
+        removeCommands: ["lint"],
+      }).commands,
+    ).toEqual([
+      { key: "test-e2e", from: null, to: { ...E2E, name: "E2E" } },
+      {
+        key: "lint",
+        from: { name: "Lint", kind: "lint", commandLine: "npm run lint" },
+        to: null,
+      },
+    ]);
   });
 });
 
 describe("proposedCommandsProblems", () => {
-  const from = { test: "npm test", installInputs: ["package-lock.json"] };
+  const proposed: ProposedCommands = {
+    installCommand: { from: "npm ci", to: "npm install" },
+    installInputs: { from: ["package-lock.json"], to: [".nvmrc"] },
+    commands: [
+      { key: "test", from: TEST, to: { ...TEST, kind: "build" } },
+      { key: "test-e2e", from: null, to: E2E },
+      { key: "lint", from: { name: "Lint", kind: "lint", commandLine: "npm run lint" }, to: null },
+    ],
+  };
 
   it("allows a change whose fields are as they were when it was drafted", () => {
-    expect(
-      proposedCommandsProblems(aProject(), from, {
-        test: "npm run test:all",
-        installInputs: [".nvmrc"],
-      }),
-    ).toEqual([]);
+    expect(proposedCommandsProblems(aProject(), proposed)).toEqual([]);
   });
 
-  it("sets a command the Project doesn't have yet", () => {
-    const project = aProject({ commands: { ...aProject().commands, test: "" } });
+  it("sets a command the Project doesn't have set yet", () => {
+    const project = aProject({ commands: startingCommands({ test: "" }) });
+    const setting = proposedCommands(project, { commands: [{ key: "test", ...TEST }] });
 
-    expect(proposedCommandFields(project, { test: "npm test" })).toEqual({
-      from: { test: "" },
-      to: { test: "npm test" },
-    });
-    expect(proposedCommandsProblems(project, { test: "" }, { test: "npm test" })).toEqual([]);
+    expect(setting.commands).toEqual([
+      { key: "test", from: { ...TEST, commandLine: "" }, to: TEST },
+    ]);
+    expect(proposedCommandsProblems(project, setting)).toEqual([]);
   });
 
-  it("refuses a change once a field it rewrites changed since it was drafted", () => {
+  it("refuses a change once a field it changes changed since it was drafted", () => {
     const project = aProject({
-      commands: { ...aProject().commands, test: "vitest run" },
+      installCommand: "pnpm install",
       installInputs: ["pnpm-lock.yaml"],
+      commands: [
+        ...startingCommands({ test: "vitest run" }).filter(({ key }) => key !== "lint"),
+        { key: "test-e2e", ...E2E },
+      ],
     });
 
-    expect(
-      proposedCommandsProblems(project, from, {
-        test: "npm run test:all",
-        installInputs: [".nvmrc"],
-      }),
-    ).toEqual([
-      "The test command changed since this was proposed.",
+    expect(proposedCommandsProblems(project, proposed)).toEqual([
+      "The install command changed since this was proposed.",
       "The install inputs changed since this was proposed.",
+      "The test command changed since this was proposed.",
+      "The Project got a test-e2e command since this was proposed.",
+      "The lint command changed since this was proposed.",
     ]);
   });
 
   it("refuses what the Project page refuses, and a change of nothing", () => {
     expect(
-      proposedCommandsProblems(aProject(), from, { test: " ", installInputs: ["../outside"] }),
+      proposedCommandsProblems(aProject(), {
+        installCommand: { from: "npm ci", to: " " },
+        installInputs: { from: ["package-lock.json"], to: ["../outside"] },
+        commands: [
+          { key: "test", from: TEST, to: { ...TEST, commandLine: " " } },
+          { key: "publish", from: null, to: E2E },
+          { key: "e2e", from: null, to: null },
+        ],
+      }),
     ).toEqual([
-      "The test command can't be empty.",
+      "The install command can't be empty.",
       'An install input is a path inside the repository; "../outside" is not.',
+      "The test command can't be empty.",
+      'The key "publish" is kept for The Office\'s own use.',
+      'The Project has no command with the key "e2e".',
     ]);
-    expect(proposedCommandsProblems(aProject(), {}, {})).toEqual([
-      "Nothing changes: give the commands or install inputs that change, each one whole.",
+    expect(proposedCommandsProblems(aProject(), { commands: [] })).toEqual([
+      "Nothing changes: give the install command, install inputs or commands that change, each one whole.",
     ]);
   });
 });

@@ -32,8 +32,11 @@ const DRAFTED_INPUT = DRAFTED_PROJECT.extend({
   baseBranch: DRAFTED_PROJECT.shape.baseBranch.describe(
     "The branch every Task branches from and publishes to.",
   ),
+  installCommand: DRAFTED_PROJECT.shape.installCommand.describe(
+    "The install command, one command line for the platform's shell.",
+  ),
   commands: DRAFTED_PROJECT.shape.commands.describe(
-    "The install, build, lint and test commands, each one command line for the platform's shell.",
+    'The Project\'s commands, each with a key (lower-case letters, digits and "-", starting with a letter; not install or publish), a name, a kind (build, lint or test) and one command line. Give at least build, lint and test, as every Project starts with them.',
   ),
   installInputs: DRAFTED_PROJECT.shape.installInputs.describe(
     "Paths inside the repository whose change makes a worktree install again, such as its lockfile.",

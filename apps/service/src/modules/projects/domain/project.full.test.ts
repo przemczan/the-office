@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  commandFieldsProblems,
+  commandKeyProblems,
   commandProblem,
   installInputsProblems,
   newProjectProblems,
@@ -7,10 +9,10 @@ import {
   trimmedInstallInputs,
   type ProjectMarkColour,
 } from "./project.js";
-import { aNewProject } from "./project.fixtures.js";
+import { aNewProject, startingCommands } from "./project.fixtures.js";
 
 describe("newProjectProblems", () => {
-  it("passes a Project with a name, path, base branch, mark and four commands", () => {
+  it("passes a Project with a name, path, base branch, mark, install and three commands", () => {
     expect(newProjectProblems(aNewProject())).toEqual([]);
   });
 
@@ -31,16 +33,31 @@ describe("newProjectProblems", () => {
   });
 
   it("passes a Project whose commands are left blank, as they can be set later", () => {
-    const commands = { install: "", build: " ", lint: "", test: "" };
+    const commands = startingCommands({ build: " ", lint: "", test: "" });
 
-    expect(newProjectProblems(aNewProject({ commands }))).toEqual([]);
+    expect(newProjectProblems(aNewProject({ installCommand: "", commands }))).toEqual([]);
   });
 
   it("refuses a command given in more than one line", () => {
-    const commands = { install: "", build: "npm ci\nnpm run build", lint: "", test: "" };
+    const commands = startingCommands({ build: "npm ci\nnpm run build" });
 
     expect(newProjectProblems(aNewProject({ commands }))).toEqual([
       "The build command must be one line.",
+    ]);
+  });
+
+  it("refuses an install command given in more than one line", () => {
+    expect(newProjectProblems(aNewProject({ installCommand: "npm ci\nnpm ci" }))).toEqual([
+      "The install command must be one line.",
+    ]);
+  });
+
+  it("refuses two commands with one key", () => {
+    const [build] = startingCommands();
+    const commands = [...startingCommands(), { ...build!, name: "Build again" }];
+
+    expect(newProjectProblems(aNewProject({ commands }))).toEqual([
+      'The Project already has a command with the key "build".',
     ]);
   });
 
@@ -72,6 +89,67 @@ describe("newProjectProblems", () => {
     expect(newProjectProblems(aNewProject({ mark }))).toEqual([
       "The mark's colour is a named colour or #rrggbb.",
     ]);
+  });
+});
+
+describe("commandKeyProblems", () => {
+  it.each(["test-full", "e2e", "a", "build-2"])("takes the key %j", (key) => {
+    expect(commandKeyProblems(key, startingCommands())).toEqual([]);
+  });
+
+  it.each(["Test", "2e", "-a", "test_full", "test full", ""])("refuses the key %j", (key) => {
+    expect(commandKeyProblems(key, [])).toEqual([
+      `A command's key is lower-case letters, digits and "-", starting with a letter; "${key}" is not.`,
+    ]);
+  });
+
+  it("refuses a key longer than 40 characters", () => {
+    expect(commandKeyProblems("a".repeat(41), [])).toEqual([
+      "A command's key may be at most 40 characters.",
+    ]);
+  });
+
+  it.each(["install", "publish"])("keeps %j for The Office", (key) => {
+    expect(commandKeyProblems(key, [])).toEqual([
+      `The key "${key}" is kept for The Office's own use.`,
+    ]);
+  });
+
+  it("refuses a key the Project already has", () => {
+    expect(commandKeyProblems("lint", startingCommands())).toEqual([
+      'The Project already has a command with the key "lint".',
+    ]);
+  });
+});
+
+describe("commandFieldsProblems", () => {
+  const command = {
+    key: "e2e",
+    name: "End to end",
+    kind: "test",
+    commandLine: "npm run e2e",
+  } as const;
+
+  it("takes a command with a name, a kind and one line", () => {
+    expect(commandFieldsProblems(command, { blankAllowed: false })).toEqual([]);
+  });
+
+  it("refuses a blank name and a blank line once added", () => {
+    expect(
+      commandFieldsProblems({ ...command, name: " ", commandLine: "" }, { blankAllowed: false }),
+    ).toEqual(["Give the e2e command a name.", "The e2e command can't be empty."]);
+  });
+
+  it("takes a blank line while the Project is added", () => {
+    expect(commandFieldsProblems({ ...command, commandLine: "" }, { blankAllowed: true })).toEqual(
+      [],
+    );
+  });
+
+  it("refuses a name longer than 60 characters", () => {
+    expect(
+      commandFieldsProblems({ ...command, name: "a".repeat(61) }, { blankAllowed: false }),
+    ).toEqual(["A command's name may be at most 60 characters."]);
   });
 });
 

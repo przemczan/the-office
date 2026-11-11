@@ -139,6 +139,12 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
   private async planningProject(id: string): Promise<InitiativePlanningProject | undefined> {
     const project = await this.projects.find(id);
     if (!project) return undefined;
-    return { id, name: project.name, baseBranch: project.baseBranch, commands: project.commands };
+    return {
+      id,
+      name: project.name,
+      baseBranch: project.baseBranch,
+      installCommand: project.installCommand,
+      commands: project.commands,
+    };
   }
 }

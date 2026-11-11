@@ -9,7 +9,7 @@ import {
   changeCommandsAsProposed,
   changeImage,
 } from "../../domain/project-changes.js";
-import { aProject } from "../../domain/project.fixtures.js";
+import { aProject, startingCommands } from "../../domain/project.fixtures.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { PostgresProjectRepository } from "./postgres-project-repository.js";
 
@@ -70,10 +70,9 @@ describe("PostgresProjectRepository", () => {
     const id = `project-${randomUUID()}`;
     await app.get<Database>(DATABASE).execute(sql`
       insert into projects (id, name, path, base_branch, mark_label, mark_colour, install_command,
-        build_command, lint_command, test_command, publishing_mode, default_pipeline,
-        use_project_skills, added_at)
-      values (${id}, 'Older', '/work/older', 'main', 'OL', 'teal', 'npm ci', 'npm run build',
-        'npm run lint', 'npm test', 'merge', 'full', true, now())`);
+        publishing_mode, default_pipeline, use_project_skills, added_at)
+      values (${id}, 'Older', '/work/older', 'main', 'OL', 'teal', 'npm ci', 'merge', 'full', true,
+        now())`);
 
     expect((await repository.find(id))?.projectLimit).toBe(1);
   });
@@ -102,16 +101,29 @@ describe("PostgresProjectRepository", () => {
       await repository.add(project);
 
       const changes = await repository.update(project.id, (stored) =>
-        changeCommandsAsProposed(
-          stored,
-          { test: stored.commands.test, lint: stored.commands.lint },
-          { test: "npm test -- --run", lint: "oxlint" },
-        ),
+        changeCommandsAsProposed(stored, {
+          installCommand: { from: stored.installCommand, to: "npm install" },
+          commands: [
+            {
+              key: "test",
+              from: { name: "Test", kind: "test", commandLine: "npm test" },
+              to: { name: "Test", kind: "test", commandLine: "npm test -- --run" },
+            },
+            {
+              key: "lint",
+              from: { name: "Lint", kind: "lint", commandLine: "npm run lint" },
+              to: null,
+            },
+          ],
+        }),
       );
 
-      expect(changes.events).toHaveLength(2);
+      expect(changes.events).toHaveLength(3);
       await expect(repository.find(project.id)).resolves.toEqual(changes.project);
-      expect(changes.project.commands).toMatchObject({ test: "npm test -- --run", lint: "oxlint" });
+      expect(changes.project.installCommand).toBe("npm install");
+      expect(changes.project.commands).toEqual(
+        startingCommands({ test: "npm test -- --run" }).filter(({ key }) => key !== "lint"),
+      );
     });
 
     it("returns the Project as stored when nothing changes", async () => {

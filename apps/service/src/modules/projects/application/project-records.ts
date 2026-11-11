@@ -39,11 +39,14 @@ export class ProjectRecords {
 }
 
 function projectRecord(project: Project, checkout: string | undefined): string {
-  const { install, build, lint, test } = project.commands;
+  const commands = project.commands.map(
+    ({ key, name, kind, commandLine }) => `${key} (${name}, ${kind}) \`${commandLine || "none"}\``,
+  );
   return [
     `${project.name} (id ${project.id})`,
     `- Base branch: ${project.baseBranch}${checkout ? `, read-only in chats at ${checkout}` : ""}`,
-    `- Commands: install \`${install || "none"}\`, build \`${build || "none"}\`, lint \`${lint || "none"}\`, test \`${test || "none"}\``,
+    `- Install: \`${project.installCommand || "none"}\``,
+    `- Commands: ${commands.length > 0 ? commands.join(", ") : "none"}`,
     `- Install inputs: ${project.installInputs.length > 0 ? project.installInputs.join(", ") : "none"}`,
     `- Publishing: ${project.publishingMode === "merge" ? `merge into ${project.baseBranch}` : "push and open a pull request"}`,
     `- Default Pipeline: ${project.defaultPipeline}`,

@@ -8,11 +8,14 @@ import {
 } from "../../domain/environment-check-events.js";
 import {
   ProjectAdded,
+  ProjectCommandAdded,
   ProjectCommandChanged,
+  ProjectCommandRemoved,
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectImageChanged,
+  ProjectInstallCommandChanged,
   ProjectInstallInputsChanged,
   ProjectLimitChanged,
   ProjectMarkChanged,
@@ -48,9 +51,29 @@ export class ProjectWebEvents implements OnModuleInit {
       projectId: event.project.id,
     }));
     this.forwarding.forward(
+      ProjectInstallCommandChanged,
+      (event): WebEventOf<"project.install-command-changed"> => ({
+        type: "project.install-command-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(ProjectCommandAdded, (event): WebEventOf<"project.command-added"> => ({
+      type: "project.command-added",
+      projectId: event.projectId,
+      key: event.command.key,
+    }));
+    this.forwarding.forward(
       ProjectCommandChanged,
       (event): WebEventOf<"project.command-changed"> => ({
         type: "project.command-changed",
+        projectId: event.projectId,
+        key: event.command.key,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectCommandRemoved,
+      (event): WebEventOf<"project.command-removed"> => ({
+        type: "project.command-removed",
         projectId: event.projectId,
         key: event.key,
       }),

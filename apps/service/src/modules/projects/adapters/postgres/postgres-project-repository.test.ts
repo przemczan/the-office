@@ -2,8 +2,15 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
-import { asProjectChanges, changeCommand } from "../../domain/project-changes.js";
-import { aProject } from "../../domain/project.fixtures.js";
+import { addCommand, asProjectChanges, changeCommand } from "../../domain/project-changes.js";
+import { aProject, startingCommands } from "../../domain/project.fixtures.js";
+
+const E2E = {
+  key: "test-e2e",
+  name: "End to end",
+  kind: "test",
+  commandLine: "npm run e2e",
+} as const;
 import { PostgresProjectRepository } from "./postgres-project-repository.js";
 
 let app: INestApplication;
@@ -42,15 +49,22 @@ describe("PostgresProjectRepository", () => {
 
       await Promise.all([
         repository.update(project.id, (stored) =>
-          asProjectChanges(stored, changeCommand(stored, "test", "vitest run")),
+          asProjectChanges(
+            stored,
+            changeCommand(stored, "test", {
+              name: "Test",
+              kind: "test",
+              commandLine: "vitest run",
+            }),
+          ),
         ),
         repository.update(project.id, (stored) =>
-          asProjectChanges(stored, changeCommand(stored, "lint", "oxlint")),
+          asProjectChanges(stored, addCommand(stored, E2E)),
         ),
       ]);
 
       const stored = await repository.find(project.id);
-      expect(stored?.commands).toMatchObject({ test: "vitest run", lint: "oxlint" });
+      expect(stored?.commands).toEqual([...startingCommands({ test: "vitest run" }), E2E]);
     });
   });
 });

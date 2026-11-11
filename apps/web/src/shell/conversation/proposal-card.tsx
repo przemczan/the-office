@@ -31,9 +31,8 @@ import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/
 import { useEngineName } from "../use-engine-name.ts";
 import { personName, roleName } from "../person-name.ts";
 import {
-  COMMAND_KEYS,
-  COMMAND_LABELS,
   INSTALL_INPUTS_LABEL,
+  INSTALL_LABEL,
   installInputsLine,
   publishingLabel,
 } from "../project-words.ts";
@@ -58,6 +57,7 @@ import { PRIORITY_NAMES } from "../work/work-words.ts";
 import { useToast } from "../toasts.tsx";
 import { tokensShort } from "./context-words.ts";
 import {
+  commandWords,
   ProposedCommandChanges,
   ProposedSkillInstallFields,
   ProposedSkillUpdateFields,
@@ -180,7 +180,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       const name = projects?.find(({ id }) => id === change.projectId)?.name ?? change.projectId;
       return (
         <ProposalFrame title={`Change ${name}'s commands`}>
-          <ProposedCommandChanges from={change.from} to={change.to} />
+          <ProposedCommandChanges changes={change.changes} />
           <AnswerFoot
             proposal={proposal}
             changes={[projectQueries.list().queryKey]}
@@ -236,9 +236,10 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
               </>
             )}
             <ProposedField label="Base branch">{project.baseBranch}</ProposedField>
-            {COMMAND_KEYS.map((key) => (
-              <ProposedField key={key} label={COMMAND_LABELS[key]}>
-                {project.commands[key] || "None"}
+            <ProposedField label={INSTALL_LABEL}>{project.installCommand || "None"}</ProposedField>
+            {project.commands.map((command) => (
+              <ProposedField key={command.key} label={`${command.name} (${command.key})`}>
+                {commandWords(command)}
               </ProposedField>
             ))}
             <ProposedField label={INSTALL_INPUTS_LABEL}>

@@ -4,8 +4,25 @@ import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
 import { OFFICE_WIDE_LIMIT_MAX } from "./work.js";
 
-export const projectCommandKeySchema = z.enum(["install", "build", "lint", "test"]);
-export type ProjectCommandKey = z.infer<typeof projectCommandKeySchema>;
+/** What a Project command does; a test command also gets the test handling (spec §5.5). */
+export const projectCommandKindSchema = z.enum(["build", "lint", "test"]);
+export type ProjectCommandKind = z.infer<typeof projectCommandKindSchema>;
+
+/** What a command's key names: all of it but the key, which is fixed once the command is added. */
+export const projectCommandFieldsSchema = z.object({
+  name: z.string(),
+  kind: projectCommandKindSchema,
+  /** A command line for the platform's shell; blank only for a starting command not set yet. */
+  commandLine: z.string(),
+});
+export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
+
+/**
+ * One of the Project's commands besides install (POST /projects/:id/commands). The key, unique in
+ * the Project, is what Stages and Agents run it by.
+ */
+export const projectCommandSchema = projectCommandFieldsSchema.extend({ key: z.string() });
+export type ProjectCommand = z.infer<typeof projectCommandSchema>;
 
 /** How Publish ships a Task's branch: pushed with a pull request opened, or merged. */
 export const publishingModeSchema = z.enum(["push-and-pull-request", "merge"]);
@@ -44,13 +61,6 @@ export function markLabelFor(name: string): string {
 const projectMarkSchema = z.object({ label: z.string(), colour: projectMarkColourSchema });
 export type Mark = z.infer<typeof projectMarkSchema>;
 
-const projectCommandsSchema = z.object({
-  install: z.string(),
-  build: z.string(),
-  lint: z.string(),
-  test: z.string(),
-});
-
 /** What the user gives to add a Project (POST /projects). */
 export const newProjectSchema = z.object({
   name: z.string(),
@@ -62,7 +72,10 @@ export const newProjectSchema = z.object({
   repositoryUrl: z.string().optional(),
   baseBranch: z.string(),
   mark: projectMarkSchema,
-  commands: projectCommandsSchema,
+  /** Run before a Stage when the install inputs changed; blank while not set. */
+  installCommand: z.string(),
+  /** In the order they were added; a Project starts with build, lint and test. */
+  commands: z.array(projectCommandSchema),
   /** Paths inside the repository whose change makes a worktree install again. */
   installInputs: z.array(z.string()),
   publishingMode: publishingModeSchema,
@@ -238,14 +251,30 @@ export type Project = z.infer<typeof projectSchema>;
 
 export const projectListSchema = z.array(projectSchema);
 
-/** The commands and install inputs a Proposal changes, each one whole; the rest stay. */
-export const projectCommandFieldsSchema = projectCommandsSchema
-  .partial()
-  .extend({ installInputs: z.array(z.string()).optional() });
-export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
+/**
+ * What a Proposal of commands changes (spec §2.3), each field as the Project had it when drafted
+ * (`from`) and as proposed (`to`); the rest stay. Applying is refused once one of them changed.
+ */
+export const proposedProjectCommandsSchema = z.object({
+  installCommand: z.object({ from: z.string(), to: z.string() }).optional(),
+  installInputs: z.object({ from: z.array(z.string()), to: z.array(z.string()) }).optional(),
+  /** By key: `from` null for a command added, `to` null for one removed. */
+  commands: z.array(
+    z.object({
+      key: z.string(),
+      from: projectCommandFieldsSchema.nullable(),
+      to: projectCommandFieldsSchema.nullable(),
+    }),
+  ),
+});
+export type ProposedProjectCommands = z.infer<typeof proposedProjectCommandsSchema>;
 
-/** PUT /projects/:id/commands/:key */
-export const commandChangeSchema = z.object({ commandLine: z.string() });
+/** PUT /projects/:id/install-command */
+export const installCommandChangeSchema = z.object({ commandLine: z.string() });
+export type InstallCommandChange = z.infer<typeof installCommandChangeSchema>;
+
+/** PUT /projects/:id/commands/:key: the command's name, kind and command line, each whole. */
+export const commandChangeSchema = projectCommandFieldsSchema;
 export type CommandChange = z.infer<typeof commandChangeSchema>;
 
 /** PUT /projects/:id/install-inputs */
@@ -335,11 +364,19 @@ export const worktreeCheckSchema = z.object({
 });
 export type WorktreeCheck = z.infer<typeof worktreeCheckSchema>;
 
-/** That one of the Project's commands passes in that worktree. */
-export const commandCheckSchema = z.object({
-  step: projectCommandKeySchema,
+/** That the install command passes in that worktree. */
+export const installCheckSchema = z.object({
+  step: z.literal("install"),
   state: checkStateSchema,
   commandLine: z.string(),
+  run: commandRunSchema.optional(),
+});
+export type InstallCheck = z.infer<typeof installCheckSchema>;
+
+/** That one of the Project's commands passes in that worktree, shown by its name. */
+export const commandCheckSchema = projectCommandSchema.extend({
+  step: z.literal("command"),
+  state: checkStateSchema,
   run: commandRunSchema.optional(),
 });
 export type CommandCheck = z.infer<typeof commandCheckSchema>;
@@ -352,8 +389,10 @@ export const environmentCheckSchema = z.object({
   projectId: z.string(),
   environment: projectEnvironmentSchema,
   state: environmentCheckStateSchema,
-  /** The worktree's check, then install, build, lint and test. */
-  checks: z.array(z.discriminatedUnion("step", [worktreeCheckSchema, commandCheckSchema])),
+  /** The worktree's check, then install, then each command in the Project's order. */
+  checks: z.array(
+    z.discriminatedUnion("step", [worktreeCheckSchema, installCheckSchema, commandCheckSchema]),
+  ),
   startedAt: z.iso.datetime(),
   finishedAt: z.iso.datetime().optional(),
 });
@@ -379,9 +418,23 @@ export type ProjectRefusal = z.infer<typeof projectRefusalSchema>;
 export const projectWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("project.added"), projectId: z.string() }),
   webEventSchema.extend({
+    type: z.literal("project.install-command-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.command-added"),
+    projectId: z.string(),
+    key: z.string(),
+  }),
+  webEventSchema.extend({
     type: z.literal("project.command-changed"),
     projectId: z.string(),
-    key: projectCommandKeySchema,
+    key: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.command-removed"),
+    projectId: z.string(),
+    key: z.string(),
   }),
   webEventSchema.extend({
     type: z.literal("project.environment-changed"),

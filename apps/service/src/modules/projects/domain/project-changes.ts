@@ -1,30 +1,39 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
 import {
+  commandFieldsProblems,
+  commandKeyProblems,
+  commandOf,
   commandProblem,
   DEFAULT_PROJECT_LIMIT,
+  INSTALL_COMMAND_KEY,
   installInputsProblems,
   markProblem,
   newProjectProblems,
-  PROJECT_COMMAND_KEYS,
   projectLimitProblem,
+  sameCommandFields,
+  trimmedCommand,
   trimmedInstallInputs,
   trimmedMark,
   trimmedNewProject,
   type NewProject,
   type Project,
-  type ProjectCommandKey,
+  type ProjectCommand,
+  type ProjectCommandFields,
   type ProjectMark,
   type PublishingMode,
   type RunEnvironmentSetting,
 } from "./project.js";
 import {
   ProjectAdded,
+  ProjectCommandAdded,
   ProjectCommandChanged,
+  ProjectCommandRemoved,
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectImageChanged,
+  ProjectInstallCommandChanged,
   ProjectInstallInputsChanged,
   ProjectLimitChanged,
   ProjectMarkChanged,
@@ -48,7 +57,7 @@ import {
   type ProjectImagePalette,
 } from "./project-image.js";
 import { ProjectRefused } from "./project-refused.js";
-import { proposedCommandsProblems, type ProjectCommandFields } from "./proposed-commands.js";
+import { proposedCommandsProblems, type ProposedCommands } from "./proposed-commands.js";
 
 /** A Project after a change, with the event that announces it. */
 export interface ProjectChange<Event extends DomainEvent> {
@@ -71,27 +80,25 @@ export function asProjectChanges(
 }
 
 /**
- * Applies a Proposal of commands and install inputs (spec §2.3) whole: refused with every reason
- * when one field changed since it was drafted or breaks a rule, else every field it changes, each
- * with its own event, as the Project page would save them one by one.
+ * Applies a Proposal of commands (spec §2.3) whole: refused with every reason when one field
+ * changed since it was drafted or breaks a rule, else every field it changes, each with its own
+ * event, as the Project page would save them one by one.
  */
 export function changeCommandsAsProposed(
   project: Project,
-  from: ProjectCommandFields,
-  to: ProjectCommandFields,
+  proposed: ProposedCommands,
 ): ProjectChanges {
-  const problems = proposedCommandsProblems(project, from, to);
+  const problems = proposedCommandsProblems(project, proposed);
   if (problems.length > 0) throw new ProjectRefused(problems);
-  const fieldChanges: ((current: Project) => ProjectChange<DomainEvent> | undefined)[] =
-    PROJECT_COMMAND_KEYS.flatMap((key) => {
-      const commandLine = to[key];
-      return commandLine === undefined
-        ? []
-        : [(current: Project) => changeCommand(current, key, commandLine)];
-    });
-  const { installInputs } = to;
-  if (installInputs) fieldChanges.push((current) => changeInstallInputs(current, installInputs));
-  return changesInTurn(project, fieldChanges);
+  const { installCommand, installInputs } = proposed;
+  return changesInTurn(project, [
+    (current) => (installCommand ? changeInstallCommand(current, installCommand.to) : undefined),
+    (current) => (installInputs ? changeInstallInputs(current, installInputs.to) : undefined),
+    ...proposed.commands.map(({ key, from, to }) => (current: Project) => {
+      if (to === null) return removeCommand(current, key);
+      return from === null ? addCommand(current, { key, ...to }) : changeCommand(current, key, to);
+    }),
+  ]);
 }
 
 /**
@@ -161,20 +168,73 @@ export function addProject(
   return { project, event: new ProjectAdded(project) };
 }
 
-/** Undefined when the command is already that line. */
+/** Once set, install can be changed but not cleared. Undefined when it is already that line. */
+export function changeInstallCommand(
+  project: Project,
+  commandLine: string,
+): ProjectChange<ProjectInstallCommandChanged> | undefined {
+  const problem = commandProblem(INSTALL_COMMAND_KEY, commandLine);
+  if (problem) throw new ProjectRefused([problem]);
+  const installCommand = commandLine.trim();
+  if (project.installCommand === installCommand) return undefined;
+  return {
+    project: { ...project, installCommand },
+    event: new ProjectInstallCommandChanged(project.id, installCommand),
+  };
+}
+
+/** Adds the command after the Project's others, refused with every reason it breaks a rule. */
+export function addCommand(
+  project: Project,
+  given: ProjectCommand,
+): ProjectChange<ProjectCommandAdded> {
+  const command = trimmedCommand(given);
+  const problems = [
+    ...commandKeyProblems(command.key, project.commands),
+    ...commandFieldsProblems(command, { blankAllowed: false }),
+  ];
+  if (problems.length > 0) throw new ProjectRefused(problems);
+  return {
+    project: { ...project, commands: [...project.commands, command] },
+    event: new ProjectCommandAdded(project.id, command),
+  };
+}
+
+/**
+ * The command's name, kind and command line; its key stays, as Pipelines name it by its key.
+ * Undefined when it already has them.
+ */
 export function changeCommand(
   project: Project,
-  key: ProjectCommandKey,
-  commandLine: string,
+  key: string,
+  given: ProjectCommandFields,
 ): ProjectChange<ProjectCommandChanged> | undefined {
-  const problem = commandProblem(key, commandLine);
-  if (problem) throw new ProjectRefused([problem]);
-  const trimmed = commandLine.trim();
-  if (project.commands[key] === trimmed) return undefined;
+  const current = existingCommand(project, key);
+  const command: ProjectCommand = { key, ...trimmedCommand(given) };
+  const problems = commandFieldsProblems(command, { blankAllowed: false });
+  if (problems.length > 0) throw new ProjectRefused(problems);
+  if (sameCommandFields(current, command)) return undefined;
   return {
-    project: { ...project, commands: { ...project.commands, [key]: trimmed } },
-    event: new ProjectCommandChanged(project.id, key, trimmed),
+    project: {
+      ...project,
+      commands: project.commands.map((each) => (each.key === key ? command : each)),
+    },
+    event: new ProjectCommandChanged(project.id, command),
   };
+}
+
+export function removeCommand(project: Project, key: string): ProjectChange<ProjectCommandRemoved> {
+  existingCommand(project, key);
+  return {
+    project: { ...project, commands: project.commands.filter((each) => each.key !== key) },
+    event: new ProjectCommandRemoved(project.id, key),
+  };
+}
+
+function existingCommand(project: Project, key: string): ProjectCommand {
+  const command = commandOf(project, key);
+  if (!command) throw new ProjectRefused([`The Project has no command with the key "${key}".`]);
+  return command;
 }
 
 /** Undefined when the Project already has those install inputs, in that order. */

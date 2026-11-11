@@ -5,7 +5,7 @@ import { ProposalRefused } from "../domain/proposal-refused.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
 
 /**
- * Proposals of a Project's commands and install inputs (spec §2.3), which Projects judges and
+ * Proposals of a Project's install command, install inputs and commands (spec §2.3), which Projects judges and
  * applies, refusing one whose fields changed since it was drafted. Conversations registers them,
  * since Conversations calls Projects.
  */
@@ -18,15 +18,15 @@ export class ProjectCommandProposals implements OnModuleInit {
 
   onModuleInit(): void {
     this.appliers.register("project-commands", {
-      problemsWith: ({ projectId, from, to }) =>
-        this.projects.proposedCommandsProblems(projectId, from, to),
+      problemsWith: ({ projectId, changes }) =>
+        this.projects.proposedCommandsProblems(projectId, changes),
       apply: (change) => this.apply(change),
     });
   }
 
   private async apply(change: ProposedProjectCommands): Promise<ProposedProjectCommands> {
     try {
-      await this.projects.changeCommandsAsProposed(change.projectId, change.from, change.to);
+      await this.projects.changeCommandsAsProposed(change.projectId, change.changes);
       return change;
     } catch (error) {
       if (error instanceof ProjectRefused) throw new ProposalRefused(error.reasons);

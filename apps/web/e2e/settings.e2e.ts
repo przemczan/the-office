@@ -728,7 +728,12 @@ async function addedProject(
     path: repositoryPath,
     baseBranch: "main",
     mark: { label: "ST", colour: "violet" },
-    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installCommand: "npm ci",
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+    ],
     installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline,

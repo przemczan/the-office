@@ -112,9 +112,13 @@ describe("Devops' Proposals, through the scripted engine", () => {
         {
           project: project.id,
           change: {
-            test: "npm run test:all",
-            lint: project.commands.lint,
             installInputs: [".nvmrc"],
+            commands: [
+              { key: "test", name: "Test", kind: "test", commandLine: "npm run test:all" },
+              { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+              { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" },
+            ],
+            removeCommands: ["build"],
           },
         },
       ],
@@ -125,8 +129,26 @@ describe("Devops' Proposals, through the scripted engine", () => {
       {
         kind: "project-commands",
         projectId: project.id,
-        from: { test: "npm test", installInputs: ["package-lock.json"] },
-        to: { test: "npm run test:all", installInputs: [".nvmrc"] },
+        changes: {
+          installInputs: { from: ["package-lock.json"], to: [".nvmrc"] },
+          commands: [
+            {
+              key: "test",
+              from: { name: "Test", kind: "test", commandLine: "npm test" },
+              to: { name: "Test", kind: "test", commandLine: "npm run test:all" },
+            },
+            {
+              key: "test-e2e",
+              from: null,
+              to: { name: "End to end", kind: "test", commandLine: "npm run e2e" },
+            },
+            {
+              key: "build",
+              from: { name: "Build", kind: "build", commandLine: "npm run build" },
+              to: null,
+            },
+          ],
+        },
       },
       { kind: "pipeline", pipelineId: pipeline.id, from: pipeline.stages, to: stages },
     ]);
@@ -136,7 +158,11 @@ describe("Devops' Proposals, through the scripted engine", () => {
       expect(proposalSchema.parse(await response.json()).status.kind).toBe("applied");
     }
     expect(projectSchema.parse(await chat.read(`/projects/${project.id}`))).toMatchObject({
-      commands: { ...project.commands, test: "npm run test:all" },
+      commands: [
+        { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+        { key: "test", name: "Test", kind: "test", commandLine: "npm run test:all" },
+        { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" },
+      ],
       installInputs: [".nvmrc"],
     });
     expect(pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`))).toEqual({
@@ -150,11 +176,21 @@ describe("Devops' Proposals, through the scripted engine", () => {
     const project = await aProject();
     const pipeline = await aPipeline();
     const drafted = await chat.ninaProposes(
-      [PROPOSE_PROJECT_COMMANDS_TOOL, { project: project.id, change: { test: "vitest run" } }],
+      [
+        PROPOSE_PROJECT_COMMANDS_TOOL,
+        {
+          project: project.id,
+          change: {
+            commands: [{ key: "test", name: "Test", kind: "test", commandLine: "vitest run" }],
+          },
+        },
+      ],
       [PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: pipeline.id, stages: withLint(pipeline.stages) }],
     );
     // The user edits both by hand first.
     await chat.api("PUT", `/projects/${project.id}/commands/test`, {
+      name: "Test",
+      kind: "test",
       commandLine: "npm run check",
     });
     const edited = pipelineSchema.parse(
@@ -177,9 +213,9 @@ describe("Devops' Proposals, through the scripted engine", () => {
       expect(await response.json()).toMatchObject({ reasons: [reasons[index]] });
       expect((await chat.readProposal(proposal.id)).status.kind).toBe("open");
     }
-    expect(projectSchema.parse(await chat.read(`/projects/${project.id}`)).commands.test).toBe(
-      "npm run check",
-    );
+    expect(
+      projectSchema.parse(await chat.read(`/projects/${project.id}`)).commands[2]?.commandLine,
+    ).toBe("npm run check");
     expect(pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`))).toEqual(edited);
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
@@ -191,12 +227,12 @@ describe("Devops' Proposals, through the scripted engine", () => {
       name,
       path: repository,
       baseBranch: "main",
-      commands: {
-        install: "npm ci",
-        build: "npm run build",
-        lint: "npm run lint",
-        test: "npm test",
-      },
+      installCommand: "npm ci",
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+        { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+      ],
       installInputs: ["package-lock.json"],
       publishingMode: "push-and-pull-request",
       defaultPipeline: "quick-fix",
@@ -249,12 +285,12 @@ describe("Devops' Proposals, through the scripted engine", () => {
         name,
         path: repository,
         baseBranch: "main",
-        commands: {
-          install: "npm ci",
-          build: "npm run build",
-          lint: "npm run lint",
-          test: "npm test",
-        },
+        installCommand: "npm ci",
+        commands: [
+          { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+        ],
         installInputs: [],
         publishingMode: "merge",
         defaultPipeline: "quick-fix",
@@ -298,12 +334,12 @@ describe("Devops' Proposals, through the scripted engine", () => {
         name,
         path: repository,
         baseBranch: "main",
-        commands: {
-          install: "npm ci",
-          build: "npm run build",
-          lint: "npm run lint",
-          test: "npm test",
-        },
+        installCommand: "npm ci",
+        commands: [
+          { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+        ],
         installInputs: [],
         publishingMode: "merge",
         defaultPipeline: "quick-fix",
@@ -406,7 +442,12 @@ describe("Devops' Proposals, through the scripted engine", () => {
 /** A Project Devops drafts to onboard, without its repository's path or URL. */
 const ONBOARDED = {
   baseBranch: "main",
-  commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+  installCommand: "npm ci",
+  commands: [
+    { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+    { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+    { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+  ],
   installInputs: [],
   publishingMode: "merge",
   defaultPipeline: "quick-fix",
@@ -653,7 +694,12 @@ async function aProject(): Promise<Project> {
     path: repository,
     baseBranch: "main",
     mark: { label: "DV", colour: "teal" },
-    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installCommand: "npm ci",
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+    ],
     installInputs: ["package-lock.json"],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "quick-fix",

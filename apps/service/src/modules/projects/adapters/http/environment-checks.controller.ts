@@ -68,11 +68,18 @@ function toCheckResponse(check: Check): EnvironmentCheckResponse["checks"][numbe
       ...(check.problem !== undefined && { problem: check.problem }),
     };
   }
+  const run = check.run && { run: toCommandRunResponse(check.run) };
+  if (check.step === "install") {
+    return { step: check.step, state: check.state, commandLine: check.commandLine, ...run };
+  }
   return {
     step: check.step,
+    key: check.key,
+    name: check.name,
+    kind: check.kind,
     state: check.state,
     commandLine: check.commandLine,
-    ...(check.run && { run: toCommandRunResponse(check.run) }),
+    ...run,
   };
 }
 

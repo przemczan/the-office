@@ -6,8 +6,8 @@ import {
   projectMcpServerValuesListSchema,
   projectMcpServerValuesSchema,
   projectSkillListSchema,
-  projectRefusalSchema,
   PROJECT_LIMIT_MAX,
+  projectRefusalSchema,
   projectSchema,
   taskChangesSchema,
   type NewProject,
@@ -66,10 +66,16 @@ const { aNewProject, send, addProject, remoteNeedsOf, webEvents } = projectsHttp
 describe("POST /api/projects", () => {
   it("adds a Project with every command left blank, each saved as not set", async () => {
     const project = await addProject({
-      commands: { install: "", build: " ", lint: "", test: "" },
+      installCommand: "",
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: " " },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: "" },
+      ],
     });
 
-    expect(project.commands).toEqual({ install: "", build: "", lint: "", test: "" });
+    expect(project.installCommand).toBe("");
+    expect(project.commands.map(({ commandLine }) => commandLine)).toEqual(["", "", ""]);
   });
 
   it("keeps the repository's folder without a trailing separator", async () => {
@@ -149,14 +155,13 @@ describe("GET /api/projects", () => {
   });
 });
 
-describe("PUT /api/projects/:id/commands/:key", () => {
-  it("announces nothing when the command is already that line", async () => {
+describe("the Project's commands", () => {
+  it("announces nothing when the command already has that name, kind and line", async () => {
     const project = await addProject();
     published = [];
+    const { key, ...lint } = project.commands.find((command) => command.key === "lint")!;
 
-    const response = await send("PUT", `/projects/${project.id}/commands/lint`, {
-      commandLine: project.commands.lint,
-    });
+    const response = await send("PUT", `/projects/${project.id}/commands/${key}`, lint);
 
     expect(response.status).toBe(200);
     expect(published).toEqual([]);
@@ -164,28 +169,95 @@ describe("PUT /api/projects/:id/commands/:key", () => {
 
   it("sets a command the Project was added without", async () => {
     const project = await addProject({
-      commands: { install: "", build: "", lint: "", test: "" },
+      installCommand: "",
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: "" },
+      ],
     });
 
     const response = await send("PUT", `/projects/${project.id}/commands/test`, {
+      name: "Test",
+      kind: "test",
       commandLine: "npm test",
+    });
+    const install = await send("PUT", `/projects/${project.id}/install-command`, {
+      commandLine: "npm ci",
     });
 
     expect(response.status).toBe(200);
-    expect(projectSchema.parse(await response.json()).commands.test).toBe("npm test");
+    expect(projectSchema.parse(await response.json()).commands[2]?.commandLine).toBe("npm test");
+    expect(projectSchema.parse(await install.json()).installCommand).toBe("npm ci");
   });
 
-  it("refuses an empty command, and a command that isn't one of the four", async () => {
+  it("refuses an empty command, a key it has no command by, and a kind there isn't", async () => {
     const project = await addProject();
 
-    const empty = await send("PUT", `/projects/${project.id}/commands/build`, { commandLine: " " });
+    const empty = await send("PUT", `/projects/${project.id}/commands/build`, {
+      name: "Build",
+      kind: "build",
+      commandLine: " ",
+    });
     const unknown = await send("PUT", `/projects/${project.id}/commands/deploy`, {
+      name: "Deploy",
+      kind: "build",
       commandLine: "npm run deploy",
+    });
+    const wrongKind = await send("PUT", `/projects/${project.id}/commands/build`, {
+      name: "Build",
+      kind: "deploy",
+      commandLine: "npm run build",
+    });
+    const clearedInstall = await send("PUT", `/projects/${project.id}/install-command`, {
+      commandLine: "",
     });
 
     expect(empty.status).toBe(422);
     expect(await empty.json()).toMatchObject({ reasons: ["The build command can't be empty."] });
-    expect(unknown.status).toBe(400);
+    expect(unknown.status).toBe(422);
+    expect(await unknown.json()).toMatchObject({
+      reasons: ['The Project has no command with the key "deploy".'],
+    });
+    expect(wrongKind.status).toBe(400);
+    expect(clearedInstall.status).toBe(422);
+    expect(await clearedInstall.json()).toMatchObject({
+      reasons: ["The install command can't be empty."],
+    });
+  });
+
+  it("refuses to add a command whose key is invalid, taken or kept, or whose line is blank", async () => {
+    const project = await addProject();
+    const add = (command: object) => send("POST", `/projects/${project.id}/commands`, command);
+    const command = { name: "More", kind: "test", commandLine: "npm run more" };
+
+    const refused = await Promise.all([
+      add({ ...command, key: "More tests" }),
+      add({ ...command, key: "lint" }),
+      add({ ...command, key: "install" }),
+      add({ ...command, key: "more", commandLine: "" }),
+    ]);
+
+    expect(refused.map(({ status }) => status)).toEqual([422, 422, 422, 422]);
+    const reasons = await Promise.all(
+      refused.map(async (response) => projectRefusalSchema.parse(await response.json()).reasons),
+    );
+    expect(reasons).toEqual([
+      [
+        'A command\'s key is lower-case letters, digits and "-", starting with a letter; "More tests" is not.',
+      ],
+      ['The Project already has a command with the key "lint".'],
+      ['The key "install" is kept for The Office\'s own use.'],
+      ["The more command can't be empty."],
+    ]);
+  });
+
+  it("refuses to remove a command the Project has none by", async () => {
+    const project = await addProject();
+
+    const response = await send("DELETE", `/projects/${project.id}/commands/deploy`);
+
+    expect(response.status).toBe(422);
   });
 });
 

@@ -2,10 +2,35 @@ import type { EngineModel } from "../../engine/index.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 import type { ProjectImageVersions } from "./project-image.js";
 
-/** The commands a Project runs, each a command line for the platform's shell. */
-export const PROJECT_COMMAND_KEYS = ["install", "build", "lint", "test"] as const;
-export type ProjectCommandKey = (typeof PROJECT_COMMAND_KEYS)[number];
-export type ProjectCommands = Readonly<Record<ProjectCommandKey, string>>;
+/** What a Project command does; a test command also gets the test handling (spec §5.5). */
+export const PROJECT_COMMAND_KINDS = ["build", "lint", "test"] as const;
+export type ProjectCommandKind = (typeof PROJECT_COMMAND_KINDS)[number];
+
+/** A command's own fields, all of it but the key, which is fixed once the command is added. */
+export interface ProjectCommandFields {
+  readonly name: string;
+  readonly kind: ProjectCommandKind;
+  /** A command line for the platform's shell; blank only for a starting command not set yet. */
+  readonly commandLine: string;
+}
+
+/** One of the Project's commands besides install, run by its key (spec §2.1). */
+export interface ProjectCommand extends ProjectCommandFields {
+  readonly key: string;
+}
+
+/** Install's key, which Agents run it by; no other command may take it. */
+export const INSTALL_COMMAND_KEY = "install";
+
+/** Keys a command can't take: install's, and Publish's, which isn't a Project command. */
+const RESERVED_COMMAND_KEYS: readonly string[] = [INSTALL_COMMAND_KEY, "publish"];
+
+/** The commands every Project starts with, their command lines given when it is added. */
+export const STARTING_COMMANDS: readonly Omit<ProjectCommand, "commandLine">[] = [
+  { key: "build", name: "Build", kind: "build" },
+  { key: "lint", name: "Lint", kind: "lint" },
+  { key: "test", name: "Test", kind: "test" },
+];
 
 /** How Publish ships a Task's branch, run by The Office's own git code (spec §9). */
 export const PUBLISHING_MODES = ["push-and-pull-request", "merge"] as const;
@@ -52,7 +77,10 @@ export interface Project {
   readonly icon: ProjectImageVersions;
   /** The larger image on the Project's page and card, in the version for the palette shown. */
   readonly logo: ProjectImageVersions;
-  readonly commands: ProjectCommands;
+  /** Run before a Stage when the install inputs changed (spec §9); blank while not set. */
+  readonly installCommand: string;
+  /** In the order they were added; keys are unique. */
+  readonly commands: readonly ProjectCommand[];
   /**
    * The files whose change makes a worktree install again, as paths inside the repository with
    * `/` between folders (spec §9).
@@ -110,6 +138,7 @@ export type NewProject = Pick<
   | "path"
   | "baseBranch"
   | "mark"
+  | "installCommand"
   | "commands"
   | "installInputs"
   | "publishingMode"
@@ -120,6 +149,9 @@ export type NewProject = Pick<
 };
 
 const NAME_LENGTH = 60;
+const COMMAND_KEY = /^[a-z][a-z0-9-]*$/;
+const COMMAND_KEY_LENGTH = 40;
+const COMMAND_NAME_LENGTH = 60;
 const MARK_LABEL = /^[\p{L}\p{N}]{1,3}$/u;
 const CUSTOM_MARK_COLOUR = /^#[0-9a-f]{6}$/;
 
@@ -131,12 +163,8 @@ export function trimmedNewProject(project: NewProject): NewProject {
     repositoryUrl: project.repositoryUrl?.trim(),
     baseBranch: project.baseBranch.trim(),
     mark: trimmedMark(project.mark),
-    commands: {
-      install: project.commands.install.trim(),
-      build: project.commands.build.trim(),
-      lint: project.commands.lint.trim(),
-      test: project.commands.test.trim(),
-    },
+    installCommand: project.installCommand.trim(),
+    commands: project.commands.map(trimmedCommand),
     installInputs: trimmedInstallInputs(project.installInputs),
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
@@ -155,10 +183,14 @@ export function newProjectProblems(project: NewProject): string[] {
   if (project.baseBranch.trim() === "") problems.push("Give the base branch.");
   const wrongMark = markProblem(project.mark);
   if (wrongMark) problems.push(wrongMark);
-  for (const key of PROJECT_COMMAND_KEYS) {
-    const problem = commandLineProblem(key, project.commands[key]);
-    if (problem) problems.push(problem);
-  }
+  const installProblem = commandLineProblem(INSTALL_COMMAND_KEY, project.installCommand);
+  if (installProblem) problems.push(installProblem);
+  project.commands.forEach((command, index) => {
+    problems.push(
+      ...commandFieldsProblems(command, { blankAllowed: true }),
+      ...commandKeyProblems(command.key, project.commands.slice(0, index)),
+    );
+  });
   problems.push(...installInputsProblems(project.installInputs));
   return problems;
 }
@@ -187,20 +219,82 @@ export function projectLimitProblem(projectLimit: number): string | undefined {
   return undefined;
 }
 
+/** The command by its key, or undefined when the Project has none by that key. */
+export function commandOf(
+  project: Pick<Project, "commands">,
+  key: string,
+): ProjectCommand | undefined {
+  return project.commands.find((command) => command.key === key);
+}
+
+/** Whether two commands have the same name, kind and command line. */
+export function sameCommandFields(one: ProjectCommandFields, other: ProjectCommandFields): boolean {
+  return (
+    one.name === other.name && one.kind === other.kind && one.commandLine === other.commandLine
+  );
+}
+
+/** The command as it is kept: without the spaces around what was typed. */
+export function trimmedCommand<Command extends ProjectCommandFields>(command: Command): Command {
+  return { ...command, name: command.name.trim(), commandLine: command.commandLine.trim() };
+}
+
 /**
- * Why a command line can't be set in place of the one the Project has, or undefined when it can:
+ * Why a key can't be a new command's beside `commands`: it must be lower-case letters, digits and
+ * `-`, starting with a letter, unique in the Project, and neither install's nor Publish's.
+ */
+export function commandKeyProblems(key: string, commands: readonly ProjectCommand[]): string[] {
+  if (!COMMAND_KEY.test(key)) {
+    return [
+      `A command's key is lower-case letters, digits and "-", starting with a letter; "${key}" is not.`,
+    ];
+  }
+  if (key.length > COMMAND_KEY_LENGTH) {
+    return [`A command's key may be at most ${COMMAND_KEY_LENGTH} characters.`];
+  }
+  if (RESERVED_COMMAND_KEYS.includes(key))
+    return [`The key "${key}" is kept for The Office's own use.`];
+  if (commands.some((command) => command.key === key)) {
+    return [`The Project already has a command with the key "${key}".`];
+  }
+  return [];
+}
+
+/**
+ * Why a command's name, kind and command line can't be saved. Once a command is added its command
+ * line can't be blank; only a starting command given blank while adding a Project may be.
+ */
+export function commandFieldsProblems(
+  command: ProjectCommandFields & { readonly key: string },
+  { blankAllowed }: { readonly blankAllowed: boolean },
+): string[] {
+  const problems: string[] = [];
+  const name = command.name.trim();
+  if (name === "") problems.push(`Give the ${command.key} command a name.`);
+  else if (name.length > COMMAND_NAME_LENGTH) {
+    problems.push(`A command's name may be at most ${COMMAND_NAME_LENGTH} characters.`);
+  }
+  if (!PROJECT_COMMAND_KINDS.includes(command.kind)) {
+    problems.push(`A command's kind is ${PROJECT_COMMAND_KINDS.join(", ")}.`);
+  }
+  const lineProblem = blankAllowed
+    ? commandLineProblem(command.key, command.commandLine)
+    : commandProblem(command.key, command.commandLine);
+  if (lineProblem) problems.push(lineProblem);
+  return problems;
+}
+
+/**
+ * Why a command line can't be set in place of the one the command has, or undefined when it can:
  * once a command is set it can be changed but not cleared.
  */
-export function commandProblem(key: ProjectCommandKey, commandLine: string): string | undefined {
+export function commandProblem(key: string, commandLine: string): string | undefined {
   if (commandLine.trim() === "") return `The ${key} command can't be empty.`;
   return commandLineProblem(key, commandLine);
 }
 
 /** Why a command line given while adding a Project can't be saved; a blank one is saved as not set. */
-export function commandLineProblem(
-  key: ProjectCommandKey,
-  commandLine: string,
-): string | undefined {
+export function commandLineProblem(key: string, commandLine: string): string | undefined {
   if (/[\r\n]/.test(commandLine)) return `The ${key} command must be one line.`;
   return undefined;
 }

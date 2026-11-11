@@ -211,7 +211,12 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Admin panel",
       baseBranch: "main",
-      commands: { install: "npm ci", build: "npm run build", lint: "", test: "npm test" },
+      installCommand: "npm ci",
+      commands: [
+        { key: "build", name: "Build", commandLine: "npm run build" },
+        { key: "lint", name: "Lint", commandLine: "" },
+        { key: "test", name: "Test", commandLine: "npm test" },
+      ],
       useProjectSkills: false,
       projectSkillsOff: [],
     },

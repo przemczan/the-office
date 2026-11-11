@@ -1359,25 +1359,41 @@ test(
   },
 );
 
+/** A new Project's install command and the commands every Project starts with. */
+type ProjectCommandLines = Pick<NewProject, "installCommand" | "commands">;
+
+function commandLinesOf(
+  installCommand: string,
+  lines: Readonly<Record<"build" | "lint" | "test", string>>,
+): ProjectCommandLines {
+  return {
+    installCommand,
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: lines.build },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: lines.lint },
+      { key: "test", name: "Test", kind: "test", commandLine: lines.test },
+    ],
+  };
+}
+
 /** Adds a Project on a repository of its own through the API. */
 async function addedProject(
   page: Page,
   repository: TemporaryRepository,
   name: string,
   label: string,
-  commands: NewProject["commands"] = {
-    install: "npm ci",
+  commands: ProjectCommandLines = commandLinesOf("npm ci", {
     build: "npm run build",
     lint: "npm run lint",
     test: "npm test",
-  },
+  }),
 ): Promise<Project> {
   const newProject: NewProject = {
     name,
     path: repository.path,
     baseBranch: "main",
     mark: { label, colour: "violet" },
-    commands,
+    ...commands,
     installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
@@ -1765,12 +1781,11 @@ const QUERY_QUESTION = "Should sign-in keep the query string on the way back?";
  * Project's commands pass anywhere, so its Stages run without npm.
  */
 const signIn: { repository?: TemporaryRepository; taskUrl?: string } = {};
-const PASSING_COMMANDS: NewProject["commands"] = {
-  install: "node --version",
+const PASSING_COMMANDS = commandLinesOf("node --version", {
   build: "node --version",
   lint: "node --version",
   test: "node --version",
-};
+});
 
 test.afterAll(async () => {
   await signIn.repository?.remove();
@@ -3923,8 +3938,21 @@ test(
         {
           kind: "project-commands",
           projectId: project.id,
-          from: { test: "npm test", installInputs: [] },
-          to: { test: "npm run test:all", installInputs: ["package-lock.json"] },
+          changes: {
+            installInputs: { from: [], to: ["package-lock.json"] },
+            commands: [
+              {
+                key: "test",
+                from: { name: "Test", kind: "test", commandLine: "npm test" },
+                to: { name: "Test", kind: "test", commandLine: "npm run test:all" },
+              },
+              {
+                key: "test-e2e",
+                from: null,
+                to: { name: "End to end", kind: "test", commandLine: "npm run e2e" },
+              },
+            ],
+          },
         },
         "devops",
       );
@@ -3939,8 +3967,15 @@ test(
         {
           kind: "project-commands",
           projectId: project.id,
-          from: { build: "make" },
-          to: { build: "make all" },
+          changes: {
+            commands: [
+              {
+                key: "build",
+                from: { name: "Build", kind: "build", commandLine: "make" },
+                to: { name: "Build", kind: "build", commandLine: "make all" },
+              },
+            ],
+          },
         },
         "devops",
       );
@@ -3951,8 +3986,9 @@ test(
       });
       const commands = commandCards.filter({ hasText: "npm run test:all" });
       await expect(commands.getByRole("listitem")).toHaveText([
-        "Test commandnpm testnpm run test:all",
         "Install inputsNonepackage-lock.json",
+        "Test (test)Test · npm testTest · npm run test:all",
+        "End to end (test-e2e)None: addedTest · npm run e2e",
       ]);
       await commands.getByRole("button", { name: "Apply change" }).click();
       await expect(commands).toContainText("Applied");
@@ -3960,7 +3996,12 @@ test(
       const applied = projectSchema.parse(
         await (await page.request.get(`/api/projects/${project.id}`)).json(),
       );
-      expect(applied.commands.test).toBe("npm run test:all");
+      expect(applied.commands.map(({ key, commandLine }) => [key, commandLine])).toEqual([
+        ["build", "npm run build"],
+        ["lint", "npm run lint"],
+        ["test", "npm run test:all"],
+        ["test-e2e", "npm run e2e"],
+      ]);
       expect(applied.installInputs).toEqual(["package-lock.json"]);
 
       const stages = nina.getByRole("region", {
@@ -4098,7 +4139,7 @@ test(
             path: repository.path,
             baseBranch: "main",
             mark: { label: "ON", colour: "teal" },
-            commands: PASSING_COMMANDS,
+            ...PASSING_COMMANDS,
             installInputs: [],
             publishingMode: "push-and-pull-request",
             defaultPipeline: "quick-fix",
@@ -4162,7 +4203,7 @@ test(
           repositoryUrl,
           baseBranch: "main",
           mark: { label: "OU", colour: "teal" },
-          commands: PASSING_COMMANDS,
+          ...PASSING_COMMANDS,
           installInputs: [],
           publishingMode: "push-and-pull-request",
           defaultPipeline: "quick-fix",

@@ -18,7 +18,12 @@ const PROJECT: Project = {
   path: "/projects/admin-panel",
   baseBranch: "main",
   mark: { label: "AP", colour: "teal" },
-  commands: { install: "", build: "", lint: "", test: "" },
+  installCommand: "",
+  commands: [
+    { key: "build", name: "Build", kind: "build", commandLine: "" },
+    { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
+    { key: "test", name: "Test", kind: "test", commandLine: "" },
+  ],
   installInputs: [],
   publishingMode: "merge",
   defaultPipeline: "full",

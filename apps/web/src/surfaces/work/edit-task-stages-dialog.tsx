@@ -179,12 +179,14 @@ function EditTaskStagesForm({
   );
 }
 
+/** What each Script Stage's command runs in the Project: its line by key, or how Publish ships. */
 function commandLinesOf(project: Project): Readonly<Record<StageCommand, string>> {
-  const { build, lint, test } = project.commands;
+  const lineOf = (key: string): string =>
+    project.commands.find((command) => command.key === key)?.commandLine ?? "";
   return {
-    build,
-    lint,
-    test,
+    build: lineOf("build"),
+    lint: lineOf("lint"),
+    test: lineOf("test"),
     publish: publishingLabel(project.publishingMode, project.baseBranch).toLowerCase(),
   };
 }

@@ -1,5 +1,5 @@
 import type { CommandRun } from "./command-run.js";
-import type { ProjectCommandKey } from "./project.js";
+import type { ProjectCommand } from "./project.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 
 export type CheckState = "waiting" | "running" | "passed" | "failed" | "skipped";
@@ -23,30 +23,40 @@ export interface WorktreeCheck {
   readonly problem?: string;
 }
 
-/** That one of the Project's commands passes in that worktree. */
-export interface CommandCheck {
-  readonly step: ProjectCommandKey;
+/** That the install command passes in that worktree. */
+export interface InstallCheck {
+  readonly step: "install";
   readonly state: CheckState;
   /** As it was when the check started, so a command changed meanwhile doesn't mix in. */
   readonly commandLine: string;
   readonly run?: CheckedCommandRun;
 }
 
-export type Check = WorktreeCheck | CommandCheck;
+/**
+ * That one of the Project's commands passes in that worktree. Its key, name, kind and command line
+ * are as they were when the check started, so a command changed meanwhile doesn't mix in.
+ */
+export interface CommandCheck extends ProjectCommand {
+  readonly step: "command";
+  readonly state: CheckState;
+  readonly run?: CheckedCommandRun;
+}
+
+export type Check = WorktreeCheck | InstallCheck | CommandCheck;
 
 /** How the check ended: "stopped" when The Office shut down during it. */
 export type EnvironmentCheckState = "running" | "passed" | "failed" | "stopped";
 
 /**
  * A try of an environment in a fresh worktree of the base branch (spec §5.5): a worktree, then
- * install, build, lint and test in order. The environment is saved only when every check passes.
+ * install, then each of the Project's commands in its order. The environment is saved only when every check passes.
  */
 export interface EnvironmentCheck {
   readonly projectId: string;
   /** The environment tried, which may not be the Project's yet. */
   readonly environment: ProjectEnvironment;
   readonly state: EnvironmentCheckState;
-  /** The worktree's check, then one for each command in PROJECT_COMMAND_KEYS order. */
+  /** The worktree's check, install's, then one for each of the Project's commands in its order. */
   readonly checks: readonly Check[];
   readonly startedAt: Date;
   readonly finishedAt: Date | undefined;

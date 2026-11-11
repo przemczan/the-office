@@ -190,7 +190,11 @@ describe("the Initiative's planning Thread", () => {
           id: "admin-panel",
           name: "Admin panel",
           baseBranch: "main",
-          commands: { test: "npm test", lint: "" },
+          installCommand: "npm ci",
+          commands: [
+            { key: "test", name: "Test", commandLine: "npm test" },
+            { key: "lint", name: "Lint", commandLine: "" },
+          ],
         },
       ],
       pipelines: [
@@ -211,7 +215,9 @@ describe("the Initiative's planning Thread", () => {
     );
     expect(brief).not.toContain("task-c), in the Project");
     expect(brief).toContain("### Admin panel (admin-panel)\n\nBase branch main");
-    expect(brief).toContain("- test: `npm test`\n- lint: none");
+    expect(brief).toContain(
+      "- install (Install): `npm ci`\n- test (Test): `npm test`\n- lint (Lint): none",
+    );
     expect(brief).toContain("- full: Full (Implement → Review). For most work.");
     expect(brief).toContain("## Auto mode\n\nOn:");
     expect(brief).not.toContain("## Being planned here");

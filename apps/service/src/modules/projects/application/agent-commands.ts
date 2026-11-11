@@ -2,13 +2,16 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { Injectable } from "@nestjs/common";
 import type { CommandRun } from "../domain/command-run.js";
-import type { Project, ProjectCommandKey } from "../domain/project.js";
+import { commandOf, INSTALL_COMMAND_KEY, type Project } from "../domain/project.js";
 import { TaskCommandRunner } from "./task-command-runner.js";
 import type { CommandWait } from "./task-run-environments.js";
 import { Worktrees } from "./worktrees.js";
 
-/** A command an Agent runs through The Office: one of the Project's by its key, or one it wrote. */
-export type AgentCommand = { readonly key: ProjectCommandKey } | { readonly commandLine: string };
+/**
+ * A command an Agent runs through The Office: install or one of the Project's commands by its key,
+ * or one it wrote.
+ */
+export type AgentCommand = { readonly key: string } | { readonly commandLine: string };
 
 /** How an Agent's command is stopped, told of a wait for its run environment, and where its output goes. */
 export interface AgentCommandOptions {
@@ -53,10 +56,11 @@ export class AgentCommands {
     { signal, wait, outputFile }: AgentCommandOptions,
   ): Promise<AgentCommandEnd> {
     const key = "key" in command ? command.key : undefined;
-    const commandLine = "key" in command ? project.commands[command.key] : command.commandLine;
+    const commandLine =
+      "key" in command ? commandLineOf(project, command.key) : command.commandLine;
     if (commandLine.trim() === "") return { kind: "no-command" };
     // The install itself runs as asked, even with its inputs as they were.
-    if (key !== "install") {
+    if (key !== INSTALL_COMMAND_KEY) {
       const { installation } = await this.worktrees.prepare(project, taskId, { signal, wait });
       if (installation.kind === "ran" && installation.run.outcome !== "passed") {
         await mkdir(dirname(outputFile), { recursive: true });
@@ -74,4 +78,11 @@ export class AgentCommands {
     });
     return { kind: "ran", run };
   }
+}
+
+/** Install's line, or the command's by its key; blank when the Project has none set by that key. */
+function commandLineOf(project: Project, key: string): string {
+  return key === INSTALL_COMMAND_KEY
+    ? project.installCommand
+    : (commandOf(project, key)?.commandLine ?? "");
 }

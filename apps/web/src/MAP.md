@@ -38,7 +38,7 @@
 - `office-updates.ts`: officeUpdateQueries, checkForUpdates, scheduleOfficeUpdate, cancelOfficeUpdate, OFFICE_UPDATE_LOG_URL, officeUpdateEventInvalidations
 - `people.ts`: ENGINE_CASCADE, roleQueries, roleCardQueries, hire, changeRoleCard, filledRoleKeys, letGoOfPerson, hirePersonBack, uploadAvatar, removeAvatar, avatarAddress, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
 - `pipelines.ts`: pipelineQueries, stageTemplateQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, addStageTemplate, saveStageTemplate, removeStageTemplate, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
-- `projects.ts`: REMOTE_NEEDS, RUN_ENVIRONMENTS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeRunEnvironment, setUpRunEnvironment, changeMark, changeProjectLimit, ProjectImageVersion, uploadProjectImage, chooseProjectImage, removeProjectImage, projectImageAddress, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
+- `projects.ts`: REMOTE_NEEDS, RUN_ENVIRONMENTS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeInstallCommand, addCommand, changeCommand, removeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeRunEnvironment, setUpRunEnvironment, changeMark, changeProjectLimit, ProjectImageVersion, uploadProjectImage, chooseProjectImage, removeProjectImage, projectImageAddress, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
 - `run-environments.ts`: runEnvironmentOfficeLimitsQuery, changeRunEnvironmentOfficeLimits, runEnvironmentEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations, skillEventCacheUpdates
 - `work.ts`: TASKS, FIRE_ALARM, ideaQueries, ArchivedInitiativesAsked, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, archivePeriodQuery, changeArchivePeriod, autoModeQuery, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, SHOWN_TEXT_LIMIT, ShownText, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, planInitiative, startReadyTasks, confirmInitiative, dropInitiative, archiveInitiative, restoreInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, changeDescription, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, takeOutOfQueue, moveUpInQueue, moveToTopOfQueue, pauseTask, stopTask, resumeTask, moveTask, dropTask, archiveTask, restoreTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
@@ -71,7 +71,7 @@
 - `project-image.ts`: IMAGE_PALETTES, otherPalette, versionsToTry, useShownProjectImage
 - `project-logo.tsx`: ProjectLogo
 - `project-mark.tsx`: ProjectMark
-- `project-words.ts`: publishingLabel, COMMAND_KEYS, COMMAND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine
+- `project-words.ts`: publishingLabel, INSTALL_LABEL, COMMAND_KINDS, COMMAND_KIND_LABELS, STARTING_COMMANDS, INSTALL_INPUTS_LABEL, installInputsLine
 - `rail-item.tsx`: RailItemFace, RailItemTooltip
 - `rail-store.ts`: RAIL_EXPANDED_STORAGE_KEY, RailStore, createRailStore, RailExpansion, useRailExpansion
 - `rail.tsx`: Rail
@@ -147,7 +147,7 @@
 - `decision-words.ts`: answerWords, namedAttachments, decisionDetailsWords
 - `details-store.ts`: DETAILS_STORAGE_KEY, DetailsStore, createDetailsStore, Details, useDetails
 - `details-switch.tsx`: DetailsSwitch
-- `devops-proposal-changes.tsx`: ProposedCommandChanges, ProposedStageChanges, ProposedStageFieldChanges, ProposedSkillInstallFields, ProposedSkillUpdateFields
+- `devops-proposal-changes.tsx`: ProposedCommandChanges, commandWords, ProposedStageChanges, ProposedStageFieldChanges, ProposedSkillInstallFields, ProposedSkillUpdateFields
 - `handover-notes.tsx`: HandoverNote, HandoverNotes, HandoverNotesProvider, useHandoverNotes
 - `idea-card.tsx`: IdeaCard
 - `link-card-words.ts`: personStatus

@@ -1,13 +1,14 @@
 import type {
   CommandCheck,
   CommandRun,
+  InstallCheck,
   EnvironmentCheck,
   Project,
   ProjectEnvironment,
   ProjectEnvironmentEdit,
   WorktreeCheck,
 } from "@the-office/contracts";
-import { COMMAND_LABELS } from "../../shell/project-words.ts";
+import { INSTALL_LABEL } from "../../shell/project-words.ts";
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
@@ -43,8 +44,9 @@ export function worktreeCheckDetail(check: WorktreeCheck): string | undefined {
   return check.base && `at ${check.base.commit.slice(0, 7)}`;
 }
 
-export function commandCheckLabel(check: CommandCheck): string {
-  return COMMAND_LABELS[check.step];
+/** Install, or the command by its name. */
+export function commandCheckLabel(check: InstallCheck | CommandCheck): string {
+  return check.step === "install" ? INSTALL_LABEL : check.name;
 }
 
 /** How a command's run ended, in a few words: "passed in 12 s", "failed with exit code 2". */

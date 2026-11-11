@@ -21,7 +21,9 @@ import {
   type Mark,
   type Project,
   type ProjectEnvironmentEdit,
-  type ProjectCommandKey,
+  type CommandChange,
+  type InstallCommandChange,
+  type ProjectCommand,
   type ProjectImageFromRepository,
   type ProjectImageKey,
   type ProjectImagePalette,
@@ -172,12 +174,26 @@ export function startRepositoryClone(url: string): Promise<RepositoryClone> {
   return sendToApi("POST", "/repositories/clones", start, repositoryCloneSchema);
 }
 
-export function changeCommand(
-  id: string,
-  key: ProjectCommandKey,
-  commandLine: string,
-): Promise<Project> {
-  return sendToApi("PUT", `${projectPath(id)}/commands/${key}`, { commandLine }, projectSchema);
+export function changeInstallCommand(id: string, commandLine: string): Promise<Project> {
+  const change: InstallCommandChange = { commandLine };
+  return sendToApi("PUT", `${projectPath(id)}/install-command`, change, projectSchema);
+}
+
+export function addCommand(id: string, command: ProjectCommand): Promise<Project> {
+  return sendToApi("POST", `${projectPath(id)}/commands`, command, projectSchema);
+}
+
+/** The command's name, kind and command line; its key stays. */
+export function changeCommand(id: string, key: string, change: CommandChange): Promise<Project> {
+  return sendToApi("PUT", commandPath(id, key), change, projectSchema);
+}
+
+export function removeCommand(id: string, key: string): Promise<Project> {
+  return deleteFromApiReturning(commandPath(id, key), projectSchema);
+}
+
+function commandPath(id: string, key: string): `/${string}` {
+  return `${projectPath(id)}/commands/${encodeURIComponent(key)}`;
 }
 
 export function changeInstallInputs(
@@ -362,7 +378,10 @@ export const projectEventInvalidations: Readonly<
   Record<ProjectWebEvent["type"], EventInvalidations[string]>
 > = {
   "project.added": () => [PROJECTS],
+  "project.install-command-changed": () => [PROJECTS],
+  "project.command-added": () => [PROJECTS],
   "project.command-changed": () => [PROJECTS],
+  "project.command-removed": () => [PROJECTS],
   "project.environment-changed": () => [PROJECTS],
   "project.environment-check-changed": () => [PROJECTS],
   "project.install-inputs-changed": () => [PROJECTS],

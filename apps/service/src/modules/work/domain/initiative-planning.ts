@@ -367,8 +367,8 @@ function waitingSection(
 
 function projectsSection(projects: readonly InitiativePlanningProject[]): string {
   const parts = projects.map(
-    ({ id, name, baseBranch, commands }) =>
-      `### ${name} (${id})\n\nBase branch ${baseBranch}, checked out where The Projects below say. Its commands:\n\n${commandLines(commands).join("\n")}`,
+    (project) =>
+      `### ${project.name} (${project.id})\n\nBase branch ${project.baseBranch}, checked out where The Projects below say. Its commands:\n\n${commandLines(project).join("\n")}`,
   );
   return `## The Projects it spans\n\n${parts.join("\n\n")}`;
 }

@@ -44,7 +44,7 @@ export async function worktreesOnATemporaryRepository(): Promise<{
   );
   const project = aProject({
     path: repository.path,
-    commands: { ...aProject().commands, install: COUNTING_INSTALL },
+    installCommand: COUNTING_INSTALL,
     installInputs: ["package-lock.json"],
     environment: {
       set: [{ name: "INSTALL_LOG", value: installLog, secret: false }],

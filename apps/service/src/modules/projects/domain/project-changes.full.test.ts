@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  addCommand,
   addProject,
   changeCommand,
   changeCommandsAsProposed,
+  changeInstallCommand,
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
@@ -18,14 +20,18 @@ import {
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
   moveEngineLevels,
+  removeCommand,
 } from "./project-changes.js";
 import {
   ProjectAdded,
+  ProjectCommandAdded,
   ProjectCommandChanged,
+  ProjectCommandRemoved,
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectImageChanged,
+  ProjectInstallCommandChanged,
   ProjectInstallInputsChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
@@ -35,8 +41,9 @@ import {
   ProjectSkillUseChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
-import { aNewProject, aProject } from "./project.fixtures.js";
+import { aNewProject, aProject, startingCommands } from "./project.fixtures.js";
 import { ProjectRefused } from "./project-refused.js";
+import type { ProposedCommands } from "./proposed-commands.js";
 
 const addedAt = new Date("2026-10-25T10:00:00.000Z");
 
@@ -60,49 +67,170 @@ describe("addProject", () => {
   });
 });
 
-describe("changeCommand", () => {
-  it("changes one command and announces it", () => {
-    const change = changeCommand(aProject(), "test", " npm test -- --run ");
+describe("changeInstallCommand", () => {
+  it("changes install and announces it", () => {
+    const change = changeInstallCommand(aProject(), " npm install ");
 
-    expect(change?.project.commands).toEqual({ ...aProject().commands, test: "npm test -- --run" });
-    expect(change?.event).toBeInstanceOf(ProjectCommandChanged);
-    expect(change?.event).toMatchObject({
-      projectId: "admin-panel",
-      key: "test",
-      commandLine: "npm test -- --run",
-    });
+    expect(change?.project.installCommand).toBe("npm install");
+    expect(change?.event).toBeInstanceOf(ProjectInstallCommandChanged);
+    expect(change?.event).toMatchObject({ projectId: "admin-panel", commandLine: "npm install" });
   });
 
-  it("changes nothing when the command is already that line", () => {
-    expect(changeCommand(aProject(), "lint", "npm run lint ")).toBeUndefined();
+  it("changes nothing when install is already that line", () => {
+    expect(changeInstallCommand(aProject(), "npm ci")).toBeUndefined();
+  });
+
+  it("refuses to clear install", () => {
+    expect(() => changeInstallCommand(aProject(), " ")).toThrow(
+      new ProjectRefused(["The install command can't be empty."]),
+    );
+  });
+});
+
+describe("addCommand", () => {
+  const e2e = {
+    key: "test-e2e",
+    name: " End to end ",
+    kind: "test",
+    commandLine: " npm run e2e ",
+  } as const;
+
+  it("adds the command after the others, trimmed, and announces it", () => {
+    const { project, event } = addCommand(aProject(), e2e);
+
+    const added = {
+      key: "test-e2e",
+      name: "End to end",
+      kind: "test",
+      commandLine: "npm run e2e",
+    } as const;
+    expect(project.commands).toEqual([...aProject().commands, added]);
+    expect(event).toBeInstanceOf(ProjectCommandAdded);
+    expect(event).toMatchObject({ projectId: "admin-panel", command: added });
+  });
+
+  it("refuses a key the Project has, with a blank line, with every reason", () => {
+    expect(() => addCommand(aProject(), { ...e2e, key: "lint", commandLine: "" })).toThrow(
+      new ProjectRefused([
+        'The Project already has a command with the key "lint".',
+        "The lint command can't be empty.",
+      ]),
+    );
+  });
+
+  it.each(["install", "publish"])("refuses the key %j", (key) => {
+    expect(() => addCommand(aProject(), { ...e2e, key })).toThrow(
+      new ProjectRefused([`The key "${key}" is kept for The Office's own use.`]),
+    );
+  });
+});
+
+describe("changeCommand", () => {
+  it("changes the name, kind and line of one command, keeping its key, and announces it", () => {
+    const fields = {
+      name: "Unit tests",
+      kind: "test",
+      commandLine: " npm test -- --run ",
+    } as const;
+
+    const change = changeCommand(aProject(), "test", fields);
+
+    const changed = {
+      key: "test",
+      name: "Unit tests",
+      kind: "test",
+      commandLine: "npm test -- --run",
+    } as const;
+    expect(change?.project.commands).toEqual(
+      startingCommands({ test: "npm test -- --run" }).map((command) =>
+        command.key === "test" ? changed : command,
+      ),
+    );
+    expect(change?.event).toBeInstanceOf(ProjectCommandChanged);
+    expect(change?.event).toMatchObject({ projectId: "admin-panel", command: changed });
+  });
+
+  it("changes nothing when the command already has them", () => {
+    const fields = { name: "Lint", kind: "lint", commandLine: "npm run lint " } as const;
+
+    expect(changeCommand(aProject(), "lint", fields)).toBeUndefined();
   });
 
   it("refuses an empty command", () => {
-    expect(() => changeCommand(aProject(), "build", "  ")).toThrow(
+    const fields = { name: "Build", kind: "build", commandLine: "  " } as const;
+
+    expect(() => changeCommand(aProject(), "build", fields)).toThrow(
       new ProjectRefused(["The build command can't be empty."]),
+    );
+  });
+
+  it("refuses a key the Project has no command by", () => {
+    const fields = { name: "E2E", kind: "test", commandLine: "npm run e2e" } as const;
+
+    expect(() => changeCommand(aProject(), "e2e", fields)).toThrow(
+      new ProjectRefused(['The Project has no command with the key "e2e".']),
+    );
+  });
+});
+
+describe("removeCommand", () => {
+  it("removes the command and announces it", () => {
+    const { project, event } = removeCommand(aProject(), "lint");
+
+    expect(project.commands.map(({ key }) => key)).toEqual(["build", "test"]);
+    expect(event).toBeInstanceOf(ProjectCommandRemoved);
+    expect(event).toMatchObject({ projectId: "admin-panel", key: "lint" });
+  });
+
+  it("refuses a key the Project has no command by", () => {
+    expect(() => removeCommand(aProject(), "e2e")).toThrow(
+      new ProjectRefused(['The Project has no command with the key "e2e".']),
     );
   });
 });
 
 describe("changeCommandsAsProposed", () => {
-  const from = { test: "npm test", installInputs: ["package-lock.json"] };
-  const to = { test: "vitest run", installInputs: ["package-lock.json", ".nvmrc"] };
+  const proposed: ProposedCommands = {
+    installCommand: { from: "npm ci", to: "npm install" },
+    installInputs: { from: ["package-lock.json"], to: ["package-lock.json", ".nvmrc"] },
+    commands: [
+      {
+        key: "test",
+        from: { name: "Test", kind: "test", commandLine: "npm test" },
+        to: { name: "Test", kind: "test", commandLine: "vitest run" },
+      },
+      { key: "lint", from: { name: "Lint", kind: "lint", commandLine: "npm run lint" }, to: null },
+      {
+        key: "test-e2e",
+        from: null,
+        to: { name: "End to end", kind: "test", commandLine: "npm run e2e" },
+      },
+    ],
+  };
 
   it("changes every field it proposes, each announced in turn", () => {
-    const { project, events } = changeCommandsAsProposed(aProject(), from, to);
+    const { project, events } = changeCommandsAsProposed(aProject(), proposed);
 
-    expect(project.commands.test).toBe("vitest run");
+    expect(project.installCommand).toBe("npm install");
     expect(project.installInputs).toEqual(["package-lock.json", ".nvmrc"]);
+    expect(project.commands).toEqual([
+      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+      { key: "test", name: "Test", kind: "test", commandLine: "vitest run" },
+      { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" },
+    ]);
     expect(events).toEqual([
-      expect.any(ProjectCommandChanged),
+      expect.any(ProjectInstallCommandChanged),
       expect.any(ProjectInstallInputsChanged),
+      expect.any(ProjectCommandChanged),
+      expect.any(ProjectCommandRemoved),
+      expect.any(ProjectCommandAdded),
     ]);
   });
 
   it("refuses the whole Proposal when one field changed since it was drafted", () => {
     const editedByHand = aProject({ installInputs: ["pnpm-lock.yaml"] });
 
-    expect(() => changeCommandsAsProposed(editedByHand, from, to)).toThrow(
+    expect(() => changeCommandsAsProposed(editedByHand, proposed)).toThrow(
       new ProjectRefused(["The install inputs changed since this was proposed."]),
     );
   });

@@ -1,6 +1,24 @@
-import type { NewProject, Project } from "./project.js";
+import {
+  STARTING_COMMANDS,
+  type NewProject,
+  type Project,
+  type ProjectCommand,
+} from "./project.js";
 import { UNCHANGED_ENVIRONMENT } from "./project-environment.js";
 import { NO_PROJECT_IMAGE } from "./project-image.js";
+
+const STARTING_LINES = { build: "npm run build", lint: "npm run lint", test: "npm test" };
+
+/** Build, lint and test, as every Project starts with them, with these command lines or npm's. */
+export function startingCommands(
+  lines: Partial<Record<"build" | "lint" | "test", string>> = {},
+): ProjectCommand[] {
+  const given: Record<string, string | undefined> = { ...STARTING_LINES, ...lines };
+  return STARTING_COMMANDS.map((command) => ({
+    ...command,
+    commandLine: given[command.key] ?? "",
+  }));
+}
 
 export function aNewProject(fields: Partial<NewProject> = {}): NewProject {
   return {
@@ -8,7 +26,8 @@ export function aNewProject(fields: Partial<NewProject> = {}): NewProject {
     path: "/work/admin-panel",
     baseBranch: "main",
     mark: { label: "AP", colour: "teal" },
-    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installCommand: "npm ci",
+    commands: startingCommands(),
     installInputs: ["package-lock.json"],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",

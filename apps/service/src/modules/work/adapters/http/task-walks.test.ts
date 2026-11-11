@@ -251,12 +251,12 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
         path: repository,
         baseBranch: "main",
         mark: { label: "QU", colour: "teal" },
-        commands: {
-          install: PASSING_COMMAND,
-          build: PASSING_COMMAND,
-          lint: PASSING_COMMAND,
-          test: PASSING_COMMAND,
-        },
+        installCommand: PASSING_COMMAND,
+        commands: [
+          { key: "build", name: "Build", kind: "build", commandLine: PASSING_COMMAND },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: PASSING_COMMAND },
+          { key: "test", name: "Test", kind: "test", commandLine: PASSING_COMMAND },
+        ],
         installInputs: ["package-lock.json"],
         publishingMode: "merge",
         defaultPipeline: "quick-fix",

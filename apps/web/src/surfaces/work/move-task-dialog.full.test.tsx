@@ -51,7 +51,12 @@ function aProject(id: string, name: string, defaultPipeline = "full"): Project {
     path: `/projects/${id}`,
     baseBranch: "main",
     mark: { label: name.slice(0, 2).toUpperCase(), colour: "teal" },
-    commands: { install: "", build: "", lint: "", test: "" },
+    installCommand: "",
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
+      { key: "test", name: "Test", kind: "test", commandLine: "" },
+    ],
     installInputs: [],
     publishingMode: "merge",
     defaultPipeline,

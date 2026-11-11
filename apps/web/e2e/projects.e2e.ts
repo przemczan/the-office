@@ -191,7 +191,7 @@ async function chooseFromRepository(
 async function addedProject(
   page: Page,
   name: string,
-  commands: NewProject["commands"] = {
+  lines: Readonly<Record<"install" | "build" | "lint" | "test", string>> = {
     install: "npm ci",
     build: "npm run build",
     lint: "npm run lint",
@@ -204,7 +204,12 @@ async function addedProject(
     path: repositoryPath,
     baseBranch: "main",
     mark: { label: "AP", colour: "violet" },
-    commands,
+    installCommand: lines.install,
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: lines.build },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: lines.lint },
+      { key: "test", name: "Test", kind: "test", commandLine: lines.test },
+    ],
     installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
@@ -460,22 +465,55 @@ test(
   },
 );
 
-test("editing a command saves it, and the toast says Tasks run it from their next Script Stage", async ({
+test("the Project's commands are changed, added and removed in place, each kept", async ({
   page,
 }) => {
   const project = await addedProject(page, "Command edits");
   await page.goto(`/projects/${project.id}/commands`);
 
-  await page.getByRole("button", { name: "Change the test command" }).click();
-  await page.getByLabel("Test command").fill("npm test -- --run");
+  await page.getByRole("button", { name: "Change the Test command" }).click();
+  const changing = page.getByRole("form", { name: "Change the Test command" });
+  await changing.getByLabel("Name").fill("Unit tests");
+  await changing.getByLabel("Command line").fill("npm test -- --run");
   await page.keyboard.press("Enter");
-
   await expect(
-    page.getByText("Command saved. Tasks run it from their next Test Stage."),
+    page.getByText("Unit tests saved. Tasks run it as saved from their next Stage that runs it."),
   ).toBeVisible();
-  await expect(page.getByText("npm test -- --run")).toBeVisible();
+  await expect(page.getByRole("group", { name: "The Unit tests command" })).toContainText(
+    "npm test -- --run",
+  );
+
+  await page.getByRole("button", { name: "Add a command" }).click();
+  const adding = page.getByRole("form", { name: "Add a command" });
+  await adding.getByLabel("Key").fill("install");
+  await adding.getByLabel("Name").fill("End to end");
+  await adding.getByLabel("Command line").fill("npm run e2e");
+  await adding.getByRole("button", { name: "Add" }).click();
+  await expect(adding).toContainText('The key "install" is kept for The Office\'s own use.');
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-command-add.png") });
+  await adding.getByLabel("Key").fill("test-e2e");
+  await adding.getByRole("button", { name: "Add" }).click();
+  await expect(page.getByText("End to end added.")).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-commands.png") });
+
+  await page.getByRole("button", { name: "Remove the Lint command" }).click();
+  const confirming = page.getByRole("dialog", { name: "Remove Lint?" });
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-command-remove.png") });
+  await confirming.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page.getByText("Lint removed.")).toBeVisible();
+
   await page.reload();
-  await expect(page.getByText("npm test -- --run")).toBeVisible();
+  const kept = projectSchema.parse(
+    await (await page.request.get(`/api/projects/${project.id}`)).json(),
+  );
+  expect(kept.commands.map(({ key, name, commandLine }) => [key, name, commandLine])).toEqual([
+    ["build", "Build", "npm run build"],
+    ["test", "Unit tests", "npm test -- --run"],
+    ["test-e2e", "End to end", "npm run e2e"],
+  ]);
+  await expect(page.getByRole("group", { name: "The End to end command" })).toContainText(
+    "npm run e2e",
+  );
 });
 
 test(
@@ -641,8 +679,8 @@ test(
     await subscribed;
     await page.goto(`/projects/${project.id}/commands`);
 
-    await page.getByRole("button", { name: "Change the lint command" }).click();
-    await page.getByLabel("Lint command").fill("oxlint");
+    await page.getByRole("button", { name: "Change the Lint command" }).click();
+    await page.getByLabel("Command line").fill("oxlint");
     await page.getByRole("button", { name: "Save" }).click();
 
     await expect(other.getByText("oxlint", { exact: true })).toBeVisible();
@@ -675,7 +713,7 @@ test("the environment check shows each check, and saves the environment only onc
   });
 
   await page.request.put(`/api/projects/${project.id}/commands/lint`, {
-    data: { commandLine: passes },
+    data: { name: "Lint", kind: "lint", commandLine: passes },
   });
   await page.getByRole("button", { name: "Run the environment check" }).click();
 

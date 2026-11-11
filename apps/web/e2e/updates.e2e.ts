@@ -68,12 +68,12 @@ async function slowProject(page: Page): Promise<Project> {
     path: repository.path,
     baseBranch: "main",
     mark: { label: "UP", colour: "teal" },
-    commands: {
-      install: SLOW_INSTALL,
-      build: "node --version",
-      lint: "node --version",
-      test: "node --version",
-    },
+    installCommand: SLOW_INSTALL,
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "node --version" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "node --version" },
+      { key: "test", name: "Test", kind: "test", commandLine: "node --version" },
+    ],
     installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",

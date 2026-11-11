@@ -30,7 +30,12 @@ const RECORD: PlanningRecord = {
   project: {
     name: "Admin panel",
     baseBranch: "main",
-    commands: { install: "npm install", build: "npm run build", lint: "", test: "npm test" },
+    installCommand: "npm install",
+    commands: [
+      { key: "build", name: "Build", commandLine: "npm run build" },
+      { key: "lint", name: "Lint", commandLine: "" },
+      { key: "test", name: "Test", commandLine: "npm test" },
+    ],
   },
   worktree: { path: "/office/worktrees/admin-panel/task-1", branch: "office/task-1" },
   links: {
@@ -54,7 +59,7 @@ describe("a planning Brief", () => {
         '## Where it came from\n\nThe Idea "Export usage as CSV". Its notes:\n\nMonthly, per Project, for the accountant.',
         "## Linked records\n\n- Shaped from: Export usage as CSV (Idea idea-1), in the Project admin-panel, shaped; read_idea reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size.",
         "## Attachments\n\nRead one with read_attachment, by its id: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase; an image as a picture where the engine shows one; any other file by its name, kind and size.\n\n- CSV format notes (link to https://example.com/csv) · Attachment attachment-1",
-        "## The Project's commands\n\n- install: `npm install`\n- build: `npm run build`\n- lint: none\n- test: `npm test`",
+        "## The Project's commands\n\n- install (Install): `npm install`\n- build (Build): `npm run build`\n- lint (Lint): none\n- test (Test): `npm test`",
         "## The Pipelines\n\nThe Task follows Full (full) until the user confirms another. Propose the one its Definition of Done needs with propose_pipeline:",
         "- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
         "## Auto mode\n\nOff: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.",

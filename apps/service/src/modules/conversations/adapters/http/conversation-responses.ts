@@ -6,7 +6,7 @@ import {
   type Message as MessageResponse,
   type NewProject as NewProjectResponse,
   type PeopleWorking,
-  type ProjectCommandFields as ProjectCommandFieldsResponse,
+  type ProposedProjectCommands as ProposedProjectCommandsResponse,
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
   type Thread as ThreadResponse,
@@ -202,8 +202,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
       return {
         kind: "project-commands",
         projectId: change.projectId,
-        from: toProjectCommandFieldsResponse(change.from),
-        to: toProjectCommandFieldsResponse(change.to),
+        changes: toProposedProjectCommandsResponse(change.changes),
       };
     case "pipeline":
       return {
@@ -268,7 +267,8 @@ function toNewProjectResponse(project: NewProject): NewProjectResponse {
     repositoryUrl: project.repositoryUrl,
     baseBranch: project.baseBranch,
     mark: { label: project.mark.label, colour: project.mark.colour },
-    commands: { ...project.commands },
+    installCommand: project.installCommand,
+    commands: project.commands.map((command) => ({ ...command })),
     installInputs: [...project.installInputs],
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
@@ -277,11 +277,22 @@ function toNewProjectResponse(project: NewProject): NewProjectResponse {
 
 const STAGES = stageSchema.array();
 
-function toProjectCommandFieldsResponse({
+function toProposedProjectCommandsResponse({
+  installCommand,
   installInputs,
-  ...commands
-}: ProposedProjectCommands["from"]): ProjectCommandFieldsResponse {
-  return installInputs ? { ...commands, installInputs: [...installInputs] } : commands;
+  commands,
+}: ProposedProjectCommands["changes"]): ProposedProjectCommandsResponse {
+  return {
+    ...(installCommand && { installCommand: { ...installCommand } }),
+    ...(installInputs && {
+      installInputs: { from: [...installInputs.from], to: [...installInputs.to] },
+    }),
+    commands: commands.map(({ key, from, to }) => ({
+      key,
+      from: from && { ...from },
+      to: to && { ...to },
+    })),
+  };
 }
 
 function decisionOf(

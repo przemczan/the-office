@@ -136,7 +136,7 @@ export class Worktrees {
       project.environment,
       () =>
         this.taskCommands.run(project, taskId, worktree.path, {
-          commandLine: project.commands.install,
+          commandLine: project.installCommand,
           timeoutMs: INSTALL_TIMEOUT_MS,
           signal,
           wait,
@@ -187,7 +187,7 @@ export class Worktrees {
   ): Promise<Installation> {
     return this.installOnce(project, worktreePath, { kind: "host" }, environment, () =>
       this.commands.run({
-        commandLine: project.commands.install,
+        commandLine: project.installCommand,
         folder: worktreePath,
         environment,
         timeoutMs: INSTALL_TIMEOUT_MS,
@@ -346,7 +346,7 @@ export class Worktrees {
     environment: ProjectEnvironment,
     install: () => Promise<CommandRun>,
   ): Promise<Installation> {
-    if (!isCommandSet(project.commands.install)) return { kind: "up-to-date" };
+    if (!isCommandSet(project.installCommand)) return { kind: "up-to-date" };
     const record = await this.git.worktreeRecordPath(worktreePath, INSTALL_RECORD);
     const fingerprint = await installFingerprint(project, worktreePath, environment, place);
     if ((await readFile(record, "utf8").catch(() => undefined)) === fingerprint) {
@@ -403,7 +403,7 @@ async function installFingerprint(
     .update(
       JSON.stringify({
         version: INSTALL_RECORD_VERSION,
-        command: project.commands.install,
+        command: project.installCommand,
         environment,
         inputs,
         // Left out on the host, so the records of installs made before run environments still hold.

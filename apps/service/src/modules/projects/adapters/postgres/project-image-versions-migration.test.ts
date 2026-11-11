@@ -44,12 +44,11 @@ async function aProjectBefore(
   const id = `project-${randomUUID()}`;
   await transaction.execute(
     sql`INSERT INTO "projects" ("id", "name", "path", "base_branch", "mark_label", "mark_colour",
-        "icon", "logo", "install_command", "build_command", "lint_command", "test_command",
-        "publishing_mode", "default_pipeline", "use_project_skills", "added_at")
+        "icon", "logo", "install_command", "publishing_mode", "default_pipeline",
+        "use_project_skills", "added_at")
       VALUES (${id}, ${id}, ${`/work/${id}`}, 'main', 'MI', 'teal',
         ${icon && JSON.stringify(icon)}::jsonb, ${logo && JSON.stringify(logo)}::jsonb,
-        'npm ci', 'npm run build', 'npm run lint', 'npm test',
-        'push-and-pull-request', 'full', true, now())`,
+        'npm ci', 'push-and-pull-request', 'full', true, now())`,
   );
   return id;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkIdOf,
   finishEnvironmentCheck,
   progressEnvironmentCheck,
   startEnvironmentCheck,
@@ -10,7 +11,7 @@ import {
   EnvironmentCheckStarted,
 } from "./environment-check-events.js";
 import type { CheckedCommandRun, EnvironmentCheck } from "./environment-check.js";
-import { aProject } from "./project.fixtures.js";
+import { aProject, startingCommands } from "./project.fixtures.js";
 
 const startedAt = new Date("2026-10-25T10:00:00.000Z");
 const finishedAt = new Date("2026-10-25T10:03:00.000Z");
@@ -28,7 +29,7 @@ function aRun(
 }
 
 function started(): EnvironmentCheck {
-  return startEnvironmentCheck("admin-panel", aProject().commands, environment, startedAt).check;
+  return startEnvironmentCheck("admin-panel", aProject(), environment, startedAt).check;
 }
 
 /** The check with every step passed but `failed`, which failed. */
@@ -37,20 +38,23 @@ function allRanBut(failed?: string): EnvironmentCheck {
     (check, each) =>
       progressEnvironmentCheck(check, {
         ...each,
-        state: each.step === failed ? "failed" : "passed",
+        state: checkIdOf(each) === failed ? "failed" : "passed",
       }).check,
     started(),
   );
 }
 
 describe("startEnvironmentCheck", () => {
-  it("waits on the worktree and each command, as the commands are now", () => {
-    const { check, event } = startEnvironmentCheck(
-      "admin-panel",
-      aProject().commands,
-      environment,
-      startedAt,
-    );
+  it("waits on the worktree, install and each command in order, as they are now", () => {
+    const e2e = {
+      key: "test-e2e",
+      name: "End to end",
+      kind: "test",
+      commandLine: "npm run e2e",
+    } as const;
+    const project = aProject({ commands: [...startingCommands(), e2e] });
+
+    const { check, event } = startEnvironmentCheck("admin-panel", project, environment, startedAt);
 
     expect(check).toEqual({
       projectId: "admin-panel",
@@ -59,9 +63,10 @@ describe("startEnvironmentCheck", () => {
       checks: [
         { step: "worktree", state: "waiting" },
         { step: "install", state: "waiting", commandLine: "npm ci" },
-        { step: "build", state: "waiting", commandLine: "npm run build" },
-        { step: "lint", state: "waiting", commandLine: "npm run lint" },
-        { step: "test", state: "waiting", commandLine: "npm test" },
+        { step: "command", state: "waiting", ...startingCommands()[0] },
+        { step: "command", state: "waiting", ...startingCommands()[1] },
+        { step: "command", state: "waiting", ...startingCommands()[2] },
+        { step: "command", state: "waiting", ...e2e },
       ],
       startedAt,
       finishedAt: undefined,
@@ -70,9 +75,9 @@ describe("startEnvironmentCheck", () => {
   });
 
   it("skips a command that isn't set from the start", () => {
-    const commands = { ...aProject().commands, install: "", lint: "" };
+    const project = aProject({ installCommand: "", commands: startingCommands({ lint: "" }) });
 
-    const { check } = startEnvironmentCheck("admin-panel", commands, environment, startedAt);
+    const { check } = startEnvironmentCheck("admin-panel", project, environment, startedAt);
 
     expect(check.checks.map((each) => each.state)).toEqual([
       "waiting",
@@ -88,22 +93,18 @@ describe("progressEnvironmentCheck", () => {
   it("puts one check in place and announces its state", () => {
     const run = aRun("npm run build");
 
-    const { check, event } = progressEnvironmentCheck(started(), {
-      step: "build",
-      state: "passed",
-      commandLine: "npm run build",
-      run,
-    });
+    const build = { step: "command", ...startingCommands()[0]!, state: "passed", run } as const;
 
-    expect(check.checks[2]).toEqual({
-      step: "build",
-      state: "passed",
-      commandLine: "npm run build",
-      run,
-    });
+    const { check, event } = progressEnvironmentCheck(started(), build);
+
+    expect(check.checks[2]).toEqual(build);
     expect(check.checks.filter((each) => each.state === "waiting")).toHaveLength(4);
     expect(event).toBeInstanceOf(EnvironmentCheckProgressed);
-    expect(event).toMatchObject({ projectId: "admin-panel", step: "build", state: "passed" });
+    expect(event).toMatchObject({
+      projectId: "admin-panel",
+      check: "command:build",
+      state: "passed",
+    });
   });
 });
 
@@ -116,7 +117,9 @@ describe("finishEnvironmentCheck", () => {
   });
 
   it("fails when one check failed", () => {
-    expect(finishEnvironmentCheck(allRanBut("lint"), finishedAt, false).check.state).toBe("failed");
+    const lintFailed = allRanBut("command:lint");
+
+    expect(finishEnvironmentCheck(lintFailed, finishedAt, false).check.state).toBe("failed");
   });
 
   it("skips the checks that never ran", () => {
@@ -138,8 +141,8 @@ describe("finishEnvironmentCheck", () => {
   });
 
   it("passes when every check passed but the commands that aren't set", () => {
-    const commands = { ...aProject().commands, install: "", lint: "" };
-    const notSet = startEnvironmentCheck("admin-panel", commands, environment, startedAt).check;
+    const project = aProject({ installCommand: "", commands: startingCommands({ lint: "" }) });
+    const notSet = startEnvironmentCheck("admin-panel", project, environment, startedAt).check;
     const ran = notSet.checks
       .filter((each) => each.state === "waiting")
       .reduce(

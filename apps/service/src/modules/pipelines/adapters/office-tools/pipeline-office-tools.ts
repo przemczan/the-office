@@ -21,7 +21,7 @@ import { StageHistory } from "../../application/stage-history.js";
 import { StageProjectCommands } from "../../application/stage-project-commands.js";
 import { StageRunEnvironmentDefinitions } from "../../application/stage-run-environment-definitions.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
-import { agentCommandOf, PROJECT_COMMAND_KEYS } from "../../domain/agent-command.js";
+import { agentCommandOf } from "../../domain/agent-command.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
 import { ProposalDrafts } from "../../ports/proposal-drafts.js";
 import { toPipelineResponse, toStageTemplateResponse } from "../http/pipeline-responses.js";
@@ -118,9 +118,11 @@ export class PipelineOfficeTools implements OnModuleInit {
         "Runs one of the Project's commands by its key, or a command line you write, such as one test file, in the worktree's root, where the Project's commands run: in the Task's run environment when the Project has one, waiting for a free one. Give exactly one of command and commandLine. A command line runs only if your shell may run it. It waits until the command ends and answers with its exit code and the path of a file with its whole output, which you read with Read.",
       input: z.object({
         command: z
-          .enum(PROJECT_COMMAND_KEYS)
+          .string()
           .optional()
-          .describe("One of the Project's commands, by its key, run exactly as its settings say."),
+          .describe(
+            "install, or one of the Project's commands by its key as your Brief lists them, run exactly as its settings say.",
+          ),
         commandLine: z
           .string()
           .optional()

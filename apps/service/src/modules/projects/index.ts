@@ -29,11 +29,14 @@ export {
 } from "./domain/environment-check-events.js";
 export {
   ProjectAdded,
+  ProjectCommandAdded,
   ProjectCommandChanged,
+  ProjectCommandRemoved,
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectImageChanged,
+  ProjectInstallCommandChanged,
   ProjectInstallInputsChanged,
   ProjectLimitChanged,
   ProjectMarkChanged,
@@ -46,6 +49,9 @@ export {
 } from "./domain/project-events.js";
 export type {
   NewProject,
+  ProjectCommand,
+  ProjectCommandFields,
+  ProjectCommandKind,
   ProjectEngineLevels,
   ProjectRoleOverride,
   RunEnvironmentAnswer,
@@ -53,5 +59,10 @@ export type {
 } from "./domain/project.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";
 export { ProjectRefused } from "./domain/project-refused.js";
-export { proposedCommandFields, type ProjectCommandFields } from "./domain/proposed-commands.js";
+export {
+  proposedCommands,
+  type CommandsToPropose,
+  type ProposedCommand,
+  type ProposedCommands,
+} from "./domain/proposed-commands.js";
 export { ProjectsModule } from "./projects.module.js";

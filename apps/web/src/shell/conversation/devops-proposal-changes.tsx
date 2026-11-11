@@ -1,4 +1,10 @@
-import type { ProjectCommandFields, ProposedChange, Role, Stage } from "@the-office/contracts";
+import type {
+  ProjectCommandFields,
+  ProposedChange,
+  ProposedProjectCommands,
+  Role,
+  Stage,
+} from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
@@ -7,12 +13,7 @@ import {
   stagesLine,
   type StageChange,
 } from "../pipelines/pipeline-words.ts";
-import {
-  COMMAND_KEYS,
-  COMMAND_LABELS,
-  INSTALL_INPUTS_LABEL,
-  installInputsLine,
-} from "../project-words.ts";
+import { COMMAND_KIND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine } from "../project-words.ts";
 import { SkillUpdateDiff } from "../skill-update-diff.tsx";
 import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
 
@@ -25,37 +26,47 @@ const STAGE_CHANGE_WORDS: Readonly<Record<StageChange["change"], string>> = {
   changed: "Changed",
 };
 
-/** Each command and the install inputs a Proposal rewrites, from now to as proposed. */
+/**
+ * The install command, the install inputs and each command a Proposal changes, from now to as
+ * proposed: a command added comes from nothing, one removed goes to nothing.
+ */
 export function ProposedCommandChanges({
-  from,
-  to,
+  changes,
 }: {
-  readonly from: ProjectCommandFields;
-  readonly to: ProjectCommandFields;
+  readonly changes: ProposedProjectCommands;
 }): ReactNode {
+  const { installCommand, installInputs, commands } = changes;
   return (
     <ul className="proposal-changes">
-      {COMMAND_KEYS.flatMap((key) => {
-        const proposed = to[key];
-        if (proposed === undefined) return [];
-        return [
-          <ChangeRow
-            key={key}
-            label={`${COMMAND_LABELS[key]} command`}
-            from={from[key] || "None"}
-            to={proposed}
-          />,
-        ];
-      })}
-      {to.installInputs && (
+      {installCommand && (
         <ChangeRow
-          label={INSTALL_INPUTS_LABEL}
-          from={installInputsLine(from.installInputs ?? []) || "None"}
-          to={installInputsLine(to.installInputs) || "None"}
+          label="Install command"
+          from={installCommand.from || "None"}
+          to={installCommand.to}
         />
       )}
+      {installInputs && (
+        <ChangeRow
+          label={INSTALL_INPUTS_LABEL}
+          from={installInputsLine(installInputs.from) || "None"}
+          to={installInputsLine(installInputs.to) || "None"}
+        />
+      )}
+      {commands.map(({ key, from, to }) => (
+        <ChangeRow
+          key={key}
+          label={`${(to ?? from)?.name ?? key} (${key})`}
+          from={from ? commandWords(from) : "None: added"}
+          to={to ? commandWords(to) : "Removed"}
+        />
+      ))}
     </ul>
   );
+}
+
+/** A command's kind and line, as a Proposal's change shows it: "Test · npm test". */
+export function commandWords({ kind, commandLine }: ProjectCommandFields): string {
+  return `${COMMAND_KIND_LABELS[kind]} · ${commandLine || "Not set"}`;
 }
 
 /** A Pipeline's Stages from now to as proposed, and each Stage the change adds, removes or rewrites. */

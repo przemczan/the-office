@@ -7,6 +7,13 @@ export type CommandPermission =
   | { readonly kind: "project-commands"; readonly commandLines: readonly string[] }
   | { readonly kind: "anything" };
 
+/** One of the Project's commands besides install, as the Brief names it. */
+export interface NamedCommand {
+  readonly key: string;
+  readonly name: string;
+  readonly commandLine: string;
+}
+
 /** What an Agent Stage's session may run: what the engine enforces, and the Brief's words for it. */
 export interface AllowedCommands {
   readonly permission: CommandPermission;
@@ -16,11 +23,12 @@ export interface AllowedCommands {
 /**
  * The commands an Agent Stage's session may run, from one source, so the Brief names exactly what
  * the engine allows (research §11.6): an Agent not told is refused and asks a needless Decision.
- * The Project's own commands are all but its install, which is a Hard switch's (spec §6).
+ * The Project's own commands are every one in its list, each set one by its key and name; its
+ * install isn't among them, as it is a Hard switch's (spec §6).
  */
 export function allowedCommands(
   run: RunPermission,
-  projectCommands: Readonly<Record<string, string>>,
+  projectCommands: readonly NamedCommand[],
   readOnlyGit: readonly string[],
 ): AllowedCommands {
   const git = `read-only git (${readOnlyGit.map((command) => `git ${command}`).join(", ")})`;
@@ -28,14 +36,14 @@ export function allowedCommands(
     case "read-only-git":
       return { permission: { kind: "read-only-git" }, words: `You may run ${git} only.` };
     case "project-commands": {
-      const commands = Object.entries(projectCommands).filter(
-        ([key, commandLine]) => key !== "install" && commandLine !== "",
+      const commands = projectCommands.filter(({ commandLine }) => commandLine !== "");
+      const lines = commands.map(
+        ({ key, name, commandLine }) => `- ${key} (${name}): \`${commandLine}\``,
       );
-      const lines = commands.map(([key, commandLine]) => `- ${key}: \`${commandLine}\``);
       return {
         permission: {
           kind: "project-commands",
-          commandLines: commands.map(([, commandLine]) => commandLine),
+          commandLines: commands.map(({ commandLine }) => commandLine),
         },
         words:
           commands.length === 0

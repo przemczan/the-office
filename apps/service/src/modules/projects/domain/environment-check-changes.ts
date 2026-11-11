@@ -9,7 +9,7 @@ import {
   EnvironmentCheckProgressed,
   EnvironmentCheckStarted,
 } from "./environment-check-events.js";
-import { isCommandSet, PROJECT_COMMAND_KEYS, type ProjectCommands } from "./project.js";
+import { isCommandSet, type Project } from "./project.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 
 /** An environment check after a change, with the event that announces it. */
@@ -21,7 +21,7 @@ export interface EnvironmentCheckChange<Event> {
 /** Starts a check of every command the Project has; one that isn't set is skipped from the start. */
 export function startEnvironmentCheck(
   projectId: string,
-  commands: ProjectCommands,
+  { installCommand, commands }: Pick<Project, "installCommand" | "commands">,
   environment: ProjectEnvironment,
   startedAt: Date,
 ): EnvironmentCheckChange<EnvironmentCheckStarted> {
@@ -31,10 +31,11 @@ export function startEnvironmentCheck(
     state: "running",
     checks: [
       { step: "worktree", state: "waiting" },
-      ...PROJECT_COMMAND_KEYS.map((key): CommandCheck => ({
-        step: key,
-        state: isCommandSet(commands[key]) ? "waiting" : "skipped",
-        commandLine: commands[key],
+      { step: "install", state: stateAtStart(installCommand), commandLine: installCommand },
+      ...commands.map((command): CommandCheck => ({
+        step: "command",
+        ...command,
+        state: stateAtStart(command.commandLine),
       })),
     ],
     startedAt,
@@ -43,18 +44,29 @@ export function startEnvironmentCheck(
   return { check, event: new EnvironmentCheckStarted(projectId, startedAt) };
 }
 
-/** Puts `updated` in the place of the check for the same step. */
+function stateAtStart(commandLine: string): Check["state"] {
+  return isCommandSet(commandLine) ? "waiting" : "skipped";
+}
+
+/** Which check this is: its step, or a command's key. */
+export function checkIdOf(check: Check): string {
+  return check.step === "command" ? `command:${check.key}` : check.step;
+}
+
+/** Puts `updated` in the place of the check for the same step, or the same command. */
 export function progressEnvironmentCheck(
   environmentCheck: EnvironmentCheck,
   updated: Check,
 ): EnvironmentCheckChange<EnvironmentCheckProgressed> {
   const check = {
     ...environmentCheck,
-    checks: environmentCheck.checks.map((each) => (each.step === updated.step ? updated : each)),
+    checks: environmentCheck.checks.map((each) =>
+      checkIdOf(each) === checkIdOf(updated) ? updated : each,
+    ),
   };
   return {
     check,
-    event: new EnvironmentCheckProgressed(check.projectId, updated.step, updated.state),
+    event: new EnvironmentCheckProgressed(check.projectId, checkIdOf(updated), updated.state),
   };
 }
 

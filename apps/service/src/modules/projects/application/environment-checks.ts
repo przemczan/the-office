@@ -1,7 +1,12 @@
 import { Injectable, Logger, type BeforeApplicationShutdown } from "@nestjs/common";
 import { BusyWork } from "../../office-updates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { Check, CommandCheck, EnvironmentCheck } from "../domain/environment-check.js";
+import type {
+  Check,
+  CommandCheck,
+  EnvironmentCheck,
+  InstallCheck,
+} from "../domain/environment-check.js";
 import {
   finishEnvironmentCheck,
   progressEnvironmentCheck,
@@ -24,7 +29,7 @@ import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
 import { Worktrees, type ThrowawayWorktree } from "./worktrees.js";
 
-/** How long build, lint or test may run in the check before it is ended. */
+/** How long each of the Project's commands may run in the check before it is ended. */
 const COMMAND_TIMEOUT_MS = 30 * 60_000;
 
 /** An environment check under way: what it has found so far, and how to stop it. */
@@ -36,7 +41,7 @@ interface RunningCheck {
 
 /**
  * The environment check (spec §5.5): a throwaway worktree of the freshly fetched base branch,
- * then install, build, lint and test in it with the environment tried, which is saved only when
+ * then install and each of the Project's commands in it with the environment tried, which is saved only when
  * every check passes. One runs at a time per Project; a running one lives here, and only finished
  * ones are kept, so a restart never finds one that was left running.
  */
@@ -73,12 +78,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
       problems.push("An environment check is already running for this Project.");
     }
     if (problems.length > 0) throw new ProjectRefused(problems);
-    const { check, event } = startEnvironmentCheck(
-      projectId,
-      project.commands,
-      environment,
-      new Date(),
-    );
+    const { check, event } = startEnvironmentCheck(projectId, project, environment, new Date());
     const running: RunningCheck = { check, stop: new AbortController(), done: Promise.resolve() };
     this.running.set(projectId, running);
     const busy = {
@@ -121,8 +121,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
       worktree = await this.openWorktree(project, running);
       if (worktree && (await this.install(project, worktree, running))) {
         for (const check of running.check.checks) {
-          if (check.step === "worktree" || check.step === "install") continue;
-          if (check.state === "skipped") continue;
+          if (check.step !== "command" || check.state === "skipped") continue;
           await this.runCommand(check, worktree, running);
         }
       }
@@ -178,11 +177,11 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     worktree: ThrowawayWorktree,
     running: RunningCheck,
   ): Promise<boolean> {
-    const check = commandCheck(running.check, "install");
+    const check = installCheck(running.check);
     if (check.state === "skipped") return true;
     await this.progress(running, { ...check, state: "running" });
     const installation = await this.worktrees.install(
-      { ...project, commands: { ...project.commands, install: check.commandLine } },
+      { ...project, installCommand: check.commandLine },
       worktree.path,
       { environment: running.check.environment, signal: running.stop.signal },
     );
@@ -247,8 +246,8 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
   }
 }
 
-function commandCheck(check: EnvironmentCheck, step: CommandCheck["step"]): CommandCheck {
-  const found = check.checks.find((each): each is CommandCheck => each.step === step);
-  if (!found) throw new Error(`The environment check has no ${step} check.`);
+function installCheck(check: EnvironmentCheck): InstallCheck {
+  const found = check.checks.find((each): each is InstallCheck => each.step === "install");
+  if (!found) throw new Error("The environment check has no install check.");
   return found;
 }

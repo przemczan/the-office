@@ -10,6 +10,7 @@ import {
 import { Button, Dialog, Field, Input, SegmentedControl } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { addProject, projectQueries } from "../../api/projects.ts";
+import { STARTING_COMMANDS } from "../../shell/project-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import {
   WHERE_IT_IS_OPTIONS,
@@ -30,7 +31,8 @@ const EMPTY: NewProject = {
   path: "",
   baseBranch: "main",
   mark: { label: "", colour: "teal" },
-  commands: { install: "", build: "", lint: "", test: "" },
+  installCommand: "",
+  commands: STARTING_COMMANDS.map((command) => ({ ...command, commandLine: "" })),
   installInputs: [],
   publishingMode: "push-and-pull-request",
   defaultPipeline: "full",

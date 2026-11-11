@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { RoleCard } from "../../people/index.js";
-import type { NewProject, ProjectCommandFields } from "../../projects/index.js";
+import type { NewProject, ProposedCommands } from "../../projects/index.js";
 import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
 
@@ -130,15 +130,14 @@ export type InitiativeEdit =
   | { readonly kind: "task-description"; readonly taskId: string; readonly description: string };
 
 /**
- * Devops' change to a Project's commands and install inputs (spec §2.3): the fields it rewrites as
- * the Project had them when drafted (`from`), and as proposed (`to`). Projects refuses to apply it
- * once one of them changed.
+ * Devops' change to a Project's install command, install inputs and commands (spec §2.3): each
+ * field as the Project had it when drafted, and as proposed. Projects refuses to apply it once one
+ * of them changed.
  */
 export interface ProposedProjectCommands {
   readonly kind: "project-commands";
   readonly projectId: string;
-  readonly from: ProjectCommandFields;
-  readonly to: ProjectCommandFields;
+  readonly changes: ProposedCommands;
 }
 
 /**

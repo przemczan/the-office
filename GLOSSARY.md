@@ -10,6 +10,13 @@ A single-user workspace, run like an office, where AI agents turn ideas into pub
 A repository The Office works on, with its own commands and settings.
 _Avoid_: Repo (in the UI), workspace
 
+**Project command**:
+One of a Project's named commands, beside its install command: a key, fixed once added, by which Pipelines and Agents name it, a name, a Command kind and a command line. Every Project starts with Build, Lint and Test.
+
+**Command kind**:
+What a Project command does: build, lint or test. A run of a test command, under any key, gets the test handling: one re-run on failure, the worktree restored, the files it wrote moved out of it.
+_Avoid_: Command type
+
 **Mark**:
 A Project's short label on a colour, one of four offered or a custom one, shown with its name, and what any picture of the Project falls back to.
 _Avoid_: Avatar, initials

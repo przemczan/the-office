@@ -8,7 +8,8 @@ import {
   trimmedNewProject,
   type NewProject,
   type Project,
-  type ProjectCommandKey,
+  type ProjectCommand,
+  type ProjectCommandFields,
   type ProjectEngineLevels,
   type ProjectMark,
   type PublishingMode,
@@ -17,9 +18,11 @@ import {
 } from "../domain/project.js";
 import {
   addProject,
+  addCommand,
   asProjectChanges,
   changeCommand,
   changeCommandsAsProposed,
+  changeInstallCommand,
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
@@ -33,6 +36,7 @@ import {
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
+  removeCommand,
   type ProjectChange,
   type ProjectChanges,
 } from "../domain/project-changes.js";
@@ -40,10 +44,7 @@ import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { OutputMask } from "../domain/output-mask.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
-import {
-  proposedCommandsProblems,
-  type ProjectCommandFields,
-} from "../domain/proposed-commands.js";
+import { proposedCommandsProblems, type ProposedCommands } from "../domain/proposed-commands.js";
 import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { EngineLevelsChecks } from "./engine-levels-checks.js";
@@ -153,9 +154,22 @@ export class ProjectService {
     return (await this.repository.list()).find((project) => project.path === repositoryPath);
   }
 
+  /** A worktree installs again before its next Stage, as its last install ran another line. */
+  async changeInstallCommand(id: string, commandLine: string): Promise<Project> {
+    return this.update(id, (project) => changeInstallCommand(project, commandLine));
+  }
+
+  async addCommand(id: string, command: ProjectCommand): Promise<Project> {
+    return this.update(id, (project) => addCommand(project, command));
+  }
+
   /** A running Task runs the new line from its next Script Stage, which reads it when it runs. */
-  async changeCommand(id: string, key: ProjectCommandKey, commandLine: string): Promise<Project> {
-    return this.update(id, (project) => changeCommand(project, key, commandLine));
+  async changeCommand(id: string, key: string, change: ProjectCommandFields): Promise<Project> {
+    return this.update(id, (project) => changeCommand(project, key, change));
+  }
+
+  async removeCommand(id: string, key: string): Promise<Project> {
+    return this.update(id, (project) => removeCommand(project, key));
   }
 
   async changeInstallInputs(id: string, installInputs: readonly string[]): Promise<Project> {
@@ -163,30 +177,22 @@ export class ProjectService {
   }
 
   /**
-   * Every reason a Proposal of commands and install inputs can't apply to the Project now
+   * Every reason a Proposal of commands can't apply to the Project now
    * (`proposedCommandsProblems`), or that there is no such Project.
    */
-  async proposedCommandsProblems(
-    id: string,
-    from: ProjectCommandFields,
-    to: ProjectCommandFields,
-  ): Promise<string[]> {
+  async proposedCommandsProblems(id: string, proposed: ProposedCommands): Promise<string[]> {
     const project = await this.find(id);
     return project
-      ? proposedCommandsProblems(project, from, to)
+      ? proposedCommandsProblems(project, proposed)
       : [new ProjectNotFound(id).message];
   }
 
   /**
-   * Applies a Proposal of commands and install inputs (spec §2.3) all or nothing: checked against
-   * the Project as its row is held and saved in one go, so a hand edit can't land between fields.
+   * Applies a Proposal of commands (spec §2.3) all or nothing: checked against the Project as its
+   * row is held and saved in one go, so a hand edit can't land between fields.
    */
-  async changeCommandsAsProposed(
-    id: string,
-    from: ProjectCommandFields,
-    to: ProjectCommandFields,
-  ): Promise<Project> {
-    return this.updateTogether(id, (project) => changeCommandsAsProposed(project, from, to));
+  async changeCommandsAsProposed(id: string, proposed: ProposedCommands): Promise<Project> {
+    return this.updateTogether(id, (project) => changeCommandsAsProposed(project, proposed));
   }
 
   /**

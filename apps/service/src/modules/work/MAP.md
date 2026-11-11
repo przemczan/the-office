@@ -264,7 +264,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `onboarding.ts`: ONBOARD_PIPELINE, ONBOARD_TASK_TITLE, onboardTaskPlan, ONBOARD_TASK_DEFINITION_OF_DONE, createOnboardTask, OnboardingState, ProjectOnboarding, projectOnboardingOf
 - `pdf-text.ts`: pdfTextOf
 - `planning-changes.ts`: proposePlan, savePlan, confirmPlan, proposeDefinitionOfDone, saveDefinitionOfDone, confirmDefinitionOfDone, proposePipeline, confirmPipeline, markingPlannedProblems, markPlanned, acceptInAutoMode
-- `planning.ts`: PLANNER, PLANNING_THREAD_TITLE, makeAPlanOpening, PLANNING_INSTRUCTIONS, PlanningProject, PlanningPipeline, PlanningRecord, planningBrief, planSections, attachmentsSection, pipelineLibraryLines, commandLines
+- `planning.ts`: PLANNER, PLANNING_THREAD_TITLE, makeAPlanOpening, PLANNING_INSTRUCTIONS, PlanningProject, ProjectCommandsInBrief, PlanningPipeline, PlanningRecord, planningBrief, planSections, attachmentsSection, pipelineLibraryLines, commandLines
 - `project-filter.ts`: ProjectFilter, isInProjectFilter
 - `queue-events.ts`: TaskQueued, LeavingQueue, TaskLeftQueue, TaskQueueReasonsChanged, TaskMovedUpInQueue
 - `queue.ts`: QueuedTask, OverlapChoice, Starting, startOrQueue, queueOrder, Release, releaseQueue, moveUpInQueue, moveToTopOfQueue
@@ -314,7 +314,7 @@ FireAlarmService, IdeaService, InitiativeArchiving, OfficeLimits, QueueService, 
 - `known-engine-cascade.ts`: KnownEngineCascade
 - `known-people.ts`: KnownPeople, KnownPerson
 - `known-pipelines.ts`: KnownPipelines, KnownPipeline
-- `known-projects.ts`: KnownProject, KnownProjects
+- `known-projects.ts`: KnownProject, KnownProjectCommand, KnownProjects
 - `model-prices.ts`: ModelPrices
 - `new-projects.ts`: AddedProject, NewProjects
 - `pdf-pages.ts`: PdfPages

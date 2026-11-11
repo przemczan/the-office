@@ -158,7 +158,7 @@ describe("a planning Thread's session", () => {
       asking: false,
       sessionRefusal: undefined,
     });
-    expect(setup.brief).toContain("- install: `npm install`");
+    expect(setup.brief).toContain("- install (Install): `npm install`");
   });
 
   it("is briefed with the Initiative the Task is part of, its other Tasks and Attachments", async () => {

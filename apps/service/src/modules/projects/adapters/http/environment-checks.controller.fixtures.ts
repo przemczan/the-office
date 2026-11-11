@@ -26,9 +26,9 @@ export const GREETING: ProjectEnvironment = {
   prependPath: [],
 };
 
-/** The check's steps with their states, in order. */
+/** The check's steps, a command's by its key, with their states, in order. */
 export function states(check: EnvironmentCheck): [string, string][] {
-  return check.checks.map((each) => [each.step, each.state]);
+  return check.checks.map((each) => [each.step === "command" ? each.key : each.step, each.state]);
 }
 
 /** A check runs git and five commands, which take a few seconds on Windows. */
@@ -58,7 +58,12 @@ export function environmentChecksHttp(
       path: current().repository.path,
       baseBranch: "main",
       mark: { label: "CH", colour: "teal" },
-      commands: { install: PASSES, build: PASSES, lint: PASSES, test: NEEDS_GREETING },
+      installCommand: PASSES,
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
+        { key: "test", name: "Test", kind: "test", commandLine: NEEDS_GREETING },
+      ],
       installInputs: [],
       publishingMode: "push-and-pull-request",
       defaultPipeline: "full",

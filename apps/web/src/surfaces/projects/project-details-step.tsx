@@ -3,19 +3,13 @@ import {
   publishingModeSchema,
   runEnvironmentAnswerSchema,
   type NewProject,
-  type ProjectCommandKey,
   type RunEnvironmentAnswer,
 } from "@the-office/contracts";
 import { Badge, Button, Field, Icon, Input, RadioGroup, RadioList, Select } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
-import {
-  COMMAND_KEYS,
-  COMMAND_LABELS,
-  INSTALL_INPUTS_LABEL,
-  publishingLabel,
-} from "../../shell/project-words.ts";
+import { INSTALL_INPUTS_LABEL, INSTALL_LABEL, publishingLabel } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import {
   RUN_ENVIRONMENT_ANSWERS,
@@ -26,7 +20,8 @@ import {
 import { WHERE_IT_IS_OPTIONS, type ProjectSource } from "./add-project-source.ts";
 import { MarkPicker } from "./mark-picker.tsx";
 
-const COMMAND_EXAMPLES: Readonly<Record<ProjectCommandKey, string>> = {
+/** An example line for install and for each command a Project starts with, by its key. */
+const COMMAND_EXAMPLES: Readonly<Record<string, string>> = {
   install: "npm ci",
   build: "npm run build",
   lint: "npm run lint",
@@ -133,14 +128,25 @@ export function ProjectDetailsStep({
       </div>
       <Field label="Commands" hint={COMMANDS_HINT}>
         <div className="add-project-columns">
-          {COMMAND_KEYS.map((key) => (
+          <Input
+            label={INSTALL_LABEL}
+            placeholder={COMMAND_EXAMPLES.install}
+            value={draft.installCommand}
+            onChange={(event) => onChange({ installCommand: event.target.value })}
+            inputStyle={{ fontFamily: "var(--font-mono)" }}
+          />
+          {draft.commands.map((command) => (
             <Input
-              key={key}
-              label={COMMAND_LABELS[key]}
-              placeholder={COMMAND_EXAMPLES[key]}
-              value={draft.commands[key]}
+              key={command.key}
+              label={command.name}
+              placeholder={COMMAND_EXAMPLES[command.key]}
+              value={command.commandLine}
               onChange={(event) =>
-                onChange({ commands: { ...draft.commands, [key]: event.target.value } })
+                onChange({
+                  commands: draft.commands.map((each) =>
+                    each.key === command.key ? { ...each, commandLine: event.target.value } : each,
+                  ),
+                })
               }
               inputStyle={{ fontFamily: "var(--font-mono)" }}
             />

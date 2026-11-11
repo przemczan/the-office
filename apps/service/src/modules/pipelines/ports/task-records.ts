@@ -16,8 +16,14 @@ export interface TaskRecord {
     readonly id: string;
     readonly name: string;
     readonly baseBranch: string;
-    /** Its commands by their key (install, build, lint, test); empty for one it doesn't run. */
-    readonly commands: Readonly<Record<string, string>>;
+    /** Its install command line; empty while not set. */
+    readonly installCommand: string;
+    /** Its other commands, in its order; a command line is empty while not set. */
+    readonly commands: readonly {
+      readonly key: string;
+      readonly name: string;
+      readonly commandLine: string;
+    }[];
     /** Whether sessions on its Tasks also get the repository's own skills. */
     readonly useProjectSkills: boolean;
     /** The keys of the repository's skills and commands the Project turned off, each by itself. */

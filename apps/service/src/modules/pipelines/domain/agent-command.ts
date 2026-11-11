@@ -1,28 +1,27 @@
 import type { CommandRun } from "./stage-command-run.js";
 
-/** The Project's commands, by their keys in its settings. */
-export const PROJECT_COMMAND_KEYS = ["install", "build", "lint", "test"] as const;
-
-export type ProjectCommandKey = (typeof PROJECT_COMMAND_KEYS)[number];
-
-/** A command an Agent runs through The Office: one of the Project's by its key, or one it wrote. */
-export type AgentCommand = { readonly key: ProjectCommandKey } | { readonly commandLine: string };
+/**
+ * A command an Agent runs through The Office: install or one of the Project's commands by its key,
+ * or one it wrote.
+ */
+export type AgentCommand = { readonly key: string } | { readonly commandLine: string };
 
 /**
  * The command an Agent asked for with the tool's two inputs, or why its ask names none: it gives
  * exactly one of them.
  */
 export function agentCommandOf(
-  key: ProjectCommandKey | undefined,
+  key: string | undefined,
   commandLine: string | undefined,
 ): AgentCommand | string {
+  const given = key?.trim() ?? "";
   const written = commandLine?.trim() ?? "";
-  if (key !== undefined && written !== "") {
+  if (given !== "" && written !== "") {
     return "Give either command or commandLine, not both.";
   }
-  if (key !== undefined) return { key };
+  if (given !== "") return { key: given };
   if (written !== "") return { commandLine: written };
-  return `Give the command to run: command, one of ${PROJECT_COMMAND_KEYS.join(", ")}, or commandLine.`;
+  return "Give the command to run: command, install or one of the Project's commands by its key, or commandLine.";
 }
 
 /**
@@ -55,7 +54,7 @@ export function agentCommandAnswer(
   if (end.kind === "no-command") {
     const key = "key" in command ? command.key : "command";
     return {
-      text: `The Project has no ${key} command: its settings leave it empty, so nothing ran. Run a command line instead, if you may.`,
+      text: `The Project has no ${key} command, or its settings leave it empty, so nothing ran. Run a command line instead, if you may.`,
       isError: true,
     };
   }

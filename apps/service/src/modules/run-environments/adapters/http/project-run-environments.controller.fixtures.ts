@@ -12,7 +12,12 @@ export function newProjectIn(path: string): NewProject {
     path,
     baseBranch: "main",
     mark: { label: "SH", colour: "teal" },
-    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installCommand: "npm ci",
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+    ],
     installInputs: [],
     publishingMode: "merge",
     defaultPipeline: "full",

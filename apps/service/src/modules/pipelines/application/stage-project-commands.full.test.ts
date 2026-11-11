@@ -144,7 +144,7 @@ describe("StageProjectCommands", () => {
     const answer = await ranDuringTheStage({ key: "lint" });
 
     expect(answer).toEqual({
-      text: "The Project has no lint command: its settings leave it empty, so nothing ran. Run a command line instead, if you may.",
+      text: "The Project has no lint command, or its settings leave it empty, so nothing ran. Run a command line instead, if you may.",
       isError: true,
     });
   });

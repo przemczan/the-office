@@ -54,7 +54,7 @@ describe("Worktrees.prepare", REAL_GIT_TEST, () => {
 
   it("installs nothing while the install command isn't set, and installs once it is", async () => {
     const taskId = aTaskId();
-    const notSet = { ...project, commands: { ...project.commands, install: "" } };
+    const notSet = { ...project, installCommand: "" };
     const before = await installs();
 
     const first = await worktrees.prepare(notSet, taskId);
@@ -196,7 +196,7 @@ describe("Worktrees.install", REAL_GIT_TEST, () => {
 
     const changedCommand = {
       ...project,
-      commands: { ...project.commands, install: `${COUNTING_INSTALL} && echo again` },
+      installCommand: `${COUNTING_INSTALL} && echo again`,
     };
     await worktrees.install(changedCommand, worktree.path);
     expect(await installs()).toBe(count + 2);
@@ -213,7 +213,7 @@ describe("Worktrees.install", REAL_GIT_TEST, () => {
     const { worktree } = await worktrees.prepare(project, aTaskId());
     const failing = {
       ...project,
-      commands: { ...project.commands, install: `node -e "process.exit(1)"` },
+      installCommand: `node -e "process.exit(1)"`,
     };
 
     await expect(worktrees.install(failing, worktree.path)).resolves.toMatchObject({

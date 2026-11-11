@@ -84,11 +84,11 @@ interface ATask {
 
 /** A started Task's worktree of a Project whose test command runs the check. */
 async function aTask({
-  commands = {},
+  installCommand = `node "${join(repository.folder, "install.cjs")}"`,
   variables = {},
   runEnvironment = "not-decided",
 }: {
-  readonly commands?: Partial<Project["commands"]>;
+  readonly installCommand?: string;
   readonly variables?: Readonly<Record<string, string>>;
   readonly runEnvironment?: Project["runEnvironment"];
 } = {}): Promise<ATask> {
@@ -97,13 +97,23 @@ async function aTask({
   const installLog = join(repository.folder, `${taskId}-install.log`);
   const project = aProject({
     path: repository.path,
-    commands: {
-      install: `node "${join(repository.folder, "install.cjs")}"`,
-      build: "",
-      lint: "",
-      test: `node "${join(repository.folder, "check.cjs")}"`,
-      ...commands,
-    },
+    installCommand,
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
+      {
+        key: "test",
+        name: "Test",
+        kind: "test",
+        commandLine: `node "${join(repository.folder, "check.cjs")}"`,
+      },
+      {
+        key: "check-all",
+        name: "Check everything",
+        kind: "test",
+        commandLine: `node "${join(repository.folder, "check.cjs")}" all`,
+      },
+    ],
     installInputs: [],
     environment: {
       set: Object.entries({ INSTALL_LOG: installLog, ...variables }).map(([name, value]) => ({
@@ -170,6 +180,20 @@ describe("AgentCommands.run", REAL_GIT_TEST, () => {
     ).resolves.toBe("by the check\n");
   });
 
+  it("runs a command added under a key of its own", async () => {
+    const task = await aTask();
+
+    const end = await agentCommands.run(
+      task.project,
+      task.taskId,
+      { key: "check-all" },
+      options(task.taskId),
+    );
+
+    expect(end).toMatchObject({ kind: "ran", run: { outcome: "passed", exitCode: 0 } });
+    await expect(readFile(outputFileOf(task.taskId), "utf8")).resolves.toBe("checked all\n");
+  });
+
   it("runs a command line as written in the worktree's root, and gives its exit code", async () => {
     const task = await aTask({ variables: { EXIT_CODE: "3" } });
     const commandLine = `node "${join(repository.folder, "check.cjs")}" src/one.test.ts`;
@@ -204,14 +228,17 @@ describe("AgentCommands.run", REAL_GIT_TEST, () => {
     await expect(readFile(outputFileOf(task.taskId), "utf8")).resolves.toMatch(/^bash \d+\n$/);
   });
 
-  it("runs nothing for a key the Project has no command for", async () => {
-    const task = await aTask();
+  it.each(["lint", "e2e"])(
+    "runs nothing for a key (%s) the Project has no command set for",
+    async (key) => {
+      const task = await aTask();
 
-    await expect(
-      agentCommands.run(task.project, task.taskId, { key: "lint" }, options(task.taskId)),
-    ).resolves.toEqual({ kind: "no-command" });
-    expect(await installs(task)).toBe(0);
-  });
+      await expect(
+        agentCommands.run(task.project, task.taskId, { key }, options(task.taskId)),
+      ).resolves.toEqual({ kind: "no-command" });
+      expect(await installs(task)).toBe(0);
+    },
+  );
 
   it("installs first when the install hasn't passed with these inputs, and only then", async () => {
     const task = await aTask();
@@ -292,9 +319,9 @@ describe("AgentCommands.run with the Project's run environment On", REAL_GIT_TES
 
     expect(end).toMatchObject({ kind: "ran", run: { outcome: "passed" } });
     expect(runEnvironments.runs.slice(before).map(({ command }) => command)).toEqual([
-      expect.objectContaining({ commandLine: task.project.commands.install }),
+      expect.objectContaining({ commandLine: task.project.installCommand }),
       expect.objectContaining({
-        commandLine: task.project.commands.test,
+        commandLine: task.project.commands.find(({ key }) => key === "test")?.commandLine,
         outputFile: outputFileOf(task.taskId),
       }),
     ]);
@@ -302,7 +329,7 @@ describe("AgentCommands.run with the Project's run environment On", REAL_GIT_TES
   });
 
   it("waits for a free run environment as a Script Stage's command does, and a stop runs nothing", async () => {
-    const task = await aTask({ runEnvironment: "on", commands: { install: "" } });
+    const task = await aTask({ runEnvironment: "on", installCommand: "" });
     runEnvironments.waitsUntil = new Promise(() => undefined);
     const stop = new AbortController();
     const wait = {

@@ -1,6 +1,7 @@
 import {
-  projectCommandKeySchema,
-  type ProjectCommandKey,
+  projectCommandKindSchema,
+  type ProjectCommand,
+  type ProjectCommandKind,
   type PublishingMode,
 } from "@the-office/contracts";
 
@@ -9,15 +10,22 @@ export function publishingLabel(mode: PublishingMode, baseBranch: string): strin
   return mode === "merge" ? `Merge into ${baseBranch}` : "Push and open a pull request";
 }
 
-/** In the order a fresh worktree runs them. */
-export const COMMAND_KEYS: readonly ProjectCommandKey[] = projectCommandKeySchema.options;
+export const INSTALL_LABEL = "Install";
 
-export const COMMAND_LABELS: Readonly<Record<ProjectCommandKey, string>> = {
-  install: "Install",
+export const COMMAND_KINDS: readonly ProjectCommandKind[] = projectCommandKindSchema.options;
+
+export const COMMAND_KIND_LABELS: Readonly<Record<ProjectCommandKind, string>> = {
   build: "Build",
   lint: "Lint",
   test: "Test",
 };
+
+/** The commands every Project starts with, their command lines given when it is added. */
+export const STARTING_COMMANDS: readonly Omit<ProjectCommand, "commandLine">[] = [
+  { key: "build", name: "Build", kind: "build" },
+  { key: "lint", name: "Lint", kind: "lint" },
+  { key: "test", name: "Test", kind: "test" },
+];
 
 export const INSTALL_INPUTS_LABEL = "Install inputs";
 

@@ -59,7 +59,12 @@ async function startApplication(): Promise<void> {
 describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
   it("keeps the environment when a check fails, and still runs the others", async () => {
     const project = await addProject({
-      commands: { install: PASSES, build: PASSES, lint: FAILS, test: PASSES },
+      installCommand: PASSES,
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: FAILS },
+        { key: "test", name: "Test", kind: "test", commandLine: PASSES },
+      ],
     });
 
     const check = await checked(project);
@@ -78,7 +83,12 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
 
   it("skips the commands that aren't set, runs the others and saves the environment", async () => {
     const project = await addProject({
-      commands: { install: "", build: "", lint: PASSES, test: NEEDS_GREETING },
+      installCommand: "",
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
+        { key: "test", name: "Test", kind: "test", commandLine: NEEDS_GREETING },
+      ],
     });
 
     const check = await checked(project);
@@ -97,7 +107,12 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
 
   it("skips the rest when the install fails", async () => {
     const project = await addProject({
-      commands: { install: FAILS, build: PASSES, lint: PASSES, test: PASSES },
+      installCommand: FAILS,
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
+        { key: "test", name: "Test", kind: "test", commandLine: PASSES },
+      ],
     });
 
     const check = await checked(project);
@@ -162,7 +177,12 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
 
   it("stops a running check when The Office shuts down, and keeps it as stopped", async () => {
     const project = await addProject({
-      commands: { install: PASSES, build: PASSES, lint: PASSES, test: SLEEPS },
+      installCommand: PASSES,
+      commands: [
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
+        { key: "test", name: "Test", kind: "test", commandLine: SLEEPS },
+      ],
     });
     await send("POST", `/projects/${project.id}/environment-check`, { environment: GREETING });
     await expect

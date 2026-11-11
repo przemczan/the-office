@@ -88,7 +88,7 @@ function taskInRunEnvironment(
     taskId,
     projectId: project.id,
     worktree,
-    installCommand: project.commands.install,
+    installCommand: project.installCommand,
     installInputs: project.installInputs,
     installVariables: project.environment.set,
   };

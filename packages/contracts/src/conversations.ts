@@ -2,7 +2,7 @@ import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { openPageSchema } from "./open-page.js";
 import { roleCardSchema } from "./people.js";
-import { newProjectSchema, projectCommandFieldsSchema } from "./projects.js";
+import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { stageSchema } from "./stages.js";
 import { prioritySchema } from "./work.js";
@@ -399,14 +399,13 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     ]),
   }),
   /**
-   * Devops' change to a Project's commands and install inputs: the fields it rewrites as the
-   * Project had them when drafted (now), and as proposed. Applying is refused once one changed.
+   * Devops' change to a Project's install command, install inputs and commands: each field now and
+   * as proposed. Applying is refused once one changed.
    */
   z.object({
     kind: z.literal("project-commands"),
     projectId: z.string(),
-    from: projectCommandFieldsSchema,
-    to: projectCommandFieldsSchema,
+    changes: proposedProjectCommandsSchema,
   }),
   /**
    * Devops' new Stages for a library Pipeline, and its Stages when drafted (now). Applying is

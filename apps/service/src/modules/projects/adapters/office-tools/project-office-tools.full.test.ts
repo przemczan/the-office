@@ -5,7 +5,7 @@ import type { LocalRepositories } from "../../application/local-repositories.js"
 import { ProjectRecords } from "../../application/project-records.js";
 import type { ProjectService } from "../../application/project-service.js";
 import type { RepositoriesByUrl } from "../../application/repositories-by-url.js";
-import { aProject } from "../../domain/project.fixtures.js";
+import { aProject, startingCommands } from "../../domain/project.fixtures.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { LIST_PROJECTS, ProjectOfficeTools, READ_REPOSITORY } from "./project-office-tools.js";
@@ -52,9 +52,7 @@ function toolsReading(read: LocalRepositories["read"]): ProjectOfficeTools {
 
 describe("list_projects", () => {
   it("reads each Project's record, with where a chat reads its base branch", async () => {
-    const tool = toolsOver([
-      aProject({ commands: { ...aProject().commands, lint: "" } }),
-    ]).listProjects();
+    const tool = toolsOver([aProject({ commands: startingCommands({ lint: "" }) })]).listProjects();
 
     const result = await tool.run({}, anOfficeToolCall("s-1"));
 
@@ -64,7 +62,8 @@ describe("list_projects", () => {
       text: [
         "Admin panel (id admin-panel)",
         "- Base branch: main, read-only in chats at /office/bases/admin-panel",
-        "- Commands: install `npm ci`, build `npm run build`, lint `none`, test `npm test`",
+        "- Install: `npm ci`",
+        "- Commands: build (Build, build) `npm run build`, lint (Lint, lint) `none`, test (Test, test) `npm test`",
         "- Install inputs: package-lock.json",
         "- Publishing: push and open a pull request",
         "- Default Pipeline: full",

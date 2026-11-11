@@ -3,14 +3,11 @@ import { dirname, join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import type { CommandRun } from "../domain/command-run.js";
-import { isCommandSet, type Project, type ProjectCommandKey } from "../domain/project.js";
+import { commandOf, isCommandSet, type Project, type ProjectCommand } from "../domain/project.js";
 import { keepingScreenshots } from "./screenshots-folder.js";
 import { TaskCommandRunner } from "./task-command-runner.js";
 import type { CommandWait } from "./task-run-environments.js";
 import { Worktrees } from "./worktrees.js";
-
-/** The Project commands a Script Stage runs; install runs before a Stage that needs it. */
-export type ScriptCommandKey = Exclude<ProjectCommandKey, "install">;
 
 /** The files a test run wrote into the worktree, moved out of it so no commit holds them. */
 export interface MovedFiles {
@@ -22,7 +19,7 @@ export interface MovedFiles {
 
 /** A run of a Script Stage's command. */
 export interface ScriptCommandRun extends CommandRun {
-  /** Undefined when it wrote no file, and after a command that isn't the tests. */
+  /** Undefined when it wrote no file, and after a command that isn't of kind test. */
   readonly movedFiles: MovedFiles | undefined;
 }
 
@@ -36,12 +33,12 @@ export interface ScriptCommandOptions {
 }
 
 /**
- * Runs a Script Stage's Project command in a Task's worktree with the Project's environment, on
- * the host or in the Task's run environment (TaskCommandRunner). What
- * a test run changed never reaches the work (spec §5.5): tracked files are restored after it, the
- * files it wrote are moved out of the worktree for the user to see, and the screenshots folder is
- * put back as the Agent left it, so only the Agent's screenshots are attached. A failing test command
- * runs once more before it counts as failed (research §11.5).
+ * Runs a Script Stage's Project command, by its key, in a Task's worktree with the Project's
+ * environment, on the host or in the Task's run environment (TaskCommandRunner). What a run of a
+ * command of kind test changed never reaches the work (spec §5.5): tracked files are restored after
+ * it, the files it wrote are moved out of the worktree for the user to see, and the screenshots
+ * folder is put back as the Agent left it, so only the Agent's screenshots are attached. A failing
+ * test command runs once more before it counts as failed (research §11.5).
  */
 @Injectable()
 export class ScriptCommands {
@@ -54,28 +51,45 @@ export class ScriptCommands {
   /**
    * Each run of the command, in order: a failing test command's re-run follows it. A test run's
    * files go to a folder named by `stageRunId` and the run's number. `signal` stops the command
-   * running, with everything it started; a stopped run is never run again.
+   * running, with everything it started; a stopped run is never run again. A key the Project has
+   * no command by, or one whose line is blank, can't run.
    */
   async run(
     project: Project,
     taskId: string,
-    key: ScriptCommandKey,
+    key: string,
     stageRunId: string,
     options: ScriptCommandOptions = {},
   ): Promise<readonly ScriptCommandRun[]> {
-    if (!isCommandSet(project.commands[key])) return [commandNotSetRun(key)];
-    if (key !== "test")
-      return [{ ...(await this.runOnce(project, taskId, key, options)), movedFiles: undefined }];
-    const first = await this.runTests(project, taskId, join(stageRunId, "1"), options);
+    const command = commandOf(project, key);
+    if (!command)
+      return [
+        couldNotRun(
+          `The Project has no ${key} command. Add it on the Project's page, or ask Devops.`,
+        ),
+      ];
+    if (!isCommandSet(command.commandLine)) {
+      return [
+        couldNotRun(
+          `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask Devops.`,
+        ),
+      ];
+    }
+    if (command.kind !== "test") {
+      const run = await this.runOnce(project, taskId, command, options);
+      return [{ ...run, movedFiles: undefined }];
+    }
+    const first = await this.runTests(project, taskId, command, join(stageRunId, "1"), options);
     // Only a command that ran and failed may be a flake: one the shell couldn't start won't start
     // the second time either, and one that ran out of time would take as long again.
     if (first.outcome !== "failed") return [first];
-    return [first, await this.runTests(project, taskId, join(stageRunId, "2"), options)];
+    return [first, await this.runTests(project, taskId, command, join(stageRunId, "2"), options)];
   }
 
   private async runTests(
     project: Project,
     taskId: string,
+    command: ProjectCommand,
     outputFolder: string,
     options: ScriptCommandOptions,
   ): Promise<ScriptCommandRun> {
@@ -83,7 +97,7 @@ export class ScriptCommands {
     const run = await keepingScreenshots(
       this.worktrees.pathOf(project, taskId),
       `${this.outputFolder(outputFolder)}.screenshots`,
-      () => this.runOnce(project, taskId, "test", options),
+      () => this.runOnce(project, taskId, command, options),
     );
     await this.worktrees.restore(project, taskId);
     const written = (await this.worktrees.untracked(project, taskId)).filter(
@@ -95,11 +109,11 @@ export class ScriptCommands {
   private runOnce(
     project: Project,
     taskId: string,
-    key: ScriptCommandKey,
+    command: ProjectCommand,
     { signal, wait }: ScriptCommandOptions,
   ): Promise<CommandRun> {
     return this.commands.run(project, taskId, this.worktrees.pathOf(project, taskId), {
-      commandLine: project.commands[key],
+      commandLine: command.commandLine,
       timeoutMs: SCRIPT_COMMAND_TIMEOUT_MS,
       signal,
       wait,
@@ -129,9 +143,8 @@ export class ScriptCommands {
   }
 }
 
-/** A Stage whose command the Project hasn't set can't run it, so it never passes on its own. */
-function commandNotSetRun(key: ScriptCommandKey): ScriptCommandRun {
-  const output = `The Project has no ${key} command yet. Set it on the Project's page, or ask Devops.`;
+/** A Stage whose command the Project lacks or hasn't set can't run it, so it never passes on its own. */
+function couldNotRun(output: string): ScriptCommandRun {
   return {
     commandLine: "",
     outcome: "could-not-run",

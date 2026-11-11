@@ -1,11 +1,12 @@
-import { Body, Controller, Get, Param, Post, Put, UseFilters } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, UseFilters } from "@nestjs/common";
 import {
   addProjectSchema,
   commandChangeSchema,
   defaultPipelineChangeSchema,
+  installCommandChangeSchema,
   installInputsChangeSchema,
   markChangeSchema,
-  projectCommandKeySchema,
+  projectCommandSchema,
   publishingModeChangeSchema,
   projectDefaultChangeSchema,
   projectLimitSchema,
@@ -17,6 +18,7 @@ import {
   type AddProject,
   type CommandChange,
   type DefaultPipelineChange,
+  type InstallCommandChange,
   type InstallInputsChange,
   type MarkChange,
   type Project as ProjectResponse,
@@ -26,7 +28,7 @@ import {
   type UseForEveryRoleChange,
   type ProjectRemoteNeeds,
   type RemoteNeeds as RemoteNeedsResponse,
-  type ProjectCommandKey,
+  type ProjectCommand,
   type PublishingModeChange,
   type ProjectSkill,
   type ProjectSkillUseChange,
@@ -66,13 +68,37 @@ export class ProjectsController {
     return toProjectResponse(await this.projects.read(id));
   }
 
+  @Put(":id/install-command")
+  async changeInstallCommand(
+    @Param("id") id: string,
+    @Body(new ContractPipe(installCommandChangeSchema)) { commandLine }: InstallCommandChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeInstallCommand(id, commandLine));
+  }
+
+  @Post(":id/commands")
+  async addCommand(
+    @Param("id") id: string,
+    @Body(new ContractPipe(projectCommandSchema)) command: ProjectCommand,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.addCommand(id, command));
+  }
+
   @Put(":id/commands/:key")
   async changeCommand(
     @Param("id") id: string,
-    @Param("key", new ContractPipe(projectCommandKeySchema)) key: ProjectCommandKey,
-    @Body(new ContractPipe(commandChangeSchema)) { commandLine }: CommandChange,
+    @Param("key") key: string,
+    @Body(new ContractPipe(commandChangeSchema)) change: CommandChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeCommand(id, key, commandLine));
+    return toProjectResponse(await this.projects.changeCommand(id, key, change));
+  }
+
+  @Delete(":id/commands/:key")
+  async removeCommand(
+    @Param("id") id: string,
+    @Param("key") key: string,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.removeCommand(id, key));
   }
 
   @Put(":id/install-inputs")

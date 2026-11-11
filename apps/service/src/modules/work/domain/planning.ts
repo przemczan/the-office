@@ -31,10 +31,19 @@ export function makeAPlanOpening(autoMode: boolean): string {
 export const PLANNING_INSTRUCTIONS = `In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file, and ${READ_ONLY_SHELL_RULE}. With The Office's tools you read its records of Projects, people, Tasks, Ideas and Initiatives, the Task's and any other, and any of their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size. Ask the user what you need to know, then agree with them on the Plan (how it will be done, and the files and folders it expects to change) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. When the Task is part of an Initiative, your Brief has it: check its outcome, its other Tasks and its Attachments for anything that bears on this Task, and keep the Plan consistent with the other Tasks' Plans. Write each onto the Task as you agree on it, with write_plan (its files to change too, so Start can warn of another Task in progress changing the same), write_definition_of_done and propose_pipeline: each shows as proposed until the user confirms or edits it, and once the Plan and the Definition of Done are confirmed the user marks the Task Ready. Once the Plan, the Definition of Done and the Pipeline are written and nothing is left to ask, say so with mark_planned; your Brief says what follows. Give the Task a few Tags to find it by with write_tags, reusing Tags already in use where they fit; they apply at once. The user may edit them on the Task, so read it with read_task before you rewrite one. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.`;
 
 /** The Project as a planning Brief names it. */
-export interface PlanningProject {
+export interface PlanningProject extends ProjectCommandsInBrief {
   readonly name: string;
   readonly baseBranch: string;
-  readonly commands: Readonly<Record<string, string>>;
+}
+
+/** A Project's install command and its other commands, as a Brief lists them. */
+export interface ProjectCommandsInBrief {
+  readonly installCommand: string;
+  readonly commands: readonly {
+    readonly key: string;
+    readonly name: string;
+    readonly commandLine: string;
+  }[];
 }
 
 /** A Pipeline in the library, as the Planner chooses one: when it fits, and its Stages. */
@@ -85,7 +94,7 @@ export function planningBrief({
     linkedRecordsSection(links),
     initiative && initiativeSection(initiative, task.id),
     attachmentsSection(attachments),
-    `## The Project's commands\n\n${commandLines(project.commands).join("\n")}`,
+    `## The Project's commands\n\n${commandLines(project).join("\n")}`,
     pipelinesSection(task, pipelines),
     autoModeSection(task),
     ...planSections(task),
@@ -155,8 +164,10 @@ function originSection(idea: Idea | undefined, description: string): string {
   return `## Where it came from\n\nThe Idea "${idea.title}". Its notes:\n\n${notes}`;
 }
 
-export function commandLines(commands: Readonly<Record<string, string>>): string[] {
-  return Object.entries(commands).map(([key, commandLine]) =>
-    commandLine === "" ? `- ${key}: none` : `- ${key}: \`${commandLine}\``,
+/** Install, then each command by its key and name, with its line or "none" while not set. */
+export function commandLines({ installCommand, commands }: ProjectCommandsInBrief): string[] {
+  return [{ key: "install", name: "Install", commandLine: installCommand }, ...commands].map(
+    ({ key, name, commandLine }) =>
+      commandLine === "" ? `- ${key} (${name}): none` : `- ${key} (${name}): \`${commandLine}\``,
   );
 }

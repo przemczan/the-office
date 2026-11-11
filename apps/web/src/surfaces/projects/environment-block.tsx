@@ -3,6 +3,7 @@ import type {
   CheckState,
   CommandCheck,
   EnvironmentCheck,
+  InstallCheck,
   Project,
   ProjectEnvironmentEdit,
   WorktreeCheck,
@@ -45,8 +46,8 @@ const STATE_LABELS: Readonly<Record<CheckState, string>> = {
 
 /**
  * The Project's environment and its check (spec §5.5): the variables every command and Agent of
- * the Project runs with, tried in a fresh worktree of the base branch and saved only when install,
- * build, lint and test all pass there.
+ * the Project runs with, tried in a fresh worktree of the base branch and saved only when install
+ * and each of the Project's commands pass there.
  */
 export function EnvironmentBlock({ project }: { readonly project: Project }): ReactNode {
   const check = useQuery(projectQueries.environmentCheck(project.id));
@@ -72,7 +73,7 @@ export function EnvironmentBlock({ project }: { readonly project: Project }): Re
       {check.data === null && (
         <p className="project-block-text environment-unchecked">
           Not checked yet. The check opens a fresh worktree of {project.baseBranch} and runs
-          install, build, lint and test there.
+          install, then each of the Project's commands, there.
         </p>
       )}
       {check.data && <Checks check={check.data} project={project} />}
@@ -101,7 +102,10 @@ function Checks({
         each.step === "worktree" ? (
           <WorktreeCheckLine key={each.step} check={each} project={project} />
         ) : (
-          <CommandCheckLine key={each.step} check={each} />
+          <CommandCheckLine
+            key={each.step === "command" ? `command:${each.key}` : each.step}
+            check={each}
+          />
         ),
       )}
     </ul>
@@ -129,7 +133,7 @@ function WorktreeCheckLine({
   );
 }
 
-function CommandCheckLine({ check }: { readonly check: CommandCheck }): ReactNode {
+function CommandCheckLine({ check }: { readonly check: InstallCheck | CommandCheck }): ReactNode {
   const outputId = useId();
   // A failed check shows its output until the user hides it.
   const [toggled, setToggled] = useState<boolean>();

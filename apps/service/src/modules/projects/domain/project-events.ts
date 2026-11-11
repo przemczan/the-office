@@ -2,7 +2,7 @@ import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
 import type {
   Project,
-  ProjectCommandKey,
+  ProjectCommand,
   ProjectMark,
   PublishingMode,
   RunEnvironmentSetting,
@@ -16,12 +16,39 @@ export class ProjectAdded extends DomainEvent {
   }
 }
 
-/** Tasks already running keep the command line they started with. */
+/** A worktree installs again when the install command differs from its last install's. */
+export class ProjectInstallCommandChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly commandLine: string,
+  ) {
+    super();
+  }
+}
+
+export class ProjectCommandAdded extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly command: ProjectCommand,
+  ) {
+    super();
+  }
+}
+
+/** Its name, kind or command line; Tasks already running keep the command line they started with. */
 export class ProjectCommandChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
-    readonly key: ProjectCommandKey,
-    readonly commandLine: string,
+    readonly command: ProjectCommand,
+  ) {
+    super();
+  }
+}
+
+export class ProjectCommandRemoved extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly key: string,
   ) {
     super();
   }

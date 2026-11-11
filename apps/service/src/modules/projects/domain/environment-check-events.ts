@@ -1,5 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { Check, CheckState, EnvironmentCheckState } from "./environment-check.js";
+import type { CheckState, EnvironmentCheckState } from "./environment-check.js";
 
 /** A check of the Project's environment started. Like the others, it carries no environment. */
 export class EnvironmentCheckStarted extends DomainEvent {
@@ -15,7 +15,8 @@ export class EnvironmentCheckStarted extends DomainEvent {
 export class EnvironmentCheckProgressed extends DomainEvent {
   constructor(
     readonly projectId: string,
-    readonly step: Check["step"],
+    /** The check's step, or `command:<key>` for one of the Project's commands. */
+    readonly check: string,
     readonly state: CheckState,
   ) {
     super();

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import type {
+  ProjectCommand,
   ProjectMarkColour,
   ProjectRoleOverride,
   PublishingMode,
@@ -22,9 +23,7 @@ export const projects = pgTable(
     icon: jsonb("icon").$type<ProjectImageVersions>().notNull().default(NO_PROJECT_IMAGE),
     logo: jsonb("logo").$type<ProjectImageVersions>().notNull().default(NO_PROJECT_IMAGE),
     installCommand: text("install_command").notNull(),
-    buildCommand: text("build_command").notNull(),
-    lintCommand: text("lint_command").notNull(),
-    testCommand: text("test_command").notNull(),
+    commands: jsonb("commands").$type<readonly ProjectCommand[]>().notNull().default([]),
     installInputs: text("install_inputs")
       .array()
       .notNull()

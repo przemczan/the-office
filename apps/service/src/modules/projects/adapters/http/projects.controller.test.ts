@@ -101,22 +101,75 @@ describe("GET /api/projects", () => {
   });
 });
 
-describe("PUT /api/projects/:id/commands/:key", () => {
-  it("changes one command and announces it", async () => {
+describe("PUT /api/projects/:id/install-command", () => {
+  it("changes install and announces it", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/install-command`, {
+      commandLine: "npm install",
+    });
+
+    expect(response.status).toBe(200);
+    expect(projectSchema.parse(await response.json()).installCommand).toBe("npm install");
+    expect(webEvents()).toEqual([
+      { type: "project.install-command-changed", projectId: project.id },
+    ]);
+  });
+});
+
+describe("the Project's commands", () => {
+  const E2E = { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" };
+
+  it("adds a command after the others and announces it", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("POST", `/projects/${project.id}/commands`, E2E);
+
+    expect(response.status).toBe(201);
+    expect(projectSchema.parse(await response.json()).commands).toEqual([...project.commands, E2E]);
+    expect(webEvents()).toEqual([
+      { type: "project.command-added", projectId: project.id, key: "test-e2e" },
+    ]);
+  });
+
+  it("changes one command's name, kind and line, keeping its key, and announces it", async () => {
     const project = await addProject();
     published = [];
 
     const response = await send("PUT", `/projects/${project.id}/commands/test`, {
+      name: "Unit tests",
+      kind: "test",
       commandLine: "npm test -- --run",
     });
 
     expect(response.status).toBe(200);
-    expect(projectSchema.parse(await response.json()).commands).toEqual({
-      ...project.commands,
-      test: "npm test -- --run",
-    });
+    expect(projectSchema.parse(await response.json()).commands).toEqual(
+      project.commands.map((command) =>
+        command.key === "test"
+          ? { key: "test", name: "Unit tests", kind: "test", commandLine: "npm test -- --run" }
+          : command,
+      ),
+    );
     expect(webEvents()).toEqual([
       { type: "project.command-changed", projectId: project.id, key: "test" },
+    ]);
+  });
+
+  it("removes a command and announces it", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("DELETE", `/projects/${project.id}/commands/lint`);
+
+    expect(response.status).toBe(200);
+    expect(projectSchema.parse(await response.json()).commands.map(({ key }) => key)).toEqual([
+      "build",
+      "test",
+    ]);
+    expect(webEvents()).toEqual([
+      { type: "project.command-removed", projectId: project.id, key: "lint" },
     ]);
   });
 });

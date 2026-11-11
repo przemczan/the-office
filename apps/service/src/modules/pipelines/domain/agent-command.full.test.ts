@@ -20,7 +20,7 @@ describe("agentCommandOf", () => {
 
   it("refuses neither, or a blank command line, naming the keys", () => {
     const refusal =
-      "Give the command to run: command, one of install, build, lint, test, or commandLine.";
+      "Give the command to run: command, install or one of the Project's commands by its key, or commandLine.";
     expect(agentCommandOf(undefined, undefined)).toBe(refusal);
     expect(agentCommandOf(undefined, "   ")).toBe(refusal);
   });

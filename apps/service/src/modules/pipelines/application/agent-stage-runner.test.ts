@@ -74,7 +74,7 @@ describe("AgentStageRunner", () => {
       "## The Definition of Done\n\n1. The new name shows on the list\n2. The rename persists",
     );
     expect(record).toContain("- mockup.png (image, image/png, 2048 bytes) · Attachment a-1");
-    expect(record).toContain("- build: `npm run build`\n- test: `npm test`");
+    expect(record).toContain("- build (Build): `npm run build`\n- test (Test): `npm test`");
     expect(record).not.toContain("npm ci");
     const [run] = await runsOf(pipelines, taskId);
     expect(run?.outcome).toEqual({

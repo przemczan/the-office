@@ -58,7 +58,12 @@ describe("TaskRecords", () => {
         id: projectId,
         name: `The ${projectId}`,
         baseBranch: "main",
-        commands: { install: "npm install", build: "", lint: "npm run lint", test: "npm test" },
+        installCommand: "npm install",
+        commands: [
+          { key: "build", name: "Build", commandLine: "" },
+          { key: "lint", name: "Lint", commandLine: "npm run lint" },
+          { key: "test", name: "Test", commandLine: "npm test" },
+        ],
         useProjectSkills: true,
         projectSkillsOff: [],
       },
