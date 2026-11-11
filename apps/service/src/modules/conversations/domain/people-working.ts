@@ -16,8 +16,8 @@ export function peopleWorkingOnTasks(threads: readonly Thread[]): readonly TaskP
     (one, other) => one.startedAt.getTime() - other.startedAt.getTime(),
   );
   const roleKeysByTask = new Map<string, Set<string>>();
-  for (const { home, roleKey, state, openDecision } of oldestFirst) {
-    if (home.kind !== "task" || state !== "answering" || openDecision) continue;
+  for (const { home, roleKey, state, openDecisions } of oldestFirst) {
+    if (home.kind !== "task" || state !== "answering" || openDecisions.length > 0) continue;
     const roleKeys = roleKeysByTask.get(home.taskId) ?? new Set();
     roleKeysByTask.set(home.taskId, roleKeys.add(roleKey));
   }

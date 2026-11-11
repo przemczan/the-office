@@ -74,11 +74,12 @@ export function heldCallsWith({
     },
   } as unknown as ThreadRepository;
   const decisions = {
-    open: (_sessionId: string, draft: DecisionDraft, to?: string) => {
+    open: (_sessionId: string, draft: DecisionDraft, { putTo: to }: { putTo?: string } = {}) => {
       if (openRefusal) throw new ThreadRefused([openRefusal]);
       opened.push(draft);
       putTo.push(to);
-      return Promise.resolve(aDecision());
+      const decision = aDecision();
+      return Promise.resolve({ decision, home: { kind: "task", taskId: decision.taskId } });
     },
   } as unknown as DecisionService;
   const consultations = new Consultations(

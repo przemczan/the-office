@@ -85,7 +85,7 @@ export class Consultations implements OnModuleInit {
       consult,
       consultant ? { kind: "consultant", roleKey: consultant.roleKey } : { kind: "user" },
     );
-    await this.decisions.open(sessionId, draft, consultant?.roleKey);
+    await this.decisions.open(sessionId, draft, { putTo: consultant?.roleKey });
     return consultant;
   }
 
@@ -165,7 +165,7 @@ export class Consultations implements OnModuleInit {
   }
 
   private async askAgainFor(asker: Thread, threads: readonly Thread[]): Promise<void> {
-    const decision = asker.openDecision;
+    const decision = putToAConsultant(asker);
     if (!decision?.putTo || asker.consultation) return;
     const stopped = threads.find(
       ({ consultation, roleKey }) =>
@@ -205,7 +205,7 @@ export class Consultations implements OnModuleInit {
    * once for each Consultant it is put to; none while the fire alarm is on.
    */
   async openFor(asker: Thread): Promise<void> {
-    const decision = asker.openDecision;
+    const decision = putToAConsultant(asker);
     if (!decision?.putTo || asker.consultation) return;
     if ((await this.fireAlarm.read()).on) return;
     const consultantKey = decision.putTo;
@@ -278,4 +278,9 @@ export class Consultations implements OnModuleInit {
     );
     if (event) await this.events.publish(event);
   }
+}
+
+/** The Decision the Thread waits on that is put to a Consultant: only a Thread on a Task has one. */
+function putToAConsultant({ openDecisions }: Thread): Decision | undefined {
+  return openDecisions.find((decision) => decision.putTo !== undefined);
 }

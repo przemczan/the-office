@@ -67,7 +67,8 @@ export class Briefs {
       record: setup.brief,
       continuing: thread.session !== undefined,
       answered: await this.repository.answeredOn(thread.home.taskId),
-      open: thread.openDecision,
+      // A Thread on a Task waits on one Decision at most.
+      open: thread.openDecisions[0],
       memory,
     });
   }

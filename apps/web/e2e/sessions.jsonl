@@ -231,3 +231,63 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-plan-the-initiative"],"usage":{"input":3,"output":900,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.03,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-shape-invoice-exports","text":"Shape the Initiative"}}
+{"step":"event","event":{"kind":"text","text":"What should be true once invoice can be exported?","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-shape-invoice-exports"],"usage":{"input":3,"output":20,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-plan-with-decisions","text":"Plan the Initiative"}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-1","tool":"start_planning","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-2","tool":"open_decision","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01","question":"Which format should the invoice export use?","context":"Accounting imports CSV; the API clients read JSON.","options":["CSV","JSON"],"recommended":1,"why":"Accounting is who asked for it."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-3","tool":"open_decision","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03","question":"Should the invoice chart show a row count?","context":"Long exports are hard to check by eye.","options":["Show the row count","Leave it out"],"recommended":1,"why":"It shows at a glance that nothing was cut."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-3","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-4","tool":"start_planning","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-4","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-5","tool":"start_planning","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-5","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-6","tool":"write_plan","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02","plan":"Add a Download button that calls the invoice export.","filesToChange":["apps/web/src/invoice/download-button.tsx"],"estimatedTokens":400000},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-6","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-7","tool":"write_definition_of_done","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02","statements":["The Download button saves the invoice export.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-7","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-8","tool":"propose_pipeline","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02","pipelineId":"full","why":"It changes code that needs its tests and a review."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-8","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-9","tool":"mark_planned","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-9","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I planned Invoice download button. Invoice export API waits for your answer, and Invoice chart waits for it and for yours.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-plan-with-decisions"],"usage":{"input":3,"output":300,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
+{"step":"send","message":{"id":"answer-format","text":"The answer"},"priority":"later"}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-10","tool":"write_plan","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01","plan":"Add a CSV endpoint for the invoice table.","filesToChange":["apps/service/src/invoice/export.ts"],"estimatedTokens":400000},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-10","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-11","tool":"write_definition_of_done","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01","statements":["GET /invoice.csv answers the invoice table as CSV.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-11","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-12","tool":"propose_pipeline","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01","pipelineId":"full","why":"It changes code that needs its tests and a review."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-12","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-13","tool":"mark_planned","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-13","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-14","tool":"start_planning","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-14","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-15","tool":"write_plan","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03","plan":"Add a chart of the exported rows.","filesToChange":["apps/web/src/invoice/chart.tsx"],"estimatedTokens":400000},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-15","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-16","tool":"write_definition_of_done","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03","statements":["The chart shows the exported rows.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-16","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-17","tool":"propose_pipeline","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03","pipelineId":"full","why":"It changes code that needs its tests and a review."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-17","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-18","tool":"mark_planned","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-18","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-19","tool":"write_plan","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02","plan":"Add a Download button that saves the invoice export as a .csv file.","filesToChange":["apps/web/src/invoice/download-button.tsx"],"estimatedTokens":400000},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-19","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-20","tool":"mark_planned","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-20","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"CSV it is: I planned Invoice export API and rewrote Invoice download button for a .csv file. Invoice chart waits for your answer.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-format"],"usage":{"input":3,"output":300,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
+{"step":"send","message":{"id":"answer-row-count","text":"The answer"},"priority":"later"}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-21","tool":"mark_planned","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-21","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"Invoice chart is planned too.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-row-count"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
+{"step":"end"}

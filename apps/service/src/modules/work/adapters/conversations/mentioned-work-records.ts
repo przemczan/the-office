@@ -12,7 +12,8 @@ import { TaskNotFound } from "../../domain/task-not-found.js";
 /**
  * Gives Conversations the records of the Tasks, Initiatives and Ideas the user mentions in a chat,
  * worded as `read_task`, `read_initiative` and `read_idea` word them, with their linked records, the
- * titles of the Tasks a Link card is about, and the Attachments of a Task a Decision may name.
+ * titles of the Tasks a Link card is about, and the Attachments of a Task a Decision may name,
+ * which tell too whether a Decision in an Initiative's planning Thread names one of its Tasks.
  */
 @Injectable()
 export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
@@ -50,6 +51,20 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
   async taskAttachmentIds(taskId: string): Promise<readonly string[]> {
     const attachments = await this.attachments.listOf({ kind: "task", taskId });
     return attachments.map(({ id }) => id);
+  }
+
+  async initiativeTaskAttachmentIds(
+    initiativeId: string,
+    taskId: string,
+  ): Promise<readonly string[] | undefined> {
+    try {
+      const task = await this.tasks.read(taskId);
+      if (task.initiativeId !== initiativeId) return undefined;
+    } catch (error) {
+      if (error instanceof TaskNotFound) return undefined;
+      throw error;
+    }
+    return this.taskAttachmentIds(taskId);
   }
 
   async initiativeRecord(initiativeId: string): Promise<string | undefined> {

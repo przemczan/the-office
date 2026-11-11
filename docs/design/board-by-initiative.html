@@ -1288,23 +1288,49 @@
       <section class="reference" aria-label="What it proposes">
         <div>
           <h2>The switch and the address</h2>
-          <p><strong>Group by Initiative</strong> is a switch at the end of the filter bar's first row, apart from the filters: it lays the board out and narrows nothing. It is kept in the address as <code>?group=initiative</code>, beside the filters. Clear and the Saved views leave it as it is; a Saved view holds filters only.</p>
+          <p>
+            <strong>Group by Initiative</strong> is a switch at the end of the filter bar's first
+            row, apart from the filters: it lays the board out and narrows nothing. It is kept in
+            the address as <code>?group=initiative</code>, beside the filters. Clear and the Saved
+            views leave it as it is; a Saved view holds filters only.
+          </p>
         </div>
         <div>
           <h2>A group</h2>
-          <p>One per Initiative with a card on the board: its header, then its Tasks in the six columns. The header shows the name first, then the state, the Projects, the progress over every Task of the Initiative, the cards it has on the board (or how many show of them), and Open Initiative. <strong>No Initiative</strong> comes last.</p>
+          <p>
+            One per Initiative with a card on the board: its header, then its Tasks in the six
+            columns. The header shows the name first, then the state, the Projects, the progress
+            over every Task of the Initiative, the cards it has on the board (or how many show of
+            them), and Open Initiative. <strong>No Initiative</strong> comes last.
+          </p>
         </div>
         <div>
           <h2>Folding and order</h2>
-          <p>A group folds to its header and its cards per column. The fold is remembered in this browser per group, never in the address; a Done or Dropped Initiative's group starts folded. Groups follow the Initiatives tab's order, newest first, Active ones before those that ended.</p>
+          <p>
+            A group folds to its header and its cards per column. The fold is remembered in this
+            browser per group, never in the address; a Done or Dropped Initiative's group starts
+            folded. Groups follow the Initiatives tab's order, newest first, Active ones before
+            those that ended.
+          </p>
         </div>
         <div>
           <h2>Filters and drag</h2>
-          <p>The Project filter and the other filters hide a group with nothing to show, and a line names the ones hidden by search, Priority or Blocked; the Initiative filter shows its group alone, open. A card reorders within its column inside its group; a drop anywhere else is refused with a toast.</p>
+          <p>
+            The Project filter and the other filters hide a group with nothing to show, and a line
+            names the ones hidden by search, Priority or Blocked; the Initiative filter shows its
+            group alone, open. A card reorders within its column inside its group; a drop anywhere
+            else is refused with a toast.
+          </p>
         </div>
         <div>
           <h2>About the mock</h2>
-          <p>Its data follows <code>Task</code> and <code>Initiative</code> in <code>packages/contracts</code>; the search here matches titles only, standing in for the service's. Drag and drop, the switch, folds, filters, Saved views and the Project filter all work. It uses the Geist fonts only where they are installed, and makes no network requests.</p>
+          <p>
+            Its data follows <code>Task</code> and <code>Initiative</code> in
+            <code>packages/contracts</code>; the search here matches titles only, standing in for
+            the service's. Drag and drop, the switch, folds, filters, Saved views and the Project
+            filter all work. It uses the Geist fonts only where they are installed, and makes no
+            network requests.
+          </p>
         </div>
       </section>
     </main>
@@ -1320,41 +1346,76 @@
         "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
         "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
         minus: '<path d="M5 12h14"/>',
-        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        ellipsis:
+          '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
         "arrow-up-right": '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
         plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
         "eye-off":
           '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13 13 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/>',
         home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
-        kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
-        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-        folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        kanban:
+          '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+        users:
+          '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder:
+          '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
       };
       const icon = (name, size = 14) =>
         `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
-      const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const escapeHtml = (text) =>
+        text.replace(
+          /[&<>"]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+        );
 
       /* ---------- Mock data: `Initiative`, `Task` and `QueuedTask` as packages/contracts/src/work.ts has them ---------- */
-      const uuid = (n) => `5f0c${String(n).padStart(4, "0")}-9a1b-4c2d-8e3f-${String(n).padStart(12, "0")}`;
+      const uuid = (n) =>
+        `5f0c${String(n).padStart(4, "0")}-9a1b-4c2d-8e3f-${String(n).padStart(12, "0")}`;
       const PROJECTS = [
         { id: "the-office", name: "the-office", mark: "#f23d0f" },
         { id: "not-astray", name: "not-astray", mark: "#14a38b" },
         { id: "notnullsoft", name: "notnullsoft", mark: "#7c5cd6" },
       ];
       const CTO = { kind: "person", roleKey: "cto" };
-      const initiative = (n, fields) => ({ id: uuid(n), outcome: "", originIdeaId: uuid(900 + n), createdBy: CTO, ...fields });
+      const initiative = (n, fields) => ({
+        id: uuid(n),
+        outcome: "",
+        originIdeaId: uuid(900 + n),
+        createdBy: CTO,
+        ...fields,
+      });
       /** GET /initiatives: the newest first. */
       const INITIATIVES = [
-        initiative(1, { name: "Board by Initiative", state: "active", projectIds: ["the-office"], createdAt: "2026-11-09T11:02:00.000Z" }),
-        initiative(2, { name: "Release notes from Handover notes", state: "shaping", projectIds: ["the-office"], createdAt: "2026-11-07T09:30:00.000Z" }),
+        initiative(1, {
+          name: "Board by Initiative",
+          state: "active",
+          projectIds: ["the-office"],
+          createdAt: "2026-11-09T11:02:00.000Z",
+        }),
+        initiative(2, {
+          name: "Release notes from Handover notes",
+          state: "shaping",
+          projectIds: ["the-office"],
+          createdAt: "2026-11-07T09:30:00.000Z",
+        }),
         initiative(3, {
           name: "Offline sync for the field app: keep changes while out of signal and settle conflicts once back online",
           state: "active",
           projectIds: ["not-astray", "notnullsoft"],
           createdAt: "2026-11-03T14:10:00.000Z",
         }),
-        initiative(4, { name: "Run environments on Linux", state: "active", projectIds: ["the-office", "not-astray"], createdAt: "2026-10-28T08:45:00.000Z" }),
-        initiative(5, { name: "Billing export", state: "done", projectIds: ["notnullsoft"], createdAt: "2026-10-12T16:20:00.000Z" }),
+        initiative(4, {
+          name: "Run environments on Linux",
+          state: "active",
+          projectIds: ["the-office", "not-astray"],
+          createdAt: "2026-10-28T08:45:00.000Z",
+        }),
+        initiative(5, {
+          name: "Billing export",
+          state: "done",
+          projectIds: ["notnullsoft"],
+          createdAt: "2026-10-12T16:20:00.000Z",
+        }),
       ];
       const [BOARD_BY_INITIATIVE, , OFFLINE_SYNC, RUN_ENVIRONMENTS] = INITIATIVES;
       const task = (n, fields) => ({
@@ -1387,26 +1448,117 @@
       const PRIORITY_RANK = { high: 0, normal: 1, low: 2 };
       /** GET /tasks: every Task, archived and Shaping ones too, in the board's order (priority, then manual order). */
       let TASKS = [
-        task(1, { ...of(1), title: "Design the Work board's group by Initiative view", state: "in-progress", priority: "high", tags: ["board"] }),
-        task(2, { ...of(1), title: "Build group by Initiative on the Work board", state: "planning", blockedBy: [uuid(1)], tags: ["board"] }),
-        task(3, { ...of(1), title: "Remember folded groups in this browser", state: "backlog", priority: "low" }),
+        task(1, {
+          ...of(1),
+          title: "Design the Work board's group by Initiative view",
+          state: "in-progress",
+          priority: "high",
+          tags: ["board"],
+        }),
+        task(2, {
+          ...of(1),
+          title: "Build group by Initiative on the Work board",
+          state: "planning",
+          blockedBy: [uuid(1)],
+          tags: ["board"],
+        }),
+        task(3, {
+          ...of(1),
+          title: "Remember folded groups in this browser",
+          state: "backlog",
+          priority: "low",
+        }),
         task(20, { ...of(2), title: "Collect Handover notes per release", state: "shaping" }),
-        task(4, { ...of(3), title: "Keep pending changes in IndexedDB", projectId: "not-astray", state: "ready", priority: "high" }),
-        task(5, { ...of(3), title: "Retry queue with backoff", projectId: "not-astray", state: "ready" }),
-        task(6, { ...of(3), title: "Rules for settling conflicts", projectId: "notnullsoft", state: "waiting-on-you", priority: "high" }),
-        task(7, { ...of(3), title: "Sync status in the header", projectId: "not-astray", state: "backlog", priority: "low" }),
-        task(26, { ...of(3), title: "Offline banner copy", projectId: "notnullsoft", state: "backlog", priority: "low", tags: ["copy"] }),
+        task(4, {
+          ...of(3),
+          title: "Keep pending changes in IndexedDB",
+          projectId: "not-astray",
+          state: "ready",
+          priority: "high",
+        }),
+        task(5, {
+          ...of(3),
+          title: "Retry queue with backoff",
+          projectId: "not-astray",
+          state: "ready",
+        }),
+        task(6, {
+          ...of(3),
+          title: "Rules for settling conflicts",
+          projectId: "notnullsoft",
+          state: "waiting-on-you",
+          priority: "high",
+        }),
+        task(7, {
+          ...of(3),
+          title: "Sync status in the header",
+          projectId: "not-astray",
+          state: "backlog",
+          priority: "low",
+        }),
+        task(26, {
+          ...of(3),
+          title: "Offline banner copy",
+          projectId: "notnullsoft",
+          state: "backlog",
+          priority: "low",
+          tags: ["copy"],
+        }),
         task(8, { ...of(3), title: "Sync endpoint", projectId: "notnullsoft", state: "done" }),
-        task(9, { ...of(3), title: "Spike: CRDT libraries", projectId: "notnullsoft", state: "dropped", priority: "low" }),
-        task(10, { ...of(4), title: "Devcontainer for not-astray", projectId: "not-astray", state: "in-progress" }),
+        task(9, {
+          ...of(3),
+          title: "Spike: CRDT libraries",
+          projectId: "notnullsoft",
+          state: "dropped",
+          priority: "low",
+        }),
+        task(10, {
+          ...of(4),
+          title: "Devcontainer for not-astray",
+          projectId: "not-astray",
+          state: "in-progress",
+        }),
         task(11, { ...of(4), title: "CPU limit: an Automatic option", state: "done" }),
         task(12, { ...of(4), title: "A Postgres of its own per run environment", state: "done" }),
-        task(13, { ...of(4), title: "Docs: setting up a run environment", state: "backlog", priority: "low", tags: ["docs"] }),
-        task(14, { ...of(4), title: "Pick a container runtime", state: "done", archivedAt: "2026-11-02T03:00:00.000Z" }),
-        task(15, { ...of(5), title: "CSV export of invoices", projectId: "notnullsoft", state: "done" }),
-        task(16, { ...of(5), title: "Export schedule in Settings", projectId: "notnullsoft", state: "done" }),
-        task(17, { ...of(5), title: "Export format spike", projectId: "notnullsoft", state: "done", archivedAt: "2026-10-30T03:00:00.000Z" }),
-        task(22, { title: "Crash on an empty route list", projectId: "not-astray", state: "paused", priority: "high", tags: ["bug"] }),
+        task(13, {
+          ...of(4),
+          title: "Docs: setting up a run environment",
+          state: "backlog",
+          priority: "low",
+          tags: ["docs"],
+        }),
+        task(14, {
+          ...of(4),
+          title: "Pick a container runtime",
+          state: "done",
+          archivedAt: "2026-11-02T03:00:00.000Z",
+        }),
+        task(15, {
+          ...of(5),
+          title: "CSV export of invoices",
+          projectId: "notnullsoft",
+          state: "done",
+        }),
+        task(16, {
+          ...of(5),
+          title: "Export schedule in Settings",
+          projectId: "notnullsoft",
+          state: "done",
+        }),
+        task(17, {
+          ...of(5),
+          title: "Export format spike",
+          projectId: "notnullsoft",
+          state: "done",
+          archivedAt: "2026-10-30T03:00:00.000Z",
+        }),
+        task(22, {
+          title: "Crash on an empty route list",
+          projectId: "not-astray",
+          state: "paused",
+          priority: "high",
+          tags: ["bug"],
+        }),
         task(18, { title: "Toast covers the status strip", state: "backlog", tags: ["bug"] }),
         task(21, { title: "Landing page copy", projectId: "notnullsoft", state: "planning" }),
         task(19, { title: "Upgrade TanStack Router", state: "ready" }),
@@ -1416,8 +1568,20 @@
       ].sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
       /** GET /queue: first place first. */
       const QUEUE = [
-        { taskId: uuid(5), place: 1, queuedAt: "2026-11-09T12:00:00.000Z", reasons: ["No desk free."], behind: [] },
-        { taskId: uuid(19), place: 2, queuedAt: "2026-11-09T12:05:00.000Z", reasons: ["No desk free."], behind: [] },
+        {
+          taskId: uuid(5),
+          place: 1,
+          queuedAt: "2026-11-09T12:00:00.000Z",
+          reasons: ["No desk free."],
+          behind: [],
+        },
+        {
+          taskId: uuid(19),
+          place: 2,
+          queuedAt: "2026-11-09T12:05:00.000Z",
+          reasons: ["No desk free."],
+          behind: [],
+        },
       ];
       /** GET /saved-views: the board's filters under a name; never the grouping. */
       const SAVED_VIEWS = [
@@ -1425,26 +1589,54 @@
         { id: uuid(802), name: "Offline sync", filters: { initiative: OFFLINE_SYNC.id } },
       ];
       /** For display only: who works on a Task now (GET /people-working), the Planner's name. */
-      const WORKING = { [uuid(1)]: { initials: "St", colour: "#7c5cd6", live: true }, [uuid(10)]: { initials: "Ji", colour: "#2f6bdb", live: true } };
+      const WORKING = {
+        [uuid(1)]: { initials: "St", colour: "#7c5cd6", live: true },
+        [uuid(10)]: { initials: "Ji", colour: "#2f6bdb", live: true },
+      };
       const PLANNER = "Angela";
 
       /* ---------- The board's rules (board-columns.ts, board-filters.ts, initiative-words.ts) ---------- */
       const findTask = (id) => TASKS.find((candidate) => candidate.id === id);
-      const queuedEntryOf = (t) => (t.state === "ready" ? QUEUE.find(({ taskId }) => taskId === t.id) : undefined);
-      const inStates = (...states) => (t) => states.includes(t.state);
+      const queuedEntryOf = (t) =>
+        t.state === "ready" ? QUEUE.find(({ taskId }) => taskId === t.id) : undefined;
+      const inStates =
+        (...states) =>
+        (t) =>
+          states.includes(t.state);
       const COLUMNS = [
         { key: "backlog", label: "Backlog", holds: inStates("backlog"), hint: "Not planned yet" },
-        { key: "planning", label: "Planning", holds: inStates("planning"), hint: `Plan and Definition of Done with ${PLANNER}` },
-        { key: "ready", label: "Ready", holds: (t) => t.state === "ready" && !queuedEntryOf(t), hint: "Starting is your call" },
+        {
+          key: "planning",
+          label: "Planning",
+          holds: inStates("planning"),
+          hint: `Plan and Definition of Done with ${PLANNER}`,
+        },
+        {
+          key: "ready",
+          label: "Ready",
+          holds: (t) => t.state === "ready" && !queuedEntryOf(t),
+          hint: "Starting is your call",
+        },
         {
           key: "queued",
           label: "Queued",
           holds: (t) => queuedEntryOf(t) !== undefined,
-          inOrder: (cards) => cards.toSorted((a, b) => queuedEntryOf(a).place - queuedEntryOf(b).place),
+          inOrder: (cards) =>
+            cards.toSorted((a, b) => queuedEntryOf(a).place - queuedEntryOf(b).place),
           hint: "They start by themselves when their turn comes",
         },
-        { key: "in-progress", label: "In progress", holds: inStates("in-progress", "waiting-on-you", "paused"), hint: "Agents work its Pipeline" },
-        { key: "done", label: "Done", holds: inStates("done", "dropped"), hint: "Done and dropped" },
+        {
+          key: "in-progress",
+          label: "In progress",
+          holds: inStates("in-progress", "waiting-on-you", "paused"),
+          hint: "Agents work its Pipeline",
+        },
+        {
+          key: "done",
+          label: "Done",
+          holds: inStates("done", "dropped"),
+          hint: "Done and dropped",
+        },
       ];
       const cardsIn = (column, tasks) => {
         const cards = tasks.filter(column.holds);
@@ -1453,13 +1645,17 @@
       const NOT_STARTED = ["shaping", "backlog", "planning", "ready"];
       const isOnBoard = (t) => t.state !== "shaping" && t.archivedAt === null;
       const blockingTasksOf = (t) =>
-        t.blockedBy.map(findTask).filter((blocker) => blocker && blocker.state !== "done" && blocker.state !== "dropped");
+        t.blockedBy
+          .map(findTask)
+          .filter((blocker) => blocker && blocker.state !== "done" && blocker.state !== "dropped");
       function initiativeProgress(initiativeTasks) {
         const counted = initiativeTasks.filter(({ state }) => state !== "dropped");
         return {
           done: counted.filter(({ state }) => state === "done").length,
           counted: counted.length,
-          readyToStart: counted.filter((t) => t.state === "ready" && blockingTasksOf(t).length === 0).length,
+          readyToStart: counted.filter(
+            (t) => t.state === "ready" && blockingTasksOf(t).length === 0,
+          ).length,
         };
       }
       function progressWords({ done, counted, readyToStart }) {
@@ -1493,8 +1689,10 @@
       };
       let toastTimer;
 
-      const inProjectFilter = (t) => state.projects === "all" || state.projects.includes(t.projectId);
-      const showsProjects = (projectIds) => state.projects === "all" || projectIds.some((id) => state.projects.includes(id));
+      const inProjectFilter = (t) =>
+        state.projects === "all" || state.projects.includes(t.projectId);
+      const showsProjects = (projectIds) =>
+        state.projects === "all" || projectIds.some((id) => state.projects.includes(id));
       function matchesFilters(t) {
         const { query, priority, initiative: initiativeId, blocked } = state.filters;
         return (
@@ -1513,10 +1711,17 @@
 
       /** Active (and Shaping) Initiatives newest first, then those that ended, newest first; No Initiative last. */
       function groupsInOrder() {
-        const ended = (initiativeOf) => (initiativeOf.state === "done" || initiativeOf.state === "dropped" ? 1 : 0);
-        const ordered = INITIATIVES.toSorted((a, b) => ended(a) - ended(b) || b.createdAt.localeCompare(a.createdAt));
+        const ended = (initiativeOf) =>
+          initiativeOf.state === "done" || initiativeOf.state === "dropped" ? 1 : 0;
+        const ordered = INITIATIVES.toSorted(
+          (a, b) => ended(a) - ended(b) || b.createdAt.localeCompare(a.createdAt),
+        );
         return [
-          ...ordered.map((initiativeOf) => ({ key: initiativeOf.id, initiative: initiativeOf, holds: (t) => t.initiativeId === initiativeOf.id })),
+          ...ordered.map((initiativeOf) => ({
+            key: initiativeOf.id,
+            initiative: initiativeOf,
+            holds: (t) => t.initiativeId === initiativeOf.id,
+          })),
           { key: "none", initiative: undefined, holds: (t) => t.initiativeId === null },
         ].map((group) => {
           const onBoard = TASKS.filter((t) => isOnBoard(t) && group.holds(t));
@@ -1529,14 +1734,19 @@
       function boardGroups() {
         const all = groupsInOrder();
         const chosen = state.filters.initiative;
-        if (chosen !== undefined) return { shown: all.filter((group) => group.key === chosen), hiddenByFilters: [] };
+        if (chosen !== undefined)
+          return { shown: all.filter((group) => group.key === chosen), hiddenByFilters: [] };
         return {
           shown: all.filter((group) => group.shown.length > 0),
-          hiddenByFilters: all.filter((group) => group.shown.length === 0 && group.inProjects.length > 0),
+          hiddenByFilters: all.filter(
+            (group) => group.shown.length === 0 && group.inProjects.length > 0,
+          ),
         };
       }
-      const startsOpen = (group) => !group.initiative || !["done", "dropped"].includes(group.initiative.state);
-      const isOpen = (group) => state.filters.initiative !== undefined || (state.folds[group.key] ?? startsOpen(group));
+      const startsOpen = (group) =>
+        !group.initiative || !["done", "dropped"].includes(group.initiative.state);
+      const isOpen = (group) =>
+        state.filters.initiative !== undefined || (state.folds[group.key] ?? startsOpen(group));
 
       /* ---------- The app ---------- */
       function render() {
@@ -1546,7 +1756,8 @@
         else delete root.dataset.theme;
         renderBar();
         document.getElementById("note").innerHTML = SCENARIOS[state.scenario].note;
-        document.getElementById("address").innerHTML = `<span>Address</span><code>${escapeHtml(addressOf())}</code><span>· the Project filter is this browser's, never in the address</span>`;
+        document.getElementById("address").innerHTML =
+          `<span>Address</span><code>${escapeHtml(addressOf())}</code><span>· the Project filter is this browser's, never in the address</span>`;
         const searchFocused = document.activeElement?.id === "board-search";
         const main = document.querySelector(".main");
         const scrollTop = main ? main.scrollTop : 0;
@@ -1573,11 +1784,20 @@
       }
       function app() {
         const rail = ["home", "kanban", "users", "folder"]
-          .map((name) => `<span class="rail-item${name === "kanban" ? " on" : ""}">${icon(name, 18)}</span>`)
+          .map(
+            (name) =>
+              `<span class="rail-item${name === "kanban" ? " on" : ""}">${icon(name, 18)}</span>`,
+          )
           .join("");
         const projectChoice = state.projects === "all" ? "all" : state.projects[0];
-        const projectOptions = [["all", "All projects"], ...PROJECTS.map(({ id, name }) => [id, name])]
-          .map(([value, label]) => `<option value="${value}"${value === projectChoice ? " selected" : ""}>${label}</option>`)
+        const projectOptions = [
+          ["all", "All projects"],
+          ...PROJECTS.map(({ id, name }) => [id, name]),
+        ]
+          .map(
+            ([value, label]) =>
+              `<option value="${value}"${value === projectChoice ? " selected" : ""}>${label}</option>`,
+          )
           .join("");
         return `<div class="app">
           <nav class="rail" aria-label="The Office"><span class="rail-mark">O</span>${rail}</nav>
@@ -1602,17 +1822,28 @@
         const { query, priority, initiative: initiativeId, blocked } = state.filters;
         const chips = ["high", "normal", "low"]
           .map((value) => {
-            const name = value === "normal" ? "minus" : value === "high" ? "arrow-up" : "arrow-down";
+            const name =
+              value === "normal" ? "minus" : value === "high" ? "arrow-up" : "arrow-down";
             return `<button type="button" class="board-filter-chip" aria-pressed="${priority === value}" data-action="priority" data-value="${value}">${icon(name, 13)}${PRIORITY_NAMES[value]}</button>`;
           })
           .join("");
-        const offered = INITIATIVES.filter(({ id, projectIds }) => showsProjects(projectIds) || id === initiativeId);
-        const initiativeOptions = [`<option value="">Any Initiative</option>`, ...offered.map(({ id, name }) => `<option value="${id}"${id === initiativeId ? " selected" : ""}>${escapeHtml(name)}</option>`)].join("");
+        const offered = INITIATIVES.filter(
+          ({ id, projectIds }) => showsProjects(projectIds) || id === initiativeId,
+        );
+        const initiativeOptions = [
+          `<option value="">Any Initiative</option>`,
+          ...offered.map(
+            ({ id, name }) =>
+              `<option value="${id}"${id === initiativeId ? " selected" : ""}>${escapeHtml(name)}</option>`,
+          ),
+        ].join("");
         const { shown } = boardGroups();
-        const foldable = state.grouped && state.filters.initiative === undefined && shown.length > 1;
+        const foldable =
+          state.grouped && state.filters.initiative === undefined && shown.length > 1;
         const allFolded = foldable && shown.every((group) => !isOpen(group));
         const views = SAVED_VIEWS.map(
-          (view) => `<button type="button" class="board-view-chip" aria-pressed="${sameFilters(view.filters, state.filters)}" data-action="view" data-value="${view.id}">${view.name}</button>`,
+          (view) =>
+            `<button type="button" class="board-view-chip" aria-pressed="${sameFilters(view.filters, state.filters)}" data-action="view" data-value="${view.id}">${view.name}</button>`,
         ).join("");
         return `<div class="board-filters" role="search" aria-label="Filter the board">
           <div class="board-filters-row">
@@ -1630,14 +1861,18 @@
         </div>`;
       }
       function inOtherProjectsNote() {
-        const elsewhere = TASKS.filter((t) => isOnBoard(t) && matchesFilters(t) && !inProjectFilter(t)).length;
+        const elsewhere = TASKS.filter(
+          (t) => isOnBoard(t) && matchesFilters(t) && !inProjectFilter(t),
+        ).length;
         if (elsewhere === 0) return "";
         return `<button type="button" class="in-other-projects-note" data-action="all-projects">${icon("eye-off")}${elsewhere} more ${elsewhere === 1 ? "Task" : "Tasks"} in other Projects<span class="grow"></span><span class="in-other-projects-show">Show all projects</span></button>`;
       }
 
       /* Grouping off: board.tsx as it is, its columns wrapping as the page narrows. */
       function board() {
-        const matching = TASKS.filter((t) => isOnBoard(t) && inProjectFilter(t) && matchesFilters(t));
+        const matching = TASKS.filter(
+          (t) => isOnBoard(t) && inProjectFilter(t) && matchesFilters(t),
+        );
         const columns = COLUMNS.map((column) => {
           const cards = cardsIn(column, matching);
           return `<section class="board-column" aria-label="${column.label}" data-column="${column.key}" data-group="all">
@@ -1658,7 +1893,10 @@
         const hidden = hiddenByFilters.length
           ? `<p class="groups-hidden-note">No Task matches the filters in ${hiddenByFilters.map((group) => `<strong>${group.initiative ? escapeHtml(group.initiative.name) : "No Initiative"}</strong>`).join(", ")}, so ${hiddenByFilters.length === 1 ? "its group is" : "their groups are"} left out.</p>`
           : "";
-        const nothing = shown.length === 0 ? `<div class="board-nothing">No Task on the board matches the filters. Clear them, or show all projects.</div>` : "";
+        const nothing =
+          shown.length === 0
+            ? `<div class="board-nothing">No Task on the board matches the filters. Clear them, or show all projects.</div>`
+            : "";
         return `<div class="board-groups"><div class="board-heads" aria-hidden="true">${heads}</div>${groups}${nothing}${hidden}</div>${boardNote(true)}`;
       }
       function groupHtml(group) {
@@ -1670,16 +1908,24 @@
           ? `<span class="${nameClass} alone">${name}</span>`
           : `<button type="button" class="fold-button" aria-expanded="${open}" data-action="fold" data-group="${group.key}">${icon("chevron-right")}<span class="${nameClass}">${name}</span></button>`;
         const count =
-          group.shown.length === group.onBoard.length ? `${group.onBoard.length} on the board` : `${group.shown.length} of ${group.onBoard.length} shown`;
+          group.shown.length === group.onBoard.length
+            ? `${group.onBoard.length} on the board`
+            : `${group.shown.length} of ${group.onBoard.length} shown`;
         let sub = "";
         let openLink = "";
         if (group.initiative) {
           const [tone, stateName] = INITIATIVE_STATES[group.initiative.state];
-          const progress = initiativeProgress(TASKS.filter((t) => t.initiativeId === group.initiative.id));
-          const share = progress.counted === 0 ? 0 : Math.round((progress.done / progress.counted) * 100);
+          const progress = initiativeProgress(
+            TASKS.filter((t) => t.initiativeId === group.initiative.id),
+          );
+          const share =
+            progress.counted === 0 ? 0 : Math.round((progress.done / progress.counted) * 100);
           const projects = group.initiative.projectIds
             .map((id) => PROJECTS.find((project) => project.id === id))
-            .map((project) => `<span class="project-mark" style="--mark:${project.mark}">${project.name}</span>`)
+            .map(
+              (project) =>
+                `<span class="project-mark" style="--mark:${project.mark}">${project.name}</span>`,
+            )
             .join("");
           sub = `<span class="group-sub"><span class="badge ${tone} dot sm">${stateName}</span><span class="group-projects">${projects}</span>
             <span class="group-progress"><span class="progress" role="img" aria-label="${share}% done"><span style="width:${share}%"></span></span>${progressWords(progress)}</span></span>`;
@@ -1689,19 +1935,27 @@
         }
         const head = `<div class="group-head">${label}${sub}<span class="group-end"><span>${count}</span>${openLink}</span></div>`;
         if (!open) {
-          const perColumn = COLUMNS.map((column) => [column.label, cardsIn(column, group.shown).length])
+          const perColumn = COLUMNS.map((column) => [
+            column.label,
+            cardsIn(column, group.shown).length,
+          ])
             .filter(([, cards]) => cards > 0)
             .map(([columnLabel, cards]) => `${columnLabel} ${cards}`)
             .join(" · ");
           return `<section class="board-group folded" aria-label="${name}">${head}${perColumn ? `<div class="group-folded-counts">${perColumn}</div>` : ""}</section>`;
         }
         // Only the Initiative filter shows a group with no card: it says why rather than six empty columns.
-        if (group.shown.length === 0) return `<section class="board-group" aria-label="${name}">${head}<div class="group-empty">${emptyGroupWords(group)}</div></section>`;
+        if (group.shown.length === 0)
+          return `<section class="board-group" aria-label="${name}">${head}<div class="group-empty">${emptyGroupWords(group)}</div></section>`;
         const cells = COLUMNS.map((column) => {
           const cards = cardsIn(column, group.shown);
           const frozen = state.frozenDrag;
           const drop =
-            frozen && frozen.ok === `${group.key}:${column.key}` ? " drop-ok" : frozen && frozen.refused === `${group.key}:${column.key}` ? " drop-refused" : "";
+            frozen && frozen.ok === `${group.key}:${column.key}`
+              ? " drop-ok"
+              : frozen && frozen.refused === `${group.key}:${column.key}`
+                ? " drop-refused"
+                : "";
           return `<section class="group-cell${cards.length === 0 ? " empty" : ""}${drop}" aria-label="${column.label}, ${name}" data-column="${column.key}" data-group="${group.key}">
             <h4>${column.label} <span class="board-count">${cards.length}</span></h4><div class="board-cards">${cards.map(card).join("")}</div></section>`;
         }).join("");
@@ -1709,8 +1963,11 @@
       }
       function emptyGroupWords({ initiative: initiativeOf, onBoard, inProjects }) {
         if (onBoard.length === 0)
-          return initiativeOf?.state === "shaping" ? "Its Tasks join the board once the Initiative is confirmed." : "None of its Tasks is on the board.";
-        if (inProjects.length === 0) return "Its Tasks on the board are in Projects the Project filter hides.";
+          return initiativeOf?.state === "shaping"
+            ? "Its Tasks join the board once the Initiative is confirmed."
+            : "None of its Tasks is on the board.";
+        if (inProjects.length === 0)
+          return "Its Tasks on the board are in Projects the Project filter hides.";
         return "None of its Tasks on the board matches the filters.";
       }
       function boardNote(grouped) {
@@ -1721,14 +1978,28 @@
       }
 
       /* BoardCard in board.tsx */
-      const EDGES = { "in-progress": "edge-running", "waiting-on-you": "edge-decision", paused: "edge-paused", done: "edge-done", dropped: "edge-failed" };
+      const EDGES = {
+        "in-progress": "edge-running",
+        "waiting-on-you": "edge-decision",
+        paused: "edge-paused",
+        done: "edge-done",
+        dropped: "edge-failed",
+      };
       function card(t) {
         const queued = queuedEntryOf(t);
         const movable = NOT_STARTED.includes(t.state) && !queued;
         const project = PROJECTS.find(({ id }) => id === t.projectId);
         const frozen = state.frozenDrag;
-        const classes = ["board-card", EDGES[t.state], frozen?.dragged === t.id && "dragging", frozen?.before === t.id && "drop-before"].filter(Boolean).join(" ");
-        const priorityIcon = t.priority === "high" ? "arrow-up" : t.priority === "low" ? "arrow-down" : "minus";
+        const classes = [
+          "board-card",
+          EDGES[t.state],
+          frozen?.dragged === t.id && "dragging",
+          frozen?.before === t.id && "drop-before",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        const priorityIcon =
+          t.priority === "high" ? "arrow-up" : t.priority === "low" ? "arrow-down" : "minus";
         const blockers = blockingTasksOf(t);
         const blocked = blockers.length
           ? `<div class="board-card-blocked">${icon("lock", 12)}<span>Blocked by ${blockers.map((blocker) => `<a href="#" data-action="none">${escapeHtml(blocker.title)}</a>`).join(", ")}</span></div>`
@@ -1737,7 +2008,10 @@
         const workingMark = working
           ? `<span class="board-card-working${working.live ? " live" : ""}"><span class="avatar" style="background:${working.colour}">${working.initials}</span></span>`
           : "";
-        const foot = (queued ? `<span class="badge info sm">Queued</span><span class="queued-reason">${queued.reasons.join(" ")}</span>` : footOf(t)) + workingMark;
+        const foot =
+          (queued
+            ? `<span class="badge info sm">Queued</span><span class="queued-reason">${queued.reasons.join(" ")}</span>`
+            : footOf(t)) + workingMark;
         const tags = t.tags.map((tag) => `<span class="board-card-tag">${tag}</span>`).join("");
         return `<article class="${classes}" aria-label="${escapeHtml(t.title)}" data-task-id="${t.id}" draggable="${movable}">
           <div class="board-card-head"><span class="priority-icon ${t.priority}" title="${PRIORITY_NAMES[t.priority]} priority">${icon(priorityIcon, 13)}</span>
@@ -1764,7 +2038,8 @@
       }
 
       /* ---------- Drag and drop: within a column, inside the card's own group ---------- */
-      const GROUP_REFUSAL = "A card moves only within its own group: the board doesn't change a Task's Initiative.";
+      const GROUP_REFUSAL =
+        "A card moves only within its own group: the board doesn't change a Task's Initiative.";
       const COLUMN_REFUSAL = "A Task changes state through its actions: Plan, Mark Ready, Start.";
       const groupKeyOf = (t) => t.initiativeId ?? "none";
       const cellOf = (element) => element.closest("[data-column]");
@@ -1778,7 +2053,8 @@
       function placementAmong(cards, t, beforeId) {
         if (beforeId === t.id) return undefined;
         const others = cards.filter(({ id }) => id !== t.id);
-        const at = beforeId === undefined ? others.length : others.findIndex(({ id }) => id === beforeId);
+        const at =
+          beforeId === undefined ? others.length : others.findIndex(({ id }) => id === beforeId);
         if (at < 0) return undefined;
         const above = others[at - 1]?.id ?? null;
         const previous = cards[cards.findIndex(({ id }) => id === t.id) - 1]?.id ?? null;
@@ -1787,20 +2063,32 @@
       function place(t, { above, below }) {
         const neighbour = findTask(below ?? above);
         const others = TASKS.filter(({ id }) => id !== t.id);
-        const at = below !== null ? others.findIndex(({ id }) => id === below) : others.findIndex(({ id }) => id === above) + 1;
+        const at =
+          below !== null
+            ? others.findIndex(({ id }) => id === below)
+            : others.findIndex(({ id }) => id === above) + 1;
         const placed = { ...t, priority: neighbour.priority };
         TASKS = [...others.slice(0, at), placed, ...others.slice(at)];
-        if (placed.priority !== t.priority) showToast(`${t.title} is now ${PRIORITY_NAMES[placed.priority].toLowerCase()} priority.`);
+        if (placed.priority !== t.priority)
+          showToast(`${t.title} is now ${PRIORITY_NAMES[placed.priority].toLowerCase()} priority.`);
         else render();
       }
       function cellCards(cell) {
         const column = COLUMNS.find(({ key }) => key === cell.dataset.column);
         const group = cell.dataset.group;
-        const tasks = TASKS.filter((t) => isOnBoard(t) && inProjectFilter(t) && matchesFilters(t) && (group === "all" || groupKeyOf(t) === group));
+        const tasks = TASKS.filter(
+          (t) =>
+            isOnBoard(t) &&
+            inProjectFilter(t) &&
+            matchesFilters(t) &&
+            (group === "all" || groupKeyOf(t) === group),
+        );
         return cardsIn(column, tasks);
       }
       function clearDropMarks() {
-        document.querySelectorAll(".drop-before, .drop-ok").forEach((element) => element.classList.remove("drop-before", "drop-ok"));
+        document
+          .querySelectorAll(".drop-before, .drop-ok")
+          .forEach((element) => element.classList.remove("drop-before", "drop-ok"));
       }
       function bindDrag(frame) {
         frame.addEventListener("dragstart", (event) => {
@@ -1813,12 +2101,16 @@
           element.classList.add("dragging");
           const column = COLUMNS.find((candidate) => candidate.holds(state.dragging));
           const group = state.grouped ? groupKeyOf(state.dragging) : "all";
-          frame.querySelector(`[data-column="${column.key}"][data-group="${group}"]`)?.classList.add("drop-ok");
+          frame
+            .querySelector(`[data-column="${column.key}"][data-group="${group}"]`)
+            ?.classList.add("drop-ok");
         });
         frame.addEventListener("dragover", (event) => {
           if (!state.dragging || !cellOf(event.target)) return;
           event.preventDefault();
-          document.querySelectorAll(".drop-before").forEach((element) => element.classList.remove("drop-before"));
+          document
+            .querySelectorAll(".drop-before")
+            .forEach((element) => element.classList.remove("drop-before"));
           event.target.closest("[data-task-id]")?.classList.add("drop-before");
         });
         frame.addEventListener("drop", (event) => {
@@ -1829,16 +2121,23 @@
           state.dragging = undefined;
           clearDropMarks();
           const column = COLUMNS.find(({ key }) => key === cell.dataset.column);
-          if (cell.dataset.group !== "all" && cell.dataset.group !== groupKeyOf(dragged)) return showToast(GROUP_REFUSAL);
+          if (cell.dataset.group !== "all" && cell.dataset.group !== groupKeyOf(dragged))
+            return showToast(GROUP_REFUSAL);
           if (!column.holds(dragged)) return showToast(COLUMN_REFUSAL);
-          const placement = placementAmong(cellCards(cell), dragged, event.target.closest("[data-task-id]")?.dataset.taskId);
+          const placement = placementAmong(
+            cellCards(cell),
+            dragged,
+            event.target.closest("[data-task-id]")?.dataset.taskId,
+          );
           if (placement) place(dragged, placement);
           else render();
         });
         frame.addEventListener("dragend", () => {
           state.dragging = undefined;
           clearDropMarks();
-          document.querySelectorAll(".dragging").forEach((element) => element.classList.remove("dragging"));
+          document
+            .querySelectorAll(".dragging")
+            .forEach((element) => element.classList.remove("dragging"));
         });
       }
 
@@ -1868,8 +2167,10 @@
             const open = shown.every((group) => !isOpen(group));
             state.folds = Object.fromEntries(shown.map(({ key }) => [key, open]));
             render();
-          } else if (action === "priority") setFilter("priority", state.filters.priority === value ? undefined : value);
-          else if (action === "blocked") setFilter("blocked", state.filters.blocked ? undefined : true);
+          } else if (action === "priority")
+            setFilter("priority", state.filters.priority === value ? undefined : value);
+          else if (action === "blocked")
+            setFilter("blocked", state.filters.blocked ? undefined : true);
           else if (action === "clear") {
             state.filters = {};
             render();
@@ -1880,7 +2181,8 @@
           } else if (action === "all-projects") {
             state.projects = "all";
             render();
-          } else if (action === "open-initiative") showToast("Opens the Initiative's page (/work/initiatives/:initiativeId).");
+          } else if (action === "open-initiative")
+            showToast("Opens the Initiative's page (/work/initiatives/:initiativeId).");
         });
         frame.addEventListener("change", (event) => {
           const { action } = event.target.dataset;
@@ -1891,7 +2193,8 @@
           }
         });
         frame.addEventListener("input", (event) => {
-          if (event.target.id === "board-search") setFilter("query", event.target.value.trim() === "" ? undefined : event.target.value);
+          if (event.target.id === "board-search")
+            setFilter("query", event.target.value.trim() === "" ? undefined : event.target.value);
         });
         bindDrag(frame);
       }
@@ -1930,16 +2233,28 @@
         },
         "drag-in": {
           label: "Drag inside a group",
-          preset: { frozenDrag: { dragged: uuid(26), before: uuid(7), ok: `${OFFLINE_SYNC.id}:backlog` } },
+          preset: {
+            frozenDrag: { dragged: uuid(26), before: uuid(7), ok: `${OFFLINE_SYNC.id}:backlog` },
+          },
           note: "<strong>Dragging Offline banner copy</strong> above Sync status in the header: it can land only in Backlog inside its own group, outlined, and the line marks where. It is placed between that group's neighbours (<code>placementAmong</code> given the group's cards). Drag any card that hasn't started to try it.",
         },
         "drag-out": {
           label: "Drop refused",
-          preset: { frozenDrag: { dragged: uuid(13), refused: "none:backlog" }, toast: GROUP_REFUSAL },
+          preset: {
+            frozenDrag: { dragged: uuid(13), refused: "none:backlog" },
+            toast: GROUP_REFUSAL,
+          },
           note: "<strong>Docs: setting up a run environment</strong> dropped into No Initiative's Backlog: refused, the card stays where it was and a toast says why, as a drop into another column is today. The board never changes a Task's Initiative.",
         },
       };
-      const DEFAULTS = { grouped: true, filters: {}, projects: "all", folds: {}, frozenDrag: undefined, toast: undefined };
+      const DEFAULTS = {
+        grouped: true,
+        filters: {},
+        projects: "all",
+        folds: {},
+        frozenDrag: undefined,
+        toast: undefined,
+      };
       function applyScenario(key) {
         clearTimeout(toastTimer);
         document.querySelector(".main")?.scrollTo(0, 0);
@@ -1958,12 +2273,16 @@
       ];
       function segments(action, options, current) {
         return `<div class="segments">${options
-          .map(([value, label]) => `<button type="button" data-action="${action}" data-value="${value}" aria-pressed="${current === value}">${label}</button>`)
+          .map(
+            ([value, label]) =>
+              `<button type="button" data-action="${action}" data-value="${value}" aria-pressed="${current === value}">${label}</button>`,
+          )
           .join("")}</div>`;
       }
       function renderBar() {
         const scenarios = Object.entries(SCENARIOS).map(([key, { label }]) => [key, label]);
-        document.getElementById("bar").innerHTML = `<span class="bar-title">Group by Initiative</span><span class="bar-tag">PROPOSAL</span>
+        document.getElementById("bar").innerHTML =
+          `<span class="bar-title">Group by Initiative</span><span class="bar-tag">PROPOSAL</span>
           <div class="control"><span class="control-label">Width</span>${segments("width", WIDTHS, state.width)}</div>
           <div class="control"><span class="control-label">Palette</span>${segments("palette", PALETTES, state.palette)}</div>
           <span class="bar-break"></span>

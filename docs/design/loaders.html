@@ -1,538 +1,1683 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Loaders · The Office design proposal</title>
-<style>
-/* Tokens copied from design-system/tokens/ and packages/ui/src/appearance/ (2026-11-07). */
-:root{
-  --font-sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-  --font-mono:"Geist Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
-  --radius-sm:4px;--radius-md:6px;--radius-card:8px;--radius-full:999px;
-  --gap-card:12px;
-  --type-page-title:600 22px/1.25 var(--font-sans);
-  --type-card-title:600 14px/1.4 var(--font-sans);
-  --type-body:400 14px/1.5 var(--font-sans);
-  --type-body-sm:400 13px/1.45 var(--font-sans);
-  --type-label:500 13px/1.3 var(--font-sans);
-  --type-caption:400 12px/1.4 var(--font-sans);
-}
-[data-palette="light"]{
-  --bg:#F4F4F2;--surface:#FFFFFF;--surface-sunken:#F4F4F2;--surface-hover:#FAFAF9;--surface-selected:#FFF2ED;
-  --fg-1:#262624;--fg-2:#6B6B66;--fg-3:#8A8A84;
-  --border:#E9E9E6;--border-subtle:#EFEFEC;--border-strong:#DEDEDA;
-  --accent:#F23D0F;--accent-subtle:#FFF2ED;--accent-subtle-fg:#9E2406;
-  --info-subtle:#EEF3FD;--info-fg:#1D4699;--info-border:#DAE5FA;
-  --danger:#C8102E;--danger-subtle:#FDEEF0;--danger-fg:#8E0B20;--danger-border:#FAD9DD;
-  --success-subtle:#EDF8F1;--success-fg:#106A3B;--success-border:#D5F0DF;
-  --neutral-subtle:#F4F4F2;--neutral-fg:#6B6B66;
-}
-[data-palette="dark"]{
-  --bg:#0F0F0E;--surface:#181817;--surface-sunken:#0A0A09;--surface-hover:#1E1E1C;--surface-selected:color-mix(in oklab,#F23D0F 12%,#181817);
-  --fg-1:#D9D9D5;--fg-2:#9A9A94;--fg-3:#6F6F69;
-  --border:#262624;--border-subtle:#222220;--border-strong:#33332F;
-  --accent:#F23D0F;--accent-subtle:color-mix(in oklab,#F23D0F 16%,transparent);--accent-subtle-fg:#FF9D80;
-  --info-subtle:color-mix(in oklab,#2F6BDB 18%,transparent);--info-fg:#93B5F5;--info-border:color-mix(in oklab,#2F6BDB 34%,transparent);
-  --danger:#C8102E;--danger-subtle:color-mix(in oklab,#C8102E 20%,transparent);--danger-fg:#FF8A97;--danger-border:color-mix(in oklab,#C8102E 36%,transparent);
-  --success-subtle:color-mix(in oklab,#1E9E57 16%,transparent);--success-fg:#6FD69B;--success-border:color-mix(in oklab,#1E9E57 30%,transparent);
-  --neutral-subtle:#262624;--neutral-fg:#9A9A94;
-}
-*{box-sizing:border-box}
-body{margin:0;font:var(--type-body);color:var(--fg-1);background:var(--bg)}
-button{font:inherit;color:inherit}
-.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Loaders · The Office design proposal</title>
+    <style>
+      /* Tokens copied from design-system/tokens/ and packages/ui/src/appearance/ (2026-11-07). */
+      :root {
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-card: 8px;
+        --radius-full: 999px;
+        --gap-card: 12px;
+        --type-page-title: 600 22px/1.25 var(--font-sans);
+        --type-card-title: 600 14px/1.4 var(--font-sans);
+        --type-body: 400 14px/1.5 var(--font-sans);
+        --type-body-sm: 400 13px/1.45 var(--font-sans);
+        --type-label: 500 13px/1.3 var(--font-sans);
+        --type-caption: 400 12px/1.4 var(--font-sans);
+      }
+      [data-palette="light"] {
+        --bg: #f4f4f2;
+        --surface: #ffffff;
+        --surface-sunken: #f4f4f2;
+        --surface-hover: #fafaf9;
+        --surface-selected: #fff2ed;
+        --fg-1: #262624;
+        --fg-2: #6b6b66;
+        --fg-3: #8a8a84;
+        --border: #e9e9e6;
+        --border-subtle: #efefec;
+        --border-strong: #dededa;
+        --accent: #f23d0f;
+        --accent-subtle: #fff2ed;
+        --accent-subtle-fg: #9e2406;
+        --info-subtle: #eef3fd;
+        --info-fg: #1d4699;
+        --info-border: #dae5fa;
+        --danger: #c8102e;
+        --danger-subtle: #fdeef0;
+        --danger-fg: #8e0b20;
+        --danger-border: #fad9dd;
+        --success-subtle: #edf8f1;
+        --success-fg: #106a3b;
+        --success-border: #d5f0df;
+        --neutral-subtle: #f4f4f2;
+        --neutral-fg: #6b6b66;
+      }
+      [data-palette="dark"] {
+        --bg: #0f0f0e;
+        --surface: #181817;
+        --surface-sunken: #0a0a09;
+        --surface-hover: #1e1e1c;
+        --surface-selected: color-mix(in oklab, #f23d0f 12%, #181817);
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --accent: #f23d0f;
+        --accent-subtle: color-mix(in oklab, #f23d0f 16%, transparent);
+        --accent-subtle-fg: #ff9d80;
+        --info-subtle: color-mix(in oklab, #2f6bdb 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, #2f6bdb 34%, transparent);
+        --danger: #c8102e;
+        --danger-subtle: color-mix(in oklab, #c8102e 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, #c8102e 36%, transparent);
+        --success-subtle: color-mix(in oklab, #1e9e57 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, #1e9e57 30%, transparent);
+        --neutral-subtle: #262624;
+        --neutral-fg: #9a9a94;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font: var(--type-body);
+        color: var(--fg-1);
+        background: var(--bg);
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
 
-/* ---------- The proposal's own frame (not part of the design) ---------- */
-.proposal-bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--border)}
-.proposal-bar h1{font:600 15px/1.3 var(--font-sans);margin:0 8px 0 0}
-.switch{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-sunken)}
-.switch button{border:0;background:none;padding:4px 10px;border-radius:4px;font:var(--type-label);color:var(--fg-2);cursor:pointer}
-.switch button[aria-pressed="true"]{background:var(--surface);color:var(--fg-1);box-shadow:0 0 0 1px var(--border)}
-.switch-label{font:var(--type-caption);color:var(--fg-3);margin-right:4px}
-.replay{display:inline-flex;gap:6px;align-items:center}
-.replay button,.btn{border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--radius-md);padding:4px 10px;font:var(--type-label);cursor:pointer}
-.replay-note{font:var(--type-caption);color:var(--fg-3);min-width:220px}
-.proposal-body{max-width:1320px;margin:0 auto;padding:18px}
-.proposal-section{margin:28px 0 0}
-.proposal-section>h2{font:600 17px/1.3 var(--font-sans);margin:0 0 6px}
-.proposal-section>p,.proposal-section li{max-width:76ch;color:var(--fg-2)}
-.proposal-section li{margin:4px 0}
-.proposal-section strong{color:var(--fg-1)}
+      /* ---------- The proposal's own frame (not part of the design) ---------- */
+      .proposal-bar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        align-items: center;
+        padding: 10px 18px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .proposal-bar h1 {
+        font: 600 15px/1.3 var(--font-sans);
+        margin: 0 8px 0 0;
+      }
+      .switch {
+        display: inline-flex;
+        gap: 2px;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .switch button {
+        border: 0;
+        background: none;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font: var(--type-label);
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .switch button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: 0 0 0 1px var(--border);
+      }
+      .switch-label {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        margin-right: 4px;
+      }
+      .replay {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .replay button,
+      .btn {
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        border-radius: var(--radius-md);
+        padding: 4px 10px;
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .replay-note {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        min-width: 220px;
+      }
+      .proposal-body {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+      .proposal-section {
+        margin: 28px 0 0;
+      }
+      .proposal-section > h2 {
+        font: 600 17px/1.3 var(--font-sans);
+        margin: 0 0 6px;
+      }
+      .proposal-section > p,
+      .proposal-section li {
+        max-width: 76ch;
+        color: var(--fg-2);
+      }
+      .proposal-section li {
+        margin: 4px 0;
+      }
+      .proposal-section strong {
+        color: var(--fg-1);
+      }
 
-/* ---------- The mocked app ---------- */
-.app{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg);position:relative}
-.topbar{display:flex;align-items:center;gap:14px;height:48px;padding:0 14px;background:var(--surface);border-bottom:1px solid var(--border)}
-.logo{font:700 16px/1 var(--font-sans);letter-spacing:-.01em}
-.logo span{color:var(--accent)}
-.nav{display:flex;gap:2px}
-.nav a{padding:6px 10px;border-radius:var(--radius-md);font:var(--type-label);color:var(--fg-2);text-decoration:none}
-.nav a.on{background:var(--surface-sunken);color:var(--fg-1)}
-.topbar-end{margin-left:auto;display:flex;gap:8px;align-items:center}
-.strip{display:flex;gap:16px;align-items:center;height:30px;padding:0 14px;font:var(--type-caption);color:var(--fg-2);background:var(--surface);border-bottom:1px solid var(--border)}
-.strip b{color:var(--fg-1);font-weight:500}
-.page{padding:18px 20px 24px;min-height:560px}
-.page-heading{font:var(--type-page-title);margin:0 0 14px}
-.page-heading .crumb{color:var(--fg-3);font-weight:500}
+      /* ---------- The mocked app ---------- */
+      .app {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--bg);
+        position: relative;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        height: 48px;
+        padding: 0 14px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .logo {
+        font: 700 16px/1 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .logo span {
+        color: var(--accent);
+      }
+      .nav {
+        display: flex;
+        gap: 2px;
+      }
+      .nav a {
+        padding: 6px 10px;
+        border-radius: var(--radius-md);
+        font: var(--type-label);
+        color: var(--fg-2);
+        text-decoration: none;
+      }
+      .nav a.on {
+        background: var(--surface-sunken);
+        color: var(--fg-1);
+      }
+      .topbar-end {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .strip {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        height: 30px;
+        padding: 0 14px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .strip b {
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .page {
+        padding: 18px 20px 24px;
+        min-height: 560px;
+      }
+      .page-heading {
+        font: var(--type-page-title);
+        margin: 0 0 14px;
+      }
+      .page-heading .crumb {
+        color: var(--fg-3);
+        font-weight: 500;
+      }
 
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);margin-bottom:var(--gap-card)}
-.card-title{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border-subtle);font:var(--type-card-title)}
-.card-title .ico{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--fg-3)}
-.card-body{padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px}
-.note{font:var(--type-body-sm);color:var(--fg-2);margin:0;max-width:78ch}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.b{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--border-strong);background:var(--surface);font:var(--type-label)}
-.b.danger-ghost{border-color:transparent;color:var(--danger)}
-.b.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.badge{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:var(--radius-sm);font:500 11px/1 var(--font-sans);background:var(--info-subtle);color:var(--info-fg);border:1px solid var(--info-border)}
-.badge.neutral{background:var(--neutral-subtle);color:var(--neutral-fg);border-color:var(--border)}
-.badge.accent{background:var(--accent-subtle);color:var(--accent-subtle-fg);border-color:transparent}
-.badge.success{gap:5px;background:var(--success-subtle);color:var(--success-fg);border-color:var(--success-border)}
-.badge.success i{width:6px;height:6px;border-radius:50%;background:currentColor}
-.link{font:var(--type-label);color:var(--accent);text-decoration:underline;text-underline-offset:2px;align-self:flex-start;cursor:pointer}
-.mono{font:400 12.5px/1.5 var(--font-mono);color:var(--fg-2);padding:8px 10px;background:var(--surface-sunken);border-radius:var(--radius-md);overflow-wrap:anywhere}
-.avatar{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;font:600 11px/1 var(--font-sans);color:#fff}
-.avatar.sm{width:20px;height:20px;font-size:9px}
-.problem{display:flex;gap:10px;padding:10px 12px;border-radius:var(--radius-md);background:var(--danger-subtle);border:1px solid var(--danger-border);color:var(--danger-fg);font:var(--type-body-sm)}
-.problem b{display:block;font-weight:600}
-.problem .bang{flex:none;width:16px;height:16px;border-radius:50%;background:var(--danger);color:#fff;font:700 11px/16px var(--font-sans);text-align:center}
-.hosts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
-.host{padding:10px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
-.host-name{font:500 13px/1.4 var(--font-mono)}
-.host-keys{margin:6px 0 0;padding:0;list-style:none;font:400 12px/1.6 var(--font-mono);color:var(--fg-2)}
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        margin-bottom: var(--gap-card);
+      }
+      .card-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-card-title);
+      }
+      .card-title .ico {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1.5px solid var(--fg-3);
+      }
+      .card-body {
+        padding: 12px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .note {
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        margin: 0;
+        max-width: 78ch;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .b {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 10px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        font: var(--type-label);
+      }
+      .b.danger-ghost {
+        border-color: transparent;
+        color: var(--danger);
+      }
+      .b.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 7px;
+        border-radius: var(--radius-sm);
+        font: 500 11px/1 var(--font-sans);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        border: 1px solid var(--info-border);
+      }
+      .badge.neutral {
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        border-color: var(--border);
+      }
+      .badge.accent {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        border-color: transparent;
+      }
+      .badge.success {
+        gap: 5px;
+        background: var(--success-subtle);
+        color: var(--success-fg);
+        border-color: var(--success-border);
+      }
+      .badge.success i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .link {
+        font: var(--type-label);
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        align-self: flex-start;
+        cursor: pointer;
+      }
+      .mono {
+        font: 400 12.5px/1.5 var(--font-mono);
+        color: var(--fg-2);
+        padding: 8px 10px;
+        background: var(--surface-sunken);
+        border-radius: var(--radius-md);
+        overflow-wrap: anywhere;
+      }
+      .avatar {
+        flex: none;
+        display: inline-grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        font: 600 11px/1 var(--font-sans);
+        color: #fff;
+      }
+      .avatar.sm {
+        width: 20px;
+        height: 20px;
+        font-size: 9px;
+      }
+      .problem {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: var(--radius-md);
+        background: var(--danger-subtle);
+        border: 1px solid var(--danger-border);
+        color: var(--danger-fg);
+        font: var(--type-body-sm);
+      }
+      .problem b {
+        display: block;
+        font-weight: 600;
+      }
+      .problem .bang {
+        flex: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--danger);
+        color: #fff;
+        font: 700 11px/16px var(--font-sans);
+        text-align: center;
+      }
+      .hosts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .host {
+        padding: 10px 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+      }
+      .host-name {
+        font: 500 13px/1.4 var(--font-mono);
+      }
+      .host-keys {
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
+        font: 400 12px/1.6 var(--font-mono);
+        color: var(--fg-2);
+      }
 
-.settings{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px}
-.settings-nav{display:flex;flex-direction:column;gap:2px}
-.settings-nav a{padding:6px 10px;border-radius:var(--radius-md);font:var(--type-label);color:var(--fg-2);text-decoration:none}
-.settings-nav a.on{background:var(--surface);color:var(--fg-1);box-shadow:0 0 0 1px var(--border)}
-.settings-main{max-width:820px}
+      .settings {
+        display: grid;
+        grid-template-columns: 200px minmax(0, 1fr);
+        gap: 20px;
+      }
+      .settings-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .settings-nav a {
+        padding: 6px 10px;
+        border-radius: var(--radius-md);
+        font: var(--type-label);
+        color: var(--fg-2);
+        text-decoration: none;
+      }
+      .settings-nav a.on {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: 0 0 0 1px var(--border);
+      }
+      .settings-main {
+        max-width: 820px;
+      }
 
-/* ---------- The shared loader (BlockLoader) ---------- */
-/* What the build makes: apps/web/src/shell/block-loader.tsx and .css, its bars the design system's Skeleton. */
-.block-loader{display:flex;flex-direction:column;gap:10px;animation:block-loader-in 160ms ease-out 200ms both}
-@keyframes block-loader-in{from{opacity:0}to{opacity:1}}
-.skeleton{display:block;border-radius:4px;background:linear-gradient(90deg,var(--surface-sunken) 0%,var(--border-subtle) 50%,var(--surface-sunken) 100%);background-size:200% 100%;animation:nns-shimmer 1.4s ease-in-out infinite}
-@keyframes nns-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
-@media (prefers-reduced-motion:reduce){.skeleton{animation:none}}
-.reduced .skeleton{animation:none}
-.bl-row{display:flex;gap:10px;align-items:center}
-.bl-grow{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
-.bl-item{padding:10px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:7px}
-.bl-card{padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);display:flex;flex-direction:column;gap:8px}
-.bl-tile{padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);display:flex;flex-direction:column;gap:10px;min-height:150px}
-.bl-table{border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden;background:var(--surface)}
-.bl-table div{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;align-items:center;height:40px;padding:0 16px;border-bottom:1px solid var(--border-subtle)}
-.bl-table div:last-child{border-bottom:0}
-.bl-table .head{background:var(--surface-sunken);height:34px}
+      /* ---------- The shared loader (BlockLoader) ---------- */
+      /* What the build makes: apps/web/src/shell/block-loader.tsx and .css, its bars the design system's Skeleton. */
+      .block-loader {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        animation: block-loader-in 160ms ease-out 200ms both;
+      }
+      @keyframes block-loader-in {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .skeleton {
+        display: block;
+        border-radius: 4px;
+        background: linear-gradient(
+          90deg,
+          var(--surface-sunken) 0%,
+          var(--border-subtle) 50%,
+          var(--surface-sunken) 100%
+        );
+        background-size: 200% 100%;
+        animation: nns-shimmer 1.4s ease-in-out infinite;
+      }
+      @keyframes nns-shimmer {
+        from {
+          background-position: 100% 0;
+        }
+        to {
+          background-position: -100% 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .skeleton {
+          animation: none;
+        }
+      }
+      .reduced .skeleton {
+        animation: none;
+      }
+      .bl-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .bl-grow {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      .bl-item {
+        padding: 10px 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .bl-card {
+        padding: 10px 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .bl-tile {
+        padding: 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 150px;
+      }
+      .bl-table {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        overflow: hidden;
+        background: var(--surface);
+      }
+      .bl-table div {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 16px;
+        align-items: center;
+        height: 40px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .bl-table div:last-child {
+        border-bottom: 0;
+      }
+      .bl-table .head {
+        background: var(--surface-sunken);
+        height: 34px;
+      }
 
-/* ---------- Work board ---------- */
-.filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
-.select{height:28px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);border-radius:var(--radius-md);background:var(--surface);font:var(--type-label);color:var(--fg-2)}
-.board{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:var(--gap-card);align-items:start;overflow-x:auto}
-.board-column{display:flex;flex-direction:column;gap:8px;min-width:0;padding:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-card);background:var(--surface-sunken)}
-.board-column h3{margin:0;font:600 13px/1.3 var(--font-sans);display:flex;gap:6px;align-items:center}
-.board-count{font:500 12px/1 var(--font-sans);color:var(--fg-3)}
-.board-hint{font:var(--type-caption);color:var(--fg-3);margin-top:-4px}
-.board-cards{display:flex;flex-direction:column;gap:8px;min-height:48px}
-.board-empty{padding:16px 8px;border:1px dashed var(--border);border-radius:8px;text-align:center;font:var(--type-caption);color:var(--fg-3)}
-.task-card{padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);display:flex;flex-direction:column;gap:6px}
-.task-card .t{font:500 13px/1.4 var(--font-sans)}
-.task-card .f{display:flex;gap:6px;align-items:center;font:var(--type-caption);color:var(--fg-3)}
-.chip{display:inline-flex;align-items:center;gap:5px;font:500 11px/1 var(--font-sans);color:var(--fg-2)}
-.chip i{width:8px;height:8px;border-radius:2px;display:inline-block}
+      /* ---------- Work board ---------- */
+      .filter-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .select {
+        height: 28px;
+        padding: 0 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-label);
+        color: var(--fg-2);
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(200px, 1fr));
+        gap: var(--gap-card);
+        align-items: start;
+        overflow-x: auto;
+      }
+      .board-column {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        background: var(--surface-sunken);
+      }
+      .board-column h3 {
+        margin: 0;
+        font: 600 13px/1.3 var(--font-sans);
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .board-count {
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .board-hint {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        margin-top: -4px;
+      }
+      .board-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 48px;
+      }
+      .board-empty {
+        padding: 16px 8px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        text-align: center;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .task-card {
+        padding: 10px 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .task-card .t {
+        font: 500 13px/1.4 var(--font-sans);
+      }
+      .task-card .f {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: 500 11px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .chip i {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        display: inline-block;
+      }
 
-/* ---------- Now ---------- */
-.desk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.panel-heading{display:flex;align-items:center;gap:8px;font:600 14px/1.3 var(--font-sans);margin:0 0 8px}
-.panel-heading .count{font:500 12px/1 var(--font-sans);color:var(--fg-3)}
-.panel-heading .ico{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--fg-3)}
-.feed{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
-.item-card{padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);display:flex;flex-direction:column;gap:6px}
-.item-card .t{font:500 13px/1.4 var(--font-sans)}
-.item-card .s{font:var(--type-caption);color:var(--fg-3)}
-.empty-card{padding:14px;border:1px dashed var(--border);border-radius:var(--radius-card);font:var(--type-body-sm);color:var(--fg-3);text-align:center}
+      /* ---------- Now ---------- */
+      .desk {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .panel-heading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 600 14px/1.3 var(--font-sans);
+        margin: 0 0 8px;
+      }
+      .panel-heading .count {
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .panel-heading .ico {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1.5px solid var(--fg-3);
+      }
+      .feed {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 18px;
+      }
+      .item-card {
+        padding: 12px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .item-card .t {
+        font: 500 13px/1.4 var(--font-sans);
+      }
+      .item-card .s {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .empty-card {
+        padding: 14px;
+        border: 1px dashed var(--border);
+        border-radius: var(--radius-card);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        text-align: center;
+      }
 
-/* ---------- People ---------- */
-.people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:var(--gap-card)}
-.person-tile{padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);display:flex;flex-direction:column;gap:10px;min-height:150px}
-.person-tile h4{margin:0;font:600 14px/1.3 var(--font-sans)}
-.person-tile .title{font:var(--type-caption);color:var(--fg-3)}
-.person-tile p{margin:0;font:var(--type-body-sm);color:var(--fg-2);flex:1}
-.hire-tile{border-style:dashed}
+      /* ---------- People ---------- */
+      .people-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: var(--gap-card);
+      }
+      .person-tile {
+        padding: 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 150px;
+      }
+      .person-tile h4 {
+        margin: 0;
+        font: 600 14px/1.3 var(--font-sans);
+      }
+      .person-tile .title {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .person-tile p {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        flex: 1;
+      }
+      .hire-tile {
+        border-style: dashed;
+      }
 
-/* ---------- Chat drawer ---------- */
-.drawer-layout{display:grid;grid-template-columns:minmax(0,1fr) 420px;min-height:560px}
-.drawer{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column}
-.drawer-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border)}
-.drawer-head .who{font:600 14px/1.3 var(--font-sans)}
-.drawer-head .role{font:var(--type-caption);color:var(--fg-3)}
-.drawer-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-.thread-row{padding:10px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:3px}
-.thread-row .t{font:500 13px/1.4 var(--font-sans)}
-.thread-row .s{font:var(--type-caption);color:var(--fg-3)}
-.dim-page{opacity:.55;pointer-events:none}
-.chat-back{align-self:flex-start;border:0;background:none;padding:2px 0;font:var(--type-label);color:var(--fg-2);cursor:pointer}
-.threads-count{font:var(--type-caption);color:var(--fg-3)}
-.composer{margin-top:auto;padding:10px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-md);font:var(--type-body-sm);color:var(--fg-3)}
+      /* ---------- Chat drawer ---------- */
+      .drawer-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 420px;
+        min-height: 560px;
+      }
+      .drawer {
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+      .drawer-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .drawer-head .who {
+        font: 600 14px/1.3 var(--font-sans);
+      }
+      .drawer-head .role {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .drawer-body {
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .thread-row {
+        padding: 10px 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .thread-row .t {
+        font: 500 13px/1.4 var(--font-sans);
+      }
+      .thread-row .s {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .dim-page {
+        opacity: 0.55;
+        pointer-events: none;
+      }
+      .chat-back {
+        align-self: flex-start;
+        border: 0;
+        background: none;
+        padding: 2px 0;
+        font: var(--type-label);
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .threads-count {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .composer {
+        margin-top: auto;
+        padding: 10px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
 
-/* ---------- Gallery and table ---------- */
-.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.gallery figure{margin:0;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);display:flex;flex-direction:column;gap:10px}
-.gallery figcaption{font:var(--type-caption);color:var(--fg-3)}
-.gallery figcaption b{display:block;font:var(--type-label);color:var(--fg-1);margin-bottom:2px}
-.gallery code,.where code{font:12px var(--font-mono);color:var(--fg-1)}
-.gallery .on-sunken{padding:10px;background:var(--surface-sunken);border-radius:var(--radius-md)}
-table.where{border-collapse:collapse;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden;font:var(--type-body-sm)}
-.where th,.where td{text-align:left;vertical-align:top;padding:8px 12px;border-bottom:1px solid var(--border-subtle)}
-.where th{font:var(--type-label);color:var(--fg-2);background:var(--surface-sunken)}
-.where td:first-child{white-space:nowrap;font-weight:500}
-.where .area td{background:var(--surface-sunken);font:600 12px/1.3 var(--font-sans);color:var(--fg-2);text-transform:uppercase;letter-spacing:.04em}
-.toast{position:absolute;right:16px;bottom:16px;padding:8px 12px;border-radius:var(--radius-md);background:var(--fg-1);color:var(--surface);font:var(--type-body-sm);opacity:0;transition:opacity .2s}
-.toast.on{opacity:1}
-</style>
-</head>
-<body data-palette="light">
+      /* ---------- Gallery and table ---------- */
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 14px;
+      }
+      .gallery figure {
+        margin: 0;
+        padding: 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .gallery figcaption {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .gallery figcaption b {
+        display: block;
+        font: var(--type-label);
+        color: var(--fg-1);
+        margin-bottom: 2px;
+      }
+      .gallery code,
+      .where code {
+        font: 12px var(--font-mono);
+        color: var(--fg-1);
+      }
+      .gallery .on-sunken {
+        padding: 10px;
+        background: var(--surface-sunken);
+        border-radius: var(--radius-md);
+      }
+      table.where {
+        border-collapse: collapse;
+        width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        overflow: hidden;
+        font: var(--type-body-sm);
+      }
+      .where th,
+      .where td {
+        text-align: left;
+        vertical-align: top;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .where th {
+        font: var(--type-label);
+        color: var(--fg-2);
+        background: var(--surface-sunken);
+      }
+      .where td:first-child {
+        white-space: nowrap;
+        font-weight: 500;
+      }
+      .where .area td {
+        background: var(--surface-sunken);
+        font: 600 12px/1.3 var(--font-sans);
+        color: var(--fg-2);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .toast {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        padding: 8px 12px;
+        border-radius: var(--radius-md);
+        background: var(--fg-1);
+        color: var(--surface);
+        font: var(--type-body-sm);
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .toast.on {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body data-palette="light">
+    <div class="proposal-bar" role="toolbar" aria-label="Proposal controls">
+      <h1>Loaders</h1>
+      <span
+        ><span class="switch-label">Screen</span>
+        <span class="switch" id="screen-switch">
+          <button data-screen="identity" aria-pressed="true">Settings › Office identity</button>
+          <button data-screen="board">Work board</button>
+          <button data-screen="now">Now</button>
+          <button data-screen="people">People</button>
+          <button data-screen="chat">Chat drawer</button>
+        </span></span
+      >
+      <span
+        ><span class="switch-label">State</span>
+        <span class="switch" id="state-switch">
+          <button data-state="loading" aria-pressed="true">Loading</button>
+          <button data-state="loaded">Loaded</button>
+          <button data-state="failed">Failed</button>
+        </span></span
+      >
+      <span id="drawer-switch-group" hidden
+        ><span class="switch-label">Drawer opens on</span>
+        <span class="switch" id="drawer-switch">
+          <button data-drawer="thread" aria-pressed="true">The newest Thread</button>
+          <button data-drawer="list">The Thread list</button>
+        </span></span
+      >
+      <span
+        ><span class="switch-label">Palette</span>
+        <span class="switch" id="palette-switch">
+          <button data-palette="light" aria-pressed="true">Light</button>
+          <button data-palette="dark">Dark</button>
+        </span></span
+      >
+      <span class="replay">
+        <button id="replay-fast" title="The answer comes in 120ms: the loader never shows">
+          Replay: fast answer
+        </button>
+        <button id="replay-slow" title="The answer comes in 2.5s: the loader fades in after 200ms">
+          Replay: slow answer
+        </button>
+        <button id="refresh" title="Loaded content stays while the data refreshes">
+          Background refresh
+        </button>
+        <span class="replay-note" id="replay-note" aria-live="polite"></span>
+      </span>
+    </div>
 
-<div class="proposal-bar" role="toolbar" aria-label="Proposal controls">
-  <h1>Loaders</h1>
-  <span><span class="switch-label">Screen</span>
-    <span class="switch" id="screen-switch">
-      <button data-screen="identity" aria-pressed="true">Settings › Office identity</button>
-      <button data-screen="board">Work board</button>
-      <button data-screen="now">Now</button>
-      <button data-screen="people">People</button>
-      <button data-screen="chat">Chat drawer</button>
-    </span></span>
-  <span><span class="switch-label">State</span>
-    <span class="switch" id="state-switch">
-      <button data-state="loading" aria-pressed="true">Loading</button>
-      <button data-state="loaded">Loaded</button>
-      <button data-state="failed">Failed</button>
-    </span></span>
-  <span id="drawer-switch-group" hidden><span class="switch-label">Drawer opens on</span>
-    <span class="switch" id="drawer-switch">
-      <button data-drawer="thread" aria-pressed="true">The newest Thread</button>
-      <button data-drawer="list">The Thread list</button>
-    </span></span>
-  <span><span class="switch-label">Palette</span>
-    <span class="switch" id="palette-switch">
-      <button data-palette="light" aria-pressed="true">Light</button>
-      <button data-palette="dark">Dark</button>
-    </span></span>
-  <span class="replay">
-    <button id="replay-fast" title="The answer comes in 120ms: the loader never shows">Replay: fast answer</button>
-    <button id="replay-slow" title="The answer comes in 2.5s: the loader fades in after 200ms">Replay: slow answer</button>
-    <button id="refresh" title="Loaded content stays while the data refreshes">Background refresh</button>
-    <span class="replay-note" id="replay-note" aria-live="polite"></span>
-  </span>
-</div>
+    <div class="proposal-body">
+      <div class="app" id="app"></div>
 
-<div class="proposal-body">
-  <div class="app" id="app"></div>
+      <section class="proposal-section">
+        <h2>The rule</h2>
+        <ul>
+          <li>
+            <strong
+              >Until a block's data first arrives, it shows a loader shaped like what replaces
+              it</strong
+            >: rows where a list will be, cards where cards will be, a key-shaped bar where the key
+            will be. Everything that doesn't wait on data (the heading, the card's note, the filter
+            bar, the Hire a Role tile) shows at once, so the page keeps its frame.
+          </li>
+          <li>
+            <strong>"Nothing here" is said only once the data has loaded.</strong> While loading, a
+            list says nothing about being empty, and a count it would show as 0 isn't shown (the
+            Board's columns, Now's panel headings).
+          </li>
+          <li>
+            <strong>A failed read shows its problem</strong> in place of the loader, as today: the
+            same alert, in each block that reads the data. The loader never stays after a failure.
+          </li>
+          <li>
+            <strong>No flash:</strong> the loader fades in 200ms after it appears (CSS only, 160ms
+            fade), so an answer in under about 200ms goes straight to the content. Try "Replay: fast
+            answer".
+          </li>
+          <li>
+            <strong>Only the first load:</strong> a background refresh leaves the content on screen;
+            nothing shimmers over it. The build keys this on the query's
+            <code>isLoading</code> (first fetch, no data yet), never <code>isPending</code>, which
+            stays true for a query that's switched off.
+          </li>
+          <li>
+            <strong>Small inline bits stay as they are</strong>: a Project chip, a person's name,
+            the status strip's counts, a select's options, a crumb in the page heading.
+          </li>
+        </ul>
+      </section>
 
-  <section class="proposal-section">
-    <h2>The rule</h2>
-    <ul>
-      <li><strong>Until a block's data first arrives, it shows a loader shaped like what replaces it</strong>: rows where a list will be, cards where cards will be, a key-shaped bar where the key will be. Everything that doesn't wait on data (the heading, the card's note, the filter bar, the Hire a Role tile) shows at once, so the page keeps its frame.</li>
-      <li><strong>"Nothing here" is said only once the data has loaded.</strong> While loading, a list says nothing about being empty, and a count it would show as 0 isn't shown (the Board's columns, Now's panel headings).</li>
-      <li><strong>A failed read shows its problem</strong> in place of the loader, as today: the same alert, in each block that reads the data. The loader never stays after a failure.</li>
-      <li><strong>No flash:</strong> the loader fades in 200ms after it appears (CSS only, 160ms fade), so an answer in under about 200ms goes straight to the content. Try "Replay: fast answer".</li>
-      <li><strong>Only the first load:</strong> a background refresh leaves the content on screen; nothing shimmers over it. The build keys this on the query's <code>isLoading</code> (first fetch, no data yet), never <code>isPending</code>, which stays true for a query that's switched off.</li>
-      <li><strong>Small inline bits stay as they are</strong>: a Project chip, a person's name, the status strip's counts, a select's options, a crumb in the page heading.</li>
-    </ul>
-  </section>
+      <section class="proposal-section">
+        <h2>The loader: one component, a few shapes</h2>
+        <p>
+          <code>BlockLoader</code> in <code>apps/web/src/shell/</code>, its bars the design system's
+          <code>Skeleton</code>. Its outer element is <code>role="status"</code> with a visually
+          hidden label, "Loading…" unless the block names what it loads ("Loading the Office ssh
+          key…" where several load on one page). The bars are hidden from screen readers, as
+          <code>Skeleton</code> is. With reduced motion on, the bars hold still. The shapes below
+          are its whole vocabulary; a block picks one and how many.
+        </p>
+        <div class="gallery" id="gallery"></div>
+      </section>
 
-  <section class="proposal-section">
-    <h2>The loader: one component, a few shapes</h2>
-    <p><code>BlockLoader</code> in <code>apps/web/src/shell/</code>, its bars the design system's <code>Skeleton</code>. Its outer element is <code>role="status"</code> with a visually hidden label, "Loading…" unless the block names what it loads ("Loading the Office ssh key…" where several load on one page). The bars are hidden from screen readers, as <code>Skeleton</code> is. With reduced motion on, the bars hold still. The shapes below are its whole vocabulary; a block picks one and how many.</p>
-    <div class="gallery" id="gallery"></div>
-  </section>
+      <section class="proposal-section">
+        <h2>Where it goes</h2>
+        <p>
+          From a sweep of every block that reads data in the six areas the Task names. "Blank" means
+          the block shows nothing under its heading today; "Says empty" means it shows its empty
+          message, or a 0, while it loads. The build confirms each and checks it in both palettes.
+        </p>
+        <table class="where">
+          <thead>
+            <tr>
+              <th>Block</th>
+              <th>Today, while loading</th>
+              <th>Loader</th>
+            </tr>
+          </thead>
+          <tbody id="where"></tbody>
+        </table>
+      </section>
 
-  <section class="proposal-section">
-    <h2>Where it goes</h2>
-    <p>From a sweep of every block that reads data in the six areas the Task names. "Blank" means the block shows nothing under its heading today; "Says empty" means it shows its empty message, or a 0, while it loads. The build confirms each and checks it in both palettes.</p>
-    <table class="where">
-      <thead><tr><th>Block</th><th>Today, while loading</th><th>Loader</th></tr></thead>
-      <tbody id="where"></tbody>
-    </table>
-  </section>
+      <section class="proposal-section">
+        <h2>For the build</h2>
+        <ul>
+          <li>
+            <strong>Tables</strong>: Settings › Skills and MCP servers pass <code>loading</code> to
+            <code>DataTable</code> today, keyed on <code>isPending</code>; its rows have no delay
+            and say nothing to a screen reader. They, and a person's Work tab, take the
+            <code>table</code> shape instead, so there is one loader.
+          </li>
+          <li>
+            <strong>A block that waits on several reads</strong> (<code
+              >if (!a.data || !b.data) return null</code
+            >, as a person's tabs do) is blank for good when one of them fails. It shows the loader
+            while any is loading and the problem of the one that failed.
+          </li>
+          <li>
+            <strong>On a sunken surface</strong> (the Board's columns, Now's feeds) a bare
+            <code>Skeleton</code> is the same colour as the surface and vanishes, so the
+            <code>cards</code> and <code>tiles</code> shapes draw the card's frame on
+            <code>--surface</code> and the bars inside it.
+          </li>
+          <li>
+            <strong>A record page</strong> (a Project, a person, a Task) returns nothing until its
+            record arrives today. It shows its heading's place and the <code>lines</code> shape for
+            its first block, under the page's own frame.
+          </li>
+          <li>
+            <strong>Text-only loading lines</strong> in the file browser ("Fetching the base
+            branch…", "Reading the folder…") become the <code>rows</code> loader with those words as
+            its label, so they look like the rest.
+          </li>
+          <li>
+            <strong>Unconfirmed hosts</strong> read the same data as Trusted hosts but show no
+            problem when it fails, so the card is blank. The problem shows in both.
+          </li>
+          <li>
+            <strong>Reads that never show their problem today</strong>: Now (its feeds stay blank
+            when the read fails), the chat drawer's Thread list (<code
+              >if (!threads.data) return null</code
+            >) and every <code>return null</code> on several reads. Each shows its problem where the
+            loader was.
+          </li>
+          <li>
+            <strong>Lists that fall back to empty</strong> (<code>data ?? []</code>) say the wrong
+            thing while loading: the chat's person picker lists nobody, then says "No Threads yet"
+            for everyone until their activity arrives; the Board says "Nothing here" with a 0 in
+            every column. The block keeps its loader until every read it says "nothing" about has
+            arrived.
+          </li>
+          <li>
+            <strong>The chat drawer</strong> opens on the newest Thread unless the user went back to
+            the list, so while its Threads load it shows the <code>turns</code> shape, which the
+            Thread's messages then keep: one loader, not rows that turn into turns. On the Thread
+            list it shows <code>rows</code>. Use "Drawer opens on" above.
+          </li>
+          <li>
+            <strong>Reduced motion</strong>: <code>Skeleton</code> sets its shimmer as an inline
+            style, which a stylesheet's <code>prefers-reduced-motion</code> rule can't override. The
+            fix belongs in <code>Skeleton</code>: its shimmer moves into the stylesheet it already
+            injects, under <code>@media (prefers-reduced-motion: no-preference)</code>, so every
+            Skeleton holds still, not only the loader's.
+          </li>
+          <li>
+            <strong>Tests</strong>: <code>role="status"</code> takes no name from its content, so a
+            test finds the loader with <code>getByRole("status")</code> and checks its text (<code
+              >toHaveText("Loading the Office ssh key…")</code
+            >), not <code>{ name }</code>. The People and Projects grids put the
+            <code>tiles</code> shape in the grid itself (<code>display: contents</code>) so the Hire
+            a Role tile doesn't move when the people arrive; the test checks the status is still
+            found there.
+          </li>
+          <li>
+            <strong>Watch:</strong> in Light, the <code>Skeleton</code>'s bars (<code
+              >--surface-sunken</code
+            >
+            on white) are faint. That is the design system's look and this proposal keeps it; if it
+            reads too faint at the Gate, the change goes into <code>Skeleton</code> itself, not into
+            the loader.
+          </li>
+        </ul>
+      </section>
+    </div>
 
-  <section class="proposal-section">
-    <h2>For the build</h2>
-    <ul>
-      <li><strong>Tables</strong>: Settings › Skills and MCP servers pass <code>loading</code> to <code>DataTable</code> today, keyed on <code>isPending</code>; its rows have no delay and say nothing to a screen reader. They, and a person's Work tab, take the <code>table</code> shape instead, so there is one loader.</li>
-      <li><strong>A block that waits on several reads</strong> (<code>if (!a.data || !b.data) return null</code>, as a person's tabs do) is blank for good when one of them fails. It shows the loader while any is loading and the problem of the one that failed.</li>
-      <li><strong>On a sunken surface</strong> (the Board's columns, Now's feeds) a bare <code>Skeleton</code> is the same colour as the surface and vanishes, so the <code>cards</code> and <code>tiles</code> shapes draw the card's frame on <code>--surface</code> and the bars inside it.</li>
-      <li><strong>A record page</strong> (a Project, a person, a Task) returns nothing until its record arrives today. It shows its heading's place and the <code>lines</code> shape for its first block, under the page's own frame.</li>
-      <li><strong>Text-only loading lines</strong> in the file browser ("Fetching the base branch…", "Reading the folder…") become the <code>rows</code> loader with those words as its label, so they look like the rest.</li>
-      <li><strong>Unconfirmed hosts</strong> read the same data as Trusted hosts but show no problem when it fails, so the card is blank. The problem shows in both.</li>
-      <li><strong>Reads that never show their problem today</strong>: Now (its feeds stay blank when the read fails), the chat drawer's Thread list (<code>if (!threads.data) return null</code>) and every <code>return null</code> on several reads. Each shows its problem where the loader was.</li>
-      <li><strong>Lists that fall back to empty</strong> (<code>data ?? []</code>) say the wrong thing while loading: the chat's person picker lists nobody, then says "No Threads yet" for everyone until their activity arrives; the Board says "Nothing here" with a 0 in every column. The block keeps its loader until every read it says "nothing" about has arrived.</li>
-      <li><strong>The chat drawer</strong> opens on the newest Thread unless the user went back to the list, so while its Threads load it shows the <code>turns</code> shape, which the Thread's messages then keep: one loader, not rows that turn into turns. On the Thread list it shows <code>rows</code>. Use "Drawer opens on" above.</li>
-      <li><strong>Reduced motion</strong>: <code>Skeleton</code> sets its shimmer as an inline style, which a stylesheet's <code>prefers-reduced-motion</code> rule can't override. The fix belongs in <code>Skeleton</code>: its shimmer moves into the stylesheet it already injects, under <code>@media (prefers-reduced-motion: no-preference)</code>, so every Skeleton holds still, not only the loader's.</li>
-      <li><strong>Tests</strong>: <code>role="status"</code> takes no name from its content, so a test finds the loader with <code>getByRole("status")</code> and checks its text (<code>toHaveText("Loading the Office ssh key…")</code>), not <code>{ name }</code>. The People and Projects grids put the <code>tiles</code> shape in the grid itself (<code>display: contents</code>) so the Hire a Role tile doesn't move when the people arrive; the test checks the status is still found there.</li>
-      <li><strong>Watch:</strong> in Light, the <code>Skeleton</code>'s bars (<code>--surface-sunken</code> on white) are faint. That is the design system's look and this proposal keeps it; if it reads too faint at the Gate, the change goes into <code>Skeleton</code> itself, not into the loader.</li>
-    </ul>
-  </section>
-</div>
+    <script>
+      "use strict";
+      const state = { screen: "identity", state: "loading", palette: "light", drawer: "thread" };
+      const app = document.getElementById("app");
+      const note = document.getElementById("replay-note");
 
-<script>
-"use strict";
-const state = { screen: "identity", state: "loading", palette: "light", drawer: "thread" };
-const app = document.getElementById("app");
-const note = document.getElementById("replay-note");
+      /* ---------- The shared loader ---------- */
+      const bar = (w, h = 10, r = 4) =>
+        `<span class="skeleton" aria-hidden="true" style="width:${w};height:${h}px;border-radius:${r}px"></span>`;
+      const circle = (s) => bar(`${s}px`, s, s);
+      const widths = ["92%", "74%", "86%", "62%", "80%", "68%"];
+      const shapes = {
+        lines: (n) =>
+          Array.from({ length: n }, (_, i) =>
+            bar(i === n - 1 ? "58%" : widths[i % widths.length]),
+          ).join(""),
+        rows: (n) =>
+          Array.from(
+            { length: n },
+            (_, i) =>
+              `<div class="bl-item">${bar(i % 2 ? "34%" : "42%", 12)}${bar(i % 2 ? "70%" : "84%", 9)}</div>`,
+          ).join(""),
+        cards: (n) =>
+          Array.from(
+            { length: n },
+            (_, i) =>
+              `<div class="bl-card">${bar("38%", 9)}${bar(i % 2 ? "72%" : "88%", 12)}${i % 2 ? "" : bar("54%", 12)}<div class="bl-row">${circle(18)}${bar("30%", 9)}</div></div>`,
+          ).join(""),
+        tiles: (n) =>
+          Array.from(
+            { length: n },
+            () =>
+              `<div class="bl-tile"><div class="bl-row">${circle(32)}<div class="bl-grow">${bar("46%", 12)}${bar("62%", 9)}</div></div>${bar("94%", 9)}${bar("80%", 9)}${bar("52%", 9)}<div class="bl-row" style="margin-top:auto">${bar("16px", 16)}${bar("16px", 16)}${bar("16px", 16)}</div></div>`,
+          ).join(""),
+        table: (n) =>
+          `<div class="bl-table"><div class="head">${bar("30%", 9)}${bar("50%", 9)}${bar("40%", 9)}</div>${Array.from({ length: n }, (_, i) => `<div>${bar(widths[i % 6], 10)}${bar("60%", 10)}${bar("45%", 10)}</div>`).join("")}</div>`,
+        turns: (n) =>
+          Array.from(
+            { length: n },
+            (_, i) =>
+              `<div class="bl-row" style="align-items:flex-start">${circle(28)}<div class="bl-grow">${bar("28%", 10)}${bar(widths[i % 6], 10)}${i % 2 ? "" : bar("55%", 10)}</div></div>`,
+          ).join(""),
+      };
+      /** BlockLoader: role="status", a label for screen readers, the bars of one shape. */
+      const loader = (shape, count, label = "Loading…", extra = "") =>
+        `<div class="block-loader" role="status"><span class="visually-hidden">${label}</span>${extra}${shapes[shape](count)}</div>`;
 
-/* ---------- The shared loader ---------- */
-const bar = (w, h = 10, r = 4) => `<span class="skeleton" aria-hidden="true" style="width:${w};height:${h}px;border-radius:${r}px"></span>`;
-const circle = (s) => bar(`${s}px`, s, s);
-const widths = ["92%", "74%", "86%", "62%", "80%", "68%"];
-const shapes = {
-  lines: (n) => Array.from({ length: n }, (_, i) => bar(i === n - 1 ? "58%" : widths[i % widths.length])).join(""),
-  rows: (n) => Array.from({ length: n }, (_, i) => `<div class="bl-item">${bar(i % 2 ? "34%" : "42%", 12)}${bar(i % 2 ? "70%" : "84%", 9)}</div>`).join(""),
-  cards: (n) => Array.from({ length: n }, (_, i) => `<div class="bl-card">${bar("38%", 9)}${bar(i % 2 ? "72%" : "88%", 12)}${i % 2 ? "" : bar("54%", 12)}<div class="bl-row">${circle(18)}${bar("30%", 9)}</div></div>`).join(""),
-  tiles: (n) => Array.from({ length: n }, () => `<div class="bl-tile"><div class="bl-row">${circle(32)}<div class="bl-grow">${bar("46%", 12)}${bar("62%", 9)}</div></div>${bar("94%", 9)}${bar("80%", 9)}${bar("52%", 9)}<div class="bl-row" style="margin-top:auto">${bar("16px", 16)}${bar("16px", 16)}${bar("16px", 16)}</div></div>`).join(""),
-  table: (n) => `<div class="bl-table"><div class="head">${bar("30%", 9)}${bar("50%", 9)}${bar("40%", 9)}</div>${Array.from({ length: n }, (_, i) => `<div>${bar(widths[i % 6], 10)}${bar("60%", 10)}${bar("45%", 10)}</div>`).join("")}</div>`,
-  turns: (n) => Array.from({ length: n }, (_, i) => `<div class="bl-row" style="align-items:flex-start">${circle(28)}<div class="bl-grow">${bar("28%", 10)}${bar(widths[i % 6], 10)}${i % 2 ? "" : bar("55%", 10)}</div></div>`).join(""),
-};
-/** BlockLoader: role="status", a label for screen readers, the bars of one shape. */
-const loader = (shape, count, label = "Loading…", extra = "") =>
-  `<div class="block-loader" role="status"><span class="visually-hidden">${label}</span>${extra}${shapes[shape](count)}</div>`;
+      const problem = (title, message = "The service didn't answer (502).") =>
+        `<div class="problem" role="alert"><span class="bang">!</span><div><b>${title}</b>${message}</div></div>`;
 
-const problem = (title, message = "The service didn't answer (502).") =>
-  `<div class="problem" role="alert"><span class="bang">!</span><div><b>${title}</b>${message}</div></div>`;
+      /** What a block shows: its loader, its problem, or its content. */
+      const block = (loading, failed, loaded) =>
+        state.state === "loading" ? loading() : state.state === "failed" ? failed() : loaded();
 
-/** What a block shows: its loader, its problem, or its content. */
-const block = (loading, failed, loaded) => state.state === "loading" ? loading() : state.state === "failed" ? failed() : loaded();
-
-/* ---------- App frame ---------- */
-function frame(active, body, { strip = true } = {}) {
-  const tabs = ["Now", "Work", "Projects", "People", "Settings"].map((t) => `<a class="${t === active ? "on" : ""}">${t}</a>`).join("");
-  return `<div class="topbar"><span class="logo">The <span>Office</span></span><nav class="nav">${tabs}</nav>
+      /* ---------- App frame ---------- */
+      function frame(active, body, { strip = true } = {}) {
+        const tabs = ["Now", "Work", "Projects", "People", "Settings"]
+          .map((t) => `<a class="${t === active ? "on" : ""}">${t}</a>`)
+          .join("");
+        return `<div class="topbar"><span class="logo">The <span>Office</span></span><nav class="nav">${tabs}</nav>
     <div class="topbar-end"><span class="select">Search</span><span class="b">+ Idea</span><span class="b">Chat</span></div></div>
     ${strip ? `<div class="strip"><span>Needs you <b>2</b></span><span>Running <b>3</b></span><span>Queue <b>1</b></span><span>Tokens today <b>412k</b></span></div>` : ""}
     <div class="page">${body}</div><div class="toast" id="toast"></div>`;
-}
-const avatarColours = ["#2F6BDB", "#1F8A5B", "#B4540C", "#7A3FC2", "#C8102E", "#0E7C86", "#6B6B66"];
-const avatar = (name, cls = "") => `<span class="avatar ${cls}" style="background:${avatarColours[name.charCodeAt(0) % avatarColours.length]}">${name.slice(0, 2).toUpperCase()}</span>`;
+      }
+      const avatarColours = [
+        "#2F6BDB",
+        "#1F8A5B",
+        "#B4540C",
+        "#7A3FC2",
+        "#C8102E",
+        "#0E7C86",
+        "#6B6B66",
+      ];
+      const avatar = (name, cls = "") =>
+        `<span class="avatar ${cls}" style="background:${avatarColours[name.charCodeAt(0) % avatarColours.length]}">${name.slice(0, 2).toUpperCase()}</span>`;
 
-/* ---------- Settings › Office identity ---------- */
-function identity() {
-  const nav = ["Office identity", "Office instructions", "Engines", "Office limits", "Notifications", "Pipelines", "Skills", "MCP servers", "Updates"]
-    .map((n) => `<a class="${n === "Office identity" ? "on" : ""}">${n}</a>`).join("");
-  const card = (title, body) => `<section class="card"><div class="card-title"><span class="ico"></span>${title}</div><div class="card-body">${body}</div></section>`;
-  const gitHub = card("Sign in with GitHub", block(
-    () => loader("lines", 0, "Loading the GitHub sign-in…", `<div class="bl-row">${bar("72px", 10)}${bar("96px", 20, 4)}${bar("72px", 28, 6)}</div>${bar("88%", 9)}${bar("54%", 9)}${bar("230px", 10)}`),
-    () => problem("Sign in with GitHub can't be read"),
-    () => `<div class="row"><span>Signed in as</span><span class="badge success"><i></i>office-owner</span><span class="b">Sign out</span></div><p class="note">Through the GitHub App the-office-app, registered on office-owner. The Office reaches only the repositories it is installed on.</p><a class="link">Install the App on more repositories</a>`));
-  const sshKey = card("Office ssh key", `<p class="note">The Office reaches ssh remotes with this key alone. Add its public half to each host that needs it: on GitHub, under your account's Settings › SSH and GPG keys; elsewhere, wherever the host takes ssh keys.</p>` + block(
-    () => loader("lines", 0, "Loading the Office ssh key…", `${bar("100%", 36, 6)}<div class="bl-row">${bar("70px", 28, 6)}${bar("150px", 28, 6)}${bar("120px", 28, 6)}</div>`),
-    () => problem("The Office ssh key can't be read"),
-    () => `<p class="mono">ssh-ed25519 AAAAC3Nza••••••••••••••••••••••••••••••••••••••••••••••••Qk7v the-office</p><div class="row"><span class="b">Show</span><span class="b">Copy the public key</span><span class="b danger-ghost">Regenerate…</span></div>`));
-  const unconfirmed = card("Unconfirmed hosts", `<p class="note">ssh hosts an Office git command was refused for because their key isn't confirmed yet. Scan one, compare a fingerprint with the one its owner publishes, and confirm it only when they match.</p>` + block(
-    () => loader("rows", 1, "Loading the Unconfirmed hosts…"),
-    () => problem("The hosts can't be read"),
-    () => `<p class="note">No Unconfirmed host.</p>`));
-  const trusted = card("Trusted hosts", `<p class="note">The Office's ssh accepts only these keys. GitHub's come from GitHub's published list the first time an ssh remote on GitHub is reached.</p>` + block(
-    () => loader("rows", 2, "Loading the Trusted hosts…"),
-    () => problem("The hosts can't be read"),
-    () => `<ul class="hosts"><li class="host"><div class="row"><span class="host-name">github.com</span><span class="badge">From GitHub</span></div><ul class="host-keys"><li>SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU</li><li>SHA256:p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM</li><li>SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s</li></ul></li>
-       <li class="host"><div class="row"><span class="host-name">git.example.org:2222</span></div><ul class="host-keys"><li>SHA256:Zk3hT1y0hQm8n2Yb6r9X1aVwLz4cE0pD7sG5uJqR2fI</li></ul></li></ul>`));
-  return frame("Settings", `<h2 class="page-heading">Settings <span class="crumb">› Office identity</span></h2>
+      /* ---------- Settings › Office identity ---------- */
+      function identity() {
+        const nav = [
+          "Office identity",
+          "Office instructions",
+          "Engines",
+          "Office limits",
+          "Notifications",
+          "Pipelines",
+          "Skills",
+          "MCP servers",
+          "Updates",
+        ]
+          .map((n) => `<a class="${n === "Office identity" ? "on" : ""}">${n}</a>`)
+          .join("");
+        const card = (title, body) =>
+          `<section class="card"><div class="card-title"><span class="ico"></span>${title}</div><div class="card-body">${body}</div></section>`;
+        const gitHub = card(
+          "Sign in with GitHub",
+          block(
+            () =>
+              loader(
+                "lines",
+                0,
+                "Loading the GitHub sign-in…",
+                `<div class="bl-row">${bar("72px", 10)}${bar("96px", 20, 4)}${bar("72px", 28, 6)}</div>${bar("88%", 9)}${bar("54%", 9)}${bar("230px", 10)}`,
+              ),
+            () => problem("Sign in with GitHub can't be read"),
+            () =>
+              `<div class="row"><span>Signed in as</span><span class="badge success"><i></i>office-owner</span><span class="b">Sign out</span></div><p class="note">Through the GitHub App the-office-app, registered on office-owner. The Office reaches only the repositories it is installed on.</p><a class="link">Install the App on more repositories</a>`,
+          ),
+        );
+        const sshKey = card(
+          "Office ssh key",
+          `<p class="note">The Office reaches ssh remotes with this key alone. Add its public half to each host that needs it: on GitHub, under your account's Settings › SSH and GPG keys; elsewhere, wherever the host takes ssh keys.</p>` +
+            block(
+              () =>
+                loader(
+                  "lines",
+                  0,
+                  "Loading the Office ssh key…",
+                  `${bar("100%", 36, 6)}<div class="bl-row">${bar("70px", 28, 6)}${bar("150px", 28, 6)}${bar("120px", 28, 6)}</div>`,
+                ),
+              () => problem("The Office ssh key can't be read"),
+              () =>
+                `<p class="mono">ssh-ed25519 AAAAC3Nza••••••••••••••••••••••••••••••••••••••••••••••••Qk7v the-office</p><div class="row"><span class="b">Show</span><span class="b">Copy the public key</span><span class="b danger-ghost">Regenerate…</span></div>`,
+            ),
+        );
+        const unconfirmed = card(
+          "Unconfirmed hosts",
+          `<p class="note">ssh hosts an Office git command was refused for because their key isn't confirmed yet. Scan one, compare a fingerprint with the one its owner publishes, and confirm it only when they match.</p>` +
+            block(
+              () => loader("rows", 1, "Loading the Unconfirmed hosts…"),
+              () => problem("The hosts can't be read"),
+              () => `<p class="note">No Unconfirmed host.</p>`,
+            ),
+        );
+        const trusted = card(
+          "Trusted hosts",
+          `<p class="note">The Office's ssh accepts only these keys. GitHub's come from GitHub's published list the first time an ssh remote on GitHub is reached.</p>` +
+            block(
+              () => loader("rows", 2, "Loading the Trusted hosts…"),
+              () => problem("The hosts can't be read"),
+              () => `<ul class="hosts"><li class="host"><div class="row"><span class="host-name">github.com</span><span class="badge">From GitHub</span></div><ul class="host-keys"><li>SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU</li><li>SHA256:p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM</li><li>SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s</li></ul></li>
+       <li class="host"><div class="row"><span class="host-name">git.example.org:2222</span></div><ul class="host-keys"><li>SHA256:Zk3hT1y0hQm8n2Yb6r9X1aVwLz4cE0pD7sG5uJqR2fI</li></ul></li></ul>`,
+            ),
+        );
+        return frame(
+          "Settings",
+          `<h2 class="page-heading">Settings <span class="crumb">› Office identity</span></h2>
     <div class="settings"><nav class="settings-nav">${nav}</nav><div class="settings-main">
     <p class="note" style="margin-bottom:12px">Every git command The Office runs uses only these, never your own credentials: Sign in with GitHub for GitHub over https, the Office ssh key for ssh remotes on any host. Other hosts over https are reached anonymously, so public repositories only.</p>
-    ${gitHub}${sshKey}${unconfirmed}${trusted}</div></div>`);
-}
+    ${gitHub}${sshKey}${unconfirmed}${trusted}</div></div>`,
+        );
+      }
 
-/* ---------- Work board ---------- */
-const tasks = {
-  backlog: [["the-office", "#F23D0F", "Search across Threads", "Pam"], ["not-astray", "#2F6BDB", "Offline map tiles", "Angela"]],
-  planning: [["the-office", "#F23D0F", "Initiative timeline view", "Angela"]],
-  ready: [["notnullsoft", "#1F8A5B", "Pricing page copy", "Stanley"], ["the-office", "#F23D0F", "Loaders", "Stanley"]],
-  "in-progress": [["the-office", "#F23D0F", "Choose icon and logo from the repository", "Jim"], ["not-astray", "#2F6BDB", "Route export to GPX", "Jim"], ["the-office", "#F23D0F", "Usage window alerts", "Dwight"]],
-  done: [],
-};
-const columns = [
-  ["backlog", "Backlog", "Not planned yet"],
-  ["planning", "Planning", "Plan and Definition of Done with Angela"],
-  ["ready", "Ready", "Starting is your call"],
-  ["in-progress", "In progress", "Agents work its Pipeline"],
-  ["done", "Done", "Done and dropped"],
-];
-function board() {
-  const cols = columns.map(([key, label, hint]) => {
-    const list = tasks[key];
-    const count = state.state === "loaded" ? `<span class="board-count">${list.length}</span>` : "";
-    const cards = block(
-      () => loader("cards", 2, `Loading the ${label} Tasks…`),
-      () => "",
-      () => list.length === 0 ? `<div class="board-empty">Nothing here</div>` : list.map(([project, colour, title, who]) =>
-        `<div class="task-card"><span class="chip"><i style="background:${colour}"></i>${project}</span><span class="t">${title}</span><span class="f">${avatar(who, "sm")}${who}${key === "in-progress" ? ` · <span class="badge accent">Running</span>` : ""}</span></div>`).join(""));
-    return `<section class="board-column" aria-label="${label}"><h3>${label} ${count}</h3><div class="board-hint">${hint}</div><div class="board-cards">${cards}</div></section>`;
-  }).join("");
-  const failed = state.state === "failed" ? problem("The Tasks can't be read") : "";
-  return frame("Work", `<h2 class="page-heading">Work <span class="crumb">› Tasks by state</span></h2>
+      /* ---------- Work board ---------- */
+      const tasks = {
+        backlog: [
+          ["the-office", "#F23D0F", "Search across Threads", "Pam"],
+          ["not-astray", "#2F6BDB", "Offline map tiles", "Angela"],
+        ],
+        planning: [["the-office", "#F23D0F", "Initiative timeline view", "Angela"]],
+        ready: [
+          ["notnullsoft", "#1F8A5B", "Pricing page copy", "Stanley"],
+          ["the-office", "#F23D0F", "Loaders", "Stanley"],
+        ],
+        "in-progress": [
+          ["the-office", "#F23D0F", "Choose icon and logo from the repository", "Jim"],
+          ["not-astray", "#2F6BDB", "Route export to GPX", "Jim"],
+          ["the-office", "#F23D0F", "Usage window alerts", "Dwight"],
+        ],
+        done: [],
+      };
+      const columns = [
+        ["backlog", "Backlog", "Not planned yet"],
+        ["planning", "Planning", "Plan and Definition of Done with Angela"],
+        ["ready", "Ready", "Starting is your call"],
+        ["in-progress", "In progress", "Agents work its Pipeline"],
+        ["done", "Done", "Done and dropped"],
+      ];
+      function board() {
+        const cols = columns
+          .map(([key, label, hint]) => {
+            const list = tasks[key];
+            const count =
+              state.state === "loaded" ? `<span class="board-count">${list.length}</span>` : "";
+            const cards = block(
+              () => loader("cards", 2, `Loading the ${label} Tasks…`),
+              () => "",
+              () =>
+                list.length === 0
+                  ? `<div class="board-empty">Nothing here</div>`
+                  : list
+                      .map(
+                        ([project, colour, title, who]) =>
+                          `<div class="task-card"><span class="chip"><i style="background:${colour}"></i>${project}</span><span class="t">${title}</span><span class="f">${avatar(who, "sm")}${who}${key === "in-progress" ? ` · <span class="badge accent">Running</span>` : ""}</span></div>`,
+                      )
+                      .join(""),
+            );
+            return `<section class="board-column" aria-label="${label}"><h3>${label} ${count}</h3><div class="board-hint">${hint}</div><div class="board-cards">${cards}</div></section>`;
+          })
+          .join("");
+        const failed = state.state === "failed" ? problem("The Tasks can't be read") : "";
+        return frame(
+          "Work",
+          `<h2 class="page-heading">Work <span class="crumb">› Tasks by state</span></h2>
     <div class="filter-bar"><span class="select">Tags</span><span class="select">Initiative</span><span class="select">Priority</span><span class="select">Saved views</span></div>
-    ${failed ? `<div style="margin-bottom:12px">${failed}</div>` : ""}<div class="board">${cols}</div>`);
-}
+    ${failed ? `<div style="margin-bottom:12px">${failed}</div>` : ""}<div class="board">${cols}</div>`,
+        );
+      }
 
-/* ---------- Now ---------- */
-function now() {
-  const heading = (title, count) => `<h3 class="panel-heading"><span class="ico"></span>${title}${state.state === "loaded" && count ? ` <span class="count">${count}</span>` : ""}</h3>`;
-  const item = (title, sub) => `<div class="item-card"><span class="t">${title}</span><span class="s">${sub}</span></div>`;
-  const feed = (shape, n, label, failedTitle, loaded) => `<div class="feed">${block(() => loader(shape, n, label), () => problem(failedTitle), loaded)}</div>`;
-  return frame("Now", `<div class="desk">
-    <div>${heading("Needs you", "2")}${feed("cards", 2, "Loading what needs you…", "What needs you can't be read",
-      () => item("Loaders · Gate", "the-office · Stanley asks you to look at 2 screenshots") + item("Offline map tiles · Decision", "not-astray · Angela asks which tile source to use"))}</div>
-    <div>${heading("Running", "3 of 4 desks")}${feed("cards", 2, "Loading what's running…", "What's running can't be read",
-      () => item("Choose icon and logo from the repository", "Jim · Implement · 12 min") + item("Usage window alerts", "Dwight · Check the build · 3 min") + item("Route export to GPX", "Jim · Review · 1 min"))}
-    ${heading("Since you left", "2 h")}${feed("rows", 3, "Loading what happened since you left…", "What happened since you left can't be read",
-      () => `<div class="empty-card">Nothing finished since you left.</div>`)}</div></div>`);
-}
+      /* ---------- Now ---------- */
+      function now() {
+        const heading = (title, count) =>
+          `<h3 class="panel-heading"><span class="ico"></span>${title}${state.state === "loaded" && count ? ` <span class="count">${count}</span>` : ""}</h3>`;
+        const item = (title, sub) =>
+          `<div class="item-card"><span class="t">${title}</span><span class="s">${sub}</span></div>`;
+        const feed = (shape, n, label, failedTitle, loaded) =>
+          `<div class="feed">${block(
+            () => loader(shape, n, label),
+            () => problem(failedTitle),
+            loaded,
+          )}</div>`;
+        return frame(
+          "Now",
+          `<div class="desk">
+    <div>${heading("Needs you", "2")}${feed(
+      "cards",
+      2,
+      "Loading what needs you…",
+      "What needs you can't be read",
+      () =>
+        item("Loaders · Gate", "the-office · Stanley asks you to look at 2 screenshots") +
+        item("Offline map tiles · Decision", "not-astray · Angela asks which tile source to use"),
+    )}</div>
+    <div>${heading("Running", "3 of 4 desks")}${feed(
+      "cards",
+      2,
+      "Loading what's running…",
+      "What's running can't be read",
+      () =>
+        item("Choose icon and logo from the repository", "Jim · Implement · 12 min") +
+        item("Usage window alerts", "Dwight · Check the build · 3 min") +
+        item("Route export to GPX", "Jim · Review · 1 min"),
+    )}
+    ${heading("Since you left", "2 h")}${feed(
+      "rows",
+      3,
+      "Loading what happened since you left…",
+      "What happened since you left can't be read",
+      () => `<div class="empty-card">Nothing finished since you left.</div>`,
+    )}</div></div>`,
+        );
+      }
 
-/* ---------- People ---------- */
-const people = [["Pam", "Office Manager"], ["Michael", "CTO"], ["Dwight", "Devops"], ["Angela", "Planner"], ["Jim", "Developer"], ["Stanley", "UI/UX Designer"]];
-function peoplePage() {
-  const hire = `<article class="person-tile hire-tile"><h4>Hire a Role</h4><span class="title">From a preset or from scratch</span><p>Every setting can change later on the Role card.</p><div class="row"><span class="b">Start from scratch</span></div></article>`;
-  const tiles = block(
-    () => `<div class="block-loader" role="status" style="display:contents"><span class="visually-hidden">Loading the people…</span>${shapes.tiles(6)}</div>`,
-    () => "",
-    () => people.map(([name, title]) => `<article class="person-tile"><div class="row">${avatar(name)}<div><h4>${name}</h4><span class="title">${title}</span></div></div><p>Owns the ${title.toLowerCase()} work across the Projects.</p><span class="title">Up to 2 Tasks</span></article>`).join(""));
-  const heading = state.state === "loaded" ? ` <span class="crumb">· 6 people</span>` : "";
-  return frame("People", `<h2 class="page-heading">People${heading}</h2>${state.state === "failed" ? `<div style="margin-bottom:12px">${problem("The people can't be read")}</div>` : ""}<div class="people-grid">${tiles}${hire}</div>`);
-}
+      /* ---------- People ---------- */
+      const people = [
+        ["Pam", "Office Manager"],
+        ["Michael", "CTO"],
+        ["Dwight", "Devops"],
+        ["Angela", "Planner"],
+        ["Jim", "Developer"],
+        ["Stanley", "UI/UX Designer"],
+      ];
+      function peoplePage() {
+        const hire = `<article class="person-tile hire-tile"><h4>Hire a Role</h4><span class="title">From a preset or from scratch</span><p>Every setting can change later on the Role card.</p><div class="row"><span class="b">Start from scratch</span></div></article>`;
+        const tiles = block(
+          () =>
+            `<div class="block-loader" role="status" style="display:contents"><span class="visually-hidden">Loading the people…</span>${shapes.tiles(6)}</div>`,
+          () => "",
+          () =>
+            people
+              .map(
+                ([name, title]) =>
+                  `<article class="person-tile"><div class="row">${avatar(name)}<div><h4>${name}</h4><span class="title">${title}</span></div></div><p>Owns the ${title.toLowerCase()} work across the Projects.</p><span class="title">Up to 2 Tasks</span></article>`,
+              )
+              .join(""),
+        );
+        const heading = state.state === "loaded" ? ` <span class="crumb">· 6 people</span>` : "";
+        return frame(
+          "People",
+          `<h2 class="page-heading">People${heading}</h2>${state.state === "failed" ? `<div style="margin-bottom:12px">${problem("The people can't be read")}</div>` : ""}<div class="people-grid">${tiles}${hire}</div>`,
+        );
+      }
 
-/* ---------- Chat drawer ---------- */
-/* The drawer shows either the Thread list or one Thread, never both. Unless the user went back to the
+      /* ---------- Chat drawer ---------- */
+      /* The drawer shows either the Thread list or one Thread, never both. Unless the user went back to the
    Thread list, it opens on the newest Thread, so it loads in the turns shape from the start: the Thread list's read and
    then the messages' read show as one loader, not rows that turn into turns. */
-function chat() {
-  const message = (who, time, text) => `<div class="row" style="align-items:flex-start;flex-wrap:nowrap">${avatar(who)}<div><b style="font:600 13px var(--font-sans)">${who}</b> <span class="note" style="display:inline">${time}</span><p class="note" style="color:var(--fg-1)">${text}</p></div></div>`;
-  const onThread = state.drawer === "thread";
-  const body = onThread
-    ? block(
-        () => loader("turns", 3, "Loading the Thread…"),
-        () => problem("Angela's Threads can't be read"),
-        () => `<button class="chat-back">‹ Threads</button><div class="drawer-body" style="padding:0">${message("You", "09:08", "Can the Plan list every place that needs a loader?")}${message("Angela", "09:12", "Done: the Plan lists them, and the Definition of Done says no block is blank while it loads.")}</div><div class="composer">Write to Angela…</div>`)
-    : block(
-        () => loader("rows", 4, "Loading Angela's Threads…"),
-        () => problem("Angela's Threads can't be read"),
-        () => `<div class="row" style="justify-content:space-between"><span class="threads-count">Threads · 3</span><span class="b">+ New thread</span></div>` +
-          [["Plan for Loaders", "Answered · 4 min ago"], ["Initiative timeline view", "Yesterday"], ["Which tile source?", "3 Nov"]].map(([t, s]) => `<div class="thread-row"><span class="t">${t}</span><span class="s">${s}</span></div>`).join(""));
-  const page = `<div class="dim-page"><h2 class="page-heading">Now</h2>${loader("cards", 3)}</div>`;
-  return `<div class="topbar"><span class="logo">The <span>Office</span></span><nav class="nav"><a class="on">Now</a><a>Work</a><a>Projects</a><a>People</a><a>Settings</a></nav><div class="topbar-end"><span class="b">Chat</span></div></div>
+      function chat() {
+        const message = (who, time, text) =>
+          `<div class="row" style="align-items:flex-start;flex-wrap:nowrap">${avatar(who)}<div><b style="font:600 13px var(--font-sans)">${who}</b> <span class="note" style="display:inline">${time}</span><p class="note" style="color:var(--fg-1)">${text}</p></div></div>`;
+        const onThread = state.drawer === "thread";
+        const body = onThread
+          ? block(
+              () => loader("turns", 3, "Loading the Thread…"),
+              () => problem("Angela's Threads can't be read"),
+              () =>
+                `<button class="chat-back">‹ Threads</button><div class="drawer-body" style="padding:0">${message("You", "09:08", "Can the Plan list every place that needs a loader?")}${message("Angela", "09:12", "Done: the Plan lists them, and the Definition of Done says no block is blank while it loads.")}</div><div class="composer">Write to Angela…</div>`,
+            )
+          : block(
+              () => loader("rows", 4, "Loading Angela's Threads…"),
+              () => problem("Angela's Threads can't be read"),
+              () =>
+                `<div class="row" style="justify-content:space-between"><span class="threads-count">Threads · 3</span><span class="b">+ New thread</span></div>` +
+                [
+                  ["Plan for Loaders", "Answered · 4 min ago"],
+                  ["Initiative timeline view", "Yesterday"],
+                  ["Which tile source?", "3 Nov"],
+                ]
+                  .map(
+                    ([t, s]) =>
+                      `<div class="thread-row"><span class="t">${t}</span><span class="s">${s}</span></div>`,
+                  )
+                  .join(""),
+            );
+        const page = `<div class="dim-page"><h2 class="page-heading">Now</h2>${loader("cards", 3)}</div>`;
+        return `<div class="topbar"><span class="logo">The <span>Office</span></span><nav class="nav"><a class="on">Now</a><a>Work</a><a>Projects</a><a>People</a><a>Settings</a></nav><div class="topbar-end"><span class="b">Chat</span></div></div>
     <div class="strip"><span>Needs you <b>2</b></span><span>Running <b>3</b></span></div>
     <div class="drawer-layout"><div class="page">${page}</div>
     <aside class="drawer" aria-label="Chat with Angela"><div class="drawer-head">${avatar("Angela")}<div><div class="who">Angela</div><div class="role">Planner · plans Tasks and Initiatives</div></div></div>
     <div class="drawer-body" style="flex:1">${body}</div></aside></div><div class="toast" id="toast"></div>`;
-}
+      }
 
-const screens = { identity, board, now, people: peoplePage, chat };
-function render() {
-  app.innerHTML = screens[state.screen]();
-  document.getElementById("drawer-switch-group").hidden = state.screen !== "chat";
-  // In the chat screen the dimmed page behind is only scenery: it isn't loading for this example.
-  app.querySelectorAll(".dim-page .block-loader").forEach((el) => { el.style.animation = "none"; el.removeAttribute("role"); });
-}
+      const screens = { identity, board, now, people: peoplePage, chat };
+      function render() {
+        app.innerHTML = screens[state.screen]();
+        document.getElementById("drawer-switch-group").hidden = state.screen !== "chat";
+        // In the chat screen the dimmed page behind is only scenery: it isn't loading for this example.
+        app.querySelectorAll(".dim-page .block-loader").forEach((el) => {
+          el.style.animation = "none";
+          el.removeAttribute("role");
+        });
+      }
 
-/* ---------- Gallery ---------- */
-const gallery = [
-  ["lines", 3, "Text and settings fields", "A card's content, a form (Office instructions, Engines), a record page's first block. Or a set shape: the ssh key's bar and its buttons.", false],
-  ["rows", 3, "A list in a card", "Trusted hosts, a Thread list, Memory notes, Since you left, the file browser's folder.", false],
-  ["cards", 2, "Item cards", "The Board's columns, Now's Needs you and Running, the Needs you panel. Drawn with the card's frame, as they sit on a sunken surface.", true],
-  ["tiles", 1, "Grid tiles", "People, Projects: same-size tiles before the Hire a Role or Add a Project tile.", false],
-  ["table", 3, "A table", "Settings › Skills and MCP servers, a person's Work tab: in place of DataTable's own loading rows.", false],
-  ["turns", 2, "Messages in a Thread", "A Thread in the chat drawer, on a Task page and in the Stage history: an avatar and lines, as Rows.", false],
-];
-document.getElementById("gallery").innerHTML = gallery.map(([shape, n, name, where, sunken]) =>
-  `<figure><div class="${sunken ? "on-sunken" : ""}">${loader(shape, n).replace("block-loader", "block-loader still")}</div><figcaption><b><code>shape="${shape}"</code> · ${name}</b>${where}</figcaption></figure>`).join("");
-document.querySelectorAll(".block-loader.still").forEach((el) => { el.style.animation = "none"; });
+      /* ---------- Gallery ---------- */
+      const gallery = [
+        [
+          "lines",
+          3,
+          "Text and settings fields",
+          "A card's content, a form (Office instructions, Engines), a record page's first block. Or a set shape: the ssh key's bar and its buttons.",
+          false,
+        ],
+        [
+          "rows",
+          3,
+          "A list in a card",
+          "Trusted hosts, a Thread list, Memory notes, Since you left, the file browser's folder.",
+          false,
+        ],
+        [
+          "cards",
+          2,
+          "Item cards",
+          "The Board's columns, Now's Needs you and Running, the Needs you panel. Drawn with the card's frame, as they sit on a sunken surface.",
+          true,
+        ],
+        [
+          "tiles",
+          1,
+          "Grid tiles",
+          "People, Projects: same-size tiles before the Hire a Role or Add a Project tile.",
+          false,
+        ],
+        [
+          "table",
+          3,
+          "A table",
+          "Settings › Skills and MCP servers, a person's Work tab: in place of DataTable's own loading rows.",
+          false,
+        ],
+        [
+          "turns",
+          2,
+          "Messages in a Thread",
+          "A Thread in the chat drawer, on a Task page and in the Stage history: an avatar and lines, as Rows.",
+          false,
+        ],
+      ];
+      document.getElementById("gallery").innerHTML = gallery
+        .map(
+          ([shape, n, name, where, sunken]) =>
+            `<figure><div class="${sunken ? "on-sunken" : ""}">${loader(shape, n).replace("block-loader", "block-loader still")}</div><figcaption><b><code>shape="${shape}"</code> · ${name}</b>${where}</figcaption></figure>`,
+        )
+        .join("");
+      document.querySelectorAll(".block-loader.still").forEach((el) => {
+        el.style.animation = "none";
+      });
 
-/* ---------- Where it goes ---------- */
-const where = [
-  ["Settings"],
-  ["Office identity › Sign in with GitHub", "Blank", "lines: avatar, two lines, a button"],
-  ["Office identity › Office ssh key", "Blank under its note", "set shape: the key's bar and three buttons"],
-  ["Office identity › Unconfirmed hosts", "Blank; blank too when the read fails", "rows ×1; shows the problem as Trusted hosts does"],
-  ["Office identity › Trusted hosts", "Blank", "rows ×2"],
-  ["Office instructions", "Blank", "lines: a field's height"],
-  ["Engines (form and engine list, Claude Code account)", "Blank", "lines; rows ×2"],
-  ["Office limits (desks, threshold, usage)", "Blank", "lines per card"],
-  ["Notifications (routing, timing)", "Blank", "rows ×3; lines"],
-  ["Pipelines", "Blank list; blank for good when one of its three reads fails", "rows ×3; its problem on failure"],
-  ["Skills, MCP servers", "DataTable rows, no delay, silent", "table ×3"],
-  ["Updates › version", "Blank", "lines ×2"],
-  ["Projects"],
-  ["Projects page", "Only the Add a Project tile", "tiles ×3, then Add a Project"],
-  ["A Project's page", "Nothing at all", "lines under the page's frame, then each block's own"],
-  ["Project › environment checks, Skills, server values, engine, Work, onboarding", "Blank", "rows or lines per block"],
-  ["Add a Project › GitHub repositories", "Blank list", "rows ×4"],
-  ["Work"],
-  ["Board", "Every column “Nothing here”, counts 0; the same under the problem when the read fails", "cards ×2 per column, no count; on failure the problem, the columns empty and uncounted"],
-  ["Initiatives list, Initiative page's Tasks", "Says empty", "rows ×3"],
-  ["Ideas › Shaped", "“None yet”", "rows ×2 (Fresh already waits)"],
-  ["Task page (record, rail, Changes, Attachments, Dependencies, Needs you card)", "Blank, or no tab content", "lines; rows; Changes and Attachments rows"],
-  ["Task page › conversation, Stage history", "Empty Thread", "turns ×3"],
-  ["Now"],
-  ["Needs you, Running, Since you left", "Blank feeds, counts blank; blank for good when the read fails", "cards ×2, cards ×2, rows ×3; its problem on failure"],
-  ["People"],
-  ["People page", "Only the Hire a Role tile", "tiles ×6, then Hire a Role"],
-  ["A person's page and Overview", "Nothing at all", "lines under the page's frame"],
-  ["Role card, Work, Memory, Conversations tabs", "Blank, and blank for good when a read fails", "lines; table; rows; rows; each shows its problem on failure"],
-  ["Hire a Role page (the Role card form)", "Blank, and blank for good when a read fails", "lines; its problem on failure"],
-  ["The shell"],
-  ["Chat drawer › person picker", "Nobody listed, then “No Threads yet” for everyone", "rows ×4 until the people and their activity arrive"],
-  ["Chat drawer › Thread list", "Nothing; nothing for good when the read fails", "turns ×3 when it opens on a Thread, rows ×4 on the list; its problem on failure"],
-  ["Idea card in a Thread", "Nothing", "lines ×2 in the card's frame"],
-  ["Thread (drawer, Task page, Stage history)", "Nothing", "turns ×3"],
-  ["Needs you panel", "Blank", "cards ×2"],
-  ["Windows: Gate, Decision, Review skill or MCP server, Who has it, Remove engine", "Blank body", "lines in the body; the bar stays"],
-  ["File browser", "“Fetching the base branch…”, “Reading the folder…” as text", "rows ×5 with those words as the label"],
-  ["Left as they are"],
-  ["Chips, names, the status strip's counts, select options, heading crumbs, mention picker, search's suggestions", "—", "none: inline bits"],
-];
-document.getElementById("where").innerHTML = where.map((row) => row.length === 1
-  ? `<tr class="area"><td colspan="3">${row[0]}</td></tr>`
-  : `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`).join("");
+      /* ---------- Where it goes ---------- */
+      const where = [
+        ["Settings"],
+        ["Office identity › Sign in with GitHub", "Blank", "lines: avatar, two lines, a button"],
+        [
+          "Office identity › Office ssh key",
+          "Blank under its note",
+          "set shape: the key's bar and three buttons",
+        ],
+        [
+          "Office identity › Unconfirmed hosts",
+          "Blank; blank too when the read fails",
+          "rows ×1; shows the problem as Trusted hosts does",
+        ],
+        ["Office identity › Trusted hosts", "Blank", "rows ×2"],
+        ["Office instructions", "Blank", "lines: a field's height"],
+        ["Engines (form and engine list, Claude Code account)", "Blank", "lines; rows ×2"],
+        ["Office limits (desks, threshold, usage)", "Blank", "lines per card"],
+        ["Notifications (routing, timing)", "Blank", "rows ×3; lines"],
+        [
+          "Pipelines",
+          "Blank list; blank for good when one of its three reads fails",
+          "rows ×3; its problem on failure",
+        ],
+        ["Skills, MCP servers", "DataTable rows, no delay, silent", "table ×3"],
+        ["Updates › version", "Blank", "lines ×2"],
+        ["Projects"],
+        ["Projects page", "Only the Add a Project tile", "tiles ×3, then Add a Project"],
+        [
+          "A Project's page",
+          "Nothing at all",
+          "lines under the page's frame, then each block's own",
+        ],
+        [
+          "Project › environment checks, Skills, server values, engine, Work, onboarding",
+          "Blank",
+          "rows or lines per block",
+        ],
+        ["Add a Project › GitHub repositories", "Blank list", "rows ×4"],
+        ["Work"],
+        [
+          "Board",
+          "Every column “Nothing here”, counts 0; the same under the problem when the read fails",
+          "cards ×2 per column, no count; on failure the problem, the columns empty and uncounted",
+        ],
+        ["Initiatives list, Initiative page's Tasks", "Says empty", "rows ×3"],
+        ["Ideas › Shaped", "“None yet”", "rows ×2 (Fresh already waits)"],
+        [
+          "Task page (record, rail, Changes, Attachments, Dependencies, Needs you card)",
+          "Blank, or no tab content",
+          "lines; rows; Changes and Attachments rows",
+        ],
+        ["Task page › conversation, Stage history", "Empty Thread", "turns ×3"],
+        ["Now"],
+        [
+          "Needs you, Running, Since you left",
+          "Blank feeds, counts blank; blank for good when the read fails",
+          "cards ×2, cards ×2, rows ×3; its problem on failure",
+        ],
+        ["People"],
+        ["People page", "Only the Hire a Role tile", "tiles ×6, then Hire a Role"],
+        ["A person's page and Overview", "Nothing at all", "lines under the page's frame"],
+        [
+          "Role card, Work, Memory, Conversations tabs",
+          "Blank, and blank for good when a read fails",
+          "lines; table; rows; rows; each shows its problem on failure",
+        ],
+        [
+          "Hire a Role page (the Role card form)",
+          "Blank, and blank for good when a read fails",
+          "lines; its problem on failure",
+        ],
+        ["The shell"],
+        [
+          "Chat drawer › person picker",
+          "Nobody listed, then “No Threads yet” for everyone",
+          "rows ×4 until the people and their activity arrive",
+        ],
+        [
+          "Chat drawer › Thread list",
+          "Nothing; nothing for good when the read fails",
+          "turns ×3 when it opens on a Thread, rows ×4 on the list; its problem on failure",
+        ],
+        ["Idea card in a Thread", "Nothing", "lines ×2 in the card's frame"],
+        ["Thread (drawer, Task page, Stage history)", "Nothing", "turns ×3"],
+        ["Needs you panel", "Blank", "cards ×2"],
+        [
+          "Windows: Gate, Decision, Review skill or MCP server, Who has it, Remove engine",
+          "Blank body",
+          "lines in the body; the bar stays",
+        ],
+        [
+          "File browser",
+          "“Fetching the base branch…”, “Reading the folder…” as text",
+          "rows ×5 with those words as the label",
+        ],
+        ["Left as they are"],
+        [
+          "Chips, names, the status strip's counts, select options, heading crumbs, mention picker, search's suggestions",
+          "—",
+          "none: inline bits",
+        ],
+      ];
+      document.getElementById("where").innerHTML = where
+        .map((row) =>
+          row.length === 1
+            ? `<tr class="area"><td colspan="3">${row[0]}</td></tr>`
+            : `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`,
+        )
+        .join("");
 
-/* ---------- Controls ---------- */
-function pick(groupId, attr, value) {
-  document.querySelectorAll(`#${groupId} button`).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset[attr] === value)));
-}
-document.getElementById("screen-switch").addEventListener("click", (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  state.screen = b.dataset.screen; pick("screen-switch", "screen", state.screen); render();
-});
-document.getElementById("state-switch").addEventListener("click", (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  state.state = b.dataset.state; pick("state-switch", "state", state.state); note.textContent = ""; render();
-});
-document.getElementById("drawer-switch").addEventListener("click", (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  state.drawer = b.dataset.drawer; pick("drawer-switch", "drawer", state.drawer); render();
-});
-document.getElementById("palette-switch").addEventListener("click", (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  state.palette = b.dataset.palette; document.body.dataset.palette = state.palette; pick("palette-switch", "palette", state.palette);
-});
-let replayTimer;
-function replay(ms) {
-  clearTimeout(replayTimer);
-  state.state = "loading"; pick("state-switch", "state", "loading"); render();
-  note.textContent = `Waiting ${ms}ms for the answer…`;
-  replayTimer = setTimeout(() => {
-    state.state = "loaded"; pick("state-switch", "state", "loaded"); render();
-    note.textContent = ms < 200 ? `Answered in ${ms}ms: no loader showed.` : `Answered in ${ms}ms: the loader faded in at 200ms.`;
-  }, ms);
-}
-document.getElementById("replay-fast").addEventListener("click", () => replay(120));
-document.getElementById("replay-slow").addEventListener("click", () => replay(2500));
-document.getElementById("refresh").addEventListener("click", () => {
-  if (state.state !== "loaded") { state.state = "loaded"; pick("state-switch", "state", "loaded"); render(); }
-  const toast = document.getElementById("toast");
-  note.textContent = "Refreshing in the background: the content stays, no loader.";
-  if (toast) { toast.textContent = "Refreshed. Nothing on screen moved."; toast.classList.add("on"); setTimeout(() => toast.classList.remove("on"), 1600); }
-});
-render();
-</script>
-</body>
+      /* ---------- Controls ---------- */
+      function pick(groupId, attr, value) {
+        document
+          .querySelectorAll(`#${groupId} button`)
+          .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset[attr] === value)));
+      }
+      document.getElementById("screen-switch").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        state.screen = b.dataset.screen;
+        pick("screen-switch", "screen", state.screen);
+        render();
+      });
+      document.getElementById("state-switch").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        state.state = b.dataset.state;
+        pick("state-switch", "state", state.state);
+        note.textContent = "";
+        render();
+      });
+      document.getElementById("drawer-switch").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        state.drawer = b.dataset.drawer;
+        pick("drawer-switch", "drawer", state.drawer);
+        render();
+      });
+      document.getElementById("palette-switch").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        state.palette = b.dataset.palette;
+        document.body.dataset.palette = state.palette;
+        pick("palette-switch", "palette", state.palette);
+      });
+      let replayTimer;
+      function replay(ms) {
+        clearTimeout(replayTimer);
+        state.state = "loading";
+        pick("state-switch", "state", "loading");
+        render();
+        note.textContent = `Waiting ${ms}ms for the answer…`;
+        replayTimer = setTimeout(() => {
+          state.state = "loaded";
+          pick("state-switch", "state", "loaded");
+          render();
+          note.textContent =
+            ms < 200
+              ? `Answered in ${ms}ms: no loader showed.`
+              : `Answered in ${ms}ms: the loader faded in at 200ms.`;
+        }, ms);
+      }
+      document.getElementById("replay-fast").addEventListener("click", () => replay(120));
+      document.getElementById("replay-slow").addEventListener("click", () => replay(2500));
+      document.getElementById("refresh").addEventListener("click", () => {
+        if (state.state !== "loaded") {
+          state.state = "loaded";
+          pick("state-switch", "state", "loaded");
+          render();
+        }
+        const toast = document.getElementById("toast");
+        note.textContent = "Refreshing in the background: the content stays, no loader.";
+        if (toast) {
+          toast.textContent = "Refreshed. Nothing on screen moved.";
+          toast.classList.add("on");
+          setTimeout(() => toast.classList.remove("on"), 1600);
+        }
+      });
+      render();
+    </script>
+  </body>
 </html>

@@ -381,7 +381,7 @@ describe("a consult during the fire alarm", () => {
     await consultations.openFor(await threads.read(asker.id));
 
     expect(await consultationsOn(asker)).toEqual([]);
-    expect((await threads.read(asker.id)).openDecision).toMatchObject({ putTo: consultantKey });
+    expect((await threads.read(asker.id)).openDecisions[0]).toMatchObject({ putTo: consultantKey });
   });
 });
 

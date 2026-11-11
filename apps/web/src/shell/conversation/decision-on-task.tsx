@@ -16,6 +16,7 @@ import {
   DecisionDetail,
   DecisionFrame,
   FollowUpsHint,
+  ReachesAtTurnEndHint,
   Recommendation,
   stillAnsweringHint,
   useAnswering,
@@ -24,20 +25,28 @@ import {
 } from "./decision-card.tsx";
 import { decisionDetailsWords } from "./decision-words.ts";
 
-/** What a Decision's Thread says of its card, wherever the card shows. */
+/**
+ * What a Decision's Thread says of its card, wherever the card shows. In an Initiative's planning
+ * Thread the answer is taken while the Planner works, and reaches them when the turn ends.
+ */
 export function useDecisionThread(
   decision: Decision,
   roles: readonly Role[] | undefined,
 ): {
   readonly thread: Thread | undefined;
-  readonly card: Pick<DecisionCardProps, "personName" | "answering" | "followUps">;
+  readonly card: Required<
+    Pick<DecisionCardProps, "personName" | "answering" | "reachesAtTurnEnd" | "followUps">
+  >;
 } {
   const thread = useQuery(threadQueries.one(decision.threadId)).data;
+  const working = thread?.state === "answering";
+  const inInitiative = thread?.home.kind === "initiative";
   return {
     thread,
     card: {
       personName: roles?.find(({ key }) => key === decision.roleKey)?.card.name ?? "The Office",
-      answering: thread?.state === "answering",
+      answering: working && !inInitiative,
+      reachesAtTurnEnd: working && inInitiative,
       followUps: thread?.stageThread === false,
     },
   };
@@ -60,6 +69,7 @@ function DecisionToLookAt({
   decision,
   personName,
   answering,
+  reachesAtTurnEnd = false,
   followUps,
   place,
   landing = false,
@@ -108,12 +118,14 @@ function DecisionToLookAt({
           </div>
         </section>
       </div>
+      <ReachesAtTurnEndHint personName={personName} reachesAtTurnEnd={reachesAtTurnEnd} />
       {accepting.error && <AnswerRefused error={accepting.error} />}
       {detailsOpen && (
         <DecisionWindow
           decision={decision}
           personName={personName}
           answering={answering}
+          reachesAtTurnEnd={reachesAtTurnEnd}
           followUps={followUps}
           roles={roles}
           attachments={attachments}
@@ -141,6 +153,7 @@ export function MentionedDecisionWindow({
       decision={decision}
       personName={card.personName}
       answering={card.answering}
+      reachesAtTurnEnd={card.reachesAtTurnEnd}
       followUps={card.followUps}
       roles={roles}
       attachments={attachments}
@@ -160,6 +173,7 @@ function DecisionWindow({
   decision,
   personName,
   answering,
+  reachesAtTurnEnd,
   followUps,
   roles,
   attachments,
@@ -168,6 +182,7 @@ function DecisionWindow({
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
+  readonly reachesAtTurnEnd: boolean;
   readonly followUps: boolean;
   readonly roles: readonly Role[] | undefined;
   readonly attachments: readonly Attachment[];
@@ -240,6 +255,7 @@ function DecisionWindow({
           />
         )}
         <Recommendation decision={decision} personName={personName} />
+        <ReachesAtTurnEndHint personName={personName} reachesAtTurnEnd={reachesAtTurnEnd} />
         <FollowUpsHint decision={decision} personName={personName} followUps={followUps} />
         {answeringDecision.error && <AnswerRefused error={answeringDecision.error} />}
       </div>

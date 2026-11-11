@@ -183,7 +183,7 @@ A file Attachment whose bytes are text, a document among them; Agents read it by
 _Avoid_: Plain-text file, source file, text document
 
 **Decision**:
-A question an Agent puts to the user and waits on before continuing.
+A question an Agent puts to the user and waits on before continuing. Asked in an Initiative's planning Thread, it names one of the Initiative's Tasks.
 _Avoid_: Approval, prompt, question (as a noun for the record)
 
 **Thread**:

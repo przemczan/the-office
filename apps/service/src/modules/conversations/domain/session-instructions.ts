@@ -368,3 +368,24 @@ export function decisionAnswerMessage(
     ? `${answerer} answered your Decision "${decision.question}" with the option "${words}".`
     : `${answerer} answered your Decision "${decision.question}" in their own words:\n\n${words}`;
 }
+
+/** A Decision answered in an Initiative's planning Thread, with the title of the Task it is on. */
+export interface AnsweredOnTask {
+  readonly decision: Decision;
+  readonly answer: DecisionAnswer;
+  /** Undefined for a Task no longer found, named by its id alone. */
+  readonly taskTitle: string | undefined;
+}
+
+/**
+ * What the planning session is sent when Decisions on the Initiative's Tasks are answered: every
+ * answer, in the order given, each naming its Task, in one message (spec §2.4).
+ */
+export function decisionAnswersOnTasksMessage(answers: readonly AnsweredOnTask[]): string {
+  return answers
+    .map(
+      ({ decision, answer, taskTitle }) =>
+        `On the Task ${taskTitle === undefined ? "" : `"${taskTitle}" `}(${decision.taskId}): ${decisionAnswerMessage(decision, answer)}`,
+    )
+    .join("\n\n");
+}

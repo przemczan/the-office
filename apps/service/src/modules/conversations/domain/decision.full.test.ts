@@ -76,7 +76,7 @@ describe("opening a Decision", () => {
     expect(refusalOf(() => openDecision(aThread({ session: SESSION }), opening))).toEqual([
       "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
     ]);
-    const waiting = aThread({ home: TASK_HOME, openDecision: aDecision() });
+    const waiting = aThread({ home: TASK_HOME, openDecisions: [aDecision()] });
     expect(refusalOf(() => openDecision(waiting, opening))).toEqual([
       'Your Decision "Should the export include archived Projects?" still waits on the user. End your turn: their answer comes as your next message.',
     ]);
@@ -114,7 +114,7 @@ describe("opening a Decision", () => {
 
 describe("answering a Decision", () => {
   const open = aDecision({ id: "decision-1" });
-  const waiting = aThread({ home: TASK_HOME, session: SESSION, openDecision: open });
+  const waiting = aThread({ home: TASK_HOME, session: SESSION, openDecisions: [open] });
   const answering = {
     personName: "Jan",
     decision: WARM,
@@ -134,7 +134,7 @@ describe("answering a Decision", () => {
       answer: { kind: "free-answer", text: "Only this year's.", answeredAt: AT },
     };
     expect(answered.decision).toEqual(decision);
-    expect(answered.thread).toMatchObject({ state: "answering", openDecision: undefined });
+    expect(answered.thread).toMatchObject({ state: "answering", openDecisions: [] });
     expect(answered.logged).toEqual([
       {
         kind: "decision-answer",
@@ -169,7 +169,7 @@ describe("an answer that never reached a session", () => {
 
     const decision: Decision = { ...answered, answer: undefined };
     expect(reopened.decision).toEqual(decision);
-    expect(reopened.thread).toMatchObject({ state: "waiting", openDecision: decision });
+    expect(reopened.thread).toMatchObject({ state: "waiting", openDecisions: [decision] });
     expect(reopened.logged).toEqual([
       {
         kind: "failure",
@@ -204,7 +204,7 @@ describe("passing an approval on", () => {
     options: [...APPROVAL_OPTIONS],
     putTo: "devops",
   });
-  const waiting = aThread({ home: TASK_HOME, openDecision: approval });
+  const waiting = aThread({ home: TASK_HOME, openDecisions: [approval] });
   const passing = {
     decisionId: "decision-1",
     by: "devops",
@@ -224,7 +224,7 @@ describe("passing an approval on", () => {
       ],
     };
     expect(passed.decision).toEqual(decision);
-    expect(passed.thread.openDecision).toEqual(decision);
+    expect(passed.thread.openDecisions[0]).toEqual(decision);
     expect(passed.event).toEqual(new DecisionReopened(passed.thread, decision, AT));
   });
 
@@ -235,7 +235,7 @@ describe("passing an approval on", () => {
   it("is refused for a question, without a reason, and by someone it no longer waits on", () => {
     const question = aThread({
       home: TASK_HOME,
-      openDecision: aDecision({ id: "decision-1", putTo: "devops" }),
+      openDecisions: [aDecision({ id: "decision-1", putTo: "devops" })],
     });
     expect(refusalOf(() => passDecisionOn(question, passing))[0]).toMatch(/Only an approval/);
     expect(refusalOf(() => passDecisionOn(waiting, { ...passing, reason: " " }))).toEqual([

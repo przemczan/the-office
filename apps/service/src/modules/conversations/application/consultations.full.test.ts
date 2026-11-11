@@ -420,7 +420,7 @@ describe("a consult during the fire alarm", () => {
       kind: "failure",
       reason: STOPPED_BY_THE_FIRE_ALARM,
     });
-    expect((await threads.read(asker.id)).openDecision).toMatchObject({ putTo: consultantKey });
+    expect((await threads.read(asker.id)).openDecisions[0]).toMatchObject({ putTo: consultantKey });
   });
 
   it("opens the Consultation it kept from opening once the all clear is given", async () => {
@@ -499,7 +499,7 @@ describe("a consult of a hired Consultant", () => {
       [],
     );
     await expect(decisions.openOn((asker.home as { taskId: string }).taskId)).resolves.toBe(0);
-    expect((await threads.read(asker.id)).openDecision).toMatchObject({ putTo: consultantKey });
+    expect((await threads.read(asker.id)).openDecisions[0]).toMatchObject({ putTo: consultantKey });
   });
 
   it("is taken over by the user answering, after which the Consultant's answer is refused", async () => {
@@ -507,7 +507,7 @@ describe("a consult of a hired Consultant", () => {
     const asker = await developerOnATask();
     const consultation = await consultationOn(asker);
     await settled(asker.id);
-    const open = (await threads.read(asker.id)).openDecision;
+    const open = (await threads.read(asker.id)).openDecisions[0];
     if (!open) throw new Error("No Decision was put.");
 
     await decisions.answer(open.id, { kind: "option", option: 0 });

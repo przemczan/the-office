@@ -24,7 +24,7 @@ import {
   undoPlanningMove,
   type TaskChange,
 } from "../domain/task-changes.js";
-import { startPlanningInInitiative } from "../domain/initiative-planning.js";
+import { rewriteInInitiative, startPlanningInInitiative } from "../domain/initiative-planning.js";
 import {
   TaskMarkedPlanned,
   type TaskDefinitionOfDoneSaved,
@@ -107,20 +107,21 @@ export class PlanningService {
 
   /**
    * The Planner says the Task is planned (mark_planned), refused with the reasons outside Planning
-   * or before the Plan and the Definition of Done are written. With auto mode off nothing changes:
-   * the user confirms. In auto mode, The Office accepts the Task and marks it Ready, unless a
-   * Decision on it is open: the Planner waits for the answer and marks it planned again.
+   * or before the Plan and the Definition of Done are written. While a Decision on it is open it
+   * isn't marked planned, so the Tasks waiting for it aren't planned either: the Planner marks it
+   * planned again once the answer comes. With auto mode off it is marked planned and the user
+   * confirms; in auto mode, The Office accepts the Task and marks it Ready.
    */
   async markPlanned(taskId: string): Promise<MarkedPlanned> {
     const task = await this.tasks.find(taskId);
     if (!task) throw new TaskNotFound(taskId);
     refuseWith(markingPlannedProblems(task));
+    const openDecisions = await this.decisions.openOn(taskId);
+    if (openDecisions > 0) return { outcome: "waiting-for-a-decision", openDecisions };
     if (!task.autoMode) {
       await this.update(taskId, markPlanned);
       return { outcome: "for-the-user" };
     }
-    const openDecisions = await this.decisions.openOn(taskId);
-    if (openDecisions > 0) return { outcome: "waiting-for-a-decision", openDecisions };
     if (task.proposedPipeline) await this.refuseUnknownPipeline(task.proposedPipeline.pipelineId);
     const { task: ready, event } = await this.tasks.update(taskId, (latest) =>
       acceptInAutoMode(latest, openDecisions),
@@ -208,8 +209,16 @@ export class PlanningService {
     return this.plan(task.id);
   }
 
-  async proposePlan(taskId: string, writing: PlanWriting): Promise<Task> {
-    return this.update(taskId, (task) => proposePlan(task, writing));
+  /**
+   * The Planner's Plan. `rewriteFrom`, the Initiative's planning Thread, rewrites an already planned
+   * Task from there, as `rewriteInInitiative` does; so do the other parts' proposals.
+   */
+  async proposePlan(
+    taskId: string,
+    writing: PlanWriting,
+    rewriteFrom?: SessionInitiativeThread,
+  ): Promise<Task> {
+    return this.write(taskId, rewriteFrom, (task) => proposePlan(task, writing));
   }
 
   /** The user's Plan: unconfirmed once changed, and a Ready Task goes back to Backlog. */
@@ -222,8 +231,12 @@ export class PlanningService {
     return this.update(taskId, confirmPlan);
   }
 
-  async proposeDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {
-    return this.update(taskId, (task) => proposeDefinitionOfDone(task, statements));
+  async proposeDefinitionOfDone(
+    taskId: string,
+    statements: readonly string[],
+    rewriteFrom?: SessionInitiativeThread,
+  ): Promise<Task> {
+    return this.write(taskId, rewriteFrom, (task) => proposeDefinitionOfDone(task, statements));
   }
 
   /** The user's Definition of Done, under the Plan's rules. */
@@ -236,9 +249,13 @@ export class PlanningService {
     return this.update(taskId, confirmDefinitionOfDone);
   }
 
-  async proposePipeline(taskId: string, proposal: ProposedPipeline): Promise<Task> {
+  async proposePipeline(
+    taskId: string,
+    proposal: ProposedPipeline,
+    rewriteFrom?: SessionInitiativeThread,
+  ): Promise<Task> {
     await this.refuseUnknownPipeline(proposal.pipelineId);
-    return this.update(taskId, (task) => proposePipeline(task, proposal));
+    return this.write(taskId, rewriteFrom, (task) => proposePipeline(task, proposal));
   }
 
   /**
@@ -272,6 +289,29 @@ export class PlanningService {
   ): Promise<Task> {
     const { task, event } = await this.tasks.update(taskId, change);
     if (event) await this.events.publish(event);
+    return task;
+  }
+
+  /**
+   * The Planner's write of a part: onto a Task in Planning, or, from the Initiative's planning
+   * Thread, rewriting an already planned one in the same save, then publishing the part's event and
+   * the moves it made, so the queue lets go of a Task that left Ready.
+   */
+  private async write<Event extends DomainEvent>(
+    taskId: string,
+    rewriteFrom: SessionInitiativeThread | undefined,
+    change: (task: Task) => TaskChange<Event> | undefined,
+  ): Promise<Task> {
+    if (!rewriteFrom) return this.update(taskId, change);
+    const { task, event } = await this.initiatives.changeTask(
+      rewriteFrom.initiativeId,
+      taskId,
+      (initiative, latest) => rewriteInInitiative(initiative, latest, rewriteFrom.threadId, change),
+    );
+    if (event) {
+      await this.events.publish(event.written);
+      for (const move of event.moves) await this.events.publish(move);
+    }
     return task;
   }
 

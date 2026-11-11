@@ -24,7 +24,7 @@ describe("a chat Thread", () => {
       tokens: NO_TOKENS,
       runningTurnTokens: NO_TOKENS,
       startedAt: AT,
-      openDecision: undefined,
+      openDecisions: [],
       stageThread: false,
     });
     expect(event).toEqual(new ThreadStarted(thread));

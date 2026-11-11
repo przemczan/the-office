@@ -119,6 +119,13 @@ const tasksWithoutSessions = new Set<string>();
 const tasksAsked = new Set<string>();
 /** The records of Tasks and Ideas as the Work module words them, by id. */
 const workRecords = new Map<string, string>();
+/** The Tasks of the Initiatives here, by id, with their titles, as Work gives them. */
+const initiativeTasks = new Map<
+  string,
+  { readonly initiativeId: string; readonly title: string }
+>();
+/** The Office tools of the Initiatives' Threads here: a test planning one adds open_decision. */
+let initiativeOfficeTools: readonly string[];
 /** The people's and Projects' short records, as People and Projects word them, by key and id. */
 const personRecords = new Map<string, string>();
 const projectRecords = new Map<string, string>();
@@ -166,6 +173,8 @@ beforeEach(async () => {
   cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" });
   mcpServersOnStart = NO_MCP_SERVERS;
   mcpServersOnResume = NO_MCP_SERVERS;
+  initiativeOfficeTools = ["read_task"];
+  initiativeTasks.clear();
 });
 
 afterEach(async () => {
@@ -300,7 +309,7 @@ async function startOn(
     setUp: ({ initiativeId }) =>
       Promise.resolve({
         instructions: "On this Initiative you shape.",
-        officeTools: ["read_task"],
+        officeTools: initiativeOfficeTools,
         record: `You are shaping the Initiative ${initiativeId}.`,
         asking: false,
         sessionRefusal: undefined,
@@ -309,8 +318,10 @@ async function startOn(
   // As the Work module gives its records.
   app.get(WorkRecords).provide({
     taskRecord: (taskId) => Promise.resolve(workRecords.get(taskId)),
-    taskTitle: () => Promise.resolve(undefined),
+    taskTitle: (taskId) => Promise.resolve(initiativeTasks.get(taskId)?.title),
     taskAttachmentIds: () => Promise.resolve([]),
+    initiativeTaskAttachmentIds: (initiativeId, taskId) =>
+      Promise.resolve(initiativeTasks.get(taskId)?.initiativeId === initiativeId ? [] : undefined),
     initiativeRecord: (initiativeId) => Promise.resolve(workRecords.get(initiativeId)),
     ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
   });
@@ -1432,14 +1443,14 @@ describe("a Decision", () => {
       passedOn: [],
       answer: undefined,
     };
-    expect(thread.openDecision).toEqual(decision);
+    expect(thread.openDecisions[0]).toEqual(decision);
     expect(exchanges(log)).toEqual([
       { kind: "user", text: PLAN_IT, delivery: "delivered" },
-      { kind: "decision", roleKey, decisionId: thread.openDecision?.id },
+      { kind: "decision", roleKey, decisionId: thread.openDecisions[0]?.id },
       { kind: "person", roleKey, text: "I asked about archived Projects." },
     ]);
     await expect(decisions.listOpen()).resolves.toContainEqual(decision);
-    await expect(decisions.openOn(thread.openDecision?.taskId ?? "")).resolves.toBe(1);
+    await expect(decisions.openOn(thread.openDecisions[0]?.taskId ?? "")).resolves.toBe(1);
   });
 
   it("answered with an option goes into the running session with its question, and closes", async () => {
@@ -1453,7 +1464,7 @@ describe("a Decision", () => {
     );
     const opened = await plannerAnswering();
     await answered(opened.id, 5);
-    const open = (await threads.read(opened.id)).openDecision;
+    const open = (await threads.read(opened.id)).openDecisions[0];
     if (!open) throw new Error("No Decision was opened.");
 
     await decisions.answer(open.id, { kind: "option", option: 0 });
@@ -1470,7 +1481,7 @@ describe("a Decision", () => {
       { kind: "person", roleKey, text: "Only active ones, then." },
     ]);
     const thread = await threads.read(opened.id);
-    expect(thread.openDecision).toBeUndefined();
+    expect(thread.openDecisions[0]).toBeUndefined();
     await expect(decisions.listInThread(opened.id)).resolves.toEqual([
       { ...open, answer: { kind: "option", option: 0, answeredAt: expect.any(Date) } },
     ]);
@@ -1498,7 +1509,7 @@ describe("a Decision", () => {
     );
     const opened = await plannerAnswering();
     await answered(opened.id, 5);
-    const first = (await threads.read(opened.id)).openDecision;
+    const first = (await threads.read(opened.id)).openDecisions[0];
     if (!first) throw new Error("No Decision was opened.");
     await decisions.answer(first.id, { kind: "option", option: 0 });
     await answered(opened.id, 9);
@@ -1506,7 +1517,7 @@ describe("a Decision", () => {
     // A follow-up is an ordinary message: the Decision stays open.
     await runner.send(opened.id, "What does visible mean?");
     await answered(opened.id, 11);
-    const second = (await threads.read(opened.id)).openDecision;
+    const second = (await threads.read(opened.id)).openDecisions[0];
     expect(second?.question).toBe(COLUMNS_QUESTION);
     await cooled(opened.id, 80_000);
 
@@ -1554,7 +1565,7 @@ describe("a Decision", () => {
     );
     const opened = await plannerAnswering();
     await answered(opened.id, 5);
-    const open = (await threads.read(opened.id)).openDecision;
+    const open = (await threads.read(opened.id)).openDecisions[0];
     if (!open) throw new Error("No Decision was opened.");
     const before = (await threads.read(opened.id)).session;
     await cooled(opened.id, 80_000);
@@ -1562,7 +1573,7 @@ describe("a Decision", () => {
     await decisions.answer(open.id, { kind: "option", option: 1 });
     const failed = await waiting(opened.id);
 
-    expect(failed.openDecision).toEqual(open);
+    expect(failed.openDecisions[0]).toEqual(open);
     expect(failed.session?.id).toBe(before?.id);
     await expect(decisions.listOpen()).resolves.toContainEqual(open);
     const log = drafts(await threads.messages(opened.id));
@@ -1574,7 +1585,8 @@ describe("a Decision", () => {
     await decisions.answer(open.id, { kind: "option", option: 0 });
     await vi.waitFor(async () => {
       const thread = await threads.read(opened.id);
-      if (thread.state !== "waiting" || thread.openDecision) throw new Error("Still answering.");
+      if (thread.state !== "waiting" || thread.openDecisions[0])
+        throw new Error("Still answering.");
     });
     const brief = engine.sessions.at(-1)?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toContain(
@@ -1613,6 +1625,170 @@ describe("a Decision", () => {
   });
 });
 
+/** The Planner opens a Decision on one of the Initiative's Tasks, in its planning Thread. */
+function opensDecisionOn(
+  callId: string,
+  taskId: string,
+  question: string,
+  attachments?: string[],
+): Step[] {
+  return [
+    {
+      step: "event",
+      event: {
+        kind: "tool-call",
+        callId,
+        tool: OPEN_DECISION_TOOL,
+        officeTool: true,
+        input: {
+          question,
+          context: "The exports differ.",
+          options: ["CSV", "JSON"],
+          recommended: 1,
+          why: "Spreadsheets read it.",
+          taskId,
+          attachments,
+        },
+        withinToolCall: undefined,
+      },
+    },
+    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+  ];
+}
+
+const HOLD_TURN = "hold_turn";
+
+/** A call of `HOLD_TURN`, which keeps the turn running until the test lets it go. */
+function holdsTheTurn(callId: string): Step[] {
+  return [
+    {
+      step: "event",
+      event: {
+        kind: "tool-call",
+        callId,
+        tool: HOLD_TURN,
+        officeTool: true,
+        input: {},
+        withinToolCall: undefined,
+      },
+    },
+    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+  ];
+}
+
+describe("Decisions in an Initiative's planning Thread", () => {
+  it("are several, one per Task; an answer given while the Planner works reaches it as the turn ends, one given while it waits at once", async () => {
+    const initiativeId = randomUUID();
+    const [taskA, taskB, outside] = [randomUUID(), randomUUID(), randomUUID()];
+    initiativeTasks.set(taskA, { initiativeId, title: "Export API" });
+    initiativeTasks.set(taskB, { initiativeId, title: "Export button" });
+    initiativeOfficeTools = ["read_task", OPEN_DECISION_TOOL, HOLD_TURN];
+    await startWith(
+      started(
+        ...opensDecisionOn("c-1", taskA, "Which format?"),
+        ...opensDecisionOn("c-0", taskB, "Which columns?", ["of-another-task"]),
+        ...opensDecisionOn("c-2", taskB, "Which columns?"),
+        ...opensDecisionOn("c-3", outside, "Outside?"),
+        ...holdsTheTurn("c-4"),
+        ...aTurn("brief", "Both Tasks left wait for an answer."),
+        sent("answers"),
+        ...aTurn("answers", "Planned the export API."),
+        sent("answer-b"),
+        ...aTurn("answer-b", "Planned the export button."),
+      ),
+    );
+    const turn: { letGo?: () => void } = {};
+    const held = new Promise<void>((resolve) => {
+      turn.letGo = resolve;
+    });
+    app.get(OfficeToolRegistry).register({
+      name: HOLD_TURN,
+      description: "Holds the turn.",
+      input: z.object({}),
+      run: async () => {
+        await held;
+        return { text: "Done.", isError: false };
+      },
+    });
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Planning the Initiative",
+      opening: "Plan the Initiative's Tasks.",
+    });
+    const [onA, onB] = await vi.waitFor(
+      async () => {
+        const { openDecisions } = await threads.read(opened.id);
+        if (openDecisions.length < 2) throw new Error("Not opened yet.");
+        return openDecisions;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const [session] = engine.sessions;
+    const results = session?.reportedEvents.flatMap((event) =>
+      event.kind === "tool-result" ? [event.text] : [],
+    );
+    expect(results?.[0]).toBe(
+      `The Decision is open on "Export API", waiting on the user. Plan the Tasks that don't wait for it; end your turn once every Task left waits for an answer. Each answer comes as a message.`,
+    );
+    expect(results?.[1]).toContain("of-another-task");
+    expect(results?.[3]).toBe(
+      `The Task ${outside} isn't one of this Initiative's Tasks: open the Decision on one of them.`,
+    );
+    expect([onA?.taskId, onB?.taskId]).toEqual([taskA, taskB]);
+    await expect(decisions.openInThread(opened.id)).resolves.toEqual([
+      { taskId: taskA, question: "Which format?" },
+      { taskId: taskB, question: "Which columns?" },
+    ]);
+
+    await decisions.answer(onA?.id ?? "", { kind: "option", option: 0 });
+
+    const working = await threads.read(opened.id);
+    expect(working.state).toBe("answering");
+    expect(working.openDecisions.map(({ id }) => id)).toEqual([onB?.id]);
+    await expect(decisions.openOn(taskA)).resolves.toBe(0);
+    const kept = (await threads.messages(opened.id)).find(
+      (line) => line.kind === "decision-answer",
+    );
+    expect(kept).toMatchObject({ decisionId: onA?.id, delivery: "waiting" });
+    expect(session?.received.filter(({ step }) => step === "send")).toEqual([]);
+
+    turn.letGo?.();
+    await vi.waitFor(
+      () => {
+        if (!session?.received.some(({ step }) => step === "send"))
+          throw new Error("Not handed over yet.");
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const handedOver = session?.received.find(({ step }) => step === "send");
+    expect(handedOver?.step === "send" && handedOver.message.text).toBe(
+      `On the Task "Export API" (${taskA}): The user answered your Decision "Which format?" with the option "CSV".`,
+    );
+    await answered(opened.id, 1);
+    const delivered = (await threads.messages(opened.id)).find(
+      (line) => line.kind === "decision-answer",
+    );
+    expect(delivered).toMatchObject({ decisionId: onA?.id, delivery: "delivered" });
+
+    await decisions.answer(onB?.id ?? "", { kind: "option", option: 1 });
+    await vi.waitFor(
+      () => {
+        const sends = session?.received.filter(({ step }) => step === "send") ?? [];
+        if (sends.length < 2) throw new Error("Not yet.");
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const answeredAtOnce = session?.received.filter(({ step }) => step === "send")[1];
+    expect(answeredAtOnce?.step === "send" && answeredAtOnce.message.text).toBe(
+      `On the Task "Export button" (${taskB}): The user answered your Decision "Which columns?" with the option "JSON".`,
+    );
+    await answered(opened.id, 1);
+    expect((await threads.read(opened.id)).openDecisions).toEqual([]);
+  });
+});
+
 describe("a message mentioning records", () => {
   it("briefs a new session with each record, read now, and logs the message as written", async () => {
     await startWith(
@@ -1624,7 +1800,7 @@ describe("a message mentioning records", () => {
     );
     const planning = await plannerAnswering();
     await answered(planning.id, 5);
-    const decision = (await threads.read(planning.id)).openDecision;
+    const decision = (await threads.read(planning.id)).openDecisions[0];
     if (!decision) throw new Error("No Decision was opened.");
     const taskId = randomUUID();
     const ideaId = randomUUID();

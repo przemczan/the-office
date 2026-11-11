@@ -678,7 +678,7 @@ describe("StageDecisions", () => {
     });
     const thread = await app.get(DecisionService).answer(id, { kind: "option", option: 1 });
 
-    expect(thread.openDecision).toBeUndefined();
+    expect(thread.openDecisions[0]).toBeUndefined();
     const log = drafts(await repository.messages(stageThread.threadId));
     expect(log.slice(-2)).toEqual([
       { kind: "decision", roleKey: undefined, decisionId: id },

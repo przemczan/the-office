@@ -3,12 +3,18 @@ import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Decision, DecisionAnswer, DecisionDraft } from "../domain/decision.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
-import type { Thread } from "../domain/thread.js";
-import { openDecision, recordDecisionAnswer } from "../domain/thread-changes.js";
+import type { Home, Thread } from "../domain/thread.js";
+import { openDecision, openDecisionOf, recordDecisionAnswer } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ThreadRunner, type Answerer } from "./thread-runner.js";
 import { WorkRecords } from "./work-records.js";
+
+/** A Decision just opened, and the home of the Thread it was opened in. */
+export interface OpenedDecision {
+  readonly decision: Decision;
+  readonly home: Home;
+}
 
 /**
  * The Decisions use cases (spec §2.4): an Agent opens one in the Thread it works in on a Task, and
@@ -25,26 +31,35 @@ export class DecisionService {
   ) {}
 
   /**
-   * Opens a Decision in the Thread whose engine session is `sessionId`. Refused for a session no
-   * Thread has now, in a chat, while the Thread waits on another, and with what is asked wrong,
-   * such as an Attachment that isn't the Task's.
+   * Opens a Decision in the Thread whose engine session is `sessionId`, on the Thread's Task, or in
+   * an Initiative's planning Thread on `taskId`, one of the Initiative's Tasks. Refused for a
+   * session no Thread has now, in a chat, while the Thread waits on another on the same Task, for a
+   * Task outside the Initiative, and with what is asked wrong, such as an Attachment that isn't the
+   * Task's.
    */
-  async open(sessionId: string, draft: DecisionDraft, putTo?: string): Promise<Decision> {
+  async open(
+    sessionId: string,
+    draft: DecisionDraft,
+    { putTo, taskId }: { readonly putTo?: string; readonly taskId?: string } = {},
+  ): Promise<OpenedDecision> {
     const thread = await this.repository.findBySession(sessionId);
     if (!thread) throw new ThreadRefused(["The Office doesn't know this session's Thread."]);
-    const attachmentsOfTheTask = await this.attachmentsToCheck(thread, draft);
+    const attachmentsOfTheTask = await this.attachmentsToCheck(thread, draft, taskId);
+    const id = randomUUID();
     const { thread: waiting, event } = await this.repository.update(thread.id, (latest) =>
       openDecision(latest, {
         ...draft,
         putTo,
+        taskId,
         attachmentsOfTheTask,
-        id: randomUUID(),
+        id,
         askedAt: new Date(),
       }),
     );
     if (event) await this.events.publish(event);
-    if (!waiting.openDecision) throw new Error(`Thread ${thread.id} opened no Decision.`);
-    return waiting.openDecision;
+    const decision = openDecisionOf(waiting, id);
+    if (!decision) throw new Error(`Thread ${thread.id} opened no Decision.`);
+    return { decision, home: waiting.home };
   }
 
   /**
@@ -96,16 +111,37 @@ export class DecisionService {
     return open.filter((decision) => decision.taskId === taskId).length;
   }
 
+  /** The Decisions the Thread waits on, the first asked first, by their Task and question. */
+  async openInThread(
+    threadId: string,
+  ): Promise<readonly { readonly taskId: string; readonly question: string }[]> {
+    const thread = await this.repository.find(threadId);
+    return (thread?.openDecisions ?? []).map(({ taskId, question }) => ({ taskId, question }));
+  }
+
   /** The Thread's Decisions, open and answered, which its log's cards show. */
   listInThread(threadId: string): Promise<readonly Decision[]> {
     return this.repository.decisionsIn(threadId);
   }
 
-  /** The Task's Attachments, read only for a Decision that names some. */
+  /**
+   * The Task's Attachments, read only for a Decision that names some; in an Initiative's Thread
+   * read always, as they tell whether the Task is the Initiative's, refused when it isn't.
+   */
   private async attachmentsToCheck(
     { home }: Thread,
     { attachmentIds = [] }: DecisionDraft,
+    taskId: string | undefined,
   ): Promise<readonly string[]> {
+    if (home.kind === "initiative" && taskId !== undefined) {
+      const ids = await this.work.initiativeTaskAttachmentIds(home.initiativeId, taskId);
+      if (!ids) {
+        throw new ThreadRefused([
+          `The Task ${taskId} isn't one of this Initiative's Tasks: open the Decision on one of them.`,
+        ]);
+      }
+      return ids;
+    }
     if (home.kind !== "task" || attachmentIds.length === 0) return [];
     return this.work.taskAttachmentIds(home.taskId);
   }

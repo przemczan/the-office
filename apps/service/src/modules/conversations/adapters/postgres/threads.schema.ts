@@ -87,8 +87,9 @@ export const threadMessages = pgTable(
 );
 
 /**
- * The Decisions opened in each Thread on a Task; one per Thread waits on the user at a time. The
- * Task's id is the Thread's home, kept here for the Task's Brief.
+ * The Decisions opened in each Thread, each on a Task: the Thread's home in a Thread on a Task, one
+ * of the Initiative's Tasks in its planning Thread. One per Thread and Task waits on the user at a
+ * time, which in a Thread on a Task is one per Thread.
  */
 export const decisions = pgTable(
   "decisions",
@@ -117,8 +118,8 @@ export const decisions = pgTable(
     approvalSpentAt: timestamp("approval_spent_at", { withTimezone: true }),
   },
   (table) => [
-    uniqueIndex("decisions_open_in_thread")
-      .on(table.threadId)
+    uniqueIndex("decisions_open_on_task_in_thread")
+      .on(table.threadId, table.taskId)
       .where(sql`${table.answeredAt} is null`),
     index("decisions_task").on(table.taskId, table.answeredAt),
   ],

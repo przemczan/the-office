@@ -586,7 +586,7 @@ describe("a Decision", () => {
       },
     });
     await app.get(ThreadRepository).add(thread);
-    const decision = await app.get(DecisionService).open(sessionId, draft);
+    const { decision } = await app.get(DecisionService).open(sessionId, draft);
     return { thread, decision };
   }
 
@@ -658,9 +658,9 @@ describe("a Decision", () => {
     const inAnotherThread = await withSession(() => ({ kind: "task", taskId }), {
       stageThread: true,
     });
-    const withConsultant = await app
+    const { decision: withConsultant } = await app
       .get(DecisionService)
-      .open(inAnotherThread.sessionId, draft, "devops");
+      .open(inAnotherThread.sessionId, draft, { putTo: "devops" });
     const { decision: onAnotherTask } = await opened();
 
     const unanswered = decisionListSchema.parse(

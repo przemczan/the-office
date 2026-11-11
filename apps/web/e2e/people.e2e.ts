@@ -5558,25 +5558,30 @@ const EXPORT_API_TASK = "6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e01";
 const EXPORT_BUTTON_TASK = "6f0c2a8e-1d3b-4c7a-9e21-5a0b7c3d9e02";
 
 /**
- * Gives two Tasks the fixed ids the scripted session names, in one statement, so every row that
- * names them moves at once.
+ * Gives Tasks the fixed ids the scripted session names, each pair its id now and its fixed one, in
+ * one statement, so every row that names them moves at once.
  */
-async function giveTasksFixedIds(
-  [firstId, first]: readonly [string, string],
-  [secondId, second]: readonly [string, string],
-): Promise<void> {
+async function giveTasksFixedIds(...pairs: readonly (readonly [string, string])[]): Promise<void> {
   await queryOfficeDatabase(
-    `with moved as (
+    `with renamed(old_id, new_id) as (select * from unnest($1::uuid[], $2::uuid[])),
+     moved as (
        update tasks
-          set id = case id when $1::uuid then $2::uuid else $4::uuid end,
-              blocked_by = array_replace(array_replace(blocked_by, $1::uuid, $2::uuid), $3::uuid, $4::uuid)
-        where id in ($1::uuid, $3::uuid)
-       returning id
+          set id = renamed.new_id,
+              blocked_by = array(
+                select coalesce(other.new_id, blocked.blocker)
+                  from unnest(tasks.blocked_by) with ordinality as blocked(blocker, position)
+                  left join renamed other on other.old_id = blocked.blocker
+                 order by blocked.position
+              )
+         from renamed
+        where tasks.id = renamed.old_id
+       returning tasks.id
      )
      update task_state_changes
-        set task_id = case task_id when $1::uuid then $2::uuid else $4::uuid end
-      where task_id in ($1::uuid, $3::uuid)`,
-    [firstId, first, secondId, second],
+        set task_id = renamed.new_id
+       from renamed
+      where task_state_changes.task_id = renamed.old_id`,
+    [pairs.map(([now]) => now), pairs.map(([, fixed]) => fixed)],
   );
 }
 
@@ -5694,6 +5699,192 @@ test(
 
       // Nothing of it is left to weigh on the next tests' Start.
       for (const id of [EXPORT_API_TASK, EXPORT_BUTTON_TASK]) {
+        expect((await page.request.post(`/api/tasks/${id}/drop`)).status()).toBe(200);
+      }
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+/** The Tasks the scripted Planner asks about and plans by id, in a second planning Thread. */
+const INVOICE_API_TASK = "7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01";
+const INVOICE_BUTTON_TASK = "7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e02";
+const INVOICE_CHART_TASK = "7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03";
+const FORMAT_QUESTION = "Which format should the invoice export use?";
+const ROW_COUNT_QUESTION = "Should the invoice chart show a row count?";
+
+// The engine replays the last two sessions in e2e/sessions.jsonl: Bob's on the Initiative's shaping
+// Thread, then Jan's, who opens a Decision on Invoice export API and one on Invoice chart, is
+// refused start_planning on the chart, as it waits for the API, and plans the download button to
+// Ready. The user's answer on the API's page resumes the session: Jan plans the API, then the
+// chart, which waits for its own answer, and rewrites the button; the second answer frees the chart.
+test(
+  "the user answers Jan's Decisions on the Initiative's Tasks while the rest is planned, and a planned Task is rewritten to match",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Invoice planning", "IV");
+      const idea = ideaSchema.parse(
+        await (
+          await page.request.post("/api/ideas", {
+            data: { title: "Invoice exports", notes: "", projectId: null },
+          })
+        ).json(),
+      );
+      const initiative = initiativeSchema.parse(
+        await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+      );
+      const add = async (title: string, blockedBy: readonly string[]) =>
+        taskSchema.parse(
+          await (
+            await page.request.post(`/api/initiatives/${initiative.id}/tasks`, {
+              data: { title, projectId: project.id, priority: "normal", blockedBy },
+            })
+          ).json(),
+        );
+      const invoiceApi = await add("Invoice export API", []);
+      const invoiceButton = await add("Invoice download button", []);
+      const invoiceChart = await add("Invoice chart", [invoiceApi.id]);
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/confirm`)).ok()).toBe(
+        true,
+      );
+      await giveTasksFixedIds(
+        [invoiceApi.id, INVOICE_API_TASK],
+        [invoiceButton.id, INVOICE_BUTTON_TASK],
+        [invoiceChart.id, INVOICE_CHART_TASK],
+      );
+
+      const initiativeUrl = `/work/initiatives/${initiative.id}`;
+      await page.goto(initiativeUrl);
+      const head = page.locator(".task-head");
+      const autoMode = autoModeSwitch(head);
+      if ((await autoMode.getAttribute("aria-checked")) !== "true") {
+        await head.getByText("Auto mode", { exact: true }).click();
+      }
+      await expect(autoMode).toHaveAttribute("aria-checked", "true");
+      await page.getByRole("button", { name: "Plan the Initiative" }).click();
+
+      const read = async (id: string) =>
+        taskSchema.parse(await (await page.request.get(`/api/tasks/${id}`)).json());
+      const openOn = async (taskId: string) =>
+        decisionListSchema
+          .parse(await (await page.request.get("/api/decisions/open")).json())
+          .filter((decision) => decision.taskId === taskId);
+      // Jan asks on two Tasks at once and plans the one that waits for neither.
+      await expect
+        .poll(async () => (await read(INVOICE_BUTTON_TASK)).state, { timeout: 30_000 })
+        .toBe("ready");
+      await expect.poll(async () => (await openOn(INVOICE_CHART_TASK)).length).toBe(1);
+      expect(await openOn(INVOICE_API_TASK)).toHaveLength(1);
+      // The chart waits for the API, whose Decision keeps it unplanned: start_planning was refused.
+      expect(await read(INVOICE_CHART_TASK)).toMatchObject({ state: "backlog" });
+      expect(await read(INVOICE_API_TASK)).toMatchObject({
+        state: "planning",
+        markedPlanned: false,
+      });
+
+      await expect(
+        page.getByText("1 of 3 Tasks planned · 2 waiting for your answer"),
+      ).toBeVisible();
+      await expect(page.getByText("Waiting for your answer")).toHaveCount(2);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-initiative-waiting-for-answers.png"),
+      });
+      await showPalette(page, "dark");
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "dark-1600-initiative-waiting-for-answers.png"),
+      });
+      await showPalette(page, "light");
+
+      // Both cards wait in the planning Thread, each naming its Task.
+      const { planningThreadId } = initiativeSchema.parse(
+        await (await page.request.get(`/api/initiatives/${initiative.id}`)).json(),
+      );
+      await page.goto(`${initiativeUrl}?initiativeThread=${planningThreadId}`);
+      const formatCard = page.getByRole("region", { name: `Decision: ${FORMAT_QUESTION}` });
+      const rowCountCard = page.getByRole("region", { name: `Decision: ${ROW_COUNT_QUESTION}` });
+      await expect(formatCard).toContainText("Invoice export API");
+      await expect(rowCountCard).toContainText("Invoice chart");
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-planning-thread-decisions.png"),
+      });
+      await showPalette(page, "dark");
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "dark-1600-planning-thread-decisions.png"),
+      });
+      await showPalette(page, "light");
+
+      // The API's page has the Decision in Needs you, linking to the planning Thread, and in
+      // Before Ready, and the answer given there resumes Jan's session.
+      await page.goto(`/tasks/${INVOICE_API_TASK}`);
+      const needsYou = page.getByRole("region", { name: "Needs you" });
+      const onTask = needsYou.getByRole("region", { name: `Decision: ${FORMAT_QUESTION}` });
+      await expect(
+        onTask.getByRole("link", { name: /in the Initiative's planning Thread/ }),
+      ).toBeVisible();
+      const beforeReady = page.getByRole("region", { name: "Before Ready" });
+      await expect(
+        beforeReady.getByRole("listitem").filter({ hasText: "No Decision open" }),
+      ).toContainText("1 open, in Needs you");
+      await onTask.getByRole("button", { name: "CSV", exact: true }).click();
+      await expect(onTask).toHaveCount(0);
+
+      await expect
+        .poll(async () => (await read(INVOICE_API_TASK)).state, { timeout: 30_000 })
+        .toBe("ready");
+      // Jan rewrote the button for the answer: back to Backlog, into Planning, and Ready again.
+      await expect
+        .poll(async () => (await read(INVOICE_BUTTON_TASK)).plan, { timeout: 30_000 })
+        .toBe("Add a Download button that saves the invoice export as a .csv file.");
+      await expect.poll(async () => (await read(INVOICE_BUTTON_TASK)).state).toBe("ready");
+      // The chart is planned, but waits for its own answer.
+      await expect
+        .poll(async () => (await read(INVOICE_CHART_TASK)).state, { timeout: 30_000 })
+        .toBe("planning");
+      expect(await read(INVOICE_CHART_TASK)).toMatchObject({ markedPlanned: false });
+
+      const [rowCount] = await openOn(INVOICE_CHART_TASK);
+      expect(
+        (
+          await page.request.post(`/api/decisions/${rowCount?.id}/answer`, {
+            data: { kind: "option", option: 0 },
+          })
+        ).ok(),
+      ).toBe(true);
+      await expect
+        .poll(async () => (await read(INVOICE_CHART_TASK)).state, { timeout: 30_000 })
+        .toBe("ready");
+      await page.goto(initiativeUrl);
+      await expect(page.getByText("3 of 3 Tasks planned")).toBeVisible();
+      await expect(page.getByText("Waiting for your answer")).toHaveCount(0);
+
+      const buttonMoves = await queryOfficeDatabase(
+        `select from_state, to_state, changed_by from task_state_changes
+          where task_id = $1 and from_state is not null order by id`,
+        [INVOICE_BUTTON_TASK],
+      );
+      const planner = { kind: "person", roleKey: "planner" };
+      expect(buttonMoves).toEqual([
+        { from_state: "shaping", to_state: "backlog", changed_by: expect.anything() },
+        { from_state: "backlog", to_state: "planning", changed_by: planner },
+        {
+          from_state: "planning",
+          to_state: "ready",
+          changed_by: expect.objectContaining({ kind: "auto-mode" }),
+        },
+        { from_state: "ready", to_state: "backlog", changed_by: planner },
+        { from_state: "backlog", to_state: "planning", changed_by: planner },
+        {
+          from_state: "planning",
+          to_state: "ready",
+          changed_by: expect.objectContaining({ kind: "auto-mode" }),
+        },
+      ]);
+
+      // Nothing of it is left to weigh on the next tests' Start.
+      for (const id of [INVOICE_API_TASK, INVOICE_BUTTON_TASK, INVOICE_CHART_TASK]) {
         expect((await page.request.post(`/api/tasks/${id}/drop`)).status()).toBe(200);
       }
     } finally {

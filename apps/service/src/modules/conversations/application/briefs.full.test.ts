@@ -213,7 +213,7 @@ describe("Briefs", () => {
 
     const thread = await repository.find(planning.id);
 
-    expect(thread?.openDecision).toEqual(open);
+    expect(thread?.openDecisions[0]).toEqual(open);
     await expect(briefs.forThread(thread ?? planning)).resolves.toEqual(
       taskThreadBrief({
         record: recordOf(taskId),

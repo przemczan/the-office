@@ -13,6 +13,7 @@ import { roleQueries } from "../../api/people.ts";
 import { attachmentQueries } from "../../api/work.ts";
 import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
+import { RecordMention } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { answerWords, namedAttachments } from "./decision-words.ts";
 import { NamedTag, PersonTag } from "../person-tag.tsx";
@@ -23,13 +24,15 @@ import "./conversation.css";
  * An open Decision with nothing to look at, whole (spec §2.4): the question, what they found, each
  * answer on its own line with the recommended one marked, and a free answer. Follow-ups are
  * ordinary messages in its Thread, and leave it open, except in a Stage Thread, where The Office
- * sends the messages once no Stage runs. Nothing is answered while the person is still answering.
- * The Office's own Decisions about the Task's Pipeline show the same way, as The Office's.
+ * sends the messages once no Stage runs. Nothing is answered while the person is still answering,
+ * but in an Initiative's planning Thread, where the answer reaches them when the turn ends. The
+ * Office's own Decisions about the Task's Pipeline show the same way, as The Office's.
  */
 export function DecisionCard({
   decision,
   personName,
   answering,
+  reachesAtTurnEnd = false,
   followUps,
   place,
   landing = false,
@@ -47,6 +50,7 @@ export function DecisionCard({
         decision={decision}
         personName={personName}
         answering={answering}
+        reachesAtTurnEnd={reachesAtTurnEnd}
         followUps={followUps}
         roles={roles}
       />
@@ -58,7 +62,13 @@ export function DecisionCard({
 export interface DecisionCardProps {
   readonly decision: Decision;
   readonly personName: string;
+  /** The person is answering, so the Decision can't be answered yet. */
   readonly answering: boolean;
+  /**
+   * The person is answering in an Initiative's planning Thread, where an answer is taken at once
+   * and reaches them when their turn ends.
+   */
+  readonly reachesAtTurnEnd?: boolean;
   /** The user can ask the person something first in the Thread. */
   readonly followUps: boolean;
   /** Where or when it was asked, in the card's first line. */
@@ -79,7 +89,8 @@ export function useNamedAttachments(decision: Decision): readonly Attachment[] |
 
 /**
  * A Decision in its Thread: while open a short form with the way to its card, in the Task's Needs
- * you, then its answered form.
+ * you, then its answered form. In an Initiative's planning Thread, where the Planner asks about
+ * any of its Tasks, each names the Task it is on.
  */
 export function DecisionInThread({
   decision,
@@ -89,14 +100,20 @@ export function DecisionInThread({
   readonly personName: string;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
+  const home = useQuery(threadQueries.one(decision.threadId)).data?.home;
   return (
     <DecisionFrame decision={decision} personName={personName}>
+      {home?.kind === "initiative" && (
+        <p className="decision-on-task">
+          On <RecordMention link={{ kind: "task", taskId: decision.taskId }} written="its Task" />
+        </p>
+      )}
       {decision.answer === null ? (
         <p className="decision-hint">
           {decision.putTo === null
             ? "Waits on you."
             : `Waiting on ${consultantName(decision.putTo, roles)} in a Consultation.`}{" "}
-          <LinkToDecisionCard decision={decision} />
+          <LinkToDecisionCard decision={decision} inInitiative={home?.kind === "initiative"} />
         </p>
       ) : (
         <>
@@ -131,14 +148,27 @@ export function decisionCardElementId(decisionId: string): string {
 /** What the page does as a link leaves for the card, such as clearing what lies over it. */
 export const DecisionCardLinkContext = createContext<() => void>(() => undefined);
 
-/** The way from a Thread to the card, keeping what the Task's page has open. */
-function LinkToDecisionCard({ decision }: { readonly decision: Decision }): ReactNode {
+/**
+ * The way from a Thread to the card, keeping what the Task's page has open. From an Initiative's
+ * planning Thread, which isn't one of the Task's, it opens the Task's page at the card alone.
+ */
+function LinkToDecisionCard({
+  decision,
+  inInitiative,
+}: {
+  readonly decision: Decision;
+  readonly inInitiative: boolean;
+}): ReactNode {
   const clearTheWay = useContext(DecisionCardLinkContext);
   return (
     <Link
       to="/tasks/$taskId"
       params={{ taskId: decision.taskId }}
-      search={(shown) => ({ ...shown, taskThread: decision.threadId, decision: decision.id })}
+      search={(shown) =>
+        inInitiative
+          ? { decision: decision.id }
+          : { ...shown, taskThread: decision.threadId, decision: decision.id }
+      }
       onClick={() => {
         clearTheWay();
         bringDecisionCardIntoView(decision.id);
@@ -247,12 +277,14 @@ function OpenDecision({
   decision,
   personName,
   answering,
+  reachesAtTurnEnd,
   followUps,
   roles,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
+  readonly reachesAtTurnEnd: boolean;
   readonly followUps: boolean;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
@@ -315,6 +347,7 @@ function OpenDecision({
           Answer
         </Button>
       </form>
+      <ReachesAtTurnEndHint personName={personName} reachesAtTurnEnd={reachesAtTurnEnd} />
       <FollowUpsHint decision={decision} personName={personName} followUps={followUps} />
       {answeringDecision.error && <AnswerRefused error={answeringDecision.error} />}
     </>
@@ -386,6 +419,21 @@ export function FollowUpsHint({
 
 export function AnswerRefused({ error }: { readonly error: Error }): ReactNode {
   return <RefusalAlert title="The answer wasn't sent" error={error} />;
+}
+
+/**
+ * In place of the wait in an Initiative's planning Thread: the answer is taken now and reaches the
+ * person once their turn ends.
+ */
+export function ReachesAtTurnEndHint({
+  personName,
+  reachesAtTurnEnd,
+}: {
+  readonly personName: string;
+  readonly reachesAtTurnEnd: boolean;
+}): ReactNode {
+  if (!reachesAtTurnEnd) return null;
+  return <p className="decision-hint">Reaches {personName} when this turn ends.</p>;
 }
 
 /** Why the answers wait: nothing is answered while the person is still answering. */

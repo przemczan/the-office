@@ -32,7 +32,8 @@ import {
  * The Planner proposes the Plan, the Definition of Done and a Pipeline on a Task in Planning; the
  * user saves their own words until the Task starts, and confirms each part as it reads (spec §2.1,
  * §2.3). Writing a part again, by either, leaves it unconfirmed; the same words change nothing. The
- * Plan's files to change go with it: written, saved and confirmed together.
+ * Plan's files to change go with it: written, saved and confirmed together. The Planner writing a
+ * part of a Task marked planned takes the mark back: they mark it planned again once it is done.
  */
 
 export function proposePlan(
@@ -43,7 +44,7 @@ export function proposePlan(
   refuseWith([...proposingProblems(task, "The Plan"), ...writtenPlanProblems(written)]);
   if (samePlan(task, written)) return undefined;
   return {
-    task: { ...task, ...written, planConfirmed: false },
+    task: { ...task, ...written, planConfirmed: false, markedPlanned: false },
     event: new TaskPlanProposed(task.id),
   };
 }
@@ -97,7 +98,12 @@ export function proposeDefinitionOfDone(
   ]);
   if (sameStatements(trimmed, task.definitionOfDone)) return undefined;
   return {
-    task: { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: false },
+    task: {
+      ...task,
+      definitionOfDone: trimmed,
+      definitionOfDoneConfirmed: false,
+      markedPlanned: false,
+    },
     event: new TaskDefinitionOfDoneProposed(task.id),
   };
 }
@@ -168,7 +174,11 @@ export function proposePipeline(
   const current = task.proposedPipeline;
   if (current?.pipelineId === proposal.pipelineId && current.reason === reason) return undefined;
   return {
-    task: { ...task, proposedPipeline: { pipelineId: proposal.pipelineId, reason } },
+    task: {
+      ...task,
+      proposedPipeline: { pipelineId: proposal.pipelineId, reason },
+      markedPlanned: false,
+    },
     event: new TaskPipelineProposed(task.id, proposal.pipelineId),
   };
 }

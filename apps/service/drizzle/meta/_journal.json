@@ -827,6 +827,13 @@
       "when": 1794346284346,
       "tag": "0117_initiative_planning",
       "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1794355682066,
+      "tag": "0118_decisions_open_per_task",
+      "breakpoints": true
     }
   ]
 }

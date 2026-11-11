@@ -4,6 +4,7 @@ import { z } from "zod";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { Consultations } from "../../application/consultations.js";
 import { DecisionService } from "../../application/decision-service.js";
+import { WorkRecords } from "../../application/work-records.js";
 import { APPROVAL_OPTIONS, PASS_ON_STEPS, type Consult } from "../../domain/consult.js";
 import type { DecisionDraft } from "../../domain/decision.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
@@ -15,7 +16,8 @@ const END_YOUR_TURN =
  * The Office tools an Agent asks with, in a Thread on a Task (spec §2.4, §6): it opens a Decision,
  * or consults a person, whose Consultation answers a Decision put to them; a Consultant gives their
  * answer with the third. Asking returns at once: the Agent ends its turn, and the answer comes as
- * its next message (spec §9).
+ * its next message (spec §9). The Planner opens Decisions in an Initiative's planning Thread too,
+ * each on one of its Tasks, and plans on while they wait.
  */
 @Injectable()
 export class DecisionOfficeTools implements OnModuleInit {
@@ -23,6 +25,7 @@ export class DecisionOfficeTools implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly decisions: DecisionService,
     private readonly consultations: Consultations,
+    private readonly work: WorkRecords,
   ) {}
 
   onModuleInit(): void {
@@ -35,7 +38,7 @@ export class DecisionOfficeTools implements OnModuleInit {
     this.registry.register({
       name: OPEN_DECISION_TOOL,
       description:
-        "Opens a Decision in this Thread when a choice is the user's to make: they see your question as a card with its options and the one you recommend, and answer with an option or in their own words, or ask you a follow-up first. It returns at once; then end your turn without asking the question again. Their answer comes as your next message.",
+        "Opens a Decision in this Thread when a choice is the user's to make: they see your question as a card with its options and the one you recommend, and answer with an option or in their own words, or ask you a follow-up first. It returns at once; then end your turn without asking the question again. Their answer comes as your next message. In an Initiative's planning Thread, name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile.",
       input: z.object({
         question: z.string().describe("One question, as the user reads it."),
         context: z
@@ -55,8 +58,14 @@ export class DecisionOfficeTools implements OnModuleInit {
           .describe(
             "The Task's Attachments this Decision is about, of any kind, by their ids, for the user to see on its card. Leave it out when it is about none.",
           ),
+        taskId: z
+          .string()
+          .optional()
+          .describe(
+            "In an Initiative's planning Thread, the Task the Decision is on: one of the Initiative's Tasks, by its id. Leave it out in a Thread on a Task, where it is on that Task.",
+          ),
       }),
-      run: ({ question, context, options, recommended, why, attachments }, { sessionId }) =>
+      run: ({ question, context, options, recommended, why, attachments, taskId }, { sessionId }) =>
         this.open(
           sessionId,
           {
@@ -66,7 +75,7 @@ export class DecisionOfficeTools implements OnModuleInit {
             recommendation: { option: recommended - 1, reason: why },
             attachmentIds: attachments,
           },
-          `The Decision is open in this Thread, waiting on the user. ${END_YOUR_TURN}`,
+          taskId,
         ),
     });
   }
@@ -197,11 +206,21 @@ export class DecisionOfficeTools implements OnModuleInit {
   private async open(
     sessionId: string,
     draft: DecisionDraft,
-    opened: string,
+    taskId: string | undefined,
   ): Promise<OfficeToolResult> {
     try {
-      await this.decisions.open(sessionId, draft);
-      return { text: opened, isError: false };
+      const { decision, home } = await this.decisions.open(sessionId, draft, { taskId });
+      if (home.kind !== "initiative") {
+        return {
+          text: `The Decision is open in this Thread, waiting on the user. ${END_YOUR_TURN}`,
+          isError: false,
+        };
+      }
+      const title = await this.work.taskTitle(decision.taskId);
+      return {
+        text: `The Decision is open on "${title ?? decision.taskId}", waiting on the user. Plan the Tasks that don't wait for it; end your turn once every Task left waits for an answer. Each answer comes as a message.`,
+        isError: false,
+      };
     } catch (error) {
       if (error instanceof ThreadRefused) return { text: error.message, isError: true };
       throw error;

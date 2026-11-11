@@ -31,13 +31,16 @@ import {
   INITIATIVE_PLANNING_THREAD_TITLE,
 } from "../domain/initiative-planning.js";
 import { SHAPING_INSTRUCTIONS } from "../domain/shaping.js";
+import { TaskStateChanged } from "../domain/task-events.js";
 import {
   InitiativeThreadsForTests,
   KnownPeopleForTests,
   SessionInitiativesForTests,
   SessionTasksForTests,
+  TaskDecisionsForTests,
   WorkSettingsForTests,
 } from "../ports/work-ports.fixtures.js";
+import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSettings } from "../ports/work-settings.js";
 import {
   sendJson,
@@ -302,6 +305,137 @@ describe("planning the Initiative's Tasks in its planning Thread", () => {
   });
 });
 
+describe("a Decision on one of the Initiative's Tasks", () => {
+  it("keeps it from being marked planned, in auto mode or not, and holds back only the Tasks waiting for it", async () => {
+    for (const autoMode of [true, false]) {
+      const { initiative, first, second } = await anActiveInitiative();
+      await planned(initiative.id, autoMode);
+      await call(START_PLANNING, { taskId: first.id });
+      const decisions = work.app.get(TaskDecisionsForTests);
+      decisions.open.set(first.id, 1);
+
+      expect(await planTask(first.id)).toEqual({
+        text: `The Task isn't marked planned: a Decision on it is still open. Keep planning the Tasks that don't wait for it, and end your turn once every Task left waits for an answer. The answer comes as a message: carry on from it, then call ${MARK_PLANNED} again.`,
+        isError: true,
+      });
+      expect(await read(first.id)).toMatchObject({ state: "planning", markedPlanned: false });
+      expect(await call(START_PLANNING, { taskId: second.id })).toMatchObject({ isError: true });
+
+      decisions.open.delete(first.id);
+      await call(MARK_PLANNED, { taskId: first.id });
+      expect(await read(first.id)).toMatchObject({
+        state: autoMode ? "ready" : "planning",
+        markedPlanned: true,
+      });
+    }
+  });
+
+  it("is listed in the planning Thread's Brief with its Task, for a fresh session", async () => {
+    const { initiative, first } = await anActiveInitiative();
+    const planning = await planned(initiative.id, true);
+    const threadId = planning.planningThreadId ?? "";
+    work.app
+      .get(TaskDecisionsForTests)
+      .inThread.set(threadId, [{ taskId: first.id, question: "Which format?" }]);
+
+    const setup = await work.app
+      .get(InitiativeThreadSetups)
+      .of({ threadId, initiativeId: initiative.id, roleKey: "planner" });
+
+    expect(setup.record).toContain(
+      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
+    );
+  });
+});
+
+/** An active Initiative planned in auto mode, both its Tasks Ready. */
+async function bothReady() {
+  const shaped = await anActiveInitiative();
+  await planned(shaped.initiative.id, true);
+  await call(START_PLANNING, { taskId: shaped.first.id });
+  await planTask(shaped.first.id);
+  await call(START_PLANNING, { taskId: shaped.second.id });
+  await planTask(shaped.second.id);
+  return shaped;
+}
+
+describe("rewriting an already planned Task from the planning Thread", () => {
+  it("takes a Ready Task back to Backlog and into Planning here, and auto mode marks it Ready again", async () => {
+    const { first } = await bothReady();
+    const published = work.published.length;
+
+    expect(
+      await call(WRITE_PLAN, { taskId: first.id, plan: "Add the endpoint, CSV only." }),
+    ).toMatchObject({ isError: false });
+
+    expect(await read(first.id)).toMatchObject({
+      state: "planning",
+      markedPlanned: false,
+      plan: "Add the endpoint, CSV only.",
+      planConfirmed: false,
+      definitionOfDoneConfirmed: true,
+    });
+    const moves = work.published
+      .slice(published)
+      .filter((event): event is TaskStateChanged => event instanceof TaskStateChanged)
+      .map(({ from, to }) => [from, to]);
+    expect(moves).toEqual([
+      ["ready", "backlog"],
+      ["backlog", "planning"],
+    ]);
+    const changes = await work.app.get(TaskRepository).stateChangesOf(first.id);
+    expect(changes.slice(-2).map(({ from, to, by }) => ({ from, to, by }))).toEqual([
+      { from: "ready", to: "backlog", by: { kind: "person", roleKey: "planner" } },
+      { from: "backlog", to: "planning", by: { kind: "person", roleKey: "planner" } },
+    ]);
+
+    await call(MARK_PLANNED, { taskId: first.id });
+    expect(await read(first.id)).toMatchObject({
+      state: "ready",
+      markedPlanned: true,
+      planConfirmed: true,
+    });
+  });
+
+  it("without auto mode leaves the rewritten Task in Planning for the user's Confirm", async () => {
+    const { initiative, first, second } = await anActiveInitiative();
+    await planned(initiative.id, false);
+    await call(START_PLANNING, { taskId: first.id });
+    await planTask(first.id);
+    await call(START_PLANNING, { taskId: second.id });
+
+    await call(WRITE_DEFINITION_OF_DONE, { taskId: first.id, statements: ["CSV downloads."] });
+    expect(await read(first.id)).toMatchObject({ state: "planning", markedPlanned: false });
+    expect(await call(MARK_PLANNED, { taskId: first.id })).toMatchObject({
+      text: "Marked the Task planned. Auto mode is off: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.",
+    });
+    expect(await read(first.id)).toMatchObject({ state: "planning", markedPlanned: true });
+  });
+
+  it("never rewrites a Task that has started, or one planned in its own Thread", async () => {
+    const { first, second } = await bothReady();
+    await work.app.get(TaskRepository).update(first.id, (task) => ({
+      task: { ...task, state: "in-progress" },
+      event: new TaskStateChanged(task.id, task.state, "in-progress"),
+    }));
+
+    expect(await call(WRITE_PLAN, { taskId: first.id, plan: "Something else." })).toEqual({
+      text: `"Export API" is in In progress; it has started and is never rewritten: open a Decision on it saying what changed and what you recommend.`,
+      isError: true,
+    });
+    expect(await read(first.id)).toMatchObject({ state: "in-progress", plan: "Add the endpoint." });
+
+    await work.app.get(TaskRepository).update(second.id, (task) => ({
+      task: { ...task, state: "planning", initiativePlanningThreadId: undefined },
+      event: new TaskStateChanged(task.id, task.state, "planning"),
+    }));
+    expect(await call(WRITE_PLAN, { taskId: second.id, plan: "Something else." })).toEqual({
+      text: `"Export button" is being planned in its own planning Thread and is never rewritten from here: open a Decision on it saying what changed and what you recommend.`,
+      isError: true,
+    });
+  });
+});
+
 describe("a Task planned in its Initiative's planning Thread", () => {
   it("counts that Thread as its planning Thread: the Planner's tab points to it and no Thread of its own opens", async () => {
     const { initiative, first } = await anActiveInitiative();
@@ -358,7 +492,7 @@ describe("a Thread on an Initiative's session", () => {
       officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
       sessionRefusal: undefined,
     });
-    expect(INITIATIVE_PLANNING_OFFICE_TOOLS).not.toContain("open_decision");
+    expect(INITIATIVE_PLANNING_OFFICE_TOOLS).toContain("open_decision");
     for (const words of [
       `Usage exports (Initiative ${initiative.id})`,
       "## The Tasks to plan",

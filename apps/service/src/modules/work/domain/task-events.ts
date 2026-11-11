@@ -189,6 +189,21 @@ export class TaskAcceptedInAutoMode extends DomainEvent {
   }
 }
 
+/**
+ * The Planner rewrote a part of an already planned Task from its Initiative's planning Thread
+ * (spec §2.1): `written` is the part's own event, and `moves` the moves the same save made, such
+ * as a Ready Task's to Backlog and on to Planning, published after it.
+ */
+export class TaskRewrittenInInitiative extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly written: DomainEvent,
+    readonly moves: readonly TaskStateChanged[],
+  ) {
+    super();
+  }
+}
+
 /** Who paused a Task: the user, or the fire alarm (spec §2.8), which the all clear resumes. */
 export type PausedBy = "user" | "alarm";
 

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Initiative, Project, Task } from "@the-office/contracts";
+import type { Decision, Initiative, Project, Task } from "@the-office/contracts";
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -20,17 +20,21 @@ interface DrawnEdge {
 /**
  * The Initiative's Tasks as a graph (prototypes/app/work.js `graph`): a column per dependency
  * depth, an arrow meaning "must be Done first", and blockers from outside the Initiative dashed.
- * While the Initiative is planned (Plan the Initiative), each of its Tasks says how far its planning is.
+ * While the Initiative is planned (Plan the Initiative), each of its Tasks says how far its planning
+ * is, Waiting for your answer while a Decision on it is open.
  */
 export function TaskGraph({
   initiative,
   tasks,
+  openDecisions,
   initiatives,
   projects,
 }: {
   readonly initiative: Initiative;
   /** Every Task, as read: the graph is laid out again only when they change. */
   readonly tasks: readonly Task[];
+  /** The Decisions waiting on the user, `GET /decisions/open`. */
+  readonly openDecisions: readonly Decision[];
   readonly initiatives: readonly Initiative[] | undefined;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
@@ -73,6 +77,7 @@ export function TaskGraph({
                 key={node.task.id}
                 node={node}
                 initiative={initiative}
+                openDecisions={openDecisions}
                 initiatives={initiatives}
                 projects={projects}
               />
@@ -87,18 +92,21 @@ export function TaskGraph({
 function TaskNode({
   node: { task, outside },
   initiative,
+  openDecisions,
   initiatives,
   projects,
 }: {
   readonly node: GraphNode;
   readonly initiative: Initiative;
+  readonly openDecisions: readonly Decision[];
   readonly initiatives: readonly Initiative[] | undefined;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);
-  const step = outside ? undefined : planningStepOf(initiative, task);
-  // Planning and Ready are the state badge's own words: only Waiting and Planned add to it.
-  const stepNote = step === "waiting" || step === "planned" ? PLANNING_STEP_WORDS[step] : undefined;
+  const step = outside ? undefined : planningStepOf(initiative, task, openDecisions);
+  // Planning and Ready are the state badge's own words: only the other steps add to it.
+  const stepNote =
+    step === "planning" || step === "ready" ? undefined : step && PLANNING_STEP_WORDS[step];
   return (
     <Link
       to="/tasks/$taskId"

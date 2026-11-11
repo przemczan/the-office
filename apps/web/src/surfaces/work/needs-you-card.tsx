@@ -176,23 +176,37 @@ function WaitingDecision({
       {...card}
       landing
       place={
-        thread &&
-        work && (
-          // A Stage's Thread is read at its run, in the Stage history; any other in its person's tab.
+        thread?.home.kind === "initiative" ? (
+          // The Planner asks in the Initiative's planning Thread, read on the Initiative's page.
           <Link
             className="needs-you-place"
-            from="/tasks/$taskId"
-            to="."
-            search={(shown) => ({ ...shown, taskThread: work.runId ?? thread.id })}
-            resetScroll={false}
-            onClick={() => {
-              if (work.runId === undefined) drawer.show();
-            }}
+            to="/work/initiatives/$initiativeId"
+            params={{ initiativeId: thread.home.initiativeId }}
+            search={{ initiativeThread: thread.id }}
           >
-            in{" "}
-            {work.runId === undefined ? `${card.personName}'s Thread` : chapterPlace(thread, work)}{" "}
-            · {clockOf(decision.askedAt)}
+            in the Initiative's planning Thread · {clockOf(decision.askedAt)}
           </Link>
+        ) : (
+          thread &&
+          work && (
+            // A Stage's Thread is read at its run, in the Stage history; any other in its person's tab.
+            <Link
+              className="needs-you-place"
+              from="/tasks/$taskId"
+              to="."
+              search={(shown) => ({ ...shown, taskThread: work.runId ?? thread.id })}
+              resetScroll={false}
+              onClick={() => {
+                if (work.runId === undefined) drawer.show();
+              }}
+            >
+              in{" "}
+              {work.runId === undefined
+                ? `${card.personName}'s Thread`
+                : chapterPlace(thread, work)}{" "}
+              · {clockOf(decision.askedAt)}
+            </Link>
+          )
         )
       }
     />

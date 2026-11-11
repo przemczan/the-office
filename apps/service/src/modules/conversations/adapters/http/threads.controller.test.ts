@@ -476,7 +476,7 @@ describe("a Decision", () => {
       },
     });
     await app.get(ThreadRepository).add(thread);
-    const decision = await app.get(DecisionService).open(sessionId, draft);
+    const { decision } = await app.get(DecisionService).open(sessionId, draft);
     return { thread, decision };
   }
 
@@ -521,7 +521,7 @@ describe("a Decision", () => {
       answer: { kind: "free-answer", text: "Only this year's.", answeredAt: new Date() },
     };
     await app.get(ThreadRepository).update(thread.id, (current) => {
-      const waiting = { ...current, openDecision: undefined };
+      const waiting = { ...current, openDecisions: [] };
       const line = {
         kind: "decision-answer",
         id: randomUUID(),

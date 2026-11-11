@@ -641,6 +641,7 @@
 
 .decision-context,
 .decision-recommendation,
+.decision-on-task,
 .decision-hint {
   margin: 6px 0 0;
   font: var(--type-caption);

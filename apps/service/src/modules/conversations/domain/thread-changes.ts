@@ -94,7 +94,7 @@ export function startChatThread(
     tokens: NO_TOKENS,
     runningTurnTokens: NO_TOKENS,
     startedAt,
-    openDecision: undefined,
+    openDecisions: [],
     stageThread: false,
     consultation: undefined,
   };
@@ -196,7 +196,7 @@ function titledThread(
     tokens: NO_TOKENS,
     runningTurnTokens: NO_TOKENS,
     startedAt,
-    openDecision: undefined,
+    openDecisions: [],
     stageThread,
     consultation,
   };
@@ -350,12 +350,19 @@ export interface DecisionOpening extends DecisionDraft {
   readonly putTo?: string;
   /** The ids of the Task's Attachments, which are all a Decision may name. */
   readonly attachmentsOfTheTask?: readonly string[];
+  /**
+   * The Task the Decision is on: the Thread's own in a Thread on a Task, where it may be left out,
+   * and one of the Initiative's Tasks, which the caller has checked, in an Initiative's Thread.
+   */
+  readonly taskId?: string;
 }
 
 /**
  * The person opens a Decision (spec §2.4): its card is logged, and the Thread waits on it until the
- * user answers. Refused in a chat, which only talks, while another Decision waits, and with every
- * problem of what is asked, in words the person acts on.
+ * user answers. In a Thread on a Task it is on that Task, and refused while another Decision waits.
+ * In an Initiative's planning Thread it names one of the Initiative's Tasks, several may be open,
+ * and it is refused while another waits on the same Task. Refused in a chat, which only talks, and
+ * with every problem of what is asked, in words the person acts on.
  */
 export function openDecision(
   thread: Thread,
@@ -366,19 +373,11 @@ export function openDecision(
     putTo,
     attachmentsOfTheTask = [],
     attachmentIds = [],
+    taskId: named,
     ...draft
   }: DecisionOpening,
 ): ThreadChange<DecisionOpened> {
-  if (thread.home.kind !== "task") {
-    throw new ThreadRefused([
-      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
-    ]);
-  }
-  if (thread.openDecision) {
-    throw new ThreadRefused([
-      `Your Decision "${thread.openDecision.question}" still waits on the user. End your turn: their answer comes as your next message.`,
-    ]);
-  }
+  const taskId = decisionTaskOf(thread, named);
   const problems = [
     ...decisionProblems(draft),
     ...attachmentProblems(attachmentIds, attachmentsOfTheTask),
@@ -389,7 +388,7 @@ export function openDecision(
     attachmentIds: [...new Set(attachmentIds)],
     id,
     threadId: thread.id,
-    taskId: thread.home.taskId,
+    taskId,
     roleKey: byTheOffice ? undefined : (thread.session?.roleKey ?? thread.roleKey),
     askedAt,
     putTo,
@@ -404,13 +403,72 @@ export function openDecision(
     roleKey: decision.roleKey,
     decisionId: id,
   };
-  const waiting: Thread = { ...thread, openDecision: decision };
+  const waiting: Thread = { ...thread, openDecisions: [...thread.openDecisions, decision] };
   return {
     thread: waiting,
     logged: [card],
     decision,
     event: new DecisionOpened(waiting, decision),
   };
+}
+
+/** The Task a Decision opened in the Thread is on, refused where none may be opened. */
+function decisionTaskOf(thread: Thread, named: string | undefined): string {
+  const { home, openDecisions } = thread;
+  switch (home.kind) {
+    case "chat":
+      throw new ThreadRefused([
+        "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+      ]);
+    case "task": {
+      if (named !== undefined && named !== home.taskId) {
+        throw new ThreadRefused([
+          "A Decision here is on this Thread's Task: leave taskId out, or name this Task.",
+        ]);
+      }
+      const [waiting] = openDecisions;
+      if (waiting) {
+        throw new ThreadRefused([
+          `Your Decision "${waiting.question}" still waits on the user. End your turn: their answer comes as your next message.`,
+        ]);
+      }
+      return home.taskId;
+    }
+    case "initiative": {
+      if (named === undefined) {
+        throw new ThreadRefused([
+          "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks.",
+        ]);
+      }
+      const waiting = openDecisions.find((decision) => decision.taskId === named);
+      if (waiting) {
+        throw new ThreadRefused([
+          `Your Decision "${waiting.question}" on this Task still waits on the user. Plan the Tasks that don't wait for it; its answer comes as a message.`,
+        ]);
+      }
+      return named;
+    }
+  }
+}
+
+/** The Thread's open Decision `decisionId`, if it is one. */
+export function openDecisionOf(thread: Thread, decisionId: string): Decision | undefined {
+  return thread.openDecisions.find((decision) => decision.id === decisionId);
+}
+
+function withoutDecision(thread: Thread, decisionId: string): Thread {
+  return {
+    ...thread,
+    openDecisions: thread.openDecisions.filter((decision) => decision.id !== decisionId),
+  };
+}
+
+function withDecision(thread: Thread, changed: Decision): Thread {
+  const others = thread.openDecisions.filter((decision) => decision.id !== changed.id);
+  const openDecisions = [...others, changed].toSorted(
+    (first, second) => first.askedAt.getTime() - second.askedAt.getTime(),
+  );
+  return { ...thread, openDecisions };
 }
 
 /** A Proposal the Thread's person drafts, and when. */
@@ -465,19 +523,31 @@ export interface DecisionAnswering extends Opening {
   readonly answeredAt: Date;
   /** The Consultant who answered, by the key of their Role; undefined when the user did. */
   readonly answeredBy?: string;
+  /**
+   * The lines of answers given earlier that waited for the person's turn to end, which go to the
+   * person with this one (`keepAnswerForTurnEnd`).
+   */
+  readonly waitingAnswerIds?: readonly string[];
 }
 
 /**
  * The user answers the Thread's open Decision: the answer is logged, with the move when it wasn't
  * simply continuing a warm session, the Decision is answered, and the person takes the answer as
- * their next message. Refused once it is answered, with an answer that isn't one, and while the
- * person is still answering.
+ * their next message, with any answers that waited for it, marked delivered. Refused once it is
+ * answered, with an answer that isn't one, and while the person is still answering.
  */
 export function answerDecision(
   thread: Thread,
   answering: DecisionAnswering,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, messageId, answeredAt, answeredBy } = answering;
+  const {
+    decisionId,
+    answer,
+    messageId,
+    answeredAt,
+    answeredBy,
+    waitingAnswerIds = [],
+  } = answering;
   const open = answerableDecision(thread, decisionId, answer);
   if (thread.state === "answering") {
     throw new ThreadRefused([
@@ -485,27 +555,97 @@ export function answerDecision(
     ]);
   }
   const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
-  const line: Message = {
+  const line = answerLine(thread, { decisionId, answer, messageId, answeredAt });
+  const moved = movedLines(thread, answering, answeredAt);
+  const begun = begin(withoutDecision(thread, decisionId), answering, [...moved, line], answeredAt);
+  return {
+    thread: begun.thread,
+    logged: begun.logged,
+    decision,
+    marked: deliveredMarking(waitingAnswerIds),
+    event: new DecisionAnswered(begun.thread, decision, answeredAt),
+  };
+}
+
+/**
+ * The user answers a Decision in an Initiative's planning Thread while the person is still
+ * answering there (spec §2.4): the Decision is answered at once, so its Task is free for Ready, and
+ * its line is logged waiting for the person's turn to end, which hands it over
+ * (`deliverWaitingAnswers`). A Thread on a Task refuses, as `answerDecision` does.
+ */
+export function keepAnswerForTurnEnd(
+  thread: Thread,
+  recording: DecisionRecording,
+  personName: string,
+): ThreadChange<DecisionAnswered> {
+  const { decisionId, answer, answeredAt, answeredBy } = recording;
+  const open = answerableDecision(thread, decisionId, answer);
+  if (thread.home.kind !== "initiative" || thread.state !== "answering") {
+    throw new ThreadRefused([`${personName} is still answering. Answer once they finish.`]);
+  }
+  const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
+  const answered = withoutDecision(thread, decisionId);
+  return {
+    thread: answered,
+    logged: [answerLine(thread, recording, "waiting")],
+    decision,
+    event: new DecisionAnswered(answered, decision, answeredAt),
+  };
+}
+
+/**
+ * The person's turn ended with answers waiting for it (`keepAnswerForTurnEnd`): the person takes
+ * them, all in one message, under the Context policy's move, and their lines are marked delivered.
+ * Refused while the person is still answering, as any message is.
+ */
+export function deliverWaitingAnswers(
+  thread: Thread,
+  opening: Opening,
+  waitingAnswerIds: readonly string[],
+  deliveredAt: Date,
+): ThreadChange<MessagesLogged | DeliveryMarked> {
+  const marked = deliveredMarking(waitingAnswerIds);
+  if (!marked) throw new Error("There are no waiting answers to deliver.");
+  const moved = movedLines(thread, opening, deliveredAt);
+  if (moved.length > 0) return { ...begin(thread, opening, moved, deliveredAt), marked };
+  if (thread.state === "answering") {
+    throw new ThreadRefused([`${opening.personName} is still answering.`]);
+  }
+  const answering: Thread = {
+    ...settleRunningTurn(thread),
+    state: "answering",
+    override: undefined,
+  };
+  return {
+    thread: answering,
+    logged: [],
+    marked,
+    event: new DeliveryMarked(answering, marked.messageIds, marked.delivery, deliveredAt),
+  };
+}
+
+/**
+ * The answer's line in the log; `delivery` only for one that waits for the person's turn to end,
+ * as every other reaches them as it is given.
+ */
+function answerLine(
+  thread: Thread,
+  { decisionId, answer, messageId, answeredAt }: DecisionRecording,
+  delivery?: MessageDelivery,
+): Message {
+  return {
     kind: "decision-answer",
     id: messageId,
     threadId: thread.id,
     at: answeredAt,
     decisionId,
     answer,
+    ...(delivery === undefined ? {} : { delivery }),
   };
-  const moved = movedLines(thread, answering, answeredAt);
-  const begun = begin(
-    { ...thread, openDecision: undefined },
-    answering,
-    [...moved, line],
-    answeredAt,
-  );
-  return {
-    thread: begun.thread,
-    logged: begun.logged,
-    decision,
-    event: new DecisionAnswered(begun.thread, decision, answeredAt),
-  };
+}
+
+function deliveredMarking(messageIds: readonly string[]): DeliveryMarking | undefined {
+  return messageIds.length === 0 ? undefined : { messageIds, delivery: "delivered" };
 }
 
 /** The user's answer to a Decision that no session takes, and when. */
@@ -528,18 +668,10 @@ export function recordDecisionAnswer(
 ): ThreadChange<DecisionAnswered> {
   const open = answerableDecision(thread, decisionId, answer);
   const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
-  const line: Message = {
-    kind: "decision-answer",
-    id: messageId,
-    threadId: thread.id,
-    at: answeredAt,
-    decisionId,
-    answer,
-  };
-  const answered: Thread = { ...thread, openDecision: undefined };
+  const answered = withoutDecision(thread, decisionId);
   return {
     thread: answered,
-    logged: [line],
+    logged: [answerLine(thread, { decisionId, answer, messageId, answeredAt })],
     decision,
     event: new DecisionAnswered(answered, decision, answeredAt),
   };
@@ -547,8 +679,8 @@ export function recordDecisionAnswer(
 
 /** The Thread's open Decision, when it is the one answered and the answer is one. */
 function answerableDecision(thread: Thread, decisionId: string, answer: DecisionAnswer): Decision {
-  const open = thread.openDecision;
-  if (open?.id !== decisionId) throw new ThreadRefused(["This Decision is answered already."]);
+  const open = openDecisionOf(thread, decisionId);
+  if (!open) throw new ThreadRefused(["This Decision is answered already."]);
   const problems = answerProblems(open, answer);
   if (problems.length > 0) throw new ThreadRefused(problems);
   return open;
@@ -778,17 +910,30 @@ export function failDecisionAnswer(
   failedAt: Date,
   unopened?: UnopenedSession,
 ): ThreadChange<DecisionReopened> {
-  if (thread.openDecision) {
-    throw new Error(`Thread ${thread.id} has the Decision ${thread.openDecision.id} open already.`);
-  }
   const failed = failAnswer(thread, reason, failedAt, unopened);
+  const reopened = reopenDecision(failed.thread, decision, failedAt);
+  return { ...reopened, logged: failed.logged };
+}
+
+/**
+ * A Decision whose answer never reached a session waits on the user again, its answer cleared: as
+ * `failDecisionAnswer` does, for each further answer the failed session was to take with it.
+ */
+export function reopenDecision(
+  thread: Thread,
+  decision: Decision,
+  reopenedAt: Date,
+): ThreadChange<DecisionReopened> {
+  if (openDecisionOf(thread, decision.id)) {
+    throw new Error(`Thread ${thread.id} has the Decision ${decision.id} open already.`);
+  }
   const reopened: Decision = { ...decision, answer: undefined };
-  const waiting: Thread = { ...failed.thread, openDecision: reopened };
+  const waiting = withDecision(thread, reopened);
   return {
     thread: waiting,
-    logged: failed.logged,
+    logged: [],
     decision: reopened,
-    event: new DecisionReopened(waiting, reopened, failedAt),
+    event: new DecisionReopened(waiting, reopened, reopenedAt),
   };
 }
 
@@ -802,10 +947,10 @@ export function putDecisionToUser(
   decisionId: string,
   reopenedAt: Date,
 ): ThreadChange<DecisionReopened> | undefined {
-  const open = thread.openDecision;
-  if (open?.id !== decisionId || open.putTo === undefined) return undefined;
+  const open = openDecisionOf(thread, decisionId);
+  if (open?.putTo === undefined) return undefined;
   const decision: Decision = { ...open, putTo: undefined };
-  const waiting: Thread = { ...thread, openDecision: decision };
+  const waiting = withDecision(thread, decision);
   return {
     thread: waiting,
     logged: [],
@@ -834,8 +979,8 @@ export function passDecisionOn(
   thread: Thread,
   { decisionId, by, to, reason, passedOnAt }: PassingOn,
 ): ThreadChange<DecisionReopened> {
-  const open = thread.openDecision;
-  if (open?.id !== decisionId || open.putTo !== by) {
+  const open = openDecisionOf(thread, decisionId);
+  if (!open || open.putTo !== by) {
     throw new ThreadRefused([
       "This Decision no longer waits on you: it was answered or passed on. There is nothing left to answer.",
     ]);
@@ -852,7 +997,7 @@ export function passDecisionOn(
     putTo: to,
     passedOn: [...open.passedOn, { roleKey: by, reason: reason.trim(), passedOnAt }],
   };
-  const waiting: Thread = { ...thread, openDecision: decision };
+  const waiting = withDecision(thread, decision);
   return {
     thread: waiting,
     logged: [],

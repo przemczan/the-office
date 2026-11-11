@@ -38,6 +38,8 @@ export interface TaskChange<Event extends DomainEvent> {
   readonly task: Task;
   readonly event: Event;
   readonly stateChange?: StateChange;
+  /** Moves the same save made before `stateChange`, such as Ready → Backlog before Planning. */
+  readonly earlierStateChanges?: readonly StateChange[];
 }
 
 /** The change, with its move kept when it takes the Task to another state. */

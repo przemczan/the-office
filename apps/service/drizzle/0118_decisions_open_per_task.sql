@@ -1,0 +1,2 @@
+DROP INDEX "decisions_open_in_thread";--> statement-breakpoint
+CREATE UNIQUE INDEX "decisions_open_on_task_in_thread" ON "decisions" USING btree ("thread_id","task_id") WHERE "decisions"."answered_at" is null;

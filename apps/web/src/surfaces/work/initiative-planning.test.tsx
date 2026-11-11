@@ -155,7 +155,7 @@ describe("the planning progress", () => {
   ];
 
   it("names each Task's step while the Initiative has a planning Thread", () => {
-    expect(tasks.map((task) => planningStepOf(planned, task))).toEqual([
+    expect(tasks.map((task) => planningStepOf(planned, task, []))).toEqual([
       "waiting",
       "planning",
       "planned",
@@ -166,11 +166,11 @@ describe("the planning progress", () => {
   });
 
   it("sums it up in the head", () => {
-    expect(planningProgressWords(planned, tasks)).toBe("2 of 4 Tasks planned");
+    expect(planningProgressWords(planned, tasks, [])).toBe("2 of 4 Tasks planned");
   });
 
   it("says nothing before the Initiative is planned", () => {
-    expect(planningStepOf(INITIATIVE, tasks[0] as Task)).toBeUndefined();
-    expect(planningProgressWords(INITIATIVE, tasks)).toBeUndefined();
+    expect(planningStepOf(INITIATIVE, tasks[0] as Task, [])).toBeUndefined();
+    expect(planningProgressWords(INITIATIVE, tasks, [])).toBeUndefined();
   });
 });

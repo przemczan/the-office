@@ -102,19 +102,23 @@ export async function insertTask(
   await keepStateChange(transaction, created);
 }
 
-/** Keeps the change's move between states with the Task, when it makes one. */
+/** Keeps the change's moves between states with the Task, in order, when it makes any. */
 export async function keepStateChange(
   transaction: Transaction,
-  { task, stateChange }: TaskChange<DomainEvent>,
+  { task, stateChange, earlierStateChanges = [] }: TaskChange<DomainEvent>,
 ): Promise<void> {
-  if (!stateChange) return;
-  await transaction.insert(taskStateChanges).values({
-    taskId: task.id,
-    fromState: stateChange.from ?? null,
-    toState: stateChange.to,
-    changedAt: stateChange.at,
-    changedBy: stateChange.by,
-  });
+  const moves = [...earlierStateChanges, ...(stateChange ? [stateChange] : [])];
+  if (moves.length === 0) return;
+  // One insert keeps the moves in order: their ids follow the rows.
+  await transaction.insert(taskStateChanges).values(
+    moves.map((move) => ({
+      taskId: task.id,
+      fromState: move.from ?? null,
+      toState: move.to,
+      changedAt: move.at,
+      changedBy: move.by,
+    })),
+  );
 }
 
 /** The Task's kept state changes, in the order they were saved. */

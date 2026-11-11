@@ -102,7 +102,7 @@ describe("PostgresThreadRepository", () => {
         recommendation: { option: 0, reason: "Needed." },
       }),
     );
-    const decisionId = waiting.openDecision?.id ?? "";
+    const decisionId = waiting.openDecisions[0]?.id ?? "";
 
     await expect(repository.spendApproval(decisionId)).resolves.toBe(true);
     await expect(repository.spendApproval(decisionId)).resolves.toBe(false);

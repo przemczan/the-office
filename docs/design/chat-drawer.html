@@ -1879,7 +1879,8 @@
       const svg = (size, body, extra = "") =>
         `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${body}</svg>`;
       const ICON = {
-        chat: (s = 14) => svg(s, '<path d="M2.5 8a5.5 5.5 0 1 1 2.7 4.7l-2.7.8.8-2.6A5.5 5.5 0 0 1 2.5 8z"/>'),
+        chat: (s = 14) =>
+          svg(s, '<path d="M2.5 8a5.5 5.5 0 1 1 2.7 4.7l-2.7.8.8-2.6A5.5 5.5 0 0 1 2.5 8z"/>'),
         plus: (s = 14) => svg(s, '<path d="M8 3v10M3 8h10"/>'),
         x: (s = 16) => svg(s, '<path d="m4 4 8 8M12 4l-8 8"/>'),
         chevronDown: (s = 12) => svg(s, '<path d="m4 6 4 4 4-4"/>'),
@@ -1887,35 +1888,94 @@
         chevronRight: (s = 10) => svg(s, '<path d="m6 3 5 5-5 5"/>', 'class="tools-chevron"'),
         check: (s = 14) => svg(s, '<path d="m3 8.5 3 3 7-7"/>'),
         eye: (s = 14) =>
-          svg(s, '<path d="M1.5 8S3.9 3.5 8 3.5 14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),
+          svg(
+            s,
+            '<path d="M1.5 8S3.9 3.5 8 3.5 14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>',
+          ),
         shield: (s = 14) =>
-          svg(s, '<path d="M8 1.8 13 3.6v4c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6v-4z"/><path d="M8 5.5v3M8 10.8v.1"/>'),
+          svg(
+            s,
+            '<path d="M8 1.8 13 3.6v4c0 3.1-2.1 5.6-5 6.6-2.9-1-5-3.5-5-6.6v-4z"/><path d="M8 5.5v3M8 10.8v.1"/>',
+          ),
         send: (s = 16) => svg(s, '<path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/>', 'stroke-width="1.8"'),
         search: (s = 14) => svg(s, '<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/>'),
         wrench: (s = 12) =>
-          svg(s, '<path d="M10.2 2.3a3.6 3.6 0 0 0-4.6 4.6L2 10.5a1.7 1.7 0 0 0 2.4 2.4L8 9.3a3.6 3.6 0 0 0 4.6-4.6l-2.2 2.2-1.9-.5-.5-1.9z"/>'),
+          svg(
+            s,
+            '<path d="M10.2 2.3a3.6 3.6 0 0 0-4.6 4.6L2 10.5a1.7 1.7 0 0 0 2.4 2.4L8 9.3a3.6 3.6 0 0 0 4.6-4.6l-2.2 2.2-1.9-.5-.5-1.9z"/>',
+          ),
         at: (s = 12) =>
-          svg(s, '<circle cx="8" cy="8" r="2.8"/><path d="M10.8 5.2v3.6a1.8 1.8 0 0 0 3.6 0V8a6.4 6.4 0 1 0-2.5 5"/>'),
-        now: (s = 18) => svg(s, '<path d="M2.5 7 8 2.5 13.5 7v6.5h-11z"/><path d="M6.5 13.5v-4h3v4"/>'),
-        work: (s = 18) => svg(s, '<rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/>'),
+          svg(
+            s,
+            '<circle cx="8" cy="8" r="2.8"/><path d="M10.8 5.2v3.6a1.8 1.8 0 0 0 3.6 0V8a6.4 6.4 0 1 0-2.5 5"/>',
+          ),
+        now: (s = 18) =>
+          svg(s, '<path d="M2.5 7 8 2.5 13.5 7v6.5h-11z"/><path d="M6.5 13.5v-4h3v4"/>'),
+        work: (s = 18) =>
+          svg(
+            s,
+            '<rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/>',
+          ),
         people: (s = 18) =>
-          svg(s, '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5c.6-2.5 2.3-3.8 4.5-3.8s3.9 1.3 4.5 3.8"/><circle cx="11.5" cy="6" r="2"/><path d="M12 9.7c1.5.2 2.4 1.4 2.8 3.3"/>'),
+          svg(
+            s,
+            '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5c.6-2.5 2.3-3.8 4.5-3.8s3.9 1.3 4.5 3.8"/><circle cx="11.5" cy="6" r="2"/><path d="M12 9.7c1.5.2 2.4 1.4 2.8 3.3"/>',
+          ),
         projects: (s = 18) => svg(s, '<path d="M1.5 4.5v8h13v-6.5H8L6.5 4.5z"/>'),
         settings: (s = 18) =>
-          svg(s, '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="var(--surface)"/><circle cx="10.5" cy="8" r="1.4" fill="var(--surface)"/><circle cx="5" cy="11.5" r="1.4" fill="var(--surface)"/>'),
+          svg(
+            s,
+            '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="var(--surface)"/><circle cx="10.5" cy="8" r="1.4" fill="var(--surface)"/><circle cx="5" cy="11.5" r="1.4" fill="var(--surface)"/>',
+          ),
       };
 
       /* ---------- Mock data, in the shapes of Role and Thread (packages/contracts) ---------- */
       const capabilities = (chat, consultant) => ({ sharedMemory: true, chat, consultant });
       const ROLES = [
-        { key: "office-manager", card: { name: "Pam", title: "Office Manager", capabilities: capabilities(true, false) }, builtIn: false },
-        { key: "devops", card: { name: "Dwight", title: "Devops", capabilities: capabilities(true, true) }, builtIn: false },
-        { key: "cto", card: { name: "Michael", title: "CTO", capabilities: capabilities(true, true) }, builtIn: false },
-        { key: "planner", card: { name: "Angela", title: "Planner", capabilities: capabilities(true, false) }, builtIn: false },
-        { key: "caretaker", card: { name: "Jan", title: "Caretaker", capabilities: capabilities(true, false) }, builtIn: true },
-        { key: "ui-ux-designer", card: { name: "Stanley", title: "UI/UX Designer", capabilities: capabilities(true, true) }, builtIn: false },
-        { key: "developer", card: { name: "Jim", title: "Developer", capabilities: capabilities(false, false) }, builtIn: false },
-        { key: "reviewer", card: { name: "Oscar", title: "Reviewer", capabilities: capabilities(false, false) }, builtIn: false },
+        {
+          key: "office-manager",
+          card: { name: "Pam", title: "Office Manager", capabilities: capabilities(true, false) },
+          builtIn: false,
+        },
+        {
+          key: "devops",
+          card: { name: "Dwight", title: "Devops", capabilities: capabilities(true, true) },
+          builtIn: false,
+        },
+        {
+          key: "cto",
+          card: { name: "Michael", title: "CTO", capabilities: capabilities(true, true) },
+          builtIn: false,
+        },
+        {
+          key: "planner",
+          card: { name: "Angela", title: "Planner", capabilities: capabilities(true, false) },
+          builtIn: false,
+        },
+        {
+          key: "caretaker",
+          card: { name: "Jan", title: "Caretaker", capabilities: capabilities(true, false) },
+          builtIn: true,
+        },
+        {
+          key: "ui-ux-designer",
+          card: {
+            name: "Stanley",
+            title: "UI/UX Designer",
+            capabilities: capabilities(true, true),
+          },
+          builtIn: false,
+        },
+        {
+          key: "developer",
+          card: { name: "Jim", title: "Developer", capabilities: capabilities(false, false) },
+          builtIn: false,
+        },
+        {
+          key: "reviewer",
+          card: { name: "Oscar", title: "Reviewer", capabilities: capabilities(false, false) },
+          builtIn: false,
+        },
       ];
       // The picker and the switch offer only people with chat on.
       const CHAT_PEOPLE = ROLES.filter((role) => role.card.capabilities.chat);
@@ -1931,7 +1991,17 @@
       const day = (text) => ({ kind: "day", text });
       const tool = (name, summary) => ({ name, summary });
 
-      function chatThread({ id, roleKey, title, startedAt, last, warmMinutes = null, changesAllowed = null, answered = false, messages }) {
+      function chatThread({
+        id,
+        roleKey,
+        title,
+        startedAt,
+        last,
+        warmMinutes = null,
+        changesAllowed = null,
+        answered = false,
+        messages,
+      }) {
         return {
           id,
           home: { kind: "chat", roleKey },
@@ -1973,7 +2043,11 @@
             answered: true,
             messages: [
               day("Today"),
-              say("you", "10:04", "The e2e run failed twice this morning on the Task page spec. Who should look at it?"),
+              say(
+                "you",
+                "10:04",
+                "The e2e run failed twice this morning on the Task page spec. Who should look at it?",
+              ),
               say("office-manager", "10:05", "Let me see what the two runs say first.", [
                 tool("Read", "docs/tasks/README.md"),
                 tool("Grep", '"conversation-drawer" apps/web/e2e'),
@@ -1995,7 +2069,11 @@
             messages: [
               day("Yesterday"),
               say("you", "16:20", "Could a second Developer take the notnullsoft work?"),
-              say("office-manager", "16:30", "I drafted a Role card for a second Developer from Jim's, with a Task limit of 2. It's a Proposal on the People page, waiting for you to confirm it."),
+              say(
+                "office-manager",
+                "16:30",
+                "I drafted a Role card for a second Developer from Jim's, with a Task limit of 2. It's a Proposal on the People page, waiting for you to confirm it.",
+              ),
             ],
           }),
           chatThread({
@@ -2025,7 +2103,12 @@
             messages: [
               day("Monday, 3 November"),
               say("you", "21:02", "Do the nightly Postgres backups still run?"),
-              say("devops", "21:10", "Yes: the last seven are there, the newest from 02:00 this morning, each about 180 MB.", [tool("Bash", "ls -lh /var/backups/the-office")]),
+              say(
+                "devops",
+                "21:10",
+                "Yes: the last seven are there, the newest from 02:00 this morning, each about 180 MB.",
+                [tool("Bash", "ls -lh /var/backups/the-office")],
+              ),
             ],
           }),
           chatThread({
@@ -2037,7 +2120,11 @@
             messages: [
               day("Sunday, 2 November"),
               say("you", "11:30", "Is Node 24 worth the move yet?"),
-              say("devops", "11:41", "Not yet: two of the Projects' dev dependencies don't support it. I'll look again when they release."),
+              say(
+                "devops",
+                "11:41",
+                "Not yet: two of the Projects' dev dependencies don't support it. I'll look again when they release.",
+              ),
             ],
           }),
           chatThread({
@@ -2049,12 +2136,19 @@
             warmMinutes: 41,
             messages: [
               day("Today"),
-              say("you", "09:20", "Before I answer {{decision}}: is a redirect worth keeping for one release?"),
+              say(
+                "you",
+                "09:20",
+                "Before I answer {{decision}}: is a redirect worth keeping for one release?",
+              ),
               say(
                 "cto",
                 "09:31",
                 "Yes, keep it for one release. Two bookmarks and the e2e suite still open `/login` directly, and the redirect costs one route. Remove it with the next release's clean-up Task.\n\nThe Decision is Jim's, on the Task, so the answer is yours to give there.",
-                [tool("Read", "apps/service/src/modules/auth/MAP.md"), tool("Grep", '"/login" apps/web/src apps/web/e2e')],
+                [
+                  tool("Read", "apps/service/src/modules/auth/MAP.md"),
+                  tool("Grep", '"/login" apps/web/src apps/web/e2e'),
+                ],
               ),
             ],
           }),
@@ -2067,7 +2161,11 @@
             messages: [
               day("Tuesday, 4 November"),
               say("you", "14:00", "Should Oscar review on a cheaper model?"),
-              say("cto", "14:12", "For the-office, yes: its reviews are mostly reading. Keep notnullsoft on the default, where the diffs are larger."),
+              say(
+                "cto",
+                "14:12",
+                "For the-office, yes: its reviews are mostly reading. Keep notnullsoft on the default, where the diffs are larger.",
+              ),
             ],
           }),
           chatThread({
@@ -2079,11 +2177,17 @@
             warmMinutes: 55,
             messages: [
               day("Today"),
-              say("you", "10:16", "The export Initiative has grown. Could it be two: the CSV export, and the scheduled reports?"),
-              say("planner", "10:18", "It splits cleanly. The CSV export needs nothing from the schedules, and three of its Tasks are already Ready.", [
-                tool("Read", "Initiative: Usage exports"),
-                tool("Grep", '"schedule" docs/tasks'),
-              ]),
+              say(
+                "you",
+                "10:16",
+                "The export Initiative has grown. Could it be two: the CSV export, and the scheduled reports?",
+              ),
+              say(
+                "planner",
+                "10:18",
+                "It splits cleanly. The CSV export needs nothing from the schedules, and three of its Tasks are already Ready.",
+                [tool("Read", "Initiative: Usage exports"), tool("Grep", '"schedule" docs/tasks')],
+              ),
               say("you", "10:20", "Good. Which Tasks go where?"),
             ],
           }),
@@ -2102,7 +2206,10 @@
                 "caretaker",
                 "09:05",
                 "Eleven worktrees belong to Tasks that are done and published, 31 GB together. In this Thread I only read, so I can list them but not remove them.\n\nAllow changes and I'll remove those eleven and nothing else.",
-                [tool("Bash", "git -C /var/lib/the-office/repos/the-office worktree list"), tool("Bash", "du -sh /var/lib/the-office/worktrees/*")],
+                [
+                  tool("Bash", "git -C /var/lib/the-office/repos/the-office worktree list"),
+                  tool("Bash", "du -sh /var/lib/the-office/worktrees/*"),
+                ],
               ),
             ],
           }),
@@ -2116,7 +2223,9 @@
             messages: [
               day("Saturday, 1 November"),
               say("you", "18:00", "Did the update go through?"),
-              say("caretaker", "18:04", "It did: every engine check passes on the new version.", [tool("Bash", "claude --version")]),
+              say("caretaker", "18:04", "It did: every engine check passes on the new version.", [
+                tool("Bash", "claude --version"),
+              ]),
             ],
           }),
         ];
@@ -2131,8 +2240,15 @@
         context:
           "The loop comes from /login and /sign-in redirecting to each other. Removing /login ends it at once; keeping it as a one-way redirect ends it too and spares bookmarks and the e2e suite, at the cost of one route to remove later.",
         answers: [
-          { text: "Yes, keep it for one release", reason: "Bookmarks and the e2e suite still open it", recommended: true },
-          { text: "No, remove it now", reason: "One route less, and the e2e suite changes with it" },
+          {
+            text: "Yes, keep it for one release",
+            reason: "Bookmarks and the e2e suite still open it",
+            recommended: true,
+          },
+          {
+            text: "No, remove it now",
+            reason: "One route less, and the e2e suite changes with it",
+          },
         ],
       };
       const REPLY = "Noted. I'll look into it and answer here.";
@@ -2191,7 +2307,8 @@
 
       /* ---------- Layers and Esc: one press closes only the topmost thing ---------- */
       const LAYER_NAMES = {
-        window: () => (session.window === "allow-changes" ? "the Allow changes window" : "the Decision's window"),
+        window: () =>
+          session.window === "allow-changes" ? "the Allow changes window" : "the Decision's window",
         menu: () => "the person switch",
         chat: () => "the chat drawer",
         needsYou: () => "the Needs you panel",
@@ -2230,7 +2347,9 @@
       const threadsOf = (roleKey) => session.threads.filter((thread) => thread.roleKey === roleKey);
       const shownThread = () => session.threads.find((thread) => thread.id === session.threadId);
       const unseenAnswers = () =>
-        session.threads.filter((thread) => thread.seen.answeredUnseen).sort((a, b) => b.seen.order - a.seen.order);
+        session.threads
+          .filter((thread) => thread.seen.answeredUnseen)
+          .sort((a, b) => b.seen.order - a.seen.order);
       const answering = () => session.threads.filter((thread) => thread.state === "answering");
       // Answered wins over answering: it is the one that waits on the user.
       function buttonLook() {
@@ -2241,15 +2360,21 @@
       function personStatus(roleKey) {
         const threads = threadsOf(roleKey);
         const answered = threads.find((thread) => thread.seen.answeredUnseen);
-        if (answered) return { kind: "answered", words: `Answered · ${answered.display.last.replace("Today ", "")}` };
-        if (threads.some((thread) => thread.state === "answering")) return { kind: "answering", words: "Answering…" };
+        if (answered)
+          return {
+            kind: "answered",
+            words: `Answered · ${answered.display.last.replace("Today ", "")}`,
+          };
+        if (threads.some((thread) => thread.state === "answering"))
+          return { kind: "answering", words: "Answering…" };
         if (threads.length === 0) return { kind: "none", words: "No Threads yet" };
         return { kind: "quiet", words: threads[0].display.last };
       }
       // The Thread on screen in the open drawer has been seen.
       function markSeen() {
         const thread = shownThread();
-        if (session.chatOpen && session.view === "thread" && thread && thread.state === "waiting") thread.seen.answeredUnseen = false;
+        if (session.chatOpen && session.view === "thread" && thread && thread.state === "waiting")
+          thread.seen.answeredUnseen = false;
       }
 
       /* ---------- Moves ---------- */
@@ -2343,7 +2468,8 @@
           label: "A Thread with a draft",
           note: "<strong>A Thread open, with a draft.</strong> The Thread in Rows at drawer width, the Details switch on the Thread's own row, and the head's line on what Michael can do. The draft is kept per Thread: press Esc, switch person or the page behind, open the drawer again, and it is still there. The Mention of a Decision opens the Decision's window over everything.",
           set: () => {
-            session.drafts["michael-login"] = "Thanks. And the session store: could it move to Postgres before the release, or does that wait for";
+            session.drafts["michael-login"] =
+              "Thanks. And the session store: could it move to Postgres before the release, or does that wait for";
             showThread("cto", "michael-login");
             openPanel("chat");
           },
@@ -2361,9 +2487,12 @@
             timers.push(
               setTimeout(() => {
                 thread.display.messages.push(
-                  say("planner", clock(), "The CSV export keeps the three Ready Tasks and the download button; the scheduled reports take the schedule editor, the email digest and the reports page. I've drafted both Initiatives for you to look at.", [
-                    tool("Read", "docs/tasks/README.md"),
-                  ]),
+                  say(
+                    "planner",
+                    clock(),
+                    "The CSV export keeps the three Ready Tasks and the download button; the scheduled reports take the schedule editor, the email digest and the reports page. I've drafted both Initiatives for you to look at.",
+                    [tool("Read", "docs/tasks/README.md")],
+                  ),
                 );
                 thread.state = "waiting";
                 thread.seen = { answeredUnseen: true, order: ++answeredCounter };
@@ -2436,14 +2565,19 @@
         const pageKeeps = mode === "push" ? DRAWER.pageAtLeast : DRAWER.pageInViewAtLeast;
         const widest = Math.min(DRAWER.max, width - 56 - pageKeeps);
         const max = Math.max(DRAWER.min, widest);
-        const drawerWidth = mode === "fill" ? width : Math.min(Math.max(state.drawerWidth, DRAWER.min), max);
+        const drawerWidth =
+          mode === "fill" ? width : Math.min(Math.max(state.drawerWidth, DRAWER.min), max);
         const pushed = session.chatOpen && mode === "push";
         const pageWidth = width - 56 - (pushed ? drawerWidth : 0);
         return { width, mode, max, drawerWidth, pushed, pageWidth, phone: width <= 600 };
       }
 
       /* ---------- Rendering helpers ---------- */
-      const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const escapeHtml = (text) =>
+        text.replace(
+          /[&<>"]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+        );
       const AVATAR_TINTS = ["blue", "green", "amber", "ember", "gray", "red"];
       function avatar(name, size = "sm", extraClass = "") {
         let hash = 0;
@@ -2458,7 +2592,9 @@
         return text
           .split("\n\n")
           .map((paragraph) => {
-            const inline = escapeHtml(paragraph).replace(CODE_SPAN, "<code>$1</code>").replace("{{decision}}", mention());
+            const inline = escapeHtml(paragraph)
+              .replace(CODE_SPAN, "<code>$1</code>")
+              .replace("{{decision}}", mention());
             return `<p>${inline}</p>`;
           })
           .join("");
@@ -2468,7 +2604,12 @@
         const last = tools[tools.length - 1];
         if (tools.length === 1)
           return `<div class="tools single in-column">${ICON.wrench()}<span class="tools-last">${escapeHtml(last.name)} ${escapeHtml(last.summary)}</span></div>`;
-        const rows = tools.map((call) => `<li><b>${escapeHtml(call.name)}</b><span>${escapeHtml(call.summary)}</span></li>`).join("");
+        const rows = tools
+          .map(
+            (call) =>
+              `<li><b>${escapeHtml(call.name)}</b><span>${escapeHtml(call.summary)}</span></li>`,
+          )
+          .join("");
         return `<details class="tools in-column"><summary>${ICON.chevronRight()}<span>${tools.length}</span><span aria-hidden="true">·</span><span class="tools-last">${escapeHtml(last.name)} ${escapeHtml(last.summary)}</span></summary><ul>${rows}</ul></details>`;
       }
       function turn(message) {
@@ -2486,7 +2627,10 @@
           parts.push(
             `<div class="turn">${avatar(name, "")}<div><div class="turn-by"><b>${escapeHtml(name)}</b><span>answering</span></div><span class="typing" aria-label="${escapeHtml(name)} is answering"><i></i><i></i><i></i></span></div></div>`,
           );
-          if (state.details) parts.push(`<div class="tools single in-column">${ICON.wrench()}<span class="tools-last">Read docs/tasks/README.md</span></div>`);
+          if (state.details)
+            parts.push(
+              `<div class="tools single in-column">${ICON.wrench()}<span class="tools-last">Read docs/tasks/README.md</span></div>`,
+            );
         }
         return `<div class="thread-column">${parts.join("")}</div>`;
       }
@@ -2496,14 +2640,20 @@
       /* ---------- The shell ---------- */
       function rail() {
         const on = state.page === "now" ? "now" : "work";
-        const item = (key, label) => `<span class="rail-item${on === key ? " on" : ""}" title="${label}">${ICON[key]()}</span>`;
+        const item = (key, label) =>
+          `<span class="rail-item${on === key ? " on" : ""}" title="${label}">${ICON[key]()}</span>`;
         return `<nav class="rail" aria-label="Surfaces"><span class="rail-mark">N</span>${item("now", "Now")}${item("work", "Work")}${item("people", "People")}${item("projects", "Projects")}${item("settings", "Settings")}</nav>`;
       }
-      function chatButton(geometry, { look = buttonLook(), expanded = session.chatOpen, interactive = true } = {}) {
+      function chatButton(
+        geometry,
+        { look = buttonLook(), expanded = session.chatOpen, interactive = true } = {},
+      ) {
         let mark = ICON.chat();
         let label = "Chat: nothing new";
         if (look === "answered") {
-          const names = interactive ? unseenAnswers().map((thread) => nameOf(thread.roleKey)) : ["Pam"];
+          const names = interactive
+            ? unseenAnswers().map((thread) => nameOf(thread.roleKey))
+            : ["Pam"];
           const unique = [...new Set(names)].slice(0, 2);
           mark = `<span class="chat-mark">${unique.map((name) => avatar(name, "xs")).join("")}<span class="dot answered"></span></span>`;
           label = `Chat: ${unique.join(" and ")} answered`;
@@ -2513,11 +2663,17 @@
           label = `Chat: ${name} is answering`;
         }
         const narrow = geometry.phone;
-        const attributes = interactive ? `data-action="toggle-chat" data-focus="chat-button" aria-expanded="${expanded}"` : 'tabindex="-1"';
+        const attributes = interactive
+          ? `data-action="toggle-chat" data-focus="chat-button" aria-expanded="${expanded}"`
+          : 'tabindex="-1"';
         return `<button type="button" class="btn secondary chat-button${narrow ? " icon-only" : ""}" ${attributes} aria-label="${label}" title="${label}">${mark}${narrow ? "" : "Chat"}</button>`;
       }
       function topBar(geometry) {
-        const titles = { now: ["Now", ""], task: ["Fix the login redirect loop", "Work › the-office"], initiative: ["Usage exports", "Work › the-office"] };
+        const titles = {
+          now: ["Now", ""],
+          task: ["Fix the login redirect loop", "Work › the-office"],
+          initiative: ["Usage exports", "Work › the-office"],
+        };
         const [title, crumb] = titles[state.page];
         const wide = geometry.width > 900;
         return `<header class="top">
@@ -2541,12 +2697,18 @@
       }
 
       /* ---------- The pages behind ---------- */
-      const skeleton = (...widths) => `<div class="skeleton">${widths.map((width) => `<span style="width:${width}%"></span>`).join("")}</div>`;
+      const skeleton = (...widths) =>
+        `<div class="skeleton">${widths.map((width) => `<span style="width:${width}%"></span>`).join("")}</div>`;
       function decisionCard({ withTask }) {
         const answers = DECISION.answers
-          .map((answer) => `<button type="button" class="answer-line" tabindex="-1"><span>${answer.text}</span>${answer.recommended ? '<span class="badge accent">Recommended</span>' : ""}</button>`)
+          .map(
+            (answer) =>
+              `<button type="button" class="answer-line" tabindex="-1"><span>${answer.text}</span>${answer.recommended ? '<span class="badge accent">Recommended</span>' : ""}</button>`,
+          )
           .join("");
-        const over = withTask ? `<div class="card-over"><b>${DECISION.task}</b><span class="project-chip">${DECISION.project}</span></div>` : "";
+        const over = withTask
+          ? `<div class="card-over"><b>${DECISION.task}</b><span class="project-chip">${DECISION.project}</span></div>`
+          : "";
         return `<div class="block" style="--edge:var(--warning)">${over}<div class="card-over"><span class="badge warning">Decision</span>${avatar("Jim", "sm")}<span>Jim · asked ${DECISION.asked}</span></div><div class="block-title">${DECISION.question}</div>${answers}<button type="button" class="answer-line" tabindex="-1"><span>In your own words…</span></button></div>`;
       }
       function gateCard() {
@@ -2559,9 +2721,16 @@
           ["Export usage as CSV", "Oscar", "Review"],
           ["Archive old Initiatives", "Angela", "Plan"],
         ]
-          .map(([task, person, stage]) => `<div class="row">${avatar(person, "sm")}<span class="row-text">${task}</span><span class="badge info">${stage}</span></div>`)
+          .map(
+            ([task, person, stage]) =>
+              `<div class="row">${avatar(person, "sm")}<span class="row-text">${task}</span><span class="badge info">${stage}</span></div>`,
+          )
           .join("");
-        const since = ["Pam captured an Idea: Dark mode for the rail", "Oscar passed Review on Task 52", "Publish merged the-office #54"]
+        const since = [
+          "Pam captured an Idea: Dark mode for the rail",
+          "Oscar passed Review on Task 52",
+          "Publish merged the-office #54",
+        ]
           .map((line) => `<div class="row"><span class="row-text">${line}</span></div>`)
           .join("");
         return `<div class="page${geometry.phone ? " tight" : ""}"><div class="cols" style="grid-template-columns:repeat(${columns}, minmax(0, 1fr))">
@@ -2572,15 +2741,31 @@
       }
       function taskConversation(withComposer = true) {
         const messages = [
-          say("planner", "08:02", "The Plan and the Definition of Done are on the left. The loop is between `/login` and `/sign-in`."),
-          say("developer", "09:12", "I've put a Decision to you: keep `/login` as a redirect for one release?"),
+          say(
+            "planner",
+            "08:02",
+            "The Plan and the Definition of Done are on the left. The loop is between `/login` and `/sign-in`.",
+          ),
+          say(
+            "developer",
+            "09:12",
+            "I've put a Decision to you: keep `/login` as a redirect for one release?",
+          ),
         ];
         return `<div class="tabs"><span class="tab">${avatar("Angela", "xs")}Angela</span><span class="tab on">${avatar("Jim", "xs")}Jim<span class="dot answering"></span></span><span class="tab">${avatar("Oscar", "xs")}Oscar</span><span class="grow"></span>${detailsSwitch()}</div>
           <div class="thread">${threadColumn(messages, null)}</div>
           ${withComposer ? `<div class="composer"><div class="composer-to"><span class="context-dot warm"></span>To <strong>Jim</strong> · cache warm, 38 min left</div><div class="composer-row"><textarea class="composer-field" rows="1" placeholder="Message Jim" data-focus="task-composer" data-draft="task-jim">${escapeHtml(session.drafts["task-jim"] ?? "")}</textarea><button type="button" class="composer-send" tabindex="-1" aria-label="Send">${ICON.send()}</button></div></div>` : ""}`;
       }
       function initiativeConversation() {
-        const messages = [day("Yesterday"), say("you", "17:40", "Should the reports page wait for the schedules?"), say("planner", "17:52", "No: it can ship with the CSV export and grow the schedules later.")];
+        const messages = [
+          day("Yesterday"),
+          say("you", "17:40", "Should the reports page wait for the schedules?"),
+          say(
+            "planner",
+            "17:52",
+            "No: it can ship with the CSV export and grow the schedules later.",
+          ),
+        ];
         return `<div class="tabs"><span class="tab on">Threads · 3</span><span class="grow"></span>${detailsSwitch()}</div>
           <div class="thread">${threadColumn(messages, null)}</div>
           <div class="composer"><div class="composer-to"><span class="context-dot"></span>To <strong>Angela</strong> · starts fresh</div><div class="composer-row"><textarea class="composer-field" rows="1" placeholder="Message Angela" data-focus="initiative-composer" data-draft="initiative-angela">${escapeHtml(session.drafts["initiative-angela"] ?? "")}</textarea><button type="button" class="composer-send" tabindex="-1" aria-label="Send">${ICON.send()}</button></div></div>`;
@@ -2598,13 +2783,18 @@
           ["", "Gate", "You"],
           ["", "Publish", "The Office"],
         ]
-          .map(([kind, name, by]) => `<span class="stage-pill ${kind}">${kind === "done" ? ICON.check(12) : ""}<b>${name}</b>${by}</span>`)
+          .map(
+            ([kind, name, by]) =>
+              `<span class="stage-pill ${kind}">${kind === "done" ? ICON.check(12) : ""}<b>${name}</b>${by}</span>`,
+          )
           .join("");
         const record = `<section class="col">${decisionCard({ withTask: false })}<div class="tabs"><span class="tab on">Overview</span><span class="tab">Changes</span><span class="tab">Attachments</span></div>
           <div class="block"><div class="block-title">Description</div>${skeleton(96, 88, 40)}</div>
           <div class="block" style="--edge:var(--success)"><div class="block-title">Plan <span class="badge success">Confirmed</span></div>${skeleton(92, 84, 90, 60)}</div>
           <div class="block" style="--edge:var(--success)"><div class="block-title">Definition of Done <span class="badge success">Confirmed</span></div>${skeleton(80, 74, 66)}</div></section>`;
-        const conversation = narrow ? "" : `<section class="task-conversation">${taskConversation()}</section>`;
+        const conversation = narrow
+          ? ""
+          : `<section class="task-conversation">${taskConversation()}</section>`;
         return `<div class="page${geometry.phone ? " tight" : ""}"><div class="page-head"><h2>Fix the login redirect loop</h2><span class="project-chip">the-office</span><span class="badge info">Running</span></div>
           <div class="pipeline">${stages}</div>
           <div class="cols" style="grid-template-columns:${narrow ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(360px, 440px)"}">${record}${conversation}</div>
@@ -2618,10 +2808,15 @@
           ["Schedule a report", "Backlog", ""],
           ["Email digest of reports", "Backlog", ""],
         ]
-          .map(([task, stateWords, tone]) => `<div class="row"><span class="row-text">${task}</span><span class="badge ${tone}">${stateWords}</span></div>`)
+          .map(
+            ([task, stateWords, tone]) =>
+              `<div class="row"><span class="row-text">${task}</span><span class="badge ${tone}">${stateWords}</span></div>`,
+          )
           .join("");
         const blocks = `<section class="col"><div class="block"><div class="block-title">Goal</div>${skeleton(94, 86, 52)}</div><div class="block" style="--edge:var(--info)"><div class="block-title">Tasks · 4</div><div class="row-list">${tasks}</div></div><div class="block"><div class="block-title">Notes</div>${skeleton(70, 90)}</div></section>`;
-        const conversation = narrow ? "" : `<section class="task-conversation">${initiativeConversation()}</section>`;
+        const conversation = narrow
+          ? ""
+          : `<section class="task-conversation">${initiativeConversation()}</section>`;
         return `<div class="page${geometry.phone ? " tight" : ""}"><div class="page-head"><h2>Usage exports</h2><span class="project-chip">the-office</span><span class="badge">Initiative</span></div>
           <div class="cols" style="grid-template-columns:${narrow ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(360px, 440px)"}">${blocks}${conversation}</div>
           ${narrow ? '<div style="height:56px"></div>' : ""}</div>`;
@@ -2662,7 +2857,10 @@
       }
       function statusWords(roleKey) {
         const status = personStatus(roleKey);
-        const dot = status.kind === "answered" || status.kind === "answering" ? `<span class="dot ${status.kind}"></span>` : "";
+        const dot =
+          status.kind === "answered" || status.kind === "answering"
+            ? `<span class="dot ${status.kind}"></span>`
+            : "";
         return `<span class="status ${status.kind}">${dot}${status.words}</span>`;
       }
       function peopleView() {
@@ -2676,7 +2874,10 @@
       function personMenu(role) {
         const items = CHAT_PEOPLE.map((each) => {
           const status = personStatus(each.key);
-          const dot = status.kind === "answered" || status.kind === "answering" ? `<span class="dot ${status.kind}" title="${status.words}"></span>` : "<span></span>";
+          const dot =
+            status.kind === "answered" || status.kind === "answering"
+              ? `<span class="dot ${status.kind}" title="${status.words}"></span>`
+              : "<span></span>";
           return `<button type="button" class="menu-item" role="menuitemradio" aria-checked="${each.key === role.key}" data-action="switch-person" data-role="${each.key}">${avatar(each.card.name, "sm")}<span class="who"><b>${each.card.name}</b><span>${each.card.title}</span></span>${dot}</button>`;
         }).join("");
         return `<div class="menu" role="menu" aria-label="Chat with">${items}<div class="menu-foot">Open <a href="#" data-action="noop">${role.card.name}'s page</a> for their Role card and Memory.</div></div>`;
@@ -2694,7 +2895,12 @@
           .map((thread) => {
             const unseen = thread.seen.answeredUnseen;
             const current = thread.id === session.threadId;
-            const after = thread.state === "answering" ? '<span class="status answering"><span class="dot answering"></span>answering</span>' : unseen ? '<span class="status answered">answered</span>' : "";
+            const after =
+              thread.state === "answering"
+                ? '<span class="status answering"><span class="dot answering"></span>answering</span>'
+                : unseen
+                  ? '<span class="status answered">answered</span>'
+                  : "";
             return `<button type="button" class="thread-item${current ? " current" : ""}${unseen ? " has-answer" : ""}" data-action="open-thread" data-thread="${thread.id}" aria-current="${current}"><span class="thread-item-title"><span>${escapeHtml(thread.title ?? "New thread")}</span>${unseen ? '<span class="dot answered"></span>' : ""}</span><span class="thread-item-sub"><span class="context-dot${thread.context.cacheWarm ? " warm" : ""}" title="${thread.context.cacheWarm ? "Cache warm" : "Starts fresh with a brief, or continues a small context"}"></span>${thread.display.last}${after ? " · " : ""}${after}</span></button>`;
           })
           .join("");
@@ -2708,7 +2914,9 @@
         return `<p class="thread-changes" role="note">${ICON.eye()}<span class="thread-changes-text">The Caretaker only reads in this Thread.</span><button type="button" class="btn sm secondary" data-action="allow-changes" ${answeringNow ? 'disabled title="Wait for the answer to finish, then Allow changes"' : ""}>${ICON.shield()}Allow changes</button></p>`;
       }
       function threadView(role, thread) {
-        const othersAnswered = threadsOf(role.key).some((each) => each.id !== thread.id && each.seen.answeredUnseen);
+        const othersAnswered = threadsOf(role.key).some(
+          (each) => each.id !== thread.id && each.seen.answeredUnseen,
+        );
         const draft = session.drafts[thread.id] ?? "";
         const answeringNow = thread.state === "answering";
         const minutes = thread.display.warmMinutes;
@@ -2729,7 +2937,8 @@
         const thread = shownThread();
         let content = peopleView();
         if (role && session.view === "list") content = personHead(role) + threadListView(role);
-        if (role && session.view === "thread" && thread) content = personHead(role) + threadView(role, thread);
+        if (role && session.view === "thread" && thread)
+          content = personHead(role) + threadView(role, thread);
         const label = role ? `Chat with ${role.card.name}` : "Chat";
         return `<aside class="chat-drawer ${geometry.mode === "push" ? "beside" : geometry.mode}" style="z-index:${zOf("chat")}" aria-label="${label}">${drawerEdge(geometry)}${content}</aside>`;
       }
@@ -2775,16 +2984,25 @@
       ];
       function segments(key, options) {
         return `<div class="segments">${options
-          .map(([value, label]) => `<button type="button" data-action="set" data-key="${key}" data-value="${value}" aria-pressed="${String(state[key]) === value}">${label}</button>`)
+          .map(
+            ([value, label]) =>
+              `<button type="button" data-action="set" data-key="${key}" data-value="${value}" aria-pressed="${String(state[key]) === value}">${label}</button>`,
+          )
           .join("")}</div>`;
       }
       function renderBar() {
         const layers = openLayers();
-        const escape = layers.length ? layers.map((layer) => `<b>${LAYER_NAMES[layer]()}</b>`).join(" → ") : "nothing open";
+        const escape = layers.length
+          ? layers.map((layer) => `<b>${LAYER_NAMES[layer]()}</b>`).join(" → ")
+          : "nothing open";
         const scenarios = `<div class="segments">${Object.entries(SCENARIOS)
-          .map(([key, scenario]) => `<button type="button" data-action="scenario" data-value="${key}" aria-pressed="${state.scenario === key}">${scenario.label}</button>`)
+          .map(
+            ([key, scenario]) =>
+              `<button type="button" data-action="scenario" data-value="${key}" aria-pressed="${state.scenario === key}">${scenario.label}</button>`,
+          )
           .join("")}</div>`;
-        document.getElementById("bar").innerHTML = `<span class="bar-title">The chat drawer</span><span class="bar-tag">PROPOSAL</span>
+        document.getElementById("bar").innerHTML =
+          `<span class="bar-title">The chat drawer</span><span class="bar-tag">PROPOSAL</span>
           <div class="control"><span class="control-label">Page behind</span>${segments("page", PAGES)}</div>
           <div class="control"><span class="control-label">Width</span>${segments("width", WIDTHS)}</div>
           <div class="control"><span class="control-label">Beside the page</span>${segments("beside", BESIDE)}</div>
@@ -2802,7 +3020,10 @@
               : geometry.mode === "push"
                 ? " <strong>Pushes the page aside:</strong> the page gives up the drawer's width and lays itself out at what is left, so a Task page folds its conversation into its drawer once the page is 844px or less."
                 : " <strong>Over the page:</strong> the page keeps its width and the drawer covers its right side, which on a Task or an Initiative page is the conversation and its composer.";
-        document.getElementById("note").innerHTML = SCENARIOS[state.scenario].note + (session.chatOpen ? where : "") + " Switch the page behind: the drawer stays open across pages.";
+        document.getElementById("note").innerHTML =
+          SCENARIOS[state.scenario].note +
+          (session.chatOpen ? where : "") +
+          " Switch the page behind: the drawer stays open across pages.";
       }
       function renderReference(geometry) {
         const looks = [
@@ -2810,7 +3031,10 @@
           ["answering", "Someone answering"],
           ["answered", "Someone has answered"],
         ]
-          .map(([look, words]) => `<div class="look">${chatButton({ phone: geometry.phone }, { look, expanded: false, interactive: false })}<span>${words}</span></div>`)
+          .map(
+            ([look, words]) =>
+              `<div class="look">${chatButton({ phone: geometry.phone }, { look, expanded: false, interactive: false })}<span>${words}</span></div>`,
+          )
           .join("");
         document.getElementById("reference").innerHTML = `
           <div><h2>The button's three looks</h2><div class="looks">${looks}<div class="look"><span class="strip-stat"><b>2</b> need you</span><span>Needs you, in the strip</span></div></div>
@@ -2834,12 +3058,21 @@
         frame.className = `frame w-${state.width}`;
         const geometry = layout();
         // A page that unfolds its conversation, or a page without one, has no drawer to close: Esc skips it.
-        if (session.conversationOpen && !hasConversationDrawer(geometry)) closeLayer("conversation");
+        if (session.conversationOpen && !hasConversationDrawer(geometry))
+          closeLayer("conversation");
         const focused = document.activeElement;
-        const focusKey = session.focusNext ?? (frame.contains(focused) ? focused?.dataset?.focus : null);
-        const selection = focused && "selectionStart" in focused && !session.focusNext ? [focused.selectionStart, focused.selectionEnd] : null;
+        const focusKey =
+          session.focusNext ?? (frame.contains(focused) ? focused?.dataset?.focus : null);
+        const selection =
+          focused && "selectionStart" in focused && !session.focusNext
+            ? [focused.selectionStart, focused.selectionEnd]
+            : null;
         const threadScroll = frame.querySelector('[data-scroll="thread"]');
-        const keepScroll = threadScroll && threadScroll.scrollHeight - threadScroll.scrollTop - threadScroll.clientHeight > 40 ? threadScroll.scrollTop : null;
+        const keepScroll =
+          threadScroll &&
+          threadScroll.scrollHeight - threadScroll.scrollTop - threadScroll.clientHeight > 40
+            ? threadScroll.scrollTop
+            : null;
         // Messages only ever come at the end, so an opened fold keeps its place in the list.
         const openFolds = [...frame.querySelectorAll("details.tools")].map((fold) => fold.open);
         session.focusNext = null;
@@ -2861,7 +3094,8 @@
           if (target) {
             target.focus({ preventScroll: true });
             if (selection && "setSelectionRange" in target) target.setSelectionRange(...selection);
-            else if (target.tagName === "TEXTAREA") target.setSelectionRange(target.value.length, target.value.length);
+            else if (target.tagName === "TEXTAREA")
+              target.setSelectionRange(target.value.length, target.value.length);
           }
         }
         renderBar();
@@ -2904,12 +3138,18 @@
         },
         "confirm-allow": () => {
           shownThread().changesAllowed = true;
-          shownThread().display.messages.push({ kind: "note", text: "You allowed changes in this Thread. The session restarts." });
+          shownThread().display.messages.push({
+            kind: "note",
+            text: "You allowed changes in this Thread. The session restarts.",
+          });
           closeLayer("window");
         },
         "switch-off": () => {
           shownThread().changesAllowed = false;
-          shownThread().display.messages.push({ kind: "note", text: "You switched changes off in this Thread. The session restarts." });
+          shownThread().display.messages.push({
+            kind: "note",
+            text: "You switched changes off in this Thread. The session restarts.",
+          });
         },
         "open-needs-you": () => openPanel("needsYou"),
         "close-needs-you": () => closeLayer("needsYou"),
@@ -2948,16 +3188,29 @@
           return;
         }
         const field = event.target;
-        if (event.key === "Enter" && !event.shiftKey && field.tagName === "TEXTAREA" && field.dataset.thread) {
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          field.tagName === "TEXTAREA" &&
+          field.dataset.thread
+        ) {
           event.preventDefault();
           send(field.dataset.thread);
           render();
           return;
         }
-        if (field.classList?.contains("drawer-edge") && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        if (
+          field.classList?.contains("drawer-edge") &&
+          ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+        ) {
           event.preventDefault();
           const { max } = layout();
-          const steps = { ArrowLeft: state.drawerWidth + 16, ArrowRight: state.drawerWidth - 16, Home: DRAWER.min, End: max };
+          const steps = {
+            ArrowLeft: state.drawerWidth + 16,
+            ArrowRight: state.drawerWidth - 16,
+            Home: DRAWER.min,
+            End: max,
+          };
           state.drawerWidth = Math.min(Math.max(steps[event.key], DRAWER.min), max);
           rememberWidth(state.drawerWidth);
           render();
@@ -2986,7 +3239,9 @@
       document.addEventListener("pointermove", (event) => {
         if (!drag) return;
         const { max } = layout();
-        state.drawerWidth = Math.round(Math.min(Math.max(drag.startWidth + drag.startX - event.clientX, DRAWER.min), max));
+        state.drawerWidth = Math.round(
+          Math.min(Math.max(drag.startWidth + drag.startX - event.clientX, DRAWER.min), max),
+        );
         render();
       });
       document.addEventListener("pointerup", () => {

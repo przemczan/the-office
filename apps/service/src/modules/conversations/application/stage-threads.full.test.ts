@@ -1065,6 +1065,7 @@ describe("Office tools on a Stage", () => {
       taskTitle: () => Promise.resolve(undefined),
       taskAttachmentIds: (taskId) =>
         Promise.resolve(taskId === request.taskId ? [screenshot, report] : [ofAnotherTask]),
+      initiativeTaskAttachmentIds: () => Promise.resolve(undefined),
       initiativeRecord: () => Promise.resolve(undefined),
       ideaRecord: () => Promise.resolve(undefined),
     });
@@ -1080,7 +1081,7 @@ describe("Office tools on a Stage", () => {
       text: `A Decision names Attachments of its own Task only, and these aren't: ${ofAnotherTask}.`,
       isError: true,
     });
-    expect((await threadOf(threadId)).openDecision).toBeUndefined();
+    expect((await threadOf(threadId)).openDecisions[0]).toBeUndefined();
 
     const opened = await callInStage(threadId, OPEN_DECISION_TOOL, {
       ...WHICH_PAGE,
@@ -1088,7 +1089,7 @@ describe("Office tools on a Stage", () => {
     });
 
     expect(opened.isError).toBe(false);
-    const decision = (await threadOf(threadId)).openDecision;
+    const decision = (await threadOf(threadId)).openDecisions[0];
     expect(decision?.attachmentIds).toEqual([screenshot, report]);
     expect(await repository.decision(decision?.id ?? "")).toMatchObject({
       attachmentIds: [screenshot, report],
@@ -1104,7 +1105,7 @@ describe("Office tools on a Stage", () => {
     );
     const stageThread = await stageThreads.open(anAskingStage(aPerson("Ada")));
     await stageThread.nextTurn();
-    const id = (await threadOf(stageThread.threadId)).openDecision?.id ?? "";
+    const id = (await threadOf(stageThread.threadId)).openDecisions[0]?.id ?? "";
     const answered = answeredEvents();
 
     await app.get(DecisionService).answer(id, { kind: "option", option: 1 });
@@ -1169,7 +1170,7 @@ describe("Office tools on a Stage", () => {
     );
 
     expect(asked).toMatchObject({ question: "Which page shows the rename?" });
-    expect((await threadOf(left.threadId)).openDecision?.id).toBe(asked?.id);
+    expect((await threadOf(left.threadId)).openDecisions[0]?.id).toBe(asked?.id);
     await expect(
       stageThreads.endLeftRunning(
         left.threadId,
@@ -1196,7 +1197,7 @@ describe("Office tools on a Stage", () => {
       text: "The Office put your consult to the user in place of Devops, as a Decision in this Thread. End your turn now: their answer, or a follow-up question, comes as your next message.",
       isError: false,
     });
-    expect((await threadOf(stageThread.threadId)).openDecision).toMatchObject({
+    expect((await threadOf(stageThread.threadId)).openDecisions[0]).toMatchObject({
       question: "May the build cache live in the Project's folder?",
       context:
         "For Devops: nobody who can be consulted fills that Role, so you answer in their place.\n\nIt speeds the build up by a minute.",
@@ -1217,7 +1218,7 @@ describe("Office tools on a Stage", () => {
       why: "Nothing else makes the thumbnails.",
     });
 
-    expect((await threadOf(stageThread.threadId)).openDecision).toMatchObject({
+    expect((await threadOf(stageThread.threadId)).openDecisions[0]).toMatchObject({
       question: "Allow this call? Install ffmpeg on the machine.",
       options: ["Allow once", "Deny"],
       recommendation: { option: 0, reason: "Nothing else makes the thumbnails." },
@@ -1239,7 +1240,7 @@ describe("Office tools on a Stage", () => {
       text: "The Office put your consult to the user, as a Decision in this Thread. End your turn now: their answer, or a follow-up question, comes as your next message.",
       isError: false,
     });
-    expect((await threadOf(stageThread.threadId)).openDecision).toMatchObject({
+    expect((await threadOf(stageThread.threadId)).openDecisions[0]).toMatchObject({
       question: "Allow this call? Push the branch to a fork.",
       context: "The reviewer wants to try it.",
       options: ["Allow once", "Deny"],
@@ -1261,6 +1262,6 @@ describe("Office tools on a Stage", () => {
       text: "Give the user at least two options. Recommend one of the options.",
       isError: true,
     });
-    expect((await threadOf(stageThread.threadId)).openDecision).toBeUndefined();
+    expect((await threadOf(stageThread.threadId)).openDecisions[0]).toBeUndefined();
   });
 });

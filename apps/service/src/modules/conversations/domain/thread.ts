@@ -118,8 +118,11 @@ export interface Thread {
    */
   readonly runningTurnTokens: TokenTotals;
   readonly startedAt: Date;
-  /** The Decision the Thread waits on the user for: at most one is open at a time. */
-  readonly openDecision: Decision | undefined;
+  /**
+   * The Decisions the Thread waits on the user for, the first asked first: at most one in a Thread
+   * on a Task, one per Task in an Initiative's planning Thread (spec §2.4).
+   */
+  readonly openDecisions: readonly Decision[];
   /**
    * A Stage Thread: an Agent works one of the Task's Stages in it, and The Office, not the user,
    * sends its messages.

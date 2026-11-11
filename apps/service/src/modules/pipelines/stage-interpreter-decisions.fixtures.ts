@@ -48,7 +48,7 @@ export function aStageThread(taskId: string): ConstructorParameters<typeof Decis
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     runningTurnTokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     startedAt: new Date(),
-    openDecision: undefined,
+    openDecisions: [],
     stageThread: true,
   };
 }

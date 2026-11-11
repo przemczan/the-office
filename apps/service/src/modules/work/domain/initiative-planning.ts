@@ -1,3 +1,4 @@
+import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
@@ -6,12 +7,14 @@ import { InitiativeRefused } from "./initiative-refused.js";
 import {
   commandLines,
   pipelineLibraryLines,
+  PLANNER,
   type PlanningPipeline,
   type PlanningProject,
 } from "./planning.js";
 import type { Task, TaskState } from "./task.js";
 import { startPlanningTask, type TaskChange } from "./task-changes.js";
-import type { TaskStateChanged } from "./task-events.js";
+import type { StateChange, StateChangeCause } from "./state-change.js";
+import { TaskRewrittenInInitiative, TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 
@@ -39,7 +42,9 @@ If you have subagents (an Agent or a Task tool), hand each Task's research and d
 
 You write each Task's parts yourself, naming it by its Task id: write_plan with its files to change and the token estimate, write_definition_of_done, propose_pipeline and write_tags, reusing Tags already in use where they fit. Then call mark_planned for it; your Brief says what follows.
 
-When a Task needs an answer from the user, leave it in Planning or Backlog unplanned, and leave every Task that waits for it. Plan the rest. End your turn by saying which Tasks you planned, and which you left and why.`;
+When a Task needs an answer from the user, open a Decision on it with open_decision, giving its taskId. Leave that Task, and every Task that waits for it, and keep planning the rest. End your turn only when every Task left waits for an answer, or all are planned, saying which Tasks you planned and which wait and why. Each answer comes as a message: carry on from it.
+
+When an answer, or a decision you make later, changes what an already planned Task assumed, Ready ones included, rewrite its parts with write_plan, write_definition_of_done or propose_pipeline by its Task id, then call mark_planned for it again. A Task that has started, or one planned in its own planning Thread, is never rewritten: open a Decision on it instead, saying what changed and what you recommend.`;
 
 /** States in which a Task is planned enough for the Tasks waiting for it to be planned. */
 const PLANNED_STATES: readonly TaskState[] = [
@@ -139,6 +144,104 @@ export function startPlanningInInitiative(
   return startPlanningTask(task, initiative.planningAutoMode, { kind: "initiative", threadId });
 }
 
+/** The Initiative's planning Thread a part is rewritten from, and the Thread that is its latest. */
+export interface RewritingThread {
+  readonly initiativeId: string;
+  readonly threadId: string;
+}
+
+/**
+ * Why the Planner can't rewrite an already planned Task from the Initiative's planning Thread
+ * (spec §2.1): only a Ready Task of the Initiative, or one in Planning marked planned in an earlier
+ * planning Thread of it, is rewritten. A Task that has started or is Dropped, or that is planned in
+ * its own planning Thread, never is: the Planner opens a Decision on it instead.
+ */
+export function rewritingProblems(
+  task: Task,
+  { initiativeId, threadId }: RewritingThread,
+): string[] {
+  if (task.initiativeId !== initiativeId) {
+    return [`"${task.title}" isn't one of this Initiative's Tasks.`];
+  }
+  if (task.state === "ready") return [];
+  if (task.state === "planning") {
+    if (task.initiativePlanningThreadId === undefined) {
+      return [
+        `"${task.title}" is being planned in its own planning Thread and is never rewritten from here: open a Decision on it saying what changed and what you recommend.`,
+      ];
+    }
+    if (task.initiativePlanningThreadId !== threadId && !task.markedPlanned) {
+      return [`"${task.title}" is still being planned in an earlier planning Thread.`];
+    }
+    return [];
+  }
+  if (task.state === "backlog") {
+    return [`"${task.title}" is in Backlog: move it to Planning with start_planning first.`];
+  }
+  if (task.state === "shaping")
+    return [`"${task.title}" is in Shaping: its Initiative isn't confirmed.`];
+  return [
+    `"${task.title}" is in ${TASK_STATE_NAMES[task.state]}; it has started and is never rewritten: open a Decision on it saying what changed and what you recommend.`,
+  ];
+}
+
+/**
+ * The Planner rewrites a part of an already planned Task from the Initiative's latest planning
+ * Thread `threadId` (spec §2.1), in one save with `write`, the part's own change: a Ready Task goes
+ * back to Backlog as a changed part takes it there, then into Planning in this Thread, both moves
+ * the Planner's; a Task in Planning from an earlier planning Thread is planned in this one. Either
+ * is no longer marked planned, in the Initiative's auto mode, so mark_planned accepts it again.
+ * Undefined when `write` changes nothing, which moves nothing. Refused with the reasons of
+ * `rewritingProblems`, and from an earlier planning Thread.
+ */
+export function rewriteInInitiative<Event extends DomainEvent>(
+  initiative: Initiative,
+  task: Task,
+  threadId: string,
+  write: (task: Task) => TaskChange<Event> | undefined,
+): TaskChange<TaskRewrittenInInitiative> | undefined {
+  if (initiative.planningThreadId !== threadId) {
+    throw new InitiativeRefused([
+      "Only the Initiative's latest planning Thread rewrites its planned Tasks; this Thread is an earlier one.",
+    ]);
+  }
+  const problems = rewritingProblems(task, { initiativeId: initiative.id, threadId });
+  if (problems.length > 0) throw new TaskRefused(problems);
+  const replanned: Task = {
+    ...task,
+    state: "planning",
+    autoMode: initiative.planningAutoMode,
+    initiativePlanningThreadId: threadId,
+    markedPlanned: false,
+  };
+  const written = write(replanned);
+  if (!written) return undefined;
+  const at = written.event.occurredAt;
+  const byThePlanner: StateChangeCause = { kind: "person", roleKey: PLANNER };
+  const moves =
+    task.state === "ready"
+      ? [
+          { from: "ready" as const, to: "backlog" as const },
+          { from: "backlog" as const, to: "planning" as const },
+        ]
+      : [];
+  const [left, ...later] = moves.map(({ from, to }): StateChange => ({
+    from,
+    to,
+    at,
+    by: byThePlanner,
+  }));
+  return {
+    task: written.task,
+    event: new TaskRewrittenInInitiative(
+      task.id,
+      written.event,
+      moves.map(({ from, to }) => new TaskStateChanged(task.id, from, to)),
+    ),
+    ...(left === undefined ? {} : { earlierStateChanges: [left], stateChange: later[0] }),
+  };
+}
+
 /** The Tasks inside its Initiative it waits for that are neither planned, Ready or beyond, nor Dropped. */
 export function unplannedBlockers(task: Task, tasks: readonly Task[]): Task[] {
   const inInitiative = new Map(
@@ -159,9 +262,17 @@ export interface InitiativePlanningProject extends PlanningProject {
   readonly id: string;
 }
 
+/** A Decision waiting on the user in a Thread, by the Task it is on and its question. */
+export interface OpenTaskDecision {
+  readonly taskId: string;
+  readonly question: string;
+}
+
 /** What an Initiative's planning Brief is assembled from, with no model call. */
 export interface InitiativePlanningRecord {
   readonly initiative: Initiative;
+  /** The Decisions open in this planning Thread, by the Task each is on. */
+  readonly waiting: readonly OpenTaskDecision[];
   /** Its record as every session reads it: outcome, Tasks, dependencies and Attachments. */
   readonly record: string;
   readonly tasks: readonly Task[];
@@ -171,11 +282,13 @@ export interface InitiativePlanningRecord {
 
 /**
  * An Initiative's planning Thread's Brief (spec §2.5): its record, the Backlog Tasks to plan with
- * their blockers inside it, the Projects it spans with their base branches and commands, the
- * Pipeline library and whether it is planned in auto mode.
+ * their blockers inside it, the Tasks being planned and those waiting for an answer, the Projects
+ * it spans with their base branches and commands, the Pipeline library and whether it is planned in
+ * auto mode.
  */
 export function initiativePlanningBrief({
   initiative,
+  waiting,
   record,
   tasks,
   projects,
@@ -186,6 +299,7 @@ export function initiativePlanningBrief({
     record,
     toPlanSection(tasks, projects),
     unfinishedSection(initiative, tasks),
+    waitingSection(waiting, tasks),
     projectsSection(projects),
     `## The Pipelines\n\nPropose the one each Task's Definition of Done needs with propose_pipeline:\n\n${pipelineLibraryLines(pipelines).join("\n")}`,
     autoModeSection(initiative.planningAutoMode),
@@ -233,6 +347,22 @@ function unfinishedSection(initiative: Initiative, tasks: readonly Task[]): stri
   if (unfinished.length === 0) return undefined;
   const lines = unfinished.map(({ id, title }) => `- "${title}" (Task ${id})`);
   return `## Being planned here\n\nThis Thread moved these Tasks to Planning and hasn't marked them planned yet: read each with read_task, finish what its parts lack and call mark_planned for it.\n\n${lines.join("\n")}`;
+}
+
+/**
+ * The Decisions this Thread opened that wait on the user, for a fresh session: it leaves their
+ * Tasks, and the Tasks waiting for them, until each answer comes as a message.
+ */
+function waitingSection(
+  waiting: readonly OpenTaskDecision[],
+  tasks: readonly Task[],
+): string | undefined {
+  if (waiting.length === 0) return undefined;
+  const titleOf = (id: string) => tasks.find((task) => task.id === id)?.title ?? id;
+  const lines = waiting.map(
+    ({ taskId, question }) => `- "${titleOf(taskId)}" (Task ${taskId}): "${question}"`,
+  );
+  return `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n${lines.join("\n")}`;
 }
 
 function projectsSection(projects: readonly InitiativePlanningProject[]): string {

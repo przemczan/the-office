@@ -16,6 +16,7 @@ import { answerProblems, type Decision, type DecisionAnswer } from "../domain/de
 import {
   briefedMessage,
   decisionAnswerMessage,
+  decisionAnswersOnTasksMessage,
   HANDOVER_REQUEST,
   openingMessage,
   sessionOfficeTools,
@@ -49,11 +50,15 @@ import {
   beginAskingAgain,
   beginOpening,
   countRunningTurn,
+  deliverWaitingAnswers,
   endTurn,
   failAnswer,
   failDecisionAnswer,
   freshSession,
+  keepAnswerForTurnEnd,
   logMessages,
+  openDecisionOf,
+  reopenDecision,
   type Opening,
   type ThreadChange,
   type UnopenedSession,
@@ -68,6 +73,7 @@ import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { StageThreads } from "./stage-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { WorkRecords } from "./work-records.js";
 import type { TextMask } from "../ports/project-output-masks.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
@@ -93,8 +99,8 @@ interface Answer {
   /** The session the move replaces, which can't be resumed any more. */
   readonly replaced: ThreadSession | undefined;
   readonly place: SessionPlace;
-  /** The Decision the message answers, which opens again if the answer never reaches a session. */
-  readonly answers: Decision | undefined;
+  /** The Decisions the message answers, which open again if the answers never reach a session. */
+  readonly answers: readonly Decision[];
 }
 
 /** What the user's message comes with, besides its text. */
@@ -175,6 +181,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly fireAlarmLifts: FireAlarmLifts,
     private readonly approvalHolds: ApprovalHolds,
     private readonly officeInstructions: OfficeInstructions,
+    private readonly work: WorkRecords,
   ) {}
 
   /**
@@ -222,15 +229,17 @@ export class ThreadRunner implements OnModuleDestroy {
       current,
       { id: said.id, text },
       (latest, opening) => beginAnswer(latest, { ...opening, said }),
-      undefined,
+      [],
       given,
     );
   }
 
   /**
-   * Answers the Thread's open Decision and has the person take the answer, with its question, as
-   * their next message, under the Context policy as any message is. Refused once it is answered,
-   * with an answer that isn't one, and while the person is still answering.
+   * Answers one of the Thread's open Decisions and has the person take the answer, with its
+   * question, as their next message, under the Context policy as any message is, together with any
+   * answers that waited for it. In an Initiative's planning Thread an answer given while the person
+   * is answering is kept for their turn's end instead (spec §2.4). Refused once it is answered,
+   * with an answer that isn't one, and in a Thread on a Task while the person is still answering.
    */
   async answerDecision(
     threadId: string,
@@ -239,14 +248,36 @@ export class ThreadRunner implements OnModuleDestroy {
     answerer?: Answerer,
   ): Promise<Thread> {
     const thread = await this.threadOf(threadId);
-    const open = thread.openDecision;
-    if (open?.id !== decisionId) throw new ThreadRefused(["This Decision is answered already."]);
+    const open = openDecisionOf(thread, decisionId);
+    if (!open) throw new ThreadRefused(["This Decision is answered already."]);
     const problems = answerProblems(open, answer);
     if (problems.length > 0) throw new ThreadRefused(problems);
     const current = await this.personOf(thread);
-    const said = { id: randomUUID(), text: decisionAnswerMessage(open, answer, answerer?.name) };
+    const messageId = randomUUID();
+    if (thread.home.kind === "initiative" && thread.state === "answering") {
+      return this.change(threadId, (latest) =>
+        keepAnswerForTurnEnd(
+          latest,
+          { decisionId, answer, messageId, answeredAt: new Date(), answeredBy: answerer?.roleKey },
+          current.card.name,
+        ),
+      );
+    }
+    const waiting = await this.waitingAnswers(thread);
+    const given: Decision = {
+      ...open,
+      answer: { ...answer, answeredAt: new Date(), answeredBy: answerer?.roleKey },
+    };
+    const answers = [...waiting.map(({ decision }) => decision), given];
+    const said = {
+      id: messageId,
+      text: await this.answersMessage(thread, answers, answerer?.name),
+    };
     // Briefed as the Thread will be once answered: the message, not the Brief, carries this one.
-    const answered = { ...thread, openDecision: undefined };
+    const answered: Thread = {
+      ...thread,
+      openDecisions: thread.openDecisions.filter(({ id }) => id !== decisionId),
+    };
     return this.take(
       answered,
       current,
@@ -256,12 +287,84 @@ export class ThreadRunner implements OnModuleDestroy {
           ...opening,
           decisionId,
           answer,
-          messageId: said.id,
+          messageId,
           answeredAt: new Date(),
           answeredBy: answerer?.roleKey,
+          waitingAnswerIds: waiting.map(({ lineId }) => lineId),
         }),
-      open,
+      answers,
     );
+  }
+
+  /**
+   * Hands the person the answers kept for their turn's end in an Initiative's planning Thread, all
+   * in one message: nothing when there are none, or when the person answers again already, as the
+   * end of that turn hands them over.
+   */
+  private async deliverWaitingAnswers(threadId: string): Promise<void> {
+    const thread = await this.threadOf(threadId);
+    if (thread.home.kind !== "initiative" || thread.state !== "waiting") return;
+    const waiting = await this.waitingAnswers(thread);
+    if (waiting.length === 0) return;
+    const current = await this.personOf(thread);
+    const decisions = waiting.map(({ decision }) => decision);
+    const said = { id: randomUUID(), text: await this.answersMessage(thread, decisions) };
+    await this.take(
+      thread,
+      current,
+      said,
+      (latest, opening) =>
+        deliverWaitingAnswers(
+          latest,
+          opening,
+          waiting.map(({ lineId }) => lineId),
+          new Date(),
+        ),
+      decisions,
+    );
+  }
+
+  /** The answers logged in the Thread that wait for the person's turn to end, with their Decisions. */
+  private async waitingAnswers(
+    thread: Thread,
+  ): Promise<readonly { readonly lineId: string; readonly decision: Decision }[]> {
+    if (thread.home.kind !== "initiative") return [];
+    const lines = (await this.repository.messages(thread.id)).filter(
+      (line) => line.kind === "decision-answer" && line.delivery === "waiting",
+    );
+    const waiting = [];
+    for (const line of lines) {
+      if (line.kind !== "decision-answer") continue;
+      const decision = await this.repository.decision(line.decisionId);
+      if (decision?.answer) waiting.push({ lineId: line.id, decision });
+    }
+    return waiting;
+  }
+
+  /**
+   * What the person is sent for the answered Decisions: in a Thread on a Task its one answer, and in
+   * an Initiative's planning Thread every answer, each naming its Task.
+   */
+  private async answersMessage(
+    thread: Thread,
+    answered: readonly Decision[],
+    answererName?: string,
+  ): Promise<string> {
+    const given = answered.flatMap((decision) =>
+      decision.answer ? [{ decision, answer: decision.answer }] : [],
+    );
+    if (thread.home.kind !== "initiative") {
+      const [only] = given;
+      if (!only) throw new Error(`Thread ${thread.id} has no answer to send.`);
+      return decisionAnswerMessage(only.decision, only.answer, answererName);
+    }
+    const onTasks = await Promise.all(
+      given.map(async (answer) => ({
+        ...answer,
+        taskTitle: await this.work.taskTitle(answer.decision.taskId),
+      })),
+    );
+    return decisionAnswersOnTasksMessage(onTasks);
   }
 
   /**
@@ -305,15 +408,15 @@ export class ThreadRunner implements OnModuleDestroy {
       ...move,
       replaced: undefined,
       place,
-      answers: undefined,
+      answers: [],
     });
     return answering;
   }
 
   /**
    * The person takes `said` under the Context policy's move: `begin` logs it and sets the Thread
-   * answering, and the session answers once the call that asked returns. `said` may answer a
-   * Decision, which opens again when the session never starts. The records given with it brief a
+   * answering, and the session answers once the call that asked returns. `said` may answer
+   * Decisions, which open again when the session never starts. The records given with it brief a
    * new session, or come with it into a running or resumed one.
    */
   private async take<Event extends DomainEvent>(
@@ -321,7 +424,7 @@ export class ThreadRunner implements OnModuleDestroy {
     current: SessionRole,
     said: Answer["said"],
     begin: (latest: Thread, opening: Opening) => ThreadChange<Event>,
-    answers?: Decision,
+    answers: readonly Decision[] = [],
     given: GivenRecords = NO_RECORDS,
   ): Promise<Thread> {
     const opened = await this.places.of(thread);
@@ -686,6 +789,12 @@ export class ThreadRunner implements OnModuleDestroy {
     }
     live.idle = setTimeout(() => void this.endLive(threadId), IDLE_MS);
     live.idle.unref();
+    // Not awaited: the session's events are read on while the answers go to it.
+    void this.deliverWaitingAnswers(threadId).catch((error: unknown) => {
+      this.logger.error(
+        `Thread ${threadId}'s waiting answers weren't handed over: ${messageOf(error)}`,
+      );
+    });
   }
 
   private async endLive(threadId: string): Promise<void> {
@@ -725,18 +834,24 @@ export class ThreadRunner implements OnModuleDestroy {
     {
       unopened,
       answers,
-    }: { readonly unopened?: UnopenedSession; readonly answers?: Decision | undefined } = {},
+    }: { readonly unopened?: UnopenedSession; readonly answers?: readonly Decision[] } = {},
   ): Promise<void> {
     this.logger.error(`Thread ${threadId} stopped answering: ${messageOf(error)}`);
     await this.endLive(threadId);
     const reason = messageOf(error);
-    await this.change<DecisionReopened | MessagesLogged>(threadId, (thread) =>
-      answers
-        ? failDecisionAnswer(thread, answers, reason, new Date(), unopened)
-        : failAnswer(thread, reason, new Date(), unopened),
-    ).catch((failure: unknown) => {
+    const [first, ...others] = answers ?? [];
+    try {
+      await this.change<DecisionReopened | MessagesLogged>(threadId, (thread) =>
+        first
+          ? failDecisionAnswer(thread, first, reason, new Date(), unopened)
+          : failAnswer(thread, reason, new Date(), unopened),
+      );
+      for (const decision of others) {
+        await this.change(threadId, (thread) => reopenDecision(thread, decision, new Date()));
+      }
+    } catch (failure) {
       this.logger.error(`Thread ${threadId}'s failure wasn't logged: ${messageOf(failure)}`);
-    });
+    }
   }
 
   private async log(threadId: string, drafts: readonly MessageDraft[]): Promise<void> {

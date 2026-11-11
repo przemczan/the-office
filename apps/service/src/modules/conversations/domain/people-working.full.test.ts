@@ -72,7 +72,7 @@ describe("the people working on Tasks", () => {
     };
 
     const working = peopleWorkingOnTasks([
-      answeringOn(TASK, "oscar", { stageThread: true, openDecision: decision }),
+      answeringOn(TASK, "oscar", { stageThread: true, openDecisions: [decision] }),
       answeringOn(TASK, "cto", { consultation }),
     ]);
 

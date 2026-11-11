@@ -143,6 +143,11 @@ interface DecisionAnswerLine {
   readonly kind: "decision-answer";
   readonly decisionId: string;
   readonly answer: DecisionAnswer;
+  /**
+   * Set only for an answer given in an Initiative's planning Thread while the person was answering:
+   * it waits for their turn to end, then is delivered (spec §2.4). Any other went in as given.
+   */
+  readonly delivery?: MessageDelivery;
 }
 
 /** A Proposal the person drafted, shown as its card; the Proposal holds what it changes and its status. */

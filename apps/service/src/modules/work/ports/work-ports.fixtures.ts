@@ -37,6 +37,7 @@ import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
 import { SessionPeople } from "./session-people.js";
 import { SessionInitiatives, type SessionInitiativeThread } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
+import type { OpenTaskDecision } from "../domain/initiative-planning.js";
 import { TaskDecisions } from "./task-decisions.js";
 import { TaskThreads, type TaskThreadOpening, type TaskThreadStarting } from "./task-threads.js";
 import { TaskTokens, type EngineIdTokens } from "./task-tokens.js";
@@ -360,13 +361,18 @@ export class InitiativeThreadsForTests extends InitiativeThreads {
   }
 }
 
-/** The Decisions open on each Task: none unless a test opens some. */
+/** The Decisions open on each Task, and in each Thread: none unless a test opens some. */
 @Injectable()
 export class TaskDecisionsForTests extends TaskDecisions {
   readonly open = new Map<string, number>();
+  readonly inThread = new Map<string, readonly OpenTaskDecision[]>();
 
   async openOn(taskId: string): Promise<number> {
     return this.open.get(taskId) ?? 0;
+  }
+
+  async openInThread(threadId: string): Promise<readonly OpenTaskDecision[]> {
+    return this.inThread.get(threadId) ?? [];
   }
 }
 

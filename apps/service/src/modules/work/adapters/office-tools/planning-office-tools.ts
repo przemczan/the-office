@@ -3,8 +3,11 @@ import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { PlanningService, type MarkedPlanned } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { TASK_STATE_NAMES } from "../../domain/task-states.js";
-import { SessionInitiatives } from "../../ports/session-initiatives.js";
+import { rewritingProblems } from "../../domain/initiative-planning.js";
+import {
+  SessionInitiatives,
+  type SessionInitiativeThread,
+} from "../../ports/session-initiatives.js";
 import { SessionTasks } from "../../ports/session-tasks.js";
 import { answered, WorkToolRefused, type OfficeToolResult } from "./work-tool-answers.js";
 
@@ -22,16 +25,25 @@ const TASK_ID = z
   .string()
   .optional()
   .describe(
-    "The Task's id. Leave it out in a Thread on the Task; in an Initiative's planning Thread, name one of its Tasks you moved to Planning with start_planning.",
+    "The Task's id. Leave it out in a Thread on the Task; in an Initiative's planning Thread, name one of its Tasks you moved to Planning with start_planning, or one already planned or Ready that you rewrite.",
   );
 
 /**
  * The Office tools the Planner plans a Task with (spec §2.1, §2.3): in a Thread on the Task, each
  * writes onto the session's own Task; in an Initiative's planning Thread, onto the Task it names,
- * one the Planner moved to Planning there with start_planning. Each part is proposed for the user
- * to confirm, but for write_tags, whose Tags apply at once. The planning session reads with
+ * one the Planner moved to Planning there with start_planning, or an already planned one it
+ * rewrites, which goes back into Planning there. Each part is proposed for the user to confirm, but
+ * for write_tags, whose Tags apply at once and never move a Task. The planning session reads with
  * `WorkOfficeTools` like every other.
  */
+
+/** The Task a planning tool writes onto, and the planning Thread it is rewritten from, if it is. */
+interface PlanningTarget {
+  readonly taskId: string;
+  readonly rewriteFrom: SessionInitiativeThread | undefined;
+  /** In an Initiative's planning Thread, where the Planner plans on while a Decision waits. */
+  readonly inInitiative: boolean;
+}
 @Injectable()
 export class PlanningOfficeTools implements OnModuleInit {
   constructor(
@@ -97,11 +109,12 @@ export class PlanningOfficeTools implements OnModuleInit {
       }),
       run: ({ taskId, plan, filesToChange, estimatedTokens }, { sessionId }) =>
         answered(async () => {
-          await this.planning.proposePlan(await this.planningTaskOf(sessionId, taskId), {
-            plan,
-            filesToChange,
-            estimatedTokens,
-          });
+          const target = await this.planningTaskOf(sessionId, taskId);
+          await this.planning.proposePlan(
+            target.taskId,
+            { plan, filesToChange, estimatedTokens },
+            target.rewriteFrom,
+          );
           return `Wrote the Plan onto the Task. ${PROPOSED}`;
         }),
     });
@@ -119,9 +132,11 @@ export class PlanningOfficeTools implements OnModuleInit {
       }),
       run: ({ taskId, statements }, { sessionId }) =>
         answered(async () => {
+          const target = await this.planningTaskOf(sessionId, taskId);
           await this.planning.proposeDefinitionOfDone(
-            await this.planningTaskOf(sessionId, taskId),
+            target.taskId,
             statements,
+            target.rewriteFrom,
           );
           return `Wrote the Definition of Done onto the Task. ${PROPOSED}`;
         }),
@@ -140,10 +155,12 @@ export class PlanningOfficeTools implements OnModuleInit {
       }),
       run: ({ taskId, pipelineId, why }, { sessionId }) =>
         answered(async () => {
-          await this.planning.proposePipeline(await this.planningTaskOf(sessionId, taskId), {
-            pipelineId,
-            reason: why,
-          });
+          const target = await this.planningTaskOf(sessionId, taskId);
+          await this.planning.proposePipeline(
+            target.taskId,
+            { pipelineId, reason: why },
+            target.rewriteFrom,
+          );
           return `Proposed the Pipeline ${pipelineId}. The Task follows it once the user confirms it.`;
         }),
     });
@@ -160,10 +177,8 @@ export class PlanningOfficeTools implements OnModuleInit {
       }),
       run: ({ taskId, tags }, { sessionId }) =>
         answered(async () => {
-          const task = await this.tasks.changeTags(
-            await this.planningTaskOf(sessionId, taskId),
-            tags,
-          );
+          const { taskId: target } = await this.planningTaskOf(sessionId, taskId);
+          const task = await this.tasks.changeTags(target, tags);
           const inUse = (await this.tasks.tagsInUse()).filter((tag) => !task.tags.includes(tag));
           const now =
             task.tags.length > 0
@@ -178,24 +193,26 @@ export class PlanningOfficeTools implements OnModuleInit {
     this.registry.register({
       name: MARK_PLANNED,
       description:
-        "Says the Task is planned: call it once the Plan, the Definition of Done and the Pipeline are written and nothing is left to ask the user. In auto mode, The Office then confirms them and marks the Task Ready; otherwise the user does. Refused outside Planning, or before the Plan and the Definition of Done are written.",
+        "Says the Task is planned: call it once the Plan, the Definition of Done and the Pipeline are written and nothing is left to ask the user. In auto mode, The Office then confirms them and marks the Task Ready; otherwise the user does. Refused outside Planning, or before the Plan and the Definition of Done are written; while a Decision on the Task is open it isn't marked planned.",
       input: z.object({ taskId: TASK_ID }),
       run: ({ taskId }, { sessionId }) =>
         answered(async () => {
-          const marked = await this.planning.markPlanned(
-            await this.planningTaskOf(sessionId, taskId),
-          );
-          return markedPlannedWords(marked);
+          const target = await this.planningTaskOf(sessionId, taskId);
+          const marked = await this.planning.markPlanned(target.taskId);
+          return markedPlannedWords(marked, target.inInitiative);
         }),
     });
   }
 
   /**
    * The Task a planning tool writes onto: the session's own in a Thread on a Task, where `taskId`
-   * may only name it; in an Initiative's planning Thread, the one `taskId` names, which must be
-   * planned in that Thread.
+   * may only name it; in an Initiative's planning Thread, the one `taskId` names, planned in that
+   * Thread, or already planned and rewritten from it (`rewritingProblems`).
    */
-  private async planningTaskOf(sessionId: string, taskId: string | undefined): Promise<string> {
+  private async planningTaskOf(
+    sessionId: string,
+    taskId: string | undefined,
+  ): Promise<PlanningTarget> {
     const ownTaskId = await this.sessionTasks.taskInSession(sessionId);
     if (ownTaskId !== undefined) {
       if (taskId !== undefined && taskId !== ownTaskId) {
@@ -203,7 +220,7 @@ export class PlanningOfficeTools implements OnModuleInit {
           "This Thread is on one Task, and writes onto it alone: leave the Task id out.",
         );
       }
-      return ownTaskId;
+      return { taskId: ownTaskId, rewriteFrom: undefined, inInitiative: false };
     }
     const thread = await this.sessionInitiatives.initiativeThreadInSession(sessionId);
     if (!thread) {
@@ -217,29 +234,34 @@ export class PlanningOfficeTools implements OnModuleInit {
       );
     }
     const task = await this.tasks.read(taskId);
-    if (task.initiativeId !== thread.initiativeId) {
-      throw new WorkToolRefused(`"${task.title}" isn't one of this Initiative's Tasks.`);
-    }
-    if (task.state !== "planning" || task.initiativePlanningThreadId !== thread.threadId) {
-      throw new WorkToolRefused(
-        task.state === "backlog"
-          ? `"${task.title}" is in Backlog: move it to Planning with ${START_PLANNING} first.`
-          : `"${task.title}" isn't being planned in this Thread; it is in ${TASK_STATE_NAMES[task.state]}.`,
-      );
-    }
-    return task.id;
+    const plannedHere =
+      task.initiativeId === thread.initiativeId &&
+      task.state === "planning" &&
+      task.initiativePlanningThreadId === thread.threadId;
+    if (plannedHere) return { taskId: task.id, rewriteFrom: undefined, inInitiative: true };
+    const problems = rewritingProblems(task, thread);
+    if (problems.length > 0) throw new WorkToolRefused(problems.join(" "));
+    return { taskId: task.id, rewriteFrom: thread, inInitiative: true };
   }
 }
 
-function markedPlannedWords(marked: MarkedPlanned): string | OfficeToolResult {
+function markedPlannedWords(
+  marked: MarkedPlanned,
+  inInitiative: boolean,
+): string | OfficeToolResult {
   switch (marked.outcome) {
     case "for-the-user":
       return "Marked the Task planned. Auto mode is off: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.";
-    case "waiting-for-a-decision":
-      return {
-        text: `The Task isn't marked planned: ${marked.openDecisions === 1 ? "a Decision on it is" : `${marked.openDecisions} Decisions on it are`} still open. End your turn; the user's answer comes as your next message. Carry on from it, then call ${MARK_PLANNED} again.`,
-        isError: true,
-      };
+    case "waiting-for-a-decision": {
+      const open =
+        marked.openDecisions === 1
+          ? "a Decision on it is"
+          : `${marked.openDecisions} Decisions on it are`;
+      const next = inInitiative
+        ? `Keep planning the Tasks that don't wait for it, and end your turn once every Task left waits for an answer. The answer comes as a message: carry on from it, then call ${MARK_PLANNED} again.`
+        : `End your turn; the user's answer comes as your next message. Carry on from it, then call ${MARK_PLANNED} again.`;
+      return { text: `The Task isn't marked planned: ${open} still open. ${next}`, isError: true };
+    }
     case "ready":
       return "Auto mode accepted the Task: it confirmed what wasn't confirmed yet and marked the Task Ready. Its planning is done.";
   }

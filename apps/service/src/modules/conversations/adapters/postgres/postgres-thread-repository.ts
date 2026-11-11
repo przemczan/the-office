@@ -125,7 +125,7 @@ export class PostgresThreadRepository extends ThreadRepository {
             and(
               eq(threadMessages.threadId, id),
               inArray(threadMessages.id, [...messageIds]),
-              sql`${threadMessages.body} ->> 'kind' = 'user'`,
+              sql`${threadMessages.body} ->> 'kind' in ('user', 'decision-answer')`,
             ),
           );
       }
@@ -243,7 +243,7 @@ export class PostgresThreadRepository extends ThreadRepository {
   }
 }
 
-/** The Threads of `rows`, in their order, each with the Decision it waits on, if any. */
+/** The Threads of `rows`, in their order, each with the Decisions it waits on, the first asked first. */
 async function withOpenDecisions(reader: Reader, rows: readonly ThreadRow[]): Promise<Thread[]> {
   if (rows.length === 0) return [];
   const open = await reader
@@ -257,9 +257,11 @@ async function withOpenDecisions(reader: Reader, rows: readonly ThreadRow[]): Pr
         ),
         isNull(decisions.answeredAt),
       ),
-    );
-  const byThread = new Map(open.map((row) => [row.threadId, toDecision(row)]));
-  return rows.map((row) => toThread(row, byThread.get(row.id)));
+    )
+    .orderBy(asc(decisions.askedAt), asc(decisions.id));
+  const decisionsOf = (threadId: string): Decision[] =>
+    open.filter((row) => row.threadId === threadId).map(toDecision);
+  return rows.map((row) => toThread(row, decisionsOf(row.id)));
 }
 
 function homeColumns(home: Home): { readonly kind: Home["kind"]; readonly id: string } {
@@ -303,7 +305,7 @@ function toRow(thread: Thread): ThreadRow {
   };
 }
 
-function toThread(row: ThreadRow, openDecision: Decision | undefined): Thread {
+function toThread(row: ThreadRow, openDecisions: readonly Decision[]): Thread {
   return {
     id: row.id,
     home: toHome(row.homeKind, row.homeId),
@@ -315,7 +317,7 @@ function toThread(row: ThreadRow, openDecision: Decision | undefined): Thread {
     tokens: row.tokens,
     runningTurnTokens: row.runningTurnTokens,
     startedAt: row.startedAt,
-    openDecision,
+    openDecisions,
     stageThread: row.stageThread,
     consultation: row.consultation ?? undefined,
   };

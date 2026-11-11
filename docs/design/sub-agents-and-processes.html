@@ -470,7 +470,13 @@
         display: block;
         height: 10px;
         border-radius: var(--radius-sm);
-        background: linear-gradient(90deg, var(--border) 25%, var(--surface-hover) 50%, var(--border) 75%) 0 0 / 200% 100%;
+        background: linear-gradient(
+            90deg,
+            var(--border) 25%,
+            var(--surface-hover) 50%,
+            var(--border) 75%
+          )
+          0 0 / 200% 100%;
         animation: shimmer 1.4s linear infinite;
       }
       .overline {
@@ -1846,28 +1852,57 @@
         chevronLeft: (s = 14) => svg(s, '<path d="m10 3-5 5 5 5"/>'),
         chevronRight: (s = 12) => svg(s, '<path d="m6 3 5 5-5 5"/>'),
         tools: (s = 10) => svg(s, '<path d="m6 3 5 5-5 5"/>', 'class="tools-chevron"'),
-        chat: (s = 14) => svg(s, '<path d="M2.5 8a5.5 5.5 0 1 1 2.7 4.7l-2.7.8.8-2.6A5.5 5.5 0 0 1 2.5 8z"/>'),
+        chat: (s = 14) =>
+          svg(s, '<path d="M2.5 8a5.5 5.5 0 1 1 2.7 4.7l-2.7.8.8-2.6A5.5 5.5 0 0 1 2.5 8z"/>'),
         send: (s = 16) => svg(s, '<path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/>', 'stroke-width="1.8"'),
         check: (s = 12) => svg(s, '<path d="m3 8.5 3 3 7-7"/>'),
         alert: (s = 14) => svg(s, '<circle cx="8" cy="8" r="6"/><path d="M8 4.8v3.6M8 10.9v.1"/>'),
-        stop: (s = 14) => svg(s, '<circle cx="8" cy="8" r="6"/><rect x="5.8" y="5.8" width="4.4" height="4.4" rx=".6"/>'),
-        lock: (s = 12) => svg(s, '<rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>'),
+        stop: (s = 14) =>
+          svg(
+            s,
+            '<circle cx="8" cy="8" r="6"/><rect x="5.8" y="5.8" width="4.4" height="4.4" rx=".6"/>',
+          ),
+        lock: (s = 12) =>
+          svg(
+            s,
+            '<rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
+          ),
         down: (s = 12) => svg(s, '<path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"/>'),
         /* A Sub-agent: a small agent's face in a frame; a Process: a terminal. */
         subAgent: (s = 14) =>
-          svg(s, '<rect x="2.5" y="4" width="11" height="9" rx="2.5"/><path d="M8 4V2M6 8v1M10 8v1"/>'),
-        process: (s = 14) => svg(s, '<rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2"/><path d="m4.5 6.5 2 1.8-2 1.8M8.5 10.5h3"/>'),
-        now: (s = 18) => svg(s, '<path d="M2.5 7 8 2.5 13.5 7v6.5h-11z"/><path d="M6.5 13.5v-4h3v4"/>'),
+          svg(
+            s,
+            '<rect x="2.5" y="4" width="11" height="9" rx="2.5"/><path d="M8 4V2M6 8v1M10 8v1"/>',
+          ),
+        process: (s = 14) =>
+          svg(
+            s,
+            '<rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2"/><path d="m4.5 6.5 2 1.8-2 1.8M8.5 10.5h3"/>',
+          ),
+        now: (s = 18) =>
+          svg(s, '<path d="M2.5 7 8 2.5 13.5 7v6.5h-11z"/><path d="M6.5 13.5v-4h3v4"/>'),
         work: (s = 18) =>
-          svg(s, '<rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/>'),
+          svg(
+            s,
+            '<rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/>',
+          ),
         people: (s = 18) =>
-          svg(s, '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5c.6-2.5 2.3-3.8 4.5-3.8s3.9 1.3 4.5 3.8"/><circle cx="11.5" cy="6" r="2"/><path d="M12 9.7c1.5.2 2.4 1.4 2.8 3.3"/>'),
+          svg(
+            s,
+            '<circle cx="6" cy="5.5" r="2.5"/><path d="M1.5 13.5c.6-2.5 2.3-3.8 4.5-3.8s3.9 1.3 4.5 3.8"/><circle cx="11.5" cy="6" r="2"/><path d="M12 9.7c1.5.2 2.4 1.4 2.8 3.3"/>',
+          ),
         projects: (s = 18) => svg(s, '<path d="M1.5 4.5v8h13v-6.5H8L6.5 4.5z"/>'),
         settings: (s = 18) =>
-          svg(s, '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="var(--surface)"/><circle cx="10.5" cy="8" r="1.4" fill="var(--surface)"/><circle cx="5" cy="11.5" r="1.4" fill="var(--surface)"/>'),
+          svg(
+            s,
+            '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="var(--surface)"/><circle cx="10.5" cy="8" r="1.4" fill="var(--surface)"/><circle cx="5" cy="11.5" r="1.4" fill="var(--surface)"/>',
+          ),
       };
       const esc = (text) =>
-        String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+        String(text).replace(
+          /[&<>"]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+        );
       /* Text with `code` spans, as a Thread renders Markdown's inline code. */
       const said = (text) => esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
 
@@ -1886,17 +1921,32 @@
           startedAt: -72,
           toolCalls: 4,
           entries: [
-            { tools: [["Grep", '"searchThreads|threadMessages" in apps/service/src'], ["Glob", "apps/service/src/**/postgres-thread-repository*.ts"]] },
-            { text: "Threads are read through `ThreadRepository`; their messages are rows of `thread_messages`. Nothing searches them yet." },
             {
               tools: [
-                ["Read", "apps/service/src/modules/conversations/adapters/postgres/postgres-thread-repository.ts"],
-                ["Read", "apps/service/src/modules/conversations/adapters/postgres/threads.schema.ts"],
+                ["Grep", '"searchThreads|threadMessages" in apps/service/src'],
+                ["Glob", "apps/service/src/**/postgres-thread-repository*.ts"],
+              ],
+            },
+            {
+              text: "Threads are read through `ThreadRepository`; their messages are rows of `thread_messages`. Nothing searches them yet.",
+            },
+            {
+              tools: [
+                [
+                  "Read",
+                  "apps/service/src/modules/conversations/adapters/postgres/postgres-thread-repository.ts",
+                ],
+                [
+                  "Read",
+                  "apps/service/src/modules/conversations/adapters/postgres/threads.schema.ts",
+                ],
               ],
             },
           ],
           coming: [
-            { text: "`thread_messages.text` holds the masked text, so an index on it never sees a secret. A GIN index on `to_tsvector('simple', text)` would serve a search by words." },
+            {
+              text: "`thread_messages.text` holds the masked text, so an index on it never sees a secret. A GIN index on `to_tsvector('simple', text)` would serve a search by words.",
+            },
             { tools: [["Grep", '"to_tsvector|using gin" in apps/service/drizzle']] },
             { text: "No migration uses one yet. Checking how the migrations are numbered…" },
             { tools: [["Glob", "apps/service/drizzle/00*.sql"]] },
@@ -1917,9 +1967,18 @@
           toolCalls: 2,
           entries: [
             { text: "Reading the migration and the tables it touches." },
-            { tools: [["Read", "apps/service/drizzle/0092_thread_search.sql"], ["Read", "apps/service/drizzle/0041_thread_messages.sql"]] },
+            {
+              tools: [
+                ["Read", "apps/service/drizzle/0092_thread_search.sql"],
+                ["Read", "apps/service/drizzle/0041_thread_messages.sql"],
+              ],
+            },
           ],
-          coming: [{ text: "`CREATE INDEX` without `CONCURRENTLY` holds a lock that blocks writes to `thread_messages` until it is built." }],
+          coming: [
+            {
+              text: "`CREATE INDEX` without `CONCURRENTLY` holds a lock that blocks writes to `thread_messages` until it is built.",
+            },
+          ],
         },
         listing: {
           id: "toolu_01HZ9xQlisting",
@@ -1928,16 +1987,25 @@
           agentKind: "Explore",
           background: false,
           startedBy: "Jim",
-          prompt: "Find how the web app lists a person's Threads and where a search box would sit. Files only.",
+          prompt:
+            "Find how the web app lists a person's Threads and where a search box would sit. Files only.",
           startedAt: -260,
           endedAt: -212,
           toolCalls: 6,
           ending: { state: "finished" },
           entries: [
-            { tools: [["Grep", '"threadQueries.list" in apps/web/src'], ["Read", "apps/web/src/shell/chat/thread-list.tsx"]] },
-            { text: "The chat drawer's Thread list is `thread-list.tsx`, under New thread. A search box fits at its top, above the list." },
+            {
+              tools: [
+                ["Grep", '"threadQueries.list" in apps/web/src'],
+                ["Read", "apps/web/src/shell/chat/thread-list.tsx"],
+              ],
+            },
+            {
+              text: "The chat drawer's Thread list is `thread-list.tsx`, under New thread. A search box fits at its top, above the list.",
+            },
           ],
-          reportedBack: "The Thread list is `apps/web/src/shell/chat/thread-list.tsx`; a search box fits above it, under New thread.",
+          reportedBack:
+            "The Thread list is `apps/web/src/shell/chat/thread-list.tsx`; a search box fits above it, under New thread.",
         },
         ranking: {
           id: "toolu_01HZ9xQranking",
@@ -1946,14 +2014,27 @@
           agentKind: "general-purpose",
           background: true,
           startedBy: "Jim",
-          prompt: "Draft how search results are ranked: by how well they match, then by how recent. Read every Thread fixture first.",
+          prompt:
+            "Draft how search results are ranked: by how well they match, then by how recent. Read every Thread fixture first.",
           startedAt: -230,
           endedAt: -95,
           toolCalls: 31,
-          ending: { state: "failed", reason: "Its turn failed: the model's context window was full." },
+          ending: {
+            state: "failed",
+            reason: "Its turn failed: the model's context window was full.",
+          },
           entries: [
             { text: "Reading the Thread fixtures first." },
-            { tools: [["Glob", "apps/**/*thread*.fixtures.ts"], ["Read", "apps/service/src/modules/conversations/application/held-calls.fixtures.ts"], ["Read", "apps/web/e2e/sessions.jsonl"]] },
+            {
+              tools: [
+                ["Glob", "apps/**/*thread*.fixtures.ts"],
+                [
+                  "Read",
+                  "apps/service/src/modules/conversations/application/held-calls.fixtures.ts",
+                ],
+                ["Read", "apps/web/e2e/sessions.jsonl"],
+              ],
+            },
           ],
         },
       };
@@ -2034,7 +2115,7 @@
           kind: "process",
           description: "Repeat the search e2e test 20 times",
           commandLine:
-            "npx playwright test e2e/search.e2e.ts --repeat-each=20 --reporter=line --project=chromium --grep \"finds a Thread by a word in a message\"",
+            'npx playwright test e2e/search.e2e.ts --repeat-each=20 --reporter=line --project=chromium --grep "finds a Thread by a word in a message"',
           shell: "Bash",
           startedBy: "Jim",
           startedAt: -300,
@@ -2043,9 +2124,17 @@
           ending: { state: "failed" },
           output: [
             "Running 20 tests using 4 workers",
-            ...Array.from({ length: 13 }, (_, n) => `  ✓  ${n + 1} [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat${n}) (2.${(n * 3) % 10}s)`),
+            ...Array.from(
+              { length: 13 },
+              (_, n) =>
+                `  ✓  ${n + 1} [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat${n}) (2.${(n * 3) % 10}s)`,
+            ),
             "  ✘  14 [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat13) (30.0s)",
-            ...Array.from({ length: 6 }, (_, n) => `  ✓  ${n + 15} [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat${n + 14}) (2.${(n * 7) % 10}s)`),
+            ...Array.from(
+              { length: 6 },
+              (_, n) =>
+                `  ✓  ${n + 15} [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat${n + 14}) (2.${(n * 7) % 10}s)`,
+            ),
             "",
             "  1) [chromium] › e2e/search.e2e.ts:12:3 › finds a Thread by a word in a message (repeat13)",
             "",
@@ -2099,7 +2188,8 @@
         ...JSON.parse(JSON.stringify(item)),
         ...change,
       });
-      const running = (item) => copy(item, { endedAt: undefined, ending: undefined, exitCode: undefined });
+      const running = (item) =>
+        copy(item, { endedAt: undefined, ending: undefined, exitCode: undefined });
       const finishedFind = () =>
         copy(SUB_AGENTS.find, {
           entries: [...SUB_AGENTS.find.entries, ...SUB_AGENTS.find.coming],
@@ -2115,14 +2205,22 @@
           key: "running",
           label: "Running",
           note: "Jim's session has two Sub-agents and a Process running. The line sits above the message input; the dot is live. Press it to open the view.",
-          items: () => [running(SUB_AGENTS.find), running(SUB_AGENTS.review), running(PROCESSES.devServer)],
+          items: () => [
+            running(SUB_AGENTS.find),
+            running(SUB_AGENTS.review),
+            running(PROCESSES.devServer),
+          ],
           open: false,
         },
         {
           key: "sub-agent",
           label: "A Sub-agent",
           note: "A running Sub-agent: its prompt's first lines, then its messages and tool calls in Rows as they arrive, with the Details switch on its own row. A new one arrives every few seconds.",
-          items: () => [running(SUB_AGENTS.find), running(SUB_AGENTS.review), running(PROCESSES.devServer)],
+          items: () => [
+            running(SUB_AGENTS.find),
+            running(SUB_AGENTS.review),
+            running(PROCESSES.devServer),
+          ],
           open: true,
           picked: "toolu_01HZ9xQfind",
         },
@@ -2130,7 +2228,11 @@
           key: "process",
           label: "A Process",
           note: "A running Process: its command whole, then its output streaming, following the end. Scroll the output up and it stops following; Jump to the end brings it back.",
-          items: () => [running(SUB_AGENTS.find), running(SUB_AGENTS.review), running(PROCESSES.devServer)],
+          items: () => [
+            running(SUB_AGENTS.find),
+            running(SUB_AGENTS.review),
+            running(PROCESSES.devServer),
+          ],
           open: true,
           picked: "b1f9c2e07",
         },
@@ -2177,7 +2279,12 @@
           key: "late",
           label: "A page opened late",
           note: "The page opened while the session was already at work. The line comes with the list's read; the output reads up to where it is, then goes on live, with nothing missed or shown twice (the steps are under the frame).",
-          items: () => [running(SUB_AGENTS.find), running(PROCESSES.devServer), copy(SUB_AGENTS.listing), copy(PROCESSES.tests)],
+          items: () => [
+            running(SUB_AGENTS.find),
+            running(PROCESSES.devServer),
+            copy(SUB_AGENTS.listing),
+            copy(PROCESSES.tests),
+          ],
           open: true,
           picked: "b1f9c2e07",
           late: true,
@@ -2291,7 +2398,12 @@
         };
       }
 
-      const STATE_WORDS = { running: "Running", finished: "Finished", failed: "Failed", stopped: "Stopped" };
+      const STATE_WORDS = {
+        running: "Running",
+        finished: "Finished",
+        failed: "Failed",
+        stopped: "Stopped",
+      };
       const STOPPED_BY = {
         agent: "by the Agent",
         interrupt: "when the turn was interrupted",
@@ -2302,7 +2414,12 @@
       /* An item's state in the list: the state, then what the user asks next (how long, how it ended). */
       function stateLine(item) {
         const st = stateOf(item);
-        const mark = st === "running" ? '<span class="dot running"></span>' : st === "finished" ? ICON.check(11) : "";
+        const mark =
+          st === "running"
+            ? '<span class="dot running"></span>'
+            : st === "finished"
+              ? ICON.check(11)
+              : "";
         const how =
           st === "failed" && item.kind === "process"
             ? ` · exit code ${item.exitCode}`
@@ -2314,7 +2431,8 @@
       function stateBadge(item) {
         const st = stateOf(item);
         const look = { running: "success", finished: "", failed: "danger", stopped: "" }[st];
-        const mark = st === "running" ? '<span class="dot running" style="width:6px;height:6px"></span>' : "";
+        const mark =
+          st === "running" ? '<span class="dot running" style="width:6px;height:6px"></span>' : "";
         return `<span class="badge ${look}">${mark}${STATE_WORDS[st]}</span>`;
       }
 
@@ -2324,7 +2442,8 @@
         const words = lineWords(state.items);
         const mark = words.live ? '<span class="dot running"></span>' : ICON.subAgent(14);
         // In the Stage history it switches to the run's tab; elsewhere it opens a window.
-        const opens = state.place === "stage" ? "" : `aria-haspopup="dialog" aria-expanded="${state.open}"`;
+        const opens =
+          state.place === "stage" ? "" : `aria-haspopup="dialog" aria-expanded="${state.open}"`;
         return `<button class="work-line" data-action="open" ${opens} aria-label="${esc(words.label)}. Show them.">
           <span class="work-line-mark">${mark}</span>
           <span class="work-line-text">${words.html}</span>
@@ -2371,7 +2490,9 @@
           st === "running"
             ? `running for <span data-ran="${esc(item.id)}">${duration(ranFor(item))}</span>`
             : `ran <span>${duration(ranFor(item))}</span>, until ${clock(item.endedAt)}`,
-          isProcess ? `${item.shell} · id ${item.id}` : `<span data-calls>${plural(item.toolCalls, "tool call", "tool calls")}</span>`,
+          isProcess
+            ? `${item.shell} · id ${item.id}`
+            : `<span data-calls>${plural(item.toolCalls, "tool call", "tool calls")}</span>`,
         ];
         const badges = [
           stateBadge(item),
@@ -2394,7 +2515,10 @@
             : "";
         }
         if (st === "failed") {
-          const why = item.kind === "process" ? `Failed with exit code ${item.exitCode} at ${clock(item.endedAt)}.` : `Failed at ${clock(item.endedAt)}. ${item.ending.reason}`;
+          const why =
+            item.kind === "process"
+              ? `Failed with exit code ${item.exitCode} at ${clock(item.endedAt)}.`
+              : `Failed at ${clock(item.endedAt)}. ${item.ending.reason}`;
           return `<div class="ending failed">${ICON.alert(14)}<span>${esc(why)}</span></div>`;
         }
         const words =
@@ -2430,7 +2554,8 @@
       }
 
       function subAgentDetail(item) {
-        const promptFolded = !state.promptOpen && item.prompt.split("\n").length + item.prompt.length / 90 > 3.2;
+        const promptFolded =
+          !state.promptOpen && item.prompt.split("\n").length + item.prompt.length / 90 > 3.2;
         const detailsSwitch = `<button class="switch-label" role="switch" aria-checked="${state.details}" data-action="details">Details<span class="switch"></span></button>`;
         return `<div class="view-detail-scroll" id="sub-agent-scroll">
           ${detailHead(item)}
@@ -2452,15 +2577,22 @@
         const rows = [];
         item.entries.forEach((entry, index) => {
           if (entry.text) rows.push(subAgentTurn(item, entry.text));
-          else if (state.details) rows.push(toolFold(entry.tools, index === item.entries.length - 1 && entry.fresh));
+          else if (state.details)
+            rows.push(toolFold(entry.tools, index === item.entries.length - 1 && entry.fresh));
         });
         if (!state.details && item.entries.every((e) => !e.text)) {
-          rows.push(`<p class="detail-empty">Nothing written yet. Its tool calls show with Details.</p>`);
+          rows.push(
+            `<p class="detail-empty">Nothing written yet. Its tool calls show with Details.</p>`,
+          );
         }
         if (st === "running") {
-          rows.push(`<div class="in-column"><span class="typing" aria-label="Working"><i></i><i></i><i></i></span></div>`);
+          rows.push(
+            `<div class="in-column"><span class="typing" aria-label="Working"><i></i><i></i><i></i></span></div>`,
+          );
         } else if (item.reportedBack) {
-          rows.push(`<div class="in-column reported"><b>Reported back to ${item.startedBy}</b>${said(item.reportedBack)}</div>`);
+          rows.push(
+            `<div class="in-column reported"><b>Reported back to ${item.startedBy}</b>${said(item.reportedBack)}</div>`,
+          );
         }
         const strip = endingStrip(item);
         if (strip) rows.push(`<div class="in-column">${strip}</div>`);
@@ -2489,7 +2621,10 @@
 
       /* The window the line opens, in the chat drawer and on the Task page: large, one height, no actions but Close. */
       function viewWindow() {
-        const where = state.place === "chat" ? "Jim's chat · Try a search index on a copy of the data" : "Jim's Thread on Search across Threads";
+        const where =
+          state.place === "chat"
+            ? "Jim's chat · Try a search index on a copy of the data"
+            : "Jim's Thread on Search across Threads";
         return `<div class="window-backdrop" data-action="backdrop">
           <div class="window" role="dialog" aria-modal="true" aria-labelledby="view-title">
             <div class="window-head">
@@ -2594,7 +2729,9 @@
           ${composer({ placeholder: "Write to Jim…" })}
         </section>`;
         const page = `<div class="task-page">${taskRecord()}${narrow ? "" : conversation}</div>`;
-        const drawer = narrow ? `<div class="scrim"></div><span class="drawer-handle">Conversation</span>${conversation}` : "";
+        const drawer = narrow
+          ? `<div class="scrim"></div><span class="drawer-handle">Conversation</span>${conversation}`
+          : "";
         return shell("Search across Threads", "Work ›", page + drawer);
       }
 
@@ -2626,13 +2763,21 @@
             <div class="window-bar"><span class="grow"></span><button class="btn secondary">Close</button></div>
           </div>
         </div>`;
-        return shell("Search across Threads", "Work ›", `<div class="task-page">${taskRecord()}</div>`, { overlay: history });
+        return shell(
+          "Search across Threads",
+          "Work ›",
+          `<div class="task-page">${taskRecord()}</div>`,
+          { overlay: history },
+        );
       }
 
       /* ---------- The bar, the note and the reference ---------- */
       function segments(name, options, current) {
         return `<div class="control"><span class="control-label">${name}</span><div class="segments">${options
-          .map((o) => `<button data-${name.toLowerCase()}="${o.key}" aria-pressed="${o.key === current}">${o.label}</button>`)
+          .map(
+            (o) =>
+              `<button data-${name.toLowerCase()}="${o.key}" aria-pressed="${o.key === current}">${o.label}</button>`,
+          )
           .join("")}</div></div>`;
       }
       function renderBar() {
@@ -2649,10 +2794,14 @@
         const where = {
           chat: "In Jim's chat in the chat drawer, the view opens in a large window.",
           task: "On the Task page, in Jim's tab of the conversation (a drawer on a narrow page), the view opens in a large window.",
-          stage: "In the Stage history, already a window, the view is the run's third tab, beside Summary and Thread; the line in the Thread tab opens it.",
+          stage:
+            "In the Stage history, already a window, the view is the run's third tab, beside Summary and Thread; the line in the Thread tab opens it.",
         }[state.place];
-        const replay = s.late ? '<button class="btn sm secondary" data-action="replay">Replay the late open</button>' : "";
-        document.getElementById("note").innerHTML = `<span><strong>${s.label}.</strong> ${s.note} ${where}</span>${replay}`;
+        const replay = s.late
+          ? '<button class="btn sm secondary" data-action="replay">Replay the late open</button>'
+          : "";
+        document.getElementById("note").innerHTML =
+          `<span><strong>${s.label}.</strong> ${s.note} ${where}</span>${replay}`;
       }
 
       function renderReference() {
@@ -2728,7 +2877,9 @@
         const scroll = document.getElementById("sub-agent-scroll");
         const item = picked();
         if (scroll && item && stateOf(item) === "running") scroll.scrollTop = scroll.scrollHeight;
-        document.querySelectorAll(".frame .thread").forEach((thread) => (thread.scrollTop = thread.scrollHeight));
+        document
+          .querySelectorAll(".frame .thread")
+          .forEach((thread) => (thread.scrollTop = thread.scrollHeight));
       }
       const picked = () => state.items.find((i) => i.id === state.picked);
       function onOutputScroll(event) {
@@ -2753,9 +2904,17 @@
         const clockNow = clock(now());
         state.items.forEach((item) => {
           if (stateOf(item) !== "running") return;
-          if (item.stream === "vite" && tick % 3 === 0) appendOutput(item, [`${clockNow}:${String(Math.floor(now()) % 60).padStart(2, "0")} ${VITE_MORE[(tick / 3) % VITE_MORE.length]}`]);
+          if (item.stream === "vite" && tick % 3 === 0)
+            appendOutput(item, [
+              `${clockNow}:${String(Math.floor(now()) % 60).padStart(2, "0")} ${VITE_MORE[(tick / 3) % VITE_MORE.length]}`,
+            ]);
           if (item.stream === "tests") appendOutput(item, [testLine(4000 + tick)]);
-          if (item.kind === "sub-agent" && item.coming.length > 0 && tick % 7 === (item.background ? 3 : 0)) appendEntry(item);
+          if (
+            item.kind === "sub-agent" &&
+            item.coming.length > 0 &&
+            tick % 7 === (item.background ? 3 : 0)
+          )
+            appendEntry(item);
         });
         document.querySelectorAll("[data-ran]").forEach((el) => {
           const item = state.items.find((i) => i.id === el.dataset.ran);

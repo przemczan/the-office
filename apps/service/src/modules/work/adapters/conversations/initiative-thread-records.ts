@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { ENDED_INITIATIVE_CONVERSATION_WORDS } from "@the-office/contracts";
+import { ENDED_INITIATIVE_CONVERSATION_WORDS, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import {
   InitiativeThreadSetups,
   type InitiativeThreadRequest,
@@ -18,6 +18,7 @@ import { PLANNER } from "../../domain/planning.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
+import { TaskDecisions } from "../../ports/task-decisions.js";
 import {
   MARK_PLANNED,
   PROPOSE_PIPELINE,
@@ -52,10 +53,12 @@ export const SHAPING_OFFICE_TOOLS = [
 
 /**
  * The Office tools of an Initiative's planning session: it reads every record and Attachment, moves
- * the Initiative's Tasks to Planning as their turn comes and writes each one's parts by its Task id.
+ * the Initiative's Tasks to Planning as their turn comes, writes each one's parts by its Task id,
+ * and opens a Decision on a Task that needs the user's answer.
  */
 export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
+  OPEN_DECISION_TOOL,
   START_PLANNING,
   WRITE_PLAN,
   WRITE_DEFINITION_OF_DONE,
@@ -76,13 +79,18 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     private readonly initiatives: InitiativeService,
     private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
+    private readonly decisions: TaskDecisions,
   ) {}
 
   onModuleInit(): void {
     this.setups.provide(this);
   }
 
-  async setUp({ initiativeId, roleKey }: InitiativeThreadRequest): Promise<InitiativeThreadSetup> {
+  async setUp({
+    threadId,
+    initiativeId,
+    roleKey,
+  }: InitiativeThreadRequest): Promise<InitiativeThreadSetup> {
     const [initiative, record] = await Promise.all([
       this.initiatives.read(initiativeId),
       this.initiatives.recordText(initiativeId),
@@ -99,15 +107,20 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     return {
       instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
       officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
-      record: await this.planningBrief(initiative, record),
+      record: await this.planningBrief(initiative, record, threadId),
       sessionRefusal,
     };
   }
 
-  private async planningBrief(initiative: Initiative, record: string): Promise<string> {
-    const [byInitiative, pipelines] = await Promise.all([
+  private async planningBrief(
+    initiative: Initiative,
+    record: string,
+    threadId: string,
+  ): Promise<string> {
+    const [byInitiative, pipelines, waiting] = await Promise.all([
       this.initiatives.tasksByInitiative(),
       this.pipelines.list(),
+      this.decisions.openInThread(threadId),
     ]);
     const tasks = byInitiative.get(initiative.id) ?? [];
     const projects = await Promise.all(
@@ -115,6 +128,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     );
     return initiativePlanningBrief({
       initiative,
+      waiting,
       record,
       tasks,
       projects: projects.filter((project) => project !== undefined),

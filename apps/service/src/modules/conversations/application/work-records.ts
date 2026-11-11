@@ -10,6 +10,14 @@ export interface WorkRecordSource {
   taskTitle(taskId: string): Promise<string | undefined>;
   /** The ids of the Task's Attachments, which a Decision on it may name. */
   taskAttachmentIds(taskId: string): Promise<readonly string[]>;
+  /**
+   * As `taskAttachmentIds`, for a Decision in the Initiative's planning Thread: undefined when the
+   * Task isn't one of the Initiative's.
+   */
+  initiativeTaskAttachmentIds(
+    initiativeId: string,
+    taskId: string,
+  ): Promise<readonly string[] | undefined>;
   initiativeRecord(initiativeId: string): Promise<string | undefined>;
   ideaRecord(ideaId: string): Promise<string | undefined>;
 }
@@ -38,6 +46,13 @@ export class WorkRecords implements WorkRecordSource {
 
   taskAttachmentIds(taskId: string): Promise<readonly string[]> {
     return this.registered().taskAttachmentIds(taskId);
+  }
+
+  initiativeTaskAttachmentIds(
+    initiativeId: string,
+    taskId: string,
+  ): Promise<readonly string[] | undefined> {
+    return this.registered().initiativeTaskAttachmentIds(initiativeId, taskId);
   }
 
   initiativeRecord(initiativeId: string): Promise<string | undefined> {
