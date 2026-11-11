@@ -34,6 +34,15 @@ function part(record: string, heading: string): string[] {
 }
 
 describe("taskRecordText", () => {
+  it("names the Task's Pipeline, or says it has none yet", () => {
+    expect(taskRecordText(aTask(), NOTHING).split("\n")[1]).toBe(
+      "- Project admin-panel; Backlog; normal priority; Pipeline full",
+    );
+    expect(taskRecordText(aTask({ pipelineId: undefined }), NOTHING).split("\n")[1]).toBe(
+      "- Project admin-panel; Backlog; normal priority; no Pipeline yet",
+    );
+  });
+
   it("names each Move to another Project, oldest first", () => {
     const task = aTask({
       projectId: "shop",

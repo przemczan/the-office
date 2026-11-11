@@ -44,13 +44,17 @@ export interface TaskRecordParts {
  * Project, its linked records (one line each, never their own links), its Stage results with every
  * Handover note, and its kept state changes with who or what made each.
  */
+function pipelineWords({ pipelineId }: Task): string {
+  return pipelineId === undefined ? "no Pipeline yet" : `Pipeline ${pipelineId}`;
+}
+
 export function taskRecordText(
   task: Task,
   { attachments, links, stageResults, stateChanges }: TaskRecordParts,
 ): string {
   return [
     `${task.title} (Task ${task.id})`,
-    `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; Pipeline ${task.pipelineId}`,
+    `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; ${pipelineWords(task)}`,
     ...(task.state === "planning" && task.autoMode ? ["- Planning in auto mode"] : []),
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,

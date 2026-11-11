@@ -135,7 +135,7 @@ describe("finishInitiative", () => {
 });
 
 describe("addTaskToInitiative", () => {
-  const setting = { pipelineId: "full", order: "a3", createdBy: THE_USER };
+  const setting = { order: "a3", createdBy: THE_USER };
   const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
 
   it("makes a Task in Shaping that names an Initiative being shaped", () => {
@@ -237,7 +237,7 @@ describe("writeOutcome", () => {
 });
 
 describe("the CTO's Tasks and their dependencies", () => {
-  const setting = { pipelineId: "full", order: "a3", createdBy: THE_USER };
+  const setting = { order: "a3", createdBy: THE_USER };
   const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
   const blocker = aTask({ id: "blocker", projectId: "web" });
   const its = aTask({ id: "its", initiativeId: "initiative-1" });

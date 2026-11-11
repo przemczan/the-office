@@ -45,16 +45,15 @@ export class TaskService {
   ) {}
 
   /**
-   * A new Task in Backlog, following the Project's default Pipeline, last on the board, with a Plan
-   * and a Definition of Done, unconfirmed, when its creator writes both.
+   * A new Task in Backlog, with no Pipeline yet, last on the board, with a Plan and a Definition of
+   * Done, unconfirmed, when its creator writes both.
    */
   async create(
     given: NewTask,
     createdBy: Author,
     written?: WrittenPlanAndDefinitionOfDone,
   ): Promise<Task> {
-    const project = await this.projects.find(given.projectId);
-    if (!project) {
+    if (!(await this.projects.find(given.projectId))) {
       const problems = [...newTaskProblems(given), ...writtenParts(written).problems];
       throw new TaskRefused([...problems, `There is no Project "${given.projectId}".`]);
     }
@@ -63,7 +62,6 @@ export class TaskService {
         randomUUID(),
         given,
         {
-          pipelineId: project.defaultPipeline,
           order: orderAfter(takenOrders),
           originIdeaId: undefined,
           initiativeId: undefined,
@@ -165,19 +163,19 @@ export class TaskService {
   }
 
   /**
-   * Move, by the user: the Task goes to another Project and its default Pipeline, refused with
+   * Move, by the user: the Task goes to another Project, with no Pipeline there yet, refused with
    * every reason it can't. Its history and worktree are read holding the Task, so a planning or a
    * person's Thread that opens meanwhile either refuses the Move or finds the Task moved. A Ready
    * Task leaves Ready in the same save, published after the Move, as a changing Save publishes it.
    */
   async move(id: string, projectId: string): Promise<Task> {
-    const project = await this.projects.find(projectId);
-    if (!project) throw new TaskRefused([`There is no Project "${projectId}".`]);
-    const destination = { projectId, defaultPipeline: project.defaultPipeline };
+    if (!(await this.projects.find(projectId))) {
+      throw new TaskRefused([`There is no Project "${projectId}".`]);
+    }
     const { task, event } = await this.repository.updateWithStateChanges(
       id,
       async (held, stateChanges) =>
-        moveTask(held, destination, await this.moveGrounds(held, stateChanges), THE_USER),
+        moveTask(held, projectId, await this.moveGrounds(held, stateChanges), THE_USER),
     );
     await this.publishMove(event);
     return task;

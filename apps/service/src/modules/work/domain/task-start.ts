@@ -1,5 +1,5 @@
 import { capWaits, exceededCaps, type CapWaits, type UsageAtStart } from "./cap-waits.js";
-import type { Task } from "./task.js";
+import { hasPipeline, NO_PIPELINE_YET, type Task } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
 import { blockedProblems } from "./task-dependencies.js";
@@ -91,6 +91,7 @@ export function startReasons(
       `Only a Ready Task can start; this one is in ${TASK_STATE_NAMES[task.state]}.`,
     );
   }
+  if (!hasPipeline(task)) return refusedFor(NO_PIPELINE_YET);
   const others = startedTasks.filter(
     (other) => other.id !== task.id && STARTED_STATES.includes(other.state),
   );
@@ -128,6 +129,7 @@ export function startTask(
 ): TaskChange<TaskStarted> {
   const { refusals, waits } = startReasons(task, conditions, held);
   if (refusals.length > 0 || waits.length > 0) throw new TaskRefused([...refusals, ...waits]);
+  if (!hasPipeline(task)) throw new TaskRefused([NO_PIPELINE_YET]);
   const personRole = conditions.stages && firstAgentStage(conditions.stages)?.role;
   return withStateChange(
     {

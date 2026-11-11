@@ -122,7 +122,7 @@ describe("capture_idea", () => {
 });
 
 describe("create_task", () => {
-  it("creates a Task in Backlog in the person's name, on the Project's default Pipeline", async () => {
+  it("creates a Task in Backlog in the person's name, with no Pipeline yet", async () => {
     const result = await call(CREATE_TASK, { title: "Fix the login redirect", projectId });
 
     const [task] = (await work.app.get(TaskService).list()).filter(
@@ -133,11 +133,11 @@ describe("create_task", () => {
       description: "",
       state: "backlog",
       priority: "normal",
-      pipelineId: "quick-fix",
+      pipelineId: undefined,
       createdBy: { kind: "person", roleKey: "planner" },
     });
     expect(result).toEqual({
-      text: `Created the Task "Fix the login redirect" (Task ${task?.id}) in Backlog in ${projectId}, on the Pipeline quick-fix.`,
+      text: `Created the Task "Fix the login redirect" (Task ${task?.id}) in Backlog in ${projectId}, with no Pipeline yet: the Planner proposes one, or the user chooses one.`,
       isError: false,
     });
   });
@@ -201,7 +201,7 @@ describe("create_task", () => {
       createdBy: { kind: "person", roleKey: "planner" },
     });
     expect(result).toEqual({
-      text: `Created the Task "Rename the Save button" (Task ${task?.id}) in Backlog in ${projectId}, on the Pipeline quick-fix. Its Plan and Definition of Done are Not confirmed until the user confirms each on the Task page.`,
+      text: `Created the Task "Rename the Save button" (Task ${task?.id}) in Backlog in ${projectId}, with no Pipeline yet: the Planner proposes one, or the user chooses one. Its Plan and Definition of Done are Not confirmed until the user confirms each on the Task page.`,
       isError: false,
     });
     expect(await work.app.get(TaskRecords).recordText(task!.id)).toContain(

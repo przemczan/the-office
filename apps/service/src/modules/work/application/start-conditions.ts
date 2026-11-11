@@ -3,7 +3,7 @@ import { OFFICE_UPDATE_SCHEDULED, OfficeUpdateHold } from "../../office-updates/
 import { EngineModels, type EngineId } from "../../engine/index.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { DailyCapsAtStart, UsageAtStart, WindowsAtStart } from "../domain/cap-waits.js";
-import type { Task } from "../domain/task.js";
+import { hasPipeline, type Task } from "../domain/task.js";
 import { firstAgentStage, type StartConditions } from "../domain/task-start.js";
 import type { UsageSettings } from "../domain/usage-settings.js";
 import { AccountWindows } from "../ports/account-windows.js";
@@ -72,7 +72,7 @@ export class StartConditionsReader {
     const officeUpdateHold = this.updateHold.isScheduled() ? OFFICE_UPDATE_SCHEDULED : undefined;
     return async (task) => {
       const [pipeline, project, usage] = await Promise.all([
-        this.pipelines.find(task.pipelineId),
+        hasPipeline(task) ? this.pipelines.find(task.pipelineId) : undefined,
         this.projects.find(task.projectId),
         this.usageOf(task, everyTask, usageSettings, { daily, engineNames, now }),
       ]);

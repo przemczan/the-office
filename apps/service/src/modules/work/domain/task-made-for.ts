@@ -33,7 +33,6 @@ export function createTaskMadeFor(
     id,
     { title: words.title, projectId, priority: "normal" },
     {
-      pipelineId: words.pipelineId,
       order: setting.order,
       originIdeaId: undefined,
       initiativeId: undefined,
@@ -44,6 +43,7 @@ export function createTaskMadeFor(
   const madeTask: Task = {
     ...task,
     state: "ready",
+    pipelineId: words.pipelineId,
     plan: words.plan,
     planConfirmed: true,
     filesToChange: [],

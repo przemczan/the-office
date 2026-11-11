@@ -299,7 +299,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: CREATE_TASK,
       description:
-        "Creates a Task in Backlog in your name, in one Project, when the user asks for one or agrees to it. It follows the Project's default Pipeline. Give it a title and, when the user said what it is for, a Description the Planner plans from. When it is already known how the Task will be done and what must be true when it is, give it both a Plan and a Definition of Done, or neither: they land Not confirmed, and the user confirms each on the Task page and marks the Task Ready without Planning, or plans it from them.",
+        "Creates a Task in Backlog in your name, in one Project, when the user asks for one or agrees to it. It has no Pipeline until the Planner proposes one or the user chooses one. Give it a title and, when the user said what it is for, a Description the Planner plans from. When it is already known how the Task will be done and what must be true when it is, give it both a Plan and a Definition of Done, or neither: they land Not confirmed, and the user confirms each and chooses a Pipeline on the Task page and marks the Task Ready without Planning, or plans it from them.",
       input: z.object({
         title: z.string().describe("One line naming the outcome."),
         description: z
@@ -344,7 +344,7 @@ export class WorkOfficeTools implements OnModuleInit {
             await personInSession(this.sessionPeople, sessionId),
             writtenPartsGiven(parts),
           );
-          const created = `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Pipeline ${task.pipelineId}.`;
+          const created = `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, with no Pipeline yet: the Planner proposes one, or the user chooses one.`;
           return parts.plan === undefined
             ? created
             : `${created} Its Plan and Definition of Done are Not confirmed until the user confirms each on the Task page.`;

@@ -452,7 +452,7 @@ describe("POST /api/tasks/:id/make-a-plan", () => {
 });
 
 describe("the Planner's proposals on the record", () => {
-  it("show as proposed, with the Pipeline beside the one the Task follows", async () => {
+  it("show as proposed, the Pipeline too while the Task has none yet", async () => {
     const task = await proposedTask();
 
     expect(await readTask(task.id)).toMatchObject({
@@ -460,7 +460,7 @@ describe("the Planner's proposals on the record", () => {
       planConfirmed: false,
       definitionOfDone: ["Signing in returns to the page asked for."],
       definitionOfDoneConfirmed: false,
-      pipelineId: "quick-fix",
+      pipelineId: null,
       proposedPipeline: { pipelineId: "full", reason: "It changes code." },
     });
   });
@@ -560,7 +560,7 @@ describe("POST /api/tasks/:id/ready", () => {
   it("refuses a confirmed Task while a planning Decision is open", async () => {
     const task = await proposedTask();
     await saveAndConfirmParts(task.id);
-    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "full" });
     work.app.get(TaskDecisionsForTests).open.set(task.id, 1);
 
     const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
@@ -572,7 +572,7 @@ describe("POST /api/tasks/:id/ready", () => {
     expect((await readTask(task.id)).state).toBe("planning");
   });
 
-  it("refuses a confirmed Task while its Pipeline proposal is open, and marks it Ready once kept", async () => {
+  it("refuses a confirmed Task while its Pipeline proposal is open, and marks it Ready once another is chosen", async () => {
     const task = await proposedTask();
     await saveAndConfirmParts(task.id);
 
@@ -581,8 +581,8 @@ describe("POST /api/tasks/:id/ready", () => {
     expect(workRefusalSchema.parse(await proposed.json()).reasons).toEqual([
       "Take or decline the proposed Pipeline before the Task can be Ready.",
     ]);
-    // Keeping the Pipeline the Task follows declines the proposal.
-    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
+    // Choosing another Pipeline declines the proposal.
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
     work.published.length = 0;
 
     const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
@@ -596,9 +596,10 @@ describe("POST /api/tasks/:id/ready", () => {
 });
 
 describe("POST /api/tasks/:id/ready from Backlog", () => {
-  it("marks Ready a Task whose Plan and Definition of Done the user wrote, without Planning", async () => {
+  it("marks Ready a Task whose Plan and Definition of Done the user wrote and Pipeline they chose, without Planning", async () => {
     const task = await create();
     await saveAndConfirmParts(task.id);
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
     work.published.length = 0;
 
     const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
@@ -611,7 +612,7 @@ describe("POST /api/tasks/:id/ready from Backlog", () => {
     expect(work.app.get(TaskThreadsForTests).opened).toEqual([]);
   });
 
-  it("is refused with the reasons until both parts are written and no Decision is open", async () => {
+  it("is refused with the reasons until both parts are written, a Pipeline is chosen and no Decision is open", async () => {
     const task = await create();
     await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
     await sendJson(work, "POST", `/tasks/${task.id}/plan/confirm`);
@@ -621,11 +622,17 @@ describe("POST /api/tasks/:id/ready from Backlog", () => {
       definitionOfDone: ["Mine."],
     });
     await sendJson(work, "POST", `/tasks/${task.id}/definition-of-done/confirm`);
+    const noPipeline = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
     work.app.get(TaskDecisionsForTests).open.set(task.id, 1);
     const decisionOpen = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
 
     expect(workRefusalSchema.parse(await noDefinitionOfDone.json()).reasons).toEqual([
       "A Task needs a Definition of Done before it can be Ready.",
+      "Choose a Pipeline before the Task can be Ready.",
+    ]);
+    expect(workRefusalSchema.parse(await noPipeline.json()).reasons).toEqual([
+      "Choose a Pipeline before the Task can be Ready.",
     ]);
     expect(workRefusalSchema.parse(await decisionOpen.json()).reasons).toEqual([
       "Answer the open Decision before the Task can be Ready.",

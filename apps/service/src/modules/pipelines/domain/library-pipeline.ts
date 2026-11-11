@@ -16,7 +16,8 @@ export interface PipelineEdit {
 export interface TaskOnPipeline {
   readonly state: string;
   readonly projectId: string;
-  readonly pipelineId: string;
+  /** Undefined while the Task has none: it uses no Pipeline. */
+  readonly pipelineId: string | undefined;
 }
 
 /** A Project as the library weighs who names a Pipeline as their default, and what it can run. */

@@ -103,7 +103,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     estimatedTokens: task.estimatedTokens ?? null,
     definitionOfDone: [...task.definitionOfDone],
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
-    pipelineId: task.pipelineId,
+    pipelineId: task.pipelineId ?? null,
     proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
     autoMode: task.autoMode,
     initiativePlanningThreadId: task.initiativePlanningThreadId ?? null,

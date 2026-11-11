@@ -650,7 +650,7 @@ test(
     await picker.selectOption({ label: "Quick fix" });
 
     await expect(
-      page.getByText(`New Tasks in ${project.name} start from Quick fix.`),
+      page.getByText(`${project.name}'s default Pipeline is Quick fix now.`),
     ).toBeVisible();
     await expect(page.getByText(/^Implement → Tests → Publish\./)).toBeVisible();
   },

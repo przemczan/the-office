@@ -30,6 +30,7 @@ const RECORD: PlanningRecord = {
   project: {
     name: "Admin panel",
     baseBranch: "main",
+    defaultPipeline: "full",
     installCommand: "npm install",
     commands: [
       { key: "build", name: "Build", commandLine: "npm run build" },
@@ -167,6 +168,14 @@ describe("a planning Brief", () => {
 
     expect(brief).toMatch(
       /## The Plan, not yet confirmed\n\nKeep the requested path through the sign-in\.\n\n## The Definition of Done, confirmed\n\n- Signing in returns the user to the page they asked for\.$/,
+    );
+  });
+
+  it("says the Task has no Pipeline yet and names the Project's default", () => {
+    const task = aTask({ pipelineId: undefined });
+
+    expect(planningBrief({ ...RECORD, task })).toContain(
+      "## The Pipelines\n\nThe Task has no Pipeline yet; the Project's default is Full (full). Propose the one its Definition of Done needs with propose_pipeline:",
     );
   });
 

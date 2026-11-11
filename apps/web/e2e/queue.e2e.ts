@@ -97,7 +97,10 @@ async function addedProject(page: Page, name: string, label: string): Promise<Pr
   return projectSchema.parse(await roomy.json());
 }
 
-/** A Ready Task, its Plan and Definition of Done confirmed, as planning leaves one. */
+/**
+ * A Ready Task, its Plan and Definition of Done confirmed and its Project's default Pipeline
+ * chosen, as planning leaves one.
+ */
 async function readyTask(page: Page, project: Project, title: string): Promise<Task> {
   const response = await page.request.post("/api/tasks", {
     data: { title, projectId: project.id, priority: "normal" },
@@ -105,7 +108,9 @@ async function readyTask(page: Page, project: Project, title: string): Promise<T
   const task = taskSchema.parse(await response.json());
   await queryOfficeDatabase(
     `update tasks set state = 'ready', plan = 'Mine.', plan_confirmed = true,
-       definition_of_done = '{Mine.}', definition_of_done_confirmed = true where id = $1`,
+       definition_of_done = '{Mine.}', definition_of_done_confirmed = true,
+       pipeline_id = (select default_pipeline from projects where projects.id = tasks.project_id)
+     where id = $1`,
     [task.id],
   );
   return task;
@@ -800,7 +805,9 @@ async function initiativeWithReadyTasks(
   expect((await page.request.post(`/api/initiatives/${initiative.id}/confirm`)).status()).toBe(200);
   await queryOfficeDatabase(
     `update tasks set state = 'ready', plan = 'Mine.', plan_confirmed = true,
-       definition_of_done = '{Mine.}', definition_of_done_confirmed = true where id = any($1)`,
+       definition_of_done = '{Mine.}', definition_of_done_confirmed = true,
+       pipeline_id = (select default_pipeline from projects where projects.id = tasks.project_id)
+     where id = any($1)`,
     [tasks.map(({ id }) => id)],
   );
   return { initiative, tasks };

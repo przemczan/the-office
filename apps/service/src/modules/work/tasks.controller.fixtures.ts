@@ -157,6 +157,7 @@ export function tasksHttp(current: () => TasksHttpTest) {
   async function readyFromBacklog(): Promise<Task> {
     const task = await create();
     await saveAndConfirmParts(task.id);
+    await sendJson(work(), "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
     await sendJson(work(), "POST", `/tasks/${task.id}/ready`);
     return task;
   }
@@ -166,10 +167,11 @@ export function tasksHttp(current: () => TasksHttpTest) {
     return `${current().projectId}-other`;
   }
 
+  /** A planned Task marked Ready, on the Quick fix Pipeline in place of the one proposed. */
   async function readyTask(writing: PlanChange = MY_PLAN): Promise<Task> {
     const task = await proposedTask();
     await saveAndConfirmParts(task.id, writing);
-    await sendJson(work(), "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
+    await sendJson(work(), "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
     await sendJson(work(), "POST", `/tasks/${task.id}/ready`);
     return task;
   }

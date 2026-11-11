@@ -62,8 +62,12 @@ export interface Task {
   readonly definitionOfDone: readonly string[];
   /** As `planConfirmed`, for the Definition of Done. */
   readonly definitionOfDoneConfirmed: boolean;
-  /** The Pipeline its work follows; its own Stages, once it has them, are kept by Pipelines. */
-  readonly pipelineId: string;
+  /**
+   * The Pipeline its work follows; its own Stages, once it has them, are kept by Pipelines.
+   * Undefined until one is chosen: confirmed from the Planner's proposal, or chosen by the user
+   * (spec §2.1). A Task is never Ready without one (`hasPipeline`).
+   */
+  readonly pipelineId: string | undefined;
   /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
   readonly proposedPipeline: ProposedPipeline | undefined;
   /**
@@ -135,6 +139,16 @@ export interface ProjectMove {
   readonly at: Date;
   readonly by: Author;
 }
+
+/** A Task whose Pipeline is chosen, as every Ready and started Task's is. */
+export type TaskWithPipeline = Task & { readonly pipelineId: string };
+
+export function hasPipeline(task: Task): task is TaskWithPipeline {
+  return task.pipelineId !== undefined;
+}
+
+/** Why a Task with no Pipeline can't start; it can't be Ready either (task-states.ts). */
+export const NO_PIPELINE_YET = "The Task has no Pipeline yet: choose a Pipeline first.";
 
 /** A Pipeline the Planner chose from the Definition of Done, with why (spec §2.3). */
 export interface ProposedPipeline {

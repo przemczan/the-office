@@ -13,7 +13,7 @@ export const PIPELINE_PROPOSAL_ELEMENT_ID = "task-pipeline-proposal";
 
 /**
  * The Pipeline the Planner proposes, with why, at the rail's foot: the user takes it, keeps the one
- * the Task follows or chooses another from the library; each ends the proposal.
+ * the Task follows (when it has one) or chooses another from the library; each ends the proposal.
  */
 export function PipelineProposal({
   task,
@@ -31,10 +31,12 @@ export function PipelineProposal({
   const nameOf = (id: string): string =>
     pipelines.data?.find((candidate) => candidate.id === id)?.name ?? id;
   const proposedName = nameOf(proposed.pipelineId);
-  const current = pipeline?.name ?? task.pipelineId;
-  const same = proposed.pipelineId === task.pipelineId;
+  // A Task with no Pipeline yet has none to keep.
+  const currentPipelineId = task.pipelineId;
+  const same = proposed.pipelineId === currentPipelineId;
   const others =
-    pipelines.data?.filter(({ id }) => id !== proposed.pipelineId && id !== task.pipelineId) ?? [];
+    pipelines.data?.filter(({ id }) => id !== proposed.pipelineId && id !== currentPipelineId) ??
+    [];
   return (
     <section
       id={PIPELINE_PROPOSAL_ELEMENT_ID}
@@ -54,14 +56,14 @@ export function PipelineProposal({
         >
           {same ? "Confirm" : `Use ${proposedName}`}
         </Button>
-        {!same && (
+        {!same && currentPipelineId !== null && (
           <Button
             size="sm"
             variant="secondary"
-            loading={choosing.isPending && choosing.variables === task.pipelineId}
-            onClick={() => choosing.mutate(task.pipelineId)}
+            loading={choosing.isPending && choosing.variables === currentPipelineId}
+            onClick={() => choosing.mutate(currentPipelineId)}
           >
-            Keep {current}
+            Keep {pipeline?.name ?? currentPipelineId}
           </Button>
         )}
         {others.length > 0 && (

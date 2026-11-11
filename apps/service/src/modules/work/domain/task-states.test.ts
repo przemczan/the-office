@@ -72,4 +72,12 @@ describe("changeTaskState", () => {
     expect(change?.task.state).toBe("ready");
     expect(change?.event).toMatchObject({ from: "backlog", to: "ready" });
   });
+
+  it("refuses Mark Ready while the Task has no Pipeline", () => {
+    for (const state of ["backlog", "planning"] as const) {
+      expect(() => markTaskReady(aPlannedTask({ state, pipelineId: undefined }), 0)).toThrow(
+        new TaskRefused(["Choose a Pipeline before the Task can be Ready."]),
+      );
+    }
+  });
 });

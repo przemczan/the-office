@@ -148,8 +148,8 @@ export class TaskStagesService implements OnModuleInit {
 
   /**
    * A swap before Start sets aside Stages edited for the old Pipeline: the Task follows the new. A
-   * Move sets them aside even when the new Project's default is the same Pipeline (no `pipelineId`):
-   * they were edited for the old Project, and the Task follows the library from now on.
+   * Move sets them aside (no `pipelineId`): they were edited for the old Project, and the Task has
+   * no Pipeline there until one is chosen.
    */
   private async reset(taskId: string, pipelineId?: string): Promise<void> {
     await this.changes.run(taskId, async () => {
@@ -167,6 +167,9 @@ export class TaskStagesService implements OnModuleInit {
   private async review(taskId: string, shown: readonly Stage[]): Promise<ReviewedEdit> {
     const edited = withoutResolveStages(shown);
     const { state, pipelineId, projectId } = await this.tasks.read(taskId);
+    if (pipelineId === undefined) {
+      throw new StagesEditRefused([{ text: "The Task has no Pipeline yet: choose one first." }]);
+    }
     const own = await this.ownOrCopied(taskId, pipelineId);
     const runs = await this.runs.list(taskId);
     const keptBecause = whyStagesAreKept(state);

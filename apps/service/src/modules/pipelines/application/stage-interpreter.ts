@@ -379,11 +379,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
    * Stage's Role vacant, as much as when it resumes.
    */
   private async walk(taskId: string): Promise<void> {
+    const task = await this.tasks.read(taskId);
+    // Work never starts a Task with no Pipeline, as it is never Ready without one.
+    if (task.pipelineId === undefined) throw new Error(`Task ${taskId} has no Pipeline to walk.`);
     // The Task's own Stages, made here too: the event bus only logs a copy that failed as it started.
-    const { pipelineId, trace } = await this.taskStages.make(
-      taskId,
-      (await this.tasks.read(taskId)).pipelineId,
-    );
+    const { pipelineId, trace } = await this.taskStages.make(taskId, task.pipelineId);
     if (await this.staffingHolds.holdIfLackingPeople(taskId)) return;
     const attributes = { "office.task.id": taskId, "office.pipeline": pipelineId };
     await this.telemetry.inTrace("walk", attributes, trace, async (_span, root) => {

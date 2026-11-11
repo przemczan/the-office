@@ -127,7 +127,7 @@ describe("the Move window", () => {
     const choices = [...document.body.querySelectorAll('[role="radiogroup"] label')];
     expect(choices.map((choice) => choice.textContent)).toEqual(["SHShop"]);
     const text = document.body.textContent;
-    expect(text).toContain("It follows Shop's default Pipeline, Quick fix");
+    expect(text).toContain("It has no Pipeline in Shop until one is chosen");
     expect(text).toContain("It goes back to Backlog, and out of the queue");
     expect(text).toContain("both Not confirmed");
     expect(text).toContain("Its Initiative, dependencies, Attachments and Threads stay with it.");

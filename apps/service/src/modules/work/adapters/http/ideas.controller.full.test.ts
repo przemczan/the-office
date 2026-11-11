@@ -77,7 +77,7 @@ describe("GET /api/ideas", () => {
 });
 
 describe("POST /api/ideas/:id/shape", () => {
-  it("makes a Task in Backlog in the chosen Project, moving the Idea's Attachments", async () => {
+  it("makes a Task in Backlog in the chosen Project with no Pipeline yet, moving the Idea's Attachments", async () => {
     const idea = await capture({ projectId: null });
     const link = await sendJson(work, "POST", `/ideas/${idea.id}/attachments/links`, {
       name: "Notes",
@@ -96,7 +96,7 @@ describe("POST /api/ideas/:id/shape", () => {
       projectId,
       state: "backlog",
       priority: "normal",
-      pipelineId: "quick-fix",
+      pipelineId: null,
       originIdeaId: idea.id,
     });
     const shaped = ideaSchema.parse(

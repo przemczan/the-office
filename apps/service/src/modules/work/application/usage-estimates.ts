@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EngineModels, hasUsageWindows, type EngineId } from "../../engine/index.js";
-import type { Task } from "../domain/task.js";
+import { hasPipeline, type Task } from "../domain/task.js";
 import {
   HISTORY_WINS_AT,
   historyUsage,
@@ -122,13 +122,13 @@ export class UsageEstimates {
 
   /**
    * The Task's Pipeline's Agent Stages with the engine and model the cascade gives each in the
-   * Task's Project; a vacant Role's are left out, and every Stage while no engine is listed.
+   * Task's Project; a vacant Role's are left out, and every Stage while no engine is listed. None
+   * while the Task has no Pipeline.
    */
-  private async estimatedStages({
-    pipelineId,
-    projectId,
-  }: Task): Promise<readonly EstimatedStage[]> {
-    const pipeline = await this.pipelines.find(pipelineId);
+  private async estimatedStages(task: Task): Promise<readonly EstimatedStage[]> {
+    if (!hasPipeline(task)) return [];
+    const { projectId } = task;
+    const pipeline = await this.pipelines.find(task.pipelineId);
     const stages = await Promise.all(
       (pipeline?.stages ?? []).map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);

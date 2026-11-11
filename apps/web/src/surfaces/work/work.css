@@ -832,6 +832,13 @@
   color: var(--fg-1);
 }
 
+/* No Pipeline yet reads muted, as a placeholder, not as a name. */
+.task-head-meta .task-head-pipeline-not-chosen b {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--fg-3);
+}
+
 .task-head-priority {
   display: inline-flex;
   gap: 4px;
@@ -895,6 +902,34 @@
   margin: 0;
   padding: 8px 16px 16px;
   font: 400 var(--text-body) / 1.45 var(--font-sans);
+  color: var(--fg-2);
+}
+
+/* A Task with no Pipeline yet: a placeholder where its Stages will be, with none shown. */
+.pipeline-rail-not-chosen {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+}
+
+.pipeline-rail-not-chosen-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 16px;
+}
+
+.pipeline-rail-not-chosen-body p {
+  margin: 0;
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  color: var(--fg-3);
+}
+
+.pipeline-choice-stages {
+  margin: 0;
+  font: var(--type-caption);
   color: var(--fg-2);
 }
 

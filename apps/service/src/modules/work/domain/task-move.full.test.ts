@@ -10,7 +10,7 @@ import { aPlannedTask, aTask } from "./work.fixtures.js";
 const CREATED_AT = new Date("2026-10-25T09:30:00.000Z");
 const CREATED: StateChange = { from: undefined, to: "backlog", at: CREATED_AT, by: THE_USER };
 const NEVER_PLANNED: MoveGrounds = { stateChanges: [CREATED], hasWorktree: false };
-const TO_SHOP = { projectId: "shop", defaultPipeline: "quick" };
+const TO_SHOP = "shop";
 
 /** A Task the user wrote and marked Ready from Backlog, never planned. */
 function aReadyTask(fields: Partial<Task> = {}): Task {
@@ -109,7 +109,7 @@ describe("moveProblems", () => {
 });
 
 describe("moveTask", () => {
-  it("puts the Task in the Project, on its default Pipeline, both parts Not confirmed and kept", () => {
+  it("puts the Task in the Project with no Pipeline, both parts Not confirmed and kept", () => {
     const task = aReadyTask({
       state: "backlog",
       filesToChange: ["src/login.ts"],
@@ -121,7 +121,7 @@ describe("moveTask", () => {
 
     expect(change?.task).toMatchObject({
       projectId: "shop",
-      pipelineId: "quick",
+      pipelineId: undefined,
       proposedPipeline: undefined,
       state: "backlog",
       plan: task.plan,
@@ -137,7 +137,6 @@ describe("moveTask", () => {
       taskId: "task-1",
       fromProjectId: "admin-panel",
       toProjectId: "shop",
-      pipelineId: "quick",
       leftReady: undefined,
     });
   });
@@ -195,9 +194,7 @@ describe("moveTask", () => {
   });
 
   it("changes nothing for the Project the Task is in", () => {
-    expect(
-      moveTask(aTask(), { ...TO_SHOP, projectId: "admin-panel" }, NEVER_PLANNED, THE_USER),
-    ).toBeUndefined();
+    expect(moveTask(aTask(), "admin-panel", NEVER_PLANNED, THE_USER)).toBeUndefined();
   });
 
   it("refuses with every reason", () => {

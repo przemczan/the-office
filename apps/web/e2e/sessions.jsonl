@@ -36,6 +36,8 @@
 {"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-1","text":"","isError":false}}
 {"step":"event","event":{"kind":"tool-call","callId":"make-a-plan-2","tool":"write_definition_of_done","officeTool":true,"input":{"statements":["A list opens sorted as it was left.","The tests pass."]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"make-a-plan-pipeline","tool":"propose_pipeline","officeTool":true,"input":{"pipelineId":"quick-fix","why":"One small change, tested."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-pipeline","text":"","isError":false}}
 {"step":"event","event":{"kind":"tool-call","callId":"make-a-plan-3","tool":"mark_planned","officeTool":true,"input":{},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"make-a-plan-3","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"I read the title and the Description, and wrote the Plan and the Definition of Done.","withinToolCall":null}}

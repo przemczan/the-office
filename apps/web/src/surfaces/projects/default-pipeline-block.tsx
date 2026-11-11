@@ -9,7 +9,10 @@ import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
 
-/** The Pipeline a new Task starts from, and how its work is published. */
+/**
+ * The Pipeline the Project's Tasks usually follow, which the Planner starts from and a Task with none
+ * lists first, and how its work is published.
+ */
 export function DefaultPipelineBlock({ project }: { readonly project: Project }): ReactNode {
   const pipelines = useQuery(pipelineQueries.list());
   const queryClient = useQueryClient();
@@ -22,7 +25,7 @@ export function DefaultPipelineBlock({ project }: { readonly project: Project })
     onSuccess: (saved) => {
       keep(saved);
       const name = pipelines.data?.find((pipeline) => pipeline.id === saved.defaultPipeline)?.name;
-      showToast(`New Tasks in ${saved.name} start from ${name ?? saved.defaultPipeline}.`);
+      showToast(`${saved.name}'s default Pipeline is ${name ?? saved.defaultPipeline} now.`);
     },
   });
   const choosingPublishing = useMutation({
@@ -58,8 +61,8 @@ export function DefaultPipelineBlock({ project }: { readonly project: Project })
       </div>
       {current && (
         <p className="project-block-text">
-          {stagesLine(current)}. The Planner proposes a Pipeline per Task at planning; this is the
-          starting point.
+          {stagesLine(current)}. A new Task has no Pipeline until the Planner proposes one at
+          planning, starting from this one, or you choose one.
         </p>
       )}
       <div className="project-row">

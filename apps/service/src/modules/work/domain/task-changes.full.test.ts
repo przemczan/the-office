@@ -20,7 +20,6 @@ import { aTask } from "./work.fixtures.js";
 
 const createdAt = new Date("2026-10-25T10:00:00.000Z");
 const setting = {
-  pipelineId: "full",
   order: "a3",
   originIdeaId: undefined,
   initiativeId: undefined,

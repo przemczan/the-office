@@ -134,13 +134,13 @@ describe("swapping the Pipeline before Start", () => {
 });
 
 describe("moving the Task to another Project", () => {
-  it("sets the edited Stages aside even when the new default is the same Pipeline", async () => {
+  it("sets the edited Stages aside", async () => {
     const taskId = aTask();
     await service.edit(taskId, withGate);
 
     await pipelines.app
       .get(EventBus)
-      .publish(new TaskMovedToProject(taskId, "admin-panel", "shop", "quick-fix", undefined));
+      .publish(new TaskMovedToProject(taskId, "admin-panel", "shop", undefined));
 
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);

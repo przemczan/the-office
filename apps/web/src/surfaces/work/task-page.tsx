@@ -8,7 +8,7 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries, taskQueries } from "../../api/work.ts";
 import { stoppedAtCurrentStage } from "./stage-rail-words.ts";
-import { pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
+import { PIPELINE_NOT_CHOSEN, pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -119,6 +119,30 @@ function TaskBody({
   );
 }
 
+/** The head's Pipeline: its name, or a muted placeholder while none is chosen, never "removed". */
+export function HeadPipeline({
+  task,
+  pipeline,
+  editedForTask,
+}: {
+  readonly task: Task;
+  readonly pipeline: Pipeline | undefined;
+  readonly editedForTask: boolean;
+}): ReactNode {
+  if (task.pipelineId === null) {
+    return (
+      <span className="task-head-pipeline-not-chosen">
+        Pipeline <b>{PIPELINE_NOT_CHOSEN}</b>
+      </span>
+    );
+  }
+  return (
+    <span>
+      Pipeline <b>{pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</b>
+    </span>
+  );
+}
+
 function TaskHead({
   task,
   projects,
@@ -156,9 +180,7 @@ function TaskHead({
             <Icon name="flag" size={12} />
             {PRIORITY_NAMES[task.priority]} priority
           </span>
-          <span>
-            Pipeline <b>{pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</b>
-          </span>
+          <HeadPipeline task={task} pipeline={pipeline} editedForTask={editedForTask} />
           {task.estimatedTokens === null ? (
             <TokenCount tokens={tokens} label="tokens" />
           ) : (

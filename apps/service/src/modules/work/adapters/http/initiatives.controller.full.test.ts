@@ -304,7 +304,8 @@ describe("a Task in Shaping", () => {
     expect(
       await reasonsFor(task, "PUT", "/definition-of-done", { definitionOfDone: ["It exports."] }),
     ).toEqual([`A Task in Shaping keeps its Definition of Done as it is: ${CONFIRM_FIRST}`]);
-    expect(await reasonsFor(task, "PUT", "/pipeline", { pipelineId: task.pipelineId })).toEqual([
+    expect(task.pipelineId).toBeNull();
+    expect(await reasonsFor(task, "PUT", "/pipeline", { pipelineId: "quick-fix" })).toEqual([
       `A Task in Shaping keeps its Pipeline as it is: ${CONFIRM_FIRST}`,
     ]);
   });

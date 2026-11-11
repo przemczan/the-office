@@ -48,7 +48,6 @@ describe("changeTags", () => {
 
 describe("a new Task's Tags", () => {
   const setting = {
-    pipelineId: "full",
     order: "a0",
     originIdeaId: undefined,
     initiativeId: undefined,

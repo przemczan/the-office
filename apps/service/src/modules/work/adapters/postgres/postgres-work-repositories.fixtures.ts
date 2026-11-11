@@ -62,7 +62,6 @@ export function workRecords(current: () => Pick<WorkRepositories, "ideas" | "tas
           priority: fields.priority ?? "normal",
         },
         {
-          pipelineId: "full",
           order: orderAfter(takenOrders),
           originIdeaId: undefined,
           initiativeId: undefined,

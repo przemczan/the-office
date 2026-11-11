@@ -64,9 +64,8 @@ export interface ReadinessLine {
 
 /**
  * Ready requires a Plan and a Definition of Done, each confirmed by the user or by auto mode on
- * their behalf, no Pipeline proposal
- * left open (the user takes or declines it, keeping the Pipeline the Task follows) and no Decision
- * on the Task open (spec §2.1). The one list of conditions: the refusals and the checklist
+ * their behalf, a Pipeline chosen with no proposal left open (the user takes or declines it,
+ * keeping the Pipeline the Task follows) and no Decision on the Task open (spec §2.1). The one list of conditions: the refusals and the checklist
  * both come from it.
  */
 export function readinessLines(task: Task, openDecisions: number): ReadinessLine[] {
@@ -80,9 +79,7 @@ export function readinessLines(task: Task, openDecisions: number): ReadinessLine
     {
       part: "pipeline",
       label: "Pipeline chosen",
-      problems: task.proposedPipeline
-        ? ["Take or decline the proposed Pipeline before the Task can be Ready."]
-        : [],
+      problems: pipelineProblems(task),
     },
     {
       part: "decisions",
@@ -104,6 +101,13 @@ function definitionOfDoneProblems(task: Task): string[] {
   return task.definitionOfDoneConfirmed
     ? []
     : ["Confirm the Definition of Done before the Task can be Ready."];
+}
+
+function pipelineProblems(task: Task): string[] {
+  if (task.proposedPipeline) {
+    return ["Take or decline the proposed Pipeline before the Task can be Ready."];
+  }
+  return task.pipelineId === undefined ? ["Choose a Pipeline before the Task can be Ready."] : [];
 }
 
 /** Every reason the Task's own record keeps it from Ready; Decisions are asked of Work's ports. */

@@ -240,7 +240,7 @@ export function confirmPipeline(
 
 /**
  * Why the Planner can't mark the Task planned (mark_planned): only in Planning, once the Plan and
- * the Definition of Done are written.
+ * the Definition of Done are written and the Task has a Pipeline or a proposed one.
  */
 export function markingPlannedProblems(task: Task): string[] {
   if (task.state !== "planning") {
@@ -252,6 +252,9 @@ export function markingPlannedProblems(task: Task): string[] {
     ...(task.plan === "" ? ["Write the Plan first, with write_plan."] : []),
     ...(task.definitionOfDone.length === 0
       ? ["Write the Definition of Done first, with write_definition_of_done."]
+      : []),
+    ...(task.pipelineId === undefined && task.proposedPipeline === undefined
+      ? ["The Task has no Pipeline yet: propose a Pipeline with propose_pipeline first."]
       : []),
   ];
 }
@@ -269,8 +272,9 @@ export function markPlanned(task: Task): TaskChange<TaskMarkedPlanned> | undefin
 /**
  * Auto mode accepts a Task marked planned, in one save: it marks it planned, confirms the Plan and
  * the Definition of Done if they aren't yet, and the proposed Pipeline if there is one (with none,
- * the Task keeps the Pipeline it follows; that a proposal is in the library is checked by the
- * caller), then marks it Ready under Ready's usual rules. Its state change names only what auto
+ * the Task keeps the Pipeline it follows, as only a Task that has one can be marked planned without
+ * a proposal; that a proposal is in the library is checked by the caller), then marks it Ready
+ * under Ready's usual rules. Its state change names only what auto
  * mode itself confirmed.
  */
 export function acceptInAutoMode(

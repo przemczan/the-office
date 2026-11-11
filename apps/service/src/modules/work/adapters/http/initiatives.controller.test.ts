@@ -219,6 +219,7 @@ describe("POST /api/initiatives/:id/start", () => {
     /** Indexes of the earlier Tasks it waits for. */
     readonly waitsFor?: readonly number[];
     readonly filesToChange?: readonly string[];
+    /** Chosen before Mark Ready; Quick fix, the test Project's default, unless given. */
     readonly pipelineId?: string;
   }
 
@@ -235,9 +236,9 @@ describe("POST /api/initiatives/:id/start", () => {
     ownIds.push(...tasks.map(({ id }) => id));
     await post(initiative, "confirm");
     for (const [index, { id }] of tasks.entries()) {
-      const { filesToChange = [], pipelineId } = plans[index] ?? {};
+      const { filesToChange = [], pipelineId = "quick-fix" } = plans[index] ?? {};
       await own.saveAndConfirmParts(id, { ...MY_PLAN, filesToChange: [...filesToChange] });
-      if (pipelineId) await sendJson(work, "PUT", `/tasks/${id}/pipeline`, { pipelineId });
+      await sendJson(work, "PUT", `/tasks/${id}/pipeline`, { pipelineId });
       expect((await sendJson(work, "POST", `/tasks/${id}/ready`)).status).toBe(200);
     }
     return { initiative, tasks };

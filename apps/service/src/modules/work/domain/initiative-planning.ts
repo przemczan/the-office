@@ -293,7 +293,7 @@ export function initiativePlanningBrief({
     unfinishedSection(initiative, tasks),
     waitingSection(waiting, tasks),
     projectsSection(projects),
-    `## The Pipelines\n\nPropose the one each Task's Definition of Done needs with propose_pipeline:\n\n${pipelineLibraryLines(pipelines).join("\n")}`,
+    `## The Pipelines\n\nA Task has no Pipeline until one is chosen. Propose the one each Task's Definition of Done needs with propose_pipeline:\n\n${pipelineLibraryLines(pipelines).join("\n")}`,
     autoModeSection(initiative.planningAutoMode),
   ]
     .filter((section) => section !== undefined)
@@ -360,7 +360,7 @@ function waitingSection(
 function projectsSection(projects: readonly InitiativePlanningProject[]): string {
   const parts = projects.map(
     (project) =>
-      `### ${project.name} (${project.id})\n\nBase branch ${project.baseBranch}, checked out where The Projects below say. Its commands:\n\n${commandLines(project).join("\n")}`,
+      `### ${project.name} (${project.id})\n\nBase branch ${project.baseBranch}, checked out where The Projects below say; its default Pipeline is ${project.defaultPipeline}. Its commands:\n\n${commandLines(project).join("\n")}`,
   );
   return `## The Projects it spans\n\n${parts.join("\n\n")}`;
 }

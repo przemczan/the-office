@@ -23,7 +23,6 @@ import { aTask } from "./work.fixtures.js";
 
 const createdAt = new Date("2026-10-25T10:00:00.000Z");
 const setting = {
-  pipelineId: "full",
   order: "a3",
   originIdeaId: undefined,
   initiativeId: undefined,
@@ -31,7 +30,7 @@ const setting = {
 };
 
 describe("createTask", () => {
-  it("starts the Task in Backlog, unplanned, with what The Office sets", () => {
+  it("starts the Task in Backlog, unplanned and with no Pipeline, with what The Office sets", () => {
     const { task, event, stateChange } = createTask(
       "task-9",
       { title: " Fix the login redirect ", projectId: "admin-panel", priority: "high" },
@@ -39,7 +38,9 @@ describe("createTask", () => {
       createdAt,
     );
 
-    expect(task).toEqual(aTask({ id: "task-9", priority: "high", order: "a3", createdAt }));
+    expect(task).toEqual(
+      aTask({ id: "task-9", priority: "high", order: "a3", pipelineId: undefined, createdAt }),
+    );
     expect(event).toEqual(new TaskCreated(task));
     expect(event.occurredAt).toEqual(createdAt);
     expect(stateChange).toEqual({

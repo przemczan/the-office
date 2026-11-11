@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Pipeline, Project, Task, TaskState } from "@the-office/contracts";
+import type { Project, Task, TaskState } from "@the-office/contracts";
 import { Alert, Button, Dialog, Field, RadioGroup, Skeleton } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
-import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, moveTask, taskQueries } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
@@ -113,12 +112,10 @@ function WhatMovingDoes({
   readonly task: Task;
   readonly project: Project;
 }): ReactNode {
-  const pipelines = useQuery(pipelineQueries.list()).data;
-  const pipeline = pipelineName(project.defaultPipeline, pipelines);
   return (
     <ul className="dialog-text move-task-effects">
       <li>
-        {`It follows ${project.name}'s default Pipeline, ${pipeline}; Stages edited for this Task are set aside.`}
+        {`It has no Pipeline in ${project.name} until one is chosen, as its commands differ; Stages edited for this Task are set aside.`}
       </li>
       <li>{STATE_AFTER_MOVING[task.state] ?? "It stays in Backlog."}</li>
       <li>
@@ -135,7 +132,3 @@ const STATE_AFTER_MOVING: Partial<Record<TaskState, string>> = {
   shaping: "It stays in Shaping until its Initiative is confirmed.",
   ready: "It goes back to Backlog, and out of the queue if it waits there.",
 };
-
-function pipelineName(id: string, pipelines: readonly Pipeline[] | undefined): string {
-  return pipelines?.find((pipeline) => pipeline.id === id)?.name ?? id;
-}

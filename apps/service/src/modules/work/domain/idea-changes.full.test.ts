@@ -60,9 +60,9 @@ describe("captureIdea", () => {
 });
 
 describe("shapeIdeaIntoTask", () => {
-  const setting = { pipelineId: "quick-fix", order: "a4", createdBy: THE_USER };
+  const setting = { order: "a4", createdBy: THE_USER };
 
-  it("makes a Task in Backlog named after the Idea, its notes the Description, with the Idea as its origin", () => {
+  it("makes a Task in Backlog named after the Idea, its notes the Description, with the Idea as its origin and no Pipeline yet", () => {
     const { ideaShaped, taskCreated } = shapeIdeaIntoTask(
       anIdea({ projectId: undefined }),
       { id: "task-7", projectId: "admin-panel" },
@@ -76,7 +76,7 @@ describe("shapeIdeaIntoTask", () => {
         title: "Export usage as CSV",
         description: "Monthly, per Project, for the accountant.",
         order: "a4",
-        pipelineId: "quick-fix",
+        pipelineId: undefined,
         originIdeaId: "idea-1",
         createdAt: at,
       }),

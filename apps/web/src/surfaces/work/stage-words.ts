@@ -48,6 +48,16 @@ export type StageNames = (key: string) => string;
  */
 export const REMOVED_PIPELINE = "removed from the library";
 
+/** A Task's Pipeline before one is chosen: the Planner proposes one, or the user chooses one. */
+export const PIPELINE_NOT_CHOSEN = "Not chosen yet";
+
+/** The placeholder rail's element, for Before Ready's link to it. */
+export const PIPELINE_RAIL_ELEMENT_ID = "task-pipeline-rail";
+
+/** What the placeholder rail of a Task with no Pipeline says. */
+export const PIPELINE_NOT_CHOSEN_WORDS =
+  "Pipeline not chosen yet. The Planner proposes one while planning.";
+
 /** The Task's Pipeline as the rail names it, saying when it was edited for the Task. */
 export function pipelineLabel(pipelineName: string, editedForTask: boolean): string {
   return editedForTask ? `${pipelineName} · edited for this Task` : pipelineName;

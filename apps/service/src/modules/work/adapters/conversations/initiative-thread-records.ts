@@ -143,6 +143,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       id,
       name: project.name,
       baseBranch: project.baseBranch,
+      defaultPipeline: project.defaultPipeline,
       installCommand: project.installCommand,
       commands: project.commands,
     };

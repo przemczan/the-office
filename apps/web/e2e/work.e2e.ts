@@ -74,6 +74,14 @@ async function createdTask(page: Page, project: Project, title: string): Promise
   return taskSchema.parse(await response.json());
 }
 
+/** Gives the Task a Pipeline, which a new Task has none of until it is chosen. */
+async function choosePipeline(page: Page, task: Task, pipelineId = "full"): Promise<void> {
+  const response = await page.request.put(`/api/tasks/${task.id}/pipeline`, {
+    data: { pipelineId },
+  });
+  expect(response.status()).toBe(200);
+}
+
 /** A Thread of the Task, seeded with the messages. */
 async function seedThread(
   taskId: string,
@@ -305,6 +313,7 @@ test(
   async ({ page }) => {
     const project = await addedProject(page, "Working fold", "WF");
     const task = await createdTask(page, project, "A Task on a long command");
+    await choosePipeline(page, task);
     const command = Array.from({ length: 12 }, (_, line) => `echo line ${line}`).join("\n");
     const threadId = await seedThread(task.id, "Long command", [
       ...SCROLLING_MESSAGES,
@@ -1201,7 +1210,7 @@ test(
     await page.getByRole("menu").getByRole("button", { name: "Move to another Project…" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("radiogroup").locator("label").filter({ hasText: to.name }).click();
-    await expect(dialog).toContainText(`It follows ${to.name}'s default Pipeline`);
+    await expect(dialog).toContainText(`It has no Pipeline in ${to.name} until one is chosen`);
     await expect(dialog).toContainText("It stays in Backlog.");
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-move-task.png") });
     await dialog.getByRole("button", { name: "Move", exact: true }).click();
@@ -1211,6 +1220,7 @@ test(
       .getByRole("region", { name: "Description" })
       .getByRole("region", { name: "Origin" });
     await expect(origin).toContainText(`Moved from ${from.name} to ${to.name}`);
+    await expect(page.getByRole("region", { name: "Pipeline · Not chosen yet" })).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-moved-task-origin.png") });
     await page.goto("/work");
     await expect(
@@ -1315,6 +1325,17 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/\/tasks\//);
 
+  // A new Task has no Pipeline yet: a placeholder stands where its Stages will be.
+  const rail = page.getByRole("region", { name: "Pipeline · Not chosen yet" });
+  await expect(page.locator(".task-head-meta")).toContainText("Pipeline Not chosen yet");
+  await expect(rail).toContainText(
+    "Pipeline not chosen yet. The Planner proposes one while planning.",
+  );
+  await expect(rail.getByRole("list", { name: "Stages" })).toHaveCount(0);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-task-pipeline-not-chosen.png"),
+  });
+
   // The Description sits above the Plan, editable until the Task starts.
   const record = page.getByRole("region", { name: "Record" });
   const description = record.getByRole("region", { name: "Description" });
@@ -1376,6 +1397,23 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await definitionOfDone.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
+
+  // Ready waits for a Pipeline, chosen on the rail, the Project's default listed first.
+  await expect(markReady).toHaveCount(0);
+  await expect(readinessLine("Pipeline chosen")).toContainText("Choose a Pipeline on the rail");
+  await rail.getByRole("button", { name: "Choose a Pipeline" }).click();
+  const choosing = page.getByRole("dialog");
+  const pipelinePicker = choosing.getByLabel("Pipeline");
+  await expect(pipelinePicker.locator("option:not([value=''])").first()).toContainText(
+    "(Project default)",
+  );
+  await pipelinePicker.selectOption("quick-fix");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline.png") });
+  await choosing.getByRole("button", { name: "Choose", exact: true }).click();
+  const quickFixRail = page.getByRole("region", { name: "Pipeline · Quick fix" });
+  await expect(quickFixRail.getByRole("list", { name: "Stages" })).toContainText("Implement");
+  await expect(page.locator(".task-head-meta")).toContainText("Pipeline Quick fix");
+  await expect(readinessLine("Pipeline chosen")).toHaveClass(/task-checklist-met/);
 
   await markReady.click();
   await expect(
@@ -1833,11 +1871,10 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   // Out of Planning the blocks are folded to one line.
   await expect(record.getByText("Not written yet", { exact: true })).toBeVisible();
   await expect(record.getByText("No Plan yet", { exact: true })).toBeVisible();
-  const rail = page.getByRole("region", { name: /^Pipeline · / });
-  await expect(rail.getByText("Not started").first()).toBeVisible();
-  for (const stage of ["Implement", "Tests", "Review & fix", "Publish"]) {
-    await expect(rail.getByText(stage, { exact: true })).toBeVisible();
-  }
+  // Shaped from an Idea, it has no Pipeline yet, nor any Stages to show.
+  const rail = page.getByRole("region", { name: "Pipeline · Not chosen yet" });
+  await expect(rail).toContainText("Pipeline not chosen yet.");
+  await expect(rail.getByRole("list", { name: "Stages" })).toHaveCount(0);
   // The Idea's notes are its Description; the Planner may not be hired yet. The Description
   // starts open, with the Task's Origin inside it.
   const description = record.getByRole("region", { name: "Description" });
@@ -2222,6 +2259,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
 }) => {
   const project = await addedProject(page, "Stage history", "SH");
   const task = await createdTask(page, project, "A Task that looped");
+  await choosePipeline(page, task);
   const threadId = crypto.randomUUID();
   const implement: Stage = {
     kind: "agent",
@@ -2532,6 +2570,7 @@ test(
   async ({ page }) => {
     const project = await addedProject(page, "Gallery rounds", "GR");
     const task = await createdTask(page, project, "Gallery of two rounds");
+    await choosePipeline(page, task);
     const workStarted = new Date(Date.now() - 60_000).toISOString();
     const firstLook = await attachedImage(page, task, "first-look.png", aPng([230, 120, 60]));
     const firstDetail = await attachedImage(page, task, "first-detail.png", aPng([60, 140, 200]));

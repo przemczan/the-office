@@ -392,8 +392,7 @@ export class InitiativeService implements OnModuleInit {
     create: typeof addTaskToInitiative,
     blockedBy: readonly string[],
   ): Promise<Task> {
-    const project = await this.projects.find(given.projectId);
-    if (!project) {
+    if (!(await this.projects.find(given.projectId))) {
       throw new InitiativeRefused([
         ...newTaskProblems(given),
         `There is no Project "${given.projectId}".`,
@@ -405,7 +404,7 @@ export class InitiativeService implements OnModuleInit {
           initiative,
           randomUUID(),
           given,
-          { pipelineId: project.defaultPipeline, order: orderAfter(takenOrders), createdBy },
+          { order: orderAfter(takenOrders), createdBy },
           new Date(),
         ),
         blockedBy,

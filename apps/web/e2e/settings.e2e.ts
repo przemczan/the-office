@@ -638,7 +638,6 @@ test(
     // In Edit for this Task.
     const repository = await createTemporaryRepository();
     try {
-      // Following the Pipeline above, whose Stages nobody needs to be hired for.
       const project = await addedProject(
         page,
         repository.path,
@@ -649,6 +648,10 @@ test(
         data: { title: "Copy a Stage template in", projectId: project.id, priority: "normal" },
       });
       const { id: taskId } = taskSchema.parse(await created.json());
+      // Following the Pipeline above, whose Stages nobody needs to be hired for.
+      await page.request.put(`/api/tasks/${taskId}/pipeline`, {
+        data: { pipelineId: pipeline.id },
+      });
       await page.goto(`/tasks/${taskId}`);
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       const dialog = page.getByRole("dialog");

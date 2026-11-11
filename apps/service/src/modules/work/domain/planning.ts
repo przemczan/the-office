@@ -38,6 +38,8 @@ export const PLANNING_INSTRUCTIONS = `In this Thread you plan a Task with the us
 export interface PlanningProject extends ProjectCommandsInBrief {
   readonly name: string;
   readonly baseBranch: string;
+  /** The Pipeline the Project's Tasks usually follow, named in the Brief of a Task with none. */
+  readonly defaultPipeline: string;
 }
 
 /** A Project's install command and its other commands, as a Brief lists them. */
@@ -100,7 +102,7 @@ export function planningBrief({
     initiative && initiativeSection(initiative, task.id),
     attachmentsSection(attachments),
     `## The Project's commands\n\n${commandLines(project).join("\n")}`,
-    pipelinesSection(task, pipelines),
+    pipelinesSection(task, project, pipelines),
     autoModeSection(task),
     ...planSections(task),
   ]
@@ -135,7 +137,11 @@ export function attachmentsSection(attachments: readonly Attachment[]): string {
   return `## Attachments\n\n${HOW_TO_READ_ATTACHMENTS}\n\n${lines}`;
 }
 
-function pipelinesSection(task: Task, pipelines: readonly PlanningPipeline[]): string {
+function pipelinesSection(
+  task: Task,
+  project: PlanningProject,
+  pipelines: readonly PlanningPipeline[],
+): string {
   const nameOf = (id: string) => {
     const pipeline = pipelines.find((candidate) => candidate.id === id);
     return pipeline ? `${pipeline.name} (${id})` : id;
@@ -144,8 +150,12 @@ function pipelinesSection(task: Task, pipelines: readonly PlanningPipeline[]): s
   const proposal = task.proposedPipeline
     ? `You proposed ${nameOf(task.proposedPipeline.pipelineId)}: ${task.proposedPipeline.reason} It waits for the user to confirm it.`
     : undefined;
+  const current =
+    task.pipelineId === undefined
+      ? `The Task has no Pipeline yet; the Project's default is ${nameOf(project.defaultPipeline)}.`
+      : `The Task follows ${nameOf(task.pipelineId)} until the user confirms another.`;
   return [
-    `## The Pipelines\n\nThe Task follows ${nameOf(task.pipelineId)} until the user confirms another. Propose the one its Definition of Done needs with propose_pipeline:`,
+    `## The Pipelines\n\n${current} Propose the one its Definition of Done needs with propose_pipeline:`,
     choices.join("\n"),
     proposal,
   ]

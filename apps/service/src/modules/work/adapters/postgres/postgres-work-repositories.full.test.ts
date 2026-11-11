@@ -148,7 +148,7 @@ describe("PostgresIdeaRepository", () => {
       ...shapeIdeaIntoTask(
         stored,
         { id: taskId, projectId },
-        { pipelineId: "full", order: orderAfter(takenOrders), createdBy: THE_USER },
+        { order: orderAfter(takenOrders), createdBy: THE_USER },
         new Date("2026-10-25T12:00:00.000Z"),
       ),
       moves: storedAttachments.map((attachment) =>
@@ -174,7 +174,7 @@ describe("PostgresIdeaRepository", () => {
         ...shapeIdeaIntoTask(
           stored,
           { id: taskId, projectId: "admin-panel" },
-          { pipelineId: "full", order: "a0", createdBy: THE_USER },
+          { order: "a0", createdBy: THE_USER },
           new Date(),
         ),
         moves: [],
@@ -507,7 +507,6 @@ describe("work tables", () => {
           randomUUID(),
           { title: "Twin", projectId: task.projectId, priority: "normal" },
           {
-            pipelineId: "full",
             order: task.order,
             originIdeaId: undefined,
             initiativeId: undefined,

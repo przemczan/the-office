@@ -1519,7 +1519,10 @@ test(
       const created = await page.request.post("/api/tasks", {
         data: { title: "Keep the filters on reload", projectId: project.id, priority: "normal" },
       });
-      const { id: taskId, pipelineId } = taskSchema.parse(await created.json());
+      const { id: taskId } = taskSchema.parse(await created.json());
+      // A new Task has no Pipeline yet: it follows Full from here, to be swapped below.
+      const pipelineId = "full";
+      await page.request.put(`/api/tasks/${taskId}/pipeline`, { data: { pipelineId } });
       const library = pipelineListSchema.parse(
         await (await page.request.get("/api/pipelines")).json(),
       );
@@ -1760,6 +1763,8 @@ test(
         data: { title: "Echo through the MCP server", projectId: project.id, priority: "normal" },
       });
       const { id: taskId } = taskSchema.parse(await created.json());
+      // A new Task has no Pipeline until one is chosen; its Stages are edited from then on.
+      await page.request.put(`/api/tasks/${taskId}/pipeline`, { data: { pipelineId: "full" } });
       await page.goto(`/tasks/${taskId}`);
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       const pipeline = page.getByRole("dialog").getByLabel("Pipeline");
@@ -2064,6 +2069,12 @@ test("the user has Jan make a plan from the title and the Description, then conf
   await expect(plan.getByText("Confirmed", { exact: true })).toBeVisible();
   await definitionOfDone.getByRole("button", { name: "Confirm" }).click();
   await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
+  // The Task has no Pipeline until the one Jan proposed is taken.
+  await page
+    .getByRole("region", { name: "Pipeline proposal" })
+    .getByRole("button", { name: "Use Quick fix" })
+    .click();
+  await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
   const markReady = page.getByRole("button", { name: "Mark Ready" });
   await expect(markReady).toBeEnabled();
   await markReady.click();
@@ -5542,6 +5553,16 @@ test(
       await expect(markReady).toHaveCount(0);
       await definitionOfDone.getByRole("button", { name: "Confirm", exact: true }).click();
       await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
+      // Nor has it a Pipeline: the user chooses one on the rail.
+      await expect(markReady).toHaveCount(0);
+      await page
+        .getByRole("region", { name: "Pipeline · Not chosen yet" })
+        .getByRole("button", { name: "Choose a Pipeline" })
+        .click();
+      const choosing = page.getByRole("dialog");
+      await choosing.getByLabel("Pipeline").selectOption("quick-fix");
+      await choosing.getByRole("button", { name: "Choose", exact: true }).click();
+      await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
       await expect(markReady).toBeEnabled();
       await markReady.click();
       await expect(page.getByText(`${title} is Ready. Starting it is your call.`)).toBeVisible();

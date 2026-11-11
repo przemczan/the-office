@@ -96,7 +96,8 @@ export const tasks = pgTable(
       .notNull()
       .default(sql`'{}'`),
     definitionOfDoneConfirmed: boolean("definition_of_done_confirmed").notNull().default(false),
-    pipelineId: text("pipeline_id").notNull(),
+    /** Null until the Task's Pipeline is chosen. */
+    pipelineId: text("pipeline_id"),
     /** Null while the Planner proposes none. */
     proposedPipeline: jsonb("proposed_pipeline").$type<ProposedPipeline>(),
     autoMode: boolean("auto_mode").notNull().default(false),

@@ -60,9 +60,8 @@ export function withStateChange<Event extends DomainEvent>(
   };
 }
 
-/** What The Office sets on a new Task: its Pipeline comes from the Project's default. */
+/** What The Office sets on a new Task. */
 export interface NewTaskSetting {
-  readonly pipelineId: string;
   readonly order: string;
   readonly originIdeaId: string | undefined;
   readonly initiativeId: string | undefined;
@@ -72,7 +71,8 @@ export interface NewTaskSetting {
 /**
  * A new Task starts in Backlog, or in Shaping when its Initiative is still being shaped: unplanned,
  * or with a Plan and a Definition of Done written by whoever creates it, both unconfirmed until the
- * user confirms them (spec §2.1). Refuses with every reason.
+ * user confirms them, and with no Pipeline until one is chosen (spec §2.1). Refuses with every
+ * reason.
  */
 export function createTask(
   id: string,
@@ -94,7 +94,7 @@ export function createTask(
     ...parts,
     planConfirmed: false,
     definitionOfDoneConfirmed: false,
-    pipelineId: setting.pipelineId,
+    pipelineId: undefined,
     proposedPipeline: undefined,
     autoMode: false,
     initiativePlanningThreadId: undefined,

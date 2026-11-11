@@ -44,9 +44,19 @@ export function EditTaskStagesDialog({
   if (!taskStages.data || !library.data || !roles.data || !options.data || !project.data) {
     return null;
   }
+  if (task.pipelineId === null) {
+    return (
+      <ChoosePipelineForm
+        task={task}
+        library={library.data}
+        project={project.data}
+        onClose={onClose}
+      />
+    );
+  }
   return (
     <EditTaskStagesForm
-      task={task}
+      task={{ ...task, pipelineId: task.pipelineId }}
       taskStages={taskStages.data}
       library={library.data}
       roles={roles.data}
@@ -54,6 +64,88 @@ export function EditTaskStagesDialog({
       project={project.data}
       onClose={onClose}
     />
+  );
+}
+
+/**
+ * A Task with no Pipeline yet chooses one first, the Project's default listed first; its Stages are
+ * edited for the Task once the Pipeline is saved.
+ */
+function ChoosePipelineForm({
+  task,
+  library,
+  project,
+  onClose,
+}: {
+  readonly task: Task;
+  readonly library: readonly Pipeline[];
+  readonly project: Project;
+  readonly onClose: () => void;
+}): ReactNode {
+  const [chosenPipelineId, setChosenPipelineId] = useState("");
+  const showToast = useToast();
+  const choosing = useRecordChange(task, (pipelineId: string) => setPipeline(task.id, pipelineId));
+  const chosen = library.find(({ id }) => id === chosenPipelineId);
+  return (
+    <Dialog
+      size="medium"
+      title={`Choose a Pipeline for ${task.title}`}
+      onClose={onClose}
+      actions={
+        <>
+          <Button
+            loading={choosing.isPending}
+            disabled={!chosen}
+            onClick={() =>
+              choosing.mutate(chosenPipelineId, {
+                onSuccess: () => {
+                  showToast(`${task.title} follows ${chosen?.name ?? chosenPipelineId}.`);
+                  onClose();
+                },
+              })
+            }
+          >
+            Choose
+          </Button>
+          <span className="dialog-hint">
+            Once it is chosen, Edit for this Task changes its Stages for this Task alone.
+          </span>
+        </>
+      }
+    >
+      <div className="work-form">
+        <Select
+          label="Pipeline"
+          placeholder="Choose a Pipeline"
+          value={chosenPipelineId}
+          disabled={choosing.isPending}
+          options={pipelineChoices(library, project.defaultPipeline)}
+          onChange={setChosenPipelineId}
+        />
+        {chosen && (
+          <p className="pipeline-choice-stages">
+            {chosen.stages.map(({ name }) => name).join(" → ")}
+          </p>
+        )}
+        {choosing.error && (
+          <RefusalAlert title="The Pipeline wasn't chosen" error={choosing.error} />
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+/** The library's Pipelines, the Project's default first and marked as such. */
+function pipelineChoices(
+  library: readonly Pipeline[],
+  defaultPipelineId: string,
+): { readonly value: string; readonly label: string }[] {
+  const isDefault = ({ id }: Pipeline) => id === defaultPipelineId;
+  return [...library.filter(isDefault), ...library.filter((pipeline) => !isDefault(pipeline))].map(
+    (pipeline) => ({
+      value: pipeline.id,
+      label: isDefault(pipeline) ? `${pipeline.name} (Project default)` : pipeline.name,
+    }),
   );
 }
 
@@ -66,7 +158,7 @@ function EditTaskStagesForm({
   project,
   onClose,
 }: {
-  readonly task: Task;
+  readonly task: Task & { readonly pipelineId: string };
   readonly taskStages: TaskStages;
   readonly library: readonly Pipeline[];
   readonly roles: readonly Role[];

@@ -8,7 +8,7 @@ import { NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 
 /*
  * Move (spec §2.1, "Moving a Task"): a Task not yet planned or started goes to another Project,
- * following that Project's default Pipeline, back in Backlog with its Plan and Definition of Done
+ * with no Pipeline until one is chosen there, as the new Project's commands differ, back in Backlog with its Plan and Definition of Done
  * kept but Not confirmed, as they were written for the old Project; a Task in Shaping stays in
  * Shaping, for Confirm alone to move on. Its Initiative, dependencies, Attachments and Threads stay
  * with it.
@@ -27,12 +27,6 @@ export interface MoveGrounds {
   readonly stateChanges: readonly StateChange[];
   /** Whether it has a worktree in its Project. */
   readonly hasWorktree: boolean;
-}
-
-/** Where the Task moves to: the Project, and the Pipeline its Project makes the default. */
-export interface MoveDestination {
-  readonly projectId: string;
-  readonly defaultPipeline: string;
 }
 
 /** Every reason the Task can't move to another Project; empty when it can. */
@@ -81,34 +75,28 @@ function planningProblems(task: Task, stateChanges: readonly StateChange[]): str
 }
 
 /**
- * Moves the Task to `to`, refused with every reason it can't. Undefined when it is in that Project
- * already. A Ready Task goes back to Backlog in the same save, as a changing Save takes it: Ready
- * needs both parts confirmed, so nothing can start it in between.
+ * Moves the Task to the Project `toProjectId`, refused with every reason it can't. Undefined when
+ * it is in that Project already. A Ready Task goes back to Backlog in the same save, as a changing
+ * Save takes it: Ready needs both parts confirmed, so nothing can start it in between.
  */
 export function moveTask(
   task: Task,
-  to: MoveDestination,
+  toProjectId: string,
   grounds: MoveGrounds,
   by: Author,
 ): TaskChange<TaskMovedToProject> | undefined {
-  if (task.projectId === to.projectId) return undefined;
+  if (task.projectId === toProjectId) return undefined;
   const problems = moveProblems(task, grounds);
   if (problems.length > 0) throw new TaskRefused(problems);
   const state = task.state === "ready" ? "backlog" : task.state;
   const leftReady =
     state === task.state ? undefined : new TaskStateChanged(task.id, task.state, state);
-  const event = new TaskMovedToProject(
-    task.id,
-    task.projectId,
-    to.projectId,
-    to.defaultPipeline,
-    leftReady,
-  );
-  const move = { from: task.projectId, to: to.projectId, at: event.occurredAt, by };
+  const event = new TaskMovedToProject(task.id, task.projectId, toProjectId, leftReady);
+  const move = { from: task.projectId, to: toProjectId, at: event.occurredAt, by };
   const moved: Task = {
     ...task,
-    projectId: to.projectId,
-    pipelineId: to.defaultPipeline,
+    projectId: toProjectId,
+    pipelineId: undefined,
     proposedPipeline: undefined,
     planConfirmed: false,
     definitionOfDoneConfirmed: false,

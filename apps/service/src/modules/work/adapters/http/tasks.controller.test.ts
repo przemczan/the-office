@@ -101,7 +101,7 @@ afterEach(async () => {
 });
 
 describe("POST /api/tasks", () => {
-  it("creates an unplanned Task in Backlog on the Project's default Pipeline", async () => {
+  it("creates an unplanned Task in Backlog with no Pipeline yet", async () => {
     const task = await create({ title: " Fix the login redirect ", priority: "high" });
 
     expect(task).toMatchObject({
@@ -114,7 +114,7 @@ describe("POST /api/tasks", () => {
       planConfirmed: false,
       definitionOfDone: [],
       definitionOfDoneConfirmed: false,
-      pipelineId: "quick-fix",
+      pipelineId: null,
       proposedPipeline: null,
       originIdeaId: null,
       createdBy: { kind: "user" },
@@ -339,7 +339,7 @@ describe("Auto mode", () => {
     ]);
   });
 
-  it("is refused, with the reasons, outside Planning or before the parts are written", async () => {
+  it("is refused, with the reasons, outside Planning or before the parts and a Pipeline are written", async () => {
     const task = await create();
     const planning = work.app.get(PlanningService);
     const inBacklog = await planning.markPlanned(task.id).catch((error: unknown) => error);
@@ -355,6 +355,7 @@ describe("Auto mode", () => {
       new TaskRefused([
         "Write the Plan first, with write_plan.",
         "Write the Definition of Done first, with write_definition_of_done.",
+        "The Task has no Pipeline yet: propose a Pipeline with propose_pipeline first.",
       ]),
     );
     expect((await readTask(task.id)).state).toBe("planning");
@@ -394,7 +395,7 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
 });
 
 describe("POST /api/tasks/:id/ready", () => {
-  it("is refused with the reasons until the Plan and the Definition of Done are confirmed and the Pipeline proposal is answered", async () => {
+  it("is refused with the reasons until the Plan and the Definition of Done are confirmed and a Pipeline is chosen", async () => {
     const unplanned = await create();
     await plan(unplanned.id);
     const proposed = await proposedTask();
@@ -406,6 +407,7 @@ describe("POST /api/tasks/:id/ready", () => {
     expect(workRefusalSchema.parse(await early.json()).reasons).toEqual([
       "A Task needs a Plan before it can be Ready.",
       "A Task needs a Definition of Done before it can be Ready.",
+      "Choose a Pipeline before the Task can be Ready.",
     ]);
     expect(workRefusalSchema.parse(await unconfirmed.json()).reasons).toEqual([
       "Confirm the Plan before the Task can be Ready.",
@@ -416,7 +418,7 @@ describe("POST /api/tasks/:id/ready", () => {
 });
 
 describe("POST /api/tasks/:id/move", () => {
-  it("moves a Task in Backlog to the Project's default Pipeline, keeps the Move and announces it", async () => {
+  it("moves a Task in Backlog to the Project with no Pipeline, keeps the Move and announces it", async () => {
     const task = await create();
     await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "full" });
     await saveAndConfirmParts(task.id);
@@ -429,7 +431,7 @@ describe("POST /api/tasks/:id/move", () => {
     const moved = taskSchema.parse(await response.json());
     expect(moved).toMatchObject({
       projectId: otherProject(),
-      pipelineId: "quick-fix",
+      pipelineId: null,
       state: "backlog",
       plan: "Mine.",
       planConfirmed: false,

@@ -53,22 +53,17 @@ export class IdeaService {
   }
 
   /**
-   * Makes the Idea a Task in Backlog in the Project, following the Project's default Pipeline,
-   * last on the board; the Idea's Attachments move to the Task.
+   * Makes the Idea a Task in Backlog in the Project, with no Pipeline yet, last on the board; the
+   * Idea's Attachments move to the Task.
    */
   async shape(id: string, projectId: string, shapedBy: Author): Promise<Task> {
-    const project = await this.projects.find(projectId);
-    if (!project) throw new IdeaRefused([unknownProject(projectId)]);
+    if (!(await this.projects.find(projectId))) throw new IdeaRefused([unknownProject(projectId)]);
     const taskId = randomUUID();
     const shaped = await this.repository.shape(id, (idea, attachments, takenOrders) => ({
       ...shapeIdeaIntoTask(
         idea,
         { id: taskId, projectId },
-        {
-          pipelineId: project.defaultPipeline,
-          order: orderAfter(takenOrders),
-          createdBy: shapedBy,
-        },
+        { order: orderAfter(takenOrders), createdBy: shapedBy },
         new Date(),
       ),
       moves: attachments.map((attachment) => moveAttachment(attachment, { kind: "task", taskId })),

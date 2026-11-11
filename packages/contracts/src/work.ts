@@ -226,8 +226,8 @@ export const taskSchema = newTaskSchema.extend({
   definitionOfDone: z.array(z.string()),
   /** As `planConfirmed`, for the Definition of Done. */
   definitionOfDoneConfirmed: z.boolean(),
-  /** The Pipeline its work follows. */
-  pipelineId: z.string(),
+  /** The Pipeline its work follows; null until one is chosen, which Ready needs. */
+  pipelineId: z.string().nullable(),
   /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
   proposedPipeline: proposedPipelineSchema.nullable(),
   /**

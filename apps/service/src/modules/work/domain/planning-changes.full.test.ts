@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { THE_USER } from "./author.js";
 import {
   acceptInAutoMode,
+  markingPlannedProblems,
   confirmDefinitionOfDone,
   confirmPipeline,
   confirmPlan,
@@ -536,5 +537,35 @@ describe("acceptInAutoMode", () => {
       ]),
     );
     expect(() => acceptInAutoMode(PROPOSED, 1)).toThrow(TaskRefused);
+  });
+
+  it("gives a Task with no Pipeline the proposed one, and refuses it with none proposed", () => {
+    const noPipeline = { ...PROPOSED, pipelineId: undefined };
+
+    expect(acceptInAutoMode(noPipeline, 0).task).toMatchObject({
+      state: "ready",
+      pipelineId: "document",
+    });
+    expect(() => acceptInAutoMode({ ...noPipeline, proposedPipeline: undefined }, 0)).toThrow(
+      new TaskRefused([
+        "The Task has no Pipeline yet: propose a Pipeline with propose_pipeline first.",
+      ]),
+    );
+  });
+});
+
+describe("markingPlannedProblems", () => {
+  it("refuses a Task with neither a Pipeline nor a proposed one, with the reason", () => {
+    const planning = aPlannedTask({ state: "planning", pipelineId: undefined });
+
+    expect(markingPlannedProblems(planning)).toEqual([
+      "The Task has no Pipeline yet: propose a Pipeline with propose_pipeline first.",
+    ]);
+    expect(
+      markingPlannedProblems({
+        ...planning,
+        proposedPipeline: { pipelineId: "full", reason: "It changes code." },
+      }),
+    ).toEqual([]);
   });
 });

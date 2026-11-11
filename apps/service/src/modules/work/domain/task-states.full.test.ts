@@ -111,6 +111,7 @@ describe("the Before Ready checklist", () => {
       2,
     ],
     ["a Pipeline proposal open", aPlannedTask({ proposedPipeline }), 0, 1],
+    ["no Pipeline chosen", aPlannedTask({ pipelineId: undefined }), 0, 1],
     ["a Decision waiting", aPlannedTask(), 1, 1],
     ["everything open", aPlannedTask({ planConfirmed: false, proposedPipeline }), 3, 3],
   ])("has the refusal's reasons when %s", (_name, task, openDecisions, unmetLines) => {

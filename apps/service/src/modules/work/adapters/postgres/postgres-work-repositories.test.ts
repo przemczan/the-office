@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment } from "../../domain/attachment.js";
 import { THE_USER } from "../../domain/author.js";
+import { confirmPipeline } from "../../domain/planning-changes.js";
 import { changeTitle } from "../../domain/task-description.js";
 import { aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
@@ -47,6 +48,15 @@ describe("PostgresTaskRepository", () => {
 
     await expect(tasks.find(first.id)).resolves.toEqual(first);
     await expect(boardOf(projectId)).resolves.toEqual(["First", "Second"]);
+  });
+
+  it("keeps a Task with no Pipeline until one is chosen", async () => {
+    const created = await createdTask(aProjectId());
+    await expect(tasks.find(created.id)).resolves.toMatchObject({ pipelineId: undefined });
+
+    await tasks.update(created.id, (task) => confirmPipeline(task, "quick-fix"));
+
+    await expect(tasks.find(created.id)).resolves.toMatchObject({ pipelineId: "quick-fix" });
   });
 });
 

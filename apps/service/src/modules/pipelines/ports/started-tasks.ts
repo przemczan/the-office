@@ -6,8 +6,11 @@ export interface StartedTask {
   readonly id: string;
   readonly state: string;
   readonly projectId: string;
-  /** The library Pipeline the Task's own Stages are copied from. */
-  readonly pipelineId: string;
+  /**
+   * The library Pipeline the Task's own Stages are copied from; undefined until one is chosen,
+   * which it is before the Task can be Ready, so a started Task always has one.
+   */
+  readonly pipelineId: string | undefined;
   /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */
   readonly pausedByAlarm: boolean;
 }

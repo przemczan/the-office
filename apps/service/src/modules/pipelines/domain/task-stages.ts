@@ -46,9 +46,10 @@ export function makeTaskStages(
 
 /**
  * Whether the copy is of the Pipeline the Task has now. A copy edited before Start is left behind
- * when the user swaps the Pipeline: the Task follows the library again.
+ * when the user swaps the Pipeline: the Task follows the library again. A Task with no Pipeline
+ * (`pipelineId` undefined) follows none.
  */
-export function followsPipeline(own: TaskStages, pipelineId: string): boolean {
+export function followsPipeline(own: TaskStages, pipelineId: string | undefined): boolean {
   return own.pipelineId === pipelineId;
 }
 
@@ -73,7 +74,7 @@ export interface TaskOfStages {
   readonly id: string;
   readonly state: string;
   readonly projectId: string;
-  readonly pipelineId: string;
+  readonly pipelineId: string | undefined;
 }
 
 /**

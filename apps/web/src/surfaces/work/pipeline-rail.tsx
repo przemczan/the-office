@@ -36,7 +36,15 @@ import {
   type RailPlace,
 } from "./stage-rail-words.ts";
 import type { ShownStage } from "./use-stage-history.ts";
-import { pipelineLabel, REMOVED_PIPELINE, stageNamesOf, type StageNames } from "./stage-words.ts";
+import {
+  PIPELINE_NOT_CHOSEN,
+  PIPELINE_NOT_CHOSEN_WORDS,
+  PIPELINE_RAIL_ELEMENT_ID,
+  pipelineLabel,
+  REMOVED_PIPELINE,
+  stageNamesOf,
+  type StageNames,
+} from "./stage-words.ts";
 
 /** How narrow a Stage's column gets; below that the rail scrolls. */
 const STAGE_MIN_WIDTH_PX = 150;
@@ -71,6 +79,7 @@ export function PipelineRail({
   const [editing, setEditing] = useState(false);
   // Until the Task's Stages are read, the library's would show a started Task as not started.
   if (!taskStages) return null;
+  if (task.pipelineId === null) return <NotChosenRail task={task} />;
   const stages = stagesOnRail(taskStages.stages, pipeline?.stages);
   const finished = task.state === "done" || task.state === "dropped";
   const label = `Pipeline · ${pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, taskStages.editedForTask)}`;
@@ -105,6 +114,32 @@ export function PipelineRail({
       )}
       {editing && <EditTaskStagesDialog task={task} onClose={() => setEditing(false)} />}
     </>
+  );
+}
+
+/**
+ * A Task with no Pipeline yet has no Stages to show: a placeholder, and the Planner's proposal once
+ * there is one; in Backlog the user chooses one here.
+ */
+function NotChosenRail({ task }: { readonly task: Task }): ReactNode {
+  const [choosing, setChoosing] = useState(false);
+  const label = `Pipeline · ${PIPELINE_NOT_CHOSEN}`;
+  return (
+    <section id={PIPELINE_RAIL_ELEMENT_ID} className="pipeline-rail-place" aria-label={label}>
+      <div className="pipeline-rail pipeline-rail-not-chosen">
+        <RailTop label={label} action={undefined} />
+        <div className="pipeline-rail-not-chosen-body">
+          <p>{PIPELINE_NOT_CHOSEN_WORDS}</p>
+          {task.state === "backlog" && (
+            <Button size="sm" variant="secondary" onClick={() => setChoosing(true)}>
+              Choose a Pipeline
+            </Button>
+          )}
+        </div>
+        <PipelineProposal task={task} pipeline={undefined} />
+      </div>
+      {choosing && <EditTaskStagesDialog task={task} onClose={() => setChoosing(false)} />}
+    </section>
   );
 }
 

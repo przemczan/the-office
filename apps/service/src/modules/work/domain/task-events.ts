@@ -108,7 +108,7 @@ export class TaskPlanSaved extends DomainEvent {
 }
 
 /**
- * The Task moved to another Project, following its default Pipeline from now on; a Ready Task left
+ * The Task moved to another Project, with no Pipeline until one is chosen there; a Ready Task left
  * Ready in the same save, as `leftReady` says.
  */
 export class TaskMovedToProject extends DomainEvent {
@@ -116,7 +116,6 @@ export class TaskMovedToProject extends DomainEvent {
     readonly taskId: string,
     readonly fromProjectId: string,
     readonly toProjectId: string,
-    readonly pipelineId: string,
     readonly leftReady: TaskStateChanged | undefined,
   ) {
     super();

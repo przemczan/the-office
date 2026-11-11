@@ -10,6 +10,7 @@ import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
 import { PIPELINE_PROPOSAL_ELEMENT_ID } from "./pipeline-proposal.tsx";
 import { bringIntoView, useShowRecordBlock, type PartBlock } from "./record-blocks.ts";
 import { RecordBlock } from "./record-block.tsx";
+import { PIPELINE_RAIL_ELEMENT_ID } from "./stage-words.ts";
 
 type ReadinessPart = Readiness["lines"][number]["part"];
 
@@ -92,7 +93,8 @@ function OnRail({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner()?.card.name ?? "The Planner";
   const pipelines = useQuery(pipelineQueries.list()).data;
   const proposed = task.proposedPipeline?.pipelineId;
-  if (proposed === undefined) return null;
+  if (proposed === undefined)
+    return task.pipelineId === null ? <ChooseAPipeline task={task} /> : null;
   const name = pipelines?.find(({ id }) => id === proposed)?.name ?? proposed;
   return (
     <>
@@ -100,6 +102,18 @@ function OnRail({ task }: { readonly task: Task }): ReactNode {
       <TextButton onClick={() => bringIntoView(PIPELINE_PROPOSAL_ELEMENT_ID)}>
         confirm it on the rail
       </TextButton>
+    </>
+  );
+}
+
+/** No Pipeline and none proposed: the user chooses one in Backlog, the Planner proposes one in Planning. */
+function ChooseAPipeline({ task }: { readonly task: Task }): ReactNode {
+  const planner = usePlanner()?.card.name ?? "The Planner";
+  if (task.state !== "backlog") return `${planner} proposes one while planning`;
+  return (
+    <>
+      Choose a Pipeline{" "}
+      <TextButton onClick={() => bringIntoView(PIPELINE_RAIL_ELEMENT_ID)}>on the rail</TextButton>
     </>
   );
 }

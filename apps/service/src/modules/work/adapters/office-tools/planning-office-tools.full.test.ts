@@ -164,7 +164,7 @@ describe("write_definition_of_done", () => {
 });
 
 describe("propose_pipeline", () => {
-  it("proposes a Pipeline beside the one the Task follows until the user confirms it", async () => {
+  it("proposes a Pipeline for a Task with none yet, which it follows once the user confirms it", async () => {
     const result = await call(PROPOSE_PIPELINE, { pipelineId: "full", why: "It changes code." });
 
     expect(result).toEqual({
@@ -172,7 +172,7 @@ describe("propose_pipeline", () => {
       isError: false,
     });
     expect(await current()).toMatchObject({
-      pipelineId: "quick-fix",
+      pipelineId: undefined,
       proposedPipeline: { pipelineId: "full", reason: "It changes code." },
     });
   });
@@ -204,7 +204,7 @@ describe("a Pipeline running a command the Task's Project lacks", () => {
 
     expect(proposed).toEqual({ text: refusal(task.projectId), isError: true });
     await expect(confirming).rejects.toThrow(refusal(task.projectId));
-    expect(await current()).toMatchObject({ pipelineId: "quick-fix", proposedPipeline: undefined });
+    expect(await current()).toMatchObject({ pipelineId: undefined, proposedPipeline: undefined });
   });
 
   it("is refused when auto mode would accept it, as the command was removed since it was proposed", async () => {
@@ -249,9 +249,11 @@ describe("write_tags", () => {
   });
 });
 
+/** The Plan, the Definition of Done and a proposed Pipeline, as the Planner writes them. */
 async function writeTheParts(): Promise<void> {
   await call(WRITE_PLAN, { plan: "Keep the requested path through the sign-in." });
   await call(WRITE_DEFINITION_OF_DONE, { statements: ["Signing in returns to the page."] });
+  await call(PROPOSE_PIPELINE, { pipelineId: "quick-fix", why: "One small change." });
 }
 
 async function inAutoMode(): Promise<void> {
@@ -299,11 +301,11 @@ describe("mark_planned", () => {
     expect(await current()).toMatchObject({ state: "ready", planConfirmed: true });
   });
 
-  it("refuses before the Plan and the Definition of Done are written, with the reasons", async () => {
+  it("refuses before the Plan, the Definition of Done and a Pipeline are written, with the reasons", async () => {
     const result = await call(MARK_PLANNED, {});
 
     expect(result).toEqual({
-      text: "Write the Plan first, with write_plan. Write the Definition of Done first, with write_definition_of_done.",
+      text: "Write the Plan first, with write_plan. Write the Definition of Done first, with write_definition_of_done. The Task has no Pipeline yet: propose a Pipeline with propose_pipeline first.",
       isError: true,
     });
   });
@@ -371,6 +373,7 @@ describe("on a Ready Task", () => {
     const planning = work.app.get(PlanningService);
     await planning.confirmPlan(task.id);
     await planning.confirmDefinitionOfDone(task.id);
+    await planning.confirmPipeline(task.id, "quick-fix");
     await planning.markReady(task.id);
 
     await call(WRITE_DEFINITION_OF_DONE, { statements: ["The query string is kept too."] });
