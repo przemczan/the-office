@@ -240,6 +240,7 @@ body,
 
 .shell-strip-needs-you,
 .shell-strip-usage,
+.shell-strip-office-button,
 .shell-strip-action {
   padding: 4px 8px;
   margin: 0 -8px;
@@ -259,6 +260,20 @@ body,
   color: var(--fg-1);
 }
 
+.shell-strip-office-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A long line is cut rather than pushing the other figures out of the strip; `title` holds it whole. */
+.shell-strip-office-line {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shell-strip-update {
   color: var(--fg-1);
   text-decoration: none;
@@ -270,6 +285,7 @@ body,
 
 .shell-strip-needs-you:hover,
 .shell-strip-usage:hover,
+.shell-strip-office-button:hover,
 .shell-strip-action:hover {
   background: var(--surface-sunken);
 }
@@ -297,6 +313,35 @@ body,
   display: block;
   height: 100%;
   background: var(--fg-3);
+}
+
+/* The other Office Notifications under the newest; `.floating-menu` draws and places it. */
+.shell-office-list {
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+}
+
+.shell-office-list ul {
+  display: grid;
+  margin: 0;
+  padding: 0 8px;
+  list-style: none;
+}
+
+.shell-office-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+/* The list has room to wrap what the strip cuts. */
+.shell-office-list .shell-strip-office-line {
+  white-space: normal;
+}
+
+.shell-office-list li + li {
+  border-top: 1px solid var(--border);
 }
 
 /* The list under the usage figure; `.floating-menu` draws and places it. */

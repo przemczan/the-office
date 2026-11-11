@@ -13,8 +13,8 @@ import {
   desktopPermission,
   type DesktopPermission as Permission,
 } from "./notifications/desktop-channel.ts";
-import { personOf } from "./notifications/notification-words.ts";
 import { doneSinceYouLeft, needsYouWords } from "./notifications/now-words.ts";
+import { OfficeNotificationsFigure } from "./notifications/office-notifications-figure.tsx";
 import { useNeedsYou } from "./notifications/use-needs-you.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
 import { TokenCount } from "./token-count.tsx";
@@ -28,8 +28,8 @@ import { WorkstationFigure } from "./workstation/workstation-figure.tsx";
  * own, so it shows while Now loads), an Office update while one is scheduled, and the fire
  * alarm's state, its desks at 0 while it is on.
  * While the web has lost the service it says so first,
- * and the Office's own Notifications (the window, the engine) show here until they clear, by the
- * Office Manager's name once one speaks them.
+ * and the Office's own Notifications (the window, the engine) show here until they clear: the newest
+ * one, with the others in a list from "+N more".
  */
 export function StatusStrip(): ReactNode {
   const reconnecting = useEventStreamStatus() === "reconnecting";
@@ -46,15 +46,7 @@ export function StatusStrip(): ReactNode {
           Reconnecting to The Office…
         </span>
       )}
-      {officeNotifications.map((notification) => {
-        const person = personOf(notification, roles);
-        return (
-          <span key={notification.id} className="shell-strip-stat shell-strip-office">
-            <span className="shell-dot reconnecting" />
-            {person ? `${person.name}: ${notification.line}` : notification.line}
-          </span>
-        );
-      })}
+      <OfficeNotificationsFigure notifications={officeNotifications} roles={roles} />
       {now && <Figures now={now} />}
       <span className="shell-grow" />
       <WorkstationFigure />

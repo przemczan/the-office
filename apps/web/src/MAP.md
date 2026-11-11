@@ -191,6 +191,7 @@
 - `notification-channels.ts`: useNotificationChannels, NotificationChannels
 - `notification-words.ts`: OFFICE_TITLE, NotificationTarget, targetOf, serviceDown, titleWithUnread, personOf, aboutLine, unreadCount
 - `now-words.ts`: OUTCOME_NAMES, OUTCOME_TONES, OUTCOME_EDGES, needsYouWords, desksWords, sinceWords, inStageWords, resetWords, resetMomentWords, doneSinceYouLeft, UsageWindows, UsageWindow, NamedUsageWindows, namedUsageWindows, fiveHourWindowName, percentWords, UsageFigurePart, usageFigureWords, usageFigureLabel
+- `office-notifications-figure.tsx`: OfficeNotificationsFigure
 - `unread-badge.ts`: useUnreadBadge
 - `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel
 - `use-needs-you.ts`: useNeedsYou
