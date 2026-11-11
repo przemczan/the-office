@@ -52,21 +52,32 @@ export function ProposedCommandChanges({
           to={installInputsLine(installInputs.to) || "None"}
         />
       )}
-      {commands.map(({ key, from, to }) => (
-        <ChangeRow
-          key={key}
-          label={`${(to ?? from)?.name ?? key} (${key})`}
-          from={from ? commandWords(from) : "None: added"}
-          to={to ? commandWords(to) : "Removed"}
-        />
-      ))}
+      {commands.map(({ key, from, to }) => {
+        // A rename shows the name on both sides, as the label gives only the one it has now.
+        const withName = from !== null && to !== null && from.name !== to.name;
+        return (
+          <ChangeRow
+            key={key}
+            label={`${(from ?? to)?.name ?? key} (${key})`}
+            from={from ? commandWords(from, { withName }) : "None: added"}
+            to={to ? commandWords(to, { withName }) : "Removed"}
+          />
+        );
+      })}
     </ul>
   );
 }
 
-/** A command's kind and line, as a Proposal's change shows it: "Test · npm test". */
-export function commandWords({ kind, commandLine }: ProjectCommandFields): string {
-  return `${COMMAND_KIND_LABELS[kind]} · ${commandLine || "Not set"}`;
+/**
+ * A command's kind and line, as a Proposal shows it: "Test · npm test", or with its name first,
+ * "Unit tests · Test · npm test".
+ */
+export function commandWords(
+  { name, kind, commandLine }: ProjectCommandFields,
+  { withName = false }: { readonly withName?: boolean } = {},
+): string {
+  const words = `${COMMAND_KIND_LABELS[kind]} · ${commandLine || "Not set"}`;
+  return withName ? `${name} · ${words}` : words;
 }
 
 /** A Pipeline's Stages from now to as proposed, and each Stage the change adds, removes or rewrites. */
