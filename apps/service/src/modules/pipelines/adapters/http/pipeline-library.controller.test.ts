@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  pipelineCheckSchema,
   pipelineRemovalRefusalSchema,
   pipelineSchema,
   stagesEditRefusalSchema,
@@ -117,6 +118,37 @@ describe("PUT /api/pipelines/:id", () => {
     expect((await taskStages.make(later, pipeline.id)).stages).toEqual(edit.stages);
     expect((await taskStages.find(started))?.stages).toEqual(pipeline.stages);
   });
+
+  it("refuses Stages naming a command a Project with it as default lacks, which the check shows on the Stage", async () => {
+    const pipeline = await added();
+    pipelines.projects.projects.push({
+      id: randomUUID(),
+      name: "Site",
+      defaultPipeline: pipeline.id,
+      commands: [{ key: "test" }],
+    });
+    const edit = anEdit({
+      stages: [scriptStage({ key: "full", name: "Full tests", command: "test-full" })],
+    });
+    const problem = {
+      stageIndex: 0,
+      text: "Stage 1 · Full tests: Site has no command test-full (it is its default Pipeline)",
+    };
+
+    const response = await send("PUT", `/pipelines/${pipeline.id}`, edit);
+    const check = await send("POST", "/pipelines/check", { ...edit, pipelineId: pipeline.id });
+
+    expect(response.status).toBe(422);
+    expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual([problem]);
+    expect(pipelineCheckSchema.parse(await check.json()).problems).toEqual([problem]);
+  });
+
+  it("refuses a command key that breaks the key rules, such as install", async () => {
+    const pipeline = await added();
+    const edit = anEdit({ stages: [scriptStage({ command: "install" })] });
+
+    expect((await send("PUT", `/pipelines/${pipeline.id}`, edit)).status).toBe(400);
+  });
 });
 
 describe("DELETE /api/pipelines/:id", () => {
@@ -126,6 +158,7 @@ describe("DELETE /api/pipelines/:id", () => {
       id: randomUUID(),
       name: "Site",
       defaultPipeline: pipeline.id,
+      commands: [],
     });
     pipelines.tasks.put(randomUUID(), { state: "ready", pipelineId: pipeline.id });
 

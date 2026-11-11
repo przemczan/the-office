@@ -2,6 +2,7 @@ import { ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE } from "./built-in-pi
 import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { sameAsKept, type Stage } from "./stage.js";
+import { commandsWords, missingCommandsOnStages } from "./stage-commands.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
 
 /** What the user writes of a library Pipeline in the library editor; its id stays. */
@@ -14,14 +15,16 @@ export interface PipelineEdit {
 /** A Task as the library weighs who uses a Pipeline. */
 export interface TaskOnPipeline {
   readonly state: string;
+  readonly projectId: string;
   readonly pipelineId: string;
 }
 
-/** A Project as the library weighs who names a Pipeline as their default. */
+/** A Project as the library weighs who names a Pipeline as their default, and what it can run. */
 export interface ProjectOnPipeline {
   readonly id: string;
   readonly name: string;
   readonly defaultPipeline: string;
+  readonly commands: readonly { readonly key: string }[];
 }
 
 /** Who uses a library Pipeline: what removing it would leave without one, and what saving changes. */
@@ -137,6 +140,49 @@ export function pipelineUse(
     notStarted: onPipeline.filter(({ state }) => NOT_STARTED_STATES.includes(state)).length,
     running: onPipeline.filter(({ state }) => RUNNING_STATES.includes(state)).length,
   };
+}
+
+/**
+ * The commands the Pipeline's `stages` name that a Project running it lacks: one that has it as its
+ * default, or has a Task that hasn't started on it, which starts on these Stages (spec §2.3). One
+ * problem per Stage and Project. Keys alone count: a command left blank passes, and fails as
+ * could-not-run when it runs.
+ */
+export function missingCommandProblems(
+  pipelineId: string,
+  stages: readonly Stage[],
+  projects: readonly ProjectOnPipeline[],
+  tasks: readonly TaskOnPipeline[],
+): StageProblem[] {
+  return projects.flatMap((project) => {
+    const why = whyProjectRuns(pipelineId, project, tasks);
+    return why
+      ? missingCommandsOnStages(
+          stages,
+          project.commands,
+          0,
+          (keys) => `${project.name} has no ${commandsWords(keys)} (${why})`,
+        )
+      : [];
+  });
+}
+
+function whyProjectRuns(
+  pipelineId: string,
+  project: ProjectOnPipeline,
+  tasks: readonly TaskOnPipeline[],
+): string | undefined {
+  if (project.defaultPipeline === pipelineId) return "it is its default Pipeline";
+  const notStarted = tasks.filter(
+    (task) =>
+      task.projectId === project.id &&
+      task.pipelineId === pipelineId &&
+      NOT_STARTED_STATES.includes(task.state),
+  ).length;
+  if (notStarted === 0) return undefined;
+  return notStarted === 1
+    ? "a Task of it that hasn't started uses it"
+    : `${notStarted} of its Tasks that haven't started use it`;
 }
 
 /**

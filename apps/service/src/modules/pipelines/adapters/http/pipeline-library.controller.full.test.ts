@@ -276,7 +276,12 @@ describe("GET /api/pipelines/:id/use", () => {
   it("names the Projects whose default it is and counts its Tasks not started and running", async () => {
     const pipeline = await added();
     const projectId = randomUUID();
-    pipelines.projects.projects.push({ id: projectId, name: "App", defaultPipeline: pipeline.id });
+    pipelines.projects.projects.push({
+      id: projectId,
+      name: "App",
+      defaultPipeline: pipeline.id,
+      commands: [],
+    });
     for (const state of ["backlog", "planning", "paused", "done"]) {
       pipelines.tasks.put(randomUUID(), { state, pipelineId: pipeline.id });
     }

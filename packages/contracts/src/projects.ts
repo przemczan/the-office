@@ -17,6 +17,22 @@ export const projectCommandFieldsSchema = z.object({
 });
 export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
 
+/** Keys a command can't take: install's, and Publish's, which isn't a Project command. */
+const RESERVED_PROJECT_COMMAND_KEYS: readonly string[] = ["install", "publish"];
+
+/**
+ * A key a Project command may take: lower-case letters, digits and `-`, starting with a letter, at
+ * most 40 characters, and neither install's nor Publish's. The service's own check words each rule.
+ */
+export const projectCommandKeySchema = z
+  .string()
+  .max(40)
+  .regex(/^[a-z][a-z0-9-]*$/)
+  .refine(
+    (key) => !RESERVED_PROJECT_COMMAND_KEYS.includes(key),
+    "is kept for The Office's own use",
+  );
+
 /**
  * One of the Project's commands besides install (POST /projects/:id/commands). The key, unique in
  * the Project, is what Stages and Agents run it by.

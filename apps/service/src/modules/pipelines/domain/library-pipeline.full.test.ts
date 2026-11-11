@@ -168,19 +168,19 @@ describe("copiedPipeline", () => {
 describe("pipelineUse", () => {
   it("counts the Projects naming it their default, and its Tasks not started and running", () => {
     const projects = [
-      { id: "site", name: "Site", defaultPipeline: "full" },
-      { id: "app", name: "App", defaultPipeline: "quick-fix" },
+      { id: "site", name: "Site", defaultPipeline: "full", commands: [] },
+      { id: "app", name: "App", defaultPipeline: "quick-fix", commands: [] },
     ];
     const tasks = [
-      { state: "backlog", pipelineId: "full" },
-      { state: "planning", pipelineId: "full" },
-      { state: "ready", pipelineId: "full" },
-      { state: "in-progress", pipelineId: "full" },
-      { state: "waiting-on-you", pipelineId: "full" },
-      { state: "paused", pipelineId: "full" },
-      { state: "done", pipelineId: "full" },
-      { state: "dropped", pipelineId: "full" },
-      { state: "ready", pipelineId: "quick-fix" },
+      { state: "backlog", projectId: "site", pipelineId: "full" },
+      { state: "planning", projectId: "site", pipelineId: "full" },
+      { state: "ready", projectId: "site", pipelineId: "full" },
+      { state: "in-progress", projectId: "site", pipelineId: "full" },
+      { state: "waiting-on-you", projectId: "site", pipelineId: "full" },
+      { state: "paused", projectId: "site", pipelineId: "full" },
+      { state: "done", projectId: "site", pipelineId: "full" },
+      { state: "dropped", projectId: "site", pipelineId: "full" },
+      { state: "ready", projectId: "site", pipelineId: "quick-fix" },
     ];
 
     expect(pipelineUse("full", projects, tasks)).toEqual({

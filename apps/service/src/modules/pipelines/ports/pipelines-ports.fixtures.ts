@@ -41,7 +41,8 @@ import {
   TaskCommands,
   type AgentCommandOptions,
   type CommandWait,
-  type ScriptCommandKey,
+  type ScriptCommandKind,
+  type ScriptCommandResult,
   type TaskCommandOptions,
 } from "./task-commands.js";
 import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
@@ -641,10 +642,16 @@ export class TaskCommandsForTests extends TaskCommands {
   readonly installations: Installation[] = [];
   /** What the next commands give, in order: each its runs. */
   readonly commandRuns: (readonly ScriptCommandRun[])[] = [];
+  /** Each command's kind by its key: the starting commands', unless a test adds or removes one. */
+  readonly commandKinds = new Map<string, ScriptCommandKind>([
+    ["build", "build"],
+    ["lint", "lint"],
+    ["test", "test"],
+  ]);
   /** Every command run, in order. */
   readonly ran: {
     readonly taskId: string;
-    readonly key: ScriptCommandKey;
+    readonly key: string;
     readonly stageRunId: string;
   }[] = [];
   /** Told of every call, as it is made, so a test can see what happened before it. */
@@ -679,7 +686,17 @@ export class TaskCommandsForTests extends TaskCommands {
   async runCommand(
     _projectId: string,
     taskId: string,
-    key: ScriptCommandKey,
+    key: string,
+    stageRunId: string,
+    options: TaskCommandOptions,
+  ): Promise<ScriptCommandResult> {
+    const runs = await this.runsOf(taskId, key, stageRunId, options);
+    return { kind: this.commandKinds.get(key), runs };
+  }
+
+  private async runsOf(
+    taskId: string,
+    key: string,
     stageRunId: string,
     { signal, wait }: TaskCommandOptions,
   ): Promise<readonly ScriptCommandRun[]> {

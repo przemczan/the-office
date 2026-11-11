@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { installFailure, scriptStageOutcome } from "../domain/script-stage-outcome.js";
+import { PUBLISH_COMMAND } from "../domain/stage.js";
 import { stageCommitMessage } from "../domain/stage-commit.js";
 import { acceptedIssues } from "../domain/walk-decisions.js";
 import type { ExpectedHead } from "../domain/stage-commit.js";
@@ -26,8 +27,8 @@ import { StageRunners } from "./stage-runners.js";
  * Project's environment and no model call, after the dependencies' install, on the host or in the
  * Task's run environment; a wait for a free one is saved on the run until the command starts. The
  * commands' runs are recorded on the Stage run, and the last one's result is its outcome. git is
- * checked before and after (spec §5.5); a test run leaves the worktree restored, so only a build or
- * lint commits what it changed. A command can't be stopped by the user (spec §2.4): only The Office
+ * checked before and after (spec §5.5); a run of a test-kind command, under any key, leaves the
+ * worktree restored, so only a build or lint one commits what it changed. A command can't be stopped by the user (spec §2.4): only The Office
  * shutting down stops it, which ends the run interrupted. Publish is The Office's own git (PublishStage).
  */
 @Injectable()
@@ -50,7 +51,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
   /** A Publish, or the Stage's command, is busy work a scheduled Office update waits for. */
   run(work: StageWork<"script">): Promise<StageOutcome> {
     const { name, command } = work.stage;
-    return command === "publish"
+    return command === PUBLISH_COMMAND
       ? this.busyWork.during({ kind: "publish", label: `Publish in the Stage ${name}` }, () =>
           this.publish.run(work),
         )
@@ -62,7 +63,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
   private async runCommand(work: StageWork<"script">): Promise<StageOutcome> {
     const { stage, run } = work;
     const command = stage.command;
-    if (command === "publish") throw new Error("A Publish runs no Project command.");
+    if (command === PUBLISH_COMMAND) throw new Error("A Publish runs no Project command.");
     const task = await this.records.read(run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
@@ -79,7 +80,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
         error: `${installFailure(failed)}\n\nThe Stage's command didn't run.`,
       };
     }
-    const commandRuns = await this.commands.runCommand(
+    const { kind, runs: commandRuns } = await this.commands.runCommand(
       task.project.id,
       run.taskId,
       command,
@@ -92,7 +93,8 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     const outcome = scriptStageOutcome(commandRuns);
     const moved = await this.stageGit.checkHead(run, task, expected);
     if (moved) return commandChangedGit(moved);
-    if (command === "test") await this.stageGit.leaveAt(run, expected);
+    // A command the Project lacks ran nothing, so there is nothing to commit either.
+    if (kind === "test" || kind === undefined) await this.stageGit.leaveAt(run, expected);
     else {
       const message = stageCommitMessage(
         stage.name,

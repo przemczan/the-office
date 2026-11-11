@@ -22,6 +22,8 @@ import {
   type TaskTrace,
 } from "../domain/task-stages.js";
 import { TaskStagesReset } from "../domain/task-stages-events.js";
+import { commandsWords, missingCommandsOnStages } from "../domain/stage-commands.js";
+import { ProjectDefaults } from "../ports/project-defaults.js";
 import { StageRoleEngines } from "../ports/stage-role-engines.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
@@ -46,6 +48,7 @@ export class TaskStagesService implements OnModuleInit {
     private readonly tasks: StartedTasks,
     private readonly roleFillings: RoleFillings,
     private readonly roleEngines: StageRoleEngines,
+    private readonly projects: ProjectDefaults,
     private readonly events: EventBus,
   ) {}
 
@@ -176,8 +179,29 @@ export class TaskStagesService implements OnModuleInit {
             lockedStageCount(own.stages, runs),
           )),
           ...(await this.roleEngineProblems(edited, own, projectId)),
+          ...(await this.missingCommandProblems(
+            edited,
+            lockedStageCount(own.stages, runs),
+            projectId,
+          )),
         ];
     return { own, runs, problems };
+  }
+
+  /** The commands the Stages not locked yet name that the Task's Project lacks. */
+  private async missingCommandProblems(
+    edited: readonly Stage[],
+    fromIndex: number,
+    projectId: string,
+  ): Promise<StageProblem[]> {
+    const project = (await this.projects.list()).find(({ id }) => id === projectId);
+    if (!project) return [];
+    return missingCommandsOnStages(
+      edited,
+      project.commands,
+      fromIndex,
+      (keys) => `its Project, ${project.name}, has no ${commandsWords(keys)}.`,
+    );
   }
 
   /**

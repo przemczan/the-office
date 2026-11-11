@@ -420,9 +420,7 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   await expect(page.getByText("Give the Pipeline a name.")).toBeVisible();
   await page.getByLabel("Name", { exact: true }).first().fill(name);
   await page.getByRole("button", { name: "Script Stage" }).click();
-  await page
-    .getByLabel("Project command")
-    .selectOption({ label: "Publish (each Project's own command)" });
+  await page.getByLabel("Project command").selectOption({ label: "Publish" });
   const afterConflict = page.getByLabel("After a conflict");
   await expect(afterConflict).toHaveValue("publish");
   await afterConflict.selectOption({ label: "Wait at a Gate for your review" });
@@ -499,21 +497,28 @@ test(
     await expect(page.getByText('Another Stage template is named "Implement".')).toBeVisible();
     await expect(page.getByRole("button", { name: "Add the template" })).toBeDisabled();
     await nameField.fill(name);
-    await page
-      .getByLabel("Project command")
-      .selectOption({ label: "Lint (each Project's own command)" });
+    // Each Project runs its own command by the key. This file adds no Project, so none is suggested:
+    // a key is typed in, refused until it follows the key rules.
+    await page.getByLabel("Project command").selectOption({ label: "Another key…" });
+    await page.getByLabel("Command key").fill("Install");
+    await expect(page.getByText('"Install" isn\'t a command key')).toBeVisible();
+    await page.locator(".settings-split").screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-settings-stage-template-another-key.png"),
+    });
+    await page.getByLabel("Command key").fill("lint");
     await page.getByRole("button", { name: "Add the template" }).click();
 
     await expect(page.getByText(`${name} added to the Stage templates.`)).toBeVisible();
     await expect(page).toHaveURL(/\/settings\/pipelines\/stage-templates\/[\da-f-]{36}$/);
     const item = templates.getByRole("link", { name: new RegExp(`^${name}`) });
-    await expect(item).toContainText("Lint");
+    await expect(item).toContainText("lint");
     await expect(item).toHaveAttribute("aria-current", "page");
     await screenshotEachLook(page, templates, "settings-stage-template");
 
-    await page
-      .getByLabel("Project command")
-      .selectOption({ label: "Build (each Project's own command)" });
+    // The key the Stage names stays listed, though no Project has it.
+    await expect(page.getByLabel("Project command")).toHaveValue("lint");
+    await page.getByLabel("Project command").selectOption({ label: "Another key…" });
+    await page.getByLabel("Command key").fill("build");
     await page.getByText("Optional: skipped when the Definition of Done is already met").click();
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     await page.getByRole("button", { name: "Save the template" }).click();
@@ -522,7 +527,7 @@ test(
     ).toBeVisible();
     await page.reload();
     await expect(page.getByLabel("Project command")).toHaveValue("build");
-    await expect(item).toContainText("Build");
+    await expect(item).toContainText("build");
 
     await page.getByRole("button", { name: "Remove", exact: true }).click();
     await expect(

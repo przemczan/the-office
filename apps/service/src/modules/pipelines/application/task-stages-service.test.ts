@@ -113,4 +113,24 @@ describe("Edit for this Task", () => {
     await service.edit(taskId, narrowing);
     expect((await service.find(taskId))?.stages).toEqual(narrowing);
   });
+
+  it("refuses a Script Stage whose command the Task's Project lacks", async () => {
+    pipelines.projects.projects.push({
+      id: "test-project",
+      name: "Site",
+      defaultPipeline: "full",
+      commands: [{ key: "build" }, { key: "test" }],
+    });
+    const fullTests: Stage = {
+      kind: "script",
+      key: "full",
+      name: "Full tests",
+      optional: false,
+      command: "test-full",
+    };
+
+    expect(await refusalOf(service.edit(aTask(), [...quickFix, fullTests]))).toEqual([
+      `Stage ${quickFix.length + 1} · Full tests: its Project, Site, has no command test-full.`,
+    ]);
+  });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { effortSchema, hardSwitchValueSchema, runPermissionSchema } from "./people.js";
+import { projectCommandKeySchema } from "./projects.js";
 
 /** "On failure go back to Stage X, at most N times": the Stage's key and its rounds. */
 export const onFailureSchema = z.object({
@@ -27,6 +28,12 @@ export const stagePermissionsSchema = z.object({
   mcpTools: z.record(z.string().regex(/^[a-z0-9-]+\/.+$/), hardSwitchValueSchema).optional(),
 });
 export type StagePermissions = z.infer<typeof stagePermissionsSchema>;
+
+/**
+ * What a Script Stage runs: `publish`, kept for Publish, or a Project command by its key. Install is
+ * never a Stage's, as it runs before every Stage on its own (spec §2.3).
+ */
+export const scriptStageCommandSchema = z.union([z.literal("publish"), projectCommandKeySchema]);
 
 const stageFields = {
   key: z.string().min(1),
@@ -57,7 +64,7 @@ export const stageSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("script"),
     ...stageFields,
-    command: z.enum(["build", "lint", "test", "publish"]),
+    command: scriptStageCommandSchema,
     /**
      * A Publish Stage's alone: by the Project's publishing mode, or pushing the Task's branch only,
      * for a proof of concept. Absent means the publishing mode.

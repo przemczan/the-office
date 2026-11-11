@@ -103,6 +103,35 @@ describe("ScriptStageRunner", () => {
     expect(runs[0]?.headCommit).toBe(PLANNED_COMMIT);
   });
 
+  it("goes by the command's kind, not its key: a test-kind test-full leaves the branch, a build-kind bundle commits", async () => {
+    pipelines = await startPipelinesApplication();
+    pipelines.commands.commandKinds.set("test-full", "test").set("bundle", "build");
+
+    const taskId = await walkStages(pipelines, [
+      aScriptStage("test-full", { name: "Full tests" }),
+      aScriptStage("bundle", { name: "Bundle" }),
+    ]);
+
+    expect(pipelines.commands.ran.map(({ key }) => key)).toEqual(["test-full", "bundle"]);
+    expect(pipelines.git.commits).toEqual([
+      expect.objectContaining({ message: expect.stringMatching(/^Bundle: Rename a device\n/) }),
+    ]);
+    const runs = await runsOf(pipelines, taskId);
+    expect(runs[0]?.headCommit).toBe(PLANNED_COMMIT);
+  });
+
+  it("commits nothing for a command the Project lacks, which fails as could-not-run", async () => {
+    pipelines = await startPipelinesApplication();
+    const missing = aCommandRun("", "could-not-run", "The Project has no e2e command.");
+    pipelines.commands.commandRuns.push([missing]);
+
+    const taskId = await walkStages(pipelines, [aScriptStage("e2e", { name: "E2E" })]);
+
+    expect(pipelines.git.commits).toEqual([]);
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.outcome?.status).toBe("failed");
+  });
+
   it("doesn't run its command when HEAD isn't where The Office left it", async () => {
     pipelines = await startPipelinesApplication();
     const taskId = randomUUID();
