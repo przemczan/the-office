@@ -53,10 +53,11 @@ body,
   text-decoration: none;
 }
 
-/* Clipped while the rail widens, so the name doesn't spill over the top bar. */
+/* Clipped while the rail widens, so the name doesn't spill over the top bar. The padding centres the
+   mark on the icons' column below it. */
 .shell-rail[data-expanded="true"] .shell-rail-mark {
   overflow: hidden;
-  padding-left: 15px;
+  padding-left: 6px;
 }
 
 .shell-rail-name {
