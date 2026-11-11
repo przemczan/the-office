@@ -40,17 +40,16 @@ export class StageProjectCommands {
 
   async inSession(command: AgentCommand, call: OfficeToolCall): Promise<OfficeToolResult> {
     const taskId = await this.threads.taskInSession(call.sessionId);
-    const run =
-      taskId === undefined
-        ? undefined
-        : (await this.runs.list(taskId)).findLast(({ outcome }) => outcome === undefined);
+    const runs = taskId === undefined ? [] : await this.runs.list(taskId);
+    const run = runs.findLast(({ outcome }) => outcome === undefined);
     if (!run) return { text: NOT_IN_A_STAGE, isError: true };
     const { project } = await this.records.read(run.taskId);
     if ("commandLine" in command) {
       const judgement = await call.judgeCommand(command.commandLine);
       if (!judgement.allowed) return { text: judgement.reason, isError: true };
     } else {
-      const refusal = commandKeyRefusal(command.key, project.commands, await this.narrowingOf(run));
+      const narrowing = await this.narrowingOf(run, runs);
+      const refusal = commandKeyRefusal(command.key, project.commands, narrowing);
       if (refusal !== undefined) return { text: refusal, isError: true };
     }
     const outputFile = join(call.outputFolder, `command-${randomUUID()}.log`);
@@ -66,9 +65,11 @@ export class StageProjectCommands {
   }
 
   /** The running Stage's narrowing of the Project's commands, as `allowedCommands` briefed it. */
-  private async narrowingOf(run: StageRun): Promise<readonly string[] | undefined> {
+  private async narrowingOf(
+    run: StageRun,
+    runs: readonly StageRun[],
+  ): Promise<readonly string[] | undefined> {
     const own = await this.taskStages.find(run.taskId);
-    const runs = await this.runs.list(run.taskId);
     const stage = walkedStages(own?.stages ?? [], runs).find(({ key }) => key === run.stageKey);
     return stage?.kind === "agent" ? stage.permissions?.commands : undefined;
   }
