@@ -202,7 +202,7 @@
 - `library-commands.ts`: useLibraryCommands
 - `pipeline-words.ts`: PUBLISH_TARGET_NAMES, AFTER_CONFLICT_NAMES, StageFieldChange, stageFieldChanges, stagesLine, whoWorks, thousands, StageChange, stageChanges
 - `stage-check-alerts.tsx`: StageCheckAlerts
-- `stage-commands.ts`: PUBLISH_COMMAND, ANOTHER_KEY, StageCommandSource, StageCommandChoice, commandChoices, commandWords
+- `stage-commands.ts`: PUBLISH_COMMAND, ANOTHER_KEY, StageCommandSource, StageCommandChoice, commandChoices, commandWords, namedCommands
 - `stage-editor.tsx`: StageEditorProps, StageEditor
 - `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_KIND_ICONS, addStage, addStageFrom, withoutFailureRule, AddedStage, standaloneStage, removeStage, canMove, moveStage, replaceStage, withRole, withCommand, canContinue, failureTargets
 - `stage-form.tsx`: StageFormProps, StageForm

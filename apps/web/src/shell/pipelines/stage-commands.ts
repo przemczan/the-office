@@ -61,6 +61,18 @@ export function commandWords(
   return commands?.find(({ key }) => key === command)?.name ?? command;
 }
 
+/**
+ * The commands a Stage's row names a key by: the Task's Project's, or in the library each key's
+ * name in the first Project that has it.
+ */
+export function namedCommands(
+  source: StageCommandSource,
+): readonly Pick<ProjectCommand, "key" | "name">[] {
+  return source.kind === "project"
+    ? source.commands
+    : source.projects.flatMap(({ commands }) => commands);
+}
+
 /** "test-full · Full tests (the-office)", or "(every Project)" when each has the key. */
 function libraryChoices({
   projects,

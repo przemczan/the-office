@@ -1,6 +1,6 @@
 import type { ProjectCommand } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { ANOTHER_KEY, commandChoices, commandWords } from "./stage-commands.ts";
+import { ANOTHER_KEY, commandChoices, commandWords, namedCommands } from "./stage-commands.ts";
 
 const test: ProjectCommand = { key: "test", name: "Test", kind: "test", commandLine: "npm test" };
 const fullTests: ProjectCommand = {
@@ -56,6 +56,24 @@ describe("commandChoices in a Task's own editor", () => {
       value: "e2e",
       label: "e2e · not in this Project",
     });
+  });
+});
+
+describe("namedCommands", () => {
+  it("names a library key by the first Project that has it, and a Task's by its Project", () => {
+    const library = {
+      kind: "library" as const,
+      projects: [
+        { name: "Site", commands: [test] },
+        { name: "the-office", commands: [{ ...test, name: "Quick tests" }, fullTests] },
+      ],
+    };
+
+    expect(commandWords("test", namedCommands(library))).toBe("Test");
+    expect(commandWords("test-full", namedCommands(library))).toBe("Full tests");
+    expect(namedCommands({ kind: "project", commands: [fullTests], publishing: "merge" })).toEqual([
+      fullTests,
+    ]);
   });
 });
 

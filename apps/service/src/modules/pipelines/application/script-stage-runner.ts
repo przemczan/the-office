@@ -28,8 +28,9 @@ import { StageRunners } from "./stage-runners.js";
  * Task's run environment; a wait for a free one is saved on the run until the command starts. The
  * commands' runs are recorded on the Stage run, and the last one's result is its outcome. git is
  * checked before and after (spec §5.5); a run of a test-kind command, under any key, leaves the
- * worktree restored, so only a build or lint one commits what it changed. A command can't be stopped by the user (spec §2.4): only The Office
- * shutting down stops it, which ends the run interrupted. Publish is The Office's own git (PublishStage).
+ * worktree restored, so only a build or lint one commits what it changed. A command can't be
+ * stopped by the user (spec §2.4): only The Office shutting down stops it, which ends the run
+ * interrupted. Publish is The Office's own git (PublishStage).
  */
 @Injectable()
 export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {

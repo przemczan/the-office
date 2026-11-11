@@ -25,7 +25,7 @@ import {
   withoutFailureRule,
   type AddedStage,
 } from "./stage-edits.ts";
-import type { StageCommandSource } from "./stage-commands.ts";
+import { namedCommands, type StageCommandSource } from "./stage-commands.ts";
 import { StageForm } from "./stage-form.tsx";
 import "./stage-editor.css";
 
@@ -311,7 +311,7 @@ function StageSummary({
       <div className="stage-editor-name">
         {name}{" "}
         <span className="stage-editor-who">
-          · {whoWorks(stage, roles, commands?.kind === "project" ? commands.commands : undefined)}
+          · {whoWorks(stage, roles, commands && namedCommands(commands))}
         </span>
       </div>
       {details.length > 0 && <div className="stage-editor-detail">{details.join(" · ")}</div>}

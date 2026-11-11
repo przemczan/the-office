@@ -125,8 +125,8 @@ export function stagesLine({ stages }: { readonly stages: readonly Stage[] }): s
 }
 
 /**
- * Who works the Stage, as its row says: the Role's person, its command (by its name when the
- * Task's Project's `commands` are known, else its key), or "waits for you" for a Gate.
+ * Who works the Stage, as its row says: the Role's person, its command (by its name when
+ * `commands` has its key, else the key), or "waits for you" for a Gate.
  */
 export function whoWorks(
   stage: Stage,
