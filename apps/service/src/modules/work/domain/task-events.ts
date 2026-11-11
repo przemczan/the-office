@@ -81,9 +81,8 @@ export class TaskReordered extends DomainEvent {
   }
 }
 
-/** The Planner wrote the Plan; it shows as proposed until the user confirms it. */
 /**
- * The Planner wrote the Plan. `leftReady` is the move back to Planning it made on a Ready Task,
+ * The Planner wrote the Plan; it shows as proposed until the user confirms it. `leftReady` is the move back to Planning it made on a Ready Task,
  * published after this event, as `TaskPlanSaved`'s.
  */
 export class TaskPlanProposed extends DomainEvent {
