@@ -1,0 +1,39 @@
+/* Emerald: dark, a deep emerald green with champagne-gold primary buttons and a gold active
+   sidebar item, on the design system's dark aliases, whose accent and status colours it keeps
+   (spec §4). */
+:root[data-palette="emerald"] {
+  --bg: #0c1a15;
+  --surface: #11231c;
+  --surface-raised: #172c24;
+  --surface-sunken: #08130f;
+  --surface-hover: #152a22;
+  --surface-selected: #33231a;
+  --surface-inverse: #e6f0ea;
+  --sidebar-bg: #0c1a15;
+  --sidebar-fg: #a3bbaf;
+  --sidebar-active-bg: #3a3320;
+  --sidebar-active-fg: #f1e2b6;
+  --fg-1: #dcebe2;
+  --fg-2: #93ae9f;
+  --fg-3: #64806f;
+  --fg-inverse: #0c1a15;
+  --border: #1d332a;
+  --border-subtle: #172b23;
+  --border-strong: #29453a;
+  --primary: #e2c27d;
+  --primary-fg: #0c1a15;
+  --primary-hover: #ebd196;
+  --primary-press: #d6b163;
+  --control-hover: #1d332a;
+  --control-press: #254036;
+  --neutral-subtle: #172c24;
+  --neutral-fg: #93ae9f;
+  --neutral-border: #254036;
+}
+
+/* Emerald's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-emerald-page: #0c1a15;
+  --palette-emerald-border: #29453a;
+  --palette-emerald-line: #e2c27d;
+}

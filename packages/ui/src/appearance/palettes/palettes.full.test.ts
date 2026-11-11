@@ -90,6 +90,8 @@ describe("the palettes after Light and Dark", () => {
     ["lavender", "light"],
     ["lagoon", "dark"],
     ["cobalt", "light"],
+    ["emerald", "dark"],
+    ["citrine", "light"],
   ] as const)("puts %s over the %s base", (palette, base) => {
     expect(PALETTES[palette].base).toBe(base);
   });
@@ -122,6 +124,8 @@ describe("primary button contrast", () => {
       "lavender",
       "lagoon",
       "cobalt",
+      "emerald",
+      "citrine",
     ]);
   });
 

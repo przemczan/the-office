@@ -132,6 +132,8 @@ const CHOSEN_PALETTES = [
   { palette: "lavender", base: "light" },
   { palette: "lagoon", base: "dark" },
   { palette: "cobalt", base: "light" },
+  { palette: "emerald", base: "dark" },
+  { palette: "citrine", base: "light" },
 ] as const;
 /** Where the browser keeps the chosen palette (packages/ui's APPEARANCE_RULES). */
 const PALETTE_STORAGE_KEY = "the-office.palette";
@@ -248,6 +250,8 @@ test.describe("the palette", { tag: "@full" }, () => {
       "Lavender",
       "Lagoon",
       "Cobalt",
+      "Emerald",
+      "Citrine",
       "Compact",
       "Comfortable",
       "Relaxed",
@@ -258,8 +262,8 @@ test.describe("the palette", { tag: "@full" }, () => {
       .evaluateAll((swatches) =>
         swatches.map((swatch) => getComputedStyle(swatch).backgroundColor),
       );
-    expect(new Set(swatchColours).size).toBe(12);
-    // Twelve palettes and three densities still fit on a window 900 high.
+    expect(new Set(swatchColours).size).toBe(14);
+    // Fourteen palettes and three densities still fit on a window 900 high.
     const menuBox = await menu.boundingBox();
     expect(menuBox?.y).toBeGreaterThanOrEqual(0);
     expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(900);
@@ -286,6 +290,8 @@ test.describe("the palette", { tag: "@full" }, () => {
     for (const [name, palette, base] of [
       ["Aubergine", "aubergine", "dark"],
       ["Cobalt", "cobalt", "light"],
+      ["Emerald", "emerald", "dark"],
+      ["Citrine", "citrine", "light"],
     ] as const) {
       await page.getByRole("button", { name: "Theme" }).click();
       await page.getByRole("menu").getByRole("button", { name }).click();

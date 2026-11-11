@@ -1,0 +1,37 @@
+/* Citrine: light, crisp white surfaces on a butter-yellow page, with deep indigo primary buttons
+   and a golden active sidebar item, on the design system's light aliases. It keeps their inverse,
+   accent and status colours (spec §4). */
+:root[data-palette="citrine"] {
+  --bg: #f7f0d4;
+  --surface: #fcf9ec;
+  --surface-raised: #ffffff;
+  --surface-sunken: #efe6c2;
+  --surface-hover: #faf5e0;
+  --surface-selected: #fbe5d5;
+  --sidebar-bg: #f7f0d4;
+  --sidebar-fg: #6e6440;
+  --sidebar-active-bg: #ebdfae;
+  --sidebar-active-fg: #26210f;
+  --fg-1: #26210f;
+  --fg-2: #615838;
+  --fg-3: #978d68;
+  --border: #e7ddb5;
+  --border-subtle: #eee6c6;
+  --border-strong: #d9cc98;
+  --primary: #2e3a8c;
+  --primary-fg: #ffffff;
+  --primary-hover: #3a479e;
+  --primary-press: #4653ab;
+  --control-hover: #efe6c2;
+  --control-press: #e6dbb0;
+  --neutral-subtle: #efe6c2;
+  --neutral-fg: #615838;
+  --neutral-border: #e0d4a4;
+}
+
+/* Citrine's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-citrine-page: #f7f0d4;
+  --palette-citrine-border: #d9cc98;
+  --palette-citrine-line: #2e3a8c;
+}

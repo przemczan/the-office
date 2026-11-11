@@ -12,6 +12,8 @@
 @import "./appearance/palettes/lavender.css";
 @import "./appearance/palettes/lagoon.css";
 @import "./appearance/palettes/cobalt.css";
+@import "./appearance/palettes/emerald.css";
+@import "./appearance/palettes/citrine.css";
 @import "./appearance/densities/compact.css";
 @import "./appearance/densities/comfortable.css";
 @import "./appearance/densities/relaxed.css";

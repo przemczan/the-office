@@ -21,6 +21,8 @@ export const PALETTES = {
   lavender: { name: "Lavender", base: "light" },
   lagoon: { name: "Lagoon", base: "dark" },
   cobalt: { name: "Cobalt", base: "light" },
+  emerald: { name: "Emerald", base: "dark" },
+  citrine: { name: "Citrine", base: "light" },
 } as const satisfies Record<string, { readonly name: string; readonly base: PaletteBase }>;
 
 export type Palette = keyof typeof PALETTES;

@@ -871,6 +871,8 @@ test.describe("Appearance", { tag: "@full" }, () => {
       ["Lavender", "lavender", "light"],
       ["Lagoon", "lagoon", "dark"],
       ["Cobalt", "cobalt", "light"],
+      ["Emerald", "emerald", "dark"],
+      ["Citrine", "citrine", "light"],
     ] as const) {
       await palette.getByRole("button", { name }).click();
       await expect(html).toHaveAttribute("data-palette", shown);

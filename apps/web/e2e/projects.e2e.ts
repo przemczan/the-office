@@ -1319,8 +1319,9 @@ test(
     const card = page.getByRole("link", { name: /Two-toned/ });
     await expect(card.locator(".project-logo")).toHaveAttribute("src", darkAddress);
 
-    // Graphite, Midnight, Mocha, Aubergine and Lagoon count as dark, and Paper, Mist, Sage, Lavender
-    // and Cobalt as light, on the page and in How it looks, which opens on the version for the palette shown.
+    // Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald count as dark, and Paper, Mist, Sage,
+    // Lavender, Cobalt and Citrine as light, on the page and in How it looks, which opens on the version
+    // for the palette shown.
     for (const [name, base, address] of [
       ["Graphite", "Dark", darkAddress],
       ["Paper", "Light", lightAddress],
@@ -1332,6 +1333,8 @@ test(
       ["Lavender", "Light", lightAddress],
       ["Lagoon", "Dark", darkAddress],
       ["Cobalt", "Light", lightAddress],
+      ["Emerald", "Dark", darkAddress],
+      ["Citrine", "Light", lightAddress],
     ] as const) {
       await settings.getByRole("group", { name: "Palette" }).getByRole("button", { name }).click();
       await expect(page.locator("html")).toHaveAttribute("data-palette", name.toLowerCase());
