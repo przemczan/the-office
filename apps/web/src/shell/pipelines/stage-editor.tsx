@@ -48,6 +48,8 @@ export interface StageEditorProps {
   readonly options: RoleCardOptions;
   /** What each command runs in the Task's Project; absent where each Project runs its own. */
   readonly commandLines?: Readonly<Record<StageCommand, string>>;
+  /** The command keys the Projects have, suggested for an Agent Stage's Project commands. */
+  readonly commandKeys?: readonly string[];
 }
 
 /**
@@ -296,7 +298,12 @@ function StageSummary({
     stage.kind === "agent" &&
       stage.effort !== undefined &&
       `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
-    stage.kind === "agent" && stage.permissions !== undefined && "narrowed permission profile",
+    stage.kind === "agent" &&
+      Object.keys(stage.permissions ?? {}).some((part) => part !== "commands") &&
+      "narrowed permission profile",
+    stage.kind === "agent" &&
+      stage.permissions?.commands !== undefined &&
+      `Project commands: ${stage.permissions.commands.join(", ")}`,
     stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
     stage.kind === "script" &&
       stage.afterConflict === "review" &&

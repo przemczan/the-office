@@ -121,6 +121,7 @@ function permissionsWords(
     ...Object.entries(permissions?.mcpTools ?? {})
       .toSorted(([one], [other]) => one.localeCompare(other))
       .map(([tool, value]) => `${tool}: ${hardSwitchValueLabel(value, roleTitles)}`),
+    ...(permissions?.commands ? [`Project commands: ${permissions.commands.join(", ")}`] : []),
   ];
   return narrowed.length > 0 ? narrowed.join("; ") : "The Role card's";
 }

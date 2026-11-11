@@ -14,6 +14,7 @@ import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { editTaskStages, pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { setPipeline } from "../../api/work.ts";
+import { projectCommandKeys } from "../../shell/pipelines/project-command-keys.ts";
 import { StageEditor } from "../../shell/pipelines/stage-editor.tsx";
 import type { StageCommand } from "../../shell/pipelines/stage-edits.ts";
 import { checkAwaited } from "../../shell/pipelines/stages-check.ts";
@@ -173,6 +174,7 @@ function EditTaskStagesForm({
           roles={roles}
           options={options}
           commandLines={commandLinesOf(project)}
+          commandKeys={projectCommandKeys([project])}
         />
       </div>
     </Dialog>

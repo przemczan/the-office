@@ -44,6 +44,8 @@ export interface StageFormProps {
   readonly options: RoleCardOptions;
   /** What each command runs in the Task's Project; absent where each Project runs its own. */
   readonly commandLines?: Readonly<Record<StageCommand, string>>;
+  /** The command keys the Projects have, suggested for an Agent Stage's Project commands. */
+  readonly commandKeys?: readonly string[];
   /** A Stage template's form has no "On failure": going back names an earlier Stage of a Pipeline. */
   readonly template?: boolean;
 }
@@ -158,6 +160,7 @@ function AgentFields({
   index,
   roles,
   options,
+  commandKeys = [],
   change,
 }: StageFormProps & {
   readonly stage: AgentStage;
@@ -203,7 +206,13 @@ function AgentFields({
           onChange={(event) => change({ ...stage, brief: event.target.value })}
         />
       </div>
-      <StagePermissionFields stage={stage} role={role} options={options} change={change} />
+      <StagePermissionFields
+        stage={stage}
+        role={role}
+        options={options}
+        commandKeys={commandKeys}
+        change={change}
+      />
     </>
   );
 }

@@ -9,7 +9,9 @@ import {
   saveStageTemplate,
   stageTemplateQueries,
 } from "../../../api/pipelines.ts";
+import { projectQueries } from "../../../api/projects.ts";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
+import { projectCommandKeys } from "../../../shell/pipelines/project-command-keys.ts";
 import { StageCheckAlerts } from "../../../shell/pipelines/stage-check-alerts.tsx";
 import {
   STAGE_KIND_ICONS,
@@ -67,6 +69,7 @@ export function StageTemplateForm({
     placeholderData: keepPreviousData,
   });
   const problems = check.data?.problems ?? [];
+  const projects = useQuery(projectQueries.list());
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -123,6 +126,7 @@ export function StageTemplateForm({
             onChange={([changed]) => changed && setDraft(changed)}
             roles={roles}
             options={options}
+            commandKeys={projectCommandKeys(projects.data ?? [])}
             template
           />
         </div>

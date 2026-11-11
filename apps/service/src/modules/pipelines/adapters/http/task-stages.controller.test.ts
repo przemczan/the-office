@@ -123,7 +123,10 @@ describe("PUT /api/tasks/:id/stages", () => {
     pipelines = await startPipelinesApplication();
     const taskId = randomUUID();
     pipelines.tasks.put(taskId, { state: "ready", pipelineId: "quick-fix" });
-    const stages = [anAgentStage("implement", { effort: "low" }), tests];
+    const stages = [
+      anAgentStage("implement", { effort: "low", permissions: { commands: ["test"] } }),
+      tests,
+    ];
 
     const response = await edit(taskId, stages);
 

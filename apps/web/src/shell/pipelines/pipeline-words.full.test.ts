@@ -94,6 +94,21 @@ describe("stageFieldChanges", () => {
     ]);
   });
 
+  it("names the Project commands a Stage keeps", () => {
+    const narrowed: Stage = {
+      ...implement,
+      permissions: { run: "project-commands", commands: ["test", "lint"] },
+    };
+
+    expect(stageFieldChanges(implement, narrowed, [])).toEqual([
+      {
+        label: "Permissions",
+        from: "The Role card's",
+        to: "Runs the Project's commands and read-only git; Project commands: test, lint",
+      },
+    ]);
+  });
+
   it("reads a field the Stage's kind lacks as None", () => {
     expect(stageFieldChanges(PUBLISH, { ...PUBLISH, publishTarget: "branch-only" }, [])).toEqual([
       {

@@ -17,6 +17,24 @@ export const projectCommandFieldsSchema = z.object({
 });
 export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
 
+/** The keys kept for The Office's own use: install runs on its own, publish is Publish's. */
+export const RESERVED_COMMAND_KEYS: readonly string[] = ["install", "publish"];
+
+/**
+ * A key a Project command may have, wherever something names one: lower-case letters, digits and
+ * `-`, starting with a letter, and neither install's nor Publish's.
+ */
+export const projectCommandKeySchema = z
+  .string()
+  .max(40, "A command's key may be at most 40 characters.")
+  .regex(
+    /^[a-z][a-z0-9-]*$/,
+    `A command's key is lower-case letters, digits and "-", starting with a letter.`,
+  )
+  .refine((key) => !RESERVED_COMMAND_KEYS.includes(key), {
+    error: (issue) => `The key "${String(issue.input)}" is kept for The Office's own use.`,
+  });
+
 /**
  * One of the Project's commands besides install (POST /projects/:id/commands). The key, unique in
  * the Project, is what Stages and Agents run it by.

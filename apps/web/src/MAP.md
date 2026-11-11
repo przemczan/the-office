@@ -200,14 +200,15 @@
 ### shell/pipelines/
 
 - `pipeline-words.ts`: STAGE_COMMAND_NAMES, PUBLISH_TARGET_NAMES, AFTER_CONFLICT_NAMES, StageFieldChange, stageFieldChanges, stagesLine, whoWorks, thousands, StageChange, stageChanges
+- `project-command-keys.ts`: projectCommandKeys
 - `stage-check-alerts.tsx`: StageCheckAlerts
 - `stage-editor.tsx`: StageEditorProps, StageEditor
 - `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_KIND_ICONS, STAGE_COMMANDS, addStage, addStageFrom, withoutFailureRule, AddedStage, standaloneStage, removeStage, canMove, moveStage, replaceStage, withRole, withCommand, canContinue, failureTargets
 - `stage-form.tsx`: StageFormProps, StageForm
 - `stage-permission-fields.tsx`: StagePermissionFields
-- `stage-permissions.ts`: narrowerRuns, narrowerSettings, withPermissions, withMcpToolSetting
+- `stage-permissions.ts`: narrowerRuns, narrowerSettings, withPermissions, withMcpToolSetting, withCommands
 - `stages-check.ts`: StagesCheckState, checkAwaited
-- Tests: pipeline-words.full.test.ts, stage-edits.full.test.ts, stage-permissions.full.test.ts, stages-check.full.test.ts
+- Tests: pipeline-words.full.test.ts, stage-edits.full.test.ts, stage-permission-fields.test.tsx, stage-permissions.full.test.ts, stages-check.full.test.ts
 
 ### shell/project-filter/
 
