@@ -10,6 +10,8 @@ import { AgentEngine, CapabilityMissing, type EngineCapabilities } from "./agent
 import type { EngineSession, UserMessage } from "./engine-session.js";
 import type { OfficeTool, OfficeToolCall } from "./office-tool.js";
 import type {
+  ProcessEndedEvent,
+  ProcessStartedEvent,
   SessionEvent,
   ToolCallEvent,
   ToolRefusedEvent,
@@ -39,6 +41,8 @@ export const CONTRACT_SCENARIOS = [
   "usage-windows",
   "context-usage",
   "mcp-tool",
+  "background",
+  "background-stop",
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
@@ -226,6 +230,58 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
         await vi.waitFor(() => expect(mcpServer.isRunning(startedProcess)).toBe(false), {
           timeout: 10_000,
         });
+      }),
+      under.timeoutMs,
+    );
+
+    it(
+      "reports a background command's start, its output in order and whole, and its end, between turns too",
+      scenario("background", async (engine, options) => {
+        const session = await engine.start({
+          id: randomUUID(),
+          options: { ...options, profile: RUNS_ANYTHING },
+          brief: message(
+            `Run this command with your Bash tool in the background (run_in_background: true): ${COUNTING_COMMAND}\n` +
+              "Don't read its output and don't wait for it; reply with the single word: started",
+          ),
+        });
+        const log = new EventLog(session);
+
+        expect((await log.nextTurn()).outcome).toBe("completed");
+        const ended = await log.processEnded();
+        const started = log.processStarted();
+        expect(started.callId).toBe(log.toolCall("Bash").callId);
+        expect(started.commandLine).toContain("line ");
+        expect(started.engineTaskId).not.toBe("");
+        expect(ended).toMatchObject({ callId: started.callId, ending: { state: "finished" } });
+        expect(log.outputOf(started.callId).replaceAll("\r\n", "\n")).toBe(
+          "line 1\nline 2\nline 3\n",
+        );
+        expect(log.events.indexOf(started)).toBeLessThan(log.events.indexOf(ended));
+        await session.end();
+      }),
+      under.timeoutMs,
+    );
+
+    it(
+      "reports a background command the Agent stops with TaskStop as stopped by the Agent",
+      scenario("background-stop", async (engine, options) => {
+        const session = await engine.start({
+          id: randomUUID(),
+          options: { ...options, profile: RUNS_ANYTHING },
+          brief: message(
+            `Run this command with your Bash tool in the background (run_in_background: true): ${TICKING_COMMAND}\n` +
+              "Then stop it at once with your TaskStop tool, and reply with the single word: stopped",
+          ),
+        });
+        const log = new EventLog(session);
+
+        const ended = await log.processEnded();
+        expect(ended).toMatchObject({
+          callId: log.processStarted().callId,
+          ending: { state: "stopped", by: "agent" },
+        });
+        await session.end();
       }),
       under.timeoutMs,
     );
@@ -448,6 +504,14 @@ const READ_ONLY = {
   web: false,
   mcpTools: {},
 } as const;
+
+const RUNS_ANYTHING = { ...READ_ONLY, run: { kind: "anything" } } as const;
+
+/** Writes a line a second for three seconds, so its output comes in several reads. */
+const COUNTING_COMMAND = `node -e "for (let i = 1; i <= 3; i++) setTimeout(() => console.log('line ' + i), i * 1000)"`;
+
+/** Writes until it is stopped. */
+const TICKING_COMMAND = `node -e "setInterval(() => console.log('tick'), 500)"`;
 
 const NOTED = "Noted.";
 
@@ -680,6 +744,30 @@ class EventLog {
     return this.events.find(
       (event) => event.kind === "tool-result" && event.callId === call.callId,
     );
+  }
+
+  /** The first Process's end, once it comes. */
+  processEnded(): Promise<ProcessEndedEvent> {
+    return this.waitFor(() =>
+      this.events.find((event): event is ProcessEndedEvent => event.kind === "process-ended"),
+    );
+  }
+
+  processStarted(): ProcessStartedEvent {
+    const started = this.events.find(
+      (event): event is ProcessStartedEvent => event.kind === "process-started",
+    );
+    if (started === undefined) throw new Error("No Process start was reported.");
+    return started;
+  }
+
+  /** A Process's output as reported so far, joined in order. */
+  outputOf(callId: string): string {
+    return this.events
+      .flatMap((event) =>
+        event.kind === "process-output" && event.callId === callId ? [event.text] : [],
+      )
+      .join("");
   }
 
   private turns(): TurnEndedEvent[] {

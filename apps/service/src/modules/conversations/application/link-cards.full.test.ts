@@ -59,6 +59,9 @@ import { PostgresChangesAllowedRepository } from "../adapters/postgres/postgres-
 import { sessionMcpServersStandIn } from "./session-mcp-servers.fixtures.js";
 import { ProjectOutputMasks } from "../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
+import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
+import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 
 const outputMasks = new ProjectOutputMasksForTests();
 
@@ -178,6 +181,11 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
+      {
+        provide: SubAgentAndProcessRepository,
+        useClass: PostgresSubAgentAndProcessRepository,
+      },
+      SubAgentsAndProcesses,
       LinkCards,
       LinkCardOfficeTools,
     ],
@@ -220,7 +228,16 @@ function postsLinkCard(input: Record<string, unknown>): SessionScript {
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId: "c-1", text: "", isError: false } },
+    {
+      step: "event",
+      event: {
+        kind: "tool-result",
+        callId: "c-1",
+        text: "",
+        isError: false,
+        withinToolCall: undefined,
+      },
+    },
     ...endsTurn("That is Nina's area."),
   ];
 }

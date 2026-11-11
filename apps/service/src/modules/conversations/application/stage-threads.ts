@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { EngineSessions, type EngineId, type EngineModel } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
@@ -64,6 +65,7 @@ import {
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
+import { SubAgentsAndProcesses, type FollowedSession } from "./sub-agents-and-processes.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { OfficeInstructions } from "./office-instructions.js";
 import { ProjectOutputMasks, type TextMask } from "../ports/project-output-masks.js";
@@ -210,6 +212,7 @@ export class StageThreads {
     private readonly approvalHolds: ApprovalHolds,
     private readonly officeInstructions: OfficeInstructions,
     private readonly masks: ProjectOutputMasks,
+    private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -416,6 +419,7 @@ export class StageThreads {
         model: applying.model,
         folder: request.folder,
         mask: await this.masks.outputMaskOf(request.projectId),
+        taskId: request.taskId,
         began: now,
       },
       move,
@@ -509,6 +513,7 @@ export class StageThreads {
         model: applying.model,
         folder: request.folder,
         mask: await this.masks.outputMaskOf(request.projectId),
+        taskId: request.taskId,
         began: now,
       },
       move,
@@ -598,14 +603,21 @@ export class StageThreads {
    * again, and delivered once a turn has taken the work, as a barge-in is.
    */
   private async live(
-    { threadId, roleKey, engine, canInterrupt, model, folder, mask, began }: StageWorkPlace,
+    { threadId, roleKey, engine, canInterrupt, model, folder, mask, taskId, began }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
     carried: CarriedMessages | undefined,
   ): Promise<StageThread> {
     let carrying = carried;
     if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "waiting");
-    const events = session.events[Symbol.asyncIterator]();
+    const reading = this.read(session, {
+      threadId,
+      home: { kind: "task", taskId },
+      sessionId: session.id,
+      folder,
+      mask,
+    });
+    const events = reading.turnEvents[Symbol.asyncIterator]();
     const logger = { roleKey, folder, handingOver: false, mask };
     const bargeIns = new BargeIns((message) => session.send(message, "next"));
     this.bargeIns.set(threadId, bargeIns);
@@ -655,6 +667,7 @@ export class StageThreads {
         await session.end().catch((error: unknown) => {
           this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
         });
+        await reading.finished;
       })();
       return sessionEnded;
     };
@@ -688,6 +701,33 @@ export class StageThreads {
         );
       },
     };
+  }
+
+  /**
+   * One reader for the session's whole life: what it reports of its Sub-agents and Processes is kept
+   * as it comes, between turns and after the run's last turn too, and every other event waits for
+   * the Stage's turn that reads it.
+   */
+  private read(
+    session: EngineSession,
+    followed: FollowedSession,
+  ): { readonly turnEvents: AsyncChannel<SessionEvent>; readonly finished: Promise<void> } {
+    const turnEvents = new AsyncChannel<SessionEvent>();
+    const following = this.subAgentsAndProcesses.follow(followed);
+    const finished = (async () => {
+      try {
+        for await (const event of session.events) {
+          await following.take(event);
+          if (!BACKGROUND_EVENT_KINDS.has(event.kind)) turnEvents.push(event);
+        }
+        turnEvents.close();
+      } catch (error) {
+        turnEvents.fail(error);
+      } finally {
+        await following.end();
+      }
+    })();
+    return { turnEvents, finished };
   }
 
   /** Counts the turn on the Thread, which stays answering until the Stage ends. */
@@ -772,6 +812,7 @@ interface StageWorkPlace {
   readonly folder: string;
   /** Hides the Project's Secret variables in what the session writes into the Thread. */
   readonly mask: TextMask;
+  readonly taskId: string;
   readonly began: Date;
 }
 
@@ -780,6 +821,16 @@ interface Carrying {
   readonly request: StageThreadRequest;
   readonly carried: (carrierId: string) => CarriedMessages | undefined;
 }
+
+/** What a Stage's turn never reads: Sub-agents' and Processes' own events. */
+const BACKGROUND_EVENT_KINDS: ReadonlySet<SessionEvent["kind"]> = new Set([
+  "sub-agent-started",
+  "sub-agent-changed",
+  "sub-agent-ended",
+  "process-started",
+  "process-output",
+  "process-ended",
+]);
 
 const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
 

@@ -13,6 +13,11 @@ import {
   messageSchema,
   type Message,
   changeSubscription,
+  forwardThreadEvents,
+  OutputPrinted,
+  SubAgentWrote,
+  THREAD_A,
+  THREAD_B,
 } from "./event-stream.fixtures.js";
 
 let app: INestApplication;
@@ -26,6 +31,7 @@ beforeEach(async () => {
   const forwarding = app.get(WebEventForwarding);
   forwarding.forward(LampLit, (event) => ({ type: "lamp.lit", room: event.room }));
   forwarding.forward(LampDimmed, () => ({ type: "lamp.dimmed" }));
+  forwardThreadEvents(forwarding);
 });
 
 afterEach(async () => {
@@ -72,6 +78,37 @@ describe("the event stream", () => {
       type: "event",
       event: { type: "lamp.lit", occurredAt: "2026-10-25T09:00:00.000Z", room: "hall" },
     });
+  });
+
+  it("sends a Thread's output only to the pages subscribed to it for that Thread", async () => {
+    const pageOfA = await connect();
+    const unscoped = await connect();
+    const streams = ["thread.process-output", "thread.sub-agent-messages"];
+    expect(
+      await changeSubscription(pageOfA.client, pageOfA.next, "subscribe", streams, THREAD_A),
+    ).toEqual({ type: "subscriptions", events: streams.toSorted(), threadId: THREAD_A });
+    await changeSubscription(unscoped.client, unscoped.next, "subscribe", [
+      ...streams,
+      "lamp.dimmed",
+    ]);
+
+    await bus.publish(new OutputPrinted(THREAD_B));
+    await bus.publish(new SubAgentWrote(THREAD_B));
+    await bus.publish(new OutputPrinted(THREAD_A));
+    await bus.publish(new SubAgentWrote(THREAD_A));
+    await bus.publish(new LampDimmed());
+
+    // Frames arrive in order, so Thread A's coming first shows Thread B's were not sent.
+    expect(await pageOfA.next()).toMatchObject({
+      type: "event",
+      event: { type: "thread.process-output", threadId: THREAD_A },
+    });
+    expect(await pageOfA.next()).toMatchObject({
+      type: "event",
+      event: { type: "thread.sub-agent-messages", threadId: THREAD_A },
+    });
+    // Subscribed without a Thread, the page gets no Thread's output, and other types as before.
+    expect(await unscoped.next()).toMatchObject({ type: "event", event: { type: "lamp.dimmed" } });
   });
 
   it("refuses a message that is not a subscribe or unsubscribe", async () => {

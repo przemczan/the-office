@@ -16,9 +16,19 @@ export type ScriptStep =
   | { readonly step: "read-usage-windows"; readonly windows: UsageWindows | undefined }
   | { readonly step: "read-context-usage"; readonly usage: ContextUsage }
   | { readonly step: "end" }
-  | { readonly step: "event"; readonly event: SessionEvent };
+  | { readonly step: "event"; readonly event: SessionEvent }
+  | WaitStep;
 
-export type CallerStep = Exclude<ScriptStep, { step: "event" }>;
+/**
+ * The replay holds here until the test reaches the mark (`ScriptedSession.reach`), such as a
+ * Process running between turns while a page opens. Never recorded: a test writes it.
+ */
+export interface WaitStep {
+  readonly step: "wait";
+  readonly mark: string;
+}
+
+export type CallerStep = Exclude<ScriptStep, { step: "event" | "wait" }>;
 
 /**
  * What the engine listed as the session opened, for a script that tests the start check; a
@@ -76,6 +86,12 @@ const usageWindow = z.object({
   resetsAt: absent(z.coerce.date()),
 });
 
+const backgroundEnding = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("finished") }),
+  z.object({ state: z.literal("failed"), reason: z.string() }),
+  z.object({ state: z.literal("stopped"), by: z.enum(["agent", "interrupt", "session-end"]) }),
+]);
+
 const sessionEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string(), withinToolCall: absent(z.string()) }),
   z.object({
@@ -91,6 +107,11 @@ const sessionEvent = z.discriminatedUnion("kind", [
     callId: z.string(),
     text: z.string(),
     isError: z.boolean(),
+    // Recordings made before Sub-agents were followed leave it out.
+    withinToolCall: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? undefined),
   }),
   z.object({
     kind: z.literal("tool-refused"),
@@ -118,6 +139,45 @@ const sessionEvent = z.discriminatedUnion("kind", [
     kind: z.literal("mcp-server-not-started"),
     server: z.string(),
     reason: absent(z.string()),
+  }),
+  z.object({
+    kind: z.literal("sub-agent-started"),
+    callId: z.string(),
+    engineTaskId: absent(z.string()),
+    withinToolCall: absent(z.string()),
+    description: z.string(),
+    agentKind: absent(z.string()),
+    prompt: z.string(),
+    background: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal("sub-agent-changed"),
+    callId: z.string(),
+    engineTaskId: absent(z.string()),
+    background: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal("sub-agent-ended"),
+    callId: z.string(),
+    ending: backgroundEnding,
+    reportedBack: absent(z.string()),
+    toolCallCount: absent(z.number()),
+    totalTokens: absent(z.number()),
+  }),
+  z.object({
+    kind: z.literal("process-started"),
+    callId: z.string(),
+    engineTaskId: z.string(),
+    withinToolCall: absent(z.string()),
+    commandLine: z.string(),
+    description: z.string(),
+  }),
+  z.object({ kind: z.literal("process-output"), callId: z.string(), text: z.string() }),
+  z.object({
+    kind: z.literal("process-ended"),
+    callId: z.string(),
+    ending: backgroundEnding,
+    exitCode: absent(z.number()),
   }),
 ]) satisfies z.ZodType<SessionEvent, unknown>;
 
@@ -154,6 +214,7 @@ const scriptStep = z.discriminatedUnion("step", [
   }),
   z.object({ step: z.literal("end") }),
   z.object({ step: z.literal("event"), event: sessionEvent }),
+  z.object({ step: z.literal("wait"), mark: z.string() }),
 ]) satisfies z.ZodType<ScriptStep, unknown>;
 
 /**

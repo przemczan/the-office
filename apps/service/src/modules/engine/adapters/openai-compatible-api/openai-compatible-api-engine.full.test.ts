@@ -13,7 +13,11 @@ import { FakeSearxngServer } from "../searxng/fake-searxng-server.fixtures.js";
 import { ModelNotOffered, SessionSkillsDiffer } from "../../ports/agent-engine.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { EngineSession } from "../../ports/engine-session.js";
-import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
+import type {
+  ProcessStartedEvent,
+  SessionEvent,
+  TurnEndedEvent,
+} from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { textReply } from "./fake-chat-completions-server.fixtures.js";
 import { ConversationMissing } from "./conversation-file.js";
@@ -636,6 +640,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       events: AsyncIterator<SessionEvent>;
       background: { id: string; outputFile: string };
       child: number;
+      startedProcess: ProcessStartedEvent;
     }> {
       fake.script(
         toolCall("Bash", { command: `echo started-42; ${NODE_CHILD}`, run_in_background: true }),
@@ -657,16 +662,31 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
         );
       expect(answer).not.toBeNull();
       const [, id = "", outputFile = ""] = answer ?? [];
+      const startedProcess = first.events.find(
+        (event): event is ProcessStartedEvent => event.kind === "process-started",
+      );
+      const call = first.events.find((event) => event.kind === "tool-call");
+      expect(startedProcess?.callId).toBe(call?.kind === "tool-call" ? call.callId : "");
+      if (startedProcess === undefined) throw new Error("No Process start was reported.");
       return {
         started,
         events,
         background: { id, outputFile },
         child: await childProcessId(folder),
+        startedProcess,
       };
     }
 
     it("runs past its turn, its output read by the session, until TaskStop ends it with what it started", async () => {
-      const { started, events, background, child } = await startedInBackground();
+      const { started, events, background, child, startedProcess } = await startedInBackground();
+      expect(startedProcess).toEqual({
+        kind: "process-started",
+        callId: startedProcess.callId,
+        engineTaskId: background.id,
+        withinToolCall: undefined,
+        commandLine: `echo started-42; ${NODE_CHILD}`,
+        description: `echo started-42; ${NODE_CHILD}`,
+      });
       expect(isRunning(child)).toBe(true);
       await vi.waitFor(async () =>
         expect(await readFile(background.outputFile, "utf8")).toContain("started-42"),
@@ -691,6 +711,20 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
         { isError: true, text: expect.stringContaining(`Task ${background.id} is not running`) },
       ]);
       expect(isRunning(child)).toBe(false);
+      const ended = seen.filter((event) => event.kind === "process-ended");
+      expect(ended).toEqual([
+        {
+          kind: "process-ended",
+          callId: startedProcess.callId,
+          ending: { state: "stopped", by: "agent" },
+          exitCode: undefined,
+        },
+      ]);
+      // Reported before TaskStop answers, so the Process has ended once the Agent reads it has.
+      const stopped = seen.findIndex(
+        (event) => event.kind === "tool-result" && event.text.startsWith("Successfully stopped"),
+      );
+      expect(seen.indexOf(ended[0] as SessionEvent)).toBeLessThan(stopped);
     });
 
     it("tells the model of a task id it doesn't know", async () => {
@@ -740,6 +774,41 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
         ].join("\n"),
       });
       expect(messages.at(-2)).toMatchObject({ role: "tool" });
+      const seen = await withProcessEnded(events, session);
+      const call = seen.find((event) => event.kind === "tool-call");
+      const callId = call?.kind === "tool-call" ? call.callId : "";
+      expect(outputOf(seen, callId)).toBe("done-7\n");
+      expect(seen.find((event) => event.kind === "process-ended")).toEqual({
+        kind: "process-ended",
+        callId,
+        ending: { state: "failed", reason: "Exited with code 3" },
+        exitCode: 3,
+      });
+    });
+
+    it("reports its output in order and whole, a character split between two reads included", async () => {
+      fake.script(
+        toolCall("Bash", { command: SPLIT_CHARACTER, run_in_background: true }),
+        textReply(["Started."], USAGE),
+      );
+
+      const { events } = await oneTurn(options({ profile: ANYTHING, environment }));
+      const seen = await withProcessEnded(events, session);
+
+      const call = events.find((event) => event.kind === "tool-call");
+      const callId = call?.kind === "tool-call" ? call.callId : "";
+      const outputs = seen.filter((event) => event.kind === "process-output");
+      // The first byte of "é" and the rest come in different reads, so in two events at least.
+      expect(outputs.length).toBeGreaterThanOrEqual(2);
+      expect(outputOf(seen, callId)).toBe("one\ncaf\u00e9\ntwo\n");
+      expect(seen.find((event) => event.kind === "process-ended")).toMatchObject({
+        callId,
+        ending: { state: "finished" },
+        exitCode: 0,
+      });
+      expect(seen.findIndex((event) => event.kind === "process-ended")).toBeGreaterThan(
+        seen.findLastIndex((event) => event.kind === "process-output"),
+      );
     });
 
     it("ends every one with what it started on interrupt, between turns too", async () => {
@@ -749,16 +818,31 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       await started.interrupt();
 
       expect(isRunning(child)).toBe(false);
+      expect((await withProcessEnded([], started)).at(-1)).toMatchObject({
+        kind: "process-ended",
+        ending: { state: "stopped", by: "interrupt" },
+      });
     });
 
     it("ends every one with what it started when the session ends, and removes their output", async () => {
-      const { started, background, child } = await startedInBackground();
+      const { started, events, background, child, startedProcess } = await startedInBackground();
 
       await started.end();
       session = undefined;
 
       expect(isRunning(child)).toBe(false);
       await expect(readFile(background.outputFile)).rejects.toThrow("ENOENT");
+      // Its end is told before the session's events end, its output read to the last.
+      const rest: SessionEvent[] = [];
+      for (let next = await events.next(); next.done !== true; next = await events.next()) {
+        rest.push(next.value);
+      }
+      expect(rest.at(-1)).toEqual({
+        kind: "process-ended",
+        callId: startedProcess.callId,
+        ending: { state: "stopped", by: "session-end" },
+        exitCode: undefined,
+      });
     });
   });
 
@@ -1020,6 +1104,35 @@ const WRITE_SHELL_PID = `node -e "const fs = require('fs'); fs.writeFileSync('sh
  * ended process still answers signal 0, so gone means the service has seen its exit.
  */
 const UNTIL_SHELL_GONE = `node -e "const fs = require('fs'); const gone = () => { if (fs.existsSync('shell.pid') === false) return false; try { process.kill(Number(fs.readFileSync('shell.pid', 'utf8')), 0); return false; } catch { return true; } }; const check = () => gone() || setTimeout(check, 10); check()"`;
+/** Prints a line, then "café" with its "é" split between writes a second apart, then a line. */
+const SPLIT_CHARACTER = `node -e "process.stdout.write(Buffer.from([0x6f, 0x6e, 0x65, 0x0a, 0x63, 0x61, 0x66, 0xc3])); setTimeout(() => process.stdout.write(Buffer.from([0xa9, 0x0a, 0x74, 0x77, 0x6f, 0x0a])), 1200)"`;
+
+/** The events up to a Process's end: those seen so far, then the session's next ones. */
+async function withProcessEnded(
+  seen: readonly SessionEvent[],
+  from: EngineSession | undefined,
+): Promise<SessionEvent[]> {
+  const all = [...seen];
+  const events = from?.events[Symbol.asyncIterator]();
+  while (!all.some((event) => event.kind === "process-ended")) {
+    const next = await events?.next();
+    if (next === undefined || next.done === true) {
+      throw new Error("The session ended before its Process did.");
+    }
+    all.push(next.value);
+  }
+  return all;
+}
+
+/** What a Process wrote, joined from its output events. */
+function outputOf(events: readonly SessionEvent[], callId: string): string {
+  return events
+    .flatMap((event) =>
+      event.kind === "process-output" && event.callId === callId ? [event.text] : [],
+    )
+    .join("");
+}
+
 /** A command whose node child writes its id where `childProcessId` finds it, then runs on. */
 const NODE_CHILD = `node -e "require('fs').writeFileSync('child.pid', String(process.pid)); setInterval(() => {}, 1000)"`;
 

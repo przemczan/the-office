@@ -693,6 +693,142 @@ export const officeInstructionsSchema = z.object({
 });
 export type OfficeInstructions = z.infer<typeof officeInstructionsSchema>;
 
+/**
+ * How a Sub-agent or a Process ended (spec 2.9): stopped by the Agent's TaskStop, an interrupt, the
+ * session's end, or no longer seen after The Office restarted.
+ */
+export const endingSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("finished") }),
+  z.object({ state: z.literal("failed"), reason: z.string() }),
+  z.object({
+    state: z.literal("stopped"),
+    by: z.enum(["agent", "interrupt", "session-end", "restart"]),
+  }),
+]);
+export type Ending = z.infer<typeof endingSchema>;
+
+export const subAgentOrProcessStateSchema = z.enum(["running", "finished", "failed", "stopped"]);
+export type SubAgentOrProcessState = z.infer<typeof subAgentOrProcessStateSchema>;
+
+const subAgentOrProcessFields = {
+  /** The id of the tool call that started it; its messages name it as `withinToolCall`. */
+  callId: z.string(),
+  /** The engine's own id, which TaskStop names, once the engine gave it. */
+  engineTaskId: z.string().nullable(),
+  /** The Sub-agent that started it, by its `callId`; null for the session's Agent. */
+  startedBy: z.string().nullable(),
+  description: z.string(),
+  state: subAgentOrProcessStateSchema,
+  ending: endingSchema.nullable(),
+  startedAt: z.iso.datetime(),
+  endedAt: z.iso.datetime().nullable(),
+  /** Counts its changes: of two copies, the one with the higher revision is newer. */
+  revision: z.number().int().nonnegative(),
+  /** The sequence of its last message or output chunk; 0 before the first. */
+  lastSequence: z.number().int().nonnegative(),
+};
+
+export const subAgentSchema = z.object({
+  kind: z.literal("sub-agent"),
+  ...subAgentOrProcessFields,
+  /** Such as "general-purpose" or "Explore". */
+  agentKind: z.string().nullable(),
+  prompt: z.string(),
+  background: z.boolean(),
+  reportedBack: z.string().nullable(),
+  toolCallCount: z.number().int().nullable(),
+  totalTokens: z.number().int().nullable(),
+  /** How many of its earliest messages and tool calls aren't kept. */
+  earlierMessagesNotKept: z.number().int().nonnegative(),
+});
+export type SubAgent = z.infer<typeof subAgentSchema>;
+
+export const processSchema = z.object({
+  kind: z.literal("process"),
+  ...subAgentOrProcessFields,
+  commandLine: z.string(),
+  /** Null when the engine gives none (Claude Code). */
+  exitCode: z.number().int().nullable(),
+  /** How many bytes of its earliest output aren't kept. */
+  earlierOutputNotKept: z.number().int().nonnegative(),
+});
+export type Process = z.infer<typeof processSchema>;
+
+export const subAgentOrProcessSchema = z.discriminatedUnion("kind", [
+  subAgentSchema,
+  processSchema,
+]);
+export type SubAgentOrProcess = z.infer<typeof subAgentOrProcessSchema>;
+
+/** GET /threads/:id/sub-agents-and-processes: the Thread's current session's, as they started. */
+export const subAgentsAndProcessesSchema = z.array(subAgentOrProcessSchema);
+
+/** `?after=<sequence>` of the two reads: what came after it; 0, or left out, reads all kept. */
+export const afterSequenceQuerySchema = z.object({
+  after: z.coerce.number().int().nonnegative().default(0),
+});
+export type AfterSequenceQuery = z.infer<typeof afterSequenceQuerySchema>;
+
+const sequenced = { sequence: z.number().int().positive(), at: z.iso.datetime() };
+
+/** A Sub-agent's message or tool call, as a Thread logs its Agent's. */
+export const subAgentMessageSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("text"), ...sequenced, text: z.string() }),
+  z.object({
+    kind: z.literal("tool-activity"),
+    ...sequenced,
+    tool: z.string(),
+    summary: z.string(),
+  }),
+  z.object({ kind: z.literal("refusal"), ...sequenced, tool: z.string(), reason: z.string() }),
+]);
+export type SubAgentMessage = z.infer<typeof subAgentMessageSchema>;
+
+/** GET /threads/:id/sub-agents/:callId/messages?after=: those after `after`, up to `lastSequence`. */
+export const subAgentMessagesSchema = z.object({
+  messages: z.array(subAgentMessageSchema),
+  lastSequence: z.number().int().nonnegative(),
+  earlierNotKept: z.number().int().nonnegative(),
+});
+export type SubAgentMessages = z.infer<typeof subAgentMessagesSchema>;
+
+/** A Process's output as it came, in whole lines, masked. */
+export const outputChunkSchema = z.object({
+  sequence: z.number().int().positive(),
+  text: z.string(),
+});
+export type OutputChunk = z.infer<typeof outputChunkSchema>;
+
+/** GET /threads/:id/processes/:callId/output?after=: what came after `after`, up to `lastSequence`. */
+export const processOutputSchema = z.object({
+  chunks: z.array(outputChunkSchema),
+  lastSequence: z.number().int().nonnegative(),
+  /** In bytes: "1.9 MB of earlier output isn't kept". */
+  earlierNotKept: z.number().int().nonnegative(),
+});
+export type ProcessOutput = z.infer<typeof processOutputSchema>;
+
+/**
+ * The list with `item` put in by its `callId`, whatever order start, change and end events come
+ * in: an older copy never replaces a newer one, and an ended item never goes back to Running.
+ */
+export function withSubAgentOrProcess(
+  list: readonly SubAgentOrProcess[],
+  item: SubAgentOrProcess,
+): SubAgentOrProcess[] {
+  const index = list.findIndex(({ callId }) => callId === item.callId);
+  if (index === -1) return [...list, item];
+  const kept = list[index];
+  if (kept === undefined || !isNewer(item, kept)) return [...list];
+  return list.map((each, at) => (at === index ? item : each));
+}
+
+function isNewer(item: SubAgentOrProcess, than: SubAgentOrProcess): boolean {
+  if (than.state !== "running" && item.state === "running") return false;
+  if (than.state === "running" && item.state !== "running") return true;
+  return item.revision > than.revision;
+}
+
 const threadWebEventFields = { threadId: z.uuid(), home: homeSchema };
 const decisionWebEventFields = { ...threadWebEventFields, decisionId: z.uuid() };
 const proposalWebEventFields = { ...threadWebEventFields, proposalId: z.uuid() };
@@ -737,6 +873,49 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     type: z.literal("thread.proposal-declined"),
     ...proposalWebEventFields,
+  }),
+  /** Each carries the whole item, which the page puts in its list (`withSubAgentOrProcess`). */
+  webEventSchema.extend({
+    type: z.literal("thread.sub-agent-started"),
+    ...threadWebEventFields,
+    item: subAgentSchema,
+  }),
+  webEventSchema.extend({
+    type: z.literal("thread.sub-agent-changed"),
+    ...threadWebEventFields,
+    item: subAgentSchema,
+  }),
+  webEventSchema.extend({
+    type: z.literal("thread.sub-agent-ended"),
+    ...threadWebEventFields,
+    item: subAgentSchema,
+  }),
+  webEventSchema.extend({
+    type: z.literal("thread.process-started"),
+    ...threadWebEventFields,
+    item: processSchema,
+  }),
+  webEventSchema.extend({
+    type: z.literal("thread.process-ended"),
+    ...threadWebEventFields,
+    item: processSchema,
+  }),
+  /**
+   * A Sub-agent's new messages and tool calls, each with its sequence: sent only to a subscription
+   * scoped to the Thread (`THREAD_SCOPED_EVENT_TYPES`).
+   */
+  webEventSchema.extend({
+    type: z.literal("thread.sub-agent-messages"),
+    ...threadWebEventFields,
+    callId: z.string(),
+    messages: z.array(subAgentMessageSchema),
+  }),
+  /** A Process's new output chunk with its sequence, scoped to the Thread as the messages are. */
+  webEventSchema.extend({
+    type: z.literal("thread.process-output"),
+    ...threadWebEventFields,
+    callId: z.string(),
+    chunk: outputChunkSchema,
   }),
   webEventSchema.extend({ type: z.literal("context-policy.size-threshold-changed") }),
   webEventSchema.extend({ type: z.literal("office-instructions.changed") }),

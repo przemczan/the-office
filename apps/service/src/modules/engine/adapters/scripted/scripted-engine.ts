@@ -189,6 +189,11 @@ interface PendingRequest {
   readonly refuse: (error: unknown) => void;
 }
 
+interface ReachedMark {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+}
+
 /** How a call of an MCP tool went: refused in the rules' or a hold's words, or run. */
 type McpCallOutcome =
   | { readonly refused: { readonly tool: string; readonly reason: string } }
@@ -224,6 +229,8 @@ export class ScriptedSession implements EngineSession {
     string,
     { readonly tool: string; readonly reason: string }
   >();
+  /** The script's `wait` marks, each released by `reach`. */
+  private readonly marks = new Map<string, ReachedMark>();
   private readonly recordedWindows: (UsageWindows | undefined)[];
   private readonly recordedContextUsage: ContextUsage[];
   private readonly played: Promise<void>;
@@ -285,6 +292,27 @@ export class ScriptedSession implements EngineSession {
     return usage;
   }
 
+  /**
+   * Lets the replay go on past the script's `wait` step with this mark, now or once it gets
+   * there. Not part of the port: a test calls it.
+   */
+  reach(mark: string): void {
+    this.markReached(mark).resolve();
+  }
+
+  private markReached(mark: string): ReachedMark {
+    let reached = this.marks.get(mark);
+    if (reached === undefined) {
+      let resolve!: () => void;
+      const promise = new Promise<void>((resolved) => {
+        resolve = resolved;
+      });
+      reached = { promise, resolve };
+      this.marks.set(mark, reached);
+    }
+    return reached;
+  }
+
   async end(): Promise<void> {
     await this.request({ step: "end" });
     try {
@@ -322,6 +350,8 @@ export class ScriptedSession implements EngineSession {
             this.reportedEvents.push(event);
             this.reported.push(event);
           }
+        } else if (step.step === "wait") {
+          await this.markReached(step.mark).promise;
         } else if (!isRead(step)) {
           await this.takeRequest(step);
         }

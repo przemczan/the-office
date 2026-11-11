@@ -70,6 +70,7 @@ import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { OfficeInstructions } from "./office-instructions.js";
 import { sessionLogLines } from "./session-log.js";
+import { SubAgentsAndProcesses, type SessionFollowing } from "./sub-agents-and-processes.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { StageThreads } from "./stage-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
@@ -150,6 +151,8 @@ interface LiveSession {
   idle: NodeJS.Timeout | undefined;
   /** The Office ends it: its events finishing then is no surprise. */
   ending: boolean;
+  /** Keeps its Sub-agents and Processes, between turns too. */
+  readonly following: SessionFollowing;
 }
 
 /**
@@ -182,6 +185,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly approvalHolds: ApprovalHolds,
     private readonly officeInstructions: OfficeInstructions,
     private readonly work: WorkRecords,
+    private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
   ) {}
 
   /**
@@ -617,7 +621,7 @@ export class ThreadRunner implements OnModuleDestroy {
           place,
         ),
       );
-      this.watch(thread.id, role.roleKey, place, opened);
+      this.watch(thread, role.roleKey, place, opened);
       opened.send({ ...said, text: withLeftOutServers(said.text, servers.leftOut) }, "later");
       return;
     }
@@ -649,9 +653,12 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.forget(session.id);
       throw error;
     }
-    this.watch(thread.id, role.roleKey, place, opened);
+    this.watch(thread, role.roleKey, place, opened);
     // Only once the new session runs: until then the Thread may go back to the one it replaces.
-    if (replaced) await this.forget(replaced.id);
+    if (replaced) {
+      await this.forget(replaced.id);
+      await this.subAgentsAndProcesses.removeSession(replaced.id);
+    }
   }
 
   private settingsOf(
@@ -705,11 +712,18 @@ export class ThreadRunner implements OnModuleDestroy {
 
   /** Reads the session's events into the log until it ends. */
   private watch(
-    threadId: string,
+    { id: threadId, home }: Thread,
     roleKey: string,
     { folder, mask, officeTools }: Pick<SessionPlace, "folder" | "mask" | "officeTools">,
     session: EngineSession,
   ): void {
+    const following = this.subAgentsAndProcesses.follow({
+      threadId,
+      home,
+      sessionId: session.id,
+      folder,
+      mask,
+    });
     const live: LiveSession = {
       session,
       roleKey,
@@ -719,6 +733,7 @@ export class ThreadRunner implements OnModuleDestroy {
       handingOver: false,
       idle: undefined,
       ending: false,
+      following,
     };
     this.live.set(threadId, live);
     void this.read(threadId, live)
@@ -741,18 +756,27 @@ export class ThreadRunner implements OnModuleDestroy {
   }
 
   private async read(threadId: string, live: LiveSession): Promise<void> {
-    for await (const event of live.session.events) {
-      if (event.kind === "turn-ended") {
-        await this.turnEnded(threadId, live, event);
-        continue;
+    try {
+      for await (const event of live.session.events) {
+        await this.readEvent(threadId, live, event);
       }
-      if (event.kind === "turn-tokens") {
-        await this.change(threadId, (thread) => countRunningTurn(thread, event.soFar, new Date()));
-        continue;
-      }
-      const lines = sessionLogLines(event, live);
-      if (lines.length > 0) await this.log(threadId, lines);
+    } finally {
+      await live.following.end();
     }
+  }
+
+  private async readEvent(threadId: string, live: LiveSession, event: SessionEvent): Promise<void> {
+    await live.following.take(event);
+    if (event.kind === "turn-ended") {
+      await this.turnEnded(threadId, live, event);
+      return;
+    }
+    if (event.kind === "turn-tokens") {
+      await this.change(threadId, (thread) => countRunningTurn(thread, event.soFar, new Date()));
+      return;
+    }
+    const lines = sessionLogLines(event, live);
+    if (lines.length > 0) await this.log(threadId, lines);
   }
 
   private async turnEnded(

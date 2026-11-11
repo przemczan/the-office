@@ -1,0 +1,11 @@
+{"step":"start","brief":{"id":"0a9b8c7d-6e5f-4a3b-9c1d-2e3f4a5b6c7d","text":"Run this command with your Bash tool in the background (run_in_background: true): node -e \"setInterval(() => console.log('tick'), 500)\"\nThen stop it at once with your TaskStop tool, and reply with the single word: stopped"}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01Ticking","tool":"Bash","officeTool":false,"input":{"command":"node -e \"setInterval(() => console.log('tick'), 500)\"","description":"Tick until stopped","run_in_background":true},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01Ticking","text":"Command running in background with ID: b7c2d4e61. Output is being written to: <folder>/b7c2d4e61.output","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"process-started","callId":"toolu_01Ticking","engineTaskId":"b7c2d4e61","withinToolCall":null,"commandLine":"node -e \"setInterval(() => console.log('tick'), 500)\"","description":"Tick until stopped"}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01Stop","tool":"TaskStop","officeTool":false,"input":{"task_id":"b7c2d4e61"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"process-output","callId":"toolu_01Ticking","text":"tick\n"}}
+{"step":"event","event":{"kind":"process-ended","callId":"toolu_01Ticking","ending":{"state":"stopped","by":"agent"},"exitCode":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01Stop","text":"Successfully stopped task: b7c2d4e61","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"text","text":"stopped","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["0a9b8c7d-6e5f-4a3b-9c1d-2e3f4a5b6c7d"],"usage":{"input":6,"output":140,"cacheRead":25103,"cacheCreation":1402},"sessionCostUsd":0.0026,"output":null,"errors":[]}}
+{"step":"end"}

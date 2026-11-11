@@ -54,6 +54,83 @@ export interface ToolResultEvent {
   /** What the Agent read back, as text. */
   readonly text: string;
   readonly isError: boolean;
+  /** The tool call of the subagent whose call it answers, or undefined for the session's own Agent. */
+  readonly withinToolCall: string | undefined;
+}
+
+/**
+ * How a Sub-agent or a Process ended, as the engine saw it (spec 2.9): stopped by the Agent's
+ * TaskStop, by an interrupt or by the session's end.
+ */
+export type BackgroundEnding =
+  | { readonly state: "finished" }
+  | { readonly state: "failed"; readonly reason: string }
+  | { readonly state: "stopped"; readonly by: "agent" | "interrupt" | "session-end" };
+
+/**
+ * The Agent, or a Sub-agent, started a Sub-agent: with its call, before the engine says more.
+ * It is known by the id of that call, which its messages name as `withinToolCall`.
+ */
+export interface SubAgentStartedEvent {
+  readonly kind: "sub-agent-started";
+  readonly callId: string;
+  /** The engine's own id for it, which TaskStop names, when the engine gave one yet. */
+  readonly engineTaskId: string | undefined;
+  /** The Sub-agent that started it, or undefined for the session's own Agent. */
+  readonly withinToolCall: string | undefined;
+  readonly description: string;
+  /** Its kind, such as "general-purpose" or "Explore", when the call names one. */
+  readonly agentKind: string | undefined;
+  /** The brief it was given. */
+  readonly prompt: string;
+  readonly background: boolean;
+}
+
+/** The engine told more about a Sub-agent after its start. */
+export interface SubAgentChangedEvent {
+  readonly kind: "sub-agent-changed";
+  readonly callId: string;
+  readonly engineTaskId: string | undefined;
+  readonly background: boolean;
+}
+
+export interface SubAgentEndedEvent {
+  readonly kind: "sub-agent-ended";
+  readonly callId: string;
+  readonly ending: BackgroundEnding;
+  /** What it reported back, when it did. */
+  readonly reportedBack: string | undefined;
+  readonly toolCallCount: number | undefined;
+  readonly totalTokens: number | undefined;
+}
+
+/** A command started running in the background. */
+export interface ProcessStartedEvent {
+  readonly kind: "process-started";
+  /** The id of the `Bash` or `PowerShell` call that started it. */
+  readonly callId: string;
+  /** The engine's own id for it, which TaskStop names. */
+  readonly engineTaskId: string;
+  /** The Sub-agent that started it, or undefined for the session's own Agent. */
+  readonly withinToolCall: string | undefined;
+  /** Whole, as the call gave it. */
+  readonly commandLine: string;
+  readonly description: string;
+}
+
+/** What a Process wrote since the adapter's last read, in order: one read, one event. */
+export interface ProcessOutputEvent {
+  readonly kind: "process-output";
+  readonly callId: string;
+  readonly text: string;
+}
+
+export interface ProcessEndedEvent {
+  readonly kind: "process-ended";
+  readonly callId: string;
+  readonly ending: BackgroundEnding;
+  /** Its exit code, when the engine gives one. */
+  readonly exitCode: number | undefined;
 }
 
 /** Who refused a tool call: the Office rules (spec §6), or the engine's own checks. */
@@ -126,6 +203,15 @@ export interface McpServerNotStartedEvent {
   readonly reason: string | undefined;
 }
 
+/** What a session reports of its Sub-agents and Processes (spec 2.9), between turns too. */
+export type BackgroundEvent =
+  | SubAgentStartedEvent
+  | SubAgentChangedEvent
+  | SubAgentEndedEvent
+  | ProcessStartedEvent
+  | ProcessOutputEvent
+  | ProcessEndedEvent;
+
 /** Everything a session reports, in the order it happened. */
 export type SessionEvent =
   | TextEvent
@@ -135,4 +221,5 @@ export type SessionEvent =
   | TurnTokensEvent
   | TurnEndedEvent
   | RateLimitEvent
-  | McpServerNotStartedEvent;
+  | McpServerNotStartedEvent
+  | BackgroundEvent;

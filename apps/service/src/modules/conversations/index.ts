@@ -7,6 +7,7 @@ export {
 } from "./application/initiative-thread-setups.js";
 export { FireAlarmInThreads, type ThreadsFireAlarm } from "./application/fire-alarm-in-threads.js";
 export { InterruptedAnswers } from "./application/interrupted-answers.js";
+export { SubAgentsAndProcesses } from "./application/sub-agents-and-processes.js";
 export {
   ProposalAppliers,
   type ProposalApplier,

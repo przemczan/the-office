@@ -276,6 +276,19 @@ export function answerDecision(id: string, answer: DecisionAnswer): Promise<Thre
 type CarryingEventType = "thread.tokens-counted";
 
 /**
+ * A session's Sub-agents and Processes (spec 2.9): each event carries the item or the new part,
+ * which only the view that shows them applies, subscribing while it is open; nothing else refetches.
+ */
+type SubAgentAndProcessEventType =
+  | "thread.sub-agent-started"
+  | "thread.sub-agent-changed"
+  | "thread.sub-agent-ended"
+  | "thread.process-started"
+  | "thread.process-ended"
+  | "thread.sub-agent-messages"
+  | "thread.process-output";
+
+/**
  * Every other Conversations event makes the Threads stale: ["threads"] covers each home's list,
  * each Thread and its log. A Decision's events also make ["decisions"] stale, kept apart so the
  * many events of a turn don't refetch the open Decisions, and ["tasks"], as a waiting Decision is
@@ -283,7 +296,10 @@ type CarryingEventType = "thread.tokens-counted";
  * stale, read by the hire page that edits one.
  */
 export const threadEventInvalidations: Readonly<
-  Record<Exclude<ThreadWebEvent["type"], CarryingEventType>, EventInvalidations[string]>
+  Record<
+    Exclude<ThreadWebEvent["type"], CarryingEventType | SubAgentAndProcessEventType>,
+    EventInvalidations[string]
+  >
 > = {
   "thread.started": () => [THREADS],
   "thread.renamed": () => [THREADS],

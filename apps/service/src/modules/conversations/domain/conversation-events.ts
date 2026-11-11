@@ -2,6 +2,12 @@ import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Decision } from "./decision.js";
 import type { Message, MessageDelivery } from "./message.js";
 import type { Proposal } from "./proposal.js";
+import type {
+  OutputChunk,
+  SessionWhere,
+  SubAgentMessage,
+  SubAgentOrProcess,
+} from "./sub-agents-and-processes.js";
 import type { Thread } from "./thread.js";
 
 export class ThreadStarted extends DomainEvent {
@@ -163,5 +169,41 @@ export class SizeThresholdChanged extends DomainEvent {
 export class OfficeInstructionsChanged extends DomainEvent {
   constructor(readonly version: number) {
     super();
+  }
+}
+
+/** A Sub-agent or a Process started, changed or ended: the whole item as the list reads it. */
+export class SubAgentOrProcessChanged extends DomainEvent {
+  constructor(
+    readonly where: SessionWhere,
+    readonly item: SubAgentOrProcess,
+    readonly change: "started" | "changed" | "ended",
+    changedAt: Date,
+  ) {
+    super(changedAt);
+  }
+}
+
+/** A Sub-agent's new messages and tool calls were kept, each with its sequence. */
+export class SubAgentMessagesKept extends DomainEvent {
+  constructor(
+    readonly where: SessionWhere,
+    readonly callId: string,
+    readonly messages: readonly SubAgentMessage[],
+    keptAt: Date,
+  ) {
+    super(keptAt);
+  }
+}
+
+/** A chunk of a Process's output was kept: whole lines, masked. */
+export class ProcessOutputKept extends DomainEvent {
+  constructor(
+    readonly where: SessionWhere,
+    readonly callId: string,
+    readonly chunk: OutputChunk,
+    keptAt: Date,
+  ) {
+    super(keptAt);
   }
 }

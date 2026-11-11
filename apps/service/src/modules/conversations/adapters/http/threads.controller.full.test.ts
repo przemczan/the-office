@@ -87,6 +87,9 @@ import { ChatActivityRepository } from "../../ports/chat-activity-repository.js"
 import { PostgresChatActivityRepository } from "../postgres/postgres-chat-activity-repository.js";
 import { ProjectOutputMasks } from "../../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../../ports/project-output-masks.fixtures.js";
+import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processes.js";
+import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-repository.js";
+import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -256,6 +259,11 @@ function setUpEachTest(): void {
         ...openPageRecordProviders(),
         WorkRecords,
         StageThreads,
+        {
+          provide: SubAgentAndProcessRepository,
+          useClass: PostgresSubAgentAndProcessRepository,
+        },
+        SubAgentsAndProcesses,
         DecisionService,
         ProposalAppliers,
         ProposalService,

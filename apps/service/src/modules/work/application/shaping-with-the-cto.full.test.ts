@@ -266,7 +266,13 @@ function turn(consumed: string, calls: readonly [string, Record<string, unknown>
       },
       {
         step: "event",
-        event: { kind: "tool-result", callId: `${consumed}-${index}`, text: "", isError: false },
+        event: {
+          kind: "tool-result",
+          callId: `${consumed}-${index}`,
+          text: "",
+          isError: false,
+          withinToolCall: undefined,
+        },
       },
     ]),
     { step: "event", event: { kind: "text", text: "Done.", withinToolCall: undefined } },

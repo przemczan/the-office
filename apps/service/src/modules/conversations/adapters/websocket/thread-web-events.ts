@@ -9,17 +9,27 @@ import {
   DecisionReopened,
   MessagesLogged,
   OfficeInstructionsChanged,
+  ProcessOutputKept,
   ProposalApplied,
   ProposalDeclined,
   ProposalDrafted,
   SizeThresholdChanged,
+  SubAgentMessagesKept,
+  SubAgentOrProcessChanged,
   ThreadRenamed,
   ThreadSeen,
   ThreadStarted,
   TokensCounted,
   TurnEnded,
 } from "../../domain/conversation-events.js";
+import type { SessionWhere } from "../../domain/sub-agents-and-processes.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
+import {
+  toOutputChunkResponse,
+  toProcessResponse,
+  toSubAgentMessageResponse,
+  toSubAgentResponse,
+} from "../http/sub-agent-and-process-responses.js";
 
 type WebEventOf<Type extends ThreadWebEvent["type"]> = Omit<
   Extract<ThreadWebEvent, { type: Type }>,
@@ -103,6 +113,22 @@ export class ThreadWebEvents implements OnModuleInit {
       ...namesOf(event.thread),
       proposalId: event.proposal.id,
     }));
+    this.forwarding.forward(SubAgentOrProcessChanged, subAgentOrProcessWebEvent);
+    this.forwarding.forward(
+      SubAgentMessagesKept,
+      (event): WebEventOf<"thread.sub-agent-messages"> => ({
+        type: "thread.sub-agent-messages",
+        ...namesOfSession(event.where),
+        callId: event.callId,
+        messages: event.messages.map(toSubAgentMessageResponse),
+      }),
+    );
+    this.forwarding.forward(ProcessOutputKept, (event): WebEventOf<"thread.process-output"> => ({
+      type: "thread.process-output",
+      ...namesOfSession(event.where),
+      callId: event.callId,
+      chunk: toOutputChunkResponse(event.chunk),
+    }));
     this.forwarding.forward(
       SizeThresholdChanged,
       (): WebEventOf<"context-policy.size-threshold-changed"> => ({
@@ -118,4 +144,34 @@ export class ThreadWebEvents implements OnModuleInit {
 
 function namesOf(thread: Thread): Pick<WebEventOf<"thread.started">, "threadId" | "home"> {
   return { threadId: thread.id, home: thread.home };
+}
+
+function namesOfSession({
+  threadId,
+  home,
+}: SessionWhere): Pick<WebEventOf<"thread.started">, "threadId" | "home"> {
+  return { threadId, home };
+}
+
+/** A Process never changes between its start and its end: only a Sub-agent learns more. */
+function subAgentOrProcessWebEvent({
+  where,
+  item,
+  change,
+}: SubAgentOrProcessChanged): WebEventOf<
+  | "thread.sub-agent-started"
+  | "thread.sub-agent-changed"
+  | "thread.sub-agent-ended"
+  | "thread.process-started"
+  | "thread.process-ended"
+> {
+  const names = namesOfSession(where);
+  if (item.kind === "sub-agent") {
+    return { type: `thread.sub-agent-${change}`, ...names, item: toSubAgentResponse(item) };
+  }
+  return {
+    type: change === "started" ? "thread.process-started" : "thread.process-ended",
+    ...names,
+    item: toProcessResponse(item),
+  };
 }

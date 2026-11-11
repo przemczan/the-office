@@ -12,7 +12,12 @@ import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { textReply, type ScriptedAnswer } from "./fake-chat-completions-server.fixtures.js";
+import {
+  textReply,
+  type ScriptedAnswer,
+  type ScriptedReply,
+  type ScriptedStatus,
+} from "./fake-chat-completions-server.fixtures.js";
 import {
   OPENAI_COMPATIBLE_API_CAPABILITIES,
   OpenAiCompatibleApiEngine,
@@ -69,9 +74,35 @@ function contractAnswers(scenario: ContractScenario): ScriptedAnswer[] {
         toolCall("mcp__fake__echo", { text: "hi" }),
         textReply(["done"], USAGE),
       ];
+    case "background":
+      return [
+        toolCall("Bash", { command: COUNTING_COMMAND, run_in_background: true }),
+        textReply(["started"], USAGE),
+      ];
+    case "background-stop":
+      return [
+        toolCall("Bash", { command: TICKING_COMMAND, run_in_background: true }),
+        { kind: "from-request", answer: stopOfLastBackgroundCommand },
+        textReply(["stopped"], USAGE),
+      ];
     default:
       return [];
   }
+}
+
+/** The contract's commands, as its briefs give them to the model. */
+const COUNTING_COMMAND = `node -e "for (let i = 1; i <= 3; i++) setTimeout(() => console.log('line ' + i), i * 1000)"`;
+const TICKING_COMMAND = `node -e "setInterval(() => console.log('tick'), 500)"`;
+
+/** A TaskStop call naming the background command the request's last tool result says started. */
+function stopOfLastBackgroundCommand(body: unknown): ScriptedReply | ScriptedStatus {
+  const { messages } = body as { messages: { role: string; content: string | null }[] };
+  const result = messages.at(-1);
+  const id = /with ID: (\S+)\./.exec(result?.role === "tool" ? (result.content ?? "") : "")?.[1];
+  if (id === undefined) {
+    return { kind: "status", status: 500, body: "The last message names no background command." };
+  }
+  return toolCall("TaskStop", { task_id: id });
 }
 
 describeAgentEngineContract("OpenAiCompatibleApiEngine on a fake server", {

@@ -40,7 +40,12 @@ import {
 } from "../domain/session-instructions.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { TokensCounted, TurnEnded } from "../domain/conversation-events.js";
+import {
+  ProcessOutputKept,
+  SubAgentOrProcessChanged,
+  TokensCounted,
+  TurnEnded,
+} from "../domain/conversation-events.js";
 import type { ContextDecision } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
 import type { Message, MessageDraft } from "../domain/message.js";
@@ -56,6 +61,7 @@ import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { DecisionService } from "./decision-service.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
+import type { SessionEvent } from "./session-log.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
@@ -89,6 +95,9 @@ import { GitHubModule } from "../../github/index.js";
 import { signedInWithGitHubForTests } from "../../github/index.fixtures.js";
 import { ProjectOutputMasks } from "../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
+import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
+import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 
 const outputMasks = new ProjectOutputMasksForTests();
 
@@ -273,6 +282,11 @@ async function startOn(
       ...openPageRecordProviders(personRecords, projectRecords),
       WorkRecords,
       StageThreads,
+      {
+        provide: SubAgentAndProcessRepository,
+        useClass: PostgresSubAgentAndProcessRepository,
+      },
+      SubAgentsAndProcesses,
       InterruptedAnswers,
       DecisionService,
       Consultations,
@@ -1273,7 +1287,10 @@ function opensDecision(callId: string, question: string, options: string[]): Ste
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+    {
+      step: "event",
+      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
+    },
   ];
 }
 
@@ -1652,7 +1669,10 @@ function opensDecisionOn(
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+    {
+      step: "event",
+      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
+    },
   ];
 }
 
@@ -1672,7 +1692,10 @@ function holdsTheTurn(callId: string): Step[] {
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+    {
+      step: "event",
+      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
+    },
   ];
 }
 
@@ -2151,7 +2174,16 @@ function callsAnOfficeTool(): SessionScript {
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId: "c-1", text: "", isError: false } },
+    {
+      step: "event",
+      event: {
+        kind: "tool-result",
+        callId: "c-1",
+        text: "",
+        isError: false,
+        withinToolCall: undefined,
+      },
+    },
     ...aTurn("brief", "Here is what I know."),
   );
 }
@@ -2327,4 +2359,200 @@ describe("the Caretaker's chat", () => {
 /** A session's options but its holds, which are functions made for each move. */
 function withoutHolds(options: object | undefined): object {
   return { ...options, toolHold: undefined, approvalHold: undefined };
+}
+
+describe("a Thread's Sub-agents and Processes", () => {
+  const SECRET = "s3cret";
+
+  /** A foreground Sub-agent that reports back, then a Process left running across the turn's end. */
+  const aSubAgentAndAProcess: Step[] = [
+    background({
+      kind: "sub-agent-started",
+      callId: "agent-1",
+      engineTaskId: undefined,
+      withinToolCall: undefined,
+      description: `Look up ${SECRET}`,
+      agentKind: "Explore",
+      prompt: `Find where ${SECRET} is used.`,
+      background: false,
+    }),
+    background({ kind: "text", text: `I found ${SECRET}.`, withinToolCall: "agent-1" }),
+    background({
+      kind: "tool-call",
+      callId: "grep-1",
+      tool: "Grep",
+      officeTool: false,
+      input: { pattern: SECRET },
+      withinToolCall: "agent-1",
+    }),
+    background({
+      kind: "sub-agent-changed",
+      callId: "agent-1",
+      engineTaskId: "a1",
+      background: false,
+    }),
+    background({
+      kind: "sub-agent-ended",
+      callId: "agent-1",
+      ending: { state: "finished" },
+      reportedBack: `It is ${SECRET}.`,
+      toolCallCount: 1,
+      totalTokens: 900,
+    }),
+    background({
+      kind: "process-started",
+      callId: "bash-1",
+      engineTaskId: "b1f9c2e07",
+      withinToolCall: undefined,
+      commandLine: `curl -H "Authorization: Bearer ${SECRET}" localhost`,
+      description: "Serve the app",
+    }),
+    // The secret split across two reads.
+    background({ kind: "process-output", callId: "bash-1", text: "ready\nkey=s3" }),
+    background({ kind: "process-output", callId: "bash-1", text: "cret\n" }),
+  ];
+
+  /** Keeps the session open, its Process running, until the test reaches `SESSION_ENDS`. */
+  const SESSION_ENDS = "the session ends";
+  const heldOpen: Step[] = [{ step: "wait", mark: SESSION_ENDS }, { step: "end" }];
+
+  async function aMaskedTaskThread(): Promise<Thread> {
+    outputMasks.masks.set("admin-panel", {
+      mask: (text) => text.replaceAll(SECRET, "[secret]"),
+    });
+    return planningThread();
+  }
+
+  afterEach(() => {
+    outputMasks.masks.clear();
+    for (const session of engine.sessions) session.reach(SESSION_ENDS);
+  });
+
+  it("are read back with their states, messages and output, masked, and output between turns is kept and sent live", async () => {
+    await startWith(
+      started(
+        ...aSubAgentAndAProcess,
+        ...aTurn("brief", "Started the app."),
+        { step: "wait", mark: "between turns" },
+        background({ kind: "process-output", callId: "bash-1", text: "GET /\n" }),
+        ...heldOpen,
+      ),
+    );
+    const live: DomainEvent[] = [];
+    app.get(EventBus).subscribeToEveryEvent((event: DomainEvent) => void live.push(event));
+    const kept = app.get(SubAgentsAndProcesses);
+    const thread = await aMaskedTaskThread();
+
+    await runner.send(thread.id, PLAN_IT);
+    await answered(thread.id, 3);
+    expect((await kept.output(thread.id, "bash-1", 0)).chunks).toEqual([
+      { sequence: 1, text: "ready\n" },
+      { sequence: 2, text: "key=[secret]\n" },
+    ]);
+    engine.sessions[0]?.reach("between turns");
+
+    const output = await vi.waitFor(
+      async () => {
+        const read = await kept.output(thread.id, "bash-1", 2);
+        if (read.lastSequence < 3) throw new Error("No output since the turn's end yet.");
+        return read;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    expect(output).toEqual({
+      chunks: [{ sequence: 3, text: "GET /\n" }],
+      lastSequence: 3,
+      earlierNotKept: 0,
+    });
+    expect(
+      live.filter((event) => event instanceof ProcessOutputKept).map(({ chunk }) => chunk),
+    ).toEqual([
+      { sequence: 1, text: "ready\n" },
+      { sequence: 2, text: "key=[secret]\n" },
+      { sequence: 3, text: "GET /\n" },
+    ]);
+    expect(await kept.list(thread.id)).toMatchObject([
+      {
+        kind: "sub-agent",
+        callId: "agent-1",
+        engineTaskId: "a1",
+        description: "Look up [secret]",
+        agentKind: "Explore",
+        prompt: "Find where [secret] is used.",
+        ending: { state: "finished" },
+        reportedBack: "It is [secret].",
+        toolCallCount: 1,
+        totalTokens: 900,
+        lastSequence: 2,
+      },
+      {
+        kind: "process",
+        callId: "bash-1",
+        engineTaskId: "b1f9c2e07",
+        commandLine: 'curl -H "Authorization: Bearer [secret]" localhost',
+        ending: undefined,
+      },
+    ]);
+    expect((await kept.messages(thread.id, "agent-1", 0)).messages).toMatchObject([
+      { kind: "text", sequence: 1, text: "I found [secret]." },
+      { kind: "tool-activity", sequence: 2, tool: "Grep", summary: "[secret]" },
+    ]);
+    expect(JSON.stringify(live)).not.toContain(SECRET);
+    // A Sub-agent's work stays out of the Thread's own log.
+    expect(drafts(await threads.messages(thread.id)).map(({ kind }) => kind)).toEqual([
+      "context",
+      "user",
+      "person",
+    ]);
+  });
+
+  it("stops what still runs as the session ends, and removes them once a fresh session replaces it", async () => {
+    await startWith(
+      started(...aSubAgentAndAProcess, ...aTurn("brief", "Started the app."), { step: "end" }),
+      started(...aTurn("brief", "Fresh.")),
+    );
+    const changes: SubAgentOrProcessChanged[] = [];
+    app.get(EventBus).subscribe(SubAgentOrProcessChanged, (event) => void changes.push(event));
+    const kept = app.get(SubAgentsAndProcesses);
+    const thread = await aMaskedTaskThread();
+    await runner.send(thread.id, PLAN_IT);
+    await answered(thread.id, 3);
+
+    await runner.endWaiting(thread.home.kind === "task" ? thread.home.taskId : "");
+    await vi.waitFor(async () =>
+      expect(await kept.list(thread.id)).toMatchObject([
+        { callId: "agent-1", ending: { state: "finished" } },
+        { callId: "bash-1", ending: { state: "stopped", by: "session-end" } },
+      ]),
+    );
+    expect(changes.at(-1)).toMatchObject({ change: "ended", item: { callId: "bash-1" } });
+
+    await threads.chooseOverride(thread.id, "start-fresh");
+    await runner.send(thread.id, "Start over.");
+    await answered(thread.id, 6);
+    expect(await kept.list(thread.id)).toEqual([]);
+    const [first] = engine.sessions;
+    expect(await app.get(SubAgentAndProcessRepository).ofSession(first?.id ?? "")).toEqual([]);
+  });
+
+  it("stops every one still Running after a restart, as ended when The Office restarted", async () => {
+    await startWith(
+      started(...aSubAgentAndAProcess, ...aTurn("brief", "Started the app."), ...heldOpen),
+    );
+    const kept = app.get(SubAgentsAndProcesses);
+    const thread = await aMaskedTaskThread();
+    await runner.send(thread.id, PLAN_IT);
+    await answered(thread.id, 3);
+
+    await kept.recover();
+
+    expect(await kept.list(thread.id)).toMatchObject([
+      { callId: "agent-1", ending: { state: "finished" } },
+      { callId: "bash-1", ending: { state: "stopped", by: "restart" } },
+    ]);
+  });
+});
+
+function background(event: SessionEvent): Step {
+  return { step: "event", event };
 }

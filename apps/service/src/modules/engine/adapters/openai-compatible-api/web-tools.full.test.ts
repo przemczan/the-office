@@ -16,6 +16,7 @@ const context: ToolContext = {
   paths: currentOperatingSystem().paths,
   mayRead: () => true,
   readFiles: new ReadFiles(),
+  callId: "call-1",
 };
 
 async function run(

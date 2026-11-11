@@ -147,7 +147,7 @@ function assistantEvents({ message, parent_tool_use_id }: SDKAssistantMessage): 
   });
 }
 
-function toolResults({ message }: SDKUserMessage): SessionEvent[] {
+function toolResults({ message, parent_tool_use_id }: SDKUserMessage): SessionEvent[] {
   if (typeof message.content === "string") return [];
   return message.content.flatMap((block): SessionEvent[] =>
     block.type === "tool_result"
@@ -155,8 +155,9 @@ function toolResults({ message }: SDKUserMessage): SessionEvent[] {
           {
             kind: "tool-result",
             callId: block.tool_use_id,
-            text: textOf(block.content),
+            text: toolResultText(block.content),
             isError: block.is_error ?? false,
+            withinToolCall: parent_tool_use_id ?? undefined,
           },
         ]
       : [],
@@ -164,7 +165,7 @@ function toolResults({ message }: SDKUserMessage): SessionEvent[] {
 }
 
 /** A tool result's text parts, joined; images and documents have none. */
-function textOf(content: unknown): string {
+export function toolResultText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
   return content

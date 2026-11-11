@@ -80,6 +80,9 @@ import { PostgresChangesAllowedRepository } from "../adapters/postgres/postgres-
 import { sessionMcpServersStandIn } from "./session-mcp-servers.fixtures.js";
 import { ProjectOutputMasks } from "../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
+import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
+import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -183,6 +186,11 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
+      {
+        provide: SubAgentAndProcessRepository,
+        useClass: PostgresSubAgentAndProcessRepository,
+      },
+      SubAgentsAndProcesses,
       ProposalAppliers,
       ProposalService,
       RoleProposals,
@@ -301,7 +309,10 @@ function officeToolCall(callId: string, tool: string, input: Record<string, unkn
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+    {
+      step: "event",
+      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
+    },
   ];
 }
 

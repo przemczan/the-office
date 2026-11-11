@@ -26,6 +26,23 @@ export interface EventStreamOptions {
   readonly openWebSocket?: (url: string) => WebSocket;
 }
 
+/**
+ * Event types to receive for one Thread only, as long as a page shows it: the only way to receive
+ * a thread-scoped type (THREAD_SCOPED_EVENT_TYPES), and for any other type, that Thread's events
+ * of it alone.
+ */
+export interface ThreadSubscription {
+  readonly threadId: string;
+  readonly eventTypes: readonly string[];
+  /** Each event of those types for that Thread; the stream's own `onEvent` receives it too. */
+  readonly onEvent: (event: WebEvent) => void;
+  /**
+   * The subscription is in place, as the service's reply to it says: called once per connection,
+   * so a page reads again what a lost connection missed.
+   */
+  readonly onSubscribed?: () => void;
+}
+
 /** The waits before each attempt to connect again, the last one repeated. */
 export const RECONNECT_DELAYS_MS = [250, 500, 1000, 2000, 4000] as const;
 
@@ -42,6 +59,12 @@ export class EventStream {
   private running = false;
   private currentStatus: EventStreamStatus = "connecting";
   private readonly listeners = new Set<() => void>();
+  private readonly threadSubscriptions = new Set<ThreadSubscription>();
+  /**
+   * For each message sent on the current socket and not yet answered, in order, the Thread
+   * subscriptions its reply puts in place: the service answers every message, in order.
+   */
+  private awaitingReplies: (readonly ThreadSubscription[])[] = [];
 
   constructor(private readonly options: EventStreamOptions) {}
 
@@ -67,6 +90,55 @@ export class EventStream {
     return () => this.listeners.delete(onChange);
   };
 
+  /**
+   * Receives the subscription's event types for its Thread, subscribed again on every connection,
+   * until the returned function is called. Subscriptions to the same Thread share the service's:
+   * a type is unsubscribed once none of them has it.
+   */
+  subscribeToThread(subscription: ThreadSubscription): () => void {
+    const own = { ...subscription };
+    this.threadSubscriptions.add(own);
+    const socket = this.connectedSocket();
+    if (socket !== undefined && own.eventTypes.length > 0) {
+      this.send(
+        socket,
+        { type: "subscribe", events: [...own.eventTypes], threadId: own.threadId },
+        [own],
+      );
+    }
+    return () => {
+      if (!this.threadSubscriptions.delete(own)) return;
+      const kept = this.threadEventTypes(own.threadId);
+      const dropped = own.eventTypes.filter((eventType) => !kept.has(eventType));
+      const current = this.connectedSocket();
+      if (current === undefined || dropped.length === 0) return;
+      this.send(current, { type: "unsubscribe", events: dropped, threadId: own.threadId }, []);
+    };
+  }
+
+  private connectedSocket(): WebSocket | undefined {
+    return this.currentStatus === "connected" ? this.socket : undefined;
+  }
+
+  private threadEventTypes(threadId: string): Set<string> {
+    const eventTypes = new Set<string>();
+    for (const subscription of this.threadSubscriptions) {
+      if (subscription.threadId === threadId) {
+        for (const eventType of subscription.eventTypes) eventTypes.add(eventType);
+      }
+    }
+    return eventTypes;
+  }
+
+  private send(
+    socket: WebSocket,
+    message: ClientMessage,
+    putsInPlace: readonly ThreadSubscription[],
+  ): void {
+    socket.send(JSON.stringify(message));
+    this.awaitingReplies.push(putsInPlace);
+  }
+
   private connect(): void {
     const socket = (this.options.openWebSocket ?? openBrowserWebSocket)(this.options.url);
     this.socket = socket;
@@ -79,9 +151,15 @@ export class EventStream {
   private opened(socket: WebSocket): void {
     if (socket !== this.socket) return;
     this.failedAttempts = 0;
+    this.awaitingReplies = [];
     if (this.options.eventTypes.length > 0) {
-      const subscribe: ClientMessage = { type: "subscribe", events: [...this.options.eventTypes] };
-      socket.send(JSON.stringify(subscribe));
+      this.send(socket, { type: "subscribe", events: [...this.options.eventTypes] }, []);
+    }
+    for (const threadId of new Set([...this.threadSubscriptions].map((s) => s.threadId))) {
+      const events = [...this.threadEventTypes(threadId)];
+      const putsInPlace = [...this.threadSubscriptions].filter((s) => s.threadId === threadId);
+      if (events.length > 0)
+        this.send(socket, { type: "subscribe", events, threadId }, putsInPlace);
     }
     this.setStatus("connected");
   }
@@ -89,8 +167,26 @@ export class EventStream {
   private received(socket: WebSocket, data: unknown): void {
     if (socket !== this.socket || typeof data !== "string") return;
     const message = parseServerMessage(data);
-    if (message?.type === "event") this.options.onEvent(message.event);
-    else if (message?.type === "subscriptions") this.subscribed(socket);
+    if (message?.type === "event") this.passOn(message.event);
+    else if (message?.type === "subscriptions" || message?.type === "refused") {
+      const putsInPlace = this.awaitingReplies.shift() ?? [];
+      if (message.type === "refused") return;
+      if (message.threadId === undefined) this.subscribed(socket);
+      for (const subscription of putsInPlace) {
+        if (this.threadSubscriptions.has(subscription)) subscription.onSubscribed?.();
+      }
+    }
+  }
+
+  private passOn(event: WebEvent): void {
+    this.options.onEvent(event);
+    const threadId = "threadId" in event ? event.threadId : undefined;
+    if (typeof threadId !== "string") return;
+    for (const subscription of this.threadSubscriptions) {
+      if (subscription.threadId === threadId && subscription.eventTypes.includes(event.type)) {
+        subscription.onEvent(event);
+      }
+    }
   }
 
   private subscribed(socket: WebSocket): void {

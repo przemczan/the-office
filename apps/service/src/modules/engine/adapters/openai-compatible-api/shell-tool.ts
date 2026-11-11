@@ -69,7 +69,12 @@ export function shellTool(
       };
       if (input.run_in_background === true) {
         return backgroundOutput(
-          await backgroundCommands.start(program, command, input.description ?? input.command),
+          await backgroundCommands.start(
+            program,
+            command,
+            input.description ?? input.command,
+            context.callId,
+          ),
         );
       }
       const timeoutMs = input.timeout ?? DEFAULT_TIMEOUT_MS;

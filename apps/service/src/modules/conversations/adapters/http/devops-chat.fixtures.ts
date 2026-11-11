@@ -220,7 +220,10 @@ function toolCall(callId: string, tool: string, input: Record<string, unknown>):
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+    {
+      step: "event",
+      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
+    },
   ];
 }
 

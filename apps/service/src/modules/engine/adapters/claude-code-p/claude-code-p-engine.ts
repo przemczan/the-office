@@ -252,6 +252,10 @@ class ClaudeCodePSession implements EngineSession, StartCheckRequests {
     readonly id: string,
     private readonly parts: SessionParts,
   ) {
+    // A Process's output and its end come by the clock, between turns too, until the session ends.
+    parts.streamEvents.background.reportTo((event) => {
+      if (this.reported.isOpen) this.reported.push(event);
+    });
     this.read = this.readMessages();
   }
 
@@ -265,6 +269,7 @@ class ClaudeCodePSession implements EngineSession, StartCheckRequests {
   }
 
   async interrupt(): Promise<void> {
+    this.parts.streamEvents.background.interrupted();
     await this.parts.stream.request("interrupt");
   }
 
@@ -298,6 +303,7 @@ class ClaudeCodePSession implements EngineSession, StartCheckRequests {
 
   async end(): Promise<void> {
     this.ending = true;
+    this.parts.streamEvents.background.ending();
     this.parts.stream.endInput();
     await this.read;
     await this.parts.engineProcess.endWithLeftovers();
@@ -310,8 +316,11 @@ class ClaudeCodePSession implements EngineSession, StartCheckRequests {
         if (isInit(message) && (await this.refusedAtInit(message))) return;
         for (const event of this.parts.streamEvents.of(message)) this.reported.push(event);
       }
+      await this.parts.streamEvents.background.ended();
       this.reported.close();
     } catch (error) {
+      // What still runs ends with the session, reported before its events close.
+      await this.parts.streamEvents.background.ended();
       if (this.ending) {
         this.reported.close();
       } else {

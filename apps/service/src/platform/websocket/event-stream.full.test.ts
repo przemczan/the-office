@@ -15,6 +15,11 @@ import {
   messageSchema,
   type Message,
   changeSubscription,
+  forwardThreadEvents,
+  OutputPrinted,
+  THREAD_A,
+  THREAD_B,
+  ThreadLampLit,
 } from "./event-stream.fixtures.js";
 
 class LampMoved extends DomainEvent {}
@@ -30,6 +35,7 @@ beforeEach(async () => {
   const forwarding = app.get(WebEventForwarding);
   forwarding.forward(LampLit, (event) => ({ type: "lamp.lit", room: event.room }));
   forwarding.forward(LampDimmed, () => ({ type: "lamp.dimmed" }));
+  forwardThreadEvents(forwarding);
 });
 
 afterEach(async () => {
@@ -87,6 +93,65 @@ describe("the event stream", () => {
     await bus.publish(new LampDimmed());
 
     expect(await next()).toMatchObject({ type: "event", event: { type: "lamp.dimmed" } });
+  });
+
+  it("removes only the scoped subscription an unsubscribe with a Thread names", async () => {
+    const { client, next } = await connect();
+    await changeSubscription(client, next, "subscribe", ["lamp.dimmed"]);
+    await changeSubscription(client, next, "subscribe", ["thread.process-output"], THREAD_A);
+    await changeSubscription(client, next, "subscribe", ["thread.process-output"], THREAD_B);
+
+    expect(
+      await changeSubscription(client, next, "unsubscribe", ["thread.process-output"], THREAD_A),
+    ).toEqual({ type: "subscriptions", events: [], threadId: THREAD_A });
+    await bus.publish(new OutputPrinted(THREAD_A));
+    await bus.publish(new OutputPrinted(THREAD_B));
+    await bus.publish(new LampDimmed());
+
+    expect(await next()).toMatchObject({
+      event: { type: "thread.process-output", threadId: THREAD_B },
+    });
+    expect(await next()).toMatchObject({ event: { type: "lamp.dimmed" } });
+  });
+
+  it("answers each scope with its own subscriptions", async () => {
+    const { client, next } = await connect();
+    await changeSubscription(client, next, "subscribe", ["lamp.lit"]);
+
+    expect(
+      await changeSubscription(client, next, "subscribe", ["thread.process-output"], THREAD_A),
+    ).toEqual({ type: "subscriptions", events: ["thread.process-output"], threadId: THREAD_A });
+    expect(await changeSubscription(client, next, "subscribe", ["lamp.dimmed"])).toEqual({
+      type: "subscriptions",
+      events: ["lamp.dimmed", "lamp.lit"],
+    });
+  });
+
+  it("sends a scoped subscription to any other type only its own Thread's events", async () => {
+    const { client, next } = await connect();
+    await changeSubscription(client, next, "subscribe", ["thread.lamp-lit"], THREAD_A);
+
+    await bus.publish(new ThreadLampLit(THREAD_B));
+    await bus.publish(new ThreadLampLit(THREAD_A));
+
+    expect(await next()).toMatchObject({ event: { type: "thread.lamp-lit", threadId: THREAD_A } });
+  });
+
+  it("sends an unscoped subscription every Thread's events of a type that isn't thread-scoped", async () => {
+    const { client, next } = await connect();
+    await changeSubscription(client, next, "subscribe", ["thread.lamp-lit"]);
+
+    await bus.publish(new ThreadLampLit(THREAD_B));
+
+    expect(await next()).toMatchObject({ event: { type: "thread.lamp-lit", threadId: THREAD_B } });
+  });
+
+  it("refuses a scope that is not a Thread's id", async () => {
+    const { client, next } = await connect();
+
+    expect(
+      await changeSubscription(client, next, "subscribe", ["thread.process-output"], "thread-a"),
+    ).toEqual({ type: "refused", reason: "Not a subscribe or unsubscribe message." });
   });
 
   it("sends a closed client nothing and keeps delivering to the others", async () => {

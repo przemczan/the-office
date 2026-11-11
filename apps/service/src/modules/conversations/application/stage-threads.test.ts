@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach, beforeEach } from "vitest";
+import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
 import { z } from "zod";
 import { OPEN_DECISION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
 import {
@@ -32,7 +32,7 @@ import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-to
 import { Consultations } from "./consultations.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { DecisionAnswered } from "../domain/conversation-events.js";
+import { DecisionAnswered, ProcessOutputKept } from "../domain/conversation-events.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { type Thread } from "../domain/thread.js";
 import { ProjectBases } from "../ports/project-bases.js";
@@ -67,6 +67,9 @@ import {
 } from "./session-mcp-servers.fixtures.js";
 import { ProjectOutputMasks } from "../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
+import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
+import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -182,6 +185,11 @@ async function startOn(
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
+      {
+        provide: SubAgentAndProcessRepository,
+        useClass: PostgresSubAgentAndProcessRepository,
+      },
+      SubAgentsAndProcesses,
       StageDecisions,
       DecisionService,
       Consultations,
@@ -338,7 +346,13 @@ const aCommand = (callId: string): { call: Step; result: Step } => ({
   },
   result: {
     step: "event",
-    event: { kind: "tool-result", callId, text: "Tests pass.", isError: false },
+    event: {
+      kind: "tool-result",
+      callId,
+      text: "Tests pass.",
+      isError: false,
+      withinToolCall: undefined,
+    },
   },
 });
 
@@ -394,7 +408,10 @@ function callsOfficeTool(callId: string, tool: string, input: Record<string, unk
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+    {
+      step: "event",
+      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
+    },
   ];
 }
 
@@ -751,3 +768,97 @@ describe("Office tools on a Stage", () => {
     expect(offered[1]).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
   });
 });
+
+describe("a Stage Thread's Sub-agents and Processes", () => {
+  const BETWEEN_TURNS = "between turns";
+  const AFTER_THE_LAST_TURN = "after the last turn";
+
+  it("keeps a Process's output between turns and after the run's last turn, sent live, and stops it with the session", async () => {
+    await startWith(
+      started(
+        reported({
+          kind: "process-started",
+          callId: "bash-1",
+          engineTaskId: "b1f9c2e07",
+          withinToolCall: undefined,
+          commandLine: "npm run dev",
+          description: "Serve the app",
+        }),
+        reported({
+          kind: "sub-agent-started",
+          callId: "agent-1",
+          engineTaskId: "a1",
+          withinToolCall: undefined,
+          description: "Review the change",
+          agentKind: "general-purpose",
+          prompt: "Review it.",
+          background: true,
+        }),
+        reported({ kind: "text", text: "Looks right.", withinToolCall: "agent-1" }),
+        ...aTurn({ status: "started" }),
+        { step: "wait", mark: BETWEEN_TURNS },
+        outputOf("ready\n"),
+        reported({
+          kind: "sub-agent-ended",
+          callId: "agent-1",
+          ending: { state: "failed", reason: "Its context window filled." },
+          reportedBack: undefined,
+          toolCallCount: undefined,
+          totalTokens: undefined,
+        }),
+        { step: "send", message: { id: "work", text: "" }, priority: "later" },
+        ...aTurn({ status: "done" }, "Done.", ["work"]),
+        { step: "wait", mark: AFTER_THE_LAST_TURN },
+        outputOf("GET /\n"),
+      ),
+    );
+    const live: ProcessOutputKept[] = [];
+    app.get(EventBus).subscribe(ProcessOutputKept, (kept) => void live.push(kept));
+    const kept = app.get(SubAgentsAndProcesses);
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    const { threadId } = stageThread;
+    const [session] = engine.sessions;
+    await stageThread.nextTurn();
+
+    session?.reach(BETWEEN_TURNS);
+    await vi.waitFor(async () =>
+      expect((await kept.output(threadId, "bash-1", 0)).chunks).toEqual([
+        { sequence: 1, text: "ready\n" },
+      ]),
+    );
+    await stageThread.send("Go on.", "The Stage goes on.");
+    session?.reach(AFTER_THE_LAST_TURN);
+    await vi.waitFor(async () =>
+      expect((await kept.output(threadId, "bash-1", 1)).chunks).toEqual([
+        { sequence: 2, text: "GET /\n" },
+      ]),
+    );
+    expect(live.map(({ where, chunk }) => ({ threadId: where.threadId, ...chunk }))).toEqual([
+      { threadId, sequence: 1, text: "ready\n" },
+      { threadId, sequence: 2, text: "GET /\n" },
+    ]);
+
+    await stageThread.end({ handoverNote: "Left: nothing.", closing: undefined });
+    expect(await kept.list(threadId)).toMatchObject([
+      { kind: "process", callId: "bash-1", ending: { state: "stopped", by: "session-end" } },
+      {
+        kind: "sub-agent",
+        callId: "agent-1",
+        background: true,
+        ending: { state: "failed", reason: "Its context window filled." },
+        lastSequence: 1,
+      },
+    ]);
+    expect((await kept.messages(threadId, "agent-1", 0)).messages).toMatchObject([
+      { kind: "text", sequence: 1, text: "Looks right." },
+    ]);
+  });
+});
+
+function reported(event: Extract<Step, { step: "event" }>["event"]): Step {
+  return { step: "event", event };
+}
+
+function outputOf(text: string): Step {
+  return reported({ kind: "process-output", callId: "bash-1", text });
+}

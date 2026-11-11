@@ -129,7 +129,16 @@ function mcpCall(callId: string, tool: string, recorded: string): ScriptStep[] {
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: recorded, isError: false } },
+    {
+      step: "event",
+      event: {
+        kind: "tool-result",
+        callId,
+        text: recorded,
+        isError: false,
+        withinToolCall: undefined,
+      },
+    },
   ];
 }
 
@@ -209,6 +218,36 @@ describe("ScriptedEngine", () => {
     expect(engine.sessions[0]?.received).toEqual([{ step: "start", brief }, { step: "end" }]);
   });
 
+  it("holds at a wait step until the test reaches its mark, the events before it reported", async () => {
+    const script: SessionScript = [
+      { step: "start", brief: { id: "brief", text: "Start the dev server." } },
+      { step: "event", event: TURN_ENDED },
+      output("ready\n"),
+      { step: "wait", mark: "page opened" },
+      output("GET /\n"),
+      { step: "end" },
+    ];
+    const engine = new ScriptedEngine([script]);
+    const session = await engine.start({
+      id: randomUUID(),
+      options: options(),
+      brief: { id: randomUUID(), text: "Start the dev server." },
+    });
+    const scripted = engine.sessions[0];
+    const reading = readAll(session.events);
+
+    await vi.waitFor(() => expect(scripted?.reportedEvents).toHaveLength(2));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(scripted?.reportedEvents).toHaveLength(2);
+    scripted?.reach("page opened");
+    await session.end();
+
+    expect((await reading).slice(1)).toEqual([
+      { kind: "process-output", callId: "call-1", text: "ready\n" },
+      { kind: "process-output", callId: "call-1", text: "GET /\n" },
+    ]);
+  });
+
   it("refuses each call while the session's tool hold does, as the Office rules hook would, running no Office tool", async () => {
     const ran: string[] = [];
     const held = "Refused by The Office: the fire alarm is on.";
@@ -227,7 +266,13 @@ describe("ScriptedEngine", () => {
       },
       {
         step: "event",
-        event: { kind: "tool-result", callId: "call-1", text: "The Task.", isError: false },
+        event: {
+          kind: "tool-result",
+          callId: "call-1",
+          text: "The Task.",
+          isError: false,
+          withinToolCall: undefined,
+        },
       },
       { step: "event", event: TURN_ENDED },
       { step: "end" },
@@ -413,3 +458,7 @@ describe("RecordingEngine", () => {
     expect(await readRecording(file)).toEqual([notStarted]);
   });
 });
+
+function output(text: string): ScriptStep {
+  return { step: "event", event: { kind: "process-output", callId: "call-1", text } };
+}

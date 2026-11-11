@@ -13,6 +13,7 @@ const CONTEXT: ToolContext = {
   paths: currentOperatingSystem().paths,
   mayRead: () => true,
   readFiles: new ReadFiles(),
+  callId: "call-1",
 };
 
 const SHOW_PICTURE: OfficeTool = {

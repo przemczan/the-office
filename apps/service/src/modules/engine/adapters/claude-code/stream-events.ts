@@ -1,14 +1,16 @@
 import type { SDKMessage, SDKSystemMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MessagePriority, UserMessage } from "../../ports/engine-session.js";
 import type { SessionEvent } from "../../ports/session-events.js";
+import { BackgroundTasks } from "./background-tasks.js";
 import { McpServerStarts } from "./mcp-server-starts.js";
 import { sessionEvents, TurnTokens } from "./sdk-events.js";
 import { ToolRefusals } from "./tool-refusals.js";
 
 /**
  * The port's events of one session's stream, message by message, as both Claude Code adapters
- * read it: each message's own events, the tool refusals it shows, the running turn's tokens, and
- * the session's MCP servers that failed to start.
+ * read it: each message's own events, the tool refusals it shows, the running turn's tokens, the
+ * session's MCP servers that failed to start, and its Sub-agents and Processes. What the clock
+ * brings, a Process's output and its end, the session takes from `background`'s report.
  */
 export class StreamEvents {
   /** Where the session's Office rules hook tells its refusals. */
@@ -16,8 +18,14 @@ export class StreamEvents {
   private readonly turnTokens = new TurnTokens();
   private readonly mcpServerStarts: McpServerStarts;
 
-  /** `mcpServers`: the names of the session's MCP servers. */
-  constructor(mcpServers: readonly string[]) {
+  /**
+   * `mcpServers`: the names of the session's MCP servers; `background`: its Sub-agents and
+   * Processes, which the session reports to and tells of an interrupt and of its end.
+   */
+  constructor(
+    mcpServers: readonly string[],
+    readonly background = new BackgroundTasks(),
+  ) {
     this.mcpServerStarts = new McpServerStarts(mcpServers);
   }
 
@@ -28,6 +36,7 @@ export class StreamEvents {
     return [
       ...this.mcpServerStarts.eventsOf(message),
       ...this.refusals.withRefusals(message, events),
+      ...this.background.eventsOf(message),
       ...this.turnTokens.eventsOf(message),
     ];
   }

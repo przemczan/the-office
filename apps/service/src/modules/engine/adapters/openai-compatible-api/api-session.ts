@@ -17,7 +17,7 @@ import type {
 import type { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import { portToolName } from "../office-rules/office-tool-names.js";
 import type { BackgroundCommands } from "./background-commands.js";
-import type { ToolContext, ToolOutput } from "./built-in-tool.js";
+import type { SessionToolContext, ToolOutput } from "./built-in-tool.js";
 import { ChatCompletionsError, type ChatCompletionsClient } from "./chat-completions-client.js";
 import type {
   ChatMessage,
@@ -40,8 +40,11 @@ export interface ApiSessionParts {
   readonly contextWindow: number;
   readonly system: SystemMessage;
   readonly tools: SessionTools;
-  readonly toolContext: ToolContext;
-  /** The session's background commands, ended on interrupt and when the session ends. */
+  readonly toolContext: SessionToolContext;
+  /**
+   * The session's background commands, ended on interrupt and when the session ends, which report
+   * their Processes on the session's events.
+   */
   readonly backgroundCommands: BackgroundCommands;
   /** The session's MCP servers, each ended with its process tree when the session ends. */
   readonly mcpConnections: McpServerConnections;
@@ -111,6 +114,10 @@ export class ApiSession implements EngineSession {
   ) {
     this.conversation = [...parts.kept];
     for (const event of parts.mcpServersNotStarted) this.reported.push(event);
+    // Between turns too; once the session failed nothing more is told.
+    parts.backgroundCommands.reportTo((event) => {
+      if (this.reported.isOpen) this.reported.push(event);
+    });
   }
 
   get events(): AsyncIterable<SessionEvent> {
@@ -159,6 +166,7 @@ export class ApiSession implements EngineSession {
   async end(): Promise<void> {
     this.ending.abort(new SessionEnded());
     await this.running;
+    // The Processes' ends are reported as `close` ends them, before the events end.
     await Promise.all([this.parts.backgroundCommands.close(), this.parts.mcpConnections.close()]);
     if (!this.failed) this.reported.close();
   }
@@ -341,7 +349,7 @@ export class ApiSession implements EngineSession {
     if (!decision.allowed) return this.refused(call, "office-rules", decision.reason);
     let output: ToolOutput;
     try {
-      const run = prepared.run(this.parts.toolContext, signal);
+      const run = prepared.run({ ...this.parts.toolContext, callId: call.id }, signal);
       // An Office tool can't be stopped, so the turn stops waiting for it; the loop's own tools
       // end on the signal and answer with what they did.
       output = await (tool.officeTool ? untilAborted(run, signal) : run);
@@ -375,7 +383,13 @@ export class ApiSession implements EngineSession {
   }
 
   private result(call: ToolCall, text: string, isError: boolean): ToolMessage {
-    this.reported.push({ kind: "tool-result", callId: call.id, text, isError });
+    this.reported.push({
+      kind: "tool-result",
+      callId: call.id,
+      text,
+      isError,
+      withinToolCall: undefined,
+    });
     return { role: "tool", tool_call_id: call.id, content: text };
   }
 

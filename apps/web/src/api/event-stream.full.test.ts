@@ -35,6 +35,14 @@ class FakeWebSocket extends EventTarget {
 
 const EVENTS_URL = "ws://localhost:3000/api/events";
 const TASK_STARTED: WebEvent = { type: "task.started", occurredAt: "2026-10-25T09:00:00.000Z" };
+const THREAD_A = "0b6a2f4e-1c3d-4e5f-8a9b-0c1d2e3f4a5b";
+const THREAD_B = "7e8f9a0b-1c2d-4e3f-9a4b-5c6d7e8f9a0b";
+const OUTPUT = ["thread.process-output", "thread.sub-agent-messages"];
+
+function outputOf(threadId: string): WebEvent {
+  const event = { type: "thread.process-output", occurredAt: TASK_STARTED.occurredAt, threadId };
+  return event;
+}
 
 let sockets: FakeWebSocket[];
 
@@ -197,6 +205,133 @@ describe("the event stream", () => {
     latestSocket().serviceGone();
 
     expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  describe("for one Thread", () => {
+    it("subscribes scoped to the Thread once connected, and unsubscribes so", () => {
+      const eventStream = startStream();
+      const unsubscribe = eventStream.subscribeToThread({
+        threadId: THREAD_A,
+        eventTypes: OUTPUT,
+        onEvent: () => undefined,
+      });
+      latestSocket().open();
+
+      unsubscribe();
+      unsubscribe();
+
+      expect(latestSocket().sent).toEqual([
+        { type: "subscribe", events: ["task.started"] },
+        { type: "subscribe", events: OUTPUT, threadId: THREAD_A },
+        { type: "unsubscribe", events: OUTPUT, threadId: THREAD_A },
+      ]);
+    });
+
+    it("subscribes at once while connected, and says so once the service confirms it", () => {
+      const eventStream = startStream();
+      latestSocket().open();
+      latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
+      const onSubscribed = vi.fn<() => void>();
+
+      eventStream.subscribeToThread({
+        threadId: THREAD_A,
+        eventTypes: OUTPUT,
+        onEvent: () => undefined,
+        onSubscribed,
+      });
+      expect(latestSocket().sent.at(-1)).toEqual({
+        type: "subscribe",
+        events: OUTPUT,
+        threadId: THREAD_A,
+      });
+      expect(onSubscribed).not.toHaveBeenCalled();
+      latestSocket().receive({ type: "subscriptions", events: OUTPUT, threadId: THREAD_A });
+
+      expect(onSubscribed).toHaveBeenCalledOnce();
+    });
+
+    it("unsubscribes a type only once no subscription to the Thread has it", () => {
+      const eventStream = startStream({ eventTypes: [] });
+      latestSocket().open();
+      const first = eventStream.subscribeToThread({
+        threadId: THREAD_A,
+        eventTypes: OUTPUT,
+        onEvent: () => undefined,
+      });
+      const second = eventStream.subscribeToThread({
+        threadId: THREAD_A,
+        eventTypes: ["thread.process-output"],
+        onEvent: () => undefined,
+      });
+
+      first();
+      second();
+
+      expect(latestSocket().sent.slice(2)).toEqual([
+        { type: "unsubscribe", events: ["thread.sub-agent-messages"], threadId: THREAD_A },
+        { type: "unsubscribe", events: ["thread.process-output"], threadId: THREAD_A },
+      ]);
+    });
+
+    it("passes a subscription only its own Thread's events of its types", () => {
+      const eventStream = startStream();
+      const onEvent = vi.fn<(event: WebEvent) => void>();
+      eventStream.subscribeToThread({ threadId: THREAD_A, eventTypes: OUTPUT, onEvent });
+      latestSocket().open();
+
+      latestSocket().receive({ type: "event", event: outputOf(THREAD_B) });
+      latestSocket().receive({ type: "event", event: TASK_STARTED });
+      latestSocket().receive({ type: "event", event: outputOf(THREAD_A) });
+
+      expect(onEvent.mock.calls).toEqual([[outputOf(THREAD_A)]]);
+    });
+
+    it("subscribes again after a reconnect and says so again", () => {
+      const onSubscribed = vi.fn<() => void>();
+      const streamSubscribed = vi.fn<() => void>();
+      const eventStream = startStream({ onSubscribed: streamSubscribed });
+      eventStream.subscribeToThread({
+        threadId: THREAD_A,
+        eventTypes: OUTPUT,
+        onEvent: () => undefined,
+        onSubscribed,
+      });
+      eventStream.subscribeToThread({
+        threadId: THREAD_B,
+        eventTypes: ["thread.process-output"],
+        onEvent: () => undefined,
+      });
+      latestSocket().open();
+      latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
+      latestSocket().receive({ type: "subscriptions", events: OUTPUT, threadId: THREAD_A });
+
+      latestSocket().serviceGone();
+      vi.advanceTimersByTime(RECONNECT_DELAYS_MS[0]);
+      latestSocket().open();
+      latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
+      latestSocket().receive({ type: "subscriptions", events: OUTPUT, threadId: THREAD_A });
+
+      expect(latestSocket().sent).toEqual([
+        { type: "subscribe", events: ["task.started"] },
+        { type: "subscribe", events: OUTPUT, threadId: THREAD_A },
+        { type: "subscribe", events: ["thread.process-output"], threadId: THREAD_B },
+      ]);
+      expect(onSubscribed).toHaveBeenCalledTimes(2);
+      expect(streamSubscribed).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not subscribe again after a reconnect once unsubscribed", () => {
+      const eventStream = startStream({ eventTypes: [] });
+      const unsubscribe = eventStream.subscribeToThread({
+        threadId: THREAD_A,
+        eventTypes: OUTPUT,
+        onEvent: () => undefined,
+      });
+      unsubscribe();
+      latestSocket().open();
+
+      expect(latestSocket().sent).toEqual([]);
+    });
   });
 
   it("stops for good when stopped", () => {

@@ -76,6 +76,9 @@ import {
 } from "./session-mcp-servers.fixtures.js";
 import { ProjectOutputMasks } from "../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
+import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
+import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
+import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -191,6 +194,11 @@ async function startOn(
       ...openPageRecordProviders(),
       WorkRecords,
       StageThreads,
+      {
+        provide: SubAgentAndProcessRepository,
+        useClass: PostgresSubAgentAndProcessRepository,
+      },
+      SubAgentsAndProcesses,
       StageDecisions,
       DecisionService,
       Consultations,
@@ -347,7 +355,13 @@ const aCommand = (callId: string): { call: Step; result: Step } => ({
   },
   result: {
     step: "event",
-    event: { kind: "tool-result", callId, text: "Tests pass.", isError: false },
+    event: {
+      kind: "tool-result",
+      callId,
+      text: "Tests pass.",
+      isError: false,
+      withinToolCall: undefined,
+    },
   },
 });
 
@@ -403,7 +417,10 @@ function callsOfficeTool(callId: string, tool: string, input: Record<string, unk
         withinToolCall: undefined,
       },
     },
-    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+    {
+      step: "event",
+      event: { kind: "tool-result", callId, text: "", isError: false, withinToolCall: undefined },
+    },
   ];
 }
 
@@ -895,6 +912,8 @@ describe("Stop", () => {
     await startOn(new ScriptedEngine([started(command.call)], { interrupt: false }));
     const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
     const turn = stageThread.nextTurn();
+    // Ending the session waits until its events are read, so the turn fails before it returns.
+    turn.catch(() => undefined);
 
     await stageThread.interrupt();
 

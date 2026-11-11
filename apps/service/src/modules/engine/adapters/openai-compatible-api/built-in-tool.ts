@@ -14,7 +14,7 @@ export interface ToolOutput {
 }
 
 /** What the session's tools work in and share. */
-export interface ToolContext {
+export interface SessionToolContext {
   /** The session's folder, which relative paths are resolved against, as the Office rules do. */
   readonly folder: string;
   /** The variables the session runs commands with. */
@@ -27,6 +27,12 @@ export interface ToolContext {
   mayRead(path: string): boolean;
   /** The files read in this session, which Edit and Write ask for before they change one. */
   readonly readFiles: ReadFiles;
+}
+
+/** What one call runs in: the session's context, and the call's id. */
+export interface ToolContext extends SessionToolContext {
+  /** The id of the call being run, which a command it starts in the background is known by. */
+  readonly callId: string;
 }
 
 /** The files a session has read or written, by their resolved paths. */

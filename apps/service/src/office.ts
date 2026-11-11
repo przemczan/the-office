@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { Logger, type DynamicModule, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
-import { InterruptedAnswers } from "./modules/conversations/index.js";
+import { InterruptedAnswers, SubAgentsAndProcesses } from "./modules/conversations/index.js";
 import { OfficeUpdates } from "./modules/office-updates/index.js";
 import { RunEnvironments } from "./modules/run-environments/index.js";
 import {
@@ -105,6 +105,7 @@ function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): voi
  */
 async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void> {
   await app.get(InterruptedAnswers).recover();
+  await app.get(SubAgentsAndProcesses).recover();
   await app.get(FireAlarmService).finishSounding();
   await app.get(QueueService).release();
   app.get(TaskArchiving).start();

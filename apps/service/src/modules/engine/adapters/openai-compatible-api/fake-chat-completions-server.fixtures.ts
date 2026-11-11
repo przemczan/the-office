@@ -51,7 +51,16 @@ export interface ScriptedSilence {
   readonly kind: "silence";
 }
 
-export type ScriptedAnswer = ScriptedReply | ScriptedStatus | ScriptedSilence;
+/**
+ * An answer made from the request it answers, as a call naming an id that only an earlier tool
+ * result gave.
+ */
+export interface ScriptedFromRequest {
+  readonly kind: "from-request";
+  answer(body: unknown): ScriptedReply | ScriptedStatus | ScriptedSilence;
+}
+
+export type ScriptedAnswer = ScriptedReply | ScriptedStatus | ScriptedSilence | ScriptedFromRequest;
 
 /** How a request's answer ended. */
 export type AnswerEnd = "finished" | "closed-by-client";
@@ -114,19 +123,20 @@ export class FakeChatCompletionsServer {
         resolve(response.writableFinished ? "finished" : "closed-by-client"),
       );
     });
-    const body = await readBody(request);
+    const body = parseJson(await readBody(request));
     this.recorded.push({
       method: request.method ?? "",
       path: request.url ?? "",
       authorization: request.headers.authorization,
-      body: parseJson(body),
+      body,
       ended,
     });
     if (request.method !== "POST" || request.url !== "/v1/chat/completions") {
       respond(response, 404, { error: { message: `No route ${request.method} ${request.url}.` } });
       return;
     }
-    const answer = this.answers.shift();
+    const next = this.answers.shift();
+    const answer = next?.kind === "from-request" ? next.answer(body) : next;
     if (!answer) {
       respond(response, 500, { error: { message: "The fake server has no answer scripted." } });
       return;

@@ -35,6 +35,7 @@ export function setUpEachTest(): void {
       paths,
       mayRead: (path) => !paths.names(path).includes("private"),
       readFiles: new ReadFiles(),
+      callId: "call-1",
     };
   });
 

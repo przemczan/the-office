@@ -174,6 +174,10 @@ class AgentSdkSession implements EngineSession {
     private readonly parts: SessionParts,
     options: (session: Pick<SdkSession, "preToolUse" | "spawnProcess">) => Options,
   ) {
+    // A Process's output and its end come by the clock, between turns too, until the session ends.
+    parts.streamEvents.background.reportTo((event) => {
+      if (this.reported.isOpen) this.reported.push(event);
+    });
     this.engine = query({
       prompt: this.input,
       options: options({
@@ -206,6 +210,7 @@ class AgentSdkSession implements EngineSession {
   }
 
   async interrupt(): Promise<void> {
+    this.parts.streamEvents.background.interrupted();
     await this.engine.interrupt();
   }
 
@@ -225,6 +230,7 @@ class AgentSdkSession implements EngineSession {
 
   async end(): Promise<void> {
     this.ending = true;
+    this.parts.streamEvents.background.ending();
     this.input.close();
     this.engine.close();
     await this.read;
@@ -239,8 +245,11 @@ class AgentSdkSession implements EngineSession {
         if (isInit(message) && (await this.refusedAtInit(message))) return;
         for (const event of this.parts.streamEvents.of(message)) this.reported.push(event);
       }
+      await this.parts.streamEvents.background.ended();
       this.reported.close();
     } catch (error) {
+      // What still runs ends with the session, reported before its events close.
+      await this.parts.streamEvents.background.ended();
       if (this.ending) {
         this.reported.close();
       } else {

@@ -39,6 +39,10 @@ import { ChatActivity } from "./application/chat-activity.js";
 import { ChatActivityRepository } from "./ports/chat-activity-repository.js";
 import { ChangesAllowedRepository } from "./ports/changes-allowed-repository.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
+import { SubAgentsAndProcesses } from "./application/sub-agents-and-processes.js";
+import { PostgresSubAgentAndProcessRepository } from "./adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { SubAgentsAndProcessesController } from "./adapters/http/sub-agents-and-processes.controller.js";
+import { SubAgentAndProcessRepository } from "./ports/sub-agent-and-process-repository.js";
 import { LinkCards } from "./application/link-cards.js";
 import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
 import { MentionedRecords } from "./application/mentioned-records.js";
@@ -96,6 +100,7 @@ export class ConversationsModule {
         SizeThresholdController,
         OfficeInstructionsController,
         FireAlarmLiftsController,
+        SubAgentsAndProcessesController,
       ],
       providers: [
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -107,6 +112,11 @@ export class ConversationsModule {
         { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
         { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
         { provide: ChatActivityRepository, useClass: PostgresChatActivityRepository },
+        {
+          provide: SubAgentAndProcessRepository,
+          useClass: PostgresSubAgentAndProcessRepository,
+        },
+        SubAgentsAndProcesses,
         ChatActivity,
         ContextPolicySettingsService,
         OfficeInstructions,
@@ -155,6 +165,7 @@ export class ConversationsModule {
         DecisionService,
         FireAlarmInThreads,
         InterruptedAnswers,
+        SubAgentsAndProcesses,
         ThreadService,
         TaskThreadSetups,
         InitiativeThreadSetups,
