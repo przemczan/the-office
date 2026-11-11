@@ -1717,23 +1717,25 @@ describe("Decisions in an Initiative's planning Thread", () => {
       title: "Planning the Initiative",
       opening: "Plan the Initiative's Tasks.",
     });
-    const [onA, onB] = await vi.waitFor(
-      async () => {
-        const { openDecisions } = await threads.read(opened.id);
-        if (openDecisions.length < 2) throw new Error("Not opened yet.");
-        return openDecisions;
+    const toolResults = () =>
+      engine.sessions[0]?.reportedEvents.flatMap((event) =>
+        event.kind === "tool-result" ? [event.text] : [],
+      ) ?? [];
+    // The four open_decision calls have answered; the fifth holds the turn.
+    const results = await vi.waitFor(
+      () => {
+        const reported = toolResults();
+        if (reported.length < 4) throw new Error("Not answered yet.");
+        return reported;
       },
       { timeout: 5_000, interval: 20 },
     );
-    const [session] = engine.sessions;
-    const results = session?.reportedEvents.flatMap((event) =>
-      event.kind === "tool-result" ? [event.text] : [],
-    );
-    expect(results?.[0]).toBe(
+    const [onA, onB] = (await threads.read(opened.id)).openDecisions;
+    expect(results[0]).toBe(
       `The Decision is open on "Export API", waiting on the user. Plan the Tasks that don't wait for it; end your turn once every Task left waits for an answer. Each answer comes as a message.`,
     );
-    expect(results?.[1]).toContain("of-another-task");
-    expect(results?.[3]).toBe(
+    expect(results[1]).toContain("of-another-task");
+    expect(results[3]).toBe(
       `The Task ${outside} isn't one of this Initiative's Tasks: open the Decision on one of them.`,
     );
     expect([onA?.taskId, onB?.taskId]).toEqual([taskA, taskB]);
@@ -1752,6 +1754,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
       (line) => line.kind === "decision-answer",
     );
     expect(kept).toMatchObject({ decisionId: onA?.id, delivery: "waiting" });
+    const [session] = engine.sessions;
     expect(session?.received.filter(({ step }) => step === "send")).toEqual([]);
 
     turn.letGo?.();

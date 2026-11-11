@@ -757,9 +757,7 @@
       }
       .segmented button[aria-selected="true"] {
         background: var(--surface);
-        box-shadow:
-          var(--shadow-1),
-          0 0 0 1px var(--border);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
         color: var(--fg-1);
       }
       .segmented .count {
@@ -859,12 +857,7 @@
         display: block;
         flex: none;
         border-radius: 4px;
-        background: linear-gradient(
-          90deg,
-          var(--surface-sunken) 0%,
-          var(--border-subtle) 50%,
-          var(--surface-sunken) 100%
-        );
+        background: linear-gradient(90deg, var(--surface-sunken) 0%, var(--border-subtle) 50%, var(--surface-sunken) 100%);
         background-size: 200% 100%;
         animation: shimmer 1.4s ease-in-out infinite;
       }
@@ -1401,12 +1394,11 @@
       <header class="doc-head">
         <h1>Add a Project <span class="doc-status">Proposed</span></h1>
         <p>
-          The user's own form for adding a Project, in two steps: <strong>Where it is</strong>, then
-          the details. Every window keeps its top 7% from the top of the browser window, where the
-          large one already sits, and Add a Project keeps one height, so neither its top nor its bar
-          moves when the source changes. From GitHub gets a list that stays put while it loads and
-          scrolls under a fixed search box, in three designs to compare. Switch the source in the
-          window: dashed lines show where the top and the bar were before the change.
+          The user's own form for adding a Project, in two steps: <strong>Where it is</strong>, then the details. Every
+          window keeps its top 7% from the top of the browser window, where the large one already sits, and Add a Project
+          keeps one height, so neither its top nor its bar moves when the source changes. From GitHub gets a list that
+          stays put while it loads and scrolls under a fixed search box, in three designs to compare. Switch the source in
+          the window: dashed lines show where the top and the bar were before the change.
         </p>
       </header>
 
@@ -1416,10 +1408,7 @@
       <div class="stage" id="stage">
         <div class="app" aria-hidden="true">
           <div class="app-top"><span class="app-dot"></span>The Office</div>
-          <nav class="app-rail">
-            <span>Now</span><span>Work</span><span class="on">Projects</span><span>People</span
-            ><span>Settings</span>
-          </nav>
+          <nav class="app-rail"><span>Now</span><span>Work</span><span class="on">Projects</span><span>People</span><span>Settings</span></nav>
           <main class="app-page">
             <h1>Projects</h1>
             <div class="app-grid">
@@ -1437,45 +1426,13 @@
       <section class="notes">
         <h2>What it proposes</h2>
         <ul>
-          <li>
-            <strong>Pinned to the top:</strong> every window's top sits 7% from the top of the
-            browser window (24px at least), where the large window already sits since it is 86% high
-            and centred. The small one is pinned there too, so the whole app reads the same. Switch
-            Window to “All three, outlined”.
-          </li>
-          <li>
-            <strong>One height:</strong> Add a Project keeps 640px, or less in a short browser
-            window, as the Stage history keeps its height. Its body scrolls; its head and its bar
-            stay. A short source leaves room under it, which is the price of not jumping.
-          </li>
-          <li>
-            <strong>Two steps:</strong> step 1 is Where it is: a folder's path then Continue, a git
-            URL then Clone, or a pick from GitHub, which clones at once. Step 2 shows the source as
-            one line with Change, then the form's fields as today. Change goes back to step 1 and
-            forgets the clone, as “Pick another repository” does today.
-          </li>
-          <li>
-            <strong>From GitHub:</strong> the list is read when the window opens, so it is usually
-            there by the time From GitHub is chosen; while it loads, rows shaped like the list hold
-            its place. Each row shows the repository's name first, then its owner, default branch
-            and when it was last pushed, then its description. A repository already added as a
-            Project is marked Added, can't be picked, and sits at the end under Already added, so
-            the top rows are ones that can be picked. Picking one shows the clone's progress in its
-            row; a failed clone shows its problem in the row, with Try again.
-          </li>
-          <li>
-            <strong>Three list designs</strong>, to choose one: Recent first (one list, most
-            recently pushed on top), By owner (an owner filter in the list's head, recent first
-            within it) and Search first (the five most recently pushed that aren't Projects yet,
-            with the search reaching all of them).
-          </li>
+          <li><strong>Pinned to the top:</strong> every window's top sits 7% from the top of the browser window (24px at least), where the large window already sits since it is 86% high and centred. The small one is pinned there too, so the whole app reads the same. Switch Window to “All three, outlined”.</li>
+          <li><strong>One height:</strong> Add a Project keeps 640px, or less in a short browser window, as the Stage history keeps its height. Its body scrolls; its head and its bar stay. A short source leaves room under it, which is the price of not jumping.</li>
+          <li><strong>Two steps:</strong> step 1 is Where it is: a folder's path then Continue, a git URL then Clone, or a pick from GitHub, which clones at once. Step 2 shows the source as one line with Change, then the form's fields as today. Change goes back to step 1 and forgets the clone, as “Pick another repository” does today.</li>
+          <li><strong>From GitHub:</strong> the list is read when the window opens, so it is usually there by the time From GitHub is chosen; while it loads, rows shaped like the list hold its place. Each row shows the repository's name first, then its owner, default branch and when it was last pushed, then its description. A repository already added as a Project is marked Added, can't be picked, and sits at the end under Already added, so the top rows are ones that can be picked. Picking one shows the clone's progress in its row; a failed clone shows its problem in the row, with Try again.</li>
+          <li><strong>Three list designs</strong>, to choose one: Recent first (one list, most recently pushed on top), By owner (an owner filter in the list's head, recent first within it) and Search first (the five most recently pushed that aren't Projects yet, with the search reaching all of them).</li>
         </ul>
-        <p>
-          “Today”, “Proposed”, “Recent first”, “By owner”, “Search first”, “pinned to the top” and
-          “source line” are this design's names, not glossary terms. The mock's data, owners and
-          paths are made up. Like the chat drawer's page, it uses the Geist fonts only where they
-          are installed.
-        </p>
+        <p>“Today”, “Proposed”, “Recent first”, “By owner”, “Search first”, “pinned to the top” and “source line” are this design's names, not glossary terms. The mock's data, owners and paths are made up. Like the chat drawer's page, it uses the Geist fonts only where they are installed.</p>
       </section>
     </div>
 
@@ -1484,17 +1441,8 @@
 
       // ---------- Mock data: GitHubRepository, with the two fields the build adds (pushedAt, description)
       const CLONE_FOLDER = "/var/lib/the-office/repositories";
-      const NOT_FOUND =
-        "remote: Repository not found. fatal: repository 'https://github.com/pdev/old-dotfiles-backup.git/' not found";
-      const repository = (
-        owner,
-        name,
-        isPrivate,
-        defaultBranch,
-        hoursAgo,
-        description = "",
-        more = {},
-      ) => ({
+      const NOT_FOUND = "remote: Repository not found. fatal: repository 'https://github.com/pdev/old-dotfiles-backup.git/' not found";
+      const repository = (owner, name, isPrivate, defaultBranch, hoursAgo, description = "", more = {}) => ({
         owner,
         name,
         fullName: `${owner}/${name}`,
@@ -1506,186 +1454,43 @@
         ...more,
       });
       const REPOSITORIES = [
-        repository(
-          "notnullsoft",
-          "the-office",
-          true,
-          "main",
-          1,
-          "A single-user workspace run like an office.",
-          { project: "the-office" },
-        ),
-        repository(
-          "notnullsoft",
-          "not-astray",
-          true,
-          "main",
-          5,
-          "Trip planner that keeps you on the route.",
-          { project: "not-astray" },
-        ),
-        repository("notnullsoft", "notnullsoft.com", false, "main", 30, "The company's website.", {
-          project: "notnullsoft",
-        }),
-        repository(
-          "notnullsoft",
-          "design-system",
-          false,
-          "main",
-          4,
-          "Tokens and components shared by NotNullSoft's apps.",
-        ),
-        repository(
-          "notnullsoft",
-          "the-office-test-project",
-          true,
-          "main",
-          72,
-          "The Test Project the Office's checks run on.",
-        ),
-        repository(
-          "notnullsoft",
-          "billing-service",
-          true,
-          "develop",
-          190,
-          "Invoices, plans and payment webhooks.",
-        ),
-        repository(
-          "notnullsoft",
-          "an-unreasonably-long-repository-name-for-the-internal-customer-reporting-pipeline-v2",
-          true,
-          "main",
-          210,
-          "Nightly exports for the customer reports.",
-        ),
-        repository(
-          "notnullsoft",
-          "infra",
-          true,
-          "main",
-          120,
-          "Terraform for the hosting accounts.",
-        ),
-        repository(
-          "notnullsoft",
-          "mobile-app",
-          true,
-          "release/2.4",
-          400,
-          "The React Native client of Not Astray.",
-        ),
+        repository("notnullsoft", "the-office", true, "main", 1, "A single-user workspace run like an office.", { project: "the-office" }),
+        repository("notnullsoft", "not-astray", true, "main", 5, "Trip planner that keeps you on the route.", { project: "not-astray" }),
+        repository("notnullsoft", "notnullsoft.com", false, "main", 30, "The company's website.", { project: "notnullsoft" }),
+        repository("notnullsoft", "design-system", false, "main", 4, "Tokens and components shared by NotNullSoft's apps."),
+        repository("notnullsoft", "the-office-test-project", true, "main", 72, "The Test Project the Office's checks run on."),
+        repository("notnullsoft", "billing-service", true, "develop", 190, "Invoices, plans and payment webhooks."),
+        repository("notnullsoft", "an-unreasonably-long-repository-name-for-the-internal-customer-reporting-pipeline-v2", true, "main", 210, "Nightly exports for the customer reports."),
+        repository("notnullsoft", "infra", true, "main", 120, "Terraform for the hosting accounts."),
+        repository("notnullsoft", "mobile-app", true, "release/2.4", 400, "The React Native client of Not Astray."),
         repository("notnullsoft", "docs", false, "main", 600),
         repository("notnullsoft", "eslint-config", false, "main", 900, "Shared lint rules."),
-        repository(
-          "notnullsoft",
-          "api-gateway",
-          true,
-          "main",
-          1500,
-          "Routes and rate limits in front of the services.",
-        ),
-        repository(
-          "notnullsoft",
-          "legacy-admin-panel-from-before-the-rewrite-do-not-use-for-new-work",
-          true,
-          "master",
-          9000,
-          "Kept for reference.",
-        ),
+        repository("notnullsoft", "api-gateway", true, "main", 1500, "Routes and rate limits in front of the services."),
+        repository("notnullsoft", "legacy-admin-panel-from-before-the-rewrite-do-not-use-for-new-work", true, "master", 9000, "Kept for reference."),
         repository("notnullsoft", "status-page", false, "main", 2400),
-        repository(
-          "notnullsoft",
-          "email-templates",
-          true,
-          "main",
-          3000,
-          "Transactional mails in MJML.",
-        ),
+        repository("notnullsoft", "email-templates", true, "main", 3000, "Transactional mails in MJML."),
         repository("notnullsoft", "analytics-events", true, "main", 3600),
-        repository(
-          "notnullsoft",
-          "renovate-config",
-          false,
-          "main",
-          4000,
-          "Dependency update presets.",
-        ),
-        repository(
-          "notnullsoft",
-          "onboarding-playground",
-          true,
-          "main",
-          5200,
-          "Experiments for new-joiner flows.",
-        ),
-        repository(
-          "notnullsoft",
-          "brand-assets",
-          true,
-          "main",
-          7000,
-          "Logos, fonts and the Ember palette.",
-        ),
+        repository("notnullsoft", "renovate-config", false, "main", 4000, "Dependency update presets."),
+        repository("notnullsoft", "onboarding-playground", true, "main", 5200, "Experiments for new-joiner flows."),
+        repository("notnullsoft", "brand-assets", true, "main", 7000, "Logos, fonts and the Ember palette."),
         repository("notnullsoft", "load-tests", true, "main", 8000, "k6 scripts for the API."),
-        repository(
-          "notnullsoft",
-          "terraform-modules-shared-across-all-environments-including-staging-and-production",
-          true,
-          "main",
-          11000,
-        ),
-        repository(
-          "notnullsoft",
-          "hiring-exercise",
-          false,
-          "main",
-          15000,
-          "The take-home task for applicants.",
-        ),
+        repository("notnullsoft", "terraform-modules-shared-across-all-environments-including-staging-and-production", true, "main", 11000),
+        repository("notnullsoft", "hiring-exercise", false, "main", 15000, "The take-home task for applicants."),
         repository("pdev", "dotfiles", false, "main", 3, "Shell, editor and git settings."),
         repository("pdev", "advent-of-code-2025", false, "main", 700, "Solutions in TypeScript."),
         repository("pdev", "homelab", true, "main", 40, "Proxmox, backups and the reverse proxy."),
         repository("pdev", "notes", true, "main", 10),
         repository("pdev", "recipes", false, "main", 2000, "A cookbook as Markdown."),
-        repository(
-          "pdev",
-          "photo-archive-tools",
-          true,
-          "main",
-          2600,
-          "Scripts to sort and dedupe photos.",
-        ),
+        repository("pdev", "photo-archive-tools", true, "main", 2600, "Scripts to sort and dedupe photos."),
         repository("pdev", "old-dotfiles-backup", true, "master", 20000, "", { fails: NOT_FOUND }),
         repository("pdev", "cv", true, "main", 5000),
-        repository(
-          "pdev",
-          "rust-playground",
-          false,
-          "main",
-          3300,
-          "Learning Rust, one exercise at a time.",
-        ),
-        repository(
-          "pdev",
-          "my-very-long-experimental-side-project-name-that-keeps-going-and-going-for-testing",
-          false,
-          "main",
-          800,
-          "Testing how long a name can be.",
-        ),
+        repository("pdev", "rust-playground", false, "main", 3300, "Learning Rust, one exercise at a time."),
+        repository("pdev", "my-very-long-experimental-side-project-name-that-keeps-going-and-going-for-testing", false, "main", 800, "Testing how long a name can be."),
         repository("pdev", "garden-sensors", true, "main", 1000, "ESP32 soil-moisture sensors."),
         repository("pdev", "blog", false, "main", 150, "Personal blog, built with Astro."),
         repository("pdev", "talks", false, "main", 6000, "Slides from meetups."),
         repository("pdev", "budget-sheets", true, "main", 1800),
-        repository(
-          "pdev",
-          "kindle-highlights",
-          true,
-          "main",
-          9500,
-          "Exports Kindle highlights to Markdown.",
-        ),
+        repository("pdev", "kindle-highlights", true, "main", 9500, "Exports Kindle highlights to Markdown."),
         repository("pdev", "3d-prints", false, "main", 12000, "STL files and print settings."),
         repository("pdev", "job-search-2024", true, "main", 17000),
         repository("pdev", "wedding-site", true, "main", 22000),
@@ -1719,28 +1524,15 @@
       const ICON = {
         x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
         search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', 15),
-        repository: svg(
-          '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
-          15,
-        ),
-        folder: svg(
-          '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
-        ),
-        link: svg(
-          '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-        ),
+        repository: svg('<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>', 15),
+        folder: svg('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),
+        link: svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
         external: svg('<path d="M7 17 17 7M8 7h9v9"/>', 13),
         alert: svg('<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'),
         github:
           '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>',
       };
-      const SOURCE_ICONS = {
-        folder: ICON.folder,
-        "git-url": ICON.link,
-        github: svg(
-          '<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 17.38 9 18v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>',
-        ),
-      };
+      const SOURCE_ICONS = { folder: ICON.folder, "git-url": ICON.link, github: svg('<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 17.38 9 18v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>') };
 
       // ---------- What the mock shows, and the window's own state
       const STATES = [
@@ -1755,66 +1547,14 @@
         ["clone-failed", "Clone failed"],
       ];
       const CONTROLS = [
-        {
-          key: "window",
-          name: "Window",
-          options: [
-            ["add", "Add a Project"],
-            ["confirm", "Small: a confirmation"],
-            ["history", "Large: the Stage history"],
-            ["all", "All three, outlined"],
-          ],
-        },
-        {
-          key: "placement",
-          name: "Placement",
-          options: [
-            ["today", "Today: centred"],
-            ["proposed", "Proposed: pinned to the top"],
-          ],
-        },
-        {
-          key: "list",
-          name: "GitHub list",
-          options: [
-            ["recent", "1 · Recent first"],
-            ["owner", "2 · By owner"],
-            ["search", "3 · Search first"],
-          ],
-        },
+        { key: "window", name: "Window", options: [["add", "Add a Project"], ["confirm", "Small: a confirmation"], ["history", "Large: the Stage history"], ["all", "All three, outlined"]] },
+        { key: "placement", name: "Placement", options: [["today", "Today: centred"], ["proposed", "Proposed: pinned to the top"]] },
+        { key: "list", name: "GitHub list", options: [["recent", "1 · Recent first"], ["owner", "2 · By owner"], ["search", "3 · Search first"]] },
         { key: "state", name: "GitHub state", options: STATES },
-        {
-          key: "replay",
-          name: "Replay the read",
-          options: [
-            ["fast", "Fast answer (120ms)"],
-            ["slow", "Slow answer (2.5s)"],
-          ],
-        },
-        {
-          key: "palette",
-          name: "Palette",
-          options: [
-            ["light", "Light"],
-            ["dark", "Dark"],
-          ],
-        },
-        {
-          key: "width",
-          name: "Width",
-          options: [
-            ["wide", "Wide"],
-            ["narrow", "600px"],
-          ],
-        },
-        {
-          key: "height",
-          name: "Browser window",
-          options: [
-            ["tall", "Tall (820px)"],
-            ["short", "Short (520px)"],
-          ],
-        },
+        { key: "replay", name: "Replay the read", options: [["fast", "Fast answer (120ms)"], ["slow", "Slow answer (2.5s)"]] },
+        { key: "palette", name: "Palette", options: [["light", "Light"], ["dark", "Dark"]] },
+        { key: "width", name: "Width", options: [["wide", "Wide"], ["narrow", "600px"]] },
+        { key: "height", name: "Browser window", options: [["tall", "Tall (820px)"], ["short", "Short (520px)"]] },
       ];
       const S = {
         window: "add",
@@ -1847,11 +1587,7 @@
       const $ = (selector, root = document) => root.querySelector(selector);
       const stage = $("#stage");
       const host = $("#window-host");
-      const escapeHtml = (text) =>
-        String(text).replace(
-          /[&<>"']/g,
-          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
-        );
+      const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
       // ---------- Words
       function pushedAgo(hours) {
@@ -1865,16 +1601,12 @@
         return `pushed ${years === 1 ? "a year" : `${years} years`} ago`;
       }
       function markLabelFor(name) {
-        const words = name
-          .trim()
-          .split(/[^A-Za-z0-9]+/)
-          .filter(Boolean);
+        const words = name.trim().split(/[^A-Za-z0-9]+/).filter(Boolean);
         if (words.length === 0) return "";
         if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
         return (words[0][0] + words[1][0]).toUpperCase();
       }
-      const repositoryNameOf = (url) =>
-        (url.replace(/\/+$/, "").split(/[/:]/).at(-1) ?? "").replace(/\.git$/, "");
+      const repositoryNameOf = (url) => (url.replace(/\/+$/, "").split(/[/:]/).at(-1) ?? "").replace(/\.git$/, "");
       const folderNameOf = (path) => path.replace(/\/+$/, "").split("/").at(-1) ?? "";
       function highlight(text, query) {
         const at = query ? text.toLowerCase().indexOf(query) : -1;
@@ -1883,55 +1615,29 @@
       }
 
       // ---------- Parts
-      const button = (
-        label,
-        variant,
-        action,
-        { size = "", value = "", loading = false, disabled = false, icon = "" } = {},
-      ) =>
+      const button = (label, variant, action, { size = "", value = "", loading = false, disabled = false, icon = "" } = {}) =>
         `<button type="button" class="button ${variant}${size ? ` ${size}` : ""}" data-action="${action}" data-value="${escapeHtml(value)}"${loading || disabled ? " disabled" : ""}>${loading ? '<span class="spinner"></span>' : icon}${label}</button>`;
       const field = (label, control, { hint = "", problem = "", tag = "label" } = {}) =>
         `<${tag} class="field"><span class="field-label">${label}</span>${control}${problem ? `<span class="field-hint error">${escapeHtml(problem)}</span>` : hint ? `<span class="field-hint">${hint}</span>` : ""}</${tag}>`;
-      const input = ({
-        name = "",
-        value = "",
-        placeholder = "",
-        mono = false,
-        readOnly = false,
-        disabled = false,
-        invalid = false,
-      }) =>
+      const input = ({ name = "", value = "", placeholder = "", mono = false, readOnly = false, disabled = false, invalid = false }) =>
         `<input class="input${mono ? " mono" : ""}${invalid ? " invalid" : ""}"${name ? ` data-field="${name}"` : ""} value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}"${readOnly ? " readonly" : ""}${disabled ? " disabled" : ""} spellcheck="false">`;
       const select = (name, options, value, mono = false) =>
         `<select class="select${mono ? " mono" : ""}" data-field="${name}">${options.map(([v, l]) => `<option value="${escapeHtml(v)}"${v === value ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select>`;
       const segmented = (action, options, value, label) =>
         `<div class="segmented" role="tablist" aria-label="${escapeHtml(label)}">${options
-          .map(
-            ([v, l, count]) =>
-              `<button type="button" role="tab" aria-selected="${v === value}" data-action="${action}" data-value="${v}">${escapeHtml(l)}${count === undefined ? "" : ` <span class="count">${count}</span>`}</button>`,
-          )
+          .map(([v, l, count]) => `<button type="button" role="tab" aria-selected="${v === value}" data-action="${action}" data-value="${v}">${escapeHtml(l)}${count === undefined ? "" : ` <span class="count">${count}</span>`}</button>`)
           .join("")}</div>`;
-      const badge = (text, tone = "") =>
-        `<span class="badge${tone ? ` ${tone}` : ""}">${escapeHtml(text)}</span>`;
+      const badge = (text, tone = "") => `<span class="badge${tone ? ` ${tone}` : ""}">${escapeHtml(text)}</span>`;
       const alertBox = (title, text, action = "") =>
         `<div class="alert" role="alert">${ICON.alert}<div class="alert-words"><div class="alert-title">${escapeHtml(title)}</div><div class="alert-text">${escapeHtml(text)}</div></div>${action}</div>`;
-      const skeleton = (width, height = 10, radius = 4) =>
-        `<span class="skeleton" style="width:${width};height:${height}px;border-radius:${radius}px"></span>`;
+      const skeleton = (width, height = 10, radius = 4) => `<span class="skeleton" style="width:${width};height:${height}px;border-radius:${radius}px"></span>`;
       function progress(clone) {
         return `<div class="progress" data-clone-progress role="progressbar" aria-valuenow="${clone.percent}" aria-valuemax="100" aria-label="Cloning">
           <div class="progress-words"><span class="progress-phase">${escapeHtml(clone.phase)}</span><span class="progress-value">${clone.percent}%</span></div>
           <div class="progress-track"><div class="progress-fill" style="width:${clone.percent}%"></div></div></div>`;
       }
 
-      function frame({
-        size,
-        keepsHeight = false,
-        title,
-        body,
-        bodyClass = "",
-        actions = "",
-        hint = "",
-      }) {
+      function frame({ size, keepsHeight = false, title, body, bodyClass = "", actions = "", hint = "" }) {
         return `<div class="dialog-frame ${size}${keepsHeight ? " keeps-height" : ""}" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" data-measure>
           <header class="dialog-head"><h2>${escapeHtml(title)}</h2><button type="button" class="icon-button" data-action="close" aria-label="Close (Esc)">${ICON.x}</button></header>
           <div class="dialog-body${bodyClass ? ` ${bodyClass}` : ""}">${body}</div>
@@ -1947,63 +1653,31 @@
         const parts = [];
         parts.push(`<div class="columns">
           ${field("Name", input({ name: "name", value: S.name }))}
-          ${field(
-            "Mark",
-            `<div class="mark-picker"><span class="mark-tile mark-${S.colour}" data-mark-tile>${escapeHtml(label)}</span>${input({ name: "label", value: label, mono: true })}<span class="swatches" role="radiogroup" aria-label="Colour">${MARK_COLOURS.map(
-              (colour) =>
-                `<button type="button" class="swatch mark-${colour}" aria-label="${colour}" aria-pressed="${colour === S.colour}" data-action="colour" data-value="${colour}"></button>`,
-            ).join("")}</span></div>`,
-            { tag: "div" },
-          )}
+          ${field("Mark", `<div class="mark-picker"><span class="mark-tile mark-${S.colour}" data-mark-tile>${escapeHtml(label)}</span>${input({ name: "label", value: label, mono: true })}<span class="swatches" role="radiogroup" aria-label="Colour">${MARK_COLOURS.map(
+            (colour) => `<button type="button" class="swatch mark-${colour}" aria-label="${colour}" aria-pressed="${colour === S.colour}" data-action="colour" data-value="${colour}"></button>`,
+          ).join("")}</span></div>`, { tag: "div" })}
         </div>`);
         if (today) {
           parts.push(
             cloned
               ? `<div class="cloned">${field("Repository URL", input({ value: chosen.url, mono: true, readOnly: true }), { hint: `Cloned into ${escapeHtml(chosen.path)}` })}${button(S.source === "github" ? "Pick another repository" : "Use another URL", "secondary", "change", { size: "sm" })}</div>`
-              : field("Repository folder", input({ name: "folder", value: S.folder, mono: true }), {
-                  hint: "The repository's top-level folder, as a full path.",
-                }),
+              : field("Repository folder", input({ name: "folder", value: S.folder, mono: true }), { hint: "The repository's top-level folder, as a full path." }),
           );
         }
         const branch = cloned
-          ? select(
-              "baseBranch",
-              chosen.branches.map((b) => [b, b]),
-              S.baseBranch,
-              true,
-            )
+          ? select("baseBranch", chosen.branches.map((b) => [b, b]), S.baseBranch, true)
           : input({ name: "baseBranch", value: S.baseBranch, mono: true });
         const pipeline = PIPELINES.find(([id]) => id === S.pipeline);
         parts.push(`<div class="columns">
           ${field("Base branch", branch, { hint: "Tasks branch from it and publish to it." })}
-          ${field(
-            "Default Pipeline",
-            select(
-              "pipeline",
-              PIPELINES.map(([id, name]) => [id, name]),
-              S.pipeline,
-            ),
-            { hint: `<span data-pipeline-stages>${escapeHtml(pipeline[2])}</span>` },
-          )}
+          ${field("Default Pipeline", select("pipeline", PIPELINES.map(([id, name]) => [id, name]), S.pipeline), { hint: `<span data-pipeline-stages>${escapeHtml(pipeline[2])}</span>` })}
         </div>`);
-        parts.push(
-          `<div class="columns">${COMMANDS.map(([name, example]) => field(name, input({ placeholder: example, mono: true }))).join("")}</div>`,
-        );
-        parts.push(
-          field("Install inputs", input({ placeholder: "package-lock.json", mono: true }), {
-            hint: "Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once.",
-          }),
-        );
-        parts.push(
-          field(
-            "Publishing",
-            `<div class="radios" role="radiogroup">
+        parts.push(`<div class="columns">${COMMANDS.map(([name, example]) => field(name, input({ placeholder: example, mono: true }))).join("")}</div>`);
+        parts.push(field("Install inputs", input({ placeholder: "package-lock.json", mono: true }), { hint: "Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once." }));
+        parts.push(field("Publishing", `<div class="radios" role="radiogroup">
           <label><input type="radio" name="publishing" value="push" data-field="publishing"${S.publishing === "push" ? " checked" : ""}> Push and open a pull request</label>
           <label><input type="radio" name="publishing" value="merge" data-field="publishing"${S.publishing === "merge" ? " checked" : ""}> Merge into <span class="mono" data-merge-into>${escapeHtml(mergeTarget())}</span></label>
-        </div>`,
-            { tag: "div" },
-          ),
-        );
+        </div>`, { tag: "div" }));
         return parts.join("");
       }
       const mergeTarget = () => S.baseBranch.trim() || "the base branch";
@@ -2014,12 +1688,7 @@
           ${field("Where it is", `<div>${segmented("source", SOURCES, S.source, "Where it is")}</div>`, { tag: "div" })}`;
         const clonedFromUrl = S.chosen && S.chosen.source !== "folder";
         if (S.source === "folder" || clonedFromUrl) {
-          return frame({
-            size: "medium",
-            title: "Add a Project",
-            body: `<div class="today-form">${whereItIs}${detailFields({ today: true })}</div>`,
-            actions: button("Add the Project", "primary", "add"),
-          });
+          return frame({ size: "medium", title: "Add a Project", body: `<div class="today-form">${whereItIs}${detailFields({ today: true })}</div>`, actions: button("Add the Project", "primary", "add") });
         }
         if (S.source === "git-url") {
           const busy = S.clone?.state === "cloning";
@@ -2030,18 +1699,11 @@
             actions: button("Clone", "primary", "clone-url", { loading: busy }),
           });
         }
-        return frame({
-          size: "medium",
-          title: "Add a Project",
-          body: `<div class="today-form">${whereItIs}${todayGitHub()}</div>`,
-        });
+        return frame({ size: "medium", title: "Add a Project", body: `<div class="today-form">${whereItIs}${todayGitHub()}</div>` });
       }
       function todayGitHub() {
         if (S.gitHub !== "signed-in") {
-          const first =
-            S.gitHub === "not-registered"
-              ? "Register the GitHub App and sign in"
-              : "Sign in with GitHub";
+          const first = S.gitHub === "not-registered" ? "Register the GitHub App and sign in" : "Sign in with GitHub";
           return `<p class="note">${first} in <a href="#" data-action="settings">Settings › Office identity</a> to pick one of the repositories the App is installed on.</p>`;
         }
         const busy = S.clone?.state === "cloning";
@@ -2054,10 +1716,7 @@
       function todayList() {
         // Today shows nothing at all until the list has arrived, and nothing under a failed read.
         if (S.read === "loading" || S.read === "failed") return "";
-        const all =
-          S.read === "empty"
-            ? []
-            : [...REPOSITORIES].sort((a, b) => a.fullName.localeCompare(b.fullName));
+        const all = S.read === "empty" ? [] : [...REPOSITORIES].sort((a, b) => a.fullName.localeCompare(b.fullName));
         const query = S.search.trim().toLowerCase();
         const found = all.filter((r) => r.fullName.toLowerCase().includes(query));
         const busy = S.clone?.state === "cloning";
@@ -2065,10 +1724,7 @@
           return `<p class="note">${all.length === 0 ? "The App is installed on no repository you can reach yet." : "No repository matches."} <a href="#" data-action="install">Install the App on more repositories</a></p>`;
         }
         return `<ul class="today-repositories" aria-label="Your GitHub repositories">${found
-          .map(
-            (r) =>
-              `<li><button type="button" class="today-repository" data-action="pick" data-value="${escapeHtml(r.fullName)}"${busy ? " disabled" : ""}><span class="today-repository-name">${escapeHtml(r.fullName)}</span>${r.private ? badge("Private") : ""}<span class="today-repository-branch">${escapeHtml(r.defaultBranch)}</span></button></li>`,
-          )
+          .map((r) => `<li><button type="button" class="today-repository" data-action="pick" data-value="${escapeHtml(r.fullName)}"${busy ? " disabled" : ""}><span class="today-repository-name">${escapeHtml(r.fullName)}</span>${r.private ? badge("Private") : ""}<span class="today-repository-branch">${escapeHtml(r.defaultBranch)}</span></button></li>`)
           .join("")}</ul>`;
       }
 
@@ -2106,29 +1762,14 @@
             hint: "Step 1 of 2",
           });
         }
-        return frame({
-          size: "medium",
-          keepsHeight: true,
-          title: "Add a Project",
-          bodyClass: "fills",
-          body: `${whereItIs}${proposedGitHub()}`,
-          hint: "Step 1 of 2",
-        });
+        return frame({ size: "medium", keepsHeight: true, title: "Add a Project", bodyClass: "fills", body: `${whereItIs}${proposedGitHub()}`, hint: "Step 1 of 2" });
       }
 
       function sourceLine() {
         const chosen = S.chosen;
         const kind = SOURCES.find(([value]) => value === chosen.source)[1];
-        const value =
-          chosen.source === "folder"
-            ? chosen.path
-            : chosen.source === "github"
-              ? chosen.fullName
-              : chosen.url;
-        const where =
-          chosen.source === "folder"
-            ? ""
-            : `<span class="source-where" title="Cloned into ${escapeHtml(chosen.path)}">cloned into ${escapeHtml(chosen.path)}</span>`;
+        const value = chosen.source === "folder" ? chosen.path : chosen.source === "github" ? chosen.fullName : chosen.url;
+        const where = chosen.source === "folder" ? "" : `<span class="source-where" title="Cloned into ${escapeHtml(chosen.path)}">cloned into ${escapeHtml(chosen.path)}</span>`;
         return `<div class="source-line">${SOURCE_ICONS[chosen.source]}<span class="source-words"><span class="source-kind">${kind}</span><span class="source-value" title="${escapeHtml(value)}">${escapeHtml(value)}</span>${chosen.private ? badge("Private") : ""}${where}</span>${button("Change", "secondary", "change", { size: "sm" })}</div>`;
       }
 
@@ -2151,85 +1792,33 @@
         const all = S.read === "empty" ? [] : REPOSITORIES;
         const query = S.search.trim().toLowerCase();
         // The repositories already added can't be picked, so they leave the top rows to the ones that can.
-        const recent = [...all].sort(
-          (a, b) =>
-            Number(Boolean(a.project)) - Number(Boolean(b.project)) || a.hoursAgo - b.hoursAgo,
-        );
-        const matches = (r) =>
-          !query ||
-          r.fullName.toLowerCase().includes(query) ||
-          r.description.toLowerCase().includes(query);
+        const recent = [...all].sort((a, b) => Number(Boolean(a.project)) - Number(Boolean(b.project)) || a.hoursAgo - b.hoursAgo);
+        const matches = (r) => !query || r.fullName.toLowerCase().includes(query) || r.description.toLowerCase().includes(query);
         if (S.list === "owner") {
           const owned = recent.filter((r) => S.owner === "all" || r.owner === S.owner);
           const shown = owned.filter(matches);
-          return {
-            all,
-            query,
-            shown,
-            title: "Your repositories",
-            count: query ? `${shown.length} of ${owned.length}` : `${owned.length}`,
-          };
+          return { all, query, shown, title: "Your repositories", count: query ? `${shown.length} of ${owned.length}` : `${owned.length}` };
         }
         if (S.list === "search" && !query) {
           const shown = recent.filter((r) => !r.project).slice(0, 5);
-          return {
-            all,
-            query,
-            shown,
-            title: "Recently pushed",
-            count: `${shown.length} of ${all.length}`,
-            teaser: true,
-          };
+          return { all, query, shown, title: "Recently pushed", count: `${shown.length} of ${all.length}`, teaser: true };
         }
         const shown = recent.filter(matches);
-        if (S.list === "search")
-          return { all, query, shown, title: "Matches", count: `${shown.length}` };
-        return {
-          all,
-          query,
-          shown,
-          title: "Your repositories",
-          count: query ? `${shown.length} of ${all.length}` : `${all.length}`,
-        };
+        if (S.list === "search") return { all, query, shown, title: "Matches", count: `${shown.length}` };
+        return { all, query, shown, title: "Your repositories", count: query ? `${shown.length} of ${all.length}` : `${all.length}` };
       }
 
       function repositoryCard() {
         const ownerFilter =
           S.list === "owner" && S.read !== "failed"
-            ? segmented(
-                "owner",
-                [
-                  ["all", "All", S.read === "loading" ? undefined : REPOSITORIES.length],
-                  ...OWNERS.map((o) => [
-                    o,
-                    o,
-                    S.read === "loading"
-                      ? undefined
-                      : REPOSITORIES.filter((r) => r.owner === o).length,
-                  ]),
-                ],
-                S.owner,
-                "Owner",
-              )
+            ? segmented("owner", [["all", "All", S.read === "loading" ? undefined : REPOSITORIES.length], ...OWNERS.map((o) => [o, o, S.read === "loading" ? undefined : REPOSITORIES.filter((r) => r.owner === o).length])], S.owner, "Owner")
             : "";
-        const head = (title, count) =>
-          `<header class="repo-head"><h3 class="repo-title">${title}${count ? `<span class="repo-count">${count}</span>` : ""}</h3>${ownerFilter}</header>`;
+        const head = (title, count) => `<header class="repo-head"><h3 class="repo-title">${title}${count ? `<span class="repo-count">${count}</span>` : ""}</h3>${ownerFilter}</header>`;
         const installLine = `<div class="repo-foot">Missing one? <a href="#" data-action="install">Install the App on more repositories</a> ${ICON.external}</div>`;
         if (S.read === "loading") {
-          const widths = [
-            ["38%", "52%", true],
-            ["24%", "40%", true],
-            ["46%", "34%", false],
-            ["30%", "48%", true],
-            ["52%", "30%", false],
-            ["28%", "44%", true],
-            ["40%", "36%", false],
-          ];
+          const widths = [["38%", "52%", true], ["24%", "40%", true], ["46%", "34%", false], ["30%", "48%", true], ["52%", "30%", false], ["28%", "44%", true], ["40%", "36%", false]];
           const rows = widths
-            .map(
-              ([name, line, description]) =>
-                `<div class="skeleton-row">${skeleton("28px", 28, 6)}<span class="skeleton-words">${skeleton(name, 12)}${skeleton(line, 9)}${description ? skeleton("70%", 9) : ""}</span></div>`,
-            )
+            .map(([name, line, description]) => `<div class="skeleton-row">${skeleton("28px", 28, 6)}<span class="skeleton-words">${skeleton(name, 12)}${skeleton(line, 9)}${description ? skeleton("70%", 9) : ""}</span></div>`)
             .join("");
           const title = S.list === "search" ? "Recently pushed" : "Your repositories";
           return `${head(title, "")}<div class="repo-rows loader" role="status"><span class="visually-hidden">Loading your repositories…</span>${rows}</div>`;
@@ -2244,13 +1833,8 @@
         if (view.shown.length === 0) {
           return `${head(view.title, view.count)}<div class="repo-empty"><strong>No repository matches “${escapeHtml(S.search.trim())}”.</strong><span>The search looks at every repository's name, owner and description.</span></div>${installLine}`;
         }
-        const foot = view.teaser
-          ? `<div class="repo-foot">The five most recently pushed that aren't Projects yet. Search to reach all ${view.all.length}. Missing one? <a href="#" data-action="install">Install the App on more repositories</a> ${ICON.external}</div>`
-          : installLine;
-        const rows = view.shown.map(
-          (r, index) =>
-            `${r.project && !view.shown[index - 1]?.project ? '<li class="repo-group">Already added</li>' : ""}${repositoryRow(r, view.query)}`,
-        );
+        const foot = view.teaser ? `<div class="repo-foot">The five most recently pushed that aren't Projects yet. Search to reach all ${view.all.length}. Missing one? <a href="#" data-action="install">Install the App on more repositories</a> ${ICON.external}</div>` : installLine;
+        const rows = view.shown.map((r, index) => `${r.project && !view.shown[index - 1]?.project ? '<li class="repo-group">Already added</li>' : ""}${repositoryRow(r, view.query)}`);
         return `${head(view.title, view.count)}<ul class="repo-rows" aria-label="Your GitHub repositories">${rows.join("")}</ul>${foot}`;
       }
 
@@ -2260,9 +1844,7 @@
         const showOwner = !(S.list === "owner" && S.owner !== "all");
         const meta = `${showOwner ? `${highlight(r.owner, query)} · ` : ""}<span class="mono">${escapeHtml(r.defaultBranch)}</span> · ${pushedAgo(r.hoursAgo)}`;
         const name = `<span class="repo-name">${highlight(r.name, query)}</span>`;
-        const description = r.description
-          ? `<span class="repo-description" title="${escapeHtml(r.description)}">${highlight(r.description, query)}</span>`
-          : "";
+        const description = r.description ? `<span class="repo-description" title="${escapeHtml(r.description)}">${highlight(r.description, query)}</span>` : "";
         const privateBadge = r.private ? badge("Private") : "";
         const icon = `<span class="repo-icon">${ICON.repository}</span>`;
         if (r.project) {
@@ -2279,12 +1861,7 @@
 
       // ---------- The other windows
       function confirmation() {
-        return frame({
-          size: "small",
-          title: "Drop the Task?",
-          body: `<p class="dialog-text">“Tasks cards flickering” moves to Dropped.</p>`,
-          actions: button("Drop", "danger", "close"),
-        });
+        return frame({ size: "small", title: "Drop the Task?", body: `<p class="dialog-text">“Tasks cards flickering” moves to Dropped.</p>`, actions: button("Drop", "danger", "close") });
       }
       function stageHistory() {
         const runs = [
@@ -2303,20 +1880,8 @@
       function allThreeOutlined() {
         const outline = (size, keepsHeight, height, label) =>
           `<div class="backdrop outlined ${S.placement}"><div class="dialog-frame outline ${size}${keepsHeight ? " keeps-height" : ""}" style="${height ? `height:${height}` : ""}"><p class="outline-label">${label}</p></div></div>`;
-        const medium =
-          S.placement === "proposed"
-            ? outline("medium", true, "", "Medium: Add a Project, one height")
-            : outline(
-                "medium",
-                false,
-                "min(460px, 100%)",
-                "Medium: Add a Project, as tall as its content",
-              );
-        return (
-          outline("large", true, "", "Large: the Stage history, 86% high") +
-          medium +
-          outline("small", false, "150px", "Small: a confirmation")
-        );
+        const medium = S.placement === "proposed" ? outline("medium", true, "", "Medium: Add a Project, one height") : outline("medium", false, "min(460px, 100%)", "Medium: Add a Project, as tall as its content");
+        return outline("large", true, "", "Large: the Stage history, 86% high") + medium + outline("small", false, "150px", "Small: a confirmation");
       }
 
       // ---------- Rendering
@@ -2325,10 +1890,7 @@
         $("#controls").innerHTML = CONTROLS.map(
           (control) =>
             `<div class="control" role="group" aria-label="${control.name}"><span class="control-name">${control.name}</span><div class="chips">${control.options
-              .map(
-                ([value, label]) =>
-                  `<button type="button" class="chip" data-control="${control.key}" data-value="${value}" aria-pressed="${current[control.key] === value}">${label}</button>`,
-              )
+              .map(([value, label]) => `<button type="button" class="chip" data-control="${control.key}" data-value="${value}" aria-pressed="${current[control.key] === value}">${label}</button>`)
               .join("")}</div></div>`,
         ).join("");
       }
@@ -2336,19 +1898,12 @@
         document.documentElement.dataset.palette = S.palette;
         stage.classList.toggle("narrow", S.width === "narrow");
         stage.classList.toggle("short", S.height === "short");
-        $("#stage-caption").textContent =
-          `The browser window: ${S.width === "narrow" ? "600px" : "up to 1280px"} wide, ${S.height === "short" ? "520px" : "820px"} high.`;
+        $("#stage-caption").textContent = `The browser window: ${S.width === "narrow" ? "600px" : "up to 1280px"} wide, ${S.height === "short" ? "520px" : "820px"} high.`;
         let content;
         if (S.window === "all") content = allThreeOutlined();
         else {
           const dialog =
-            S.window === "confirm"
-              ? confirmation()
-              : S.window === "history"
-                ? stageHistory()
-                : S.placement === "today"
-                  ? todayAddProject()
-                  : proposedAddProject();
+            S.window === "confirm" ? confirmation() : S.window === "history" ? stageHistory() : S.placement === "today" ? todayAddProject() : proposedAddProject();
           content = `<div class="backdrop ${S.placement}">${dialog}</div>`;
         }
         // A pick re-renders the window: the list keeps its place, so the picked row's progress stays in view.
@@ -2379,13 +1934,7 @@
 
       /** The GitHub state the window is in, for the switch to show; none outside From GitHub's step 1. */
       function currentState() {
-        if (
-          S.window !== "add" ||
-          S.source !== "github" ||
-          (S.placement === "proposed" && S.step !== 1) ||
-          (S.placement === "today" && S.chosen)
-        )
-          return null;
+        if (S.window !== "add" || S.source !== "github" || (S.placement === "proposed" && S.step !== 1) || (S.placement === "today" && S.chosen)) return null;
         if (S.gitHub !== "signed-in") return S.gitHub;
         if (S.read === "loading") return "loading";
         if (S.read === "failed") return "failed";
@@ -2393,10 +1942,7 @@
         if (S.clone?.state === "cloning") return "cloning";
         if (S.clone?.state === "failed") return "clone-failed";
         const query = S.search.trim().toLowerCase();
-        if (S.placement === "today")
-          return REPOSITORIES.some((r) => r.fullName.toLowerCase().includes(query))
-            ? "loaded"
-            : "no-match";
+        if (S.placement === "today") return REPOSITORIES.some((r) => r.fullName.toLowerCase().includes(query)) ? "loaded" : "no-match";
         return listView().shown.length === 0 ? "no-match" : "loaded";
       }
 
@@ -2408,10 +1954,7 @@
         const dialog = $("[data-measure]", host);
         if (!dialog) {
           lastGeometry = null;
-          readout.innerHTML =
-            S.placement === "proposed"
-              ? "Proposed: the three tops line up, 7% from the top of the browser window."
-              : "Today: each window is centred, so each top sits somewhere else.";
+          readout.innerHTML = S.placement === "proposed" ? "Proposed: the three tops line up, 7% from the top of the browser window." : "Today: each window is centred, so each top sits somewhere else.";
           return;
         }
         const stageTop = stage.getBoundingClientRect().top;
@@ -2478,25 +2021,13 @@
       function startClone(source, fullName) {
         clearInterval(cloneTimer);
         const picked = fullName && REPOSITORIES.find((r) => r.fullName === fullName);
-        S.clone = {
-          source,
-          repo: fullName,
-          url: picked ? picked.repositoryUrl : S.url.trim(),
-          percent: 0,
-          phase: "Counting objects",
-          state: "cloning",
-        };
+        S.clone = { source, repo: fullName, url: picked ? picked.repositoryUrl : S.url.trim(), percent: 0, phase: "Counting objects", state: "cloning" };
         render();
         cloneTimer = setInterval(() => {
           const clone = S.clone;
           if (!clone || clone.state !== "cloning") return clearInterval(cloneTimer);
           clone.percent = Math.min(100, clone.percent + 6);
-          clone.phase =
-            clone.percent < 12
-              ? "Counting objects"
-              : clone.percent < 85
-                ? "Receiving objects"
-                : "Resolving deltas";
+          clone.phase = clone.percent < 12 ? "Counting objects" : clone.percent < 85 ? "Receiving objects" : "Resolving deltas";
           if (picked?.fails && clone.percent >= 30) {
             clearInterval(cloneTimer);
             S.clone = { ...clone, state: "failed", problem: picked.fails };
@@ -2547,24 +2078,10 @@
         if (state === "failed") S.read = "failed";
         if (state === "signed-out" || state === "not-registered") S.gitHub = state;
         // Held, so it can be looked at: a pick in Loaded runs a clone through to step 2.
-        if (state === "cloning")
-          S.clone = {
-            source: "github",
-            repo: "notnullsoft/design-system",
-            url: "",
-            percent: 42,
-            phase: "Receiving objects",
-            state: "cloning",
-          };
+        if (state === "cloning") S.clone = { source: "github", repo: "notnullsoft/design-system", url: "", percent: 42, phase: "Receiving objects", state: "cloning" };
         if (state === "clone-failed") {
           S.search = "dotfiles";
-          S.clone = {
-            source: "github",
-            repo: "pdev/old-dotfiles-backup",
-            url: "",
-            state: "failed",
-            problem: NOT_FOUND,
-          };
+          S.clone = { source: "github", repo: "pdev/old-dotfiles-backup", url: "", state: "failed", problem: NOT_FOUND };
         }
       }
 
@@ -2638,11 +2155,7 @@
           case "colour":
             S.colour = value;
             $("[data-mark-tile]", host).className = `mark-tile mark-${value}`;
-            host
-              .querySelectorAll(".swatch")
-              .forEach((swatch) =>
-                swatch.setAttribute("aria-pressed", String(swatch.dataset.value === value)),
-              );
+            host.querySelectorAll(".swatch").forEach((swatch) => swatch.setAttribute("aria-pressed", String(swatch.dataset.value === value)));
             break;
           case "add":
             toast(`In the app, ${S.name.trim() || "the Project"} is added and its page opens.`);
@@ -2664,10 +2177,7 @@
         if (!name) return;
         S[name] = event.target.value;
         if (name === "search") renderList();
-        if (name === "pipeline")
-          $("[data-pipeline-stages]", host).textContent = PIPELINES.find(
-            ([id]) => id === S.pipeline,
-          )[2];
+        if (name === "pipeline") $("[data-pipeline-stages]", host).textContent = PIPELINES.find(([id]) => id === S.pipeline)[2];
         if (name === "baseBranch") $("[data-merge-into]", host).textContent = mergeTarget();
         if (name === "name" || name === "label") {
           if (name === "label") {

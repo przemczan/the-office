@@ -5760,9 +5760,12 @@ test(
       await page.goto(initiativeUrl);
       const head = page.locator(".task-head");
       const autoMode = autoModeSwitch(head);
-      if ((await autoMode.getAttribute("aria-checked")) !== "true") {
-        await head.getByText("Auto mode", { exact: true }).click();
-      }
+      // Read once the switch shows the remembered default, so the click never turns it off.
+      const remembered = autoModeSettingSchema.parse(
+        await (await page.request.get("/api/settings/auto-mode")).json(),
+      ).autoMode;
+      await expect(autoMode).toHaveAttribute("aria-checked", String(remembered));
+      if (!remembered) await head.getByText("Auto mode", { exact: true }).click();
       await expect(autoMode).toHaveAttribute("aria-checked", "true");
       await page.getByRole("button", { name: "Plan the Initiative" }).click();
 
@@ -5788,7 +5791,7 @@ test(
       await expect(
         page.getByText("1 of 3 Tasks planned · 2 waiting for your answer"),
       ).toBeVisible();
-      await expect(page.getByText("Waiting for your answer")).toHaveCount(2);
+      await expect(page.getByText("Waiting for your answer", { exact: true })).toHaveCount(2);
       await page.screenshot({
         path: path.join(SCREENSHOTS, "light-1600-initiative-waiting-for-answers.png"),
       });
@@ -5807,6 +5810,7 @@ test(
       const rowCountCard = page.getByRole("region", { name: `Decision: ${ROW_COUNT_QUESTION}` });
       await expect(formatCard).toContainText("Invoice export API");
       await expect(rowCountCard).toContainText("Invoice chart");
+      await formatCard.scrollIntoViewIfNeeded();
       await page.screenshot({
         path: path.join(SCREENSHOTS, "light-1600-planning-thread-decisions.png"),
       });
@@ -5858,7 +5862,7 @@ test(
         .toBe("ready");
       await page.goto(initiativeUrl);
       await expect(page.getByText("3 of 3 Tasks planned")).toBeVisible();
-      await expect(page.getByText("Waiting for your answer")).toHaveCount(0);
+      await expect(page.getByText("Waiting for your answer", { exact: true })).toHaveCount(0);
 
       const buttonMoves = await queryOfficeDatabase(
         `select from_state, to_state, changed_by from task_state_changes

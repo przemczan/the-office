@@ -486,9 +486,7 @@
       }
       .segmented button[aria-selected="true"] {
         background: var(--surface);
-        box-shadow:
-          var(--shadow-1),
-          0 0 0 1px var(--border);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
         color: var(--fg-1);
       }
       /* design-system/components/navigation/Pagination.jsx */
@@ -1528,46 +1526,19 @@
       <section class="reference" aria-label="What it proposes">
         <div>
           <h2>A board, as the Tasks tab has</h2>
-          <p>
-            The same filter bar, columns and cards as the Tasks tab: <strong>Shaping</strong>,
-            <strong>Active</strong> and <strong>Done</strong> side by side, left to right as an
-            Initiative moves. A card is one link with an edge in its state's colour: amber while a
-            Task waits on you, green while one is in progress or once Done, red once Dropped. No two
-            states share a list: the Dropped ones are folded at the foot of Done, out of the way of
-            the Active ones.
-          </p>
+          <p>The same filter bar, columns and cards as the Tasks tab: <strong>Shaping</strong>, <strong>Active</strong> and <strong>Done</strong> side by side, left to right as an Initiative moves. A card is one link with an edge in its state's colour: amber while a Task waits on you, green while one is in progress or once Done, red once Dropped. No two states share a list: the Dropped ones are folded at the foot of Done, out of the way of the Active ones.</p>
         </div>
         <div>
           <h2>An Archive, so it stays short for years</h2>
-          <p>
-            A Done or Dropped Initiative leaves the board after the
-            <strong>Archive period</strong> (30 days, the one Tasks use), or at once by Archive in
-            its card's More menu. It goes to the <strong>Archived</strong> tab, beside the archived
-            Tasks: searched, filtered by Done or Dropped, by month, a page at a time.
-            <strong>Restore</strong> puts it back. The board then holds what is moving and what just
-            ended, whether there are ten Initiatives or ten thousand.
-          </p>
+          <p>A Done or Dropped Initiative leaves the board after the <strong>Archive period</strong> (30 days, the one Tasks use), or at once by Archive in its card's More menu. It goes to the <strong>Archived</strong> tab, beside the archived Tasks: searched, filtered by Done or Dropped, by month, a page at a time. <strong>Restore</strong> puts it back. The board then holds what is moving and what just ended, whether there are ten Initiatives or ten thousand.</p>
         </div>
         <div>
           <h2>Find one</h2>
-          <p>
-            Search reaches names and outcomes, and the <strong>Waiting on you</strong> chip keeps
-            the Initiatives with a Task waiting on you; both are kept in the address, as the Tasks
-            tab's filters are. A search that matches archived Initiatives says how many and opens
-            the archive on the same words. The Project filter narrows everything, with the note of
-            other Projects.
-          </p>
+          <p>Search reaches names and outcomes, and the <strong>Waiting on you</strong> chip keeps the Initiatives with a Task waiting on you; both are kept in the address, as the Tasks tab's filters are. A search that matches archived Initiatives says how many and opens the archive on the same words. The Project filter narrows everything, with the note of other Projects.</p>
         </div>
         <div>
           <h2>About the mock</h2>
-          <p>
-            Its data follows <code>Initiative</code> and <code>Task</code> in
-            <code>packages/contracts</code>, with the proposed <code>endedAt</code> and
-            <code>archivedAt</code>. “Two years in” adds about 1,240 made-up Initiatives. Search,
-            the chip, the folds, Archive, Restore, the pages and the List's State filter work;
-            opening an Initiative shows a toast. It uses the Geist fonts only where they are
-            installed, and makes no network requests.
-          </p>
+          <p>Its data follows <code>Initiative</code> and <code>Task</code> in <code>packages/contracts</code>, with the proposed <code>endedAt</code> and <code>archivedAt</code>. “Two years in” adds about 1,240 made-up Initiatives. Search, the chip, the folds, Archive, Restore, the pages and the List's State filter work; opening an Initiative shows a toast. It uses the Geist fonts only where they are installed, and makes no network requests.</p>
         </div>
       </section>
     </main>
@@ -1578,66 +1549,28 @@
         "chevron-left": '<path d="m15 18-6-6 6-6"/>',
         "chevron-down": '<path d="m6 9 6 6 6-6"/>',
         lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-        "triangle-alert":
-          '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        "triangle-alert": '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
         hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
         "eye-off":
           '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13 13 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/>',
         home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
-        kanban:
-          '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
-        users:
-          '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-        folder:
-          '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
         search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
         x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-        archive:
-          '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
-        "archive-restore":
-          '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>',
-        ellipsis:
-          '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+        "archive-restore": '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>',
+        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
         "arrow-right": '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
-        "external-link":
-          '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+        "external-link": '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
         info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
       };
       const icon = (name, size = 14) =>
         `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
-      const escapeHtml = (text) =>
-        text.replace(
-          /[&<>"]/g,
-          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
-        );
-      const MONTHS = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-      const MONTH_NAMES = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-      ];
+      const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
       /** "3 Nov", with the year once it isn't this one (shell/time.ts `dayOf`). */
       const dayOf = (iso) => {
         const date = new Date(iso);
@@ -1648,8 +1581,7 @@
         const date = new Date(iso);
         return `${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
       };
-      const plural = (count, one, many) =>
-        `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+      const plural = (count, one, many) => `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
 
       /* ---------- Mock data: `Initiative` and `Task` as packages/contracts/src/work.ts has them ---------- */
       const NOW = Date.parse("2026-11-09T12:00:00.000Z");
@@ -1689,39 +1621,29 @@
       });
       const ended = (endedAt) => ({
         endedAt,
-        archivedAt:
-          NOW - Date.parse(endedAt) > ARCHIVE_PERIOD_DAYS * DAY
-            ? isoAt(Date.parse(endedAt) + ARCHIVE_PERIOD_DAYS * DAY)
-            : null,
+        archivedAt: NOW - Date.parse(endedAt) > ARCHIVE_PERIOD_DAYS * DAY ? isoAt(Date.parse(endedAt) + ARCHIVE_PERIOD_DAYS * DAY) : null,
       });
       /** GET /initiatives: the newest first. */
       const INITIATIVES = [
         initiative(1, {
           name: "Board by Initiative",
           state: "active",
-          outcome:
-            "The Work board can be laid out by Initiative, so a glance shows how far each effort is and what is left in it.",
+          outcome: "The Work board can be laid out by Initiative, so a glance shows how far each effort is and what is left in it.",
           projectIds: ["the-office"],
           createdAt: "2026-11-05T11:02:00.000Z",
         }),
-        initiative(2, {
-          name: "Onboarding tour for new users",
-          state: "shaping",
-          createdAt: "2026-11-08T15:40:00.000Z",
-        }),
+        initiative(2, { name: "Onboarding tour for new users", state: "shaping", createdAt: "2026-11-08T15:40:00.000Z" }),
         initiative(3, {
           name: "Release notes from Handover notes",
           state: "shaping",
-          outcome:
-            "Each release has notes written from its Tasks' Handover notes, ready to publish.",
+          outcome: "Each release has notes written from its Tasks' Handover notes, ready to publish.",
           projectIds: ["the-office"],
           createdAt: "2026-11-07T09:30:00.000Z",
         }),
         initiative(4, {
           name: "Offline sync for the field app: keep changes while out of signal and settle conflicts once back online",
           state: "active",
-          outcome:
-            "Field workers keep working without signal; their changes reach the server once they are back online, and conflicts settle by rules they can read.",
+          outcome: "Field workers keep working without signal; their changes reach the server once they are back online, and conflicts settle by rules they can read.",
           projectIds: ["not-astray", "notnullsoft"],
           createdAt: "2026-11-03T14:10:00.000Z",
         }),
@@ -1735,8 +1657,7 @@
         initiative(6, {
           name: "Run environments on Linux",
           state: "active",
-          outcome:
-            "Every Agent run works in a Linux container with a Postgres of its own, the same on any workstation.",
+          outcome: "Every Agent run works in a Linux container with a Postgres of its own, the same on any workstation.",
           projectIds: ["the-office", "not-astray"],
           createdAt: "2026-10-28T08:45:00.000Z",
         }),
@@ -1881,182 +1802,48 @@
       });
       const of = (n) => ({ initiativeId: uuid(n) });
       /** Tasks with only a state to show, for the Initiatives ended long ago. */
-      const steps = (n, projectId, states) =>
-        states.map((taskState, k) =>
-          task(n * 10 + k, {
-            ...of(n),
-            title: `Step ${k + 1}`,
-            projectId,
-            state: taskState,
-            archivedAt: "2026-10-01T03:00:00.000Z",
-          }),
-        );
+      const steps = (n, projectId, states) => states.map((taskState, k) => task(n * 10 + k, { ...of(n), title: `Step ${k + 1}`, projectId, state: taskState, archivedAt: "2026-10-01T03:00:00.000Z" }));
       /** GET /tasks: every Task, archived and in Shaping too. */
       const TASKS = [
-        task(10, {
-          ...of(1),
-          title: "Design the Work board's group by Initiative view",
-          state: "done",
-        }),
-        task(11, {
-          ...of(1),
-          title: "Build group by Initiative on the Work board",
-          state: "in-progress",
-          blockedBy: [uuid(10)],
-        }),
-        task(12, {
-          ...of(1),
-          title: "Remember folded groups in this browser",
-          blockedBy: [uuid(11)],
-        }),
+        task(10, { ...of(1), title: "Design the Work board's group by Initiative view", state: "done" }),
+        task(11, { ...of(1), title: "Build group by Initiative on the Work board", state: "in-progress", blockedBy: [uuid(10)] }),
+        task(12, { ...of(1), title: "Remember folded groups in this browser", blockedBy: [uuid(11)] }),
         task(13, { ...of(1), title: "Redesign the Initiatives tab", state: "ready" }),
         task(30, { ...of(3), title: "Collect Handover notes per release", state: "shaping" }),
-        task(31, {
-          ...of(3),
-          title: "Write release notes from them",
-          state: "shaping",
-          blockedBy: [uuid(30)],
-        }),
-        task(40, {
-          ...of(4),
-          title: "Keep pending changes in IndexedDB",
-          projectId: "not-astray",
-          state: "done",
-        }),
+        task(31, { ...of(3), title: "Write release notes from them", state: "shaping", blockedBy: [uuid(30)] }),
+        task(40, { ...of(4), title: "Keep pending changes in IndexedDB", projectId: "not-astray", state: "done" }),
         task(41, { ...of(4), title: "Sync endpoint", projectId: "notnullsoft", state: "done" }),
-        task(42, {
-          ...of(4),
-          title: "Retry queue with backoff",
-          projectId: "not-astray",
-          state: "in-progress",
-        }),
-        task(43, {
-          ...of(4),
-          title: "Rules for settling conflicts",
-          projectId: "notnullsoft",
-          state: "waiting-on-you",
-          priority: "high",
-        }),
-        task(44, {
-          ...of(4),
-          title: "Conflict screen wording",
-          projectId: "not-astray",
-          state: "waiting-on-you",
-        }),
-        task(45, {
-          ...of(4),
-          title: "Sync status in the header",
-          projectId: "not-astray",
-          blockedBy: [uuid(42)],
-        }),
-        task(46, {
-          ...of(4),
-          title: "Offline banner copy",
-          projectId: "notnullsoft",
-          state: "planning",
-        }),
-        task(47, {
-          ...of(4),
-          title: "Spike: CRDT libraries",
-          projectId: "notnullsoft",
-          state: "dropped",
-        }),
+        task(42, { ...of(4), title: "Retry queue with backoff", projectId: "not-astray", state: "in-progress" }),
+        task(43, { ...of(4), title: "Rules for settling conflicts", projectId: "notnullsoft", state: "waiting-on-you", priority: "high" }),
+        task(44, { ...of(4), title: "Conflict screen wording", projectId: "not-astray", state: "waiting-on-you" }),
+        task(45, { ...of(4), title: "Sync status in the header", projectId: "not-astray", blockedBy: [uuid(42)] }),
+        task(46, { ...of(4), title: "Offline banner copy", projectId: "notnullsoft", state: "planning" }),
+        task(47, { ...of(4), title: "Spike: CRDT libraries", projectId: "notnullsoft", state: "dropped" }),
         task(50, { ...of(5), title: "Index Thread messages", state: "dropped" }),
         task(51, { ...of(5), title: "Search box in the top bar", state: "dropped" }),
-        task(60, {
-          ...of(6),
-          title: "Devcontainer for not-astray",
-          projectId: "not-astray",
-          state: "in-progress",
-        }),
+        task(60, { ...of(6), title: "Devcontainer for not-astray", projectId: "not-astray", state: "in-progress" }),
         task(61, { ...of(6), title: "CPU limit: an Automatic option", state: "done" }),
         task(62, { ...of(6), title: "A Postgres of its own per run environment", state: "done" }),
         task(63, { ...of(6), title: "Docs: setting up a run environment", priority: "low" }),
-        task(64, {
-          ...of(6),
-          title: "Pick a container runtime",
-          state: "done",
-          archivedAt: "2026-11-02T03:00:00.000Z",
-        }),
-        task(70, {
-          ...of(7),
-          title: "Token totals per Project",
-          projectId: "notnullsoft",
-          state: "ready",
-        }),
+        task(64, { ...of(6), title: "Pick a container runtime", state: "done", archivedAt: "2026-11-02T03:00:00.000Z" }),
+        task(70, { ...of(7), title: "Token totals per Project", projectId: "notnullsoft", state: "ready" }),
         task(71, { ...of(7), title: "Weekly chart", projectId: "notnullsoft", state: "ready" }),
-        task(72, {
-          ...of(7),
-          title: "Split by Pipeline",
-          projectId: "notnullsoft",
-          blockedBy: [uuid(70)],
-        }),
-        task(80, {
-          ...of(8),
-          title: "Slack webhook in Settings",
-          state: "done",
-          archivedAt: "2026-11-02T03:00:00.000Z",
-        }),
+        task(72, { ...of(7), title: "Split by Pipeline", projectId: "notnullsoft", blockedBy: [uuid(70)] }),
+        task(80, { ...of(8), title: "Slack webhook in Settings", state: "done", archivedAt: "2026-11-02T03:00:00.000Z" }),
         task(81, { ...of(8), title: "Message format for Decisions" }),
         task(82, { ...of(8), title: "Retry failed posts" }),
-        task(90, {
-          ...of(9),
-          title: "CSV export of invoices",
-          projectId: "notnullsoft",
-          state: "done",
-        }),
-        task(91, {
-          ...of(9),
-          title: "Export schedule in Settings",
-          projectId: "notnullsoft",
-          state: "done",
-        }),
-        task(92, {
-          ...of(9),
-          title: "Export format spike",
-          projectId: "notnullsoft",
-          state: "done",
-          archivedAt: "2026-10-30T03:00:00.000Z",
-        }),
-        task(100, {
-          ...of(10),
-          title: "Second tile provider adapter",
-          projectId: "not-astray",
-          state: "dropped",
-        }),
-        task(101, {
-          ...of(10),
-          title: "Tile provider switch in Settings",
-          projectId: "not-astray",
-          state: "dropped",
-        }),
+        task(90, { ...of(9), title: "CSV export of invoices", projectId: "notnullsoft", state: "done" }),
+        task(91, { ...of(9), title: "Export schedule in Settings", projectId: "notnullsoft", state: "done" }),
+        task(92, { ...of(9), title: "Export format spike", projectId: "notnullsoft", state: "done", archivedAt: "2026-10-30T03:00:00.000Z" }),
+        task(100, { ...of(10), title: "Second tile provider adapter", projectId: "not-astray", state: "dropped" }),
+        task(101, { ...of(10), title: "Tile provider switch in Settings", projectId: "not-astray", state: "dropped" }),
         task(110, { ...of(11), title: "Dark palette contrast", state: "done" }),
         task(111, { ...of(11), title: "Palette switch in Settings", state: "done" }),
-        task(120, {
-          ...of(12),
-          title: "Route planner API v2",
-          projectId: "notnullsoft",
-          state: "done",
-        }),
+        task(120, { ...of(12), title: "Route planner API v2", projectId: "notnullsoft", state: "done" }),
         task(121, { ...of(12), title: "Planner screen", projectId: "not-astray", state: "done" }),
-        task(122, {
-          ...of(12),
-          title: "Turn-by-turn list",
-          projectId: "not-astray",
-          state: "done",
-        }),
-        task(123, {
-          ...of(12),
-          title: "Spike: offline routes",
-          projectId: "not-astray",
-          state: "dropped",
-        }),
-        task(124, {
-          ...of(12),
-          title: "End-to-end tests for the planner",
-          projectId: "not-astray",
-          state: "done",
-        }),
+        task(122, { ...of(12), title: "Turn-by-turn list", projectId: "not-astray", state: "done" }),
+        task(123, { ...of(12), title: "Spike: offline routes", projectId: "not-astray", state: "dropped" }),
+        task(124, { ...of(12), title: "End-to-end tests for the planner", projectId: "not-astray", state: "done" }),
         ...steps(13, "the-office", ["done", "done", "done"]),
         ...steps(14, "notnullsoft", ["done", "done", "dropped", "done"]),
         ...steps(15, "notnullsoft", ["done", "dropped", "dropped"]),
@@ -2078,50 +1865,8 @@
           return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
         };
       }
-      const FIRST_WORDS = [
-        "Faster",
-        "Bulk edit of",
-        "Audit log for",
-        "Templates for",
-        "Reminders for",
-        "Permissions on",
-        "Export of",
-        "Import of",
-        "Search in",
-        "Reports on",
-        "Webhooks for",
-        "Offline",
-        "Shared",
-        "Mobile",
-        "Sync of",
-        "Tests for",
-        "Redesigned",
-        "Cleaner",
-        "History of",
-        "Scheduled",
-      ];
-      const LAST_WORDS = [
-        "invoices",
-        "contacts",
-        "routes",
-        "map tiles",
-        "orders",
-        "price lists",
-        "timesheets",
-        "the calendar",
-        "attachments",
-        "drivers",
-        "the dashboard",
-        "notifications",
-        "settings",
-        "customers",
-        "the warehouse",
-        "deliveries",
-        "payments",
-        "the field app",
-        "quotes",
-        "vehicles",
-      ];
+      const FIRST_WORDS = ["Faster", "Bulk edit of", "Audit log for", "Templates for", "Reminders for", "Permissions on", "Export of", "Import of", "Search in", "Reports on", "Webhooks for", "Offline", "Shared", "Mobile", "Sync of", "Tests for", "Redesigned", "Cleaner", "History of", "Scheduled"];
+      const LAST_WORDS = ["invoices", "contacts", "routes", "map tiles", "orders", "price lists", "timesheets", "the calendar", "attachments", "drivers", "the dashboard", "notifications", "settings", "customers", "the warehouse", "deliveries", "payments", "the field app", "quotes", "vehicles"];
       const OUTCOMES = [
         "People find what they need in fewer steps, on any device.",
         "It works the same for every customer, with nothing to set up.",
@@ -2145,9 +1890,7 @@
           named.set(base, seen + 1);
           return seen ? `${base}, round ${seen + 1}` : base;
         };
-        const projectsOf = () => [
-          ...new Set([pick(PROJECTS).id, ...(next() < 0.25 ? [pick(PROJECTS).id] : [])]),
-        ];
+        const projectsOf = () => [...new Set([pick(PROJECTS).id, ...(next() < 0.25 ? [pick(PROJECTS).id] : [])])];
         function add(initiativeState, createdMs, endedMs, taskStates) {
           const item = initiative(initiativeNumber++, {
             name: nameOf(),
@@ -2159,22 +1902,12 @@
           });
           initiatives.push(item);
           taskStates.forEach((taskState, k) =>
-            tasks.push(
-              task(taskNumber++, {
-                initiativeId: item.id,
-                title: `${item.name}: part ${k + 1}`,
-                projectId: item.projectIds[k % item.projectIds.length],
-                state: taskState,
-              }),
-            ),
+            tasks.push(task(taskNumber++, { initiativeId: item.id, title: `${item.name}: part ${k + 1}`, projectId: item.projectIds[k % item.projectIds.length], state: taskState })),
           );
         }
         const endedStates = (initiativeState) => {
           const count = between(2, 7);
-          if (initiativeState === "done")
-            return Array.from({ length: count }, () =>
-              next() < 0.12 ? "dropped" : "done",
-            ).toSpliced(0, 1, "done");
+          if (initiativeState === "done") return Array.from({ length: count }, () => (next() < 0.12 ? "dropped" : "done")).toSpliced(0, 1, "done");
           const done = between(0, count - 1);
           return Array.from({ length: count }, (_, k) => (k < done ? "done" : "dropped"));
         };
@@ -2182,31 +1915,18 @@
         for (let k = 0; k < ARCHIVED; k++) {
           const endedMs = NOW - (ARCHIVE_PERIOD_DAYS + 1 + (k / ARCHIVED) * 700 + next()) * DAY;
           const initiativeState = next() < 0.16 ? "dropped" : "done";
-          add(
-            initiativeState,
-            endedMs - between(10, 90) * DAY,
-            endedMs,
-            endedStates(initiativeState),
-          );
+          add(initiativeState, endedMs - between(10, 90) * DAY, endedMs, endedStates(initiativeState));
         }
         for (let k = 0; k < 7; k++) {
           const initiativeState = k === 6 ? "dropped" : "done";
           const endedMs = NOW - between(1, ARCHIVE_PERIOD_DAYS - 1) * DAY;
-          add(
-            initiativeState,
-            endedMs - between(10, 60) * DAY,
-            endedMs,
-            endedStates(initiativeState),
-          );
+          add(initiativeState, endedMs - between(10, 60) * DAY, endedMs, endedStates(initiativeState));
         }
         /* An Active one keeps a Task that isn't Done: with every Task Done it would be Done (spec 2.1). */
         const LEFT = ["in-progress", "ready", "backlog", "planning", "waiting-on-you"];
         const MOVING = [...LEFT, "done", "done", "done"];
         for (let k = 0; k < 9; k++) {
-          add("active", NOW - between(5, 70) * DAY, null, [
-            pick(LEFT),
-            ...Array.from({ length: between(2, 7) }, () => pick(MOVING)),
-          ]);
+          add("active", NOW - between(5, 70) * DAY, null, [pick(LEFT), ...Array.from({ length: between(2, 7) }, () => pick(MOVING))]);
         }
         add("shaping", NOW - 2 * DAY, null, ["shaping", "shaping"]);
         return { initiatives, tasks };
@@ -2227,18 +1947,13 @@
         }
       }
       const tasksOfInitiative = (i) => index.tasksOf.get(i.id) ?? [];
-      const blockingTasksOf = (t) =>
-        t.blockedBy
-          .map((id) => index.byId.get(id))
-          .filter((blocker) => blocker && blocker.state !== "done" && blocker.state !== "dropped");
+      const blockingTasksOf = (t) => t.blockedBy.map((id) => index.byId.get(id)).filter((blocker) => blocker && blocker.state !== "done" && blocker.state !== "dropped");
       function initiativeProgress(initiativeTasks) {
         const counted = initiativeTasks.filter(({ state }) => state !== "dropped");
         return {
           done: counted.filter(({ state }) => state === "done").length,
           counted: counted.length,
-          readyToStart: counted.filter(
-            (t) => t.state === "ready" && blockingTasksOf(t).length === 0,
-          ).length,
+          readyToStart: counted.filter((t) => t.state === "ready" && blockingTasksOf(t).length === 0).length,
         };
       }
       function progressWords({ done, counted, readyToStart }) {
@@ -2249,26 +1964,12 @@
       function whatMovesNow(initiativeTasks) {
         return {
           waitingOnYou: initiativeTasks.filter(({ state }) => state === "waiting-on-you").length,
-          inProgress: initiativeTasks.filter(
-            ({ state }) => state === "in-progress" || state === "paused",
-          ).length,
-          blocked: initiativeTasks.filter(
-            (t) => NOT_STARTED.includes(t.state) && blockingTasksOf(t).length > 0,
-          ).length,
+          inProgress: initiativeTasks.filter(({ state }) => state === "in-progress" || state === "paused").length,
+          blocked: initiativeTasks.filter((t) => NOT_STARTED.includes(t.state) && blockingTasksOf(t).length > 0).length,
         };
       }
-      const STATE_NAMES = {
-        shaping: "Shaping",
-        active: "Active",
-        done: "Done",
-        dropped: "Dropped",
-      };
-      const STATE_TONES = {
-        shaping: "warning",
-        active: "info",
-        done: "success",
-        dropped: "danger",
-      };
+      const STATE_NAMES = { shaping: "Shaping", active: "Active", done: "Done", dropped: "Dropped" };
+      const STATE_TONES = { shaping: "warning", active: "info", done: "success", dropped: "danger" };
 
       /* ---------- State, as the address and this browser hold it ---------- */
       const state = {
@@ -2297,16 +1998,10 @@
       let toastTimer;
 
       /** A record with no Project always shows (use-project-filter.ts). */
-      const shows = ({ projectIds }) =>
-        state.projects === "all" ||
-        projectIds.length === 0 ||
-        projectIds.some((id) => state.projects.includes(id));
-      const matchesWords = (i, query) =>
-        query.trim() === "" ||
-        `${i.name} ${i.outcome}`.toLowerCase().includes(query.trim().toLowerCase());
+      const shows = ({ projectIds }) => state.projects === "all" || projectIds.length === 0 || projectIds.some((id) => state.projects.includes(id));
+      const matchesWords = (i, query) => query.trim() === "" || `${i.name} ${i.outcome}`.toLowerCase().includes(query.trim().toLowerCase());
       const waitsOnYou = (i) => tasksOfInitiative(i).some(({ state: s }) => s === "waiting-on-you");
-      const matchesFilters = (i) =>
-        matchesWords(i, state.query) && (!state.waiting || waitsOnYou(i));
+      const matchesFilters = (i) => matchesWords(i, state.query) && (!state.waiting || waitsOnYou(i));
       const hasFilters = () => state.query.trim() !== "" || state.waiting;
       const isArchived = (i) => i.archivedAt !== null;
       const newestCreatedFirst = (a, b) => b.createdAt.localeCompare(a.createdAt);
@@ -2322,10 +2017,8 @@
         else delete root.dataset.theme;
         renderBar();
         const scenarioNote = SCENARIOS[state.scenario].note;
-        document.getElementById("note").innerHTML =
-          `${LAYOUTS[state.layout].note} ${scenarioNote[state.layout] ?? scenarioNote.any}`;
-        document.getElementById("address").innerHTML =
-          `<span>Address</span><code>${escapeHtml(addressOf())}</code><span>· the Project filter is this browser's, never in the address${state.layout === "today" ? "" : "; so is the Dropped fold"}</span>`;
+        document.getElementById("note").innerHTML = `${LAYOUTS[state.layout].note} ${scenarioNote[state.layout] ?? scenarioNote.any}`;
+        document.getElementById("address").innerHTML = `<span>Address</span><code>${escapeHtml(addressOf())}</code><span>· the Project filter is this browser's, never in the address${state.layout === "today" ? "" : "; so is the Dropped fold"}</span>`;
         const focused = document.activeElement?.dataset?.action;
         const caret = document.activeElement?.selectionStart;
         const main = document.querySelector(".main");
@@ -2353,28 +2046,16 @@
         if (state.layout !== "today") {
           if (state.query.trim()) params.set("query", state.query.trim());
           if (state.waiting) params.set("waiting", "1");
-          if (state.layout === "list" && state.listState !== "active")
-            params.set("state", state.listState);
+          if (state.layout === "list" && state.listState !== "active") params.set("state", state.listState);
         }
         const search = params.toString();
         return `/work/initiatives${search ? `?${search}` : ""}`;
       }
       function app() {
-        const rail = ["home", "kanban", "users", "folder"]
-          .map(
-            (name) =>
-              `<span class="rail-item${name === "kanban" ? " on" : ""}">${icon(name, 18)}</span>`,
-          )
-          .join("");
+        const rail = ["home", "kanban", "users", "folder"].map((name) => `<span class="rail-item${name === "kanban" ? " on" : ""}">${icon(name, 18)}</span>`).join("");
         const projectChoice = state.projects === "all" ? "all" : state.projects[0];
-        const projectOptions = [
-          ["all", "All projects"],
-          ...PROJECTS.map(({ id, name }) => [id, name]),
-        ]
-          .map(
-            ([value, label]) =>
-              `<option value="${value}"${value === projectChoice ? " selected" : ""}>${label}</option>`,
-          )
+        const projectOptions = [["all", "All projects"], ...PROJECTS.map(({ id, name }) => [id, name])]
+          .map(([value, label]) => `<option value="${value}"${value === projectChoice ? " selected" : ""}>${label}</option>`)
           .join("");
         const tabs = [
           ["tasks", "Tasks", ""],
@@ -2382,17 +2063,9 @@
           ["initiatives", "Initiatives", ""],
           ["archived", "Archived", ""],
         ]
-          .map(
-            ([key, label, count]) =>
-              `<button type="button" role="tab" class="tab${state.tab === key ? " on" : ""}" aria-selected="${state.tab === key}" data-action="tab" data-value="${key}">${label}${count}</button>`,
-          )
+          .map(([key, label, count]) => `<button type="button" role="tab" class="tab${state.tab === key ? " on" : ""}" aria-selected="${state.tab === key}" data-action="tab" data-value="${key}">${label}${count}</button>`)
           .join("");
-        const crumb =
-          state.tab === "archived"
-            ? state.layout === "today"
-              ? "Archived Tasks"
-              : "Archived"
-            : "Initiatives";
+        const crumb = state.tab === "archived" ? (state.layout === "today" ? "Archived Tasks" : "Archived") : "Initiatives";
         return `<div class="app">
           <nav class="rail" aria-label="The Office"><span class="rail-mark">O</span>${rail}</nav>
           <header class="top"><h1>Work</h1><span class="crumb">${crumb}</span><span class="grow"></span>
@@ -2405,8 +2078,7 @@
         </div>`;
       }
       function initiativesTab() {
-        if (state.initiatives.length === 0)
-          return `<div class="empty-card">No Initiatives yet. Shape an Idea into one from Ideas.</div>`;
+        if (state.initiatives.length === 0) return `<div class="empty-card">No Initiatives yet. Shape an Idea into one from Ideas.</div>`;
         return LAYOUTS[state.layout].draw();
       }
       function otherProjectsNote(count, one, many) {
@@ -2422,15 +2094,10 @@
                 return `<span class="project-mark" style="--mark:${project.mark}" title="${project.name}">${project.name}</span>`;
               })
               .join("");
-      const stateBadge = (initiativeState, size = "") =>
-        `<span class="badge dot ${size} ${STATE_TONES[initiativeState]}">${initiativeState === "shaping" ? `Shaping with ${CTO_NAME}` : STATE_NAMES[initiativeState]}</span>`;
-      const progressBar = ({ done, counted }) =>
-        `<span class="progress" aria-hidden="true"><span style="width:${(done / Math.max(counted, 1)) * 100}%"></span></span>`;
+      const stateBadge = (initiativeState, size = "") => `<span class="badge dot ${size} ${STATE_TONES[initiativeState]}">${initiativeState === "shaping" ? `Shaping with ${CTO_NAME}` : STATE_NAMES[initiativeState]}</span>`;
+      const progressBar = ({ done, counted }) => `<span class="progress" aria-hidden="true"><span style="width:${(done / Math.max(counted, 1)) * 100}%"></span></span>`;
       const opens = (i) => `href="#" data-action="open"`;
-      const finalCount = (progress) =>
-        progress.counted === 0
-          ? "No Task done"
-          : `${progress.done} of ${plural(progress.counted, "Task", "Tasks")} done`;
+      const finalCount = (progress) => (progress.counted === 0 ? "No Task done" : `${progress.done} of ${plural(progress.counted, "Task", "Tasks")} done`);
 
       /* ---------- Today (initiatives-list.tsx): one grid, newest first, every state mixed ---------- */
       const TODAY_DRAWN = 60;
@@ -2456,20 +2123,10 @@
 
       /* ---------- Proposed: the board ---------- */
       function filterBar({ withStates } = {}) {
-        const waitingCount = onBoard()
-          .filter(shows)
-          .filter((i) => matchesWords(i, state.query) && waitsOnYou(i)).length;
+        const waitingCount = onBoard().filter(shows).filter((i) => matchesWords(i, state.query) && waitsOnYou(i)).length;
         const states = withStates
-          ? `<div class="board-filters-row" role="group" aria-label="State"><span class="board-filters-label">STATE</span>${[
-              "shaping",
-              "active",
-              "done",
-              "dropped",
-            ]
-              .map(
-                (key) =>
-                  `<button type="button" class="board-filter-chip" aria-pressed="${state.listState === key}" data-action="list-state" data-value="${key}">${STATE_NAMES[key]} <span class="chip-count">${listRows(key).length}</span></button>`,
-              )
+          ? `<div class="board-filters-row" role="group" aria-label="State"><span class="board-filters-label">STATE</span>${["shaping", "active", "done", "dropped"]
+              .map((key) => `<button type="button" class="board-filter-chip" aria-pressed="${state.listState === key}" data-action="list-state" data-value="${key}">${STATE_NAMES[key]} <span class="chip-count">${listRows(key).length}</span></button>`)
               .join("")}</div>`
           : "";
         return `<div class="board-filters" role="search" aria-label="Filter the Initiatives">
@@ -2484,9 +2141,7 @@
       /** Under the filter bar: archived Initiatives the search matches too. */
       function archivedMatchesLine() {
         if (state.query.trim() === "") return "";
-        const count = state.initiatives.filter(
-          (i) => isArchived(i) && shows(i) && matchesWords(i, state.query),
-        ).length;
+        const count = state.initiatives.filter((i) => isArchived(i) && shows(i) && matchesWords(i, state.query)).length;
         if (!count) return "";
         return `<p class="left-out">${icon("archive", 13)}<span>${plural(count, "archived Initiative matches", "archived Initiatives match")} “${escapeHtml(state.query.trim())}” too.</span><button type="button" class="link-button" data-action="search-archive">Search the archive</button></p>`;
       }
@@ -2496,10 +2151,7 @@
         const names = keys.map((key) => PEOPLE[key].name).join(", ");
         return `<span class="board-card-working" title="${names} working now">${keys
           .slice(0, 3)
-          .map(
-            (key) =>
-              `<span class="avatar" style="--tone:${PEOPLE[key].tone}">${PEOPLE[key].initials}</span>`,
-          )
+          .map((key) => `<span class="avatar" style="--tone:${PEOPLE[key].tone}">${PEOPLE[key].initials}</span>`)
           .join("")}</span>`;
       }
       function activeCard(i) {
@@ -2512,13 +2164,9 @@
             ? `<span class="ini-card-nothing">${icon("triangle-alert", 13)}${initiativeTasks.length ? "No Task left: every one was dropped. Add a Task or drop the Initiative on its page." : "No Task yet. Add one on its page."}</span>`
             : `<span class="ini-card-progress">${progressBar(progress)}<span>${progressWords(progress)}</span></span>`;
         const foot = [
-          now.waitingOnYou
-            ? `<span class="badge sm warning">${icon("hand", 11)}${now.waitingOnYou} waiting on you</span>`
-            : "",
+          now.waitingOnYou ? `<span class="badge sm warning">${icon("hand", 11)}${now.waitingOnYou} waiting on you</span>` : "",
           now.inProgress ? `<span class="ini-now live">${now.inProgress} in progress</span>` : "",
-          now.blocked
-            ? `<span class="ini-now">${icon("lock", 12)}${now.blocked} blocked</span>`
-            : "",
+          now.blocked ? `<span class="ini-now">${icon("lock", 12)}${now.blocked} blocked</span>` : "",
           workingMark(initiativeTasks),
         ].join("");
         return `<article class="board-card ini-card ${edge}" aria-label="${escapeHtml(i.name)}">
@@ -2589,9 +2237,7 @@
       function boardColumn(column, board) {
         const inState = board.filter(column.holds);
         const cards = inState.filter((i) => shows(i) && matchesFilters(i)).toSorted(column.order);
-        const body = cards.length
-          ? cards.map(column.card).join("")
-          : `<div class="board-empty">${noneWords(column, inState)}</div>`;
+        const body = cards.length ? cards.map(column.card).join("") : `<div class="board-empty">${noneWords(column, inState)}</div>`;
         const foot = column.key === "done" ? droppedFold(board) + archiveLink() : "";
         return `<section class="board-column" aria-label="${column.label}">
           <h3>${column.label} <span class="board-count">${cards.length.toLocaleString("en-US")}</span></h3>
@@ -2602,9 +2248,7 @@
       }
       /** Dropped, at the foot of Done: folded at first, remembered in this browser; left out with none. */
       function droppedFold(board) {
-        const dropped = board
-          .filter((i) => i.state === "dropped" && shows(i) && matchesFilters(i))
-          .toSorted(lastEndedFirst);
+        const dropped = board.filter((i) => i.state === "dropped" && shows(i) && matchesFilters(i)).toSorted(lastEndedFirst);
         if (!dropped.length) return "";
         const latest = dropped[0];
         return `<div class="column-fold">
@@ -2629,8 +2273,7 @@
 
       /* ---------- The alternative: a List, one state at a time ---------- */
       function listRows(listState) {
-        const order =
-          listState === "done" || listState === "dropped" ? lastEndedFirst : newestCreatedFirst;
+        const order = listState === "done" || listState === "dropped" ? lastEndedFirst : newestCreatedFirst;
         return onBoard()
           .filter((i) => i.state === listState && shows(i) && matchesFilters(i))
           .toSorted(order);
@@ -2645,9 +2288,7 @@
             : i.state === "active"
               ? `${progressBar(progress)}<span>${progress.counted ? progressWords(progress) : "No Task left"}</span>${now.waitingOnYou ? `<span class="badge sm warning">${icon("hand", 11)}${now.waitingOnYou} waiting on you</span>` : ""}`
               : `<span>${finalCount(progress)}</span>`;
-        const when = i.endedAt
-          ? `${STATE_NAMES[i.state]} ${dayOf(i.endedAt)}`
-          : `Created ${dayOf(i.createdAt)}`;
+        const when = i.endedAt ? `${STATE_NAMES[i.state]} ${dayOf(i.endedAt)}` : `Created ${dayOf(i.createdAt)}`;
         return `<a class="ini-row" ${opens(i)} aria-label="${escapeHtml(i.name)}">
           <span class="ini-row-name"><span class="ini-row-title">${escapeHtml(i.name)}</span><span class="ini-row-outcome">${i.outcome ? escapeHtml(i.outcome) : "Outcome not written yet."}</span></span>
           <span class="ini-row-projects">${projectMarks(i.projectIds)}</span>
@@ -2658,23 +2299,13 @@
       function list() {
         const rows = listRows(state.listState);
         const inState = onBoard().filter((i) => i.state === state.listState);
-        const words = {
-          shaping: COLUMNS[0].none,
-          active: COLUMNS[1].none,
-          done: COLUMNS[2].none,
-          dropped: `Nothing dropped in the last ${ARCHIVE_PERIOD_DAYS} days.`,
-        };
-        const none = inState.some(shows)
-          ? "None matches the filters."
-          : inState.length
-            ? "None in the Projects shown."
-            : words[state.listState];
+        const words = { shaping: COLUMNS[0].none, active: COLUMNS[1].none, done: COLUMNS[2].none, dropped: `Nothing dropped in the last ${ARCHIVE_PERIOD_DAYS} days.` };
+        const none = inState.some(shows) ? "None matches the filters." : inState.length ? "None in the Projects shown." : words[state.listState];
         const elsewhere = onBoard().filter((i) => !shows(i) && matchesFilters(i)).length;
         const body = rows.length
           ? `<div class="ini-list-head" aria-hidden="true"><span>Initiative</span><span class="col-projects">Projects</span><span>Progress</span><span style="text-align:right">${state.listState === "done" || state.listState === "dropped" ? "Ended" : "Created"}</span></div>${rows.map(listRow).join("")}`
           : `<p class="list-none">${none}</p>`;
-        const archive =
-          state.listState === "done" || state.listState === "dropped" ? archiveLink() : "";
+        const archive = state.listState === "done" || state.listState === "dropped" ? archiveLink() : "";
         return `${filterBar({ withStates: true })}${archivedMatchesLine()}${otherProjectsNote(elsewhere, "Initiative on the board", "Initiatives on the board")}
           <div class="ini-list">${body}${archive}</div>`;
       }
@@ -2692,14 +2323,8 @@
         }
         const shown = archived.filter(shows);
         const matching = shown.filter((i) => matchesWords(i, state.archive.query));
-        const counts = {
-          all: matching.length,
-          done: matching.filter((i) => i.state === "done").length,
-          dropped: matching.filter((i) => i.state === "dropped").length,
-        };
-        const rows = matching
-          .filter((i) => state.archive.state === "all" || i.state === state.archive.state)
-          .toSorted(lastEndedFirst);
+        const counts = { all: matching.length, done: matching.filter((i) => i.state === "done").length, dropped: matching.filter((i) => i.state === "dropped").length };
+        const rows = matching.filter((i) => state.archive.state === "all" || i.state === state.archive.state).toSorted(lastEndedFirst);
         const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
         const page = Math.min(state.archive.page, pageCount);
         const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -2708,10 +2333,7 @@
           ["done", "Done"],
           ["dropped", "Dropped"],
         ]
-          .map(
-            ([key, label]) =>
-              `<button type="button" class="board-filter-chip" aria-pressed="${state.archive.state === key}" data-action="archive-state" data-value="${key}">${label} <span class="chip-count">${counts[key].toLocaleString("en-US")}</span></button>`,
-          )
+          .map(([key, label]) => `<button type="button" class="board-filter-chip" aria-pressed="${state.archive.state === key}" data-action="archive-state" data-value="${key}">${label} <span class="chip-count">${counts[key].toLocaleString("en-US")}</span></button>`)
           .join("");
         const filters = `<div class="board-filters" role="search" aria-label="Filter the archived Initiatives"><div class="board-filters-row">
           <label class="input board-filters-search">${icon("search", 13)}<input data-action="archive-query" value="${escapeHtml(state.archive.query)}" placeholder="Search archived Initiatives and their outcomes" aria-label="Search archived Initiatives" /></label>
@@ -2722,8 +2344,7 @@
         const body = pageRows
           .map((i) => {
             const month = monthOf(i.endedAt);
-            const head =
-              month !== lastMonth ? `<tr class="month-row"><td colspan="4">${month}</td></tr>` : "";
+            const head = month !== lastMonth ? `<tr class="month-row"><td colspan="4">${month}</td></tr>` : "";
             lastMonth = month;
             return `${head}<tr class="data-row">
               <td class="cell-name"><span class="archive-name"><a ${opens(i)}>${escapeHtml(i.name)}</a><span class="archive-sub">${projectMarks(i.projectIds)}<span>${finalCount(initiativeProgress(tasksOfInitiative(i)))}</span></span></span></td>
@@ -2733,9 +2354,7 @@
             </tr>`;
           })
           .join("");
-        const none = state.archive.query.trim()
-          ? `No archived Initiative matches “${escapeHtml(state.archive.query.trim())}”.`
-          : "None in the Projects shown.";
+        const none = state.archive.query.trim() ? `No archived Initiative matches “${escapeHtml(state.archive.query.trim())}”.` : "None in the Projects shown.";
         const table = rows.length
           ? `<div class="archive-card"><table class="archive-table"><thead><tr><th>Initiative</th><th>State</th><th>Ended</th><th aria-label="Restore"></th></tr></thead><tbody>${body}</tbody></table></div>${pager(page, pageCount, rows.length)}`
           : `<div class="empty-card">${none}</div>`;
@@ -2792,22 +2411,15 @@
             case "archive-one": {
               const item = findInitiative(value);
               item.archivedAt = isoAt(NOW);
-              return showToast(
-                `${escapeHtml(item.name)} archived: it is in Archived › Initiatives, where Restore puts it back.`,
-              );
+              return showToast(`${escapeHtml(item.name)} archived: it is in Archived › Initiatives, where Restore puts it back.`);
             }
             case "restore": {
               const item = findInitiative(value);
               item.archivedAt = null;
-              return showToast(
-                `${escapeHtml(item.name)} is back on the board, in ${item.state === "done" ? "Done" : "Done › Dropped"}, for another ${ARCHIVE_PERIOD_DAYS} days.`,
-              );
+              return showToast(`${escapeHtml(item.name)} is back on the board, in ${item.state === "done" ? "Done" : "Done › Dropped"}, for another ${ARCHIVE_PERIOD_DAYS} days.`);
             }
             case "tab":
-              if (value === "tasks" || value === "ideas")
-                return showToast(
-                  `Opens the ${value === "tasks" ? "Tasks" : "Ideas"} tab, unchanged.`,
-                );
+              if (value === "tasks" || value === "ideas") return showToast(`Opens the ${value === "tasks" ? "Tasks" : "Ideas"} tab, unchanged.`);
               state.tab = value;
               document.querySelector(".main").scrollTop = 0;
               break;
@@ -2855,8 +2467,7 @@
         frame.addEventListener("input", (event) => {
           const { action } = event.target.dataset;
           if (action === "query") state.query = event.target.value;
-          else if (action === "archive-query")
-            state.archive = { ...state.archive, query: event.target.value, page: 1 };
+          else if (action === "archive-query") state.archive = { ...state.archive, query: event.target.value, page: 1 };
           else return;
           render();
         });
@@ -2887,18 +2498,14 @@
         },
       };
       const BASE = { initiatives: INITIATIVES, tasks: TASKS };
-      const WITH_YEARS = {
-        initiatives: [...INITIATIVES, ...YEARS.initiatives],
-        tasks: [...TASKS, ...YEARS.tasks],
-      };
+      const WITH_YEARS = { initiatives: [...INITIATIVES, ...YEARS.initiatives], tasks: [...TASKS, ...YEARS.tasks] };
       const SCENARIOS = {
         all: {
           label: "Every state",
           data: BASE,
           preset: {},
           note: {
-            today:
-              "Twenty Initiatives across the-office, not-astray and notnullsoft: five Active, two Shaping, the rest Done or Dropped, eight of them months ago, all in one grid.",
+            today: "Twenty Initiatives across the-office, not-astray and notnullsoft: five Active, two Shaping, the rest Done or Dropped, eight of them months ago, all in one grid.",
             list: "Twenty Initiatives across three Projects; twelve on the board. Pick a state to see its rows; Done and Dropped end with the way to the archive.",
             any: "Twenty Initiatives across three Projects; twelve are on the board, eight ended more than 30 days ago and are archived. Offline sync has two Tasks <strong>waiting on you</strong>: an amber edge and a badge. Search across Threads is Active with <strong>every Task dropped</strong>, so its card says so. Onboarding tour has <strong>no outcome</strong> and no Project yet.",
           },
@@ -2936,17 +2543,13 @@
           data: BASE,
           preset: { projects: ["not-astray"] },
           note: {
-            today:
-              "<strong>The Project filter</strong> shows not-astray alone: the grid narrows, still mixed, and the note above counts the rest.",
+            today: "<strong>The Project filter</strong> shows not-astray alone: the grid narrows, still mixed, and the note above counts the rest.",
             any: "<strong>The Project filter</strong> shows not-astray alone: each column counts what it shows, the note above counts the rest on the board, and the archive's link counts the archived ones in the Projects shown. Onboarding tour has no Project yet, so it shows whatever the filter.",
           },
         },
         "none-shaping": {
           label: "Nothing Shaping",
-          data: {
-            initiatives: INITIATIVES.filter(({ state: s }) => s !== "shaping"),
-            tasks: TASKS,
-          },
+          data: { initiatives: INITIATIVES.filter(({ state: s }) => s !== "shaping"), tasks: TASKS },
           preset: { listState: "shaping" },
           note: {
             today: "With nothing being shaped, today's grid just has fewer cards.",
@@ -2959,8 +2562,7 @@
           data: BASE,
           preset: { tab: "archived" },
           note: {
-            today:
-              "<strong>Today</strong> the Archived tab holds Tasks only, and no Initiative ever leaves the Initiatives tab.",
+            today: "<strong>Today</strong> the Archived tab holds Tasks only, and no Initiative ever leaves the Initiatives tab.",
             any: "<strong>The archive</strong>, in the Archived tab beside the archived Tasks (a switch between them, in the address as <code>?kind=initiatives</code>): its own search and Done or Dropped filter, the one that ended last on top under its month, the final count, and Restore.",
           },
         },
@@ -2969,8 +2571,7 @@
           data: WITH_YEARS,
           preset: {},
           note: {
-            today:
-              "<strong>Two years in:</strong> about 1,260 Initiatives, every one a large card in one grid, newest first. The Active ones are lost among the rest.",
+            today: "<strong>Two years in:</strong> about 1,260 Initiatives, every one a large card in one grid, newest first. The Active ones are lost among the rest.",
             any: "<strong>Two years in:</strong> about 1,260 Initiatives. The board still holds only what moves and what ended in the last 30 days: 14 Active, 3 Shaping and 12 ended. The other 1,230 are in the archive, 25 to a page, searchable. Open the archive from the foot of Done.",
           },
         },
@@ -2978,35 +2579,18 @@
           label: "No Initiatives",
           data: { initiatives: [], tasks: [] },
           preset: {},
-          note: {
-            any: "<strong>No Initiatives at all:</strong> one empty card says how to make one, as today. The archive says how an Initiative gets there.",
-          },
+          note: { any: "<strong>No Initiatives at all:</strong> one empty card says how to make one, as today. The archive says how an Initiative gets there." },
         },
       };
-      const DEFAULTS = {
-        tab: "initiatives",
-        projects: "all",
-        query: "",
-        waiting: false,
-        listState: "active",
-        droppedOpen: false,
-        menuFor: undefined,
-        toast: undefined,
-      };
+      const DEFAULTS = { tab: "initiatives", projects: "all", query: "", waiting: false, listState: "active", droppedOpen: false, menuFor: undefined, toast: undefined };
       function applyScenario(key) {
         clearTimeout(toastTimer);
         const scenario = SCENARIOS[key];
         indexTasks(scenario.data.tasks);
-        Object.assign(
-          state,
-          DEFAULTS,
-          { archive: { query: "", state: "all", page: 1 } },
-          scenario.preset,
-          {
-            scenario: key,
-            initiatives: scenario.data.initiatives.map((i) => ({ ...i })),
-          },
-        );
+        Object.assign(state, DEFAULTS, { archive: { query: "", state: "all", page: 1 } }, scenario.preset, {
+          scenario: key,
+          initiatives: scenario.data.initiatives.map((i) => ({ ...i })),
+        });
         render();
         document.querySelector(".main").scrollTop = 0;
       }
@@ -3026,8 +2610,7 @@
       function renderBar() {
         const layouts = Object.entries(LAYOUTS).map(([key, { label }]) => [key, label]);
         const scenarios = Object.entries(SCENARIOS).map(([key, { label }]) => [key, label]);
-        document.getElementById("bar").innerHTML =
-          `<span class="bar-title">The Initiatives tab</span><span class="bar-tag">PROPOSAL · ROUND 2</span>
+        document.getElementById("bar").innerHTML = `<span class="bar-title">The Initiatives tab</span><span class="bar-tag">PROPOSAL · ROUND 2</span>
           <div class="control"><span class="control-label">Layout</span>${segments("layout", layouts, state.layout)}</div>
           <div class="control"><span class="control-label">Width</span>${segments("width", WIDTHS, state.width)}</div>
           <div class="control"><span class="control-label">Palette</span>${segments("palette", PALETTES, state.palette)}</div>
