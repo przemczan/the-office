@@ -260,9 +260,9 @@
 - `task-state-badge.tsx`: TaskStateBadge, PriorityIcon
 - `usage-estimate-line.tsx`: UsageEstimateLine, useUsageEstimate
 - `usage-estimate-words.ts`: MEASURES, MEASURE_LABELS, usageEstimateWords
-- `use-cto.ts`: useCto
+- `use-cto.ts`: CTO_ROLE_KEY, useCto
 - `use-idea-planning.ts`: useIdeaPlanning, useOnPlanned
-- `use-planner.ts`: usePlanner
+- `use-planner.ts`: PLANNER_ROLE_KEY, usePlanner
 - `waiting-on-you.ts`: waitsOnYou, waitsOnYouInItsState, useWaitingOnYou, useWaitingOnYouInItsState
 - `work-words.ts`: TASK_STATE_NAMES, STOPPED, taskStateWords, Archived, isArchived, canBeArchived, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName, reportedMetCount, projectIdsOfIdea
 - Tests: gate-card-words.full.test.ts, gate-words.full.test.ts, tag-words.full.test.ts, usage-estimate-words.full.test.ts, waiting-on-you.full.test.ts, work-words.full.test.ts

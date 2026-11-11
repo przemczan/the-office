@@ -1,7 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 import {
-  ENDED_INITIATIVE_CONVERSATION_WORDS,
   type Decision,
   type Initiative,
   type Project,
@@ -9,19 +8,18 @@ import {
   type Role,
   type Task,
 } from "@the-office/contracts";
-import { Alert, Button, Icon } from "@the-office/ui";
+import { Alert } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { decisionQueries, threadQueries } from "../../api/conversations.ts";
+import { decisionQueries } from "../../api/conversations.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { initiativeQueries, startShapingThread, taskQueries } from "../../api/work.ts";
-import { EmptyCard } from "../../shell/item-card.tsx";
+import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
-import { useToast } from "../../shell/toasts.tsx";
 import { useCto } from "../../shell/work/use-cto.ts";
 import { ArchivedBadge, RestoreInitiativeButton } from "./archive-parts.tsx";
 import { InitiativeAttachments } from "./attachments-block.tsx";
-import { ConversationDrawerProvider, useDrawerFollowsAddress } from "./conversation-drawer.tsx";
+import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
+import { InitiativeConversation } from "./initiative-conversation.tsx";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { planningProgressWords } from "./initiative-planning-words.ts";
 import { initiativeProgress, progressWords, tasksOfInitiative } from "./initiative-words.ts";
@@ -31,13 +29,12 @@ import { OutcomeBlock } from "./outcome-block.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import { StartReadyTasksNote } from "./start-ready-tasks.tsx";
 import { TaskGraph } from "./task-graph.tsx";
-import { ThreadTimeline } from "./thread-timeline.tsx";
 
 const NO_DECISIONS: readonly Decision[] = [];
 
 /**
  * An Initiative's page (prototypes/app/work.js `initiativePage`): its Tasks as a graph across
- * Projects, its record's folds, and its Threads with the CTO and the Planner as the Task page's timeline.
+ * Projects, its record's folds, and its conversation, a tab per person as on the Task page.
  */
 export function InitiativePage(): ReactNode {
   const { initiativeId } = useParams({ from: "/work/initiatives/$initiativeId" });
@@ -96,7 +93,7 @@ export function InitiativePage(): ReactNode {
               ideaId={record.originIdeaId}
             />
           </section>
-          <InitiativeConversation initiative={record} cto={cto} />
+          <InitiativeConversation initiative={record} />
         </div>
       </ConversationDrawerProvider>
     </div>
@@ -197,80 +194,5 @@ function ShapingNote({ cto }: { readonly cto: Role | undefined }): ReactNode {
         ? `${cto.card.name} drafts the outcome and the Tasks with you in the conversation, straight onto this page. Once you confirm the Initiative, each change ${cto.card.name} wants is a Proposal you apply.`
         : "Write the outcome and add the Tasks, then confirm the Initiative to make it active."}
     </Alert>
-  );
-}
-
-/** Its Threads with the CTO and the Planner; while it is open and has none, the user can start shaping one. */
-function InitiativeConversation({
-  initiative,
-  cto,
-}: {
-  readonly initiative: Initiative;
-  readonly cto: Role | undefined;
-}): ReactNode {
-  const { initiativeThread } = useSearch({ from: "/work/initiatives/$initiativeId" });
-  const navigate = useNavigate({ from: "/work/initiatives/$initiativeId" });
-  const threads = useQuery(threadQueries.onInitiative(initiative.id)).data;
-  const readOnlyReason = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
-  useDrawerFollowsAddress(
-    threads && threads.length > 0
-      ? { threadId: initiativeThread, decisionId: undefined, decisionIsOpen: false }
-      : undefined,
-  );
-  if (!threads) return null;
-  if (threads.length === 0) {
-    return (
-      <aside className="task-conversation" aria-label="Conversation">
-        <EmptyCard>
-          No conversation on {initiative.name} yet.
-          {readOnlyReason === undefined &&
-            (cto ? (
-              <StartShaping initiative={initiative} cto={cto} />
-            ) : (
-              " Hire a CTO to shape it with them."
-            ))}
-        </EmptyCard>
-      </aside>
-    );
-  }
-  return (
-    <ThreadTimeline
-      threads={threads}
-      asked={initiativeThread}
-      onAsked={(threadId) => {
-        void navigate({
-          search: threadId === undefined ? {} : { initiativeThread: threadId },
-          replace: true,
-          resetScroll: false,
-        });
-      }}
-      readOnlyReason={readOnlyReason}
-    />
-  );
-}
-
-function StartShaping({
-  initiative,
-  cto,
-}: {
-  readonly initiative: Initiative;
-  readonly cto: Role;
-}): ReactNode {
-  const showToast = useToast();
-  const starting = useMutation({
-    mutationFn: () => startShapingThread(initiative.id),
-    onError: (error) => showToast(error.message),
-  });
-  return (
-    <div className="task-conversation-start">
-      <Button
-        variant="secondary"
-        iconLeft={<Icon name="message-circle" size={14} />}
-        loading={starting.isPending}
-        onClick={() => starting.mutate()}
-      >
-        Shape it with {cto.card.name}
-      </Button>
-    </div>
   );
 }

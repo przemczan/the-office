@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { ConversationTab, TabConsultation, Task, ThreadContext } from "@the-office/contracts";
+import type { ConversationTab, TabConsultation, Task } from "@the-office/contracts";
 import { Card } from "@the-office/ui";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { openPersonsThread, sendMessage, threadQueries } from "../../api/conversations.ts";
-import { CacheMark } from "../../shell/conversation/cache-mark.tsx";
 import { Composer } from "../../shell/conversation/composer.tsx";
 import { ContextBar } from "../../shell/conversation/context-bar.tsx";
 import { startsASessionWords } from "../../shell/conversation/context-words.ts";
@@ -13,11 +12,11 @@ import { useThreadDrafts } from "../../shell/conversation/thread-drafts.tsx";
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
-import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { SubAgentsAndProcessesLineOf } from "../../shell/sub-agents-and-processes/sub-agents-and-processes-line.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { ToLine } from "./conversation-parts.tsx";
 import { plannedElsewhereWords } from "./conversation-tabs.ts";
 import { ItsInitiativeLink } from "./its-initiative-link.tsx";
 import { WAITS_FOR_ITS_INITIATIVE } from "./needs-you-words.ts";
@@ -301,31 +300,6 @@ function FirstMessage({
           </span>
         </div>
       )}
-    </div>
-  );
-}
-
-function ToLine({
-  roleKey,
-  personName,
-  personLabel,
-  context,
-}: {
-  readonly roleKey: string;
-  readonly personName: string;
-  readonly personLabel: string;
-  /** The Thread's; a tab with no Thread has no cache to mark. */
-  readonly context?: ThreadContext;
-}): ReactNode {
-  return (
-    <div className="timeline-to">
-      <span aria-hidden="true">To</span>
-      {context && <CacheMark context={context} />}
-      <span className="timeline-to-shown">
-        <PersonAvatar roleKey={roleKey} name={personName} size="xs" />
-        <strong>{personLabel}</strong>
-      </span>
-      <span className="timeline-to-place">, in this Thread</span>
     </div>
   );
 }

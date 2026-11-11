@@ -2243,7 +2243,7 @@
   font: 700 11px/1 var(--font-sans);
 }
 
-/* ---- the timeline: every Thread as a chapter of one log, over one composer */
+/* ---- a conversation's tab: the person's log over the To line and the composer */
 .timeline-head {
   display: flex;
   flex: none;
@@ -2303,7 +2303,7 @@
   padding: 14px 16px;
 }
 
-/* A Task's tab shows one Thread, so it needs no box: it sits on the plain surface, as any Thread. */
+/* A tab showing one Thread needs no box: it sits on the plain surface, as any Thread. */
 .timeline-view-thread {
   background: var(--surface);
 }
@@ -2316,7 +2316,7 @@
   padding: 0;
 }
 
-/* Each Thread is a box of its own; the ones behind you fold to a line. */
+/* With several Threads in a tab, each is a box of its own; the ones behind you fold to a line. */
 .chapter {
   flex: none;
   border: 1px solid var(--border);

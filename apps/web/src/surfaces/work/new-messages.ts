@@ -95,23 +95,10 @@ export function newMessagesWords(count: number): string {
 }
 
 /**
- * Watches the Threads' logs, read here and not in their chapters, as a folded chapter's messages
- * count too. The queries are the chapters' own, so nothing is read twice.
+ * What landed out of view in each of the Threads, watching their logs here and not in their
+ * chapters, as a folded chapter's messages count too. The queries are the chapters' own, so nothing
+ * is read twice.
  */
-export function useNewMessages(
-  threadIds: readonly string[],
-  inView: (threadId: string) => boolean,
-): NewMessages {
-  const details = useDetails().on;
-  const watchedLogs = useWatchedLogs(threadIds, inView);
-  const [before, setBefore] = useState(NO_NEW_MESSAGES);
-  // Both a log landing and the reader coming into view change this, here, before it is drawn.
-  const now = withNewMessagesRead(withArrivals(before, watchedLogs, details), inView);
-  if (now !== before) setBefore(now);
-  return now;
-}
-
-/** As `useNewMessages`, a count for each Thread. */
 export function useNewMessagesByThread(
   threadIds: readonly string[],
   inView: (threadId: string) => boolean,

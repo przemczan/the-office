@@ -4654,7 +4654,8 @@ async function addTaskToInitiative(
 }
 
 // The engine replays the last sessions in e2e/sessions.jsonl: Bob writes the outcome while the
-// Initiative is shaped, then proposes a new one once it is active, and answers in a chosen Thread.
+// Initiative is shaped, then proposes a new one once it is active, and answers in a chosen Thread
+// of his tab.
 test(
   "the user shapes an Idea into an Initiative with Bob, adds its Tasks, confirms it, applies Bob's Proposal, folds a block, writes in a chosen Thread and drops it",
   { tag: "@full" },
@@ -4874,14 +4875,36 @@ test(
       await expect(attachments.getByText("1 Attachment")).toBeVisible();
       await expect(attachments.getByText("Usage export sketch")).toBeHidden();
 
-      // The page has no rail, no tabs and no Needs you card, only the timeline's one Details switch.
+      // The page has no rail, no record tabs and no Needs you card. Its conversation is a tab per
+      // person, Bob's first and open on his Shaping Thread, under one Details switch.
       await expect(page.getByRole("region", { name: /^Pipeline · / })).toHaveCount(0);
       await expect(page.getByRole("tab", { name: "Overview" })).toHaveCount(0);
       await expect(page.getByRole("region", { name: "Needs you" })).toHaveCount(0);
       await expect(detailsSwitch(conversation)).toHaveCount(1);
+      const tabs = conversation.locator(".conversation-tabs").getByRole("tab");
+      await expect(tabs).toHaveText([/Bob/, /Jan/]);
+      await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+      await expect(conversation.getByRole("heading", { name: "Bob · CTO" })).toBeVisible();
+      await expect(
+        conversation.getByText("Shapes the outcome and the Tasks with you"),
+      ).toBeVisible();
 
-      // The To line starts on the newest Thread, and the user chooses an older one, which unfolds
-      // and goes in the address; Bob answers there.
+      // Jan has no Thread here yet: planning starts from the head, and the address names his tab.
+      await tabs.filter({ hasText: "Jan" }).click();
+      await expect(page).toHaveURL(/initiativeThread=planner$/);
+      await expect(conversation.getByRole("heading", { name: "Jan · Planner" })).toBeVisible();
+      await expect(
+        conversation.getByText(
+          "No planning on Usage exports for customers yet. Plan the Initiative, in the head, starts it with Jan.",
+        ),
+      ).toBeVisible();
+      await expect(message).toHaveCount(0);
+      await tabs.filter({ hasText: "Bob" }).click();
+      await expect(page).toHaveURL(/initiativeThread=cto$/);
+
+      // With a second Thread of Bob's, his tab folds the older one; the To line starts on the
+      // newest, and the user chooses the older one, which unfolds and goes in the address. Bob
+      // answers there.
       const pricingThreadId = await seedOlderInitiativeThread(initiativeId, "Pricing");
       await page.reload();
       const toLine = conversation.getByLabel("To", { exact: true });
@@ -4933,6 +4956,11 @@ test(
         page.getByText(
           "This Initiative was dropped, so you can read this conversation but not continue it.",
         ),
+      ).toBeVisible();
+      await expect(message).toHaveCount(0);
+      await tabs.filter({ hasText: "Jan" }).click();
+      await expect(
+        conversation.getByText("No conversation with Jan on Usage exports for customers."),
       ).toBeVisible();
     } finally {
       await Promise.all([repository.remove(), dashboardRepository.remove()]);

@@ -12,7 +12,6 @@ import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { roleQueries } from "../../api/people.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
-import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { roleFirstName, roleName } from "../../shell/person-name.ts";
 import {
   CloseConversation,
@@ -20,6 +19,7 @@ import {
   useConversationDrawer,
   useDrawerFollowsAddress,
 } from "./conversation-drawer.tsx";
+import { TabLabel } from "./conversation-parts.tsx";
 import {
   emptyThreadWords,
   firstTab,
@@ -207,27 +207,5 @@ function WorkingNow({
         Open the Stage history
       </TextButton>
     </div>
-  );
-}
-
-function TabLabel({
-  roleKey,
-  name,
-  working,
-}: {
-  readonly roleKey: string;
-  readonly name: string;
-  readonly working: boolean;
-}): ReactNode {
-  return (
-    <span className="conversation-tab">
-      <PersonAvatar roleKey={roleKey} name={name} size="xs" />
-      {name}
-      {working && (
-        <span className="live-dot" title={`${name}'s Stage runs now`}>
-          <span className="visually-hidden">, working now</span>
-        </span>
-      )}
-    </span>
   );
 }

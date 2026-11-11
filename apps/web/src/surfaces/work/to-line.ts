@@ -1,4 +1,4 @@
-/** The Thread an Initiative's composer writes to, and what moves it. */
+/** The Thread a person's tab on an Initiative writes to, among their Threads, and what moves it. */
 export interface ToLine {
   readonly threadId: string | undefined;
   /** The newest Thread when it was last set: only a newer one takes the line to it. */
