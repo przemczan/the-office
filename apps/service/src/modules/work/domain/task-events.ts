@@ -81,9 +81,15 @@ export class TaskReordered extends DomainEvent {
   }
 }
 
-/** The Planner wrote the Plan; it shows as proposed until the user confirms it. */
+/**
+ * The Planner wrote the Plan; it shows as proposed until the user confirms it. `leftReady` is the move back to Planning it made on a Ready Task,
+ * published after this event, as `TaskPlanSaved`'s.
+ */
 export class TaskPlanProposed extends DomainEvent {
-  constructor(readonly taskId: string) {
+  constructor(
+    readonly taskId: string,
+    readonly leftReady: TaskStateChanged | undefined,
+  ) {
     super();
   }
 }
@@ -124,8 +130,12 @@ export class TaskPlanConfirmed extends DomainEvent {
   }
 }
 
+/** As `TaskPlanProposed`, for the Definition of Done. */
 export class TaskDefinitionOfDoneProposed extends DomainEvent {
-  constructor(readonly taskId: string) {
+  constructor(
+    readonly taskId: string,
+    readonly leftReady: TaskStateChanged | undefined,
+  ) {
     super();
   }
 }
@@ -146,10 +156,12 @@ export class TaskDefinitionOfDoneConfirmed extends DomainEvent {
   }
 }
 
+/** As `TaskPlanProposed`, for a Pipeline. */
 export class TaskPipelineProposed extends DomainEvent {
   constructor(
     readonly taskId: string,
     readonly pipelineId: string,
+    readonly leftReady: TaskStateChanged | undefined,
   ) {
     super();
   }

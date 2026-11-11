@@ -108,6 +108,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     autoMode: task.autoMode,
     initiativePlanningThreadId: task.initiativePlanningThreadId ?? null,
     markedPlanned: task.markedPlanned,
+    hasPlanningThread: task.hasPlanningThread,
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     initiativeId: task.initiativeId ?? null,

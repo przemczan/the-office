@@ -1,8 +1,8 @@
 import { Link, useRouterState, type LinkProps } from "@tanstack/react-router";
-import { Logo } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { useBrandTone } from "./brand-tone.ts";
-import { PaletteMenu } from "./palette-menu.tsx";
+import { OfficeMark } from "./office-mark.tsx";
+import { ThemeMenu } from "./theme-menu.tsx";
 import { RailItemFace, RailItemTooltip } from "./rail-item.tsx";
 import { useRailExpansion } from "./rail-store.ts";
 
@@ -34,7 +34,7 @@ export function Rail(): ReactNode {
   return (
     <nav id={RAIL_ID} className="shell-rail" aria-label="Surfaces" data-expanded={expanded}>
       <Link to="/now" className="shell-rail-mark" aria-label="The Office">
-        <Logo variant="mark" size={30} tone={useBrandTone()} />
+        <OfficeMark size={30} tone={useBrandTone()} />
         {expanded && <span className="shell-rail-name">The Office</span>}
       </Link>
       {SURFACES.map((surface) => (
@@ -42,7 +42,7 @@ export function Rail(): ReactNode {
       ))}
       <span className="shell-rail-spacer" />
       <RailLink surface={SETTINGS} />
-      <PaletteMenu />
+      <ThemeMenu />
       <RailToggle />
     </nav>
   );

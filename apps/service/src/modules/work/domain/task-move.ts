@@ -60,9 +60,10 @@ export function moveProblems(task: Task, { stateChanges, hasWorktree }: MoveGrou
 }
 
 /**
- * A Task that has entered Planning was planned for its Project; a changing Save may have taken it
- * back to Backlog since, so its kept history decides, not its state. A history not kept from the
- * Task's creation can't tell.
+ * A Task that has entered Planning was planned for its Project; it may be Ready or back in Backlog
+ * since (its planning Thread couldn't be opened, or a changing Save took it there before Saves on a
+ * planned Task went back to Planning), so its kept history decides, not its state. A history not
+ * kept from the Task's creation can't tell.
  */
 function planningProblems(task: Task, stateChanges: readonly StateChange[]): string[] {
   const keptFromCreation = stateChanges[0] !== undefined && stateChanges[0].from === undefined;

@@ -90,7 +90,7 @@ A Task's plain-language statement of what must be true when it is done; the Task
 _Avoid_: Acceptance criteria, DoD (in the UI)
 
 **Save** (a Plan or a Definition of Done):
-The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task to Backlog; the same words change nothing.
+The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task back to Planning, or to Backlog when it was never in Planning; the same words change nothing.
 _Avoid_: Save and confirm
 
 **Confirm** (a Plan or a Definition of Done):
@@ -456,9 +456,9 @@ A Caretaker Thread's switch, confirmed by the user, under which the Caretaker ca
 _Avoid_: Admin mode, unlock, elevated mode
 
 **Palette**:
-The set of colours the app is shown in, picked in Settings › Appearance and kept in this browser: Light, Dark, Graphite or Paper, or following the system. Graphite counts as dark and Paper as light. It changes colours only, never layout.
+The set of colours the app is shown in, picked in Settings › Appearance or from the rail's Theme menu and kept in this browser: Light, Dark, Graphite or Paper, or following the system. Graphite counts as dark and Paper as light. It changes colours only, never layout.
 _Avoid_: Theme, mode, colour scheme
 
 **Density**:
-How much air the app is shown with, picked in Settings › Appearance and kept in this browser: Compact, Comfortable or Relaxed. It changes spacing, control heights and text sizes only, never colours.
+How much air the app is shown with, picked in Settings › Appearance or from the rail's Theme menu and kept in this browser: Compact, Comfortable or Relaxed. It changes spacing, control heights and text sizes only, never colours.
 _Avoid_: Size, zoom, scale

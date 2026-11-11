@@ -27,7 +27,10 @@ import {
 import { rewriteInInitiative, startPlanningInInitiative } from "../domain/initiative-planning.js";
 import {
   TaskMarkedPlanned,
+  type TaskDefinitionOfDoneProposed,
   type TaskDefinitionOfDoneSaved,
+  type TaskPipelineProposed,
+  type TaskPlanProposed,
   type TaskPlanSaved,
 } from "../domain/task-events.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
@@ -53,6 +56,10 @@ import { IdeaService } from "./idea-service.js";
  * confirms them and marks the Task Ready. Planning is optional: the user may save and confirm
  * both parts in Backlog and mark the Task Ready from there.
  */
+
+/** A part the user saved, or the Planner wrote; either may take a Ready Task out of Ready. */
+type Saved = TaskPlanSaved | TaskDefinitionOfDoneSaved;
+type Proposed = TaskPlanProposed | TaskDefinitionOfDoneProposed | TaskPipelineProposed;
 
 /** How the Planner joins the planning Thread: on the user's first message, or at once. */
 type PlannerJoins = "on-first-message" | "at-once";
@@ -221,7 +228,10 @@ export class PlanningService {
     return this.write(taskId, rewriteFrom, (task) => proposePlan(task, writing));
   }
 
-  /** The user's Plan: unconfirmed once changed, and a Ready Task goes back to Backlog. */
+  /**
+   * The user's Plan: unconfirmed once changed, and a Ready Task goes back to Planning, or to
+   * Backlog when it has no planning Thread.
+   */
   async savePlan(taskId: string, writing: PlanWriting): Promise<Task> {
     return this.save(taskId, (task) => savePlan(task, writing));
   }
@@ -293,16 +303,16 @@ export class PlanningService {
   }
 
   /**
-   * The Planner's write of a part: onto a Task in Planning, or, from the Initiative's planning
-   * Thread, rewriting an already planned one in the same save, then publishing the part's event and
-   * the moves it made, so the queue lets go of a Task that left Ready.
+   * The Planner's write of a part: onto a Task in Planning or Ready, which goes back to Planning, or,
+   * from the Initiative's planning Thread, rewriting an already planned one in the same save, then
+   * publishing the part's event and the moves it made, so the queue lets go of a Task that left Ready.
    */
-  private async write<Event extends DomainEvent>(
+  private async write<Event extends Proposed>(
     taskId: string,
     rewriteFrom: SessionInitiativeThread | undefined,
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<Task> {
-    if (!rewriteFrom) return this.update(taskId, change);
+    if (!rewriteFrom) return this.save(taskId, change);
     const { task, event } = await this.initiatives.changeTask(
       rewriteFrom.initiativeId,
       taskId,
@@ -315,8 +325,8 @@ export class PlanningService {
     return task;
   }
 
-  /** As `update`, then the move back to Backlog a save made on a Ready Task. */
-  private async save<Event extends TaskPlanSaved | TaskDefinitionOfDoneSaved>(
+  /** As `update`, then the move out of Ready a changed part made on a Ready Task. */
+  private async save<Event extends Saved | Proposed>(
     taskId: string,
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<Task> {

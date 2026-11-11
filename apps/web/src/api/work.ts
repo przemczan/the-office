@@ -444,7 +444,10 @@ export function makeAPlan(id: string, autoMode: boolean): Promise<Task> {
  */
 export type PlanSaving = Required<Omit<PlanChange, "estimatedTokens">>;
 
-/** Save: a change leaves the Plan unconfirmed, and moves a Ready Task to Backlog. */
+/**
+ * Save: a change leaves the Plan unconfirmed, and moves a Ready Task back to Planning, or to
+ * Backlog when it has no planning Thread.
+ */
 export function savePlan(id: string, plan: PlanSaving): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/plan`, plan, taskSchema);
 }

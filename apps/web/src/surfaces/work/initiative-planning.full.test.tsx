@@ -19,6 +19,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     id,
     state: "planning",
     markedPlanned: false,
+    hasPlanningThread: false,
     initiativeId: INITIATIVE.id,
     initiativePlanningThreadId: PLANNING_THREAD,
     ...fields,

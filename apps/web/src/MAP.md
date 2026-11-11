@@ -61,9 +61,9 @@
 - `markdown-text.fixtures.tsx`: rendered, documentOf
 - `markdown-text.tsx`: MarkdownText, MarkdownDocument
 - `menu-placement.ts`: Box, Size, Placement, menuPlacement
+- `office-mark.tsx`: OfficeMark
 - `open-page-chip.tsx`: OpenPageChip
 - `page-heading.tsx`: PageHeading, usePageHeadingState, PageHeadingProvider, usePageHeading
-- `palette-menu.tsx`: PaletteMenu
 - `person-avatar.tsx`: PersonAvatar
 - `person-name.ts`: personName, roleName, roleFirstName
 - `person-tag.tsx`: PersonTag, NamedTag
@@ -90,6 +90,7 @@
 - `skill-words.ts`: pinnedVersionLabel, samePinnedVersion, sourceLabel
 - `ssh-host-name.ts`: sshHostName
 - `status-strip.tsx`: StatusStrip
+- `theme-menu.tsx`: ThemeMenu
 - `time.ts`: dayOf, dayAndClockOf, clockOf, sameDay, dayLineWords, momentWords, durationWords, shortDurationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
 - `token-count.tsx`: TokenCount, TokenFigure, TokenMeter
@@ -106,7 +107,7 @@
 - `use-placed-list.ts`: usePlacedList
 - `use-tab-visible.ts`: useTabVisible
 - `user-activity.ts`: pageAt, useReportingActivity
-- Tests: engine-words.full.test.ts, mark-colours.full.test.ts, markdown-text.full.test.tsx, markdown-text.test.tsx, menu-placement.full.test.ts, person-avatar.full.test.tsx, project-mark.full.test.tsx, rail-store.full.test.ts, role-card-words.full.test.ts, secret-value.test.ts, skill-uses.full.test.ts, status-strip.full.test.tsx, time.full.test.ts, token-words.full.test.ts, unified-diff.full.test.ts, user-activity.full.test.ts
+- Tests: engine-words.full.test.ts, mark-colours.full.test.ts, markdown-text.full.test.tsx, markdown-text.test.tsx, menu-placement.full.test.ts, office-mark.test.tsx, person-avatar.full.test.tsx, project-mark.full.test.tsx, rail-store.full.test.ts, role-card-words.full.test.ts, secret-value.test.ts, skill-uses.full.test.ts, status-strip.full.test.tsx, time.full.test.ts, token-words.full.test.ts, unified-diff.full.test.ts, user-activity.full.test.ts
 
 ### shell/attachments/
 

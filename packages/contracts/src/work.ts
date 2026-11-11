@@ -242,6 +242,12 @@ export const taskSchema = newTaskSchema.extend({
   initiativePlanningThreadId: z.uuid().nullable(),
   /** Whether the Planner marked it planned since it last moved to Planning. */
   markedPlanned: z.boolean(),
+  /**
+   * Whether it has a planning Thread, its own or its Initiative's, from its move to Planning. A
+   * changing Save takes a Ready Task that has one back to Planning, and one that hasn't (marked
+   * Ready from Backlog) to Backlog.
+   */
+  hasPlanningThread: z.boolean(),
   /** The Tasks that must be Done before it can start, in the order added; a Dropped one no longer blocks. */
   blockedBy: z.array(z.uuid()),
   originIdeaId: z.uuid().nullable(),

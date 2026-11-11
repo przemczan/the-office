@@ -995,6 +995,78 @@ test(
 );
 
 test(
+  "a narrow card planning in auto mode wraps its note and keeps the mark inside the card",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Narrow planning card", "NP");
+    const task = await createdTask(page, project, "Narrow planning");
+    await queryOfficeDatabase(
+      `update tasks set state = 'planning', auto_mode = true where id = $1`,
+      [task.id],
+    );
+    // Only the Caretaker is sure to be hired here; whoever answers shows the mark the same way.
+    const thread = await seedWaitingThread(task.id, "caretaker");
+
+    await page.goto("/work");
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Narrow planning card" }).click();
+    const card = page.getByRole("article", { name: task.title });
+    await moveThreadTo(page, thread, "answering", "Planning");
+    const mark = card.locator(".working-mark");
+    await expect(mark).toBeVisible();
+    const note = card.locator(".board-card-note");
+    await expect(note).toHaveText(/, in auto mode$/);
+
+    const foot = card.locator(".board-card-foot");
+    const markParts = [mark.locator(".live-dot"), mark.locator(".working-mark-avatars")];
+    const lineHeight = (await mark.boundingBox())?.height ?? 0;
+    // The mark spilled only while the note fit on one line but left too little for the mark, a span
+    // of a few board widths, so the board grows in steps smaller than the mark: from its narrowest
+    // columns, where the note wraps, to columns wide enough for the note and the mark on one line.
+    let noteWrapped = false;
+    for (let width = 1100; width <= 2500; width += 50) {
+      await page.setViewportSize({ width, height: 900 });
+      const footBox = await foot.boundingBox();
+      const footRight = (footBox?.x ?? 0) + (footBox?.width ?? 0);
+      for (const part of markParts) {
+        const box = await part.boundingBox();
+        expect(box?.width, `at ${width}px`).toBeGreaterThan(0);
+        expect((box?.x ?? 0) + (box?.width ?? 0), `at ${width}px`).toBeLessThanOrEqual(footRight);
+      }
+      expect(
+        await foot.evaluate((element) => element.scrollWidth <= element.clientWidth),
+        `at ${width}px`,
+      ).toBe(true);
+      // All of the note shown, and the mark beside it at the right.
+      expect(
+        await note.evaluate((element) => element.scrollWidth <= element.clientWidth),
+        `at ${width}px`,
+      ).toBe(true);
+      const noteBox = await note.boundingBox();
+      const markBox = await mark.boundingBox();
+      expect(markBox?.x, `at ${width}px`).toBeGreaterThan(
+        (noteBox?.x ?? 0) + (noteBox?.width ?? 0),
+      );
+      noteWrapped ||= (noteBox?.height ?? 0) > lineHeight * 1.5;
+    }
+    // The narrowest board leaves no room for the note on one line: it wrapped onto a second.
+    expect(noteWrapped).toBe(true);
+
+    // Where the mark used to spill past the card's edge.
+    await page.setViewportSize({ width: 1950, height: 900 });
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1950-planning-card.png") });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1950-planning-card.png") });
+    await page.emulateMedia({ colorScheme: "light" });
+
+    // Nothing stays behind for the tests alongside: nobody answering.
+    await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [thread]);
+    await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [task.id]);
+  },
+);
+
+test(
   "a Task's priority and Drop are in its menu, and the Project page counts its Tasks",
   { tag: "@full" },
   async ({ page }) => {

@@ -86,13 +86,89 @@ describe("proposePlan", () => {
     }
   });
 
-  it("refuses outside Planning and an empty Plan, with every reason", () => {
-    expect(() => proposePlan(aTask({ state: "ready" }), { plan: " " })).toThrow(
+  it("refuses outside Planning and Ready and an empty Plan, with every reason", () => {
+    expect(() => proposePlan(aTask({ state: "backlog" }), { plan: " " })).toThrow(
       new TaskRefused([
-        "The Plan is proposed while the Task is in Planning; this one is in Ready.",
+        "The Plan is proposed while the Task is in Planning or Ready, before it starts; this one is in Backlog.",
         "The Plan can't be empty.",
       ]),
     );
+  });
+});
+
+describe("the Planner's writes on a Ready Task", () => {
+  const byThePlanner = { kind: "person", roleKey: "planner" };
+  const ready = aPlannedTask({
+    state: "ready",
+    markedPlanned: true,
+    autoMode: true,
+    initiativePlanningThreadId: "initiative-thread",
+  });
+
+  it("takes it back to Planning in the same save, moved by the Planner, the Plan Not confirmed", () => {
+    const change = proposePlan(ready, { plan: "A Plan the user asked to change." });
+
+    expect(change?.task).toMatchObject({
+      state: "planning",
+      plan: "A Plan the user asked to change.",
+      planConfirmed: false,
+      definitionOfDoneConfirmed: true,
+      markedPlanned: false,
+      autoMode: true,
+      initiativePlanningThreadId: undefined,
+      hasPlanningThread: true,
+    });
+    expect(change?.event.leftReady).toBeInstanceOf(TaskStateChanged);
+    expect(change?.event.leftReady).toMatchObject({ from: "ready", to: "planning" });
+    expect(change?.stateChange).toMatchObject({
+      from: "ready",
+      to: "planning",
+      by: byThePlanner,
+    });
+  });
+
+  it("does the same for the Definition of Done and a Pipeline", () => {
+    const definitionOfDone = proposeDefinitionOfDone(ready, ["A statement the user asked for."]);
+    const pipeline = proposePipeline(ready, { pipelineId: "quick-fix", reason: "One change." });
+
+    expect(definitionOfDone?.task).toMatchObject({
+      state: "planning",
+      definitionOfDoneConfirmed: false,
+      planConfirmed: true,
+      markedPlanned: false,
+    });
+    expect(definitionOfDone?.event.leftReady).toMatchObject({ from: "ready", to: "planning" });
+    expect(definitionOfDone?.stateChange).toMatchObject({ to: "planning", by: byThePlanner });
+    expect(pipeline?.task).toMatchObject({ state: "planning", markedPlanned: false });
+    expect(pipeline?.event.leftReady).toMatchObject({ from: "ready", to: "planning" });
+    expect(pipeline?.stateChange).toMatchObject({ to: "planning", by: byThePlanner });
+  });
+
+  it("moves nothing when the write changes nothing", () => {
+    expect(proposePlan(ready, { plan: ready.plan })).toBeUndefined();
+    expect(proposeDefinitionOfDone(ready, [...ready.definitionOfDone])).toBeUndefined();
+  });
+
+  it("leaves a Task in Planning in Planning, publishing no move", () => {
+    const change = proposePlan(aPlannedTask({ markedPlanned: true }), { plan: "Changed." });
+
+    expect(change?.task).toMatchObject({ state: "planning", markedPlanned: false });
+    expect(change?.event.leftReady).toBeUndefined();
+    expect(change?.stateChange).toBeUndefined();
+  });
+
+  it("refuses a Task that has started, is Done or is Dropped, with the reason", () => {
+    for (const state of ["in-progress", "done", "dropped"] as const) {
+      expect(() => proposePlan(aPlannedTask({ state }), { plan: "Changed." })).toThrow(
+        /^The Plan is proposed while the Task is in Planning or Ready, before it starts; this one is in /,
+      );
+      expect(() => proposeDefinitionOfDone(aPlannedTask({ state }), ["Changed."])).toThrow(
+        TaskRefused,
+      );
+      expect(() =>
+        proposePipeline(aPlannedTask({ state }), { pipelineId: "full", reason: "Fits." }),
+      ).toThrow(TaskRefused);
+    }
   });
 });
 
@@ -137,26 +213,46 @@ describe("savePlan", () => {
     );
   });
 
-  it("moves a Ready Task to Backlog, keeping the move as the user's", () => {
-    const change = savePlan(aPlannedTask({ state: "ready" }), { plan: "Edited." });
+  it("moves a planned Ready Task back to Planning, keeping its Thread and auto mode, the move the user's", () => {
+    const ready = aPlannedTask({
+      state: "ready",
+      markedPlanned: true,
+      autoMode: true,
+      initiativePlanningThreadId: "initiative-thread",
+    });
+
+    const change = savePlan(ready, { plan: "Edited." });
 
     expect(change?.task).toMatchObject({
       plan: "Edited.",
       planConfirmed: false,
-      state: "backlog",
+      state: "planning",
       definitionOfDoneConfirmed: true,
+      markedPlanned: false,
+      autoMode: true,
+      initiativePlanningThreadId: "initiative-thread",
     });
     expect(change?.event.leftReady).toBeInstanceOf(TaskStateChanged);
     expect(change?.event.leftReady).toMatchObject({
       taskId: "task-1",
       from: "ready",
-      to: "backlog",
+      to: "planning",
     });
     expect(change?.stateChange).toMatchObject({
       from: "ready",
-      to: "backlog",
+      to: "planning",
       by: { kind: "user" },
     });
+  });
+
+  it("moves a Ready Task never planned (marked Ready from Backlog) to Backlog", () => {
+    const change = savePlan(aPlannedTask({ state: "ready", hasPlanningThread: false }), {
+      plan: "Edited.",
+    });
+
+    expect(change?.task).toMatchObject({ state: "backlog", planConfirmed: false });
+    expect(change?.event.leftReady).toMatchObject({ from: "ready", to: "backlog" });
+    expect(change?.stateChange).toMatchObject({ to: "backlog", by: { kind: "user" } });
   });
 
   it("is the only way back from Ready: nobody can ask for that move", () => {
@@ -222,10 +318,10 @@ describe("proposeDefinitionOfDone", () => {
     );
   });
 
-  it("refuses outside Planning", () => {
+  it("refuses outside Planning and Ready", () => {
     expect(() => proposeDefinitionOfDone(aTask(), ["One."])).toThrow(
       new TaskRefused([
-        "The Definition of Done is proposed while the Task is in Planning; this one is in Backlog.",
+        "The Definition of Done is proposed while the Task is in Planning or Ready, before it starts; this one is in Backlog.",
       ]),
     );
   });
@@ -253,16 +349,27 @@ describe("saveDefinitionOfDone", () => {
     expect(saveDefinitionOfDone(unconfirmed, [...unconfirmed.definitionOfDone])).toBeUndefined();
   });
 
-  it("moves a Ready Task to Backlog, keeping the move as the user's", () => {
-    const change = saveDefinitionOfDone(aPlannedTask({ state: "ready" }), ["Mine."]);
+  it("moves a planned Ready Task back to Planning, and one never planned to Backlog, the user's moves", () => {
+    const planned = saveDefinitionOfDone(aPlannedTask({ state: "ready" }), ["Mine."]);
+    const neverPlanned = saveDefinitionOfDone(
+      aPlannedTask({ state: "ready", hasPlanningThread: false }),
+      ["Mine."],
+    );
 
-    expect(change?.task).toMatchObject({
-      state: "backlog",
+    expect(planned?.task).toMatchObject({
+      state: "planning",
       definitionOfDoneConfirmed: false,
       planConfirmed: true,
+      markedPlanned: false,
     });
-    expect(change?.event.leftReady).toMatchObject({ from: "ready", to: "backlog" });
-    expect(change?.stateChange).toMatchObject({ to: "backlog", by: { kind: "user" } });
+    expect(planned?.event.leftReady).toMatchObject({ from: "ready", to: "planning" });
+    expect(planned?.stateChange).toMatchObject({ to: "planning", by: { kind: "user" } });
+    expect(neverPlanned?.task).toMatchObject({
+      state: "backlog",
+      definitionOfDoneConfirmed: false,
+    });
+    expect(neverPlanned?.event.leftReady).toMatchObject({ from: "ready", to: "backlog" });
+    expect(neverPlanned?.stateChange).toMatchObject({ to: "backlog", by: { kind: "user" } });
   });
 
   it("refuses no statements, and once the Task has started", () => {

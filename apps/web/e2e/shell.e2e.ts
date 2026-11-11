@@ -227,7 +227,15 @@ test.describe("the palette", { tag: "@full" }, () => {
 
     await page.getByRole("button", { name: "Theme" }).click();
     const menu = page.getByRole("menu");
-    await expect(menu.getByRole("button")).toHaveText(["Light", "Dark", "Graphite", "Paper"]);
+    await expect(menu.getByRole("button")).toHaveText([
+      "Light",
+      "Dark",
+      "Graphite",
+      "Paper",
+      "Compact",
+      "Comfortable",
+      "Relaxed",
+    ]);
     // Each palette shows in its own colours, whatever palette is shown.
     const swatchColours = await menu
       .locator(".palette-swatch")
@@ -259,6 +267,50 @@ test.describe("the palette", { tag: "@full" }, () => {
 
     await expect(other.locator("html")).toHaveAttribute("data-palette", "paper");
     await expect(other.locator("html")).toHaveAttribute("data-theme", "light");
+  });
+});
+
+test.describe("the density", { tag: "@full" }, () => {
+  test.use({ colorScheme: "light" });
+
+  test("chosen in the rail, it is shown at once, kept, and chosen in Settings › Appearance", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/now");
+    const other = await context.newPage();
+    await other.goto("/now");
+    const html = page.locator("html");
+    await expect(html).toHaveAttribute("data-density", "comfortable");
+
+    await page.getByRole("button", { name: "Theme" }).click();
+    const menu = page.getByRole("menu");
+    await expect(menu.locator(".menu-choice:has(svg)")).toHaveText(["Light", "Comfortable"]);
+    await menu.getByRole("button", { name: "Compact" }).click();
+
+    await expect(html).toHaveAttribute("data-density", "compact");
+    await expect(html).toHaveAttribute("data-palette", "light");
+    await expect(other.locator("html")).toHaveAttribute("data-density", "compact");
+    await page.reload();
+    await expect(html).toHaveAttribute("data-density", "compact");
+    await page.getByRole("button", { name: "Theme" }).click();
+    await expect(page.getByRole("menu").locator(".menu-choice:has(svg)")).toHaveText([
+      "Light",
+      "Compact",
+    ]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-theme-menu-compact.png") });
+    await page.keyboard.press("Escape");
+
+    await page.goto("/settings/appearance");
+    const density = page.getByRole("group", { name: "Density" });
+    await expect(density.getByRole("button", { name: "Compact" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(density.getByRole("button", { name: "Comfortable" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 });
 

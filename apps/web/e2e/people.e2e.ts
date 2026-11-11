@@ -5920,8 +5920,7 @@ test(
           to_state: "ready",
           changed_by: expect.objectContaining({ kind: "auto-mode" }),
         },
-        { from_state: "ready", to_state: "backlog", changed_by: planner },
-        { from_state: "backlog", to_state: "planning", changed_by: planner },
+        { from_state: "ready", to_state: "planning", changed_by: planner },
         {
           from_state: "planning",
           to_state: "ready",

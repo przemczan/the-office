@@ -845,8 +845,15 @@
     {
       "idx": 120,
       "version": "7",
-      "when": 1794387816164,
-      "tag": "0120_project_commands",
+      "when": 1794388399094,
+      "tag": "0120_task_has_planning_thread",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1794388500000,
+      "tag": "0121_project_commands",
       "breakpoints": true
     }
   ]

@@ -25,6 +25,7 @@ const MENTIONED_TASK: Task = {
   autoMode: false,
   initiativePlanningThreadId: null,
   markedPlanned: false,
+  hasPlanningThread: false,
   planConfirmed: false,
   filesToChange: [],
   estimatedTokens: null,

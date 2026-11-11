@@ -156,34 +156,34 @@
 }
 
 /* A basis of 0 keeps the mark on the foot's line: it takes what is left at the right and cuts a long
-   Stage name short rather than wrapping. */
+   Stage name short rather than wrapping. It never gets narrower than the mark's minimum width, its
+   avatars, live dot and "+N", so they stay inside the card. */
 .board-card-working {
   display: flex;
   flex: 1 1 0;
   justify-content: flex-end;
-  min-width: 0;
   cursor: pointer;
 }
 
 /* The tooltip's trigger wraps the mark, so it has to shrink too. */
 .board-card-working > .tooltip-trigger {
   display: flex;
-  min-width: 0;
 }
 
+/* A grid, so the Stage name's column counts nothing towards the mark's minimum width: only the name
+   gives way, down to nothing. */
 .working-mark {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
   align-items: center;
-  min-width: 0;
   color: var(--fg-3);
 }
 
-.working-mark > :not(.working-mark-stage) {
-  flex: none;
+.working-mark:has(> .working-mark-stage) {
+  grid-template-columns: minmax(0, auto);
 }
 
 .working-mark-stage {
-  min-width: 0;
   margin-right: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2625,6 +2625,11 @@
 
 .board-card-note {
   color: var(--fg-3);
+}
+
+/* Beside a note the mark keeps its line: the note gives way and wraps its words instead. */
+.board-card-foot:has(> .board-card-note) {
+  flex-wrap: nowrap;
 }
 
 .task-part-actions {

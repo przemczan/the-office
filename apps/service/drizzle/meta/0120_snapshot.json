@@ -1,5 +1,5 @@
 {
-  "id": "9cab562a-c33a-4e96-b8d7-fc4d24929afa",
+  "id": "043d6cc2-416e-4519-9806-148ebb3719f2",
   "prevId": "91fd705c-d855-4c65-8cac-67b8ec08e3b4",
   "version": "7",
   "dialect": "postgresql",
@@ -2769,12 +2769,23 @@
           "primaryKey": false,
           "notNull": true
         },
-        "commands": {
-          "name": "commands",
-          "type": "jsonb",
+        "build_command": {
+          "name": "build_command",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
+          "notNull": true
+        },
+        "lint_command": {
+          "name": "lint_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "test_command": {
+          "name": "test_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
         "install_inputs": {
           "name": "install_inputs",
@@ -4347,6 +4358,13 @@
         },
         "marked_planned": {
           "name": "marked_planned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "has_planning_thread": {
+          "name": "has_planning_thread",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

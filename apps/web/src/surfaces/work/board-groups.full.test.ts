@@ -31,6 +31,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     autoMode: false,
     initiativePlanningThreadId: null,
     markedPlanned: false,
+    hasPlanningThread: false,
     planConfirmed: false,
     filesToChange: [],
     estimatedTokens: null,

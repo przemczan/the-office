@@ -7,13 +7,12 @@ import { InitiativeRefused } from "./initiative-refused.js";
 import {
   commandLines,
   pipelineLibraryLines,
-  PLANNER,
+  THE_PLANNER,
   type PlanningPipeline,
   type PlanningProject,
 } from "./planning.js";
 import type { Task, TaskState } from "./task.js";
-import { startPlanningTask, type TaskChange } from "./task-changes.js";
-import type { StateChange, StateChangeCause } from "./state-change.js";
+import { startPlanningTask, withStateChange, type TaskChange } from "./task-changes.js";
 import { TaskRewrittenInInitiative, TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
@@ -188,8 +187,8 @@ export function rewritingProblems(
 /**
  * The Planner rewrites a part of an already planned Task from the Initiative's latest planning
  * Thread `threadId` (spec §2.1), in one save with `write`, the part's own change: a Ready Task goes
- * back to Backlog as a changed part takes it there, then into Planning in this Thread, both moves
- * the Planner's; a Task in Planning from an earlier planning Thread is planned in this one. Either
+ * back to Planning in this Thread, in one move of the Planner's; a Task in Planning from an earlier
+ * planning Thread is planned in this one. Either
  * is no longer marked planned, in the Initiative's auto mode, so mark_planned accepts it again.
  * Undefined when `write` changes nothing, which moves nothing. Refused with the reasons of
  * `rewritingProblems`, and from an earlier planning Thread.
@@ -213,33 +212,26 @@ export function rewriteInInitiative<Event extends DomainEvent>(
     autoMode: initiative.planningAutoMode,
     initiativePlanningThreadId: threadId,
     markedPlanned: false,
+    hasPlanningThread: true,
   };
   const written = write(replanned);
   if (!written) return undefined;
-  const at = written.event.occurredAt;
-  const byThePlanner: StateChangeCause = { kind: "person", roleKey: PLANNER };
-  const moves =
-    task.state === "ready"
-      ? [
-          { from: "ready" as const, to: "backlog" as const },
-          { from: "backlog" as const, to: "planning" as const },
-        ]
-      : [];
-  const [left, ...later] = moves.map(({ from, to }): StateChange => ({
-    from,
-    to,
-    at,
-    by: byThePlanner,
-  }));
-  return {
-    task: written.task,
-    event: new TaskRewrittenInInitiative(
-      task.id,
-      written.event,
-      moves.map(({ from, to }) => new TaskStateChanged(task.id, from, to)),
-    ),
-    ...(left === undefined ? {} : { earlierStateChanges: [left], stateChange: later[0] }),
-  };
+  if (task.state !== "ready") {
+    return {
+      task: written.task,
+      event: new TaskRewrittenInInitiative(task.id, written.event, []),
+    };
+  }
+  return withStateChange(
+    {
+      task: written.task,
+      event: new TaskRewrittenInInitiative(task.id, written.event, [
+        new TaskStateChanged(task.id, "ready", "planning"),
+      ]),
+    },
+    task,
+    THE_PLANNER,
+  );
 }
 
 /** The Tasks inside its Initiative it waits for that are neither planned, Ready or beyond, nor Dropped. */

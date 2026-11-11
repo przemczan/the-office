@@ -29,6 +29,7 @@ const TASK = {
   initiativeId: INITIATIVE_ID,
   initiativePlanningThreadId: PLANNING_THREAD,
   markedPlanned: false,
+  hasPlanningThread: false,
 } as Task;
 
 const PLANNERS_TAB: ConversationTab = {

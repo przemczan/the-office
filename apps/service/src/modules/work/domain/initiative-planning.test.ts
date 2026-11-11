@@ -151,6 +151,7 @@ describe("startPlanningTask", () => {
       state: "planning",
       initiativePlanningThreadId: undefined,
       markedPlanned: false,
+      hasPlanningThread: true,
     });
     expect(change?.stateChange?.by).toEqual({ kind: "user" });
   });
@@ -259,7 +260,7 @@ function rewritten(task: Task) {
 describe("rewriteInInitiative", () => {
   const byThePlanner = { kind: "person", roleKey: "planner" };
 
-  it("takes a Ready Task back to Backlog and into Planning in this Thread, in one save", () => {
+  it("takes a Ready Task back to Planning in this Thread in one move, with no stop in Backlog", () => {
     const ready = aTask({
       ...first,
       state: "ready",
@@ -280,20 +281,15 @@ describe("rewriteInInitiative", () => {
       plan: "A Plan the answer changed.",
       planConfirmed: false,
       definitionOfDoneConfirmed: true,
+      hasPlanningThread: true,
     });
-    expect(change?.earlierStateChanges).toEqual([
-      { from: "ready", to: "backlog", at: expect.any(Date), by: byThePlanner },
-    ]);
     expect(change?.stateChange).toEqual({
-      from: "backlog",
+      from: "ready",
       to: "planning",
       at: expect.any(Date),
       by: byThePlanner,
     });
-    expect(change?.event.moves.map(({ from, to }) => [from, to])).toEqual([
-      ["ready", "backlog"],
-      ["backlog", "planning"],
-    ]);
+    expect(change?.event.moves.map(({ from, to }) => [from, to])).toEqual([["ready", "planning"]]);
   });
 
   it("plans a Task marked planned in an earlier planning Thread in this one, moving nothing", () => {

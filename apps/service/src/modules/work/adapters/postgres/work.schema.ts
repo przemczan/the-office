@@ -103,6 +103,7 @@ export const tasks = pgTable(
     /** The Initiative's planning Thread it is planned in, kept by Conversations; null otherwise. */
     initiativePlanningThreadId: uuid("initiative_planning_thread_id"),
     markedPlanned: boolean("marked_planned").notNull().default(false),
+    hasPlanningThread: boolean("has_planning_thread").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
     pausedByAlarm: boolean("paused_by_alarm").notNull().default(false),

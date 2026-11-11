@@ -360,7 +360,7 @@ async function bothReady() {
 }
 
 describe("rewriting an already planned Task from the planning Thread", () => {
-  it("takes a Ready Task back to Backlog and into Planning here, and auto mode marks it Ready again", async () => {
+  it("takes a Ready Task back to Planning here in one move, and auto mode marks it Ready again", async () => {
     const { first } = await bothReady();
     const published = work.published.length;
 
@@ -379,15 +379,14 @@ describe("rewriting an already planned Task from the planning Thread", () => {
       .slice(published)
       .filter((event): event is TaskStateChanged => event instanceof TaskStateChanged)
       .map(({ from, to }) => [from, to]);
-    expect(moves).toEqual([
-      ["ready", "backlog"],
-      ["backlog", "planning"],
-    ]);
+    expect(moves).toEqual([["ready", "planning"]]);
     const changes = await work.app.get(TaskRepository).stateChangesOf(first.id);
-    expect(changes.slice(-2).map(({ from, to, by }) => ({ from, to, by }))).toEqual([
-      { from: "ready", to: "backlog", by: { kind: "person", roleKey: "planner" } },
-      { from: "backlog", to: "planning", by: { kind: "person", roleKey: "planner" } },
-    ]);
+    expect(changes.at(-1)).toMatchObject({
+      from: "ready",
+      to: "planning",
+      by: { kind: "person", roleKey: "planner" },
+    });
+    expect(changes.at(-2)?.to).toBe("ready");
 
     await call(MARK_PLANNED, { taskId: first.id });
     expect(await read(first.id)).toMatchObject({

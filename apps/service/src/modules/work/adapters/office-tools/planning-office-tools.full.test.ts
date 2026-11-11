@@ -10,6 +10,7 @@ import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
 import { PLANNING_OFFICE_TOOLS } from "../conversations/task-thread-records.js";
 import type { Task } from "../../domain/task.js";
+import { TaskStateChanged } from "../../domain/task-events.js";
 import {
   SessionTasksForTests,
   TaskDecisionsForTests,
@@ -134,7 +135,7 @@ describe("write_plan", () => {
       isError: true,
     });
     expect(dropped).toEqual({
-      text: "The Plan is proposed while the Task is in Planning; this one is in Dropped.",
+      text: "The Plan is proposed while the Task is in Planning or Ready, before it starts; this one is in Dropped.",
       isError: true,
     });
   });
@@ -274,5 +275,81 @@ describe("mark_planned", () => {
       text: "Write the Plan first, with write_plan. Write the Definition of Done first, with write_definition_of_done.",
       isError: true,
     });
+  });
+});
+
+/** The session's Task planned in auto mode and marked Ready by it. */
+async function readyInAutoMode(): Promise<void> {
+  await inAutoMode();
+  await writeTheParts();
+  await call(MARK_PLANNED, {});
+}
+
+describe("on a Ready Task", () => {
+  it("a changing write takes it back to Planning, moved by the Planner, and auto mode marks it Ready again", async () => {
+    await readyInAutoMode();
+    const publishedBefore = work.published.length;
+
+    const written = await call(WRITE_PLAN, { plan: "Keep the path, and the query string too." });
+
+    expect(written.isError).toBe(false);
+    expect(await current()).toMatchObject({
+      state: "planning",
+      planConfirmed: false,
+      definitionOfDoneConfirmed: true,
+      markedPlanned: false,
+      autoMode: true,
+    });
+    expect((await work.app.get(TaskService).stateChangesOf(task.id)).at(-1)).toMatchObject({
+      from: "ready",
+      to: "planning",
+      by: { kind: "person", roleKey: "planner" },
+    });
+
+    const accepted = await call(MARK_PLANNED, {});
+
+    expect(accepted.isError).toBe(false);
+    expect(await current()).toMatchObject({ state: "ready", planConfirmed: true });
+    const moves = work.published
+      .slice(publishedBefore)
+      .filter((event) => event instanceof TaskStateChanged)
+      .filter(({ taskId }) => taskId === task.id)
+      .map(({ from, to }) => [from, to]);
+    expect(moves).toEqual([
+      ["ready", "planning"],
+      ["planning", "ready"],
+    ]);
+  });
+
+  it("moves nothing for a write that changes nothing, and refuses mark_planned while Ready", async () => {
+    await readyInAutoMode();
+
+    await call(WRITE_PLAN, { plan: "Keep the requested path through the sign-in." });
+    const marked = await call(MARK_PLANNED, {});
+
+    expect(await current()).toMatchObject({ state: "ready", planConfirmed: true });
+    expect(marked).toEqual({
+      text: "A Task is marked planned while it is in Planning; this one is in Ready.",
+      isError: true,
+    });
+  });
+
+  it("takes the Definition of Done and a Pipeline back to Planning too, leaving the user to confirm with auto mode off", async () => {
+    await writeTheParts();
+    await call(MARK_PLANNED, {});
+    const planning = work.app.get(PlanningService);
+    await planning.confirmPlan(task.id);
+    await planning.confirmDefinitionOfDone(task.id);
+    await planning.markReady(task.id);
+
+    await call(WRITE_DEFINITION_OF_DONE, { statements: ["The query string is kept too."] });
+    expect(await current()).toMatchObject({ state: "planning", definitionOfDoneConfirmed: false });
+    const markedAgain = await call(MARK_PLANNED, {});
+    await planning.confirmDefinitionOfDone(task.id);
+    await planning.markReady(task.id);
+    await call(PROPOSE_PIPELINE, { pipelineId: "full", why: "It changes code." });
+
+    expect(markedAgain.text).toContain("Auto mode is off: the user confirms");
+    expect(await current()).toMatchObject({ state: "planning", markedPlanned: false });
   });
 });

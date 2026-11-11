@@ -331,11 +331,14 @@ function PlanEditor({
   );
 }
 
-/** Beside Save while the Task is Ready: a change leaves a part unconfirmed, so it can't stay Ready. */
+/**
+ * Beside Save while the Task is Ready: a change leaves a part unconfirmed, so it can't stay Ready,
+ * and goes back to Planning, or to Backlog when it was never planned.
+ */
 function LeavesReadyNote({ task }: { readonly task: Task }): ReactNode {
   const queued = useQueued(task.id) !== undefined;
   if (task.state !== "ready") return null;
-  return <p className="task-part-note">{leavesReadyWords(queued)}</p>;
+  return <p className="task-part-note">{leavesReadyWords(task, queued)}</p>;
 }
 
 /**

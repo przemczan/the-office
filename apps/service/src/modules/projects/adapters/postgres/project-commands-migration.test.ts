@@ -94,10 +94,10 @@ async function rowOf<Row>(transaction: Transaction, query: ReturnType<typeof sql
   return rows[0] as Row;
 }
 
-describe("migration 0120", () => {
+describe("migration 0121", () => {
   it("moves the fixed commands into each Project's list and the stored records to the new shape", async () => {
     const migration = await readFile(
-      new URL("../../../../../drizzle/0120_project_commands.sql", import.meta.url),
+      new URL("../../../../../drizzle/0121_project_commands.sql", import.meta.url),
       "utf8",
     );
 
