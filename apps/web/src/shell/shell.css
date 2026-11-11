@@ -123,15 +123,15 @@ body,
 }
 
 /* The Menu wraps its trigger, so its wrappers stretch with the expanded item. */
-.shell-rail[data-expanded="true"] .shell-palette-menu,
-.shell-rail[data-expanded="true"] .shell-palette-menu > div,
-.shell-rail[data-expanded="true"] .shell-palette-menu > div > span {
+.shell-rail[data-expanded="true"] .shell-theme-menu,
+.shell-rail[data-expanded="true"] .shell-theme-menu > div,
+.shell-rail[data-expanded="true"] .shell-theme-menu > div > span {
   width: 100%;
 }
 
 /* The design system's Menu opens below its trigger; at the foot of the rail it opens to the
    right, as in the click-through. */
-.shell-palette-menu [role="menu"] {
+.shell-theme-menu [role="menu"] {
   top: auto !important;
   right: auto !important;
   bottom: 0;
@@ -647,13 +647,6 @@ body,
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-/* ---- the palette menu */
-.palette-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 /* ---- a menu item that shows the current choice with a check */

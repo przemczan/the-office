@@ -2,7 +2,7 @@ import { Link, useRouterState, type LinkProps } from "@tanstack/react-router";
 import { Logo } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { useBrandTone } from "./brand-tone.ts";
-import { PaletteMenu } from "./palette-menu.tsx";
+import { ThemeMenu } from "./theme-menu.tsx";
 import { RailItemFace, RailItemTooltip } from "./rail-item.tsx";
 import { useRailExpansion } from "./rail-store.ts";
 
@@ -42,7 +42,7 @@ export function Rail(): ReactNode {
       ))}
       <span className="shell-rail-spacer" />
       <RailLink surface={SETTINGS} />
-      <PaletteMenu />
+      <ThemeMenu />
       <RailToggle />
     </nav>
   );

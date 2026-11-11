@@ -63,7 +63,6 @@
 - `menu-placement.ts`: Box, Size, Placement, menuPlacement
 - `open-page-chip.tsx`: OpenPageChip
 - `page-heading.tsx`: PageHeading, usePageHeadingState, PageHeadingProvider, usePageHeading
-- `palette-menu.tsx`: PaletteMenu
 - `person-avatar.tsx`: PersonAvatar
 - `person-name.ts`: personName, roleName, roleFirstName
 - `person-tag.tsx`: PersonTag, NamedTag
@@ -90,6 +89,7 @@
 - `skill-words.ts`: pinnedVersionLabel, samePinnedVersion, sourceLabel
 - `ssh-host-name.ts`: sshHostName
 - `status-strip.tsx`: StatusStrip
+- `theme-menu.tsx`: ThemeMenu
 - `time.ts`: dayOf, dayAndClockOf, clockOf, sameDay, dayLineWords, momentWords, durationWords, shortDurationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
 - `token-count.tsx`: TokenCount, TokenFigure, TokenMeter
