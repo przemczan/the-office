@@ -2543,6 +2543,12 @@ describe("a Thread's Sub-agents and Processes", () => {
     const thread = await aMaskedTaskThread();
     await runner.send(thread.id, PLAN_IT);
     await answered(thread.id, 3);
+    // Test files share one database: stopping every Running one would stop those of others.
+    const items = app.get(SubAgentAndProcessRepository);
+    const running = items.running.bind(items);
+    vi.spyOn(items, "running").mockImplementation(async () =>
+      (await running()).filter(({ threadId }) => threadId === thread.id),
+    );
 
     await kept.recover();
 
