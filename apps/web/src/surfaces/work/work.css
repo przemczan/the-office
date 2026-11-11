@@ -2015,6 +2015,28 @@
   font: var(--type-mono);
 }
 
+/* A part of a block below its main text, such as the Description's Dependencies and Origin. */
+.task-record-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.task-record-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+  margin-bottom: 8px;
+}
+
+.task-record-section-title {
+  margin: 0;
+  font: var(--type-label);
+  color: var(--fg-2);
+}
+
 .task-dependencies + .task-dependencies {
   margin-top: 12px;
 }
