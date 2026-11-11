@@ -490,23 +490,23 @@ class OutputReader {
   }
 
   private async read(last: boolean): Promise<void> {
-    const file = this.file;
-    let text = "";
-    if (file !== undefined) {
+    const chunks: string[] = [];
+    if (this.file !== undefined) {
       try {
-        text = await this.readNew(file);
+        await this.readNew(this.file, chunks);
       } catch {
         // Not written yet, or gone: the next read tries again; the output read so far stands.
       }
     }
-    if (last) text += this.decoder.end();
+    if (last) chunks.push(this.decoder.end());
+    const text = chunks.join("");
     if (text !== "") this.report({ kind: "process-output", callId: this.callId, text });
   }
 
-  private async readNew(file: string): Promise<string> {
+  /** Into `chunks` as it goes, so text read before a failed read isn't lost past its offset. */
+  private async readNew(file: string, chunks: string[]): Promise<void> {
     const handle = await open(file, "r");
     try {
-      const chunks: string[] = [];
       const buffer = Buffer.alloc(64 * 1024);
       for (;;) {
         const { bytesRead } = await handle.read(buffer, 0, buffer.length, this.offset);
@@ -514,7 +514,6 @@ class OutputReader {
         this.offset += bytesRead;
         chunks.push(this.decoder.write(buffer.subarray(0, bytesRead)));
       }
-      return chunks.join("");
     } finally {
       await handle.close();
     }
