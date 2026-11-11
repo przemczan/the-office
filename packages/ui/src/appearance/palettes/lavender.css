@@ -1,0 +1,36 @@
+/* Lavender: light, a soft violet page with deep violet primary buttons, on the design system's light
+   aliases. It keeps their inverse, accent and status colours (spec §4). */
+:root[data-palette="lavender"] {
+  --bg: #f0ecf8;
+  --surface: #f9f7fd;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e7e1f3;
+  --surface-hover: #f4f1fb;
+  --surface-selected: #f8e9ec;
+  --sidebar-bg: #f0ecf8;
+  --sidebar-fg: #6b5f82;
+  --sidebar-active-bg: #e1d8f2;
+  --sidebar-active-fg: #241b33;
+  --fg-1: #241b33;
+  --fg-2: #5e527a;
+  --fg-3: #948aaa;
+  --border: #e1daee;
+  --border-subtle: #e9e4f4;
+  --border-strong: #d1c7e6;
+  --primary: #5a3d99;
+  --primary-fg: #ffffff;
+  --primary-hover: #6849ab;
+  --primary-press: #7455b5;
+  --control-hover: #e7e1f3;
+  --control-press: #ddd5ef;
+  --neutral-subtle: #e7e1f3;
+  --neutral-fg: #5e527a;
+  --neutral-border: #dad1ec;
+}
+
+/* Lavender's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-lavender-page: #f0ecf8;
+  --palette-lavender-border: #d1c7e6;
+  --palette-lavender-line: #5a3d99;
+}

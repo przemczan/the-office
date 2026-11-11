@@ -1,0 +1,36 @@
+/* Cobalt: light, crisp white surfaces on a clearly blue page, with cobalt primary buttons, on the
+   design system's light aliases. It keeps their inverse, accent and status colours (spec §4). */
+:root[data-palette="cobalt"] {
+  --bg: #e9eefa;
+  --surface: #f6f8fe;
+  --surface-raised: #ffffff;
+  --surface-sunken: #dfe6f6;
+  --surface-hover: #eff3fc;
+  --surface-selected: #f5e9ea;
+  --sidebar-bg: #e9eefa;
+  --sidebar-fg: #5a6789;
+  --sidebar-active-bg: #d5def5;
+  --sidebar-active-fg: #18213a;
+  --fg-1: #18213a;
+  --fg-2: #4e5b7d;
+  --fg-3: #8591ae;
+  --border: #d6def0;
+  --border-subtle: #e0e6f5;
+  --border-strong: #c3cee8;
+  --primary: #2343b0;
+  --primary-fg: #ffffff;
+  --primary-hover: #2d50c4;
+  --primary-press: #3a5ccc;
+  --control-hover: #dfe6f6;
+  --control-press: #d3dcf2;
+  --neutral-subtle: #dfe6f6;
+  --neutral-fg: #4e5b7d;
+  --neutral-border: #cdd7ee;
+}
+
+/* Cobalt's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-cobalt-page: #e9eefa;
+  --palette-cobalt-border: #c3cee8;
+  --palette-cobalt-line: #2343b0;
+}

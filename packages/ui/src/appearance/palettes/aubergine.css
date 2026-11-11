@@ -1,0 +1,38 @@
+/* Aubergine: dark and boldly plum-violet, with lavender primary buttons, on the design system's dark
+   aliases, whose accent and status colours it keeps (spec §4). */
+:root[data-palette="aubergine"] {
+  --bg: #1c1424;
+  --surface: #241a2f;
+  --surface-raised: #2c2139;
+  --surface-sunken: #160f1c;
+  --surface-hover: #2a1f35;
+  --surface-selected: #3a1f2b;
+  --surface-inverse: #eee6f7;
+  --sidebar-bg: #1c1424;
+  --sidebar-fg: #b3a6c6;
+  --sidebar-active-bg: #33264a;
+  --sidebar-active-fg: #eee6f7;
+  --fg-1: #e6ddf0;
+  --fg-2: #a89bbb;
+  --fg-3: #7a6d8e;
+  --fg-inverse: #1c1424;
+  --border: #30243f;
+  --border-subtle: #281e34;
+  --border-strong: #3f3052;
+  --primary: #cdb8f2;
+  --primary-fg: #1c1424;
+  --primary-hover: #dccbf7;
+  --primary-press: #bba2ec;
+  --control-hover: #30243f;
+  --control-press: #3a2c4c;
+  --neutral-subtle: #2c2139;
+  --neutral-fg: #a89bbb;
+  --neutral-border: #3a2c4c;
+}
+
+/* Aubergine's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-aubergine-page: #1c1424;
+  --palette-aubergine-border: #3f3052;
+  --palette-aubergine-line: #cdb8f2;
+}

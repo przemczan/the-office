@@ -1,0 +1,38 @@
+/* Lagoon: dark and boldly teal, with sea-green primary buttons, on the design system's dark aliases,
+   whose accent and status colours it keeps (spec §4). */
+:root[data-palette="lagoon"] {
+  --bg: #0e1c1e;
+  --surface: #132527;
+  --surface-raised: #192e31;
+  --surface-sunken: #0a1517;
+  --surface-hover: #172a2d;
+  --surface-selected: #2e2725;
+  --surface-inverse: #e0eeee;
+  --sidebar-bg: #0e1c1e;
+  --sidebar-fg: #9db6b6;
+  --sidebar-active-bg: #1c3a3c;
+  --sidebar-active-fg: #e0eeee;
+  --fg-1: #d3e6e6;
+  --fg-2: #8faaaa;
+  --fg-3: #62807f;
+  --fg-inverse: #0e1c1e;
+  --border: #1f3336;
+  --border-subtle: #192c2e;
+  --border-strong: #2b4447;
+  --primary: #7fd1c7;
+  --primary-fg: #0e1c1e;
+  --primary-hover: #9addd5;
+  --primary-press: #68c2b7;
+  --control-hover: #1f3336;
+  --control-press: #27403f;
+  --neutral-subtle: #192e31;
+  --neutral-fg: #8faaaa;
+  --neutral-border: #27403f;
+}
+
+/* Lagoon's page, border and line, for its swatch and preview whatever palette is shown. */
+:root {
+  --palette-lagoon-page: #0e1c1e;
+  --palette-lagoon-border: #2b4447;
+  --palette-lagoon-line: #7fd1c7;
+}

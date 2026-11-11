@@ -456,7 +456,7 @@ A Caretaker Thread's switch, confirmed by the user, under which the Caretaker ca
 _Avoid_: Admin mode, unlock, elevated mode
 
 **Palette**:
-The set of colours the app is shown in, picked in Settings › Appearance or from the rail's Theme menu and kept in this browser: Light, Dark, Graphite, Paper, Midnight, Mist, Mocha or Sage, or following the system. Graphite, Midnight and Mocha count as dark, and Paper, Mist and Sage as light. It changes colours only, never layout.
+The set of colours the app is shown in, picked in Settings › Appearance or from the rail's Theme menu and kept in this browser: Light, Dark, Graphite, Paper, Midnight, Mist, Mocha, Sage, Aubergine, Lavender, Lagoon or Cobalt, or following the system. Dark, Graphite, Midnight, Mocha, Aubergine and Lagoon are dark, and Light, Paper, Mist, Sage, Lavender and Cobalt light. It changes colours only, never layout.
 _Avoid_: Theme, mode, colour scheme
 
 **Density**:

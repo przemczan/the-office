@@ -131,6 +131,10 @@ describe("the appearance", () => {
     { palette: "mist", base: "light" },
     { palette: "mocha", base: "dark" },
     { palette: "sage", base: "light" },
+    { palette: "aubergine", base: "dark" },
+    { palette: "lavender", base: "light" },
+    { palette: "lagoon", base: "dark" },
+    { palette: "cobalt", base: "light" },
   ] as const)(
     "shows a chosen $palette over its $base base, across page loads",
     ({ palette, base }) => {
@@ -171,6 +175,10 @@ describe("the appearance", () => {
     { palette: "mist", base: "light" },
     { palette: "mocha", base: "dark" },
     { palette: "sage", base: "light" },
+    { palette: "aubergine", base: "dark" },
+    { palette: "lavender", base: "light" },
+    { palette: "lagoon", base: "dark" },
+    { palette: "cobalt", base: "light" },
   ])("sets a kept $palette by the inline script before the first paint", ({ palette, base }) => {
     stubSystem(base === "light");
     localStorage.setItem(APPEARANCE_RULES.paletteKey, palette);

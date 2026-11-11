@@ -49,6 +49,7 @@ function contrast(first: string, second: string): number {
 const HEX = /^#[0-9a-f]{6}$/;
 const TEXT_ALIASES = ["--fg-1", "--fg-2"] as const;
 const BACKGROUND_ALIASES = ["--bg", "--surface", "--surface-raised"] as const;
+const PRIMARY_BACKGROUND_ALIASES = ["--primary", "--primary-hover"] as const;
 
 /** Light and Dark are the design system's own aliases; every other palette has its values in the spec. */
 const SPEC_PALETTES = Object.keys(PALETTES).filter(
@@ -59,6 +60,14 @@ const SPEC_PALETTES = Object.keys(PALETTES).filter(
 const PALETTES_SETTING_TEXT = (Object.keys(PALETTES) as Palette[]).filter((palette) => {
   const values = fileValues(palette);
   return [...TEXT_ALIASES, ...BACKGROUND_ALIASES].every((alias) => HEX.test(values[alias] ?? ""));
+});
+
+/** The palettes whose file gives the primary buttons' text and backgrounds. */
+const PALETTES_SETTING_PRIMARY = (Object.keys(PALETTES) as Palette[]).filter((palette) => {
+  const values = fileValues(palette);
+  return ["--primary-fg", ...PRIMARY_BACKGROUND_ALIASES].every((alias) =>
+    HEX.test(values[alias] ?? ""),
+  );
 });
 
 describe("the palettes after Light and Dark", () => {
@@ -77,6 +86,10 @@ describe("the palettes after Light and Dark", () => {
     ["mist", "light"],
     ["mocha", "dark"],
     ["sage", "light"],
+    ["aubergine", "dark"],
+    ["lavender", "light"],
+    ["lagoon", "dark"],
+    ["cobalt", "light"],
   ] as const)("puts %s over the %s base", (palette, base) => {
     expect(PALETTES[palette].base).toBe(base);
   });
@@ -94,6 +107,29 @@ describe("text contrast", () => {
         const ratio = contrast(values[text] ?? "", values[background] ?? "");
         expect(ratio, `${text} on ${background}`).toBeGreaterThanOrEqual(4.5);
       }
+    }
+  });
+});
+
+describe("primary button contrast", () => {
+  it("is checked on every palette that sets its own primary", () => {
+    expect(PALETTES_SETTING_PRIMARY).toEqual([
+      "dark",
+      "graphite",
+      "midnight",
+      "mocha",
+      "aubergine",
+      "lavender",
+      "lagoon",
+      "cobalt",
+    ]);
+  });
+
+  it.each(PALETTES_SETTING_PRIMARY)("%s's primary text reaches 4.5:1 on its buttons", (palette) => {
+    const values = fileValues(palette);
+    for (const background of PRIMARY_BACKGROUND_ALIASES) {
+      const ratio = contrast(values["--primary-fg"] ?? "", values[background] ?? "");
+      expect(ratio, `--primary-fg on ${background}`).toBeGreaterThanOrEqual(4.5);
     }
   });
 });

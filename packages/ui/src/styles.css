@@ -8,6 +8,10 @@
 @import "./appearance/palettes/mist.css";
 @import "./appearance/palettes/mocha.css";
 @import "./appearance/palettes/sage.css";
+@import "./appearance/palettes/aubergine.css";
+@import "./appearance/palettes/lavender.css";
+@import "./appearance/palettes/lagoon.css";
+@import "./appearance/palettes/cobalt.css";
 @import "./appearance/densities/compact.css";
 @import "./appearance/densities/comfortable.css";
 @import "./appearance/densities/relaxed.css";
