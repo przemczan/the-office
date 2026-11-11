@@ -2532,7 +2532,10 @@ describe("a Thread's Sub-agents and Processes", () => {
     await answered(thread.id, 6);
     expect(await kept.list(thread.id)).toEqual([]);
     const [first] = engine.sessions;
-    expect(await app.get(SubAgentAndProcessRepository).ofSession(first?.id ?? "")).toEqual([]);
+    // The old session's go only once the fresh one runs, which may answer before they are gone.
+    await vi.waitFor(async () =>
+      expect(await app.get(SubAgentAndProcessRepository).ofSession(first?.id ?? "")).toEqual([]),
+    );
   });
 
   it("stops every one still Running after a restart, as ended when The Office restarted", async () => {
