@@ -88,7 +88,7 @@ describe("a tab's words", () => {
       "No conversation on Exports yet. Hire a CTO to shape it with them.",
     );
     expect(empty("planner", "Jan")).toBe(
-      "No planning on Exports yet. Plan the Initiative, in the head, starts it with Jan.",
+      "No planning on Exports yet. Once it is active with a Task in Backlog, Plan the Initiative starts it with Jan.",
     );
     expect(empty("planner", undefined)).toBe(
       "No planning on Exports yet. Hire a Planner to plan its Tasks.",

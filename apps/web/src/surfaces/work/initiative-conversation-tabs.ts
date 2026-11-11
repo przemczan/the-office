@@ -88,7 +88,7 @@ export function emptyInitiativeTabWords({
   if (roleKey === PLANNER_ROLE_KEY) {
     return personName === undefined
       ? `No planning on ${initiativeName} yet. Hire a Planner to plan its Tasks.`
-      : `No planning on ${initiativeName} yet. Plan the Initiative, in the head, starts it with ${personName}.`;
+      : `No planning on ${initiativeName} yet. Once it is active with a Task in Backlog, Plan the Initiative starts it with ${personName}.`;
   }
   return `No conversation with ${personName ?? roleKey} on ${initiativeName} yet.`;
 }
