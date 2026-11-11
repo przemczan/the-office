@@ -16,6 +16,7 @@ import { boardOrder, orderAfter } from "../../domain/manual-order.js";
 import type { BoardFilters } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";
 import { changePriority, createTask, reorderTask } from "../../domain/task-changes.js";
+import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import { aLink, anIdea } from "../../domain/work.fixtures.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
@@ -61,6 +62,18 @@ describe("PostgresTaskRepository", () => {
     expect(changed.task.priority).toBe("high");
     expect(unchanged).toEqual({ task: changed.task, event: undefined });
     await expect(tasks.find(task.id)).resolves.toEqual(changed.task);
+  });
+
+  it("keeps when the Task ended as stored", async () => {
+    const task = await createdTask(aProjectId());
+    const endedAt = new Date("2026-11-09T10:00:00.000Z");
+
+    await tasks.update(task.id, (stored) => ({
+      task: { ...stored, state: "dropped", endedAt },
+      event: new TaskStateChanged(stored.id, stored.state, "dropped"),
+    }));
+
+    expect((await tasks.find(task.id))?.endedAt).toEqual(endedAt);
   });
 
   it("reorders a Task between its neighbours as stored", async () => {
@@ -392,6 +405,54 @@ describe("migration 0110", () => {
     expect(endedAt.get(droppedShaping)).toEqual(dropMoment);
     expect(endedAt.get(droppedActive)).toBeNull();
     expect(endedAt.get(active)).toBeNull();
+  });
+});
+
+describe("migration 0122", () => {
+  it("dates each Done or Dropped Task's end by its last move to Done or Dropped", async () => {
+    const migration = await readFile(
+      new URL("../../../../../drizzle/0122_task_ended_at.sql", import.meta.url),
+      "utf8",
+    );
+    const initiativeId = await anInitiativeId();
+    const earlier = new Date("2026-09-01T10:00:00.000Z");
+    const later = new Date("2026-09-03T10:00:00.000Z");
+    const reopened = await aTaskOf(initiativeId, "dropped");
+    const done = await aTaskOf(initiativeId, "done");
+    const undated = await aTaskOf(initiativeId, "done");
+    const backlog = await aTaskOf(initiativeId, "backlog");
+    const weighed = [reopened, done, undated, backlog];
+
+    const endedAt = await rolledBack(async (transaction) => {
+      await transaction
+        .insert(taskStateChanges)
+        .values([
+          move(reopened, "in-progress", "done", earlier),
+          move(reopened, "done", "dropped", later),
+          move(done, "in-progress", "done", earlier),
+          move(backlog, "backlog", "dropped", earlier),
+          move(backlog, "dropped", "backlog", later),
+        ]);
+      // The column is there already; only the filling is run again.
+      for (const statement of migration.split("--> statement-breakpoint")) {
+        if (!statement.includes("ALTER TABLE")) await transaction.execute(sql.raw(statement));
+      }
+      const rows = await transaction
+        .select({ id: taskRows.id, endedAt: taskRows.endedAt })
+        .from(taskRows)
+        .where(
+          inArray(
+            taskRows.id,
+            weighed.map(({ id }) => id),
+          ),
+        );
+      return new Map(rows.map((row) => [row.id, row.endedAt]));
+    });
+
+    expect(endedAt.get(reopened.id)).toEqual(later);
+    expect(endedAt.get(done.id)).toEqual(earlier);
+    expect(endedAt.get(undated.id)).toBeNull();
+    expect(endedAt.get(backlog.id)).toBeNull();
   });
 });
 

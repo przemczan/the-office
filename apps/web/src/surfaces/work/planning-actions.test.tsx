@@ -41,6 +41,7 @@ const TASK: Task = {
   createdBy: { kind: "user" },
   createdAt: "2026-11-10T10:00:00.000Z",
   archivedAt: null,
+  endedAt: null,
 };
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;

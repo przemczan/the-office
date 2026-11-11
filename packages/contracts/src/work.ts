@@ -262,6 +262,11 @@ export const taskSchema = newTaskSchema.extend({
    * it off the board and its lists; null on the board.
    */
   archivedAt: z.iso.datetime().nullable(),
+  /**
+   * When it last moved to Done or Dropped; null while it hasn't ended, and for one whose end was
+   * never recorded.
+   */
+  endedAt: z.iso.datetime().nullable(),
 });
 export type Task = z.infer<typeof taskSchema>;
 

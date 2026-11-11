@@ -127,6 +127,8 @@ export const tasks = pgTable(
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     /** Null until it is first restored from the Archive. */
     restoredAt: timestamp("restored_at", { withTimezone: true }),
+    /** Null while it hasn't ended, and for one whose end was never recorded. */
+    endedAt: timestamp("ended_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),

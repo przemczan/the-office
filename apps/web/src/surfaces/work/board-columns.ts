@@ -1,4 +1,5 @@
 import type { QueuedTask, Task, TaskState } from "@the-office/contracts";
+import { lastEndedFirst } from "./last-ended-first.ts";
 
 export interface Column {
   readonly key: string;
@@ -59,6 +60,7 @@ export const COLUMNS: readonly Column[] = [
     key: "done",
     label: "Done",
     holds: inStates("done", "dropped"),
+    inOrder: (cards) => cards.toSorted(lastEndedFirst),
     hint: () => "Done and dropped",
   },
 ];

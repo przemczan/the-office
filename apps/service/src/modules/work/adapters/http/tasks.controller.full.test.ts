@@ -6,6 +6,7 @@ import {
   fireAlarmSchema,
   queueSchema,
   startAnswerSchema,
+  taskListSchema,
   taskSchema,
   taskUsageEstimateListSchema,
   workRefusalSchema,
@@ -256,6 +257,20 @@ describe("PUT /api/tasks/:id/place", () => {
     expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
       "A Task changes state through its actions: Plan, Mark Ready, Start.",
     ]);
+  });
+});
+
+describe("GET /api/tasks", () => {
+  it("tells when each Task ended, null until it is Done or Dropped", async () => {
+    const open = await create();
+    const dropped = await create();
+    await sendJson(work, "POST", `/tasks/${dropped.id}/drop`);
+
+    const listed = taskListSchema.parse(await (await sendJson(work, "GET", "/tasks")).json());
+
+    const endedAtOf = (id: string) => listed.find((task) => task.id === id)?.endedAt;
+    expect(endedAtOf(open.id)).toBeNull();
+    expect(endedAtOf(dropped.id)).toEqual(expect.any(String));
   });
 });
 

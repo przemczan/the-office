@@ -68,6 +68,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     createdAt: new Date("2026-10-25T09:30:00.000Z"),
     archivedAt: undefined,
     restoredAt: undefined,
+    endedAt: undefined,
     ...fields,
   };
 }

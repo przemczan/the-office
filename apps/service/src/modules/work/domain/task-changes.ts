@@ -40,15 +40,24 @@ export interface TaskChange<Event extends DomainEvent> {
   readonly stateChange?: StateChange;
 }
 
-/** The change, with its move kept when it takes the Task to another state. */
+/**
+ * The change, with its move kept when it takes the Task to another state, and its `endedAt` set by
+ * a move to Done or Dropped and cleared by any other move.
+ */
 export function withStateChange<Event extends DomainEvent>(
   change: TaskChange<Event>,
   from: Task,
   by: StateChangeCause,
 ): TaskChange<Event> {
-  if (change.task.state === from.state) return change;
-  const stateChange = { from: from.state, to: change.task.state, at: change.event.occurredAt, by };
-  return { ...change, stateChange };
+  const { state } = change.task;
+  if (state === from.state) return change;
+  const at = change.event.occurredAt;
+  const endedAt = state === "done" || state === "dropped" ? at : undefined;
+  return {
+    ...change,
+    task: { ...change.task, endedAt },
+    stateChange: { from: from.state, to: state, at, by },
+  };
 }
 
 /** What The Office sets on a new Task: its Pipeline comes from the Project's default. */
@@ -102,6 +111,7 @@ export function createTask(
     createdAt,
     archivedAt: undefined,
     restoredAt: undefined,
+    endedAt: undefined,
   };
   return {
     task,

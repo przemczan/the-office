@@ -3,6 +3,7 @@ import { dayOf } from "../../shell/time.ts";
 import { isArchived, NOT_STARTED } from "../../shell/work/work-words.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import type { InitiativeProgress } from "./initiative-words.ts";
+import { lastEndedFirst } from "./last-ended-first.ts";
 
 /** The Initiatives board's filters, kept in its address. */
 export interface InitiativesFilters {
@@ -78,17 +79,6 @@ export function inStateInOrder(
   const inState = initiatives.filter((initiative) => initiative.state === state);
   if (state === "shaping" || state === "active") return inState;
   return inState.toSorted(lastEndedFirst);
-}
-
-/** The one that ended last first; one whose end nothing dates after every dated one. */
-export function lastEndedFirst(
-  one: Pick<Initiative, "endedAt">,
-  other: Pick<Initiative, "endedAt">,
-): number {
-  if (one.endedAt === other.endedAt) return 0;
-  if (one.endedAt === null) return 1;
-  if (other.endedAt === null) return -1;
-  return other.endedAt.localeCompare(one.endedAt);
 }
 
 /** What moves in an Initiative now, from its Tasks' states. */

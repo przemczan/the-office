@@ -31,6 +31,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     createdBy: { kind: "user" },
     createdAt: "2026-10-28T10:00:00.000Z",
     archivedAt: null,
+    endedAt: null,
     ...fields,
   };
 }
@@ -94,6 +95,22 @@ describe("cardsIn", () => {
     const tasks = [aTask("low", { priority: "low" }), aTask("high", { priority: "high" })];
 
     expect(cardIds("ready", tasks, [])).toEqual(["low", "high"]);
+  });
+
+  it("shows the Task that ended last first in Done, and those no end dates after, as the service sent them", () => {
+    const tasks = [
+      aTask("undated-high", { state: "done", priority: "high" }),
+      aTask("earlier", { state: "done", endedAt: "2026-11-01T10:00:00.000Z" }),
+      aTask("undated-low", { state: "dropped", priority: "low" }),
+      aTask("latest", { state: "dropped", endedAt: "2026-11-09T10:00:00.000Z" }),
+    ];
+
+    expect(cardIds("done", tasks, [])).toEqual([
+      "latest",
+      "earlier",
+      "undated-high",
+      "undated-low",
+    ]);
   });
 
   it("shows a Task that left Ready in its own column only, whatever entry is left in the queue", () => {

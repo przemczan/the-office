@@ -39,9 +39,7 @@ export class TaskArchiving {
     let archived = 0;
     for (const { id } of candidates) {
       // Weighed again while the Task is held, so a Restore since the list isn't undone.
-      const { event } = await this.repository.updateWithStateChanges(id, async (task, changes) =>
-        archiveIfDue(task, changes, cutoff, now),
-      );
+      const { event } = await this.repository.update(id, (task) => archiveIfDue(task, cutoff, now));
       if (!event) continue;
       await this.events.publish(event);
       archived += 1;

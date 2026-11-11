@@ -1,4 +1,3 @@
-import type { StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import { TaskArchived, TaskRestored } from "./task-events.js";
@@ -47,13 +46,12 @@ export function archiveCutoff(now: Date, archivePeriod: number): Date {
 }
 
 /**
- * Where the Task's Archive period starts: the later of its last move into Done or Dropped and its
- * last Restore. A Task finished before state changes were kept counts from its creation, which can
- * only be earlier than its real finish.
+ * Where the Task's Archive period starts: the later of when it ended and its last Restore. A Task
+ * whose end was never recorded counts from its creation, which can only be earlier than its real
+ * end.
  */
-export function archivePeriodStart(task: Task, stateChanges: readonly StateChange[]): Date {
-  const finishedAt =
-    stateChanges.findLast(({ to }) => to === "done" || to === "dropped")?.at ?? task.createdAt;
+export function archivePeriodStart(task: Task): Date {
+  const finishedAt = task.endedAt ?? task.createdAt;
   const { restoredAt } = task;
   return restoredAt && restoredAt > finishedAt ? restoredAt : finishedAt;
 }
@@ -64,12 +62,11 @@ export function archivePeriodStart(task: Task, stateChanges: readonly StateChang
  */
 export function archiveIfDue(
   task: Task,
-  stateChanges: readonly StateChange[],
   cutoff: Date,
   at: Date,
 ): TaskChange<TaskArchived> | undefined {
   if (!isFinishedOnTheBoard(task)) return undefined;
-  if (archivePeriodStart(task, stateChanges) >= cutoff) return undefined;
+  if (archivePeriodStart(task) >= cutoff) return undefined;
   return archiveTask(task, at);
 }
 

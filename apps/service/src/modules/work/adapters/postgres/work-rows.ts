@@ -227,6 +227,7 @@ export function toTaskRow(task: Task): TaskRow {
     createdAt: task.createdAt,
     archivedAt: task.archivedAt ?? null,
     restoredAt: task.restoredAt ?? null,
+    endedAt: task.endedAt ?? null,
   };
 }
 
@@ -263,6 +264,7 @@ export function toTask(row: TaskRow): Task {
     createdAt: row.createdAt,
     archivedAt: row.archivedAt ?? undefined,
     restoredAt: row.restoredAt ?? undefined,
+    endedAt: row.endedAt ?? undefined,
   };
 }
 

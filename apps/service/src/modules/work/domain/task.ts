@@ -121,6 +121,11 @@ export interface Task {
   readonly archivedAt: Date | undefined;
   /** When it was last restored from the Archive, kept for archiving it again automatically. */
   readonly restoredAt: Date | undefined;
+  /**
+   * When it last moved to Done or Dropped (`withStateChange`); undefined while it hasn't ended, and
+   * for a Task whose end was never recorded. The board's Done column shows the latest first.
+   */
+  readonly endedAt: Date | undefined;
 }
 
 /** A Task's Move from one Project to another, kept for its record. */

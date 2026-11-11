@@ -121,6 +121,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     createdBy: toAuthorResponse(task.createdBy),
     createdAt: task.createdAt.toISOString(),
     archivedAt: task.archivedAt?.toISOString() ?? null,
+    endedAt: task.endedAt?.toISOString() ?? null,
   };
 }
 

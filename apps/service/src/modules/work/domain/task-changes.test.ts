@@ -8,6 +8,7 @@ import {
   pauseTaskForAlarm,
   resumeTask,
   stopTask,
+  withStateChange,
 } from "./task-changes.js";
 import {
   TaskCreated,
@@ -16,6 +17,7 @@ import {
   TaskStateChanged,
   TaskStopped,
 } from "./task-events.js";
+import type { Task } from "./task.js";
 import { TaskRefused } from "./task-refused.js";
 import { aTask } from "./work.fixtures.js";
 
@@ -57,6 +59,37 @@ describe("createTask", () => {
         createdAt,
       ),
     ).toThrow(new TaskRefused(["Give the Task a title."]));
+  });
+});
+
+/** The Task moved to `to` by the user, as every change of state is kept. */
+const moved = (from: Task, to: Task["state"]) =>
+  withStateChange(
+    { task: { ...from, state: to }, event: new TaskStateChanged(from.id, from.state, to) },
+    from,
+    THE_USER,
+  );
+
+describe("withStateChange", () => {
+  it("keeps when the Task ended on a move to Done or Dropped", () => {
+    for (const to of ["done", "dropped"] as const) {
+      const change = moved(aTask({ state: "in-progress" }), to);
+
+      expect(change.task.endedAt).toEqual(change.event.occurredAt);
+      expect(change.stateChange).toMatchObject({ to, at: change.event.occurredAt });
+    }
+  });
+
+  it("clears when the Task ended on a move to any other state", () => {
+    const ended = aTask({ state: "dropped", endedAt: new Date("2026-11-01T10:00:00.000Z") });
+
+    expect(moved(ended, "backlog").task.endedAt).toBeUndefined();
+  });
+
+  it("leaves the Task as it is when its state doesn't change", () => {
+    const endedAt = new Date("2026-11-01T10:00:00.000Z");
+
+    expect(moved(aTask({ state: "done", endedAt }), "done").task.endedAt).toBe(endedAt);
   });
 });
 

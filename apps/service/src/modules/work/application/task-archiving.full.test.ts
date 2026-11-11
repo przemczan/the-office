@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DATABASE, type Database } from "../../../platform/database/database.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { PostgresTaskRepository } from "../adapters/postgres/postgres-task-repository.js";
-import { taskStateChanges, tasks } from "../adapters/postgres/work.schema.js";
+import { tasks } from "../adapters/postgres/work.schema.js";
 import { THE_USER } from "../domain/author.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { TaskArchived, TaskStateChanged } from "../domain/task-events.js";
@@ -108,10 +108,12 @@ async function finish(
   state: Task["state"],
   finishedDaysAgo: number,
 ): Promise<void> {
+  const at = daysAgo(finishedDaysAgo);
+  const endedAt = state === "done" || state === "dropped" ? at : undefined;
   await work.app.get(TaskRepository).update(taskId, (task) => ({
-    task: { ...task, state },
+    task: { ...task, state, endedAt },
     event: new TaskStateChanged(task.id, task.state, state),
-    stateChange: { from: task.state, to: state, at: daysAgo(finishedDaysAgo), by: THE_USER },
+    stateChange: { from: task.state, to: state, at, by: THE_USER },
   }));
 }
 
@@ -181,11 +183,13 @@ describe("The daily archiving of finished Tasks", () => {
     expect(await isArchived(task.id)).toBe(true);
   });
 
-  it("counts a Task with no finish in its state changes from when it was created", async () => {
+  it("counts a Task whose end was never recorded from when it was created", async () => {
     const old = await finished("done", 1);
     const young = await finished("dropped", 1);
-    await theDatabase().delete(taskStateChanges).where(eq(taskStateChanges.taskId, old.id));
-    await theDatabase().delete(taskStateChanges).where(eq(taskStateChanges.taskId, young.id));
+    await theDatabase()
+      .update(tasks)
+      .set({ endedAt: null })
+      .where(inArray(tasks.id, [old.id, young.id]));
     await theDatabase()
       .update(tasks)
       .set({ createdAt: daysAgo(DEFAULT_ARCHIVE_PERIOD + 1) })

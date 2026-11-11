@@ -43,6 +43,7 @@ const TASK: Task = {
   createdBy: { kind: "user" },
   createdAt: "2026-11-07T10:00:00.000Z",
   archivedAt: null,
+  endedAt: null,
 };
 
 function aProject(id: string, name: string, defaultPipeline = "full"): Project {
