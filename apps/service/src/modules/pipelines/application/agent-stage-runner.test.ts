@@ -65,6 +65,9 @@ describe("AgentStageRunner", () => {
         outputSchema: STAGE_RESULT_SCHEMA,
       },
     });
+    expect(request?.session.instructions).toContain(
+      "Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command",
+    );
     const record = request?.record ?? "";
     expect(record).toContain("## The Task\n\nRename a device, in the Project Admin panel.");
     expect(record).toContain(
