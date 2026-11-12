@@ -36,7 +36,7 @@ One recommendation for each question in the Task's Description, with why and the
    - **Removed:** the row stays where it was, grey, struck through and unnumbered, "Removed", so the list still reads against Full.
    - **Undo** on every marked row undoes that one Stage change alone, its hover saying what it gives back ("Undo: put Full's Review & fix back"). An emptied Change disappears; a field set back drops out of it.
    - **Inserting:** an **Insert** point between two rows (shown on hover and focus, always at 390px) offers Agent Stage, Script Stage, Gate and From a template; it inserts after the Stage above, or before the first. An inserted Stage's form has **Where it goes** (Before or After a Stage of Full), as an insert keeps beside the Stage it names when Full changes.
-   - **No Move:** the five Stage changes have none. A Stage of Full stays in Full's order; an inserted one moves by Where it goes.
+   - **No Move:** the five Stage changes have none, as Remove and Insert do the same and a sixth kind would add Broken cases. A Stage of Full stays in Full's order; an inserted one moves by Where it goes.
    - The note under the list: "Each mark is one Stage change. A Stage from Full follows Full's edits; editing it here makes a Change of only the fields you edit. Full itself stays as it is."
    - The save bar's "Unsaved changes" is today's wording for an unsaved edit, not Stage changes; it stays.
    - The head card: the name, the Project's mark and name, Broken when it is, Ask Dwight, the description, and "Project Pipeline of the-office · Built from Full (a link to it) · Default for the-office · 2 not started Tasks use it". The form: Name, **Base Pipeline** (a select of the office-wide ones; "An office-wide Pipeline: its edits reach this one, and the Stage changes apply on top."), Description. The bar as today: Unsaved changes or Saved, Remove, Discard, **Save the Pipeline**.
@@ -54,6 +54,16 @@ One recommendation for each question in the Task's Description, with why and the
    - The foot stays: Apply change, Not now, "Refused if it changes before you apply this", then Applied by you.
 
 **This design's names**, not glossary terms: What the-office gets (the editor's view), From Full, Inserted, Replaces, Changed, Removed (a row's marks), Undo and Set back, Insert and Where it goes, Apply it to and Remove this Stage change (the fixes), Save anyway and Apply anyway, ‹ All Pipelines, Kept and New (on a Proposal), and the scenarios. Insert before, Insert after, Replace, Change and Remove are the glossary's Stage changes.
+
+### What the CTO confirmed
+
+The CTO confirmed points 1–5 (2026-11-12). The user's answer said "with changes" without naming one, so it stays open for the Gate. The five points, with the CTO's reasons:
+
+1. **Stage changes by key, with `stageName` for the words alone:** matching stays by key; without the name, a Stage change whose Stage is gone would read as a bare key, the very case the user must understand to fix it. The name is refreshed on every save of the Project Pipeline.
+2. **A Change may change every field but key and kind:** a new key would break matching, and a new kind is a Replace. A field set back drops out of the Change, and a Change left with no fields is dropped, so an undone Change never leaves an empty one. No Move: Remove and Insert do the same, and a sixth kind would add Broken cases.
+3. **The service answers rows with their origins:** building and checking stay in one place, the domain, and the editor, the picker and Devops' card read the same answer; the web builds no Stages.
+4. **Save is refused while Broken** (6cdb0096's rule over e24679bd's): only an office-wide Pipeline's save breaks one, and it warns first. In the editor the Broken rows show live, and Save becomes possible once none is left.
+5. **No new Task:** 6cdb0096, e24679bd, e308f447 and 3586e73d are refined; d4dd3cb9 is Dropped.
 
 ### Spec and glossary changes
 
