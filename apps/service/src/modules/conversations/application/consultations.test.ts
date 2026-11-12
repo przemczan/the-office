@@ -632,7 +632,7 @@ describe("a call from a chat", () => {
     );
     const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toContain(
-      "Riley passed it on to the user: It changes the machine.. So it is the user's now: ask them in your reply.",
+      "Riley passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
     );
   });
 });

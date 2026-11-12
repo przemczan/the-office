@@ -299,6 +299,12 @@ export function backToTheCallerWords(why: string): string {
   return `${why} So it is the user's now: ask them in your reply.`;
 }
 
+/** Why a call made from a chat is back with its caller: who passed it on to the user, and why. */
+export function passedOnToTheUserWords(passerName: string, reason: string): string {
+  const trimmed = reason.trim();
+  return `${passerName} passed it on to the user: ${/[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`}`;
+}
+
 /**
  * What The Office asks the Consultant it puts its own Decision to first (spec §2.3): what happened,
  * the user's options for them to know, and their two answers.

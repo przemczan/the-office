@@ -13,6 +13,7 @@ import {
   consultationTitle,
   consultDecision,
   passedOnTo,
+  passedOnToTheUserWords,
   THE_OFFICE,
   type Consult,
   type ConsultantPerson,
@@ -168,10 +169,9 @@ export class Consultations implements OnModuleInit {
     if (to) {
       await this.openFor(asker);
     } else if (decision.taskId === undefined) {
-      const passer = await this.nameOf(consultation.roleKey);
       await this.backToTheCaller(
         decision.id,
-        `${passer} passed it on to the user: ${reason.trim()}.`,
+        passedOnToTheUserWords(await this.nameOf(consultation.roleKey), reason),
       );
     }
     return to;
