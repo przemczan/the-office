@@ -101,6 +101,8 @@ Where each default lives (the old §9):
 - Publishing Tasks: [2.1 Work](2.1-work.md#defaults)
 - Publishing into an Initiative's branch: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - A Publishing Task's Publish: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- Project Pipelines: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- A Broken Project Pipeline: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The Initiative's branch: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.

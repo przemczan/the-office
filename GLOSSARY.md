@@ -70,7 +70,7 @@ A multi-task effort toward one outcome, whose Tasks are ordered by dependencies.
 _Avoid_: Plan, epic, roadmap, effort
 
 **Initiative's Pipeline**:
-The Pipeline an Initiative may have, chosen from the Pipeline library while shaping, None by default. With one, the Initiative works on the Initiative's branch and its Publishing Tasks follow it.
+The Pipeline an Initiative may have, chosen from the office-wide Pipelines while shaping, never a Project Pipeline, None by default. With one, the Initiative works on the Initiative's branch and its Publishing Tasks follow it.
 _Avoid_: Initiative workflow, release Pipeline
 
 **Initiative's branch**:
@@ -282,12 +282,32 @@ A daily window, off until the user sets it, in which no Notification goes to the
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
-A named, ordered set of Stages that a Task's work follows; a Publishing Task follows its Initiative's Pipeline.
+A named, ordered set of Stages that a Task's work follows; a Publishing Task follows its Initiative's Pipeline. It is an office-wide Pipeline or a Project Pipeline.
 _Avoid_: Workflow, flow, process (a Process is a session's background command)
 
 **Pipeline library**:
-The Office-wide set of Pipelines that Projects and Tasks choose from, with the Stage templates beside them, edited in Settings or changed by Devops' Proposals.
+The set of Pipelines that Projects and Tasks choose from: the office-wide Pipelines, each Project's Project Pipelines and, beside them, the Stage templates, edited in Settings or changed by Devops' Proposals.
 _Avoid_: Pipeline catalog, Pipeline templates
+
+**Project Pipeline**:
+A Pipeline that belongs to one Project, built from a base Pipeline plus its Stage changes each time it is read; only that Project's Tasks and default can choose it.
+_Avoid_: Custom Pipeline, derived Pipeline, Project-owned Pipeline
+
+**Office-wide Pipeline**:
+A Pipeline of the library that belongs to no Project, which every Project and Initiative can choose; the built-in Pipelines are office-wide.
+_Avoid_: Global Pipeline, shared Pipeline
+
+**Base Pipeline**:
+The office-wide Pipeline a Project Pipeline is built from. Always "base Pipeline": bare "base" is the base branch.
+_Avoid_: Parent, template, base
+
+**Stage change**:
+One entry in a Project Pipeline's ordered list, naming a Stage by its key: Insert before, Insert after, Replace, Change or Remove a Stage. Never bare "changes", which is the Changes tab.
+_Avoid_: Override, patch, diff, changes
+
+**Broken**:
+Said of a Project Pipeline whose Stage changes no longer apply to its base Pipeline as it is now; it is flagged and can't be chosen until they are fixed.
+_Avoid_: Invalid, stale, out of date
 
 **Onboarding**:
 Making a Project build and test in a fresh worktree on the workstation, done by Devops in the Project's Onboard Task.
