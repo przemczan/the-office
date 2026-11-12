@@ -53,8 +53,8 @@ export async function gitCommand(
 ): Promise<{ exitCode: number; stderr: string }> {
   return run("git", [...gitArguments], {
     env: environment,
-    // Outside any repository: git reads the one it finds in its working directory, and a worktree's
-    // .git can point where a run environment doesn't mount.
+    // Outside any repository, as no command here uses the working directory's: git would read its
+    // config, such as a credential helper or insteadOf, and the test would depend on where it runs.
     cwd: tmpdir(),
     timeout: 30_000,
     windowsHide: true,

@@ -99,6 +99,7 @@ export class Consultations implements OnModuleInit {
     const problems = consultantAnswerProblems(decision, answer);
     if (problems.length > 0) throw new ThreadRefused(problems);
     await this.decisions.answer(decision.id, answer, {
+      kind: "consultant",
       roleKey: consultantKey,
       name: await this.nameOf(consultantKey),
     });

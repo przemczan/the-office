@@ -46,6 +46,7 @@ class FakeGit extends Git {
   upstreamOf = notUsed;
   commitOf = notUsed;
   worktreeRecordPath = notUsed;
+  repositoryGitFolderOf = notUsed;
   fetchUrlOf = notUsed;
   fetch = notUsed;
   push = notUsed;

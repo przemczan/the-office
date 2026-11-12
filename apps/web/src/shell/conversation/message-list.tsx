@@ -12,7 +12,7 @@ import {
 import { roleQueries } from "../../api/people.ts";
 import { OpenPageChip } from "../open-page-chip.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
-import { roleName } from "../person-name.ts";
+import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
@@ -490,18 +490,7 @@ function MessageItem({
     case "decision":
       return <DecisionInThread decision={message.decision} personName={personName} />;
     case "decision-answer":
-      return (
-        <TurnFrame
-          avatar={<YourAvatar />}
-          by="You · answering the Decision"
-          at={message.at}
-          labelled
-        >
-          <div className="message-text">
-            <MarkdownText text={answerWords(message.answer, message.decision)} />
-          </div>
-        </TurnFrame>
-      );
+      return <DecisionAnswerItem message={message} />;
     case "proposal":
       return <ProposalCard proposal={message.proposal} />;
     case "link-card":
@@ -511,6 +500,45 @@ function MessageItem({
     case "office-status":
       return <OfficeStatusCard card={message} />;
   }
+}
+
+/**
+ * The answer to a Decision, as it went to the person who asked: the user's, or the one a person gave
+ * for the user at their request, under that person's name.
+ */
+function DecisionAnswerItem({
+  message,
+}: {
+  readonly message: Extract<Message, { kind: "decision-answer" }>;
+}): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  const { atUsersRequest } = message;
+  const answerer = atUsersRequest && {
+    roleKey: atUsersRequest.roleKey,
+    name: roleFirstName(atUsersRequest.roleKey, roles),
+  };
+  return (
+    <TurnFrame
+      avatar={
+        answerer === null ? (
+          <YourAvatar />
+        ) : (
+          <PersonAvatar roleKey={answerer.roleKey} name={answerer.name} size="xs" />
+        )
+      }
+      by={
+        answerer === null
+          ? "You · answering the Decision"
+          : `${answerer.name} · answering the Decision at your request`
+      }
+      at={message.at}
+      labelled
+    >
+      <div className="message-text">
+        <MarkdownText text={answerWords(message.answer, message.decision)} />
+      </div>
+    </TurnFrame>
+  );
 }
 
 /** A Handover note in the stream: its first lines when it reads whole elsewhere (spec 4.1). */

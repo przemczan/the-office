@@ -51,7 +51,7 @@ class FetchesThatMeet extends Worktrees {
     commands: ProjectCommandRunner,
     officeData: OfficeDataDirectory,
   ) {
-    super(git, commands, taskCommandsOver(commands), officeData, new TaskBasesForTests(git));
+    super(git, commands, taskCommandsOver(commands, git), officeData, new TaskBasesForTests(git));
   }
 
   override freshBase(): Promise<never> {
@@ -107,7 +107,7 @@ async function initiativeCheckouts(projectIds: readonly string[]) {
     new Worktrees(
       git,
       commands,
-      taskCommandsOver(commands),
+      taskCommandsOver(commands, git),
       officeData,
       new TaskBasesForTests(git),
     ),
@@ -153,7 +153,7 @@ beforeAll(async () => {
     new Worktrees(
       git,
       commands,
-      taskCommandsOver(commands),
+      taskCommandsOver(commands, git),
       officeData,
       new TaskBasesForTests(git),
     ),
@@ -177,7 +177,7 @@ describe("BaseCheckouts", () => {
       new Worktrees(
         git,
         commands,
-        taskCommandsOver(commands),
+        taskCommandsOver(commands, git),
         officeData,
         new TaskBasesForTests(git),
       ),

@@ -492,6 +492,9 @@ describe("a Thread on an Initiative's session", () => {
       sessionRefusal: undefined,
     });
     expect(INITIATIVE_PLANNING_OFFICE_TOOLS).toContain("open_decision");
+    // Both Initiative Threads answer a Decision for the user when they ask.
+    expect(INITIATIVE_PLANNING_OFFICE_TOOLS).toContain("answer_decision");
+    expect(SHAPING_OFFICE_TOOLS).toContain("answer_decision");
     for (const words of [
       `Usage exports (Initiative ${initiative.id})`,
       "## The Tasks to plan",

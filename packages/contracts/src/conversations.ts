@@ -241,6 +241,13 @@ export const CONSULT_TOOL = "consult";
  */
 export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
 
+/**
+ * The Office tool a person answers a Decision waiting on the user with, for the user, when the user
+ * asks them to in a Thread of the person's own. Its activity line shows in that Thread, where the
+ * Decision has no card.
+ */
+export const ANSWER_DECISION_TOOL = "answer_decision";
+
 /** The Office tools whose calls the Decision card shows, so the web hides their activity lines. */
 export const DECISION_TOOLS: readonly string[] = [
   OPEN_DECISION_TOOL,
@@ -254,6 +261,13 @@ export const decisionAnswerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("free-answer"), text: z.string() }),
 ]);
 export type DecisionAnswer = z.infer<typeof decisionAnswerSchema>;
+
+/**
+ * The person who answered a Decision for the user, when the user asked them to: by the key of their
+ * Role, and the Thread the user asked them in.
+ */
+export const atUsersRequestSchema = z.object({ roleKey: z.string(), threadId: z.uuid() });
+export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 
 /**
  * A question an Agent puts to the user in the Thread it works in on a Task, or The Office does
@@ -292,6 +306,8 @@ export const decisionSchema = z.object({
   answeredAt: z.iso.datetime().nullable(),
   /** The Consultant who answered, by the key of their Role; null when the user did. */
   answeredBy: z.string().nullable(),
+  /** The person who answered for the user, at their request; null when nobody did. */
+  atUsersRequest: atUsersRequestSchema.nullable(),
 });
 export type Decision = z.infer<typeof decisionSchema>;
 
@@ -602,12 +618,14 @@ export const messageSchema = z.discriminatedUnion("kind", [
   /**
    * The user answered the Decision, sending it into the asking session, or to the Task's Pipeline
    * for The Office's and a Stage Thread's: the answer as given, and the Decision as it is now (open
-   * again when the answer never reached a session).
+   * again when the answer never reached a session). `atUsersRequest` names the person who gave it
+   * for the user; null when the user did.
    */
   z.object({
     ...messageFields,
     kind: z.literal("decision-answer"),
     answer: decisionAnswerSchema,
+    atUsersRequest: atUsersRequestSchema.nullable(),
     decision: decisionSchema,
   }),
   /** A Proposal the person drafted, as its card shows it now: open, applied or declined. */

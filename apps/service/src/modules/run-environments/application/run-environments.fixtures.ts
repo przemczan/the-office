@@ -94,6 +94,9 @@ export function taskIn(
     taskTitle: `Task ${taskId}`,
     projectId: "shop",
     worktree,
+    // A main checkout's, inside the worktree: no second mount, whose missing source a real
+    // runtime would refuse.
+    repositoryGitFolder: join(worktree, ".git"),
     installCommand: "echo installed",
     installInputs: ["package-lock.json"],
     installVariables: [],

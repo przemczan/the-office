@@ -1,5 +1,5 @@
 import type { ContextMove, ContextReason } from "./context-policy.js";
-import type { DecisionAnswer } from "./decision.js";
+import type { AtUsersRequest, DecisionAnswer } from "./decision.js";
 import type { OpenPage } from "./open-page.js";
 
 /**
@@ -143,6 +143,8 @@ interface DecisionAnswerLine {
   readonly kind: "decision-answer";
   readonly decisionId: string;
   readonly answer: DecisionAnswer;
+  /** Set when a person gave it for the user, at their request; the user gave it otherwise. */
+  readonly atUsersRequest?: AtUsersRequest;
   /**
    * Set only for an answer given in an Initiative's planning Thread while the person was answering:
    * it waits for their turn to end, then is delivered (spec §2.4). Any other went in as given.

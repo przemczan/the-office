@@ -1,13 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { Decision, DecisionAnswer, DecisionDraft } from "../domain/decision.js";
+import { RoleCards } from "../../people/index.js";
+import {
+  answerForUserProblems,
+  answerGivenBy,
+  type Answerer,
+  type Decision,
+  type DecisionAnswer,
+  type DecisionDraft,
+} from "../domain/decision.js";
+import { isApproval } from "../domain/consult.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
 import type { Home, Thread } from "../domain/thread.js";
 import { openDecision, openDecisionOf, recordDecisionAnswer } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
-import { ThreadRunner, type Answerer } from "./thread-runner.js";
+import { ThreadRunner } from "./thread-runner.js";
 import { WorkRecords } from "./work-records.js";
 
 /** A Decision just opened, and the home of the Thread it was opened in. */
@@ -28,6 +37,7 @@ export class DecisionService {
     private readonly runner: ThreadRunner,
     private readonly events: EventBus,
     private readonly work: WorkRecords,
+    private readonly roleCards: RoleCards,
   ) {}
 
   /**
@@ -63,8 +73,33 @@ export class DecisionService {
   }
 
   /**
-   * Answers the Decision, as the user or as `answerer`, the Consultant it was put to; the person who
-   * asked takes the answer in its Thread as their next message.
+   * Answers the Decision for the user, as the person whose engine session is `sessionId`, when the
+   * user asked them to in that Thread (spec §2.4): the person's word is trusted, and the answer is
+   * recorded as given at the user's request, then follows every rule of `answer`. Refused outside
+   * a Thread the user talks to them in, for a Decision put to a Consultant, an approval of a call,
+   * and one in the person's own Thread (`answerForUserProblems`).
+   */
+  async answerForUser(sessionId: string, id: string, answer: DecisionAnswer): Promise<Decision> {
+    const caller = await this.repository.findBySession(sessionId);
+    if (!caller) throw new ThreadRefused(["The Office doesn't know this session's Thread."]);
+    const decision = await this.repository.decision(id);
+    if (!decision) throw new DecisionNotFound(id);
+    const problems = answerForUserProblems(decision, caller);
+    if (problems.length > 0) throw new ThreadRefused(problems);
+    const person = await this.roleCards.find(caller.roleKey);
+    await this.answer(id, answer, {
+      kind: "at-users-request",
+      roleKey: caller.roleKey,
+      threadId: caller.id,
+      name: person?.card.name ?? caller.roleKey,
+    });
+    return decision;
+  }
+
+  /**
+   * Answers the Decision, as the user or as `answerer`: the Consultant it was put to, or a person the
+   * user asked to answer it for them; the person who asked takes the answer in its Thread as their
+   * next message.
    * The answer to The Office's Decision, or to one in a Stage Thread, goes to the Task's Pipeline
    * instead, which runs on from it, even when given while the asking Stage still runs: the
    * Pipeline reads it as the Stage ends. Refused once it is answered, and while the person is
@@ -85,7 +120,7 @@ export class DecisionService {
         answer,
         messageId: randomUUID(),
         answeredAt: new Date(),
-        answeredBy: answerer?.roleKey,
+        ...answerGivenBy(answerer),
       }),
     );
     if (event) await this.events.publish(event);
@@ -103,6 +138,29 @@ export class DecisionService {
    */
   listUnansweredOn(taskId: string): Promise<readonly Decision[]> {
     return this.repository.unansweredOn(taskId);
+  }
+
+  /**
+   * The Decisions on the Task waiting on the user, in any of its Threads, the first asked first: as
+   * the Task's record lists them, for a person to answer one for the user when they ask.
+   */
+  async waitingOnTheUserOn(taskId: string): Promise<
+    readonly {
+      readonly id: string;
+      readonly question: string;
+      readonly options: readonly string[];
+      readonly approval: boolean;
+    }[]
+  > {
+    const open = await this.repository.openDecisions();
+    return open
+      .filter((decision) => decision.taskId === taskId)
+      .map((decision) => ({
+        id: decision.id,
+        question: decision.question,
+        options: decision.options,
+        approval: isApproval(decision),
+      }));
   }
 
   /** How many Decisions on the Task wait on the user, in any of its Threads. */

@@ -164,6 +164,7 @@
 - `proposal-card.tsx`: ProposalCard
 - `thread-composer.tsx`: ThreadComposer, ReadOnlyNote
 - `thread-drafts.tsx`: ThreadDrafts, ThreadDraftsProvider, useThreadDrafts
+- `thread-link.tsx`: ThreadLink
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView, ThreadLog, ThreadTitle
 - `thread-writing.ts`: takesMessages

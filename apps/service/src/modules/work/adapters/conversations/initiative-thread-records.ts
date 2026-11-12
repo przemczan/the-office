@@ -1,5 +1,9 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { ENDED_INITIATIVE_CONVERSATION_WORDS, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import {
+  ANSWER_DECISION_TOOL,
+  ENDED_INITIATIVE_CONVERSATION_WORDS,
+  OPEN_DECISION_TOOL,
+} from "@the-office/contracts";
 import {
   InitiativeThreadSetups,
   type InitiativeBranchReads,
@@ -44,7 +48,8 @@ import {
 /**
  * The Office tools of a shaping session: it reads every record and Attachment and changes its own
  * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left
- * out, since a Task made there would be no part of it.
+ * out, since a Task made there would be no part of it. It answers a Decision for the user when they
+ * ask, as every Thread the user talks in does.
  */
 export const SHAPING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
@@ -55,12 +60,14 @@ export const SHAPING_OFFICE_TOOLS = [
   WRITE_TASK_TITLE,
   WRITE_TASK_DESCRIPTION,
   CHOOSE_PIPELINE,
+  ANSWER_DECISION_TOOL,
 ] as const;
 
 /**
  * The Office tools of an Initiative's planning session: it reads every record and Attachment, moves
  * the Initiative's Tasks to Planning as their turn comes, writes each one's parts by its Task id,
- * and opens a Decision on a Task that needs the user's answer.
+ * opens a Decision on a Task that needs the user's answer, and answers one for the user when they
+ * ask.
  */
 export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
@@ -71,6 +78,7 @@ export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
   PROPOSE_PIPELINE,
   WRITE_TAGS,
   MARK_PLANNED,
+  ANSWER_DECISION_TOOL,
 ] as const;
 
 /**

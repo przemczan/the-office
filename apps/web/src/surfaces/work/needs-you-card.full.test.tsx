@@ -55,6 +55,7 @@ function aDecision(id: string, question: string): Decision {
     answer: null,
     answeredAt: null,
     answeredBy: null,
+    atUsersRequest: null,
   };
 }
 

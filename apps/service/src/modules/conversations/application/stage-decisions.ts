@@ -68,14 +68,15 @@ export class StageDecisions {
 
   /**
    * The answer to the Decision, the user's or the Consultant's, undefined while it waits. The
-   * Pipeline reads it as it would wait, for an answer given before its run kept the Decision.
+   * Pipeline reads it as it would wait, for an answer given before its run kept the Decision. One a
+   * person gave for the user at their request is the user's own to the Pipeline.
    */
   async answerOf(
     id: string,
   ): Promise<(DecisionAnswer & Pick<GivenAnswer, "answeredBy">) | undefined> {
     const answer = (await this.repository.decision(id))?.answer;
     if (!answer) return undefined;
-    const { answeredAt: _answeredAt, ...given } = answer;
+    const { answeredAt: _answeredAt, atUsersRequest: _atUsersRequest, ...given } = answer;
     return given;
   }
 

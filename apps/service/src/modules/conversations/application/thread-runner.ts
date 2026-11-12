@@ -12,7 +12,14 @@ import {
 import { ApprovalHolds } from "./approval-holds.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
-import { answerProblems, type Decision, type DecisionAnswer } from "../domain/decision.js";
+import {
+  answerGivenBy,
+  answerProblems,
+  type Answerer,
+  type Decision,
+  type DecisionAnswer,
+  type GivenAnswer,
+} from "../domain/decision.js";
 import {
   briefedMessage,
   decisionAnswerMessage,
@@ -128,12 +135,6 @@ const NO_RECORDS: GivenRecords = {
   openPage: undefined,
   ofRunningSession: () => Promise.resolve(undefined),
 };
-
-/** The Consultant who answers a Decision in the user's place. */
-export interface Answerer {
-  readonly roleKey: string;
-  readonly name: string;
-}
 
 /** A session running behind a Thread, read by one loop that logs what it reports. */
 interface LiveSession {
@@ -262,7 +263,7 @@ export class ThreadRunner implements OnModuleDestroy {
       return this.change(threadId, (latest) =>
         keepAnswerForTurnEnd(
           latest,
-          { decisionId, answer, messageId, answeredAt: new Date(), answeredBy: answerer?.roleKey },
+          { decisionId, answer, messageId, answeredAt: new Date(), ...answerGivenBy(answerer) },
           current.card.name,
         ),
       );
@@ -270,12 +271,12 @@ export class ThreadRunner implements OnModuleDestroy {
     const waiting = await this.waitingAnswers(thread);
     const given: Decision = {
       ...open,
-      answer: { ...answer, answeredAt: new Date(), answeredBy: answerer?.roleKey },
+      answer: { ...answer, answeredAt: new Date(), ...answerGivenBy(answerer) },
     };
     const answers = [...waiting.map(({ decision }) => decision), given];
     const said = {
       id: messageId,
-      text: await this.answersMessage(thread, answers, answerer?.name),
+      text: await this.answersMessage(thread, answers, answerer),
     };
     // Briefed as the Thread will be once answered: the message, not the Brief, carries this one.
     const answered: Thread = {
@@ -293,7 +294,7 @@ export class ThreadRunner implements OnModuleDestroy {
           answer,
           messageId,
           answeredAt: new Date(),
-          answeredBy: answerer?.roleKey,
+          ...answerGivenBy(answerer),
           waitingAnswerIds: waiting.map(({ lineId }) => lineId),
         }),
       answers,
@@ -347,12 +348,12 @@ export class ThreadRunner implements OnModuleDestroy {
 
   /**
    * What the person is sent for the answered Decisions: in a Thread on a Task its one answer, and in
-   * an Initiative's planning Thread every answer, each naming its Task.
+   * an Initiative's planning Thread every answer, each naming its Task and who gave it for the user.
    */
   private async answersMessage(
     thread: Thread,
     answered: readonly Decision[],
-    answererName?: string,
+    answerer?: Answerer,
   ): Promise<string> {
     const given = answered.flatMap((decision) =>
       decision.answer ? [{ decision, answer: decision.answer }] : [],
@@ -360,15 +361,29 @@ export class ThreadRunner implements OnModuleDestroy {
     if (thread.home.kind !== "initiative") {
       const [only] = given;
       if (!only) throw new Error(`Thread ${thread.id} has no answer to send.`);
-      return decisionAnswerMessage(only.decision, only.answer, answererName);
+      return decisionAnswerMessage(only.decision, only.answer, answerer);
     }
     const onTasks = await Promise.all(
       given.map(async (answer) => ({
         ...answer,
         taskTitle: await this.work.taskTitle(answer.decision.taskId),
+        answerer: await this.atUsersRequestAnswerer(answer.answer),
       })),
     );
     return decisionAnswersOnTasksMessage(onTasks);
+  }
+
+  /** The person who gave the answer for the user, at their request, by their name; or nobody. */
+  private async atUsersRequestAnswerer({
+    atUsersRequest,
+  }: GivenAnswer): Promise<Answerer | undefined> {
+    if (!atUsersRequest) return undefined;
+    const person = await this.roleCards.find(atUsersRequest.roleKey);
+    return {
+      kind: "at-users-request",
+      ...atUsersRequest,
+      name: person?.card.name ?? atUsersRequest.roleKey,
+    };
   }
 
   /**
