@@ -2000,21 +2000,7 @@
         color: var(--fg-2);
       }
 
-      /* ---------- Proposed: an office-wide Pipeline's "Built on by", each a link to its Project page ---------- */
-      .built-on {
-        display: grid;
-        gap: 12px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-      .built-on-project {
-        display: grid;
-        gap: 4px;
-      }
-      .built-on-project > .project-chip {
-        color: var(--fg-2);
-      }
+      /* ---------- Proposed: an office-wide Pipeline's "Built on by", one row per Project, each a link to its Pipelines ---------- */
       .built-on-rows {
         margin: 0;
         padding: 0;
@@ -2043,16 +2029,18 @@
         background: var(--surface-hover);
       }
       .built-on-row b {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
         font: var(--type-label);
         overflow-wrap: anywhere;
       }
       .built-on-row .line {
         grid-column: 1;
+        padding-left: 26px;
         font: var(--type-caption);
         color: var(--fg-3);
-      }
-      .built-on-row .line.why {
-        color: var(--danger-fg);
       }
       .built-on-row .aside {
         display: inline-flex;
@@ -2736,13 +2724,13 @@
 
       /* ---------- Scenarios ---------- */
       const SCENARIOS = [
-        { key: "library", label: "Settings › Pipelines", view: "settings", picked: "full", note: "Office-wide Pipelines only, then the Stage templates. Full and Document are built on by Project Pipelines: their rows say how many, and the open one lists each under its Project, a link to it on its Project's page." },
+        { key: "library", label: "Settings › Pipelines", view: "settings", picked: "full", note: "Office-wide Pipelines only, then the Stage templates. Full and Document are built on by Project Pipelines: their rows say how many, and the open one lists only the Projects, with how many each has, each a link to that Project's Pipelines. The Project Pipelines themselves are listed on their Project's page." },
         { key: "project", label: "A Project's Pipelines", view: "project", picked: "pp-linux", note: "the-office's page, its Pipelines section: the default first, chosen from the-office's own Pipelines or the office-wide ones (Spec change is listed but can't be chosen), then the-office's Pipelines, each built from an office-wide one. Open one to edit it beside the list." },
         { key: "add", label: "Add one built from…", view: "project", picked: "pp-linux", window: "new", note: "Add a Pipeline built from… under the-office's Pipelines opens this window: the base Pipeline first, then a name. It starts as the base Pipeline's Stages exactly, with no Stage change, and belongs to the-office alone." },
         { key: "insert", label: "One inserted Stage", view: "project", picked: "pp-linux", detail: true, note: "the-office's default: Full with one Stage change, Verify on Linux inserted after Review & fix. Every Stage of Full reads From Full; the one the-office adds is marked green. Hover the list for an insert point between two Stages." },
         { key: "kinds", label: "Several kinds of Stage changes", view: "project", picked: "pp-ui", detail: true, open: ["implement"], note: "One view of what the-office gets: an insert, a Change of the brief and the effort (opened, with Full's value beside each), a replace, a remove (struck through, in place) and a second insert. Undo each one, edit a Stage from Full to make a Change, or set a field back." },
         { key: "broken", label: "A Broken one", view: "project", picked: "pp-spec", detail: true, note: "Document's Produce was replaced by Write since Spec change was made. Its Change of Produce no longer applies, and Glossary check goes back to Produce on failure. Apply the Change to Write or remove it, and point the loop at another Stage: the flag goes once both are fixed." },
-        { key: "warning", label: "Saving a base Pipeline", view: "settings", picked: "full", detail: true, draft: true, window: "breaks", note: "Full is being saved with Review & fix split into Review and Fix. Three Project Pipelines name Review & fix, so the editor warns before Save, and Save opens this window, each one a link to its Project's page. Save anyway saves it: Built on by then flags the three Broken." },
+        { key: "warning", label: "Saving a base Pipeline", view: "settings", picked: "full", detail: true, draft: true, window: "breaks", note: "Full is being saved with Review & fix split into Review and Fix. Three Project Pipelines name Review & fix, so the editor warns before Save, and Save opens this window, each one a link to its Project's page. Save anyway saves it: Built on by then counts them Broken under their Projects." },
         { key: "task-picker", label: "The Task's Pipeline picker", view: "task", note: "Choose a Pipeline on a the-office Task in Backlog: the-office's default first, then its other Project Pipelines, then the office-wide ones. Spec change is listed, flagged with why, and can't be chosen. The Planner's Another Pipeline… and Edit for this Task's swap offer the same list." },
         { key: "proposal", label: "Devops' Proposal", view: "chat", picked: "pp-linux", note: "Dwight's Thread from Ask Dwight on the-office's Pipelines: a new Project Pipeline (applied), then new Stage changes to it, each value as was and as proposed, and a Proposal of Full's Stages that breaks Project Pipelines, listed above Apply anyway." },
       ];
@@ -2805,11 +2793,12 @@
         state.fresh = null;
       }
       /* A link to a Project Pipeline on its Project's page, or to an office-wide one in Settings › Pipelines. */
-      function goTo(view, picked) {
+      /* Opens `picked` on its page, or with none picked, the list of `projectId`'s Pipelines. */
+      function goTo(view, picked, projectId = ppOf(picked)?.projectId) {
         state.view = view;
         state.picked = picked;
-        if (view === "project") state.project = ppOf(picked).projectId;
-        state.showDetail = true;
+        if (view === "project") state.project = projectId;
+        state.showDetail = Boolean(picked);
         state.window = null;
         state.editing = null;
         state.open = new Set();
@@ -2885,7 +2874,7 @@
       function projectPage(project) {
         const head = `<div class="record-head"><h2>${projectMark(project)}${esc(project.name)}</h2><div class="record-facts"><span class="badge sm success">Onboarded</span><span>Base branch main</span></div></div>`;
         const pp = ppOf(state.picked);
-        const detail = pp && pp.projectId === project.id ? projectDetail(pp) : "";
+        const detail = pp && pp.projectId === project.id ? projectDetail(pp) : `<section class="card"><p class="note">Open one of ${esc(project.name)}'s Pipelines to see the Stages it gets and edit it.</p></section>`;
         return sectionPage("Project", PROJECT_SECTIONS, "Pipelines", split(`${defaultCard(project)}${ownList(project)}`, backButton(`${project.name}'s Pipelines`), detail), head);
       }
       const addButton = (project) => `<button class="btn sm secondary" data-action="new-for" title="A Pipeline of ${esc(project.name)}'s own, built from an office-wide one">${ICON.plus(13)}Add a Pipeline built from…</button>`;
@@ -2987,25 +2976,20 @@
         const parts = byProject.map((g) => `${esc(g.project.name)}'s ${listWords(g.names)}`);
         return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
       }
-      /* Proposed: the Project Pipelines built on an office-wide one, by Project, each opening on its Project's page. */
+      /* Proposed: the Projects whose Pipelines are built on an office-wide one, with how many each has; the Pipelines themselves are listed on the Project's page. */
       function builtOnCard(pipeline, builtOn) {
         if (!builtOn.length) return "";
         const groups = PROJECTS.map((project) => ({ project, items: builtOn.filter((p) => p.projectId === project.id) })).filter((g) => g.items.length);
         const rows = groups
-          .map(
-            (g) => `<li class="built-on-project"><span class="project-chip">${projectMark(g.project)}${esc(g.project.name)}</span><ul class="built-on-rows">${g.items
-              .map((p) => {
-                const built = build(p);
-                const line = built.broken ? `${plural(built.count, "Stage change doesn't apply", "Stage changes don't apply")}` : stageChangesWords(p.stageChanges.length);
-                const aside = `${g.project.default === p.id ? '<span class="badge sm">Default</span>' : ""}${built.broken ? `<span class="badge sm danger">${ICON.broken(11)}Broken</span>` : ""}`;
-                return `<li><button class="built-on-row" data-action="goto-pp" data-id="${p.id}" title="Open ${esc(p.name)} on ${esc(g.project.name)}'s page"><b>${esc(p.name)}</b><span class="aside">${aside}</span>${ICON.arrowRight()}<span class="line ${built.broken ? "why" : ""}">${esc(line)}</span></button></li>`;
-              })
-              .join("")}</ul></li>`,
-          )
+          .map((g) => {
+            const broken = g.items.filter((p) => build(p).broken).length;
+            const aside = broken ? `<span class="badge sm danger" title="${plural(broken, "of them is", "of them are")} Broken">${ICON.broken(11)}${broken} Broken</span>` : "";
+            return `<li><button class="built-on-row" data-action="goto-project" data-id="${g.project.id}" title="Open ${esc(g.project.name)}'s Pipelines"><b>${projectMark(g.project)}${esc(g.project.name)}</b><span class="aside">${aside}</span>${ICON.arrowRight()}<span class="line">${plural(g.items.length, "Project Pipeline", "Project Pipelines")}</span></button></li>`;
+          })
           .join("");
         return `<section class="card" aria-label="${builtOnWords(builtOn.length)}"><div class="card-head"><h3 class="card-title">${ICON.route()}${builtOnWords(builtOn.length)}</h3></div>
-          <p class="note">Each belongs to one Project and is edited on its page. They follow ${esc(pipeline.name)}'s Stages, with their own Stage changes on top.</p>
-          <ul class="built-on">${rows}</ul></section>`;
+          <p class="note">Each Project edits its own on its page, with its Stage changes on top of ${esc(pipeline.name)}'s Stages.</p>
+          <ul class="built-on-rows">${rows}</ul></section>`;
       }
 
       function projectDetail(pp) {
@@ -3494,7 +3478,7 @@
               <li>A save never leaves a Project Pipeline Broken: Save waits until each is fixed. Only a base Pipeline's save, or a Proposal of its Stages, breaks one, and both warn first.</li></ul></div>
           <div><h2>Where each piece is</h2><ul>
               <li><b>A Project's page › Pipelines</b> (was Default Pipeline): its default, then its own Pipelines, each opening in the editor beside the list. A Project Pipeline belongs to one Project, like its commands and skills, so it lives there.</li>
-              <li><b>Settings › Pipelines:</b> office-wide Pipelines only, then Stage templates. One that Project Pipelines are built from says "Built on by N Project Pipelines", each a link to it on its Project's page.</li>
+              <li><b>Settings › Pipelines:</b> office-wide Pipelines only, then Stage templates. One that Project Pipelines are built from says "Built on by N Project Pipelines"; open, it lists the Projects with how many each has, each a link to that Project's Pipelines. The Project Pipelines themselves are listed only on their Project's page.</li>
               <li><b>Add:</b> Add a Pipeline built from… under the Project's Pipelines; Ask Dwight instead in the same window.</li>
               <li><b>The default:</b> the Default Pipeline picker at the top of the section, or Make it the default on an open one.</li>
               <li><b>The picker:</b> the Project's own first, its default on top, then the office-wide ones, in groups; a Broken one is listed with why and can't be chosen.</li>
@@ -3553,6 +3537,10 @@
         }
         if (action === "goto-pp" || action === "goto-office") {
           goTo(action === "goto-pp" ? "project" : "settings", target.dataset.id);
+          return renderFrame();
+        }
+        if (action === "goto-project") {
+          goTo("project", null, target.dataset.id);
           return renderFrame();
         }
         if (action === "menu") state.menu = state.menu === target.dataset.menu ? null : target.dataset.menu;
