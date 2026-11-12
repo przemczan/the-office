@@ -370,6 +370,17 @@ describe("create_initiative", () => {
     expect(await work.app.get(InitiativeService).list()).toHaveLength(before);
   });
 
+  it("refuses a title longer than one line or the title limit, as an Idea's is", async () => {
+    const tooLong = await call(CREATE_INITIATIVE, { title: "x".repeat(121), outcome: "Faster." });
+    const twoLines = await call(CREATE_INITIATIVE, { title: "One\nTwo", outcome: "Faster." });
+
+    expect(tooLong).toEqual({
+      text: "An Initiative's title may be at most 120 characters.",
+      isError: true,
+    });
+    expect(twoLines).toEqual({ text: "An Initiative's title must be one line.", isError: true });
+  });
+
   it("reads back with no Shaped from line in its record", async () => {
     const name = ownTitle("Faster board");
     await call(CREATE_INITIATIVE, { title: name, outcome: "The board opens in a second." });

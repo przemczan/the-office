@@ -106,9 +106,9 @@ export interface InitiativeOnPipeline {
 }
 
 /**
- * The Initiatives use cases: shaped from an Idea or created from none, its outcome, Tasks, their titles, Descriptions and
- * dependencies written while shaping or by the CTO's Proposals once active, confirmed, dropped, and done once their
- * Tasks are. Each change is saved first and its events published after.
+ * The Initiatives use cases: shaped from an Idea or created from none, its outcome, Tasks, their
+ * titles, Descriptions and dependencies written while shaping or by the CTO's Proposals once
+ * active, confirmed, dropped, and done once their Tasks are. Each change is saved first and its events published after.
  */
 @Injectable()
 export class InitiativeService implements OnModuleInit {

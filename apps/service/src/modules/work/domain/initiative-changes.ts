@@ -13,6 +13,7 @@ import { derivedShortName, initiativeBranchOf, shortNameProblems } from "./short
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import { newTaskProblems, trimmedNewTask, type NewTask, type Task } from "./task.js";
+import { titleProblem } from "./title.js";
 import {
   changeTaskState,
   createTask,
@@ -72,8 +73,9 @@ export function createInitiative(
 ): InitiativeChange<InitiativeCreated> {
   const name = setting.name.trim();
   const outcome = setting.outcome.trim();
+  const nameProblem = titleProblem(name, "Initiative");
   const problems = [
-    ...(name === "" ? ["Give the Initiative a title."] : []),
+    ...(nameProblem ? [nameProblem] : []),
     ...(outcome === "" ? ["Write what must be true once the Initiative is done."] : []),
   ];
   if (problems.length > 0) throw new InitiativeRefused(problems);
