@@ -921,8 +921,8 @@ test(
     // A Thread waiting on an open Decision shows nobody, however long it stays answering.
     const decisionId = crypto.randomUUID();
     await queryOfficeDatabase(
-      `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
-     values ($1, $2, $3, 'caretaker', 'Which way?', 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', '[]', now())`,
+      `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, attachment_ids, asked_at)
+     values ($1, $2, $3, 'caretaker', 'question', 'Which way?', 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', '[]', now())`,
       [decisionId, workingThread, done.id],
     );
     await moveThreadTo(page, workingThread, "answering", "Asking");
@@ -1646,8 +1646,8 @@ async function seedDecision(
     [threadId, task.id, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
   );
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
-     values ($1, $2, $3, 'developer', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', $5, now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, attachment_ids, asked_at)
+     values ($1, $2, $3, 'developer', 'question', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', $5, now())`,
     [decisionId, threadId, task.id, question, JSON.stringify(attachmentIds)],
   );
   return { threadId, decisionId };

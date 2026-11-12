@@ -3117,8 +3117,8 @@ async function seedConsultation(taskId: string, plannerThreadId: string): Promis
   const decisionId = crypto.randomUUID();
   const consultationId = crypto.randomUUID();
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at, put_to)
-     values ($1, $2, $3, 'planner', $4, 'The migration rewrites every row.', $5, '{"option":0,"reason":"It ran on the copy."}', now(), 'developer')`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at, put_to)
+     values ($1, $2, $3, 'planner', 'question', $4, 'The migration rewrites every row.', $5, '{"option":0,"reason":"It ran on the copy."}', now(), 'developer')`,
     [
       decisionId,
       plannerThreadId,
@@ -3158,8 +3158,8 @@ const ANSWERED_CONSULTATION_QUESTION = "Does the rollback run in the tests?";
 async function seedAnsweredConsultation(taskId: string, plannerThreadId: string): Promise<void> {
   const decisionId = crypto.randomUUID();
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at, answer, answered_at)
-     values ($1, $2, $3, 'planner', $4, 'The rollback is new.', $5, '{"option":0,"reason":"It ran."}', now(), $6, now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at, answer, answered_at)
+     values ($1, $2, $3, 'planner', 'question', $4, 'The rollback is new.', $5, '{"option":0,"reason":"It ran."}', now(), $6, now())`,
     [
       decisionId,
       plannerThreadId,
@@ -6206,8 +6206,8 @@ const DECISION_FOR_THE_USER_QUESTION = "Should the old export stay beside the ne
 /** A Decision Jan asked on the Task, waiting on the user, by the id the chat's script names. */
 async function seedDecisionForTheUser(taskId: string, plannerThreadId: string): Promise<void> {
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at)
-     values ($1, $2, $3, 'planner', $4, 'Some reports read the old one.', $5, '{"option":0,"reason":"Reports read it."}', now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at)
+     values ($1, $2, $3, 'planner', 'question', $4, 'Some reports read the old one.', $5, '{"option":0,"reason":"Reports read it."}', now())`,
     [
       DECISION_FOR_THE_USER_ID,
       plannerThreadId,
