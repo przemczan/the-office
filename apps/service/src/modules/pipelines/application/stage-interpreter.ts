@@ -466,9 +466,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       return { step: "over" };
     }
     // A Task added to its Initiative meanwhile blocks it; a Gate waits too, as it shows the change.
-    if (record.publishingTask && (await this.tasks.waitingFor(taskId)).length > 0) {
+    // Held before the read, so a blocker ending during it walks the Task again (walksAgain).
+    if (record.publishingTask) {
       this.heldForBlocker.add(taskId);
-      return { step: "over" };
+      if ((await this.tasks.waitingFor(taskId)).length > 0) return { step: "over" };
+      this.heldForBlocker.delete(taskId);
     }
     const { stage, carriedFailure, sentBack } = move;
     const started = startStageRun(

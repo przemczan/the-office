@@ -72,6 +72,31 @@ describe("A Publishing Task's Stages", () => {
     ]);
   });
 
+  it("go on when the blocker ends while its blockers are being read", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    putPublishingTask(taskId);
+    const { tasks } = pipelines;
+    const blockers = [{ id: "fix-2", title: "Fix the import" }];
+    let reads = 0;
+    // The first read answers the blocker still open, as the blocker's Done lands during it.
+    tasks.waitingFor = async () => {
+      reads += 1;
+      if (reads > 1) return [];
+      await pipelines.app
+        .get(EventBus)
+        .publish(new TaskStateChanged("fix-2", "in-progress", "done"));
+      return blockers;
+    };
+
+    await walkStages(pipelines, [implement], taskId);
+    await pipelines.app.get(StageInterpreter).walked(taskId);
+
+    expect((await runsOf(pipelines, taskId)).map(({ outcome }) => outcome?.status)).toEqual([
+      "done",
+    ]);
+  });
+
   it("push the Initiative's branch after each Stage, a failed push told on the outcome", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),
