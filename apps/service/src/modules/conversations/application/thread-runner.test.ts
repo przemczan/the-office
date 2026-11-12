@@ -4,7 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OPEN_DECISION_TOOL } from "@the-office/contracts";
+import { ANSWER_DECISION_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
@@ -51,6 +51,9 @@ import type { BriefProject } from "../domain/brief.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
 import { aThread } from "../domain/thread.fixtures.js";
+import { approvalQuestion, APPROVAL_OPTIONS } from "../domain/consult.js";
+import type { Decision } from "../domain/decision.js";
+import { openDecision } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
 import { projectBasesOver } from "../ports/project-bases.fixtures.js";
@@ -307,8 +310,8 @@ async function startOn(
       ...(api === undefined ? [] : [listing(api)]),
     ],
   }));
-  // As the Projects and People modules register theirs.
-  for (const name of CHAT_OFFICE_TOOLS) {
+  // As the Projects and People modules register theirs; DecisionOfficeTools registers its own.
+  for (const name of CHAT_OFFICE_TOOLS.filter((tool) => tool !== ANSWER_DECISION_TOOL)) {
     app.get(OfficeToolRegistry).register({
       name,
       description: `Reads ${name}.`,
@@ -1918,6 +1921,295 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     await answered(opened.id, 1);
     expect((await threads.read(opened.id)).openDecisions).toEqual([]);
+  });
+});
+
+/** A chat with the person, its session started, where the user asks them to answer a Decision. */
+async function aChatWithASession(): Promise<{ readonly id: string; readonly sessionId: string }> {
+  const chat = await threads.startInChat(roleKey);
+  await runner.send(chat.id, "Answer it for me: the second option.");
+  await answered(chat.id, 3);
+  return { id: chat.id, sessionId: (await threads.read(chat.id)).session?.id ?? "" };
+}
+
+/** The person answers the Decision for the user with `answer_decision`, from the session. */
+async function answersForTheUser(
+  sessionId: string,
+  input: { readonly decisionId: string; readonly option?: number; readonly answer?: string },
+): Promise<{ readonly text: string; readonly isError: boolean } | undefined> {
+  const [tool] = app.get(OfficeToolRegistry).named([ANSWER_DECISION_TOOL]);
+  return tool?.run(input, anOfficeToolCall(sessionId));
+}
+
+/** A Decision opened straight in the Thread, as a consult or The Office's own opens one. */
+async function openedInThread(
+  threadId: string,
+  fields: {
+    readonly putTo?: string;
+    readonly byTheOffice?: boolean;
+    readonly question?: string;
+    readonly options?: readonly string[];
+  } = {},
+): Promise<Decision> {
+  const id = randomUUID();
+  await repository.update(threadId, (latest) =>
+    openDecision(latest, {
+      question: EXPORT_QUESTION,
+      context: "Archived Projects have no worktree.",
+      options: ["Only active Projects", "Every Project"],
+      recommendation: { option: 0, reason: "It is what the export is for." },
+      id,
+      askedAt: new Date(),
+      ...fields,
+    }),
+  );
+  const decision = await repository.decision(id);
+  if (!decision) throw new Error("No Decision was opened.");
+  return decision;
+}
+
+/** Marks the Thread answering, as a turn running there would. */
+async function markedAnswering(threadId: string): Promise<void> {
+  await repository.update(threadId, (thread) => {
+    const answering: Thread = { ...thread, state: "answering" };
+    return { thread: answering, logged: [], event: new TurnEnded(answering, new Date()) };
+  });
+}
+
+/** A Thread on a fresh Task, stored as it is, with no session. */
+async function storedThreadOnATask(fields: Partial<Thread> = {}): Promise<Thread> {
+  const thread = aThread({
+    id: randomUUID(),
+    home: { kind: "task", taskId: randomUUID() },
+    roleKey,
+    ...fields,
+  });
+  await repository.add(thread);
+  return thread;
+}
+
+describe("a Decision answered for the user, at their request", () => {
+  it("goes from the person's chat into the asking session, recorded as given at the user's request", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "Every Project, then."),
+      ),
+      started(...aTurn("brief", "I'll answer it.")),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+    const chat = await aChatWithASession();
+
+    const result = await answersForTheUser(chat.sessionId, { decisionId: open.id, option: 2 });
+    const log = await answered(opened.id, 7);
+
+    expect(result).toEqual({
+      text: `You answered the Decision "${EXPORT_QUESTION}" for the user: "Every Project". The Office passes it on to whoever waits on it.`,
+      isError: false,
+    });
+    const atUsersRequest = { roleKey, threadId: chat.id };
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `Jan answered your Decision "${EXPORT_QUESTION}" for the user, at their request, with the option "Every Project".`,
+    );
+    expect(drafts(log).slice(-2)).toEqual([
+      {
+        kind: "decision-answer",
+        decisionId: open.id,
+        answer: { kind: "option", option: 1 },
+        atUsersRequest,
+      },
+      { kind: "person", roleKey, text: "Every Project, then." },
+    ]);
+    const [stored] = await decisions.listInThread(opened.id);
+    expect(stored?.answer).toEqual({
+      kind: "option",
+      option: 1,
+      answeredAt: expect.any(Date),
+      atUsersRequest,
+    });
+    await expect(
+      answersForTheUser(chat.sessionId, { decisionId: open.id, option: 1 }),
+    ).resolves.toEqual({ text: "This Decision is answered already.", isError: true });
+  });
+
+  it("follows the answer rules: an option it doesn't have, a blank answer, and the asker still answering", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+      ),
+      started(...aTurn("brief", "I'll answer it.")),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+    const chat = await aChatWithASession();
+
+    await expect(
+      answersForTheUser(chat.sessionId, { decisionId: open.id, option: 3 }),
+    ).resolves.toEqual({ text: "Choose one of the Decision's options.", isError: true });
+    await expect(
+      answersForTheUser(chat.sessionId, { decisionId: open.id, answer: " " }),
+    ).resolves.toEqual({ text: "Write your answer first.", isError: true });
+    await markedAnswering(opened.id);
+    await expect(
+      answersForTheUser(chat.sessionId, { decisionId: open.id, option: 1 }),
+    ).resolves.toEqual({ text: "Jan is still answering. Answer once they finish.", isError: true });
+    expect((await threads.read(opened.id)).openDecisions).toEqual([open]);
+  });
+
+  it("refuses one put to a Consultant, an approval, one in the person's own Thread, and one that isn't", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+      ),
+      started(...aTurn("brief", "I'll answer it.")),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const own = (await threads.read(opened.id)).openDecisions[0];
+    const ownSession = (await threads.read(opened.id)).session?.id ?? "";
+    const chat = await aChatWithASession();
+    const putToDevops = await openedInThread((await storedThreadOnATask()).id, {
+      putTo: "devops",
+    });
+    const approval = await openedInThread((await storedThreadOnATask()).id, {
+      question: approvalQuestion("Install ffmpeg on the machine."),
+      options: APPROVAL_OPTIONS,
+    });
+
+    await expect(
+      answersForTheUser(chat.sessionId, { decisionId: putToDevops.id, option: 1 }),
+    ).resolves.toEqual({
+      text: "This Decision is put to the person in the Role devops, who answers it in a Consultation; only a Decision waiting on the user can be answered for them.",
+      isError: true,
+    });
+    await expect(
+      answersForTheUser(chat.sessionId, { decisionId: approval.id, option: 1 }),
+    ).resolves.toEqual({
+      text: "This Decision asks the user's approval of a call: only the user gives it, on its card. Tell them where it waits.",
+      isError: true,
+    });
+    await expect(
+      answersForTheUser(ownSession, { decisionId: own?.id ?? "", option: 1 }),
+    ).resolves.toEqual({
+      text: "This Decision is open in your own Thread: the user answers it on its card here, not through you.",
+      isError: true,
+    });
+    const unknown = randomUUID();
+    await expect(
+      answersForTheUser(chat.sessionId, { decisionId: unknown, option: 1 }),
+    ).resolves.toEqual({
+      text: `There is no Decision "${unknown}". Read the Task with read_task for the ids of its Decisions waiting on the user.`,
+      isError: true,
+    });
+    await expect(
+      answersForTheUser(randomUUID(), { decisionId: unknown, option: 1 }),
+    ).resolves.toEqual({ text: "The Office doesn't know this session's Thread.", isError: true });
+  });
+
+  it("hands a Stage Thread's Decision and The Office's own to the Pipeline, starting no session", async () => {
+    await startWith(started(...aTurn("brief", "I'll answer it.")));
+    const chat = await aChatWithASession();
+    const inStage = await openedInThread((await storedThreadOnATask({ stageThread: true })).id);
+    const officesOwn = await openedInThread((await storedThreadOnATask()).id, {
+      byTheOffice: true,
+    });
+
+    await answersForTheUser(chat.sessionId, { decisionId: inStage.id, option: 2 });
+    await answersForTheUser(chat.sessionId, {
+      decisionId: officesOwn.id,
+      answer: "Retry the Stage.",
+    });
+
+    const atUsersRequest = { roleKey, threadId: chat.id };
+    expect((await repository.decision(inStage.id))?.answer).toEqual({
+      kind: "option",
+      option: 1,
+      answeredAt: expect.any(Date),
+      atUsersRequest,
+    });
+    expect((await repository.decision(officesOwn.id))?.answer).toEqual({
+      kind: "free-answer",
+      text: "Retry the Stage.",
+      answeredAt: expect.any(Date),
+      atUsersRequest,
+    });
+    expect(drafts(await threads.messages(inStage.threadId))).toContainEqual({
+      kind: "decision-answer",
+      decisionId: inStage.id,
+      answer: { kind: "option", option: 1 },
+      atUsersRequest,
+    });
+    expect(engine.sessions).toHaveLength(1);
+  });
+
+  it("keeps one given in an Initiative's planning Thread for the turn's end, then hands both answers over", async () => {
+    const initiativeId = randomUUID();
+    const [taskA, taskB] = [randomUUID(), randomUUID()];
+    initiativeTasks.set(taskA, { initiativeId, title: "Export API" });
+    initiativeTasks.set(taskB, { initiativeId, title: "Export button" });
+    initiativeOfficeTools = ["read_task", OPEN_DECISION_TOOL];
+    await startWith(
+      started(
+        ...opensDecisionOn("c-1", taskA, "Which format?"),
+        ...opensDecisionOn("c-2", taskB, "Which columns?"),
+        ...aTurn("brief", "Both Tasks wait for an answer."),
+        sent("answers"),
+        ...aTurn("answers", "Planned both."),
+      ),
+      started(...aTurn("brief", "I'll answer them.")),
+    );
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Planning the Initiative",
+      opening: "Plan the Initiative's Tasks.",
+    });
+    const [onA, onB] = await vi.waitFor(
+      async () => {
+        const thread = await threads.read(opened.id);
+        if (thread.state !== "waiting" || thread.openDecisions.length < 2) {
+          throw new Error("Still planning.");
+        }
+        return thread.openDecisions;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const chat = await aChatWithASession();
+    await markedAnswering(opened.id);
+
+    await answersForTheUser(chat.sessionId, { decisionId: onB?.id ?? "", option: 2 });
+
+    const atUsersRequest = { roleKey, threadId: chat.id };
+    const kept = (await threads.messages(opened.id)).find(
+      (line) => line.kind === "decision-answer",
+    );
+    expect(kept).toMatchObject({ decisionId: onB?.id, delivery: "waiting", atUsersRequest });
+    expect((await repository.decision(onB?.id ?? ""))?.answer).toMatchObject({ atUsersRequest });
+
+    await repository.update(opened.id, (thread) => {
+      const idle: Thread = { ...thread, state: "waiting" };
+      return { thread: idle, logged: [], event: new TurnEnded(idle, new Date()) };
+    });
+    await answersForTheUser(chat.sessionId, { decisionId: onA?.id ?? "", option: 1 });
+    await answered(opened.id, 1);
+
+    const handedOver = engine.sessions[0]?.received.find(({ step }) => step === "send");
+    expect(handedOver?.step === "send" && handedOver.message.text).toBe(
+      [
+        `On the Task "Export button" (${taskB}): Jan answered your Decision "Which columns?" for the user, at their request, with the option "JSON".`,
+        `On the Task "Export API" (${taskA}): Jan answered your Decision "Which format?" for the user, at their request, with the option "CSV".`,
+      ].join("\n\n"),
+    );
   });
 });
 

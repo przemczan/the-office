@@ -1,6 +1,6 @@
 import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
-import { answerWords, type Decision, type DecisionAnswer } from "./decision.js";
+import { answerWords, type Answerer, type Decision, type DecisionAnswer } from "./decision.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
 interface SessionPersonCard {
@@ -139,12 +139,21 @@ export const PERSON_READING_OFFICE_TOOLS = [
 ] as const;
 
 /**
+ * The Office tool a person answers a Decision waiting on the user with, for the user, when the user
+ * asks them to in a Thread they talk in (spec §2.4): a chat, a person's Thread on a Task, the
+ * Planner's and an Initiative's Threads, never a Stage Thread or a Consultation. The contracts name
+ * it too, and a test keeps the two the same.
+ */
+export const ANSWER_DECISION_TOOL = "answer_decision";
+
+/**
  * The Office tools a chat session works with (spec §6): it reads every record and a Task's Stage
- * history, captures an Idea, creates a Task and drafts a skill as a Proposal (Conversations'
- * `propose_skill`), and changes no file.
+ * history, answers a Decision for the user when they ask, captures an Idea, creates a Task and
+ * drafts a skill as a Proposal (Conversations' `propose_skill`), and changes no file.
  */
 export const CHAT_OFFICE_TOOLS = [
   ...PERSON_READING_OFFICE_TOOLS,
+  ANSWER_DECISION_TOOL,
   "capture_idea",
   "create_task",
   PROPOSE_SKILL_TOOL,
@@ -363,17 +372,24 @@ export function openingMessage(brief: string, opening: string): string {
 /**
  * What the asking session is sent as its next message when its Decision is answered: the question,
  * with the chosen option or the answerer's own words, so a fresh session knows what was asked.
- * `answerer` names the Consultant who answered; undefined when the user did.
+ * `answerer` is the Consultant who answered, or the person who answered for the user at their
+ * request; undefined when the user did.
  */
 export function decisionAnswerMessage(
   decision: Decision,
   answer: DecisionAnswer,
-  answerer = "The user",
+  answerer?: Answerer,
 ): string {
   const words = answerWords(decision, answer);
+  const answered =
+    answerer === undefined
+      ? `The user answered your Decision "${decision.question}"`
+      : answerer.kind === "consultant"
+        ? `${answerer.name} answered your Decision "${decision.question}"`
+        : `${answerer.name} answered your Decision "${decision.question}" for the user, at their request,`;
   return answer.kind === "option"
-    ? `${answerer} answered your Decision "${decision.question}" with the option "${words}".`
-    : `${answerer} answered your Decision "${decision.question}" in their own words:\n\n${words}`;
+    ? `${answered} with the option "${words}".`
+    : `${answered} in their own words:\n\n${words}`;
 }
 
 /** A Decision answered in an Initiative's planning Thread, with the title of the Task it is on. */
@@ -382,6 +398,8 @@ export interface AnsweredOnTask {
   readonly answer: DecisionAnswer;
   /** Undefined for a Task no longer found, named by its id alone. */
   readonly taskTitle: string | undefined;
+  /** The person who answered for the user, at their request; undefined when the user did. */
+  readonly answerer?: Answerer | undefined;
 }
 
 /**
@@ -391,8 +409,8 @@ export interface AnsweredOnTask {
 export function decisionAnswersOnTasksMessage(answers: readonly AnsweredOnTask[]): string {
   return answers
     .map(
-      ({ decision, answer, taskTitle }) =>
-        `On the Task ${taskTitle === undefined ? "" : `"${taskTitle}" `}(${decision.taskId}): ${decisionAnswerMessage(decision, answer)}`,
+      ({ decision, answer, taskTitle, answerer }) =>
+        `On the Task ${taskTitle === undefined ? "" : `"${taskTitle}" `}(${decision.taskId}): ${decisionAnswerMessage(decision, answer, answerer)}`,
     )
     .join("\n\n");
 }

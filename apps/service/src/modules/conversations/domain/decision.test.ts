@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { DecisionAnswered, DecisionOpened, DeliveryMarked } from "./conversation-events.js";
+import { approvalQuestion, APPROVAL_OPTIONS } from "./consult.js";
+import { answerForUserProblems, answerGivenBy } from "./decision.js";
 import {
   answerDecision,
   deliverWaitingAnswers,
   keepAnswerForTurnEnd,
   openDecision,
+  recordDecisionAnswer,
 } from "./thread-changes.js";
 import { aThread } from "./thread.fixtures.js";
 import { aDecision, AT, TASK_HOME, SESSION, DRAFT, WARM, refusalOf } from "./decision.fixtures.js";
@@ -68,6 +71,124 @@ describe("answering a Decision", () => {
     expect(refusalOf(() => answerDecision({ ...waiting, state: "answering" }, answering))).toEqual([
       "Jan is still answering. Answer once they finish.",
     ]);
+  });
+});
+
+describe("answering a Decision for the user, at their request", () => {
+  const AT_USERS_REQUEST = { roleKey: "cto", threadId: "thread-of-the-cto" };
+  const open = aDecision({ id: "decision-1" });
+  const waiting = aThread({ home: TASK_HOME, session: SESSION, openDecisions: [open] });
+
+  it("records who answered and the Thread the user asked in, on the Decision, its line and its event", () => {
+    const answered = answerDecision(waiting, {
+      personName: "Jan",
+      decision: WARM,
+      newSession: undefined,
+      brief: "The record.",
+      decisionId: "decision-1",
+      answer: { kind: "option", option: 1 },
+      messageId: "message-1",
+      answeredAt: AT,
+      atUsersRequest: AT_USERS_REQUEST,
+    });
+
+    const decision = {
+      ...open,
+      answer: {
+        kind: "option" as const,
+        option: 1,
+        answeredAt: AT,
+        atUsersRequest: AT_USERS_REQUEST,
+      },
+    };
+    expect(answered.decision).toEqual(decision);
+    expect(answered.decision?.answer).not.toHaveProperty("answeredBy");
+    expect(answered.logged).toContainEqual(
+      expect.objectContaining({
+        kind: "decision-answer",
+        id: "message-1",
+        atUsersRequest: AT_USERS_REQUEST,
+      }),
+    );
+    expect(answered.event).toEqual(new DecisionAnswered(answered.thread, decision, AT));
+  });
+
+  it("records it alike for a Decision whose answer goes to the Pipeline", () => {
+    const stageThread = { ...waiting, stageThread: true };
+
+    const recorded = recordDecisionAnswer(stageThread, {
+      decisionId: "decision-1",
+      answer: { kind: "free-answer", text: "Every Project." },
+      messageId: "message-1",
+      answeredAt: AT,
+      atUsersRequest: AT_USERS_REQUEST,
+    });
+
+    expect(recorded.decision?.answer).toEqual({
+      kind: "free-answer",
+      text: "Every Project.",
+      answeredAt: AT,
+      atUsersRequest: AT_USERS_REQUEST,
+    });
+    expect(recorded.logged).toEqual([
+      expect.objectContaining({ kind: "decision-answer", atUsersRequest: AT_USERS_REQUEST }),
+    ]);
+  });
+
+  it("keeps a Consultant's answer and the user's own as they were", () => {
+    expect(answerGivenBy(undefined)).toEqual({});
+    expect(answerGivenBy({ kind: "consultant", roleKey: "cto", name: "Ada" })).toEqual({
+      answeredBy: "cto",
+    });
+    expect(answerGivenBy({ kind: "at-users-request", name: "Ada", ...AT_USERS_REQUEST })).toEqual({
+      atUsersRequest: AT_USERS_REQUEST,
+    });
+  });
+});
+
+describe("what keeps a person from answering a Decision for the user", () => {
+  const callersThread = aThread({ id: "thread-of-the-cto", roleKey: "cto" });
+  const open = aDecision();
+
+  it("lets them answer a Decision waiting on the user in another Thread", () => {
+    expect(answerForUserProblems(open, callersThread)).toEqual([]);
+  });
+
+  it("refuses one put to a Consultant, an approval, one answered, and one in their own Thread", () => {
+    expect(answerForUserProblems(aDecision({ putTo: "devops" }), callersThread)).toEqual([
+      "This Decision is put to the person in the Role devops, who answers it in a Consultation; only a Decision waiting on the user can be answered for them.",
+    ]);
+    const approval = aDecision({
+      question: approvalQuestion("Install ffmpeg on the machine."),
+      options: APPROVAL_OPTIONS,
+    });
+    expect(answerForUserProblems(approval, callersThread)).toEqual([
+      "This Decision asks the user's approval of a call: only the user gives it, on its card. Tell them where it waits.",
+    ]);
+    const answered = aDecision({
+      answer: { kind: "option", option: 0, answeredAt: AT },
+    });
+    expect(answerForUserProblems(answered, callersThread)).toEqual([
+      "This Decision is answered already.",
+    ]);
+    expect(answerForUserProblems(aDecision({ threadId: callersThread.id }), callersThread)).toEqual(
+      [
+        "This Decision is open in your own Thread: the user answers it on its card here, not through you.",
+      ],
+    );
+  });
+
+  it("refuses from a Stage Thread and a Consultation, where the user isn't the one asking", () => {
+    const refusal = [
+      "Only in a Thread the user talks to you in can you answer a Decision for them.",
+    ];
+    expect(answerForUserProblems(open, { ...callersThread, stageThread: true })).toEqual(refusal);
+    expect(
+      answerForUserProblems(open, {
+        ...callersThread,
+        consultation: { decisionId: "d", askerThreadId: "t", askerRoleKey: "developer" },
+      }),
+    ).toEqual(refusal);
   });
 });
 

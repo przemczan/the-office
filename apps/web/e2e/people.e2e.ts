@@ -6198,3 +6198,93 @@ test(
     await page.setViewportSize({ width: 1600, height: 1000 });
   },
 );
+
+/** The id the chat's script answers by: a script names no record by an id made at run time. */
+const DECISION_FOR_THE_USER_ID = "5d0b8c1e-7a3f-4e2b-9c6d-1f8a2b3c4d5e";
+const DECISION_FOR_THE_USER_QUESTION = "Should the old export stay beside the new one?";
+
+/** A Decision Jan asked on the Task, waiting on the user, by the id the chat's script names. */
+async function seedDecisionForTheUser(taskId: string, plannerThreadId: string): Promise<void> {
+  await queryOfficeDatabase(
+    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at)
+     values ($1, $2, $3, 'planner', $4, 'Some reports read the old one.', $5, '{"option":0,"reason":"Reports read it."}', now())`,
+    [
+      DECISION_FOR_THE_USER_ID,
+      plannerThreadId,
+      taskId,
+      DECISION_FOR_THE_USER_QUESTION,
+      JSON.stringify(["Keep the old export", "Remove the old export"]),
+    ],
+  );
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+    [
+      crypto.randomUUID(),
+      plannerThreadId,
+      { kind: "decision", roleKey: "planner", decisionId: DECISION_FOR_THE_USER_ID },
+    ],
+  );
+}
+
+// The engine replays the last sessions in e2e/sessions.jsonl: Jan in his chat answers the Decision
+// for the user with answer_decision, then Jan's planning Thread takes the answer.
+test(
+  "a person answers a Decision for the user from their chat, and its card says so",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Answered", "AN", PASSING_COMMANDS);
+      const taskId = await readyTask(page, project.id, "Old export answered for the user");
+      const [planning] = threadListSchema.parse(
+        await (await page.request.get(`/api/tasks/${taskId}/threads`)).json(),
+      );
+      if (!planning) throw new Error("Planning opened no Thread.");
+      await seedDecisionForTheUser(taskId, planning.id);
+
+      const { id: chatId } = threadSchema.parse(
+        await (await page.request.post("/api/chats/planner/threads")).json(),
+      );
+      const sent = await page.request.post(`/api/threads/${chatId}/messages`, {
+        data: { text: "Answer your Decision on the old export for me: keep it." },
+      });
+      expect(sent.ok()).toBe(true);
+
+      await page.goto(`/tasks/${taskId}`);
+      const conversation = page.getByRole("complementary", { name: "Conversation" });
+      await expect(conversation.getByText("Then the old export stays.")).toBeVisible({
+        timeout: 30_000,
+      });
+      const card = conversation.getByRole("region", {
+        name: `Decision: ${DECISION_FOR_THE_USER_QUESTION}`,
+      });
+      await expect(card.locator(".decision-answered")).toHaveText(
+        "Answered by Jan at your request: Keep the old export",
+      );
+      await expect(
+        conversation.getByText("Jan · answering the Decision at your request"),
+      ).toBeVisible();
+      await expect(page.getByRole("region", { name: "Needs you" })).not.toContainText(
+        DECISION_FOR_THE_USER_QUESTION,
+      );
+      await card.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-answered-at-your-request.png"),
+      });
+      await showPalette(page, "dark");
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "dark-1600-answered-at-your-request.png"),
+      });
+      await showPalette(page, "light");
+
+      // The card's way to the chat the user asked in opens it in the drawer.
+      await card.getByRole("link", { name: "at your request" }).click();
+      await expect(
+        chatWith(page, "Jan").getByText("I answered it for you: keep it."),
+      ).toBeVisible();
+      expect(await chatThreadShown(page)).toBe(chatId);
+    } finally {
+      await repository.remove();
+    }
+  },
+);

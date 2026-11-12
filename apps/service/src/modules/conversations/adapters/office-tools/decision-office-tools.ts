@@ -1,12 +1,18 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { ANSWER_CONSULTATION_TOOL, CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import {
+  ANSWER_CONSULTATION_TOOL,
+  ANSWER_DECISION_TOOL,
+  CONSULT_TOOL,
+  OPEN_DECISION_TOOL,
+} from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { Consultations } from "../../application/consultations.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { WorkRecords } from "../../application/work-records.js";
 import { APPROVAL_OPTIONS, PASS_ON_STEPS, type Consult } from "../../domain/consult.js";
-import type { DecisionDraft } from "../../domain/decision.js";
+import { answerWords, type DecisionAnswer, type DecisionDraft } from "../../domain/decision.js";
+import { DecisionNotFound } from "../../domain/decision-not-found.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
 
 const END_YOUR_TURN =
@@ -17,7 +23,8 @@ const END_YOUR_TURN =
  * or consults a person, whose Consultation answers a Decision put to them; a Consultant gives their
  * answer with the third. Asking returns at once: the Agent ends its turn, and the answer comes as
  * its next message (spec §9). The Planner opens Decisions in an Initiative's planning Thread too,
- * each on one of its Tasks, and plans on while they wait.
+ * each on one of its Tasks, and plans on while they wait. A person the user talks to answers a
+ * Decision waiting on the user for them, when the user asks them to, with the fourth (spec §2.4).
  */
 @Injectable()
 export class DecisionOfficeTools implements OnModuleInit {
@@ -32,6 +39,7 @@ export class DecisionOfficeTools implements OnModuleInit {
     this.registerOpenDecision();
     this.registerConsult();
     this.registerAnswerConsultation();
+    this.registerAnswerDecision();
   }
 
   private registerOpenDecision(): void {
@@ -197,6 +205,48 @@ export class DecisionOfficeTools implements OnModuleInit {
           return { text: "Your answer reached them. End your turn.", isError: false };
         } catch (error) {
           if (error instanceof ThreadRefused) return { text: error.message, isError: true };
+          throw error;
+        }
+      },
+    });
+  }
+
+  private registerAnswerDecision(): void {
+    this.registry.register({
+      name: ANSWER_DECISION_TOOL,
+      description:
+        "Answers a Decision waiting on the user, for the user, when they asked you to in this Thread: use it only then, with the answer they gave or agreed to. Choose one of its options by its number, or answer in your own words. The card shows it as answered by you at the user's request, and the answer reaches the person who asked as their next message. read_task lists a Task's Decisions waiting on the user, with their ids and numbered options. An approval of a call stays the user's own click, a Decision put to a Consultant is theirs, and one in this Thread the user answers on its card.",
+      input: z.object({
+        decisionId: z.string().describe("The Decision's id, as read_task or a mention gives it."),
+        option: z
+          .number()
+          .int()
+          .optional()
+          .describe("The option the user chose, by its number in the list, counting from 1."),
+        answer: z
+          .string()
+          .optional()
+          .describe("The answer in the user's own words, when no option fits."),
+      }),
+      run: async ({ decisionId, option, answer }, { sessionId }) => {
+        const given: DecisionAnswer =
+          option !== undefined
+            ? { kind: "option", option: option - 1 }
+            : { kind: "free-answer", text: answer ?? "" };
+        try {
+          const decision = await this.decisions.answerForUser(sessionId, decisionId, given);
+          return {
+            text: `You answered the Decision "${decision.question}" for the user: "${answerWords(decision, given)}". The Office passes it on to whoever waits on it.`,
+            isError: false,
+          };
+        } catch (error) {
+          if (error instanceof ThreadRefused) return { text: error.message, isError: true };
+          if (error instanceof DecisionNotFound) {
+            return {
+              text: `${error.message} Read the Task with read_task for the ids of its Decisions waiting on the user.`,
+              isError: true,
+            };
+          }
           throw error;
         }
       },
