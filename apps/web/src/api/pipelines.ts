@@ -5,6 +5,7 @@ import {
   pipelineSchema,
   pipelinesWebEventSchema,
   pipelineUseSchema,
+  projectPipelineListSchema,
   stageRunCommandOutputsSchema,
   stagesCheckSchema,
   stageTemplateListSchema,
@@ -36,6 +37,26 @@ export const pipelineQueries = {
     queryOptions({
       queryKey: PIPELINES_KEY,
       queryFn: ({ signal }) => getFromApi("/pipelines", pipelineListSchema, signal),
+    }),
+  /**
+   * A Project's Project Pipelines, each built from its base Pipeline; under the library, as an
+   * office-wide save can break one.
+   */
+  projectPipelines: (projectId: string) =>
+    queryOptions({
+      queryKey: [...PIPELINES_KEY, "project-pipelines", projectId],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/project-pipelines?projectId=${encodeURIComponent(projectId)}`,
+          projectPipelineListSchema,
+          signal,
+        ),
+    }),
+  /** Every Project's Project Pipelines, for finding one by its id wherever a Task names it. */
+  everyProjectPipeline: () =>
+    queryOptions({
+      queryKey: [...PIPELINES_KEY, "project-pipelines"],
+      queryFn: ({ signal }) => getFromApi("/project-pipelines", projectPipelineListSchema, signal),
     }),
   /** Who uses a library Pipeline; under the library, so any change to it reads this again. */
   use: (pipelineId: string) =>

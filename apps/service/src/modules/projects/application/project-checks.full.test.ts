@@ -8,6 +8,8 @@ import { aNewProject, aProject, startingCommands } from "../domain/project.fixtu
 import { ProjectRefused } from "../domain/project-refused.js";
 import { Git, type FolderInspection, type Upstream } from "../ports/git.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
+import { ProjectRepository } from "../ports/project-repository.js";
+import type { Project } from "../domain/project.js";
 import { ProjectChecks } from "./project-checks.js";
 
 const REPOSITORY = aNewProject().path;
@@ -87,15 +89,50 @@ function notUsed(): never {
 
 class FakePipelines extends KnownPipelines {
   private readonly pipelines = new Map<string, PipelineCommands>([
-    ["full", { name: "Full", keys: ["test"] }],
-    ["quick-fix", { name: "Quick fix", keys: [] }],
-    ["document", { name: "Document", keys: [] }],
-    ["thorough", { name: "Thorough", keys: ["test-full", "e2e"] }],
+    ["full", { name: "Full", keys: ["test"], broken: [] }],
+    ["quick-fix", { name: "Quick fix", keys: [], broken: [] }],
+    ["document", { name: "Document", keys: [], broken: [] }],
+    ["thorough", { name: "Thorough", keys: ["test-full", "e2e"], broken: [] }],
+    // Project Pipelines, their keys those of their built Stages.
+    [
+      "full-for-admin",
+      { name: "Full for Admin panel", keys: ["lint"], projectId: "admin-panel", broken: [] },
+    ],
+    [
+      "e2e-for-admin",
+      { name: "Full with e2e", keys: ["e2e"], projectId: "admin-panel", broken: [] },
+    ],
+    [
+      "spec-change",
+      {
+        name: "Spec change",
+        keys: [],
+        projectId: "admin-panel",
+        broken: ["Changes Produce, which Document no longer has."],
+      },
+    ],
+    ["full-for-shop", { name: "Full for Shop", keys: [], projectId: "shop", broken: [] }],
   ]);
 
   async commandsNamedBy(id: string): Promise<PipelineCommands | undefined> {
     return this.pipelines.get(id);
   }
+}
+
+/** The checks only read a Project's name, for the Project a Project Pipeline belongs to. */
+class FakeProjects extends ProjectRepository {
+  private readonly projects: readonly Project[] = [
+    aProject(),
+    aProject({ id: "shop", name: "Shop" }),
+  ];
+
+  async find(id: string): Promise<Project | undefined> {
+    return this.projects.find((project) => project.id === id);
+  }
+
+  add = notUsed;
+  list = notUsed;
+  update = notUsed;
 }
 
 const OFFICE_DATA = resolve("/office-data");
@@ -107,6 +144,7 @@ function checksWith(git: Git = new FakeGit()): ProjectChecks {
     new FakePipelines(),
     new OfficeDataDirectory(OFFICE_DATA),
     new EngineModels(new EngineSettingsForTests()),
+    new FakeProjects(),
   );
 }
 
@@ -230,6 +268,50 @@ describe("ProjectChecks.checkDefaultPipeline", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("passes one of the Project's own Project Pipelines", async () => {
+    await expect(
+      checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "full-for-admin" })),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses another Project's Project Pipeline and a Broken one of its own, naming why", async () => {
+    expect(
+      await reasonsOf(
+        checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "full-for-shop" })),
+      ),
+    ).toEqual([
+      "Full for Shop is a Project Pipeline of Shop: only Shop's Tasks and default can follow it.",
+    ]);
+    expect(
+      await reasonsOf(
+        checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "spec-change" })),
+      ),
+    ).toEqual([
+      "Spec change is Broken: Changes Produce, which Document no longer has. A Broken Pipeline can't be the default: fix its Stage changes in Admin panel's Pipelines first, or choose another default Pipeline.",
+    ]);
+  });
+
+  it("refuses a Project Pipeline whose built Stages run a command the Project lacks", async () => {
+    expect(
+      await reasonsOf(
+        checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "e2e-for-admin" })),
+      ),
+    ).toEqual([
+      "The Pipeline Full with e2e runs e2e, which Admin panel has no command for. Add it to the Project's commands, or choose another default Pipeline.",
+    ]);
+  });
+
+  it("refuses a Project Pipeline as a new Project's default, office-wide ones only", async () => {
+    const newProject = aNewProject({ defaultPipeline: "full-for-admin" });
+
+    expect(await checksWith().newCloneProblems(newProject)).toEqual([
+      "Full for Admin panel is a Project Pipeline of Admin panel; a new Project's default Pipeline is an office-wide one.",
+    ]);
+    expect(await reasonsOf(checksWith().checkNewProject(newProject))).toEqual([
+      "Full for Admin panel is a Project Pipeline of Admin panel; a new Project's default Pipeline is an office-wide one.",
+    ]);
+  });
+
   it("refuses adding a Project whose default Pipeline runs a command it lacks", async () => {
     const newProject = aNewProject({ defaultPipeline: "thorough" });
 
@@ -245,6 +327,15 @@ describe("ProjectChecks.checkCommandRemoval", () => {
       "Full, this Project's default Pipeline, runs test; choose another default first.",
     ]);
     await expect(checksWith().checkCommandRemoval(aProject(), "lint")).resolves.toBeUndefined();
+  });
+
+  it("refuses removing a command its own Project Pipeline, as the default, runs in its built Stages", async () => {
+    const project = aProject({ defaultPipeline: "full-for-admin" });
+
+    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "lint"))).toEqual([
+      "Full for Admin panel, this Project's default Pipeline, runs lint; choose another default first.",
+    ]);
+    await expect(checksWith().checkCommandRemoval(project, "test")).resolves.toBeUndefined();
   });
 });
 

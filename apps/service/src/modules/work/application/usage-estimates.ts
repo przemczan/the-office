@@ -128,7 +128,7 @@ export class UsageEstimates {
   private async estimatedStages(task: Task): Promise<readonly EstimatedStage[]> {
     if (!hasPipeline(task)) return [];
     const { projectId } = task;
-    const pipeline = await this.pipelines.find(task.pipelineId);
+    const pipeline = await this.pipelines.read(task.pipelineId);
     const stages = await Promise.all(
       (pipeline?.stages ?? []).map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);

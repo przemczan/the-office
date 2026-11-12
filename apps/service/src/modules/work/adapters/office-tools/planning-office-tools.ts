@@ -150,7 +150,7 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerProposePipeline(): void {
     this.registry.register({
       name: PROPOSE_PIPELINE,
-      description: `Proposes the Pipeline the Task's work follows, one of those your Brief lists, chosen from the Definition of Done. The Task keeps its Pipeline until the user confirms yours or chooses another. ${ON_A_READY_TASK}`,
+      description: `Proposes the Pipeline the Task's work follows, one of those your Brief lists, chosen from the Definition of Done: its Project's own or an office-wide one. A Broken one, or another Project's Project Pipeline, is refused. The Task keeps its Pipeline until the user confirms yours or chooses another. ${ON_A_READY_TASK}`,
       input: z.object({
         taskId: TASK_ID,
         pipelineId: z.string().describe("The Pipeline's id, as your Brief lists it."),

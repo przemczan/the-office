@@ -6,7 +6,7 @@
 
 **Traps:**
 
-- Office-wide versus Project-aware: `PipelineLibrary.list`, `find`, `has`, `commandsNamedBy` and `rolesNamed` read the office-wide Pipelines only, and so do Work's and Projects' `KnownPipelines` until Task e308f447; `forTask(pipelineId, projectId)` is the one Project-aware seam (`TaskStagesService.pipeline`, so Start and a Task's first edit for itself copy a Project Pipeline's Stages as built then), answering another Project's Project Pipeline as unknown and a Broken one with its reasons, which Start refuses (`StagesEditRefused`). `GET /pipelines` stays office-wide, with `builtOnBy` per Project.
+- Office-wide versus Project-aware: `PipelineLibrary.list`, `find`, `has` and `rolesNamed` read the office-wide Pipelines only; `read`, `listFor` and `commandsNamedBy`, which Work's and Projects' `KnownPipelines` bind, answer Project Pipelines too, built, each with its Project and why it is Broken, any Project's for `read` and `commandsNamedBy`, so each caller refuses another Project's and names it. `forTask(pipelineId, projectId)` is the seam Start copies through (`TaskStagesService.pipeline`, so Start and a Task's first edit for itself copy a Project Pipeline's Stages as built then), answering another Project's Project Pipeline as unknown and a Broken one with its reasons, which Start refuses (`StagesEditRefused`). `GET /pipelines` stays office-wide, with `builtOnBy` per Project.
 - Broken (the CTO's rule, 2026-11-12) means the built Stages can't run, worked out by `buildStages` on every read: a Stage change whose key isn't there, an inserted key already there, a field a Change gives that its Stage's kind lacks, and `stageProblems` on the built Stages (loops, names, "continue"); each failing Stage change is skipped, so every reason shows and the Stages still read. Missing commands and the engine check need a Project and stay out of it: a Project Pipeline's own save weighs them against its Project only, and an office-wide save is refused for a Project Pipeline built from it that its Project, running it, would lack a command for (`missingCommandProblems` with that Project alone). A Project Pipeline's own save is refused while Broken; an office-wide save never is, its check answering `breaks` (`brokenBy`; `breaksOf` for a Proposal later).
 - Names span both tables: an office-wide Pipeline's against every Project Pipeline's (the refusal names the Project), a Project Pipeline's against the office-wide ones and its own Project's (`pipeline-names.ts`). Only `(project_id, lower(name))` is a unique index; the rest is checked in the application under the `LIBRARY` lock, so every write to either table takes it.
 - `project_pipelines.project_id` has no foreign key (no module reads another's tables, spec 5.3); `base_pipeline_id` references `pipelines(id)` ON DELETE RESTRICT, backing `removalProblems`' refusal per Project Pipeline built from a Pipeline. The Office has no Project removal yet: whoever adds it must remove the Project's Project Pipelines with it, through a Projects event Pipelines reacts to. A Task moved to another Project already loses its Pipeline (`TaskMovedToProject`).
@@ -105,10 +105,11 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 ### ./
 
 - `agent-stage-runner.fixtures.ts`: implement, corrected
-- `index.fixtures.ts`: ownProjectsStartedTasks
+- `index.fixtures.ts`: ownProjectsStartedTasks, projectPipelinesForTests
 - `pipeline-library.module.ts`: PipelineLibraryModule
 - `pipelines-application.fixtures.ts`: PipelinesApplication, startPipelinesApplication, walkStages, runsOf, anAgentStage, aTurn, anAgentSession, AN_INTERRUPTED_SESSION, aDoneResult, A_WAITING_RESULT, anAskedDecision, asksOnce, answerAsked, answerLastDecision
 - `pipelines.module.ts`: PipelinesModuleOptions, PipelinesModule
+- `project-pipelines.fixtures.ts`: projectPipelinesForTests
 - `publish-stage.fixtures.ts`: implement, publish, reviewedPublish, PULL_REQUEST
 - `stage-interpreter-alarm.fixtures.ts`: implement, review, HELD, open, start, scheduleOf, soundTheAlarm, whileTheFirstTurnRuns, resume, statusesOf
 - `stage-interpreter-decisions.fixtures.ts`: scriptStage, draft, agentDone, A_WAITING, pipelines, aStageThread, startWith, failing, statusesOf, onWaiting, answerFirstOption, statesOf, hireTheCto, failuresPutTo
@@ -175,7 +176,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `gate-stage-runner.ts`: GateStageRunner
 - `initiative-branch-stages.ts`: InitiativeBranchStages
 - `pipeline-library-editor.ts`: PipelineCheck, OfficeWidePipelineCheck, ProjectPipelineCheck, ProjectPipelineBreak, PipelineLibraryEditor
-- `pipeline-library.ts`: PipelineCommands, PipelineForTask, BuiltOnBy, PipelineLibrary
+- `pipeline-library.ts`: PipelineCommands, ReadPipeline, PipelineForTask, BuiltOnBy, PipelineLibrary
 - `publish-stage.ts`: PublishStage
 - `resolve-stage-git.ts`: ResolveBegun, ResolveStageGit
 - `role-fillings.ts`: RoleFillings

@@ -48,6 +48,7 @@ import {
   createTemporaryRepository,
   type TemporaryRepository,
 } from "./temporary-repository.ts";
+import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
 import { createFromTopBar } from "./top-bar.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -1531,7 +1532,7 @@ test(
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toContainText("Changes apply to Keep the filters on reload only.");
-      await dialog.getByLabel("Pipeline").selectOption("quick-fix");
+      await pickPipeline(dialog, "Pipeline", "Quick fix");
       await expect(editorRow(page, "Publish")).toBeVisible();
       await expect(editorRow(page, "Review & fix")).toHaveCount(0);
 
@@ -1545,7 +1546,7 @@ test(
 
       // Saved alone, the swap keeps the Task following the library.
       await page.getByRole("button", { name: "Edit for this Task" }).click();
-      await dialog.getByLabel("Pipeline").selectOption("quick-fix");
+      await pickPipeline(dialog, "Pipeline", "Quick fix");
       await dialog.getByRole("button", { name: "Save for this Task" }).click();
       await expect(page.getByText("Stages saved for Keep the filters on reload.")).toBeVisible();
       await expect(
@@ -1553,7 +1554,9 @@ test(
       ).toBeVisible();
 
       await page.getByRole("button", { name: "Edit for this Task" }).click();
-      await expect(dialog.getByLabel("Pipeline")).toHaveValue("quick-fix");
+      await expect(dialog.getByRole("combobox", { name: "Pipeline", exact: true })).toHaveText(
+        "Quick fix",
+      );
 
       // A Gate goes before Publish, opened to be named.
       await dialog.getByRole("button", { name: "Gate", exact: true }).click();
@@ -1767,8 +1770,7 @@ test(
       await page.request.put(`/api/tasks/${taskId}/pipeline`, { data: { pipelineId: "full" } });
       await page.goto(`/tasks/${taskId}`);
       await page.getByRole("button", { name: "Edit for this Task" }).click();
-      const pipeline = page.getByRole("dialog").getByLabel("Pipeline");
-      await pipeline.selectOption("quick-fix");
+      await pickPipeline(page.getByRole("dialog"), "Pipeline", "Quick fix");
       const implement = editorRow(page, "Implement");
       await implement.getByRole("button", { name: "Edit Implement" }).click();
       await implement.getByLabel("Who works it").selectOption("reviewer");
@@ -1935,7 +1937,9 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
   await expect(readinessLine("Pipeline chosen")).not.toHaveClass(/task-checklist-met/);
-  await expect(proposedPipeline.getByLabel("Another Pipeline")).toContainText("Document");
+  const otherPipelines = await openPipelinePicker(proposedPipeline, "Another Pipeline");
+  await expect(otherPipelines.getByRole("option", { name: "Document", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   await proposedPipeline.getByRole("button", { name: "Use Quick fix" }).click();
   await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
   await expect(page.getByText(/A small change with tests/)).toHaveCount(0);
@@ -5598,7 +5602,7 @@ test(
         .getByRole("button", { name: "Choose a Pipeline" })
         .click();
       const choosing = page.getByRole("dialog");
-      await choosing.getByLabel("Pipeline").selectOption("quick-fix");
+      await pickPipeline(choosing, "Pipeline", "Quick fix");
       await choosing.getByRole("button", { name: "Choose", exact: true }).click();
       await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
       await expect(markReady).toBeEnabled();

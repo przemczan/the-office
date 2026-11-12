@@ -4,7 +4,7 @@ import type { Project } from "@the-office/contracts";
 import { DataTable, type DataTableColumn } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
-import { pipelineQueries } from "../../api/pipelines.ts";
+import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
@@ -27,15 +27,15 @@ import {
 export function WorkTab(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey/work" });
   const tasks = useQuery(taskQueries.list());
-  const pipelines = useQuery(pipelineQueries.list());
+  const pipelines = useEveryPipeline();
   const projects = useQuery(projectQueries.list());
   const threads = useQuery(threadQueries.onTasksWith(roleKey));
   const openDecisions = useQuery(decisionQueries.open());
   const projectFilter = useProjectFilter();
   const [filter, setFilter] = useState<WorkFilter>(WORK_FILTERS[0]);
-  if (!tasks.data || !pipelines.data || !threads.data || !openDecisions.data) return null;
+  if (!tasks.data || !pipelines || !threads.data || !openDecisions.data) return null;
   const { shown: theirs, elsewhere } = narrowed(
-    personTasks(roleKey, tasks.data, pipelines.data, threads.data),
+    personTasks(roleKey, tasks.data, pipelines, threads.data),
     ({ task }) => projectFilter.shows([task.projectId]),
   );
   return (

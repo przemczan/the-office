@@ -200,6 +200,46 @@ describe("a planning Brief", () => {
     );
   });
 
+  it("lists the Project's own Pipelines first, its default first, each with its base Pipeline, then the office-wide ones", () => {
+    const pipelines: readonly PlanningPipeline[] = [
+      {
+        id: "full-with-linux",
+        name: "Full with Linux check",
+        description: "For a change the Linux run can break.",
+        stages: [{ name: "Implement" }, { name: "Verify on Linux" }],
+        projectId: "admin-panel",
+        basePipeline: { id: "full", name: "Full" },
+        broken: [],
+      },
+      {
+        id: "spec-change",
+        name: "Spec change",
+        description: "For a change to the spec.",
+        stages: [{ name: "Write" }],
+        projectId: "admin-panel",
+        basePipeline: { id: "document", name: "Document" },
+        broken: ["Changes Produce, which Document no longer has."],
+      },
+      ...PIPELINES,
+    ];
+    const task = aTask({ pipelineId: undefined });
+
+    const brief = planningBrief({
+      ...RECORD,
+      task,
+      project: { ...RECORD.project, defaultPipeline: "spec-change" },
+      pipelines,
+    });
+
+    expect(brief).toContain(
+      [
+        "## The Pipelines\n\nThe Task has no Pipeline yet; the Project's default is Spec change (spec-change), which is Broken: Changes Produce, which Document no longer has. It can't be proposed. Propose the one its Definition of Done needs with propose_pipeline:",
+        "Admin panel's own Pipelines, which only its Tasks can follow:\n- spec-change: Spec change (Write). Built from Document. For a change to the spec. Broken: Changes Produce, which Document no longer has. It can't be proposed.\n- full-with-linux: Full with Linux check (Implement → Verify on Linux). Built from Full. For a change the Linux run can break.",
+        "Office-wide Pipelines:\n- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
+      ].join("\n\n"),
+    );
+  });
+
   it("carries the Pipeline the Planner proposed, waiting for the user", () => {
     const task = aTask({ proposedPipeline: { pipelineId: "document", reason: "A report." } });
 

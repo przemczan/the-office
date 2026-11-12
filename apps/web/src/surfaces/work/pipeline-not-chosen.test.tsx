@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
   Pipeline,
   Project,
+  ProjectPipeline,
   Role,
   RoleCardOptions,
   Task,
@@ -61,6 +62,34 @@ const LIBRARY = [
   { id: "quick-fix", name: "Quick fix", description: "", stages: [{ name: "Implement" }] },
 ] as unknown as Pipeline[];
 
+/** The Task's Project's own Pipelines, one Broken, and another Project's, which is never offered. */
+const PROJECT_PIPELINES = [
+  {
+    id: "sort-check",
+    projectId: "admin-panel",
+    name: "Full with sort check",
+    basePipeline: { id: "full", name: "Full" },
+    stages: [{ name: "Implement" }, { name: "Sort check" }],
+    broken: [],
+  },
+  {
+    id: "spec-change",
+    projectId: "admin-panel",
+    name: "Spec change",
+    basePipeline: { id: "full", name: "Full" },
+    stages: [{ name: "Implement" }],
+    broken: [{ text: "Changes Produce, which Full no longer has." }],
+  },
+  {
+    id: "elsewhere",
+    projectId: "engine-shop",
+    name: "Engine shop's own",
+    basePipeline: { id: "full", name: "Full" },
+    stages: [{ name: "Implement" }],
+    broken: [],
+  },
+] as unknown as ProjectPipeline[];
+
 const NO_STAGES_OF_ITS_OWN: TaskStages = {
   stages: null,
   definitionOfDoneMet: [],
@@ -77,11 +106,17 @@ function rendered(content: ReactNode): HTMLElement {
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(pipelineQueries.list().queryKey, LIBRARY);
+  queryClient.setQueryData(
+    pipelineQueries.projectPipelines(TASK.projectId).queryKey,
+    PROJECT_PIPELINES.filter(({ projectId }) => projectId === TASK.projectId),
+  );
+  queryClient.setQueryData(pipelineQueries.everyProjectPipeline().queryKey, PROJECT_PIPELINES);
   queryClient.setQueryData(pipelineQueries.taskStages(TASK.id).queryKey, NO_STAGES_OF_ITS_OWN);
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
   queryClient.setQueryData(roleCardQueries.options().queryKey, {} as RoleCardOptions);
   queryClient.setQueryData(projectQueries.one(TASK.projectId).queryKey, {
     id: TASK.projectId,
+    name: "Admin panel",
     defaultPipeline: "quick-fix",
   } as Project);
   const page = document.createElement("div");
@@ -108,6 +143,16 @@ function rail(task: Task): HTMLElement {
   );
 }
 
+function labelOf(option: Element): string | undefined {
+  return document.getElementById(option.getAttribute("aria-labelledby") ?? "")?.textContent;
+}
+
+function optionNamed(name: string): HTMLElement | undefined {
+  return [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+    (option) => labelOf(option) === name,
+  );
+}
+
 function buttonNamed(name: string): HTMLButtonElement | undefined {
   return [...document.querySelectorAll("button")].find((button) =>
     button.textContent.startsWith(name),
@@ -129,16 +174,42 @@ describe("a Task with no Pipeline yet", () => {
     expect(buttonNamed("Choose a Pipeline")).toBeUndefined();
   });
 
-  it("chooses one in Backlog, the Project's default listed first", () => {
+  it("chooses one in Backlog: the Project's own first, then the office-wide ones, the default marked", () => {
     rail(TASK);
 
     act(() => buttonNamed("Choose a Pipeline")?.click());
+    act(() => document.querySelector<HTMLElement>('[role="combobox"]')?.click());
 
-    const choices = [...document.querySelectorAll("option")].map(({ textContent }) => textContent);
-    expect(choices.filter((choice) => choice !== "Choose a Pipeline")).toEqual([
-      "Quick fix (Project default)",
-      "Full",
+    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map(
+      (group) => [
+        group.firstElementChild?.textContent,
+        [...group.querySelectorAll('[role="option"]')].map(labelOf),
+      ],
+    );
+    expect(groups).toEqual([
+      ["Admin panel's Pipelines", ["Full with sort check", "Spec change"]],
+      ["Office-wide Pipelines", ["Quick fix", "Full"]],
     ]);
+    expect(optionNamed("Quick fix")?.textContent).toContain("Project default");
+  });
+
+  it("lists a Broken Project Pipeline with why, and doesn't choose it", () => {
+    rail(TASK);
+    act(() => buttonNamed("Choose a Pipeline")?.click());
+    act(() => document.querySelector<HTMLElement>('[role="combobox"]')?.click());
+
+    const broken = optionNamed("Spec change");
+    expect(broken?.getAttribute("aria-disabled")).toBe("true");
+    expect(broken?.textContent).toContain(
+      "BrokenBroken: Changes Produce, which Full no longer has. Fix it in Admin panel's Pipelines.",
+    );
+    act(() => broken?.click());
+
+    expect(document.querySelector('[role="combobox"]')?.textContent).toBe("Choose a Pipeline");
+    const choose = document.querySelector<HTMLButtonElement>(
+      '[role="dialog"] button[title="Choose a Pipeline first."]',
+    );
+    expect(choose?.disabled).toBe(true);
   });
 
   it("reads Not chosen yet in the head, never removed", () => {

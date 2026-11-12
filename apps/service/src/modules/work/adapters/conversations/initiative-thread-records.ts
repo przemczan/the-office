@@ -152,10 +152,14 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
   }
 
   private async planningProject(id: string): Promise<InitiativePlanningProject | undefined> {
-    const project = await this.projects.find(id);
+    const [project, pipelines] = await Promise.all([
+      this.projects.find(id),
+      this.pipelines.listFor(id),
+    ]);
     if (!project) return undefined;
     return {
       id,
+      ownPipelines: pipelines.filter(({ projectId }) => projectId === id),
       name: project.name,
       baseBranch: project.baseBranch,
       defaultPipeline: project.defaultPipeline,

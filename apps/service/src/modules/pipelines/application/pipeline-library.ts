@@ -11,11 +11,30 @@ import { agentStageRoles, commandKeysNamedBy } from "../domain/stage.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 import { ProjectPipelineRepository } from "../ports/project-pipeline-repository.js";
 
-/** A library Pipeline's name, the Project commands its Stages run, by key, and whether it has a Gate. */
+/**
+ * A Pipeline's name, the Project commands its Stages run, by key, and whether it has a Gate; for a
+ * Project Pipeline, its Project and why it is Broken, its built Stages counted.
+ */
 export interface PipelineCommands {
   readonly name: string;
   readonly keys: readonly string[];
   readonly hasGate: boolean;
+  /** The Project whose Project Pipeline it is; undefined for an office-wide one. */
+  readonly projectId?: string;
+  /** Each reason it is Broken, in the UI's words; empty when it isn't. */
+  readonly broken: readonly string[];
+}
+
+/**
+ * A Pipeline as Work reads it to plan and start a Task: an office-wide one, or a Project Pipeline
+ * built, with its Project, its base Pipeline and why it is Broken.
+ */
+export interface ReadPipeline extends Pipeline {
+  /** The Project whose Project Pipeline it is; undefined for an office-wide one. */
+  readonly projectId?: string;
+  readonly basePipeline?: { readonly id: string; readonly name: string };
+  /** Each reason it is Broken, in the UI's words; empty when it isn't. */
+  readonly broken: readonly string[];
 }
 
 /**
@@ -62,18 +81,37 @@ export class PipelineLibrary {
   }
 
   /**
-   * An office-wide Pipeline's name and the Project commands, by key, its Stages run
-   * (`commandKeysNamedBy`); undefined for a Pipeline the office-wide library lacks.
+   * An office-wide Pipeline, or a Project Pipeline of any Project, built: whoever reads it weighs
+   * whose it is, so a refusal can name the Project. Undefined for an id neither table has.
+   */
+  async read(id: string): Promise<ReadPipeline | undefined> {
+    const officeWide = await this.find(id);
+    if (officeWide) return { ...officeWide, broken: [] };
+    const projectPipeline = await this.projectPipeline(id);
+    return projectPipeline && readOf(projectPipeline);
+  }
+
+  /** The Project's own Pipelines, each built, then the office-wide ones. */
+  async listFor(projectId: string): Promise<readonly ReadPipeline[]> {
+    const [own, officeWide] = await Promise.all([this.projectPipelines(projectId), this.list()]);
+    return [...own.map(readOf), ...officeWide.map((pipeline) => ({ ...pipeline, broken: [] }))];
+  }
+
+  /**
+   * A Pipeline's name and the Project commands, by key, its Stages run (`commandKeysNamedBy`), a
+   * Project Pipeline's built Stages counted, with its Project and why it is Broken (`read`).
    */
   async commandsNamedBy(id: string): Promise<PipelineCommands | undefined> {
-    const pipeline = await this.find(id);
-    return (
-      pipeline && {
-        name: pipeline.name,
-        keys: commandKeysNamedBy(pipeline.stages),
-        hasGate: pipeline.stages.some(({ kind }) => kind === "gate"),
-      }
-    );
+    const pipeline = await this.read(id);
+    if (!pipeline) return undefined;
+    const { name, stages, projectId, broken } = pipeline;
+    return {
+      name,
+      keys: commandKeysNamedBy(stages),
+      hasGate: stages.some(({ kind }) => kind === "gate"),
+      ...(projectId === undefined ? {} : { projectId }),
+      broken,
+    };
   }
 
   /** The Roles the office-wide Pipelines' Agent Stages name, each once. */
@@ -141,6 +179,15 @@ export class PipelineLibrary {
       [...counts].map(([pipelineId, byProject]) => [pipelineId, [...byProject.values()]]),
     );
   }
+}
+
+function readOf(projectPipeline: BuiltProjectPipeline): ReadPipeline {
+  return {
+    ...asPipeline(projectPipeline),
+    projectId: projectPipeline.projectPipeline.projectId,
+    basePipeline: projectPipeline.basePipeline,
+    broken: projectPipeline.broken.map(({ text }) => text),
+  };
 }
 
 /** The foreign key keeps every base Pipeline while one is built from it. */

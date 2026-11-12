@@ -16,6 +16,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PipelineLibrary } from "../../../pipelines/index.js";
+import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 import { THE_USER } from "../../domain/author.js";
 import { FIRE_ALARM_ON } from "../../domain/fire-alarm.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
@@ -410,7 +411,9 @@ function startedOf(...tasks: readonly Task[]): ReadyTasksStarted["started"] {
 function libraryWithout(library: PipelineLibrary, retired: ReadonlySet<string>): KnownPipelines {
   return {
     list: () => library.list(),
+    listFor: (projectId) => library.listFor(projectId),
     find: async (id) => (retired.has(id) ? undefined : library.find(id)),
+    read: async (id) => (retired.has(id) ? undefined : library.read(id)),
     commandsNamedBy: async (id) => (retired.has(id) ? undefined : library.commandsNamedBy(id)),
   };
 }
@@ -468,6 +471,21 @@ describe("the Initiative's Pipeline and branches", () => {
     );
     expect(await reasonsOf(await choose(initiative, "full"))).toEqual([
       `The Pipeline Full runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
+    ]);
+  });
+
+  it("refuses a Project Pipeline, naming its Project: an Initiative's Pipeline is an office-wide one", async () => {
+    const initiative = await shapedOwnInitiative();
+    const projectId = aProjectId();
+    await addTask(initiative, projectId);
+    const library = projectPipelinesForTests(work.app);
+    const projectPipeline = await library.aProjectPipeline(
+      projectId,
+      await library.aBasePipeline(),
+    );
+
+    expect(await reasonsOf(await choose(initiative, projectPipeline.id))).toEqual([
+      `${projectPipeline.name} is a Project Pipeline of The ${projectId}; an Initiative's Pipeline is an office-wide one.`,
     ]);
   });
 

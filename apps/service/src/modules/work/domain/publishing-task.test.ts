@@ -283,7 +283,7 @@ describe("a Publishing Task's own rules", () => {
       initiativePipelineChangeProblems(
         ACTIVE_ON_FULL,
         "quick-fix",
-        { name: "Quick fix", keys: [], hasGate: false },
+        { name: "Quick fix", keys: [], hasGate: false, broken: [] },
         [],
         [{ ...publishing, title: "Usage exports → Admin panel" }],
       ),

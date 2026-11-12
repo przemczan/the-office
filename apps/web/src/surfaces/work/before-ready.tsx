@@ -3,8 +3,11 @@ import type { Readiness, Task } from "@the-office/contracts";
 import { Icon, TextButton } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
-import { pipelineQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
+import {
+  useEveryPipeline,
+  useProjectPipelineChoices,
+} from "../../shell/pipelines/use-pipelines.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
 import { PIPELINE_PROPOSAL_ELEMENT_ID } from "./pipeline-proposal.tsx";
@@ -91,8 +94,25 @@ function OnBlock({
 
 function OnRail({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner()?.card.name ?? "The Planner";
-  const pipelines = useQuery(pipelineQueries.list()).data;
+  const pipelines = useEveryPipeline();
+  const projectPipelines = useProjectPipelineChoices(task.projectId)?.projectPipelines;
+  const brokenOne = (pipelineId: string | null | undefined) =>
+    projectPipelines?.find(({ id, broken }) => id === pipelineId && broken.length > 0);
   const proposed = task.proposedPipeline?.pipelineId;
+  const brokenProposed = brokenOne(proposed);
+  const brokenCurrent = brokenOne(task.pipelineId);
+  if (brokenProposed || (proposed === undefined && brokenCurrent)) {
+    const broken = brokenProposed ?? brokenCurrent;
+    return (
+      <>
+        {brokenProposed ? `${planner} proposes ${brokenProposed.name}` : broken?.name}, which is
+        Broken ·{" "}
+        <TextButton onClick={() => bringIntoView(PIPELINE_RAIL_ELEMENT_ID)}>
+          choose another on the rail
+        </TextButton>
+      </>
+    );
+  }
   if (proposed === undefined)
     return task.pipelineId === null ? <ChooseAPipeline task={task} /> : null;
   const name = pipelines?.find(({ id }) => id === proposed)?.name ?? proposed;

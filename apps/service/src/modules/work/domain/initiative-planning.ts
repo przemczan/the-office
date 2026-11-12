@@ -6,7 +6,7 @@ import { InitiativePlanningStarted } from "./initiative-events.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import {
   commandLines,
-  pipelineLibraryLines,
+  pipelineGroups,
   THE_PLANNER,
   type PlanningPipeline,
   type PlanningProject,
@@ -255,6 +255,8 @@ function isPlanned(task: Task): boolean {
 /** A Project the Initiative spans, as its planning Brief names it. */
 export interface InitiativePlanningProject extends PlanningProject {
   readonly id: string;
+  /** Its Project Pipelines, which only its Tasks can follow. */
+  readonly ownPipelines: readonly PlanningPipeline[];
 }
 
 /** A Decision waiting on the user in a Thread, by the Task it is on and its question. */
@@ -272,6 +274,7 @@ export interface InitiativePlanningRecord {
   readonly record: string;
   readonly tasks: readonly Task[];
   readonly projects: readonly InitiativePlanningProject[];
+  /** The office-wide Pipelines; each Project's own are with it. */
   readonly pipelines: readonly PlanningPipeline[];
 }
 
@@ -296,7 +299,13 @@ export function initiativePlanningBrief({
     unfinishedSection(initiative, tasks),
     waitingSection(waiting, tasks),
     projectsSection(projects),
-    `## The Pipelines\n\nA Task has no Pipeline until one is chosen. Propose the one each Task's Definition of Done needs with propose_pipeline:\n\n${pipelineLibraryLines(pipelines).join("\n")}`,
+    [
+      "## The Pipelines\n\nA Task has no Pipeline until one is chosen. Propose the one each Task's Definition of Done needs with propose_pipeline; a Project Pipeline only for its own Project's Tasks:",
+      ...pipelineGroups(
+        projects.map((project) => ({ project, own: project.ownPipelines })),
+        pipelines,
+      ),
+    ].join("\n\n"),
     autoModeSection(initiative.planningAutoMode),
   ]
     .filter((section) => section !== undefined)

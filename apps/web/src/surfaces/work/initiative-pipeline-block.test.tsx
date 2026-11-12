@@ -81,6 +81,19 @@ async function rendered(initiative: Initiative, tasks: readonly Task[] = []): Pr
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(pipelineQueries.list().queryKey, [REVIEWED, UNREVIEWED]);
+  // A Project Pipeline of a Project it spans, which an Initiative's Pipeline can never be.
+  queryClient.setQueryData(pipelineQueries.everyProjectPipeline().queryKey, [
+    {
+      ...REVIEWED,
+      id: "admin-reviewed",
+      projectId: "admin-panel",
+      name: "Admin's reviewed",
+      basePipeline: { id: REVIEWED.id, name: REVIEWED.name },
+      stageChanges: [],
+      rows: [],
+      broken: [],
+    },
+  ]);
   queryClient.setQueryData(initiativeQueries.one(initiative.id).queryKey, initiative);
   // The Publishing Tasks link their pages.
   const router = createRouter({
@@ -132,6 +145,13 @@ describe("the Initiative's Pipeline block", () => {
       "Straight out",
     ]);
     expect(page.textContent).toContain("Whether it has a Pipeline is fixed at Confirm.");
+  });
+
+  it("offers office-wide Pipelines only, never a Project Pipeline of a Project it spans", async () => {
+    const page = await rendered(INITIATIVE);
+
+    const offered = [...pipelineSelect(page).options].map(({ textContent }) => textContent);
+    expect(offered).not.toContain("Admin's reviewed");
   });
 
   it("sends the chosen Pipeline and shows it at once", async () => {

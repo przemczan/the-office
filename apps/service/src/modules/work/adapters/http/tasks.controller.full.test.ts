@@ -484,7 +484,7 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
     // The library also holds Pipelines other test files add to the shared database.
     expect(workRefusalSchema.parse(await unknownPipeline.json()).reasons).toEqual([
       expect.stringMatching(
-        /^There is no Pipeline "nightly"\. The library has full, quick-fix, document, onboard, proof-of-concept/,
+        /^There is no Pipeline "nightly"\. The project-[\w-]+ can choose full, quick-fix, document, onboard, proof-of-concept/,
       ),
     ]);
     expect(malformed.status).toBe(400);

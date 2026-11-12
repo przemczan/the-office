@@ -59,6 +59,14 @@ export interface StartConditions {
   readonly officeUpdateHold: string | undefined;
   /** Undefined when the Task starts from the base branch, or from its Initiative's branch there. */
   readonly initiativeBranch?: InitiativeBranchProblem;
+  /** The Task's Pipeline when it is a Broken Project Pipeline and its Stages weren't edited for it. */
+  readonly brokenPipeline?: BrokenPipelineAtStart;
+}
+
+/** A Broken Project Pipeline the Task would start on, with each reason it is Broken. */
+export interface BrokenPipelineAtStart {
+  readonly name: string;
+  readonly reasons: readonly string[];
 }
 
 /**
@@ -75,9 +83,8 @@ export interface HeldAtStart {
 
 /**
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
- * refusal (not Ready, a vacant Role, a person who only talks, its Initiative's branch gone) stops
- * Start; a wait (a Task it waits
- * for not yet Done or Dropped, the fire alarm, a scheduled Office update, the Office-wide limit, its
+ * refusal (not Ready, a Broken Pipeline, a vacant Role, a person who only talks, its Initiative's
+ * branch gone) stops Start; a wait (a Task it waits for not yet Done or Dropped, the fire alarm, a scheduled Office update, the Office-wide limit, its
  * Project limit, its person's Task limit, a cap it would pass) only holds the Task until its
  * blockers end, the all clear, a desk, its Project and its person are free, and the cap allows it.
  * Both are empty when it can start.
@@ -110,6 +117,7 @@ export function startReasons(
   const stage = conditions.stages && firstAgentStage(conditions.stages);
   return {
     refusals: [
+      ...brokenPipelineRefusals(conditions),
       ...(conditions.stages
         ? personRefusals(stage, conditions.person)
         : [`There is no Pipeline "${task.pipelineId}" in the library.`]),
@@ -171,6 +179,15 @@ function personRefusals(
   return person.taskLimit === "none"
     ? [`${person.name} only talks (Task limit none), so can't work ${stage.name}.`]
     : [];
+}
+
+function brokenPipelineRefusals({ brokenPipeline, project }: StartConditions): string[] {
+  if (!brokenPipeline) return [];
+  const { name, reasons } = brokenPipeline;
+  const where = project ? `${project.name}'s Pipelines` : "its Project's Pipelines";
+  return [
+    `${name} is Broken: ${reasons.join(" ")} Fix it in ${where}, or choose another Pipeline for the Task.`,
+  ];
 }
 
 function initiativeBranchRefusals(task: Task, conditions: StartConditions): string[] {

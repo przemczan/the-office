@@ -1,0 +1,151 @@
+/* A Select with groups and options that say why they can't be chosen: see grouped-select.tsx. */
+.grouped-select {
+  display: grid;
+  min-width: 0;
+}
+
+.grouped-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: calc(var(--control-h) + 4px);
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  font: 400 13px / 1.3 var(--font-sans);
+  color: var(--fg-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.grouped-select-trigger[data-control-size="sm"] {
+  min-height: var(--control-h);
+  padding: 2px 8px;
+}
+
+.grouped-select-trigger:focus-visible,
+.grouped-select-trigger[aria-expanded="true"] {
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+  outline: 0;
+}
+
+.grouped-select-trigger:disabled {
+  background: var(--surface-sunken);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.grouped-select-trigger svg {
+  flex: none;
+  margin-left: auto;
+  fill: none;
+  stroke: var(--fg-3);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.grouped-select-value {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.grouped-select-value.placeholder {
+  color: var(--fg-3);
+}
+
+.grouped-select-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-3);
+  outline: 0;
+}
+
+.grouped-select-list:focus-visible {
+  border-color: var(--border-focus);
+}
+
+.grouped-select-group {
+  padding: 8px 8px 4px;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+[role="group"]:not(:first-child) > .grouped-select-group {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.grouped-select-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 1px var(--space-2);
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  color: var(--fg-1);
+  cursor: pointer;
+}
+
+.grouped-select-option.active {
+  background: var(--control-hover);
+}
+
+.grouped-select-option[aria-selected="true"] {
+  background: var(--surface-selected);
+}
+
+.grouped-select-option[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.grouped-select-tick {
+  grid-row: 1 / span 2;
+  margin-top: 2px;
+}
+
+.grouped-select-tick svg {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.grouped-select-label {
+  min-width: 0;
+  font: var(--type-label);
+  overflow-wrap: anywhere;
+}
+
+.grouped-select-option[aria-disabled="true"] .grouped-select-label {
+  color: var(--fg-3);
+}
+
+.grouped-select-aside {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.grouped-select-line {
+  grid-column: 2 / -1;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+
+.grouped-select-line.why {
+  color: var(--danger-fg);
+}

@@ -16,7 +16,9 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { TaskStageEdits } from "../../application/task-stage-edits.js";
 import { TaskService } from "../../application/task-service.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
 import { makeAPlanOpening } from "../../domain/planning.js";
@@ -520,6 +522,28 @@ describe("Start", () => {
       queued: null,
     });
     expect(webEventsOf(work)).toEqual([{ type: "task.started", taskId: task.id }]);
+  });
+
+  it("refuses a Task on a Broken Project Pipeline, naming it and why, unless its Stages were edited for it", async () => {
+    const library = projectPipelinesForTests(work.app);
+    const base = await library.aBasePipeline();
+    const own = await library.aProjectPipeline(projectId, base);
+    const task = await proposedTask();
+    await saveAndConfirmParts(task.id, MY_PLAN);
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: own.id });
+    await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    await library.breakProjectPipelinesOf(base);
+    const brokenRefusal = `${own.name} is Broken: Inserts Verify on Linux after Tests, which ${base.name} no longer has. Fix it in The ${projectId}'s Pipelines, or choose another Pipeline for the Task.`;
+
+    const check = await startCheck(task.id);
+    const refused = await start(task.id);
+    work.app.get(TaskStageEdits).register(async (taskId) => taskId === task.id);
+    const edited = await startCheck(task.id);
+    work.app.get(TaskStageEdits).register(async () => false);
+
+    expect(check.refusals).toEqual([brokenRefusal]);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([brokenRefusal]);
+    expect(edited.refusals).toEqual([]);
   });
 
   it("refuses a Task that isn't Ready", async () => {

@@ -13,6 +13,8 @@ import {
 } from "@the-office/contracts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { branchOnHost, serveRepository } from "./git-host.ts";
+import { openPipelinePicker, optionNames } from "./pipeline-picker.ts";
+import { addedBasePipeline, addedProjectPipeline } from "./project-pipelines.ts";
 import {
   commitFiles,
   createTemporaryRepository,
@@ -635,11 +637,11 @@ test(
   async ({ page }) => {
     const project = await addedProject(page, "Pipeline choice");
     await page.goto(`/projects/${project.id}/default-pipeline`);
-    const picker = page.getByLabel("Default Pipeline");
+    const picker = await openPipelinePicker(page, "Default Pipeline");
 
     // Other tests add Pipelines of their own after the built-ins.
-    await expect(picker.locator("option").first()).toHaveText("Full");
-    const options = await picker.locator("option").allTextContents();
+    await expect(picker.getByRole("option").first()).toHaveAccessibleName("Full");
+    const options = await optionNames(picker);
     expect(options.slice(0, 5)).toEqual([
       "Full",
       "Quick fix",
@@ -647,12 +649,37 @@ test(
       "Onboard",
       "Proof of concept",
     ]);
-    await picker.selectOption({ label: "Quick fix" });
+    await picker.getByRole("option", { name: "Quick fix", exact: true }).click();
 
     await expect(
       page.getByText(`${project.name}'s default Pipeline is Quick fix now.`),
     ).toBeVisible();
     await expect(page.getByText(/^Implement → Tests → Publish\./)).toBeVisible();
+  },
+);
+
+test(
+  "a Project's default Pipeline is set to one of its own Project Pipelines",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Own default");
+    const base = await addedBasePipeline(page, "Own base");
+    const own = await addedProjectPipeline(page, project.id, base, "Own Full");
+    await page.goto(`/projects/${project.id}/default-pipeline`);
+
+    const picker = await openPipelinePicker(page, "Default Pipeline");
+    const groups = picker.getByRole("group");
+    await expect(groups.first()).toHaveAccessibleName(`${project.name}'s Pipelines`);
+    await expect(groups.last()).toHaveAccessibleName("Office-wide Pipelines");
+    await groups.first().getByRole("option", { name: own.name, exact: true }).click();
+
+    await expect(
+      page.getByText(`${project.name}'s default Pipeline is ${own.name} now.`),
+    ).toBeVisible();
+    const saved = projectSchema.parse(
+      await (await page.request.get(`/api/projects/${project.id}`)).json(),
+    );
+    expect(saved.defaultPipeline).toBe(own.id);
   },
 );
 

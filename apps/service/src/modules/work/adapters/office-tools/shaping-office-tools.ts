@@ -218,7 +218,7 @@ export class ShapingOfficeTools implements OnModuleInit {
         pipelineId: z
           .string()
           .nullable()
-          .describe("The library Pipeline's id, as the Brief lists them; null for None."),
+          .describe("An office-wide Pipeline's id, as the Brief lists them; null for None."),
       }),
       run: ({ pipelineId }, { sessionId }) =>
         this.change(sessionId, { kind: "pipeline", pipelineId }, async () =>

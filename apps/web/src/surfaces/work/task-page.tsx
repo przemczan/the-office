@@ -5,6 +5,7 @@ import { Icon, Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries, taskQueries } from "../../api/work.ts";
 import { stoppedAtCurrentStage } from "./stage-rail-words.ts";
@@ -43,7 +44,7 @@ export function TaskPage(): ReactNode {
   const { taskThread, decision, recordTab } = useSearch({ from: "/tasks/$taskId" });
   const task = useQuery(taskQueries.one(taskId));
   const projects = useQuery(projectQueries.list());
-  const pipelines = useQuery(pipelineQueries.list());
+  const pipelines = useEveryPipeline();
   const threads = useQuery(threadQueries.onTask(taskId));
   usePageHeading({
     title: task.data?.title ?? "Work",
@@ -52,9 +53,9 @@ export function TaskPage(): ReactNode {
   });
   if (task.error) return <MissingRecord error={task.error} kind="Task" />;
   const record = task.data;
-  // Without the library a Pipeline it doesn't have would read as removed.
-  if (!record || !pipelines.data) return null;
-  const pipeline = pipelines.data.find(({ id }) => id === record.pipelineId);
+  // Without the Pipelines a Pipeline they don't have would read as removed.
+  if (!record || !pipelines) return null;
+  const pipeline = pipelines.find(({ id }) => id === record.pipelineId);
   return (
     <div className="task-page">
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
