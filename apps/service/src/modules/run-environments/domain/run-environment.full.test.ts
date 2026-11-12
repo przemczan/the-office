@@ -27,6 +27,7 @@ const TASK: TaskInWorktree = {
   taskTitle: "Add login",
   projectId: "shop",
   worktree: "/data/worktrees/shop/6d4250e7",
+  repositoryGitFolder: "/data/repositories/shop/.git",
   installCommand: "npm ci",
   installInputs: ["package-lock.json"],
   installVariables: [],
@@ -60,13 +61,74 @@ describe("composeOverrideOf", () => {
         app: {
           image: "the-office/shop:key",
           pull_policy: "never",
-          volumes: [{ type: "bind", source: TASK.worktree, target: TASK.worktree }],
           working_dir: TASK.worktree,
         },
       },
     });
+    expect(override).toHaveProperty("services.app.volumes.0", {
+      type: "bind",
+      source: TASK.worktree,
+      target: TASK.worktree,
+    });
     expect(override).not.toHaveProperty("services.postgres.volumes");
     expect(override).not.toHaveProperty("services.app.command");
+  });
+
+  it("mounts the repository's git folder read-only at its own path, where the worktree's .git file leads", () => {
+    expect(override).toHaveProperty("services.app.volumes", [
+      { type: "bind", source: TASK.worktree, target: TASK.worktree },
+      {
+        type: "bind",
+        source: TASK.repositoryGitFolder,
+        target: TASK.repositoryGitFolder,
+        read_only: true,
+      },
+    ]);
+  });
+
+  it("writes a `$` in the folders as compose reads one", () => {
+    const task = {
+      ...TASK,
+      worktree: "/data/worktrees/$shop/6d4250e7",
+      repositoryGitFolder: "/data/repositories/$shop/.git",
+    };
+
+    expect(
+      composeOverrideOf(DEFINITION, task, "the-office/shop:key", "abc", LIMITS, HOST_CORES),
+    ).toHaveProperty("services.app.volumes", [
+      {
+        type: "bind",
+        source: "/data/worktrees/$$shop/6d4250e7",
+        target: "/data/worktrees/$$shop/6d4250e7",
+      },
+      {
+        type: "bind",
+        source: "/data/repositories/$$shop/.git",
+        target: "/data/repositories/$$shop/.git",
+        read_only: true,
+      },
+    ]);
+  });
+
+  it.each([
+    { case: "inside the worktree, as a main checkout's is", folder: `${TASK.worktree}/.git` },
+    { case: "the worktree itself", folder: TASK.worktree },
+  ])("mounts no git folder of its own when it is $case", ({ folder }) => {
+    const task = { ...TASK, repositoryGitFolder: folder };
+
+    expect(
+      composeOverrideOf(DEFINITION, task, "the-office/shop:key", "abc", LIMITS, HOST_CORES),
+    ).toHaveProperty("services.app.volumes", [
+      { type: "bind", source: TASK.worktree, target: TASK.worktree },
+    ]);
+  });
+
+  it("mounts a git folder whose name only starts like the worktree's", () => {
+    const task = { ...TASK, repositoryGitFolder: `${TASK.worktree}-git` };
+
+    expect(
+      composeOverrideOf(DEFINITION, task, "the-office/shop:key", "abc", LIMITS, HOST_CORES),
+    ).toHaveProperty("services.app.volumes.1.source", `${TASK.worktree}-git`);
   });
 
   it("labels every service, network and volume, the default network among them", () => {

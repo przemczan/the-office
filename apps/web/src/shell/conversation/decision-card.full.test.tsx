@@ -23,6 +23,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const INITIATIVE_ID = "3f0c2b1a-9d8e-4f7a-8b6c-5d4e3f2a1b0c";
 const PLANNING_THREAD = "8a7b6c5d-4e3f-4a1b-9c0d-1e2f3a4b5c6d";
 const TASK_THREAD = "9b8c7d6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e";
+const CHAT_THREAD = "0c9d8e7f-6a5b-4c4d-9e3f-2a1b0c9d8e7f";
 
 const TASK = { id: "6f1c2b3a-9d8e-4f7a-8b6c-5d4e3f2a1b0c", title: "Export usage as CSV" } as Task;
 
@@ -43,6 +44,7 @@ function aDecision(threadId: string): Decision {
     answer: null,
     answeredAt: null,
     answeredBy: null,
+    atUsersRequest: null,
   };
 }
 
@@ -66,6 +68,10 @@ async function rendered(decision: Decision): Promise<HTMLElement> {
   queryClient.setQueryData(
     threadQueries.one(TASK_THREAD).queryKey,
     aThread(TASK_THREAD, { kind: "task", taskId: TASK.id }),
+  );
+  queryClient.setQueryData(
+    threadQueries.one(CHAT_THREAD).queryKey,
+    aThread(CHAT_THREAD, { kind: "chat", roleKey: "reviewer" }),
   );
   const rootRoute = createRootRoute({
     component: () => <DecisionInThread decision={decision} personName="Angela" />,
@@ -161,5 +167,55 @@ describe("a Decision's header", () => {
 
     expect(headerWords(page)).toBe("Angela");
     expect(header(page).querySelector(".decision-put-to")).toBeNull();
+  });
+});
+
+/** The Decision answered with JSON, as `fields` say who gave it. */
+function answered(fields: Partial<Decision> = {}): Decision {
+  return {
+    ...aDecision(TASK_THREAD),
+    answer: { kind: "option", option: 1 },
+    answeredAt: "2026-11-10T14:30:00.000Z",
+    ...fields,
+  };
+}
+
+function answeredLine(page: HTMLElement): HTMLElement {
+  const line = page.querySelector<HTMLElement>(".decision-answered");
+  if (line === null) throw new Error("The Decision shows no answer.");
+  return line;
+}
+
+describe("an answered Decision in its Thread", () => {
+  afterEach(() => document.body.replaceChildren());
+
+  it("reads as the user's own answer, or the Consultant's", async () => {
+    expect(answeredLine(await rendered(answered())).textContent).toBe("Answered: JSON");
+    document.body.replaceChildren();
+    const byConsultant = await rendered(answered({ putTo: "reviewer", answeredBy: "reviewer" }));
+    expect(answeredLine(byConsultant).textContent).toBe("Answered by Michael: JSON");
+  });
+
+  it("names the person who answered at the user's request, linking to the chat they were asked in", async () => {
+    const page = await rendered(
+      answered({ atUsersRequest: { roleKey: "reviewer", threadId: CHAT_THREAD } }),
+    );
+
+    const line = answeredLine(page);
+    expect(line.textContent).toBe("Answered by Michael at your request: JSON");
+    expect(line.querySelector("a")?.textContent).toBe("at your request");
+    expect(line.querySelector("a")?.getAttribute("href")).toBe(
+      `/?chat=reviewer&thread=${CHAT_THREAD}`,
+    );
+  });
+
+  it("links to a Thread on a Task the user asked in on the Task's page", async () => {
+    const page = await rendered(
+      answered({ atUsersRequest: { roleKey: "reviewer", threadId: TASK_THREAD } }),
+    );
+
+    expect(answeredLine(page).querySelector("a")?.getAttribute("href")).toBe(
+      `/tasks/${TASK.id}?taskThread=${TASK_THREAD}`,
+    );
   });
 });

@@ -1,4 +1,5 @@
 import type { OpenTaskDecision } from "../domain/initiative-planning.js";
+import type { DecisionWaitingOnTheUser } from "../domain/record-words.js";
 
 /** The Decisions on Tasks' conversations, which Conversations keeps; the composition root binds it. */
 export abstract class TaskDecisions {
@@ -9,4 +10,6 @@ export abstract class TaskDecisions {
    * planning Thread, one per Task at most.
    */
   abstract openInThread(threadId: string): Promise<readonly OpenTaskDecision[]>;
+  /** The Decisions on the Task waiting on the user, in any of its Threads, the first asked first. */
+  abstract waitingOnTheUserOn(taskId: string): Promise<readonly DecisionWaitingOnTheUser[]>;
 }

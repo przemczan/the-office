@@ -133,10 +133,11 @@ export function toMessageResponse(
       };
     }
     case "decision-answer": {
-      const { decisionId, answer, ...line } = fields;
+      const { decisionId, answer, atUsersRequest, ...line } = fields;
       return {
         ...line,
         answer: toAnswerResponse(answer),
+        atUsersRequest: atUsersRequest ? { ...atUsersRequest } : null,
         decision: toDecisionResponse(decisionOf(message.id, decisionId, decisions)),
       };
     }
@@ -323,6 +324,7 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
     answer: answer ? toAnswerResponse(answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
     answeredBy: answer?.answeredBy ?? null,
+    atUsersRequest: answer?.atUsersRequest ? { ...answer.atUsersRequest } : null,
   };
 }
 

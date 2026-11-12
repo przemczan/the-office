@@ -11,7 +11,12 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { EngineId } from "../../../engine/index.js";
-import type { DecisionAnswer, PassedOn, Recommendation } from "../../domain/decision.js";
+import type {
+  AnswerGivenBy,
+  DecisionAnswer,
+  PassedOn,
+  Recommendation,
+} from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
 import type { ProposalStatus, ProposedChange } from "../../domain/proposal.js";
 import type {
@@ -116,7 +121,7 @@ export const decisions = pgTable(
     putTo: text("put_to"),
     /** The Consultants who passed it on, the first one first; `passedOnAt` as an ISO time. */
     passedOn: jsonb("passed_on").$type<readonly SavedPassedOn[]>().notNull().default([]),
-    answer: jsonb("answer").$type<DecisionAnswer & { answeredBy?: string }>(),
+    answer: jsonb("answer").$type<DecisionAnswer & AnswerGivenBy>(),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
     /** When an approval this answer gave a held call let it through; null while it is unused. */
     approvalSpentAt: timestamp("approval_spent_at", { withTimezone: true }),

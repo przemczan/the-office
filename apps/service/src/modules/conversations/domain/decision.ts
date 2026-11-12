@@ -1,3 +1,6 @@
+import { isApproval } from "./consult.js";
+import type { Thread } from "./thread.js";
+
 /** The option an Agent recommends, by its place among the options, and why. */
 export interface Recommendation {
   /** Its index in the Decision's options. */
@@ -22,13 +25,43 @@ export type DecisionAnswer =
   | { readonly kind: "free-answer"; readonly text: string };
 
 /**
- * An answer given, and when. `answeredBy` is the Consultant who gave it, by the key of their Role;
- * undefined when the user did.
+ * The person who answered a Decision for the user, when the user asked them to in a Thread of the
+ * person's own (spec §2.4): by the key of their Role, and the Thread the user asked them in.
  */
-export type GivenAnswer = DecisionAnswer & {
-  readonly answeredAt: Date;
-  readonly answeredBy?: string;
-};
+export interface AtUsersRequest {
+  readonly roleKey: string;
+  readonly threadId: string;
+}
+
+/**
+ * Who gave an answer, besides the user themselves: `answeredBy` is the Consultant who gave it, by
+ * the key of their Role; `atUsersRequest` the person who gave the user's answer for them. For a
+ * Consultation and the Pipeline's `guidedBy`, an answer at the user's request is the user's own.
+ */
+export interface AnswerGivenBy {
+  readonly answeredBy?: string | undefined;
+  readonly atUsersRequest?: AtUsersRequest | undefined;
+}
+
+/** An answer given, and when; with neither of `AnswerGivenBy`'s set, the user gave it. */
+export type GivenAnswer = DecisionAnswer & AnswerGivenBy & { readonly answeredAt: Date };
+
+/**
+ * A person who answers a Decision in place of the user: the Consultant it was put to, or a person
+ * the user asked to answer it for them in a Thread of their own.
+ */
+export type Answerer =
+  | { readonly kind: "consultant"; readonly roleKey: string; readonly name: string }
+  | ({ readonly kind: "at-users-request"; readonly name: string } & AtUsersRequest);
+
+/** What the answer records of who gave it: nothing when the user did. */
+export function answerGivenBy(answerer: Answerer | undefined): AnswerGivenBy {
+  if (!answerer) return {};
+  const { roleKey } = answerer;
+  return answerer.kind === "consultant"
+    ? { answeredBy: roleKey }
+    : { atUsersRequest: { roleKey, threadId: answerer.threadId } };
+}
 
 /** A Consultant asked to approve who passed the Decision on, by the key of their Role, and why. */
 export interface PassedOn {
@@ -100,6 +133,36 @@ export function answerProblems(decision: Decision, answer: DecisionAnswer): stri
   return Number.isInteger(answer.option) && decision.options[answer.option] !== undefined
     ? []
     : ["Choose one of the Decision's options."];
+}
+
+/**
+ * What keeps a person from answering the Decision for the user from their Thread `caller`, in words
+ * their Agent can act on: only a Thread the user talks to them in asks it, not a Stage Thread or a
+ * Consultation; one put to a Consultant is theirs to answer, an approval of a call past a Hard
+ * switch or of an MCP tool is the user's own click (spec §6), and one in the person's own Thread
+ * the user answers on its card.
+ */
+export function answerForUserProblems(decision: Decision, caller: Thread): string[] {
+  if (caller.stageThread || caller.consultation) {
+    return ["Only in a Thread the user talks to you in can you answer a Decision for them."];
+  }
+  if (decision.answer) return ["This Decision is answered already."];
+  if (decision.putTo !== undefined) {
+    return [
+      `This Decision is put to the person in the Role ${decision.putTo}, who answers it in a Consultation; only a Decision waiting on the user can be answered for them.`,
+    ];
+  }
+  if (isApproval(decision)) {
+    return [
+      "This Decision asks the user's approval of a call: only the user gives it, on its card. Tell them where it waits.",
+    ];
+  }
+  if (decision.threadId === caller.id) {
+    return [
+      "This Decision is open in your own Thread: the user answers it on its card here, not through you.",
+    ];
+  }
+  return [];
 }
 
 /** The answer in words: the chosen option's, or the user's own. */

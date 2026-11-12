@@ -5,6 +5,7 @@ import {
   answerProblems,
   attachmentProblems,
   decisionProblems,
+  type AnswerGivenBy,
   type Decision,
   type DecisionAnswer,
   type DecisionDraft,
@@ -515,14 +516,12 @@ export function draftProposal(
 }
 
 /** The user's answer to the Thread's open Decision, as the person takes it under the move. */
-export interface DecisionAnswering extends Opening {
+export interface DecisionAnswering extends Opening, AnswerGivenBy {
   readonly decisionId: string;
   readonly answer: DecisionAnswer;
   /** The id of the answer's line in the log, which the session is sent it by. */
   readonly messageId: string;
   readonly answeredAt: Date;
-  /** The Consultant who answered, by the key of their Role; undefined when the user did. */
-  readonly answeredBy?: string;
   /**
    * The lines of answers given earlier that waited for the person's turn to end, which go to the
    * person with this one (`keepAnswerForTurnEnd`).
@@ -540,22 +539,15 @@ export function answerDecision(
   thread: Thread,
   answering: DecisionAnswering,
 ): ThreadChange<DecisionAnswered> {
-  const {
-    decisionId,
-    answer,
-    messageId,
-    answeredAt,
-    answeredBy,
-    waitingAnswerIds = [],
-  } = answering;
+  const { decisionId, answer, answeredAt, waitingAnswerIds = [] } = answering;
   const open = answerableDecision(thread, decisionId, answer);
   if (thread.state === "answering") {
     throw new ThreadRefused([
       `${answering.personName} is still answering. Answer once they finish.`,
     ]);
   }
-  const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
-  const line = answerLine(thread, { decisionId, answer, messageId, answeredAt });
+  const decision = answered(open, answering);
+  const line = answerLine(thread, answering);
   const moved = movedLines(thread, answering, answeredAt);
   const begun = begin(withoutDecision(thread, decisionId), answering, [...moved, line], answeredAt);
   return {
@@ -578,18 +570,18 @@ export function keepAnswerForTurnEnd(
   recording: DecisionRecording,
   personName: string,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, answeredAt, answeredBy } = recording;
+  const { decisionId, answer, answeredAt } = recording;
   const open = answerableDecision(thread, decisionId, answer);
   if (thread.home.kind !== "initiative" || thread.state !== "answering") {
     throw new ThreadRefused([`${personName} is still answering. Answer once they finish.`]);
   }
-  const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
-  const answered = withoutDecision(thread, decisionId);
+  const decision = answered(open, recording);
+  const without = withoutDecision(thread, decisionId);
   return {
-    thread: answered,
+    thread: without,
     logged: [answerLine(thread, recording, "waiting")],
     decision,
-    event: new DecisionAnswered(answered, decision, answeredAt),
+    event: new DecisionAnswered(without, decision, answeredAt),
   };
 }
 
@@ -630,7 +622,7 @@ export function deliverWaitingAnswers(
  */
 function answerLine(
   thread: Thread,
-  { decisionId, answer, messageId, answeredAt }: DecisionRecording,
+  { decisionId, answer, messageId, answeredAt, atUsersRequest }: DecisionRecording,
   delivery?: MessageDelivery,
 ): Message {
   return {
@@ -640,7 +632,24 @@ function answerLine(
     at: answeredAt,
     decisionId,
     answer,
+    ...(atUsersRequest === undefined ? {} : { atUsersRequest }),
     ...(delivery === undefined ? {} : { delivery }),
+  };
+}
+
+/** The open Decision with the answer recorded on it, with who gave it. */
+function answered(
+  open: Decision,
+  { answer, answeredAt, answeredBy, atUsersRequest }: DecisionRecording,
+): Decision {
+  return {
+    ...open,
+    answer: {
+      ...answer,
+      answeredAt,
+      ...(answeredBy === undefined ? {} : { answeredBy }),
+      ...(atUsersRequest === undefined ? {} : { atUsersRequest }),
+    },
   };
 }
 
@@ -649,12 +658,11 @@ function deliveredMarking(messageIds: readonly string[]): DeliveryMarking | unde
 }
 
 /** The user's answer to a Decision that no session takes, and when. */
-export interface DecisionRecording {
+export interface DecisionRecording extends AnswerGivenBy {
   readonly decisionId: string;
   readonly answer: DecisionAnswer;
   readonly messageId: string;
   readonly answeredAt: Date;
-  readonly answeredBy?: string;
 }
 
 /**
@@ -664,16 +672,17 @@ export interface DecisionRecording {
  */
 export function recordDecisionAnswer(
   thread: Thread,
-  { decisionId, answer, messageId, answeredAt, answeredBy }: DecisionRecording,
+  recording: DecisionRecording,
 ): ThreadChange<DecisionAnswered> {
+  const { decisionId, answer, answeredAt } = recording;
   const open = answerableDecision(thread, decisionId, answer);
-  const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
-  const answered = withoutDecision(thread, decisionId);
+  const decision = answered(open, recording);
+  const without = withoutDecision(thread, decisionId);
   return {
-    thread: answered,
-    logged: [answerLine(thread, { decisionId, answer, messageId, answeredAt })],
+    thread: without,
+    logged: [answerLine(thread, recording)],
     decision,
-    event: new DecisionAnswered(answered, decision, answeredAt),
+    event: new DecisionAnswered(without, decision, answeredAt),
   };
 }
 

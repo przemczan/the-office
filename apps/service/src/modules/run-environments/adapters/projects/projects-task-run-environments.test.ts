@@ -1,6 +1,7 @@
 import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import {
   OutputMask,
   TaskRunEnvironments,
@@ -53,6 +54,7 @@ async function aTask(taskId: string): Promise<TaskInRunEnvironment> {
     taskId,
     projectId: "shop",
     worktree,
+    repositoryGitFolder: join(testbed.folder, "repository", ".git"),
     installCommand: "npm ci",
     installInputs: ["package-lock.json"],
     installVariables: [],
@@ -104,6 +106,21 @@ describe("Projects' run environments", () => {
     expect(variables).toEqual({ OFFICE_VARIABLE_0: "1" });
     // Its output folder goes with the run.
     expect(await readdir(testbed.folders.commandOutputs)).toEqual([]);
+  });
+
+  it("mounts the git folder Projects names, read-only", async () => {
+    const task = await aTask("task-1");
+
+    await registry.run(task, aCommand());
+
+    const [started] = [...runtime.projects.values()];
+    const override = parseYaml(await readFile(started?.project.files.at(-1) ?? "", "utf8"));
+    expect(override).toHaveProperty("services.app.volumes.1", {
+      type: "bind",
+      source: task.repositoryGitFolder,
+      target: task.repositoryGitFolder,
+      read_only: true,
+    });
   });
 
   it("hides a Secret variable in the output file as it streams, and in the output read back", async () => {

@@ -56,6 +56,7 @@ function aDecisionOn(taskId: string): Decision {
     attachmentIds: [],
     passedOn: [],
     answeredBy: null,
+    atUsersRequest: null,
   };
 }
 

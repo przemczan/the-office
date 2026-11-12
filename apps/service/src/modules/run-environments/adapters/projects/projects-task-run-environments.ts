@@ -89,6 +89,7 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
       taskTitle: title,
       projectId: task.projectId,
       worktree: task.worktree,
+      repositoryGitFolder: task.repositoryGitFolder,
       installCommand: task.installCommand.trim() === "" ? undefined : task.installCommand,
       installInputs: task.installInputs,
       installVariables: task.installVariables,

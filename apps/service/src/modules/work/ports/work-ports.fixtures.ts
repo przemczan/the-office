@@ -11,7 +11,7 @@ import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../..
 import { TaskBases, type NewProject, type TaskBaseLookup } from "../../projects/index.js";
 import type { AccountWindowsReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
-import type { AllStageResults } from "../domain/record-words.js";
+import type { AllStageResults, DecisionWaitingOnTheUser } from "../domain/record-words.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import {
@@ -442,6 +442,7 @@ export class InitiativeThreadsForTests extends InitiativeThreads {
 export class TaskDecisionsForTests extends TaskDecisions {
   readonly open = new Map<string, number>();
   readonly inThread = new Map<string, readonly OpenTaskDecision[]>();
+  readonly waiting = new Map<string, readonly DecisionWaitingOnTheUser[]>();
 
   async openOn(taskId: string): Promise<number> {
     return this.open.get(taskId) ?? 0;
@@ -449,6 +450,10 @@ export class TaskDecisionsForTests extends TaskDecisions {
 
   async openInThread(threadId: string): Promise<readonly OpenTaskDecision[]> {
     return this.inThread.get(threadId) ?? [];
+  }
+
+  async waitingOnTheUserOn(taskId: string): Promise<readonly DecisionWaitingOnTheUser[]> {
+    return this.waiting.get(taskId) ?? [];
   }
 }
 

@@ -50,7 +50,7 @@ export function decisionRecordText(decision: Decision, taskRecord: string | unde
     ...(context.trim() === "" ? [] : ["", context]),
     "",
     "Options:",
-    ...options.map((option) => `- ${option}`),
+    ...options.map((option, index) => `${index + 1}. ${option}`),
     "",
     `Recommended: ${options[recommendation.option] ?? ""}, because ${recommendation.reason}`,
     ...decision.passedOn.map(
@@ -67,8 +67,11 @@ export function decisionRecordText(decision: Decision, taskRecord: string | unde
 function standing(decision: Decision): string {
   const { answer, putTo } = decision;
   if (answer) {
-    const by =
-      answer.answeredBy === undefined ? "the user" : `the person in the Role ${answer.answeredBy}`;
+    const by = answer.atUsersRequest
+      ? `the person in the Role ${answer.atUsersRequest.roleKey}, for the user at their request in the Thread ${answer.atUsersRequest.threadId},`
+      : answer.answeredBy === undefined
+        ? "the user"
+        : `the person in the Role ${answer.answeredBy}`;
     return `Answered by ${by} on ${answer.answeredAt.toISOString()}: ${answerWords(decision, answer)}`;
   }
   return putTo === undefined

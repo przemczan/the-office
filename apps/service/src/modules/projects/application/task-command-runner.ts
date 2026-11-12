@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { CommandRun } from "../domain/command-run.js";
 import { OutputMask } from "../domain/output-mask.js";
 import type { Project } from "../domain/project.js";
+import { Git } from "../ports/git.js";
 import { commandRunOf, ProjectCommandRunner } from "./project-command-runner.js";
 import {
   TaskRunEnvironments,
@@ -43,13 +44,16 @@ export class TaskCommandRunner {
   constructor(
     private readonly host: ProjectCommandRunner,
     private readonly runEnvironments: TaskRunEnvironments,
+    private readonly git: Git,
   ) {}
 
   async placeOf(project: Project, taskId: string, worktree: string): Promise<CommandPlace> {
     if (project.runEnvironment !== "on") return { kind: "host" };
     return {
       kind: "run-environment",
-      image: await this.runEnvironments.imageOf(taskInRunEnvironment(project, taskId, worktree)),
+      image: await this.runEnvironments.imageOf(
+        await this.taskInRunEnvironment(project, taskId, worktree),
+      ),
     };
   }
 
@@ -72,24 +76,29 @@ export class TaskCommandRunner {
     }
     const mask = OutputMask.of(project.environment);
     const finished = await this.runEnvironments.run(
-      taskInRunEnvironment(project, taskId, worktree),
+      await this.taskInRunEnvironment(project, taskId, worktree),
       { commandLine, environment: project.environment, mask, timeoutMs, signal, wait, outputFile },
     );
     return commandRunOf(commandLine, finished, mask);
   }
-}
 
-function taskInRunEnvironment(
-  project: Project,
-  taskId: string,
-  worktree: string,
-): TaskInRunEnvironment {
-  return {
-    taskId,
-    projectId: project.id,
-    worktree,
-    installCommand: project.installCommand,
-    installInputs: project.installInputs,
-    installVariables: project.environment.set,
-  };
+  /**
+   * The git folder is asked of git on the host, never read from the worktree's `.git` file, which
+   * an Agent could point at any other folder of the host.
+   */
+  private async taskInRunEnvironment(
+    project: Project,
+    taskId: string,
+    worktree: string,
+  ): Promise<TaskInRunEnvironment> {
+    return {
+      taskId,
+      projectId: project.id,
+      worktree,
+      repositoryGitFolder: await this.git.repositoryGitFolderOf(worktree),
+      installCommand: project.installCommand,
+      installInputs: project.installInputs,
+      installVariables: project.environment.set,
+    };
+  }
 }

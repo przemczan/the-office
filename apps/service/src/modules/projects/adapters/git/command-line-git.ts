@@ -616,6 +616,14 @@ export class CommandLineGit extends Git {
     return resolve(worktreePath, output.trim());
   }
 
+  async repositoryGitFolderOf(worktreePath: string): Promise<string> {
+    const output = await this.process.output({
+      folder: worktreePath,
+      gitArguments: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    });
+    return output.trim();
+  }
+
   async commit(
     worktreePath: string,
     message: string,

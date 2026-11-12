@@ -506,6 +506,7 @@ describe("a Decision", () => {
       answer: null,
       answeredAt: null,
       answeredBy: null,
+      atUsersRequest: null,
     };
     expect(open).toContainEqual(shown);
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([

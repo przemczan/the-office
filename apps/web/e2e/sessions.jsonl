@@ -329,3 +329,15 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-a-sub-agent"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-answer-for-the-user","text":"Jan answers his Decision for the user, in his chat"}}
+{"step":"event","event":{"kind":"tool-call","callId":"answer-for-the-user","tool":"answer_decision","officeTool":true,"input":{"decisionId":"5d0b8c1e-7a3f-4e2b-9c6d-1f8a2b3c4d5e","option":1},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"answer-for-the-user","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I answered it for you: keep it.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-answer-for-the-user"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-takes-answer-for-the-user","text":"Jan takes the answer given for the user"}}
+{"step":"event","event":{"kind":"text","text":"Then the old export stays.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-takes-answer-for-the-user"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}

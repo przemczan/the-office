@@ -374,6 +374,13 @@ export abstract class Git {
   abstract worktreeRecordPath(worktreePath: string, name: string): Promise<string>;
 
   /**
+   * The git folder every worktree of the worktree's repository shares, as an absolute path git
+   * names it (`--git-common-dir`): the one the worktree's `.git` file leads to, so a run
+   * environment can mount it there.
+   */
+  abstract repositoryGitFolderOf(worktreePath: string): Promise<string>;
+
+  /**
    * Commits every change in the worktree, untracked files included, without the repository's
    * hooks. Returns the new commit, or undefined when there was nothing to commit.
    */

@@ -43,7 +43,7 @@ export async function worktreesOnATemporaryRepository(): Promise<{
   const worktrees = new Worktrees(
     git,
     commands,
-    taskCommandsOver(commands, runEnvironments.registry()),
+    taskCommandsOver(commands, git, runEnvironments.registry()),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
     taskBases,
   );

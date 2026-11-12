@@ -1,5 +1,5 @@
-import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
 import { CommandLineGit } from "./command-line-git.js";
@@ -322,5 +322,29 @@ describe("CommandLineGit.worktreeRecordPath", REAL_GIT_TEST, () => {
     expect(gitIn(worktree.path, "status", "--porcelain")).toBe("");
     await git.removeWorktree(repository.path, worktree.path, serviceVariables);
     expect(await exists(path)).toBe(false);
+  });
+});
+
+describe("CommandLineGit.repositoryGitFolderOf", REAL_GIT_TEST, () => {
+  it("names the shared git folder the worktree's .git file leads to, even through a link", async () => {
+    const worktree = await worktrees.aWorktree();
+    const link = `${worktree.path}-link`;
+    await symlink(worktree.path, link, "dir");
+    // `gitdir: <shared git folder>/worktrees/<name>`
+    const ownGitFolder = (await readFile(join(worktree.path, ".git"), "utf8"))
+      .replace(/^gitdir: /, "")
+      .trim();
+
+    expect(await git.repositoryGitFolderOf(worktree.path)).toBe(dirname(dirname(ownGitFolder)));
+    expect(await git.repositoryGitFolderOf(link)).toBe(dirname(dirname(ownGitFolder)));
+    await rm(link);
+    await git.removeWorktree(repository.path, worktree.path, serviceVariables);
+  });
+
+  it("names the git folder inside a main checkout as an absolute path", async () => {
+    // resolve: git writes "/" between folders on Windows too.
+    expect(resolve(await git.repositoryGitFolderOf(repository.path))).toBe(
+      join(await realpath(repository.path), ".git"),
+    );
   });
 });

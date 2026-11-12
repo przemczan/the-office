@@ -31,27 +31,41 @@ export interface AllStageResults {
   readonly handoverNotes: readonly HandoverNote[];
 }
 
+/**
+ * A Decision on a Task waiting on the user, which Conversations keeps: by its id, which a person
+ * answers it for the user by when they ask (spec §2.4), with its question and options.
+ */
+export interface DecisionWaitingOnTheUser {
+  readonly id: string;
+  readonly question: string;
+  readonly options: readonly string[];
+  /** Whether it asks approval of a call, which only the user gives. */
+  readonly approval: boolean;
+}
+
 /** What a Task's record is worded from, besides the Task. */
 export interface TaskRecordParts {
   readonly attachments: readonly Attachment[];
   readonly links: TaskLinks;
   readonly stageResults: AllStageResults;
   readonly stateChanges: readonly StateChange[];
+  readonly decisionsWaiting: readonly DecisionWaitingOnTheUser[];
+}
+
+function pipelineWords({ pipelineId }: Task): string {
+  return pipelineId === undefined ? "no Pipeline yet" : `Pipeline ${pipelineId}`;
 }
 
 /**
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
  * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, its Moves to another
- * Project, its linked records (one line each, never their own links), its Stage results with every
- * Handover note, and its kept state changes with who or what made each.
+ * Project, its linked records (one line each, never their own links), its Decisions waiting on the
+ * user with their numbered options, its Stage results with every Handover note, and its kept state
+ * changes with who or what made each.
  */
-function pipelineWords({ pipelineId }: Task): string {
-  return pipelineId === undefined ? "no Pipeline yet" : `Pipeline ${pipelineId}`;
-}
-
 export function taskRecordText(
   task: Task,
-  { attachments, links, stageResults, stateChanges }: TaskRecordParts,
+  { attachments, links, stageResults, stateChanges, decisionsWaiting }: TaskRecordParts,
 ): string {
   return [
     `${task.title} (Task ${task.id})`,
@@ -95,6 +109,9 @@ export function taskRecordText(
     "Attachments:",
     ...attachmentLines(attachments),
     "",
+    "Decisions waiting on the user:",
+    ...orNone(decisionsWaiting.flatMap(waitingDecisionLines)),
+    "",
     "Stage results:",
     ...orNone(stageResults.lines),
     ...handoverNoteLines(stageResults.handoverNotes),
@@ -108,6 +125,14 @@ function publishingTaskLines(task: Task, { initiative }: TaskLinks): string[] {
   if (!isPublishingTask(task) || initiative?.shortName === undefined) return [];
   return [
     `- Publishing Task: it publishes the Initiative's whole change in this Project from ${initiativeBranchOf(initiative.shortName)}, which its worktree holds itself, into the base branch`,
+  ];
+}
+
+/** A Decision waiting on the user: its id and question, then its options numbered from 1. */
+function waitingDecisionLines({ id, question, options, approval }: DecisionWaitingOnTheUser) {
+  return [
+    `- ${question} (Decision ${id})${approval ? ": an approval of a call, which only the user gives, on its card" : ""}`,
+    ...options.map((option, index) => `  ${index + 1}. ${option}`),
   ];
 }
 

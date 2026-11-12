@@ -58,7 +58,7 @@ async function branchesOnARepository(tracking: boolean): Promise<{
     new Worktrees(
       git,
       commands,
-      taskCommandsOver(commands),
+      taskCommandsOver(commands, git),
       new OfficeDataDirectory(officeData),
       taskBases,
     ),

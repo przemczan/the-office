@@ -1,12 +1,17 @@
+import { ANSWER_DECISION_TOOL as CONTRACT_ANSWER_DECISION_TOOL } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { CARETAKER, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
+import { aDecision } from "./decision.fixtures.js";
 import {
+  ANSWER_DECISION_TOOL,
   CHANGE_ROLE_TOOL,
   CONSULTATION_OFFICE_TOOLS,
   caretakerChatInstructions,
   chatInstructions,
   chatOfficeTools,
   consultationInstructions,
+  decisionAnswerMessage,
+  decisionAnswersOnTasksMessage,
   PERSON_READING_OFFICE_TOOLS,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
@@ -96,5 +101,55 @@ describe("chatOfficeTools", () => {
     expect(CONSULTATION_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
     expect(PERSON_READING_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
     expect(READING_OFFICE_TOOLS).not.toContain(READ_THREADS_TOOL);
+  });
+});
+
+describe("answer_decision", () => {
+  it("is in every chat, the Caretaker's and the Office Manager's too, and in no Consultation", () => {
+    for (const roleKey of ["planner", DEVOPS, CARETAKER, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(roleKey)).toContain(ANSWER_DECISION_TOOL);
+    }
+    expect(CONSULTATION_OFFICE_TOOLS).not.toContain(ANSWER_DECISION_TOOL);
+    expect(PERSON_READING_OFFICE_TOOLS).not.toContain(ANSWER_DECISION_TOOL);
+    expect(ANSWER_DECISION_TOOL).toBe(CONTRACT_ANSWER_DECISION_TOOL);
+  });
+});
+
+describe("the message an answered Decision is sent with", () => {
+  const decision = aDecision();
+  const option = { kind: "option", option: 1 } as const;
+  const atUsersRequest = { roleKey: "cto", threadId: "chat", name: "Ada" } as const;
+
+  it("names who answered: the user, the Consultant, or a person at the user's request", () => {
+    expect(decisionAnswerMessage(decision, option)).toBe(
+      `The user answered your Decision "${decision.question}" with the option "Every Project".`,
+    );
+    expect(
+      decisionAnswerMessage(decision, option, { kind: "consultant", roleKey: "cto", name: "Ada" }),
+    ).toBe(`Ada answered your Decision "${decision.question}" with the option "Every Project".`);
+    expect(
+      decisionAnswerMessage(
+        decision,
+        { kind: "free-answer", text: "Active ones." },
+        { kind: "at-users-request", ...atUsersRequest },
+      ),
+    ).toBe(
+      `Ada answered your Decision "${decision.question}" for the user, at their request, in their own words:\n\nActive ones.`,
+    );
+  });
+
+  it("names the person at the user's request on an Initiative's Task too", () => {
+    expect(
+      decisionAnswersOnTasksMessage([
+        {
+          decision,
+          answer: option,
+          taskTitle: "Export",
+          answerer: { kind: "at-users-request", ...atUsersRequest },
+        },
+      ]),
+    ).toBe(
+      `On the Task "Export" (${decision.taskId}): Ada answered your Decision "${decision.question}" for the user, at their request, with the option "Every Project".`,
+    );
   });
 });

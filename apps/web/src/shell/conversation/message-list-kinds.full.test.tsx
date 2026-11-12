@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Decision, Message, MessageDelivery, Proposal } from "@the-office/contracts";
+import type { Decision, Message, MessageDelivery, Proposal, Role } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
+import { roleQueries } from "../../api/people.ts";
 import { clockOf } from "../time.ts";
 import { contextLabel } from "./context-words.ts";
 import { MessageList } from "./message-list.tsx";
@@ -66,7 +67,14 @@ const EVERY_KIND: {
   held: [{ at, id: "8", kind: "held", heldBy: "pause", text: "Paused here" }, "Paused here"],
   decision: [{ at, id: "9", kind: "decision", roleKey: "developer", decision }, "A Decision card"],
   "decision-answer": [
-    { at, id: "10", kind: "decision-answer", answer: { kind: "option", option: 0 }, decision },
+    {
+      at,
+      id: "10",
+      kind: "decision-answer",
+      answer: { kind: "option", option: 0 },
+      atUsersRequest: null,
+      decision,
+    },
     "You · answering the Decision",
   ],
   proposal: [{ at, id: "11", kind: "proposal", roleKey: "cto", proposal }, "A Proposal card"],
@@ -99,12 +107,18 @@ const EVERY_KIND: {
 
 function shownLog(
   messages: readonly Message[],
-  { details = true, answering = false } = {},
+  {
+    details = true,
+    answering = false,
+    roles,
+  }: { details?: boolean; answering?: boolean; roles?: Role[] } = {},
 ): HTMLElement {
   const page = document.createElement("div");
+  const queryClient = new QueryClient();
+  if (roles) queryClient.setQueryData(roleQueries.list().queryKey, roles);
   act(() =>
     createRoot(page).render(
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={queryClient}>
         <MessageList
           roleKey="developer"
           messages={messages}
@@ -178,6 +192,21 @@ describe("MessageList's kinds", () => {
     expect(backgrounds[0]).toBe("var(--gray-100)");
     expect(backgrounds[1]).not.toBe("var(--gray-100)");
     expect(backgrounds[2]).toBe("var(--gray-100)");
+  });
+
+  it("names the person who answered a Decision at the user's request, in place of You", () => {
+    const [answer] = EVERY_KIND["decision-answer"];
+    if (answer?.kind !== "decision-answer") throw new Error("No decision-answer line.");
+    const reviewer = { key: "reviewer", letGoAt: null, card: { name: "Michael" } };
+    const log = shownLog(
+      [{ ...answer, atUsersRequest: { roleKey: "reviewer", threadId: "chat-thread" } }],
+      { roles: [reviewer as unknown as Role] },
+    );
+    expect(log.querySelector(".turn-avatar")?.textContent).toBe("M");
+    expect(log.querySelector(".turn-by")?.textContent).toContain(
+      "Michael · answering the Decision at your request",
+    );
+    expect(log.querySelector(".turn-by")?.textContent).not.toContain("You");
   });
 
   it("joins neighbouring messages into one turn under one avatar", () => {

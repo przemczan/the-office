@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -94,7 +95,35 @@ describe.skipIf(missing !== undefined)(
         taskId,
         projectId: "shop",
         worktree,
+        // A main checkout's, inside the worktree: no git folder to mount, as none exists here.
+        repositoryGitFolder: join(worktree, ".git"),
         installCommand: "echo installed",
+        installInputs: ["package-lock.json"],
+        installVariables: [],
+      };
+    }
+
+    /** A Task in a git worktree of a repository with one commit, on an image that has git. */
+    async function aTaskInAGitWorktree(taskId: string): Promise<TaskInRunEnvironment> {
+      testbed.knownTasks.tasks.push({ id: taskId, title: `Task ${taskId}`, state: "in-progress" });
+      const repository = join(testbed.folder, "git-repository");
+      const worktree = join(testbed.folder, "worktrees", taskId);
+      gitIn(testbed.folder, "init", "--quiet", "--initial-branch=main", repository);
+      gitIn(repository, "commit", "--quiet", "--allow-empty", "--message", "First");
+      gitIn(repository, "worktree", "add", "--quiet", "-b", taskId, worktree);
+      await writeFiles(worktree, GIT_DEFINITION);
+      return {
+        taskId,
+        projectId: "shop",
+        worktree,
+        // As Projects names it: git on the host, never the worktree's .git file.
+        repositoryGitFolder: gitIn(
+          worktree,
+          "rev-parse",
+          "--path-format=absolute",
+          "--git-common-dir",
+        ).trim(),
+        installCommand: "apk add --no-cache git",
         installInputs: ["package-lock.json"],
         installVariables: [],
       };
@@ -139,5 +168,47 @@ describe.skipIf(missing !== undefined)(
       expect(await secondRun).toMatchObject({ outcome: "passed", output: "second ran\n" });
       expect(wait.ended).toHaveBeenCalledOnce();
     });
+
+    it("reads the worktree's history with git, and can't commit, its git folder read-only", async () => {
+      await testbed.environments.remove("task-3");
+      const task = await aTaskInAGitWorktree("task-4");
+      const head = gitIn(task.worktree, "rev-parse", "HEAD");
+
+      const reads = await registry.run(
+        task,
+        aCommand(`${GIT} rev-parse HEAD && ${GIT} status --short && ${GIT} log -1 --format=%s`),
+      );
+      const commit = await registry.run(
+        task,
+        aCommand(`${GIT} commit --quiet --allow-empty --message Second`),
+      );
+
+      expect(reads).toMatchObject({ outcome: "passed" });
+      expect(reads.output).toContain(head);
+      expect(reads.output).toContain("First\n");
+      expect(commit).toMatchObject({ outcome: "failed" });
+      expect(commit.output).toMatch(/Read-only file system/);
+      expect(gitIn(task.worktree, "rev-parse", "HEAD")).toBe(head);
+    });
   },
 );
+
+/** Alpine with git installed as its image is built. */
+const GIT_DEFINITION = {
+  ...DEFINITION,
+  ".devcontainer/compose.yaml": "services:\n  app:\n    image: alpine:3.21\n",
+};
+
+/**
+ * git in the run environment, its user root: a repository the host's user owns would otherwise
+ * meet git's "dubious ownership" refusal, which isn't what this test checks.
+ */
+const GIT = "git -c safe.directory='*' -c user.name=Check -c user.email=check@example.com";
+
+function gitIn(folder: string, ...gitArguments: string[]): string {
+  return execFileSync(
+    "git",
+    ["-c", "user.name=Check", "-c", "user.email=check@example.com", ...gitArguments],
+    { cwd: folder, encoding: "utf8" },
+  );
+}
