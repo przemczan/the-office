@@ -11,10 +11,11 @@ import {
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
+import { CARETAKER, CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import {
   caretakerChatInstructions,
   CHAT_OFFICE_TOOLS,
+  CREATE_INITIATIVE_TOOL,
   chatInstructions,
   chatOfficeTools,
   CONSULTATION_OFFICE_TOOLS,
@@ -129,6 +130,21 @@ describe("chatOfficeTools", () => {
 
     expect(tools).not.toContain("create_task");
     expect(tools).toContain("capture_idea");
+  });
+
+  it("gives creating an Initiative to the CTO's and the Office Manager's chats alone", () => {
+    expect(chatOfficeTools(CTO)).toContain(CREATE_INITIATIVE_TOOL);
+    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(CREATE_INITIATIVE_TOOL);
+    for (const roleKey of ["planner", "developer", DEVOPS, CARETAKER]) {
+      expect(chatOfficeTools(roleKey)).not.toContain(CREATE_INITIATIVE_TOOL);
+    }
+    expect(CHAT_OFFICE_TOOLS).not.toContain(CREATE_INITIATIVE_TOOL);
+  });
+
+  it("leaves creating an Initiative out of the CTO's and the Office Manager's Stage and Consultation tools", () => {
+    expect(roleOfficeTools(CTO)).not.toContain(CREATE_INITIATIVE_TOOL);
+    expect(roleOfficeTools(OFFICE_MANAGER)).not.toContain(CREATE_INITIATIVE_TOOL);
+    expect(CONSULTATION_OFFICE_TOOLS).not.toContain(CREATE_INITIATIVE_TOOL);
   });
 
   it("gives every chat every reading tool, the Office Manager's too", () => {

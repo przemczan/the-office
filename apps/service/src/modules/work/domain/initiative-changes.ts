@@ -1,8 +1,9 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { initiativeProjectIds, type Initiative, type InitiativeState } from "./initiative.js";
-import { THE_USER } from "./author.js";
+import { THE_USER, type Author } from "./author.js";
 import {
   InitiativeBranchMade,
+  InitiativeCreated,
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
   InitiativeShortNameWritten,
@@ -51,6 +52,43 @@ export interface ConfirmBranching {
   readonly shortName: string;
   readonly projectIds: readonly string[];
   readonly madeAt: Date;
+}
+
+/** What create_initiative is given: the Initiative's name and its outcome, both required. */
+export interface NewInitiative {
+  readonly name: string;
+  readonly outcome: string;
+}
+
+/**
+ * An Initiative being shaped that comes from no Idea (create_initiative, spec 2.1): named and with
+ * its outcome written, no Tasks yet, waiting for the user's Confirm as one shaped from an Idea does.
+ */
+export function createInitiative(
+  setting: NewInitiative,
+  initiativeId: string,
+  createdBy: Author,
+  at: Date,
+): InitiativeChange<InitiativeCreated> {
+  const name = setting.name.trim();
+  const outcome = setting.outcome.trim();
+  const problems = [
+    ...(name === "" ? ["Give the Initiative a title."] : []),
+    ...(outcome === "" ? ["Write what must be true once the Initiative is done."] : []),
+  ];
+  if (problems.length > 0) throw new InitiativeRefused(problems);
+  const initiative: Initiative = {
+    id: initiativeId,
+    name,
+    outcome,
+    state: "shaping",
+    originIdeaId: undefined,
+    createdBy,
+    createdAt: at,
+    planningAutoMode: false,
+    branches: [],
+  };
+  return { initiative, event: new InitiativeCreated(initiative) };
 }
 
 /**

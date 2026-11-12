@@ -56,7 +56,7 @@ export function toInitiativeResponse(
     name: initiative.name,
     outcome: initiative.outcome,
     state: initiative.state,
-    originIdeaId: initiative.originIdeaId,
+    originIdeaId: initiative.originIdeaId ?? null,
     projectIds: initiativeProjectIds(tasks),
     createdBy: toAuthorResponse(initiative.createdBy),
     createdAt: initiative.createdAt.toISOString(),

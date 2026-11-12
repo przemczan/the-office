@@ -8,7 +8,7 @@ import { moveAttachment } from "../../domain/attachment-changes.js";
 import { THE_USER } from "../../domain/author.js";
 import { dropIdea, shapeIdeaIntoTask } from "../../domain/idea-changes.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
-import { confirmInitiative } from "../../domain/initiative-changes.js";
+import { confirmInitiative, createInitiative } from "../../domain/initiative-changes.js";
 import { InitiativeStateChanged } from "../../domain/initiative-events.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { InitiativeRefused } from "../../domain/initiative-refused.js";
@@ -212,6 +212,25 @@ describe("PostgresInitiativeRepository", () => {
     await expect(initiatives.changeTask(initiativeId, missing, () => undefined)).rejects.toThrow(
       new TaskNotFound(missing),
     );
+  });
+
+  it("saves an Initiative created from no Idea and reads it back", async () => {
+    const created = createInitiative(
+      { name: `Single sign-on ${randomUUID()}`, outcome: "People sign in once." },
+      randomUUID(),
+      { kind: "person", roleKey: "cto" },
+      new Date("2026-11-12T10:00:00.000Z"),
+    );
+
+    await initiatives.insert(created);
+
+    const [row] = await database
+      .select({ originIdeaId: initiativeRows.originIdeaId })
+      .from(initiativeRows)
+      .where(eq(initiativeRows.id, created.initiative.id));
+    expect(row?.originIdeaId).toBeNull();
+    expect(await initiatives.find(created.initiative.id)).toEqual(created.initiative);
+    await database.delete(initiativeRows).where(eq(initiativeRows.id, created.initiative.id));
   });
 });
 

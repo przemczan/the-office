@@ -7,6 +7,7 @@ import type {
   InitiativeTaskAdded,
   InitiativeTasksChange,
 } from "../domain/initiative-changes.js";
+import type { InitiativeCreated } from "../domain/initiative-events.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import type { TaskStateChanged } from "../domain/task-events.js";
@@ -24,12 +25,15 @@ export interface InitiativeTasksUpdate<Event extends DomainEvent> extends Initia
 }
 
 /**
- * Where Initiatives are kept; one is made by shaping an Idea (IdeaRepository). Adding a Task and
- * every change hold the Initiative, so a Task can't join one that is becoming done, and what a
- * change may do is decided from the Initiative as held.
+ * Where Initiatives are kept; one is made by shaping an Idea (IdeaRepository) or created from none
+ * (`insert`). Adding a Task and every change hold the Initiative, so a Task can't join one that is
+ * becoming done, and what a change may do is decided from the Initiative as held.
  */
 export abstract class InitiativeRepository {
   abstract find(id: string): Promise<Initiative | undefined>;
+
+  /** Saves a new Initiative that comes from no Idea. */
+  abstract insert(change: InitiativeChange<InitiativeCreated>): Promise<void>;
 
   /** Every Initiative, archived ones too, the newest first. */
   abstract list(): Promise<readonly Initiative[]>;

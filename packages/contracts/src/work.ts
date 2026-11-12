@@ -51,14 +51,18 @@ export const initiativeBranchSchema = z.object({
 });
 export type InitiativeBranch = z.infer<typeof initiativeBranchSchema>;
 
-/** POST /ideas/:id/initiative makes one, being shaped; its Tasks name it. */
+/**
+ * POST /ideas/:id/initiative makes one, being shaped, as does create_initiative in a CTO's or the
+ * Office Manager's chat; its Tasks name it.
+ */
 export const initiativeSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   /** Empty until written. */
   outcome: z.string(),
   state: initiativeStateSchema,
-  originIdeaId: z.uuid(),
+  /** The Idea it was shaped from; null for one created with create_initiative. */
+  originIdeaId: z.uuid().nullable(),
   /** The Projects of its Tasks, each once. */
   projectIds: z.array(z.string()),
   createdBy: authorSchema,

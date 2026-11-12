@@ -60,9 +60,8 @@ export const initiatives = pgTable(
     name: text("name").notNull(),
     outcome: text("outcome").notNull(),
     state: text("state").$type<InitiativeState>().notNull(),
-    originIdeaId: uuid("origin_idea_id")
-      .notNull()
-      .references((): AnyPgColumn => ideas.id),
+    /** Null for one created with create_initiative, from no Idea. */
+    originIdeaId: uuid("origin_idea_id").references((): AnyPgColumn => ideas.id),
     createdBy: jsonb("created_by").$type<Author>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     /** Null while it is shaping or active, and for one that ended before this was kept. */

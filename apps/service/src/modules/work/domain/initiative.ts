@@ -17,8 +17,8 @@ export interface Initiative {
   /** What must be true once it is done, in plain language; empty until written. */
   readonly outcome: string;
   readonly state: InitiativeState;
-  /** The Idea it was shaped from. */
-  readonly originIdeaId: string;
+  /** The Idea it was shaped from; undefined for one created with create_initiative. */
+  readonly originIdeaId: string | undefined;
   readonly createdBy: Author;
   readonly createdAt: Date;
   /**
