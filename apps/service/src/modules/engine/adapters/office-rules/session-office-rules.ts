@@ -17,8 +17,8 @@ export interface EngineRuleParts {
 /**
  * The Office rules one session is held to (spec §6): its folder, its skills folder, its temporary
  * folder, where the Office tools write files for it, the engine's own readable folders and those
- * the session is given readable, The Office's own files not; Projects' clones in its data directory are no Office
- * files. A session reaching the workstation is refused the secrets alone.
+ * the session is given readable, The Office's own files not; Projects' clones in its data
+ * directory are no Office files. A session reaching the workstation is refused the secrets alone.
  */
 export function sessionOfficeRules(
   operatingSystem: OperatingSystem,

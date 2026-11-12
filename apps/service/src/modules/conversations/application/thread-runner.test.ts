@@ -1384,6 +1384,38 @@ describe("a Thread on an Initiative", () => {
     expect(refreshedOnInitiative).toEqual([reads, reads]);
   });
 
+  it("resumes a session started while shaping once the Initiative reads its branch", async () => {
+    const initiativeId = randomUUID();
+    await startWith(started(...aTurn("brief", "What outcome do you want?")), [
+      { step: "resume" },
+      sent("m-3"),
+      ...aTurn("m-3", "Back again."),
+    ]);
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Shaping",
+      opening: "Shape the Initiative with the user.",
+    });
+    await answered(opened.id, 2);
+    await runner.onModuleDestroy();
+    await cooled(opened.id, 12_000);
+    const reads = { shortName: "sync", branch: "initiative/sync", projectIds: ["admin-panel"] };
+    initiativeBranchReads.set(initiativeId, reads);
+
+    await runner.send(opened.id, "Still there?");
+    await answered(opened.id, 5);
+
+    const [shaping, resumed] = engine.sessions;
+    expect(resumed?.id).toBe(shaping?.id);
+    expect(resumed?.options).toMatchObject({
+      folder: shaping?.options.folder,
+      readableFolders: [join(officeData, "initiative-bases", "sync")],
+    });
+    expect(refreshedOnInitiative).toEqual([reads]);
+  });
+
   it("leaves a chat that mentions the Initiative reading the base checkouts alone", async () => {
     const initiativeId = randomUUID();
     initiativeBranchReads.set(initiativeId, {
