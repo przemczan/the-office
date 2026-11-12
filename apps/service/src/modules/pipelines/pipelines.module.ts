@@ -4,6 +4,7 @@ import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.js";
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
+import { ProjectPipelineLibraryController } from "./adapters/http/project-pipeline-library.controller.js";
 import { StageTemplateLibraryController } from "./adapters/http/stage-template-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
@@ -119,6 +120,7 @@ export class PipelinesModule {
         TaskStagesController,
         TaskGateController,
         PipelineLibraryController,
+        ProjectPipelineLibraryController,
         StageTemplateLibraryController,
       ],
       providers: [

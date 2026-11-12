@@ -14,6 +14,14 @@ export class UnknownPipeline extends Error {
   }
 }
 
+/** There is no Project Pipeline by this id. */
+export class UnknownProjectPipeline extends Error {
+  constructor(readonly projectPipelineId: string) {
+    super(`There is no Project Pipeline "${projectPipelineId}".`);
+    this.name = "UnknownProjectPipeline";
+  }
+}
+
 /** The library has no Stage template by this id. */
 export class UnknownStageTemplate extends Error {
   constructor(readonly stageTemplateId: string) {

@@ -20,7 +20,7 @@ const DEVELOPER_HIRED = new Map<string, RoleFilling>([
   ["developer", { title: "Developer", person: { name: "Ada", taskLimit: 3 } }],
 ]);
 
-const NO_USE = { defaultFor: [], notStarted: 0, running: 0, initiatives: [] };
+const NO_USE = { defaultFor: [], notStarted: 0, running: 0, initiatives: [], projectPipelines: [] };
 
 function anEdit(fields: Partial<PipelineEdit> = {}): PipelineEdit {
   return {
@@ -33,14 +33,14 @@ function anEdit(fields: Partial<PipelineEdit> = {}): PipelineEdit {
 
 describe("pipelineEditProblems", () => {
   it("allows a named Pipeline whose Stages can run", () => {
-    expect(pipelineEditProblems(anEdit(), builtInPipelines)).toEqual([]);
+    expect(pipelineEditProblems(anEdit(), builtInPipelines, [])).toEqual([]);
   });
 
   it("wants a name, and one no other Pipeline has in any case", () => {
-    expect(pipelineEditProblems(anEdit({ name: "  " }), [])).toEqual([
+    expect(pipelineEditProblems(anEdit({ name: "  " }), [], [])).toEqual([
       { text: "Give the Pipeline a name." },
     ]);
-    expect(pipelineEditProblems(anEdit({ name: " full " }), builtInPipelines)).toEqual([
+    expect(pipelineEditProblems(anEdit({ name: " full " }), builtInPipelines, [])).toEqual([
       { text: 'Another Pipeline is named "full".' },
     ]);
   });
@@ -52,11 +52,11 @@ describe("pipelineEditProblems", () => {
       scriptStage({ onFailure: { goBackTo: "publish", rounds: 1 } }),
     ];
 
-    expect(pipelineEditProblems(anEdit({ stages }), []).map(({ text }) => text)).toEqual([
+    expect(pipelineEditProblems(anEdit({ stages }), [], []).map(({ text }) => text)).toEqual([
       "Stage 2 · Review: continuing a session needs the same Role in the Stage before.",
       "Stage 3 · Tests: on failure it can only go back to an earlier Stage.",
     ]);
-    expect(pipelineEditProblems(anEdit({ stages: [] }), [])).toEqual([
+    expect(pipelineEditProblems(anEdit({ stages: [] }), [], [])).toEqual([
       { text: "A Pipeline needs at least one Stage." },
     ]);
   });
@@ -105,22 +105,22 @@ describe("proposedStagesProblems", () => {
     // A field left undefined is the same as one left out, as the Stages are kept.
     const drafted = [agentStage({ onFailure: undefined }), ...nightly.stages.slice(1)];
 
-    expect(proposedStagesProblems(nightly, drafted, proposed, builtInPipelines)).toEqual([]);
+    expect(proposedStagesProblems(nightly, drafted, proposed, builtInPipelines, [])).toEqual([]);
   });
 
   it("refuses them once the Pipeline's Stages changed since", () => {
     const changed: Pipeline = { ...nightly, stages: [agentStage()] };
 
-    expect(proposedStagesProblems(changed, nightly.stages, proposed, [])).toEqual([
+    expect(proposedStagesProblems(changed, nightly.stages, proposed, [], [])).toEqual([
       { text: "Nightly's Stages changed since this was proposed." },
     ]);
   });
 
   it("refuses what the library editor refuses, and Stages that change nothing", () => {
-    expect(proposedStagesProblems(nightly, nightly.stages, [], []).map(({ text }) => text)).toEqual(
-      ["A Pipeline needs at least one Stage."],
-    );
-    expect(proposedStagesProblems(nightly, nightly.stages, nightly.stages, [])).toEqual([
+    expect(
+      proposedStagesProblems(nightly, nightly.stages, [], [], []).map(({ text }) => text),
+    ).toEqual(["A Pipeline needs at least one Stage."]);
+    expect(proposedStagesProblems(nightly, nightly.stages, nightly.stages, [], [])).toEqual([
       { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
     ]);
   });
@@ -148,7 +148,7 @@ describe("copiedPipeline", () => {
   const full = builtInPipelines[0]!;
 
   it("copies the Stages under the original's name with (copy)", () => {
-    const { pipeline, event } = copiedPipeline("copy-id", full, builtInPipelines);
+    const { pipeline, event } = copiedPipeline("copy-id", full, builtInPipelines, []);
 
     expect(pipeline).toEqual({ ...full, id: "copy-id", name: "Full (copy)" });
     expect(event).toMatchObject({ pipelineId: "copy-id" });
@@ -161,7 +161,7 @@ describe("copiedPipeline", () => {
       { ...full, id: "second-copy", name: "full (COPY 2)" },
     ];
 
-    expect(copiedPipeline("copy-id", full, library).pipeline.name).toBe("Full (copy 3)");
+    expect(copiedPipeline("copy-id", full, library, []).pipeline.name).toBe("Full (copy 3)");
   });
 });
 
@@ -183,11 +183,12 @@ describe("pipelineUse", () => {
       { state: "ready", projectId: "site", pipelineId: "quick-fix" },
     ];
 
-    expect(pipelineUse("full", projects, tasks, [])).toEqual({
+    expect(pipelineUse("full", projects, tasks, [], [])).toEqual({
       defaultFor: [{ projectId: "site", name: "Site" }],
       notStarted: 3,
       running: 3,
       initiatives: [],
+      projectPipelines: [],
     });
   });
 
@@ -238,11 +239,29 @@ describe("pipelineUse", () => {
       },
     ];
 
-    expect(pipelineUse("full", [], [], initiatives).initiatives).toEqual(["Checkout", "Search"]);
+    expect(pipelineUse("full", [], [], initiatives, []).initiatives).toEqual([
+      "Checkout",
+      "Search",
+    ]);
   });
 });
 
 describe("removalProblems", () => {
+  it("refuses once for each Project Pipeline built from it, naming it and its Project", () => {
+    const use = {
+      ...NO_USE,
+      projectPipelines: [
+        { id: "a", name: "Full with Linux check", projectId: "site", projectName: "Site" },
+        { id: "b", name: "Full with visual check", projectId: "app", projectName: "App" },
+      ],
+    };
+
+    expect(removalProblems("nightly", use)).toEqual([
+      "Site's Pipeline Full with Linux check is built from it; remove it or build it from another base Pipeline first.",
+      "App's Pipeline Full with visual check is built from it; remove it or build it from another base Pipeline first.",
+    ]);
+  });
+
   it("allows removing a Pipeline nobody needs, even with Tasks running on their copy", () => {
     expect(removalProblems("nightly", { ...NO_USE, running: 2 })).toEqual([]);
   });
@@ -268,6 +287,7 @@ describe("removalProblems", () => {
       notStarted: 2,
       running: 0,
       initiatives: [],
+      projectPipelines: [],
     };
 
     expect(removalProblems("nightly", use)).toEqual([

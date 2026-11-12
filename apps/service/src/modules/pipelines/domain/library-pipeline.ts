@@ -1,6 +1,8 @@
 import { ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE } from "./built-in-pipelines.js";
 import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
+import { comparableName, pipelineNameProblems, type TakenName } from "./pipeline-names.js";
+import type { ProjectPipeline } from "./project-pipeline.js";
 import { sameAsKept, type Stage } from "./stage.js";
 import { commandsWords, missingCommandsOnStages } from "./stage-commands.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
@@ -38,6 +40,14 @@ export interface InitiativeOnPipeline {
   readonly pipelineStarted: boolean;
 }
 
+/** A Project Pipeline built from an office-wide Pipeline, with its Project's name. */
+export interface ProjectPipelineOnPipeline {
+  readonly id: string;
+  readonly name: string;
+  readonly projectId: string;
+  readonly projectName: string;
+}
+
 /** Who uses a library Pipeline: what removing it would leave without one, and what saving changes. */
 export interface PipelineUse {
   readonly defaultFor: readonly { readonly projectId: string; readonly name: string }[];
@@ -45,6 +55,8 @@ export interface PipelineUse {
   readonly running: number;
   /** The names of the shaping and active Initiatives that name it. */
   readonly initiatives: readonly string[];
+  /** The Project Pipelines built from it, which its edits reach. */
+  readonly projectPipelines: readonly ProjectPipelineOnPipeline[];
 }
 
 /** States of a Task that hasn't started: it reads its library Pipeline when it does. */
@@ -57,15 +69,21 @@ const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "pau
 const OPEN_INITIATIVE_STATES: readonly string[] = ["shaping", "active"];
 
 /**
- * Every reason the edited Pipeline can't be saved: the name is its own and the Stages can run. Who
- * fills each Role is only flagged (`pipelineEditFlags`), unlike in a Task's editor: the library
- * outlives who is hired and how (spec §2.3).
+ * Every reason the edited Pipeline can't be saved: the name is its own among the other office-wide
+ * Pipelines and every Project Pipeline (`projectPipelineNames`), and the Stages can run. Who fills
+ * each Role is only flagged (`pipelineEditFlags`), unlike in a Task's editor: the library outlives
+ * who is hired and how (spec §2.3).
  */
 export function pipelineEditProblems(
   edit: PipelineEdit,
   otherPipelines: readonly Pipeline[],
+  projectPipelineNames: readonly TakenName[],
 ): StageProblem[] {
-  return [...nameProblems(edit.name, otherPipelines), ...stageProblems(edit.stages)];
+  const taken = [
+    ...otherPipelines.map(({ name }) => ({ name, projectName: undefined })),
+    ...projectPipelineNames,
+  ];
+  return [...pipelineNameProblems(edit.name, taken), ...stageProblems(edit.stages)];
 }
 
 /**
@@ -89,6 +107,7 @@ export function proposedStagesProblems(
   from: readonly Stage[],
   to: readonly Stage[],
   otherPipelines: readonly Pipeline[],
+  projectPipelineNames: readonly TakenName[],
 ): StageProblem[] {
   if (!sameAsKept(pipeline.stages, from)) {
     return [{ text: `${pipeline.name}'s Stages changed since this was proposed.` }];
@@ -98,7 +117,7 @@ export function proposedStagesProblems(
       { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
     ];
   }
-  return pipelineEditProblems(proposedEdit(pipeline, to), otherPipelines);
+  return pipelineEditProblems(proposedEdit(pipeline, to), otherPipelines, projectPipelineNames);
 }
 
 /** The Pipeline with a Proposal's Stages, under its own name and description. */
@@ -123,15 +142,17 @@ export function savedPipeline(
 }
 
 /**
- * A copy of a library Pipeline under a name of its own, such as "Full (copy)". Its Stages are the
- * original's as they are, so the copy is never refused: the editor flags what needs fixing.
+ * A copy of a library Pipeline under a name of its own, such as "Full (copy)", which no office-wide
+ * Pipeline or Project Pipeline has. Its Stages are the original's as they are, so the copy is never
+ * refused: the editor flags what needs fixing.
  */
 export function copiedPipeline(
   id: string,
   original: Pipeline,
   library: readonly Pipeline[],
+  projectPipelines: readonly ProjectPipeline[],
 ): { readonly pipeline: Pipeline; readonly event: PipelineAdded } {
-  const taken = new Set(library.map(({ name }) => comparableName(name)));
+  const taken = new Set([...library, ...projectPipelines].map(({ name }) => comparableName(name)));
   let name = `${original.name} (copy)`;
   for (let number = 2; taken.has(comparableName(name)); number += 1) {
     name = `${original.name} (copy ${number})`;
@@ -142,12 +163,13 @@ export function copiedPipeline(
   };
 }
 
-/** Who uses the Pipeline among these Projects, Tasks and Initiatives. */
+/** Who uses the Pipeline among these Projects, Tasks, Initiatives and Project Pipelines. */
 export function pipelineUse(
   pipelineId: string,
   projects: readonly ProjectOnPipeline[],
   tasks: readonly TaskOnPipeline[],
   initiatives: readonly InitiativeOnPipeline[],
+  projectPipelines: readonly ProjectPipeline[],
 ): PipelineUse {
   const onPipeline = tasks.filter((task) => task.pipelineId === pipelineId);
   return {
@@ -157,6 +179,14 @@ export function pipelineUse(
     notStarted: onPipeline.filter(({ state }) => NOT_STARTED_STATES.includes(state)).length,
     running: onPipeline.filter(({ state }) => RUNNING_STATES.includes(state)).length,
     initiatives: openInitiativesOn(pipelineId, initiatives).map(({ name }) => name),
+    projectPipelines: projectPipelines
+      .filter(({ basePipelineId }) => basePipelineId === pipelineId)
+      .map(({ id, name, projectId }) => ({
+        id,
+        name,
+        projectId,
+        projectName: projects.find((project) => project.id === projectId)?.name ?? projectId,
+      })),
   };
 }
 
@@ -252,7 +282,8 @@ function initiativesReason(
 /**
  * Why the Pipeline can't be removed, in the UI's words; empty when it can. A Task that hasn't
  * started counts even when its Stages were edited for it: Start still needs its Pipeline. So does
- * each shaping or active Initiative that names it, whose Tasks start on it.
+ * each shaping or active Initiative that names it, whose Tasks start on it, and each Project
+ * Pipeline built from it.
  */
 export function removalProblems(pipelineId: string, use: PipelineUse): string[] {
   const problems: string[] = [];
@@ -278,22 +309,14 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
   for (const name of use.initiatives) {
     problems.push(`The Initiative ${name} names it; choose another Pipeline for it first.`);
   }
+  for (const { name, projectName } of use.projectPipelines) {
+    problems.push(
+      `${projectName}'s Pipeline ${name} is built from it; remove it or build it from another base Pipeline first.`,
+    );
+  }
   return problems;
-}
-
-function nameProblems(name: string, otherPipelines: readonly Pipeline[]): StageProblem[] {
-  const trimmed = name.trim();
-  if (trimmed === "") return [{ text: "Give the Pipeline a name." }];
-  const named = comparableName(trimmed);
-  return otherPipelines.some((other) => comparableName(other.name) === named)
-    ? [{ text: `Another Pipeline is named "${trimmed}".` }]
-    : [];
 }
 
 function pipelineOf(id: string, { name, description, stages }: PipelineEdit): Pipeline {
   return { id, name: name.trim(), description: description.trim(), stages };
-}
-
-function comparableName(name: string): string {
-  return name.trim().toLowerCase();
 }

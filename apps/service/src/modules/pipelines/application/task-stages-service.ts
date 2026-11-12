@@ -32,8 +32,8 @@ import { PipelineLibrary } from "./pipeline-library.js";
 import { RoleFillings } from "./role-fillings.js";
 
 /**
- * Each Task's own Stages: copied from its library Pipeline as the Task starts, or as the user first
- * edits them for the Task, so saving the library later reaches only Tasks that follow it (spec
+ * Each Task's own Stages: copied from its Pipeline as the Task starts, or as the user first edits
+ * them for the Task (an office-wide Pipeline's Stages, or a Project Pipeline's as built then), so saving the library later reaches only Tasks that follow it (spec
  * §2.3). Changes to a Task's Stages, and the walk's start of each run, go one at a time per Task,
  * so no Stage starts under a definition an edit has just replaced.
  */
@@ -67,14 +67,16 @@ export class TaskStagesService implements OnModuleInit {
   }
 
   /**
-   * The Task's own Stages as it starts: those it has for its Pipeline, or a copy of the Pipeline's.
-   * Work refuses Start for a Pipeline the library doesn't have, so a missing one is a fault.
+   * The Task's own Stages as it starts: those it has for its Pipeline, or a copy of the Pipeline's;
+   * refused for a Broken Project Pipeline. Work refuses Start for a Pipeline the library doesn't
+   * have, so a missing one is a fault.
    */
   async make(taskId: string, pipelineId: string): Promise<TaskStages> {
     return this.changes.run(taskId, async () => {
       const existing = await this.repository.find(taskId);
       if (existing && followsPipeline(existing, pipelineId)) return existing;
-      const pipeline = await this.pipeline(taskId, pipelineId);
+      const { projectId } = await this.tasks.read(taskId);
+      const pipeline = await this.pipeline(taskId, pipelineId, projectId);
       const { taskStages, event } = makeTaskStages(taskId, pipeline, new Date());
       await this.repository.save(taskStages);
       await this.events.publish(event);
@@ -177,7 +179,7 @@ export class TaskStagesService implements OnModuleInit {
     if (pipelineId === undefined) {
       throw new StagesEditRefused([{ text: "The Task has no Pipeline yet: choose one first." }]);
     }
-    const own = await this.ownOrCopied(taskId, pipelineId);
+    const own = await this.ownOrCopied(taskId, pipelineId, projectId);
     const runs = await this.runs.list(taskId);
     const keptBecause = whyStagesAreKept(state);
     const problems = keptBecause
@@ -215,15 +217,24 @@ export class TaskStagesService implements OnModuleInit {
   }
 
   /**
-   * Only Roles neither the Task's Stages nor the library name yet are weighed, in the Task's Project,
-   * the only place its sessions run: the others already passed the check (spec §5.4).
+   * Only Roles neither the Task's Stages, the library nor its Project's Project Pipelines name yet
+   * are weighed, in the Task's Project, the only place its sessions run: the others already passed
+   * the check (spec §5.4).
    */
   private async roleEngineProblems(
     edited: readonly Stage[],
     own: TaskStages,
     projectId: string,
   ): Promise<StageProblem[]> {
-    const named = new Set([...agentStageRoles(own.stages), ...(await this.library.rolesNamed())]);
+    const [library, byProject] = await Promise.all([
+      this.library.rolesNamed(),
+      this.library.rolesNamedByProject(),
+    ]);
+    const named = new Set([
+      ...agentStageRoles(own.stages),
+      ...library,
+      ...(byProject.get(projectId) ?? []),
+    ]);
     const problems = await this.roleEngines.newlyNamedRolesProblems({
       roleKeys: newlyNamedRoles(agentStageRoles(edited), named),
       projectId,
@@ -231,16 +242,32 @@ export class TaskStagesService implements OnModuleInit {
     return problems.map((text) => ({ text }));
   }
 
-  private async ownOrCopied(taskId: string, pipelineId: string): Promise<TaskStages> {
+  private async ownOrCopied(
+    taskId: string,
+    pipelineId: string,
+    projectId: string,
+  ): Promise<TaskStages> {
     const own = await this.repository.find(taskId);
     if (own && followsPipeline(own, pipelineId)) return own;
-    return makeTaskStages(taskId, await this.pipeline(taskId, pipelineId), new Date()).taskStages;
+    const pipeline = await this.pipeline(taskId, pipelineId, projectId);
+    return makeTaskStages(taskId, pipeline, new Date()).taskStages;
   }
 
-  private async pipeline(taskId: string, pipelineId: string): Promise<Pipeline> {
-    const pipeline = await this.library.find(pipelineId);
-    if (!pipeline) throw new Error(`There is no Pipeline "${pipelineId}" for Task ${taskId}.`);
-    return pipeline;
+  /** The Pipeline the Task copies its Stages from, a Project Pipeline of its Project built now. */
+  private async pipeline(taskId: string, pipelineId: string, projectId: string): Promise<Pipeline> {
+    const found = await this.library.forTask(pipelineId, projectId);
+    switch (found.kind) {
+      case "found":
+        return found.pipeline;
+      case "broken":
+        throw new StagesEditRefused([
+          {
+            text: `${found.name} is Broken: ${found.reasons.map(({ text }) => text).join(" ")} Fix its Stage changes first, or choose another Pipeline.`,
+          },
+        ]);
+      case "unknown":
+        throw new Error(`There is no Pipeline "${pipelineId}" for Task ${taskId}.`);
+    }
   }
 }
 

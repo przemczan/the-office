@@ -4,20 +4,22 @@ import type { Response } from "express";
 import {
   PipelineRemovalRefused,
   UnknownPipeline,
+  UnknownProjectPipeline,
   UnknownStageTemplate,
 } from "../../domain/pipeline-library-refusals.js";
 
-type LibraryRefusal = PipelineRemovalRefused | UnknownPipeline | UnknownStageTemplate;
+type LibraryRefusal =
+  PipelineRemovalRefused | UnknownPipeline | UnknownProjectPipeline | UnknownStageTemplate;
 
 /**
- * Answers the library's refusals, of its Pipelines and its Stage templates, as Nest answers its
+ * Answers the library's refusals, of its Pipelines, the Project Pipelines and its Stage templates, as Nest answers its
  * errors, with `message` for the web.
  */
-@Catch(PipelineRemovalRefused, UnknownPipeline, UnknownStageTemplate)
+@Catch(PipelineRemovalRefused, UnknownPipeline, UnknownProjectPipeline, UnknownStageTemplate)
 export class PipelineLibraryRefusalsFilter implements ExceptionFilter<LibraryRefusal> {
   catch(error: LibraryRefusal, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
-    if (error instanceof UnknownPipeline || error instanceof UnknownStageTemplate) {
+    if (!(error instanceof PipelineRemovalRefused)) {
       response
         .status(HttpStatus.NOT_FOUND)
         .json({ statusCode: HttpStatus.NOT_FOUND, message: error.message });

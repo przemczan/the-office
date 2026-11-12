@@ -24,7 +24,12 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filter.js";
-import { toPipelineResponse, toStageProblemResponse } from "./pipeline-responses.js";
+import {
+  toPipelineResponse,
+  toPipelineUseResponse,
+  toProjectPipelineBreakResponse,
+  toStageProblemResponse,
+} from "./pipeline-responses.js";
 import { StagesEditRefusalsFilter } from "./stages-edit-refusals.filter.js";
 
 /**
@@ -46,17 +51,21 @@ export class PipelineLibraryController {
     return toPipelineResponse(pipeline);
   }
 
-  /** What saving the edit would be refused for, and what it would only flag; it saves nothing. */
+  /**
+   * What saving the edit would be refused for, what it would only flag, and the Project Pipelines
+   * it would leave Broken, which never refuses it; it saves nothing.
+   */
   @Post("check")
   @HttpCode(HttpStatus.OK)
   async check(
     @Body(new ContractPipe(pipelineCheckRequestSchema))
     { pipelineId, ...edit }: PipelineCheckRequest,
   ): Promise<PipelineCheck> {
-    const { problems, flags } = await this.editor.check(edit, pipelineId);
+    const { problems, flags, breaks } = await this.editor.check(edit, pipelineId);
     return {
       problems: problems.map(toStageProblemResponse),
       flags: flags.map(toStageProblemResponse),
+      breaks: breaks.map(toProjectPipelineBreakResponse),
     };
   }
 
@@ -76,7 +85,6 @@ export class PipelineLibraryController {
 
   @Get(":id/use")
   async use(@Param("id") id: string): Promise<PipelineUse> {
-    const { defaultFor, notStarted, running, initiatives } = await this.editor.use(id);
-    return { defaultFor: [...defaultFor], notStarted, running, initiatives: initiatives.length };
+    return toPipelineUseResponse(await this.editor.use(id));
   }
 }

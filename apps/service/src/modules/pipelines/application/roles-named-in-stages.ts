@@ -6,8 +6,9 @@ import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 
 /**
- * Tells People's capability check which Roles Agent Stages name (spec §5.4): the library's, run in
- * any Project, and open Tasks' own Stages', each run only in its Task's Project.
+ * Tells People's capability check which Roles Agent Stages name (spec §5.4): the office-wide
+ * Pipelines', run in any Project; and open Tasks' own Stages' and Project Pipelines' built Stages',
+ * each run only in its Project. People merges the two sources.
  */
 @Injectable()
 export class RolesNamedInStages implements OnModuleInit {
@@ -20,6 +21,7 @@ export class RolesNamedInStages implements OnModuleInit {
 
   onModuleInit(): void {
     this.sources.register(() => this.rolesNamed());
+    this.sources.register(() => this.rolesNamedByProjectPipelines());
   }
 
   async rolesNamed(): Promise<PipelineRolesNamed> {
@@ -29,5 +31,9 @@ export class RolesNamedInStages implements OnModuleInit {
       this.tasks.list(),
     ]);
     return { everywhere, byProject: rolesNamedByOpenTasks(taskStages, tasks) };
+  }
+
+  async rolesNamedByProjectPipelines(): Promise<PipelineRolesNamed> {
+    return { everywhere: new Set(), byProject: await this.library.rolesNamedByProject() };
   }
 }

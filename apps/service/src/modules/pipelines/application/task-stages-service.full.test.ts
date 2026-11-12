@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
+import { agentStage, scriptStage } from "../domain/stage.fixtures.js";
+import type { Pipeline } from "../domain/pipeline.js";
 import type { Stage } from "../domain/stage.js";
 import { TaskStagesReset } from "../domain/task-stages-events.js";
 import {
@@ -11,6 +13,7 @@ import {
 } from "../pipelines-application.fixtures.js";
 import { aPerson } from "../ports/pipelines-ports.fixtures.js";
 import { PipelineLibrary } from "./pipeline-library.js";
+import { PipelineLibraryEditor } from "./pipeline-library-editor.js";
 import { TaskStagesService } from "./task-stages-service.js";
 import { builtIn, quickFix, withGate, refusalOf } from "./task-stages-service.fixtures.js";
 
@@ -145,5 +148,63 @@ describe("moving the Task to another Project", () => {
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
     expect((await service.make(taskId, "quick-fix")).stages).toEqual(builtIn("quick-fix"));
+  });
+});
+
+describe("a Task on a Project Pipeline", () => {
+  const linux = scriptStage({ key: "linux", name: "Verify on Linux" });
+
+  /** A Project Pipeline of a Project of its own, built on an office-wide Pipeline of its own. */
+  async function aProjectPipeline(): Promise<{ projectId: string; id: string; base: Pipeline }> {
+    const editor = pipelines.app.get(PipelineLibraryEditor);
+    const projectId = randomUUID();
+    pipelines.projects.projects.push({
+      id: projectId,
+      name: "Site",
+      defaultPipeline: "quick-fix",
+      commands: [{ key: "test" }],
+    });
+    const base = await editor.add({
+      name: `Base ${randomUUID()}`,
+      description: "",
+      stages: [agentStage(), scriptStage()],
+    });
+    const { projectPipeline } = await editor.addProjectPipeline(projectId, {
+      name: `With Linux ${randomUUID()}`,
+      description: "",
+      basePipelineId: base.id,
+      stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: linux }],
+    });
+    return { projectId, id: projectPipeline.id, base };
+  }
+
+  it("copies the Stages as built when it starts", async () => {
+    const { projectId, id } = await aProjectPipeline();
+    const taskId = randomUUID();
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id, projectId });
+
+    expect((await service.make(taskId, id)).stages).toEqual([agentStage(), scriptStage(), linux]);
+  });
+
+  it("is refused while it is Broken, naming the Pipeline and why", async () => {
+    const { projectId, id, base } = await aProjectPipeline();
+    await pipelines.app
+      .get(PipelineLibraryEditor)
+      .save(base.id, { name: base.name, description: "", stages: [agentStage()] });
+    const read = await pipelines.app.get(PipelineLibrary).projectPipeline(id);
+    const taskId = randomUUID();
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id, projectId });
+
+    expect(await refusalOf(service.make(taskId, id))).toEqual([
+      `${read?.projectPipeline.name} is Broken: Inserts Verify on Linux after Tests, which ${base.name} no longer has. Fix its Stage changes first, or choose another Pipeline.`,
+    ]);
+  });
+
+  it("is unknown to another Project's Task", async () => {
+    const { id } = await aProjectPipeline();
+    const taskId = randomUUID();
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id });
+
+    await expect(service.make(taskId, id)).rejects.toThrow(`There is no Pipeline "${id}"`);
   });
 });

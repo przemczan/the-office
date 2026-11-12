@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
-import { stageSchema } from "./stages.js";
+import { keptStageChangeSchema, stageChangeSchema, stageSchema } from "./stages.js";
 
 export const pipelineSchema = z.object({
   id: z.string().min(1),
@@ -12,6 +12,25 @@ export const pipelineSchema = z.object({
 export type Pipeline = z.infer<typeof pipelineSchema>;
 
 export const pipelineListSchema = z.array(pipelineSchema);
+
+/** How many of a Project's Project Pipelines are built from an office-wide Pipeline, and how many are Broken. */
+export const builtOnBySchema = z.object({
+  projectId: z.string(),
+  projectPipelines: z.int().positive(),
+  broken: z.int().nonnegative(),
+});
+export type BuiltOnBy = z.infer<typeof builtOnBySchema>;
+
+/**
+ * GET /pipelines and GET /pipelines/:id: an office-wide Pipeline, with the Projects whose Project
+ * Pipelines are built from it.
+ */
+export const officeWidePipelineSchema = pipelineSchema.extend({
+  builtOnBy: z.array(builtOnBySchema),
+});
+export type OfficeWidePipeline = z.infer<typeof officeWidePipelineSchema>;
+
+export const officeWidePipelineListSchema = z.array(officeWidePipelineSchema);
 
 /** PUT /pipelines/:id: a library Pipeline as the user edited it; its id stays. */
 export const pipelineEditSchema = z.strictObject({
@@ -38,10 +57,14 @@ export const pipelineUseSchema = z.object({
   running: z.int().nonnegative(),
   /** Shaping or active Initiatives that name it as the Initiative's Pipeline. */
   initiatives: z.int().nonnegative(),
+  /** The Project Pipelines built from it, each with its Project; none for a Project Pipeline. */
+  projectPipelines: z.array(
+    z.object({ id: z.string(), name: z.string(), projectId: z.string(), projectName: z.string() }),
+  ),
 });
 export type PipelineUse = z.infer<typeof pipelineUseSchema>;
 
-/** 422 from DELETE /pipelines/:id: every reason the Pipeline can't be removed now. */
+/** 422 from DELETE /pipelines/:id and /project-pipelines/:id: every reason it can't be removed now. */
 export const pipelineRemovalRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),
@@ -256,14 +279,120 @@ export const pipelineCheckRequestSchema = pipelineEditSchema.extend({
 export type PipelineCheckRequest = z.infer<typeof pipelineCheckRequestSchema>;
 
 /**
+ * Why a Project Pipeline is Broken (spec §2.3), in the UI's words: a Stage change that doesn't apply,
+ * by its index, or a rule its built Stages break, on the Stage by its index among the built ones.
+ */
+export const brokenReasonSchema = z.object({
+  stageChangeIndex: z.int().nonnegative().nullable(),
+  stageIndex: z.int().nonnegative().nullable(),
+  /** The key of the Stage it concerns. */
+  stageKey: z.string().nullable(),
+  text: z.string(),
+});
+export type BrokenReason = z.infer<typeof brokenReasonSchema>;
+
+/** A Project Pipeline an office-wide Pipeline's edit would leave Broken, with its Project and why. */
+export const projectPipelineBreakSchema = z.object({
+  projectPipelineId: z.string(),
+  name: z.string(),
+  projectId: z.string(),
+  projectName: z.string(),
+  reasons: z.array(brokenReasonSchema).min(1),
+});
+export type ProjectPipelineBreak = z.infer<typeof projectPipelineBreakSchema>;
+
+/**
  * What saving a library Pipeline would be refused for, and what the editor flags but saves: an
- * Agent Stage whose Role nobody fills, which pauses a Task that reaches it.
+ * Agent Stage whose Role nobody fills, which pauses a Task that reaches it. An office-wide one's
+ * check lists the Project Pipelines its edit would leave Broken, which never refuses the save; a
+ * Stage template's and a new Pipeline's list none.
  */
 export const pipelineCheckSchema = z.object({
   problems: z.array(stageProblemSchema),
   flags: z.array(stageProblemSchema),
+  breaks: z.array(projectPipelineBreakSchema),
 });
 export type PipelineCheck = z.infer<typeof pipelineCheckSchema>;
+
+/** Where a built Stage of a Project Pipeline comes from, as the editor marks its row. */
+export const stageOriginSchema = z.enum(["base", "inserted", "replaced", "changed", "removed"]);
+export type StageOrigin = z.infer<typeof stageOriginSchema>;
+
+/** One row of a Project Pipeline's built Stages: a Stage with where it comes from. */
+export const builtStageSchema = z.object({
+  stage: stageSchema,
+  origin: stageOriginSchema,
+  /** The Stage changes that made it what it is, by their index, in order. */
+  stageChangeIndexes: z.array(z.int().nonnegative()),
+  /** The base Pipeline's Stage it stands for; null for an inserted one. */
+  baseStage: stageSchema.nullable(),
+  /** The fields Changes gave it, by their names in `stageFieldChangesSchema`. */
+  changedFields: z.array(z.string()),
+});
+export type BuiltStage = z.infer<typeof builtStageSchema>;
+
+const builtFields = {
+  /** Every row in order, a removed Stage kept where it was. */
+  rows: z.array(builtStageSchema),
+  /** The Stages a Task on it gets: the rows but the removed ones. */
+  stages: z.array(stageSchema),
+  /** Empty when it isn't Broken. */
+  broken: z.array(brokenReasonSchema),
+};
+
+/**
+ * GET /project-pipelines/:id: a Project Pipeline (spec §2.3), built from its base Pipeline's current
+ * Stages and its Stage changes in order.
+ */
+export const projectPipelineSchema = z.object({
+  id: z.string().min(1),
+  projectId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string(),
+  basePipeline: z.object({ id: z.string(), name: z.string() }),
+  stageChanges: z.array(keptStageChangeSchema),
+  ...builtFields,
+});
+export type ProjectPipeline = z.infer<typeof projectPipelineSchema>;
+
+/** GET /project-pipelines?projectId=: a Project's Project Pipelines, or every Project's. */
+export const projectPipelineListSchema = z.array(projectPipelineSchema);
+
+/** PUT /project-pipelines/:id: a Project Pipeline as the user edited it; its id and Project stay. */
+export const projectPipelineEditSchema = z.strictObject({
+  name: z.string(),
+  description: z.string(),
+  /** An office-wide Pipeline's id. */
+  basePipelineId: z.string().min(1),
+  stageChanges: z.array(stageChangeSchema),
+});
+export type ProjectPipelineEdit = z.infer<typeof projectPipelineEditSchema>;
+
+/** POST /project-pipelines: a new Project Pipeline of the Project. */
+export const newProjectPipelineSchema = projectPipelineEditSchema.extend({
+  projectId: z.string().min(1),
+});
+export type NewProjectPipeline = z.infer<typeof newProjectPipelineSchema>;
+
+/**
+ * POST /project-pipelines/check: a Project Pipeline as the editor holds it; `projectPipelineId`
+ * names the one being saved, whose Project stays, and is absent for a new one of `projectId`.
+ */
+export const projectPipelineCheckRequestSchema = newProjectPipelineSchema.extend({
+  projectPipelineId: z.string().min(1).optional(),
+});
+export type ProjectPipelineCheckRequest = z.infer<typeof projectPipelineCheckRequestSchema>;
+
+/**
+ * What saving a Project Pipeline would be refused for (a Broken one among them), what the editor
+ * flags but saves, and its Stages built from the edit; no rows without a known base Pipeline.
+ */
+export const projectPipelineCheckSchema = z.object({
+  problems: z.array(stageProblemSchema),
+  flags: z.array(stageProblemSchema),
+  ...builtFields,
+});
+export type ProjectPipelineCheck = z.infer<typeof projectPipelineCheckSchema>;
 
 /**
  * A Stage template (spec §2.3): a Stage kept in the Pipeline library to add to a Pipeline or a

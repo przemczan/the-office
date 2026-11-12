@@ -20,6 +20,10 @@ import {
   type PipelinesApplication,
 } from "../../pipelines-application.fixtures.js";
 import { anEdit } from "./pipeline-library.controller.fixtures.js";
+import {
+  aNewProjectPipeline,
+  projectPipelineRequests,
+} from "./project-pipeline-library.controller.fixtures.js";
 
 // The test database is shared by every test file: these tests make Pipelines of their own, under
 // names no one else uses, and never change the built-ins.
@@ -192,5 +196,65 @@ describe("DELETE /api/pipelines/:id", () => {
     ]);
     expect(pipelineUseSchema.parse(await use.json()).initiatives).toBe(1);
     expect((await send("GET", `/pipelines/${pipeline.id}`)).status).toBe(200);
+  });
+});
+
+describe("an office-wide Pipeline with Project Pipelines built from it", () => {
+  const projectPipelineRequestsOf = projectPipelineRequests(send, () => pipelines.projects);
+
+  it("lists each Project Pipeline its edit would break, with its Project and why, and still saves", async () => {
+    const { aBasePipeline, aProject, added: addedProjectPipeline } = projectPipelineRequestsOf;
+    const base = await aBasePipeline();
+    const projectId = aProject();
+    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, base.id));
+    const edit = { name: base.name, description: base.description, stages: [agentStage()] };
+
+    const check = await send("POST", "/pipelines/check", { ...edit, pipelineId: base.id });
+    const saved = await send("PUT", `/pipelines/${base.id}`, edit);
+
+    expect(pipelineCheckSchema.parse(await check.json())).toEqual({
+      problems: [],
+      flags: [],
+      breaks: [
+        {
+          projectPipelineId: projectPipeline.id,
+          name: projectPipeline.name,
+          projectId,
+          projectName: `Site ${projectId}`,
+          reasons: [
+            {
+              stageChangeIndex: 0,
+              stageIndex: null,
+              stageKey: "tests",
+              text: `Inserts Verify on Linux after Tests, which ${base.name} no longer has.`,
+            },
+          ],
+        },
+      ],
+    });
+    expect(saved.status).toBe(200);
+  });
+
+  it("refuses removing it, once for each Project Pipeline built from it", async () => {
+    const { aBasePipeline, aProject, added: addedProjectPipeline } = projectPipelineRequestsOf;
+    const base = await aBasePipeline();
+    const projectId = aProject();
+    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, base.id));
+
+    const refused = await send("DELETE", `/pipelines/${base.id}`);
+    const use = await send("GET", `/pipelines/${base.id}/use`);
+
+    expect(refused.status).toBe(422);
+    expect(pipelineRemovalRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      `Site ${projectId}'s Pipeline ${projectPipeline.name} is built from it; remove it or build it from another base Pipeline first.`,
+    ]);
+    expect(pipelineUseSchema.parse(await use.json()).projectPipelines).toEqual([
+      {
+        id: projectPipeline.id,
+        name: projectPipeline.name,
+        projectId,
+        projectName: `Site ${projectId}`,
+      },
+    ]);
   });
 });

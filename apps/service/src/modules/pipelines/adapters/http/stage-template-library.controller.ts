@@ -48,6 +48,7 @@ export class StageTemplateLibraryController {
     return {
       problems: problems.map(toStageProblemResponse),
       flags: flags.map(toStageProblemResponse),
+      breaks: [],
     };
   }
 
