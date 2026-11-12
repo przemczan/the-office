@@ -41,9 +41,12 @@ export class PublishStage {
       stage.publishTarget ?? "publishing-mode",
     );
     const outcome = publishOutcome(publication);
-    // A merge may have rebased the branch or merged the base into it: the next Stage expects HEAD
-    // where Publish left it.
-    const left = publication.kind === "merged" ? publication.commit : expected.commit;
+    // A merge may have rebased the branch or merged a base into it, before a conflict with the
+    // next base too: the next Stage expects HEAD where Publish left it.
+    const left =
+      publication.kind === "merged" || publication.kind === "base-moved"
+        ? (publication.commit ?? expected.commit)
+        : expected.commit;
     await this.stageGit.leaveAt(run, { ...expected, commit: left });
     if (outcome.status !== "done") return outcome;
     return {

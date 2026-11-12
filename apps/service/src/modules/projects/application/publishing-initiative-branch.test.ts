@@ -52,6 +52,7 @@ describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
       into: { remote: "origin", branch },
       commit: task.commit,
       baseTakenIn: "not-needed",
+      basesTakenIn: [],
     });
     expect(testbed.originCommitOf(branch)).toBe(task.commit);
     expect(testbed.localCommitOf(branch)).toBe(task.commit);
@@ -71,6 +72,7 @@ describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
     if (publication.kind !== "merged")
       throw new Error(`Not merged: ${JSON.stringify(publication)}`);
     expect(publication.baseTakenIn).toBe("by-merge");
+    expect(publication.basesTakenIn).toEqual([branch, "main"]);
     expect(testbed.originCommitOf(branch)).toBe(publication.commit);
     expect(testbed.localCommitOf(branch)).toBe(publication.commit);
     // The Task's own commit is kept as it was, which a rebase would have rewritten.
@@ -114,6 +116,25 @@ describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
     );
     expect(testbed.localCommitOf(branch)).toBe(before);
     expect(testbed.originCommitOf(branch)).toBeUndefined();
+  });
+
+  it("says where the branch is left when the Initiative's branch merged in cleanly before the base conflicted", async () => {
+    const project = testbed.mergingProject();
+    const branch = testbed.anInitiativeBranch("clean-then-conflict", { pushed: true });
+    const file = "both-in-main-after-the-initiative.txt";
+    const task = await testbed.aTaskWithACommit(project, file, branch);
+    const initiativeTip = await commitOnOrigin(repository, branch, "from-another-task.txt");
+    await commitOnOrigin(repository, "main", file);
+
+    const publication = await publish(project, task.taskId, "publishing-mode");
+
+    if (publication.kind !== "base-moved" || publication.commit === undefined) {
+      throw new Error(`No moved base-moved: ${JSON.stringify(publication)}`);
+    }
+    expect(testbed.localCommitOf(task.branch)).toBe(publication.commit);
+    await expect(contains(publication.commit, initiativeTip)).resolves.toBe(true);
+    await expect(contains(publication.commit, task.commit)).resolves.toBe(true);
+    expect(testbed.originCommitOf(branch)).toBe(initiativeTip);
   });
 
   it("opens no pull request in a Push + PR Project", async () => {
@@ -162,6 +183,7 @@ describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
       into: { remote: "this repository", branch },
       commit: task.commit,
       baseTakenIn: "not-needed",
+      basesTakenIn: [],
     });
     expect(testbed.localCommitOf(branch)).toBe(task.commit);
     expect(testbed.originCommitOf(branch)).toBeUndefined();

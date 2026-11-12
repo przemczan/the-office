@@ -141,12 +141,17 @@ export class Publishing {
           { commit: initiative.commit, name: into },
           { commit: base.commit, name: mergedBase(project.baseBranch, base.fetchedFrom) },
         ];
-        let baseTakenIn: BaseTakenIn = "not-needed";
+        const basesTakenIn: string[] = [];
         for (const each of bases) {
           const takenIn = await this.takeInByMerge(context, each);
-          if (typeof takenIn !== "string") return takenIn;
-          if (takenIn !== "not-needed") baseTakenIn = takenIn;
+          if (typeof takenIn !== "string") {
+            // A clean take-in of the Initiative's branch before the conflict moved the branch.
+            if (basesTakenIn.length === 0 || takenIn.kind !== "base-moved") return takenIn;
+            return { ...takenIn, commit: await this.git.commitOf(project.path, ref) };
+          }
+          if (takenIn !== "not-needed") basesTakenIn.push(each.name.branch);
         }
+        const baseTakenIn: BaseTakenIn = basesTakenIn.length > 0 ? "by-merge" : "not-needed";
         const commit = await this.git.commitOf(project.path, ref);
         await this.moveInitiativeBranch(project, context, initiative, commit);
         await this.git.setRef(
@@ -159,7 +164,7 @@ export class Publishing {
           this.worktrees.publishedFromBaseRefOf(taskId),
           base.commit,
         );
-        return { kind: "merged", branch, into, commit, baseTakenIn };
+        return { kind: "merged", branch, into, commit, baseTakenIn, basesTakenIn };
       })
       .catch(publishFailure);
   }

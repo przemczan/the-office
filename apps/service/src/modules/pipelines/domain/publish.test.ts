@@ -160,6 +160,23 @@ describe("publishOutcome", () => {
     });
   });
 
+  it("names only the bases that had moved on when merging into an Initiative's branch", () => {
+    expect(
+      publishOutcome({
+        kind: "merged",
+        branch: "office/task-1",
+        into: { remote: "origin", branch: "initiative/usage-exports" },
+        commit: "0123456789abcdef0123456789abcdef01234567",
+        baseTakenIn: "by-merge",
+        basesTakenIn: ["main"],
+      }),
+    ).toEqual({
+      status: "done",
+      summary:
+        "Merged main, which had moved on, into office/task-1, then merged it into initiative/usage-exports on origin, which is now at 01234567.",
+    });
+  });
+
   it("fails with the base moved on, which asks the user, or with the error, which goes back", () => {
     expect(
       publishOutcome({ kind: "base-moved", error: "It conflicts.", conflictedFiles: ["a.ts"] }),

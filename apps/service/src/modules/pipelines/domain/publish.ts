@@ -67,6 +67,8 @@ export type Publication =
        * it into a branch Resolve merged before, which a rebase would undo.
        */
       readonly baseTakenIn: BaseTakenIn;
+      /** For a Task of an Initiative's branch, the bases that had moved on, in the order taken in. */
+      readonly basesTakenIn?: readonly string[];
     }
   | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
@@ -75,6 +77,8 @@ export type Publication =
       readonly error: string;
       /** The files it would conflict in. */
       readonly conflictedFiles: readonly string[];
+      /** Where a clean take-in of an earlier base, the Initiative's branch, left the branch. */
+      readonly commit?: string;
     }
   | { readonly kind: "failed"; readonly error: string };
 
@@ -118,14 +122,19 @@ export function pullRequestText(
   };
 }
 
-function mergedWords(branch: string, into: RemoteBranch, baseTakenIn: BaseTakenIn): string {
+function mergedWords({
+  branch,
+  into,
+  baseTakenIn,
+  basesTakenIn,
+}: Extract<Publication, { kind: "merged" }>): string {
   switch (baseTakenIn) {
     case "not-needed":
       return `Merged ${branch}`;
     case "by-rebase":
       return `Rebased ${branch} onto ${into.branch}, which had moved on, then merged it`;
     case "by-merge":
-      return `Merged ${into.branch}, which had moved on, into ${branch}, then merged it`;
+      return `Merged ${(basesTakenIn ?? [into.branch]).join(" and ")}, which had moved on, into ${branch}, then merged it`;
   }
 }
 
@@ -139,10 +148,10 @@ export function publishOutcome(publication: Publication): StageOutcome {
         pullRequestUrl: publication.url,
       };
     case "merged": {
-      const { branch, into, commit, baseTakenIn } = publication;
+      const { into, commit } = publication;
       return {
         status: "done",
-        summary: `${mergedWords(branch, into, baseTakenIn)} into ${into.branch} on ${into.remote}, which is now at ${commit.slice(0, SHORT_COMMIT_LENGTH)}.`,
+        summary: `${mergedWords(publication)} into ${into.branch} on ${into.remote}, which is now at ${commit.slice(0, SHORT_COMMIT_LENGTH)}.`,
       };
     }
     case "branch-pushed":

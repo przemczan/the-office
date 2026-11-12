@@ -39,6 +39,8 @@ export type Publication =
        * it into a branch Resolve merged before, which a rebase would undo.
        */
       readonly baseTakenIn: BaseTakenIn;
+      /** For a Task of an Initiative's branch, the bases that had moved on, in the order taken in. */
+      readonly basesTakenIn?: readonly string[];
     }
   | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
@@ -47,6 +49,8 @@ export type Publication =
       readonly error: string;
       /** The files it would conflict in. */
       readonly conflictedFiles: readonly string[];
+      /** Where a clean take-in of an earlier base, the Initiative's branch, left the branch. */
+      readonly commit?: string;
     }
   | { readonly kind: "failed"; readonly error: string };
 

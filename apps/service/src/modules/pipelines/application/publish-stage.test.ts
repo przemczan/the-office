@@ -174,6 +174,8 @@ describe("A Publish Stage", () => {
     const taskId = randomUUID();
     const initiativeBranch = "initiative/usage-exports";
     pipelines.records.put(taskId, aTaskRecord({ initiativeBranch }));
+    const initiativeMergedAtPublish = "b".repeat(40);
+    // The Initiative's branch moved on again before Resolve fetched it.
     const initiativeMerged = "c".repeat(40);
     const published = "f".repeat(40);
     pipelines.publishing.publications.push(
@@ -182,6 +184,7 @@ describe("A Publish Stage", () => {
         error:
           "office/task no longer applies cleanly on main on origin: it would conflict in\n- src/index.ts",
         conflictedFiles: ["src/index.ts"],
+        commit: initiativeMergedAtPublish,
       },
       {
         kind: "merged",
@@ -189,6 +192,7 @@ describe("A Publish Stage", () => {
         into: { remote: "origin", branch: initiativeBranch },
         commit: published,
         baseTakenIn: "by-merge",
+        basesTakenIn: [initiativeBranch, "main"],
       },
     );
     pipelines.publishing.resolveStarts.push({
@@ -208,6 +212,7 @@ describe("A Publish Stage", () => {
       [RESOLVE_TEST_KEY, "done"],
       [RESOLVE_GATE_KEY, "done"],
     ]);
+    expect(runs[1]?.headCommit).toBe(initiativeMergedAtPublish);
     expect(runs[2]?.headCommit).toBe(RESOLVED_COMMIT);
     expect(pipelines.stageThreads.requests.at(-1)?.work).toContain(
       "The Task's branch conflicts with main as it now is",
@@ -220,7 +225,7 @@ describe("A Publish Stage", () => {
       stageKey: "publish",
       outcome: {
         status: "done",
-        summary: `Merged ${initiativeBranch}, which had moved on, into office/task, then merged it into ${initiativeBranch} on origin, which is now at ffffffff.`,
+        summary: `Merged ${initiativeBranch} and main, which had moved on, into office/task, then merged it into ${initiativeBranch} on origin, which is now at ffffffff.`,
       },
     });
     expect(pipelines.publishing.published.map(({ target }) => target)).toEqual([

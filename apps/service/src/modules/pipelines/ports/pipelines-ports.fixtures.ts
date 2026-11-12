@@ -811,13 +811,16 @@ export class TaskPublishingForTests extends TaskPublishing {
     target: PublishTarget,
   ): Promise<Publication> {
     this.published.push({ taskId, text, target });
-    return Promise.resolve(
-      this.publications.shift() ?? {
-        kind: "pull-request-opened",
-        branch: aTaskRecord().worktree.branch,
-        url: "https://github.com/notnullsoft/admin/pull/7",
-      },
-    );
+    const publication = this.publications.shift() ?? {
+      kind: "pull-request-opened",
+      branch: aTaskRecord().worktree.branch,
+      url: "https://github.com/notnullsoft/admin/pull/7",
+    };
+    // A conflict after a clean merge of the Initiative's branch: that merge moved the branch.
+    if (publication.kind === "base-moved" && publication.commit !== undefined) {
+      this.mergedAt(taskId, publication.commit);
+    }
+    return Promise.resolve(publication);
   }
 
   constructor(private readonly git: TaskGitForTests) {
