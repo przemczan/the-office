@@ -94,6 +94,7 @@ export function taskIn(
     taskTitle: `Task ${taskId}`,
     projectId: "shop",
     worktree,
+    repositoryGitFolder: join(testbed.folder, "repository", ".git"),
     installCommand: "echo installed",
     installInputs: ["package-lock.json"],
     installVariables: [],

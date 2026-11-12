@@ -58,6 +58,15 @@ Restarting or upgrading `docker.service` stops Postgres and, through `Requires=d
 4. `docker compose up -d --wait postgres` reports it healthy and the counts match; then `systemctl start the-office`.
 5. Change the table above in the same commit. To restore a backup instead: `docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < <dump>`.
 
+## What a run environment mounts
+
+The Office's compose override gives the checks' service two folders of the host, each at its own path ([spec §5.5](spec/5.5-git-and-isolation.md#defaults)):
+
+- the Task's worktree, read-write, also the working folder;
+- the repository's shared git folder (`<repository>/.git`, which the worktree's `.git` file leads to), **read-only**, so git in a check reads the history (`status`, `log`, `diff`, `rev-parse`) but can't commit, move a branch or write objects. Its path comes from git on the host (`rev-parse --path-format=absolute --git-common-dir`), never from the worktree's `.git` file. A main checkout's git folder is inside the worktree and isn't mounted twice.
+
+git refuses a repository owned by another user ("dubious ownership"). The service and the checks both run as root on The Office's machine, so it doesn't arise there; a run environment whose user differs from the folders' owner would need `safe.directory`.
+
 ## Agents never reach it
 
 Reaching the runtime is reaching the workstation as root: a container can mount `/`. So the Office rules refuse an Agent's command that runs `docker`, `docker-compose`, `podman`, `podman-compose` or `nerdctl`, names a runtime's socket (`docker.sock`, `podman.sock`, `containerd.sock`), or sets `DOCKER_HOST`, `DOCKER_CONTEXT` or `CONTAINER_HOST`, in every Role and Stage; only the Caretaker with Allow changes on may (`container-runtime-commands.ts` in the engine module). No session's environment carries those variables.

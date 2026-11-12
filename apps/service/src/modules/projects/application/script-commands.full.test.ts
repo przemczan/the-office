@@ -1,4 +1,4 @@
-import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
@@ -72,8 +72,8 @@ beforeAll(async () => {
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
   runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
-  const taskCommands = taskCommandsOver(commands, runEnvironments.registry());
   const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
+  const taskCommands = taskCommandsOver(commands, git, runEnvironments.registry());
   worktrees = new Worktrees(git, commands, taskCommands, officeData, new TaskBasesForTests(git));
   scriptCommands = new ScriptCommands(worktrees, taskCommands, officeData);
 });
@@ -297,6 +297,8 @@ describe("ScriptCommands.run with the Project's run environment On", REAL_GIT_TE
           taskId,
           projectId: project.id,
           worktree: worktreePath,
+          // Named by git on the host, which gives real paths.
+          repositoryGitFolder: await realpath(join(repository.path, ".git")),
           installCommand: project.installCommand,
           installInputs: project.installInputs,
           installVariables: project.environment.set,

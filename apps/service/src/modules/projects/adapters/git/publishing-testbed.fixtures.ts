@@ -92,7 +92,7 @@ export class PublishingTestbed {
     const worktrees = new Worktrees(
       git,
       commands,
-      taskCommandsOver(commands),
+      taskCommandsOver(commands, git),
       new OfficeDataDirectory(join(repository.folder, "office-data")),
       taskBases,
     );
