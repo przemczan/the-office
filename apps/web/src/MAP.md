@@ -145,7 +145,7 @@
 - `composer.tsx`: PrefilledNote, Composer
 - `context-bar.tsx`: ContextBar
 - `context-words.ts`: MOVE_WORDS, ContextChoice, CONTEXT_CHOICES, overrideOf, contextChoiceOf, CacheState, cacheStateAt, startsASessionWords, offersAChoice, contextChoiceWords, tokensShort, contextDetail, contextLabel
-- `decision-card.tsx`: DecisionCard, DecisionCardProps, useNamedAttachments, DecisionInThread, bringDecisionCardIntoView, decisionCardElementId, DecisionCardLinkContext, DecisionFrame, AskerTag, DecisionDetail, ConsultationNote, Recommendation, FollowUpsHint, AnswerRefused, ReachesAtTurnEndHint, stillAnsweringHint, useAnswering
+- `decision-card.tsx`: DecisionCard, DecisionCardProps, useNamedAttachments, DecisionInThread, bringDecisionCardIntoView, decisionCardElementId, DecisionCardLinkContext, DecisionFrame, DecisionHeading, DecisionDetail, ConsultationNote, Recommendation, FollowUpsHint, AnswerRefused, ReachesAtTurnEndHint, stillAnsweringHint, useAnswering
 - `decision-on-task.tsx`: useDecisionThread, DecisionOnTask, MentionedDecisionWindow
 - `decision-words.ts`: answerWords, namedAttachments, decisionDetailsWords
 - `details-store.ts`: DETAILS_STORAGE_KEY, DetailsStore, createDetailsStore, Details, useDetails

@@ -206,8 +206,7 @@ export function DecisionFrame({
       aria-current={linkedTo || undefined}
     >
       <div className="message-by">
-        <Badge tone="warning">Decision</Badge>
-        <AskerTag decision={decision} personName={personName} />
+        <DecisionHeading decision={decision} personName={personName} />
         {place}
         <IconButton
           className="decision-copy-link"
@@ -232,7 +231,34 @@ export function DecisionFrame({
   );
 }
 
-export function AskerTag({
+/**
+ * The Decision's header: who asked and, when it was put to a Consultant, whom it waits on, so a
+ * Decision that isn't the user's reads so at a glance (spec §2.4). It keeps whom it was put to once
+ * answered.
+ */
+export function DecisionHeading({
+  decision,
+  personName,
+}: {
+  readonly decision: Decision;
+  readonly personName: string;
+}): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  return (
+    <>
+      <Badge tone="warning">Decision</Badge>
+      <AskerTag decision={decision} personName={personName} />
+      {decision.putTo !== null && (
+        <>
+          <span className="decision-put-to">to</span>
+          <PersonTag roleKey={decision.putTo} name={consultantName(decision.putTo, roles)} />
+        </>
+      )}
+    </>
+  );
+}
+
+function AskerTag({
   decision: { roleKey },
   personName,
 }: {

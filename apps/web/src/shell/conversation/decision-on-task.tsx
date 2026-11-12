@@ -9,12 +9,12 @@ import { oneRound } from "../attachments/attachment-rounds.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import {
   AnswerRefused,
-  AskerTag,
   ConsultationNote,
   DecisionCard,
   decisionCardElementId,
   DecisionDetail,
   DecisionFrame,
+  DecisionHeading,
   FollowUpsHint,
   ReachesAtTurnEndHint,
   Recommendation,
@@ -207,8 +207,7 @@ function DecisionWindow({
       size="large"
       title={
         <span className="decision-window-title">
-          <Badge tone="warning">Decision</Badge>
-          <AskerTag decision={decision} personName={personName} />
+          <DecisionHeading decision={decision} personName={personName} />
         </span>
       }
       onClose={onClose}
