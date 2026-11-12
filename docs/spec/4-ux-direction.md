@@ -136,7 +136,7 @@ From [11](../../.scratch/the-office/issues/11-surfaces.md), [16](../../.scratch/
     | `--line`        | `1.4`       | `1.5`       | `1.6`       |
 
   - The palette and the density are each kept in this browser.
-- **Brand:** the NotNullSoft lockup with a mono product chip reading "The Office" ([design-system/guidelines/brand-admin-lockup.html](../../design-system/guidelines/brand-admin-lockup.html)); Ember is the accent. The design system ([design-system/readme.md](../../design-system/readme.md)) is a component library plus brand; its admin sidebar layout is not used.
+- **Brand:** The Office's own mark, in the rail; Ember is the accent. The design system ([design-system/readme.md](../../design-system/readme.md)) is a component library plus brand; its admin sidebar layout is not used.
 - **Copy:** UI copy follows the design system (sentence case, no "I"/"we", verb + object buttons). Everything an Agent says is content: Agents speak in the first person, and their actions are attributed to the person, never to "System".
 - **Phone** (tier 2): Needs you, passing Gates with screenshots, Running, chatting, a Task's summary, the fire alarm; bottom tabs and one column. Boards, graphs, diffs, Projects and Settings are laptop surfaces.
 - **Known gap:** the Edit Role and hire form works but needs a proper design in the real build ([18](../../.scratch/the-office/issues/18-people-mockup.md)).

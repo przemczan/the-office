@@ -151,13 +151,6 @@ body,
   border-bottom: 1px solid var(--border);
 }
 
-.shell-top-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  flex: none;
-}
-
 .shell-top h1 {
   min-width: 0;
   margin: 0;
@@ -487,14 +480,6 @@ body,
 @container page (max-width: 1224px) {
   .desk {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  }
-}
-
-/* The rail carries the mark, and a narrow window's top bar needs the room. */
-@media (max-width: 1000px) {
-  .shell-top-lockup,
-  .shell-top-divider {
-    display: none;
   }
 }
 

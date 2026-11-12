@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { Button, Icon, Logo } from "@the-office/ui";
+import { Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { taskQueries } from "../api/work.ts";
 import { DocumentDialog } from "./attachments/attachment-chips.tsx";
-import { useBrandTone } from "./brand-tone.ts";
 import { ChatButton } from "./chat/chat-button.tsx";
 import { AlarmButton } from "./fire-alarm/alarm-button.tsx";
 import { FloatingMenu } from "./floating-menu.tsx";
@@ -20,9 +19,9 @@ import { NewTaskDialog } from "./work/new-task-dialog.tsx";
 type Creating = "task" | "idea";
 
 /**
- * The lockup, the page's title with its crumb, the Project filter, the search, "Create", which adds
- * a Task or captures an Idea from any page, the fire alarm, and the Chat button at the end, above
- * where the drawer opens.
+ * The page's title with its crumb, the Project filter, the search, "Create", which adds a Task or
+ * captures an Idea from any page, the fire alarm, and the Chat button at the end, above where the
+ * drawer opens.
  */
 export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNode {
   const [creating, setCreating] = useState<Creating>();
@@ -36,10 +35,6 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
   const stopCreating = (): void => setCreating(undefined);
   return (
     <header className="shell-top">
-      <span className="shell-top-lockup">
-        <Logo size={20} product="The Office" tone={useBrandTone()} />
-      </span>
-      <span className="shell-top-divider" />
       <h1>{title}</h1>
       {(crumb !== undefined || parent !== undefined) && (
         <span className="shell-top-crumb">
