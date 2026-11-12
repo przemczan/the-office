@@ -287,6 +287,108 @@ body,
   color: var(--fg-3);
 }
 
+/* ---- Needs you: quiet while nothing waits, a tint while only other Projects have something, and a
+   filled pill with a pulsing dot while something waits in the Projects shown. */
+.shell-strip-needs-you {
+  position: relative;
+  color: var(--fg-3);
+}
+
+.shell-strip-needs-you b {
+  color: inherit;
+}
+
+.shell-strip-needs-you.elsewhere,
+.shell-strip-needs-you.elsewhere:hover {
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+.shell-strip-needs-you.alert,
+.shell-strip-needs-you.alert .shell-strip-faint {
+  color: var(--fg-on-accent);
+}
+
+.shell-strip-needs-you.alert {
+  /* Filled, it no longer hides in the strip's gap the way a hover background may. */
+  margin: 0;
+  background: var(--accent);
+  font-weight: 600;
+}
+
+.shell-strip-needs-you.alert:hover {
+  background: var(--accent-hover);
+}
+
+.shell-strip-needs-you.alert b {
+  font-weight: 700;
+}
+
+.shell-strip-needs-you.alert .live-dot {
+  --live-dot-color: var(--fg-on-accent);
+  --live-dot-gap: 0px;
+}
+
+/* The glow is a ring of its own that fades, so the pop runs on transform and opacity alone. */
+.shell-strip-needs-you::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 40%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shell-strip-needs-you.pop {
+  animation: needs-you-pop 600ms var(--ease-out);
+}
+
+.shell-strip-needs-you.pop::after {
+  animation: needs-you-glow 600ms var(--ease-out);
+}
+
+.shell-strip-needs-you.pop-again {
+  animation: needs-you-pop-again 600ms var(--ease-out);
+}
+
+.shell-strip-needs-you.pop-again::after {
+  animation: needs-you-glow-again 600ms var(--ease-out);
+}
+
+@keyframes needs-you-pop {
+  30% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes needs-you-pop-again {
+  30% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes needs-you-glow {
+  30% {
+    opacity: 1;
+  }
+}
+
+@keyframes needs-you-glow-again {
+  30% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-strip-needs-you.pop,
+  .shell-strip-needs-you.pop::after,
+  .shell-strip-needs-you.pop-again,
+  .shell-strip-needs-you.pop-again::after {
+    animation: none;
+  }
+}
+
 .shell-strip-separator {
   flex: none;
   width: 1px;

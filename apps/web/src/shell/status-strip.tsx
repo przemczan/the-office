@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Now } from "@the-office/contracts";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { officeUpdateQueries } from "../api/office-updates.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
@@ -103,25 +103,47 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
   );
 }
 
-/** The one figure the Project filter narrows, saying how many more wait in other Projects. */
+/**
+ * The one figure the Project filter narrows, saying how many more wait in other Projects. It is an
+ * alert while something waits in the Projects shown, a softer tint while only other Projects have
+ * something, and quiet otherwise; it pops once each time the count goes up.
+ */
 function NeedsYouFigure(): ReactNode {
   const needsYouPanel = useNeedsYouPanel();
   const needsYou = useNeedsYou();
+  const pops = useRises(needsYou?.shown.length);
   if (!needsYou) return null;
   const count = needsYou.shown.length;
+  const tone = count > 0 ? " alert" : needsYou.elsewhere > 0 ? " elsewhere" : "";
+  // Two classes with the same pop under different animation names, swapped on each rise, so the
+  // browser replays it without remounting the button, which would take its focus away.
+  const pop = pops === 0 ? "" : pops % 2 === 1 ? " pop" : " pop-again";
   return (
     <button
       type="button"
-      className="shell-strip-stat shell-strip-needs-you"
+      className={`shell-strip-stat shell-strip-needs-you${tone}${pop}`}
       aria-haspopup="dialog"
       onClick={needsYouPanel.open}
     >
+      {count > 0 && <span className="live-dot" aria-hidden="true" />}
       <b>{count}</b> {needsYouWords(count)}
       {needsYou.elsewhere > 0 && (
         <span className="shell-strip-faint">+{needsYou.elsewhere} in other Projects</span>
       )}
     </button>
   );
+}
+
+/** How many times `value` has gone up since it was first known, so the first load is no rise. */
+function useRises(value: number | undefined): number {
+  const previous = useRef(value);
+  const [rises, setRises] = useState(0);
+  useEffect(() => {
+    if (value === undefined) return;
+    if (previous.current !== undefined && value > previous.current) setRises((count) => count + 1);
+    previous.current = value;
+  }, [value]);
+  return rises;
 }
 
 /**

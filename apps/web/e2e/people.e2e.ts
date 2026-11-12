@@ -2288,9 +2288,22 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   const strip = page.getByRole("status", { name: "Status strip" });
   await expect(strip).toContainText(/\d+ needs? you/);
   await expect(strip).toContainText("desks in use");
+  // While the Decision waits the figure is the alert, and once it is answered it is calm again.
+  const needsYouFigure = strip.getByRole("button", { name: /needs? you/ });
+  await expect(needsYouFigure).toHaveClass(/\balert\b/);
+  await expect(needsYouFigure.locator(".live-dot")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-now.png") });
+  await strip.screenshot({ path: path.join(SCREENSHOTS, "light-strip-needs-you-alert.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await strip.screenshot({ path: path.join(SCREENSHOTS, "dark-strip-needs-you-alert.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "light");
   await onNow.getByRole("button", { name: "The page it started from" }).click();
   await expect(onNow).toHaveCount(0);
+  await expect(needsYouFigure).toContainText("0 need you");
+  await expect(needsYouFigure).not.toHaveClass(/\balert\b/);
+  await expect(needsYouFigure.locator(".live-dot")).toHaveCount(0);
 
   await page.goto(signIn.taskUrl);
   await expect(page.getByRole("region", { name: "Needs you" })).toContainText("Nothing needs you");
