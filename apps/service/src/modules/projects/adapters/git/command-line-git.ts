@@ -320,6 +320,50 @@ export class CommandLineGit extends Git {
     );
   }
 
+  async createRef(repositoryPath: string, ref: string, commit: string): Promise<void> {
+    // An empty old value makes git refuse a ref that is already there.
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["update-ref", ref, commit, ""],
+      }),
+    );
+  }
+
+  async removeRef(repositoryPath: string, ref: string, expected: string): Promise<void> {
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["update-ref", "-d", ref, expected],
+      }),
+    );
+  }
+
+  async remoteHasBranch(
+    repositoryPath: string,
+    upstream: Upstream,
+    variables: GitVariables,
+  ): Promise<boolean> {
+    const remote = await this.fetchUrlOf(repositoryPath, upstream.remote);
+    // The whole ref, so `x` doesn't match a branch ending in `/x`.
+    const output = await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: [
+          "ls-remote",
+          "--heads",
+          "--",
+          upstream.remote,
+          `refs/heads/${upstream.branch}`,
+        ],
+        remote,
+        variables,
+        timeoutMs: LONG_TIMEOUT_MS,
+      }),
+    );
+    return output.trim() !== "";
+  }
+
   async mergeBase(repositoryPath: string, one: string, other: string): Promise<string> {
     const output = await this.process.output({
       folder: repositoryPath,

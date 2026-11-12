@@ -38,6 +38,15 @@ export async function holdManualOrder(transaction: Transaction): Promise<void> {
 }
 
 /**
+ * Holds the Office-wide Short names until the transaction ends, so whatever derives or writes one
+ * reads those taken and saves its own before anyone else reads them; the unique index catches any
+ * write that skips it.
+ */
+export async function holdShortNames(transaction: Transaction): Promise<void> {
+  await transaction.execute(sql`select pg_advisory_xact_lock(hashtext('work.short-names'))`);
+}
+
+/**
  * Holds Starts until the transaction ends: each counts the started Tasks against the limits, so a
  * second must wait for the first to be saved.
  */
@@ -181,6 +190,12 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
     archivedAt: initiative.archivedAt ?? null,
     restoredAt: initiative.restoredAt ?? null,
     planningThreadId: initiative.planningThreadId ?? null,
+    pipelineId: initiative.pipelineId ?? null,
+    shortName: initiative.shortName ?? null,
+    branches: initiative.branches.map((branch) => ({
+      ...branch,
+      madeAt: branch.madeAt.toISOString(),
+    })),
   };
 }
 
@@ -191,6 +206,9 @@ export function toInitiative(row: InitiativeRow): Initiative {
     archivedAt: row.archivedAt ?? undefined,
     restoredAt: row.restoredAt ?? undefined,
     planningThreadId: row.planningThreadId ?? undefined,
+    pipelineId: row.pipelineId ?? undefined,
+    shortName: row.shortName ?? undefined,
+    branches: row.branches.map((branch) => ({ ...branch, madeAt: new Date(branch.madeAt) })),
   };
 }
 

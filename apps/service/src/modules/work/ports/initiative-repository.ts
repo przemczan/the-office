@@ -55,6 +55,18 @@ export abstract class InitiativeRepository {
   ): Promise<InitiativeTasksUpdate<Event>>;
 
   /**
+   * As `update`, holding every Initiative's Short name too and giving `change` those the other
+   * Initiatives hold, so no two derive or write the same one.
+   */
+  abstract updateNaming<Event extends DomainEvent>(
+    id: string,
+    change: (
+      initiative: Initiative,
+      takenShortNames: ReadonlySet<string>,
+    ) => InitiativeChange<Event> | undefined,
+  ): Promise<InitiativeUpdate<Event>>;
+
+  /**
    * Saves the Task `create` makes in the Initiative from every key on the board and every Task,
    * holding the board's manual order, the Initiative and every change of dependencies meanwhile, so
    * the Tasks it waits for are judged as they stay. Throws InitiativeNotFound as `update` does.

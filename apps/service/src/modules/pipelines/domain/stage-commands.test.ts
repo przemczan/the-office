@@ -46,7 +46,7 @@ describe("missingCommandProblems", () => {
   it("names the command on its Stage for a Project that has the Pipeline as default", () => {
     const projects = [project({ id: "office", name: "the-office", defaultPipeline: "mine" })];
 
-    expect(missingCommandProblems("mine", stages, projects, [])).toEqual([
+    expect(missingCommandProblems("mine", stages, projects, [], [])).toEqual([
       {
         stageIndex: 1,
         text: "Stage 2 · Full tests: the-office has no command test-full (it is its default Pipeline)",
@@ -65,18 +65,40 @@ describe("missingCommandProblems", () => {
       { state: "in-progress", projectId: "app", pipelineId: "mine" },
     ];
 
-    expect(missingCommandProblems("mine", stages, projects, tasks).map(({ text }) => text)).toEqual(
-      [
-        "Stage 2 · Full tests: Site has no command test-full (2 of its Tasks that haven't started use it)",
-      ],
-    );
+    expect(
+      missingCommandProblems("mine", stages, projects, tasks, []).map(({ text }) => text),
+    ).toEqual([
+      "Stage 2 · Full tests: Site has no command test-full (2 of its Tasks that haven't started use it)",
+    ]);
+  });
+
+  it("counts a Project a shaping or active Initiative naming it spans, never a done one's", () => {
+    const projects = [
+      project({ id: "site", name: "Site", defaultPipeline: "full" }),
+      project({ id: "app", name: "App", defaultPipeline: "full" }),
+      project({ id: "docs", name: "Docs", defaultPipeline: "full" }),
+    ];
+    const tasks = [{ state: "ready", projectId: "site", pipelineId: "mine" }];
+    const initiatives = [
+      { name: "Checkout", state: "shaping", pipelineId: "mine", projectIds: ["site", "app"] },
+      { name: "Search", state: "active", pipelineId: "mine", projectIds: ["app"] },
+      { name: "Login", state: "done", pipelineId: "mine", projectIds: ["docs"] },
+      { name: "Billing", state: "active", pipelineId: "full", projectIds: ["docs"] },
+    ];
+
+    expect(
+      missingCommandProblems("mine", stages, projects, tasks, initiatives).map(({ text }) => text),
+    ).toEqual([
+      "Stage 2 · Full tests: Site has no command test-full (a Task of it that hasn't started uses it; the Initiative Checkout, which spans it, names it)",
+      "Stage 2 · Full tests: App has no command test-full (the Initiatives Checkout, Search, which span it, name it)",
+    ]);
   });
 
   it("names a key an Agent Stage narrows to on that Stage", () => {
     const narrowed = [agentStage({ name: "Implement", permissions: { commands: ["e2e"] } })];
     const projects = [project({ id: "office", name: "the-office", defaultPipeline: "mine" })];
 
-    expect(missingCommandProblems("mine", narrowed, projects, [])).toEqual([
+    expect(missingCommandProblems("mine", narrowed, projects, [], [])).toEqual([
       {
         stageIndex: 0,
         text: "Stage 1 · Implement: the-office has no command e2e (it is its default Pipeline)",
@@ -94,6 +116,6 @@ describe("missingCommandProblems", () => {
       },
     ];
 
-    expect(missingCommandProblems("mine", stages, projects, [])).toEqual([]);
+    expect(missingCommandProblems("mine", stages, projects, [], [])).toEqual([]);
   });
 });

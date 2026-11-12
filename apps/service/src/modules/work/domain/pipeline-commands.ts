@@ -1,7 +1,11 @@
-/** A library Pipeline's name and the Project commands, by key, its Stages run (spec §2.3). */
+/**
+ * A library Pipeline's name and the Project commands, by key, its Stages run (spec §2.3), and
+ * whether one of its Stages is a Gate: one without publishes without the user's review.
+ */
 export interface PipelineCommands {
   readonly name: string;
   readonly keys: readonly string[];
+  readonly hasGate: boolean;
 }
 
 /**

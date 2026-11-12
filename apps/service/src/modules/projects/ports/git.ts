@@ -237,6 +237,19 @@ export abstract class Git {
   /** Points `ref` at `commit`, making it when it isn't there. */
   abstract setRef(repositoryPath: string, ref: string, commit: string): Promise<void>;
 
+  /** Makes `ref` at `commit`; git refuses when `ref` is already there, so two can't make one. */
+  abstract createRef(repositoryPath: string, ref: string, commit: string): Promise<void>;
+
+  /** Removes `ref` only while it still names `expected`; git refuses otherwise. */
+  abstract removeRef(repositoryPath: string, ref: string, expected: string): Promise<void>;
+
+  /** Whether `upstream.remote` itself, asked now (`ls-remote`), has the branch `upstream.branch`. */
+  abstract remoteHasBranch(
+    repositoryPath: string,
+    upstream: Upstream,
+    variables: GitVariables,
+  ): Promise<boolean>;
+
   /** The best common ancestor of two revisions: where one forked from the other. */
   abstract mergeBase(repositoryPath: string, one: string, other: string): Promise<string>;
 

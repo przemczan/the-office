@@ -46,6 +46,38 @@ export class InitiativeOutcomeWritten extends DomainEvent {
   }
 }
 
+/** The Initiative's Pipeline chosen, undefined for None, with the Short name it then has. */
+export class InitiativePipelineChosen extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly pipelineId: string | undefined,
+    readonly shortName: string | undefined,
+  ) {
+    super();
+  }
+}
+
+/** The user's own Short name for the Initiative, written while shaping. */
+export class InitiativeShortNameWritten extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly shortName: string,
+  ) {
+    super();
+  }
+}
+
+/** The Initiative's branch made in a Project it came to span once active. */
+export class InitiativeBranchMade extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly projectId: string,
+    readonly branch: string,
+  ) {
+    super();
+  }
+}
+
 /** Plan the Initiative opened its planning Thread with the Planner, in auto mode or not. */
 export class InitiativePlanningStarted extends DomainEvent {
   constructor(

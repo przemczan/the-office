@@ -20,7 +20,7 @@ const DEVELOPER_HIRED = new Map<string, RoleFilling>([
   ["developer", { title: "Developer", person: { name: "Ada", taskLimit: 3 } }],
 ]);
 
-const NO_USE = { defaultFor: [], notStarted: 0, running: 0 };
+const NO_USE = { defaultFor: [], notStarted: 0, running: 0, initiatives: [] };
 
 function anEdit(fields: Partial<PipelineEdit> = {}): PipelineEdit {
   return {
@@ -183,11 +183,24 @@ describe("pipelineUse", () => {
       { state: "ready", projectId: "site", pipelineId: "quick-fix" },
     ];
 
-    expect(pipelineUse("full", projects, tasks)).toEqual({
+    expect(pipelineUse("full", projects, tasks, [])).toEqual({
       defaultFor: [{ projectId: "site", name: "Site" }],
       notStarted: 3,
       running: 3,
+      initiatives: [],
     });
+  });
+
+  it("names the shaping and active Initiatives naming it, never a done or dropped one", () => {
+    const initiatives = [
+      { name: "Checkout", state: "shaping", pipelineId: "full", projectIds: ["site"] },
+      { name: "Search", state: "active", pipelineId: "full", projectIds: ["site", "app"] },
+      { name: "Login", state: "done", pipelineId: "full", projectIds: ["site"] },
+      { name: "Themes", state: "dropped", pipelineId: "full", projectIds: ["app"] },
+      { name: "Billing", state: "active", pipelineId: "quick-fix", projectIds: ["app"] },
+    ];
+
+    expect(pipelineUse("full", [], [], initiatives).initiatives).toEqual(["Checkout", "Search"]);
   });
 });
 
@@ -216,6 +229,7 @@ describe("removalProblems", () => {
       ],
       notStarted: 2,
       running: 0,
+      initiatives: [],
     };
 
     expect(removalProblems("nightly", use)).toEqual([
@@ -224,6 +238,13 @@ describe("removalProblems", () => {
     ]);
     expect(removalProblems("nightly", { ...NO_USE, notStarted: 1 })).toEqual([
       "A Task that hasn't started uses it; swap that Task's Pipeline first.",
+    ]);
+  });
+
+  it("names each Initiative that names it", () => {
+    expect(removalProblems("nightly", { ...NO_USE, initiatives: ["Checkout", "Search"] })).toEqual([
+      "The Initiative Checkout names it; choose another Pipeline for it first.",
+      "The Initiative Search names it; choose another Pipeline for it first.",
     ]);
   });
 });

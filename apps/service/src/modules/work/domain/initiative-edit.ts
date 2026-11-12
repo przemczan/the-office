@@ -3,6 +3,7 @@ import {
   addDependencyOfItsTask,
   changeDescriptionOfItsTask,
   changeTitleOfItsTask,
+  chooseInitiativePipeline,
   removeDependencyOfItsTask,
   requireCtoTaskAllowed,
   writeOutcome,
@@ -14,8 +15,9 @@ import { TaskNotFound } from "./task-not-found.js";
 import { TaskRefused } from "./task-refused.js";
 
 /**
- * A change of the CTO's to an Initiative (spec §2.1 Defaults): its outcome, a new Task, or the
- * title, Description or a dependency of one of its Tasks. Written straight onto it while it is being shaped; once it is
+ * A change of the CTO's to an Initiative (spec §2.1 Defaults): its outcome, a new Task, the
+ * title, Description or a dependency of one of its Tasks, or the Initiative's Pipeline (null for
+ * None). Written straight onto it while it is being shaped; once it is
  * active, a Proposal carries it, which Conversations keeps as drafted and Work applies.
  */
 export type InitiativeEdit =
@@ -35,7 +37,8 @@ export type InitiativeEdit =
   | { readonly kind: "add-dependency"; readonly taskId: string; readonly blockerId: string }
   | { readonly kind: "remove-dependency"; readonly taskId: string; readonly blockerId: string }
   | { readonly kind: "task-title"; readonly taskId: string; readonly title: string }
-  | { readonly kind: "task-description"; readonly taskId: string; readonly description: string };
+  | { readonly kind: "task-description"; readonly taskId: string; readonly description: string }
+  | { readonly kind: "pipeline"; readonly pipelineId: string | null };
 
 /** The Task an `add-task` edit asks for. */
 export function newTaskOf(edit: Extract<InitiativeEdit, { kind: "add-task" }>): NewTask {
@@ -60,15 +63,17 @@ export function sameDescriptionWords(task: Pick<Task, "title">): string {
 /**
  * Every reason applying the edit to the Initiative as it is now would be refused, judged as applying
  * it judges, in words the CTO acts on; an edit that changes nothing is refused too. `board` is
- * every Task. Whether its Project is known is the caller's to judge.
+ * every Task, and `pipelineName` the name of the Pipeline a `pipeline` edit names. Whether its
+ * Project, or that Pipeline, is known is the caller's to judge.
  */
 export function initiativeEditProblems(
   initiative: Initiative,
   edit: InitiativeEdit,
   board: readonly Task[],
+  pipelineName?: string,
 ): string[] {
   try {
-    const unchanged = whatStaysAsItIs(initiative, edit, board);
+    const unchanged = whatStaysAsItIs(initiative, edit, board, pipelineName);
     return unchanged === undefined ? [] : [unchanged];
   } catch (error) {
     if (error instanceof InitiativeRefused || error instanceof TaskRefused)
@@ -83,6 +88,7 @@ function whatStaysAsItIs(
   initiative: Initiative,
   edit: InitiativeEdit,
   board: readonly Task[],
+  pipelineName: string | undefined,
 ): string | undefined {
   switch (edit.kind) {
     case "outcome":
@@ -121,6 +127,16 @@ function whatStaysAsItIs(
         ? undefined
         : sameDescriptionWords(task);
     }
+    case "pipeline":
+      // Judged only, so no Short name derived here is kept, and no taken ones are needed.
+      return chooseInitiativePipeline(
+        initiative,
+        edit.pipelineId ?? undefined,
+        "by-proposal",
+        new Set(),
+      )
+        ? undefined
+        : `The Initiative follows ${pipelineName ?? edit.pipelineId} already.`;
   }
 }
 

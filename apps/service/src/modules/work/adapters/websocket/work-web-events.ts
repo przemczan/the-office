@@ -15,10 +15,13 @@ import {
 } from "../../domain/idea-events.js";
 import {
   InitiativeArchived,
+  InitiativeBranchMade,
   InitiativeCreated,
   InitiativeOutcomeWritten,
+  InitiativePipelineChosen,
   InitiativePlanningStarted,
   InitiativeRestored,
+  InitiativeShortNameWritten,
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
@@ -147,6 +150,28 @@ export class WorkWebEvents implements OnModuleInit {
       (event): WebEventOf<"initiative.outcome-written"> => ({
         type: "initiative.outcome-written",
         initiativeId: event.initiativeId,
+      }),
+    );
+    this.forwarding.forward(
+      InitiativePipelineChosen,
+      (event): WebEventOf<"initiative.pipeline-chosen"> => ({
+        type: "initiative.pipeline-chosen",
+        initiativeId: event.initiativeId,
+      }),
+    );
+    this.forwarding.forward(
+      InitiativeShortNameWritten,
+      (event): WebEventOf<"initiative.short-name-written"> => ({
+        type: "initiative.short-name-written",
+        initiativeId: event.initiativeId,
+      }),
+    );
+    this.forwarding.forward(
+      InitiativeBranchMade,
+      (event): WebEventOf<"initiative.branch-made"> => ({
+        type: "initiative.branch-made",
+        initiativeId: event.initiativeId,
+        projectId: event.projectId,
       }),
     );
     this.forwarding.forward(InitiativeArchived, (event): WebEventOf<"initiative.archived"> => ({

@@ -447,12 +447,14 @@ const INITIATIVE_EDIT_TITLES: Readonly<Record<InitiativeEdit["kind"], string>> =
   "remove-dependency": "A Task stops waiting",
   "task-title": "New title for a Task",
   "task-description": "New Description for a Task",
+  pipeline: "Another Pipeline for the Initiative",
 };
 
 /** The CTO's change to the Initiative, its Tasks and Projects by name. */
 function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): ReactNode {
   const tasks = useQuery(taskQueries.list()).data;
   const projects = useQuery(projectQueries.list()).data;
+  const pipelines = useQuery(pipelineQueries.list()).data;
   const taskTitle = (id: string): string => tasks?.find((task) => task.id === id)?.title ?? id;
   switch (edit.kind) {
     case "outcome":
@@ -504,6 +506,16 @@ function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): Re
           <ProposedField label="Task">{taskTitle(edit.taskId)}</ProposedField>
           <ProposedField label="New Description">
             {edit.description === "" ? "None: the title is all there is." : edit.description}
+          </ProposedField>
+        </dl>
+      );
+    case "pipeline":
+      return (
+        <dl className="proposal-fields">
+          <ProposedField label="Initiative's Pipeline">
+            {edit.pipelineId === null
+              ? "None"
+              : (pipelines?.find(({ id }) => id === edit.pipelineId)?.name ?? edit.pipelineId)}
           </ProposedField>
         </dl>
       );

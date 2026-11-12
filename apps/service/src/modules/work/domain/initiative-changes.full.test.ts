@@ -29,7 +29,7 @@ function stateChange(from: string, to: string): object {
 
 describe("confirmInitiative", () => {
   it("makes an Initiative being shaped active, not ended", () => {
-    const change = confirmInitiative(anInitiative(), []);
+    const change = confirmInitiative(anInitiative(), [], undefined);
 
     expect(change.initiative).toEqual(anInitiative({ state: "active" }));
     expect(change.initiative.endedAt).toBeUndefined();
@@ -41,7 +41,7 @@ describe("confirmInitiative", () => {
     const shaping = aTask({ id: "task-1", state: "shaping" });
     const planning = aTask({ id: "task-2", state: "planning" });
 
-    const { taskChanges } = confirmInitiative(anInitiative(), [shaping, planning]);
+    const { taskChanges } = confirmInitiative(anInitiative(), [shaping, planning], undefined);
 
     expect(taskChanges.map(({ task }) => [task.id, task.state])).toEqual([["task-1", "backlog"]]);
     expect(taskChanges[0]?.event).toBeInstanceOf(TaskStateChanged);
@@ -55,7 +55,9 @@ describe("confirmInitiative", () => {
 
   it("refuses any other", () => {
     for (const state of ["active", "done", "dropped"] as const) {
-      expect(() => confirmInitiative(anInitiative({ state }), [])).toThrow(InitiativeRefused);
+      expect(() => confirmInitiative(anInitiative({ state }), [], undefined)).toThrow(
+        InitiativeRefused,
+      );
     }
   });
 });

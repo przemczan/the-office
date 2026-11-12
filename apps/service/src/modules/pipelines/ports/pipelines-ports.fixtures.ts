@@ -8,6 +8,7 @@ import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js"
 import { PipelineRoleSources } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
+import { PipelineInitiatives, type PipelineInitiative } from "./pipeline-initiatives.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
 import { ProposalDrafts, type ProposedLibraryChange } from "./proposal-drafts.js";
 import {
@@ -99,6 +100,16 @@ export class ProjectDefaultsForTests extends ProjectDefaults {
 
   async list(): Promise<readonly ProjectDefault[]> {
     return [...this.projects];
+  }
+}
+
+/** Work's Initiatives with a Pipeline in memory: none unless a test puts some. */
+@Injectable()
+export class PipelineInitiativesForTests extends PipelineInitiatives {
+  readonly initiatives: PipelineInitiative[] = [];
+
+  async withPipelines(): Promise<readonly PipelineInitiative[]> {
+    return [...this.initiatives];
   }
 }
 
@@ -860,6 +871,7 @@ export class PipelinesPortsForTestsModule {
   static register(imports: NonNullable<ModuleMetadata["imports"]>): DynamicModule {
     const providers = [
       ProjectDefaultsForTests,
+      PipelineInitiativesForTests,
       StartedTasksForTests,
       TaskRecordsForTests,
       KnownPeopleForTests,

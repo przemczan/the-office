@@ -8,6 +8,7 @@ import {
   exists,
   inArray,
   isNotNull,
+  ne,
   notExists,
   or,
   sql,
@@ -41,6 +42,7 @@ import {
   canBeRowId,
   heldTask,
   holdManualOrder,
+  holdShortNames,
   insertTask,
   saveTask,
   takenOrders,
@@ -151,6 +153,29 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       for (const taskChange of changed.taskChanges) {
         await saveTask(transaction, taskChange.task, taskChange);
       }
+      return changed;
+    });
+  }
+
+  async updateNaming<Event extends DomainEvent>(
+    id: string,
+    change: (
+      initiative: Initiative,
+      takenShortNames: ReadonlySet<string>,
+    ) => InitiativeChange<Event> | undefined,
+  ): Promise<InitiativeUpdate<Event>> {
+    return this.database.transaction(async (transaction) => {
+      // The Short names first and the Initiative after, the one order any hold of both takes.
+      await holdShortNames(transaction);
+      const initiative = await heldInitiative(transaction, id);
+      const others = await transaction
+        .select({ shortName: initiatives.shortName })
+        .from(initiatives)
+        .where(and(isNotNull(initiatives.shortName), ne(initiatives.id, id)));
+      const taken = new Set(others.flatMap(({ shortName }) => shortName ?? []));
+      const changed = change(initiative, taken);
+      if (!changed) return { initiative, event: undefined };
+      await saveInitiative(transaction, changed.initiative);
       return changed;
     });
   }

@@ -5,7 +5,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
 import type { Author } from "../domain/author.js";
 import { shapeIdeaIntoInitiative } from "../domain/idea-changes.js";
-import type { Initiative } from "../domain/initiative.js";
+import { initiativeProjectIds, type Initiative } from "../domain/initiative.js";
 import {
   archiveInitiative,
   restoreInitiative,
@@ -18,12 +18,13 @@ import {
   addTaskToInitiative,
   changeDescriptionOfItsTask,
   changeTitleOfItsTask,
-  confirmInitiative,
+  chooseInitiativePipeline,
   dropInitiative,
   finishInitiative,
   removeDependencyOfItsTask,
   tasksByInitiative,
   writeOutcome,
+  writeShortName,
   type InitiativeChange,
   type InitiativeChangeRoute,
   type InitiativeTasksChange,
@@ -38,6 +39,10 @@ import {
 import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import { InitiativeNotShaping } from "../domain/initiative-not-shaping.js";
+import {
+  initiativePipelineChangeProblems,
+  initiativePipelineProblems,
+} from "../domain/initiative-pipeline.js";
 import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
 import { initiativeRecordText, type InitiativeRecord } from "../domain/record-words.js";
@@ -52,14 +57,24 @@ import { IdeaRepository } from "../ports/idea-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { InitiativeThreads } from "../ports/initiative-threads.js";
 import { KnownPeople } from "../ports/known-people.js";
-import { KnownProjects } from "../ports/known-projects.js";
+import { KnownPipelines } from "../ports/known-pipelines.js";
+import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProposalDrafts } from "../ports/proposal-drafts.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
+import { InitiativeBranching } from "./initiative-branching.js";
 
 /** The CTO's change as written straight onto the Initiative, or drafted as a Proposal. */
 export type CtoChange =
   { readonly kind: "written"; readonly edit: InitiativeEdit } | { readonly kind: "proposed" };
+
+/** An Initiative that names a Pipeline, with the Projects it spans, as the library weighs it. */
+export interface InitiativeOnPipeline {
+  readonly name: string;
+  readonly state: Initiative["state"];
+  readonly pipelineId: string;
+  readonly projectIds: readonly string[];
+}
 
 /**
  * The Initiatives use cases: shaped from an Idea, its outcome, Tasks, their titles, Descriptions and
@@ -76,6 +91,8 @@ export class InitiativeService implements OnModuleInit {
     private readonly tasks: TaskRepository,
     private readonly attachments: AttachmentRepository,
     private readonly projects: KnownProjects,
+    private readonly pipelines: KnownPipelines,
+    private readonly branching: InitiativeBranching,
     private readonly people: KnownPeople,
     private readonly threads: InitiativeThreads,
     private readonly proposals: ProposalDrafts,
@@ -198,13 +215,111 @@ export class InitiativeService implements OnModuleInit {
     if (!idea) throw new IdeaNotFound(initiative.originIdeaId);
     const tasks = tasksByInitiative(board).get(id) ?? [];
     const blockers = new Map(board.map((task) => [task.id, task]));
-    return { initiative, idea, tasks, blockers, attachments };
+    const pipeline =
+      initiative.pipelineId === undefined
+        ? undefined
+        : await this.pipelines.find(initiative.pipelineId);
+    return { initiative, idea, tasks, blockers, attachments, pipelineName: pipeline?.name };
   }
 
-  /** Makes it active, its Tasks in Shaping moving to Backlog; done at once when its Tasks already are. */
+  /** Every Initiative that names a Pipeline, with the Projects its Tasks span. */
+  async withPipelines(): Promise<readonly InitiativeOnPipeline[]> {
+    const [every, byInitiative] = await Promise.all([
+      this.repository.list(),
+      this.tasksByInitiative(),
+    ]);
+    return every.flatMap(({ id, name, state, pipelineId }) =>
+      pipelineId === undefined
+        ? []
+        : [
+            {
+              name,
+              state,
+              pipelineId,
+              projectIds: initiativeProjectIds(byInitiative.get(id) ?? []),
+            },
+          ],
+    );
+  }
+
+  /**
+   * Makes it active, its Tasks in Shaping moving to Backlog, with its branch made in each Project
+   * when it has a Pipeline (InitiativeBranching); done at once when its Tasks already are.
+   */
   async confirm(id: string): Promise<Initiative> {
-    const confirmed = await this.updateWithTasks(id, confirmInitiative);
+    const confirmed = await this.branching.confirm(id);
     return (await this.finishIfDone(id)) ?? confirmed;
+  }
+
+  /**
+   * The Initiative's Pipeline, null for None: by the user or the CTO straight onto it while it is
+   * being shaped, or by the CTO's Proposal once active. Refused for a Pipeline the library lacks,
+   * or one running a command a Project it spans lacks (spec 2.3).
+   */
+  async choosePipeline(
+    id: string,
+    pipelineId: string | null,
+    route: InitiativeChangeRoute,
+  ): Promise<Initiative> {
+    const chosen = pipelineId ?? undefined;
+    if (chosen !== undefined) {
+      const problems = await this.pipelineProblems(await this.read(id), chosen);
+      if (problems.length > 0) throw new InitiativeRefused(problems);
+    }
+    const { initiative, event } = await this.repository.updateNaming(id, (held, taken) =>
+      chooseInitiativePipeline(held, chosen, route, taken),
+    );
+    if (event) await this.events.publish(event);
+    return initiative;
+  }
+
+  /** The user's own Short name, while it is being shaped with a Pipeline chosen. */
+  async writeShortName(id: string, shortName: string): Promise<Initiative> {
+    const { initiative, event } = await this.repository.updateNaming(id, (held, taken) =>
+      writeShortName(held, shortName, taken),
+    );
+    if (event) await this.events.publish(event);
+    return initiative;
+  }
+
+  /**
+   * Why the Initiative can't follow the Pipeline: none in the library by that id, or a command it
+   * runs that a Project the Initiative spans lacks.
+   */
+  private async pipelineProblems(initiative: Initiative, pipelineId: string): Promise<string[]> {
+    const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
+    if (!pipeline) return [await this.noSuchPipelineWords(pipelineId)];
+    return initiativePipelineProblems(pipeline, await this.projectsOf(initiative.id));
+  }
+
+  /** Every reason applying the CTO's Proposal of another Pipeline would be refused now. */
+  private async pipelineChangeProblems(
+    initiative: Initiative,
+    pipelineId: string | null,
+  ): Promise<string[]> {
+    const pipeline =
+      pipelineId === null ? undefined : await this.pipelines.commandsNamedBy(pipelineId);
+    if (pipelineId !== null && !pipeline) return [await this.noSuchPipelineWords(pipelineId)];
+    return initiativePipelineChangeProblems(
+      initiative,
+      pipelineId,
+      pipeline,
+      await this.projectsOf(initiative.id),
+    );
+  }
+
+  private async noSuchPipelineWords(pipelineId: string): Promise<string> {
+    const known = (await this.pipelines.list()).map(({ id }) => id).join(", ");
+    return `There is no Pipeline "${pipelineId}". The library has ${known}.`;
+  }
+
+  /** The Projects the Initiative's Tasks span, those still known. */
+  private async projectsOf(id: string): Promise<KnownProject[]> {
+    const tasks = (await this.tasksByInitiative()).get(id) ?? [];
+    const projects = await Promise.all(
+      initiativeProjectIds(tasks).map((projectId) => this.projects.find(projectId)),
+    );
+    return projects.filter((project) => project !== undefined);
   }
 
   /** Drops it, and its Tasks still in Shaping with it. */
@@ -305,6 +420,7 @@ export class InitiativeService implements OnModuleInit {
     if (edit.kind === "add-task" && !(await this.projects.find(edit.projectId))) {
       return [`There is no Project "${edit.projectId}".`];
     }
+    if (edit.kind === "pipeline") return this.pipelineChangeProblems(initiative, edit.pipelineId);
     return initiativeEditProblems(initiative, edit, await this.tasks.list());
   }
 
@@ -382,6 +498,9 @@ export class InitiativeService implements OnModuleInit {
           sameDescriptionWords,
         );
         return edit;
+      case "pipeline":
+        await this.choosePipeline(id, edit.pipelineId, route);
+        return edit;
     }
   }
 
@@ -398,6 +517,7 @@ export class InitiativeService implements OnModuleInit {
         `There is no Project "${given.projectId}".`,
       ]);
     }
+    await this.branching.forNewProject(id, given.projectId);
     const { task, event } = await this.repository.addTask(id, (initiative, takenOrders, tasks) =>
       createdWaitingFor(
         create(

@@ -251,7 +251,7 @@ describe("PostgresInitiativeRepository.updateWithTasks", () => {
 
     const { initiative, taskChanges } = await initiatives.updateWithTasks(
       initiativeId,
-      confirmInitiative,
+      (held, heldTasks) => confirmInitiative(held, heldTasks, undefined),
     );
 
     expect(initiative.state).toBe("active");
@@ -273,9 +273,11 @@ describe("PostgresInitiativeRepository.updateWithTasks", () => {
       event: new InitiativeStateChanged(initiativeId, "shaping", "active"),
     }));
 
-    await expect(initiatives.updateWithTasks(initiativeId, confirmInitiative)).rejects.toThrow(
-      InitiativeRefused,
-    );
+    await expect(
+      initiatives.updateWithTasks(initiativeId, (held, heldTasks) =>
+        confirmInitiative(held, heldTasks, undefined),
+      ),
+    ).rejects.toThrow(InitiativeRefused);
     await expect(initiatives.updateWithTasks(initiativeId, () => undefined)).resolves.toMatchObject(
       { event: undefined, taskChanges: [] },
     );

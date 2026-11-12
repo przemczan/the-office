@@ -2034,6 +2034,42 @@
   color: var(--fg-3);
 }
 
+/* The Initiative's Pipeline block: its choice, Short name and branches, a column of lines. */
+.initiative-pipeline,
+.initiative-short-name {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.initiative-pipeline code,
+.initiative-short-name code {
+  font-family: var(--font-mono);
+}
+
+.initiative-short-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.initiative-short-name-label {
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.initiative-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .task-plan + .task-quiet,
 .task-plan-text + .task-quiet {
   margin-top: 6px;

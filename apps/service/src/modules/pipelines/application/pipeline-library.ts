@@ -3,10 +3,11 @@ import type { Pipeline } from "../domain/pipeline.js";
 import { agentStageRoles, commandKeysNamedBy } from "../domain/stage.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 
-/** A library Pipeline's name and the Project commands its Stages run, by key. */
+/** A library Pipeline's name, the Project commands its Stages run, by key, and whether it has a Gate. */
 export interface PipelineCommands {
   readonly name: string;
   readonly keys: readonly string[];
+  readonly hasGate: boolean;
 }
 
 /**
@@ -35,7 +36,13 @@ export class PipelineLibrary {
    */
   async commandsNamedBy(id: string): Promise<PipelineCommands | undefined> {
     const pipeline = await this.find(id);
-    return pipeline && { name: pipeline.name, keys: commandKeysNamedBy(pipeline.stages) };
+    return (
+      pipeline && {
+        name: pipeline.name,
+        keys: commandKeysNamedBy(pipeline.stages),
+        hasGate: pipeline.stages.some(({ kind }) => kind === "gate"),
+      }
+    );
   }
 
   /** The Roles the library's Agent Stages name, each once. */

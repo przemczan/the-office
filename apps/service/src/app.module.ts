@@ -40,6 +40,7 @@ import {
 import {
   BaseCheckouts,
   EngineLevelsChecks,
+  InitiativeBranches,
   ProjectRecords,
   ProjectService,
   ProjectsFromRepositories,
@@ -55,6 +56,7 @@ import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import {
   FireAlarmService,
+  InitiativeService,
   OfficeLimits,
   QueueService,
   StageScreenshots,
@@ -114,6 +116,7 @@ export class AppModule {
       knownProjects: ProjectService,
       newProjects: ProjectsFromRepositories,
       projectWorktrees: TaskWorktrees,
+      projectInitiativeBranches: InitiativeBranches,
       knownPeople: RoleCards,
       knownEngineCascade: EngineCascade,
       knownPipelines: PipelineLibrary,
@@ -156,6 +159,7 @@ export class AppModule {
       proposalDrafts: ProposalService,
       stageRoleEngines: PipelineRoleCapabilityChecks,
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
+      pipelineInitiatives: InitiativeService,
     });
     return {
       module: AppModule,

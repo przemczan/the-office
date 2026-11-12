@@ -34,6 +34,7 @@ import { StageRunners } from "./application/stage-runners.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
 import { PipelineLibraryModule } from "./pipeline-library.module.js";
 import { KnownPeople } from "./ports/known-people.js";
+import { PipelineInitiatives } from "./ports/pipeline-initiatives.js";
 import { ProjectDefaults } from "./ports/project-defaults.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
@@ -54,7 +55,7 @@ import { UsageHistoryModule } from "./usage-history.module.js";
 export interface PipelinesModuleOptions {
   /**
    * The modules that provide the ports below, Work, People (with its engine cascade),
-   * Conversations, Projects and Run environments, and
+   * Conversations, Projects and Run environments (Work's Initiatives too), and
    * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
@@ -73,6 +74,7 @@ export interface PipelinesModuleOptions {
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly stageRoleEngines: Type<StageRoleEngines>;
   readonly runEnvironmentDefinitions: Type<RunEnvironmentDefinitions>;
+  readonly pipelineInitiatives: Type<PipelineInitiatives>;
 }
 
 /**
@@ -98,6 +100,7 @@ export class PipelinesModule {
     proposalDrafts,
     stageRoleEngines,
     runEnvironmentDefinitions,
+    pipelineInitiatives,
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
@@ -131,6 +134,7 @@ export class PipelinesModule {
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: StageRoleEngines, useExisting: stageRoleEngines },
         { provide: RunEnvironmentDefinitions, useExisting: runEnvironmentDefinitions },
+        { provide: PipelineInitiatives, useExisting: pipelineInitiatives },
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
         RoleFillings,
         TaskStagesService,

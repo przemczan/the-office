@@ -54,6 +54,9 @@ class FakeGit extends Git {
   exclusively = notUsed;
   findCommit = notUsed;
   setRef = notUsed;
+  createRef = notUsed;
+  removeRef = notUsed;
+  remoteHasBranch = notUsed;
   mergeBase = notUsed;
   rebase = notUsed;
   merge = notUsed;

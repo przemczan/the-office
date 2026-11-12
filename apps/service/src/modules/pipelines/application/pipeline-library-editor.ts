@@ -21,6 +21,7 @@ import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js
 import { PipelineRemoved } from "../domain/pipeline-library-events.js";
 import { PipelineRemovalRefused, UnknownPipeline } from "../domain/pipeline-library-refusals.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
+import { PipelineInitiatives } from "../ports/pipeline-initiatives.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 import { ProjectDefaults } from "../ports/project-defaults.js";
 import { StageRoleEngines } from "../ports/stage-role-engines.js";
@@ -47,6 +48,7 @@ export class PipelineLibraryEditor {
     private readonly projects: ProjectDefaults,
     private readonly tasks: StartedTasks,
     private readonly roleEngines: StageRoleEngines,
+    private readonly initiatives: PipelineInitiatives,
     private readonly events: EventBus,
   ) {}
 
@@ -123,11 +125,18 @@ export class PipelineLibraryEditor {
     });
   }
 
-  /** Who uses the Pipeline: the Projects naming it as their default, and Tasks not started or running. */
+  /**
+   * Who uses the Pipeline: the Projects naming it as their default, Tasks not started or running,
+   * and the shaping and active Initiatives naming it.
+   */
   async use(id: string): Promise<PipelineUse> {
     if (!(await this.repository.find(id))) throw new UnknownPipeline(id);
-    const [projects, tasks] = await Promise.all([this.projects.list(), this.tasks.list()]);
-    return pipelineUse(id, projects, tasks);
+    const [projects, tasks, initiatives] = await Promise.all([
+      this.projects.list(),
+      this.tasks.list(),
+      this.initiatives.withPipelines(),
+    ]);
+    return pipelineUse(id, projects, tasks, initiatives);
   }
 
   /**
@@ -189,15 +198,20 @@ export class PipelineLibraryEditor {
 
   /**
    * The commands the Stages name that a Project running the Pipeline lacks: one naming it as its
-   * default, or with a not-started Task on it. A new Pipeline has neither.
+   * default, with a not-started Task on it, or spanned by a shaping or active Initiative naming it.
+   * A new Pipeline has none of them.
    */
   private async missingCommandProblems(
     pipelineId: string | undefined,
     stages: readonly Stage[],
   ): Promise<StageProblem[]> {
     if (pipelineId === undefined) return [];
-    const [projects, tasks] = await Promise.all([this.projects.list(), this.tasks.list()]);
-    return missingCommandProblems(pipelineId, stages, projects, tasks);
+    const [projects, tasks, initiatives] = await Promise.all([
+      this.projects.list(),
+      this.tasks.list(),
+      this.initiatives.withPipelines(),
+    ]);
+    return missingCommandProblems(pipelineId, stages, projects, tasks, initiatives);
   }
 
   /**

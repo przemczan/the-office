@@ -22,6 +22,7 @@ import type { AskedDecision } from "./ports/stage-threads.js";
 import { PipelinesModule } from "./pipelines.module.js";
 import {
   KnownPeopleForTests,
+  PipelineInitiativesForTests,
   ProjectDefaultsForTests,
   PipelinesPortsForTestsModule,
   ProposalDraftsForTests,
@@ -60,6 +61,7 @@ export interface PipelinesApplication {
   readonly threadSessions: TaskThreadSessionsForTests;
   readonly roleEngines: StageRoleEnginesForTests;
   readonly definitions: RunEnvironmentDefinitionsForTests;
+  readonly initiatives: PipelineInitiativesForTests;
   readonly published: DomainEvent[];
 }
 
@@ -111,6 +113,7 @@ export async function startPipelinesApplication(
         proposalDrafts: ProposalDraftsForTests,
         stageRoleEngines: StageRoleEnginesForTests,
         runEnvironmentDefinitions: RunEnvironmentDefinitionsForTests,
+        pipelineInitiatives: PipelineInitiativesForTests,
       }),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: engineModule }],
@@ -136,6 +139,7 @@ export async function startPipelinesApplication(
     threadSessions: app.get(TaskThreadSessionsForTests, { strict: false }),
     roleEngines: app.get(StageRoleEnginesForTests, { strict: false }),
     definitions: app.get(RunEnvironmentDefinitionsForTests, { strict: false }),
+    initiatives: app.get(PipelineInitiativesForTests, { strict: false }),
     published,
   };
 }

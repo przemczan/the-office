@@ -36,6 +36,8 @@ export const pipelineUseSchema = z.object({
   notStarted: z.int().nonnegative(),
   /** Started Tasks still at work, which keep the copy they started with. */
   running: z.int().nonnegative(),
+  /** Shaping or active Initiatives that name it as the Initiative's Pipeline. */
+  initiatives: z.int().nonnegative(),
 });
 export type PipelineUse = z.infer<typeof pipelineUseSchema>;
 

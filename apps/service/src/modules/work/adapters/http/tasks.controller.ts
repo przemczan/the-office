@@ -23,6 +23,7 @@ import {
   priorityChangeSchema,
   searchQuerySchema,
   tagsChangeSchema,
+  taskMoveCheckQuerySchema,
   taskMoveSchema,
   taskPlacementSchema,
   type DefinitionOfDoneChange,
@@ -42,6 +43,7 @@ import {
   type TagsChange,
   type Task as TaskResponse,
   type TaskMove,
+  type TaskMoveCheckQuery,
   type TaskMoveCheck,
   type TaskPlacement,
 } from "@the-office/contracts";
@@ -306,8 +308,11 @@ export class TasksController {
 
   /** Move's check: every reason the Task can't move to another Project now. */
   @Get(":id/move")
-  async moveCheck(@Param("id", ParseUUIDPipe) id: string): Promise<TaskMoveCheck> {
-    return { problems: [...(await this.tasks.moveProblems(id))] };
+  async moveCheck(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query(new ContractPipe(taskMoveCheckQuerySchema)) { projectId }: TaskMoveCheckQuery,
+  ): Promise<TaskMoveCheck> {
+    return { problems: [...(await this.tasks.moveProblems(id, projectId))] };
   }
 
   /** Move: the Task goes to another Project, back in Backlog with both parts Not confirmed. */

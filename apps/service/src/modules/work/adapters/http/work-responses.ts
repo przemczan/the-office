@@ -25,6 +25,7 @@ import {
 } from "../../domain/initiative-archive.js";
 import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
+import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import type { EngineUsage, UsageEstimate, UsageMeasure } from "../../domain/usage-estimate.js";
@@ -63,7 +64,21 @@ export function toInitiativeResponse(
     archivedAt: initiative.archivedAt?.toISOString() ?? null,
     planningThreadId: initiative.planningThreadId ?? null,
     planningAutoMode: initiative.planningAutoMode,
+    pipelineId: initiative.pipelineId ?? null,
+    shortName: initiative.shortName ?? null,
+    branches: initiativeBranchesOf(initiative),
   };
+}
+
+/** Each Project's Initiative's branch, named by the Short name it was made under. */
+function initiativeBranchesOf(initiative: Initiative): InitiativeResponse["branches"] {
+  const { shortName } = initiative;
+  if (shortName === undefined) return [];
+  return initiative.branches.map(({ projectId, madeAt }) => ({
+    projectId,
+    branch: initiativeBranchOf(shortName),
+    madeAt: madeAt.toISOString(),
+  }));
 }
 
 /** A page of the Archive, each Initiative with its final count from its Tasks. */

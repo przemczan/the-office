@@ -3,6 +3,7 @@ import {
   pipelineCheckSchema,
   pipelineRemovalRefusalSchema,
   pipelineSchema,
+  pipelineUseSchema,
   stagesEditRefusalSchema,
   type Pipeline,
 } from "@the-office/contracts";
@@ -169,6 +170,26 @@ describe("DELETE /api/pipelines/:id", () => {
       "It is the default Pipeline of Site; choose another default first.",
       "A Task that hasn't started uses it; swap that Task's Pipeline first.",
     ]);
+    expect((await send("GET", `/pipelines/${pipeline.id}`)).status).toBe(200);
+  });
+
+  it("refuses while a shaping Initiative names it, which its use counts", async () => {
+    const pipeline = await added();
+    pipelines.initiatives.initiatives.push({
+      name: "Checkout",
+      state: "shaping",
+      pipelineId: pipeline.id,
+      projectIds: [],
+    });
+
+    const response = await send("DELETE", `/pipelines/${pipeline.id}`);
+    const use = await send("GET", `/pipelines/${pipeline.id}/use`);
+
+    expect(response.status).toBe(422);
+    expect(pipelineRemovalRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "The Initiative Checkout names it; choose another Pipeline for it first.",
+    ]);
+    expect(pipelineUseSchema.parse(await use.json()).initiatives).toBe(1);
     expect((await send("GET", `/pipelines/${pipeline.id}`)).status).toBe(200);
   });
 });

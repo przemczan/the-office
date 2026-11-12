@@ -32,6 +32,7 @@ import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository, type NeighbourIds } from "../ports/task-repository.js";
+import { InitiativeBranching } from "./initiative-branching.js";
 
 /** The Tasks use cases. Each change is saved first and its event published after. */
 @Injectable()
@@ -41,6 +42,7 @@ export class TaskService {
     private readonly projects: KnownProjects,
     private readonly fireAlarm: FireAlarmRepository,
     private readonly worktrees: ProjectWorktrees,
+    private readonly initiativeBranching: InitiativeBranching,
     private readonly events: EventBus,
   ) {}
 
@@ -156,10 +158,21 @@ export class TaskService {
     return task;
   }
 
-  /** Every reason the Task can't move to another Project now; empty when it can. */
-  async moveProblems(id: string): Promise<readonly string[]> {
+  /**
+   * Every reason the Task can't move to another Project now, and with `projectId`, to that one,
+   * as its Initiative's Pipeline weighs it; empty when it can.
+   */
+  async moveProblems(id: string, projectId?: string): Promise<readonly string[]> {
     const task = await this.read(id);
-    return moveProblems(task, await this.moveGrounds(task, await this.stateChangesOf(id)));
+    const problems = moveProblems(
+      task,
+      await this.moveGrounds(task, await this.stateChangesOf(id)),
+    );
+    if (projectId === undefined || task.initiativeId === undefined) return problems;
+    return [
+      ...problems,
+      ...(await this.initiativeBranching.newProjectProblems(task.initiativeId, projectId)),
+    ];
   }
 
   /**
@@ -171,6 +184,13 @@ export class TaskService {
   async move(id: string, projectId: string): Promise<Task> {
     if (!(await this.projects.find(projectId))) {
       throw new TaskRefused([`There is no Project "${projectId}".`]);
+    }
+    const { initiativeId } = await this.read(id);
+    if (initiativeId !== undefined) {
+      // Refused here before any branch is made; the hold below judges the Move again.
+      const problems = await this.moveProblems(id);
+      if (problems.length > 0) throw new TaskRefused([...problems]);
+      await this.initiativeBranching.forNewProject(initiativeId, projectId);
     }
     const { task, event } = await this.repository.updateWithStateChanges(
       id,

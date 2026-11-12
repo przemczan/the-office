@@ -5,7 +5,9 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
 import type { InitiativeEdit } from "../../domain/initiative-edit.js";
 import { PRIORITIES } from "../../domain/task.js";
+import { initiativeBranchOf } from "../../domain/short-name.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
+import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { SessionInitiatives } from "../../ports/session-initiatives.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import {
@@ -22,6 +24,7 @@ export const ADD_DEPENDENCY = "add_dependency";
 export const REMOVE_DEPENDENCY = "remove_dependency";
 export const WRITE_TASK_TITLE = "write_task_title";
 export const WRITE_TASK_DESCRIPTION = "write_task_description";
+export const CHOOSE_PIPELINE = "choose_pipeline";
 
 const WHERE_IT_GOES =
   "While the Initiative is being shaped, it shows on the Initiative's page at once and the user confirms the whole Initiative once it is agreed; once it is active, it is drafted as a Proposal in this Thread, which changes the Initiative only when the user applies it.";
@@ -47,6 +50,7 @@ export class ShapingOfficeTools implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly initiatives: InitiativeService,
     private readonly tasks: TaskService,
+    private readonly pipelines: KnownPipelines,
     private readonly sessionInitiatives: SessionInitiatives,
     private readonly sessionPeople: SessionPeople,
   ) {}
@@ -59,6 +63,7 @@ export class ShapingOfficeTools implements OnModuleInit {
     this.registerRemoveDependency();
     this.registerWriteTaskTitle();
     this.registerWriteTaskDescription();
+    this.registerChoosePipeline();
   }
 
   private registerReadInitiative(): void {
@@ -203,6 +208,41 @@ export class ShapingOfficeTools implements OnModuleInit {
           return `Wrote the Description of "${task.title}" onto its page.`;
         }),
     });
+  }
+
+  private registerChoosePipeline(): void {
+    this.registry.register({
+      name: CHOOSE_PIPELINE,
+      description: `Chooses this Initiative's Pipeline from the library, or None with null: with one, its Tasks publish into the Initiative's branch, initiative/<Short name>, in each Project it spans, and its Publishing Tasks publish the whole change; with None, each Task publishes on its own. The Short name comes from the Initiative's title; only the user edits it. Whether it has a Pipeline is fixed at Confirm; once it is active only another library Pipeline can be proposed. Refused when a Project it spans lacks a command the Pipeline runs. ${WHERE_IT_GOES}`,
+      input: z.object({
+        pipelineId: z
+          .string()
+          .nullable()
+          .describe("The library Pipeline's id, as the Brief lists them; null for None."),
+      }),
+      run: ({ pipelineId }, { sessionId }) =>
+        this.change(sessionId, { kind: "pipeline", pipelineId }, async () =>
+          this.pipelineChosenWords(await this.initiativeIn(sessionId)),
+        ),
+    });
+  }
+
+  /** The Initiative's Pipeline as now chosen, its branch, and the warning when it has no Gate. */
+  private async pipelineChosenWords(initiativeId: string): Promise<string> {
+    const { pipelineId, shortName } = await this.initiatives.read(initiativeId);
+    if (pipelineId === undefined) {
+      return "The Initiative's Pipeline is None, on its page: each of its Tasks publishes on its own.";
+    }
+    const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
+    const branch =
+      shortName === undefined
+        ? ""
+        : ` Its Short name is ${shortName}, so Confirm makes ${initiativeBranchOf(shortName)} in each Project it spans.`;
+    const noGate =
+      pipeline?.hasGate === false
+        ? " It has no Gate, so it publishes without the user's review; say so to the user."
+        : "";
+    return `The Initiative follows ${pipeline?.name ?? pipelineId}, on its page.${branch}${noGate}`;
   }
 
   /** The CTO's change to the session's Initiative, answered as `written` words it or as proposed. */

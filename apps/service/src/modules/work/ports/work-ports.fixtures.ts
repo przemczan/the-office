@@ -31,6 +31,10 @@ import { KnownEngineCascade } from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject, type KnownProjectCommand } from "./known-projects.js";
 import { NewProjects, type AddedProject } from "./new-projects.js";
+import {
+  ProjectInitiativeBranches,
+  type InitiativeBranchMaking,
+} from "./project-initiative-branches.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { StageResults, type TaskStageResults } from "./stage-results.js";
 import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
@@ -103,6 +107,41 @@ export class NewProjectsForTests extends NewProjects {
     const project = { id: name.toLowerCase().replaceAll(" ", "-"), name };
     this.byPath.set(path, project);
     return project;
+  }
+}
+
+/**
+ * The Initiative's branches as a set of `projectId/branch`, each made at a commit of its own;
+ * `made` and `removed` list them in order. A Project in `refusing` refuses with its reason.
+ */
+@Injectable()
+export class ProjectInitiativeBranchesForTests extends ProjectInitiativeBranches {
+  readonly made: string[] = [];
+  readonly removed: string[] = [];
+  /** Branches there already, as `projectId/branch`, as a test sets them. */
+  readonly existing = new Set<string>();
+  readonly refusing = new Map<string, string>();
+
+  async make(projectId: string, branch: string): Promise<InitiativeBranchMaking> {
+    const reason = this.refusing.get(projectId);
+    if (reason !== undefined) return { kind: "refused", reason };
+    const key = `${projectId}/${branch}`;
+    if (this.existing.has(key)) {
+      return { kind: "refused", reason: `The branch ${branch} exists in ${projectId} already.` };
+    }
+    this.existing.add(key);
+    this.made.push(key);
+    return { kind: "made", commit: `commit-of-${key}` };
+  }
+
+  async remove(projectId: string, branch: string): Promise<void> {
+    const key = `${projectId}/${branch}`;
+    this.existing.delete(key);
+    this.removed.push(key);
+  }
+
+  async exists(projectId: string, branch: string): Promise<boolean> {
+    return this.existing.has(`${projectId}/${branch}`);
   }
 }
 
@@ -486,6 +525,7 @@ const PORTS = [
   KnownProjectsForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,
+  ProjectInitiativeBranchesForTests,
   StageResultsForTests,
   KnownPeopleForTests,
   KnownEngineCascadeForTests,

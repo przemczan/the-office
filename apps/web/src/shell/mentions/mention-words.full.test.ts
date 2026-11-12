@@ -26,6 +26,9 @@ function anInitiative(id: string, state: Initiative["state"]): Initiative {
     archivedAt: null,
     planningThreadId: null,
     planningAutoMode: false,
+    pipelineId: null,
+    shortName: null,
+    branches: [],
   };
 }
 

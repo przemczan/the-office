@@ -6,6 +6,7 @@ import {
   attachmentListSchema,
   ideaSchema,
   initiativeListSchema,
+  initiativeSchema,
   queueSchema,
   readyTasksStartedSchema,
   workRefusalSchema,
@@ -23,6 +24,8 @@ import { TaskRepository } from "../../ports/task-repository.js";
 import {
   FireAlarmRepositoryForTests,
   KnownPeopleForTests,
+  KnownProjectsForTests,
+  ProjectInitiativeBranchesForTests,
   WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -55,7 +58,7 @@ afterEach(async () => {
   await work.app.close();
 });
 
-const { capture, shape, addTask, taskOf, reasonsFor, post } = initiativesHttp(() => work);
+const { capture, shape, read, addTask, taskOf, reasonsFor, post } = initiativesHttp(() => work);
 
 describe("POST /api/ideas/:id/initiative", () => {
   it("makes an Initiative being shaped from the Idea, moving its Attachments", async () => {
@@ -411,3 +414,187 @@ function libraryWithout(library: PipelineLibrary, retired: ReadonlySet<string>):
     commandsNamedBy: async (id) => (retired.has(id) ? undefined : library.commandsNamedBy(id)),
   };
 }
+
+/** An Initiative being shaped under a title of its own: Short names are Office-wide. */
+async function shapedOwnInitiative(): Promise<Initiative> {
+  const title = `Branch sync ${randomUUID().slice(0, 8)}`;
+  const response = await sendJson(work, "POST", "/ideas", { title, notes: "", projectId: null });
+  return shape(ideaSchema.parse(await response.json()));
+}
+
+async function choose(initiative: Initiative, pipelineId: string | null): Promise<Response> {
+  return sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, { pipelineId });
+}
+
+async function initiativeFrom(response: Response): Promise<Initiative> {
+  expect(response.status).toBe(200);
+  return initiativeSchema.parse(await response.json());
+}
+
+async function reasonsOf(response: Response): Promise<readonly string[]> {
+  expect(response.status).toBe(422);
+  return workRefusalSchema.parse(await response.json()).reasons;
+}
+
+function branches(): ProjectInitiativeBranchesForTests {
+  return work.app.get(ProjectInitiativeBranchesForTests);
+}
+
+describe("the Initiative's Pipeline and branches", () => {
+  it("starts on None, and takes a Pipeline straight while shaping, with a Short name from the title", async () => {
+    const initiative = await shapedOwnInitiative();
+    expect(initiative).toMatchObject({ pipelineId: null, shortName: null, branches: [] });
+    work.published.length = 0;
+
+    const chosen = await initiativeFrom(await choose(initiative, "full"));
+
+    expect(chosen.pipelineId).toBe("full");
+    expect(chosen.shortName).toBe(initiative.name.toLowerCase().replaceAll(" ", "-"));
+    expect(webEventsOf(work)).toContainEqual({
+      type: "initiative.pipeline-chosen",
+      initiativeId: initiative.id,
+    });
+    expect((await initiativeFrom(await choose(initiative, null))).shortName).toBeNull();
+  });
+
+  it("refuses a Pipeline the library lacks, and one a spanned Project lacks a command for", async () => {
+    const initiative = await shapedOwnInitiative();
+    const projectId = aProjectId();
+    work.app.get(KnownProjectsForTests).commands.set(projectId, []);
+    await addTask(initiative, projectId);
+
+    expect((await reasonsOf(await choose(initiative, "no-such")))[0]).toMatch(
+      /^There is no Pipeline "no-such"\. The library has /,
+    );
+    expect(await reasonsOf(await choose(initiative, "full"))).toEqual([
+      `The Pipeline Full runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
+    ]);
+  });
+
+  it("writes the user's Short name, refusing one that is taken or not of the form", async () => {
+    const initiative = await shapedOwnInitiative();
+    const other = await shapedOwnInitiative();
+    const { shortName: taken } = await initiativeFrom(await choose(other, "full"));
+    await choose(initiative, "full");
+    const own = `own-${randomUUID().slice(0, 8)}`;
+
+    const written = await initiativeFrom(
+      await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, { shortName: own }),
+    );
+
+    expect(written.shortName).toBe(own);
+    expect(
+      await reasonsOf(
+        await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, {
+          shortName: taken,
+        }),
+      ),
+    ).toEqual([`Another Initiative has the Short name ${taken}; choose another.`]);
+    expect(
+      await reasonsOf(
+        await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, {
+          shortName: "Not Valid",
+        }),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("makes the branch in each Project its Tasks span at Confirm, and keeps them after a Drop", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [first, second] = [aProjectId(), aProjectId()];
+    await addTask(initiative, first);
+    await addTask(initiative, second);
+    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    const branch = `initiative/${shortName}`;
+
+    expect((await post(initiative, "confirm")).status).toBe(200);
+    const dropped = await initiativeFrom(await post(initiative, "drop"));
+
+    expect(branches().made).toEqual([`${first}/${branch}`, `${second}/${branch}`]);
+    expect(branches().removed).toEqual([]);
+    expect(dropped).toMatchObject({
+      state: "dropped",
+      shortName,
+      branches: [
+        { projectId: first, branch },
+        { projectId: second, branch },
+      ],
+    });
+  });
+
+  it("refuses Confirm naming the Project and why, removing the branch made, and stays shaping", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [first, second] = [aProjectId(), aProjectId()];
+    await addTask(initiative, first);
+    await addTask(initiative, second);
+    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    branches().refusing.set(
+      second,
+      `The branch initiative/${shortName} already exists in The ${second}.`,
+    );
+
+    expect(await reasonsOf(await post(initiative, "confirm"))).toEqual([
+      `The branch initiative/${shortName} already exists in The ${second}.`,
+    ]);
+    expect(branches().removed).toEqual([`${first}/initiative/${shortName}`]);
+    expect((await read(initiative)).state).toBe("shaping");
+  });
+
+  it("makes no branch and keeps no Short name at Confirm on None", async () => {
+    const initiative = await shapedOwnInitiative();
+    await addTask(initiative);
+
+    const confirmed = await initiativeFrom(await post(initiative, "confirm"));
+
+    expect(confirmed).toMatchObject({ pipelineId: null, shortName: null, branches: [] });
+    expect(branches().made).toEqual([]);
+  });
+
+  it("refuses changing the Pipeline or the Short name on the page once active", async () => {
+    const initiative = await shapedOwnInitiative();
+    await addTask(initiative);
+    await choose(initiative, "full");
+    await post(initiative, "confirm");
+
+    expect(await reasonsOf(await choose(initiative, "quick-fix"))).toHaveLength(1);
+    expect(
+      await reasonsOf(
+        await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, { shortName: "x" }),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("makes the branch in a Project an added Task brings once active, or refuses the Task with the reason", async () => {
+    const initiative = await shapedOwnInitiative();
+    await addTask(initiative);
+    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    await post(initiative, "confirm");
+    const [joining, refusing, lacking] = [aProjectId(), aProjectId(), aProjectId()];
+    branches().refusing.set(refusing, `The base branch of The ${refusing} couldn't be fetched.`);
+    work.app.get(KnownProjectsForTests).commands.set(lacking, []);
+    work.published.length = 0;
+
+    await addTask(initiative, joining);
+    const addInto = (projectId: string) =>
+      sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
+        title: "Export endpoint",
+        projectId,
+        priority: "normal",
+        blockedBy: [],
+      });
+
+    expect(branches().made).toContain(`${joining}/initiative/${shortName}`);
+    expect(webEventsOf(work)).toContainEqual({
+      type: "initiative.branch-made",
+      initiativeId: initiative.id,
+      projectId: joining,
+    });
+    expect((await read(initiative)).branches.map(({ projectId }) => projectId)).toContain(joining);
+    expect(await reasonsOf(await addInto(refusing))).toEqual([
+      `The base branch of The ${refusing} couldn't be fetched.`,
+    ]);
+    expect(await reasonsOf(await addInto(lacking))).toEqual([
+      `The Pipeline Full runs test, which The ${lacking} has no command for. Add it on the Project page, or choose another Pipeline.`,
+    ]);
+  });
+});

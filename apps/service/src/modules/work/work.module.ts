@@ -61,6 +61,7 @@ import { IdeaRecords } from "./application/idea-records.js";
 import { IdeaService } from "./application/idea-service.js";
 import { InitiativePlanning } from "./application/initiative-planning.js";
 import { InitiativeStart } from "./application/initiative-start.js";
+import { InitiativeBranching } from "./application/initiative-branching.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
 import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
@@ -98,6 +99,7 @@ import { AccountWindows } from "./ports/account-windows.js";
 import { DayUsage } from "./ports/day-usage.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { NewProjects } from "./ports/new-projects.js";
+import { ProjectInitiativeBranches } from "./ports/project-initiative-branches.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { StageResults } from "./ports/stage-results.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
@@ -126,6 +128,7 @@ export interface WorkModuleOptions {
   readonly knownProjects: Type<KnownProjects>;
   readonly newProjects: Type<NewProjects>;
   readonly projectWorktrees: Type<ProjectWorktrees>;
+  readonly projectInitiativeBranches: Type<ProjectInitiativeBranches>;
   readonly knownPeople: Type<KnownPeople>;
   readonly knownEngineCascade: Type<KnownEngineCascade>;
   readonly knownPipelines: Type<KnownPipelines>;
@@ -157,6 +160,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     knownProjects,
     newProjects,
     projectWorktrees,
+    projectInitiativeBranches,
     knownPeople,
     knownEngineCascade,
     knownPipelines,
@@ -212,6 +216,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: NewProjects, useExisting: newProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
+        { provide: ProjectInitiativeBranches, useExisting: projectInitiativeBranches },
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: KnownEngineCascade, useExisting: knownEngineCascade },
         { provide: KnownPipelines, useExisting: knownPipelines },
@@ -232,6 +237,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: TaskTokens, useExisting: taskTokens },
         IdeaService,
         InitiativeService,
+        InitiativeBranching,
         TaskService,
         TaskArchiving,
         InitiativeArchiving,
@@ -272,6 +278,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
       exports: [
         FireAlarmService,
         IdeaService,
+        InitiativeService,
         TaskService,
         TaskArchiving,
         InitiativeArchiving,

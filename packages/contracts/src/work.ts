@@ -43,6 +43,14 @@ export type IdeaShaping = z.infer<typeof ideaShapingSchema>;
 export const initiativeStateSchema = z.enum(["shaping", "active", "done", "dropped"]);
 export type InitiativeState = z.infer<typeof initiativeStateSchema>;
 
+/** The Initiative's branch in one Project it spans, made at Confirm or when it first spans it. */
+export const initiativeBranchSchema = z.object({
+  projectId: z.string(),
+  branch: z.string(),
+  madeAt: z.iso.datetime(),
+});
+export type InitiativeBranch = z.infer<typeof initiativeBranchSchema>;
+
 /** POST /ideas/:id/initiative makes one, being shaped; its Tasks name it. */
 export const initiativeSchema = z.object({
   id: z.uuid(),
@@ -69,8 +77,30 @@ export const initiativeSchema = z.object({
   planningThreadId: z.uuid().nullable(),
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   planningAutoMode: z.boolean(),
+  /** The Initiative's Pipeline, a library Pipeline's id (spec 2.1); null for None. */
+  pipelineId: z.string().nullable(),
+  /** The Short name its branches are named by (spec 5.5); null while it has no Pipeline. */
+  shortName: z.string().nullable(),
+  /** The Initiative's branch in each Project, as The Office made it; kept after a Drop. */
+  branches: z.array(initiativeBranchSchema),
 });
 export type Initiative = z.infer<typeof initiativeSchema>;
+
+/** PUT /initiatives/:id/pipeline: the Initiative's Pipeline, chosen while shaping; null for None. */
+export const initiativePipelineChoiceSchema = z.object({ pipelineId: z.string().nullable() });
+export type InitiativePipelineChoice = z.infer<typeof initiativePipelineChoiceSchema>;
+
+/** PUT /initiatives/:id/short-name: the user's Short name, edited while shaping. */
+export const shortNameChangeSchema = z.object({ shortName: z.string() });
+export type ShortNameChange = z.infer<typeof shortNameChangeSchema>;
+
+/** The longest a Short name may be (spec 5.5). */
+export const SHORT_NAME_MAX_LENGTH = 40;
+
+/** The Initiative's branch named by its Short name (spec 5.5). */
+export function initiativeBranchOf(shortName: string): string {
+  return `initiative/${shortName}`;
+}
 
 /**
  * POST /initiatives/:id/planning, Plan the Initiative: whether its Tasks are planned in auto mode,
@@ -332,6 +362,13 @@ export type DefinitionOfDoneChange = z.infer<typeof definitionOfDoneChangeSchema
  */
 export const pipelineChangeSchema = z.object({ pipelineId: z.string() });
 export type PipelineChange = z.infer<typeof pipelineChangeSchema>;
+
+/**
+ * The query of GET /tasks/:id/move: the Project it would move to, which adds why its Initiative's
+ * Pipeline can't run there; every Project when left out.
+ */
+export const taskMoveCheckQuerySchema = z.object({ projectId: z.string().min(1).optional() });
+export type TaskMoveCheckQuery = z.infer<typeof taskMoveCheckQuerySchema>;
 
 /** POST /tasks/:id/move: the Project the Task moves to. */
 export const taskMoveSchema = z.object({ projectId: z.string().min(1) });
@@ -768,6 +805,16 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     to: initiativeStateSchema,
   }),
   webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.pipeline-chosen"), initiativeId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("initiative.short-name-written"),
+    initiativeId: z.uuid(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("initiative.branch-made"),
+    initiativeId: z.uuid(),
+    projectId: z.string(),
+  }),
   webEventSchema.extend({ type: z.literal("initiative.archived"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.restored"), initiativeId: z.uuid() }),
   webEventSchema.extend({

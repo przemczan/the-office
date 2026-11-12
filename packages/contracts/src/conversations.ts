@@ -396,6 +396,11 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
       /** One of its Tasks (`taskId`) under a new title, or with a new Description, whole. */
       z.object({ kind: z.literal("task-title"), taskId: z.uuid(), title: z.string() }),
       z.object({ kind: z.literal("task-description"), taskId: z.uuid(), description: z.string() }),
+      /**
+       * Another library Pipeline as the Initiative's Pipeline; null is None, which applying
+       * refuses, as whether it has one was fixed at Confirm.
+       */
+      z.object({ kind: z.literal("pipeline"), pipelineId: z.string().nullable() }),
     ]),
   }),
   /**

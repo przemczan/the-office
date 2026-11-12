@@ -6,7 +6,10 @@ import {
   autoModeSettingSchema,
   fireAlarmSchema,
   queueSchema,
+  ideaSchema,
+  initiativeSchema,
   startAnswerSchema,
+  taskMoveCheckSchema,
   taskSchema,
   workRefusalSchema,
   type PlanChange,
@@ -25,6 +28,8 @@ import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import {
   FireAlarmRepositoryForTests,
+  KnownProjectsForTests,
+  ProjectInitiativeBranchesForTests,
   ProjectWorktreesForTests,
   TaskDecisionsForTests,
   TaskThreadsForTests,
@@ -39,6 +44,7 @@ import {
   webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
+import { initiativesHttp } from "../../initiatives.controller.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
 import {
   blockedBy,
@@ -77,6 +83,7 @@ const {
   dailyCaps,
   usedToday,
 } = tasksHttp(() => ({ work, projectId }));
+const { shape, addTask } = initiativesHttp(() => work);
 
 beforeAll(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-tasks-http-"));
@@ -449,6 +456,39 @@ describe("POST /api/tasks/:id/move", () => {
         fromProjectId: projectId,
         toProjectId: otherProject(),
       },
+    ]);
+  });
+
+  it("makes the Initiative's branch in a Project its Initiative with a Pipeline doesn't span yet", async () => {
+    const title = `Move sync ${randomUUID().slice(0, 8)}`;
+    const idea = ideaSchema.parse(
+      await (await sendJson(work, "POST", "/ideas", { title, notes: "", projectId: null })).json(),
+    );
+    const initiative = await shape(idea);
+    const task = await addTask(initiative, projectId);
+    const { shortName } = initiativeSchema.parse(
+      await (
+        await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
+          pipelineId: "full",
+        })
+      ).json(),
+    );
+    await sendJson(work, "POST", `/initiatives/${initiative.id}/confirm`);
+    const lacking = `project-${randomUUID()}`;
+    work.app.get(KnownProjectsForTests).commands.set(lacking, []);
+    const lackingWords = `The Pipeline Full runs test, which The ${lacking} has no command for. Add it on the Project page, or choose another Pipeline.`;
+
+    const check = await sendJson(work, "GET", `/tasks/${task.id}/move?projectId=${lacking}`);
+    const refused = await move(task.id, lacking);
+    const moved = await move(task.id, otherProject());
+
+    expect(taskMoveCheckSchema.parse(await check.json()).problems).toEqual([lackingWords]);
+    expect(refused.status).toBe(422);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([lackingWords]);
+    expect(moved.status).toBe(200);
+    expect(work.app.get(ProjectInitiativeBranchesForTests).made).toEqual([
+      `${projectId}/initiative/${shortName}`,
+      `${otherProject()}/initiative/${shortName}`,
     ]);
   });
 });

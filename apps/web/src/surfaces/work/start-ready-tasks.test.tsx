@@ -35,6 +35,9 @@ const INITIATIVE: Initiative = {
   archivedAt: null,
   planningThreadId: null,
   planningAutoMode: false,
+  pipelineId: null,
+  shortName: null,
+  branches: [],
 };
 
 const EXPORT_API = "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e";

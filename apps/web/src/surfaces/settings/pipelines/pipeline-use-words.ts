@@ -2,9 +2,14 @@ import type { PipelineUse } from "@the-office/contracts";
 
 /**
  * Who uses a library Pipeline, as the click-through words it: "Default for Admin panel · 2 not
- * started Tasks use it · 1 running Task keeps the copy it started with".
+ * started Tasks use it · 1 running Task keeps the copy it started with · 1 Initiative names it".
  */
-export function pipelineUseLine({ defaultFor, notStarted, running }: PipelineUse): string {
+export function pipelineUseLine({
+  defaultFor,
+  notStarted,
+  running,
+  initiatives,
+}: PipelineUse): string {
   const defaults =
     defaultFor.length === 0 ? "no Project" : defaultFor.map(({ name }) => name).join(", ");
   const upcoming = `${notStarted} not started ${notStarted === 1 ? "Task uses" : "Tasks use"} it`;
@@ -12,5 +17,6 @@ export function pipelineUseLine({ defaultFor, notStarted, running }: PipelineUse
     running === 1
       ? "1 running Task keeps the copy it started with"
       : `${running} running Tasks keep the copy they started with`;
-  return `Default for ${defaults} · ${upcoming} · ${keeping}`;
+  const naming = `${initiatives} ${initiatives === 1 ? "Initiative names" : "Initiatives name"} it`;
+  return `Default for ${defaults} · ${upcoming} · ${keeping} · ${naming}`;
 }

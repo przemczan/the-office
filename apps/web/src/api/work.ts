@@ -30,6 +30,7 @@ import {
   type AttachmentOwner,
   type Idea,
   type Initiative,
+  type InitiativePipelineChoice,
   type NewIdea,
   type NewInitiativeTask,
   type NewLink,
@@ -45,6 +46,7 @@ import {
   type Readiness,
   type ReadyTasksStarted,
   type SavedView,
+  type ShortNameChange,
   type QueuedTask,
   type StartAnswer,
   type StartCheck,
@@ -389,6 +391,21 @@ export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promi
   return sendToApi("PUT", `${initiativePath(id)}/outcome`, change, initiativeSchema);
 }
 
+/** The Initiative's Pipeline, a library Pipeline or None (null), chosen while it is being shaped. */
+export function chooseInitiativePipeline(
+  id: string,
+  pipelineId: InitiativePipelineChoice["pipelineId"],
+): Promise<Initiative> {
+  const choice: InitiativePipelineChoice = { pipelineId };
+  return sendToApi("PUT", `${initiativePath(id)}/pipeline`, choice, initiativeSchema);
+}
+
+/** The Short name its branches are named by, edited while it is being shaped with a Pipeline. */
+export function writeShortName(id: string, shortName: string): Promise<Initiative> {
+  const change: ShortNameChange = { shortName };
+  return sendToApi("PUT", `${initiativePath(id)}/short-name`, change, initiativeSchema);
+}
+
 /** "Add a Task": in Shaping or Backlog in its Project, as the Initiative stands, waiting for the Tasks it names. */
 export function addTaskToInitiative(id: string, newTask: NewInitiativeTask): Promise<Task> {
   return sendToApi("POST", `${initiativePath(id)}/tasks`, newTask, taskSchema);
@@ -631,6 +648,9 @@ export const workEventInvalidations: Readonly<
   "initiative.created": () => [INITIATIVES],
   "initiative.state-changed": () => [INITIATIVES],
   "initiative.outcome-written": () => [INITIATIVES],
+  "initiative.pipeline-chosen": () => [INITIATIVES],
+  "initiative.short-name-written": () => [INITIATIVES],
+  "initiative.branch-made": () => [INITIATIVES],
   "initiative.archived": () => [INITIATIVES],
   "initiative.restored": () => [INITIATIVES],
   "initiative.planning-started": () => [INITIATIVES],

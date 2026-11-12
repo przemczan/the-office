@@ -46,27 +46,50 @@ export const ideas = pgTable("ideas", {
   droppedAt: timestamp("dropped_at", { withTimezone: true }),
 });
 
+/** The Initiative's branch in one Project as jsonb keeps it: its time as an ISO string. */
+export interface InitiativeBranchRow {
+  readonly projectId: string;
+  readonly madeAt: string;
+}
+
 /** Its Tasks name it; the Projects it spans are theirs. */
-export const initiatives = pgTable("initiatives", {
-  id: uuid("id").primaryKey(),
-  name: text("name").notNull(),
-  outcome: text("outcome").notNull(),
-  state: text("state").$type<InitiativeState>().notNull(),
-  originIdeaId: uuid("origin_idea_id")
-    .notNull()
-    .references((): AnyPgColumn => ideas.id),
-  createdBy: jsonb("created_by").$type<Author>().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  /** Null while it is shaping or active, and for one that ended before this was kept. */
-  endedAt: timestamp("ended_at", { withTimezone: true }),
-  /** Null while it isn't archived. */
-  archivedAt: timestamp("archived_at", { withTimezone: true }),
-  /** Null until it is first restored from the Archive. */
-  restoredAt: timestamp("restored_at", { withTimezone: true }),
-  /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
-  planningThreadId: uuid("planning_thread_id"),
-  planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
-});
+export const initiatives = pgTable(
+  "initiatives",
+  {
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    outcome: text("outcome").notNull(),
+    state: text("state").$type<InitiativeState>().notNull(),
+    originIdeaId: uuid("origin_idea_id")
+      .notNull()
+      .references((): AnyPgColumn => ideas.id),
+    createdBy: jsonb("created_by").$type<Author>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    /** Null while it is shaping or active, and for one that ended before this was kept. */
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** Null while it isn't archived. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** Null until it is first restored from the Archive. */
+    restoredAt: timestamp("restored_at", { withTimezone: true }),
+    /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
+    planningThreadId: uuid("planning_thread_id"),
+    planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
+    /** The Initiative's Pipeline; null for None, which every Initiative from before it has. */
+    pipelineId: text("pipeline_id"),
+    /** Null while it has no Pipeline; unique among those that have one, whatever their state. */
+    shortName: text("short_name"),
+    /** The Projects its branch was made in, oldest first; kept after a Drop, as the branches are. */
+    branches: jsonb("branches")
+      .$type<InitiativeBranchRow[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+  },
+  (table) => [
+    uniqueIndex("initiatives_short_name_unique")
+      .on(table.shortName)
+      .where(sql`${table.shortName} is not null`),
+  ],
+);
 
 export const tasks = pgTable(
   "tasks",

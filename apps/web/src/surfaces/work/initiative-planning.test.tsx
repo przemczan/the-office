@@ -32,6 +32,9 @@ const INITIATIVE: Initiative = {
   archivedAt: null,
   planningThreadId: null,
   planningAutoMode: false,
+  pipelineId: null,
+  shortName: null,
+  branches: [],
 };
 
 const PLANNING_THREAD = "8a7b6c5d-4e3f-4a1b-9c0d-1e2f3a4b5c6d";

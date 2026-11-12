@@ -37,6 +37,24 @@ export interface Initiative {
   readonly planningThreadId?: string;
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   readonly planningAutoMode: boolean;
+  /**
+   * The Initiative's Pipeline, a library Pipeline's id (spec 2.1); undefined for None, which every
+   * Initiative starts on and those confirmed before it existed keep.
+   */
+  readonly pipelineId?: string;
+  /** What its branches are named by (short-name.ts); undefined while it has no Pipeline. */
+  readonly shortName?: string;
+  /**
+   * The Projects The Office made the Initiative's branch in, at Confirm or as it came to span
+   * them; kept after a Drop, as the branches are (spec 5.5).
+   */
+  readonly branches: readonly InitiativeBranch[];
+}
+
+/** The Initiative's branch in one Project, `initiative/<short name>` (initiativeBranchOf). */
+export interface InitiativeBranch {
+  readonly projectId: string;
+  readonly madeAt: Date;
 }
 
 /** The Projects an Initiative spans: its Tasks', each once, in the order its Tasks come. */

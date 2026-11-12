@@ -77,11 +77,17 @@ describe("a shaping Thread's session", () => {
     expect(setup).toEqual({
       instructions: SHAPING_INSTRUCTIONS,
       officeTools: SHAPING_OFFICE_TOOLS,
-      record: [
+      record: expect.any(String),
+      sessionRefusal: undefined,
+    });
+    expect(setup.record).toMatch(/^Usage exports/);
+    expect(setup.record).toContain(
+      [
         `Usage exports (Initiative ${initiative.id})`,
         `- shaping; spans the Project ${api}, the Project ${web}`,
         `- Shaped from: Usage exports (Idea ${idea.id}), Office-wide, shaped; read_idea reads it`,
         `- Created by the user on ${initiative.createdAt}`,
+        "- Initiative's Pipeline: None, so each Task publishes on its own",
         "",
         "Outcome:",
         "Not written yet.",
@@ -92,9 +98,14 @@ describe("a shaping Thread's session", () => {
         "",
         "Attachments:",
         "None.",
+        "",
+        "## The Pipelines",
+        "",
+        "The Initiative's Pipeline is None, so each of its Tasks publishes on its own. Choose one with choose_pipeline, or None with null, when the user wants the whole change published together; whether it has one is fixed at Confirm.",
+        "",
+        "- full: Full (Implement → Tests → Review & fix → Publish).",
       ].join("\n"),
-      sessionRefusal: undefined,
-    });
+    );
   });
 
   it("is refused once the Initiative is dropped", async () => {

@@ -15,7 +15,7 @@ import {
   type InitiativePlanningProject,
 } from "../../domain/initiative-planning.js";
 import { PLANNER } from "../../domain/planning.js";
-import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
+import { SHAPING_INSTRUCTIONS, shapingBrief } from "../../domain/shaping.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
 import { TaskDecisions } from "../../ports/task-decisions.js";
@@ -30,6 +30,7 @@ import {
 import {
   ADD_DEPENDENCY,
   ADD_TASK,
+  CHOOSE_PIPELINE,
   REMOVE_DEPENDENCY,
   WRITE_OUTCOME,
   WRITE_TASK_DESCRIPTION,
@@ -49,6 +50,7 @@ export const SHAPING_OFFICE_TOOLS = [
   REMOVE_DEPENDENCY,
   WRITE_TASK_TITLE,
   WRITE_TASK_DESCRIPTION,
+  CHOOSE_PIPELINE,
 ] as const;
 
 /**
@@ -100,7 +102,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       return {
         instructions: SHAPING_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,
-        record,
+        record: shapingBrief(initiative, record, await this.pipelines.list()),
         sessionRefusal,
       };
     }

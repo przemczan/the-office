@@ -31,6 +31,7 @@ export function anInitiative(fields: Partial<Initiative> = {}): Initiative {
     createdBy: THE_USER,
     createdAt: new Date("2026-10-25T09:10:00.000Z"),
     planningAutoMode: false,
+    branches: [],
     ...fields,
   };
 }

@@ -28,11 +28,21 @@ export interface ProjectOnPipeline {
   readonly commands: readonly { readonly key: string }[];
 }
 
+/** An Initiative as the library weighs who uses a Pipeline: one that names it as its own. */
+export interface InitiativeOnPipeline {
+  readonly name: string;
+  readonly state: string;
+  readonly pipelineId: string;
+  readonly projectIds: readonly string[];
+}
+
 /** Who uses a library Pipeline: what removing it would leave without one, and what saving changes. */
 export interface PipelineUse {
   readonly defaultFor: readonly { readonly projectId: string; readonly name: string }[];
   readonly notStarted: number;
   readonly running: number;
+  /** The names of the shaping and active Initiatives that name it. */
+  readonly initiatives: readonly string[];
 }
 
 /** States of a Task that hasn't started: it reads its library Pipeline when it does. */
@@ -40,6 +50,9 @@ const NOT_STARTED_STATES: readonly string[] = ["shaping", "backlog", "planning",
 
 /** States of a started Task still at work, on the copy of the Stages it started with. */
 const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
+
+/** States of an Initiative whose Pipeline hasn't started: its Tasks start on the library's Stages. */
+const OPEN_INITIATIVE_STATES: readonly string[] = ["shaping", "active"];
 
 /**
  * Every reason the edited Pipeline can't be saved: the name is its own and the Stages can run. Who
@@ -127,11 +140,12 @@ export function copiedPipeline(
   };
 }
 
-/** Who uses the Pipeline among these Projects and Tasks. */
+/** Who uses the Pipeline among these Projects, Tasks and Initiatives. */
 export function pipelineUse(
   pipelineId: string,
   projects: readonly ProjectOnPipeline[],
   tasks: readonly TaskOnPipeline[],
+  initiatives: readonly InitiativeOnPipeline[],
 ): PipelineUse {
   const onPipeline = tasks.filter((task) => task.pipelineId === pipelineId);
   return {
@@ -140,23 +154,37 @@ export function pipelineUse(
       .map(({ id, name }) => ({ projectId: id, name })),
     notStarted: onPipeline.filter(({ state }) => NOT_STARTED_STATES.includes(state)).length,
     running: onPipeline.filter(({ state }) => RUNNING_STATES.includes(state)).length,
+    initiatives: openInitiativesOn(pipelineId, initiatives).map(({ name }) => name),
   };
+}
+
+/** The shaping and active Initiatives that name the Pipeline; done and dropped ones need it no more. */
+function openInitiativesOn(
+  pipelineId: string,
+  initiatives: readonly InitiativeOnPipeline[],
+): readonly InitiativeOnPipeline[] {
+  return initiatives.filter(
+    (initiative) =>
+      initiative.pipelineId === pipelineId && OPEN_INITIATIVE_STATES.includes(initiative.state),
+  );
 }
 
 /**
  * The commands the Pipeline's `stages` name that a Project running it lacks: one that has it as its
- * default, or has a Task that hasn't started on it, which starts on these Stages (spec §2.3). One
- * problem per Stage and Project. Keys alone count: a command left blank passes, and fails as
- * could-not-run when it runs.
+ * default, has a Task that hasn't started on it, which starts on these Stages, or is spanned by a
+ * shaping or active Initiative that names it, whose Tasks do (spec §2.3). One problem per Stage and
+ * Project. Keys alone count: a command left blank passes, and fails as could-not-run when it runs.
  */
 export function missingCommandProblems(
   pipelineId: string,
   stages: readonly Stage[],
   projects: readonly ProjectOnPipeline[],
   tasks: readonly TaskOnPipeline[],
+  initiatives: readonly InitiativeOnPipeline[],
 ): StageProblem[] {
+  const open = openInitiativesOn(pipelineId, initiatives);
   return projects.flatMap((project) => {
-    const why = whyProjectRuns(pipelineId, project, tasks);
+    const why = whyProjectRuns(pipelineId, project, tasks, open);
     return why
       ? missingCommandsOnStages(
           stages,
@@ -168,12 +196,26 @@ export function missingCommandProblems(
   });
 }
 
+/** Why the Project runs the Pipeline, in the problem's words; `initiatives` are the open ones on it. */
 function whyProjectRuns(
   pipelineId: string,
   project: ProjectOnPipeline,
   tasks: readonly TaskOnPipeline[],
+  initiatives: readonly InitiativeOnPipeline[],
 ): string | undefined {
   if (project.defaultPipeline === pipelineId) return "it is its default Pipeline";
+  const reasons = [
+    notStartedTasksReason(pipelineId, project, tasks),
+    initiativesReason(project, initiatives),
+  ].filter((reason) => reason !== undefined);
+  return reasons.length > 0 ? reasons.join("; ") : undefined;
+}
+
+function notStartedTasksReason(
+  pipelineId: string,
+  project: ProjectOnPipeline,
+  tasks: readonly TaskOnPipeline[],
+): string | undefined {
   const notStarted = tasks.filter(
     (task) =>
       task.projectId === project.id &&
@@ -186,9 +228,23 @@ function whyProjectRuns(
     : `${notStarted} of its Tasks that haven't started use it`;
 }
 
+function initiativesReason(
+  project: ProjectOnPipeline,
+  initiatives: readonly InitiativeOnPipeline[],
+): string | undefined {
+  const names = initiatives
+    .filter(({ projectIds }) => projectIds.includes(project.id))
+    .map(({ name }) => name);
+  if (names.length === 0) return undefined;
+  return names.length === 1
+    ? `the Initiative ${names[0]}, which spans it, names it`
+    : `the Initiatives ${names.join(", ")}, which span it, name it`;
+}
+
 /**
  * Why the Pipeline can't be removed, in the UI's words; empty when it can. A Task that hasn't
- * started counts even when its Stages were edited for it: Start still needs its Pipeline.
+ * started counts even when its Stages were edited for it: Start still needs its Pipeline. So does
+ * each shaping or active Initiative that names it, whose Tasks start on it.
  */
 export function removalProblems(pipelineId: string, use: PipelineUse): string[] {
   const problems: string[] = [];
@@ -210,6 +266,9 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
     problems.push(
       `${use.notStarted} Tasks that haven't started use it; swap their Pipeline first.`,
     );
+  }
+  for (const name of use.initiatives) {
+    problems.push(`The Initiative ${name} names it; choose another Pipeline for it first.`);
   }
   return problems;
 }

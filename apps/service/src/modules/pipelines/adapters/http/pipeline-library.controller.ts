@@ -76,7 +76,7 @@ export class PipelineLibraryController {
 
   @Get(":id/use")
   async use(@Param("id") id: string): Promise<PipelineUse> {
-    const { defaultFor, notStarted, running } = await this.editor.use(id);
-    return { defaultFor: [...defaultFor], notStarted, running };
+    const { defaultFor, notStarted, running, initiatives } = await this.editor.use(id);
+    return { defaultFor: [...defaultFor], notStarted, running, initiatives: initiatives.length };
   }
 }

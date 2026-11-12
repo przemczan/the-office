@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import zlib from "node:zlib";
 import { expect, test, type Locator, type Page } from "@playwright/test";
@@ -45,10 +46,15 @@ test.afterAll(async () => {
 });
 
 /** Adds a Project through the API; every test has its own, as the board holds them all. */
-async function addedProject(page: Page, name: string, label: string): Promise<Project> {
+async function addedProject(
+  page: Page,
+  name: string,
+  label: string,
+  repositoryPath = repository.path,
+): Promise<Project> {
   const newProject: NewProject = {
     name,
-    path: repository.path,
+    path: repositoryPath,
     baseBranch: "main",
     mark: { label, colour: "teal" },
     installCommand: "npm ci",
@@ -2747,5 +2753,55 @@ test(
 
     await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByRole("region", { name: "Record" })).toBeVisible();
+  },
+);
+
+/** What `git rev-parse` names in the repository. */
+function revisionIn(repositoryPath: string, revision: string): string {
+  return execFileSync("git", ["rev-parse", revision], {
+    cwd: repositoryPath,
+    encoding: "utf8",
+  }).trim();
+}
+
+test(
+  "a shaping Initiative takes a Pipeline and a Short name, and Confirm makes its branch at the base",
+  { tag: "@full" },
+  async ({ page }) => {
+    // A repository of its own, as the branch is made in it and Short names are Office-wide.
+    const own = await createTemporaryRepository();
+    try {
+      const word = aWordOfItsOwn();
+      const project = await addedProject(page, `Branched ${word}`, "BR", own.path);
+      const initiativeId = await seedInitiative(page, `Branched release ${word}`, {
+        state: "shaping",
+        createdAt: new Date().toISOString(),
+      });
+      const title = `Branched step ${word}`;
+      await seedTaskOf(page, project, title, initiativeId);
+      await queryOfficeDatabase(`update tasks set state = 'shaping' where title = $1`, [title]);
+      const base = revisionIn(own.path, "main");
+
+      await page.goto(`/work/initiatives/${initiativeId}`);
+      const block = page.getByRole("region", { name: "Pipeline", exact: true });
+      const choice = block.getByLabel("Initiative's Pipeline");
+      await expect(choice).toHaveValue("");
+      await choice.selectOption({ value: "full" });
+      await expect(choice).toHaveValue("full");
+
+      const shortName = `branched-${word}`;
+      await block.getByRole("button", { name: "Edit", exact: true }).click();
+      await block.getByLabel("Short name").fill(shortName);
+      await block.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(block.getByText(`initiative/${shortName}`, { exact: true })).toBeVisible();
+
+      await page.getByRole("button", { name: "Confirm the Initiative" }).click();
+      const branches = block.getByRole("list", { name: "Initiative's branches" });
+      await expect(branches.getByText(`initiative/${shortName}`, { exact: true })).toBeVisible();
+      await expect(block.getByRole("combobox")).toHaveCount(0);
+      expect(revisionIn(own.path, `initiative/${shortName}`)).toBe(base);
+    } finally {
+      await own.remove();
+    }
   },
 );

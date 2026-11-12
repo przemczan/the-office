@@ -13,18 +13,22 @@ import {
 } from "@nestjs/common";
 import {
   archivedInitiativesQuerySchema,
+  initiativePipelineChoiceSchema,
   initiativePlanningSchema,
   newInitiativeTaskSchema,
   outcomeChangeSchema,
   searchQuerySchema,
+  shortNameChangeSchema,
   type ArchivedInitiativesPage,
   type ArchivedInitiativesQuery,
   type Initiative as InitiativeResponse,
+  type InitiativePipelineChoice,
   type InitiativePlanningRequest,
   type NewInitiativeTask,
   type OutcomeChange,
   type ReadyTasksStarted,
   type SearchQuery,
+  type ShortNameChange,
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -101,7 +105,29 @@ export class InitiativesController {
     return this.respond(await this.initiatives.writeOutcome(id, outcome, "straight"));
   }
 
-  /** Its Tasks stay as they are. */
+  /**
+   * The user's choice of the Initiative's Pipeline, null for None; refused once the Initiative is
+   * no longer being shaped, where only the CTO's Proposal changes it.
+   */
+  @Put(":id/pipeline")
+  async choosePipeline(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(initiativePipelineChoiceSchema))
+    { pipelineId }: InitiativePipelineChoice,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.choosePipeline(id, pipelineId, "straight"));
+  }
+
+  /** The user's own Short name; refused once the Initiative is no longer being shaped. */
+  @Put(":id/short-name")
+  async writeShortName(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(shortNameChangeSchema)) { shortName }: ShortNameChange,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.writeShortName(id, shortName));
+  }
+
+  /** Its Tasks stay as they are, and so do its branches. */
   @Post(":id/drop")
   @HttpCode(HttpStatus.OK)
   async drop(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {

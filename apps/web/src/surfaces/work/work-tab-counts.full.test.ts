@@ -56,6 +56,9 @@ function anInitiative(id: string, fields: Partial<Initiative> = {}): Initiative 
     archivedAt: null,
     planningThreadId: null,
     planningAutoMode: false,
+    pipelineId: null,
+    shortName: null,
+    branches: [],
     ...fields,
   };
 }

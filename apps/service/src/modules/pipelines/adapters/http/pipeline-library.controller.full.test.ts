@@ -318,6 +318,7 @@ describe("GET /api/pipelines/:id/use", () => {
       defaultFor: [{ projectId, name: "App" }],
       notStarted: 2,
       running: 1,
+      initiatives: 0,
     });
   });
 });

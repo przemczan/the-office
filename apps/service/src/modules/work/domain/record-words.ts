@@ -1,3 +1,4 @@
+import { initiativeBranchOf } from "./short-name.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
 import { authorWords } from "./author.js";
 import type { Idea } from "./idea.js";
@@ -126,6 +127,8 @@ export interface InitiativeRecord {
   /** Every Task by its id, where the Tasks its Tasks wait for are looked up. */
   readonly blockers: ReadonlyMap<string, Task>;
   readonly attachments: readonly Attachment[];
+  /** The name of the Initiative's Pipeline, when it has one the library still has. */
+  readonly pipelineName?: string;
 }
 
 /**
@@ -139,6 +142,7 @@ export function initiativeRecordText({
   tasks,
   blockers,
   attachments,
+  pipelineName,
 }: InitiativeRecord): string {
   return [
     `${initiative.name} (Initiative ${initiative.id})`,
@@ -153,6 +157,7 @@ export function initiativeRecordText({
     ...(initiative.archivedAt
       ? [`- Archived on ${initiative.archivedAt.toISOString()}: off the board, its state as it was`]
       : []),
+    ...initiativePipelineLines(initiative, pipelineName),
     "",
     "Outcome:",
     outcomeWords(initiative),
@@ -165,6 +170,32 @@ export function initiativeRecordText({
     "Attachments:",
     ...attachmentLines(attachments),
   ].join("\n");
+}
+
+/**
+ * The Initiative's Pipeline, its Short name and its branch in each Project (spec 2.1, 5.5); None
+ * publishes Task by Task.
+ */
+export function initiativePipelineLines(
+  initiative: Initiative,
+  pipelineName: string | undefined,
+): string[] {
+  const { pipelineId, shortName } = initiative;
+  if (pipelineId === undefined)
+    return ["- Initiative's Pipeline: None, so each Task publishes on its own"];
+  const pipeline = pipelineName === undefined ? pipelineId : `${pipelineName} (${pipelineId})`;
+  const branchLines =
+    shortName === undefined
+      ? []
+      : initiative.branches.map(
+          ({ projectId, madeAt }) =>
+            `- Initiative's branch ${initiativeBranchOf(shortName)} in the Project ${projectId}, made on ${madeAt.toISOString()}`,
+        );
+  return [
+    `- Initiative's Pipeline: ${pipeline}`,
+    ...(shortName === undefined ? [] : [`- Short name: ${shortName}`]),
+    ...branchLines,
+  ];
 }
 
 function projectsWords(projectIds: readonly string[]): string {
