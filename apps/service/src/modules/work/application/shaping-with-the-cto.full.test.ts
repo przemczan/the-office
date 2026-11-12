@@ -126,6 +126,18 @@ class NoProjectBases {
   async refresh(): Promise<readonly never[]> {
     return [];
   }
+
+  initiativeFolder(shortName: string): string {
+    return join(tmpdir(), "initiative-bases", shortName);
+  }
+
+  async listOnInitiative(): Promise<readonly never[]> {
+    return [];
+  }
+
+  async refreshOnInitiative(): Promise<readonly never[]> {
+    return [];
+  }
 }
 
 /** No Project has Secret variables: what a session writes is kept as it is. */

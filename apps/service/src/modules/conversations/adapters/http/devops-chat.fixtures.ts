@@ -19,7 +19,6 @@ import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
-import type { ProjectBases } from "../../ports/project-bases.js";
 
 type Step = SessionScript[number];
 
@@ -45,15 +44,6 @@ export const NINA_ROLE_CARDS: Partial<RoleCards> = {
   consultants: () => Promise.resolve([]),
   findLetGo: () => Promise.resolve(undefined),
 };
-
-/** Project bases with no Project in them, so a chat session runs no git. */
-export function noProjectBases(basesFolder: string): ProjectBases {
-  return {
-    folder: basesFolder,
-    list: () => Promise.resolve([]),
-    refresh: () => Promise.resolve([]),
-  };
-}
 
 /** A skill name of the test's own, since every test file shares the database. */
 export function aSkillName(): string {

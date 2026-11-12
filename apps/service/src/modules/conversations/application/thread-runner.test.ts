@@ -52,7 +52,8 @@ import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
-import { ProjectBases } from "../ports/project-bases.js";
+import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
+import { projectBasesOver } from "../ports/project-bases.fixtures.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { Consultations } from "./consultations.js";
@@ -135,6 +136,10 @@ const initiativeTasks = new Map<
 >();
 /** The Office tools of the Initiatives' Threads here: a test planning one adds open_decision. */
 let initiativeOfficeTools: readonly string[];
+/** The Initiatives here with a Pipeline, confirmed, by id: their Threads read their branch. */
+const initiativeBranchReads = new Map<string, InitiativeBranchReads>();
+/** What each refresh of the Initiatives' checkouts was asked for, in order. */
+let refreshedOnInitiative: InitiativeBranchReads[];
 /** The people's and Projects' short records, as People and Projects word them, by key and id. */
 const personRecords = new Map<string, string>();
 const projectRecords = new Map<string, string>();
@@ -184,6 +189,8 @@ beforeEach(async () => {
   mcpServersOnResume = NO_MCP_SERVERS;
   initiativeOfficeTools = ["read_task"];
   initiativeTasks.clear();
+  initiativeBranchReads.clear();
+  refreshedOnInitiative = [];
 });
 
 afterEach(async () => {
@@ -234,9 +241,11 @@ async function startOn(
     forResumedSession: (_key, version) => Promise.resolve(sessionRole(version)),
   };
   const bases: ProjectBases = {
-    folder: join(officeData, "bases"),
-    list: () => Promise.resolve(PROJECTS),
-    refresh: () => Promise.resolve(PROJECTS),
+    ...projectBasesOver(join(officeData, "bases"), PROJECTS),
+    refreshOnInitiative: (reads) => {
+      refreshedOnInitiative.push(reads);
+      return Promise.resolve(PROJECTS);
+    },
   };
   ({ app } = await startTestApplication({
     database: true,
@@ -327,6 +336,7 @@ async function startOn(
         record: `You are shaping the Initiative ${initiativeId}.`,
         asking: false,
         sessionRefusal: undefined,
+        branchReads: initiativeBranchReads.get(initiativeId),
       }),
   });
   // As the Work module gives its records.
@@ -1317,8 +1327,10 @@ describe("a Thread on an Initiative", () => {
     );
     expect(session?.options).toMatchObject({
       folder: join(officeData, "bases"),
+      readableFolders: [],
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
     });
+    expect(refreshedOnInitiative).toEqual([]);
     const tools = session?.options.officeTools.map(({ name }) => name);
     expect(tools).toContain("read_task");
     expect(tools).not.toContain(CHANGE_ROLE_TOOL);
@@ -1333,6 +1345,98 @@ describe("a Thread on an Initiative", () => {
     ]);
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
     await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBe(initiativeId);
+  });
+
+  it("reads the Initiative's branch once it has one, from the base checkouts' folder, and resumes so", async () => {
+    const initiativeId = randomUUID();
+    const reads = { shortName: "sync", branch: "initiative/sync", projectIds: ["admin-panel"] };
+    initiativeBranchReads.set(initiativeId, reads);
+    await startWith(started(...aTurn("brief", "What outcome do you want?")), [
+      { step: "resume" },
+      sent("m-3"),
+      ...aTurn("m-3", "Back again."),
+    ]);
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Shaping",
+      opening: "Shape the Initiative with the user.",
+    });
+    await answered(opened.id, 2);
+
+    const [first] = engine.sessions;
+    // The folder stays the one a session started while shaping works in, so it still resumes.
+    expect(first?.options).toMatchObject({
+      folder: join(officeData, "bases"),
+      readableFolders: [join(officeData, "initiative-bases", "sync")],
+    });
+    expect(refreshedOnInitiative).toEqual([reads]);
+    await runner.onModuleDestroy();
+    await cooled(opened.id, 12_000);
+
+    await runner.send(opened.id, "Still there?");
+    await answered(opened.id, 5);
+
+    const [, resumed] = engine.sessions;
+    expect(resumed?.id).toBe(first?.id);
+    expect(withoutHolds(resumed?.options)).toEqual(withoutHolds(first?.options));
+    expect(refreshedOnInitiative).toEqual([reads, reads]);
+  });
+
+  it("resumes a session started while shaping once the Initiative reads its branch", async () => {
+    const initiativeId = randomUUID();
+    await startWith(started(...aTurn("brief", "What outcome do you want?")), [
+      { step: "resume" },
+      sent("m-3"),
+      ...aTurn("m-3", "Back again."),
+    ]);
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Shaping",
+      opening: "Shape the Initiative with the user.",
+    });
+    await answered(opened.id, 2);
+    await runner.onModuleDestroy();
+    await cooled(opened.id, 12_000);
+    const reads = { shortName: "sync", branch: "initiative/sync", projectIds: ["admin-panel"] };
+    initiativeBranchReads.set(initiativeId, reads);
+
+    await runner.send(opened.id, "Still there?");
+    await answered(opened.id, 5);
+
+    const [shaping, resumed] = engine.sessions;
+    expect(resumed?.id).toBe(shaping?.id);
+    expect(resumed?.options).toMatchObject({
+      folder: shaping?.options.folder,
+      readableFolders: [join(officeData, "initiative-bases", "sync")],
+    });
+    expect(refreshedOnInitiative).toEqual([reads]);
+  });
+
+  it("leaves a chat that mentions the Initiative reading the base checkouts alone", async () => {
+    const initiativeId = randomUUID();
+    initiativeBranchReads.set(initiativeId, {
+      shortName: "sync",
+      branch: "initiative/sync",
+      projectIds: ["admin-panel"],
+    });
+    workRecords.set(initiativeId, "Offline sync (Initiative) · Outcome: writes survive.");
+    await startWith(started(...aTurn("brief", "It syncs.")));
+    const chat = await threads.startInChat(roleKey);
+
+    await runner.send(chat.id, "What is [@Offline sync](/work)?", {
+      mentions: [{ kind: "initiative", initiativeId }],
+    });
+    await answered(chat.id, 3);
+
+    expect(engine.sessions[0]?.options).toMatchObject({
+      folder: join(officeData, "bases"),
+      readableFolders: [],
+    });
+    expect(refreshedOnInitiative).toEqual([]);
   });
 });
 

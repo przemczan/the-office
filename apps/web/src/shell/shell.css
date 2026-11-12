@@ -374,10 +374,13 @@ body,
 /* ---- page */
 /* A page lays itself out by its own width, which the chat drawer can take from: `@container page`,
    with each width the window's less the icon-only rail's 56px. */
+/* Opaque, so the browser scrolls the page on the compositor. Transparent, it repaints the page on
+   every scroll step while the live dots' layers move apart from it, and they lag behind. */
 .shell-main {
   grid-column: 2;
   min-width: 0;
   overflow: auto;
+  background: var(--bg);
   container: page / inline-size;
 }
 
@@ -1294,26 +1297,42 @@ a.person-tag:hover .person-tag-name {
   color: var(--fg-3);
 }
 
-/* The ring pulses on transform and opacity alone, which run without repainting what it sits on. */
+/* The ring pulses on transform and opacity alone, so it runs on the compositor without repainting.
+   Unbounded, an animated transform may overlap anything, so the browser gives what is painted after
+   it layers of its own, and a board of dots grows over a hundred. So the dot's box is as big as the
+   ring grows, three times the dot, with its paint contained: only what the ring really overlaps,
+   such as a working mark's avatars, joins it on a layer. Negative margins leave the dot's own size
+   in the layout, and only the dot itself takes the pointer. Set the variables to restyle it. */
 .live-dot {
+  --live-dot-size: 7px;
+  --live-dot-color: var(--info);
+  --live-dot-gap: 4px;
   position: relative;
   display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-right: 4px;
-  border-radius: 50%;
-  background: var(--info);
+  contain: paint;
+  width: calc(var(--live-dot-size) * 3);
+  height: calc(var(--live-dot-size) * 3);
+  margin: calc(var(--live-dot-size) * -1);
+  margin-right: calc(var(--live-dot-gap) - var(--live-dot-size));
   vertical-align: 1px;
+  pointer-events: none;
 }
 
+.live-dot::before,
 .live-dot::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--info);
+  inset: var(--live-dot-size);
+  border-radius: 50%;
+  background: var(--live-dot-color);
+}
+
+.live-dot::before {
+  pointer-events: auto;
+}
+
+.live-dot::after {
   opacity: 0;
-  pointer-events: none;
   animation: pulse-dot 1.6s var(--ease-out) infinite;
 }
 

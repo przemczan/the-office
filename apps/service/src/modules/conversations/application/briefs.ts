@@ -98,7 +98,9 @@ export class Briefs {
       continuing: thread.session !== undefined,
       // An Initiative spans Projects, so it reads the notes that hold for all of them.
       memory: await this.memory.forBrief(thread.roleKey, { kind: "all-projects" }),
-      projects: await this.bases.list(),
+      projects: await (setup.branchReads === undefined
+        ? this.bases.list()
+        : this.bases.listOnInitiative(setup.branchReads)),
     });
   }
 

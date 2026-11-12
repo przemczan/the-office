@@ -11,13 +11,21 @@ export interface Brief {
   readonly tokens: number;
 }
 
-/** A Project as a session reads it: its base branch, checked out read-only. */
+/**
+ * A Project as a session reads it, checked out read-only: its base branch, or on an Initiative, the
+ * Initiative's branch.
+ */
 export interface BriefProject {
   readonly projectId: string;
   readonly name: string;
   readonly baseBranch: string;
-  /** Where the session reads the base branch. */
+  /** Where the session reads it. */
   readonly folder: string;
+  /**
+   * The Initiative's branch a session on an Initiative reads in this Project, `gone` once it was
+   * deleted here, so the base branch is read instead; undefined where it reads the base branch.
+   */
+  readonly initiativeBranch?: { readonly branch: string; readonly gone: boolean };
 }
 
 /** About as much of a chat Thread's log as a Brief carries (spec §9). */
@@ -264,11 +272,20 @@ function briefOf(sections: readonly (string | undefined)[]): Brief {
 
 function projectsSection(projects: readonly BriefProject[]): string {
   if (projects.length === 0) return "## The Projects\n\nThe Office works on no Project yet.";
-  const lines = projects.map(
-    ({ name, baseBranch, folder }) =>
-      `- ${name}: its ${baseBranch} branch, read-only, at ${folder}`,
-  );
-  return `## The Projects\n\nYou read each Project's base branch where it is checked out:\n\n${lines.join("\n")}`;
+  const heading = projects.some(({ initiativeBranch }) => initiativeBranch?.gone === false)
+    ? "You read each Project where it is checked out:"
+    : "You read each Project's base branch where it is checked out:";
+  return `## The Projects\n\n${heading}\n\n${projects.map(projectLine).join("\n")}`;
+}
+
+function projectLine({ name, baseBranch, folder, initiativeBranch }: BriefProject): string {
+  if (initiativeBranch?.gone === false) {
+    return `- ${name}: the Initiative's branch ${initiativeBranch.branch}, read-only, at ${folder}`;
+  }
+  const base = `- ${name}: its ${baseBranch} branch, read-only, at ${folder}`;
+  return initiativeBranch === undefined
+    ? base
+    : `${base}; the Initiative's branch ${initiativeBranch.branch} is gone, so you read the base branch.`;
 }
 
 /** The user's messages and the person's, the newest that fit under the cap, oldest first. */

@@ -35,6 +35,7 @@ import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructio
 import { OfficeInstructionsRepository } from "../ports/office-instructions-repository.js";
 import { OfficeInstructions } from "./office-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
+import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
@@ -147,11 +148,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     hiredKeys: () => Promise.resolve(new Set([askerKey, consultantKey, devopsKey, architectKey])),
     roleTitle: (key) => key,
   };
-  const bases: ProjectBases = {
-    folder: join(officeData, "bases"),
-    list: () => Promise.resolve([]),
-    refresh: () => Promise.resolve([]),
-  };
+  const bases = noProjectBases(join(officeData, "bases"));
   ({ app } = await startTestApplication({
     database: true,
     imports: [

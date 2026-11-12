@@ -4,6 +4,7 @@ import { join } from "node:path";
 export type OfficeDataFolder =
   | "worktrees"
   | "bases"
+  | "initiative-bases"
   | "sessions"
   | "skills"
   | "attachments"

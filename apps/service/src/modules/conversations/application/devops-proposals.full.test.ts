@@ -39,13 +39,10 @@ import { ownProjectsStartedTasks } from "../../pipelines/index.fixtures.js";
 import { TaskWorktrees } from "../../projects/index.js";
 import { SkillLibrary } from "../../skills/index.js";
 import { ownProjectsQueue } from "../../work/index.fixtures.js";
-import {
-  DevopsChat,
-  NINA_ROLE_CARDS,
-  noProjectBases,
-} from "../adapters/http/devops-chat.fixtures.js";
+import { DevopsChat, NINA_ROLE_CARDS } from "../adapters/http/devops-chat.fixtures.js";
 import { LIST_STAGE_TEMPLATES_TOOL } from "../domain/session-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
+import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 
 // Devops installing and updating skills from a Source is devops-skill-sources.test.ts.

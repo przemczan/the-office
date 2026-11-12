@@ -3,6 +3,7 @@ import {
   CHAT_EXCHANGES_TOKENS,
   estimatedTokens,
   freshChatThreadBrief,
+  initiativeThreadBrief,
   MEMORY_TOKENS,
   newChatThreadBrief,
   NO_MEMORY,
@@ -45,6 +46,62 @@ describe("a new chat Thread's Brief", () => {
 
   it("says so when there is no Project", () => {
     expect(newChatThreadBrief([], NO_MEMORY).text).toContain("The Office works on no Project yet.");
+  });
+});
+
+/** The text of a Brief for a Thread on an Initiative reading `projects`. */
+function initiativeBriefReading(projects: readonly BriefProject[]): string {
+  return initiativeThreadBrief({
+    record: "## The Initiative",
+    continuing: false,
+    memory: NO_MEMORY,
+    projects,
+  }).text;
+}
+
+describe("The Projects in a Brief for a Thread on an Initiative", () => {
+  const SITE: BriefProject = {
+    projectId: "site",
+    name: "Site",
+    baseBranch: "trunk",
+    folder: "/office/bases/site",
+  };
+  const ADMIN_PANEL_ON_THE_BRANCH: BriefProject = {
+    projectId: "admin-panel",
+    name: "Admin panel",
+    baseBranch: "main",
+    folder: "/office/initiative-bases/sync/admin-panel",
+    initiativeBranch: { branch: "initiative/sync", gone: false },
+  };
+
+  it("reads as a chat's, word for word, while every Project is read at its base branch", () => {
+    const chat = newChatThreadBrief([...PROJECTS, SITE], NO_MEMORY).text;
+    const projects = chat.slice(chat.indexOf("## The Projects"));
+
+    expect(initiativeBriefReading([...PROJECTS, SITE]).endsWith(projects)).toBe(true);
+    expect(projects).toBe(
+      "## The Projects\n\nYou read each Project's base branch where it is checked out:\n\n- Admin panel: its main branch, read-only, at /office/bases/admin-panel\n- Site: its trunk branch, read-only, at /office/bases/site",
+    );
+  });
+
+  it("names the Initiative's branch and its checkout where it is read, and the base branch elsewhere", () => {
+    expect(initiativeBriefReading([ADMIN_PANEL_ON_THE_BRANCH, SITE])).toContain(
+      "## The Projects\n\nYou read each Project where it is checked out:\n\n- Admin panel: the Initiative's branch initiative/sync, read-only, at /office/initiative-bases/sync/admin-panel\n- Site: its trunk branch, read-only, at /office/bases/site",
+    );
+  });
+
+  it("says a deleted Initiative's branch is gone, so the base branch is read", () => {
+    const gone: BriefProject = {
+      ...SITE,
+      initiativeBranch: { branch: "initiative/sync", gone: true },
+    };
+
+    expect(initiativeBriefReading([ADMIN_PANEL_ON_THE_BRANCH, gone])).toContain(
+      "- Site: its trunk branch, read-only, at /office/bases/site; the Initiative's branch initiative/sync is gone, so you read the base branch.",
+    );
+    expect(initiativeBriefReading([gone])).toContain(
+      "You read each Project's base branch where it is checked out:\n\n- Site: its trunk branch",
+    );
   });
 });
 

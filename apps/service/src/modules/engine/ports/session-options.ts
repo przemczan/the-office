@@ -89,6 +89,11 @@ export interface SessionOptions {
   /** The folder the session works in, such as a Task's worktree. */
   readonly folder: string;
   /**
+   * The folders the session reads besides its own, changing none, such as an Initiative's branch
+   * checkouts (spec §2.4); none when undefined.
+   */
+  readonly readableFolders?: readonly string[];
+  /**
    * The variables the session and its commands run with, such as a Project's command environment
    * (spec §5.5). The engine may drop those that would change how it runs itself.
    */

@@ -26,14 +26,10 @@ import { ownProjectsStartedTasks } from "../../pipelines/index.fixtures.js";
 import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
 import { ownSources } from "../../skills/index.fixtures.js";
 import { ownProjectsQueue } from "../../work/index.fixtures.js";
-import {
-  aSkillName,
-  DevopsChat,
-  NINA_ROLE_CARDS,
-  noProjectBases,
-} from "../adapters/http/devops-chat.fixtures.js";
+import { aSkillName, DevopsChat, NINA_ROLE_CARDS } from "../adapters/http/devops-chat.fixtures.js";
 import { LIST_SOURCE_SKILLS_TOOL, READ_SKILL_UPDATE_TOOL } from "../domain/session-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
+import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 
 // Devops' other Proposals, and skills drafted in a chat, are devops-proposals.test.ts.
