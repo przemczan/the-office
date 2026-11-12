@@ -6,6 +6,7 @@ import { ideaSchema, initiativeSchema, taskSchema } from "@the-office/contracts"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   READ_STAGE_HISTORY_TOOL,
+  READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
   TaskThreadSetups,
   type TaskThreadRequest,
@@ -52,8 +53,9 @@ describe("a person's Thread on a Task's session", () => {
     expect(PLANNING_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
   });
 
-  it("gives a person's Thread reading the Task's Stage history", () => {
+  it("gives a person's Thread reading the Task's Stage history and the Threads", () => {
     expect(ASKING_OFFICE_TOOLS).toContain(READ_STAGE_HISTORY_TOOL);
+    expect(ASKING_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
   });
 
   it("leaves out a diff it can't read, keeping the Thread readable", async () => {

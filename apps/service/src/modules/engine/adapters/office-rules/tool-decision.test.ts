@@ -22,6 +22,7 @@ const RULES = new OfficeRules({
   },
   workstation: false,
   secrets: SYSTEM.secretPaths,
+  readableInSecrets: [],
   officeFiles: [],
   cloneFolders: [],
   homeFolder: "/home/office",

@@ -1,5 +1,9 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { WorkRecords, type WorkRecordSource } from "../../../conversations/index.js";
+import {
+  WorkRecords,
+  type ProjectWork,
+  type WorkRecordSource,
+} from "../../../conversations/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaRecords } from "../../application/idea-records.js";
 import { InitiativeService } from "../../application/initiative-service.js";
@@ -13,7 +17,8 @@ import { TaskNotFound } from "../../domain/task-not-found.js";
  * Gives Conversations the records of the Tasks, Initiatives and Ideas the user mentions in a chat,
  * worded as `read_task`, `read_initiative` and `read_idea` word them, with their linked records, the
  * titles of the Tasks a Link card is about, and the Attachments of a Task a Decision may name,
- * which tell too whether a Decision in an Initiative's planning Thread names one of its Tasks.
+ * which tell too whether a Decision in an Initiative's planning Thread names one of its Tasks, and
+ * the names and Projects `read_threads` reads Threads on Tasks and Initiatives by.
  */
 @Injectable()
 export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
@@ -74,6 +79,25 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
       if (error instanceof InitiativeNotFound) return undefined;
       throw error;
     }
+  }
+
+  async initiativeName(initiativeId: string): Promise<string | undefined> {
+    try {
+      return (await this.initiatives.read(initiativeId)).name;
+    } catch (error) {
+      if (error instanceof InitiativeNotFound) return undefined;
+      throw error;
+    }
+  }
+
+  async projectWork(projectId: string): Promise<ProjectWork> {
+    const tasks = (await this.tasks.list()).filter((task) => task.projectId === projectId);
+    return {
+      taskIds: tasks.map(({ id }) => id),
+      initiativeIds: [
+        ...new Set(tasks.flatMap(({ initiativeId }) => (initiativeId ? [initiativeId] : []))),
+      ],
+    };
   }
 
   async ideaRecord(ideaId: string): Promise<string | undefined> {

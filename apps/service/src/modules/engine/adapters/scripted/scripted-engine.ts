@@ -161,6 +161,7 @@ function scriptedSessionRules(options: SessionOptions): OfficeRules {
     profile: options.profile,
     workstation: false,
     secrets: [],
+    readableInSecrets: [],
     officeFiles: [],
     cloneFolders: [],
     homeFolder: homedir(),

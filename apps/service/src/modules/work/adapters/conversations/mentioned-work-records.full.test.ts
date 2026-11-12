@@ -129,11 +129,54 @@ describe("the records of mentioned Tasks, Initiatives and Ideas", () => {
     expect(record).toMatch(/^Offline sync \(Initiative [\w-]+\)\n- shaping; spans no Project yet/);
   });
 
+  it("give an Initiative's name and a Project's Tasks with the Initiatives spanning it", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const idea = ideaSchema.parse(
+      await (
+        await sendJson(work, "POST", "/ideas", {
+          title: "Offline sync",
+          notes: "",
+          projectId: null,
+        })
+      ).json(),
+    );
+    const initiative = initiativeSchema.parse(
+      await (await sendJson(work, "POST", `/ideas/${idea.id}/initiative`)).json(),
+    );
+    const its = taskSchema.parse(
+      await (
+        await sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
+          title: "Queue schema",
+          projectId,
+          priority: "normal",
+          blockedBy: [],
+        })
+      ).json(),
+    );
+    const own = taskSchema.parse(
+      await (
+        await sendJson(work, "POST", "/tasks", { title: "Fix login", projectId, priority: "high" })
+      ).json(),
+    );
+    await sendJson(work, "POST", "/tasks", {
+      title: "Elsewhere",
+      projectId: `project-${randomUUID()}`,
+      priority: "normal",
+    });
+    const records = work.app.get(WorkRecords);
+
+    await expect(records.initiativeName(initiative.id)).resolves.toBe("Offline sync");
+    const projectWork = await records.projectWork(projectId);
+    expect(projectWork.taskIds.toSorted()).toEqual([its.id, own.id].toSorted());
+    expect(projectWork.initiativeIds).toEqual([initiative.id]);
+  });
+
   it("are undefined for a record The Office doesn't have", async () => {
     const records = work.app.get(WorkRecords);
 
     await expect(records.taskRecord(randomUUID())).resolves.toBeUndefined();
     await expect(records.initiativeRecord(randomUUID())).resolves.toBeUndefined();
+    await expect(records.initiativeName(randomUUID())).resolves.toBeUndefined();
     await expect(records.ideaRecord(randomUUID())).resolves.toBeUndefined();
   });
 });

@@ -35,7 +35,11 @@ export {
   type InitiativeThreadOpening,
   type TaskThreadStarting,
 } from "./application/thread-service.js";
-export { WorkRecords, type WorkRecordSource } from "./application/work-records.js";
+export {
+  WorkRecords,
+  type ProjectWork,
+  type WorkRecordSource,
+} from "./application/work-records.js";
 export { ConversationsModule } from "./conversations.module.js";
 export type { PlanningThreadElsewhere } from "./domain/conversation-tabs.js";
 export {
@@ -62,6 +66,7 @@ export {
   PROPOSE_STAGE_TEMPLATE_TOOL,
   PERSON_READING_OFFICE_TOOLS,
   READ_STAGE_HISTORY_TOOL,
+  READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
 } from "./domain/session-instructions.js";
 export { ProposalRefused } from "./domain/proposal-refused.js";

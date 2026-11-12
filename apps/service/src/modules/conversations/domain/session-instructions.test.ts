@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { OFFICE_MANAGER } from "../../people/index.js";
+import { CARETAKER, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import {
   CHANGE_ROLE_TOOL,
+  CONSULTATION_OFFICE_TOOLS,
   caretakerChatInstructions,
   chatInstructions,
   chatOfficeTools,
   consultationInstructions,
+  PERSON_READING_OFFICE_TOOLS,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  READ_THREADS_TOOL,
+  READING_OFFICE_TOOLS,
   PROPOSE_ROLE_TOOL,
   workThreadInstructions,
 } from "./session-instructions.js";
@@ -83,5 +87,14 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_ROLE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
+  });
+
+  it("gives every chat and every Consultation reading the Threads, which no Agent Stage reads with", () => {
+    for (const roleKey of ["planner", DEVOPS, CARETAKER, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(roleKey)).toContain(READ_THREADS_TOOL);
+    }
+    expect(CONSULTATION_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
+    expect(PERSON_READING_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
+    expect(READING_OFFICE_TOOLS).not.toContain(READ_THREADS_TOOL);
   });
 });

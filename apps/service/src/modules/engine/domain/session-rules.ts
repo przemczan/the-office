@@ -10,6 +10,17 @@ export interface PathSemantics {
   names(path: string): string[];
 }
 
+/**
+ * A folder open in each child of a secret folder, as `projects` in `engines/<id>/`: an allow-list,
+ * so whatever else a child holds, or comes to hold, stays secret.
+ */
+export interface ReadableInSecret {
+  /** The secret folder, as `SessionRules.secrets` names it. */
+  readonly secret: string;
+  /** The name of the folder open in each of its children. */
+  readonly folder: string;
+}
+
 /** What the Office rules judge one session's tool calls by (spec §6). */
 export interface SessionRules {
   /** The folder the session works in, a Task's worktree: the only one it edits. */
@@ -28,6 +39,11 @@ export interface SessionRules {
    * to every session.
    */
   readonly secrets: readonly string[];
+  /**
+   * The folders inside secrets that are none, such as each engine account's transcripts: each
+   * names one of `secrets` and the folder that is open in every child folder of it.
+   */
+  readonly readableInSecrets: readonly ReadableInSecret[];
   /**
    * The Office's own files and folders, such as its data directory, outside the session's folders:
    * refused to every session but one that reaches the workstation.

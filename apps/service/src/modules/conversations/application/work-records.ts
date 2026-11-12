@@ -19,12 +19,23 @@ export interface WorkRecordSource {
     taskId: string,
   ): Promise<readonly string[] | undefined>;
   initiativeRecord(initiativeId: string): Promise<string | undefined>;
+  /** The Initiative's name, which names a Thread on it. */
+  initiativeName(initiativeId: string): Promise<string | undefined>;
+  /** The Tasks in the Project, archived ones too, and the Initiatives spanning it, by their ids. */
+  projectWork(projectId: string): Promise<ProjectWork>;
   ideaRecord(ideaId: string): Promise<string | undefined>;
+}
+
+/** The ids of a Project's Tasks and of the Initiatives spanning it. */
+export interface ProjectWork {
+  readonly taskIds: readonly string[];
+  readonly initiativeIds: readonly string[];
 }
 
 /**
  * Where the module keeping Tasks, Initiatives and Ideas gives Conversations their records, for the ones the user
- * mentions in a message, the Tasks a Link card is about and the Attachments a Decision names. That module calls Conversations to open its Threads, so it registers here
+ * mentions in a message, the Tasks a Link card is about, the Attachments a Decision names, and the
+ * subjects and Projects of the Threads `read_threads` reads. That module calls Conversations to open its Threads, so it registers here
  * instead of being called through a port, as with TaskThreadSetups.
  */
 @Injectable()
@@ -57,6 +68,14 @@ export class WorkRecords implements WorkRecordSource {
 
   initiativeRecord(initiativeId: string): Promise<string | undefined> {
     return this.registered().initiativeRecord(initiativeId);
+  }
+
+  initiativeName(initiativeId: string): Promise<string | undefined> {
+    return this.registered().initiativeName(initiativeId);
+  }
+
+  projectWork(projectId: string): Promise<ProjectWork> {
+    return this.registered().projectWork(projectId);
   }
 
   ideaRecord(ideaId: string): Promise<string | undefined> {

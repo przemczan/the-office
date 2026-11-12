@@ -1,5 +1,5 @@
 {
-  "id": "dcdaff0e-46e0-4e4d-acc0-31e9322e796f",
+  "id": "ace4d3c0-70be-4d32-9a72-354cd577c368",
   "prevId": "db105c90-8256-49db-8624-5580add96376",
   "version": "7",
   "dialect": "postgresql",
@@ -841,6 +841,21 @@
             },
             {
               "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "thread_messages_at": {
+          "name": "thread_messages_at",
+          "columns": [
+            {
+              "expression": "at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2330,108 +2345,6 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.project_pipelines": {
-      "name": "project_pipelines",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "base_pipeline_id": {
-          "name": "base_pipeline_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stage_changes": {
-          "name": "stage_changes",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "project_pipelines_position_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        }
-      },
-      "indexes": {
-        "project_pipelines_name": {
-          "name": "project_pipelines_name",
-          "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lower(\"name\")",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "project_pipelines_base_pipeline_id_pipelines_id_fk": {
-          "name": "project_pipelines_base_pipeline_id_pipelines_id_fk",
-          "tableFrom": "project_pipelines",
-          "tableTo": "pipelines",
-          "columnsFrom": [
-            "base_pipeline_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

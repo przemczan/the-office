@@ -203,6 +203,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     taskAttachmentIds: () => Promise.resolve([]),
     initiativeTaskAttachmentIds: () => Promise.resolve(undefined),
     initiativeRecord: () => Promise.resolve(undefined),
+    initiativeName: () => Promise.resolve(undefined),
+    projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
     ideaRecord: () => Promise.resolve(undefined),
   });
   threads = app.get(ThreadService);

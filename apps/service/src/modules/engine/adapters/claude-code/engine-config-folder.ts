@@ -5,8 +5,9 @@ import type { EngineId } from "../../domain/engines.js";
 
 /**
  * The folder a Claude Code engine's sessions run with as `CLAUDE_CONFIG_DIR` (spec §5.6, §6): its
- * account and its sessions' transcripts, `<office-data>/engines/<engine id>/`, which the Office
- * rules refuse as they refuse the rest of the data directory.
+ * account and its sessions' transcripts, `<office-data>/engines/<engine id>/`. The Office rules
+ * refuse it as a secret, all but the transcripts in its `projects/`, which only a session reaching
+ * the workstation reads, as the rest of the data directory is refused to every other.
  */
 export function engineConfigFolder(officeData: OfficeDataDirectory, engineId: EngineId): string {
   return join(officeData.folder("engines"), engineId);
