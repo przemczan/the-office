@@ -152,7 +152,7 @@ describe("CommandLineGit.branchChanges", REAL_GIT_TEST, () => {
     await git.commit(worktree.path, "Implement: the rename", serviceVariables);
     await writeFile(join(worktree.path, "uncommitted.txt"), "not a Stage's work yet\n");
 
-    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+    const changes = await git.branchChanges(repository.path, ["main"], worktree.branch);
 
     expect(changes.files).toEqual([
       { path: "docs.md", previousPath: undefined, lines: { added: 2, removed: 0 }, deleted: false },
@@ -174,7 +174,7 @@ describe("CommandLineGit.branchChanges", REAL_GIT_TEST, () => {
     gitIn(worktree.path, "mv", "src/index.ts", "src/main.ts");
     await git.commit(worktree.path, "Implement: the rename", serviceVariables);
 
-    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+    const changes = await git.branchChanges(repository.path, ["main"], worktree.branch);
 
     expect(changes.files).toEqual([
       {
@@ -191,7 +191,7 @@ describe("CommandLineGit.branchChanges", REAL_GIT_TEST, () => {
     gitIn(worktree.path, "rm", "--quiet", "src/index.ts");
     await git.commit(worktree.path, "Implement: the deletion", serviceVariables);
 
-    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+    const changes = await git.branchChanges(repository.path, ["main"], worktree.branch);
 
     expect(changes.files).toEqual([
       {
@@ -209,7 +209,7 @@ describe("CommandLineGit.branchChanges", REAL_GIT_TEST, () => {
     await writeFile(join(worktree.path, "large.txt"), line.repeat(12_000));
     await git.commit(worktree.path, "Implement: a large file", serviceVariables);
 
-    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+    const changes = await git.branchChanges(repository.path, ["main"], worktree.branch);
 
     expect(changes.files).toEqual([
       {
@@ -227,7 +227,7 @@ describe("CommandLineGit.branchChanges", REAL_GIT_TEST, () => {
   it("is empty for a branch with no commits of its own", async () => {
     const worktree = await worktrees.aWorktree();
 
-    await expect(git.branchChanges(repository.path, "main", worktree.branch)).resolves.toEqual({
+    await expect(git.branchChanges(repository.path, ["main"], worktree.branch)).resolves.toEqual({
       files: [],
       diff: "",
       diffCut: false,

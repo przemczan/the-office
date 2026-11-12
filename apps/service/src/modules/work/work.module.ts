@@ -1,3 +1,4 @@
+import { ProjectsTaskBaseRegistration } from "./adapters/projects/projects-task-base-registration.js";
 import {
   Logger,
   Module,
@@ -119,10 +120,11 @@ import { WorktreeFiles } from "./ports/worktree-files.js";
 
 export interface WorkModuleOptions {
   /**
-   * The modules that provide the ports below, and Conversations' TaskThreadSetups,
+   * The modules that provide the ports below, Conversations' TaskThreadSetups,
    * InitiativeThreadSetups, WorkRecords and ProposalAppliers, where Work sets up the sessions of
    * Threads on its Tasks and Initiatives, gives the records mentioned in a chat and applies
-   * Proposals of the Office-wide limit, of Initiatives and of Projects to onboard.
+   * Proposals of the Office-wide limit, of Initiatives and of Projects to onboard, and Projects'
+   * TaskBases, where Work tells what each Task's branch starts from.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjects: Type<KnownProjects>;
@@ -274,6 +276,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeProposals,
         ProjectProposals,
         FireAlarmForThreads,
+        ProjectsTaskBaseRegistration,
       ],
       exports: [
         FireAlarmService,

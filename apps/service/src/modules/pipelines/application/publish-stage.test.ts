@@ -9,7 +9,7 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { PLANNED_COMMIT, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
+import { aTaskRecord, PLANNED_COMMIT, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
 import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/resolve-stages.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
@@ -164,6 +164,69 @@ describe("A Publish Stage", () => {
     });
     expect(pipelines.publishing.published).toHaveLength(2);
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+  });
+
+  it("publishes an Initiative's Task into its branch, resolving a conflict with the base after a clean merge of the Initiative's branch", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Kept both renames.")),
+    ]);
+    const taskId = randomUUID();
+    const initiativeBranch = "initiative/usage-exports";
+    pipelines.records.put(taskId, aTaskRecord({ initiativeBranch }));
+    const initiativeMerged = "c".repeat(40);
+    const published = "f".repeat(40);
+    pipelines.publishing.publications.push(
+      {
+        kind: "base-moved",
+        error:
+          "office/task no longer applies cleanly on main on origin: it would conflict in\n- src/index.ts",
+        conflictedFiles: ["src/index.ts"],
+      },
+      {
+        kind: "merged",
+        branch: "office/task",
+        into: { remote: "origin", branch: initiativeBranch },
+        commit: published,
+        baseTakenIn: "by-merge",
+      },
+    );
+    pipelines.publishing.resolveStarts.push({
+      kind: "conflicted",
+      base: { remote: "origin", branch: "main" },
+      conflictedFiles: ["src/index.ts"],
+      commit: initiativeMerged,
+    });
+
+    await walkStages(pipelines, [implement, reviewedPublish], taskId);
+
+    const runs = await runsOf(pipelines, taskId);
+    expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+      ["implement", "done"],
+      ["publish", "failed"],
+      [RESOLVE_KEY, "done"],
+      [RESOLVE_TEST_KEY, "done"],
+      [RESOLVE_GATE_KEY, "done"],
+    ]);
+    expect(runs[2]?.headCommit).toBe(RESOLVED_COMMIT);
+    expect(pipelines.stageThreads.requests.at(-1)?.work).toContain(
+      "The Task's branch conflicts with main as it now is",
+    );
+
+    await pipelines.app.get(GateService).continue(taskId);
+    await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
+
+    expect((await runsOf(pipelines, taskId)).at(-1)).toMatchObject({
+      stageKey: "publish",
+      outcome: {
+        status: "done",
+        summary: `Merged ${initiativeBranch}, which had moved on, into office/task, then merged it into ${initiativeBranch} on origin, which is now at ffffffff.`,
+      },
+    });
+    expect(pipelines.publishing.published.map(({ target }) => target)).toEqual([
+      "publishing-mode",
+      "publishing-mode",
+    ]);
   });
 
   it("asks the user directly when Resolve gives up, and commits the merge once they resolved it in the worktree", async () => {

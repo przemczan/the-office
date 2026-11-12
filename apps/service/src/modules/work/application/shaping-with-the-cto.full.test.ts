@@ -33,7 +33,7 @@ import {
 } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
-import { ProjectService } from "../../projects/index.js";
+import { ProjectService, TaskBases } from "../../projects/index.js";
 import { THE_USER } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
@@ -48,6 +48,7 @@ import {
   ProjectInitiativeBranchesForTests,
   ProjectWorktreesForTests,
   StageResultsForTests,
+  TaskBasesForTests,
   UsageHistoryForTests,
 } from "../ports/work-ports.fixtures.js";
 import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
@@ -170,6 +171,8 @@ const STAND_INS = [
   AccountWindowRatiosForTests,
   DayUsageForTests,
   TaskTokensForTests,
+  TaskBasesForTests,
+  { provide: TaskBases, useExisting: TaskBasesForTests },
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */

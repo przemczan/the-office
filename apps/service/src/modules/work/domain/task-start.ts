@@ -6,6 +6,7 @@ import { blockedProblems } from "./task-dependencies.js";
 import { TaskStarted } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import { TaskRefused } from "./task-refused.js";
+import { initiativeBranchGoneRefusal } from "./task-branch-base.js";
 import { STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 
 /** A Stage of the Task's Pipeline as Start sees it: an Agent Stage names the Role that works it. */
@@ -34,6 +35,14 @@ export interface StartingProject {
   readonly projectLimit: number;
 }
 
+/**
+ * Why the Task can't start from its Initiative's branch: the branch is gone from its Project, or
+ * was never made there.
+ */
+export type InitiativeBranchProblem =
+  | { readonly kind: "gone"; readonly branch: string }
+  | { readonly kind: "not-made"; readonly reason: string };
+
 /** What Start weighs besides the Tasks already started, gathered from the other modules. */
 export interface StartConditions {
   /** The Stages of the Task's Pipeline, or undefined when the library has no such Pipeline. */
@@ -48,6 +57,8 @@ export interface StartConditions {
   readonly usage: UsageAtStart;
   /** Why a scheduled Office update holds every Start, in the UI's words; undefined when none is. */
   readonly officeUpdateHold: string | undefined;
+  /** Undefined when the Task starts from the base branch, or from its Initiative's branch there. */
+  readonly initiativeBranch?: InitiativeBranchProblem;
 }
 
 /**
@@ -64,7 +75,8 @@ export interface HeldAtStart {
 
 /**
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
- * refusal (not Ready, a vacant Role, a person who only talks) stops Start; a wait (a Task it waits
+ * refusal (not Ready, a vacant Role, a person who only talks, its Initiative's branch gone) stops
+ * Start; a wait (a Task it waits
  * for not yet Done or Dropped, the fire alarm, a scheduled Office update, the Office-wide limit, its
  * Project limit, its person's Task limit, a cap it would pass) only holds the Task until its
  * blockers end, the all clear, a desk, its Project and its person are free, and the cap allows it.
@@ -97,9 +109,12 @@ export function startReasons(
   );
   const stage = conditions.stages && firstAgentStage(conditions.stages);
   return {
-    refusals: conditions.stages
-      ? personRefusals(stage, conditions.person)
-      : [`There is no Pipeline "${task.pipelineId}" in the library.`],
+    refusals: [
+      ...(conditions.stages
+        ? personRefusals(stage, conditions.person)
+        : [`There is no Pipeline "${task.pipelineId}" in the library.`]),
+      ...initiativeBranchRefusals(task, conditions),
+    ],
     waits: [
       ...blockedProblems(blockers),
       ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
@@ -156,6 +171,13 @@ function personRefusals(
   return person.taskLimit === "none"
     ? [`${person.name} only talks (Task limit none), so can't work ${stage.name}.`]
     : [];
+}
+
+function initiativeBranchRefusals(task: Task, conditions: StartConditions): string[] {
+  const problem = conditions.initiativeBranch;
+  if (!problem) return [];
+  if (problem.kind === "not-made") return [problem.reason];
+  return [initiativeBranchGoneRefusal(problem.branch, conditions.project?.name ?? task.projectId)];
 }
 
 function officeWideLimitWaits(limit: number, others: readonly Task[]): string[] {

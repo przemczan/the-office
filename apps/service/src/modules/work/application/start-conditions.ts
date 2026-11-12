@@ -4,12 +4,20 @@ import { EngineModels, type EngineId } from "../../engine/index.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { DailyCapsAtStart, UsageAtStart, WindowsAtStart } from "../domain/cap-waits.js";
 import { hasPipeline, type Task } from "../domain/task.js";
-import { firstAgentStage, type StartConditions } from "../domain/task-start.js";
+import { taskBranchBase } from "../domain/task-branch-base.js";
+import { TaskRefused } from "../domain/task-refused.js";
+import {
+  firstAgentStage,
+  type InitiativeBranchProblem,
+  type StartConditions,
+} from "../domain/task-start.js";
 import type { UsageSettings } from "../domain/usage-settings.js";
 import { AccountWindows } from "../ports/account-windows.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
+import { InitiativeRepository } from "../ports/initiative-repository.js";
+import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { OfficeLimits } from "./office-limits.js";
 import { DailyCaps } from "./daily-caps.js";
@@ -27,7 +35,8 @@ interface OfficeUsageAtStart {
 
 /**
  * Gathers what Start weighs from the other modules: the Task's Pipeline, its person, the limits,
- * and its Usage estimate against the windows and the Daily caps of the engines it spends on.
+ * its Initiative's branch when it starts from one, and its Usage estimate against the windows and
+ * the Daily caps of the engines it spends on.
  */
 @Injectable()
 export class StartConditionsReader {
@@ -44,6 +53,8 @@ export class StartConditionsReader {
     private readonly engineModels: EngineModels,
     private readonly updateHold: OfficeUpdateHold,
     private readonly schedule: Schedule,
+    private readonly initiatives: InitiativeRepository,
+    private readonly initiativeBranches: ProjectInitiativeBranches,
   ) {}
 
   async of(task: Task): Promise<StartConditions> {
@@ -76,6 +87,10 @@ export class StartConditionsReader {
         this.projects.find(task.projectId),
         this.usageOf(task, everyTask, usageSettings, { daily, engineNames, now }),
       ]);
+      const initiativeBranch = await this.initiativeBranchProblem(
+        task,
+        project?.name ?? task.projectId,
+      );
       const stage = pipeline && firstAgentStage(pipeline.stages);
       const person = stage && (await this.people.find(stage.role));
       return {
@@ -85,8 +100,29 @@ export class StartConditionsReader {
         project: project && { name: project.name, projectLimit: project.projectLimit },
         usage,
         officeUpdateHold,
+        initiativeBranch,
       };
     };
+  }
+
+  /** Whether the Task's Initiative's branch, when it starts from one, is there in its Project. */
+  private async initiativeBranchProblem(
+    task: Task,
+    projectName: string,
+  ): Promise<InitiativeBranchProblem | undefined> {
+    if (task.initiativeId === undefined) return undefined;
+    const initiative = await this.initiatives.find(task.initiativeId);
+    let base;
+    try {
+      base = taskBranchBase(initiative, task.projectId, projectName);
+    } catch (error) {
+      if (!(error instanceof TaskRefused)) throw error;
+      return { kind: "not-made", reason: error.message };
+    }
+    if (base.kind === "base-branch") return undefined;
+    return (await this.initiativeBranches.exists(task.projectId, base.branch))
+      ? undefined
+      : { kind: "gone", branch: base.branch };
   }
 
   private async usageOf(

@@ -3,6 +3,7 @@ import { attachmentLines } from "../domain/attachment.js";
 import { linkedRecordsSection, type TaskLinks } from "../domain/linked-records.js";
 import { taskRecordText } from "../domain/record-words.js";
 import type { Task } from "../domain/task.js";
+import { taskBranchBase } from "../domain/task-branch-base.js";
 import { descriptionSection } from "../domain/task-description.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
@@ -34,6 +35,11 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
     | "projectSkillsOff"
   >;
   readonly worktree: TaskWorktree;
+  /**
+   * The Initiative's branch the Task starts from and publishes into, its Initiative having a
+   * Pipeline (spec 5.5); undefined for a Task of the base branch.
+   */
+  readonly initiativeBranch: string | undefined;
 }
 
 /**
@@ -52,7 +58,10 @@ export class TaskRecords {
     private readonly worktrees: ProjectWorktrees,
   ) {}
 
-  /** Throws TaskNotFound when there is no such Task. */
+  /**
+   * Throws TaskNotFound when there is no such Task, and TaskRefused when its Initiative has a
+   * Pipeline but no branch in its Project.
+   */
   async read(taskId: string): Promise<TaskRecord> {
     const task = await this.tasks.read(taskId);
     const project = await this.projects.find(task.projectId);
@@ -62,6 +71,7 @@ export class TaskRecords {
       this.linksOf(task),
       this.worktrees.find(task.projectId, taskId),
     ]);
+    const base = taskBranchBase(links.initiative, project.id, project.name);
     return {
       title: task.title,
       descriptionSection: descriptionSection(task.description),
@@ -79,6 +89,7 @@ export class TaskRecords {
         projectSkillsOff: project.projectSkillsOff,
       },
       worktree,
+      initiativeBranch: base.kind === "initiative-branch" ? base.branch : undefined,
     };
   }
 

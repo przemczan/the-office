@@ -7,11 +7,21 @@ export const UPDATE_BRANCH_TOOL = "update_branch";
 /** What a conflict with the base does: the branch given back, or left for an Agent to resolve. */
 export type ConflictHandling = "give-back" | "leave";
 
-/** How bringing a Task's branch to the fresh base went (spec §2.3). */
+/**
+ * How bringing a Task's branch to its fresh bases went, its Initiative's branch then the base
+ * branch for a Task of an Initiative with a Pipeline (spec §2.3).
+ */
 export type BranchUpdate =
   | { readonly kind: "up-to-date" }
   | { readonly kind: "updated"; readonly commit: string }
-  | { readonly kind: "conflicted"; readonly conflictedFiles: readonly string[] }
+  | {
+      readonly kind: "conflicted";
+      readonly conflictedFiles: readonly string[];
+      /** The branch whose merge conflicted; undefined for a merge left in the worktree earlier. */
+      readonly from?: string;
+      /** Where a clean merge of an earlier base left HEAD before the conflict. */
+      readonly commit?: string;
+    }
   | { readonly kind: "failed"; readonly error: string };
 
 /** git's own advice for a subject line; longer ones are cut where a log shows them. */
@@ -79,17 +89,27 @@ export function branchKept(runs: readonly StageRun[]): boolean {
   );
 }
 
-/** What a Task's first Agent is told of the branch's update as its Stage started (spec §2.3). */
-export function branchUpdateWords(update: BranchUpdate, baseBranch: string): string | undefined {
+/**
+ * What a Task's first Agent is told of the branch's update as its Stage started (spec §2.3);
+ * `bases` names what the branch takes in (`baseWords`).
+ */
+export function branchUpdateWords(update: BranchUpdate, bases: string): string | undefined {
   switch (update.kind) {
     case "up-to-date":
       return undefined;
     case "updated":
-      return `The Office brought the Task's branch up to date with ${baseBranch} as this Stage started, so the code may be newer than the Plan.`;
-    case "conflicted":
-      return `The Task's branch is behind ${baseBranch} and conflicts with it in ${update.conflictedFiles.join(", ")}, so it stays as it was. When your work needs what the base has, call ${UPDATE_BRANCH_TOOL} and resolve the conflict in the files.`;
+      return `The Office brought the Task's branch up to date with ${bases} as this Stage started, so the code may be newer than the Plan.`;
+    case "conflicted": {
+      const from = update.from ?? bases;
+      const files = update.conflictedFiles.join(", ");
+      const kept =
+        update.commit === undefined
+          ? "so it stays as it was"
+          : "so it took in what came before it and stays without it";
+      return `The Task's branch is behind ${from} and conflicts with it in ${files}, ${kept}. When your work needs what the base has, call ${UPDATE_BRANCH_TOOL} and resolve the conflict in the files.`;
+    }
     case "failed":
-      return `The Office couldn't bring the Task's branch up to date with ${baseBranch}, so it may be behind. If your work needs what the base has, call ${UPDATE_BRANCH_TOOL}. git said: ${update.error}`;
+      return `The Office couldn't bring the Task's branch up to date with ${bases}, so it may be behind. If your work needs what the base has, call ${UPDATE_BRANCH_TOOL}. git said: ${update.error}`;
   }
 }
 

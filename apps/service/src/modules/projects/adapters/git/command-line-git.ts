@@ -339,6 +339,34 @@ export class CommandLineGit extends Git {
     );
   }
 
+  async moveRef(
+    repositoryPath: string,
+    ref: string,
+    commit: string,
+    expected: string,
+  ): Promise<void> {
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["update-ref", ref, commit, expected],
+      }),
+    );
+  }
+
+  async worktreeOf(repositoryPath: string, branch: string): Promise<string | undefined> {
+    const listed = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: ["worktree", "list", "--porcelain", "-z"],
+    });
+    // Each worktree is a `worktree <path>` field, then its others, such as `branch <ref>`.
+    let worktree: string | undefined;
+    for (const field of nulSeparated(listed)) {
+      if (field.startsWith("worktree ")) worktree = field.slice("worktree ".length);
+      else if (field === `branch refs/heads/${branch}`) return worktree;
+    }
+    return undefined;
+  }
+
   async remoteHasBranch(
     repositoryPath: string,
     upstream: Upstream,
@@ -620,7 +648,11 @@ export class CommandLineGit extends Git {
     return { commit, branch: symbolicRef.exitCode === 0 ? symbolicRef.stdout.trim() : undefined };
   }
 
-  async diffSummary(worktreePath: string, baseBranch: string, forkPoint?: string): Promise<string> {
+  async diffSummary(
+    worktreePath: string,
+    bases: readonly string[],
+    forkPoints?: readonly string[],
+  ): Promise<string> {
     const output = await this.process.output({
       folder: worktreePath,
       gitArguments: [
@@ -628,7 +660,7 @@ export class CommandLineGit extends Git {
         ...DIFF_OPTIONS,
         `--stat=${DIFF_SUMMARY_WIDTH}`,
         `--stat-count=${DIFF_SUMMARY_FILES}`,
-        await this.sinceForked(worktreePath, baseBranch, "HEAD", forkPoint),
+        ...(await this.sinceForked(worktreePath, bases, "HEAD", forkPoints)),
         "--",
       ],
     });
@@ -637,20 +669,15 @@ export class CommandLineGit extends Git {
 
   async branchChanges(
     repositoryPath: string,
-    baseBranch: string,
+    bases: readonly string[],
     branch: string,
-    forkPoint?: string,
+    forkPoints?: readonly string[],
   ): Promise<BranchChanges> {
-    const range = await this.sinceForked(
-      repositoryPath,
-      baseBranch,
-      `refs/heads/${branch}`,
-      forkPoint,
-    );
+    const range = await this.sinceForked(repositoryPath, bases, `refs/heads/${branch}`, forkPoints);
     const [numbers, deleted, diff] = await Promise.all([
       this.process.output({
         folder: repositoryPath,
-        gitArguments: ["diff", ...DIFF_OPTIONS, "--numstat", "-z", range, "--"],
+        gitArguments: ["diff", ...DIFF_OPTIONS, "--numstat", "-z", ...range, "--"],
       }),
       // The numstat doesn't say a file was deleted.
       this.process.output({
@@ -661,33 +688,56 @@ export class CommandLineGit extends Git {
           "--diff-filter=D",
           "--name-only",
           "-z",
-          range,
+          ...range,
           "--",
         ],
       }),
       this.process.output({
         folder: repositoryPath,
-        gitArguments: ["diff", ...DIFF_OPTIONS, range, "--"],
+        gitArguments: ["diff", ...DIFF_OPTIONS, ...range, "--"],
       }),
     ]);
     return { files: changedFiles(numbers, new Set(nulSeparated(deleted))), ...cutDiff(diff) };
   }
 
   /**
-   * `base...revision`, which diffs from where the revision forked from the base branch, so the
-   * base's own later commits stay out. The base is its upstream when it tracks one (spec §9), or
-   * `forkPoint` when given.
+   * What `diff` compares to show the revision's own changes. With one base, `base...revision`,
+   * which diffs from where the revision forked from it, so the base's own later commits stay out.
+   * With two, from the newer of the two fork points, or, when neither holds the other, from the
+   * two merged, since the revision took in both; a merge of them that conflicts diffs from the
+   * first's. From the `forkPoints` instead, when given.
    */
   private async sinceForked(
     folder: string,
-    baseBranch: string,
+    bases: readonly string[],
     revision: string,
-    forkPoint: string | undefined,
-  ): Promise<string> {
-    if (forkPoint) return `${forkPoint}...${revision}`;
-    const upstream = await this.upstreamOf(folder, baseBranch);
-    const base = upstream ? trackingRefOf(upstream) : `refs/heads/${baseBranch}`;
-    return `${base}...${revision}`;
+    forkPoints: readonly string[] | undefined,
+  ): Promise<readonly string[]> {
+    const [first, second] = forkPoints ?? bases;
+    if (first === undefined) throw new Error("A diff needs a base to start from.");
+    if (second === undefined) return [`${first}...${revision}`];
+    const [firstForked, secondForked] = await Promise.all([
+      this.mergeBase(folder, first, revision),
+      this.mergeBase(folder, second, revision),
+    ]);
+    if (await this.contains(folder, firstForked, secondForked)) return [firstForked, revision];
+    if (await this.contains(folder, secondForked, firstForked)) return [secondForked, revision];
+    return [(await this.mergedTreeOf(folder, firstForked, secondForked)) ?? firstForked, revision];
+  }
+
+  /** The tree a clean merge of two commits makes, written to git's objects only; undefined on a conflict. */
+  private async mergedTreeOf(
+    folder: string,
+    one: string,
+    other: string,
+  ): Promise<string | undefined> {
+    const gitArguments = ["merge-tree", "--write-tree", "--no-messages", one, other];
+    const result = await this.process.run({ folder, gitArguments });
+    if (result.exitCode === 1) return undefined;
+    if (result.exitCode !== 0) {
+      throw new GitCommandFailed(gitArguments, result.exitCode, result.stderr.trim());
+    }
+    return result.stdout.trim();
   }
 
   async restore(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {

@@ -18,6 +18,7 @@ import { ScriptCommands } from "./script-commands.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 import { ScriptedTaskRunEnvironments } from "./task-run-environments.fixtures.js";
 import { Worktrees } from "./worktrees.js";
+import { TaskBasesForTests } from "./task-bases.fixtures.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
 // Real git and real commands in a Task's worktree of a temporary repository.
@@ -72,12 +73,8 @@ beforeAll(async () => {
   officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
   runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
   const taskCommands = taskCommandsOver(commands, runEnvironments.registry());
-  worktrees = new Worktrees(
-    new CommandLineGit(new RepositoryLocks(), officeIdentityForTests()),
-    commands,
-    taskCommands,
-    officeData,
-  );
+  const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
+  worktrees = new Worktrees(git, commands, taskCommands, officeData, new TaskBasesForTests(git));
   scriptCommands = new ScriptCommands(worktrees, taskCommands, officeData);
 });
 

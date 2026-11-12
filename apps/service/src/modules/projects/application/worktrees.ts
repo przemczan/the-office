@@ -7,6 +7,8 @@ import { currentOperatingSystem } from "../../../platform/os/current-operating-s
 import type { CommandRun } from "../domain/command-run.js";
 import { isCommandSet, type Project } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
+import { mergedBase } from "../domain/resolve.js";
+import type { FreshBase } from "../domain/task-base.js";
 import {
   Git,
   NO_BRANCH_CHANGES,
@@ -20,11 +22,13 @@ import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ensureScreenshotsFolder } from "./screenshots-folder.js";
 import { TaskCommandRunner, type CommandPlace } from "./task-command-runner.js";
 import type { CommandWait } from "./task-run-environments.js";
+import { TaskBases } from "./task-bases.js";
 
 /** Short, as worktree paths count against Windows' MAX_PATH; a UUID fits. */
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/;
 const TASK_BRANCH_PREFIX = "office/";
 const PUBLISHED_FROM_PREFIX = "refs/office/published-from/";
+const PUBLISHED_FROM_BASE_PREFIX = "refs/office/published-from-base/";
 /** A throwaway worktree's folder starts with it, which no Task id does. */
 const THROWAWAY_PREFIX = "_";
 const INSTALL_RECORD = "office-install";
@@ -92,6 +96,7 @@ export class Worktrees {
     private readonly commands: ProjectCommandRunner,
     private readonly taskCommands: TaskCommandRunner,
     private readonly officeData: OfficeDataDirectory,
+    private readonly taskBases: TaskBases,
   ) {}
 
   /** `<office-data>/worktrees/<project>/<task>`. */
@@ -118,8 +123,16 @@ export class Worktrees {
   }
 
   /**
+   * For a Task published into its Initiative's branch, which `publishedFromRefOf` then names the
+   * old tip of: the base branch's commit it took in, the second point its changes are read from.
+   */
+  publishedFromBaseRefOf(taskId: string): string {
+    return `${PUBLISHED_FROM_BASE_PREFIX}${taskId}`;
+  }
+
+  /**
    * The Task's worktree on its branch, with dependencies installed where the Task's commands run
-   * (TaskCommandRunner). The first time, the branch starts at the freshly fetched base branch;
+   * (TaskCommandRunner). The first time, the branch starts at the freshly fetched base (`add`);
    * after that the worktree is as the Task left it.
    */
   async prepare(
@@ -147,12 +160,12 @@ export class Worktrees {
 
   /**
    * The Task's worktree on its branch, without installing: enough to read it, as planning does.
-   * The first time, the branch starts at the freshly fetched base branch. Its screenshots folder
+   * The first time, the branch starts at the freshly fetched base (`add`). Its screenshots folder
    * is made each time, so a worktree made before it, or one whose folder was removed, has it too.
    */
   async open(project: Project, taskId: string): Promise<TaskWorktree> {
     const worktree = { path: this.pathOf(project, taskId), branch: this.branchOf(taskId) };
-    if (!(await exists(worktree.path))) await this.add(project, worktree);
+    if (!(await exists(worktree.path))) await this.add(project, taskId, worktree);
     await ensureScreenshotsFolder(worktree.path);
     return worktree;
   }
@@ -173,6 +186,34 @@ export class Worktrees {
       commit: await this.git.fetch(project.path, upstream, variables),
       fetchedFrom: upstream,
     };
+  }
+
+  /**
+   * What the Task's branch takes in, in order, each freshly fetched: its Initiative's branch, when
+   * its Initiative has a Pipeline, then the base branch (spec §2.3, "The Task's branch keeps up
+   * with the base"). Throws InitiativeBranchUnusable when the Initiative's branch is gone or has
+   * diverged from its remote's.
+   */
+  async freshBases(
+    project: Project,
+    taskId: string,
+    variables: GitVariables,
+  ): Promise<readonly FreshBase[]> {
+    const taskBase = await this.taskBases.of(project, taskId);
+    const initiative =
+      taskBase.kind === "initiative-branch"
+        ? await this.taskBases.freshInitiativeBranch(project, taskBase.branch, variables)
+        : undefined;
+    const base = await this.freshBase(project, variables);
+    const baseBranch: FreshBase = {
+      commit: base.commit,
+      name: mergedBase(project.baseBranch, base.fetchedFrom),
+    };
+    if (!initiative) return [baseBranch];
+    return [
+      { commit: initiative.commit, name: mergedBase(initiative.branch, initiative.remote) },
+      baseBranch,
+    ];
   }
 
   /**
@@ -222,7 +263,7 @@ export class Worktrees {
   async changesSoFar(project: Project, taskId: string): Promise<string | undefined> {
     const summary = await this.git.diffSummary(
       this.pathOf(project, taskId),
-      project.baseBranch,
+      await this.basesOf(project, taskId),
       await this.publishedFrom(project, taskId),
     );
     return summary === "" ? undefined : summary;
@@ -244,7 +285,7 @@ export class Worktrees {
           has
             ? this.git.branchChanges(
                 project.path,
-                project.baseBranch,
+                await this.basesOf(project, taskId),
                 branch,
                 await this.publishedFrom(project, taskId),
               )
@@ -255,9 +296,36 @@ export class Worktrees {
     return { ...changes, worktreePath: worktreeExists ? path : undefined };
   }
 
-  /** Where the Task's branch forked from the base when it was published; undefined before. */
-  private async publishedFrom(project: Project, taskId: string): Promise<string | undefined> {
-    return this.git.findCommit(project.path, this.publishedFromRefOf(taskId));
+  /**
+   * What the Task's changes are read from, without fetching: its Initiative's branch as last known
+   * here, then the base branch as its upstream has it when it tracks one (spec §9). One gone from
+   * here leaves the base branch alone.
+   */
+  private async basesOf(project: Project, taskId: string): Promise<readonly string[]> {
+    const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
+    const baseBranch = upstream
+      ? `refs/remotes/${upstream.remote}/${upstream.branch}`
+      : `refs/heads/${project.baseBranch}`;
+    const taskBase = await this.taskBases.of(project, taskId);
+    if (taskBase.kind !== "initiative-branch") return [baseBranch];
+    const initiative = await this.taskBases.knownInitiativeBranch(project, taskBase.branch);
+    return initiative === undefined ? [baseBranch] : [initiative, baseBranch];
+  }
+
+  /**
+   * Where the Task's branch forked from its bases when it was published, in the order of
+   * `basesOf`; undefined before.
+   */
+  private async publishedFrom(
+    project: Project,
+    taskId: string,
+  ): Promise<readonly string[] | undefined> {
+    const [from, fromBase] = await Promise.all([
+      this.git.findCommit(project.path, this.publishedFromRefOf(taskId)),
+      this.git.findCommit(project.path, this.publishedFromBaseRefOf(taskId)),
+    ]);
+    if (from === undefined) return undefined;
+    return fromBase === undefined ? [from] : [from, fromBase];
   }
 
   /**
@@ -371,7 +439,12 @@ export class Worktrees {
     if (tooLong) throw new Error(`The worktree can't be made at ${path}. ${tooLong}`);
   }
 
-  private async add(project: Project, worktree: TaskWorktree): Promise<void> {
+  /**
+   * Makes the Task's worktree. A new branch starts at the freshly fetched Initiative's branch for
+   * a Task of an Initiative with a Pipeline, which refuses one that is gone (spec §5.5), and at
+   * the freshly fetched base branch otherwise.
+   */
+  private async add(project: Project, taskId: string, worktree: TaskWorktree): Promise<void> {
     this.refuseTooLong(worktree.path);
     const variables = this.variablesOf(project);
     // A branch left from a worktree removed earlier is checked out as it is.
@@ -380,10 +453,23 @@ export class Worktrees {
       : {
           kind: "new-branch",
           branch: worktree.branch,
-          startPoint: (await this.freshBase(project, variables)).commit,
+          startPoint: await this.startPointOf(project, taskId, variables),
         };
     await mkdir(dirname(worktree.path), { recursive: true });
     await this.git.addWorktree(project.path, { path: worktree.path, checkout }, variables);
+  }
+
+  private async startPointOf(
+    project: Project,
+    taskId: string,
+    variables: GitVariables,
+  ): Promise<string> {
+    const taskBase = await this.taskBases.of(project, taskId);
+    if (taskBase.kind === "initiative-branch") {
+      return (await this.taskBases.freshInitiativeBranch(project, taskBase.branch, variables))
+        .commit;
+    }
+    return (await this.freshBase(project, variables)).commit;
   }
 }
 

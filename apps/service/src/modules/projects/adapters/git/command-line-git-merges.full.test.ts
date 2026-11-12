@@ -117,7 +117,7 @@ describe("CommandLineGit refs", REAL_GIT_TEST, () => {
     await git.commit(worktree.path, "Add second.txt", serviceVariables);
     if (!first) throw new Error("The first commit committed nothing.");
 
-    const changes = await git.branchChanges(repository.path, "main", worktree.branch, first);
+    const changes = await git.branchChanges(repository.path, ["main"], worktree.branch, [first]);
 
     expect(changes.files.map(({ path }) => path)).toEqual(["second.txt"]);
   });

@@ -34,6 +34,16 @@ describe("The Office's checkout against its upstream", () => {
     expect(read.newest?.commit).toBe(await fixture.head());
   });
 
+  it("reads only the checkout's upstream, whatever other branches the remote has", async () => {
+    await fixture.pushOtherBranch("initiative/usage-exports", "An Initiative's work");
+
+    const read = await checkout.readUpstream();
+
+    expect(read).toMatchObject({ upstream: "origin/main", ahead: 0 });
+    expect(read.behind).toEqual([]);
+    expect(read.newest?.commit).toBe(await fixture.head());
+  });
+
   it("counts commits its upstream doesn't have, as a checkout that diverged", async () => {
     await fixture.pushNewer("Upstream's");
     await fixture.commitLocally("Mine");

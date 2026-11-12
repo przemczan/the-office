@@ -21,6 +21,7 @@ import { ProjectRemotes } from "./project-remotes.js";
 import type { ProjectService } from "./project-service.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 import { Worktrees } from "./worktrees.js";
+import { TaskBasesForTests } from "./task-bases.fixtures.js";
 
 let made: TemporaryRepository | undefined;
 
@@ -53,7 +54,13 @@ async function branchesOnARepository(tracking: boolean): Promise<{
   const branches = new InitiativeBranches(
     projects,
     git,
-    new Worktrees(git, commands, taskCommandsOver(commands), new OfficeDataDirectory(officeData)),
+    new Worktrees(
+      git,
+      commands,
+      taskCommandsOver(commands),
+      new OfficeDataDirectory(officeData),
+      new TaskBasesForTests(git),
+    ),
     commands,
     new ProjectRemotes(git, identity),
   );

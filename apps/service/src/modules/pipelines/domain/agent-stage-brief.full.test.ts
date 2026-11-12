@@ -79,6 +79,20 @@ describe("agentStageRecord", () => {
     );
   });
 
+  it("says a Task of an Initiative with a Pipeline starts from and publishes into its branch", () => {
+    const record = agentStageRecord({
+      task: { ...task, initiativeBranch: "initiative/usage-exports" },
+      earlier: [],
+      diffSummary: undefined,
+      commands: allowedCommands("read-only-git", [], undefined, GIT),
+      hardSwitches: HARD_SWITCHES,
+    });
+
+    expect(record).toContain(
+      "on the branch office/task, which started from the Initiative's branch initiative/usage-exports, and its Publish merges into initiative/usage-exports, not main. The Office brings initiative/usage-exports, then main into it.\n\n",
+    );
+  });
+
   it("lists the Task's linked records, as Work words them, before its Attachments", () => {
     const linkedRecordsSection =
       "## Linked records\n\n- Waits for: Add the session store (Task t-2), Done; read_task reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size.";

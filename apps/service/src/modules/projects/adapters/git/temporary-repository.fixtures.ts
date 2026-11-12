@@ -46,7 +46,7 @@ export function gitIn(cwd: string, ...gitArguments: string[]): string {
 
 /**
  * Commits `file` on `branch` in the origin, through a clone of its own, as someone else would,
- * and returns the commit.
+ * and returns the commit: on top of the origin's `branch` when it has one, else of its `main`.
  */
 export async function commitOnOrigin(
   repository: TemporaryRepository,
@@ -65,7 +65,8 @@ export async function commitOnOrigin(
   );
   gitIn(clonePath, "config", "user.name", "Someone else");
   gitIn(clonePath, "config", "user.email", "someone@localhost");
-  gitIn(clonePath, "checkout", "--quiet", "-B", branch);
+  const onOrigin = gitIn(clonePath, "branch", "--remotes", "--list", `origin/${branch}`) !== "";
+  gitIn(clonePath, "checkout", "--quiet", "-B", branch, ...(onOrigin ? [`origin/${branch}`] : []));
   await writeFile(join(clonePath, file), "from the origin\n");
   gitIn(clonePath, "add", ".");
   gitIn(clonePath, "commit", "--quiet", "--message", `Add ${file}`);

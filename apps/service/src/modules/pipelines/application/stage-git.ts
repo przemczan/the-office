@@ -6,6 +6,7 @@ import {
   headProblem,
   type ExpectedHead,
 } from "../domain/stage-commit.js";
+import { baseWords } from "../domain/base-words.js";
 import { actsNow } from "../domain/stage-interruption.js";
 import type { StageInterruption, StageOutcome, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
@@ -74,7 +75,7 @@ export class StageGit {
   ): Promise<string | undefined> {
     if (earlierRuns.some(({ headCommit }) => headCommit !== undefined)) return undefined;
     const update = await this.git.updateFromBase(task.project.id, run.taskId, "give-back");
-    return branchUpdateWords(update, task.project.baseBranch);
+    return branchUpdateWords(update, baseWords(task));
   }
 
   private async takesMove(

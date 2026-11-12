@@ -130,6 +130,27 @@ describe("a planning Brief", () => {
     );
   });
 
+  it("says a Task of an Initiative with a Pipeline starts from and publishes into its branch, naming the Pipeline", () => {
+    const brief = planningBrief({
+      ...RECORD,
+      startsFrom: { branch: "initiative/usage-exports", initiativePipeline: "Full (full)" },
+    });
+
+    expect(brief).toContain(
+      "on the branch office/task-1, which started from the freshly fetched initiative/usage-exports.",
+    );
+    expect(brief).toContain(
+      "## The Initiative's branch\n\nThe Initiative has the Pipeline Full (full), so this Task starts from its branch initiative/usage-exports and publishes into it by merge, never into main directly. The Initiative's Pipeline runs only in its Publishing Tasks, which take initiative/usage-exports into main once its Tasks are done; this Task keeps a Pipeline of its own, the one you propose below.",
+    );
+  });
+
+  it("says nothing of an Initiative's branch for a Task of the base branch", () => {
+    const brief = planningBrief(RECORD);
+
+    expect(brief).toContain("which started from the freshly fetched main.");
+    expect(brief).not.toContain("## The Initiative's branch");
+  });
+
   it("lists every linked record, one line each, with how to read them", () => {
     const links: TaskLinks = {
       waitsFor: [

@@ -19,6 +19,7 @@ import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Publishing } from "./publishing.js";
 import { Resolving } from "./resolving.js";
 import { Worktrees } from "./worktrees.js";
+import { TaskBasesForTests } from "./task-bases.fixtures.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
@@ -51,14 +52,16 @@ beforeAll(async () => {
   gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
   git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
+  const taskBases = new TaskBasesForTests(git);
   worktrees = new Worktrees(
     git,
     commands,
     taskCommandsOver(commands),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
+    taskBases,
   );
-  resolving = new Resolving(git, commands, worktrees);
-  publishing = new Publishing(git, new NoPullRequests(), commands, worktrees);
+  resolving = new Resolving(git, commands, worktrees, taskBases);
+  publishing = new Publishing(git, new NoPullRequests(), commands, worktrees, taskBases);
 });
 
 afterAll(async () => {

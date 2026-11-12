@@ -29,6 +29,11 @@ export interface TaskRecord {
     /** The keys of the repository's skills and commands the Project turned off, each by itself. */
     readonly projectSkillsOff: readonly string[];
   };
+  /**
+   * The Initiative's branch the Task starts from and publishes into, its Initiative having a
+   * Pipeline; undefined for a Task of the base branch.
+   */
+  readonly initiativeBranch?: string | undefined;
   readonly worktree: {
     readonly path: string;
     readonly branch: string;

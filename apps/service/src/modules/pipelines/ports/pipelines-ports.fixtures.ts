@@ -562,8 +562,10 @@ export class TaskGitForTests extends TaskGit {
 
   updateFromBase(_projectId: string, taskId: string): Promise<BranchUpdate> {
     const update = this.branchUpdates.get(taskId) ?? { kind: "up-to-date" };
-    if (update.kind === "updated")
-      this.heads.set(taskId, { ...this.headOf(taskId), commit: update.commit });
+    // A conflict after a clean merge of the Initiative's branch has moved HEAD too, as git's would.
+    const movedTo =
+      update.kind === "updated" || update.kind === "conflicted" ? update.commit : undefined;
+    if (movedTo !== undefined) this.heads.set(taskId, { ...this.headOf(taskId), commit: movedTo });
     return Promise.resolve(update);
   }
 
@@ -830,6 +832,10 @@ export class TaskPublishingForTests extends TaskPublishing {
       conflictedFiles: ["src/index.ts"],
     };
     if (start.kind === "merged") this.mergedAt(taskId, start.commit);
+    // A conflict after a clean merge of the Initiative's branch: that merge moved the branch.
+    if (start.kind === "conflicted" && start.commit !== undefined) {
+      this.mergedAt(taskId, start.commit);
+    }
     return Promise.resolve(start);
   }
 

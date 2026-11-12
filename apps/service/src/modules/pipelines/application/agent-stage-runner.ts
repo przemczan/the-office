@@ -369,6 +369,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         linkedRecordsSection: task.linkedRecordsSection,
         projectName: task.project.name,
         baseBranch: task.project.baseBranch,
+        initiativeBranch: task.initiativeBranch,
         worktree: task.worktree,
       },
       earlier: earlierResults(stages, earlierRuns),

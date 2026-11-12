@@ -86,6 +86,26 @@ describe("startTask", () => {
 });
 
 describe("startReasons", () => {
+  it("refuses a Task whose Initiative's branch is gone, naming it and the Project", () => {
+    const gone = {
+      ...conditions,
+      initiativeBranch: { kind: "gone", branch: "initiative/x" },
+    } as const;
+
+    expect(startReasons(ready, gone, held([]))).toEqual(
+      refused(
+        "The Initiative's branch initiative/x is gone from Admin panel, so the Task can't start.",
+      ),
+    );
+  });
+
+  it("refuses a Task whose Initiative's branch was never made, with why", () => {
+    const reason = 'The Initiative "Usage exports" has no branch in Admin panel.';
+    const notMade = { ...conditions, initiativeBranch: { kind: "not-made", reason } } as const;
+
+    expect(startReasons(ready, notMade, held([]))).toEqual(refused(reason));
+  });
+
   it("refuses a Task that isn't Ready", () => {
     expect(startReasons({ ...ready, state: "planning" }, conditions, held([]))).toEqual(
       refused("Only a Ready Task can start; this one is in Planning."),

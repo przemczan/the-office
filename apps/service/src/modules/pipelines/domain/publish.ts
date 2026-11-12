@@ -27,8 +27,11 @@ export interface RemoteBranch {
 export type ResolveStart =
   | {
       readonly kind: "conflicted";
+      /** The base whose merge conflicted: the Task's Initiative's branch or the base branch. */
       readonly base: RemoteBranch;
       readonly conflictedFiles: readonly string[];
+      /** Where a clean merge of an earlier base left HEAD before the conflict. */
+      readonly commit?: string;
     }
   | { readonly kind: "merged"; readonly base: RemoteBranch; readonly commit: string }
   | { readonly kind: "failed"; readonly error: string };

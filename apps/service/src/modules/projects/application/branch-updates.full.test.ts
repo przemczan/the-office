@@ -18,6 +18,7 @@ import type { Project } from "../domain/project.js";
 import { BranchUpdates } from "./branch-updates.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
+import { TaskBasesForTests } from "./task-bases.fixtures.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 
 // Real git on a temporary repository whose main tracks its origin's, which is a bare repository.
@@ -41,6 +42,7 @@ beforeAll(async () => {
     commands,
     taskCommandsOver(commands),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
+    new TaskBasesForTests(git),
   );
   updates = new BranchUpdates(git, commands, worktrees);
 });
@@ -181,6 +183,7 @@ describe("BranchUpdates.update", REAL_GIT_TEST, () => {
     await expect(updates.update(project(), task.taskId, "give-back")).resolves.toEqual({
       kind: "conflicted",
       conflictedFiles: [task.file],
+      from: "main",
     });
     await expect(git.mergeConflicts(task.path)).resolves.toEqual([]);
     expect((await git.head(task.path)).commit).toBe(commit);
@@ -190,8 +193,12 @@ describe("BranchUpdates.update", REAL_GIT_TEST, () => {
     const task = await aConflictingTask();
     const conflicted = { kind: "conflicted", conflictedFiles: [task.file] };
 
-    await expect(updates.update(project(), task.taskId, "leave")).resolves.toEqual(conflicted);
+    await expect(updates.update(project(), task.taskId, "leave")).resolves.toEqual({
+      ...conflicted,
+      from: "main",
+    });
     await expect(git.mergeConflicts(task.path)).resolves.toEqual([task.file]);
+    // Left from before, so which branch's merge it is isn't known.
     await expect(updates.update(project(), task.taskId, "leave")).resolves.toEqual(conflicted);
   });
 

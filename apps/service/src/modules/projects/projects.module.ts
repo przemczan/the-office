@@ -56,6 +56,7 @@ import { BranchUpdates } from "./application/branch-updates.js";
 import { Resolving } from "./application/resolving.js";
 import { ScriptCommands } from "./application/script-commands.js";
 import { AgentCommands } from "./application/agent-commands.js";
+import { TaskBases } from "./application/task-bases.js";
 import { TaskWorktrees } from "./application/task-worktrees.js";
 import { Worktrees } from "./application/worktrees.js";
 import { CommandRunner } from "./ports/command-runner.js";
@@ -136,6 +137,7 @@ export class ProjectsModule implements NestModule {
         ProjectsFromRepositories,
         ProjectRemotes,
         Worktrees,
+        TaskBases,
         ScriptCommands,
         AgentCommands,
         Publishing,
@@ -161,6 +163,7 @@ export class ProjectsModule implements NestModule {
         ProjectsFromRepositories,
         TaskRunEnvironments,
         TaskWorktrees,
+        TaskBases,
       ],
     };
   }

@@ -14,6 +14,7 @@ import { aProject } from "./domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { taskCommandsOver } from "./application/task-command-runner.fixtures.js";
 import { ScriptedTaskRunEnvironments } from "./application/task-run-environments.fixtures.js";
+import { TaskBasesForTests } from "./application/task-bases.fixtures.js";
 import { Worktrees } from "./application/worktrees.js";
 
 /** An install that adds one "x" to the log, so a test can count installs. */
@@ -29,6 +30,7 @@ export async function worktreesOnATemporaryRepository(): Promise<{
   installLog: string;
   project: Project;
   runEnvironments: ScriptedTaskRunEnvironments;
+  taskBases: TaskBasesForTests;
 }> {
   const repository = await createTemporaryRepository();
   gitIn(repository.path, "fetch", "--quiet", "origin");
@@ -36,11 +38,14 @@ export async function worktreesOnATemporaryRepository(): Promise<{
   const installLog = join(repository.folder, "installs.log");
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   const runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
+  const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
+  const taskBases = new TaskBasesForTests(git);
   const worktrees = new Worktrees(
-    new CommandLineGit(new RepositoryLocks(), officeIdentityForTests()),
+    git,
     commands,
     taskCommandsOver(commands, runEnvironments.registry()),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
+    taskBases,
   );
   const project = aProject({
     path: repository.path,
@@ -52,5 +57,5 @@ export async function worktreesOnATemporaryRepository(): Promise<{
       prependPath: [],
     },
   });
-  return { repository, worktrees, installLog, project, runEnvironments };
+  return { repository, worktrees, installLog, project, runEnvironments, taskBases };
 }

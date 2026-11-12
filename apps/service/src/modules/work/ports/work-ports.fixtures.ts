@@ -8,7 +8,7 @@ import {
   WorkRecords,
 } from "../../conversations/index.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
-import type { NewProject } from "../../projects/index.js";
+import { TaskBases, type NewProject, type TaskBaseLookup } from "../../projects/index.js";
 import type { AccountWindowsReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
 import type { AllStageResults } from "../domain/record-words.js";
@@ -520,6 +520,19 @@ export class TaskTokensForTests extends TaskTokens {
   }
 }
 
+/**
+ * Projects' registry of each Task's base, which Work fills as it starts, without Projects' git: a
+ * test asks the lookup Work registered.
+ */
+@Injectable()
+export class TaskBasesForTests {
+  lookup: TaskBaseLookup | undefined;
+
+  register(lookup: TaskBaseLookup): void {
+    this.lookup = lookup;
+  }
+}
+
 const PORTS = [
   UsageHistoryForTests,
   ModelPricesForTests,
@@ -547,6 +560,8 @@ const PORTS = [
   WorkRecords,
   ProposalAppliers,
   FireAlarmInThreads,
+  TaskBasesForTests,
+  { provide: TaskBases, useExisting: TaskBasesForTests },
 ];
 
 /** Provides them all, for `WorkModule.register({ imports: [this module] })`. */

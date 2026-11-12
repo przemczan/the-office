@@ -20,6 +20,7 @@ import { WebEventForwarding } from "../../platform/websocket/web-event-forwardin
 import { GitHubModule } from "../github/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../pipelines/index.js";
 import { ProjectsModule } from "./projects.module.js";
+import { TaskBases } from "./application/task-bases.js";
 import type { TemporaryRepository } from "./adapters/git/temporary-repository.fixtures.js";
 
 /** The Projects module's routes on the test database. */
@@ -39,6 +40,8 @@ export async function startProjectsApplication(
       }),
     ],
   });
+  // Work's lookup stood in for: no Task here has an Initiative.
+  app.get(TaskBases).register(async () => ({ kind: "base-branch" }));
   return { app, url };
 }
 

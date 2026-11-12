@@ -14,8 +14,16 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { ASKING_INSTRUCTIONS, askingBrief } from "../../domain/asking.js";
-import { PLANNER, PLANNING_INSTRUCTIONS, planningBrief } from "../../domain/planning.js";
+import type { Initiative } from "../../domain/initiative.js";
+import {
+  PLANNER,
+  PLANNING_INSTRUCTIONS,
+  planningBrief,
+  type InitiativeBranchStart,
+  type PlanningPipeline,
+} from "../../domain/planning.js";
 import type { Task } from "../../domain/task.js";
+import { taskBranchBase } from "../../domain/task-branch-base.js";
 import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
@@ -167,11 +175,36 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       projectSkillsOff: project.projectSkillsOff,
       instructions: PLANNING_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
-      brief: planningBrief({ task, project, worktree, links, attachments, pipelines, initiative }),
+      brief: planningBrief({
+        task,
+        project,
+        worktree,
+        links,
+        attachments,
+        pipelines,
+        initiative,
+        startsFrom: initiativeBranchStart(links.initiative, project, pipelines),
+      }),
       asking: false,
       sessionRefusal: CLOSED_TASK_CONVERSATION_WORDS[task.state],
     };
   }
+}
+
+/** The Initiative's branch the Task starts from, with its Initiative's Pipeline by name; undefined for the base branch. */
+function initiativeBranchStart(
+  initiative: Initiative | undefined,
+  project: KnownProject,
+  pipelines: readonly PlanningPipeline[],
+): InitiativeBranchStart | undefined {
+  const base = taskBranchBase(initiative, project.id, project.name);
+  if (base.kind === "base-branch" || initiative?.pipelineId === undefined) return undefined;
+  const { pipelineId } = initiative;
+  const pipeline = pipelines.find(({ id }) => id === pipelineId);
+  return {
+    branch: base.branch,
+    initiativePipeline: pipeline ? `${pipeline.name} (${pipelineId})` : pipelineId,
+  };
 }
 
 const NOTHING_TO_ASK_IN_BACKLOG =

@@ -243,6 +243,20 @@ export abstract class Git {
   /** Removes `ref` only while it still names `expected`; git refuses otherwise. */
   abstract removeRef(repositoryPath: string, ref: string, expected: string): Promise<void>;
 
+  /** Moves `ref` to `commit` only while it still names `expected`; git refuses otherwise. */
+  abstract moveRef(
+    repositoryPath: string,
+    ref: string,
+    commit: string,
+    expected: string,
+  ): Promise<void>;
+
+  /**
+   * The folder of the repository's worktree that has the local branch `branch` checked out, the
+   * repository's own working tree among them; undefined when none has.
+   */
+  abstract worktreeOf(repositoryPath: string, branch: string): Promise<string | undefined>;
+
   /** Whether `upstream.remote` itself, asked now (`ls-remote`), has the branch `upstream.branch`. */
   abstract remoteHasBranch(
     repositoryPath: string,
@@ -372,28 +386,29 @@ export abstract class Git {
   abstract head(worktreePath: string): Promise<Head>;
 
   /**
-   * git's summary of what the worktree's commits changed since they forked from the base branch,
-   * as its upstream has it when it tracks one, else as it is locally (spec §9), without fetching:
-   * a line per file, the first ones only when there are many, and a total. Empty when nothing did.
-   * Since `forkPoint` instead, when given.
+   * git's summary of what the worktree's commits changed since they forked from its bases, each a
+   * revision, such as the base branch as its upstream has it (spec §9), without fetching: a line
+   * per file, the first ones only when there are many, and a total. Empty when nothing did. Since
+   * `forkPoints` instead, when given. With two bases, an Initiative's branch then the base branch,
+   * the changes are counted from both, so neither one's commits taken in count as the worktree's.
    */
   abstract diffSummary(
     worktreePath: string,
-    baseBranch: string,
-    forkPoint?: string,
+    bases: readonly string[],
+    forkPoints?: readonly string[],
   ): Promise<string>;
 
   /**
-   * The files, line counts and diff of what `branch`'s commits changed since it forked from the
-   * base branch, which is taken as diffSummary takes it, or since `forkPoint` when given. Read from
+   * The files, line counts and diff of what `branch`'s commits changed since it forked from its
+   * bases, which are taken as diffSummary takes them, or since `forkPoints` when given. Read from
    * the repository's records, so it needs no worktree of the branch; uncommitted changes in one
    * aren't in it.
    */
   abstract branchChanges(
     repositoryPath: string,
-    baseBranch: string,
+    bases: readonly string[],
     branch: string,
-    forkPoint?: string,
+    forkPoints?: readonly string[],
   ): Promise<BranchChanges>;
 
   /**

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { baseWords } from "../domain/base-words.js";
 import { RESOLVE_KEY } from "../domain/resolve-stages.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
 import { failedInstall } from "../domain/stage-command-run.js";
@@ -49,14 +50,17 @@ export class StageBranchUpdate {
     const task = await this.records.read(run.taskId);
     const projectId = task.project.id;
     if (!(await this.git.mergeInProgress(projectId, run.taskId))) {
-      const message = `Work before updating from ${task.project.baseBranch}: ${task.title}`;
+      const message = `Work before updating from ${baseWords(task)}: ${task.title}`;
       const commit = await this.git.commit(projectId, run.taskId, message);
       if (commit !== undefined) await this.runs.saveHeadCommit(run.id, commit);
     }
     const update = await this.git.updateFromBase(projectId, run.taskId, "leave");
-    if (update.kind === "updated") await this.runs.saveHeadCommit(run.id, update.commit);
+    // A clean merge of the Initiative's branch before a conflict with the base moved HEAD too.
+    const movedTo =
+      update.kind === "updated" || update.kind === "conflicted" ? update.commit : undefined;
+    if (movedTo !== undefined) await this.runs.saveHeadCommit(run.id, movedTo);
     return {
-      text: `${answerTo(update, task.project.baseBranch)}${await this.installed(update, task, run)}`,
+      text: `${answerTo(update, baseWords(task))}${await this.installed(update, task, run)}`,
       isError: update.kind === "failed",
     };
   }
@@ -76,14 +80,15 @@ export class StageBranchUpdate {
   }
 }
 
-function answerTo(update: BranchUpdate, baseBranch: string): string {
+/** `bases` names what the branch takes in (`baseWords`). */
+function answerTo(update: BranchUpdate, bases: string): string {
   switch (update.kind) {
     case "up-to-date":
-      return `The Task's branch already has everything ${baseBranch} has.`;
+      return `The Task's branch is already up to date with ${bases}.`;
     case "updated":
-      return `The Task's branch now has everything ${baseBranch} has, and your work so far is committed. Read again whatever you read before.`;
+      return `The Task's branch is now up to date with ${bases}, and your work so far is committed. Read again whatever you read before.`;
     case "conflicted":
-      return `Merging ${baseBranch} conflicts in these files, left with conflict markers in the worktree:\n${update.conflictedFiles.map((file) => `- ${file}`).join("\n")}\n\nResolve them by editing the files, keeping what both sides meant, and don't run git: The Office commits the merge when your Stage ends done, once no marker is left.`;
+      return `Merging ${update.from ?? bases} conflicts in these files, left with conflict markers in the worktree:\n${update.conflictedFiles.map((file) => `- ${file}`).join("\n")}\n\nResolve them by editing the files, keeping what both sides meant, and don't run git: The Office commits the merge when your Stage ends done, once no marker is left.`;
     case "failed":
       return `The Office couldn't update the Task's branch. git said: ${update.error}`;
   }

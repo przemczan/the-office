@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { headProblem, stageCommitMessage } from "./stage-commit.js";
+import { baseWords } from "./base-words.js";
+import { branchUpdateWords, headProblem, stageCommitMessage } from "./stage-commit.js";
 
 describe("stageCommitMessage", () => {
   it("keeps the subject to one short line when the Task's title is long", () => {
@@ -54,5 +55,33 @@ describe("headProblem", () => {
 
   it("finds none where The Office left HEAD", () => {
     expect(headProblem(expected, { ...expected })).toBeUndefined();
+  });
+});
+
+describe("branchUpdateWords", () => {
+  const bases = baseWords({
+    project: { baseBranch: "main" },
+    initiativeBranch: "initiative/usage-exports",
+  });
+
+  it("names the Initiative's branch, then the base, as what the branch was brought up to date with", () => {
+    expect(branchUpdateWords({ kind: "updated", commit: "c".repeat(40) }, bases)).toBe(
+      "The Office brought the Task's branch up to date with initiative/usage-exports, then main as this Stage started, so the code may be newer than the Plan.",
+    );
+  });
+
+  it("names the branch that conflicted, and keeps a clean merge before it", () => {
+    const conflicted = { kind: "conflicted", conflictedFiles: ["a.ts"], from: "main" } as const;
+
+    expect(branchUpdateWords(conflicted, bases)).toBe(
+      "The Task's branch is behind main and conflicts with it in a.ts, so it stays as it was. When your work needs what the base has, call update_branch and resolve the conflict in the files.",
+    );
+    expect(branchUpdateWords({ ...conflicted, commit: "c".repeat(40) }, bases)).toContain(
+      "conflicts with it in a.ts, so it took in what came before it and stays without it.",
+    );
+  });
+
+  it("names the base branch alone for a Task of no Initiative", () => {
+    expect(baseWords({ project: { baseBranch: "main" } })).toBe("main");
   });
 });

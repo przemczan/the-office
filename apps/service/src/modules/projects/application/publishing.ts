@@ -11,10 +11,16 @@ import {
   type PullRequestText,
   type RemoteBranch,
 } from "../domain/publication.js";
-import { mergeMessage } from "../domain/resolve.js";
+import { mergedBase, mergeMessage } from "../domain/resolve.js";
+import {
+  InitiativeBranchUnusable,
+  type FreshBase,
+  type FreshInitiativeBranch,
+} from "../domain/task-base.js";
 import { Git, GitCommandFailed, type GitVariables } from "../ports/git.js";
 import { PullRequestRefused, PullRequests } from "../ports/pull-requests.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
+import { TaskBases } from "./task-bases.js";
 import { Worktrees } from "./worktrees.js";
 
 /** What one Publish works with: the Task's branch and the base as its remote has it, freshly fetched. */
@@ -37,7 +43,8 @@ interface PublishContext {
  * branch forked from the base. Pushes run with the Project's variables on the Office identity
  * (spec §5.5 Defaults), which signs them in; Push + PR is refused before anything is pushed when
  * no pull request could be opened on the remote. The user's checkout and local base branch are
- * left as they are.
+ * left as they are. A Task of an Initiative with a Pipeline publishes into its Initiative's branch
+ * instead, by merge whatever the publishing mode (`mergeIntoInitiativeBranch`).
  */
 @Injectable()
 export class Publishing {
@@ -46,6 +53,7 @@ export class Publishing {
     private readonly pullRequests: PullRequests,
     private readonly commands: ProjectCommandRunner,
     private readonly worktrees: Worktrees,
+    private readonly taskBases: TaskBases,
   ) {}
 
   async publish(
@@ -54,6 +62,10 @@ export class Publishing {
     text: PullRequestText,
     target: PublishTarget,
   ): Promise<Publication> {
+    const taskBase = await this.taskBases.of(project, taskId);
+    if (taskBase.kind === "initiative-branch" && target === "publishing-mode") {
+      return this.mergeIntoInitiativeBranch(project, taskId, taskBase.branch);
+    }
     const branch = this.worktrees.branchOf(taskId);
     const base = await this.git.upstreamOf(project.path, project.baseBranch);
     if (!base) return { kind: "failed", error: noRemoteError(project.baseBranch) };
@@ -77,10 +89,139 @@ export class Publishing {
           ? this.merge(project, context)
           : this.pushAndOpenPullRequest(project, context, text);
       })
+      .catch(publishFailure);
+  }
+
+  /**
+   * Publish into the Task's Initiative's branch (spec §2.3, "Publishing into an Initiative's
+   * branch"): the Task's branch takes in the freshly fetched Initiative's branch, then the base
+   * branch, each by a fast-forward or one merge commit, never a rebase, and the Initiative's branch
+   * fast-forwards to it. Pushed without force to the base branch's remote when the base branch
+   * tracks one, before the local branch moves, so a refused push leaves both as they were; only
+   * the local branch moves otherwise. Never a pull request. A merge that would conflict goes to
+   * Resolve; a branch gone, diverged from its remote's or checked out elsewhere fails.
+   */
+  private async mergeIntoInitiativeBranch(
+    project: Project,
+    taskId: string,
+    initiativeBranch: string,
+  ): Promise<Publication> {
+    const branch = this.worktrees.branchOf(taskId);
+    const ref = branchRef(branch);
+    const variables = this.commands.variablesFor(project.environment);
+    return this.git
+      .exclusively(project.path, async (): Promise<Publication> => {
+        const base = await this.worktrees.freshBase(project, variables).catch((error: unknown) => {
+          throw failure(
+            error,
+            (said) => `Fetching ${project.baseBranch} of ${project.name} failed. git said: ${said}`,
+          );
+        });
+        const initiative = await this.taskBases
+          .freshInitiativeBranch(project, initiativeBranch, variables)
+          .catch((error: unknown) => {
+            throw failure(
+              error,
+              (said) => `Fetching ${initiativeBranch} of ${project.name} failed. git said: ${said}`,
+            );
+          });
+        const into = mergedBase(initiative.branch, initiative.remote);
+        if (await this.git.contains(project.path, initiative.commit, ref)) {
+          return { kind: "nothing-to-publish", branch, base: into };
+        }
+        const checkedOutIn = await this.git.worktreeOf(project.path, initiative.branch);
+        if (checkedOutIn !== undefined) {
+          return {
+            kind: "failed",
+            error: `The Initiative's branch ${initiative.branch} is checked out in ${checkedOutIn}, so Publish can't move it. Check out another branch there, then run Publish again.`,
+          };
+        }
+        const context = { project, taskId, branch, variables };
+        const bases: readonly FreshBase[] = [
+          { commit: initiative.commit, name: into },
+          { commit: base.commit, name: mergedBase(project.baseBranch, base.fetchedFrom) },
+        ];
+        let baseTakenIn: BaseTakenIn = "not-needed";
+        for (const each of bases) {
+          const takenIn = await this.takeInByMerge(context, each);
+          if (typeof takenIn !== "string") return takenIn;
+          if (takenIn !== "not-needed") baseTakenIn = takenIn;
+        }
+        const commit = await this.git.commitOf(project.path, ref);
+        await this.moveInitiativeBranch(project, context, initiative, commit);
+        await this.git.setRef(
+          project.path,
+          this.worktrees.publishedFromRefOf(taskId),
+          initiative.commit,
+        );
+        await this.git.setRef(
+          project.path,
+          this.worktrees.publishedFromBaseRefOf(taskId),
+          base.commit,
+        );
+        return { kind: "merged", branch, into, commit, baseTakenIn };
+      })
+      .catch(publishFailure);
+  }
+
+  /**
+   * Takes `base` into the Task's branch in its worktree: a fast-forward when the branch has nothing
+   * `base` lacks, else one merge commit; the conflict that would keep it from doing so, before
+   * anything changes, otherwise.
+   */
+  private async takeInByMerge(
+    { project, taskId, branch, variables }: InitiativePublishContext,
+    base: FreshBase,
+  ): Promise<BaseTakenIn | Publication> {
+    const ref = branchRef(branch);
+    if (await this.git.contains(project.path, ref, base.commit)) return "not-needed";
+    const conflictedFiles = await this.git.conflictsOf(project.path, base.commit, ref);
+    if (conflictedFiles.length > 0)
+      return conflicting({ branch, base: base.name }, conflictedFiles);
+    const worktreePath = this.worktrees.pathOf(project, taskId);
+    const merged = (said: string): string =>
+      `Merging ${base.name.branch} into ${branch} failed. git said: ${said}`;
+    if (await this.git.contains(project.path, base.commit, ref)) {
+      await this.git.fastForward(worktreePath, base.commit, variables).catch((error: unknown) => {
+        throw failure(error, merged);
+      });
+      return "by-merge";
+    }
+    const merge = await this.git
+      .merge(worktreePath, base.commit, mergeMessage(base.name, branch), variables)
       .catch((error: unknown) => {
-        if (error instanceof PublishFailed)
-          return { kind: "failed", error: error.message } as const;
-        throw error;
+        throw failure(error, merged);
+      });
+    if (merge.kind === "merged") return "by-merge";
+    await this.git.abortMerge(worktreePath, variables);
+    return conflicting({ branch, base: base.name }, merge.conflictedFiles);
+  }
+
+  /**
+   * Moves the Initiative's branch to `commit`: its remote's first, by a push that never forces,
+   * then the local branch from the commit it was read at, so neither moves past what someone else
+   * moved it to meanwhile.
+   */
+  private async moveInitiativeBranch(
+    project: Project,
+    { branch, variables }: InitiativePublishContext,
+    initiative: FreshInitiativeBranch,
+    commit: string,
+  ): Promise<void> {
+    if (initiative.remote) {
+      const into = initiative.remote;
+      await this.git.push(project.path, branch, into, variables).catch((error: unknown) => {
+        throw failure(error, (said) => pushFailure(branch, into, said));
+      });
+    }
+    await this.git
+      .moveRef(project.path, branchRef(initiative.branch), commit, initiative.local)
+      .catch((error: unknown) => {
+        throw failure(
+          error,
+          (said) =>
+            `${initiative.branch} moved in ${project.name} while Publish ran, so it was left as it was. Run Publish again. git said: ${said}`,
+        );
       });
   }
 
@@ -195,8 +336,24 @@ export class Publishing {
   }
 }
 
+/** What a Publish into an Initiative's branch works with. */
+interface InitiativePublishContext {
+  readonly project: Project;
+  readonly taskId: string;
+  readonly branch: string;
+  readonly variables: GitVariables;
+}
+
 /** A step of Publish that failed in a way the Stage's on-failure target or the user handles. */
 class PublishFailed extends Error {}
+
+/** A failed step as a failed Publish; anything else is a fault and stays as it is. */
+function publishFailure(error: unknown): Publication {
+  if (error instanceof PublishFailed || error instanceof InitiativeBranchUnusable) {
+    return { kind: "failed", error: error.message };
+  }
+  throw error;
+}
 
 /** git's refusal as a PublishFailed in `words`; anything else is a fault and stays as it is. */
 function failure(error: unknown, words: (said: string) => string): unknown {
@@ -205,7 +362,7 @@ function failure(error: unknown, words: (said: string) => string): unknown {
 
 /** The branch would conflict with the base: Resolve takes it (spec §2.3, "Conflicts at Publish"). */
 function conflicting(
-  { branch, base }: PublishContext,
+  { branch, base }: { readonly branch: string; readonly base: RemoteBranch },
   conflictedFiles: readonly string[],
 ): Publication {
   return {

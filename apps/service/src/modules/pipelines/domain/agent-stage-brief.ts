@@ -1,3 +1,4 @@
+import { baseWords } from "./base-words.js";
 import type { AllowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { STAGE_KIND_NAMES, type AgentStage, type Stage, type StageKind } from "./stage.js";
@@ -29,6 +30,8 @@ export interface BriefTask {
   readonly linkedRecordsSection: string | undefined;
   readonly projectName: string;
   readonly baseBranch: string;
+  /** The Initiative's branch the Task starts from and publishes into, when it has one. */
+  readonly initiativeBranch?: string | undefined;
   readonly worktree: {
     readonly path: string;
     readonly branch: string;
@@ -73,7 +76,7 @@ export function agentStageRecord({
   return sections([
     `## The Task\n\n${task.title}, in the Project ${task.projectName}.`,
     task.descriptionSection,
-    `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, which started from ${task.baseBranch}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
+    `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, which started from ${startedFrom(task)}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
     task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
     task.definitionOfDone.length === 0
       ? undefined
@@ -259,4 +262,17 @@ function attachmentsSection(lines: readonly string[]): string {
 
 function sections(parts: readonly (string | undefined)[]): string {
   return parts.filter((part) => part !== undefined).join("\n\n");
+}
+
+/**
+ * What the Task's branch started from, and for a Task of an Initiative with a Pipeline where it
+ * publishes and what it takes in (spec §2.3, "Publishing into an Initiative's branch").
+ */
+function startedFrom(task: BriefTask): string {
+  if (task.initiativeBranch === undefined) return task.baseBranch;
+  const bases = baseWords({
+    project: { baseBranch: task.baseBranch },
+    initiativeBranch: task.initiativeBranch,
+  });
+  return `the Initiative's branch ${task.initiativeBranch}, and its Publish merges into ${task.initiativeBranch}, not ${task.baseBranch}. The Office brings ${bases} into it`;
 }

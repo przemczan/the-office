@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskStateChanged } from "../../work/index.js";
+import { baseWords } from "../domain/base-words.js";
 import {
   afterResolveTestFailed,
   conflictCameBackTooOften,
@@ -103,10 +104,14 @@ export class ResolveStageGit implements OnModuleInit {
           kind: "ended",
           outcome: {
             status: "done",
-            summary: `Merged ${start.base.branch} from ${start.base.remote} into the Task's branch with no conflict left to resolve.`,
+            summary: `Merged ${task.initiativeBranch === undefined ? `${start.base.branch} from ${start.base.remote}` : baseWords(task)} into the Task's branch with no conflict left to resolve.`,
           },
         };
       case "conflicted": {
+        // A clean merge of the Initiative's branch before the conflict with the base moved HEAD.
+        if (start.commit !== undefined) {
+          await this.stageGit.leaveAt(run, { ...expected, commit: start.commit });
+        }
         const files = start.conflictedFiles.map((file) => `- ${file}`).join("\n");
         if (conflictCameBackTooOften(run.carriedFailure)) {
           return {

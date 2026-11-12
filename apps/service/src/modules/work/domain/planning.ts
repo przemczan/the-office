@@ -74,6 +74,15 @@ export interface PlanningRecord {
   readonly pipelines: readonly PlanningPipeline[];
   /** The Initiative the Task is part of, if it is. */
   readonly initiative?: InitiativeRecord | undefined;
+  /** Its Initiative's branch, when the Task starts from one; undefined for the base branch. */
+  readonly startsFrom?: InitiativeBranchStart | undefined;
+}
+
+/** The Initiative's branch a Task starts from and publishes into, its Initiative having a Pipeline. */
+export interface InitiativeBranchStart {
+  readonly branch: string;
+  /** The Initiative's Pipeline, by name, which runs only in its Publishing Tasks. */
+  readonly initiativePipeline: string;
 }
 
 /**
@@ -90,16 +99,18 @@ export function planningBrief({
   attachments,
   pipelines,
   initiative,
+  startsFrom,
 }: PlanningRecord): string {
   return [
     "You are planning a Task with the user, in the Task's planning Thread.",
     `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${project.name}.`,
     readySection(task),
     descriptionSection(task.description),
-    `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${project.baseBranch}.`,
+    `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${startsFrom?.branch ?? project.baseBranch}.`,
     originSection(links.idea, task.description),
     linkedRecordsSection(links),
     initiative && initiativeSection(initiative, task.id),
+    startsFrom && initiativeBranchSection(startsFrom, project.baseBranch),
     attachmentsSection(attachments),
     `## The Project's commands\n\n${commandLines(project).join("\n")}`,
     pipelinesSection(task, project, pipelines),
@@ -108,6 +119,14 @@ export function planningBrief({
   ]
     .filter((section) => section !== undefined)
     .join("\n\n");
+}
+
+/** What the Initiative's Pipeline means for the Task (spec §2.5; §2.3, "Publishing into an Initiative's branch"). */
+function initiativeBranchSection(
+  { branch, initiativePipeline }: InitiativeBranchStart,
+  baseBranch: string,
+): string {
+  return `## The Initiative's branch\n\nThe Initiative has the Pipeline ${initiativePipeline}, so this Task starts from its branch ${branch} and publishes into it by merge, never into ${baseBranch} directly. The Initiative's Pipeline runs only in its Publishing Tasks, which take ${branch} into ${baseBranch} once its Tasks are done; this Task keeps a Pipeline of its own, the one you propose below.`;
 }
 
 /**

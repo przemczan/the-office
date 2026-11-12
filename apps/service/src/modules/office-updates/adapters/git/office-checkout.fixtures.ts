@@ -12,6 +12,8 @@ export interface OfficeCheckoutForTests {
   readonly upstream: string;
   /** Commits on the upstream from another clone, so the checkout falls behind; their commits. */
   pushNewer(...subjects: string[]): Promise<string[]>;
+  /** Pushes a branch of its own, such as an Initiative's, holding a commit `main` doesn't have. */
+  pushOtherBranch(branch: string, subject: string): Promise<void>;
   /** Commits in the checkout alone, so it has what its upstream doesn't. */
   commitLocally(subject: string): Promise<void>;
   /** Changes a tracked file without committing it. */
@@ -41,6 +43,13 @@ export async function createOfficeCheckout(folder: string): Promise<OfficeChecko
       }
       await git(other, "push", "--quiet");
       return commits;
+    },
+    async pushOtherBranch(branch, subject) {
+      await git(other, "pull", "--quiet", "--ff-only");
+      await git(other, "switch", "--quiet", "-c", branch);
+      await commit(other, subject);
+      await git(other, "push", "--quiet", "origin", branch);
+      await git(other, "switch", "--quiet", "main");
     },
     commitLocally: (subject) => commit(path, subject),
     changeLocally: () => writeFile(join(path, "version.txt"), "changed by hand\n"),

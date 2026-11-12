@@ -58,7 +58,7 @@ describe("StageBranchUpdate", () => {
     });
 
     expect(answer.isError).toBe(false);
-    expect(answer.text).toContain("now has everything main has");
+    expect(answer.text).toContain("is now up to date with main,");
     const [work, stageEnd] = pipelines.git.commits;
     expect(work?.message).toContain("Work before updating from");
     expect(stageEnd?.message).toContain("Implement:");
@@ -80,6 +80,39 @@ describe("StageBranchUpdate", () => {
     expect(answer.isError).toBe(false);
     expect(pipelines.publishing.resolveCalls).toEqual([{ call: "finish", taskId }]);
     expect(pipelines.git.commits).toEqual([]);
+  });
+
+  it("keeps HEAD at the clean merge of the Initiative's branch when the base then conflicts", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    pipelines.records.put(taskId, aTaskRecord({ initiativeBranch: "initiative/usage-exports" }));
+
+    const answer = await askedDuringTheStage(taskId, () => {
+      pipelines.git.branchUpdates.set(taskId, {
+        kind: "conflicted",
+        conflictedFiles: ["a.ts"],
+        from: "main",
+        commit: "c".repeat(40),
+      });
+      pipelines.git.merging.add(taskId);
+    });
+
+    expect(answer.text).toContain("Merging main conflicts in these files");
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.outcome?.status).toBe("done");
+    expect(pipelines.publishing.resolveCalls).toEqual([{ call: "finish", taskId }]);
+  });
+
+  it("names the Initiative's branch, then the base, as what the branch takes in", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    pipelines.records.put(taskId, aTaskRecord({ initiativeBranch: "initiative/usage-exports" }));
+
+    const answer = await askedDuringTheStage(taskId);
+
+    expect(answer.text).toBe(
+      "The Task's branch is already up to date with initiative/usage-exports, then main.",
+    );
   });
 
   it("commits nothing over a merge already left in the worktree", async () => {
