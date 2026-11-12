@@ -1,10 +1,11 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { stageSchema } from "@the-office/contracts";
+import { stageChangeSchema, stageSchema } from "@the-office/contracts";
 import { z } from "zod";
 import {
   LIST_PIPELINES_TOOL,
   LIST_STAGE_TEMPLATES_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
+  PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
   ProposalRefused,
   READ_STAGE_HISTORY_TOOL,
@@ -15,6 +16,10 @@ import {
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
   type OfficeToolResult,
 } from "../../../engine/index.js";
+import {
+  PipelineLibraryEditor,
+  type ProjectPipelineBreak,
+} from "../../application/pipeline-library-editor.js";
 import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
 import { StageHistory } from "../../application/stage-history.js";
@@ -22,19 +27,29 @@ import { StageProjectCommands } from "../../application/stage-project-commands.j
 import { StageRunEnvironmentDefinitions } from "../../application/stage-run-environment-definitions.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf } from "../../domain/agent-command.js";
+import type { BuiltProjectPipeline } from "../../domain/project-pipeline.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
-import { ProposalDrafts } from "../../ports/proposal-drafts.js";
-import { toPipelineResponse, toStageTemplateResponse } from "../http/pipeline-responses.js";
+import { ProjectDefaults, type ProjectDefault } from "../../ports/project-defaults.js";
+import { ProposalDrafts, type ProjectPipelineFields } from "../../ports/proposal-drafts.js";
+import {
+  toPipelineResponse,
+  toProjectPipelineResponse,
+  toStageTemplateResponse,
+} from "../http/pipeline-responses.js";
 
 const PIPELINE_DRAFTED =
   "The Proposal is in this Thread as a card, with the Pipeline's Stages now and as proposed; nothing changes until the user applies it, and it is refused if the Stages change first. Don't wait for it: tell the user what you propose and why, in a line or two.";
+
+const PROJECT_PIPELINE_DRAFTED =
+  "The Proposal is in this Thread as a card, with the Project Pipeline's fields now and as proposed; nothing changes until the user applies it, and it is refused if the Project Pipeline changes first. It never sets the Project's default Pipeline: the user does that on the Project's page. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 const STAGE_TEMPLATE_DRAFTED =
   "The Proposal is in this Thread as a card, with the template's Stage now and as proposed; nothing changes until the user applies it, and it is refused if the template changes first. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 /**
- * The Office tools Devops reads the Pipeline library and its Stage templates with, and proposes a
- * library Pipeline's new Stages or a template's new Stage with (spec §2.3). Proposing changes
+ * The Office tools Devops reads the Pipelines, Project Pipelines among them, and the Stage templates
+ * with, and proposes a library Pipeline's new Stages, a Project Pipeline, new or changed, or a
+ * template's new Stage with (spec §2.3). Proposing changes
  * nothing itself, so it sits behind no Hard switch: the user's click on the Proposal is the
  * approval. They all return at once.
  */
@@ -43,6 +58,8 @@ export class PipelineOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly library: PipelineLibrary,
+    private readonly editor: PipelineLibraryEditor,
+    private readonly projects: ProjectDefaults,
     private readonly stageTemplates: StageTemplateLibrary,
     private readonly proposals: ProposalDrafts,
     private readonly branchUpdate: StageBranchUpdate,
@@ -54,6 +71,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   onModuleInit(): void {
     this.registerListPipelines();
     this.registerProposePipeline();
+    this.registerProposeProjectPipeline();
     this.registerListStageTemplates();
     this.registerProposeStageTemplate();
     this.registerUpdateBranch();
@@ -153,12 +171,31 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
       description:
-        "Lists the Pipeline library: each Pipeline's id, name, description and Stages, as JSON in the shape propose_pipeline takes them.",
-      input: z.object({}),
-      run: async () => ({
-        text: JSON.stringify((await this.library.list()).map(toPipelineResponse), null, 2),
-        isError: false,
+        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages, in the shape propose_library_pipeline takes them; then the Project Pipelines, each with its id, Project, name, description, base Pipeline (an office-wide one, by id and name), Stage changes, built Stages, and Broken with its reasons (empty when it isn't), in the shape propose_project_pipeline takes them. Give a Project to list only its Project Pipelines.",
+      input: z.object({
+        project: z
+          .string()
+          .optional()
+          .describe(
+            "A Project's id, to list only its Project Pipelines; every Project's when left out.",
+          ),
       }),
+      run: async ({ project }) => {
+        const projectId = project?.trim();
+        const projects = await this.projects.list();
+        if (projectId !== undefined && !projects.some(({ id }) => id === projectId)) {
+          return { text: `There is no Project "${projectId}".`, isError: true };
+        }
+        const [officeWide, projectPipelines] = await Promise.all([
+          this.library.list(),
+          this.library.projectPipelines(projectId),
+        ]);
+        const listed = {
+          officeWidePipelines: officeWide.map(toPipelineResponse),
+          projectPipelines: projectPipelines.map((built) => listedProjectPipeline(built, projects)),
+        };
+        return { text: JSON.stringify(listed, null, 2), isError: false };
+      },
     });
   }
 
@@ -180,12 +217,92 @@ export class PipelineOfficeTools implements OnModuleInit {
         if (!pipeline) {
           return { text: `The library has no Pipeline "${pipelineId}".`, isError: true };
         }
-        return drafted(PIPELINE_DRAFTED, () =>
+        const answer = await drafted(PIPELINE_DRAFTED, () =>
           this.proposals.draft(sessionId, {
             kind: "pipeline",
             pipelineId: pipeline.id,
             from: pipeline.stages,
             to: stages,
+          }),
+        );
+        if (answer.isError) return answer;
+        const breaks = await this.editor.breaksOf(pipeline.id, stages);
+        return { text: [answer.text, ...breakWords(breaks)].join("\n"), isError: false };
+      },
+    });
+  }
+
+  private registerProposeProjectPipeline(): void {
+    this.registry.register({
+      name: PROPOSE_PROJECT_PIPELINE_TOOL,
+      description:
+        "Drafts a new Project Pipeline of a Project, or a change to one, as a Proposal the user applies with a click: its name, description, base Pipeline and Stage changes. It shows in this Thread as a card, each value now and as proposed, and changes nothing until the user applies it; it is refused for what saving it in the editor would be refused for. It never removes a Project Pipeline or sets a Project's default. It returns at once.",
+      input: z.object({
+        project: z.string().describe("The Project's id."),
+        pipeline: z
+          .string()
+          .optional()
+          .describe(
+            "The Project Pipeline's id, as list_pipelines gives it, to change it; left out for a new one.",
+          ),
+        name: z
+          .string()
+          .optional()
+          .describe(
+            "Its name, unique among the office-wide Pipelines and the Project's own. A new one needs it; a change keeps the name when it is left out.",
+          ),
+        description: z
+          .string()
+          .optional()
+          .describe("Its description; empty for a new one, kept for a change, when left out."),
+        basePipeline: z
+          .string()
+          .optional()
+          .describe(
+            "The office-wide Pipeline it is built from, by its id as list_pipelines gives it, never a Project Pipeline. A new one needs it; a change keeps its base Pipeline when it is left out.",
+          ),
+        stageChanges: z
+          .array(stageChangeSchema)
+          .optional()
+          .describe(
+            "Its Stage changes as they should be, all of them in order, in the shape list_pipelines gives them, each naming its Stage by key: a Stage of the base Pipeline, or one an earlier Stage change inserted. None for a new one, kept for a change, when left out. The built Stages must not be Broken, and the Project must have each command key they name.",
+          ),
+      }),
+      run: async (input, { sessionId }) => {
+        const projectId = input.project.trim();
+        const pipelineId = input.pipeline?.trim();
+        let from: ProjectPipelineFields | null = null;
+        if (pipelineId !== undefined) {
+          const saved = await this.library.projectPipeline(pipelineId);
+          if (!saved || saved.projectPipeline.projectId !== projectId) {
+            return {
+              text: `Project "${projectId}" has no Project Pipeline "${pipelineId}".`,
+              isError: true,
+            };
+          }
+          from = fieldsOf(saved);
+        }
+        const name = input.name ?? from?.name;
+        const basePipelineId = input.basePipeline?.trim() ?? from?.basePipelineId;
+        if (name === undefined || basePipelineId === undefined) {
+          return {
+            text: "A new Project Pipeline needs its name and its base Pipeline.",
+            isError: true,
+          };
+        }
+        const to: ProjectPipelineFields = {
+          name,
+          description: input.description ?? from?.description ?? "",
+          basePipelineId,
+          stageChanges: input.stageChanges ?? from?.stageChanges ?? [],
+        };
+        return drafted(PROJECT_PIPELINE_DRAFTED, () =>
+          this.proposals.draft(sessionId, {
+            kind: "project-pipeline",
+            projectId,
+            pipelineId: pipelineId ?? null,
+            from,
+            to,
           }),
         );
       },
@@ -236,6 +353,35 @@ export class PipelineOfficeTools implements OnModuleInit {
       },
     });
   }
+}
+
+/** A Project Pipeline as list_pipelines lists it: its Project by name too, its rows left out. */
+function listedProjectPipeline(built: BuiltProjectPipeline, projects: readonly ProjectDefault[]) {
+  const { rows: _rows, projectId, broken, ...listed } = toProjectPipelineResponse(built);
+  const projectName = projects.find(({ id }) => id === projectId)?.name ?? projectId;
+  return {
+    ...listed,
+    project: { id: projectId, name: projectName },
+    broken: broken.map(({ text }) => text),
+  };
+}
+
+/** The Project Pipeline's fields as a Proposal of it starts from. */
+function fieldsOf({ projectPipeline }: BuiltProjectPipeline): ProjectPipelineFields {
+  const { name, description, basePipelineId, stageChanges } = projectPipeline;
+  return { name, description, basePipelineId, stageChanges };
+}
+
+/** What Devops is told of the Project Pipelines a Proposal of the base Pipeline's Stages breaks. */
+function breakWords(breaks: readonly ProjectPipelineBreak[]): string[] {
+  if (breaks.length === 0) return [];
+  return [
+    "Applying it leaves these Project Pipelines Broken, as the card warns the user; each stays Broken until its Stage changes are fixed:",
+    ...breaks.map(
+      ({ projectName, name, reasons }) =>
+        `- ${projectName}'s ${name}: ${reasons.map(({ text }) => text).join(" ")}`,
+    ),
+  ];
 }
 
 /** Drafts with `draft`, answering the Agent `draftedText`, or with why it was refused. */

@@ -24,11 +24,13 @@ import {
   builtEdit,
   builtProjectPipeline,
   projectPipelineEditProblems,
+  proposedProjectPipelineProblems,
   savedProjectPipeline,
   type BuiltProjectPipeline,
   type PipelinesAround,
   type ProjectPipeline,
   type ProjectPipelineEdit,
+  type ProposedProjectPipeline,
 } from "../domain/project-pipeline.js";
 import { buildStages, type BrokenReason, type BuiltStages } from "../domain/stage-change.js";
 import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
@@ -260,6 +262,51 @@ export class PipelineLibraryEditor {
     });
   }
 
+  /**
+   * Every reason a Proposal of a Project Pipeline can't be applied now: the Project Pipeline it
+   * changes is unknown, changed since or wouldn't change, or else what its add or save would be
+   * refused for. It saves nothing.
+   */
+  async proposedProjectPipelineProblems(
+    proposal: ProposedProjectPipeline,
+  ): Promise<StageProblem[]> {
+    const saved = await this.proposedOn(proposal);
+    const problems = proposedProjectPipelineProblems(proposal, saved);
+    if (problems.length > 0) return problems;
+    return this.projectPipelineProblems(
+      proposal.projectId,
+      proposal.to,
+      await this.around(saved?.id),
+      saved?.id,
+    );
+  }
+
+  /**
+   * Adds the Proposal's new Project Pipeline, or saves its change whole, as long as the one it
+   * changes still has the fields it was drafted from; refused, changing nothing, otherwise. Never
+   * sets the Project's default.
+   */
+  async saveProposedProjectPipeline(
+    proposal: ProposedProjectPipeline,
+  ): Promise<BuiltProjectPipeline> {
+    return this.changes.run(LIBRARY, async () => {
+      const saved = await this.proposedOn(proposal);
+      const problems = proposedProjectPipelineProblems(proposal, saved);
+      if (problems.length > 0) throw new StagesEditRefused(problems);
+      const around = await this.around(saved?.id);
+      const { projectId, to } = proposal;
+      const built = await this.refuseProjectPipelineProblems(projectId, to, around, saved?.id);
+      const { projectPipeline, event } = saved
+        ? savedProjectPipeline(saved, to, built)
+        : addedProjectPipeline(randomUUID(), projectId, to, built);
+      await (saved
+        ? this.projectPipelines.save(projectPipeline)
+        : this.projectPipelines.add(projectPipeline));
+      await this.events.publish(event);
+      return builtFromAround(projectPipeline, around);
+    });
+  }
+
   /** Refused while it is its Project's default or a Task that hasn't started uses it (spec §2.3). */
   async removeProjectPipeline(id: string): Promise<void> {
     await this.changes.run(LIBRARY, async () => {
@@ -303,6 +350,13 @@ export class PipelineLibraryEditor {
       flags: built ? await this.flagsOf(built.stages) : [],
       built,
     };
+  }
+
+  /** The Project Pipeline a Proposal changes, as kept now; undefined for a new one or none. */
+  private async proposedOn({
+    pipelineId,
+  }: ProposedProjectPipeline): Promise<ProjectPipeline | undefined> {
+    return pipelineId === null ? undefined : this.projectPipelines.find(pipelineId);
   }
 
   private async store(id: string, edit: PipelineEdit): Promise<Pipeline> {

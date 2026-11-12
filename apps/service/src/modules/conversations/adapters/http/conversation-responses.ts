@@ -1,4 +1,5 @@
 import {
+  projectPipelineFieldsSchema,
   stageSchema,
   type ChatActivity as ChatActivityResponse,
   type DecisionAnswer as DecisionAnswerResponse,
@@ -219,6 +220,15 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         templateId: change.templateId,
         from: stageSchema.parse(change.from),
         to: stageSchema.parse(change.to),
+      };
+    case "project-pipeline":
+      return {
+        kind: "project-pipeline",
+        projectId: change.projectId,
+        pipelineId: change.pipelineId,
+        // The Stage changes are kept unread, as a Pipeline's Stages are.
+        from: change.from && projectPipelineFieldsSchema.parse(change.from),
+        to: projectPipelineFieldsSchema.parse(change.to),
       };
     case "project":
       return {

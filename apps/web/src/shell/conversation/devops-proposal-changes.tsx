@@ -1,13 +1,19 @@
 import type {
+  BuiltStage,
   ProjectCommandFields,
+  ProjectPipelineCheck,
+  ProjectPipelineFields,
   ProposedChange,
   ProposedProjectCommands,
   Role,
   Stage,
+  StageChange as ProjectStageChange,
 } from "@the-office/contracts";
-import { Icon } from "@the-office/ui";
+import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
+  sameStageChange,
+  stageChangeLine,
   stageChanges,
   stageFieldChanges,
   stagesLine,
@@ -19,6 +25,7 @@ import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
 
 type ProposedSkillInstall = Extract<ProposedChange, { kind: "skill-install" }>;
 type ProposedSkillUpdate = Extract<ProposedChange, { kind: "skill-update" }>;
+type ProposedProjectPipeline = Extract<ProposedChange, { kind: "project-pipeline" }>;
 
 const STAGE_CHANGE_WORDS: Readonly<Record<StageChange["change"], string>> = {
   added: "Added",
@@ -128,6 +135,165 @@ export function ProposedStageFieldChanges({
   );
 }
 
+/**
+ * A Project Pipeline a Proposal adds or changes (the adopted design, "Devops' Proposal of a Project
+ * Pipeline"): a new one's every value, or each value a change rewrites, as was → proposed; its Stage
+ * changes, each Kept or New; and the Stages the Project gets, built by the service (`was` from the
+ * fields as drafted, `proposed` from those proposed), once they are read.
+ */
+export function ProposedProjectPipelineFields({
+  change,
+  projectName,
+  pipelineName,
+  was,
+  proposed,
+  roles,
+}: {
+  readonly change: ProposedProjectPipeline;
+  readonly projectName: string;
+  /** An office-wide Pipeline's name by its id. */
+  readonly pipelineName: (pipelineId: string) => string;
+  readonly was: ProjectPipelineCheck | undefined;
+  readonly proposed: ProjectPipelineCheck | undefined;
+  readonly roles: readonly Role[];
+}): ReactNode {
+  const { from, to } = change;
+  const stageChangesDiffer = !from || !sameStageChanges(from.stageChanges, to.stageChanges);
+  return (
+    <>
+      <ul className="proposal-changes">
+        {from === null ? (
+          <>
+            <ChangeRow label="Project" to={projectName} />
+            <ChangeRow label="Name" to={to.name} />
+            <ChangeRow label="Base Pipeline" to={pipelineName(to.basePipelineId)} />
+            <ChangeRow label="Description" to={to.description || "None"} />
+          </>
+        ) : (
+          projectPipelineFieldChanges(from, to, pipelineName).map((row) => (
+            <ChangeRow key={row.label} {...row} />
+          ))
+        )}
+      </ul>
+      {stageChangesDiffer && to.stageChanges.length > 0 && (
+        <div className="proposal-section">
+          <span className="proposal-section-title">
+            {from === null
+              ? `Stage changes · ${to.stageChanges.length}`
+              : "Stage changes, as proposed"}
+          </span>
+          <dl className="proposal-fields">
+            {to.stageChanges.map((stageChange, index) => (
+              <ProposedStageChange
+                // Stage changes have no id: the list is shown as proposed, never reordered.
+                key={index}
+                stageChange={stageChange}
+                kept={
+                  from?.stageChanges.some((each) => sameStageChange(each, stageChange)) ?? false
+                }
+                row={proposed?.rows.find(({ stageChangeIndexes }) =>
+                  stageChangeIndexes.includes(index),
+                )}
+                rows={proposed?.rows ?? []}
+                roles={roles}
+              />
+            ))}
+          </dl>
+        </div>
+      )}
+      {proposed && (
+        <ul className="proposal-changes">
+          <ChangeRow
+            label={`${projectName} gets`}
+            from={was && stagesLine(was) !== stagesLine(proposed) ? stagesLine(was) : undefined}
+            to={stagesLine(proposed)}
+          />
+        </ul>
+      )}
+    </>
+  );
+}
+
+/** One Stage change as proposed: its line in the editor's words, Kept or New, and a Change's fields. */
+function ProposedStageChange({
+  stageChange,
+  kept,
+  row,
+  rows,
+  roles,
+}: {
+  readonly stageChange: ProjectStageChange;
+  readonly kept: boolean;
+  /** The built Stage it made, once read. */
+  readonly row: BuiltStage | undefined;
+  readonly rows: readonly BuiltStage[];
+  readonly roles: readonly Role[];
+}): ReactNode {
+  const stageName =
+    rows.find(({ stage }) => stage.key === stageChange.stageKey)?.stage.name ??
+    stageChange.stageName ??
+    stageChange.stageKey;
+  const fields =
+    stageChange.kind === "change" && row?.baseStage
+      ? stageFieldChanges(row.baseStage, row.stage, roles)
+      : [];
+  return (
+    <div className="proposal-field">
+      <dt>{kept ? "Kept" : <Badge tone="success">New</Badge>}</dt>
+      <dd>
+        {stageChangeLine(stageChange, stageName)}
+        {fields.length > 0 && (
+          <ul className="proposal-changes">
+            {fields.map((field) => (
+              <ChangeRow key={field.label} {...field} />
+            ))}
+          </ul>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+/** The values a change of a Project Pipeline rewrites, as was → proposed. */
+function projectPipelineFieldChanges(
+  from: ProjectPipelineFields,
+  to: ProjectPipelineFields,
+  pipelineName: (pipelineId: string) => string,
+): { readonly label: string; readonly from: string; readonly to: string }[] {
+  const rows = [
+    { label: "Name", from: from.name, to: to.name },
+    {
+      label: "Base Pipeline",
+      from: pipelineName(from.basePipelineId),
+      to: pipelineName(to.basePipelineId),
+    },
+    { label: "Description", from: from.description || "None", to: to.description || "None" },
+  ].filter((row) => row.from !== row.to);
+  return sameStageChanges(from.stageChanges, to.stageChanges)
+    ? rows
+    : [
+        ...rows,
+        {
+          label: "Stage changes",
+          from: String(from.stageChanges.length),
+          to: String(to.stageChanges.length),
+        },
+      ];
+}
+
+function sameStageChanges(
+  one: readonly ProjectStageChange[],
+  other: readonly ProjectStageChange[],
+): boolean {
+  return (
+    one.length === other.length &&
+    one.every((stageChange, index) => {
+      const otherChange = other[index];
+      return otherChange !== undefined && sameStageChange(stageChange, otherChange);
+    })
+  );
+}
+
 /** A skill to install: its Source, what it is, its pinned version and its files. */
 export function ProposedSkillInstallFields({
   change,
@@ -201,20 +367,25 @@ export function ProposedSkillUpdateFields({
   );
 }
 
+/** A value from one to another; a value new with the change has no `from`. */
 function ChangeRow({
   label,
   from,
   to,
 }: {
   readonly label: string;
-  readonly from: string;
+  readonly from?: string;
   readonly to: string;
 }): ReactNode {
   return (
     <li>
       <span className="proposal-change-label">{label}</span>
-      <span className="proposal-change-from">{from}</span>
-      <Icon name="arrow-right" size={14} aria-label="to" />
+      {from !== undefined && (
+        <>
+          <span className="proposal-change-from">{from}</span>
+          <Icon name="arrow-right" size={14} aria-label="to" />
+        </>
+      )}
       <span className="proposal-change-to">{to}</span>
     </li>
   );

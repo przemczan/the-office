@@ -4,6 +4,7 @@ import type {
   PublishTarget,
   Role,
   Stage,
+  StageChange as ProjectStageChange,
   StagePermissions,
 } from "@the-office/contracts";
 import { EFFORT_LABELS } from "../engine-words.ts";
@@ -164,6 +165,32 @@ export function stageChanges(from: readonly Stage[], to: readonly Stage[]): Stag
       .filter(({ key }) => !kept.has(key))
       .map(({ name }): StageChange => ({ name, change: "removed" })),
   ];
+}
+
+/**
+ * A Project Pipeline's Stage change in the editor's words, its Stage named `stageName`: "Inserts
+ * Verify on Linux after Tests", "Replaces Tests with Lint", "Changes Implement", "Removes Tests".
+ */
+export function stageChangeLine(stageChange: ProjectStageChange, stageName: string): string {
+  switch (stageChange.kind) {
+    case "insert-before":
+      return `Inserts ${stageChange.stage.name} before ${stageName}`;
+    case "insert-after":
+      return `Inserts ${stageChange.stage.name} after ${stageName}`;
+    case "replace":
+      return `Replaces ${stageName} with ${stageChange.stage.name}`;
+    case "change":
+      return `Changes ${stageName}`;
+    case "remove":
+      return `Removes ${stageName}`;
+  }
+}
+
+/** Two Stage changes alike, the name each keeps for its words aside. */
+export function sameStageChange(one: ProjectStageChange, other: ProjectStageChange): boolean {
+  const { stageName: _one, ...oneUnnamed } = one;
+  const { stageName: _other, ...otherUnnamed } = other;
+  return JSON.stringify(oneUnnamed, sortedKeys) === JSON.stringify(otherUnnamed, sortedKeys);
 }
 
 function sameStage(one: Stage, other: Stage): boolean {

@@ -1,4 +1,6 @@
+import { isDeepStrictEqual } from "node:util";
 import type { Pipeline, StageProblem } from "./pipeline.js";
+import { UnknownProjectPipeline } from "./pipeline-library-refusals.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { pipelineNameProblems, type TakenName } from "./pipeline-names.js";
 import {
@@ -31,6 +33,17 @@ export interface ProjectPipelineEdit {
   readonly description: string;
   readonly basePipelineId: string;
   readonly stageChanges: readonly EditedStageChange[];
+}
+
+/**
+ * A Proposal of a Project Pipeline (spec §2.3): a new one of the Project (`pipelineId` null), or a
+ * change to one, with its fields as they were when drafted (`from`) and as proposed (`to`).
+ */
+export interface ProposedProjectPipeline {
+  readonly projectId: string;
+  readonly pipelineId: string | null;
+  readonly from: ProjectPipelineEdit | null;
+  readonly to: ProjectPipelineEdit;
 }
 
 /** A Project Pipeline built from its base Pipeline's current Stages. */
@@ -107,6 +120,52 @@ export function projectPipelineEditProblems(
       stageIndex === undefined ? { text } : { stageIndex, text },
     ),
   ];
+}
+
+/**
+ * Why a Proposal of a Project Pipeline can't be applied now, before what its save would be refused
+ * for: the Project Pipeline it changes is unknown (or another Project's), it changed since the
+ * Proposal was drafted, or nothing would change. `saved` is the one it names, as kept now.
+ */
+export function proposedProjectPipelineProblems(
+  { projectId, pipelineId, from, to }: ProposedProjectPipeline,
+  saved: ProjectPipeline | undefined,
+): StageProblem[] {
+  if (pipelineId === null) return [];
+  if (!saved || saved.projectId !== projectId) {
+    return [{ text: new UnknownProjectPipeline(pipelineId).message }];
+  }
+  if (from === null || !sameFieldsAsKept(saved, from)) {
+    return [{ text: `${saved.name} changed since this was proposed.` }];
+  }
+  if (sameFieldsAsKept(from, to)) {
+    return [
+      {
+        text: "Nothing changes: give the Project Pipeline's name, description, base Pipeline or Stage changes as they should be.",
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * Fields alike as they are kept, where a field left out and one left undefined are the same; a
+ * Stage change's `stageName` is for its words alone, so it doesn't count.
+ */
+function sameFieldsAsKept(one: ProjectPipelineEdit, other: ProjectPipelineEdit): boolean {
+  return isDeepStrictEqual(fieldsAsKept(one), fieldsAsKept(other));
+}
+
+function fieldsAsKept(edit: ProjectPipelineEdit): unknown {
+  const stageChanges = edit.stageChanges.map(({ stageName: _stageName, ...unnamed }) => unnamed);
+  const { name, description, basePipelineId } = edit;
+  const fields = {
+    name: name.trim(),
+    description: description.trim(),
+    basePipelineId,
+    stageChanges,
+  };
+  return JSON.parse(JSON.stringify(fields));
 }
 
 function basePipelineProblems(basePipelineId: string, around: PipelinesAround): StageProblem[] {
