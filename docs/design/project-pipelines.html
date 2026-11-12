@@ -934,7 +934,7 @@
         white-space: nowrap;
       }
 
-      /* ---------- Settings: its sections beside the open one (shell/section-layout.css) ---------- */
+      /* ---------- Settings and a Project page: their sections beside the open one (shell/section-layout.css) ---------- */
       .section-layout {
         display: grid;
         grid-template-columns: 200px minmax(0, 1fr);
@@ -1049,13 +1049,6 @@
       .pick-list-count {
         font: var(--type-caption);
         font-variant-numeric: tabular-nums;
-        color: var(--fg-3);
-      }
-      .pick-list-group-label {
-        padding: 2px 4px 0;
-        font: var(--type-overline);
-        letter-spacing: var(--tracking-caps);
-        text-transform: uppercase;
         color: var(--fg-3);
       }
       .pick-list-rows {
@@ -1975,17 +1968,6 @@
         gap: 8px;
         margin-top: 14px;
       }
-      .project-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 16px;
-        align-items: start;
-      }
-      @container page (max-width: 600px) {
-        .project-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
       .project-row {
         display: flex;
         flex-wrap: wrap;
@@ -1996,6 +1978,95 @@
       .project-row-label {
         flex: 1;
         color: var(--fg-2);
+      }
+      .record-head h2 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .record-head h2 .project-mark {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .default-card {
+        display: grid;
+        gap: 10px;
+      }
+      .pick-list-line.built-on-line {
+        color: var(--fg-2);
+      }
+
+      /* ---------- Proposed: an office-wide Pipeline's "Built on by", each a link to its Project page ---------- */
+      .built-on {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .built-on-project {
+        display: grid;
+        gap: 4px;
+      }
+      .built-on-project > .project-chip {
+        color: var(--fg-2);
+      }
+      .built-on-rows {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+      }
+      .built-on-rows li + li {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .built-on-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 12px;
+        align-items: center;
+        gap: 2px 10px;
+        width: 100%;
+        padding: 8px 12px;
+        border: 0;
+        border-radius: inherit;
+        background: transparent;
+        color: var(--fg-1);
+        text-align: left;
+        cursor: pointer;
+      }
+      .built-on-row:hover {
+        background: var(--surface-hover);
+      }
+      .built-on-row b {
+        font: var(--type-label);
+        overflow-wrap: anywhere;
+      }
+      .built-on-row .line {
+        grid-column: 1;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .built-on-row .line.why {
+        color: var(--danger-fg);
+      }
+      .built-on-row .aside {
+        display: inline-flex;
+        grid-row: 1 / span 2;
+        grid-column: 2;
+        gap: 4px;
+      }
+      .built-on-row > svg {
+        grid-row: 1 / span 2;
+        grid-column: 3;
+        color: var(--fg-3);
+      }
+      .break-item .open-it {
+        justify-self: start;
       }
 
       /* ---------- The chat drawer and a Thread in Rows (docs/design/chat-drawer.html, thread-dialog.html) ---------- */
@@ -2530,7 +2601,7 @@
           ],
         },
       ];
-      const ORIGINAL = { office: copy(OFFICE), project: copy(PROJECT_PIPELINES) };
+      const ORIGINAL = { office: copy(OFFICE), project: copy(PROJECT_PIPELINES), projects: copy(PROJECTS) };
       const ppOf = (id) => PROJECT_PIPELINES.find((p) => p.id === id);
       const savedOf = (id) => ORIGINAL.project.find((p) => p.id === id);
 
@@ -2665,15 +2736,15 @@
 
       /* ---------- Scenarios ---------- */
       const SCENARIOS = [
-        { key: "library", label: "Settings › Pipelines", picked: "full", note: "The office-wide Pipelines, then each Project's Project Pipelines under its name, then the Stage templates. A Project Pipeline's row says what it is built from and how many Stage changes it makes; Default and Broken show beside it." },
-        { key: "add", label: "Add one from a base Pipeline", picked: "full", window: "new", note: "New Pipeline in a Project's list, or Build a Project Pipeline from Full under an office-wide one, opens the same window: the base Pipeline first, then a name. It starts as the base Pipeline's Stages exactly, with no Stage change." },
-        { key: "insert", label: "One inserted Stage", picked: "pp-linux", note: "the-office's default: Full with one Stage change, Verify on Linux inserted after Review & fix. Every Stage of Full reads From Full; the one the-office adds is marked green. Hover the list for an insert point between two Stages." },
-        { key: "kinds", label: "Several kinds of Stage changes", picked: "pp-ui", open: ["implement"], note: "One view of what the-office gets: an insert, a Change of the brief and the effort (opened, with Full's value beside each), a replace, a remove (struck through, in place) and a second insert. Undo each one, edit a Stage from Full to make a Change, or set a field back." },
-        { key: "broken", label: "A Broken one", picked: "pp-spec", note: "Document's Produce was replaced by Write since Spec change was made. Its Change of Produce no longer applies, and Glossary check goes back to Produce on failure. Apply the Change to Write or remove it, and point the loop at another Stage: the flag goes once both are fixed." },
-        { key: "warning", label: "Saving a base Pipeline", picked: "full", draft: true, window: "breaks", note: "Full is being saved with Review & fix split into Review and Fix. Three Project Pipelines name Review & fix, so the editor warns before Save, and Save opens this window. Save anyway saves it: the three then read Broken in the list." },
-        { key: "task-picker", label: "The Task's Pipeline picker", place: "task", note: "Choose a Pipeline on a the-office Task in Backlog: the-office's default first, then its other Project Pipelines, then the office-wide ones. Spec change is listed, flagged with why, and can't be chosen. The Planner's Another Pipeline… and Edit for this Task's swap offer the same list." },
-        { key: "default-picker", label: "The Project's default", place: "project", note: "the-office's page: the default can be one of its own Project Pipelines or an office-wide one. Spec change is listed but can't be made the default." },
-        { key: "proposal", label: "Devops' Proposal", place: "chat", note: "Dwight's Thread from Ask Dwight on the-office's Project Pipelines: a new Project Pipeline (applied), then new Stage changes to it, each value as was and as proposed, and a Proposal of Full's Stages that breaks Project Pipelines, listed above Apply anyway." },
+        { key: "library", label: "Settings › Pipelines", view: "settings", picked: "full", note: "Office-wide Pipelines only, then the Stage templates. Full and Document are built on by Project Pipelines: their rows say how many, and the open one lists each under its Project, a link to it on its Project's page." },
+        { key: "project", label: "A Project's Pipelines", view: "project", picked: "pp-linux", note: "the-office's page, its Pipelines section: the default first, chosen from the-office's own Pipelines or the office-wide ones (Spec change is listed but can't be chosen), then the-office's Pipelines, each built from an office-wide one. Open one to edit it beside the list." },
+        { key: "add", label: "Add one built from…", view: "project", picked: "pp-linux", window: "new", note: "Add a Pipeline built from… under the-office's Pipelines opens this window: the base Pipeline first, then a name. It starts as the base Pipeline's Stages exactly, with no Stage change, and belongs to the-office alone." },
+        { key: "insert", label: "One inserted Stage", view: "project", picked: "pp-linux", detail: true, note: "the-office's default: Full with one Stage change, Verify on Linux inserted after Review & fix. Every Stage of Full reads From Full; the one the-office adds is marked green. Hover the list for an insert point between two Stages." },
+        { key: "kinds", label: "Several kinds of Stage changes", view: "project", picked: "pp-ui", detail: true, open: ["implement"], note: "One view of what the-office gets: an insert, a Change of the brief and the effort (opened, with Full's value beside each), a replace, a remove (struck through, in place) and a second insert. Undo each one, edit a Stage from Full to make a Change, or set a field back." },
+        { key: "broken", label: "A Broken one", view: "project", picked: "pp-spec", detail: true, note: "Document's Produce was replaced by Write since Spec change was made. Its Change of Produce no longer applies, and Glossary check goes back to Produce on failure. Apply the Change to Write or remove it, and point the loop at another Stage: the flag goes once both are fixed." },
+        { key: "warning", label: "Saving a base Pipeline", view: "settings", picked: "full", detail: true, draft: true, window: "breaks", note: "Full is being saved with Review & fix split into Review and Fix. Three Project Pipelines name Review & fix, so the editor warns before Save, and Save opens this window, each one a link to its Project's page. Save anyway saves it: Built on by then flags the three Broken." },
+        { key: "task-picker", label: "The Task's Pipeline picker", view: "task", note: "Choose a Pipeline on a the-office Task in Backlog: the-office's default first, then its other Project Pipelines, then the office-wide ones. Spec change is listed, flagged with why, and can't be chosen. The Planner's Another Pipeline… and Edit for this Task's swap offer the same list." },
+        { key: "proposal", label: "Devops' Proposal", view: "chat", picked: "pp-linux", note: "Dwight's Thread from Ask Dwight on the-office's Pipelines: a new Project Pipeline (applied), then new Stage changes to it, each value as was and as proposed, and a Proposal of Full's Stages that breaks Project Pipelines, listed above Apply anyway." },
       ];
       const WIDTHS = [
         { key: "wide", label: "Wide" },
@@ -2689,6 +2760,10 @@
         scenario: "library",
         width: "wide",
         palette: "light",
+        /* Where the frame is: Settings › Pipelines, a Project's Pipelines section, a Task or the chat. A link
+           between Settings and a Project page moves it without starting the scenario again. */
+        view: "settings",
+        project: "the-office",
         picked: "full",
         showDetail: false,
         open: new Set(),
@@ -2696,42 +2771,50 @@
         menu: null,
         window: null,
         newBase: "full",
-        newProject: "the-office",
         fullDraft: false,
         picker: { open: true, chosen: null },
-        defaultChoice: "pp-linux",
         defaultOpen: true,
-        defaultBroken: false,
         toast: null,
         fresh: null,
       };
       const scenario = () => SCENARIOS.find((s) => s.key === state.scenario);
       const isPhone = () => state.width === "390";
-      const isNarrow = () => state.width !== "wide";
       let toastTimer;
 
       function resetData() {
         OFFICE.splice(0, OFFICE.length, ...copy(ORIGINAL.office));
         PROJECT_PIPELINES.splice(0, PROJECT_PIPELINES.length, ...copy(ORIGINAL.project));
+        PROJECTS.splice(0, PROJECTS.length, ...copy(ORIGINAL.projects));
       }
       function applyScenario() {
         const s = scenario();
         resetData();
+        state.view = s.view;
+        state.project = "the-office";
         state.picked = s.picked ?? "full";
-        state.showDetail = !["library", "proposal"].includes(s.key);
+        state.showDetail = Boolean(s.detail);
         state.open = new Set(s.open ?? []);
         state.editing = null;
         state.menu = null;
         state.window = s.window ?? null;
         state.fullDraft = Boolean(s.draft);
         state.newBase = "full";
-        state.newProject = "the-office";
         state.picker = { open: true, chosen: null };
-        state.defaultChoice = "pp-linux";
-        state.defaultOpen = true;
-        state.defaultBroken = false;
+        state.defaultOpen = s.key === "project";
         state.toast = null;
         state.fresh = null;
+      }
+      /* A link to a Project Pipeline on its Project's page, or to an office-wide one in Settings › Pipelines. */
+      function goTo(view, picked) {
+        state.view = view;
+        state.picked = picked;
+        if (view === "project") state.project = ppOf(picked).projectId;
+        state.showDetail = true;
+        state.window = null;
+        state.editing = null;
+        state.open = new Set();
+        state.defaultOpen = false;
+        state.keepScroll = false;
       }
       function showToast(text) {
         state.toast = text;
@@ -2753,59 +2836,92 @@
           ${state.toast ? `<div class="toast" role="status">${esc(state.toast)}</div>` : ""}
         </div>`;
       }
-      const SECTIONS = ["Pipelines", "Skills", "MCP servers", "Engines", "Office identity", "Office limits", "Office instructions", "Notifications", "Updates", "Appearance"];
-      function settingsPage(body) {
-        const menu = `<nav class="section-menu" aria-label="Settings">${SECTIONS.map((s, i) => `<span class="${i === 0 ? "active" : ""}">${s}</span>`).join("")}</nav>`;
-        return `<div class="page-scroll" id="page-scroll"><div class="section-layout">${menu}<div class="section-body">${body}</div></div></div>`;
+      /* The shell's SectionLayout: the left-hand menu of a page's sections beside the open one. */
+      function sectionPage(label, sections, active, body, head = "") {
+        const menu = `<nav class="section-menu" aria-label="${esc(label)}">${sections.map((s) => `<span class="${s === active ? "active" : ""}">${s}</span>`).join("")}</nav>`;
+        return `<div class="page-scroll" id="page-scroll">${head}<div class="section-layout">${menu}<div class="section-body">${body}</div></div></div>`;
       }
+      const SETTINGS_SECTIONS = ["Pipelines", "Skills", "MCP servers", "Engines", "Office identity", "Office limits", "Office instructions", "Notifications", "Updates", "Appearance"];
+      /* Proposed: "Default Pipeline" becomes "Pipelines", the Project's own and its default. */
+      const PROJECT_SECTIONS = ["Overview", "Commands", "Pipelines", "Run environment", "Engine", "Skills", "Server values", "Appearance"];
       const projectMark = (project) => `<span class="project-mark" style="--mark:${project.mark}" aria-hidden="true">${project.letter}</span>`;
+      const backButton = (label) => `<button class="btn sm ghost back-to-lists" data-action="back">${ICON.chevronLeft(12)} ${esc(label)}</button>`;
+      /* The list or the open Pipeline under 1224px, as Settings › Pipelines has it. */
+      const split = (lists, back, detail) =>
+        `<div class="settings-split ${state.showDetail ? "showing-detail" : ""}"><div class="library-lists">${lists}</div><div class="library-detail" id="detail">${back}${detail}</div></div>`;
+      const builtOnBy = (pipelineId) => PROJECT_PIPELINES.filter((p) => p.basePipelineId === pipelineId);
+      const builtOnWords = (n) => `Built on by ${plural(n, "Project Pipeline", "Project Pipelines")}`;
 
-      /* ---------- Settings › Pipelines: the lists ---------- */
+      /* ---------- Settings › Pipelines: office-wide Pipelines only ---------- */
       function libraryLists() {
         const office = `<section class="pick-list-card" aria-label="Office-wide Pipelines">
           <div class="pick-list-head"><h3 class="pick-list-title"><span class="name">Office-wide Pipelines</span><span class="pick-list-count">${OFFICE.length}</span></h3>
             <button class="btn sm secondary">${ICON.plus(13)}New Pipeline</button></div>
-          <ul class="pick-list-rows">${OFFICE.map((p) => listRow(p.id, p.name, stagesLine(p.stages))).join("")}</ul>
-          ${officeOf(state.picked) ? `<div class="pick-list-foot"><button class="btn sm secondary">${ICON.copy(13)}Duplicate ${esc(officeOf(state.picked).name)}</button>
-            <button class="btn sm secondary" data-action="new-from" data-base="${state.picked}">${ICON.route(13)}Build a Project Pipeline from ${esc(officeOf(state.picked).name)}</button></div>` : ""}
+          <ul class="pick-list-rows">${OFFICE.map((p) => {
+            const on = builtOnBy(p.id);
+            const broken = on.filter((pp) => build(pp).broken).length;
+            const second = on.length ? `<span class="pick-list-line built-on-line">${builtOnWords(on.length)}</span>` : "";
+            const aside = broken ? `<span class="badge sm danger" title="${plural(broken, "Project Pipeline built on it is", "Project Pipelines built on it are")} Broken">${ICON.broken(11)}${broken}</span>` : "";
+            return listRow(p.id, p.name, stagesLine(p.stages), aside, false, second);
+          }).join("")}</ul>
+          ${officeOf(state.picked) ? `<div class="pick-list-foot"><button class="btn sm secondary">${ICON.copy(13)}Duplicate ${esc(officeOf(state.picked).name)}</button></div>` : ""}
         </section>`;
-        const projects = PROJECTS.map((project) => {
-          const own = PROJECT_PIPELINES.filter((p) => p.projectId === project.id);
-          const rows = own.length
-            ? `<ul class="pick-list-rows">${own
-                .map((p) => {
-                  const built = build(p);
-                  const line = built.broken
-                    ? `Built from ${built.base.name} · ${plural(built.count, "Stage change doesn't apply", "Stage changes don't apply")}`
-                    : `Built from ${built.base.name} · ${stageChangesWords(p.stageChanges.length)}`;
-                  const aside = `${project.default === p.id ? '<span class="badge sm">Default</span>' : ""}${built.broken ? `<span class="badge sm danger">${ICON.broken(11)}Broken</span>` : ""}`;
-                  return listRow(p.id, p.name, line, aside, built.broken);
-                })
-                .join("")}</ul>`
-            : `<p class="pick-list-empty">None yet: its Tasks choose from the office-wide Pipelines.</p>`;
-          return `<section class="pick-list-card" aria-label="${esc(project.name)}'s Project Pipelines">
-            <div class="pick-list-head"><h3 class="pick-list-title">${projectMark(project)}<span class="name">${esc(project.name)}</span><span class="pick-list-count">${own.length}</span></h3>
-              <button class="btn sm secondary" data-action="new-for" data-project="${project.id}" title="New Project Pipeline for ${esc(project.name)}">${ICON.plus(13)}New Pipeline</button></div>
-            ${rows}
-          </section>`;
-        }).join("");
         const templates = `<section class="pick-list-card" aria-label="Stage templates">
           <div class="pick-list-head"><h3 class="pick-list-title"><span class="name">Stage templates</span><span class="pick-list-count">7</span></h3><button class="btn sm secondary">${ICON.plus(13)}New template</button></div>
           <ul class="pick-list-rows">${[["agent", "Implement", "Jim"], ["script", "Tests", "test"], ["agent", "Review & fix", "Jim"]].map(([k, n, w]) => `<li><div class="pick-list-item"><span class="stage-kind" style="width:24px;height:24px">${KIND_ICON[k](12)}</span><span class="pick-list-words"><span class="pick-list-name">${n}</span><span class="pick-list-line">${w}</span></span></div></li>`).join("")}</ul>
         </section>`;
-        return `<div class="library-lists">${office}<span class="pick-list-group-label">Project Pipelines · built from an office-wide one, for one Project's Tasks</span>${projects}${templates}</div>`;
+        return `${office}${templates}`;
       }
-      function listRow(id, name, line, aside = "", broken = false) {
+      function listRow(id, name, line, aside = "", broken = false, second = "") {
         return `<li><button class="pick-list-item ${state.picked === id ? "picked" : ""}" data-action="pick" data-id="${id}">
-          <span class="pick-list-words"><span class="pick-list-name">${esc(name)}</span><span class="pick-list-line ${broken ? "why" : ""}">${esc(line)}</span></span>
+          <span class="pick-list-words"><span class="pick-list-name">${esc(name)}</span><span class="pick-list-line ${broken ? "why" : ""}">${esc(line)}</span>${second}</span>
           ${aside ? `<span class="pick-list-aside">${aside}</span>` : ""}</button></li>`;
       }
-
-      /* ---------- Settings › Pipelines: the open Pipeline ---------- */
       function libraryPage() {
-        const detail = ppOf(state.picked) ? projectDetail(ppOf(state.picked)) : officeDetail(officeOf(state.picked));
-        const back = `<button class="btn sm ghost back-to-lists" data-action="back">${ICON.chevronLeft(12)} All Pipelines</button>`;
-        return settingsPage(`<div class="settings-split ${state.showDetail ? "showing-detail" : ""}">${libraryLists()}<div class="library-detail" id="detail">${back}${detail}</div></div>`);
+        return sectionPage("Settings", SETTINGS_SECTIONS, "Pipelines", split(libraryLists(), backButton("All Pipelines"), officeDetail(officeOf(state.picked))));
+      }
+
+      /* ---------- Proposed: a Project page's Pipelines section ---------- */
+      function projectPage(project) {
+        const head = `<div class="record-head"><h2>${projectMark(project)}${esc(project.name)}</h2><div class="record-facts"><span class="badge sm success">Onboarded</span><span>Base branch main</span></div></div>`;
+        const pp = ppOf(state.picked);
+        const detail = pp && pp.projectId === project.id ? projectDetail(pp) : "";
+        return sectionPage("Project", PROJECT_SECTIONS, "Pipelines", split(`${defaultCard(project)}${ownList(project)}`, backButton(`${project.name}'s Pipelines`), detail), head);
+      }
+      const addButton = (project) => `<button class="btn sm secondary" data-action="new-for" title="A Pipeline of ${esc(project.name)}'s own, built from an office-wide one">${ICON.plus(13)}Add a Pipeline built from…</button>`;
+      function ownList(project) {
+        const own = PROJECT_PIPELINES.filter((p) => p.projectId === project.id);
+        const rows = own.length
+          ? `<ul class="pick-list-rows">${own
+              .map((p) => {
+                const built = build(p);
+                const line = built.broken
+                  ? `Built from ${built.base.name} · ${plural(built.count, "Stage change doesn't apply", "Stage changes don't apply")}`
+                  : `Built from ${built.base.name} · ${stageChangesWords(p.stageChanges.length)}`;
+                const aside = `${project.default === p.id ? '<span class="badge sm">Default</span>' : ""}${built.broken ? `<span class="badge sm danger">${ICON.broken(11)}Broken</span>` : ""}`;
+                return listRow(p.id, p.name, line, aside, built.broken);
+              })
+              .join("")}</ul>`
+          : `<p class="pick-list-empty">None yet: ${esc(project.name)}'s Tasks choose from the office-wide Pipelines. Add one to change a few Stages for ${esc(project.name)} alone.</p>`;
+        return `<section class="pick-list-card" aria-label="${esc(project.name)}'s Pipelines">
+          <div class="pick-list-head"><h3 class="pick-list-title"><span class="name">${esc(project.name)}'s Pipelines</span><span class="pick-list-count">${own.length}</span></h3></div>
+          ${rows}
+          <div class="pick-list-foot">${addButton(project)}</div>
+        </section>`;
+      }
+      /* The Project's default: one of its own Pipelines or an office-wide one, in the grouped picker. */
+      function defaultCard(project) {
+        const groups = pipelineOptions(project.id, { forDefault: true });
+        const current = optionById(groups, project.default);
+        const currentPp = ppOf(project.default);
+        const brokenDefault = currentPp && build(currentPp).broken
+          ? `<div class="alert danger" role="alert">${ICON.broken()}<span class="alert-title">${esc(currentPp.name)}, the default, is Broken</span><div class="alert-body"><p>${esc(brokenReasons(currentPp).join(" "))} New Tasks can't follow it, and Angela proposes from the others, until it is fixed or another default is chosen.</p></div></div>`
+          : "";
+        return `<section class="card default-card" aria-label="Default Pipeline"><div class="card-head"><h3 class="card-title">${ICON.route()}Default Pipeline</h3></div>
+          ${brokenDefault}
+          <div><button class="picker-trigger" data-action="default-toggle" aria-expanded="${state.defaultOpen}" aria-label="Default Pipeline: ${esc(current.name)}"><span class="grow">${esc(current.name)}</span>${ICON.chevronDown()}</button>${state.defaultOpen ? listbox(groups, project.default, "default") : ""}</div>
+          <p class="note">${esc(current.why ? "" : `${current.line}. `)}A new Task has no Pipeline until Angela proposes one at planning, starting from this one, or you choose one.</p>
+          <div class="project-row"><span class="project-row-label">Publishing</span><select class="select sm" style="width:auto"><option>Merge</option><option>Push + PR</option></select></div></section>`;
       }
       function askDevops(label = "Ask Dwight") {
         return `<button class="btn sm secondary" data-action="ask">${ICON.sparkles(13)}${label}</button>`;
@@ -2814,9 +2930,8 @@
       function officeDetail(pipeline) {
         const draft = state.fullDraft && pipeline.id === "full";
         const stages = draft ? FULL_SPLIT : pipeline.stages;
-        const builtOn = PROJECT_PIPELINES.filter((p) => p.basePipelineId === pipeline.id);
+        const builtOn = builtOnBy(pipeline.id);
         const breaks = draft ? breaksOf("full", FULL_SPLIT) : [];
-        const use = `${pipeline.use}${builtOn.length ? ` · ${plural(builtOn.length, "Project Pipeline is", "Project Pipelines are")} built from it` : ""}`;
         const rows = stages
           .map((stage, i) => {
             const isNew = draft && !FULL.some((s) => s.key === stage.key);
@@ -2831,20 +2946,21 @@
           : "";
         return `<section class="card">
             <div class="card-head"><h2 class="card-title">${ICON.route()}${esc(pipeline.name)}</h2><span class="badge sm">Office-wide</span>${askDevops()}</div>
-            <p>${esc(pipeline.description)}</p><p class="note">${esc(use)}</p>
+            <p>${esc(pipeline.description)}</p><p class="note">${esc(pipeline.use)}</p>
           </section>
+          ${builtOnCard(pipeline, builtOn)}
           <section class="card">
             <div class="form-grid">
               <label class="field"><span class="field-label">Name</span><input class="input" value="${esc(pipeline.name)}" /></label>
               <label class="field wide"><span class="field-label">Description</span><textarea class="textarea" rows="2" style="min-height:56px">${esc(pipeline.description)}</textarea></label>
             </div>
-            <div class="gets"><div class="gets-head"><h3>Stages</h3>${builtOn.length ? `<span class="gets-sum">${plural(builtOn.length, "Project Pipeline is", "Project Pipelines are")} built from these: an edit here reaches them.</span>` : ""}</div>
+            <div class="gets"><div class="gets-head"><h3>Stages</h3>${builtOn.length ? `<span class="gets-sum">${builtOnWords(builtOn.length)}: an edit here reaches them.</span>` : ""}</div>
               <ol class="stage-list" aria-label="Stages">${rows}</ol>
               <p class="rules">${ICON.info(13)}<span>Whatever the Pipeline, you are always asked when a round or budget limit is reached, a Stage fails with no retries left, the Definition of Done is not met after the last review, or an Agent reaches a hard switch.</span></p>
             </div>
             ${warn}
           </section>
-          <div class="save-bar"><span class="save-state ${draft ? "dirty" : ""}">${draft ? "Unsaved changes" : "Saved"}</span><button class="btn danger-ghost" title="${builtOn.length ? `Refused while ${plural(builtOn.length, "Project Pipeline is", "Project Pipelines are")} built from it` : ""}">Remove</button><button class="btn secondary" data-action="discard-office">Discard</button><button class="btn" data-action="save-office">Save the Pipeline</button></div>`;
+          <div class="save-bar"><span class="save-state ${draft ? "dirty" : ""}">${draft ? "Unsaved changes" : "Saved"}</span><button class="btn danger-ghost" ${builtOn.length ? `disabled title="Refused while it is built on by ${plural(builtOn.length, "Project Pipeline", "Project Pipelines")}"` : ""}>Remove</button><button class="btn secondary" data-action="discard-office">Discard</button><button class="btn" data-action="save-office">Save the Pipeline</button></div>`;
       }
 
       /* What saving an office-wide Pipeline with `stages` would break: each Project Pipeline built from it, with why. */
@@ -2871,6 +2987,26 @@
         const parts = byProject.map((g) => `${esc(g.project.name)}'s ${listWords(g.names)}`);
         return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
       }
+      /* Proposed: the Project Pipelines built on an office-wide one, by Project, each opening on its Project's page. */
+      function builtOnCard(pipeline, builtOn) {
+        if (!builtOn.length) return "";
+        const groups = PROJECTS.map((project) => ({ project, items: builtOn.filter((p) => p.projectId === project.id) })).filter((g) => g.items.length);
+        const rows = groups
+          .map(
+            (g) => `<li class="built-on-project"><span class="project-chip">${projectMark(g.project)}${esc(g.project.name)}</span><ul class="built-on-rows">${g.items
+              .map((p) => {
+                const built = build(p);
+                const line = built.broken ? `${plural(built.count, "Stage change doesn't apply", "Stage changes don't apply")}` : stageChangesWords(p.stageChanges.length);
+                const aside = `${g.project.default === p.id ? '<span class="badge sm">Default</span>' : ""}${built.broken ? `<span class="badge sm danger">${ICON.broken(11)}Broken</span>` : ""}`;
+                return `<li><button class="built-on-row" data-action="goto-pp" data-id="${p.id}" title="Open ${esc(p.name)} on ${esc(g.project.name)}'s page"><b>${esc(p.name)}</b><span class="aside">${aside}</span>${ICON.arrowRight()}<span class="line ${built.broken ? "why" : ""}">${esc(line)}</span></button></li>`;
+              })
+              .join("")}</ul></li>`,
+          )
+          .join("");
+        return `<section class="card" aria-label="${builtOnWords(builtOn.length)}"><div class="card-head"><h3 class="card-title">${ICON.route()}${builtOnWords(builtOn.length)}</h3></div>
+          <p class="note">Each belongs to one Project and is edited on its page. They follow ${esc(pipeline.name)}'s Stages, with their own Stage changes on top.</p>
+          <ul class="built-on">${rows}</ul></section>`;
+      }
 
       function projectDetail(pp) {
         const project = projectOf(pp.projectId);
@@ -2880,10 +3016,13 @@
         const isDefault = project.default === pp.id;
         const facts = [
           `Project Pipeline of ${esc(project.name)}`,
-          `Built from <button class="text-link" data-action="pick" data-id="${built.base.id}">${esc(built.base.name)}</button>`,
+          `Built from <button class="text-link" data-action="goto-office" data-id="${built.base.id}" title="Open ${esc(built.base.name)} in Settings › Pipelines">${esc(built.base.name)}</button>`,
           isDefault ? `Default for ${esc(project.name)}` : "",
           esc(pp.use),
         ].filter(Boolean);
+        const makeDefault = isDefault
+          ? ""
+          : `<button class="btn sm secondary" data-action="make-default" ${built.broken ? `disabled title="A Broken Pipeline can't be the default: fix it first"` : ""}>Make it the default</button>`;
         const baseOptions = OFFICE.map((o) => `<option value="${o.id}" ${o.id === pp.basePipelineId ? "selected" : ""}>${esc(o.name)}</option>`).join("");
         const brokenAlert = built.broken
           ? `<div class="alert danger" role="alert">${ICON.broken()}<span class="alert-title">${esc(pp.name)} is Broken: ${plural(built.count, "Stage change no longer applies", "Stage changes no longer apply")} to ${esc(built.base.name)}</span>
@@ -2892,7 +3031,7 @@
             ? `<div class="alert" role="status">${ICON.check(14)}<span class="alert-title">Fixed: save it, and Tasks can choose ${esc(pp.name)} again</span></div>`
             : "";
         return `<section class="card">
-            <div class="card-head"><h2 class="card-title">${ICON.route()}${esc(pp.name)}</h2><span class="project-chip">${projectMark(project)}${esc(project.name)}</span>${built.broken ? `<span class="badge danger">${ICON.broken(12)}Broken</span>` : ""}${askDevops()}</div>
+            <div class="card-head"><h2 class="card-title">${ICON.route()}${esc(pp.name)}</h2>${isDefault ? '<span class="badge sm">Default</span>' : ""}${built.broken ? `<span class="badge danger">${ICON.broken(12)}Broken</span>` : ""}${makeDefault}${askDevops()}</div>
             <p>${esc(pp.description)}</p>
             <div class="detail-facts">${facts.join('<span class="sep">·</span>')}</div>
           </section>
@@ -3128,15 +3267,14 @@
       /* ---------- Windows ---------- */
       function newWindow() {
         const base = officeOf(state.newBase);
-        const project = projectOf(state.newProject);
+        const project = projectOf(state.project);
         const choices = OFFICE.filter((o) => o.id !== "onboard")
           .map((o) => `<li><button class="base-choice" role="radio" aria-checked="${o.id === state.newBase}" data-action="new-base" data-base="${o.id}"><span class="radio"></span><b>${esc(o.name)}</b><span>${esc(stagesLine(o.stages))}</span></button></li>`)
           .join("");
-        const projects = PROJECTS.map((p) => `<option value="${p.id}" ${p.id === state.newProject ? "selected" : ""}>${esc(p.name)}</option>`).join("");
         return `<div class="window-backdrop"><div class="window keeps-height" role="dialog" aria-modal="true" aria-labelledby="new-title">
-          <div class="window-head"><h2 id="new-title">New Project Pipeline</h2><button class="icon-button" data-action="close" aria-label="Close">${ICON.x()}</button></div>
+          <div class="window-head"><h2 id="new-title">Add a Pipeline to ${esc(project.name)}</h2><button class="icon-button" data-action="close" aria-label="Close">${ICON.x()}</button></div>
           <div class="window-body">
-            <label class="field"><span class="field-label">Project</span><select class="select" data-action="new-project">${projects}</select><span class="field-hint">Only ${esc(project.name)}'s Tasks and default can choose it.</span></label>
+            <p class="note">A Project Pipeline: only ${esc(project.name)}'s Tasks and its default can choose it.</p>
             <div class="field" role="radiogroup" aria-label="Base Pipeline"><span class="field-label">Base Pipeline</span><span class="field-hint">The office-wide Pipeline it is built from. It starts as its Stages exactly; you then insert, replace, change or remove Stages, and ${esc(base.name)}'s later edits still reach it.</span><ul class="base-choices">${choices}</ul></div>
             <label class="field"><span class="field-label">Name</span><input class="input" value="${esc(base.name)} for ${esc(project.name)}" /><span class="field-hint">Not a name an office-wide Pipeline or another of ${esc(project.name)}'s has.</span></label>
             <label class="field"><span class="field-label">Description</span><textarea class="textarea" rows="2" style="min-height:56px" placeholder="What it is for, in a sentence"></textarea></label>
@@ -3152,14 +3290,14 @@
             (g) => `<li class="breaks-project"><span class="project-chip">${projectMark(g.project)}${esc(g.project.name)}</span>${g.items
               .map((b) => {
                 const isDefault = g.project.default === b.pp.id;
-                return `<div class="break-item"><div class="what">${esc(b.pp.name)}${isDefault ? `<span class="badge sm">${esc(g.project.name)}'s default</span>` : ""}</div><ul>${b.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${b.pp.waiting.length ? `<span class="tasks">${b.pp.waiting.length === 1 ? `Its Task that hasn't started, ${esc(b.pp.waiting[0])}, can't start until it is fixed.` : `Its ${b.pp.waiting.length} Tasks that haven't started can't start until it is fixed.`}</span>` : ""}</div>`;
+                return `<div class="break-item"><div class="what">${esc(b.pp.name)}${isDefault ? `<span class="badge sm">${esc(g.project.name)}'s default</span>` : ""}</div><ul>${b.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${b.pp.waiting.length ? `<span class="tasks">${b.pp.waiting.length === 1 ? `Its Task that hasn't started, ${esc(b.pp.waiting[0])}, can't start until it is fixed.` : `Its ${b.pp.waiting.length} Tasks that haven't started can't start until it is fixed.`}</span>` : ""}<button class="text-link open-it" data-action="goto-pp" data-id="${b.pp.id}">Open it on ${esc(g.project.name)}'s page</button></div>`;
               })
               .join("")}</li>`,
           )
           .join("");
         return `<div class="window-backdrop"><div class="window small" role="alertdialog" aria-modal="true" aria-labelledby="breaks-title">
           <div class="window-head"><h2 id="breaks-title">Saving Full breaks ${plural(breaks.length, "Project Pipeline", "Project Pipelines")}</h2><button class="icon-button" data-action="close" aria-label="Close">${ICON.x()}</button></div>
-          <div class="window-body"><p>Their Stage changes name Stages this save takes out of Full. Saved, each is Broken: Tasks can't choose it until its Stage changes are fixed in Settings › Pipelines. Tasks already started keep their Stages.</p><ul class="breaks">${groups}</ul></div>
+          <div class="window-body"><p>Their Stage changes name Stages this save takes out of Full. Saved, each is Broken: Tasks can't choose it until its Stage changes are fixed on its Project's page. Tasks already started keep their Stages.</p><ul class="breaks">${groups}</ul></div>
           <div class="window-bar"><button class="btn" data-action="save-anyway">Save anyway</button><span class="grow"></span><button class="btn secondary" data-action="close">Close</button></div>
         </div></div>`;
       }
@@ -3176,7 +3314,7 @@
             name: p.name,
             badge: !forDefault && p.id === project.default ? "Project default" : "",
             line: `${stagesLine(built.live.map((r) => r.stage))} · built from ${built.base.name}`,
-            why: reasons.length ? `Broken: ${reasons.join(" ")} Fix it in Settings › Pipelines.` : "",
+            why: reasons.length ? `Broken: ${reasons.join(" ")} Fix it in ${project.name}'s Pipelines.` : "",
           };
         });
         const office = OFFICE.map((o) => ({ id: o.id, name: o.name, badge: !forDefault && o.id === project.default ? "Project default" : "", line: stagesLine(o.stages) }));
@@ -3216,21 +3354,9 @@
         return shell({ title: "Add a search box to the Thread list", crumb: "Work ›", rail: "work", main: page, overlay: win });
       }
 
-      function projectPlace() {
-        const project = projectOf("the-office");
-        const groups = pipelineOptions("the-office", { forDefault: true });
-        const current = optionById(groups, state.defaultChoice);
-        const brokenDefault = state.defaultBroken
-          ? `<div class="alert danger" role="alert">${ICON.broken()}<span class="alert-title">Spec change, the default, is Broken</span><div class="alert-body"><p>Changes Produce, which Document no longer has. New Tasks can't follow it, and Angela proposes from the others, until it is fixed in Settings › Pipelines or another default is chosen.</p></div></div>`
-          : "";
-        const block = `<section class="card"><div class="card-head"><h3 class="card-title">${ICON.route()}Default Pipeline</h3></div>
-          ${brokenDefault}
-          <div><button class="picker-trigger" data-action="default-toggle" aria-expanded="${state.defaultOpen}"><span class="grow">${esc(current.name)}</span>${ICON.chevronDown()}</button>${state.defaultOpen ? listbox(groups, state.defaultChoice, "default") : ""}</div>
-          <p class="note">${esc(current.line)}. A new Task has no Pipeline until Angela proposes one at planning, starting from this one, or you choose one.</p>
-          <div class="project-row"><span class="project-row-label">Publishing</span><select class="select sm" style="width:auto"><option>Merge</option><option>Push + PR</option></select></div></section>`;
-        const ghost = (title, widths) => `<section class="card"><div class="card-head"><h3 class="card-title">${title}</h3></div>${widths.map((w) => `<span class="ghost-line" style="width:${w}%"></span>`).join("")}</section>`;
-        const page = `<div class="page-scroll"><div class="project-grid">${block}${ghost("Commands", [80, 66, 72, 50])}${ghost("Run environment", [70, 40])}${ghost("Repository", [60, 76])}</div></div>`;
-        return shell({ title: project.name, crumb: "Projects ›", rail: "projects", main: page });
+      function projectPlace({ overlay = "", chatOpen = false, pushed = false } = {}) {
+        const project = projectOf(state.project);
+        return shell({ title: project.name, crumb: "Projects ›", rail: "projects", main: projectPage(project), overlay, chatOpen, pushed });
       }
 
       /* ---------- Devops' Proposals in a Thread ---------- */
@@ -3305,26 +3431,23 @@
         </div>`;
         const drawer = `<aside class="chat-drawer ${look}" aria-label="Chat">
           <div class="drawer-head"><span class="avatar dwight">DS</span><div class="drawer-head-main"><span class="drawer-title">Dwight</span><span class="drawer-sub">Devops · proposes Pipelines, commands and run environments</span></div><button class="icon-button" aria-label="Close the chat">${ICON.x()}</button></div>
-          <div class="thread-row"><button class="btn ghost sm">${ICON.chevronLeft()} Threads</button><span class="thread-row-title">the-office's Project Pipelines</span></div>
+          <div class="thread-row"><button class="btn ghost sm">${ICON.chevronLeft()} Threads</button><span class="thread-row-title">the-office's Pipelines</span></div>
           <div class="thread">${thread}</div>
           <div class="composer"><textarea class="composer-field" rows="1" placeholder="Write to Dwight…" aria-label="Message"></textarea></div>
         </aside>`;
-        return shell({ title: "Pipelines", crumb: "Settings ›", rail: "settings", main: libraryPage(), overlay: drawer, chatOpen: true, pushed: state.width === "wide" });
+        return projectPlace({ overlay: drawer, chatOpen: true, pushed: state.width === "wide" });
       }
 
       /* ---------- The frame ---------- */
       function renderFrame() {
         const frame = document.getElementById("frame");
         frame.className = `frame w-${state.width}`;
-        const s = scenario();
+        const overlay = state.window === "new" ? newWindow() : state.window === "breaks" ? breaksWindow() : "";
         let html;
-        if (s.place === "task") html = taskPlace();
-        else if (s.place === "project") html = projectPlace();
-        else if (s.place === "chat") html = proposalPlace();
-        else {
-          const overlay = state.window === "new" ? newWindow() : state.window === "breaks" ? breaksWindow() : "";
-          html = shell({ title: "Pipelines", crumb: "Settings ›", rail: "settings", main: libraryPage(), overlay });
-        }
+        if (state.view === "task") html = taskPlace();
+        else if (state.view === "chat") html = proposalPlace();
+        else if (state.view === "project") html = projectPlace({ overlay });
+        else html = shell({ title: "Pipelines", crumb: "Settings ›", rail: "settings", main: libraryPage(), overlay });
         const scroll = document.getElementById("page-scroll");
         const keep = scroll ? scroll.scrollTop : 0;
         frame.innerHTML = html;
@@ -3345,9 +3468,10 @@
       }
       function renderNote() {
         const s = scenario();
+        const brokenDefault = projectOf("the-office").default === "pp-spec";
         const extra =
-          s.key === "default-picker"
-            ? `<button class="btn sm secondary" data-action="default-broken">${state.defaultBroken ? "Show a default that works" : "Show a Broken default"}</button>`
+          s.key === "project"
+            ? `<button class="btn sm secondary" data-action="default-broken">${brokenDefault ? "Show a default that works" : "Show a Broken default"}</button>`
             : `<button class="btn sm secondary" data-action="reset">Start the scenario again</button>`;
         document.getElementById("note").innerHTML = `<span><strong>${esc(s.label)}.</strong> ${esc(s.note)}</span>${extra}`;
       }
@@ -3369,16 +3493,18 @@
               <li><b>A loop target later:</b> "… which now comes after it." Same fix.</li>
               <li>A save never leaves a Project Pipeline Broken: Save waits until each is fixed. Only a base Pipeline's save, or a Proposal of its Stages, breaks one, and both warn first.</li></ul></div>
           <div><h2>Where each piece is</h2><ul>
-              <li><b>Settings › Pipelines:</b> Office-wide Pipelines, then one list per Project under its name and mark, then Stage templates.</li>
-              <li><b>Add:</b> New Pipeline in a Project's list, or Build a Project Pipeline from Full under an office-wide one; Ask Dwight instead in the same window.</li>
+              <li><b>A Project's page › Pipelines</b> (was Default Pipeline): its default, then its own Pipelines, each opening in the editor beside the list. A Project Pipeline belongs to one Project, like its commands and skills, so it lives there.</li>
+              <li><b>Settings › Pipelines:</b> office-wide Pipelines only, then Stage templates. One that Project Pipelines are built from says "Built on by N Project Pipelines", each a link to it on its Project's page.</li>
+              <li><b>Add:</b> Add a Pipeline built from… under the Project's Pipelines; Ask Dwight instead in the same window.</li>
+              <li><b>The default:</b> the Default Pipeline picker at the top of the section, or Make it the default on an open one.</li>
               <li><b>The picker:</b> the Project's own first, its default on top, then the office-wide ones, in groups; a Broken one is listed with why and can't be chosen.</li>
               <li><b>A Proposal:</b> what is new and what stays, each value as was → proposed, and what the Project gets before and after.</li></ul></div>
           <div><h2>Widths</h2>
-            <table><tr><th>Width</th><th>Settings › Pipelines</th><th>A Stage row</th></tr>
+            <table><tr><th>Width</th><th>Settings › Pipelines and a Project's Pipelines</th><th>A Stage row</th></tr>
               <tr><td>Wide</td><td>Lists beside the open Pipeline</td><td>Number, mark, name, its mark's words, tools on one line</td></tr>
-              <tr><td>900px</td><td>The lists, or the open Pipeline with ‹ All Pipelines</td><td>The same while the list is over 620px wide</td></tr>
+              <tr><td>900px</td><td>The lists, or the open Pipeline with ‹ All Pipelines or ‹ the-office's Pipelines</td><td>The same while the list is over 620px wide</td></tr>
               <tr><td>390px</td><td>The same, the section menu a row of its own</td><td>Its mark's words under the name; Undo as an icon</td></tr></table>
-            <p>Nothing scrolls sideways but the Settings section menu, a row made to (spec 4.1).</p></div>`;
+            <p>Nothing scrolls sideways but the section menus, rows made to (spec 4.1).</p></div>`;
       }
       function render() {
         document.documentElement.dataset.palette = state.palette;
@@ -3420,10 +3546,14 @@
           return render();
         }
         if (action === "default-broken") {
-          state.defaultBroken = !state.defaultBroken;
-          state.defaultChoice = state.defaultBroken ? "pp-spec" : "pp-linux";
-          resetData();
+          const project = projectOf("the-office");
+          // As if Document's save had broken Spec change while it was the default: a save of its own never could.
+          project.default = project.default === "pp-spec" ? "pp-linux" : "pp-spec";
           return render();
+        }
+        if (action === "goto-pp" || action === "goto-office") {
+          goTo(action === "goto-pp" ? "project" : "settings", target.dataset.id);
+          return renderFrame();
         }
         if (action === "menu") state.menu = state.menu === target.dataset.menu ? null : target.dataset.menu;
         else state.menu = null;
@@ -3493,18 +3623,17 @@
           showToast("Full saved. 3 Project Pipelines are Broken until their Stage changes are fixed.");
         }
         if (action === "close") state.window = null;
-        if (action === "new-for") {
-          state.window = "new";
-          state.newProject = target.dataset.project;
-        }
-        if (action === "new-from") {
-          state.window = "new";
-          state.newBase = target.dataset.base;
-        }
+        if (action === "new-for") state.window = "new";
         if (action === "new-base") state.newBase = target.dataset.base;
         if (action === "add-new") {
           state.window = null;
-          showToast(`${officeOf(state.newBase).name} for ${projectOf(state.newProject).name} added to ${projectOf(state.newProject).name}'s Pipelines.`);
+          const project = projectOf(state.project);
+          showToast(`${officeOf(state.newBase).name} for ${project.name} added to ${project.name}'s Pipelines.`);
+        }
+        if (action === "make-default" && pp) {
+          const project = projectOf(pp.projectId);
+          project.default = pp.id;
+          showToast(`${project.name}'s default Pipeline is ${pp.name} now.`);
         }
         if (action === "ask") showToast("In the app: a chat with Dwight opens, with a draft naming the Pipeline and its Project.");
         if (action === "apply") showToast("Full with Linux check changed. Tasks that haven't started follow it.");
@@ -3515,18 +3644,19 @@
         }
         if (action === "default-toggle") state.defaultOpen = !state.defaultOpen;
         if (action === "default" && target.getAttribute("aria-disabled") !== "true") {
-          state.defaultChoice = target.dataset.id;
+          const project = projectOf(state.project);
+          project.default = target.dataset.id;
           state.defaultOpen = false;
-          showToast(`the-office's default Pipeline is ${optionById(pipelineOptions("the-office"), target.dataset.id).name} now.`);
+          showToast(`${project.name}'s default Pipeline is ${optionById(pipelineOptions(project.id), target.dataset.id).name} now.`);
         }
+        if (action === "default-toggle" || action === "default" || action === "make-default") renderNote();
         renderFrame();
       });
       document.addEventListener("change", (event) => {
         const el = event.target;
         const pp = currentPp();
         state.keepScroll = true;
-        if (el.dataset.action === "new-project") state.newProject = el.value;
-        else if (pp && el.dataset.action === "base") pp.basePipelineId = el.value;
+        if (pp && el.dataset.action === "base") pp.basePipelineId = el.value;
         else if (pp && el.dataset.ppField) pp[el.dataset.ppField] = el.value;
         else if (pp && el.dataset.action === "repoint") {
           const i = Number(el.dataset.index);
@@ -3545,7 +3675,7 @@
       document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape") return;
         if (state.menu) state.menu = null;
-        else if (state.window && !scenario().place) state.window = null;
+        else if (state.window) state.window = null;
         else return;
         state.keepScroll = true;
         renderFrame();

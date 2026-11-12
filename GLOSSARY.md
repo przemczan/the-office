@@ -286,7 +286,7 @@ A named, ordered set of Stages that a Task's work follows; a Publishing Task fol
 _Avoid_: Workflow, flow, process (a Process is a session's background command)
 
 **Pipeline library**:
-The set of Pipelines that Projects and Tasks choose from: the office-wide Pipelines, each Project's Project Pipelines and, beside them, the Stage templates, edited in Settings or changed by Devops' Proposals.
+The office-wide Pipelines and, beside them, the Stage templates, edited in Settings › Pipelines or changed by Devops' Proposals. Project Pipelines are not in it: each is edited on its Project's page.
 _Avoid_: Pipeline catalog, Pipeline templates
 
 **Project Pipeline**:
