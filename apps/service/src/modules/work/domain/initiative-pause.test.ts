@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dropInitiative } from "./initiative-changes.js";
+import { dropInitiative, finishInitiative } from "./initiative-changes.js";
 import { InitiativePaused, InitiativeResumed } from "./initiative-events.js";
 import { isInitiativePaused, pauseInitiative, resumeInitiative } from "./initiative-pause.js";
 import { InitiativeRefused } from "./initiative-refused.js";
@@ -83,5 +83,17 @@ describe("dropInitiative, while paused", () => {
       ["held", "paused", undefined],
     ]);
     expect(change?.taskChanges[0]?.event).toBeInstanceOf(TaskHeldAtInitiativeDrop);
+  });
+});
+
+describe("finishInitiative, while paused", () => {
+  it("clears the mark once its paused Tasks were dropped and the rest are Done", () => {
+    const change = finishInitiative(
+      paused,
+      [aTask({ state: "done" }), aTask({ state: "dropped" })],
+      at,
+    );
+
+    expect(change?.initiative).toMatchObject({ state: "done", pausedAt: undefined });
   });
 });

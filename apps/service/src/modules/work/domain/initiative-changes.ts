@@ -191,10 +191,8 @@ export function dropInitiative(
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
   }
-  const dropped = moveTo(initiative, "dropped", at);
   return {
-    ...dropped,
-    initiative: { ...dropped.initiative, pausedAt: undefined },
+    ...moveTo(initiative, "dropped", at),
     taskChanges: tasks.flatMap(
       (task) =>
         (task.state === "shaping"
@@ -441,13 +439,15 @@ export function tasksByInitiative(board: readonly Task[]): ReadonlyMap<string, r
 }
 
 /** `endedAt` is the moment of a move to Done or Dropped, from which its Archive period counts. */
+/** The Pause's mark lives only beside the active state, so a move out of it clears the mark. */
 function moveTo(
   initiative: Initiative,
   to: InitiativeState,
   endedAt: Date | undefined,
 ): InitiativeChange<InitiativeStateChanged> {
+  const pausedAt = to === "active" ? initiative.pausedAt : undefined;
   return {
-    initiative: { ...initiative, state: to, endedAt },
+    initiative: { ...initiative, state: to, endedAt, pausedAt },
     event: new InitiativeStateChanged(initiative.id, initiative.state, to),
   };
 }
