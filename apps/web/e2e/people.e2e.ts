@@ -6094,3 +6094,91 @@ test(
     await expect(jan.getByRole("button", { name: "1 process ended. Show them." })).toBeVisible();
   },
 );
+
+/** What of the picked item's details reaches past the details pane's right edge, or scrolls hidden. */
+async function overflowOfDetails(window: Locator): Promise<readonly string[]> {
+  return window.locator(".sub-agents-and-processes-details").evaluate((details) => {
+    const scroll = details.querySelector(".sub-agents-and-processes-scroll");
+    if (scroll === null) return ["no scroll area"];
+    const edge = details.getBoundingClientRect().right;
+    const parts = details.querySelectorAll(
+      ".turn, .tool-calls, .sub-agents-and-processes-reported, .sub-agents-and-processes-ending",
+    );
+    return [
+      ...(scroll.scrollWidth > scroll.clientWidth
+        ? [`scroll area ${scroll.scrollWidth} > ${scroll.clientWidth}`]
+        : []),
+      ...[...parts]
+        .filter((part) => part.getBoundingClientRect().right > edge + 0.5)
+        .map((part) => `${part.className} ends at ${part.getBoundingClientRect().right} > ${edge}`),
+    ];
+  });
+}
+
+// The engine replays the last session in e2e/sessions.jsonl: Jan starts a Sub-agent whose folded
+// tool calls, code line and report back run long, then one that fails for a long reason.
+test(
+  "a Sub-agent's long tool calls and code wrap inside its details, beside the list and stacked",
+  { tag: "@full" },
+  async ({ page }) => {
+    const { id: threadId } = threadSchema.parse(
+      await (await page.request.post("/api/chats/planner/threads")).json(),
+    );
+    const sent = await page.request.post(`/api/threads/${threadId}/messages`, {
+      data: { text: "Look for long lines with Sub-agents." },
+    });
+    expect(sent.ok()).toBe(true);
+
+    await page.goto(`/people?chat=planner&thread=${threadId}`);
+    const jan = chatWith(page, "Jan");
+    await expect(jan.getByText("The Sub-agents looked for long lines.")).toBeVisible({
+      timeout: 30_000,
+    });
+    await jan.getByRole("button", { name: /^2 sub-agents .*Show them\.$/ }).click();
+    const window = page.getByRole("dialog", { name: /^Sub-agents and processes/ });
+    // Stacked, the list is behind the details' way back.
+    const pick = async (title: string) => {
+      const back = window.getByRole("button", { name: "All sub-agents and processes" });
+      if (await back.isVisible()) await back.click();
+      await window.getByRole("button", { name: new RegExp(title) }).click();
+    };
+    await pick("Look for long lines");
+    const details = window.locator(".sub-agents-and-processes-details");
+    await expect(details.getByRole("heading", { name: "Look for long lines" })).toBeVisible();
+    await detailsSwitch(details).check();
+    const fold = details.locator("details.tool-calls");
+    await expect(fold).toHaveCount(1);
+    // The fold's own line is cut short with an ellipsis, as in a Thread.
+    expect(
+      await fold
+        .locator(".tool-call-latest")
+        .evaluate((line) => line.scrollWidth > line.clientWidth && line.clientWidth > 0),
+    ).toBe(true);
+    await fold.locator("summary").click();
+    await expect(details.locator("pre", { hasText: "const widest=" })).toBeVisible();
+    await expect(details.getByRole("region", { name: "Reported back" })).toBeVisible();
+    expect(await overflowOfDetails(window)).toEqual([]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-sub-agent-long-lines.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-sub-agent-long-lines.png") });
+    await showPalette(page, "light");
+
+    await pick("Check the run tab");
+    await expect(details.locator(".sub-agents-and-processes-ending.failed")).toBeVisible();
+    expect(await overflowOfDetails(window)).toEqual([]);
+
+    // Stacked: the details take the window's whole width.
+    await page.setViewportSize({ width: NARROW_WIDTH_PX - 160, height: 900 });
+    await pick("Look for long lines");
+    await expect(details.getByRole("region", { name: "Reported back" })).toBeVisible();
+    await expect(window.locator(".sub-agents-and-processes-list")).toBeHidden();
+    expect(await overflowOfDetails(window)).toEqual([]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-480-sub-agent-long-lines.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-480-sub-agent-long-lines.png") });
+    await showPalette(page, "light");
+
+    await detailsSwitch(details).uncheck();
+    await page.setViewportSize({ width: 1600, height: 1000 });
+  },
+);

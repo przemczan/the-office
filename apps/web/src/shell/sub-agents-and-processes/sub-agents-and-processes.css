@@ -287,7 +287,9 @@
 .sub-agents-and-processes-head {
   display: grid;
   flex: none;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
+  min-width: 0;
   padding: 16px 20px 12px;
 }
 
@@ -328,7 +330,9 @@
 .sub-agents-and-processes-section {
   display: grid;
   flex: none;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  min-width: 0;
   padding: 6px 20px 12px;
 }
 
@@ -457,11 +461,17 @@
   color: var(--success-fg);
 }
 
-/* The Sub-agent's Rows: the Thread's own list, which scrolls with the details here. */
+/*
+ * The Sub-agent's Rows: the Thread's own list, which scrolls with the details here. Its column
+ * shrinks to the details, as the Thread's does, so a folded call's line or a long code line wraps
+ * or cuts short inside it instead of widening it past the pane's edge.
+ */
 .sub-agents-and-processes-messages {
   display: grid;
   flex: none;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  min-width: 0;
   padding: 0 20px 20px;
 }
 
