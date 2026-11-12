@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isAbsolute, relative, sep } from "node:path";
 import type { RunEnvironmentDefinition } from "./run-environment-definition.js";
 
 /** A variable the install command runs with while the image builds: the Project's `set`. */
@@ -17,6 +18,11 @@ export interface TaskInWorktree {
   readonly projectId: string;
   /** The Task's worktree, an absolute path: mounted at the same path inside (spec §5.5). */
   readonly worktree: string;
+  /**
+   * The git folder the worktree's repository shares, an absolute path as git on the host names it:
+   * mounted read-only at the same path inside, where the worktree's `.git` file leads.
+   */
+  readonly repositoryGitFolder: string;
   readonly installCommand: string | undefined;
   /** The Project's Install inputs, relative to the worktree. */
   readonly installInputs: readonly string[];
@@ -194,11 +200,11 @@ function checksServiceOverride(
     // Built by The Office before the run environment starts; never pulled or built by compose.
     pull_policy: "never",
     volumes: [
-      {
-        type: "bind",
-        source: composeLiteral(task.worktree),
-        target: composeLiteral(task.worktree),
-      },
+      bindMount(task.worktree, false),
+      ...(isInside(task.repositoryGitFolder, task.worktree)
+        ? []
+        : // Read-only: checks read the history, but every git change is The Office's (spec §5.5).
+          [bindMount(task.repositoryGitFolder, true)]),
     ],
     working_dir: composeLiteral(task.worktree),
     ...(definition.overrideCommand
@@ -208,6 +214,18 @@ function checksServiceOverride(
         }
       : {}),
   };
+}
+
+/** A host folder at the same path inside. */
+function bindMount(folder: string, readOnly: boolean): Record<string, unknown> {
+  const mount = { type: "bind", source: composeLiteral(folder), target: composeLiteral(folder) };
+  return readOnly ? { ...mount, read_only: true } : mount;
+}
+
+/** Whether `folder` is `parent` or lies inside it; a main checkout's git folder does. */
+function isInside(folder: string, parent: string): boolean {
+  const fromParent = relative(parent, folder);
+  return fromParent !== ".." && !fromParent.startsWith(`..${sep}`) && !isAbsolute(fromParent);
 }
 
 /** A value compose takes as it is: it reads `$` as the start of a variable, `$$` as a `$`. */

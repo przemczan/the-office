@@ -1,5 +1,9 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { CLOSED_TASK_CONVERSATION_WORDS, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import {
+  ANSWER_DECISION_TOOL,
+  CLOSED_TASK_CONVERSATION_WORDS,
+  OPEN_DECISION_TOOL,
+} from "@the-office/contracts";
 import {
   TaskThreadSetups,
   type PlanningThreadElsewhere,
@@ -32,7 +36,8 @@ import { StageResults } from "../../ports/stage-results.js";
 
 /**
  * The Office tools of a planning session: it reads every record and Attachment, writes the Plan and
- * the Definition of Done onto its own Task, proposes a Pipeline, sets Tags and opens Decisions.
+ * the Definition of Done onto its own Task, proposes a Pipeline, sets Tags, opens Decisions and
+ * answers one for the user when they ask.
  */
 export const PLANNING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
@@ -42,13 +47,15 @@ export const PLANNING_OFFICE_TOOLS = [
   "write_tags",
   "mark_planned",
   OPEN_DECISION_TOOL,
+  ANSWER_DECISION_TOOL,
 ] as const;
 
 /**
  * The Office tools of a person's Thread on a Task: it reads every record and Attachment, and the
- * Task's Stage history, and changes none (spec §2.4).
+ * Task's Stage history, and changes none but a Decision it answers for the user when they ask
+ * (spec §2.4).
  */
-export const ASKING_OFFICE_TOOLS = PERSON_READING_OFFICE_TOOLS;
+export const ASKING_OFFICE_TOOLS = [...PERSON_READING_OFFICE_TOOLS, ANSWER_DECISION_TOOL] as const;
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Planner's

@@ -9,6 +9,11 @@ export interface TaskInRunEnvironment {
   readonly projectId: string;
   /** The Task's worktree, mounted at the same path inside. */
   readonly worktree: string;
+  /**
+   * The git folder the worktree's repository shares, as git on the host names it, mounted
+   * read-only at the same path inside so git reads the worktree's history there.
+   */
+  readonly repositoryGitFolder: string;
   readonly installCommand: string;
   /** The Project's Install inputs, relative to the worktree. */
   readonly installInputs: readonly string[];

@@ -87,7 +87,7 @@ function filesFor(read: Project): BaseBranchFiles {
     new Worktrees(
       git,
       commands,
-      taskCommandsOver(commands),
+      taskCommandsOver(commands, git),
       new OfficeDataDirectory(officeData),
       new TaskBasesForTests(git),
     ),

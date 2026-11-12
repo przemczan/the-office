@@ -8,6 +8,7 @@ import { descriptionSection } from "../domain/task-description.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
 import { StageResults } from "../ports/stage-results.js";
+import { TaskDecisions } from "../ports/task-decisions.js";
 import { AttachmentService } from "./attachment-service.js";
 import { IdeaService } from "./idea-service.js";
 import { InitiativeService } from "./initiative-service.js";
@@ -60,6 +61,7 @@ export class TaskRecords {
     private readonly stageResults: StageResults,
     private readonly projects: KnownProjects,
     private readonly worktrees: ProjectWorktrees,
+    private readonly decisions: TaskDecisions,
   ) {}
 
   /**
@@ -105,13 +107,20 @@ export class TaskRecords {
    */
   async recordText(taskId: string): Promise<string> {
     const task = await this.tasks.read(taskId);
-    const [attachments, links, stageResults, stateChanges] = await Promise.all([
+    const [attachments, links, stageResults, stateChanges, decisionsWaiting] = await Promise.all([
       this.attachments.listOf({ kind: "task", taskId }),
       this.linksOf(task),
       this.stageResults.ofTask(taskId),
       this.tasks.stateChangesOf(taskId),
+      this.decisions.waitingOnTheUserOn(taskId),
     ]);
-    return taskRecordText(task, { attachments, links, stageResults, stateChanges });
+    return taskRecordText(task, {
+      attachments,
+      links,
+      stageResults,
+      stateChanges,
+      decisionsWaiting,
+    });
   }
 
   /** The records the Task is linked to, archived and dropped ones too. */

@@ -21,6 +21,7 @@ const NOTHING: TaskRecordParts = {
   links: NO_LINKS,
   stageResults: { lines: [], handoverNotes: [] },
   stateChanges: [],
+  decisionsWaiting: [],
 };
 
 const ARCHIVED_AT = new Date("2026-11-01T10:00:00.000Z");
@@ -91,6 +92,38 @@ describe("taskRecordText", () => {
     expect(part(record, "Linked records:")).toEqual(["Linked records:", "None."]);
     expect(part(record, "Stage results:")).toEqual(["Stage results:", "None."]);
     expect(record).not.toContain("Handover notes:");
+  });
+
+  it("lists its Decisions waiting on the user by id, with their options numbered from 1", () => {
+    const record = taskRecordText(aTask(), {
+      ...NOTHING,
+      decisionsWaiting: [
+        { id: "d-1", question: "Which page?", options: ["Login", "Logout"], approval: false },
+        {
+          id: "d-2",
+          question: "Allow this call? Install ffmpeg",
+          options: ["Allow once", "Deny"],
+          approval: true,
+        },
+      ],
+    });
+
+    expect(part(record, "Decisions waiting on the user:")).toEqual([
+      "Decisions waiting on the user:",
+      "- Which page? (Decision d-1)",
+      "  1. Login",
+      "  2. Logout",
+      "- Allow this call? Install ffmpeg (Decision d-2): an approval of a call, which only the user gives, on its card",
+      "  1. Allow once",
+      "  2. Deny",
+    ]);
+  });
+
+  it("says when no Decision waits on the user", () => {
+    expect(part(taskRecordText(aTask(), NOTHING), "Decisions waiting on the user:")).toEqual([
+      "Decisions waiting on the user:",
+      "None.",
+    ]);
   });
 
   it("gives its Stage results in the order they ran, and every Handover note with its Stage and Role", () => {

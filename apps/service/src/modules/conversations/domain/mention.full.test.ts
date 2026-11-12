@@ -17,8 +17,8 @@ describe("a mentioned Decision's record", () => {
         "The export reads every Project; archived ones have no worktree.",
         "",
         "Options:",
-        "- Only active Projects",
-        "- Every Project",
+        "1. Only active Projects",
+        "2. Every Project",
         "",
         "Recommended: Only active Projects, because Archived Projects have nothing to export.",
         "Not answered yet: it waits on the user.",
@@ -55,6 +55,21 @@ describe("a mentioned Decision's record", () => {
     );
     expect(decisionRecordText(passedOn, undefined)).toContain(
       `The Office has no Task ${passedOn.taskId}.`,
+    );
+  });
+
+  it("says who answered it for the user, at their request, and in which Thread", () => {
+    const answered = aDecision({
+      answer: {
+        kind: "option",
+        option: 1,
+        answeredAt: new Date("2026-10-26T10:00:00.000Z"),
+        atUsersRequest: { roleKey: "cto", threadId: "thread-of-the-cto" },
+      },
+    });
+
+    expect(decisionRecordText(answered, TASK_RECORD)).toContain(
+      "Answered by the person in the Role cto, for the user at their request in the Thread thread-of-the-cto, on 2026-10-26T10:00:00.000Z: Every Project",
     );
   });
 });

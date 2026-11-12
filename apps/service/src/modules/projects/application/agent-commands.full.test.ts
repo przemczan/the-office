@@ -63,8 +63,8 @@ beforeAll(async () => {
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   const officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
   runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
-  const taskCommands = taskCommandsOver(commands, runEnvironments.registry());
   const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
+  const taskCommands = taskCommandsOver(commands, git, runEnvironments.registry());
   worktrees = new Worktrees(git, commands, taskCommands, officeData, new TaskBasesForTests(git));
   agentCommands = new AgentCommands(worktrees, taskCommands);
 });

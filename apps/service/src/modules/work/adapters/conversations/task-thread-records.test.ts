@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OPEN_DECISION_TOOL } from "@the-office/contracts";
+import { ANSWER_DECISION_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ASKING_INSTRUCTIONS } from "../../domain/asking.js";
 import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
@@ -51,6 +51,11 @@ describe("a person's Thread on a Task's session", () => {
     expect(setup.brief).toContain("- Implement (Agent): done. Fixed it.");
     expect(setup.brief).toContain("2 files changed");
     expect(setup.brief).toContain("Left: the logout page.");
+  });
+
+  it("answers a Decision for the user when they ask, as the Planner's Thread does", () => {
+    expect(ASKING_OFFICE_TOOLS).toContain(ANSWER_DECISION_TOOL);
+    expect(PLANNING_OFFICE_TOOLS).toContain(ANSWER_DECISION_TOOL);
   });
 
   it("gives no read-write tool, and no Decision", () => {

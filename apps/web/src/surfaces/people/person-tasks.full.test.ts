@@ -153,6 +153,7 @@ describe("the Work tab's filters", () => {
     attachmentIds: [],
     passedOn: [],
     answeredBy: null,
+    atUsersRequest: null,
   };
 
   it("count a Task planning with a Decision open as Waiting on you, and still not started", () => {

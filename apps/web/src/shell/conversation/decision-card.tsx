@@ -16,8 +16,10 @@ import { MarkdownText } from "../markdown-text.tsx";
 import { RecordMention } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { answerWords, namedAttachments } from "./decision-words.ts";
+import { roleFirstName } from "../person-name.ts";
 import { NamedTag, PersonTag } from "../person-tag.tsx";
 import { MessageField } from "./message-field.tsx";
+import { ThreadLink } from "./thread-link.tsx";
 import "./conversation.css";
 
 /**
@@ -121,9 +123,7 @@ export function DecisionInThread({
           <div className="decision-answered">
             <Icon name="check" size={12} />
             <span>
-              {decision.answeredBy === null
-                ? "Answered: "
-                : `Answered by ${consultantName(decision.answeredBy, roles)}: `}
+              <AnsweredBy decision={decision} roles={roles} />
               <MarkdownText text={answerWords(decision.answer, decision)} inline />
             </span>
           </div>
@@ -131,6 +131,29 @@ export function DecisionInThread({
       )}
     </DecisionFrame>
   );
+}
+
+/**
+ * Who answered, before the answer: the user, the Consultant, or a person the user asked to answer it
+ * for them, with the way to the Thread they asked in.
+ */
+function AnsweredBy({
+  decision,
+  roles,
+}: {
+  readonly decision: Decision;
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  const { atUsersRequest, answeredBy } = decision;
+  if (atUsersRequest !== null) {
+    return (
+      <>
+        Answered by {roleFirstName(atUsersRequest.roleKey, roles)}{" "}
+        <ThreadLink threadId={atUsersRequest.threadId}>at your request</ThreadLink>:{" "}
+      </>
+    );
+  }
+  return answeredBy === null ? "Answered: " : `Answered by ${consultantName(answeredBy, roles)}: `;
 }
 
 /**
