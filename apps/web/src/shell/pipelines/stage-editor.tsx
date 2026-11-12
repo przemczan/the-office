@@ -9,10 +9,9 @@ import type {
 import { Button, Icon, IconButton, Menu } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { addStageTemplate, stageTemplateQueries } from "../../api/pipelines.ts";
-import { EFFORT_LABELS } from "../engine-words.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
-import { thousands, whoWorks } from "./pipeline-words.ts";
+import { stageDetailsLine, whoWorks } from "./pipeline-words.ts";
 import { StageCheckAlerts } from "./stage-check-alerts.tsx";
 import {
   addStage,
@@ -287,30 +286,7 @@ function StageSummary({
   roles,
   commands,
 }: StageEditorProps & { readonly stage: Stage; readonly name: string }): ReactNode {
-  const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
-  const target = onFailure && stages.find(({ key }) => key === onFailure.goBackTo);
-  const details = [
-    stage.kind === "agent" &&
-      (stage.session === "continue" ? "continues the session" : "fresh session"),
-    stage.kind === "agent" && `${thousands(stage.budget)}k budget`,
-    stage.kind === "agent" &&
-      stage.effort !== undefined &&
-      `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
-    stage.kind === "agent" &&
-      Object.keys(stage.permissions ?? {}).some((part) => part !== "commands") &&
-      "narrowed permission profile",
-    stage.kind === "agent" &&
-      stage.permissions?.commands !== undefined &&
-      `Project commands: ${stage.permissions.commands.join(", ")}`,
-    stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
-    stage.kind === "script" &&
-      stage.afterConflict === "review" &&
-      stage.publishTarget !== "branch-only" &&
-      "a resolved conflict waits for you",
-    stage.optional && "optional",
-    onFailure &&
-      `on failure back to ${target?.name ?? onFailure.goBackTo}, at most ${onFailure.rounds}×`,
-  ].filter((detail) => typeof detail === "string");
+  const details = stageDetailsLine(stage, stages);
   return (
     <>
       <div className="stage-editor-name">
@@ -319,7 +295,7 @@ function StageSummary({
           · {whoWorks(stage, roles, commands && namedCommands(commands))}
         </span>
       </div>
-      {details.length > 0 && <div className="stage-editor-detail">{details.join(" · ")}</div>}
+      {details !== "" && <div className="stage-editor-detail">{details}</div>}
     </>
   );
 }

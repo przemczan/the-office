@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import type { Pipeline, Role, StageTemplate } from "@the-office/contracts";
-import { Button, Card, Icon, Menu, PickList, PickListItem } from "@the-office/ui";
+import type { OfficeWidePipeline, Role, StageTemplate } from "@the-office/contracts";
+import { Badge, Button, Card, Icon, Menu, PickList, PickListItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleCardQueries, roleQueries } from "../../../api/people.ts";
 import {
@@ -14,12 +14,14 @@ import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { LibraryPipelineForm } from "./library-pipeline-form.tsx";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
 import { stagesLine, whoWorks } from "../../../shell/pipelines/pipeline-words.ts";
+import { builtOnByWords, counted } from "../../../shell/pipelines/stage-change-words.ts";
 import {
   STAGE_KIND_ICONS,
   STAGE_KIND_NAMES,
   type StageKind,
 } from "../../../shell/pipelines/stage-edits.ts";
-import { pipelineUseLine } from "./pipeline-use-words.ts";
+import { BuiltOnByCard, brokenBuiltOnByTotal, builtOnByTotal } from "./built-on-by-card.tsx";
+import { pipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
 import { StageTemplateForm, type StageTemplateOpened } from "./stage-template-form.tsx";
 
 /** What the detail column shows when the user is making something new. */
@@ -27,9 +29,12 @@ type Making =
   { readonly what: "pipeline" } | { readonly what: "stage-template"; readonly kind: StageKind };
 
 /**
- * Settings › Pipelines (prototypes/app/settings.js `pipelinesSection`): the library beside the open
- * Pipeline, which the user edits, duplicates or removes, and "New Pipeline" made from scratch; under
- * it the Stage templates, each opened in the same place.
+ * Settings › Pipelines (prototypes/app/settings.js `pipelinesSection`, and for what Project Pipelines
+ * add docs/design/project-pipelines.html): the office-wide Pipelines beside the open one, which the
+ * user edits, duplicates or removes, and "New Pipeline" made from scratch; under it the Stage
+ * templates, each opened in the same place. Project Pipelines are on their Project's page; here
+ * each office-wide Pipeline says which Projects build on it. On a narrow page the lists or the open
+ * item show, not one under the other.
  */
 export function PipelinesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Pipelines" });
@@ -51,8 +56,10 @@ export function PipelinesSection(): ReactNode {
       : (library.data.find(({ id }) => id === pipelineId) ?? library.data[0]);
   const openedTemplate = templateOpened(openTemplate, making);
   const stopMaking = (): void => setMaking(undefined);
+  const showingDetail =
+    making !== undefined || pipelineId !== undefined || stageTemplateId !== undefined;
   return (
-    <div className="settings-split">
+    <div className={showingDetail ? "settings-split showing-detail" : "settings-split"}>
       <div className="library-lists">
         <LibraryList
           library={library.data}
@@ -70,6 +77,10 @@ export function PipelinesSection(): ReactNode {
         />
       </div>
       <div className="library-detail">
+        <Link className="settings-back" to="/settings/pipelines" onClick={stopMaking}>
+          <Icon name="chevron-left" size={14} />
+          All Pipelines
+        </Link>
         {openedTemplate ? (
           <StageTemplateForm
             // Each template, and each new one, starts its own draft.
@@ -84,6 +95,7 @@ export function PipelinesSection(): ReactNode {
         ) : (
           <>
             {open && <PipelineHead pipeline={open} />}
+            {open && <BuiltOnByCard pipeline={open} />}
             <LibraryPipelineForm
               // Each Pipeline, and each new one, starts its own draft.
               key={open?.id ?? "new"}
@@ -114,8 +126,8 @@ function LibraryList({
   onMake,
   onOpen,
 }: {
-  readonly library: readonly Pipeline[];
-  readonly open: Pipeline | undefined;
+  readonly library: readonly OfficeWidePipeline[];
+  readonly open: OfficeWidePipeline | undefined;
   readonly making: boolean;
   readonly onMake: () => void;
   readonly onOpen: () => void;
@@ -132,7 +144,7 @@ function LibraryList({
   });
   return (
     <PickList
-      name="Pipelines"
+      name="Office-wide Pipelines"
       count={library.length}
       action={
         <Button
@@ -177,13 +189,16 @@ function LibraryList({
   );
 }
 
-/** A Pipeline in the list, flagged when its Stages need fixing or name a Role nobody fills. */
+/**
+ * A Pipeline in the list, flagged when its Stages need fixing or name a Role nobody fills; one that
+ * Project Pipelines are built from says how many, and how many are Broken.
+ */
 function LibraryItem({
   pipeline,
   picked,
   onOpen,
 }: {
-  readonly pipeline: Pipeline;
+  readonly pipeline: OfficeWidePipeline;
   readonly picked: boolean;
   readonly onOpen: () => void;
 }): ReactNode {
@@ -192,11 +207,25 @@ function LibraryItem({
     pipelineQueries.libraryCheck({ name, description, stages, pipelineId: id }),
   );
   const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const builtOn = builtOnByTotal(pipeline);
+  const broken = brokenBuiltOnByTotal(pipeline);
   return (
     <PickListItem
       picked={picked}
       name={name}
       line={stagesLine(pipeline)}
+      secondLine={builtOn > 0 ? builtOnByWords(builtOn) : undefined}
+      aside={
+        broken > 0 && (
+          <span
+            title={`${counted(broken, "Project Pipeline built on it is", "Project Pipelines built on it are")} Broken`}
+          >
+            <Badge size="sm" tone="danger">
+              {broken} Broken
+            </Badge>
+          </span>
+        )
+      }
       warning={needsFixing ? "Needs fixing" : undefined}
       renderLink={(parts) => (
         <Link
@@ -318,7 +347,7 @@ function StageTemplateItem({
 }
 
 /** The open Pipeline's name, description and who uses it. */
-function PipelineHead({ pipeline }: { readonly pipeline: Pipeline }): ReactNode {
+function PipelineHead({ pipeline }: { readonly pipeline: OfficeWidePipeline }): ReactNode {
   const use = useQuery(pipelineQueries.use(pipeline.id));
   return (
     <Card
@@ -326,6 +355,7 @@ function PipelineHead({ pipeline }: { readonly pipeline: Pipeline }): ReactNode 
         <span className="settings-block-title">
           <Icon name="route" size={15} strokeWidth={1.6} />
           {pipeline.name}
+          <Badge size="sm">Office-wide</Badge>
         </span>
       }
       actions={

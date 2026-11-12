@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
-  Pipeline,
+  OfficeWidePipeline,
   Project,
   Role,
   RoleCardOptions,
@@ -59,7 +59,7 @@ const TASK: Task = {
 const LIBRARY = [
   { id: "full", name: "Full", description: "", stages: [{ name: "Implement" }] },
   { id: "quick-fix", name: "Quick fix", description: "", stages: [{ name: "Implement" }] },
-] as unknown as Pipeline[];
+] as unknown as OfficeWidePipeline[];
 
 const NO_STAGES_OF_ITS_OWN: TaskStages = {
   stages: null,

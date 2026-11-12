@@ -71,7 +71,7 @@ const APPEARANCE_BLOCKS = ["How it looks", "Mark", "Images"];
 const SECTIONS = [
   { name: "Overview", address: "", blocks: ["Onboarding", "Environment", "Work"] },
   { name: "Commands", address: "/commands", blocks: ["Commands"] },
-  { name: "Default Pipeline", address: "/default-pipeline", blocks: ["Default Pipeline"] },
+  { name: "Pipelines", address: "/pipelines", blocks: ["Default Pipeline"] },
   { name: "Run environment", address: "/run-environment", blocks: ["Run environment"] },
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
   { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
@@ -634,7 +634,7 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Pipeline choice");
-    await page.goto(`/projects/${project.id}/default-pipeline`);
+    await page.goto(`/projects/${project.id}/pipelines`);
     const picker = page.getByLabel("Default Pipeline");
 
     // Other tests add Pipelines of their own after the built-ins.

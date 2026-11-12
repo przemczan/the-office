@@ -2,12 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { publishingModeSchema, type Project, type PublishingMode } from "@the-office/contracts";
 import { Select } from "@the-office/ui";
 import { useId, type ReactNode } from "react";
-import { pipelineQueries } from "../../api/pipelines.ts";
-import { changeDefaultPipeline, changePublishingMode, projectQueries } from "../../api/projects.ts";
-import { publishingLabel } from "../../shell/project-words.ts";
-import { useToast } from "../../shell/toasts.tsx";
-import { ProjectBlock } from "./project-block.tsx";
-import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
+import { pipelineQueries } from "../../../api/pipelines.ts";
+import {
+  changeDefaultPipeline,
+  changePublishingMode,
+  projectQueries,
+} from "../../../api/projects.ts";
+import { publishingLabel } from "../../../shell/project-words.ts";
+import { useToast } from "../../../shell/toasts.tsx";
+import { ProjectBlock } from "../project-block.tsx";
+import { stagesLine } from "../../../shell/pipelines/pipeline-words.ts";
 
 /**
  * The Pipeline the Project's Tasks usually follow, which the Planner starts from and a Task with none

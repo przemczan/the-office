@@ -81,12 +81,17 @@ function placed(stages: readonly Stage[], stage: Stage, lockedStages: number): A
     stages.map((other) => other.name),
     " ",
   );
-  const key = unique(
-    slugOf(name) || slugOf(NEW_STAGE_NAMES[stage.kind]),
-    stages.map((other) => other.key),
+  const key = keyAmong({ ...stage, name }, stages);
+  return { stages: stages.toSpliced(index, 0, { ...stage, key, name }), index };
+}
+
+/** A key for the Stage, from its name, that none of `stages` has. */
+export function keyAmong(stage: Stage, stages: readonly Stage[]): string {
+  return unique(
+    slugOf(stage.name) || slugOf(NEW_STAGE_NAMES[stage.kind]),
+    stages.map(({ key }) => key),
     "-",
   );
-  return { stages: stages.toSpliced(index, 0, { ...stage, key, name }), index };
 }
 
 /** A new Stage of `kind` on its own, as a Stage template made from scratch starts. */

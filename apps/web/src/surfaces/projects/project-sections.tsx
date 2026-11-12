@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { AppearanceBlock } from "./appearance-block.tsx";
 import { CommandsBlock } from "./commands-block.tsx";
-import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 import { EngineBlock } from "./engine-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
 import { OnboardingBlock } from "./onboarding-block.tsx";
@@ -25,10 +24,6 @@ export function ProjectOverviewSection(): ReactNode {
 
 export function ProjectCommandsSection(): ReactNode {
   return <CommandsBlock project={useOpenProject()} />;
-}
-
-export function ProjectDefaultPipelineSection(): ReactNode {
-  return <DefaultPipelineBlock project={useOpenProject()} />;
 }
 
 export function ProjectRunEnvironmentSection(): ReactNode {

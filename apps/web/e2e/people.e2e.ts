@@ -3933,7 +3933,7 @@ test(
       const sections = [
         { name: "Overview", address: `/projects/${project.id}` },
         { name: "Commands", address: `/projects/${project.id}/commands` },
-        { name: "Default Pipeline", address: `/projects/${project.id}/default-pipeline` },
+        { name: "Pipelines", address: `/projects/${project.id}/pipelines` },
         { name: "Engine", address: `/projects/${project.id}/engine` },
         { name: "Skills", address: `/projects/${project.id}/skills` },
         { name: "Server values", address: `/projects/${project.id}/server-values` },

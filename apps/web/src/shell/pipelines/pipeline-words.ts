@@ -139,6 +139,39 @@ export function whoWorks(
   return roles.find(({ key }) => key === stage.role)?.card.name ?? "nobody yet";
 }
 
+/**
+ * What a Stage's row says under its name: "fresh session · 250k budget · on failure back to …",
+ * naming the loop's target among `stages`.
+ */
+export function stageDetailsLine(stage: Stage, stages: readonly Stage[]): string {
+  const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
+  const target = onFailure && stages.find(({ key }) => key === onFailure.goBackTo);
+  return [
+    stage.kind === "agent" &&
+      (stage.session === "continue" ? "continues the session" : "fresh session"),
+    stage.kind === "agent" && `${thousands(stage.budget)}k budget`,
+    stage.kind === "agent" &&
+      stage.effort !== undefined &&
+      `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
+    stage.kind === "agent" &&
+      Object.keys(stage.permissions ?? {}).some((part) => part !== "commands") &&
+      "narrowed permission profile",
+    stage.kind === "agent" &&
+      stage.permissions?.commands !== undefined &&
+      `Project commands: ${stage.permissions.commands.join(", ")}`,
+    stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
+    stage.kind === "script" &&
+      stage.afterConflict === "review" &&
+      stage.publishTarget !== "branch-only" &&
+      "a resolved conflict waits for you",
+    stage.optional && "optional",
+    onFailure &&
+      `on failure back to ${target?.name ?? onFailure.goBackTo}, at most ${onFailure.rounds}×`,
+  ]
+    .filter((detail) => typeof detail === "string")
+    .join(" · ");
+}
+
 /** Tokens in thousands, as a budget is typed and shown. */
 export function thousands(tokens: number): number {
   return Math.round(tokens / 1000);

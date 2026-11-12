@@ -2,6 +2,7 @@ import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   pipelineSchema,
+  projectPipelineSchema,
   projectSchema,
   stageTemplateListSchema,
   stageTemplateSchema,
@@ -12,6 +13,7 @@ import {
   type NotificationTiming,
   type Pipeline,
   type Project,
+  type ProjectPipeline,
   type Stage,
   type StageTemplate,
 } from "@the-office/contracts";
@@ -19,6 +21,9 @@ import { createTemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
+
+/** A Task's screenshots for its review, kept by The Office across runs (git ignores it). */
+const TASK_SCREENSHOTS = path.resolve(import.meta.dirname, "../../../.office/screenshots");
 
 test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
@@ -409,7 +414,8 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   const name = `Nightly ${Date.now()}`;
   await page.goto("/settings");
   await expect(page).toHaveURL(/\/settings\/pipelines$/);
-  const library = page.getByRole("navigation", { name: "Pipelines" });
+  // Project Pipelines are listed on their Project's page, not here.
+  const library = page.getByRole("navigation", { name: "Office-wide Pipelines" });
   const full = library.getByRole("link").first();
   await expect(full).toContainText("Full");
   // A row is still a link to its Pipeline's address.
@@ -694,6 +700,179 @@ test(
   },
 );
 
+// Script Stages and Gates only, as nobody may fill a Role in this file (see the Pipeline test above).
+test(
+  "the user adds a Project Pipeline on its Project's page, edits its Stage changes, sees it Broken by a base Pipeline's save and fixes it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const stamp = Date.now();
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository.path, `Piped ${stamp}`, "full");
+      const base = await addedPipeline(page, `Checked ${stamp}`, [
+        { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
+        { kind: "gate", key: "review", name: "Review", optional: false },
+        {
+          kind: "script",
+          key: "lint",
+          name: "Lint",
+          optional: false,
+          command: "lint",
+          onFailure: { goBackTo: "tests", rounds: 2 },
+        },
+      ]);
+      const name = `${base.name} for ${project.name}`;
+
+      // The Project's page lists its own Pipelines under its default.
+      await page.goto(`/projects/${project.id}/pipelines`);
+      const list = page.getByRole("navigation", { name: `${project.name}'s Pipelines` });
+      await expect(list).toContainText(
+        `None yet: ${project.name}'s Tasks choose from the office-wide Pipelines.`,
+      );
+      await page.getByRole("button", { name: "Add a Pipeline built from…" }).click();
+      const adding = page.getByRole("dialog");
+      await adding.getByRole("radio", { name: new RegExp(base.name) }).check();
+      await expect(adding.getByLabel("Name", { exact: true })).toHaveValue(name);
+      await screenshotScenario(page, "project-pipelines-add");
+      await adding.getByRole("button", { name: "Add the Pipeline" }).click();
+      await expect(page.getByText(`${name} added to ${project.name}'s Pipelines.`)).toBeVisible();
+      await expect(page).toHaveURL(/\/projects\/[^/]+\/pipelines\/[^/]+$/);
+      const projectPipelineId = page.url().split("/").at(-1) ?? "";
+      const item = list.getByRole("link", { name: new RegExp(`^${name}`) });
+      await expect(item).toContainText(`Built from ${base.name} · 0 Stage changes`);
+      await screenshotScenario(page, "project-pipelines-list");
+
+      // Insert a Gate after Tests, change Lint's command, remove Review.
+      const gets = page.getByRole("list", { name: `What ${project.name} gets` });
+      const row = (stageName: string): Locator =>
+        gets.getByRole("listitem", { name: stageName, exact: true });
+      await page.getByRole("button", { name: "Insert after Tests" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Gate", exact: true }).click();
+      await expect(row("Gate")).toContainText("Inserted after Tests");
+      await screenshotScenario(page, "project-pipelines-inserted");
+      await row("Gate").getByRole("button", { name: "Done editing Gate" }).click();
+      await row("Lint").getByRole("button", { name: "Edit Lint" }).click();
+      // The Project's own commands alone.
+      await row("Lint").getByLabel("Project command").selectOption("build");
+      await expect(row("Lint")).toContainText("Changed: Project command");
+      await row("Lint").getByRole("button", { name: "Done editing Lint" }).click();
+      await row("Review").getByRole("button", { name: "More for Review" }).click();
+      await page
+        .getByRole("menu")
+        .getByRole("button", { name: `Remove from ${project.name}'s Stages` })
+        .click();
+      await expect(row("Review")).toContainText("Removed");
+      await row("Lint").getByRole("button", { name: "Show what changed" }).click();
+      await expect(row("Lint").getByRole("table")).toContainText(`${base.name} has`);
+      await screenshotScenario(page, "project-pipelines-kinds");
+
+      await page.getByRole("button", { name: "Save the Pipeline" }).click();
+      await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
+      await page.reload();
+      await expect(row("Review")).toContainText("Removed");
+      expect((await projectPipeline(page, projectPipelineId)).stageChanges).toEqual([
+        expect.objectContaining({
+          kind: "insert-after",
+          stageKey: "tests",
+          stage: expect.objectContaining({ kind: "gate" }),
+        }),
+        { kind: "change", stageKey: "lint", stageName: "Lint", fields: { command: "build" } },
+        { kind: "remove", stageKey: "review", stageName: "Review" },
+      ]);
+
+      // Undo one Stage change alone.
+      await row("Review")
+        .getByRole("button", { name: `Undo: put ${base.name}'s Review back` })
+        .click();
+      await expect(row("Review")).toContainText(`From ${base.name}`);
+      await page.getByRole("button", { name: "Save the Pipeline" }).click();
+      await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
+      expect((await projectPipeline(page, projectPipelineId)).stageChanges).toHaveLength(2);
+
+      // Removing Tests from the base Pipeline breaks the inserted Gate, which names it: it warns first.
+      await page.goto(`/settings/pipelines/${base.id}`);
+      await expect(
+        page
+          .getByRole("navigation", { name: "Office-wide Pipelines" })
+          .getByRole("link", { name: new RegExp(`^${base.name}`) }),
+      ).toContainText("Built on by 1 Project Pipeline");
+      await page.getByRole("button", { name: "Remove Tests" }).click();
+      await expect(page.getByText("Saving breaks 1 Project Pipeline")).toBeVisible();
+      await page.getByRole("button", { name: "Save the Pipeline" }).click();
+      const warning = page.getByRole("dialog");
+      await expect(warning).toContainText(`Saving ${base.name} breaks 1 Project Pipeline`);
+      await expect(warning).toContainText(name);
+      await expect(warning).toContainText(project.name);
+      await expect(warning).toContainText(`which ${base.name} no longer has`);
+      await screenshotScenario(page, "project-pipelines-warning");
+      await warning.getByRole("button", { name: "Save anyway" }).click();
+      await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: new RegExp(`^${base.name}`) }).first(),
+      ).toContainText("1 Broken");
+      await expect(
+        page.getByRole("list", { name: "Built on by 1 Project Pipeline" }),
+      ).toContainText("1 Broken");
+      await screenshotScenario(page, "settings-pipelines-built-on-by");
+
+      // Broken on its Project's page, with why, and fixed there.
+      await page.goto(`/projects/${project.id}/pipelines/${projectPipelineId}`);
+      await expect(item).toContainText("1 Stage change doesn't apply");
+      await expect(
+        page.getByText(`${name} is Broken: 1 Stage change no longer applies to ${base.name}`),
+      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Save the Pipeline" })).toBeDisabled();
+      await screenshotScenario(page, "project-pipelines-broken");
+      await page.getByLabel("Apply it to").selectOption({ label: "Review" });
+      await expect(
+        page.getByText(`Fixed: save it, and Tasks can choose ${name} again`),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Save the Pipeline" }).click();
+      await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
+      expect((await projectPipeline(page, projectPipelineId)).broken).toEqual([]);
+
+      // Removing it asks first.
+      await page.getByRole("button", { name: "Remove", exact: true }).click();
+      await page.getByRole("button", { name: "Remove the Pipeline" }).click();
+      await expect(
+        page.getByText(`${name} removed from ${project.name}'s Pipelines.`),
+      ).toBeVisible();
+      await expect(item).toHaveCount(0);
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+async function projectPipeline(page: Page, projectPipelineId: string): Promise<ProjectPipeline> {
+  return projectPipelineSchema.parse(
+    await (await page.request.get(`/api/project-pipelines/${projectPipelineId}`)).json(),
+  );
+}
+
+/**
+ * The page as it is, in each palette at 1600, 900 and 390 wide, with nothing scrolling sideways,
+ * into the Task's screenshots for its review.
+ */
+async function screenshotScenario(page: Page, name: string): Promise<void> {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
+    for (const width of [1600, 900, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const sideways = await page
+        .locator("html")
+        .evaluate((html) => html.scrollWidth - html.clientWidth);
+      expect(sideways).toBe(0);
+      await page.screenshot({
+        path: path.join(TASK_SCREENSHOTS, `${name}-${colorScheme}-${width}.png`),
+      });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1600, height: 900 });
+}
+
 async function addedPipeline(
   page: Page,
   name: string,
@@ -797,8 +976,8 @@ test(
 );
 
 /**
- * For each palette and at 1600 and 600 wide: the list's rows all one height, each mark inside its
- * row, nothing scrolling sideways, then a screenshot of the list beside its detail.
+ * For each palette and at 1600 and 600 wide: the list's rows of as many lines all one height, each
+ * mark inside its row, nothing scrolling sideways, then a screenshot of the list beside its detail.
  */
 async function screenshotEachLook(
   page: Page,
@@ -815,6 +994,7 @@ async function screenshotEachLook(
         items.map((item) => {
           const row = item.getBoundingClientRect();
           return {
+            lines: item.querySelectorAll(".pick-list-line").length,
             height: Math.round(row.height),
             marksInside: [...item.querySelectorAll(".pick-list-aside > *")].every((mark) => {
               const box = mark.getBoundingClientRect();
@@ -823,7 +1003,10 @@ async function screenshotEachLook(
           };
         }),
       );
-      expect(new Set(rows.map(({ height }) => height)).size).toBe(1);
+      for (const lines of new Set(rows.map((row) => row.lines))) {
+        const heights = rows.filter((row) => row.lines === lines).map(({ height }) => height);
+        expect(new Set(heights).size).toBe(1);
+      }
       expect(rows.every(({ marksInside }) => marksInside)).toBe(true);
       const sideways = await page
         .locator("html")

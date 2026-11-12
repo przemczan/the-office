@@ -71,6 +71,10 @@ interface PickListItemContent {
   readonly name: ReactNode;
   /** The caption under the name, cut with an ellipsis. */
   readonly line: ReactNode;
+  /** `danger` when the line says what is wrong with the item, such as why it is Broken. */
+  readonly lineTone?: "danger";
+  /** A second caption under the line, such as who builds on the item. */
+  readonly secondLine?: ReactNode;
   /** What marks the item at the row's end, such as a badge; it never wraps. */
   readonly aside?: ReactNode;
   /** What needs fixing in the item, as a warning mark at the row's very end. */
@@ -112,7 +116,15 @@ export function PickListItem(props: PickListItemProps): ReactNode {
   );
 }
 
-function PickListItemWords({ icon, name, line, aside, warning }: PickListItemContent): ReactNode {
+function PickListItemWords({
+  icon,
+  name,
+  line,
+  lineTone,
+  secondLine,
+  aside,
+  warning,
+}: PickListItemContent): ReactNode {
   return (
     <>
       {icon && (
@@ -124,10 +136,11 @@ function PickListItemWords({ icon, name, line, aside, warning }: PickListItemCon
       )}
       <span className="pick-list-words">
         <span className="pick-list-name">{name}</span>
-        <span className="pick-list-line">
+        <span className={lineTone ? `pick-list-line ${lineTone}` : "pick-list-line"}>
           {icon && <span className="pick-list-hidden">{icon.label} · </span>}
           {line}
         </span>
+        {secondLine && <span className="pick-list-line">{secondLine}</span>}
       </span>
       {(aside || warning) && (
         <span className="pick-list-aside">

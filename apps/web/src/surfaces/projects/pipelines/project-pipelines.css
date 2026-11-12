@@ -1,0 +1,109 @@
+/* A Project's Pipelines section: its default and its own Pipelines beside the open one, as
+   Settings › Pipelines lays out its lists (docs/design/project-pipelines.html). */
+.project-pipelines {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.project-pipelines-lists,
+.project-pipelines-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  min-width: 0;
+}
+
+.project-pipelines-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* "‹ the-office's Pipelines": back from the open one to the lists, on a narrow page alone. */
+.project-pipelines-back {
+  display: none;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  font: var(--type-label);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+
+.project-pipelines-back:hover {
+  color: var(--fg-1);
+}
+
+@container page (max-width: 1224px) {
+  .project-pipelines {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project-pipelines.showing-detail > .project-pipelines-lists,
+  .project-pipelines:not(.showing-detail) > .project-pipelines-detail {
+    display: none;
+  }
+
+  .project-pipelines-back {
+    display: inline-flex;
+  }
+}
+
+.project-pipeline-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.project-pipeline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.project-pipeline-form-wide {
+  grid-column: 1 / -1;
+}
+
+@container page (max-width: 600px) {
+  .project-pipeline-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.project-pipeline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-pipeline-actions-state {
+  flex: 1 1 140px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* A base Pipeline to choose in Add a Pipeline: its name over its Stages. */
+.base-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.base-choice-name {
+  font: var(--type-label);
+}
+
+.base-choice-stages {
+  font: var(--type-caption);
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}

@@ -26,7 +26,6 @@ import {
   ProjectAppearanceSection,
   ProjectCommandsSection,
   ProjectRunEnvironmentSection,
-  ProjectDefaultPipelineSection,
   ProjectEngineSection,
   ProjectOverviewSection,
   ProjectServerValuesSection,
@@ -42,6 +41,7 @@ import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx"
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
+import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { ArchivedPage } from "./surfaces/work/archived-page.tsx";
@@ -311,10 +311,18 @@ const projectCommandsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
-const projectDefaultPipelineRoute = createRoute({
+// The Project's default and its own Pipelines; an open Project Pipeline has its address.
+const projectPipelinesRoute = createRoute({
   getParentRoute: () => projectRoute,
-  path: "default-pipeline",
-  component: ProjectDefaultPipelineSection,
+  path: "pipelines",
+  component: ProjectPipelinesSection,
+  staticData: { title: "Projects" },
+});
+
+const projectPipelineRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "pipelines/$projectPipelineId",
+  component: ProjectPipelinesSection,
   staticData: { title: "Projects" },
 });
 
@@ -492,7 +500,8 @@ export const router = createRouter({
     projectRoute.addChildren([
       projectOverviewRoute,
       projectCommandsRoute,
-      projectDefaultPipelineRoute,
+      projectPipelinesRoute,
+      projectPipelineRoute,
       projectRunEnvironmentRoute,
       projectEngineRoute,
       projectSkillsRoute,

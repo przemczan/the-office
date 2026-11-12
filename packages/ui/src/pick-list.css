@@ -138,6 +138,10 @@
   color: var(--fg-3);
 }
 
+.pick-list-line.danger {
+  color: var(--danger-fg);
+}
+
 .pick-list-aside {
   display: inline-flex;
   flex: none;

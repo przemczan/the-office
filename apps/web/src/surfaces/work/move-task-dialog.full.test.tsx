@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Pipeline, Project, Task } from "@the-office/contracts";
+import type { OfficeWidePipeline, Project, Task } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -78,7 +78,13 @@ function aProject(id: string, name: string, defaultPipeline = "full"): Project {
   };
 }
 
-const QUICK_FIX: Pipeline = { id: "quick-fix", name: "Quick fix", description: "", stages: [] };
+const QUICK_FIX: OfficeWidePipeline = {
+  id: "quick-fix",
+  name: "Quick fix",
+  description: "",
+  stages: [],
+  builtOnBy: [],
+};
 
 /** The window over a page of its own, its queries answered as given. */
 function dialog(

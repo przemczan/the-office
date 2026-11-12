@@ -1,10 +1,13 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  officeWidePipelineListSchema,
   pipelineCheckSchema,
-  pipelineListSchema,
   pipelineSchema,
   pipelinesWebEventSchema,
   pipelineUseSchema,
+  projectPipelineCheckSchema,
+  projectPipelineListSchema,
+  projectPipelineSchema,
   stageRunCommandOutputsSchema,
   stagesCheckSchema,
   stageTemplateListSchema,
@@ -14,6 +17,10 @@ import {
   type PipelineCheckRequest,
   type PipelineEdit,
   type PipelinesWebEvent,
+  type ProjectPipeline,
+  type ProjectPipelineCheckRequest,
+  type ProjectPipelineEdit,
+  type NewProjectPipeline,
   type SendBack,
   type Stage,
   type StageTemplate,
@@ -24,7 +31,13 @@ import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
+/**
+ * The office-wide Pipelines and the Project Pipelines alike: a save of an office-wide one changes
+ * the Project Pipelines built from it, and both publish the same events.
+ */
 const PIPELINES_KEY: readonly unknown[] = ["pipelines"];
+
+const PROJECT_PIPELINES_KEY: readonly unknown[] = [...PIPELINES_KEY, "project-pipelines"];
 
 const STAGE_TEMPLATES_KEY: readonly unknown[] = ["stage-templates"];
 
@@ -35,7 +48,7 @@ export const pipelineQueries = {
   list: () =>
     queryOptions({
       queryKey: PIPELINES_KEY,
-      queryFn: ({ signal }) => getFromApi("/pipelines", pipelineListSchema, signal),
+      queryFn: ({ signal }) => getFromApi("/pipelines", officeWidePipelineListSchema, signal),
     }),
   /** Who uses a library Pipeline; under the library, so any change to it reads this again. */
   use: (pipelineId: string) =>
@@ -79,6 +92,40 @@ export const pipelineQueries = {
     }),
 };
 
+export const projectPipelineQueries = {
+  /** The Project's Project Pipelines, each built from its base Pipeline's current Stages. */
+  list: (projectId: string) =>
+    queryOptions({
+      queryKey: [...PROJECT_PIPELINES_KEY, { projectId }],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/project-pipelines?projectId=${encodeURIComponent(projectId)}`,
+          projectPipelineListSchema,
+          signal,
+        ),
+    }),
+  read: (projectPipelineId: string) =>
+    queryOptions({
+      queryKey: [...PROJECT_PIPELINES_KEY, projectPipelineId],
+      queryFn: ({ signal }) =>
+        getFromApi(projectPipelinePath(projectPipelineId), projectPipelineSchema, signal),
+    }),
+  /** Who uses a Project Pipeline: its Project's default, and the Tasks on it. */
+  use: (projectPipelineId: string) =>
+    queryOptions({
+      queryKey: [...PROJECT_PIPELINES_KEY, projectPipelineId, "use"],
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPipelinePath(projectPipelineId)}/use`, pipelineUseSchema, signal),
+    }),
+  /** What saving the edit would be refused for and only flags, and the Stages it builds. */
+  check: (request: ProjectPipelineCheckRequest) =>
+    queryOptions({
+      queryKey: [...PROJECT_PIPELINES_KEY, "check", request],
+      queryFn: () =>
+        sendToApi("POST", "/project-pipelines/check", request, projectPipelineCheckSchema),
+    }),
+};
+
 export const stageTemplateQueries = {
   list: () =>
     queryOptions({
@@ -110,6 +157,25 @@ export function savePipeline(pipelineId: string, edit: PipelineEdit): Promise<Pi
 
 export function removePipeline(pipelineId: string): Promise<void> {
   return deleteFromApi(pipelinePath(pipelineId));
+}
+
+/** A Project Pipeline of the Project, built from an office-wide Pipeline. */
+export function addProjectPipeline(
+  newProjectPipeline: NewProjectPipeline,
+): Promise<ProjectPipeline> {
+  return sendToApi("POST", "/project-pipelines", newProjectPipeline, projectPipelineSchema);
+}
+
+/** Refused while it would be Broken: only an office-wide Pipeline's save breaks one. */
+export function saveProjectPipeline(
+  projectPipelineId: string,
+  edit: ProjectPipelineEdit,
+): Promise<ProjectPipeline> {
+  return sendToApi("PUT", projectPipelinePath(projectPipelineId), edit, projectPipelineSchema);
+}
+
+export function removeProjectPipeline(projectPipelineId: string): Promise<void> {
+  return deleteFromApi(projectPipelinePath(projectPipelineId));
 }
 
 /** A Stage template made from scratch, or a Stage saved as one; its failure rule is dropped. */
@@ -148,6 +214,10 @@ function pipelinePath(pipelineId: string): `/${string}` {
   return `/pipelines/${encodeURIComponent(pipelineId)}`;
 }
 
+function projectPipelinePath(projectPipelineId: string): `/${string}` {
+  return `/project-pipelines/${encodeURIComponent(projectPipelineId)}`;
+}
+
 function stageTemplatePath(stageTemplateId: string): `/${string}` {
   return `/stage-templates/${encodeURIComponent(stageTemplateId)}`;
 }
@@ -168,7 +238,7 @@ function commandOutputsKey(taskId: string): readonly unknown[] {
   return [...COMMAND_OUTPUTS_KEY, taskId];
 }
 
-/** A change to the library makes every list of it stale. */
+/** A change to the library, or to a Project Pipeline, makes every list of both stale. */
 function staleLibrary(): readonly (readonly unknown[])[] {
   return [PIPELINES_KEY];
 }

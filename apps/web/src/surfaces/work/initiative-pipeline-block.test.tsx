@@ -5,7 +5,7 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { Initiative, Pipeline, Project, Task } from "@the-office/contracts";
+import type { Initiative, OfficeWidePipeline, Project, Task } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -36,8 +36,9 @@ const INITIATIVE: Initiative = {
   branches: [],
 };
 
-const REVIEWED: Pipeline = {
+const REVIEWED: OfficeWidePipeline = {
   id: "reviewed",
+  builtOnBy: [],
   name: "Reviewed release",
   description: "",
   stages: [
@@ -47,8 +48,9 @@ const REVIEWED: Pipeline = {
   ],
 };
 
-const UNREVIEWED: Pipeline = {
+const UNREVIEWED: OfficeWidePipeline = {
   id: "straight",
+  builtOnBy: [],
   name: "Straight out",
   description: "",
   stages: [
