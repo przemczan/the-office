@@ -90,14 +90,21 @@ function speakerAndText(
     case "decision-answer": {
       const decision = records.decision(message.decisionId);
       const answeredBy = decision?.answer?.answeredBy;
+      const speaker = decision?.answer?.byTheOffice
+        ? THE_OFFICE
+        : answeredBy === undefined
+          ? THE_USER
+          : records.person(answeredBy);
       return {
-        speaker: answeredBy === undefined ? THE_USER : records.person(answeredBy),
+        speaker,
         text:
           decision === undefined
             ? "Answered a Decision."
             : `Answered the Decision "${decision.question}": ${answerWords(decision, message.answer)}`,
       };
     }
+    case "consultation-line":
+      return { speaker: THE_OFFICE, text: message.text };
     case "proposal":
       return {
         speaker: records.person(message.roleKey),

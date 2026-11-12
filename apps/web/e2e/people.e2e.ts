@@ -6288,3 +6288,69 @@ test(
     }
   },
 );
+
+// The engine replays the last sessions in e2e/sessions.jsonl: Jan in his chat calls Nina with a
+// request, Nina drafts a Proposal of the Project's commands in her Consultation, in her own chat,
+// and answers him, and Jan takes her answer.
+test(
+  "a person calls another from their chat: the callee drafts a Proposal in their own chat, and the answer comes back",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      // Its id, "called-up", is the one Nina's script names.
+      const project = await addedProject(page, repository, "Called up", "CU", PASSING_COMMANDS);
+      expect(project.id).toBe("called-up");
+      const { id: chatId } = threadSchema.parse(
+        await (await page.request.post("/api/chats/planner/threads")).json(),
+      );
+      const sent = await page.request.post(`/api/threads/${chatId}/messages`, {
+        data: { text: "Ask Devops to set up an End to end test command for Called up." },
+      });
+      expect(sent.ok()).toBe(true);
+
+      await page.goto(`/now?chat=planner&thread=${chatId}`);
+      const jan = chatWith(page, "Jan");
+      await expect(jan.getByText("Nina drafted it: apply her Proposal in her chat.")).toBeVisible({
+        timeout: 30_000,
+      });
+      const call = jan.getByRole("region", {
+        name: "Decision: Add an End to end test command to Called up.",
+      });
+      await expect(call.locator(".decision-question")).toHaveText(
+        "Asked Nina to: Add an End to end test command to Called up.",
+      );
+      await expect(call.locator(".decision-answered")).toHaveText(
+        "Answered by Nina: I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+      );
+      await expect(call).not.toContainText("Needs you");
+      await call.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-call-from-a-chat.png") });
+
+      const [consultation] = threadListSchema
+        .parse(await (await page.request.get("/api/chats/devops/threads")).json())
+        .filter((thread) => thread.consultation?.askerThreadId === chatId);
+      if (!consultation) throw new Error("No Consultation opened in Nina's chat.");
+      expect(consultation.title).toBe("Consultation · Jan and Nina");
+      await page.goto(`/now?chat=devops&thread=${consultation.id}`);
+      const nina = chatWith(page, "Nina");
+      await expect(
+        nina.getByText("Jan asks you to: Add an End to end test command to Called up."),
+      ).toBeVisible();
+      await expect(
+        nina.getByText(
+          "Your answer to Jan: I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+        ),
+      ).toBeVisible();
+      const proposal = nina.getByRole("region", { name: "Proposal: Change Called up's commands" });
+      await expect(proposal.getByRole("listitem")).toHaveText([
+        "End to end (test-e2e)None: addedTest · npm run e2e",
+      ]);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-consultation-in-the-callee-chat.png"),
+      });
+    } finally {
+      await repository.remove();
+    }
+  },
+);

@@ -2,13 +2,14 @@ import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
 import { CARETAKER } from "../../people/index.js";
 import type { Brief } from "../domain/brief.js";
+import { canCall } from "../domain/consult.js";
 import {
   ALLOW_CHANGES_ADVICE,
   caretakerChatInstructions,
   chatOfficeTools,
-  CONSULTATION_OFFICE_TOOLS,
   chatInstructions,
   consultationInstructions,
+  consultationOfficeTools,
   workThreadInstructions,
   type SessionPerson,
 } from "../domain/session-instructions.js";
@@ -18,6 +19,7 @@ import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js
 import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
 import { NO_MASK, ProjectOutputMasks, type TextMask } from "../ports/project-output-masks.js";
 import { Briefs } from "./briefs.js";
+import { CallChains } from "./call-chains.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { taskThreadRequest, TaskThreadSetups } from "./task-thread-setups.js";
 
@@ -69,7 +71,8 @@ type ReadingPlace = Pick<
  * A chat session, or one on an Initiative, reads every Project's base branch with the service's own
  * variables (spec §6); a session on a Task works in the Task's worktree. The module keeping Work
  * sets up what a session on a Task or an Initiative is given. The Caretaker's chat with changes
- * allowed works in the home folder instead (spec §2.4).
+ * allowed works in the home folder instead (spec §2.4). A Consultation reads as its home does and
+ * works with its Consultant's own tools, never its asker's; it never writes.
  */
 @Injectable()
 export class SessionPlaces {
@@ -82,6 +85,7 @@ export class SessionPlaces {
     private readonly initiativeThreads: InitiativeThreadSetups,
     private readonly changesAllowed: ChangesAllowedRepository,
     private readonly masks: ProjectOutputMasks,
+    private readonly chains: CallChains,
   ) {}
 
   async of(thread: Thread): Promise<SessionPlace> {
@@ -110,26 +114,54 @@ export class SessionPlaces {
         projectSkillsOff: setup.projectSkillsOff,
       },
       mask: await this.masks.outputMaskOf(setup.projectId),
-      officeTools: thread.consultation ? CONSULTATION_OFFICE_TOOLS : setup.officeTools,
-      callsCanWait: !thread.consultation && !setup.asking,
       workstation: false,
       refusalAdvice: undefined,
       brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },
-      instructions: (person) =>
-        thread.consultation
-          ? consultationInstructions(person)
-          : workThreadInstructions(person, setup.instructions),
       // The module keeping Tasks made the worktree before it opened the Thread.
       ready: () => Promise.resolve(),
+      ...(thread.consultation
+        ? await this.consultationTools(thread)
+        : {
+            officeTools: setup.officeTools,
+            callsCanWait: !setup.asking,
+            instructions: (person: SessionPerson) =>
+              workThreadInstructions(person, setup.instructions),
+          }),
+    };
+  }
+
+  /**
+   * What a Consultation's session works with, from its Consultant alone (spec §6): their own tools,
+   * `consult` while the chain of calls may ask one more, and nothing that waits in it or writes.
+   */
+  private async consultationTools(
+    thread: Thread,
+  ): Promise<Pick<SessionPlace, "officeTools" | "callsCanWait" | "instructions">> {
+    const canCallMore = canCall(await this.chains.ofCaller(thread));
+    return {
+      officeTools: consultationOfficeTools(thread.roleKey, canCallMore),
+      callsCanWait: false,
+      instructions: (person) => consultationInstructions(person, canCallMore),
     };
   }
 
   private async chat(thread: Thread): Promise<SessionPlace> {
+    const brief = await this.briefs.forThread(thread);
+    if (thread.consultation) {
+      return {
+        ...this.basesPlace(thread),
+        ...(await this.consultationTools(thread)),
+        brief,
+        span: {},
+        workstation: false,
+        refusalAdvice: undefined,
+      };
+    }
     const chat = {
       officeTools: chatOfficeTools(thread.roleKey),
       callsCanWait: false,
-      brief: await this.briefs.forThread(thread),
+      brief,
       span: {},
     };
     if (thread.roleKey === CARETAKER) return { ...chat, ...(await this.caretakerPlace(thread)) };

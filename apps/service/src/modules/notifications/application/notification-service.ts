@@ -123,13 +123,18 @@ export class NotificationService implements OnModuleInit {
 
   private subscribeToNeedsYou(): void {
     for (const eventClass of [DecisionOpened, DecisionReopened]) {
-      // A Decision put to a Consultant waits on them, not on the user (spec §6): no Notification.
-      this.events.subscribe(eventClass, ({ decision }) =>
-        decision.putTo ? undefined : this.raise(decisionWaiting(decision)),
+      // A Decision put to a Consultant waits on them, not on the user (spec §6), and a call made
+      // from a chat, on no Task, goes back to its caller (spec §2.4): no Notification for either.
+      this.events.subscribe(eventClass, ({ decision: { taskId, ...decision } }) =>
+        decision.putTo || taskId === undefined
+          ? undefined
+          : this.raise(decisionWaiting({ ...decision, taskId })),
       );
     }
-    this.events.subscribe(DecisionAnswered, ({ decision }) =>
-      this.handle({ kind: "decision-answered", decisionId: decision.id, taskId: decision.taskId }),
+    this.events.subscribe(DecisionAnswered, ({ decision: { id, taskId } }) =>
+      taskId === undefined
+        ? undefined
+        : this.handle({ kind: "decision-answered", decisionId: id, taskId }),
     );
     this.events.subscribe(GateReached, async ({ taskId, stageKey }) => {
       const [gate, { personRole }] = await Promise.all([

@@ -200,6 +200,7 @@ describe("an answer that never reached a session", () => {
 describe("passing an approval on", () => {
   const approval = aDecision({
     id: "decision-1",
+    kind: "approval",
     question: approvalQuestion("Install ffmpeg."),
     options: [...APPROVAL_OPTIONS],
     putTo: "devops",

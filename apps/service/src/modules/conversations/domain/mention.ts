@@ -42,25 +42,36 @@ export function withMentionedRecords(said: string, records: readonly MentionedRe
  * options and the recommendation, where it stands, then the record of the Task it was asked on.
  */
 export function decisionRecordText(decision: Decision, taskRecord: string | undefined): string {
-  const { question, context, options, recommendation } = decision;
+  const { question, context, options, recommendation, taskId } = decision;
+  const where = taskId === undefined ? ", a call made from a chat," : ` on the Task ${taskId},`;
+  const asked =
+    decision.kind === "request"
+      ? [
+          `Asked to: ${question}`,
+          ...(context.trim() === "" ? [] : ["", context]),
+          "",
+          `Why: ${recommendation.reason}`,
+        ]
+      : [
+          `Question: ${question}`,
+          ...(context.trim() === "" ? [] : ["", context]),
+          "",
+          "Options:",
+          ...options.map((option, index) => `${index + 1}. ${option}`),
+          "",
+          `Recommended: ${options[recommendation.option] ?? ""}, because ${recommendation.reason}`,
+        ];
   return [
-    `Decision ${decision.id} on the Task ${decision.taskId}, asked ${decision.askedAt.toISOString()} by ${decision.roleKey === undefined ? "The Office" : `the person in the Role ${decision.roleKey}`}`,
+    `Decision ${decision.id}${where} asked ${decision.askedAt.toISOString()} by ${decision.roleKey === undefined ? "The Office" : `the person in the Role ${decision.roleKey}`}`,
     "",
-    `Question: ${question}`,
-    ...(context.trim() === "" ? [] : ["", context]),
-    "",
-    "Options:",
-    ...options.map((option, index) => `${index + 1}. ${option}`),
-    "",
-    `Recommended: ${options[recommendation.option] ?? ""}, because ${recommendation.reason}`,
+    ...asked,
     ...decision.passedOn.map(
       ({ roleKey, reason }) => `Passed on by the person in the Role ${roleKey}: ${reason}`,
     ),
     standing(decision),
-    "",
-    "The Task's record:",
-    "",
-    taskRecord ?? `The Office has no Task ${decision.taskId}.`,
+    ...(taskId === undefined
+      ? []
+      : ["", "The Task's record:", "", taskRecord ?? `The Office has no Task ${taskId}.`]),
   ].join("\n");
 }
 

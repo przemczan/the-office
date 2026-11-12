@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DecisionAnswered, DecisionOpened, DeliveryMarked } from "./conversation-events.js";
 import { approvalQuestion, APPROVAL_OPTIONS } from "./consult.js";
-import { answerForUserProblems, answerGivenBy } from "./decision.js";
+import { answerForUserProblems, answerGivenBy, answerProblems } from "./decision.js";
 import {
   answerDecision,
   deliverWaitingAnswers,
@@ -20,6 +20,7 @@ describe("opening a Decision", () => {
 
     const decision = {
       ...DRAFT,
+      kind: "question" as const,
       id: "decision-1",
       threadId: thread.id,
       taskId: "task-1",
@@ -159,6 +160,7 @@ describe("what keeps a person from answering a Decision for the user", () => {
       "This Decision is put to the person in the Role devops, who answers it in a Consultation; only a Decision waiting on the user can be answered for them.",
     ]);
     const approval = aDecision({
+      kind: "approval",
       question: approvalQuestion("Install ffmpeg on the machine."),
       options: APPROVAL_OPTIONS,
     });
@@ -308,5 +310,75 @@ describe("Decisions in an Initiative's planning Thread", () => {
 
     expect(answered.thread).toMatchObject({ state: "answering", openDecisions: [] });
     expect(answered.marked).toEqual({ messageIds: ["line-a"], delivery: "delivered" });
+  });
+});
+
+describe("a call made from a chat", () => {
+  const chat = aThread({ home: { kind: "chat", roleKey: "planner" }, session: SESSION });
+  const request = {
+    kind: "request" as const,
+    question: "Set up the Project's commands.",
+    context: "The user asked for it.",
+    options: [],
+    recommendation: { option: 0, reason: "Only Devops drafts them." },
+    id: "decision-1",
+    askedAt: AT,
+  };
+
+  it("opens a Decision on no Task when it is put to a person, one at a time", () => {
+    const opened = openDecision(chat, { ...request, putTo: "devops" });
+
+    expect(opened.decision).toMatchObject({ kind: "request", taskId: undefined, putTo: "devops" });
+    expect(
+      refusalOf(() => openDecision(opened.thread, { ...request, id: "decision-2", putTo: "cto" })),
+    ).toEqual([
+      `Your call "Set up the Project's commands." still waits on its answer. End your turn: it comes as your next message.`,
+    ]);
+  });
+
+  it("is refused when it would wait on the user, as a chat has no Needs you", () => {
+    expect(refusalOf(() => openDecision(chat, request))).toEqual([
+      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+    ]);
+  });
+});
+
+describe("a request", () => {
+  const thread = aThread({ home: TASK_HOME, session: SESSION });
+  const request = {
+    kind: "request" as const,
+    question: "Set up the Project's commands.",
+    context: "",
+    options: [],
+    recommendation: { option: 0, reason: "Only Devops drafts them." },
+    id: "decision-1",
+    askedAt: AT,
+  };
+
+  it("has no options, and says what is asked and why", () => {
+    expect(
+      refusalOf(() =>
+        openDecision(thread, {
+          ...request,
+          question: " ",
+          options: ["Yes", "No"],
+          recommendation: { option: 0, reason: "" },
+        }),
+      ),
+    ).toEqual([
+      "Say what you ask them to do.",
+      "A request has no options: they answer in their own words.",
+      "Say why you need it.",
+    ]);
+  });
+
+  it("is answered in words only", () => {
+    const open = openDecision(thread, request).decision;
+    if (!open) throw new Error("No Decision was opened.");
+
+    expect(answerProblems(open, { kind: "option", option: 0 })).toEqual([
+      "A request has no options: answer in your own words, saying what you did or why not.",
+    ]);
+    expect(answerProblems(open, { kind: "free-answer", text: "Drafted it." })).toEqual([]);
   });
 });

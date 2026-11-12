@@ -52,6 +52,7 @@ import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
+import { CallChains } from "../../application/call-chains.js";
 import { InitiativeThreadSetups } from "../../application/initiative-thread-setups.js";
 import { TaskConversations } from "../../application/task-conversations.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
@@ -242,6 +243,7 @@ function setUpEachTest(): void {
         TaskThreadSetups,
         InitiativeThreadSetups,
         SessionPlaces,
+        CallChains,
         ThreadContexts,
         AllowChanges,
         ThreadRunner,
@@ -657,7 +659,7 @@ describe("a Decision", () => {
 
   it("lists a Task's unanswered Decisions, those with a Consultant too, the first asked first", async () => {
     const { decision } = await opened();
-    const taskId = decision.taskId;
+    const taskId = decision.taskId ?? "";
     // In a Stage Thread the answer is only recorded. Anywhere else it goes to a session, and with
     // no script that fails in the background, opening the Decision again under the last read.
     const inAnotherThread = await withSession(() => ({ kind: "task", taskId }), {

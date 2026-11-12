@@ -1,15 +1,18 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ANSWER_DECISION_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import { ANSWER_DECISION_TOOL, CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ASKING_INSTRUCTIONS } from "../../domain/asking.js";
-import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
 import { StageResults } from "../../ports/stage-results.js";
 import { ProjectWorktreesForTests, StageResultsForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
-import { ASKING_OFFICE_TOOLS, PLANNING_OFFICE_TOOLS } from "./task-thread-records.js";
+import {
+  ASKING_OFFICE_TOOLS,
+  ASKING_THREAD_INSTRUCTIONS,
+  PLANNING_OFFICE_TOOLS,
+  PLANNING_THREAD_INSTRUCTIONS,
+} from "./task-thread-records.js";
 import { aPersonsThread, taskThreads } from "../../task-thread-records.fixtures.js";
 
 let officeData: string;
@@ -42,7 +45,7 @@ describe("a person's Thread on a Task's session", () => {
 
     expect(setup).toMatchObject({
       folder: join("/worktrees", task.projectId, task.id),
-      instructions: ASKING_INSTRUCTIONS,
+      instructions: ASKING_THREAD_INSTRUCTIONS,
       officeTools: ASKING_OFFICE_TOOLS,
       asking: true,
       sessionRefusal: undefined,
@@ -56,6 +59,11 @@ describe("a person's Thread on a Task's session", () => {
   it("answers a Decision for the user when they ask, as the Planner's Thread does", () => {
     expect(ASKING_OFFICE_TOOLS).toContain(ANSWER_DECISION_TOOL);
     expect(PLANNING_OFFICE_TOOLS).toContain(ANSWER_DECISION_TOOL);
+  });
+
+  it("calls another person when the user asks, as the Planner's Thread does", () => {
+    expect(ASKING_OFFICE_TOOLS).toContain(CONSULT_TOOL);
+    expect(PLANNING_OFFICE_TOOLS).toContain(CONSULT_TOOL);
   });
 
   it("gives no read-write tool, and no Decision", () => {
@@ -79,7 +87,7 @@ describe("the Planner's Thread on a Ready Task", () => {
     const setup = await setups().of(aPersonsThread(task.id, "planner"));
 
     expect(setup).toMatchObject({
-      instructions: PLANNING_INSTRUCTIONS,
+      instructions: PLANNING_THREAD_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
       asking: false,
       sessionRefusal: undefined,

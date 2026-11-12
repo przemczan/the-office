@@ -311,6 +311,7 @@ function decisionOf(
 export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): DecisionResponse {
   return {
     ...decision,
+    taskId: decision.taskId ?? null,
     roleKey: decision.roleKey ?? null,
     putTo: decision.putTo ?? null,
     passedOn: decision.passedOn.map(({ passedOnAt, ...passing }) => ({
@@ -325,6 +326,7 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
     answeredAt: answer?.answeredAt.toISOString() ?? null,
     answeredBy: answer?.answeredBy ?? null,
     atUsersRequest: answer?.atUsersRequest ? { ...answer.atUsersRequest } : null,
+    answeredByTheOffice: answer?.byTheOffice === true,
   };
 }
 

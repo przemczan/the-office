@@ -366,7 +366,10 @@ export class ThreadRunner implements OnModuleDestroy {
     const onTasks = await Promise.all(
       given.map(async (answer) => ({
         ...answer,
-        taskTitle: await this.work.taskTitle(answer.decision.taskId),
+        taskTitle:
+          answer.decision.taskId === undefined
+            ? undefined
+            : await this.work.taskTitle(answer.decision.taskId),
         answerer: await this.atUsersRequestAnswerer(answer.answer),
       })),
     );

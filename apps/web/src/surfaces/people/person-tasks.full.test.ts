@@ -140,6 +140,7 @@ describe("the Work tab's filters", () => {
   const decision: Decision = {
     id: "2a9e1f4c-7d3b-4c8e-9f1a-6b5d4c3e2f10",
     threadId: "0b4cbb0e-5a51-4a52-9a4e-7c0f3c1b9f10",
+    kind: "question",
     taskId: planning.id,
     roleKey: "planner",
     question: "Keep the query string on the way back?",
@@ -154,6 +155,7 @@ describe("the Work tab's filters", () => {
     passedOn: [],
     answeredBy: null,
     atUsersRequest: null,
+    answeredByTheOffice: false,
   };
 
   it("count a Task planning with a Decision open as Waiting on you, and still not started", () => {

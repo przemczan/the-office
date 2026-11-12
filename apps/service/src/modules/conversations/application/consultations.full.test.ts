@@ -28,7 +28,7 @@ import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { CONSULTATION_OFFICE_TOOLS } from "../domain/session-instructions.js";
+import { consultationOfficeTools } from "../domain/session-instructions.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
 import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructions-repository.fixtures.js";
@@ -44,6 +44,7 @@ import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { CallChains } from "./call-chains.js";
 import { StageThreads } from "./stage-threads.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
@@ -176,6 +177,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
+      CallChains,
       ThreadContexts,
       AllowChanges,
       ThreadRunner,
@@ -200,9 +202,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       DecisionOfficeTools,
     ],
   }));
-  // As the Work and People modules register the tools the Consultation reads records with.
-  for (const name of CONSULTATION_OFFICE_TOOLS.filter(
-    (tool) => tool !== ANSWER_CONSULTATION_TOOL,
+  // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
+  for (const name of consultationOfficeTools(consultantKey, true).filter(
+    (tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL,
   )) {
     app.get(OfficeToolRegistry).register({
       name,
@@ -371,7 +373,7 @@ const CALL = "Install ffmpeg on the machine.";
 const ASKS_DEVOPS_TO_APPROVE: Step[] = [
   ...usesTool("c-1", CONSULT_TOOL, {
     person: "Devops",
-    approval: true,
+    kind: "approval",
     question: CALL,
     context: "The export renders video.",
     why: "The export needs ffmpeg.",
@@ -494,6 +496,52 @@ function taskOf({ home }: Thread): string {
   if (home.kind !== "task") throw new Error("The Thread is on no Task.");
   return home.taskId;
 }
+
+describe("a call from a chat during the fire alarm", () => {
+  it("stops its Consultation as it sounds and asks the callee again at the all clear", async () => {
+    await startWith(
+      started(
+        ...usesTool("c-1", CONSULT_TOOL, {
+          person: "CTO",
+          kind: "request",
+          question: "Set up the Project's commands.",
+          context: "The user asked for it.",
+          why: "I can't draft them.",
+        }),
+        ...aTurn("brief", "I asked."),
+      ),
+      [{ step: "start", brief: { id: "brief", text: "" } }, { step: "end" }],
+      [{ step: "resume" }],
+    );
+    const opened = await threads.startInChat(askerKey);
+    await app.get(ThreadRunner).send(opened.id, "Ask the CTO to set that up.");
+    const consultation = await vi.waitFor(
+      async () => {
+        const found = (await threads.listInChat(consultantKey)).find(
+          (thread) => thread.consultation,
+        );
+        if (!found) throw new Error("No Consultation yet.");
+        return found;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    await answering(consultation.id);
+    const fireAlarm = app.get(FireAlarmInThreads);
+
+    await fireAlarm.sounded();
+    const stopped = await threads.read(consultation.id);
+    await fireAlarm.allClear([]);
+
+    expect(stopped.state).toBe("waiting");
+    expect(await threads.messages(consultation.id)).toContainEqual(
+      expect.objectContaining({ kind: "failure", reason: STOPPED_BY_THE_FIRE_ALARM }),
+    );
+    expect((await threads.read(consultation.id)).state).toBe("answering");
+    expect(
+      (await threads.listInChat(consultantKey)).filter((thread) => thread.consultation),
+    ).toHaveLength(1);
+  });
+});
 
 describe("a consult of a hired Consultant", () => {
   it("does not wait on the user while the Consultant has it", async () => {

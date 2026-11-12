@@ -14,6 +14,7 @@ import type { EngineId } from "../../../engine/index.js";
 import type {
   AnswerGivenBy,
   DecisionAnswer,
+  DecisionKind,
   PassedOn,
   Recommendation,
 } from "../../domain/decision.js";
@@ -97,8 +98,9 @@ export const threadMessages = pgTable(
 
 /**
  * The Decisions opened in each Thread, each on a Task: the Thread's home in a Thread on a Task, one
- * of the Initiative's Tasks in its planning Thread. One per Thread and Task waits on the user at a
- * time, which in a Thread on a Task is one per Thread.
+ * of the Initiative's Tasks in its planning Thread; a call made from a chat is on none. One per
+ * Thread and Task waits at a time, which in a Thread on a Task is one per Thread, and one per chat
+ * Thread.
  */
 export const decisions = pgTable(
   "decisions",
@@ -107,7 +109,9 @@ export const decisions = pgTable(
     threadId: uuid("thread_id")
       .notNull()
       .references(() => threads.id, { onDelete: "cascade" }),
-    taskId: text("task_id").notNull(),
+    /** Null for a call made from a chat. */
+    taskId: text("task_id"),
+    kind: text("kind").$type<DecisionKind>().notNull(),
     /** Null when The Office asked. */
     roleKey: text("role_key"),
     question: text("question").notNull(),
@@ -130,6 +134,10 @@ export const decisions = pgTable(
     uniqueIndex("decisions_open_on_task_in_thread")
       .on(table.threadId, table.taskId)
       .where(sql`${table.answeredAt} is null`),
+    // Nulls are distinct to the index above, so a chat Thread's one open call needs its own.
+    uniqueIndex("decisions_open_on_no_task_in_thread")
+      .on(table.threadId)
+      .where(sql`${table.answeredAt} is null and ${table.taskId} is null`),
     index("decisions_task").on(table.taskId, table.answeredAt),
   ],
 );

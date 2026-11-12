@@ -10,7 +10,7 @@ import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index
 import { Consultations } from "../../application/consultations.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { WorkRecords } from "../../application/work-records.js";
-import { APPROVAL_OPTIONS, PASS_ON_STEPS, type Consult } from "../../domain/consult.js";
+import { APPROVAL_OPTIONS, CALL_STEPS, type Consult } from "../../domain/consult.js";
 import { answerWords, type DecisionAnswer, type DecisionDraft } from "../../domain/decision.js";
 import { DecisionNotFound } from "../../domain/decision-not-found.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
@@ -91,30 +91,32 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
-      description: `Consults a person when your brief or your authority says to consult them first, or the user when your brief says to ask the user: with a question, or to ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always". A hired Consultant answers in a Consultation on the Task; if nobody who can be consulted fills that Role, the user answers in their place. Either way the question shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
+      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask a question; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask Devops to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, ask the user in your answer instead. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
           .string()
           .optional()
           .describe(
-            "Whom you consult, as your brief or your authority names them, such as Devops; none when your brief says to ask the user.",
+            "Whom you consult or call, as your brief, your authority or the user names them, such as Devops; none when your brief says to ask the user.",
           ),
-        approval: z
-          .boolean()
+        kind: z
+          .enum(["question", "approval", "request"])
           .optional()
           .describe(
-            `True to ask approval of a call past a Hard switch: the answer is ${APPROVAL_OPTIONS.join(" or ")}.`,
+            `question, the default, with options; approval of a call past a Hard switch, answered ${APPROVAL_OPTIONS.join(" or ")}; or request, asking them to do something, answered in their words.`,
           ),
         question: z
           .string()
           .describe(
-            "Your question; for an approval, the call you ask to make, such as: Install ffmpeg on the machine.",
+            "Your question; for an approval, the call you ask to make, such as: Install ffmpeg on the machine; for a request, what you ask them to do.",
           ),
         context: z.string().describe("What they need to know to answer: what you found."),
         options: z
           .array(z.string())
           .optional()
-          .describe("For a question: two or more options, each a short line. None for approval."),
+          .describe(
+            "For a question: two or more options, each a short line. None for an approval or a request.",
+          ),
         recommended: z
           .number()
           .int()
@@ -123,32 +125,16 @@ export class DecisionOfficeTools implements OnModuleInit {
         why: z
           .string()
           .describe(
-            "For a question, why you recommend it; for an approval, why you need the call.",
+            "For a question, why you recommend it; for an approval or a request, why you need it.",
           ),
       }),
       run: async (input, { sessionId }) => {
-        const consult: Consult = input.approval
-          ? {
-              kind: "approval",
-              person: input.person,
-              call: input.question,
-              context: input.context,
-              why: input.why,
-            }
-          : {
-              kind: "question",
-              person: input.person,
-              question: input.question,
-              context: input.context,
-              options: input.options ?? [],
-              recommended: (input.recommended ?? 0) - 1,
-              why: input.why,
-            };
+        const consult = consultOf(input);
         try {
           const consultant = await this.consultations.put(sessionId, consult);
           const person = input.person?.trim();
           const putTo = consultant
-            ? `${consultant.name}, in a Consultation on this Task`
+            ? `${consultant.name}, in a Consultation`
             : person
               ? `the user in place of ${person}`
               : "the user";
@@ -167,7 +153,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerAnswerConsultation(): void {
     this.registry.register({
       name: ANSWER_CONSULTATION_TOOL,
-      description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. For a question, choose one of their options by its number, or answer in your own words. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}, or pass it on when the call isn't yours to decide: to the person your authority names, or to the user. An approval goes up at most ${PASS_ON_STEPS} steps, then it is the user's. A question The Office put to you first, you answer in your own words, or pass on to the user.`,
+      description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. For a question, choose one of their options by its number, or answer in your own words. A request you answer in your own words: what you did, such as a Proposal you drafted, or why you can't. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}, or pass it on when the call isn't yours to decide: to the person your authority names, or to the user. At most ${CALL_STEPS} people are asked down one chain of calls and passes-on, then it is the user's; nobody already in it can be asked again. A question The Office put to you first, you answer in your own words, or pass on to the user.`,
       input: z.object({
         option: z
           .number()
@@ -260,20 +246,50 @@ export class DecisionOfficeTools implements OnModuleInit {
   ): Promise<OfficeToolResult> {
     try {
       const { decision, home } = await this.decisions.open(sessionId, draft, { taskId });
-      if (home.kind !== "initiative") {
+      const onTask = decision.taskId;
+      if (home.kind !== "initiative" || onTask === undefined) {
         return {
           text: `The Decision is open in this Thread, waiting on the user. ${END_YOUR_TURN}`,
           isError: false,
         };
       }
-      const title = await this.work.taskTitle(decision.taskId);
+      const title = await this.work.taskTitle(onTask);
       return {
-        text: `The Decision is open on "${title ?? decision.taskId}", waiting on the user. Plan the Tasks that don't wait for it; end your turn once every Task left waits for an answer. Each answer comes as a message.`,
+        text: `The Decision is open on "${title ?? onTask}", waiting on the user. Plan the Tasks that don't wait for it; end your turn once every Task left waits for an answer. Each answer comes as a message.`,
         isError: false,
       };
     } catch (error) {
       if (error instanceof ThreadRefused) return { text: error.message, isError: true };
       throw error;
     }
+  }
+}
+
+/** The consult the tool's input asks, by its kind: a question unless it says otherwise. */
+function consultOf(input: {
+  readonly person?: string | undefined;
+  readonly kind?: Consult["kind"] | undefined;
+  readonly question: string;
+  readonly context: string;
+  readonly options?: readonly string[] | undefined;
+  readonly recommended?: number | undefined;
+  readonly why: string;
+}): Consult {
+  const { person, question, context, why } = input;
+  switch (input.kind ?? "question") {
+    case "approval":
+      return { kind: "approval", person, call: question, context, why };
+    case "request":
+      return { kind: "request", person, request: question, context, why };
+    case "question":
+      return {
+        kind: "question",
+        person,
+        question,
+        context,
+        options: input.options ?? [],
+        recommended: (input.recommended ?? 0) - 1,
+        why,
+      };
   }
 }

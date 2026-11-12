@@ -11,6 +11,7 @@ function decisionPutTo(putTo: string | null): Decision {
   return {
     id: crypto.randomUUID(),
     threadId: "thread",
+    kind: "question",
     taskId: "task",
     roleKey: "planner",
     question: "Which one?",
@@ -25,6 +26,7 @@ function decisionPutTo(putTo: string | null): Decision {
     answeredAt: null,
     answeredBy: null,
     atUsersRequest: null,
+    answeredByTheOffice: false,
   };
 }
 

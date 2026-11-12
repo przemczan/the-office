@@ -59,6 +59,7 @@ export type {
   ProposedStageTemplateChange,
 } from "./domain/proposal.js";
 export {
+  CALLING_RULE,
   LIST_PIPELINES_TOOL,
   LIST_STAGE_TEMPLATES_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,

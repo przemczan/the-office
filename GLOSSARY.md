@@ -222,8 +222,12 @@ One author's neighbouring messages in a Thread, shown together under one name.
 _Avoid_: Bubble
 
 **Consultation**:
-A Thread on a Task in which an Agent asks a Consultant for an answer, or for approval of a call past a Hard switch; the user can read it or take it over, but not join it.
+A Thread in which a Consultant answers what another person asks them: a question, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file. On a Task the user can read it or take it over, but not join it.
 _Avoid_: Delegation, escalation (for this), handoff
+
+**Request**:
+A consult asking a person to do something the asker can't, such as "ask Devops to set that up": a Decision put to them with no options, which they answer in their own words, saying what they did, such as a Proposal they drafted, or why they can't.
+_Avoid_: Task (for this), delegation, ticket
 
 **Mention**:
 A Task, Initiative, Idea or Decision named in a chat message or in a Task's Description, picked with `@` or pasted as the link to its page; in a chat message the Agent there is given its record with the message, and in a Description the link carries its id for an Agent to read it.
@@ -396,7 +400,7 @@ A command an Agent's session, or one of its Sub-agents, runs in the background, 
 _Avoid_: Background task, shell, job, background command (in the UI)
 
 **Consultant**:
-A person whom other Agents may consult on a Task.
+A person whom other people of The Office may consult or call, with a question, for an approval or with a Request, in a Consultation.
 _Avoid_: Expert, advisor, Staff
 
 **Task limit**:

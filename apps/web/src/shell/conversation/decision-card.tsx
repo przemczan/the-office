@@ -82,8 +82,9 @@ export interface DecisionCardProps {
 /** The Attachments the Decision names that the Task still holds; undefined until they are read. */
 export function useNamedAttachments(decision: Decision): readonly Attachment[] | undefined {
   const { data } = useQuery({
-    ...attachmentQueries.of({ kind: "task", taskId: decision.taskId }),
-    enabled: decision.attachmentIds.length > 0,
+    ...attachmentQueries.of({ kind: "task", taskId: decision.taskId ?? "" }),
+    // A call made from a chat names no Attachments, as it is on no Task.
+    enabled: decision.attachmentIds.length > 0 && decision.taskId !== null,
   });
   if (decision.attachmentIds.length === 0) return [];
   return data && namedAttachments(decision, data);
@@ -92,7 +93,9 @@ export function useNamedAttachments(decision: Decision): readonly Attachment[] |
 /**
  * A Decision in its Thread: while open a short form with the way to its card, in the Task's Needs
  * you, then its answered form. In an Initiative's planning Thread, where the Planner asks about
- * any of its Tasks, each names the Task it is on.
+ * any of its Tasks, each names the Task it is on. One put to a Consultant links to their
+ * Consultation; a call made from a chat has no Needs you, its Consultation in the callee's chat
+ * (spec §2.4).
  */
 export function DecisionInThread({
   decision,
@@ -105,7 +108,7 @@ export function DecisionInThread({
   const home = useQuery(threadQueries.one(decision.threadId)).data?.home;
   return (
     <DecisionFrame decision={decision} personName={personName}>
-      {home?.kind === "initiative" && (
+      {home?.kind === "initiative" && decision.taskId !== null && (
         <p className="decision-on-task">
           On <RecordMention link={{ kind: "task", taskId: decision.taskId }} written="its Task" />
         </p>
@@ -115,7 +118,19 @@ export function DecisionInThread({
           {decision.putTo === null
             ? "Waits on you."
             : `Waiting on ${consultantName(decision.putTo, roles)} in a Consultation.`}{" "}
-          <LinkToDecisionCard decision={decision} inInitiative={home?.kind === "initiative"} />
+          {decision.taskId !== null && (
+            <LinkToDecisionCard
+              decision={decision}
+              taskId={decision.taskId}
+              inInitiative={home?.kind === "initiative"}
+            />
+          )}
+          {decision.putTo !== null && (
+            <>
+              {" "}
+              <LinkToConsultation decision={decision} consultantKey={decision.putTo} />
+            </>
+          )}
         </p>
       ) : (
         <>
@@ -144,7 +159,8 @@ function AnsweredBy({
   readonly decision: Decision;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
-  const { atUsersRequest, answeredBy } = decision;
+  const { atUsersRequest, answeredBy, answeredByTheOffice } = decision;
+  if (answeredByTheOffice) return "Answered by The Office: ";
   if (atUsersRequest !== null) {
     return (
       <>
@@ -177,16 +193,18 @@ export const DecisionCardLinkContext = createContext<() => void>(() => undefined
  */
 function LinkToDecisionCard({
   decision,
+  taskId,
   inInitiative,
 }: {
   readonly decision: Decision;
+  readonly taskId: string;
   readonly inInitiative: boolean;
 }): ReactNode {
   const clearTheWay = useContext(DecisionCardLinkContext);
   return (
     <Link
       to="/tasks/$taskId"
-      params={{ taskId: decision.taskId }}
+      params={{ taskId }}
       search={(shown) =>
         inInitiative
           ? { decision: decision.id }
@@ -203,8 +221,31 @@ function LinkToDecisionCard({
 }
 
 /**
+ * The way to the Consultation of a Decision put to `consultantKey`, once it has opened: on its Task,
+ * or in the callee's chat for a call made from a chat (spec §2.4).
+ */
+function LinkToConsultation({
+  decision,
+  consultantKey,
+}: {
+  readonly decision: Decision;
+  readonly consultantKey: string;
+}): ReactNode {
+  const { data: threads } = useQuery(
+    decision.taskId === null
+      ? threadQueries.inChat(consultantKey)
+      : threadQueries.onTask(decision.taskId),
+  );
+  const consultation = threads?.find(
+    (thread) => thread.consultation?.decisionId === decision.id && thread.roleKey === consultantKey,
+  );
+  if (!consultation) return null;
+  return <ThreadLink threadId={consultation.id}>Open the Consultation</ThreadLink>;
+}
+
+/**
  * What every form of a Decision has: who asked, the question, and its link, which mentions it in a
- * chat and opens the Task's page at it, marked.
+ * chat and opens the Task's page at it, marked. A call made from a chat, on no Task, has no link.
  */
 export function DecisionFrame({
   decision,
@@ -220,6 +261,8 @@ export function DecisionFrame({
   readonly children: ReactNode;
 }): ReactNode {
   const copyLink = useCopyRecordLink();
+  const roles = useQuery(roleQueries.list()).data;
+  const { taskId } = decision;
   const linkedTo = useSearch({ strict: false }).decision === decision.id;
   return (
     <section
@@ -231,23 +274,25 @@ export function DecisionFrame({
       <div className="message-by">
         <DecisionHeading decision={decision} personName={personName} />
         {place}
-        <IconButton
-          className="decision-copy-link"
-          icon={<Icon name="link" size={12} />}
-          label="Copy link"
-          size="xs"
-          onClick={() =>
-            copyLink({
-              kind: "decision",
-              taskId: decision.taskId,
-              threadId: decision.threadId,
-              decisionId: decision.id,
-            })
-          }
-        />
+        {taskId !== null && (
+          <IconButton
+            className="decision-copy-link"
+            icon={<Icon name="link" size={12} />}
+            label="Copy link"
+            size="xs"
+            onClick={() =>
+              copyLink({
+                kind: "decision",
+                taskId,
+                threadId: decision.threadId,
+                decisionId: decision.id,
+              })
+            }
+          />
+        )}
       </div>
       <div className="message-text decision-question">
-        <MarkdownText text={decision.question} />
+        <MarkdownText text={questionWords(decision, roles)} />
       </div>
       {children}
     </section>
@@ -293,6 +338,16 @@ function AskerTag({
   ) : (
     <PersonTag roleKey={roleKey} name={personName} />
   );
+}
+
+/**
+ * The question as the card shows it: a request reads as what the asker asked the person it is put
+ * to, or the user, to do.
+ */
+function questionWords(decision: Decision, roles: readonly Role[] | undefined): string {
+  if (decision.kind !== "request") return decision.question;
+  const callee = decision.putTo === null ? "you" : consultantName(decision.putTo, roles);
+  return `Asked ${callee} to: ${decision.question}`;
 }
 
 /** What the person found, and who passed the Decision on. */
@@ -351,30 +406,36 @@ function OpenDecision({
   return (
     <>
       <ConsultationNote decision={decision} roles={roles} />
-      <div className="decision-options" role="group" aria-label="Options">
-        {decision.options.map((option, index) => (
-          <Button
-            key={option}
-            variant={index === recommended ? "primary" : "secondary"}
-            disabled={busy}
-            title={waitHint}
-            fullWidth
-            style={ANSWER_ON_A_LINE}
-            iconRight={
-              index === recommended && (
-                // Marked to the eye; the recommendation under the answers says it in words.
-                <span className="decision-option-tag" aria-hidden="true">
-                  Recommended
-                </span>
-              )
-            }
-            onClick={() => answeringDecision.mutate({ kind: "option", option: index })}
-          >
-            <span className="decision-option-words">{option}</span>
-          </Button>
-        ))}
-      </div>
-      <Recommendation decision={decision} personName={personName} />
+      {decision.kind === "request" ? (
+        <RequestReason decision={decision} personName={personName} />
+      ) : (
+        <>
+          <div className="decision-options" role="group" aria-label="Options">
+            {decision.options.map((option, index) => (
+              <Button
+                key={option}
+                variant={index === recommended ? "primary" : "secondary"}
+                disabled={busy}
+                title={waitHint}
+                fullWidth
+                style={ANSWER_ON_A_LINE}
+                iconRight={
+                  index === recommended && (
+                    // Marked to the eye; the recommendation under the answers says it in words.
+                    <span className="decision-option-tag" aria-hidden="true">
+                      Recommended
+                    </span>
+                  )
+                }
+                onClick={() => answeringDecision.mutate({ kind: "option", option: index })}
+              >
+                <span className="decision-option-words">{option}</span>
+              </Button>
+            ))}
+          </div>
+          <Recommendation decision={decision} personName={personName} />
+        </>
+      )}
       <form
         className="decision-free-answer"
         onSubmit={(event) => {
@@ -428,6 +489,22 @@ export function ConsultationNote({
       <Icon name="users" size={12} />
       Waiting on {consultantName(decision.putTo, roles)} in a Consultation. Answer here to take it
       over.
+    </p>
+  );
+}
+
+/** Why the asker needs what a request asks, in place of the options a request has none of. */
+function RequestReason({
+  decision,
+  personName,
+}: {
+  readonly decision: Decision;
+  readonly personName: string;
+}): ReactNode {
+  return (
+    <p className="decision-recommendation">
+      Why {askerName(decision, personName)} needs it:{" "}
+      <MarkdownText text={decision.recommendation.reason} inline />
     </p>
   );
 }
@@ -510,7 +587,9 @@ export function useAnswering(decision: Decision): UseMutationResult<Thread, Erro
       await Promise.all([
         queryClient.invalidateQueries(threadQueries.messages(thread.id)),
         queryClient.invalidateQueries(decisionQueries.open()),
-        queryClient.invalidateQueries(decisionQueries.unanswered(decision.taskId)),
+        ...(decision.taskId === null
+          ? []
+          : [queryClient.invalidateQueries(decisionQueries.unanswered(decision.taskId))]),
       ]);
     },
   });

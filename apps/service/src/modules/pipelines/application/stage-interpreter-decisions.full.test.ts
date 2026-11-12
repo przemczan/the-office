@@ -248,6 +248,7 @@ describe("StageInterpreter's Decisions", () => {
         aStageThread(taskId),
         {
           ...asked,
+          kind: "question",
           threadId: (await runsOf(pipelines, taskId))[0]?.threadId ?? "",
           taskId,
           roleKey: "developer",

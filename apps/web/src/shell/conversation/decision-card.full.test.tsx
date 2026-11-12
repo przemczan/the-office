@@ -31,6 +31,7 @@ function aDecision(threadId: string): Decision {
   return {
     id: "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e",
     threadId,
+    kind: "question",
     taskId: TASK.id,
     roleKey: "planner",
     question: "Which format?",
@@ -45,12 +46,15 @@ function aDecision(threadId: string): Decision {
     answeredAt: null,
     answeredBy: null,
     atUsersRequest: null,
+    answeredByTheOffice: false,
   };
 }
 
 function aThread(id: string, home: Thread["home"]): Thread {
   return { id, home, roleKey: "planner", state: "answering", stageThread: false } as Thread;
 }
+
+const CONSULTATION_ON_TASK = "3a2b1c0d-9e8f-4a7b-8c6d-5e4f3a2b1c0d";
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
 const REVIEWER = { key: "reviewer", letGoAt: null, card: { name: "Michael" } } as unknown as Role;
@@ -73,6 +77,13 @@ async function rendered(decision: Decision): Promise<HTMLElement> {
     threadQueries.one(CHAT_THREAD).queryKey,
     aThread(CHAT_THREAD, { kind: "chat", roleKey: "reviewer" }),
   );
+  const consultation = {
+    ...aThread(CONSULTATION_ON_TASK, { kind: "task", taskId: TASK.id }),
+    roleKey: "reviewer",
+    consultation: { decisionId: decision.id, askerThreadId: TASK_THREAD, askerRoleKey: "planner" },
+  } as Thread;
+  queryClient.setQueryData(threadQueries.one(CONSULTATION_ON_TASK).queryKey, consultation);
+  queryClient.setQueryData(threadQueries.onTask(TASK.id).queryKey, [consultation]);
   const rootRoute = createRootRoute({
     component: () => <DecisionInThread decision={decision} personName="Angela" />,
   });
@@ -156,6 +167,22 @@ describe("a Decision's header", () => {
     expect(headerWords(page)).toBe("Angela to Michael");
   });
 
+  it("links to the Consultation on the Task, beside taking it over", async () => {
+    const page = await rendered({ ...aDecision(TASK_THREAD), putTo: "reviewer" });
+
+    const links = [...page.querySelectorAll(".decision-hint a")].map((link) => [
+      link.textContent,
+      link.getAttribute("href"),
+    ]);
+    expect(links).toEqual([
+      [
+        "Take it over in Needs you",
+        `/tasks/${TASK.id}?taskThread=${TASK_THREAD}&decision=1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e`,
+      ],
+      ["Open the Consultation", `/tasks/${TASK.id}?taskThread=${CONSULTATION_ON_TASK}`],
+    ]);
+  });
+
   it("names the Role key when the Consultant's Role is gone", async () => {
     const page = await rendered({ ...aDecision(TASK_THREAD), putTo: "designer" });
 
@@ -216,6 +243,98 @@ describe("an answered Decision in its Thread", () => {
 
     expect(answeredLine(page).querySelector("a")?.getAttribute("href")).toBe(
       `/tasks/${TASK.id}?taskThread=${TASK_THREAD}`,
+    );
+  });
+});
+
+describe("a call made from a chat", () => {
+  afterEach(() => document.body.replaceChildren());
+
+  const CALLERS_CHAT = "1d0e9f8a-7b6c-4d5e-8f4a-3b2c1d0e9f8a";
+  const CONSULTATION = "2e1f0a9b-8c7d-4e6f-9a5b-4c3d2e1f0a9b";
+  const call: Decision = {
+    ...aDecision(CALLERS_CHAT),
+    kind: "request",
+    taskId: null,
+    question: "Set up the Project's commands.",
+    options: [],
+    recommendation: { option: 0, reason: "Only Michael drafts them." },
+    putTo: "reviewer",
+  };
+
+  async function renderedInChat(decision: Decision): Promise<HTMLElement> {
+    const consultation = {
+      ...aThread(CONSULTATION, { kind: "chat", roleKey: "reviewer" }),
+      roleKey: "reviewer",
+      consultation: {
+        decisionId: decision.id,
+        askerThreadId: CALLERS_CHAT,
+        askerRoleKey: "planner",
+      },
+    } as Thread;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+    });
+    queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER, REVIEWER]);
+    queryClient.setQueryData(
+      threadQueries.one(CALLERS_CHAT).queryKey,
+      aThread(CALLERS_CHAT, { kind: "chat", roleKey: "planner" }),
+    );
+    queryClient.setQueryData(threadQueries.one(CONSULTATION).queryKey, consultation);
+    queryClient.setQueryData(threadQueries.inChat("reviewer").queryKey, [consultation]);
+    const router = createRouter({
+      routeTree: createRootRoute({
+        component: () => <DecisionInThread decision={decision} personName="Angela" />,
+      }),
+      history: createMemoryHistory({ initialEntries: ["/"] }),
+    });
+    const page = document.createElement("div");
+    document.body.append(page);
+    await act(async () => {
+      createRoot(page).render(
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
+        </QueryClientProvider>,
+      );
+      await router.load();
+    });
+    return page;
+  }
+
+  it("reads as what the caller asked, linking to the Consultation, with no Needs you", async () => {
+    const page = await renderedInChat(call);
+
+    expect(page.querySelector(".decision-question")?.textContent).toBe(
+      "Asked Michael to: Set up the Project's commands.",
+    );
+    const links = [...page.querySelectorAll("a")];
+    expect(links.some((link) => link.textContent?.includes("Needs you"))).toBe(false);
+    expect(
+      links.find((link) => link.textContent === "Open the Consultation")?.getAttribute("href"),
+    ).toBe(`/?chat=reviewer&thread=${CONSULTATION}`);
+    expect(page.querySelector("[aria-label='Copy link']")).toBeNull();
+  });
+
+  it("shows the callee's answer in words, and The Office's when it went back to the caller", async () => {
+    const byCallee = await renderedInChat({
+      ...call,
+      answer: { kind: "free-answer", text: "I drafted a Proposal." },
+      answeredAt: "2026-11-12T14:30:00.000Z",
+      answeredBy: "reviewer",
+    });
+    expect(answeredLine(byCallee).textContent).toBe("Answered by Michael: I drafted a Proposal.");
+    document.body.replaceChildren();
+
+    const byTheOffice = await renderedInChat({
+      ...call,
+      answer: { kind: "free-answer", text: "So it is the user's now: ask them in your reply." },
+      answeredAt: "2026-11-12T14:30:00.000Z",
+      answeredByTheOffice: true,
+    });
+    expect(answeredLine(byTheOffice).textContent).toBe(
+      "Answered by The Office: So it is the user's now: ask them in your reply.",
     );
   });
 });

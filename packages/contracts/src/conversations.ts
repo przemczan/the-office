@@ -270,21 +270,36 @@ export const atUsersRequestSchema = z.object({ roleKey: z.string(), threadId: z.
 export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 
 /**
+ * What a Decision asks (spec §2.2): a question with options, approval of a call past a Hard switch,
+ * or a request, asking a person to do something, answered in their own words.
+ */
+export const decisionKindSchema = z.enum(["question", "approval", "request"]);
+export type DecisionKind = z.infer<typeof decisionKindSchema>;
+
+/**
  * A question an Agent puts to the user in the Thread it works in on a Task, or The Office does
  * about a Task's Pipeline (a Stage that failed with no retries left, the Definition of Done not
- * met), shown there as a card. POST /decisions/:id/answer takes a `decisionAnswerSchema`.
+ * met), or a call a person puts to another from a chat, shown there as a card. POST
+ * /decisions/:id/answer takes a `decisionAnswerSchema`.
  */
 export const decisionSchema = z.object({
   id: z.uuid(),
   threadId: z.uuid(),
-  taskId: z.string(),
+  kind: decisionKindSchema,
+  /** Null for a call made from a chat, which is on no Task. */
+  taskId: z.string().nullable(),
   /** Who asked, by the key of the Role they fill; null when The Office asked. */
   roleKey: z.string().nullable(),
+  /** The question; for a request, what the asker asks to be done. */
   question: z.string(),
   /** What the user needs to know to decide, as the Agent found it. */
   context: z.string(),
-  options: z.array(z.string()).min(2),
-  /** The option the Agent recommends, by its index in `options`, and why. */
+  /** Two or more; none for a request. */
+  options: z.array(z.string()),
+  /**
+   * The option the Agent recommends, by its index in `options`, and why; for a request, why the
+   * asker needs it, its `option` pointing at nothing.
+   */
   recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
   /**
    * The Task's Attachments it is about, of any kind, by their ids. One removed since no longer shows
@@ -308,6 +323,11 @@ export const decisionSchema = z.object({
   answeredBy: z.string().nullable(),
   /** The person who answered for the user, at their request; null when nobody did. */
   atUsersRequest: atUsersRequestSchema.nullable(),
+  /**
+   * The Office answered a call made from a chat that fell back to the user, telling the caller to
+   * ask them, as a chat has no Needs you.
+   */
+  answeredByTheOffice: z.boolean(),
 });
 export type Decision = z.infer<typeof decisionSchema>;
 
@@ -627,6 +647,16 @@ export const messageSchema = z.discriminatedUnion("kind", [
     answer: decisionAnswerSchema,
     atUsersRequest: atUsersRequestSchema.nullable(),
     decision: decisionSchema,
+  }),
+  /**
+   * The Office's line in a Consultation: what was asked as it opened, such as "Angela asks you to:
+   * …", and the Consultant's answer once it reached the asker, such as "Your answer to Angela: …".
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("consultation-line"),
+    decisionId: z.uuid(),
+    text: z.string(),
   }),
   /** A Proposal the person drafted, as its card shows it now: open, applied or declined. */
   z.object({

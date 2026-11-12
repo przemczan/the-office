@@ -41,6 +41,7 @@ import { ProposalAppliers } from "../../application/proposal-appliers.js";
 import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { SessionPlaces } from "../../application/session-places.js";
+import { CallChains } from "../../application/call-chains.js";
 import { InitiativeThreadSetups } from "../../application/initiative-thread-setups.js";
 import { TaskConversations } from "../../application/task-conversations.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
@@ -231,6 +232,7 @@ function setUpEachTest(): void {
         TaskThreadSetups,
         InitiativeThreadSetups,
         SessionPlaces,
+        CallChains,
         ThreadContexts,
         AllowChanges,
         ThreadRunner,
@@ -495,6 +497,7 @@ describe("a Decision", () => {
 
     const shown = {
       ...draft,
+      kind: "question",
       id: decision.id,
       threadId: thread.id,
       taskId: decision.taskId,
@@ -507,6 +510,7 @@ describe("a Decision", () => {
       answeredAt: null,
       answeredBy: null,
       atUsersRequest: null,
+      answeredByTheOffice: false,
     };
     expect(open).toContainEqual(shown);
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([

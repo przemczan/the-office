@@ -2,9 +2,11 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   ANSWER_DECISION_TOOL,
   CLOSED_TASK_CONVERSATION_WORDS,
+  CONSULT_TOOL,
   OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import {
+  CALLING_RULE,
   TaskThreadSetups,
   type PlanningThreadElsewhere,
   type TaskThreadRequest,
@@ -48,14 +50,25 @@ export const PLANNING_OFFICE_TOOLS = [
   "mark_planned",
   OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,
+  CONSULT_TOOL,
 ] as const;
+
+/** What the Planner does in the Planning Thread, calling a person only when the user asks. */
+export const PLANNING_THREAD_INSTRUCTIONS = `${PLANNING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
+
+/** What a person does in their Thread on a Task, calling someone only when the user asks. */
+export const ASKING_THREAD_INSTRUCTIONS = `${ASKING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
 
 /**
  * The Office tools of a person's Thread on a Task: it reads every record and Attachment, and the
  * Task's Stage history, and changes none but a Decision it answers for the user when they ask
- * (spec §2.4).
+ * (spec §2.4). It calls another person when the user asks (spec §2.2).
  */
-export const ASKING_OFFICE_TOOLS = [...PERSON_READING_OFFICE_TOOLS, ANSWER_DECISION_TOOL] as const;
+export const ASKING_OFFICE_TOOLS = [
+  ...PERSON_READING_OFFICE_TOOLS,
+  ANSWER_DECISION_TOOL,
+  CONSULT_TOOL,
+] as const;
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Planner's
@@ -123,7 +136,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,
       projectSkillsOff: project.projectSkillsOff,
-      instructions: ASKING_INSTRUCTIONS,
+      instructions: ASKING_THREAD_INSTRUCTIONS,
       officeTools: ASKING_OFFICE_TOOLS,
       brief: firstSession ? await this.record(roleKey, task, project, worktree) : undefined,
       asking: true,
@@ -180,7 +193,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,
       projectSkillsOff: project.projectSkillsOff,
-      instructions: PLANNING_INSTRUCTIONS,
+      instructions: PLANNING_THREAD_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
       brief: planningBrief({
         task,

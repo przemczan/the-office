@@ -156,7 +156,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     });
     this.events.subscribe(TaskDependencyRemoved, () => this.walkHeldForBlocker());
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
-      if (!decision.answer) return;
+      // A call made from a chat is on no Task, so no Pipeline waits on it.
+      if (!decision.answer || decision.taskId === undefined) return;
       const { answeredAt: _answeredAt, ...answer } = decision.answer;
       return this.takeAnswer(decision.taskId, decision.id, answer);
     });

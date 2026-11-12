@@ -12,14 +12,17 @@ import {
   type TaskThreadRequest,
 } from "../../../conversations/index.js";
 import { TaskService } from "../../application/task-service.js";
-import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
 import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { ProjectWorktreesForTests } from "../../ports/work-ports.fixtures.js";
-import { ASKING_INSTRUCTIONS } from "../../domain/asking.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
-import { ASKING_OFFICE_TOOLS, PLANNING_OFFICE_TOOLS } from "./task-thread-records.js";
+import {
+  ASKING_OFFICE_TOOLS,
+  ASKING_THREAD_INSTRUCTIONS,
+  PLANNING_OFFICE_TOOLS,
+  PLANNING_THREAD_INSTRUCTIONS,
+} from "./task-thread-records.js";
 import {
   sendJson,
   startWorkApplication,
@@ -86,7 +89,7 @@ describe("a person's Thread on a Task's session", () => {
       const setup = await setups().of(planningRequest(task.id));
 
       expect(setup).toMatchObject({
-        instructions: ASKING_INSTRUCTIONS,
+        instructions: ASKING_THREAD_INSTRUCTIONS,
         officeTools: ASKING_OFFICE_TOOLS,
       });
     },
@@ -154,7 +157,7 @@ describe("a planning Thread's session", () => {
       environment: { PROJECT: projectId },
       useProjectSkills: true,
       projectSkillsOff: [],
-      instructions: PLANNING_INSTRUCTIONS,
+      instructions: PLANNING_THREAD_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
       brief: expect.stringContaining(`Fix the login redirect (Task ${task.id})`),
       asking: false,

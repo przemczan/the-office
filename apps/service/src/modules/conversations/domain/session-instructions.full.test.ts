@@ -17,7 +17,8 @@ import {
   CHAT_OFFICE_TOOLS,
   chatInstructions,
   chatOfficeTools,
-  CONSULTATION_OFFICE_TOOLS,
+  CONSULT_TOOL,
+  consultationOfficeTools,
   consultationInstructions,
   LIST_PIPELINES_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
@@ -98,7 +99,7 @@ describe("the Office instructions in a session's standing instructions", () => {
     {
       kind: "a Consultation",
       standing: (officeInstructions: string) =>
-        consultationInstructions({ card, officeInstructions }),
+        consultationInstructions({ card, officeInstructions }, true),
       theRest: "You are in a Consultation",
     },
   ])("in $kind", ({ standing, theRest }) => {
@@ -121,7 +122,7 @@ describe("the Office instructions in a session's standing instructions", () => {
 
 describe("chatOfficeTools", () => {
   it("gives a person's chat every chat tool", () => {
-    expect(chatOfficeTools("planner")).toEqual(CHAT_OFFICE_TOOLS);
+    expect(chatOfficeTools("planner")).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
   });
 
   it("leaves creating a Task out of the Office Manager's, who points to the Planner", () => {
@@ -173,6 +174,7 @@ describe("chatOfficeTools", () => {
       READ_SKILL_UPDATE_TOOL,
       PROPOSE_SKILL_UPDATE_TOOL,
       READ_REPOSITORY_TOOL,
+      CONSULT_TOOL,
     ]);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_STAGE_TEMPLATE_TOOL);
@@ -206,13 +208,14 @@ describe("chatOfficeTools", () => {
   });
 });
 
-describe("CONSULTATION_OFFICE_TOOLS", () => {
-  it("gives a Consultant every reading tool, and no Decision or Consultation of their own", () => {
-    expect(CONSULTATION_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
-    expect(CONSULTATION_OFFICE_TOOLS).not.toContain(OPEN_DECISION_TOOL);
+describe("consultationOfficeTools", () => {
+  it("gives a Consultant every reading tool, and no Decision of their own", () => {
+    const tools = consultationOfficeTools("cto", true);
+    expect(tools).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+    expect(tools).not.toContain(OPEN_DECISION_TOOL);
   });
 
   it("gives a Consultant reading the Task's Stage history", () => {
-    expect(CONSULTATION_OFFICE_TOOLS).toContain(READ_STAGE_HISTORY_TOOL);
+    expect(consultationOfficeTools("cto", false)).toContain(READ_STAGE_HISTORY_TOOL);
   });
 });

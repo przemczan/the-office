@@ -7,6 +7,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import type { ThreadRepository } from "../ports/thread-repository.js";
 import { ApprovalHolds } from "./approval-holds.js";
+import { CallChains } from "./call-chains.js";
 import { Consultations } from "./consultations.js";
 import type { DecisionService } from "./decision-service.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
@@ -65,7 +66,8 @@ export function heldCallsWith({
       ),
   } as unknown as RoleCards;
   const threads = {
-    findBySession: () => Promise.resolve(aThread()),
+    // A held call waits in a Thread on a Task, as only there it has a Decision to wait on.
+    findBySession: () => Promise.resolve(aThread({ home: { kind: "task", taskId: "task-1" } })),
     decisionsIn: () => Promise.resolve(answered),
     spendApproval: (id: string) => {
       const unspent = !spent.has(id);
@@ -88,6 +90,7 @@ export function heldCallsWith({
     decisions,
     {} as ThreadRunner,
     new FireAlarmInThreads(),
+    new CallChains(threads),
     {} as EventBus,
   );
   return {
@@ -100,6 +103,7 @@ export function heldCallsWith({
 /** An approval of the call, answered with the option at `option`. */
 export function anApproval(option: number): Decision {
   return aDecision({
+    kind: "approval",
     question: approvalQuestion(CALL),
     options: ["Allow once", "Deny"],
     answer: { kind: "option", option, answeredAt: new Date("2026-10-25T09:05:00.000Z") },

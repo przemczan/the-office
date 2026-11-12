@@ -232,16 +232,27 @@ export class PostgresThreadRepository extends ThreadRepository {
     const rows = await this.database
       .select()
       .from(decisions)
-      .where(and(isNull(decisions.answeredAt), isNull(decisions.putTo)))
+      // A call made from a chat never waits on the user: a chat has no Needs you (spec §2.4).
+      .where(
+        and(isNull(decisions.answeredAt), isNull(decisions.putTo), isNotNull(decisions.taskId)),
+      )
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
   }
 
   async unansweredOn(taskId: string): Promise<readonly Decision[]> {
+    return this.unansweredWhere(eq(decisions.taskId, taskId));
+  }
+
+  async unansweredOnNoTask(): Promise<readonly Decision[]> {
+    return this.unansweredWhere(isNull(decisions.taskId));
+  }
+
+  private async unansweredWhere(where: SQL): Promise<readonly Decision[]> {
     const rows = await this.database
       .select()
       .from(decisions)
-      .where(and(eq(decisions.taskId, taskId), isNull(decisions.answeredAt)))
+      .where(and(where, isNull(decisions.answeredAt)))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
   }
@@ -408,9 +419,17 @@ function toMessage(row: MessageRow): Message {
 /** What a Decision is saved as; the approval it gave a held call is spent apart from it. */
 type SavedDecision = Omit<DecisionRow, "approvalSpentAt">;
 
-function toDecisionRow({ answer, roleKey, putTo, passedOn, ...fields }: Decision): SavedDecision {
+function toDecisionRow({
+  answer,
+  taskId,
+  roleKey,
+  putTo,
+  passedOn,
+  ...fields
+}: Decision): SavedDecision {
   const decision = {
     ...fields,
+    taskId: taskId ?? null,
     roleKey: roleKey ?? null,
     putTo: putTo ?? null,
     passedOn: passedOn.map(({ passedOnAt, ...passing }) => ({
@@ -426,6 +445,7 @@ function toDecisionRow({ answer, roleKey, putTo, passedOn, ...fields }: Decision
 function toDecision({
   answer,
   answeredAt,
+  taskId,
   roleKey,
   putTo,
   passedOn,
@@ -434,6 +454,7 @@ function toDecision({
 }: DecisionRow): Decision {
   return {
     ...row,
+    taskId: taskId ?? undefined,
     roleKey: roleKey ?? undefined,
     putTo: putTo ?? undefined,
     passedOn: passedOn.map(({ passedOnAt, ...passing }) => ({

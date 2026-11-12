@@ -57,6 +57,7 @@ import { SkillProposals } from "./application/skill-proposals.js";
 import { SkillUpdateProposals } from "./application/skill-update-proposals.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
+import { CallChains } from "./application/call-chains.js";
 import { StageDecisions } from "./application/stage-decisions.js";
 import { StageThreads } from "./application/stage-threads.js";
 import { TaskConversations } from "./application/task-conversations.js";
@@ -130,6 +131,7 @@ export class ConversationsModule {
         MentionedRecords,
         SessionMemory,
         SessionPlaces,
+        CallChains,
         ThreadContexts,
         TaskConversations,
         ThreadRunner,

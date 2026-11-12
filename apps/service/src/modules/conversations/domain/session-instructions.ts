@@ -26,10 +26,24 @@ export function chatInstructions(person: SessionPerson, roleKey: string): string
   return [
     ...personInstructions(person),
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title. When you and the user already know how it will be done and what must be true when it is, give it a Plan and a Definition of Done too, both or neither, for the user to confirm on the Task page.`,
+    ...(roleKey === OFFICE_MANAGER ? [] : [CALLING_RULE]),
     // Devops reached for Grep on the repository it onboarded, refused outside its folders (task 33's run).
     ...(roleKey === DEVOPS ? [READ_REPOSITORY_RULE] : []),
   ].join("\n\n");
 }
+
+/**
+ * The Office tool a person consults or calls another with (spec §2.2); the contracts name it too,
+ * and a test keeps the two the same.
+ */
+export const CONSULT_TOOL = "consult";
+
+/**
+ * When a person the user talks to calls someone (spec §2.2, §2.4): only when the user asks, or
+ * their authority says to consult that person first. Work's Thread on a Task and Planning Thread
+ * say the same.
+ */
+export const CALLING_RULE = `Call another person of The Office with the ${CONSULT_TOOL} tool only when the user asks you to, such as "ask Devops to set that up", or your authority says to consult them first. A request asks them to do what you can't; they work with their own tools and permissions, never yours, and answer in their own words. End your turn once you called: their answer comes as your next message, and you tell the user.`;
 
 /**
  * What a refusal tells the Caretaker while their Thread only reads (spec §2.4): allowing changes
@@ -48,6 +62,7 @@ export function caretakerChatInstructions(person: SessionPerson, changesAllowed:
     changesAllowed
       ? "The user allowed changes in this Thread: you work in their home folder, and you may read and edit any file and run any command on the workstation, The Office's data folder and every git command included. Their secrets stay refused: SSH keys, the Claude, GitHub CLI and AWS credentials, browser profiles, the Office identity and the database credentials. Say what you are about to change before you change it, and prefer what can be undone. The engine's own Edit and Write may still refuse .git, .claude and .mcp.json: change those with a command."
       : `This Thread only reads until the user allows changes: you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and read The Office's records with its tools. Diagnose first; to change a file or run a command that changes something, ${lowerFirst(ALLOW_CHANGES_ADVICE)}`,
+    CALLING_RULE,
   ].join("\n\n");
 }
 
@@ -223,8 +238,8 @@ const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies outsid
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
  * points to the Planner, so it never creates one; it drafts Roles and Office settings as Proposals
  * the user applies, points the user to whoever is responsible with a Link card, and shows the
- * Office status (ticket 06). Anyone else has their Role's own tools besides, and Devops, onboarding a
- * Project from their chat, reads its repository before it has a base branch to read.
+ * Office status (ticket 06); they redirect with a Link card and never relay, so they call no one.
+ * Anyone else calls a person when the user asks (spec §2.2) and has their Role's own tools besides.
  */
 export function chatOfficeTools(roleKey: string): readonly string[] {
   return roleKey === OFFICE_MANAGER
@@ -236,11 +251,16 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
         POST_LINK_CARD_TOOL,
         SHOW_OFFICE_STATUS_TOOL,
       ]
-    : [
-        ...CHAT_OFFICE_TOOLS,
-        ...roleOfficeTools(roleKey),
-        ...(roleKey === DEVOPS ? [READ_REPOSITORY_TOOL] : []),
-      ];
+    : [...CHAT_OFFICE_TOOLS, ...draftingOfficeTools(roleKey), CONSULT_TOOL];
+}
+
+/**
+ * The tools a person drafts records and Proposals with beyond the chat's own, which they bring to a
+ * Consultation too: their Role's, and Devops' reading of a repository before it has a base branch
+ * to read, as they onboard a Project.
+ */
+function draftingOfficeTools(roleKey: string): readonly string[] {
+  return [...roleOfficeTools(roleKey), ...(roleKey === DEVOPS ? [READ_REPOSITORY_TOOL] : [])];
 }
 
 /**
@@ -284,24 +304,36 @@ export function stageCapabilityOfficeTools(capabilities: {
 export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
 
 /**
- * The Office tools a Consultant works a Consultation with: they read every record, the Task's and
- * any other, and its Stage history, and give their answer. They open no Decision and consult no
- * one, so a Consultation never nests.
+ * The Office tools a Consultant works a Consultation with: their own, never the asker's (spec §6).
+ * They read every record and the Stage history, give their answer, and draft what their chat
+ * drafts (an Idea, a Task in Backlog, a skill and their Role's Proposals), which the user applies.
+ * They call someone themselves while the chain of calls allows one more (`canCall`); they open no
+ * Decision of their own and change no file.
  */
-export const CONSULTATION_OFFICE_TOOLS = [
-  ...PERSON_READING_OFFICE_TOOLS,
-  ANSWER_CONSULTATION_TOOL,
-] as const;
+export function consultationOfficeTools(roleKey: string, canCall: boolean): readonly string[] {
+  return [
+    ...PERSON_READING_OFFICE_TOOLS,
+    ANSWER_CONSULTATION_TOOL,
+    "capture_idea",
+    "create_task",
+    PROPOSE_SKILL_TOOL,
+    ...draftingOfficeTools(roleKey),
+    ...(canCall ? [CONSULT_TOOL] : []),
+  ];
+}
 
 /**
  * The standing instructions of a Consultant in a Consultation: who they are, the Office
- * instructions, their card's instructions, and that they answer one Agent's question on a Task,
- * reading and changing nothing.
+ * instructions, their card's instructions, and that they answer one person's question or request,
+ * with their own tools, changing no file.
  */
-export function consultationInstructions(person: SessionPerson): string {
+export function consultationInstructions(person: SessionPerson, canCall: boolean): string {
   return [
     ...personInstructions(person),
-    "You are in a Consultation: another person of The Office, working a Task, asked for your answer, and the user may read along or join. You change no file. Read what you need, using the Task's record, then give your answer with the answer_consultation tool: one of their options, or your own words. Say plainly why when you decline a call; pass an approval on, to the person your authority names or to the user, only when the call isn't yours to decide. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.",
+    "You are in a Consultation: another person of The Office asked for your answer, or asked you to do something, and the user may read along or join. You work with your own tools and permissions, never theirs, and you change no file: what you can set up is a record or a Proposal your tools draft, which the user applies. Read what you need, using the Task's record when it is on a Task, then give your answer with the answer_consultation tool: one of their options, or your own words, saying what you did or why you can't. Say plainly why when you decline a call; pass an approval on, to the person your authority names or to the user, only when the call isn't yours to decide. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.",
+    canCall
+      ? `Call another person with the ${CONSULT_TOOL} tool only when you can't answer without them, never someone already in this chain of calls; end your turn then, and answer once their answer comes.`
+      : "This chain of calls can ask nobody else: answer from what you have, or pass an approval on to the user.",
   ].join("\n\n");
 }
 
@@ -381,12 +413,18 @@ export function decisionAnswerMessage(
   answerer?: Answerer,
 ): string {
   const words = answerWords(decision, answer);
+  const asked =
+    decision.kind === "request"
+      ? `your request "${decision.question}"`
+      : `your Decision "${decision.question}"`;
   const answered =
     answerer === undefined
-      ? `The user answered your Decision "${decision.question}"`
+      ? `The user answered ${asked}`
       : answerer.kind === "consultant"
-        ? `${answerer.name} answered your Decision "${decision.question}"`
-        : `${answerer.name} answered your Decision "${decision.question}" for the user, at their request,`;
+        ? `${answerer.name} answered ${asked}`
+        : answerer.kind === "the-office"
+          ? `The Office answered ${asked}`
+          : `${answerer.name} answered ${asked} for the user, at their request,`;
   return answer.kind === "option"
     ? `${answered} with the option "${words}".`
     : `${answered} in their own words:\n\n${words}`;

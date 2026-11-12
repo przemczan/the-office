@@ -42,6 +42,7 @@ import { Briefs } from "./briefs.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { CallChains } from "./call-chains.js";
 import { StageThreads, type StageThreadRequest } from "./stage-threads.js";
 import { TaskTokens } from "./task-tokens.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
@@ -173,6 +174,7 @@ async function startOn(
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
+      CallChains,
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
