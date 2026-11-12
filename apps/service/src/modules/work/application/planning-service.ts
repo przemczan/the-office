@@ -357,7 +357,10 @@ export class PlanningService {
       this.pipelines.commandsNamedBy(pipelineId),
       this.projects.find(task.projectId),
     ]);
-    if (!project) return;
+    if (!project) {
+      if (!pipeline) throw new TaskRefused([`There is no Pipeline "${pipelineId}".`]);
+      return;
+    }
     const problems = taskPipelineProblems(
       {
         pipelineId,
