@@ -13,7 +13,7 @@ import {
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
-import { Git } from "../ports/git.js";
+import { Git, type GitVariables, type NewWorktree } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { BaseCheckouts } from "./base-checkouts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
@@ -60,6 +60,69 @@ class FetchesThatMeet extends Worktrees {
       for (const fail of this.started.toReversed()) fail();
     });
   }
+}
+
+/** Real git, but checking nothing out under `initiative-bases/` while `failing` is set. */
+class InitiativeCheckoutsThatFail extends CommandLineGit {
+  failing = false;
+
+  override checkoutDetached(
+    worktreePath: string,
+    commit: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    this.refuseOnInitiative(worktreePath);
+    return super.checkoutDetached(worktreePath, commit, variables);
+  }
+
+  override addWorktree(
+    repositoryPath: string,
+    worktree: NewWorktree,
+    variables: GitVariables,
+  ): Promise<void> {
+    this.refuseOnInitiative(worktree.path);
+    return super.addWorktree(repositoryPath, worktree, variables);
+  }
+
+  private refuseOnInitiative(path: string): void {
+    if (this.failing && path.includes("initiative-bases")) throw new Error("No disk space.");
+  }
+}
+
+/** A repository of its own whose main tracks its origin's, read as the Projects listed. */
+async function initiativeCheckouts(projectIds: readonly string[]) {
+  const own = await createTemporaryRepository();
+  gitIn(own.path, "fetch", "--quiet", "origin");
+  gitIn(own.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
+  const git = new InitiativeCheckoutsThatFail(new RepositoryLocks(), officeIdentityForTests());
+  const commands = new ProjectCommandRunner(new ShellCommandRunner());
+  const officeData = new OfficeDataDirectory(join(own.folder, "office-data"));
+  const listed = new ListedProjects(
+    projectIds.map((id) => aProject({ id, name: id, path: own.path })),
+  );
+  const initiativeBases = new BaseCheckouts(
+    listed,
+    git,
+    new Worktrees(git, commands, taskCommandsOver(commands), officeData),
+    commands,
+    officeData,
+  );
+  return { repository: own, git, officeData, checkouts: initiativeBases };
+}
+
+/** Moves the local branch on by a commit of its own, as a Publish into it does, and answers it. */
+function committedOn(repositoryPath: string, branch: string): string {
+  const commit = gitIn(
+    repositoryPath,
+    "commit-tree",
+    `${branch}^{tree}`,
+    "-p",
+    branch,
+    "-m",
+    "Done in the Initiative",
+  );
+  gitIn(repositoryPath, "update-ref", `refs/heads/${branch}`, commit);
+  return commit;
 }
 
 // Real git on a temporary repository whose main tracks its origin's.
@@ -167,4 +230,106 @@ describe("BaseCheckouts", () => {
 
     expect(refreshed.map(({ projectId }) => projectId)).toEqual(["first", "second"]);
   });
+});
+
+describe("BaseCheckouts on an Initiative", () => {
+  const READS = { shortName: "sync", branch: "initiative/sync", projectIds: ["admin-panel"] };
+  let setup: Awaited<ReturnType<typeof initiativeCheckouts>>;
+  let onTheBranch: string;
+
+  beforeAll(async () => {
+    setup = await initiativeCheckouts(["admin-panel", "site"]);
+    onTheBranch = join(setup.officeData.folder("initiative-bases"), "sync", "admin-panel");
+  });
+
+  afterAll(async () => {
+    await setup.repository.remove();
+  });
+
+  it("names the Initiative's branch gone where the repository hasn't it, and its checkout once it has", async () => {
+    const bases = setup.officeData.folder("bases");
+
+    expect(setup.checkouts.initiativeFolder("sync")).toBe(
+      join(setup.officeData.folder("initiative-bases"), "sync"),
+    );
+    await expect(setup.checkouts.listOnInitiative(READS)).resolves.toEqual([
+      expect.objectContaining({
+        projectId: "admin-panel",
+        folder: join(bases, "admin-panel"),
+        initiativeBranch: { branch: "initiative/sync", gone: true },
+      }),
+      { projectId: "site", name: "site", baseBranch: "main", folder: join(bases, "site") },
+    ]);
+    gitIn(setup.repository.path, "branch", "initiative/sync", "main");
+    await expect(setup.checkouts.listOnInitiative(READS)).resolves.toEqual([
+      expect.objectContaining({
+        folder: onTheBranch,
+        initiativeBranch: { branch: "initiative/sync", gone: false },
+      }),
+      { projectId: "site", name: "site", baseBranch: "main", folder: join(bases, "site") },
+    ]);
+  });
+
+  it("checks the Initiative's branch out detached at its commit, follows it as it moves, and reads every other Project at its base", async () => {
+    const first = committedOn(setup.repository.path, "initiative/sync");
+
+    const refreshed = await setup.checkouts.refreshOnInitiative(READS);
+
+    expect(refreshed).toEqual([
+      expect.objectContaining({
+        projectId: "admin-panel",
+        folder: onTheBranch,
+        initiativeBranch: { branch: "initiative/sync", gone: false },
+      }),
+      {
+        projectId: "site",
+        name: "site",
+        baseBranch: "main",
+        folder: join(setup.officeData.folder("bases"), "site"),
+      },
+    ]);
+    expect(gitIn(onTheBranch, "rev-parse", "HEAD")).toBe(first);
+    expect(gitIn(onTheBranch, "rev-parse", "--abbrev-ref", "HEAD")).toBe("HEAD");
+    const second = committedOn(setup.repository.path, "initiative/sync");
+    await setup.checkouts.refreshOnInitiative(READS);
+    expect(gitIn(onTheBranch, "rev-parse", "HEAD")).toBe(second);
+  }, 30_000);
+
+  it("keeps the checkout it had when checking the branch out fails, or reads the base when there was none", async () => {
+    const head = gitIn(onTheBranch, "rev-parse", "HEAD");
+    committedOn(setup.repository.path, "initiative/sync");
+    setup.git.failing = true;
+
+    const refreshed = await setup.checkouts.refreshOnInitiative({
+      ...READS,
+      projectIds: ["admin-panel", "site"],
+    });
+
+    setup.git.failing = false;
+    expect(gitIn(onTheBranch, "rev-parse", "HEAD")).toBe(head);
+    expect(refreshed).toEqual([
+      expect.objectContaining({ folder: onTheBranch }),
+      {
+        projectId: "site",
+        name: "site",
+        baseBranch: "main",
+        folder: join(setup.officeData.folder("bases"), "site"),
+      },
+    ]);
+  }, 30_000);
+
+  it("reads the base branch once the Initiative's branch is deleted, and removes its checkout", async () => {
+    gitIn(setup.repository.path, "branch", "-D", "initiative/sync");
+
+    const refreshed = await setup.checkouts.refreshOnInitiative(READS);
+
+    expect(refreshed[0]).toEqual({
+      projectId: "admin-panel",
+      name: "admin-panel",
+      baseBranch: "main",
+      folder: join(setup.officeData.folder("bases"), "admin-panel"),
+      initiativeBranch: { branch: "initiative/sync", gone: true },
+    });
+    await expect(stat(onTheBranch)).rejects.toThrow("ENOENT");
+  }, 30_000);
 });

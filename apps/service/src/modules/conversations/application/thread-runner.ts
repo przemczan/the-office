@@ -676,6 +676,7 @@ export class ThreadRunner implements OnModuleDestroy {
       engineId,
       model,
       folder: place.folder,
+      readableFolders: place.readableFolders,
       environment: place.environment,
       effort: card.effort,
       instructions: place.instructions({ card, officeInstructions }),

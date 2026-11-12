@@ -12,6 +12,8 @@ import {
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InitiativeThreadSetups } from "../../../conversations/index.js";
+import { INITIATIVE_PLANNING_INSTRUCTIONS } from "../../domain/initiative-planning.js";
+import { PLANNER } from "../../domain/planning.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
 import {
   sendJson,
@@ -59,6 +61,31 @@ async function aTaskIn(
   );
 }
 
+/** The setup of a session of `roleKey`'s Thread on the Initiative. */
+function setUp(initiative: Initiative, roleKey: string) {
+  return work.app
+    .get(InitiativeThreadSetups)
+    .of({ threadId: randomUUID(), initiativeId: initiative.id, roleKey });
+}
+
+/** An Initiative spanning `projectIds`, one Task in each, on the Pipeline `pipelineId`. */
+async function anInitiativeOn(
+  pipelineId: string | null,
+  projectIds: readonly string[],
+): Promise<{ readonly initiative: Initiative; readonly tasks: readonly Task[] }> {
+  const idea = ideaSchema.parse(
+    await post("/ideas", { title: `Sync ${randomUUID().slice(0, 8)}`, notes: "", projectId: null }),
+  );
+  const initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
+  const tasks: Task[] = [];
+  for (const projectId of projectIds) tasks.push(await aTaskIn(initiative, "Sync", projectId, []));
+  const response = await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
+    pipelineId,
+  });
+  expect(response.status).toBeLessThan(300);
+  return { initiative: initiativeSchema.parse(await response.json()), tasks };
+}
+
 describe("a shaping Thread's session", () => {
   it("is briefed from the Initiative's record: its outcome, Tasks across Projects and what each waits for", async () => {
     const [api, web] = [`project-${randomUUID()}`, `project-${randomUUID()}`];
@@ -79,6 +106,7 @@ describe("a shaping Thread's session", () => {
       officeTools: SHAPING_OFFICE_TOOLS,
       record: expect.any(String),
       sessionRefusal: undefined,
+      branchReads: undefined,
     });
     expect(setup.record).toMatch(/^Usage exports/);
     expect(setup.record).toContain(
@@ -120,5 +148,57 @@ describe("a shaping Thread's session", () => {
       .of({ threadId: randomUUID(), initiativeId: initiative.id, roleKey: "cto" });
 
     expect(setup.sessionRefusal).toBe(ENDED_INITIATIVE_CONVERSATION_WORDS.dropped);
+  });
+});
+
+describe("what the Threads on an Initiative read", () => {
+  it("reads the Initiative's branch in each Project it spans, once it is confirmed with a Pipeline, for the CTO and the Planner", async () => {
+    const [api, web] = [`project-${randomUUID()}`, `project-${randomUUID()}`];
+    const { initiative } = await anInitiativeOn("full", [api, web]);
+    await post(`/initiatives/${initiative.id}/confirm`);
+
+    const expected = {
+      shortName: initiative.shortName,
+      branch: `initiative/${initiative.shortName}`,
+      projectIds: [api, web],
+    };
+    expect((await setUp(initiative, "cto")).branchReads).toEqual(expected);
+    expect((await setUp(initiative, PLANNER)).branchReads).toEqual(expected);
+  });
+
+  it("reads the base branches while it is shaping, and once it is confirmed on None", async () => {
+    const shaping = await anInitiativeOn("full", [`project-${randomUUID()}`]);
+    const onNone = await anInitiativeOn(null, [`project-${randomUUID()}`]);
+    await post(`/initiatives/${onNone.initiative.id}/confirm`);
+
+    expect((await setUp(shaping.initiative, "cto")).branchReads).toBeUndefined();
+    expect((await setUp(shaping.initiative, PLANNER)).branchReads).toBeUndefined();
+    expect((await setUp(onNone.initiative, "cto")).branchReads).toBeUndefined();
+    expect((await setUp(onNone.initiative, PLANNER)).branchReads).toBeUndefined();
+  });
+
+  it("reads a Project it stopped spanning at its base", async () => {
+    const [api, web, app] = [
+      `project-${randomUUID()}`,
+      `project-${randomUUID()}`,
+      `project-${randomUUID()}`,
+    ];
+    const { initiative, tasks } = await anInitiativeOn("full", [api, web]);
+    await post(`/initiatives/${initiative.id}/confirm`);
+    // Its only Task in web moves to app, where its branch is made: web keeps the branch made there.
+    await post(`/tasks/${tasks[1]?.id ?? ""}/move`, { projectId: app });
+
+    expect((await setUp(initiative, "cto")).branchReads?.projectIds).toEqual([api, app]);
+  });
+
+  it("is told to read each Project where The Projects in its Brief say, the same for every Initiative", () => {
+    const reads =
+      "You read each Project where The Projects in your Brief say: its base branch, or the Initiative's branch once it has one; you change no file";
+
+    expect(SHAPING_INSTRUCTIONS).toContain(reads);
+    expect(INITIATIVE_PLANNING_INSTRUCTIONS).toContain(reads);
+    expect(INITIATIVE_PLANNING_INSTRUCTIONS).toContain(
+      "Tell each subagent to read the Task's record and the checkouts The Projects list",
+    );
   });
 });

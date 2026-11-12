@@ -15,7 +15,7 @@ import {
 import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
-import { ProjectBases } from "../ports/project-bases.js";
+import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
 import { NO_MASK, ProjectOutputMasks, type TextMask } from "../ports/project-output-masks.js";
 import { Briefs } from "./briefs.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
@@ -24,6 +24,8 @@ import { taskThreadRequest, TaskThreadSetups } from "./task-thread-setups.js";
 /** Where a Thread's session works and what it is given, which its home decides. */
 export interface SessionPlace {
   readonly folder: string;
+  /** The folders it reads besides its own: an Initiative's branch checkouts; none for any other. */
+  readonly readableFolders: readonly string[];
   readonly environment: Readonly<Record<string, string>>;
   /**
    * The Project checkout the session works in, for its skills and its MCP servers' Server values;
@@ -56,6 +58,12 @@ export interface SessionPlace {
   /** Readies the folder as a session opens on it. */
   ready(): Promise<void>;
 }
+
+/** Where a session that only reads Projects' checkouts works. */
+type ReadingPlace = Pick<
+  SessionPlace,
+  "folder" | "readableFolders" | "environment" | "project" | "mask" | "ready"
+>;
 
 /**
  * A chat session, or one on an Initiative, reads every Project's base branch with the service's own
@@ -93,6 +101,7 @@ export class SessionPlaces {
     if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
       folder: setup.folder,
+      readableFolders: [],
       environment: setup.environment,
       project: {
         id: setup.projectId,
@@ -147,6 +156,7 @@ export class SessionPlaces {
     }
     return {
       folder: homedir(),
+      readableFolders: [],
       environment: serviceEnvironment(),
       project: undefined,
       mask: NO_MASK,
@@ -157,7 +167,11 @@ export class SessionPlaces {
     };
   }
 
-  /** An Initiative spans Projects, so its session reads every base branch, as a chat's does. */
+  /**
+   * An Initiative spans Projects, so its session reads every Project, as a chat's does: once it has
+   * branches, at the Initiative's branch in the Projects `branchReads` names. Its folder stays the
+   * base checkouts', even then, so a session started while shaping resumes after Confirm.
+   */
   private async initiative(thread: Thread, initiativeId: string): Promise<SessionPlace> {
     const setup = await this.initiativeThreads.of({
       threadId: thread.id,
@@ -166,7 +180,9 @@ export class SessionPlaces {
     });
     if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
-      ...this.basesPlace(thread),
+      ...(setup.branchReads === undefined
+        ? this.basesPlace(thread)
+        : this.initiativeBranchPlace(thread, setup.branchReads)),
       officeTools: setup.officeTools,
       callsCanWait: false,
       workstation: false,
@@ -177,11 +193,26 @@ export class SessionPlaces {
     };
   }
 
-  private basesPlace(
-    thread: Thread,
-  ): Pick<SessionPlace, "folder" | "environment" | "project" | "mask" | "ready"> {
+  private initiativeBranchPlace(thread: Thread, reads: InitiativeBranchReads): ReadingPlace {
+    return {
+      ...this.basesPlace(thread),
+      readableFolders: [this.bases.initiativeFolder(reads.shortName)],
+      ready: async () => {
+        const projects = await this.bases.refreshOnInitiative(reads);
+        const onBranch = projects.filter(
+          ({ initiativeBranch }) => initiativeBranch?.gone === false,
+        );
+        this.logger.log(
+          `Thread ${thread.id} reads ${reads.branch} in ${onBranch.length} Projects and ${projects.length - onBranch.length} Projects' base branches.`,
+        );
+      },
+    };
+  }
+
+  private basesPlace(thread: Thread): ReadingPlace {
     return {
       folder: this.bases.folder,
+      readableFolders: [],
       // The service's own: such a session runs no Project command, so no Project's changes to it.
       environment: serviceEnvironment(),
       project: undefined,

@@ -149,7 +149,8 @@ export class PlanningService {
   /**
    * start_planning in an Initiative's planning Thread: Backlog → Planning for one of its Tasks, in
    * the Initiative's auto mode, the Task then planned in that Thread. No worktree is made, as the
-   * Thread reads the base branches: Start makes it, as for a Task marked Ready from Backlog.
+   * Thread reads each Project's checkout, at its base branch or at the Initiative's branch once it
+   * has one: Start makes it, as for a Task marked Ready from Backlog.
    * Refused with the reasons of `startPlanningInInitiative`.
    */
   async startPlanningInInitiative(thread: SessionInitiativeThread, taskId: string): Promise<Task> {

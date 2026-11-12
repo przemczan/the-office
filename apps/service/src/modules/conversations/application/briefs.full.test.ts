@@ -17,7 +17,8 @@ import { aDecision } from "../domain/decision.fixtures.js";
 import type { Thread } from "../domain/thread.js";
 import { logMessages } from "../domain/thread-changes.js";
 import { aThread, aUserMessage } from "../domain/thread.fixtures.js";
-import { ProjectBases } from "../ports/project-bases.js";
+import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
+import { projectBasesOver } from "../ports/project-bases.fixtures.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import {
@@ -27,14 +28,27 @@ import {
 import { sessionMemoryProvider, type MemoryAsk } from "./session-memory.fixtures.js";
 import { TaskThreadSetups, type TaskThreadRequest } from "./task-thread-setups.js";
 
-const PROJECTS: BriefProject[] = [
+const ADMIN_PANEL: BriefProject = {
+  projectId: "admin-panel",
+  name: "Admin panel",
+  baseBranch: "main",
+  folder: "/office/bases/admin-panel",
+};
+
+const PROJECTS: BriefProject[] = [ADMIN_PANEL];
+
+/** As a session on an Initiative with a Pipeline reads them: at the Initiative's branch. */
+const ON_THE_BRANCH: BriefProject[] = [
   {
-    projectId: "admin-panel",
-    name: "Admin panel",
-    baseBranch: "main",
-    folder: "/office/bases/admin-panel",
+    ...ADMIN_PANEL,
+    folder: "/office/initiative-bases/sync/admin-panel",
+    initiativeBranch: { branch: "initiative/sync", gone: false },
   },
 ];
+
+/** The Initiatives whose Threads read their branch, by id, with what they read there. */
+const branchReads = new Map<string, InitiativeBranchReads>();
+const listedOnInitiative: InitiativeBranchReads[] = [];
 
 let app: INestApplication;
 let briefs: Briefs;
@@ -45,9 +59,11 @@ const asked: MemoryAsk[] = [];
 
 beforeAll(async () => {
   const bases: ProjectBases = {
-    folder: "/office/bases",
-    list: () => Promise.resolve(PROJECTS),
-    refresh: () => Promise.resolve(PROJECTS),
+    ...projectBasesOver("/office/bases", PROJECTS),
+    listOnInitiative: (reads) => {
+      listedOnInitiative.push(reads);
+      return Promise.resolve(ON_THE_BRANCH);
+    },
   };
   ({ app } = await startTestApplication({
     database: true,
@@ -68,6 +84,7 @@ beforeAll(async () => {
         record: recordOf(initiativeId),
         asking: false,
         sessionRefusal: undefined,
+        branchReads: branchReads.get(initiativeId),
       }),
   });
   app.get(TaskThreadSetups).provide({
@@ -181,6 +198,23 @@ describe("Briefs", () => {
       { roleKey: "cto", reach: { kind: "all-projects" } },
       { roleKey: "cto", reach: { kind: "all-projects" } },
     ]);
+  });
+
+  it("briefs a Thread on an Initiative with a Pipeline from where its branch is read", async () => {
+    const initiativeId = randomUUID();
+    const reads = { shortName: "sync", branch: "initiative/sync", projectIds: ["admin-panel"] };
+    branchReads.set(initiativeId, reads);
+    const home = { kind: "initiative", initiativeId } as const;
+
+    await expect(briefs.forThread(aThread({ roleKey: "cto", home }))).resolves.toEqual(
+      initiativeThreadBrief({
+        record: recordOf(initiativeId),
+        memory: MEMORY,
+        projects: ON_THE_BRANCH,
+        continuing: false,
+      }),
+    );
+    expect(listedOnInitiative).toEqual([reads]);
   });
 
   it("briefs a Thread on a Task with the Decisions answered in any of the Task's Threads, and the one it waits on", async () => {

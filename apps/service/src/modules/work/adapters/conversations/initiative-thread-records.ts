@@ -2,6 +2,7 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { ENDED_INITIATIVE_CONVERSATION_WORDS, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import {
   InitiativeThreadSetups,
+  type InitiativeBranchReads,
   type InitiativeThreadRequest,
   type InitiativeThreadSetup,
   type InitiativeThreadSource,
@@ -16,6 +17,8 @@ import {
 } from "../../domain/initiative-planning.js";
 import { PLANNER } from "../../domain/planning.js";
 import { SHAPING_INSTRUCTIONS, shapingBrief } from "../../domain/shaping.js";
+import { initiativeBranchOf } from "../../domain/short-name.js";
+import type { Task } from "../../domain/task.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
 import { TaskDecisions } from "../../ports/task-decisions.js";
@@ -93,38 +96,42 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     initiativeId,
     roleKey,
   }: InitiativeThreadRequest): Promise<InitiativeThreadSetup> {
-    const [initiative, record] = await Promise.all([
+    const [initiative, record, byInitiative] = await Promise.all([
       this.initiatives.read(initiativeId),
       this.initiatives.recordText(initiativeId),
+      this.initiatives.tasksByInitiative(),
     ]);
+    const tasks = byInitiative.get(initiativeId) ?? [];
     const sessionRefusal = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
+    const branchReads = initiativeBranchReads(initiative, tasks);
     if (roleKey !== PLANNER) {
       return {
         instructions: SHAPING_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,
         record: shapingBrief(initiative, record, await this.pipelines.list()),
         sessionRefusal,
+        branchReads,
       };
     }
     return {
       instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
       officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
-      record: await this.planningBrief(initiative, record, threadId),
+      record: await this.planningBrief(initiative, record, tasks, threadId),
       sessionRefusal,
+      branchReads,
     };
   }
 
   private async planningBrief(
     initiative: Initiative,
     record: string,
+    tasks: readonly Task[],
     threadId: string,
   ): Promise<string> {
-    const [byInitiative, pipelines, waiting] = await Promise.all([
-      this.initiatives.tasksByInitiative(),
+    const [pipelines, waiting] = await Promise.all([
       this.pipelines.list(),
       this.decisions.openInThread(threadId),
     ]);
-    const tasks = byInitiative.get(initiative.id) ?? [];
     const projects = await Promise.all(
       initiativeProjectIds(tasks).map((id) => this.planningProject(id)),
     );
@@ -150,4 +157,23 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       commands: project.commands,
     };
   }
+}
+
+/**
+ * The Projects an active Initiative with a Pipeline is read at its branch in (spec §2.4): those it
+ * spans now that it has its branch in; one it stopped spanning is read at its base. Undefined while
+ * it is shaping, on None, or confirmed before Initiatives had a Pipeline, so it reads base branches.
+ */
+function initiativeBranchReads(
+  initiative: Initiative,
+  tasks: readonly Task[],
+): InitiativeBranchReads | undefined {
+  const { state, pipelineId, shortName, branches } = initiative;
+  if (state !== "active" || pipelineId === undefined || shortName === undefined) return undefined;
+  const branched = new Set(branches.map(({ projectId }) => projectId));
+  return {
+    shortName,
+    branch: initiativeBranchOf(shortName),
+    projectIds: initiativeProjectIds(tasks).filter((projectId) => branched.has(projectId)),
+  };
 }

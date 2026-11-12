@@ -157,7 +157,7 @@ function startStandIn({ command, args, processTrees }: StandInEngine): RunningSt
 function scriptedSessionRules(options: SessionOptions): OfficeRules {
   return new OfficeRules({
     workingFolder: options.folder,
-    readableFolders: [],
+    readableFolders: options.readableFolders ?? [],
     profile: options.profile,
     workstation: false,
     secrets: [],

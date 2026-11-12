@@ -52,6 +52,7 @@ import { MentionedRecords } from "../../application/mentioned-records.js";
 import { openPageRecordProviders } from "../../application/open-page-records.fixtures.js";
 import { WorkRecords } from "../../application/work-records.js";
 import { ProjectBases } from "../../ports/project-bases.js";
+import { noProjectBases } from "../../ports/project-bases.fixtures.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "../websocket/thread-web-events.js";
 import { DecisionsController } from "./decisions.controller.js";
@@ -193,11 +194,7 @@ function setUpEachTest(): void {
         return person ? Promise.resolve(person) : Promise.reject(new Error(`No ${roleKey} here.`));
       },
     };
-    const bases: ProjectBases = {
-      folder: join(officeData, "bases"),
-      list: () => Promise.resolve([]),
-      refresh: () => Promise.resolve([]),
-    };
+    const bases = noProjectBases(join(officeData, "bases"));
     ({ app, url } = await startTestApplication({
       database: true,
       imports: [

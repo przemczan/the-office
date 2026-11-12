@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { InitiativeBranchReads } from "../ports/project-bases.js";
 
 /** A Thread on an Initiative, as the module keeping Initiatives sets its session up. */
 export interface InitiativeThreadRequest {
@@ -10,7 +11,8 @@ export interface InitiativeThreadRequest {
 
 /**
  * What a session of a Thread on an Initiative works with, from the Initiative's record. An
- * Initiative spans Projects, so the session reads every Project's base branch, as a chat does.
+ * Initiative spans Projects, so the session reads every Project, as a chat does: at its base
+ * branch, or at the Initiative's branch in those `branchReads` names.
  */
 export interface InitiativeThreadSetup {
   /**
@@ -26,6 +28,11 @@ export interface InitiativeThreadSetup {
    * words. The Thread stays readable; a session is refused.
    */
   readonly sessionRefusal: string | undefined;
+  /**
+   * The Projects read at the Initiative's branch, once an Initiative with a Pipeline is confirmed
+   * (spec §2.4); undefined while it reads only base branches.
+   */
+  readonly branchReads: InitiativeBranchReads | undefined;
 }
 
 /** Sets up the sessions of Threads on Initiatives. */

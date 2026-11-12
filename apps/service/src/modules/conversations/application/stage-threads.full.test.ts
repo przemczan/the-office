@@ -51,6 +51,7 @@ import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { ProjectBases } from "../ports/project-bases.js";
+import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
@@ -155,11 +156,7 @@ async function startOn(
       forNewSession: personIn,
       forResumedSession: personIn,
     };
-  const bases: ProjectBases = {
-    folder: join(officeData, "bases"),
-    list: () => Promise.resolve([]),
-    refresh: () => Promise.resolve([]),
-  };
+  const bases = noProjectBases(join(officeData, "bases"));
   ({ app } = await startTestApplication({
     database: true,
     imports: [
