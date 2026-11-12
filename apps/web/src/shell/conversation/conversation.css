@@ -759,6 +759,12 @@
   gap: 8px;
 }
 
+/* The "to" between the asker and the Consultant: a quiet caption between the two tags. */
+.decision-put-to {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
 .decision-window {
   display: flex;
   flex-direction: column;

@@ -51,12 +51,13 @@ function aThread(id: string, home: Thread["home"]): Thread {
 }
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
+const REVIEWER = { key: "reviewer", letGoAt: null, card: { name: "Michael" } } as unknown as Role;
 
 async function rendered(decision: Decision): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
-  queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
+  queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER, REVIEWER]);
   queryClient.setQueryData(taskQueries.one(TASK.id).queryKey, TASK);
   queryClient.setQueryData(
     threadQueries.one(PLANNING_THREAD).queryKey,
@@ -109,5 +110,56 @@ describe("a Decision in its Thread", () => {
     const page = await rendered(aDecision(TASK_THREAD));
 
     expect(page.querySelector(".decision-on-task")).toBeNull();
+  });
+});
+
+function header(page: HTMLElement): HTMLElement {
+  const line = page.querySelector<HTMLElement>(".message-by");
+  if (line === null) throw new Error("The Decision has no header.");
+  return line;
+}
+
+/** The header's words past its badge, leaving out the avatars' initials. */
+function headerWords(page: HTMLElement): string {
+  return [...header(page).querySelectorAll(".person-tag-name, .decision-put-to")]
+    .map((part) => part.textContent)
+    .join(" ");
+}
+
+describe("a Decision's header", () => {
+  afterEach(() => document.body.replaceChildren());
+
+  it("names the Consultant it was put to, linking to their page", async () => {
+    const page = await rendered({ ...aDecision(TASK_THREAD), putTo: "reviewer" });
+
+    expect(headerWords(page)).toBe("Angela to Michael");
+    expect(
+      [...header(page).querySelectorAll("a.person-tag")].map((tag) => tag.getAttribute("href")),
+    ).toEqual(["/people/planner", "/people/reviewer"]);
+  });
+
+  it("keeps whom it was put to once answered", async () => {
+    const page = await rendered({
+      ...aDecision(TASK_THREAD),
+      putTo: "reviewer",
+      answer: { kind: "option", option: 0 },
+      answeredAt: "2026-11-10T14:30:00.000Z",
+      answeredBy: "reviewer",
+    });
+
+    expect(headerWords(page)).toBe("Angela to Michael");
+  });
+
+  it("names the Role key when the Consultant's Role is gone", async () => {
+    const page = await rendered({ ...aDecision(TASK_THREAD), putTo: "designer" });
+
+    expect(headerWords(page)).toBe("Angela to designer");
+  });
+
+  it("names no one else when it waits on the user", async () => {
+    const page = await rendered(aDecision(TASK_THREAD));
+
+    expect(headerWords(page)).toBe("Angela");
+    expect(header(page).querySelector(".decision-put-to")).toBeNull();
   });
 });

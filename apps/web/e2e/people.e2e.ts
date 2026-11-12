@@ -3181,6 +3181,20 @@ async function seedAnsweredConsultation(taskId: string, plannerThreadId: string)
   );
 }
 
+/** The Decision's header says it was put to Adam: "Jan to Adam", leading to Adam's page. */
+async function expectPutToAdam(decision: Locator): Promise<void> {
+  const header = decision.locator(".message-by");
+  await expect(header.locator(".person-tag-name, .decision-put-to")).toHaveText([
+    "Jan",
+    "to",
+    "Adam",
+  ]);
+  await expect(header.getByRole("link", { name: "Adam" })).toHaveAttribute(
+    "href",
+    "/people/developer",
+  );
+}
+
 // The engine replays the next session in e2e/sessions.jsonl: Jan's, once the user takes the Decision
 // over.
 test(
@@ -3210,12 +3224,14 @@ test(
       const decision = needsYou.getByRole("region", {
         name: `Decision: ${CONSULTATION_QUESTION}`,
       });
+      await expectPutToAdam(decision);
       await expect(decision).toContainText("Waiting on Adam in a Consultation");
       await expect(needsYou).toContainText("1 waiting on a Consultant");
       await expect(needsYou.getByText(/^\d+$/)).toHaveCount(0);
       const inThread = conversation.getByRole("region", {
         name: `Decision: ${CONSULTATION_QUESTION}`,
       });
+      await expectPutToAdam(inThread);
       await expect(inThread).toContainText("Waiting on Adam in a Consultation.");
       await expect(inThread.getByRole("link", { name: "Take it over in Needs you" })).toBeVisible();
       await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-consultation.png") });
