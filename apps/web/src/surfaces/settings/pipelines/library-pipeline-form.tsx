@@ -59,8 +59,9 @@ export function LibraryPipelineForm({
   const showToast = useToast();
   const saving = useMutation({
     mutationFn: () => (pipeline ? savePipeline(pipeline.id, draft) : addPipeline(draft)),
+    // The refusal shows above the save bar, so the warning window closes either way.
+    onSettled: () => setWarning(false),
     onSuccess: async (result) => {
-      setWarning(false);
       await queryClient.invalidateQueries(pipelineQueries.list());
       if (pipeline) {
         setDraft(editOf(result));

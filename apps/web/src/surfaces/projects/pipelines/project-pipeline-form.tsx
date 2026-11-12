@@ -69,8 +69,9 @@ export function ProjectPipelineForm({
   const saving = useMutation({
     mutationFn: () => saveProjectPipeline(projectPipeline.id, draft),
     onSuccess: async (result) => {
-      setDraft(editOf(result));
+      // The saved list first, so the bar never reads Unsaved changes against the old one.
       await queryClient.invalidateQueries(projectPipelineQueries.list(project.id));
+      setDraft(editOf(result));
       showToast("Pipeline saved. Tasks not started yet follow it; running ones keep their copy.");
     },
   });
