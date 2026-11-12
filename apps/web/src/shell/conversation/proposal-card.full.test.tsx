@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Proposal, ProposalStatus } from "@the-office/contracts";
+import type { Proposal, ProposalStatus, Stage } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { officeInstructionsQuery } from "../../api/conversations.ts";
+import { pipelineQueries } from "../../api/pipelines.ts";
 import { ToastProvider } from "../toasts.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
 
@@ -120,5 +121,172 @@ describe("ProposalCard on the Office instructions", () => {
     expect(card.textContent).toContain(words);
     expect(card.querySelector(".proposal-text")?.textContent).toBe(SEVERAL_LINES);
     expect(card.querySelectorAll("button")).toHaveLength(0);
+  });
+});
+
+function proposalOf(
+  change: Proposal["change"],
+  status: ProposalStatus = { kind: "open" },
+): Proposal {
+  return { ...officeInstructionsProposal(""), draftedBy: "devops", change, status };
+}
+
+const TESTS: Stage = {
+  kind: "script",
+  key: "tests",
+  name: "Tests",
+  command: "test",
+  optional: false,
+};
+const LINUX: Stage = {
+  kind: "script",
+  key: "linux",
+  name: "Verify on Linux",
+  command: "linux",
+  optional: false,
+};
+
+/** Answers each read by its path, and `POST .../apply` with `applied`. */
+function serviceReading(answers: Record<string, unknown>, applied?: Proposal): Mock<ServiceCall> {
+  const fetched = vi.fn<ServiceCall>((url) => {
+    const path = url.replace(/^\/api/, "").split("?")[0] ?? "";
+    if (path.endsWith("/apply")) return Promise.resolve(Response.json(applied));
+    return Promise.resolve(Response.json(answers[path] ?? []));
+  });
+  vi.stubGlobal("fetch", fetched);
+  return fetched;
+}
+
+describe("ProposalCard on a Project Pipeline", () => {
+  const newOne = proposalOf({
+    kind: "project-pipeline",
+    projectId: "the-office",
+    pipelineId: null,
+    from: null,
+    to: {
+      name: "Full with Linux check",
+      description: "Then Linux.",
+      basePipelineId: "full",
+      stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINUX }],
+    },
+  });
+
+  it("says it adds the Project Pipeline to its Project, with what the Project gets as the service builds it", async () => {
+    serviceReading({
+      "/projects": [],
+      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
+      "/project-pipelines/check": {
+        problems: [],
+        flags: [],
+        rows: [
+          {
+            stage: TESTS,
+            origin: "base",
+            stageChangeIndexes: [],
+            baseStage: TESTS,
+            changedFields: [],
+          },
+          {
+            stage: LINUX,
+            origin: "inserted",
+            stageChangeIndexes: [0],
+            baseStage: null,
+            changedFields: [],
+          },
+        ],
+        stages: [TESTS, LINUX],
+        broken: [],
+      },
+    });
+    const card = cardOf(newOne);
+
+    await vi.waitFor(() => expect(card.textContent).toContain("Tests → Verify on Linux"));
+    expect(card.textContent).toContain("Add Full with Linux check to the-office's Pipelines");
+    expect(card.textContent).toContain("Base PipelineFull");
+    expect(card.textContent).toContain("Inserts Verify on Linux after Tests");
+    expect(card.textContent).toContain("Refused if it changes before you apply this");
+  });
+
+  it("refreshes the Pipeline lists once applied, and says so", async () => {
+    serviceReading({}, { ...newOne, status: { kind: "applied", at: AT } });
+    const queryClient = new QueryClient();
+    const refreshed = vi.spyOn(queryClient, "invalidateQueries");
+    const card = cardOf(newOne, queryClient);
+
+    await act(async () => {
+      button(card, "Apply change").click();
+      await vi.waitFor(() => expect(refreshed).toHaveBeenCalledTimes(2));
+    });
+
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: pipelineQueries.list().queryKey });
+    expect(document.body.textContent).toContain(
+      "Full with Linux check added to the-office's Pipelines.",
+    );
+  });
+
+  it("titles a change by the Project Pipeline it changes", () => {
+    serviceReading({});
+    const fields = newOne.change.kind === "project-pipeline" ? newOne.change.to : undefined;
+    if (!fields) throw new Error("A Project Pipeline Proposal.");
+    const card = cardOf(
+      proposalOf({
+        kind: "project-pipeline",
+        projectId: "the-office",
+        pipelineId: "pp-linux",
+        from: fields,
+        to: { ...fields, description: "Linux, then publish." },
+      }),
+    );
+
+    expect(card.textContent).toContain("Change the-office's Full with Linux check");
+    expect(card.textContent).toContain("DescriptionThen Linux.Linux, then publish.");
+  });
+});
+
+describe("ProposalCard on a library Pipeline's Stages", () => {
+  const proposal = proposalOf({ kind: "pipeline", pipelineId: "full", from: [TESTS], to: [] });
+
+  it("lists the Project Pipelines it would break while open, and still applies", async () => {
+    serviceReading({
+      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
+      "/pipelines/check": {
+        problems: [],
+        flags: [],
+        breaks: [
+          {
+            projectPipelineId: "pp-linux",
+            name: "Full with Linux check",
+            projectId: "the-office",
+            projectName: "the-office",
+            reasons: [
+              {
+                stageChangeIndex: 0,
+                stageIndex: null,
+                stageKey: "tests",
+                text: "Inserts Verify on Linux after Tests, which Full no longer has.",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const card = cardOf(proposal);
+
+    await vi.waitFor(() =>
+      expect(card.textContent).toContain("Applying this breaks 1 Project Pipeline"),
+    );
+    expect(card.textContent).toContain(
+      "the-office › Full with Linux check: Inserts Verify on Linux after Tests, which Full no longer has.",
+    );
+    expect(button(card, "Apply anyway").disabled).toBe(false);
+  });
+
+  it("warns of nothing once it is applied", () => {
+    serviceReading({
+      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
+    });
+    const card = cardOf({ ...proposal, status: { kind: "applied", at: AT } });
+
+    expect(card.textContent).not.toContain("breaks");
   });
 });

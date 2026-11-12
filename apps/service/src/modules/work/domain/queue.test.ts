@@ -124,6 +124,31 @@ describe("releaseQueue", () => {
     expect(release.refused).toEqual([]);
   });
 
+  it("takes a queued Task on a Broken Pipeline out of the queue, with why, and starts the next", () => {
+    const tasks = [ready("a"), ready("b")];
+    const broken = {
+      ...developer,
+      brokenPipeline: {
+        name: "Spec change",
+        reasons: ["Changes Produce, which Document no longer has."],
+      },
+    };
+
+    const release = releaseQueue([queued("a", 1), queued("b", 2)], alarmOff(tasks), (id) =>
+      id === "a" ? broken : developer,
+    );
+
+    expect(release.refused).toEqual([
+      {
+        taskId: "a",
+        refusals: [
+          "Spec change is Broken: Changes Produce, which Document no longer has. Fix it in Admin panel's Pipelines, or choose another Pipeline for the Task.",
+        ],
+      },
+    ]);
+    expect(release.started.map(({ task }) => task.id)).toEqual(["b"]);
+  });
+
   it("starts a Task its Project limit held once one of its Project's Tasks ends", () => {
     const projectA = { ...conditionsFor("developer", 3), project: { name: "A", projectLimit: 1 } };
     const tasks = [

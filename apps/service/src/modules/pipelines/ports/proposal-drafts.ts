@@ -1,3 +1,4 @@
+import type { ProjectPipelineEdit } from "../domain/project-pipeline.js";
 import type { Stage } from "../domain/stage.js";
 
 /** Devops' new Stages for a library Pipeline, and its Stages now, as a Proposal carries them. */
@@ -16,8 +17,24 @@ export interface ProposedStageTemplateChange {
   readonly to: Stage;
 }
 
+/** A Project Pipeline's fields a Proposal gives it: its name, description, base Pipeline and Stage changes. */
+export type ProjectPipelineFields = ProjectPipelineEdit;
+
+/**
+ * Devops' new Project Pipeline of the Project, or its change to one: its fields now (`from`, null
+ * for a new one) and as proposed (`to`). `pipelineId` is null for a new one until it is applied.
+ */
+export interface ProposedProjectPipelineChange {
+  readonly kind: "project-pipeline";
+  readonly projectId: string;
+  readonly pipelineId: string | null;
+  readonly from: ProjectPipelineFields | null;
+  readonly to: ProjectPipelineFields;
+}
+
 /** What Pipelines drafts as a Proposal. */
-export type ProposedLibraryChange = ProposedPipelineChange | ProposedStageTemplateChange;
+export type ProposedLibraryChange =
+  ProposedPipelineChange | ProposedStageTemplateChange | ProposedProjectPipelineChange;
 
 /** The Proposals, which the Conversations module keeps; the composition root binds it. */
 export abstract class ProposalDrafts {

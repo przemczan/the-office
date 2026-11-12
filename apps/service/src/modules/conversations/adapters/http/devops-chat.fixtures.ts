@@ -3,6 +3,7 @@ import type { INestApplication } from "@nestjs/common";
 import {
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL,
   PROPOSE_SKILL_TOOL,
@@ -191,6 +192,7 @@ const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
   [PROPOSE_PROJECT_COMMANDS_TOOL]: "project-commands",
   [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
   [PROPOSE_STAGE_TEMPLATE_TOOL]: "stage-template",
+  [PROPOSE_PROJECT_PIPELINE_TOOL]: "project-pipeline",
   [PROPOSE_PROJECT_TOOL]: "project",
   [PROPOSE_SKILL_INSTALL_TOOL]: "skill-install",
   [PROPOSE_SKILL_UPDATE_TOOL]: "skill-update",

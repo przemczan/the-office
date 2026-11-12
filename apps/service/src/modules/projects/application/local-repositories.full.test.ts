@@ -11,6 +11,7 @@ import {
 } from "../adapters/git/temporary-repository.fixtures.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import type { KnownPipelines } from "../ports/known-pipelines.js";
+import type { ProjectRepository } from "../ports/project-repository.js";
 import { LocalRepositories } from "./local-repositories.js";
 import { MANIFEST_CHARACTERS } from "./repository-folder.js";
 import { ProjectChecks } from "./project-checks.js";
@@ -21,7 +22,13 @@ import type { EngineModels } from "../../engine/index.js";
 let repository: TemporaryRepository;
 const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
 const localRepositories = new LocalRepositories(
-  new ProjectChecks(git, {} as KnownPipelines, {} as OfficeDataDirectory, {} as EngineModels),
+  new ProjectChecks(
+    git,
+    {} as KnownPipelines,
+    {} as OfficeDataDirectory,
+    {} as EngineModels,
+    {} as ProjectRepository,
+  ),
   git,
 );
 

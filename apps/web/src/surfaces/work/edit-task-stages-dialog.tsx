@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Initiative,
-  Pipeline,
   Project,
   Role,
   RoleCardOptions,
@@ -9,15 +8,22 @@ import type {
   Task,
   TaskStages,
 } from "@the-office/contracts";
-import { Alert, Button, Dialog, Select } from "@the-office/ui";
+import { Alert, Button, Dialog } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { editTaskStages, pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, setPipeline } from "../../api/work.ts";
+import {
+  choiceById,
+  taskPipelineChoices,
+  type PipelineChoiceGroup,
+} from "../../shell/pipelines/pipeline-choices.ts";
+import { PipelinePicker } from "../../shell/pipelines/pipeline-picker.tsx";
 import { StageEditor } from "../../shell/pipelines/stage-editor.tsx";
 import type { StageCommandSource } from "../../shell/pipelines/stage-commands.ts";
 import { checkAwaited } from "../../shell/pipelines/stages-check.ts";
+import { useProjectPipelineChoices } from "../../shell/pipelines/use-pipelines.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
@@ -27,8 +33,8 @@ import { taskPublishingWords } from "./task-publishing.ts";
 
 /**
  * "Edit for this Task": the Stage editor on the Task's own copy of its Pipeline, and the Pipeline
- * swapped for another while the Task hasn't started. All of it is a draft until Save; closing the
- * window drops it. The library Pipeline stays as it is.
+ * swapped for another its Project can follow while the Task hasn't started. All of it is a draft
+ * until Save; closing the window drops it. The Pipeline itself stays as it is.
  */
 export function EditTaskStagesDialog({
   task,
@@ -38,7 +44,7 @@ export function EditTaskStagesDialog({
   readonly onClose: () => void;
 }): ReactNode {
   const taskStages = useQuery(pipelineQueries.taskStages(task.id));
-  const library = useQuery(pipelineQueries.list());
+  const library = useProjectPipelineChoices(task.projectId);
   const roles = useQuery(roleQueries.list());
   const options = useQuery(roleCardQueries.options());
   const project = useQuery(projectQueries.one(task.projectId));
@@ -46,25 +52,19 @@ export function EditTaskStagesDialog({
     ...initiativeQueries.one(task.initiativeId ?? ""),
     enabled: task.initiativeId !== null,
   });
-  if (!taskStages.data || !library.data || !roles.data || !options.data || !project.data) {
+  if (!taskStages.data || !library || !roles.data || !options.data || !project.data) {
     return null;
   }
+  const groups = taskPipelineChoices(project.data, library.officeWide, library.projectPipelines);
   if (task.initiativeId !== null && !initiative.data) return null;
   if (task.pipelineId === null) {
-    return (
-      <ChoosePipelineForm
-        task={task}
-        library={library.data}
-        project={project.data}
-        onClose={onClose}
-      />
-    );
+    return <ChoosePipelineForm task={task} groups={groups} onClose={onClose} />;
   }
   return (
     <EditTaskStagesForm
       task={{ ...task, pipelineId: task.pipelineId }}
       taskStages={taskStages.data}
-      library={library.data}
+      groups={groups}
       roles={roles.data}
       options={options.data}
       project={project.data}
@@ -80,19 +80,17 @@ export function EditTaskStagesDialog({
  */
 function ChoosePipelineForm({
   task,
-  library,
-  project,
+  groups,
   onClose,
 }: {
   readonly task: Task;
-  readonly library: readonly Pipeline[];
-  readonly project: Project;
+  readonly groups: readonly PipelineChoiceGroup[];
   readonly onClose: () => void;
 }): ReactNode {
   const [chosenPipelineId, setChosenPipelineId] = useState("");
   const showToast = useToast();
   const choosing = useRecordChange(task, (pipelineId: string) => setPipeline(task.id, pipelineId));
-  const chosen = library.find(({ id }) => id === chosenPipelineId);
+  const chosen = choiceById(groups, chosenPipelineId);
   return (
     <Dialog
       size="medium"
@@ -103,6 +101,7 @@ function ChoosePipelineForm({
           <Button
             loading={choosing.isPending}
             disabled={!chosen}
+            title={chosen ? undefined : "Choose a Pipeline first."}
             onClick={() =>
               choosing.mutate(chosenPipelineId, {
                 onSuccess: () => {
@@ -121,19 +120,14 @@ function ChoosePipelineForm({
       }
     >
       <div className="work-form">
-        <Select
-          label="Pipeline"
+        <PipelinePicker
           placeholder="Choose a Pipeline"
           value={chosenPipelineId}
+          groups={groups}
           disabled={choosing.isPending}
-          options={pipelineChoices(library, project.defaultPipeline)}
           onChange={setChosenPipelineId}
         />
-        {chosen && (
-          <p className="pipeline-choice-stages">
-            {chosen.stages.map(({ name }) => name).join(" → ")}
-          </p>
-        )}
+        {chosen && <p className="pipeline-choice-stages">{chosen.line}</p>}
         {choosing.error && (
           <RefusalAlert title="The Pipeline wasn't chosen" error={choosing.error} />
         )}
@@ -142,24 +136,10 @@ function ChoosePipelineForm({
   );
 }
 
-/** The library's Pipelines, the Project's default first and marked as such. */
-function pipelineChoices(
-  library: readonly Pipeline[],
-  defaultPipelineId: string,
-): { readonly value: string; readonly label: string }[] {
-  const isDefault = ({ id }: Pipeline) => id === defaultPipelineId;
-  return [...library.filter(isDefault), ...library.filter((pipeline) => !isDefault(pipeline))].map(
-    (pipeline) => ({
-      value: pipeline.id,
-      label: isDefault(pipeline) ? `${pipeline.name} (Project default)` : pipeline.name,
-    }),
-  );
-}
-
 function EditTaskStagesForm({
   task,
   taskStages,
-  library,
+  groups,
   roles,
   options,
   project,
@@ -168,7 +148,8 @@ function EditTaskStagesForm({
 }: {
   readonly task: Task & { readonly pipelineId: string };
   readonly taskStages: TaskStages;
-  readonly library: readonly Pipeline[];
+  /** What the Task may follow instead: its Project's own Pipelines, then the office-wide ones. */
+  readonly groups: readonly PipelineChoiceGroup[];
   readonly roles: readonly Role[];
   readonly options: RoleCardOptions;
   readonly project: Project;
@@ -178,12 +159,12 @@ function EditTaskStagesForm({
 }): ReactNode {
   const stagesOf = (pipelineId: string): readonly Stage[] =>
     (pipelineId === task.pipelineId ? taskStages.stages?.map(({ stage }) => stage) : undefined) ??
-    library.find(({ id }) => id === pipelineId)?.stages ??
+    choiceById(groups, pipelineId)?.stages ??
     [];
   const [chosenPipelineId, setChosenPipelineId] = useState(task.pipelineId);
   const [stages, setStages] = useState(() => stagesOf(task.pipelineId));
   const [edited, setEdited] = useState(false);
-  const pipeline = library.find(({ id }) => id === chosenPipelineId);
+  const pipeline = choiceById(groups, chosenPipelineId);
   const swapped = chosenPipelineId !== task.pipelineId;
   const check = useQuery({
     ...pipelineQueries.stagesCheck(task.id, stages),
@@ -240,17 +221,16 @@ function EditTaskStagesForm({
         <Alert tone="info">
           Changes apply to <b>{task.title}</b> only.{" "}
           {pipeline
-            ? `The library's ${pipeline.name} Pipeline stays as it is.`
+            ? `The ${pipeline.name} Pipeline itself stays as it is.`
             : "Its Pipeline was removed from the library."}
           {lockedNotes.length > 0 && " Stages already started are locked."}
         </Alert>
         {notStarted && (
-          <Select
-            label="Pipeline"
+          <PipelinePicker
             hint="Another Pipeline brings its own Stages. Saving it sets aside those edited for this Task."
             value={chosenPipelineId}
+            groups={groups}
             disabled={saving.isPending}
-            options={library.map(({ id, name }) => ({ value: id, label: name }))}
             onChange={(pipelineId) => {
               setChosenPipelineId(pipelineId);
               setStages(stagesOf(pipelineId));

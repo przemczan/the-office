@@ -934,6 +934,32 @@
   font-weight: 600;
 }
 
+/* A titled part of a card: a Project Pipeline's Stage changes, or what a Proposal would break. */
+.proposal-section {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.proposal-section .proposal-fields {
+  padding: 4px 0 0;
+}
+
+.proposal-section-title {
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* A Change's fields under its line, each as was → proposed. */
+.proposal-field .proposal-changes {
+  padding: 6px 0 0;
+}
+
+.proposal-breaks p {
+  margin: 0 0 4px;
+}
+
 .proposal-foot {
   display: flex;
   flex-wrap: wrap;

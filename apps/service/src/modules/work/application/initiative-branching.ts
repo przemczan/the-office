@@ -14,6 +14,7 @@ import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { initiativeBranchOf } from "../domain/short-name.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
+import { projectPipelineForInitiativeWords } from "../domain/pipeline-commands.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
 import type { Task } from "../domain/task.js";
@@ -121,6 +122,9 @@ export class InitiativeBranching {
       return [];
     const project = await this.projects.find(projectId);
     const pipeline = await this.pipelines.commandsNamedBy(initiative.pipelineId);
+    if (pipeline?.projectId !== undefined) {
+      return [await this.projectPipelineWords(pipeline.name, pipeline.projectId)];
+    }
     return project && pipeline ? initiativePipelineProblems(pipeline, [project]) : [];
   }
 
@@ -181,8 +185,18 @@ export class InitiativeBranching {
         `The Initiative's Pipeline "${pipelineId}" is no longer in the library; choose another.`,
       ]);
     }
+    if (pipeline.projectId !== undefined) {
+      throw new InitiativeRefused([
+        await this.projectPipelineWords(pipeline.name, pipeline.projectId),
+      ]);
+    }
     const problems = initiativePipelineProblems(pipeline, projects);
     if (problems.length > 0) throw new InitiativeRefused(problems);
+  }
+
+  private async projectPipelineWords(pipelineName: string, projectId: string): Promise<string> {
+    const owner = await this.projects.find(projectId);
+    return projectPipelineForInitiativeWords(pipelineName, owner?.name ?? projectId);
   }
 
   private async project(projectId: string): Promise<KnownProject> {

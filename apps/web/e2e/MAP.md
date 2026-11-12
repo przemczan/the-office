@@ -24,6 +24,8 @@
 - `office-database.ts`: E2E_ENVIRONMENT, E2E_DATABASE_SERVER, E2E_DATABASE_NAME, E2E_DATABASE_URL, queryOfficeDatabase, required
 - `office-identity.e2e.ts`
 - `people.e2e.ts`
+- `pipeline-picker.ts`: openPipelinePicker, pickPipeline, optionNames
+- `project-pipelines.ts`: addedBasePipeline, addedProjectPipeline, breakProjectPipelinesOf
 - `projects.e2e.ts`
 - `queue.e2e.ts`
 - `serve-office.ts`

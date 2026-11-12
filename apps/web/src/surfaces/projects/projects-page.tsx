@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { Pipeline, Project } from "@the-office/contracts";
 import { Alert, Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { pipelineQueries } from "../../api/pipelines.ts";
+import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { AskDevopsButton, useDevops } from "../../shell/ask-devops.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
@@ -23,7 +23,7 @@ import "./projects.css";
  */
 export function ProjectsPage(): ReactNode {
   const projects = useQuery(projectQueries.list());
-  const pipelines = useQuery(pipelineQueries.list());
+  const pipelines = useEveryPipeline();
   const projectFilter = useProjectFilter();
   const [adding, setAdding] = useState(false);
   const devops = useDevops();
@@ -34,7 +34,7 @@ export function ProjectsPage(): ReactNode {
       {projects.error && <Alert tone="danger" title={projects.error.message} />}
       <div className="projects-grid">
         {shown.map((project) => (
-          <ProjectCard key={project.id} project={project} pipelines={pipelines.data} />
+          <ProjectCard key={project.id} project={project} pipelines={pipelines} />
         ))}
         <article className="project-tile add-project-tile">
           <div className="project-tile-head">

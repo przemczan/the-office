@@ -19,6 +19,7 @@ export interface ProposedChanges {
   readonly "project-commands": ProposedProjectCommands;
   readonly pipeline: ProposedPipelineChange;
   readonly "stage-template": ProposedStageTemplateChange;
+  readonly "project-pipeline": ProposedProjectPipelineChange;
   readonly project: ProposedProject;
   readonly "skill-install": ProposedSkillInstall;
   readonly "skill-update": ProposedSkillUpdate;
@@ -166,6 +167,28 @@ export interface ProposedStageTemplateChange {
 }
 
 /**
+ * Devops' new Project Pipeline, or its change to one (spec §2.3): the fields as the Project Pipeline
+ * had them when drafted (`from`, null for a new one), and as proposed (`to`). Pipelines refuses to
+ * apply it once one of them changed; a Proposal never removes one or sets a Project's default.
+ */
+export interface ProposedProjectPipelineChange {
+  readonly kind: "project-pipeline";
+  readonly projectId: string;
+  /** The Project Pipeline it changes; null for a new one until the user applied it. */
+  readonly pipelineId: string | null;
+  readonly from: ProjectPipelineFields | null;
+  readonly to: ProjectPipelineFields;
+}
+
+/** What a Proposal of a Project Pipeline gives it, its Stage changes kept unread as its Stages are. */
+export interface ProjectPipelineFields {
+  readonly name: string;
+  readonly description: string;
+  readonly basePipelineId: string;
+  readonly stageChanges: readonly PipelineStageChange[];
+}
+
+/**
  * A Project Devops drafted to onboard (spec §2.1 Defaults): applying it adds the Project and its
  * Onboard Task, Ready on the Onboard Pipeline.
  */
@@ -241,6 +264,9 @@ export interface ProposedSkill {
 
 /** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */
 export type PipelineStage = object;
+
+/** A Stage change of a Project Pipeline, as Pipelines keeps it; Conversations doesn't read it. */
+export type PipelineStageChange = object;
 
 /** Open until the user applies it or declines it; nothing changes before they apply it. */
 export type ProposalStatus =

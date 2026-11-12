@@ -6,11 +6,13 @@ import {
   type Task,
   type TaskStage,
 } from "@the-office/contracts";
-import { Button } from "@the-office/ui";
+import { Alert, Button } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
+import { useProjectPipelineChoices } from "../../shell/pipelines/use-pipelines.ts";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
@@ -88,6 +90,9 @@ export function PipelineRail({
   const proposal = (
     <>
       <PublishingWait task={task} />
+      {!taskStages.editedForTask && (
+        <BrokenPipelineFlag task={task} onChooseAnother={() => setEditing(true)} />
+      )}
       <PipelineProposal task={task} pipeline={pipeline} />
     </>
   );
@@ -132,6 +137,40 @@ function PublishingWait({ task }: { readonly task: Task }): ReactNode {
   const tasks = useQuery(taskQueries.list()).data;
   const wait = tasks && publishingWaitWords(task, tasks);
   return wait ? <p className="pipeline-rail-wait">{wait}</p> : null;
+}
+
+/**
+ * A Task that hasn't started on a Broken Project Pipeline, with no Stages edited for it, can't start
+ * (spec §2.3, "A Broken Project Pipeline"): said with why, and another Pipeline offered.
+ */
+function BrokenPipelineFlag({
+  task,
+  onChooseAnother,
+}: {
+  readonly task: Task;
+  readonly onChooseAnother: () => void;
+}): ReactNode {
+  const choices = useProjectPipelineChoices(task.projectId);
+  const project = useQuery(projectQueries.one(task.projectId)).data;
+  const broken = choices?.projectPipelines.find(
+    ({ id, broken: reasons }) => id === task.pipelineId && reasons.length > 0,
+  );
+  if (!broken || !NOT_STARTED.includes(task.state)) return null;
+  const projectName = project?.name ?? "its Project";
+  return (
+    <Alert
+      tone="danger"
+      title={`${broken.name} is Broken`}
+      action={
+        <Button size="sm" variant="secondary" onClick={onChooseAnother}>
+          Choose another Pipeline
+        </Button>
+      }
+    >
+      {broken.broken.map(({ text }) => text).join(" ")} The Task can't start until it is fixed in{" "}
+      {projectName}'s Pipelines, or another Pipeline is chosen for it.
+    </Alert>
+  );
 }
 
 /**

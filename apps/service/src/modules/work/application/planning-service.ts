@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Author } from "../domain/author.js";
-import { missingCommands, missingCommandsWords } from "../domain/pipeline-commands.js";
+import { taskPipelineProblems } from "../domain/pipeline-commands.js";
 import { makeAPlanOpening, PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
 import {
   acceptInAutoMode,
@@ -345,24 +345,35 @@ export class PlanningService {
   }
 
   /**
-   * Refuses a Pipeline the library lacks, or one running a command the Task's Project lacks: its
-   * Stage would fail, so it is refused here rather than skipped (spec §2.3).
+   * Refuses a Pipeline the Task can't follow (`taskPipelineProblems`): one neither the library nor
+   * its Project has, another Project's, a Broken one, or one running a command the Task's Project
+   * lacks, whose Stage would fail, so it is refused here rather than skipped (spec §2.3).
    */
   private async refusePipelineFor(
     task: Pick<Task, "projectId">,
     pipelineId: string,
   ): Promise<void> {
-    const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
-    if (!pipeline) {
-      const known = (await this.pipelines.list()).map(({ id }) => id).join(", ");
-      throw new TaskRefused([`There is no Pipeline "${pipelineId}". The library has ${known}.`]);
+    const [pipeline, project] = await Promise.all([
+      this.pipelines.commandsNamedBy(pipelineId),
+      this.projects.find(task.projectId),
+    ]);
+    if (!project) {
+      if (!pipeline) throw new TaskRefused([`There is no Pipeline "${pipelineId}".`]);
+      return;
     }
-    const project = await this.projects.find(task.projectId);
-    if (!project) return;
-    const missing = missingCommands(pipeline, project);
-    if (missing.length > 0) {
-      throw new TaskRefused([missingCommandsWords(pipeline.name, missing, project.name)]);
-    }
+    const problems = taskPipelineProblems(
+      {
+        pipelineId,
+        pipeline,
+        ownerName:
+          pipeline?.projectId === undefined || pipeline.projectId === project.id
+            ? undefined
+            : (await this.projects.find(pipeline.projectId))?.name,
+        choices: pipeline ? [] : (await this.pipelines.listFor(project.id)).map(({ id }) => id),
+      },
+      project,
+    );
+    if (problems.length > 0) throw new TaskRefused(problems);
   }
 
   private async read(taskId: string): Promise<Task> {

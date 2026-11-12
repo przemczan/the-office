@@ -27,6 +27,7 @@ import {
   WRITE_TAGS,
 } from "./planning-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -181,10 +182,62 @@ describe("propose_pipeline", () => {
     // The library also holds Pipelines other test files add to the shared database.
     await expect(call(PROPOSE_PIPELINE, { pipelineId: "nightly", why: "No." })).resolves.toEqual({
       text: expect.stringMatching(
-        /^There is no Pipeline "nightly"\. The library has full, quick-fix, document, onboard, proof-of-concept/,
+        /^There is no Pipeline "nightly"\. The project-[\w-]+ can choose full, quick-fix, document, onboard, proof-of-concept/,
       ),
       isError: true,
     });
+  });
+});
+
+describe("propose_pipeline with Project Pipelines", () => {
+  it("proposes one of the Task's Project's own Project Pipelines", async () => {
+    const library = projectPipelinesForTests(work.app);
+    const own = await library.aProjectPipeline(task.projectId, await library.aBasePipeline());
+
+    const result = await call(PROPOSE_PIPELINE, { pipelineId: own.id, why: "It needs Linux." });
+
+    expect(result.isError).toBe(false);
+    expect((await current()).proposedPipeline).toEqual({
+      pipelineId: own.id,
+      reason: "It needs Linux.",
+    });
+  });
+
+  it("refuses another Project's Project Pipeline and a Broken one, naming it and why", async () => {
+    const library = projectPipelinesForTests(work.app);
+    const base = await library.aBasePipeline();
+    const others = await library.aProjectPipeline("project-other", base);
+    const own = await library.aProjectPipeline(task.projectId, base);
+    await library.breakProjectPipelinesOf(base);
+
+    const another = await call(PROPOSE_PIPELINE, { pipelineId: others.id, why: "No." });
+    const broken = await call(PROPOSE_PIPELINE, { pipelineId: own.id, why: "No." });
+
+    expect(another).toEqual({
+      text: `${others.name} is a Project Pipeline of The project-other: only The project-other's Tasks can follow it.`,
+      isError: true,
+    });
+    expect(broken).toEqual({
+      text: `${own.name} is Broken: Inserts Verify on Linux after Tests, which ${base.name} no longer has. Fix its Stage changes in The ${task.projectId}'s Pipelines, or choose another Pipeline.`,
+      isError: true,
+    });
+    expect((await current()).proposedPipeline).toBeUndefined();
+  });
+
+  it("is refused when auto mode would accept a Project Pipeline Broken since it was proposed", async () => {
+    await inAutoMode();
+    await writeTheParts();
+    const library = projectPipelinesForTests(work.app);
+    const base = await library.aBasePipeline();
+    const own = await library.aProjectPipeline(task.projectId, base);
+    await call(PROPOSE_PIPELINE, { pipelineId: own.id, why: "It needs Linux." });
+    await library.breakProjectPipelinesOf(base);
+
+    expect(await call(MARK_PLANNED, {})).toEqual({
+      text: expect.stringMatching(new RegExp(`^${own.name} is Broken: `)) as string,
+      isError: true,
+    });
+    expect((await current()).state).toBe("planning");
   });
 });
 

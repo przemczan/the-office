@@ -104,6 +104,12 @@ export const projectPipelineQueries = {
           signal,
         ),
     }),
+  /** Every Project's Project Pipelines, for finding one by its id wherever a Task names it. */
+  every: () =>
+    queryOptions({
+      queryKey: PROJECT_PIPELINES_KEY,
+      queryFn: ({ signal }) => getFromApi("/project-pipelines", projectPipelineListSchema, signal),
+    }),
   read: (projectPipelineId: string) =>
     queryOptions({
       queryKey: [...PROJECT_PIPELINES_KEY, projectPipelineId],

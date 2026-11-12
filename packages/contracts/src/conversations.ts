@@ -4,7 +4,7 @@ import { openPageSchema } from "./open-page.js";
 import { roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
-import { stageSchema } from "./stages.js";
+import { stageChangeSchema, stageSchema } from "./stages.js";
 import { prioritySchema } from "./work.js";
 
 /** Where a conversation lives: a person's chat, by the Role's key, a Task's or an Initiative's. */
@@ -341,6 +341,9 @@ export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 /** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
+/** The Office tool Devops drafts a Proposal of a Project Pipeline with, hidden alike. */
+export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
+
 /** The Office tool Devops drafts a Proposal of a Stage template's Stage with, hidden alike. */
 export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
 
@@ -358,6 +361,18 @@ export const PROPOSE_SKILL_TOOL = "propose_skill";
 
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
+
+/**
+ * What a Proposal of a Project Pipeline gives it: its name, description, base Pipeline (an
+ * office-wide one's id) and Stage changes, the whole ordered list.
+ */
+export const projectPipelineFieldsSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  basePipelineId: z.string(),
+  stageChanges: z.array(stageChangeSchema),
+});
+export type ProjectPipelineFields = z.infer<typeof projectPipelineFieldsSchema>;
 
 /** What a Proposal changes, by kind; the module that owns each kind applies it. */
 export const proposedChangeSchema = z.discriminatedUnion("kind", [
@@ -447,6 +462,18 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     templateId: z.string(),
     from: stageSchema,
     to: stageSchema,
+  }),
+  /**
+   * Devops' new Project Pipeline of a Project (`from` null), or its change to one: its fields when
+   * drafted and as proposed. `pipelineId` is null for a new one until the user applied it. Applying
+   * is refused once one changed; it never sets the Project's default.
+   */
+  z.object({
+    kind: z.literal("project-pipeline"),
+    projectId: z.string(),
+    pipelineId: z.string().nullable(),
+    from: projectPipelineFieldsSchema.nullable(),
+    to: projectPipelineFieldsSchema,
   }),
   /**
    * A Project Devops drafted to onboard: applying it adds the Project and its Onboard Task, Ready

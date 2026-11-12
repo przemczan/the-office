@@ -243,7 +243,7 @@ describe("the pipeline edit", () => {
 });
 
 describe("initiativePipelineProblems", () => {
-  const pipeline = { name: "Full", keys: ["test", "lint"], hasGate: true };
+  const pipeline = { name: "Full", keys: ["test", "lint"], hasGate: true, broken: [] };
 
   it("names each missing command and its Project", () => {
     expect(

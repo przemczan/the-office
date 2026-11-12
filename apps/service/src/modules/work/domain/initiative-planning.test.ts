@@ -6,6 +6,7 @@ import {
   rewriteInInitiative,
   startInitiativePlanning,
   startPlanningInInitiative,
+  type InitiativePlanningProject,
 } from "./initiative-planning.js";
 import { proposeDefinitionOfDone, proposePipeline, proposePlan } from "./planning-changes.js";
 import { InitiativeRefused } from "./initiative-refused.js";
@@ -197,6 +198,7 @@ describe("the Initiative's planning Thread", () => {
             { key: "test", name: "Test", commandLine: "npm test" },
             { key: "lint", name: "Lint", commandLine: "" },
           ],
+          ownPipelines: [],
         },
       ],
       pipelines: [
@@ -226,6 +228,45 @@ describe("the Initiative's planning Thread", () => {
     expect(brief).not.toContain("## Being planned here");
   });
 
+  it("lists each Project's own Pipelines, flagged when Broken, before the office-wide ones once", () => {
+    const brief = initiativePlanningBrief({
+      initiative: planning,
+      waiting: [],
+      record: "Initiative: Usage exports",
+      tasks: [first, second],
+      projects: [
+        planningProject("admin-panel", "Admin panel", [
+          {
+            id: "spec-change",
+            name: "Spec change",
+            description: "For the spec.",
+            stages: [{ name: "Write" }],
+            projectId: "admin-panel",
+            basePipeline: { id: "document", name: "Document" },
+            broken: ["Changes Produce, which Document no longer has."],
+          },
+        ]),
+        planningProject("shop", "Shop", []),
+      ],
+      pipelines: [
+        {
+          id: "full",
+          name: "Full",
+          description: "For most work.",
+          stages: [{ name: "Implement" }, { name: "Review" }],
+        },
+      ],
+    });
+
+    expect(brief).toContain(
+      [
+        "Admin panel's own Pipelines, which only its Tasks can follow:\n- spec-change: Spec change (Write). Built from Document. For the spec. Broken: Changes Produce, which Document no longer has. It can't be proposed.",
+        "Office-wide Pipelines:\n- full: Full (Implement → Review). For most work.",
+      ].join("\n\n"),
+    );
+    expect(brief).not.toContain("Shop's own Pipelines");
+  });
+
   it("names the Tasks this Thread moved to Planning and hasn't marked planned, for a fresh session", () => {
     const inThisThread = { state: "planning", initiativePlanningThreadId: THREAD } as const;
     const brief = initiativePlanningBrief({
@@ -253,6 +294,23 @@ describe("the Initiative's planning Thread", () => {
     expect(section).not.toContain("task-d");
   });
 });
+
+/** A Project an Initiative's planning Brief names, with its own Pipelines. */
+function planningProject(
+  id: string,
+  name: string,
+  ownPipelines: InitiativePlanningProject["ownPipelines"],
+): InitiativePlanningProject {
+  return {
+    id,
+    name,
+    baseBranch: "main",
+    defaultPipeline: "full",
+    installCommand: "",
+    commands: [],
+    ownPipelines,
+  };
+}
 
 /** The Planner's write of a Plan an answer changed. */
 function rewritten(task: Task) {

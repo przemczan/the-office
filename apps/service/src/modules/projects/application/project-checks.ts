@@ -3,6 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { EngineModels, offeredModels, type EngineModel } from "../../engine/index.js";
 import {
+  defaultPipelineOwnerProblems,
   missingPipelineCommandsProblems,
   namedByDefaultPipelineProblems,
 } from "../domain/pipeline-commands.js";
@@ -16,6 +17,7 @@ import { environmentProblems, type ProjectEnvironment } from "../domain/project-
 import { ProjectRefused } from "../domain/project-refused.js";
 import { CLONE_REMOTE, Git, type FolderInspection } from "../ports/git.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
+import { ProjectRepository } from "../ports/project-repository.js";
 import { clonePathOf, readRepositoryUrl } from "./repository-url.js";
 
 /** The rules of a Project that need git, the Pipelines or the engines, next to the domain's own. */
@@ -26,6 +28,7 @@ export class ProjectChecks {
     private readonly pipelines: KnownPipelines,
     private readonly officeData: OfficeDataDirectory,
     private readonly engines: EngineModels,
+    private readonly projects: ProjectRepository,
   ) {}
 
   /** Refuses with every reason the Project can't be added, before anything is saved. */
@@ -41,7 +44,7 @@ export class ProjectChecks {
       ...newProjectProblems(newProject),
       ...this.repositoryUrlProblems(newProject),
       ...(await this.repositoryProblems(newProject)),
-      ...(await this.pipelineProblems(newProject)),
+      ...(await this.pipelineProblems(newProject, undefined)),
     ];
   }
 
@@ -54,35 +57,43 @@ export class ProjectChecks {
     return [
       ...newProjectProblems(newProject),
       ...this.repositoryUrlProblems(newProject),
-      ...(await this.pipelineProblems(newProject)),
+      ...(await this.pipelineProblems(newProject, undefined)),
     ];
   }
 
-  /** Refuses a Pipeline the library lacks, or one running a command the Project lacks. */
+  /**
+   * Refuses a Pipeline neither the library nor the Project has, another Project's Project
+   * Pipeline, a Broken one, or one whose Stages, built, run a command the Project lacks.
+   */
   async checkDefaultPipeline(
-    project: Pick<Project, "defaultPipeline" | "commands" | "name">,
+    project: Pick<Project, "id" | "defaultPipeline" | "commands" | "name">,
   ): Promise<void> {
-    const problems = await this.pipelineProblems(project);
+    const problems = await this.pipelineProblems(project, project.id);
     if (problems.length > 0) throw new ProjectRefused(problems);
   }
 
   /** Refuses removing a command the Project's default Pipeline runs. */
-  async checkCommandRemoval(project: Pick<Project, "defaultPipeline">, key: string): Promise<void> {
+  async checkCommandRemoval(
+    project: Pick<Project, "id" | "defaultPipeline">,
+    key: string,
+  ): Promise<void> {
     const problems = await this.commandRemovalProblems(project, [key]);
     if (problems.length > 0) throw new ProjectRefused(problems);
   }
 
   /**
-   * Why the commands can't be removed: the Project's default Pipeline runs one, so the default
-   * stays runnable in its Project. Another Pipeline's Stage fails as could-not-run instead.
+   * Why the commands can't be removed: the Project's default Pipeline runs one, a Project
+   * Pipeline of its own by its built Stages, so the default stays runnable in its Project. Another
+   * Pipeline's Stage fails as could-not-run instead.
    */
   async commandRemovalProblems(
-    { defaultPipeline }: Pick<Project, "defaultPipeline">,
+    { id, defaultPipeline }: Pick<Project, "id" | "defaultPipeline">,
     keys: readonly string[],
   ): Promise<string[]> {
     if (keys.length === 0) return [];
     const pipeline = await this.pipelines.commandsNamedBy(defaultPipeline);
-    return keys.flatMap((key) => namedByDefaultPipelineProblems(key, pipeline));
+    const ownDefault = pipeline?.projectId === undefined || pipeline.projectId === id;
+    return ownDefault ? keys.flatMap((key) => namedByDefaultPipelineProblems(key, pipeline)) : [];
   }
 
   /** Refuses an engine Settings › Engines doesn't list, or a model it doesn't offer. */
@@ -145,15 +156,29 @@ export class ProjectChecks {
     );
   }
 
-  /** The Pipeline is in the library, and the Project has every command it runs. */
-  private async pipelineProblems({
-    defaultPipeline,
-    commands,
-    name,
-  }: Pick<NewProject, "defaultPipeline" | "commands" | "name">): Promise<string[]> {
+  /**
+   * The Pipeline is office-wide or the Project's own and not Broken (a new Project, with no id,
+   * takes an office-wide one only), and the Project has every command it runs.
+   */
+  private async pipelineProblems(
+    { defaultPipeline, commands, name }: Pick<NewProject, "defaultPipeline" | "commands" | "name">,
+    projectId: string | undefined,
+  ): Promise<string[]> {
     const pipeline = await this.pipelines.commandsNamedBy(defaultPipeline);
     if (!pipeline) return [`There is no Pipeline "${defaultPipeline}".`];
+    const ownerProblems = defaultPipelineOwnerProblems(
+      pipeline,
+      projectId,
+      await this.ownerName(pipeline.projectId, name),
+    );
+    if (ownerProblems.length > 0) return ownerProblems;
     return missingPipelineCommandsProblems(pipeline, commands, name);
+  }
+
+  /** The name of the Project a Project Pipeline belongs to. */
+  private async ownerName(ownerId: string | undefined, projectName: string): Promise<string> {
+    if (ownerId === undefined) return projectName;
+    return (await this.projects.find(ownerId))?.name ?? ownerId;
   }
 }
 

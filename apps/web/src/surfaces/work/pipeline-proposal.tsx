@@ -1,9 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Pipeline, Task } from "@the-office/contracts";
-import { Badge, Button, Select } from "@the-office/ui";
+import { Alert, Badge, Button } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { pipelineQueries } from "../../api/pipelines.ts";
+import { projectQueries } from "../../api/projects.ts";
 import { setPipeline } from "../../api/work.ts";
+import { choiceById, taskPipelineChoices } from "../../shell/pipelines/pipeline-choices.ts";
+import { PipelinePicker } from "../../shell/pipelines/pipeline-picker.tsx";
+import {
+  useEveryPipeline,
+  useProjectPipelineChoices,
+} from "../../shell/pipelines/use-pipelines.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useRecordChange } from "./planning-parts.tsx";
@@ -13,7 +19,8 @@ export const PIPELINE_PROPOSAL_ELEMENT_ID = "task-pipeline-proposal";
 
 /**
  * The Pipeline the Planner proposes, with why, at the rail's foot: the user takes it, keeps the one
- * the Task follows (when it has one) or chooses another from the library; each ends the proposal.
+ * the Task follows (when it has one) or chooses another its Project can follow; each ends the
+ * proposal. A Broken one can't be taken.
  */
 export function PipelineProposal({
   task,
@@ -24,19 +31,33 @@ export function PipelineProposal({
   readonly pipeline: Pipeline | undefined;
 }): ReactNode {
   const planner = usePlanner()?.card.name ?? "The Planner";
-  const pipelines = useQuery(pipelineQueries.list());
+  const project = useQuery(projectQueries.one(task.projectId)).data;
+  const choices = useProjectPipelineChoices(task.projectId);
+  const everyPipeline = useEveryPipeline();
   const choosing = useRecordChange(task, (pipelineId: string) => setPipeline(task.id, pipelineId));
   const proposed = task.proposedPipeline;
   if (proposed === null || task.state === "shaping") return null;
-  const nameOf = (id: string): string =>
-    pipelines.data?.find((candidate) => candidate.id === id)?.name ?? id;
-  const proposedName = nameOf(proposed.pipelineId);
+  const groups =
+    project && choices
+      ? taskPipelineChoices(project, choices.officeWide, choices.projectPipelines)
+      : [];
+  const proposedChoice = choiceById(groups, proposed.pipelineId);
+  const proposedName =
+    proposedChoice?.name ??
+    everyPipeline?.find(({ id }) => id === proposed.pipelineId)?.name ??
+    proposed.pipelineId;
+  const brokenWhy = proposedChoice?.brokenWhy;
   // A Task with no Pipeline yet has none to keep.
   const currentPipelineId = task.pipelineId;
   const same = proposed.pipelineId === currentPipelineId;
-  const others =
-    pipelines.data?.filter(({ id }) => id !== proposed.pipelineId && id !== currentPipelineId) ??
-    [];
+  const others = groups
+    .map((group) => ({
+      ...group,
+      choices: group.choices.filter(
+        ({ id }) => id !== proposed.pipelineId && id !== currentPipelineId,
+      ),
+    }))
+    .filter(({ choices: left }) => left.length > 0);
   return (
     <section
       id={PIPELINE_PROPOSAL_ELEMENT_ID}
@@ -52,6 +73,8 @@ export function PipelineProposal({
         <Button
           size="sm"
           loading={choosing.isPending && choosing.variables === proposed.pipelineId}
+          disabled={brokenWhy !== undefined}
+          title={brokenWhy}
           onClick={() => choosing.mutate(proposed.pipelineId)}
         >
           {same ? "Confirm" : `Use ${proposedName}`}
@@ -67,17 +90,23 @@ export function PipelineProposal({
           </Button>
         )}
         {others.length > 0 && (
-          <Select
-            aria-label="Another Pipeline"
+          <PipelinePicker
+            label="Another Pipeline"
+            labelHidden
             size="sm"
             placeholder="Another Pipeline…"
             value=""
+            groups={others}
             disabled={choosing.isPending}
-            options={others.map(({ id, name }) => ({ value: id, label: name }))}
             onChange={(pipelineId) => choosing.mutate(pipelineId)}
           />
         )}
       </div>
+      {brokenWhy !== undefined && (
+        <Alert tone="danger" title={`${proposedName} can't be taken`}>
+          {brokenWhy}
+        </Alert>
+      )}
       {choosing.error && <RefusalAlert title="The Pipeline wasn't set" error={choosing.error} />}
     </section>
   );

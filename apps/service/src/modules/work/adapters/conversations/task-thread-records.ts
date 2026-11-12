@@ -171,7 +171,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       this.worktrees.find(task.projectId, task.id),
       this.taskRecords.linksOf(task),
       this.attachments.listOf({ kind: "task", taskId: task.id }),
-      this.pipelines.list(),
+      this.pipelines.listFor(task.projectId),
       task.initiativeId === undefined ? undefined : this.initiatives.record(task.initiativeId),
     ]);
     return {

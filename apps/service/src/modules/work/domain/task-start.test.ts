@@ -86,6 +86,33 @@ describe("startTask", () => {
 });
 
 describe("startReasons", () => {
+  it("refuses a Task on a Broken Pipeline, naming it, why and where it is fixed", () => {
+    const reasons = startReasons(
+      ready,
+      {
+        ...conditions,
+        brokenPipeline: {
+          name: "Spec change",
+          reasons: ["Changes Produce, which Document no longer has."],
+        },
+      },
+      held([]),
+    );
+
+    expect(reasons).toEqual(
+      refused(
+        "Spec change is Broken: Changes Produce, which Document no longer has. Fix it in Admin panel's Pipelines, or choose another Pipeline for the Task.",
+      ),
+    );
+  });
+
+  it("starts a Task on a Project Pipeline that isn't Broken, or whose Stages were edited for it", () => {
+    // Start conditions leave `brokenPipeline` out when the Task's own Stages were edited for it.
+    expect(startReasons(ready, { ...conditions, brokenPipeline: undefined }, held([]))).toEqual(
+      refused(),
+    );
+  });
+
   it("refuses a Task whose Initiative's branch is gone, naming it and the Project", () => {
     const gone = {
       ...conditions,

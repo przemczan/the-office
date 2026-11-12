@@ -8,6 +8,7 @@ import { taskBranchBase } from "../domain/task-branch-base.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import {
   firstAgentStage,
+  type BrokenPipelineAtStart,
   type InitiativeBranchProblem,
   type StartConditions,
 } from "../domain/task-start.js";
@@ -15,13 +16,14 @@ import type { UsageSettings } from "../domain/usage-settings.js";
 import { AccountWindows } from "../ports/account-windows.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownProjects } from "../ports/known-projects.js";
-import { KnownPipelines } from "../ports/known-pipelines.js";
+import { KnownPipelines, type KnownPipeline } from "../ports/known-pipelines.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { OfficeLimits } from "./office-limits.js";
 import { DailyCaps } from "./daily-caps.js";
 import { StartsSinceReading } from "./starts-since-reading.js";
+import { TaskStageEdits } from "./task-stage-edits.js";
 import { UsageEstimates } from "./usage-estimates.js";
 
 const NOTHING_SINCE_READING = { fiveHour: 0, sevenDay: 0 };
@@ -55,6 +57,7 @@ export class StartConditionsReader {
     private readonly schedule: Schedule,
     private readonly initiatives: InitiativeRepository,
     private readonly initiativeBranches: ProjectInitiativeBranches,
+    private readonly stageEdits: TaskStageEdits,
   ) {}
 
   async of(task: Task): Promise<StartConditions> {
@@ -83,7 +86,7 @@ export class StartConditionsReader {
     const officeUpdateHold = this.updateHold.isScheduled() ? OFFICE_UPDATE_SCHEDULED : undefined;
     return async (task) => {
       const [pipeline, project, usage] = await Promise.all([
-        hasPipeline(task) ? this.pipelines.find(task.pipelineId) : undefined,
+        this.pipelineOf(task),
         this.projects.find(task.projectId),
         this.usageOf(task, everyTask, usageSettings, { daily, engineNames, now }),
       ]);
@@ -101,8 +104,27 @@ export class StartConditionsReader {
         usage,
         officeUpdateHold,
         initiativeBranch,
+        brokenPipeline: pipeline && (await this.brokenPipeline(task, pipeline)),
       };
     };
+  }
+
+  /** The Task's Pipeline: office-wide, or a Project Pipeline of its own Project, as another's is unknown. */
+  private async pipelineOf(task: Task): Promise<KnownPipeline | undefined> {
+    if (!hasPipeline(task)) return undefined;
+    const pipeline = await this.pipelines.read(task.pipelineId);
+    return pipeline?.projectId === undefined || pipeline.projectId === task.projectId
+      ? pipeline
+      : undefined;
+  }
+
+  /** A Broken Pipeline holds Start unless the user edited the Task's own Stages for it. */
+  private async brokenPipeline(
+    task: Task,
+    { name, broken = [] }: KnownPipeline,
+  ): Promise<BrokenPipelineAtStart | undefined> {
+    if (broken.length === 0 || (await this.stageEdits.editedForTask(task.id))) return undefined;
+    return { name, reasons: broken };
   }
 
   /** Whether the Task's Initiative's branch, when it starts from one, is there in its Project. */

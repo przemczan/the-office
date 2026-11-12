@@ -71,6 +71,7 @@ import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { InitiativeThreads } from "../ports/initiative-threads.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
+import { projectPipelineForInitiativeWords } from "../domain/pipeline-commands.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
 import { ProposalDrafts } from "../ports/proposal-drafts.js";
@@ -310,12 +311,15 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * Why the Initiative can't follow the Pipeline: none in the library by that id, or a command it
-   * runs that a Project the Initiative spans lacks.
+   * Why the Initiative can't follow the Pipeline: none in the library by that id, a Project
+   * Pipeline, or a command it runs that a Project the Initiative spans lacks.
    */
   private async pipelineProblems(initiative: Initiative, pipelineId: string): Promise<string[]> {
     const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
     if (!pipeline) return [await this.noSuchPipelineWords(pipelineId)];
+    if (pipeline.projectId !== undefined) {
+      return [await this.projectPipelineWords(pipeline.name, pipeline.projectId)];
+    }
     return initiativePipelineProblems(pipeline, await this.projectsOf(initiative.id));
   }
 
@@ -327,6 +331,9 @@ export class InitiativeService implements OnModuleInit {
     const pipeline =
       pipelineId === null ? undefined : await this.pipelines.commandsNamedBy(pipelineId);
     if (pipelineId !== null && !pipeline) return [await this.noSuchPipelineWords(pipelineId)];
+    if (pipeline?.projectId !== undefined) {
+      return [await this.projectPipelineWords(pipeline.name, pipeline.projectId)];
+    }
     return initiativePipelineChangeProblems(
       initiative,
       pipelineId,
@@ -339,6 +346,11 @@ export class InitiativeService implements OnModuleInit {
   private async noSuchPipelineWords(pipelineId: string): Promise<string> {
     const known = (await this.pipelines.list()).map(({ id }) => id).join(", ");
     return `There is no Pipeline "${pipelineId}". The library has ${known}.`;
+  }
+
+  private async projectPipelineWords(pipelineName: string, projectId: string): Promise<string> {
+    const owner = await this.projects.find(projectId);
+    return projectPipelineForInitiativeWords(pipelineName, owner?.name ?? projectId);
   }
 
   /** The Projects the Initiative's Tasks span, those still known. */

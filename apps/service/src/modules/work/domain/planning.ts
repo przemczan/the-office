@@ -52,7 +52,10 @@ export interface ProjectCommandsInBrief {
   }[];
 }
 
-/** A Pipeline in the library, as the Planner chooses one: when it fits, and its Stages. */
+/**
+ * A Pipeline, office-wide or a Project Pipeline, as the Planner chooses one: when it fits, and its
+ * Stages, a Project Pipeline's as built from its base Pipeline.
+ */
 export interface PlanningPipeline {
   readonly id: string;
   readonly name: string;
@@ -60,6 +63,12 @@ export interface PlanningPipeline {
   readonly description: string;
   /** In order; an Agent Stage names the Role that works it. */
   readonly stages: readonly { readonly name: string; readonly role?: string }[];
+  /** The Project whose Project Pipeline it is; undefined for an office-wide one. */
+  readonly projectId?: string;
+  /** The office-wide Pipeline a Project Pipeline is built from. */
+  readonly basePipeline?: { readonly id: string; readonly name: string };
+  /** Each reason it is Broken; absent or empty when it isn't, as an office-wide one never is. */
+  readonly broken?: readonly string[];
 }
 
 /** What a planning Brief is assembled from: the Task's record, with no model call. */
@@ -165,28 +174,83 @@ function pipelinesSection(
     const pipeline = pipelines.find((candidate) => candidate.id === id);
     return pipeline ? `${pipeline.name} (${id})` : id;
   };
-  const choices = pipelineLibraryLines(pipelines);
   const proposal = task.proposedPipeline
     ? `You proposed ${nameOf(task.proposedPipeline.pipelineId)}: ${task.proposedPipeline.reason} It waits for the user to confirm it.`
     : undefined;
   const current =
     task.pipelineId === undefined
-      ? `The Task has no Pipeline yet; the Project's default is ${nameOf(project.defaultPipeline)}.`
+      ? `The Task has no Pipeline yet; the Project's default is ${nameOf(project.defaultPipeline)}${brokenDefaultWords(pipelines, project.defaultPipeline)}.`
       : `The Task follows ${nameOf(task.pipelineId)} until the user confirms another.`;
   return [
     `## The Pipelines\n\n${current} Propose the one its Definition of Done needs with propose_pipeline:`,
-    choices.join("\n"),
+    ...pipelineGroups(
+      [{ project, own: pipelines.filter(({ projectId }) => projectId !== undefined) }],
+      pipelines.filter(({ projectId }) => projectId === undefined),
+    ),
     proposal,
   ]
     .filter((part) => part !== undefined)
     .join("\n\n");
 }
 
-/** The library's Pipelines, one line each: its id, name, Stages and when it fits. */
+/** A Broken default can't be proposed, so the Brief says so where it names it. */
+function brokenDefaultWords(
+  pipelines: readonly PlanningPipeline[],
+  defaultPipeline: string,
+): string {
+  const broken = pipelines.find(({ id }) => id === defaultPipeline)?.broken ?? [];
+  return broken.length === 0 ? "" : `, which is Broken: ${broken.join(" ")} It can't be proposed`;
+}
+
+/** A Project with its own Pipelines, as a planning Brief lists them. */
+export interface ProjectPipelinesInBrief {
+  readonly project: PlanningProject;
+  /** Its Project Pipelines, in any order: its default is listed first. */
+  readonly own: readonly PlanningPipeline[];
+}
+
+/**
+ * Each Project's own Pipelines first, its default first among them, then the office-wide ones;
+ * one list when no Project has its own.
+ */
+export function pipelineGroups(
+  projects: readonly ProjectPipelinesInBrief[],
+  officeWide: readonly PlanningPipeline[],
+): string[] {
+  const withOwn = projects.filter(({ own }) => own.length > 0);
+  if (withOwn.length === 0) return [pipelineLibraryLines(officeWide).join("\n")];
+  return [
+    ...withOwn.map(
+      ({ project, own }) =>
+        `${project.name}'s own Pipelines, which only its Tasks can follow:\n${pipelineLibraryLines(defaultFirst(own, project.defaultPipeline)).join("\n")}`,
+    ),
+    `Office-wide Pipelines:\n${pipelineLibraryLines(officeWide).join("\n")}`,
+  ];
+}
+
+function defaultFirst(
+  pipelines: readonly PlanningPipeline[],
+  defaultPipeline: string,
+): PlanningPipeline[] {
+  return pipelines.toSorted(
+    (one, other) => Number(other.id === defaultPipeline) - Number(one.id === defaultPipeline),
+  );
+}
+
+/**
+ * The Pipelines, one line each: its id, name, Stages and when it fits; a Project Pipeline names
+ * its base Pipeline, and a Broken one why it can't be proposed.
+ */
 export function pipelineLibraryLines(pipelines: readonly PlanningPipeline[]): string[] {
-  return pipelines.map(
-    ({ id, name, description, stages }) =>
-      `- ${id}: ${name} (${stages.map((stage) => stage.name).join(" → ")}). ${description}`,
+  return pipelines.map(({ id, name, description, stages, basePipeline, broken = [] }) =>
+    [
+      `- ${id}: ${name} (${stages.map((stage) => stage.name).join(" → ")}).`,
+      basePipeline && `Built from ${basePipeline.name}.`,
+      description,
+      broken.length > 0 ? `Broken: ${broken.join(" ")} It can't be proposed.` : undefined,
+    ]
+      .filter((part) => part !== undefined && part !== "")
+      .join(" "),
   );
 }
 
