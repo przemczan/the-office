@@ -38,6 +38,7 @@ export function sessionOfficeRules(
     profile: options.profile,
     workstation: options.workstation === true,
     secrets: [...operatingSystem.secretPaths, ...officeSecrets(officeData)],
+    readableInSecrets: [{ secret: officeData.folder("engines"), folder: ENGINE_TRANSCRIPTS }],
     officeFiles: [officeData.path],
     cloneFolders: [officeData.folder("repositories")],
     homeFolder: homedir(),
@@ -48,9 +49,15 @@ export function sessionOfficeRules(
 }
 
 /**
- * The Office's secrets: each Claude Code engine's account folder, which holds its credentials, the
- * Office identity's folder, which holds its ssh key, and the `.env` holding the database
- * credentials.
+ * The folder of a Claude Code engine's account folder that holds its session transcripts: the one
+ * part of it open to a session reaching the workstation (spec §6).
+ */
+const ENGINE_TRANSCRIPTS = "projects";
+
+/**
+ * The Office's secrets: each Claude Code engine's account folder, which holds its credentials, but
+ * for its transcripts, the Office identity's folder, which holds its ssh key, and the `.env`
+ * holding the database credentials.
  */
 function officeSecrets(officeData: OfficeDataDirectory): string[] {
   return [officeData.folder("engines"), officeData.folder("identity"), OFFICE_ENV_FILE];

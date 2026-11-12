@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../domain/message.js";
+import type { Thread } from "../../domain/thread.js";
 import { logMessages } from "../../domain/thread-changes.js";
+import type { LoggedMessagesRange } from "../../ports/thread-repository.js";
 import { aUserMessage } from "../../domain/thread.fixtures.js";
 import {
   repository,
@@ -11,6 +13,9 @@ import {
 } from "./postgres-thread-repository.fixtures.js";
 
 setUpEachTest();
+
+/** A time on a day only this file's range test logs messages on. */
+const at = (time: string) => new Date(`2031-03-04T${time}:00.000Z`);
 
 describe("PostgresThreadRepository", () => {
   it("keeps a Thread with its session and tokens, and lists a home's newest first", async () => {
@@ -78,6 +83,58 @@ describe("PostgresThreadRepository", () => {
     expect(event?.messages).toEqual(messages);
     await expect(repository.find(thread.id)).resolves.toEqual(logged);
     await expect(repository.messages(thread.id)).resolves.toEqual(messages);
+  });
+
+  it("reads the messages logged in a range, by the Threads' person and home, the first logged first", async () => {
+    const roleKey = `role-${randomUUID()}`;
+    const taskId = randomUUID();
+    const chat = aThreadOfItsOwn(roleKey);
+    const onTask = aThreadOfItsOwn(roleKey, { home: { kind: "task", taskId } });
+    const someoneElsesOnTask = aThreadOfItsOwn(`role-${randomUUID()}`, {
+      home: { kind: "task", taskId },
+    });
+    for (const thread of [chat, onTask, someoneElsesOnTask]) await repository.add(thread);
+    const log = async (thread: Thread, text: string, time: string): Promise<Message> => {
+      const message = { ...aUserMessage(thread, text), at: at(time) };
+      await repository.update(thread.id, (current) => logMessages(current, [message], AT));
+      return message;
+    };
+    const before = await log(chat, "Before the range.", "08:59");
+    const first = await log(onTask, "First.", "09:00");
+    const second = await log(chat, "Second.", "09:30");
+    const elses = await log(someoneElsesOnTask, "Someone else's.", "09:40");
+    const last = await log(onTask, "Last.", "10:00");
+    await log(onTask, "After the range.", "10:01");
+    const range = { from: at("09:00"), to: at("10:00") };
+    const read = async (narrowed: Partial<LoggedMessagesRange>) =>
+      (await repository.loggedIn({ ...range, ...narrowed })).map(({ thread, message }) => [
+        thread.id,
+        message.id,
+      ]);
+
+    await expect(read({ roleKey })).resolves.toEqual([
+      [onTask.id, first.id],
+      [chat.id, second.id],
+      [onTask.id, last.id],
+    ]);
+    await expect(read({ homes: [{ kind: "task", taskId }] })).resolves.toEqual([
+      [onTask.id, first.id],
+      [someoneElsesOnTask.id, elses.id],
+      [onTask.id, last.id],
+    ]);
+    await expect(
+      read({
+        roleKey,
+        homes: [
+          { kind: "chat", roleKey },
+          { kind: "initiative", initiativeId: taskId },
+        ],
+      }),
+    ).resolves.toEqual([[chat.id, second.id]]);
+    await expect(read({ roleKey, homes: [] })).resolves.toEqual([]);
+    await expect(read({ roleKey, from: at("08:00"), to: at("08:59") })).resolves.toEqual([
+      [chat.id, before.id],
+    ]);
   });
 
   it("never loses one of two changes made at once", async () => {

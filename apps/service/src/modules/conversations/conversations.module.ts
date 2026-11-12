@@ -16,6 +16,7 @@ import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-too
 import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
+import { ThreadHistoryOfficeTool } from "./adapters/office-tools/thread-history-office-tool.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresOfficeInstructionsRepository } from "./adapters/postgres/postgres-office-instructions-repository.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
@@ -62,6 +63,7 @@ import { TaskConversations } from "./application/task-conversations.js";
 import { TaskTokens } from "./application/task-tokens.js";
 import { TaskThreadSetups } from "./application/task-thread-setups.js";
 import { ThreadContexts } from "./application/thread-contexts.js";
+import { ThreadHistory } from "./application/thread-history.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
 import { WorkRecords } from "./application/work-records.js";
@@ -159,6 +161,8 @@ export class ConversationsModule {
         HeldCalls,
         ApprovalHolds,
         MemoryOfficeTools,
+        ThreadHistory,
+        ThreadHistoryOfficeTool,
         ThreadWebEvents,
       ],
       exports: [

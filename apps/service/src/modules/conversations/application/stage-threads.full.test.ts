@@ -1083,6 +1083,8 @@ describe("Office tools on a Stage", () => {
         Promise.resolve(taskId === request.taskId ? [screenshot, report] : [ofAnotherTask]),
       initiativeTaskAttachmentIds: () => Promise.resolve(undefined),
       initiativeRecord: () => Promise.resolve(undefined),
+      initiativeName: () => Promise.resolve(undefined),
+      projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
       ideaRecord: () => Promise.resolve(undefined),
     });
     const { stageThread } = await aStageRun(request);

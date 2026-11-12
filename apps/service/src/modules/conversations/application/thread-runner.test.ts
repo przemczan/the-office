@@ -347,6 +347,8 @@ async function startOn(
     initiativeTaskAttachmentIds: (initiativeId, taskId) =>
       Promise.resolve(initiativeTasks.get(taskId)?.initiativeId === initiativeId ? [] : undefined),
     initiativeRecord: (initiativeId) => Promise.resolve(workRecords.get(initiativeId)),
+    initiativeName: () => Promise.resolve(undefined),
+    projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
     ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
   });
   threads = app.get(ThreadService);

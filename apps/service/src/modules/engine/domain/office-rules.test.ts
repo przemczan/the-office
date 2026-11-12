@@ -94,6 +94,9 @@ function rulesOn(
       paths.join(platform.dataDirectory, "identity"),
       platform.officeEnvFile,
     ],
+    readableInSecrets: [
+      { secret: paths.join(platform.dataDirectory, "engines"), folder: "projects" },
+    ],
     officeFiles: [platform.dataDirectory],
     cloneFolders: [paths.join(platform.dataDirectory, "repositories")],
     homeFolder: platform.home,
@@ -638,6 +641,102 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
       }
       expect(workstation.decide({ kind: "read", paths: [".ssh"] })).toMatchObject({
         allowed: false,
+      });
+    });
+
+    describe("an engine's transcripts", () => {
+      /** The data directory as a Bash command names it from the home folder. */
+      const dataFromHome = platform.dataDirectory
+        .slice(platform.home.length + 1)
+        .replaceAll("\\", "/");
+      const engine = `${dataFromHome}/engines/claude-code`;
+      const transcript = "projects/-work-shop/0b1c.jsonl";
+
+      /** Each way a command or a file tool names `tail`, a path inside the engine's folder. */
+      const namings = (tail: string): [string, AgentAction][] => [
+        [
+          "a file tool",
+          { kind: "read", paths: [join(platform.home, ...`${engine}/${tail}`.split("/"))] },
+        ],
+        ["a file tool, from the home folder", { kind: "read", paths: [`${engine}/${tail}`] }],
+        ["a command, directly", command(dialect, `cat '${platform.bashHome}/${engine}/${tail}'`)],
+        ["a command, through ~", command(dialect, `cat ~/${engine}/${tail}`)],
+        ["a command, through a variable", command(dialect, `cat "$HOME/${engine}/${tail}"`)],
+        ["a command, after an equals sign", command(dialect, `jq --file=~/${engine}/${tail} .`)],
+        ["a command, through cd", command(dialect, `cd ~/${engine}/projects && cat ../${tail}`)],
+        ["a command, from the home folder", command(dialect, `grep -c user ${engine}/${tail}`)],
+      ];
+
+      it.each(namings(transcript))("reads one named by %s", (_, action) => {
+        expect(workstation.decide(action)).toEqual({ allowed: true });
+      });
+
+      it("lists and searches the transcripts' folder", () => {
+        expect(workstation.decide(command(dialect, `ls ~/${engine}/projects`))).toEqual({
+          allowed: true,
+        });
+        expect(
+          workstation.decide(command(dialect, `cd ~/${engine}/projects && grep -rl Plan .`)),
+        ).toEqual({ allowed: true });
+      });
+
+      it.each([
+        ".credentials.json",
+        ".claude.json",
+        "settings.json",
+        "projects/../.credentials.json",
+        "projects/-work-shop/../../.claude.json",
+      ])("refuses %s, however it is named", (tail) => {
+        const refusals = namings(tail).map(([naming, action]) => [
+          naming,
+          workstation.decide(action),
+        ]);
+        expect(refusals).toEqual(
+          namings(tail).map(([naming]) => [
+            naming,
+            { allowed: false, reason: expect.stringContaining("holds secrets") },
+          ]),
+        );
+      });
+
+      it.each([
+        ["the engine's folder", `~/${engine}`],
+        ["the engines folder", `~/${dataFromHome}/engines`],
+        ["the engines folder, with a trailing slash", `~/${dataFromHome}/engines/`],
+      ])("refuses %s as a whole", (_, folder) => {
+        const commandLines = [
+          `grep -r token ${folder}`,
+          `ls ${folder}`,
+          `cd ${folder} && cat .credentials.json`,
+        ];
+        expect(
+          commandLines.map((commandLine) => [
+            commandLine,
+            workstation.decide(command(dialect, commandLine)).allowed,
+          ]),
+        ).toEqual(commandLines.map((commandLine) => [commandLine, false]));
+      });
+
+      it("refuses another engine's account file named from inside the transcripts", () => {
+        expect(
+          workstation.decide(
+            command(dialect, `cd ~/${engine}/projects && cat ../../codex/.credentials.json`),
+          ),
+        ).toMatchObject({ allowed: false });
+      });
+
+      it("stays refused to a session that doesn't reach the workstation", () => {
+        for (const session of [readOnly, rulesOn(platform)]) {
+          expect(
+            session.decide({
+              kind: "read",
+              paths: [join(platform.home, ...`${engine}/${transcript}`.split("/"))],
+            }),
+          ).toMatchObject({ allowed: false });
+          expect(session.decide(command(dialect, `cat ~/${engine}/${transcript}`))).toMatchObject({
+            allowed: false,
+          });
+        }
       });
     });
   });

@@ -123,12 +123,19 @@ export const READING_OFFICE_TOOLS = [
 export const READ_STAGE_HISTORY_TOOL = "read_stage_history";
 
 /**
+ * The Office tool a person reads Thread messages with, from The Office's log, by a range and
+ * filters (spec 2.4). An Agent Stage doesn't get it, as with `read_stage_history`.
+ */
+export const READ_THREADS_TOOL = "read_threads";
+
+/**
  * The Office tools a person's session reads records with, in their chat, their Thread on a Task
- * and a Consultation: every record, and a Task's Stage history besides.
+ * and a Consultation: every record, and a Task's Stage history and the Threads' messages besides.
  */
 export const PERSON_READING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
   READ_STAGE_HISTORY_TOOL,
+  READ_THREADS_TOOL,
 ] as const;
 
 /**

@@ -1,5 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Decision } from "../../domain/decision.js";
@@ -11,7 +24,12 @@ import { ProposalNotFound } from "../../domain/proposal-not-found.js";
 import type { Home, Thread, ThreadSession } from "../../domain/thread.js";
 import type { ThreadChange } from "../../domain/thread-changes.js";
 import { ThreadNotFound } from "../../domain/thread-not-found.js";
-import { ThreadRepository, type ThreadUpdate } from "../../ports/thread-repository.js";
+import {
+  ThreadRepository,
+  type LoggedMessage,
+  type LoggedMessagesRange,
+  type ThreadUpdate,
+} from "../../ports/thread-repository.js";
 import {
   decisions,
   proposals,
@@ -140,6 +158,36 @@ export class PostgresThreadRepository extends ThreadRepository {
       .where(eq(threadMessages.threadId, threadId))
       .orderBy(asc(threadMessages.position));
     return rows.map(toMessage);
+  }
+
+  async loggedIn({
+    from,
+    to,
+    roleKey,
+    homes,
+  }: LoggedMessagesRange): Promise<readonly LoggedMessage[]> {
+    if (homes?.length === 0) return [];
+    const rows = await this.database
+      .select({ message: threadMessages, thread: threads })
+      .from(threadMessages)
+      .innerJoin(threads, eq(threads.id, threadMessages.threadId))
+      .where(
+        and(
+          gte(threadMessages.at, from),
+          lte(threadMessages.at, to),
+          roleKey === undefined ? undefined : eq(threads.roleKey, roleKey),
+          homes === undefined ? undefined : or(...homes.map(inHome)),
+        ),
+      )
+      .orderBy(asc(threadMessages.position));
+    const threadRows = [...new Map(rows.map(({ thread }) => [thread.id, thread])).values()];
+    const byId = new Map(
+      (await withOpenDecisions(this.database, threadRows)).map((thread) => [thread.id, thread]),
+    );
+    return rows.flatMap(({ message, thread }) => {
+      const found = byId.get(thread.id);
+      return found ? [{ thread: found, message: toMessage(message) }] : [];
+    });
   }
 
   async decision(id: string): Promise<Decision | undefined> {
@@ -273,6 +321,12 @@ function homeColumns(home: Home): { readonly kind: Home["kind"]; readonly id: st
     case "initiative":
       return { kind: "initiative", id: home.initiativeId };
   }
+}
+
+/** The condition a Thread in the home meets. */
+function inHome(home: Home): SQL | undefined {
+  const { kind, id } = homeColumns(home);
+  return and(eq(threads.homeKind, kind), eq(threads.homeId, id));
 }
 
 function toHome(kind: Home["kind"], id: string): Home {

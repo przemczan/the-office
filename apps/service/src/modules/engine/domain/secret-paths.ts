@@ -46,22 +46,47 @@ export class SecretPaths {
     return undefined;
   }
 
+  /**
+   * The secret a candidate names by its names from the home folder, wherever they appear in it.
+   * What follows them is read inside the secret, `..` and all, to tell an open folder in it.
+   */
   private byHomeTail(candidate: string): string | undefined {
-    const names = this.rules.paths.names(candidate);
-    return this.homeTails.find((tail) => containsInOrder(names, tail.names))?.secret;
+    const { paths } = this.rules;
+    const names = paths.names(candidate);
+    return this.homeTails.find((tail) =>
+      startsOf(names, tail.names).some((start) => {
+        const rest = names.slice(start + tail.names.length);
+        return !this.isOpenInSecret(paths.resolve(tail.secret, rest.join("/")), tail.secret);
+      }),
+    )?.secret;
   }
 
   private byPath(candidate: string, directory: string): string | undefined {
-    const { paths, workingFolder, readableFolders, secrets, officeFiles, cloneFolders } =
-      this.rules;
+    const { paths, workingFolder, readableFolders, officeFiles, cloneFolders } = this.rules;
     const path = paths.resolve(directory, candidate);
     const within = (folder: string) => paths.isWithin(path, folder);
+    const secret = this.rules.secrets.find(
+      (folder) => within(folder) && !this.isOpenInSecret(path, folder),
+    );
     // Its working folder, the home folder, holds secrets of its own.
-    if (this.rules.workstation) return secrets.find(within);
+    if (this.rules.workstation) return secret;
     if ([workingFolder, ...readableFolders].some(within)) return undefined;
-    const secret = secrets.find(within);
     if (secret !== undefined || cloneFolders.some(within)) return secret;
     return officeFiles.find(within);
+  }
+
+  /** Whether the absolute `path`, inside `secret`, is in a folder open in one of its children. */
+  private isOpenInSecret(path: string, secret: string): boolean {
+    const { paths } = this.rules;
+    const depth = paths.names(secret).length;
+    const names = paths.names(path);
+    return this.rules.readableInSecrets.some(
+      (readable) =>
+        readable.secret === secret &&
+        paths.isWithin(path, secret) &&
+        names.length > depth + 1 &&
+        names[depth + 1] === paths.names(readable.folder)[0],
+    );
   }
 
   /** The word with `~` and the session's variables replaced by what they hold. */
@@ -82,7 +107,9 @@ export class SecretPaths {
   }
 }
 
-/** Whether `part` appears in `names` as consecutive names. */
-function containsInOrder(names: readonly string[], part: readonly string[]): boolean {
-  return names.some((_, start) => part.every((name, offset) => names[start + offset] === name));
+/** Each index at which `part` appears in `names` as consecutive names. */
+function startsOf(names: readonly string[], part: readonly string[]): number[] {
+  return names.flatMap((_, start) =>
+    part.every((name, offset) => names[start + offset] === name) ? [start] : [],
+  );
 }

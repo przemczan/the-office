@@ -12,6 +12,22 @@ export interface ThreadUpdate<Event extends DomainEvent> {
   readonly event: Event | undefined;
 }
 
+/** Which logged messages `loggedIn` reads: those logged from `from` to `to`, both included. */
+export interface LoggedMessagesRange {
+  readonly from: Date;
+  readonly to: Date;
+  /** Only Threads with this person, by the key of their Role. */
+  readonly roleKey?: string;
+  /** Only Threads in these homes; undefined for any home, none for no Thread at all. */
+  readonly homes?: readonly Home[];
+}
+
+/** A message in The Office's log, with the Thread it was logged in. */
+export interface LoggedMessage {
+  readonly thread: Thread;
+  readonly message: Message;
+}
+
 /**
  * Where Threads are kept, each with The Office's log of its messages and the Decisions opened and
  * Proposals drafted in it, which a change saves with the Thread.
@@ -45,6 +61,9 @@ export abstract class ThreadRepository {
 
   /** The Thread's log, in the order its messages were logged. */
   abstract messages(threadId: string): Promise<readonly Message[]>;
+
+  /** The messages logged in the range, in any Thread it takes, the first logged first. */
+  abstract loggedIn(range: LoggedMessagesRange): Promise<readonly LoggedMessage[]>;
 
   abstract decision(id: string): Promise<Decision | undefined>;
 
