@@ -152,6 +152,18 @@ function animatedProperties(page: Page): Promise<string[]> {
   });
 }
 
+/**
+ * Waits until every animation that ends has ended, such as the palette's transitions. Endless ones,
+ * like the Needs you figure's pulse while something waits, never end, so they are left running.
+ */
+async function animationsSettled(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((animation) => animation.effect?.getComputedTiming().iterations === Infinity),
+  );
+}
+
 /** An element's words, its height, and how far they run past it. Runs in the browser. */
 function sizeOf(shown: Element): {
   words: string | null;
@@ -2426,7 +2438,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-history.png") });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-  await page.waitForFunction(() => document.getAnimations().length === 0);
+  await animationsSettled(page);
   await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-stage-history.png") });
   await page.emulateMedia({ colorScheme: "light" });
 
@@ -2564,7 +2576,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await rail.screenshot({ path: path.join(SCREENSHOTS, "light-420-rail-arcs-scrolled.png") });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-  await page.waitForFunction(() => document.getAnimations().length === 0);
+  await animationsSettled(page);
   await rail.screenshot({ path: path.join(SCREENSHOTS, "dark-420-rail-arcs-scrolled.png") });
   await page.emulateMedia({ colorScheme: "light" });
   await page.setViewportSize({ width: 1600, height: 900 });

@@ -2289,7 +2289,13 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(strip).toContainText(/\d+ needs? you/);
   await expect(strip).toContainText("desks in use");
   // While the Decision waits the figure is the alert, and once it is answered it is calm again.
+  // Narrowed to this Project: other files' Decisions wait in the shared database, which leaves
+  // the figure its softer tint for other Projects at most.
+  const projectFilter = page.getByRole("button", { name: /^Project filter:/ });
+  await projectFilter.click();
+  await page.getByRole("button", { name: "Show only Sign-in", exact: true }).click();
   const needsYouFigure = strip.getByRole("button", { name: /needs? you/ });
+  await expect(needsYouFigure).toContainText(/^1 needs you/);
   await expect(needsYouFigure).toHaveClass(/\balert\b/);
   await expect(needsYouFigure.locator(".live-dot")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-now.png") });
@@ -2301,9 +2307,12 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(page.locator("html")).toHaveAttribute("data-palette", "light");
   await onNow.getByRole("button", { name: "The page it started from" }).click();
   await expect(onNow).toHaveCount(0);
-  await expect(needsYouFigure).toContainText("0 need you");
+  await expect(needsYouFigure).toContainText(/^0 need you/);
   await expect(needsYouFigure).not.toHaveClass(/\balert\b/);
   await expect(needsYouFigure.locator(".live-dot")).toHaveCount(0);
+  await projectFilter.click();
+  await page.getByRole("button", { name: "All projects", exact: true }).click();
+  await expect(projectFilter).toContainText("All projects");
 
   await page.goto(signIn.taskUrl);
   await expect(page.getByRole("region", { name: "Needs you" })).toContainText("Nothing needs you");
