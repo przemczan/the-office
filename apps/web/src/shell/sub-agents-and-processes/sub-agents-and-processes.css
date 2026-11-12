@@ -46,7 +46,7 @@
 }
 
 .sub-agents-and-processes-line-mark .live-dot {
-  margin-right: 0;
+  --live-dot-gap: 0px;
 }
 
 .sub-agents-and-processes-line-text {
@@ -86,12 +86,9 @@
 
 /* Something runs: green, as a running state is, not the blue of a note. */
 .sub-agents-and-processes-line .live-dot,
-.sub-agents-and-processes-line .live-dot::after,
 .sub-agents-and-processes-state .live-dot,
-.sub-agents-and-processes-state .live-dot::after,
-.sub-agents-and-processes-following .live-dot,
-.sub-agents-and-processes-following .live-dot::after {
-  background: var(--success-fg);
+.sub-agents-and-processes-following .live-dot {
+  --live-dot-color: var(--success-fg);
 }
 
 /* ---- the window: the view fills its body, framed as the Stage history's run is */
@@ -235,9 +232,8 @@
 }
 
 .sub-agents-and-processes-state .live-dot {
-  width: 6px;
-  height: 6px;
-  margin-right: 0;
+  --live-dot-size: 6px;
+  --live-dot-gap: 0px;
 }
 
 .sub-agents-and-processes-state.running {
@@ -426,9 +422,8 @@
 }
 
 .sub-agents-and-processes-following .live-dot {
-  width: 6px;
-  height: 6px;
-  margin-right: 0;
+  --live-dot-size: 6px;
+  --live-dot-gap: 0px;
 }
 
 .sub-agents-and-processes-ending {

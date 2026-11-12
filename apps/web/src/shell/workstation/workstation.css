@@ -83,9 +83,8 @@
   color: var(--fg-3);
 }
 
-.shell-workstation-live .live-dot,
-.shell-workstation-live .live-dot::after {
-  background: var(--success);
+.shell-workstation-live .live-dot {
+  --live-dot-color: var(--success);
 }
 
 /* ---- CPU and Memory tiles */
