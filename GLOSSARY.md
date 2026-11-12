@@ -66,8 +66,24 @@ A thought captured quickly and not yet shaped into work; it may become an Initia
 _Avoid_: Draft, note, backlog item
 
 **Initiative**:
-A multi-task effort toward one outcome, whose Tasks are ordered by dependencies.
+A multi-task effort toward one outcome, whose Tasks are ordered by dependencies. It may have an Initiative's Pipeline, and then works on the Initiative's branch.
 _Avoid_: Plan, epic, roadmap, effort
+
+**Initiative's Pipeline**:
+The Pipeline an Initiative may have, chosen from the Pipeline library while shaping, None by default. With one, the Initiative works on the Initiative's branch and its Publishing Tasks follow it.
+_Avoid_: Initiative workflow, release Pipeline
+
+**Initiative's branch**:
+`initiative/<short name>`, made from the base branch in each Project an Initiative with a Pipeline spans. Its Tasks start from it and publish into it, it keeps up with the base, and it is kept until the user deletes it.
+_Avoid_: Feature branch, integration branch, epic branch
+
+**Short name** (an Initiative's):
+The name of its Initiative's branch, made from its title, editable while shaping and fixed at Confirm.
+_Avoid_: Slug, key
+
+**Publishing Task**:
+The Task "<Initiative> → <Project>" that The Office adds per Project once every other Task of an Initiative with a Pipeline is Done or Dropped. It follows the Initiative's Pipeline on the Initiative's branch, and its Publish puts the whole change into the base branch.
+_Avoid_: Release Task, merge Task, final Task
 
 **Task**:
 One unit of work in a Project, done when its Definition of Done is met: a published change, an Attachment, or both.
@@ -178,7 +194,7 @@ The files and folders a Plan expects to change, written by the Planner with the 
 _Avoid_: Touch set, affected files, scope
 
 **Resolve**:
-The Stage The Office adds before Publish when the Task's branch conflicts with the base: The Office merges the base in, the Task's person edits the conflicted files, then the Project's Test runs, and a Gate if the Publish Stage asks for a review, before Publish again.
+The Stage The Office adds before Publish when the Task's branch conflicts with the base, or with the Initiative's branch it publishes into: The Office merges the base in, the Task's person edits the conflicted files, then the Project's Test runs, and a Gate if the Publish Stage asks for a review, before Publish again.
 _Avoid_: Rebase, merge fix, conflict Stage
 
 **Attachment**:
@@ -266,7 +282,7 @@ A daily window, off until the user sets it, in which no Notification goes to the
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
-A named, ordered set of Stages that a Task's work follows.
+A named, ordered set of Stages that a Task's work follows; a Publishing Task follows its Initiative's Pipeline.
 _Avoid_: Workflow, flow, process (a Process is a session's background command)
 
 **Pipeline library**:

@@ -97,5 +97,10 @@ Where each default lives (the old §9):
 - Stage templates in tier 3, copied into a Pipeline or a Task's Stages when added: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The proof-of-concept publish target: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - Writing the run environment definition: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
+- An Initiative's Pipeline: [2.1 Work](2.1-work.md#defaults)
+- Publishing Tasks: [2.1 Work](2.1-work.md#defaults)
+- Publishing into an Initiative's branch: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- A Publishing Task's Publish: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- The Initiative's branch: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.
