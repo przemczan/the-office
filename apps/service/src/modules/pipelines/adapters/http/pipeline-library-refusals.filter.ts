@@ -12,8 +12,8 @@ type LibraryRefusal =
   PipelineRemovalRefused | UnknownPipeline | UnknownProjectPipeline | UnknownStageTemplate;
 
 /**
- * Answers the library's refusals, of its Pipelines, the Project Pipelines and its Stage templates, as Nest answers its
- * errors, with `message` for the web.
+ * Answers the library's refusals, of its Pipelines, the Project Pipelines and its Stage templates,
+ * as Nest answers its errors, with `message` for the web.
  */
 @Catch(PipelineRemovalRefused, UnknownPipeline, UnknownProjectPipeline, UnknownStageTemplate)
 export class PipelineLibraryRefusalsFilter implements ExceptionFilter<LibraryRefusal> {

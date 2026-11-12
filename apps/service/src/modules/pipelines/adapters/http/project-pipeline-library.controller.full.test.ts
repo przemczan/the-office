@@ -90,6 +90,27 @@ describe("saving a Project Pipeline, weighed against its own Project only", () =
     expect(pipelines.roleEngines.asked.at(-1)).toEqual({ roleKeys: [roleKey], projectId });
   });
 
+  it("lets a save keep a Role it named already, whatever its engine now", async () => {
+    const base = await aBasePipeline();
+    const projectId = aProject();
+    const roleKey = `translator-${randomUUID()}`;
+    const stageChanges = [
+      { kind: "change" as const, stageKey: "implement", fields: { role: roleKey } },
+    ];
+    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id, { stageChanges }));
+    pipelines.roleEngines.incapableRoles.add(roleKey);
+
+    const response = await send("PUT", `/project-pipelines/${projectPipeline.id}`, {
+      name: projectPipeline.name,
+      description: "Renamed nothing, described anew.",
+      basePipelineId: base.id,
+      stageChanges,
+    });
+
+    expect(response.status).toBe(200);
+    expect(pipelines.roleEngines.asked.at(-1)).toEqual({ roleKeys: [], projectId });
+  });
+
   it("flags a Role nobody fills and permissions wider than the card's, and saves them", async () => {
     const base = await aBasePipeline();
     const edit = aNewProjectPipeline(aProject(), base.id, {

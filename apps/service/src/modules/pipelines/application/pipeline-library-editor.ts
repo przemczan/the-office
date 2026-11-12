@@ -490,17 +490,18 @@ export class PipelineLibraryEditor {
   }
 
   /**
-   * A Project Pipeline's Roles that neither the office-wide Pipelines nor its Project's other
-   * Project Pipelines name yet, weighed in its Project, the only place its sessions run.
+   * A Project Pipeline's Roles that neither the office-wide Pipelines nor its Project's Project
+   * Pipelines, the one being saved as it was among them, name yet, weighed in its Project, the
+   * only place its sessions run.
    */
   private async projectRoleEngineProblems(
     stages: readonly Stage[],
     projectId: string,
     around: PipelinesAround,
   ): Promise<StageProblem[]> {
-    const projectStages = around.projectPipelines
-      .filter((other) => other.projectId === projectId)
-      .flatMap((other) => builtFromAround(other, around).stages);
+    const projectStages = (await this.projectPipelines.listOf(projectId)).flatMap(
+      (saved) => builtFromAround(saved, around).stages,
+    );
     const named = agentStageRoles([
       ...around.officeWide.flatMap((pipeline) => pipeline.stages),
       ...projectStages,

@@ -33,8 +33,8 @@ import { RoleFillings } from "./role-fillings.js";
 
 /**
  * Each Task's own Stages: copied from its Pipeline as the Task starts, or as the user first edits
- * them for the Task (an office-wide Pipeline's Stages, or a Project Pipeline's as built then), so saving the library later reaches only Tasks that follow it (spec
- * §2.3). Changes to a Task's Stages, and the walk's start of each run, go one at a time per Task,
+ * them for the Task (an office-wide Pipeline's Stages, or a Project Pipeline's as built then), so
+ * saving the library later reaches only Tasks that follow it (spec §2.3). Changes to a Task's Stages, and the walk's start of each run, go one at a time per Task,
  * so no Stage starts under a definition an edit has just replaced.
  */
 @Injectable()
