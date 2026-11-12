@@ -187,7 +187,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT)("Task 36's check on the Test Pro
       } finally {
         watch.stop();
         await app?.close();
-        await cleanUpTestProject(TEST_PROJECT, { taskId, officeData });
+        await cleanUpTestProject(TEST_PROJECT, { taskIds: [taskId], officeData });
         await note("Cleaned up the Task's worktree and branch");
       }
     },

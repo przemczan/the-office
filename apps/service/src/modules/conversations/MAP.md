@@ -69,6 +69,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 ### ./
 
 - `conversations.module.ts`: ConversationsModuleOptions, ConversationsModule
+- `index.fixtures.ts`: Briefs, ThreadRepository
 - Tests: conversations.module.test.ts
 
 ### adapters/http/

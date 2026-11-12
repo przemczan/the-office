@@ -180,7 +180,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT && BASE_URL && MODEL)(
           expect(replies[0]?.kind === "person" && replies[0].text).toContain(WORKSPACES);
         } finally {
           await app?.close();
-          await cleanUpTestProject(TEST_PROJECT, { taskId: undefined, officeData });
+          await cleanUpTestProject(TEST_PROJECT, { taskIds: [], officeData });
         }
       },
       REPLY_MS + 120_000,
@@ -232,7 +232,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT && BASE_URL && MODEL)(
           expect(await git(TEST_PROJECT, "rev-parse", "main")).toBe(mainBefore);
         } finally {
           await app?.close();
-          await cleanUpTestProject(TEST_PROJECT, { base, taskId, officeData });
+          await cleanUpTestProject(TEST_PROJECT, { base, taskIds: [taskId], officeData });
           await note("Cleaned up the Task's worktree and branch, and the base branch");
         }
       },

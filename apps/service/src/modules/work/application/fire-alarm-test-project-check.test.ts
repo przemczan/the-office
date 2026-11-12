@@ -176,7 +176,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
         } finally {
           fireAlarm.turnOff();
           await app?.close();
-          await cleanUpTestProject(testProject, { taskId, officeData });
+          await cleanUpTestProject(testProject, { taskIds: [taskId], officeData });
           await rm(folder, { recursive: true, force: true });
         }
       },

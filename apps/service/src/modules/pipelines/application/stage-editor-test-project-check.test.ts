@@ -185,7 +185,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           expect(await git(testProject, "rev-parse", "main")).toBe(mainBefore);
         } finally {
           await app?.close();
-          await cleanUpTestProject(testProject, { base, taskId, officeData });
+          await cleanUpTestProject(testProject, { base, taskIds: [taskId], officeData });
           await note("Cleaned up the Task's worktree and branch, and the base branch");
           await rm(scratch, { recursive: true, force: true });
         }

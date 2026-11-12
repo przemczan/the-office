@@ -236,7 +236,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, OfficeLim
 - `task-service.ts`: TaskService
 - `task-stage-edits.ts`: TaskStageEditLookup, TaskStageEdits
 - `usage-estimates.ts`: TaskUsageEstimate, UsageEstimates
-- Tests: fire-alarm-test-project-check.test.ts, initiative-archiving.full.test.ts, initiative-planning.test.ts, planning-test-project-check.test.ts, publishing-tasks.test.ts, removed-engine-caps.full.test.ts, run-environment-set-ups.full.test.ts, shaping-with-the-cto.full.test.ts, stage-screenshots.test.ts, starts-since-reading.full.test.ts, task-archiving.full.test.ts, task-records.full.test.ts, test-project-check.test.ts
+- Tests: fire-alarm-test-project-check.test.ts, initiative-archiving.full.test.ts, initiative-pipeline-test-project-check.test.ts, initiative-planning.test.ts, planning-test-project-check.test.ts, publishing-tasks.test.ts, removed-engine-caps.full.test.ts, run-environment-set-ups.full.test.ts, shaping-with-the-cto.full.test.ts, stage-screenshots.test.ts, starts-since-reading.full.test.ts, task-archiving.full.test.ts, task-records.full.test.ts, test-project-check.test.ts
 
 ### domain/
 

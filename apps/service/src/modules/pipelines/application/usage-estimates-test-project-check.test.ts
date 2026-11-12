@@ -261,8 +261,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
         } finally {
           await app?.close();
           for (const taskId of taskIds)
-            await cleanUpTestProject(testProject, { taskId, officeData });
-          await cleanUpTestProject(testProject, { base, taskId: undefined, officeData });
+            await cleanUpTestProject(testProject, { taskIds: [taskId], officeData });
+          await cleanUpTestProject(testProject, { base, taskIds: [], officeData });
           await note("Cleaned up the Tasks' worktrees and branches, and the base branch");
           await rm(scratch, { recursive: true, force: true });
         }

@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import {
   decisionListSchema,
@@ -297,18 +300,137 @@ export async function stageLines(
   return lines;
 }
 
+/** Waits until the Task leaves In progress after Publish, marking it Done when the Definition of Done check asks. */
+export async function untilDone(
+  api: Api,
+  taskId: string,
+  timeoutMs: number,
+  note: (...lines: string[]) => Promise<void>,
+): Promise<Task> {
+  let task = await untilWalkStops(api, taskId, timeoutMs);
+  for (const asked of await openDecisionsOn(api, taskId)) {
+    await note(`Asked: ${asked.question} [${asked.options.join(" | ")}]`);
+    const markDone = asked.options.indexOf("Mark the Task Done");
+    if (!asked.question.includes("Definition of Done") || markDone < 0) break;
+    await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
+    task = await untilWalkStops(api, taskId, timeoutMs);
+  }
+  return task;
+}
+
+/** The key of the Gate the Task waits at: its last run with no action taken yet. */
+export async function waitingGate(api: Api, taskId: string): Promise<string> {
+  const waiting = (await stagesOf(api, taskId)).filter(
+    ({ stage, runs }) => stage.kind === "gate" && runs.at(-1)?.gateAction === null,
+  );
+  return waiting.map(({ stage }) => stage.key).join(", ") || "no Gate";
+}
+
+/** Branches a check never pushes, deletes or commits onto: the Test Project deploys from them. */
+const PROTECTED_BRANCHES: readonly string[] = ["main", "master"];
+
+/** The commit `branch` is at on `remote`, or "" when the remote has no such branch. */
+export async function remoteHead(
+  repositoryPath: string,
+  remote: string,
+  branch: string,
+): Promise<string> {
+  const line = await git(repositoryPath, "ls-remote", remote, `refs/heads/${branch}`);
+  return line.split("\t")[0] ?? "";
+}
+
+/** A file a check's commit changes: `text` written as its whole content, or appended as one line. */
+export interface CheckFileChange {
+  readonly path: string;
+  readonly text: string;
+  readonly as: "whole-file" | "appended-line";
+}
+
 /**
- * Leaves the Test Project as it was: the check's worktrees, the Task's branch and, for a check that
- * made one, its throwaway base branch removed.
+ * Pushes one commit onto `branch` on `remote`, made on the remote's copy in a temporary worktree, as
+ * someone else's push would be: the Test Project's own checkout and branches stay as they were.
+ * Refuses any branch `mayPush` doesn't match. Answers the pushed commit.
+ */
+export async function pushCommitOnto(
+  repositoryPath: string,
+  commit: {
+    readonly remote: string;
+    readonly branch: string;
+    readonly mayPush: RegExp;
+    readonly message: string;
+    readonly files: readonly CheckFileChange[];
+  },
+): Promise<string> {
+  const { remote, branch } = commit;
+  if (PROTECTED_BRANCHES.includes(branch) || !commit.mayPush.test(branch))
+    throw new Error(`Refusing to push a commit onto ${branch}.`);
+  await git(repositoryPath, "fetch", remote, branch);
+  const folder = await mkdtemp(join(tmpdir(), "office-check-commit-"));
+  try {
+    await git(repositoryPath, "worktree", "add", "--detach", folder, `${remote}/${branch}`);
+    for (const { path, text, as } of commit.files) {
+      const file = join(folder, path);
+      if (as === "whole-file") {
+        await writeFile(file, `${text}\n`);
+      } else {
+        const before = await readFile(file, "utf8");
+        await writeFile(
+          file,
+          `${before}${before === "" || before.endsWith("\n") ? "" : "\n"}${text}\n`,
+        );
+      }
+    }
+    await git(folder, "add", "--", ...commit.files.map(({ path }) => path));
+    await git(
+      folder,
+      "-c",
+      "user.name=The Office's check",
+      "-c",
+      "user.email=office-check@users.noreply.github.com",
+      "commit",
+      "-m",
+      commit.message,
+    );
+    await git(folder, "push", remote, `HEAD:refs/heads/${branch}`);
+    return await git(folder, "rev-parse", "HEAD");
+  } finally {
+    await quietly(() => git(repositoryPath, "worktree", "remove", "--force", folder));
+    await rm(folder, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Leaves the Test Project as it was: the check's worktrees, the Tasks' branches and published-from
+ * refs, the Initiative's branch and, for a check that made one, its throwaway base branch removed.
+ * With `remote`, the remote's copies of those branches are deleted first. Never main or master.
  */
 export async function cleanUpTestProject(
   repositoryPath: string,
   left: {
     readonly base?: string;
-    readonly taskId: string | undefined;
+    /** The Tasks whose branches are deleted; an undefined one was never made. */
+    readonly taskIds: readonly (string | undefined)[];
+    readonly initiativeBranch?: string;
     readonly officeData: string;
+    /** The remote whose copies of the branches are deleted too; without it, the remote is left alone. */
+    readonly remote?: string;
   },
 ): Promise<void> {
+  const taskIds = left.taskIds.filter((taskId) => taskId !== undefined);
+  const branches = [
+    ...taskIds.map((taskId) => `office/${taskId}`),
+    ...(left.initiativeBranch === undefined ? [] : [left.initiativeBranch]),
+    ...(left.base === undefined ? [] : [left.base]),
+  ].filter((branch) => !PROTECTED_BRANCHES.includes(branch));
+  const remote = left.remote;
+  if (remote !== undefined) {
+    for (const branch of branches) {
+      await quietly(async () => {
+        if ((await remoteHead(repositoryPath, remote, branch)) !== "")
+          await git(repositoryPath, "push", remote, "--delete", branch);
+      });
+    }
+  }
   const officeWorktrees = comparable(left.officeData);
   await quietly(async () => {
     for (const line of (await git(repositoryPath, "worktree", "list", "--porcelain")).split("\n")) {
@@ -318,10 +440,12 @@ export async function cleanUpTestProject(
     }
   });
   await quietly(() => git(repositoryPath, "worktree", "prune"));
-  if (left.taskId !== undefined) {
-    const taskId = left.taskId;
-    await quietly(() => git(repositoryPath, "branch", "-D", `office/${taskId}`));
+  for (const taskId of taskIds) {
+    await quietly(() =>
+      git(repositoryPath, "update-ref", "-d", `refs/office/published-from/${taskId}`),
+    );
   }
-  const base = left.base;
-  if (base !== undefined) await quietly(() => git(repositoryPath, "branch", "-D", base));
+  for (const branch of branches) {
+    await quietly(() => git(repositoryPath, "branch", "-D", branch));
+  }
 }
