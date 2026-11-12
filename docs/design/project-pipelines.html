@@ -2659,7 +2659,7 @@
       function undoTitle(row, baseName) {
         if (row.origin === "inserted") return `Undo: take ${row.stage.name} out`;
         if (row.origin === "replaced") return `Undo: back to ${baseName}'s ${row.change.stageName}`;
-        if (row.origin === "changed") return `Undo: back to ${baseName}'s ${row.stage.name} as it is`;
+        if (row.origin === "changed") return `Undo: back to ${baseName}'s ${row.baseStage.name} as it is`;
         return `Undo: put ${baseName}'s ${row.change.stageName} back`;
       }
 
@@ -3023,8 +3023,9 @@
       }
       function placeOptions(built, row) {
         if (row.origin === "replaced") return `<option>In place of ${esc(row.change.stageName)}</option>`;
+        // An insert may sit beside a Stage of the base Pipeline or one an earlier Stage change inserted.
         return built.rows
-          .filter((r) => r.origin !== "inserted" && !r.removed)
+          .filter((r) => !r.removed && (r.origin !== "inserted" || r.index < row.index))
           .flatMap((r) => [
             [`insert-before:${r.key}`, `Before ${r.stage.name}`],
             [`insert-after:${r.key}`, `After ${r.stage.name}`],
@@ -3063,14 +3064,17 @@
           .map((n) => {
             const kindWords = { "insert-before": "Insert before", "insert-after": "Insert after", replace: "Replace", change: "Change", remove: "Remove" }[n.change.kind];
             const why = n.why === "gone" ? goneWhy(n.change, noLongerHas(built.base.name)) : takenWhy(n.change, built.base.name);
+            const remove = `<button class="btn sm secondary" data-action="undo" data-index="${n.index}">${ICON.trash(13)}Remove this Stage change</button>`;
+            // A Stage that is gone is fixed by pointing at another; a key the base Pipeline took, by a new key.
             const fix = readOnly
               ? ""
-              : `<div class="fix"><span>Apply it to</span><select class="select" data-action="repoint" data-index="${n.index}"><option value="" selected disabled>Choose a Stage…</option>${choices}</select><span>or</span>
-                  <button class="btn sm secondary" data-action="undo" data-index="${n.index}">${ICON.trash(13)}Remove this Stage change</button></div>`;
+              : n.why === "gone"
+                ? `<div class="fix"><span>Apply it to</span><select class="select" data-action="repoint" data-index="${n.index}"><option value="" selected disabled>Choose a Stage…</option>${choices}</select><span>or</span>${remove}</div>`
+                : `<div class="fix"><button class="btn sm secondary" data-action="rekey" data-index="${n.index}">Give ${esc(n.change.stage.name)} a key of its own</button><span>or</span>${remove}</div>`;
             return `<div class="not-apply-item"><div class="what"><span class="badge sm warning">${kindWords}</span>${esc(n.change.stageName)}${n.change.fields ? `<span class="note">· ${esc(listWords(changedFields(n.change)))}</span>` : ""}</div><div class="why">${esc(why)}</div>${fix}</div>`;
           })
           .join("");
-        return `<div class="not-apply" role="group" aria-label="Stage changes that don't apply"><div class="not-apply-head">${ICON.broken(14)}${plural(built.notApplying.length, "Stage change doesn't apply", "Stage changes don't apply")}: ${esc(built.base.name)} has no such Stage</div>${items}</div>`;
+        return `<div class="not-apply" role="group" aria-label="Stage changes that don't apply"><div class="not-apply-head">${ICON.broken(14)}${plural(built.notApplying.length, "Stage change doesn't apply", "Stage changes don't apply")} to ${esc(built.base.name)}</div>${items}</div>`;
       }
       function loopFix(pp, built, row) {
         const live = built.live;
@@ -3360,7 +3364,7 @@
             <p>The numbers count what the Project gets; a removed Stage keeps its row, unnumbered, so the list still reads against the base Pipeline.</p></div>
           <div><h2>Broken, in plain words</h2><ul>
               <li><b>A Stage gone:</b> "Changes Produce, which Document no longer has." Fix: Apply it to another Stage, or Remove this Stage change.</li>
-              <li><b>A key taken:</b> "Inserts Write, but Document now has a Stage of its own with the same key." Fix: Undo it, or edit the Stage's name, which gives it a new key.</li>
+              <li><b>A key taken:</b> "Inserts Write, but Document now has a Stage of its own with the same key." It shows in the same red block, as its Stage has no row. Fix: Give Write a key of its own, or Remove this Stage change.</li>
               <li><b>A loop target gone:</b> "Glossary check goes back to Produce on failure, which isn't among the Stages any more." Fix: On failure, Go back to another earlier Stage, or Ask you.</li>
               <li><b>A loop target later:</b> "… which now comes after it." Same fix.</li>
               <li>A save never leaves a Project Pipeline Broken: Save waits until each is fixed. Only a base Pipeline's save, or a Proposal of its Stages, breaks one, and both warn first.</li></ul></div>
@@ -3438,6 +3442,12 @@
           pp.stageChanges.splice(Number(target.dataset.index), 1);
           state.editing = null;
           showToast(`Undone: ${changeLine(change)}.`);
+        }
+        if (action === "rekey" && pp) {
+          const i = Number(target.dataset.index);
+          const change = pp.stageChanges[i];
+          pp.stageChanges[i] = { ...change, stage: { ...change.stage, key: newKey(build(pp), change.stage.name) } };
+          showToast(`${change.stage.name} is inserted under a key of its own now.`);
         }
         if (action === "set-back" && pp) {
           const row = build(pp).rows.find((r) => r.key === target.dataset.key);
