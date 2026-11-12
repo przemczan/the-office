@@ -36,7 +36,6 @@ import {
   hireOnHaiku,
   openDecisionsOn,
   pushCommitOnto,
-  quietly,
   remoteHead,
   stageLines,
   stagesOf,
@@ -204,6 +203,7 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
         let pipelineId: string | undefined;
         const taskIds: string[] = [];
         let mainAfter: { local: string; remote: string } | undefined;
+        let pipelineRemoved: string | undefined;
         try {
           // 2. The throwaway base branch, made from origin's main.
           await git(testProject, "fetch", REMOTE, "main");
@@ -506,11 +506,8 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
             await live("GET", `/tasks/${publishingTask.id}/stages`),
           ).stages;
           const started = (publishingStages ?? []).some(({ runs }) => runs.length > 0);
-          const expectedDefinitionOfDone = [
-            ...a.definitionOfDone,
-            ...b.definitionOfDone,
-            `The whole change is in ${throwaway} by merge`,
-          ];
+          // Spec 2.1: "The whole change is in <base branch> by <publishing mode>", the mode in words.
+          const wholeChange = publishingTask.definitionOfDone.at(-1) ?? "";
           await note(
             `  "${publishingTask.title}" in ${publishingTask.projectId}, ${publishingTask.state}, started: ${started}; Pipeline ${publishingTask.pipelineId}`,
             `  added by ${JSON.stringify(added?.by)} into ${added?.to}`,
@@ -523,9 +520,11 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
           expect(started).toBe(false);
           expect(added).toMatchObject({ from: undefined, to: "ready", by: { kind: "office" } });
           expect(publishingTask.pipelineId).toBe(pipeline.id);
-          expect(publishingTask.definitionOfDone.toSorted()).toEqual(
-            expectedDefinitionOfDone.toSorted(),
+          expect(publishingTask.definitionOfDone.slice(0, -1).toSorted()).toEqual(
+            [...a.definitionOfDone, ...b.definitionOfDone].toSorted(),
           );
+          expect(wholeChange.startsWith(`The whole change is in ${throwaway} by `)).toBe(true);
+          expect(wholeChange).toContain("merge");
           expect(publishingTask.filesToChange.toSorted()).toEqual([README, run.fileA].toSorted());
           expect(initiative.state).toBe("active");
 
@@ -601,9 +600,14 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
           expect(updateSummary(updateAfter)).toEqual(updateSummary(updateBefore));
         } finally {
           const left = api;
-          const removed = pipelineId;
-          if (left !== undefined && removed !== undefined)
-            await quietly(() => left("DELETE", `/pipelines/${removed}`));
+          const added = pipelineId;
+          pipelineRemoved =
+            left === undefined || added === undefined
+              ? "never added"
+              : await left("DELETE", `/pipelines/${added}`).then(
+                  () => "removed",
+                  (error: unknown) => `not removed: ${String(error)}`,
+                );
           await app?.close();
           await cleanUpTestProject(testProject, {
             base: throwaway,
@@ -617,13 +621,14 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
             remote: await remoteHead(testProject, REMOTE, "main"),
           };
           await note(
-            `Cleaned up; ${REMOTE} has ${throwaway}: ${(await remoteHead(testProject, REMOTE, throwaway)) !== ""}, has ${initiativeBranch}: ${(await remoteHead(testProject, REMOTE, initiativeBranch)) !== ""}`,
+            `Cleaned up; library Pipeline ${pipelineRemoved}; ${REMOTE} has ${throwaway}: ${(await remoteHead(testProject, REMOTE, throwaway)) !== ""}, has ${initiativeBranch}: ${(await remoteHead(testProject, REMOTE, initiativeBranch)) !== ""}`,
             `  local ${throwaway}: ${(await localHead(testProject, throwaway)) || "none"}, local ${initiativeBranch}: ${(await localHead(testProject, initiativeBranch)) || "none"}`,
             `  main ${mainAfter.local} (was ${mainBefore}), ${REMOTE}/main ${mainAfter.remote} (was ${remoteMainBefore})`,
           );
           await rm(folder, { recursive: true, force: true });
         }
         expect(mainAfter).toEqual({ local: mainBefore, remote: remoteMainBefore });
+        expect(pipelineRemoved).toBe("removed");
       },
       ANSWER_MS * 12 + WALK_MS * 4,
     );
