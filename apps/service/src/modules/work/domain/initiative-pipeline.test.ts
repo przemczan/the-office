@@ -19,7 +19,7 @@ import {
 } from "./initiative-pipeline.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import { initiativePipelineLines } from "./record-words.js";
-import { shapingBrief } from "./shaping.js";
+import { SHAPING_OPENING, shapingBrief } from "./shaping.js";
 import { anInitiative, aTask } from "./work.fixtures.js";
 
 const at = new Date("2026-11-12T10:00:00.000Z");
@@ -292,11 +292,35 @@ describe("what the CTO and read_initiative read of the Initiative's Pipeline", (
   });
 
   it("lists the library in the shaping Brief, saying the Initiative is on None until one is chosen", () => {
-    const brief = shapingBrief(anInitiative(SYNC), "The record.", pipelines);
+    const brief = shapingBrief(anInitiative(SYNC), undefined, "The record.", pipelines);
 
     expect(brief).toContain("The record.");
     expect(brief).toContain("The Initiative's Pipeline is None");
     expect(brief).toContain("whether it has one is fixed at Confirm");
     expect(brief).toContain("- full: Full (Implement). For most work.");
+  });
+
+  it("tells the CTO the Initiative's Tasks are in the Project its Idea was captured in", () => {
+    const brief = shapingBrief(anInitiative(SYNC), "app", "The record.", pipelines);
+
+    expect(brief).toContain(
+      "The Idea was captured in the Project app, so the Initiative's Tasks are in app unless the user names other Projects: don't ask which Project it is for.",
+    );
+  });
+
+  it("names no Project in the shaping Brief of an Initiative shaped from an Office-wide Idea", () => {
+    const brief = shapingBrief(anInitiative(SYNC), undefined, "The record.", pipelines);
+
+    expect(brief).not.toContain("The Idea was captured in the Project");
+    expect(brief).not.toContain("don't ask which Project");
+  });
+
+  it("opens shaping asking which Projects it touches only for an Idea captured Office-wide", () => {
+    expect(SHAPING_OPENING).toContain(
+      "When the Idea was captured Office-wide, also ask which Projects it touches",
+    );
+    expect(SHAPING_OPENING).toContain(
+      "when it was captured in a Project, ask only whether it reaches other Projects too",
+    );
   });
 });

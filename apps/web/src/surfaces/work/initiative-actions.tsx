@@ -8,6 +8,7 @@ import {
   autoModeQuery,
   confirmInitiative,
   dropInitiative,
+  ideaQueries,
   planInitiative,
   taskQueries,
 } from "../../api/work.ts";
@@ -28,7 +29,8 @@ import { useRememberedAutoMode } from "./use-planning.ts";
  * The Initiative page's head actions (prototypes/app/work.js `initiativePage`): "Confirm the
  * Initiative" while shaping, Plan the Initiative while it is active with a Task in Backlog, the
  * link to its planning Thread once it has one, Start Ready Tasks while it is active with a Ready
- * Task, its answer going to `onStartedReadyTasks`, "Add a Task" while it is open, and its menu with
+ * Task, its answer going to `onStartedReadyTasks`, "Add a Task" while it is open (in the Project of
+ * the Idea it was shaped from until it has Tasks), and its menu with
  * Drop until it has ended, Archive once it has.
  */
 export function InitiativeActions({
@@ -40,6 +42,7 @@ export function InitiativeActions({
 }): ReactNode {
   const [adding, setAdding] = useState(false);
   const tasks = useQuery(taskQueries.list());
+  const originIdea = useQuery(ideaQueries.one(initiative.originIdeaId));
   const open = initiative.state === "shaping" || initiative.state === "active";
   const initiativeTasks = tasksOfInitiative(initiative, tasks.data ?? []);
   return (
@@ -65,6 +68,7 @@ export function InitiativeActions({
       {adding && (
         <NewTaskDialog
           initiative={initiative}
+          projectId={originIdea.data?.projectId}
           canWaitFor={initiativeTasks.filter(canHoldBack)}
           onClose={() => setAdding(false)}
         />

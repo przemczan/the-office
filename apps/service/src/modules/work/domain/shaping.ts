@@ -15,14 +15,15 @@ export const SHAPING_INSTRUCTIONS = `In this Thread you shape an Initiative with
 
 /** The Office's first message in a new Thread on an Initiative, after the Brief. */
 export const SHAPING_OPENING =
-  "Read the Initiative and the Idea it was shaped from, then ask the user what outcome they want and which Projects it touches. Keep it short: the user answers in this Thread.";
+  "Read the Initiative and the Idea it was shaped from, then ask the user what outcome they want. When the Idea was captured Office-wide, also ask which Projects it touches; when it was captured in a Project, ask only whether it reaches other Projects too. Keep it short: the user answers in this Thread.";
 
 /**
- * The CTO's shaping Brief: the Initiative's record, then the library's Pipelines it may follow,
- * with what it follows now.
+ * The CTO's shaping Brief: the Initiative's record, the Project its Idea was captured in when it
+ * was, then the library's Pipelines it may follow, with what it follows now.
  */
 export function shapingBrief(
   initiative: Initiative,
+  ideaProjectId: string | undefined,
   record: string,
   pipelines: readonly PlanningPipeline[],
 ): string {
@@ -36,6 +37,11 @@ export function shapingBrief(
       : "Whether it has one was fixed at Confirm; choose_pipeline drafts a Proposal of another library Pipeline.";
   return [
     record,
+    ...(ideaProjectId === undefined
+      ? []
+      : [
+          `The Idea was captured in the Project ${ideaProjectId}, so the Initiative's Tasks are in ${ideaProjectId} unless the user names other Projects: don't ask which Project it is for.`,
+        ]),
     `## The Pipelines\n\n${current} ${fixed}`,
     pipelineLibraryLines(pipelines).join("\n"),
   ].join("\n\n");

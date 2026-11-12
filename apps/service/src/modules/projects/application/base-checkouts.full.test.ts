@@ -104,7 +104,13 @@ async function initiativeCheckouts(projectIds: readonly string[]) {
   const initiativeBases = new BaseCheckouts(
     listed,
     git,
-    new Worktrees(git, commands, taskCommandsOver(commands), officeData),
+    new Worktrees(
+      git,
+      commands,
+      taskCommandsOver(commands),
+      officeData,
+      new TaskBasesForTests(git),
+    ),
     commands,
     officeData,
   );

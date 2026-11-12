@@ -16,6 +16,7 @@ import {
   type InitiativePlanningProject,
 } from "../../domain/initiative-planning.js";
 import { PLANNER } from "../../domain/planning.js";
+import { initiativeRecordText } from "../../domain/record-words.js";
 import { SHAPING_INSTRUCTIONS, shapingBrief } from "../../domain/shaping.js";
 import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task } from "../../domain/task.js";
@@ -96,19 +97,16 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     initiativeId,
     roleKey,
   }: InitiativeThreadRequest): Promise<InitiativeThreadSetup> {
-    const [initiative, record, byInitiative] = await Promise.all([
-      this.initiatives.read(initiativeId),
-      this.initiatives.recordText(initiativeId),
-      this.initiatives.tasksByInitiative(),
-    ]);
-    const tasks = byInitiative.get(initiativeId) ?? [];
+    const initiativeRecord = await this.initiatives.record(initiativeId);
+    const { initiative, idea, tasks } = initiativeRecord;
+    const record = initiativeRecordText(initiativeRecord);
     const sessionRefusal = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
     const branchReads = initiativeBranchReads(initiative, tasks);
     if (roleKey !== PLANNER) {
       return {
         instructions: SHAPING_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,
-        record: shapingBrief(initiative, record, await this.pipelines.list()),
+        record: shapingBrief(initiative, idea.projectId, record, await this.pipelines.list()),
         sessionRefusal,
         branchReads,
       };

@@ -24,7 +24,8 @@ type NewTaskDraft = Omit<NewTask, "projectId" | "description"> & {
  * The top bar's Create › Task: a title, a Description if the user wants, its Project and any Tags;
  * it starts in Backlog, in `projectId` unless another is chosen (else the first Project), and its
  * page opens. Given an Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in
- * the Initiative's first Project unless another is chosen, and waiting for any of `canWaitFor`, the
+ * the Initiative's first Project unless another is chosen (else `projectId`, the Project of the Idea
+ * it was shaped from, until it has Tasks), and waiting for any of `canWaitFor`, the
  * Initiative's Tasks that can still hold it back, the user chooses; it starts in Shaping while the
  * Initiative does, and the user stays on the Initiative to add the next.
  */
