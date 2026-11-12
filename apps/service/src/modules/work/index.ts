@@ -2,6 +2,7 @@ export { FireAlarmService } from "./application/fire-alarm-service.js";
 export { IdeaService } from "./application/idea-service.js";
 export { InitiativeService } from "./application/initiative-service.js";
 export { InitiativeArchiving } from "./application/initiative-archiving.js";
+export { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.js";
 export { OfficeLimits } from "./application/office-limits.js";
 export { QueueService } from "./application/queue-service.js";
 export { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
@@ -49,5 +50,5 @@ export {
   TaskStopped,
 } from "./domain/task-events.js";
 export { TaskRefused } from "./domain/task-refused.js";
-export { TASK_STATE_NAMES } from "./domain/task-states.js";
+export { STARTED_STATES, TASK_STATE_NAMES } from "./domain/task-states.js";
 export { WorkModule } from "./work.module.js";

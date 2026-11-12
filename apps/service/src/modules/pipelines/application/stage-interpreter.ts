@@ -15,6 +15,7 @@ import { OfficeUpdateCancelled, OfficeUpdateHold } from "../../office-updates/in
 import { CTO } from "../../people/index.js";
 import {
   AlarmSounded,
+  STARTED_STATES,
   TaskDependencyRemoved,
   TaskPaused,
   TaskResumed,
@@ -151,7 +152,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
     this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
     this.events.subscribe(OfficeUpdateCancelled, () => this.walkHeldForUpdate());
-    this.events.subscribe(TaskStateChanged, ({ to }) => {
+    this.events.subscribe(TaskStateChanged, async ({ taskId, from, to }) => {
+      // A started Task dropped, alone or with its Initiative, has its running Stage stopped.
+      if (to === "dropped" && STARTED_STATES.includes(from)) await this.interrupt(taskId, "stop");
       if (to === "done" || to === "dropped") this.walkHeldForBlocker();
     });
     this.events.subscribe(TaskDependencyRemoved, () => this.walkHeldForBlocker());

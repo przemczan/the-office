@@ -25,6 +25,7 @@ import { projectsToPublish, unfinishedPublishingTask } from "./publishing-task.j
 import { addDependency, blockPublishingTask, removeDependency } from "./task-dependencies.js";
 import { changeDescription, changeTitle } from "./task-description.js";
 import { TaskRefused } from "./task-refused.js";
+import type { StateChangeCause } from "./state-change.js";
 import type {
   TaskCreated,
   TaskDependencyAdded,
@@ -218,8 +219,8 @@ export function addBranch(
 }
 
 /**
- * Undefined when it is already dropped. Its Tasks still in Shaping could never move on, so they
- * drop with it; every other Task stays as it is.
+ * Undefined when it is already dropped. Every one of its Tasks not yet Done or Dropped drops with
+ * it, started ones too, each as by the user's own Drop (spec 2.1, "An Initiative is done").
  */
 export function dropInitiative(
   initiative: Initiative,
@@ -230,12 +231,28 @@ export function dropInitiative(
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
   }
-  return {
-    ...moveTo(initiative, "dropped", at),
-    taskChanges: inShaping(tasks).flatMap(
-      (task) => changeTaskState(task, "dropped", THE_USER) ?? [],
-    ),
-  };
+  return { ...moveTo(initiative, "dropped", at), taskChanges: dropOpen(tasks, THE_USER) };
+}
+
+/**
+ * The Tasks a Dropped Initiative left open, from before a Drop took them along (spec 2.1), dropped
+ * `by` The Office; none for any other Initiative, or once none is open, so it can run again.
+ */
+export function dropLeftOpenTasks(
+  initiative: Initiative,
+  tasks: readonly Task[],
+  by: StateChangeCause,
+): readonly TaskChange<TaskStateChanged>[] {
+  return initiative.state === "dropped" ? dropOpen(tasks, by) : [];
+}
+
+function dropOpen(
+  tasks: readonly Task[],
+  by: StateChangeCause,
+): readonly TaskChange<TaskStateChanged>[] {
+  return tasks
+    .filter(({ state }) => state !== "done" && state !== "dropped")
+    .flatMap((task) => changeTaskState(task, "dropped", by) ?? []);
 }
 
 function inShaping(tasks: readonly Task[]): readonly Task[] {

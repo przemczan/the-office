@@ -385,7 +385,11 @@ export class InitiativeService implements OnModuleInit {
     return projects.filter((project) => project !== undefined);
   }
 
-  /** Drops it, and its Tasks still in Shaping with it. */
+  /**
+   * Drops it, and every one of its Tasks not yet Done or Dropped with it. Each Task's
+   * TaskStateChanged is published as its own Drop's is, so the queue lets a queued one go and a
+   * started one's run stops.
+   */
   async drop(id: string): Promise<Initiative> {
     return this.updateWithTasks(id, (initiative, tasks) =>
       dropInitiative(initiative, tasks, new Date()),

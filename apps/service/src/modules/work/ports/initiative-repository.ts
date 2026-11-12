@@ -64,6 +64,18 @@ export abstract class InitiativeRepository {
   ): Promise<InitiativeTasksUpdate<Event>>;
 
   /**
+   * As `updateWithTasks` for a change of its Tasks alone: the Initiative stays as it is, held so
+   * its state is read as it stays. Saves `change`'s Task changes and answers them.
+   */
+  abstract changeTasks(
+    id: string,
+    change: (
+      initiative: Initiative,
+      tasks: readonly Task[],
+    ) => readonly TaskChange<TaskStateChanged>[],
+  ): Promise<readonly TaskChange<TaskStateChanged>[]>;
+
+  /**
    * As `update`, holding every Initiative's Short name too and giving `change` those the other
    * Initiatives hold, so no two derive or write the same one.
    */

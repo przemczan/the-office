@@ -8,6 +8,7 @@ import {
   addTaskToInitiative,
   confirmInitiative,
   dropInitiative,
+  dropLeftOpenTasks,
   finishInitiative,
   removeDependencyOfItsTask,
   writeOutcome,
@@ -16,6 +17,7 @@ import { initiativeProjectIds } from "./initiative.js";
 import { InitiativeOutcomeWritten, InitiativeStateChanged } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
+import { TASK_STATES } from "./task.js";
 import { TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { anInitiative, aTask } from "./work.fixtures.js";
@@ -74,34 +76,52 @@ describe("dropInitiative", () => {
     expect(dropInitiative(anInitiative({ state: "dropped" }), [], at)).toBeUndefined();
   });
 
-  it("drops its Tasks still in Shaping with it, each move kept, and leaves the others", () => {
-    const shaping = aTask({ id: "task-1", state: "shaping" });
-    const inProgress = aTask({ id: "task-2", state: "in-progress" });
+  it.each(["shaping", "active"] as const)(
+    "drops every Task of a %s one not yet Done or Dropped, each move kept by the user",
+    (state) => {
+      const tasks = TASK_STATES.map((taskState) => aTask({ id: taskState, state: taskState }));
 
-    const change = dropInitiative(anInitiative(), [shaping, inProgress], at);
+      const change = dropInitiative(anInitiative({ state }), tasks, at);
 
-    expect(change?.taskChanges.map(({ task }) => [task.id, task.state])).toEqual([
-      ["task-1", "dropped"],
-    ]);
-    expect(change?.taskChanges[0]?.stateChange).toMatchObject({
-      from: "shaping",
-      to: "dropped",
-      by: THE_USER,
-    });
-  });
-
-  it("changes no Task of an active one", () => {
-    const backlog = aTask({ state: "backlog" });
-
-    expect(dropInitiative(anInitiative({ state: "active" }), [backlog], at)?.taskChanges).toEqual(
-      [],
-    );
-  });
+      const open = TASK_STATES.filter(
+        (taskState) => taskState !== "done" && taskState !== "dropped",
+      );
+      expect(change?.taskChanges.map(({ task }) => [task.id, task.state])).toEqual(
+        open.map((taskState) => [taskState, "dropped"]),
+      );
+      expect(change?.taskChanges.map((taskChange) => taskChange.stateChange)).toEqual(
+        open.map((from) => expect.objectContaining({ from, to: "dropped", by: THE_USER })),
+      );
+    },
+  );
 
   it("refuses a done one", () => {
     expect(() => dropInitiative(anInitiative({ state: "done" }), [], at)).toThrow(
       new InitiativeRefused(["A done Initiative can't be dropped."]),
     );
+  });
+});
+
+describe("dropLeftOpenTasks", () => {
+  const byTheOffice = { kind: "office", reason: "its Initiative was dropped" } as const;
+  const tasks = TASK_STATES.map((state) => aTask({ id: state, state }));
+
+  it("drops the Tasks a Dropped Initiative left open, each move kept as The Office's", () => {
+    const changes = dropLeftOpenTasks(anInitiative({ state: "dropped" }), tasks, byTheOffice);
+
+    expect(changes.map(({ task }) => task.id)).toEqual(
+      TASK_STATES.filter((state) => state !== "done" && state !== "dropped"),
+    );
+    expect(changes.every((taskChange) => taskChange.stateChange?.by === byTheOffice)).toBe(true);
+  });
+
+  it("changes nothing once none is open, or for an Initiative not Dropped", () => {
+    const ended = [aTask({ id: "a", state: "done" }), aTask({ id: "b", state: "dropped" })];
+
+    expect(dropLeftOpenTasks(anInitiative({ state: "dropped" }), ended, byTheOffice)).toEqual([]);
+    for (const state of ["shaping", "active", "done"] as const) {
+      expect(dropLeftOpenTasks(anInitiative({ state }), tasks, byTheOffice)).toEqual([]);
+    }
   });
 });
 

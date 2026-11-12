@@ -7,15 +7,20 @@ import {
   ideaSchema,
   initiativeListSchema,
   initiativeSchema,
+  queueSchema,
   taskSchema,
   workRefusalSchema,
   type ArchivedInitiativesPage,
   type Initiative,
+  type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { THE_USER } from "../../domain/author.js";
 import { SHAPING_OPENING } from "../../domain/shaping.js";
+import { InitiativeStateChanged } from "../../domain/initiative-events.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
+import { DroppedInitiativeTasks } from "../../application/dropped-initiative-tasks.js";
+import { InitiativeRepository } from "../../ports/initiative-repository.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import {
   InitiativeThreadsForTests,
@@ -29,6 +34,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
+import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -253,21 +259,18 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
     ]);
   });
 
-  it("drops its Tasks in Shaping with a shaping Initiative, each move kept, and no other", async () => {
+  it("drops every Task of a shaping Initiative not yet ended, each move kept as the user's", async () => {
     const initiative = await shape(await capture());
     const shaping = await addTask(initiative);
     const moved = await addTask(initiative);
-    await work.app.get(TaskRepository).update(moved.id, (held) => ({
-      task: { ...held, state: "planning" },
-      event: new TaskStateChanged(held.id, held.state, "planning"),
-    }));
+    await moveTo(moved, "planning");
     work.published.length = 0;
 
     const dropped = await post(initiative, "drop");
 
     expect(initiativeSchema.parse(await dropped.json()).state).toBe("dropped");
     expect((await taskOf(shaping)).state).toBe("dropped");
-    expect((await taskOf(moved)).state).toBe("planning");
+    expect((await taskOf(moved)).state).toBe("dropped");
     expect(webEventsOf(work)).toContainEqual({
       type: "task.state-changed",
       taskId: shaping.id,
@@ -281,16 +284,90 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
     });
   });
 
-  it("changes no Task as an active Initiative drops", async () => {
+  it("drops an active Initiative's Backlog, queued and started Tasks, the queued one leaving the queue, and leaves its Done one", async () => {
+    const projectId = aProjectId();
+    // A test app's queue holds only the Projects it names.
+    await work.app.close();
+    work = await startWorkApplication(officeData, [ownProjectsQueue(() => [projectId])]);
     const initiative = await shape(await capture());
-    const task = await addTask(initiative);
+    const backlog = await addTask(initiative, projectId);
+    const queued = await addTask(initiative, projectId, [backlog.id]);
+    const started = await addTask(initiative, projectId);
+    const done = await addTask(initiative, projectId);
     await post(initiative, "confirm");
+    await markReady(queued);
+    expect((await sendJson(work, "POST", `/tasks/${queued.id}/start`)).status).toBe(200);
+    expect(await inTheQueue(queued)).toBe(true);
+    await moveTo(started, "in-progress");
+    await end(done, "done");
 
     await post(initiative, "drop");
 
-    expect(await taskOf(task)).toMatchObject({ state: "backlog", initiativeId: initiative.id });
+    for (const task of [backlog, queued, started]) {
+      expect((await taskOf(task)).state).toBe("dropped");
+      expect((await work.app.get(TaskRepository).stateChangesOf(task.id)).at(-1)).toMatchObject({
+        to: "dropped",
+        by: THE_USER,
+      });
+    }
+    expect((await taskOf(done)).state).toBe("done");
+    expect(await inTheQueue(queued)).toBe(false);
   });
 });
+
+describe("Initiatives dropped before a Drop took their Tasks along", () => {
+  it("have their open Tasks dropped once by The Office, and a second run changes nothing", async () => {
+    const initiative = await shape(await capture());
+    const backlog = await addTask(initiative);
+    const done = await addTask(initiative);
+    await post(initiative, "confirm");
+    await end(done, "done");
+    // As a Drop before the rule left it: the Initiative Dropped, its Tasks as they were.
+    await work.app.get(InitiativeRepository).update(initiative.id, (held) => ({
+      initiative: { ...held, state: "dropped", endedAt: new Date() },
+      event: new InitiativeStateChanged(held.id, held.state, "dropped"),
+    }));
+    const catchUp = work.app.get(DroppedInitiativeTasks);
+
+    await catchUp.dropLeftOpen();
+    const changesAfterFirst = await work.app.get(TaskRepository).stateChangesOf(backlog.id);
+    await catchUp.dropLeftOpen();
+
+    expect((await taskOf(backlog)).state).toBe("dropped");
+    expect(changesAfterFirst.at(-1)).toMatchObject({
+      from: "backlog",
+      to: "dropped",
+      by: { kind: "office", reason: "its Initiative was dropped" },
+    });
+    expect(await work.app.get(TaskRepository).stateChangesOf(backlog.id)).toEqual(
+      changesAfterFirst,
+    );
+    expect((await taskOf(done)).state).toBe("done");
+  });
+});
+
+/** As Work moves a Task through states this file doesn't walk, with no event. */
+async function moveTo(task: Task, state: "planning" | "in-progress"): Promise<void> {
+  await work.app.get(TaskRepository).update(task.id, (held) => ({
+    task: { ...held, state },
+    event: new TaskStateChanged(held.id, held.state, state),
+  }));
+}
+
+/** Its Plan and Definition of Done written and confirmed by the user, then marked Ready. */
+async function markReady({ id }: Task): Promise<void> {
+  await sendJson(work, "PUT", `/tasks/${id}/plan`, { plan: "Mine." });
+  await sendJson(work, "PUT", `/tasks/${id}/definition-of-done`, { definitionOfDone: ["Mine."] });
+  await sendJson(work, "POST", `/tasks/${id}/plan/confirm`);
+  await sendJson(work, "POST", `/tasks/${id}/definition-of-done/confirm`);
+  await sendJson(work, "PUT", `/tasks/${id}/pipeline`, { pipelineId: "quick-fix" });
+  expect((await sendJson(work, "POST", `/tasks/${id}/ready`)).status).toBe(200);
+}
+
+async function inTheQueue({ id }: Task): Promise<boolean> {
+  const queue = queueSchema.parse(await (await sendJson(work, "GET", "/queue")).json());
+  return queue.some(({ taskId }) => taskId === id);
+}
 
 describe("a Task in Shaping", () => {
   const CONFIRM_FIRST = "confirm its Initiative first.";
