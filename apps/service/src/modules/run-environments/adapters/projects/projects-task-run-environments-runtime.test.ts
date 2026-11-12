@@ -95,7 +95,8 @@ describe.skipIf(missing !== undefined)(
         taskId,
         projectId: "shop",
         worktree,
-        repositoryGitFolder: join(testbed.folder, "repository", ".git"),
+        // A main checkout's, inside the worktree: no git folder to mount, as none exists here.
+        repositoryGitFolder: join(worktree, ".git"),
         installCommand: "echo installed",
         installInputs: ["package-lock.json"],
         installVariables: [],
