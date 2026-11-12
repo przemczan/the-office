@@ -13,6 +13,7 @@ import { projectQueries } from "../../api/projects.ts";
 import { ideaQueries, taskQueries } from "../../api/work.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
+import { OriginBlock } from "./origin-block.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -47,16 +48,37 @@ function aProject(id: string, name: string): Project {
 const PROJECTS = [aProject("api-service", "API service"), aProject("admin-panel", "Admin panel")];
 
 async function renderedWithIdeaIn(projectId: string | null): Promise<HTMLElement> {
+  return rendered(INITIATIVE, (queryClient) =>
+    queryClient.setQueryData(ideaQueries.one(IDEA_ID).queryKey, {
+      id: IDEA_ID,
+      title: "Usage exports",
+      notes: "",
+      projectId,
+      capturedAt: "2026-11-10T08:00:00.000Z",
+    } as Idea),
+  );
+}
+
+async function rendered(
+  initiative: Initiative,
+  seed: (queryClient: QueryClient) => void = () => undefined,
+): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(taskQueries.list().queryKey, [] as Task[]);
   queryClient.setQueryData(projectQueries.list().queryKey, PROJECTS);
-  queryClient.setQueryData(ideaQueries.one(IDEA_ID).queryKey, { id: IDEA_ID, projectId } as Idea);
+  seed(queryClient);
   const router = createRouter({
     routeTree: createRootRoute({
       component: () => (
-        <InitiativeActions initiative={INITIATIVE} onStartedReadyTasks={() => undefined} />
+        <>
+          <InitiativeActions initiative={initiative} onStartedReadyTasks={() => undefined} />
+          <OriginBlock
+            record={{ kind: "initiative", id: initiative.id }}
+            ideaId={initiative.originIdeaId}
+          />
+        </>
       ),
     }),
     history: createMemoryHistory({ initialEntries: ["/"] }),
@@ -107,6 +129,7 @@ describe("Add a Task on an Initiative's page", () => {
 
   it("chooses the Project of the Idea it was shaped from while it has no Tasks", async () => {
     const page = await renderedWithIdeaIn("admin-panel");
+    expect(page.textContent).toContain("Origin");
 
     await addATask(page);
     expect(chosenProject()).toContain("Admin panel");
@@ -118,5 +141,17 @@ describe("Add a Task on an Initiative's page", () => {
     await addATask(page);
 
     expect(chosenProject()).toContain("API service");
+  });
+
+  it("works on one created from no Idea, asking for no Idea and showing no Origin", async () => {
+    const page = await rendered({ ...INITIATIVE, originIdeaId: null });
+
+    expect(page.textContent).toContain("Confirm");
+    expect(page.textContent).not.toContain("Origin");
+    await addATask(page);
+
+    expect(chosenProject()).toContain("API service");
+    const asked = vi.mocked(fetch).mock.calls.map(([url]) => String(url));
+    expect(asked.filter((url) => url.includes("/ideas"))).toEqual([]);
   });
 });

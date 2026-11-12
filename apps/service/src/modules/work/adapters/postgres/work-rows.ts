@@ -186,6 +186,7 @@ export function toIdea(row: IdeaRow): Idea {
 export function toInitiativeRow(initiative: Initiative): InitiativeRow {
   return {
     ...initiative,
+    originIdeaId: initiative.originIdeaId ?? null,
     endedAt: initiative.endedAt ?? null,
     archivedAt: initiative.archivedAt ?? null,
     restoredAt: initiative.restoredAt ?? null,
@@ -203,6 +204,7 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
 export function toInitiative(row: InitiativeRow): Initiative {
   return {
     ...row,
+    originIdeaId: row.originIdeaId ?? undefined,
     endedAt: row.endedAt ?? undefined,
     archivedAt: row.archivedAt ?? undefined,
     restoredAt: row.restoredAt ?? undefined,

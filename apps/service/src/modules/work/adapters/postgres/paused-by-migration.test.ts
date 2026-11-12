@@ -37,7 +37,7 @@ async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Re
   return result;
 }
 
-/** The two columns as they were before migration 0127, every row's hold forgotten. */
+/** The two columns as they were before migration 0128, every row's hold forgotten. */
 async function columnsBefore(transaction: Transaction): Promise<void> {
   await transaction.execute(sql`ALTER TABLE "initiatives" DROP COLUMN "paused_at"`);
   await transaction.execute(sql`ALTER TABLE "tasks" DROP COLUMN "paused_by"`);
@@ -46,10 +46,10 @@ async function columnsBefore(transaction: Transaction): Promise<void> {
   );
 }
 
-describe("migration 0127", () => {
+describe("migration 0128", () => {
   it("keeps the Tasks the fire alarm paused held by it, and no other", async () => {
     const migration = await readFile(
-      new URL("../../../../../drizzle/0127_initiative_pause.sql", import.meta.url),
+      new URL("../../../../../drizzle/0128_initiative_pause.sql", import.meta.url),
       "utf8",
     );
     const projectId = `project-${randomUUID()}`;

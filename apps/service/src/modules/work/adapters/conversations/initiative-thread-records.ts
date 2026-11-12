@@ -114,7 +114,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       return {
         instructions: SHAPING_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,
-        record: shapingBrief(initiative, idea.projectId, record, await this.pipelines.list()),
+        record: shapingBrief(initiative, idea?.projectId, record, await this.pipelines.list()),
         sessionRefusal,
         branchReads,
       };

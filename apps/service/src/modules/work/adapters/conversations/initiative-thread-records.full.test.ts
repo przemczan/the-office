@@ -12,6 +12,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InitiativeThreadSetups } from "../../../conversations/index.js";
+import { InitiativeService } from "../../application/initiative-service.js";
 import { INITIATIVE_PLANNING_INSTRUCTIONS } from "../../domain/initiative-planning.js";
 import { PLANNER } from "../../domain/planning.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
@@ -148,6 +149,33 @@ describe("a shaping Thread's session", () => {
       .of({ threadId: randomUUID(), initiativeId: initiative.id, roleKey: "cto" });
 
     expect(setup.sessionRefusal).toBe(ENDED_INITIATIVE_CONVERSATION_WORDS.dropped);
+  });
+
+  it("is briefed with no Shaped from line, for the CTO and the Planner alike, for one created from no Idea", async () => {
+    const name = `Single sign-on ${randomUUID().slice(0, 8)}`;
+    const { initiative } = await work.app
+      .get(InitiativeService)
+      .create({ name, outcome: "People sign in once." }, { kind: "person", roleKey: "cto" });
+
+    for (const roleKey of ["cto", PLANNER]) {
+      const setup = await work.app
+        .get(InitiativeThreadSetups)
+        .of({ threadId: randomUUID(), initiativeId: initiative.id, roleKey });
+
+      expect(setup.record).toContain(
+        [
+          `${name} (Initiative ${initiative.id})`,
+          "- shaping; spans no Project yet",
+          `- Created by the person in the Role cto on ${initiative.createdAt.toISOString()}`,
+          "- Initiative's Pipeline: None, so each Task publishes on its own",
+          "",
+          "Outcome:",
+          "People sign in once.",
+        ].join("\n"),
+      );
+      expect(setup.record).not.toContain("Shaped from");
+      expect(setup.record).not.toContain("The Idea was captured");
+    }
   });
 });
 

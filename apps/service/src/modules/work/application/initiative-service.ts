@@ -4,6 +4,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
 import type { Author } from "../domain/author.js";
+import type { Idea } from "../domain/idea.js";
 import { shapeIdeaIntoInitiative } from "../domain/idea-changes.js";
 import { initiativeProjectIds, type Initiative } from "../domain/initiative.js";
 import {
@@ -20,6 +21,7 @@ import {
   changeDescriptionOfItsTask,
   changeTitleOfItsTask,
   chooseInitiativePipeline,
+  createInitiative,
   dropInitiative,
   finishInitiative,
   removeDependencyOfItsTask,
@@ -30,6 +32,7 @@ import {
   type InitiativeChange,
   type InitiativeChangeRoute,
   type InitiativeTasksChange,
+  type NewInitiative,
 } from "../domain/initiative-changes.js";
 import {
   initiativeEditProblems,
@@ -59,7 +62,7 @@ import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
 import { initiativeRecordText, type InitiativeRecord } from "../domain/record-words.js";
 import { searchWords } from "../domain/search.js";
-import { CTO, SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../domain/shaping.js";
+import { CTO, SHAPING_THREAD_TITLE, shapingOpeningOf } from "../domain/shaping.js";
 import { isPublishingTask, newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import { createdWaitingFor } from "../domain/task-dependencies.js";
@@ -103,9 +106,9 @@ export interface InitiativeOnPipeline {
 }
 
 /**
- * The Initiatives use cases: shaped from an Idea, its outcome, Tasks, their titles, Descriptions and
- * dependencies written while shaping or by the CTO's Proposals once active, confirmed, dropped, and done once their
- * Tasks are. Each change is saved first and its events published after.
+ * The Initiatives use cases: shaped from an Idea or created from none, its outcome, Tasks, their
+ * titles, Descriptions and dependencies written while shaping or by the CTO's Proposals once
+ * active, confirmed, dropped, and done once their Tasks are. Each change is saved first and its events published after.
  */
 @Injectable()
 export class InitiativeService implements OnModuleInit {
@@ -142,13 +145,38 @@ export class InitiativeService implements OnModuleInit {
    */
   async shape(ideaId: string, shapedBy: Author): Promise<Initiative> {
     const initiative = await this.shapeFromIdea(ideaId, shapedBy);
-    if (!(await this.people.find(CTO))) return initiative;
+    await this.openShapingThreadIfCto(initiative);
+    return initiative;
+  }
+
+  /**
+   * Creates an Initiative being shaped from no Idea, named and with its outcome written
+   * (create_initiative, spec 2.1), and opens its shaping Thread as `shape` does. Answers whether
+   * that Thread opened.
+   */
+  async create(
+    setting: NewInitiative,
+    createdBy: Author,
+  ): Promise<{ readonly initiative: Initiative; readonly shapingThreadOpened: boolean }> {
+    const created = createInitiative(setting, randomUUID(), createdBy, new Date());
+    await this.repository.insert(created);
+    await this.events.publish(created.event);
+    const shapingThreadOpened = await this.openShapingThreadIfCto(created.initiative);
+    return { initiative: created.initiative, shapingThreadOpened };
+  }
+
+  /** Whether the shaping Thread opened: never without a CTO, who the user hires and then starts it. */
+  private async openShapingThreadIfCto(initiative: Initiative): Promise<boolean> {
+    if (!(await this.people.find(CTO))) return false;
     // An Initiative stands without its Thread, so one that couldn't open leaves the user to start it.
-    await this.openShapingThread(initiative.id).catch((error: unknown) => {
+    try {
+      await this.openShapingThread(initiative);
+      return true;
+    } catch (error: unknown) {
       const reason = error instanceof Error ? error.message : String(error);
       this.logger.warn(`The Initiative ${initiative.id}'s shaping Thread couldn't open: ${reason}`);
-    });
-    return initiative;
+      return false;
+    }
   }
 
   /**
@@ -167,15 +195,15 @@ export class InitiativeService implements OnModuleInit {
         "Hire a CTO on People first: shaping is a conversation with them.",
       ]);
     }
-    return this.openShapingThread(id);
+    return this.openShapingThread(initiative);
   }
 
-  private async openShapingThread(id: string): Promise<{ readonly id: string }> {
+  private async openShapingThread(initiative: Initiative): Promise<{ readonly id: string }> {
     return this.threads.startOnInitiative({
-      initiativeId: id,
+      initiativeId: initiative.id,
       roleKey: CTO,
       title: SHAPING_THREAD_TITLE,
-      opening: SHAPING_OPENING,
+      opening: shapingOpeningOf(initiative),
     });
   }
 
@@ -234,11 +262,10 @@ export class InitiativeService implements OnModuleInit {
   async record(id: string): Promise<InitiativeRecord> {
     const initiative = await this.read(id);
     const [idea, board, attachments] = await Promise.all([
-      this.ideas.find(initiative.originIdeaId),
+      this.originIdeaOf(initiative),
       this.tasks.list(),
       this.attachments.listOf({ kind: "initiative", initiativeId: id }),
     ]);
-    if (!idea) throw new IdeaNotFound(initiative.originIdeaId);
     const tasks = tasksByInitiative(board).get(id) ?? [];
     const blockers = new Map(board.map((task) => [task.id, task]));
     const pipeline =
@@ -246,6 +273,14 @@ export class InitiativeService implements OnModuleInit {
         ? undefined
         : await this.pipelines.find(initiative.pipelineId);
     return { initiative, idea, tasks, blockers, attachments, pipelineName: pipeline?.name };
+  }
+
+  /** The Idea it was shaped from; undefined for one created from none. */
+  private async originIdeaOf({ originIdeaId }: Initiative): Promise<Idea | undefined> {
+    if (originIdeaId === undefined) return undefined;
+    const idea = await this.ideas.find(originIdeaId);
+    if (!idea) throw new IdeaNotFound(originIdeaId);
+    return idea;
   }
 
   /** Every Initiative that names a Pipeline, with the Projects its Tasks span. */
