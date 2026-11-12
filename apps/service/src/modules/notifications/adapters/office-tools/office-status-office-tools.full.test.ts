@@ -60,7 +60,7 @@ describe("the show_office_status tool", () => {
         title: "Add a filter",
         projectId: "p1",
         state: "waiting-on-you",
-        pausedByAlarm: false,
+        pausedBy: undefined,
       },
     ];
     app.get(OpenDecisionsForTests).open = [

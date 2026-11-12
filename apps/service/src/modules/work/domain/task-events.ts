@@ -1,5 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { Priority, Task, TaskState } from "./task.js";
+import type { Priority, Task, TaskHolder, TaskState } from "./task.js";
 
 export class TaskCreated extends DomainEvent {
   constructor(readonly task: Task) {
@@ -215,13 +215,16 @@ export class TaskRewrittenInInitiative extends DomainEvent {
   }
 }
 
-/** Who paused a Task: the user, or the fire alarm (spec §2.8), which the all clear resumes. */
-export type PausedBy = "user" | "alarm";
+/**
+ * Who paused a Task: the user; the fire alarm (spec §2.8), which the all clear resumes; or its
+ * Initiative's Pause, which Resume the Initiative resumes.
+ */
+export type PausedBy = "user" | TaskHolder;
 
 /**
  * The Task is held Paused: its running Stage is held once the Agent's turn ends (spec §2.4), or, by
  * the fire alarm, at its next safe point (spec §2.8). `from` is Paused when the alarm took over a
- * Resume the user asked for while it was on.
+ * Resume the user asked for while it was on, or the Initiative's Pause took over the alarm's hold.
  */
 export class TaskPaused extends DomainEvent {
   constructor(
@@ -251,6 +254,16 @@ export class TaskStopped extends DomainEvent {
  * Paused, now as their own Pause, and nothing of it runs until they resume it.
  */
 export class TaskHeldAtAllClear extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+/**
+ * The user dropped the Initiative whose Pause held the Task: it stays Paused, now as their own
+ * Pause, as Hold leaves a Task at the all clear.
+ */
+export class TaskHeldAtInitiativeDrop extends DomainEvent {
   constructor(readonly taskId: string) {
     super();
   }

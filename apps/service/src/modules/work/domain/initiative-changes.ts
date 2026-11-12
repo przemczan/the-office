@@ -15,6 +15,7 @@ import { newTaskProblems, trimmedNewTask, type NewTask, type Task } from "./task
 import {
   changeTaskState,
   createTask,
+  holdTaskAtInitiativeDrop,
   moveToBacklogOnConfirm,
   type NewTaskSetting,
   type TaskChange,
@@ -28,7 +29,6 @@ import type {
   TaskDependencyAdded,
   TaskDependencyRemoved,
   TaskDescriptionChanged,
-  TaskStateChanged,
   TaskTitleChanged,
 } from "./task-events.js";
 
@@ -38,9 +38,9 @@ export interface InitiativeChange<Event extends DomainEvent> {
   readonly event: Event;
 }
 
-/** An Initiative's change that moves its Tasks too, each by a change of its own. */
+/** An Initiative's change that changes its Tasks too, each by a change of its own. */
 export interface InitiativeTasksChange<Event extends DomainEvent> extends InitiativeChange<Event> {
-  readonly taskChanges: readonly TaskChange<TaskStateChanged>[];
+  readonly taskChanges: readonly TaskChange<DomainEvent>[];
 }
 
 /**
@@ -179,7 +179,8 @@ export function addBranch(
 
 /**
  * Undefined when it is already dropped. Its Tasks still in Shaping could never move on, so they
- * drop with it; every other Task stays as it is.
+ * drop with it; a paused one is no longer paused, and the Tasks its Pause held stay Paused as the
+ * user's own Pause; every other Task stays as it is.
  */
 export function dropInitiative(
   initiative: Initiative,
@@ -190,10 +191,15 @@ export function dropInitiative(
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
   }
+  const dropped = moveTo(initiative, "dropped", at);
   return {
-    ...moveTo(initiative, "dropped", at),
-    taskChanges: inShaping(tasks).flatMap(
-      (task) => changeTaskState(task, "dropped", THE_USER) ?? [],
+    ...dropped,
+    initiative: { ...dropped.initiative, pausedAt: undefined },
+    taskChanges: tasks.flatMap(
+      (task) =>
+        (task.state === "shaping"
+          ? changeTaskState(task, "dropped", THE_USER)
+          : holdTaskAtInitiativeDrop(task)) ?? [],
     ),
   };
 }

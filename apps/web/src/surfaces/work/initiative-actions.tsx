@@ -18,6 +18,7 @@ import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { canBeArchived } from "../../shell/work/work-words.ts";
 import { canHoldBack } from "./dependency-words.ts";
+import { InitiativePauseButton } from "./initiative-pause.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
 import { droppedWords, tasksOfInitiative } from "./initiative-words.ts";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
@@ -29,7 +30,8 @@ import { useRememberedAutoMode } from "./use-planning.ts";
  * The Initiative page's head actions (prototypes/app/work.js `initiativePage`): "Confirm the
  * Initiative" while shaping, Plan the Initiative while it is active with a Task in Backlog, the
  * link to its planning Thread once it has one, Start Ready Tasks while it is active with a Ready
- * Task, its answer going to `onStartedReadyTasks`, "Add a Task" while it is open (in the Project of
+ * Task, its answer going to `onStartedReadyTasks`, Pause the Initiative while it is active and
+ * Resume the Initiative while it is paused, "Add a Task" while it is open (in the Project of
  * the Idea it was shaped from until it has Tasks), and its menu with
  * Drop until it has ended, Archive once it has.
  */
@@ -55,6 +57,7 @@ export function InitiativeActions({
         initiativeTasks={initiativeTasks}
         onStarted={onStartedReadyTasks}
       />
+      <InitiativePauseButton initiative={initiative} />
       {open && (
         <Button
           variant="secondary"

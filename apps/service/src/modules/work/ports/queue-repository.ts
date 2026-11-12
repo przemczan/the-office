@@ -6,6 +6,8 @@ import type { Task } from "../domain/task.js";
 export interface HeldForRelease {
   readonly tasks: readonly Task[];
   readonly fireAlarmOn: boolean;
+  /** The Initiatives paused, whose Tasks wait until each is resumed. */
+  readonly pausedInitiativeIds: ReadonlySet<string>;
 }
 
 /**
@@ -17,8 +19,8 @@ export abstract class QueueRepository {
   abstract list(): Promise<readonly QueuedTask[]>;
 
   /**
-   * Start: `decide` weighs the Task with every started Task, the Tasks it waits for, the fire alarm
-   * and the queue read in the hold, then the started Task or its place in the queue is saved. Throws
+   * Start: `decide` weighs the Task with every started Task, the Tasks it waits for, the fire alarm,
+   * whether its Initiative is paused and the queue read in the hold, then the started Task or its place in the queue is saved. Throws
    * TaskNotFound when there is no such Task.
    */
   abstract start(
@@ -27,7 +29,8 @@ export abstract class QueueRepository {
   ): Promise<Starting>;
 
   /**
-   * A release: `decide` weighs the queue against every Task and the fire alarm read in the hold;
+   * A release: `decide` weighs the queue against every Task, the fire alarm and the paused
+   * Initiatives read in the hold;
    * the Tasks it starts are saved and leave the queue with those refused, and those still waiting
    * keep their new reasons.
    */

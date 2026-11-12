@@ -20,7 +20,9 @@ import {
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
   InitiativePlanningStarted,
+  InitiativePaused,
   InitiativeRestored,
+  InitiativeResumed,
   InitiativeShortNameWritten,
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
@@ -45,6 +47,7 @@ import {
   TaskDefinitionOfDoneProposed,
   TaskDefinitionOfDoneSaved,
   TaskHeldAtAllClear,
+  TaskHeldAtInitiativeDrop,
   TaskMarkedPlanned,
   TaskPaused,
   TaskPipelineConfirmed,
@@ -182,6 +185,14 @@ export class WorkWebEvents implements OnModuleInit {
       type: "initiative.restored",
       initiativeId: event.initiativeId,
     }));
+    this.forwarding.forward(InitiativePaused, (event): WebEventOf<"initiative.paused"> => ({
+      type: "initiative.paused",
+      initiativeId: event.initiativeId,
+    }));
+    this.forwarding.forward(InitiativeResumed, (event): WebEventOf<"initiative.resumed"> => ({
+      type: "initiative.resumed",
+      initiativeId: event.initiativeId,
+    }));
     this.forwarding.forward(
       InitiativePlanningStarted,
       (event): WebEventOf<"initiative.planning-started"> => ({
@@ -213,6 +224,10 @@ export class WorkWebEvents implements OnModuleInit {
     }));
     // Held at the all clear: still Paused, now as the user's own Pause.
     this.forwarding.forward(TaskHeldAtAllClear, (event): WebEventOf<"task.paused"> => ({
+      type: "task.paused",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskHeldAtInitiativeDrop, (event): WebEventOf<"task.paused"> => ({
       type: "task.paused",
       taskId: event.taskId,
     }));

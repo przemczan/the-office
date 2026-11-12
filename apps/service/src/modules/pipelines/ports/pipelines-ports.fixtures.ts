@@ -135,10 +135,10 @@ export class StartedTasksForTests extends StartedTasks {
   /** Puts the Task as Work would, such as In progress as it starts; not paused by the alarm. */
   put(
     taskId: string,
-    task: Omit<StartedTask, "id" | "pausedByAlarm" | "projectId"> & Partial<StartedTask>,
+    task: Omit<StartedTask, "id" | "pausedBy" | "projectId"> & Partial<StartedTask>,
   ): void {
     this.tasks.set(taskId, {
-      pausedByAlarm: false,
+      pausedBy: undefined,
       projectId: "test-project",
       ...task,
       id: taskId,
@@ -193,7 +193,7 @@ export class StartedTasksForTests extends StartedTasks {
     const task = await this.read(taskId);
     const from = task.state;
     if (from !== "in-progress" && from !== "waiting-on-you") return task;
-    this.put(taskId, { ...task, state: "paused", pausedByAlarm: true });
+    this.put(taskId, { ...task, state: "paused", pausedBy: "alarm" });
     await this.announce(new TaskPaused(taskId, from, "alarm"));
     return this.read(taskId);
   }
@@ -206,7 +206,7 @@ export class StartedTasksForTests extends StartedTasks {
 
   async resume(taskId: string): Promise<StartedTask> {
     const task = await this.read(taskId);
-    this.put(taskId, { ...task, state: "in-progress", pausedByAlarm: false });
+    this.put(taskId, { ...task, state: "in-progress", pausedBy: undefined });
     await this.announce(new TaskResumed(taskId));
     return this.read(taskId);
   }

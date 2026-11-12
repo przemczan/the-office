@@ -6,6 +6,7 @@ import { UsageWindowsRead } from "../../engine/index.js";
 import { RoleCardChanged } from "../../people/index.js";
 import { ProjectLimitChanged } from "../../projects/index.js";
 import { AllClearGiven } from "../domain/fire-alarm-events.js";
+import { InitiativeResumed } from "../domain/initiative-events.js";
 import { OfficeWideLimitChanged, UsageSettingsChanged } from "../domain/office-limit-events.js";
 import { nextCapRelease } from "../domain/cap-waits.js";
 import {
@@ -73,6 +74,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.events.subscribe(RoleCardChanged, () => this.release());
     // What Start queued while the fire alarm was on waits no longer.
     this.events.subscribe(AllClearGiven, () => this.release());
+    // Nor what it queued while the Task's Initiative was paused.
+    this.events.subscribe(InitiativeResumed, () => this.release());
     // Nor what it queued while an Office update was scheduled.
     this.events.subscribe(OfficeUpdateCancelled, () => this.release());
     // The reading shows what the Tasks started before it use of its engine, so their estimates

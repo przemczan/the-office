@@ -31,6 +31,11 @@ export interface Initiative {
   /** Its last Restore from the Archive, from which its Archive period counts again. */
   readonly restoredAt?: Date;
   /**
+   * Set while it is paused (initiative-pause.ts), an active one alone: a mark beside its state, as
+   * the Archive's is.
+   */
+  readonly pausedAt?: Date;
+  /**
    * Its latest planning Thread with the Planner, opened by Plan the Initiative; undefined until it
    * is first planned. Only this Thread may move its Tasks to Planning (start_planning).
    */

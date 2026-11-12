@@ -38,7 +38,7 @@ function started(id: string, fields: Partial<Task> = {}): Task {
 }
 
 function held(startedTasks: readonly Task[], blockers: readonly Task[] = []): HeldAtStart {
-  return { startedTasks, blockers, fireAlarmOn: false };
+  return { startedTasks, blockers, fireAlarmOn: false, initiativePaused: false };
 }
 
 function refused(...refusals: string[]): StartReasons {

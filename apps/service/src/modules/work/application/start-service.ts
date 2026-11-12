@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
+import { isInitiativePaused } from "../domain/initiative-pause.js";
 import { startOrQueue, type OverlapChoice, type Starting } from "../domain/queue.js";
 import type { Task } from "../domain/task.js";
 import { blockingTasks } from "../domain/task-dependencies.js";
@@ -9,6 +10,7 @@ import { startReasons, type StartReasons } from "../domain/task-start.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import type { UsageEstimate } from "../domain/usage-estimate.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
+import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { QueueRepository } from "../ports/queue-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { StartConditionsReader } from "./start-conditions.js";
@@ -39,6 +41,7 @@ export class StartService {
     private readonly queue: QueueRepository,
     private readonly conditions: StartConditionsReader,
     private readonly fireAlarm: FireAlarmRepository,
+    private readonly initiatives: InitiativeRepository,
     private readonly usageEstimates: UsageEstimates,
     private readonly startsSinceReading: StartsSinceReading,
     private readonly events: EventBus,
@@ -67,6 +70,7 @@ export class StartService {
       startedTasks: tasks,
       blockers,
       fireAlarmOn: (await this.fireAlarm.read()).on,
+      initiativePaused: await this.initiativePaused(task),
     });
     return {
       ...reasons,
@@ -74,6 +78,12 @@ export class StartService {
       overlaps: overlapsOf(task, tasks),
       usageEstimate: await this.usageEstimates.of(task, tasks),
     };
+  }
+
+  private async initiativePaused({ initiativeId }: Task): Promise<boolean> {
+    if (initiativeId === undefined) return false;
+    const initiative = await this.initiatives.find(initiativeId);
+    return initiative !== undefined && isInitiativePaused(initiative);
   }
 
   private async read(id: string): Promise<Task> {

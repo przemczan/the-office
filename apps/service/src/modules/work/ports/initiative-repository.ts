@@ -9,7 +9,6 @@ import type {
 } from "../domain/initiative-changes.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
-import type { TaskStateChanged } from "../domain/task-events.js";
 import type { TaskUpdate } from "./task-repository.js";
 
 /** The Initiative after an update, with the change's event, or undefined when nothing changed. */
@@ -20,7 +19,7 @@ export interface InitiativeUpdate<Event extends DomainEvent> {
 
 /** As InitiativeUpdate, with the changes saved on its Tasks: none when nothing changed. */
 export interface InitiativeTasksUpdate<Event extends DomainEvent> extends InitiativeUpdate<Event> {
-  readonly taskChanges: readonly TaskChange<TaskStateChanged>[];
+  readonly taskChanges: readonly TaskChange<DomainEvent>[];
 }
 
 /**

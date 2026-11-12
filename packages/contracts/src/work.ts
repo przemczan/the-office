@@ -71,6 +71,11 @@ export const initiativeSchema = z.object({
   /** Set while it is in the Archive, a mark beside its Done or Dropped state. */
   archivedAt: z.iso.datetime().nullable(),
   /**
+   * Set while it is paused (POST /initiatives/:id/pause), a mark beside its active state: none of
+   * its Tasks runs or starts until it is resumed.
+   */
+  pausedAt: z.iso.datetime().nullable(),
+  /**
    * Its latest planning Thread with the Planner (POST /initiatives/:id/planning), one of its
    * Threads; null until it is first planned.
    */
@@ -532,6 +537,16 @@ export const readyTasksStartedSchema = z.object({
 export type ReadyTasksStarted = z.infer<typeof readyTasksStartedSchema>;
 
 /**
+ * POST /initiatives/:id/pause and /resume, Pause and Resume the Initiative: the Initiative, and
+ * the Tasks it paused, or resumed (held by the fire alarm instead while it is on).
+ */
+export const initiativePauseAnswerSchema = z.object({
+  initiative: initiativeSchema,
+  taskIds: z.array(z.uuid()),
+});
+export type InitiativePauseAnswer = z.infer<typeof initiativePauseAnswerSchema>;
+
+/**
  * GET /tasks/:id/readiness: the "Before Ready" checklist, each condition of Mark Ready with the
  * reasons it isn't met yet, built from the same rules that refuse Mark Ready.
  */
@@ -822,6 +837,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("initiative.archived"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.restored"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.paused"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.resumed"), initiativeId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("initiative.planning-started"),
     initiativeId: z.uuid(),

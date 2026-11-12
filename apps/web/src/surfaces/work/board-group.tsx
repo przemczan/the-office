@@ -18,6 +18,7 @@ import {
   type EmptyGroupReason,
 } from "./board-groups.ts";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
+import { InitiativePausedBadge } from "./initiative-pause.tsx";
 import { progressWords, type InitiativeProgress } from "./initiative-words.ts";
 
 export interface GroupedBoardProps {
@@ -127,6 +128,7 @@ function GroupSection({
         {group.initiative ? (
           <span className="group-sub">
             <InitiativeStateBadge initiative={group.initiative} cto={cto} />
+            <InitiativePausedBadge initiative={group.initiative} />
             <span className="group-projects">
               <InitiativeProjects initiative={group.initiative} projects={projects} />
             </span>

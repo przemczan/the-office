@@ -22,6 +22,7 @@ import {
   type ArchivedInitiativesPage,
   type ArchivedInitiativesQuery,
   type Initiative as InitiativeResponse,
+  type InitiativePauseAnswer,
   type InitiativePipelineChoice,
   type InitiativePlanningRequest,
   type NewInitiativeTask,
@@ -32,6 +33,10 @@ import {
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import {
+  InitiativePause,
+  type InitiativePauseOutcome,
+} from "../../application/initiative-pause.js";
 import { InitiativePlanning } from "../../application/initiative-planning.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { InitiativeStart } from "../../application/initiative-start.js";
@@ -52,6 +57,7 @@ export class InitiativesController {
     private readonly initiatives: InitiativeService,
     private readonly planning: InitiativePlanning,
     private readonly starting: InitiativeStart,
+    private readonly pausing: InitiativePause,
   ) {}
 
   /**
@@ -197,6 +203,26 @@ export class InitiativesController {
     };
   }
 
+  /**
+   * Pause the Initiative: pauses its Tasks In progress or Waiting on you, and holds every Start of
+   * its Tasks until it is resumed; refused unless it is active and not paused.
+   */
+  @Post(":id/pause")
+  @HttpCode(HttpStatus.OK)
+  async pause(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativePauseAnswer> {
+    return this.respondToPause(await this.pausing.pause(id));
+  }
+
+  /**
+   * Resume the Initiative: resumes the Tasks its Pause paused and lets its queued Tasks start;
+   * refused unless it is paused.
+   */
+  @Post(":id/resume")
+  @HttpCode(HttpStatus.OK)
+  async resume(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativePauseAnswer> {
+    return this.respondToPause(await this.pausing.resume(id));
+  }
+
   /** A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it names. */
   @Post(":id/tasks")
   async addTask(
@@ -204,6 +230,13 @@ export class InitiativesController {
     @Body(new ContractPipe(newInitiativeTaskSchema)) { blockedBy, ...given }: NewInitiativeTask,
   ): Promise<TaskResponse> {
     return toTaskResponse(await this.initiatives.addTask(id, given, blockedBy, THE_USER));
+  }
+
+  private async respondToPause({
+    initiative,
+    taskIds,
+  }: InitiativePauseOutcome): Promise<InitiativePauseAnswer> {
+    return { initiative: await this.respond(initiative), taskIds: [...taskIds] };
   }
 
   private async respond(initiative: Initiative): Promise<InitiativeResponse> {

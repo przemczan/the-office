@@ -5,6 +5,7 @@ import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task
 import {
   TaskCreated,
   TaskHeldAtAllClear,
+  TaskHeldAtInitiativeDrop,
   TaskPaused,
   TaskPriorityChanged,
   TaskReordered,
@@ -101,7 +102,7 @@ export function createTask(
     markedPlanned: false,
     hasPlanningThread: false,
     personRole: undefined,
-    pausedByAlarm: false,
+    pausedBy: undefined,
     madeFor: undefined,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
@@ -131,7 +132,7 @@ export function changeTaskState(
   if (task.state === to) return undefined;
   return withStateChange(
     {
-      task: { ...task, state: to, pausedByAlarm: false },
+      task: { ...task, state: to, pausedBy: undefined },
       event: new TaskStateChanged(task.id, task.state, to),
     },
     task,
@@ -250,7 +251,7 @@ export function pauseTask(task: Task, by: StateChangeCause): TaskChange<TaskPaus
   refuseUnlessRunning(task, "paused");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedByAlarm: false },
+      task: { ...task, state: "paused", pausedBy: undefined },
       event: new TaskPaused(task.id, task.state),
     },
     task,
@@ -267,7 +268,7 @@ export function pauseTaskForAlarm(task: Task): TaskChange<TaskPaused> | undefine
   if (task.state !== "in-progress" && task.state !== "waiting-on-you") return undefined;
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedByAlarm: true },
+      task: { ...task, state: "paused", pausedBy: "alarm" },
       event: new TaskPaused(task.id, task.state, "alarm"),
     },
     task,
@@ -284,7 +285,7 @@ export function stopTask(task: Task): TaskChange<TaskStopped> {
   if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedByAlarm: false },
+      task: { ...task, state: "paused", pausedBy: undefined },
       event: new TaskStopped(task.id, task.state),
     },
     task,
@@ -293,36 +294,101 @@ export function stopTask(task: Task): TaskChange<TaskStopped> {
 }
 
 /**
+ * Pause the Initiative, for one of its Tasks (spec §2.1): one In progress or Waiting on you is held
+ * Paused by the Initiative, its running Stage once the Agent's current turn ends, and one the fire
+ * alarm holds becomes the Initiative's, so the all clear doesn't resume it. Undefined for any
+ * other: a Task the user paused stays theirs.
+ */
+export function pauseTaskForInitiative(task: Task): TaskChange<TaskPaused> | undefined {
+  if (task.state === "paused") {
+    if (task.pausedBy !== "alarm") return undefined;
+    return {
+      task: { ...task, pausedBy: "initiative" },
+      event: new TaskPaused(task.id, "paused", "initiative"),
+    };
+  }
+  if (task.state !== "in-progress" && task.state !== "waiting-on-you") return undefined;
+  return withStateChange(
+    {
+      task: { ...task, state: "paused", pausedBy: "initiative" },
+      event: new TaskPaused(task.id, task.state, "initiative"),
+    },
+    task,
+    THE_USER,
+  );
+}
+
+/**
+ * Resume the Initiative, for one of its Tasks: one its Pause held goes on In progress, where its
+ * Pipeline was held, or, while the fire alarm is on, is held by the alarm until the all clear, as a
+ * Resume then is. Undefined for any other Task, which the Initiative doesn't hold.
+ */
+export function resumeTaskForInitiative(
+  task: Task,
+  { fireAlarmOn }: { readonly fireAlarmOn: boolean },
+): TaskChange<TaskResumed | TaskPaused> | undefined {
+  if (task.state !== "paused" || task.pausedBy !== "initiative") return undefined;
+  if (fireAlarmOn) {
+    return {
+      task: { ...task, pausedBy: "alarm" },
+      event: new TaskPaused(task.id, "paused", "alarm"),
+    };
+  }
+  return resumed(task);
+}
+
+/**
+ * Dropping the Initiative, for one of its Tasks: one its Pause held stays Paused, now as the
+ * user's own Pause. Undefined for any other Task.
+ */
+export function holdTaskAtInitiativeDrop(
+  task: Task,
+): TaskChange<TaskHeldAtInitiativeDrop> | undefined {
+  if (task.state !== "paused" || task.pausedBy !== "initiative") return undefined;
+  return { task: { ...task, pausedBy: undefined }, event: new TaskHeldAtInitiativeDrop(task.id) };
+}
+
+/** Why a single Resume is refused while the Task's Initiative is paused. */
+export const INITIATIVE_PAUSED_RESUME = "The Initiative is paused: resume it to go on.";
+
+/**
  * Resume: a Paused Task goes on In progress, where its Pipeline was held. While the fire alarm is
  * on, nothing walks (the user's answer of 2026-10-29): the Resume is kept as the alarm holding the
- * Task, which the all clear resumes.
+ * Task, which the all clear resumes. While its Initiative is paused, only Resume the Initiative
+ * resumes it.
  */
 export function resumeTask(
   task: Task,
-  { fireAlarmOn }: { readonly fireAlarmOn: boolean },
+  {
+    fireAlarmOn,
+    initiativePaused,
+  }: { readonly fireAlarmOn: boolean; readonly initiativePaused: boolean },
 ): TaskChange<TaskResumed | TaskPaused> {
   if (task.state !== "paused") {
     throw new TaskRefused([
       `Only a Paused Task can be resumed; this one is in ${TASK_STATE_NAMES[task.state]}.`,
     ]);
   }
-  if (!fireAlarmOn) {
-    return withStateChange(
-      {
-        task: { ...task, state: "in-progress", pausedByAlarm: false },
-        event: new TaskResumed(task.id),
-      },
-      task,
-      THE_USER,
-    );
-  }
-  if (task.pausedByAlarm) {
+  if (initiativePaused) throw new TaskRefused([INITIATIVE_PAUSED_RESUME]);
+  if (!fireAlarmOn) return resumed(task);
+  if (task.pausedBy === "alarm") {
     throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
   }
   return {
-    task: { ...task, pausedByAlarm: true },
+    task: { ...task, pausedBy: "alarm" },
     event: new TaskPaused(task.id, "paused", "alarm"),
   };
+}
+
+function resumed(task: Task): TaskChange<TaskResumed> {
+  return withStateChange(
+    {
+      task: { ...task, state: "in-progress", pausedBy: undefined },
+      event: new TaskResumed(task.id),
+    },
+    task,
+    THE_USER,
+  );
 }
 
 /** What the user chose, before the all clear, for a Task the fire alarm paused (spec §2.8). */
@@ -337,19 +403,12 @@ export function giveTaskAllClear(
   task: Task,
   choice: AllClearChoice,
 ): TaskChange<TaskResumed | TaskHeldAtAllClear | TaskStateChanged> | undefined {
-  if (task.state !== "paused" || !task.pausedByAlarm) return undefined;
+  if (task.state !== "paused" || task.pausedBy !== "alarm") return undefined;
   switch (choice) {
     case "resume":
-      return withStateChange(
-        {
-          task: { ...task, state: "in-progress", pausedByAlarm: false },
-          event: new TaskResumed(task.id),
-        },
-        task,
-        THE_USER,
-      );
+      return resumed(task);
     case "hold":
-      return { task: { ...task, pausedByAlarm: false }, event: new TaskHeldAtAllClear(task.id) };
+      return { task: { ...task, pausedBy: undefined }, event: new TaskHeldAtAllClear(task.id) };
     case "drop":
       return changeTaskState(task, "dropped", THE_USER);
   }

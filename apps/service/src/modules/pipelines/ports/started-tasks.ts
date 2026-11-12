@@ -11,8 +11,11 @@ export interface StartedTask {
    * which it is before the Task can be Ready, so a started Task always has one.
    */
   readonly pipelineId: string | undefined;
-  /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */
-  readonly pausedByAlarm: boolean;
+  /**
+   * What holds it Paused apart from the user's own Pause: `alarm` for the fire alarm, `initiative`
+   * for its Initiative's Pause; undefined for none.
+   */
+  readonly pausedBy: string | undefined;
   /** What The Office made it for, such as `publishing` for a Publishing Task; undefined for most. */
   readonly madeFor?: string | undefined;
 }
