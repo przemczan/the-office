@@ -159,3 +159,28 @@ describe("a Proposal of another Pipeline", () => {
     await expect(appliers.apply(proposed("quick-fix"), "cto")).rejects.toThrow(ProposalRefused);
   });
 });
+
+describe("a Proposal of a Task in a Project the Initiative doesn't span yet", () => {
+  it("is refused when that Project lacks a command the Initiative's Pipeline runs", async () => {
+    await confirmedOn("full");
+    const projectId = `project-${randomUUID()}`;
+    work.app.get(KnownProjectsForTests).commands.set(projectId, []);
+
+    expect(
+      await work.app.get(ProposalAppliers).problemsWith({
+        kind: "initiative",
+        initiativeId: initiative.id,
+        edit: {
+          kind: "add-task",
+          title: "Export",
+          projectId,
+          priority: "normal",
+          blockedBy: [],
+          taskId: undefined,
+        },
+      }),
+    ).toEqual([
+      `The Pipeline Full runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
+    ]);
+  });
+});

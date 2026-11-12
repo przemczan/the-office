@@ -112,7 +112,8 @@ export class NewProjectsForTests extends NewProjects {
 
 /**
  * The Initiative's branches as a set of `projectId/branch`, each made at a commit of its own;
- * `made` and `removed` list them in order. A Project in `refusing` refuses with its reason.
+ * `made` and `removed` list them in order. A Project in `refusing` refuses with its reason, and
+ * one in `failingRemoval` fails to remove its branch, as git does when it was moved meanwhile.
  */
 @Injectable()
 export class ProjectInitiativeBranchesForTests extends ProjectInitiativeBranches {
@@ -121,6 +122,7 @@ export class ProjectInitiativeBranchesForTests extends ProjectInitiativeBranches
   /** Branches there already, as `projectId/branch`, as a test sets them. */
   readonly existing = new Set<string>();
   readonly refusing = new Map<string, string>();
+  readonly failingRemoval = new Set<string>();
 
   async make(projectId: string, branch: string): Promise<InitiativeBranchMaking> {
     const reason = this.refusing.get(projectId);
@@ -135,6 +137,9 @@ export class ProjectInitiativeBranchesForTests extends ProjectInitiativeBranches
   }
 
   async remove(projectId: string, branch: string): Promise<void> {
+    if (this.failingRemoval.has(projectId)) {
+      throw new Error(`cannot lock ref 'refs/heads/${branch}' in ${projectId}`);
+    }
     const key = `${projectId}/${branch}`;
     this.existing.delete(key);
     this.removed.push(key);

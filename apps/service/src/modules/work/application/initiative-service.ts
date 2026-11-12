@@ -420,6 +420,10 @@ export class InitiativeService implements OnModuleInit {
     if (edit.kind === "add-task" && !(await this.projects.find(edit.projectId))) {
       return [`There is no Project "${edit.projectId}".`];
     }
+    if (edit.kind === "add-task") {
+      const problems = await this.branching.newProjectProblems(id, edit.projectId);
+      if (problems.length > 0) return problems;
+    }
     if (edit.kind === "pipeline") return this.pipelineChangeProblems(initiative, edit.pipelineId);
     return initiativeEditProblems(initiative, edit, await this.tasks.list());
   }

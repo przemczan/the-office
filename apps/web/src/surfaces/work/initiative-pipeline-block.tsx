@@ -207,7 +207,9 @@ function ConfirmedPipeline({
     <div className="initiative-pipeline">
       <p className="task-plan">{pipelineName(initiative.pipelineId, pipelines)}</p>
       {initiative.branches.length === 0 ? (
-        <p className="task-quiet">No Initiative's branch yet.</p>
+        <p className="task-quiet">
+          {ended ? "It made no Initiative's branch." : "No Initiative's branch yet."}
+        </p>
       ) : (
         <ul className="initiative-branches" aria-label="Initiative's branches">
           {initiative.branches.map(({ projectId, branch }) => (

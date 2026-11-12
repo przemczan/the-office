@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { initiativeProjectIds, type Initiative } from "../domain/initiative.js";
@@ -35,6 +35,7 @@ interface MadeBranch {
 @Injectable()
 export class InitiativeBranching {
   private readonly locks = new KeyedLocks();
+  private readonly logger = new Logger(InitiativeBranching.name);
 
   constructor(
     private readonly repository: InitiativeRepository,
@@ -154,9 +155,19 @@ export class InitiativeBranching {
     return { projectId, branch, commit: making.commit };
   }
 
+  /**
+   * Each branch on its own, so one that can't be removed (moved or deleted meanwhile) neither keeps
+   * the others nor hides why the attempt failed; it is only logged.
+   */
   private async removeAll(made: readonly MadeBranch[]): Promise<void> {
     for (const { projectId, branch, commit } of made) {
-      await this.branches.remove(projectId, branch, commit);
+      try {
+        await this.branches.remove(projectId, branch, commit);
+      } catch (error) {
+        this.logger.warn(
+          `The branch ${branch} made in Project ${projectId} couldn't be removed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
   }
 

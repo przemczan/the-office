@@ -540,6 +540,21 @@ describe("the Initiative's Pipeline and branches", () => {
     expect((await read(initiative)).state).toBe("shaping");
   });
 
+  it("still names the refusal and removes the other branches when one can't be removed", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [stuck, second, refusing] = [aProjectId(), aProjectId(), aProjectId()];
+    for (const projectId of [stuck, second, refusing]) await addTask(initiative, projectId);
+    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    branches().failingRemoval.add(stuck);
+    branches().refusing.set(refusing, `The remote of The ${refusing} couldn't be asked.`);
+
+    expect(await reasonsOf(await post(initiative, "confirm"))).toEqual([
+      `The remote of The ${refusing} couldn't be asked.`,
+    ]);
+    expect(branches().removed).toEqual([`${second}/initiative/${shortName}`]);
+    expect((await read(initiative)).state).toBe("shaping");
+  });
+
   it("makes no branch and keeps no Short name at Confirm on None", async () => {
     const initiative = await shapedOwnInitiative();
     await addTask(initiative);
