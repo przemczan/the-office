@@ -40,7 +40,7 @@ function started(id: string, fields: Partial<Task> = {}): Task {
 }
 
 function held(startedTasks: readonly Task[], blockers: readonly Task[] = []): HeldAtStart {
-  return { startedTasks, blockers, fireAlarmOn: false };
+  return { startedTasks, blockers, fireAlarmOn: false, initiativePaused: false };
 }
 
 function refused(...refusals: string[]): StartReasons {
@@ -151,6 +151,15 @@ describe("startReasons", () => {
     expect(startReasons(ready, conditions, alarmOn)).toEqual({
       refusals: [],
       waits: ["The fire alarm is on."],
+    });
+  });
+
+  it("waits while the Task's Initiative is paused, with the alarm's wait first", () => {
+    const paused = { ...held([]), fireAlarmOn: true, initiativePaused: true };
+
+    expect(startReasons(ready, conditions, paused)).toEqual({
+      refusals: [],
+      waits: ["The fire alarm is on.", "The Initiative is paused."],
     });
   });
 });

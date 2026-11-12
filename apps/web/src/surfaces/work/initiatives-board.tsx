@@ -41,6 +41,7 @@ import {
   type InitiativesFilters,
 } from "./initiative-columns.ts";
 import { InitiativeProjects } from "./initiative-parts.tsx";
+import { InitiativePausedBadge } from "./initiative-pause.tsx";
 import {
   initiativeProgress,
   initiativeStateName,
@@ -233,6 +234,7 @@ function ActiveCard({
         <CardTitle initiative={initiative} />
       </div>
       <div className="board-card-meta">
+        <InitiativePausedBadge initiative={initiative} size="sm" />
         <InitiativeProjects initiative={initiative} projects={reading.projects} />
       </div>
       <Outcome initiative={initiative} />

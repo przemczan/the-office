@@ -306,11 +306,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const own = await this.taskStages.find(id);
     if (!own) return;
     const held = task.state === "in-progress" && (await this.tasks.holdForFireAlarm(id));
-    const { state, pausedByAlarm } = held ? await this.tasks.read(id) : task;
+    const { state, pausedBy } = held ? await this.tasks.read(id) : task;
     const runs = await this.runs.list(id);
     const last = runs.at(-1);
     if (last && !last.outcome) {
-      await this.endLeftRunning(last, runs.slice(0, -1), { state, pausedByAlarm });
+      await this.endLeftRunning(last, runs.slice(0, -1), { state, pausedBy });
     }
     if (state !== "in-progress") return;
     const { definitionOfDone } = await this.records.read(id);
@@ -332,7 +332,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   private async endLeftRunning(
     run: StageRun,
     earlierRuns: readonly StageRun[],
-    held: Pick<StartedTask, "state" | "pausedByAlarm">,
+    held: Pick<StartedTask, "state" | "pausedBy">,
   ): Promise<void> {
     const interruption: StageInterruption = run.heldBy ?? heldByAfterRestart(held);
     const task = await this.records.read(run.taskId);
@@ -676,10 +676,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 /** What holds a run left running with nothing recorded on it, by the state of its Task. */
 function heldByAfterRestart({
   state,
-  pausedByAlarm,
-}: Pick<StartedTask, "state" | "pausedByAlarm">): StageInterruption {
+  pausedBy,
+}: Pick<StartedTask, "state" | "pausedBy">): StageInterruption {
   if (state !== "paused") return "restart";
-  return pausedByAlarm ? "alarm" : "pause";
+  return pausedBy === "alarm" ? "alarm" : "pause";
 }
 
 function stackOf(reason: unknown): string {

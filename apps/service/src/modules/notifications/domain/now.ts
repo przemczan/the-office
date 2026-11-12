@@ -7,8 +7,11 @@ export interface OfficeTask {
   readonly title: string;
   readonly projectId: string;
   readonly state: string;
-  /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */
-  readonly pausedByAlarm: boolean;
+  /**
+   * What holds it Paused apart from the user's own Pause: `alarm` for the fire alarm, `initiative`
+   * for its Initiative's Pause; undefined for none.
+   */
+  readonly pausedBy: string | undefined;
 }
 
 /** The fire alarm, from Work: off, or on since it was sounded. */
@@ -235,7 +238,7 @@ function fireAlarmOf(
 ): FireAlarmOnNow | undefined {
   if (!fireAlarm.on) return undefined;
   const pausedIds = new Set(
-    started.filter(({ task }) => task.pausedByAlarm).map(({ task }) => task.id),
+    started.filter(({ task }) => task.pausedBy === "alarm").map(({ task }) => task.id),
   );
   const paused = running
     .filter(({ taskId }) => pausedIds.has(taskId))

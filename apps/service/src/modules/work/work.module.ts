@@ -61,6 +61,7 @@ import { FireAlarmService } from "./application/fire-alarm-service.js";
 import { IdeaRecords } from "./application/idea-records.js";
 import { IdeaService } from "./application/idea-service.js";
 import { InitiativePlanning } from "./application/initiative-planning.js";
+import { InitiativePause } from "./application/initiative-pause.js";
 import { InitiativeStart } from "./application/initiative-start.js";
 import { InitiativeBranching } from "./application/initiative-branching.js";
 import { InitiativeService } from "./application/initiative-service.js";
@@ -256,6 +257,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         PlanningService,
         InitiativePlanning,
         InitiativeStart,
+        InitiativePause,
         StartConditionsReader,
         DailyCaps,
         StartsSinceReading,

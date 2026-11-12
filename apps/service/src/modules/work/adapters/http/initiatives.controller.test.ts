@@ -6,18 +6,23 @@ import {
   attachmentListSchema,
   ideaSchema,
   initiativeListSchema,
+  initiativePauseAnswerSchema,
   initiativeSchema,
   queueSchema,
   readyTasksStartedSchema,
   workRefusalSchema,
   type Initiative,
+  type InitiativePauseAnswer,
   type ReadyTasksStarted,
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PipelineLibrary } from "../../../pipelines/index.js";
 import { THE_USER } from "../../domain/author.js";
+import { TaskService } from "../../application/task-service.js";
 import { FIRE_ALARM_ON } from "../../domain/fire-alarm.js";
+import { INITIATIVE_PAUSED } from "../../domain/initiative-pause.js";
+import { TaskPaused } from "../../domain/task-events.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { TaskRepository } from "../../ports/task-repository.js";
@@ -394,7 +399,205 @@ describe("POST /api/initiatives/:id/start", () => {
     ]);
     expect(unknown.status).toBe(404);
   });
+
+  /** An active Initiative with `started` of its Tasks started and the rest Ready. */
+  async function initiativeWithStartedTasks(
+    started: number,
+    ready: number,
+  ): Promise<{ initiative: Initiative; started: Task[]; ready: Task[] }> {
+    const plans = Array.from({ length: started + ready }, () => ({}));
+    const { initiative, tasks } = await initiativeWithReadyTasks(plans);
+    for (const { id } of tasks.slice(0, started)) {
+      expect((await sendJson(work, "POST", `/tasks/${id}/start`)).status).toBe(200);
+    }
+    return { initiative, started: tasks.slice(0, started), ready: tasks.slice(started) };
+  }
+
+  describe("POST /api/initiatives/:id/pause and /resume", () => {
+    it("pauses its running Tasks, leaving one the user paused theirs, and queues every Start", async () => {
+      work.app.get(KnownPeopleForTests).taskLimits.set("developer", 5);
+      const { initiative, started, ready } = await initiativeWithStartedTasks(3, 2);
+      const [working, waiting, usersOwn] = started as [Task, Task, Task];
+      const [startedAlone, startedTogether] = ready as [Task, Task];
+      await work.app.get(TaskService).changeState(waiting.id, "waiting-on-you");
+      await sendJson(work, "POST", `/tasks/${usersOwn.id}/pause`);
+      work.published.length = 0;
+
+      const answer = await pauseOrResume(initiative, "pause");
+      const start = await sendJson(work, "POST", `/tasks/${startedAlone.id}/start`);
+
+      expect(answer.initiative.pausedAt).not.toBeNull();
+      expect(answer.taskIds.toSorted()).toEqual([working.id, waiting.id].toSorted());
+      for (const { id } of [working, waiting]) {
+        expect(await own.storedTask(id)).toMatchObject({ state: "paused", pausedBy: "initiative" });
+      }
+      expect(await own.storedTask(usersOwn.id)).toMatchObject({
+        state: "paused",
+        pausedBy: undefined,
+      });
+      // The Initiative first, then its Tasks in the order they are held.
+      expect(webEventsOf(work)[0]).toEqual({
+        type: "initiative.paused",
+        initiativeId: initiative.id,
+      });
+      const paused = work.published
+        .filter((event) => event instanceof TaskPaused)
+        .map(({ taskId, by }) => ({ taskId, by }));
+      expect(paused).toHaveLength(2);
+      expect(paused).toEqual(
+        expect.arrayContaining([
+          { taskId: working.id, by: "initiative" },
+          { taskId: waiting.id, by: "initiative" },
+        ]),
+      );
+      expect(start.status).toBe(200);
+      expect(await own.reasonsOf(startedAlone.id)).toEqual([INITIATIVE_PAUSED]);
+      expect(await startReadyTasks(initiative)).toEqual({
+        started: [],
+        queued: [
+          {
+            taskId: startedAlone.id,
+            title: startedAlone.title,
+            place: 1,
+            reasons: [INITIATIVE_PAUSED],
+          },
+          {
+            taskId: startedTogether.id,
+            title: startedTogether.title,
+            place: 2,
+            reasons: [INITIATIVE_PAUSED],
+          },
+        ],
+        refused: [],
+      });
+      expect((await own.startCheck(startedAlone.id)).waits).toEqual([INITIATIVE_PAUSED]);
+    });
+
+    it("resumes exactly the Tasks its Pause paused, and the queue starts its queued ones", async () => {
+      const { initiative, started, ready } = await initiativeWithStartedTasks(2, 1);
+      const [paused, usersOwn] = started as [Task, Task];
+      const [queued] = ready as [Task];
+      await sendJson(work, "POST", `/tasks/${usersOwn.id}/pause`);
+      await pauseOrResume(initiative, "pause");
+      await sendJson(work, "POST", `/tasks/${queued.id}/start`);
+      work.published.length = 0;
+
+      const answer = await pauseOrResume(initiative, "resume");
+
+      expect(answer.initiative.pausedAt).toBeNull();
+      expect(answer.taskIds).toEqual([paused.id]);
+      expect(await own.storedTask(paused.id)).toMatchObject({
+        state: "in-progress",
+        pausedBy: undefined,
+      });
+      expect((await own.readTask(usersOwn.id)).state).toBe("paused");
+      expect((await own.readTask(queued.id)).state).toBe("in-progress");
+      expect(webEventsOf(work)).toEqual(
+        expect.arrayContaining([
+          { type: "initiative.resumed", initiativeId: initiative.id },
+          { type: "task.resumed", taskId: paused.id },
+          { type: "task.started", taskId: queued.id },
+        ]),
+      );
+    });
+
+    it("refuses Resume on one of its Tasks while it is paused, while Stop and Drop still work", async () => {
+      const { initiative, started } = await initiativeWithStartedTasks(2, 0);
+      const [stopped, dropped] = started as [Task, Task];
+      await pauseOrResume(initiative, "pause");
+
+      const reasons = await reasonsFor(stopped, "POST", "/resume");
+      const stop = await sendJson(work, "POST", `/tasks/${stopped.id}/stop`);
+      const drop = await sendJson(work, "POST", `/tasks/${dropped.id}/drop`);
+
+      expect(reasons).toEqual(["The Initiative is paused: resume it to go on."]);
+      expect(stop.status).toBe(200);
+      expect(drop.status).toBe(200);
+      expect((await own.readTask(dropped.id)).state).toBe("dropped");
+    });
+
+    it("takes over the Tasks the fire alarm paused, so the all clear leaves them to it", async () => {
+      const { initiative, started } = await initiativeWithStartedTasks(1, 0);
+      const [task] = started as [Task];
+      await own.sound();
+
+      const answer = await pauseOrResume(initiative, "pause");
+      await allClear();
+
+      expect(answer.taskIds).toEqual([task.id]);
+      expect(await own.storedTask(task.id)).toMatchObject({
+        state: "paused",
+        pausedBy: "initiative",
+      });
+    });
+
+    it("leaves its Tasks to the fire alarm as it is resumed during it, resuming at the all clear", async () => {
+      const { initiative, started } = await initiativeWithStartedTasks(1, 0);
+      const [task] = started as [Task];
+      await pauseOrResume(initiative, "pause");
+      await own.sound();
+
+      await pauseOrResume(initiative, "resume");
+      const duringTheAlarm = await own.storedTask(task.id);
+      await allClear();
+
+      expect(duringTheAlarm).toMatchObject({ state: "paused", pausedBy: "alarm" });
+      expect(await own.storedTask(task.id)).toMatchObject({ state: "in-progress" });
+    });
+
+    it("drops the Tasks it paused as it is dropped", async () => {
+      const { initiative, started } = await initiativeWithStartedTasks(1, 0);
+      const [task] = started as [Task];
+      await pauseOrResume(initiative, "pause");
+
+      const drop = await post(initiative, "drop");
+
+      expect(drop.status).toBe(200);
+      expect((await read(initiative)).pausedAt).toBeNull();
+      expect(await own.storedTask(task.id)).toMatchObject({
+        state: "dropped",
+        pausedBy: undefined,
+      });
+    });
+
+    it("is refused, with the reason, for an Initiative not active, one paused already and one not paused", async () => {
+      const shaping = await shape(await capture(projectId));
+      const { initiative } = await initiativeWithStartedTasks(0, 1);
+      const refusalOf = async (target: Initiative, action: "pause" | "resume") =>
+        reasonsOf(await sendJson(work, "POST", `/initiatives/${target.id}/${action}`));
+
+      const notActive = await refusalOf(shaping, "pause");
+      const notPaused = await refusalOf(initiative, "resume");
+      await pauseOrResume(initiative, "pause");
+      const pausedAlready = await refusalOf(initiative, "pause");
+      const unknown = await sendJson(work, "POST", `/initiatives/${randomUUID()}/pause`);
+
+      expect(notActive).toEqual(["Only an active Initiative can be paused; this one is shaping."]);
+      expect(notPaused).toEqual([
+        "Only a paused Initiative can be resumed; this one isn't paused.",
+      ]);
+      expect(pausedAlready).toEqual(["The Initiative is paused already."]);
+      expect(unknown.status).toBe(404);
+    });
+  });
 });
+
+async function pauseOrResume(
+  initiative: Initiative,
+  action: "pause" | "resume",
+): Promise<InitiativePauseAnswer> {
+  const response = await sendJson(work, "POST", `/initiatives/${initiative.id}/${action}`);
+  expect(response.status).toBe(200);
+  return initiativePauseAnswerSchema.parse(await response.json());
+}
+
+async function allClear(): Promise<void> {
+  const response = await sendJson(work, "POST", "/fire-alarm/all-clear", {
+    hold: [],
+    drop: [],
+  });
+  expect(response.status).toBe(200);
+}
 
 async function startReadyTasks(initiative: Initiative): Promise<ReadyTasksStarted> {
   const response = await sendJson(work, "POST", `/initiatives/${initiative.id}/start`);

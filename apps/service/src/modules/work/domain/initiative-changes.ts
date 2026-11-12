@@ -41,9 +41,9 @@ export interface InitiativeChange<Event extends DomainEvent> {
   readonly event: Event;
 }
 
-/** An Initiative's change that moves its Tasks too, each by a change of its own. */
+/** An Initiative's change that changes its Tasks too, each by a change of its own. */
 export interface InitiativeTasksChange<Event extends DomainEvent> extends InitiativeChange<Event> {
-  readonly taskChanges: readonly TaskChange<TaskStateChanged>[];
+  readonly taskChanges: readonly TaskChange<DomainEvent>[];
 }
 
 /**
@@ -220,7 +220,8 @@ export function addBranch(
 
 /**
  * Undefined when it is already dropped. Every one of its Tasks not yet Done or Dropped drops with
- * it, started ones too, each as by the user's own Drop (spec 2.1, "An Initiative is done").
+ * it, started ones and those its Pause held too, each as by the user's own Drop (spec 2.1, "An
+ * Initiative is done"); a paused one is no longer paused.
  */
 export function dropInitiative(
   initiative: Initiative,
@@ -492,13 +493,15 @@ export function tasksByInitiative(board: readonly Task[]): ReadonlyMap<string, r
 }
 
 /** `endedAt` is the moment of a move to Done or Dropped, from which its Archive period counts. */
+/** The Pause's mark lives only beside the active state, so a move out of it clears the mark. */
 function moveTo(
   initiative: Initiative,
   to: InitiativeState,
   endedAt: Date | undefined,
 ): InitiativeChange<InitiativeStateChanged> {
+  const pausedAt = to === "active" ? initiative.pausedAt : undefined;
   return {
-    initiative: { ...initiative, state: to, endedAt },
+    initiative: { ...initiative, state: to, endedAt, pausedAt },
     event: new InitiativeStateChanged(initiative.id, initiative.state, to),
   };
 }

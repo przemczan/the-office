@@ -50,7 +50,7 @@ describe("startOrQueue", () => {
     const starting = startOrQueue(
       ready("a"),
       developer,
-      { startedTasks: [], blockers: [], fireAlarmOn: false },
+      { startedTasks: [], blockers: [], fireAlarmOn: false, initiativePaused: false },
       [],
       NO_CHOICE,
     );
@@ -59,7 +59,12 @@ describe("startOrQueue", () => {
   });
 
   it("queues a Task only waits hold, last in the queue, and announces it", () => {
-    const held = { startedTasks: [started("x", "developer")], blockers: [], fireAlarmOn: false };
+    const held = {
+      startedTasks: [started("x", "developer")],
+      blockers: [],
+      fireAlarmOn: false,
+      initiativePaused: false,
+    };
 
     const starting = startOrQueue(ready("a"), developer, held, [queued("q", 4)], NO_CHOICE);
 
@@ -75,6 +80,7 @@ describe("startOrQueue", () => {
       startedTasks: [started("x", "developer")],
       blockers: [blocker],
       fireAlarmOn: false,
+      initiativePaused: false,
     };
 
     expect(() =>
@@ -88,7 +94,12 @@ describe("startOrQueue", () => {
   });
 
   it("queues a blocked Task, though a desk and its person are free", () => {
-    const held = { startedTasks: [], blockers: [blocker], fireAlarmOn: false };
+    const held = {
+      startedTasks: [],
+      blockers: [blocker],
+      fireAlarmOn: false,
+      initiativePaused: false,
+    };
 
     const starting = startOrQueue(ready("a"), developer, held, [], NO_CHOICE);
 
@@ -101,8 +112,8 @@ describe("startOrQueue", () => {
 });
 
 /** What a release holds while the fire alarm is off. */
-function alarmOff(tasks: readonly Task[]): { tasks: readonly Task[]; fireAlarmOn: boolean } {
-  return { tasks, fireAlarmOn: false };
+function alarmOff(tasks: readonly Task[]): Parameters<typeof releaseQueue>[1] {
+  return { tasks, fireAlarmOn: false, pausedInitiativeIds: new Set() };
 }
 
 describe("releaseQueue", () => {
@@ -143,11 +154,27 @@ describe("releaseQueue", () => {
   it("starts nothing while the fire alarm is on, each Task waiting with it as a reason", () => {
     const release = releaseQueue(
       [queued("a", 1)],
-      { tasks: [ready("a")], fireAlarmOn: true },
+      { tasks: [ready("a")], fireAlarmOn: true, pausedInitiativeIds: new Set() },
       (id) => conditions.get(id),
     );
 
     expect(release.started).toEqual([]);
     expect(release.waiting).toEqual([queued("a", 1, ["The fire alarm is on."])]);
+  });
+
+  it("holds a Task of a paused Initiative queued, while another Initiative's starts", () => {
+    const tasks = [
+      ready("a", { initiativeId: "paused-initiative" }),
+      ready("c", { initiativeId: "active-initiative" }),
+    ];
+
+    const release = releaseQueue(
+      [queued("a", 1), queued("c", 2)],
+      { tasks, fireAlarmOn: false, pausedInitiativeIds: new Set(["paused-initiative"]) },
+      (id) => conditions.get(id),
+    );
+
+    expect(release.started.map(({ task }) => task.id)).toEqual(["c"]);
+    expect(release.waiting).toEqual([queued("a", 1, ["The Initiative is paused."])]);
   });
 });

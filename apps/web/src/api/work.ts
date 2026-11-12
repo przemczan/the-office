@@ -8,6 +8,7 @@ import {
   ideaSchema,
   initiativeListSchema,
   initiativeSchema,
+  initiativePauseAnswerSchema,
   fireAlarmSchema,
   officeWideLimitSchema,
   archivePeriodSchema,
@@ -30,6 +31,7 @@ import {
   type AttachmentOwner,
   type Idea,
   type Initiative,
+  type InitiativePauseAnswer,
   type InitiativePipelineChoice,
   type NewIdea,
   type NewInitiativeTask,
@@ -371,6 +373,19 @@ export function confirmInitiative(id: string): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/confirm`, {}, initiativeSchema);
 }
 
+/**
+ * Pause the Initiative: its Tasks In progress or Waiting on you are paused, and none of its Tasks
+ * starts until it is resumed; the Tasks it paused.
+ */
+export function pauseInitiative(id: string): Promise<InitiativePauseAnswer> {
+  return sendToApi("POST", `${initiativePath(id)}/pause`, {}, initiativePauseAnswerSchema);
+}
+
+/** Resume the Initiative: the Tasks its Pause paused go on; the Tasks it resumed. */
+export function resumeInitiative(id: string): Promise<InitiativePauseAnswer> {
+  return sendToApi("POST", `${initiativePath(id)}/resume`, {}, initiativePauseAnswerSchema);
+}
+
 /** Its Tasks stay as they are. */
 export function dropInitiative(id: string): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/drop`, {}, initiativeSchema);
@@ -653,6 +668,9 @@ export const workEventInvalidations: Readonly<
   "initiative.branch-made": () => [INITIATIVES],
   "initiative.archived": () => [INITIATIVES],
   "initiative.restored": () => [INITIATIVES],
+  // A Task's Start check and its place in the queue wait on the Initiative's Pause.
+  "initiative.paused": () => [INITIATIVES, TASKS],
+  "initiative.resumed": () => [INITIATIVES, TASKS],
   "initiative.planning-started": () => [INITIATIVES],
   "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
   // A move to Planning in its Initiative's planning Thread changes the Planner's tab too.

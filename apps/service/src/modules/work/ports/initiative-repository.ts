@@ -21,7 +21,7 @@ export interface InitiativeUpdate<Event extends DomainEvent> {
 
 /** As InitiativeUpdate, with the changes saved on its Tasks: none when nothing changed. */
 export interface InitiativeTasksUpdate<Event extends DomainEvent> extends InitiativeUpdate<Event> {
-  readonly taskChanges: readonly TaskChange<TaskStateChanged>[];
+  readonly taskChanges: readonly TaskChange<DomainEvent>[];
 }
 
 /**
