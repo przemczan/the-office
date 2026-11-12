@@ -5,6 +5,7 @@ import {
   pipelineSchema,
   pipelinesWebEventSchema,
   pipelineUseSchema,
+  projectPipelineCheckSchema,
   stageRunCommandOutputsSchema,
   stagesCheckSchema,
   stageTemplateListSchema,
@@ -14,6 +15,7 @@ import {
   type PipelineCheckRequest,
   type PipelineEdit,
   type PipelinesWebEvent,
+  type ProjectPipelineCheckRequest,
   type SendBack,
   type Stage,
   type StageTemplate,
@@ -49,6 +51,16 @@ export const pipelineQueries = {
     queryOptions({
       queryKey: [...PIPELINES_KEY, "check", request],
       queryFn: () => sendToApi("POST", "/pipelines/check", request, pipelineCheckSchema),
+    }),
+  /**
+   * What saving a Project Pipeline would be refused for, and its Stages built from the edit; under
+   * the library, so a change to its base Pipeline reads this again.
+   */
+  projectPipelineCheck: (request: ProjectPipelineCheckRequest) =>
+    queryOptions({
+      queryKey: [...PIPELINES_KEY, "project-pipeline-check", request],
+      queryFn: () =>
+        sendToApi("POST", "/project-pipelines/check", request, projectPipelineCheckSchema),
     }),
   /** Under the Task's key, so Work's events about the Task refresh it too. */
   taskStages: (taskId: string) =>

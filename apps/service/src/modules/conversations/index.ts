@@ -52,9 +52,12 @@ export {
 export { ProposalService } from "./application/proposal-service.js";
 export type {
   PipelineStage,
+  PipelineStageChange,
+  ProjectPipelineFields,
   ProposedInitiativeChange,
   ProposedPipelineChange,
   ProposedProject,
+  ProposedProjectPipelineChange,
   ProposedSettingChange,
   ProposedStageTemplateChange,
 } from "./domain/proposal.js";
@@ -62,6 +65,7 @@ export {
   LIST_PIPELINES_TOOL,
   LIST_STAGE_TEMPLATES_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
+  PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
   PERSON_READING_OFFICE_TOOLS,

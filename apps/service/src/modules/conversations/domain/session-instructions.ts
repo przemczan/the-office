@@ -186,10 +186,16 @@ export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 /** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, which Pipelines registers. */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
+/** The Office tool Devops drafts a Proposal of a Project Pipeline with; named as above. */
+export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
+
 /** The Office tool Devops drafts a Project to onboard with, which Work registers; named as above. */
 export const PROPOSE_PROJECT_TOOL = "propose_project";
 
-/** The Office tool Devops reads the Pipeline library with, which Pipelines registers. */
+/**
+ * The Office tool Devops reads the Pipelines with, the office-wide ones and the Project Pipelines,
+ * which Pipelines registers.
+ */
 export const LIST_PIPELINES_TOOL = "list_pipelines";
 
 /** The Office tool Devops reads the Stage templates with, which Pipelines registers. */
@@ -245,8 +251,8 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
 
 /**
  * The Office tools a Role's person has in their chat and their Stage Threads alike, for what the
- * Role looks after: Devops reads the Pipeline library, proposes Project commands, library
- * Pipelines and Stage templates, drafts a Project to onboard, and installs and updates skills from
+ * Role looks after: Devops reads the Pipelines, proposes Project commands, library Pipelines,
+ * Project Pipelines and Stage templates, drafts a Project to onboard, and installs and updates skills from
  * a Source (spec §2.1, §2.2, §2.3, §2.6).
  */
 export function roleOfficeTools(roleKey: string): readonly string[] {
@@ -255,6 +261,7 @@ export function roleOfficeTools(roleKey: string): readonly string[] {
         LIST_PIPELINES_TOOL,
         PROPOSE_PROJECT_COMMANDS_TOOL,
         PROPOSE_LIBRARY_PIPELINE_TOOL,
+        PROPOSE_PROJECT_PIPELINE_TOOL,
         LIST_STAGE_TEMPLATES_TOOL,
         PROPOSE_STAGE_TEMPLATE_TOOL,
         PROPOSE_PROJECT_TOOL,

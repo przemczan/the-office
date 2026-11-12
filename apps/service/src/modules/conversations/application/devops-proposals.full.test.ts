@@ -9,12 +9,15 @@ import {
   markLabelFor,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
+  pipelineListSchema,
   pipelineSchema,
   projectListSchema,
   projectOnboardingListSchema,
+  projectPipelineSchema,
   projectSchema,
   proposalSchema,
   skillReviewSchema,
@@ -24,6 +27,7 @@ import {
   taskSchema,
   type Pipeline,
   type Project,
+  type ProjectPipeline,
   type Stage,
   type StageTemplate,
 } from "@the-office/contracts";
@@ -40,7 +44,7 @@ import { TaskWorktrees } from "../../projects/index.js";
 import { SkillLibrary } from "../../skills/index.js";
 import { ownProjectsQueue } from "../../work/index.fixtures.js";
 import { DevopsChat, NINA_ROLE_CARDS } from "../adapters/http/devops-chat.fixtures.js";
-import { LIST_STAGE_TEMPLATES_TOOL } from "../domain/session-instructions.js";
+import { LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL } from "../domain/session-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
@@ -641,6 +645,233 @@ describe("Devops' Proposals of a Stage template, through the scripted engine", (
     expect(await aTemplateNow(template.id)).toEqual(edited);
   }, 30_000);
 });
+
+describe("Devops' Proposals of a Project Pipeline, through the scripted engine", () => {
+  it("lists the office-wide Pipelines, then each Project Pipeline in the shape the propose tool takes", async () => {
+    const project = await aProject();
+    const base = await aPipeline();
+    const projectPipeline = await aProjectPipeline(project, base);
+
+    const listed = await chat.ninaCalls(LIST_PIPELINES_TOOL, { project: project.id });
+
+    expect(listed.isError).toBe(false);
+    const { officeWidePipelines, projectPipelines } = JSON.parse(listed.text) as {
+      officeWidePipelines: unknown;
+      projectPipelines: unknown;
+    };
+    expect(pipelineListSchema.parse(officeWidePipelines)).toContainEqual(base);
+    expect(projectPipelines).toEqual([
+      {
+        id: projectPipeline.id,
+        project: { id: project.id, name: project.name },
+        name: projectPipeline.name,
+        description: "Then lint.",
+        basePipeline: { id: base.id, name: base.name },
+        stageChanges: projectPipeline.stageChanges,
+        stages: projectPipeline.stages,
+        broken: [],
+      },
+    ]);
+  }, 30_000);
+
+  it("drafts a new one, which applied is added under its id; the Project's default stays", async () => {
+    const project = await aProject();
+    const base = await aPipeline();
+    const name = `Quick with lint ${randomUUID().slice(0, 8)}`;
+
+    const [proposal] = await chat.ninaProposes([
+      PROPOSE_PROJECT_PIPELINE_TOOL,
+      {
+        project: project.id,
+        name,
+        basePipeline: base.id,
+        stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINT }],
+      },
+    ]);
+
+    const to = {
+      name,
+      description: "",
+      basePipelineId: base.id,
+      stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINT }],
+    };
+    expect(proposal?.change).toEqual({
+      kind: "project-pipeline",
+      projectId: project.id,
+      pipelineId: null,
+      from: null,
+      to,
+    });
+    expect(await projectPipelinesOf(project)).toEqual([]);
+    const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(response.status).toBe(200);
+    const applied = proposalSchema.parse(await response.json());
+    const [added] = await projectPipelinesOf(project);
+    expect(applied.change).toEqual({ ...proposal?.change, pipelineId: added?.id });
+    expect(added).toMatchObject({ name, basePipeline: { id: base.id }, broken: [] });
+    expect(added?.stages.map(({ key }) => key)).toEqual(["implement", "tests", "lint", "publish"]);
+    expect(projectSchema.parse(await chat.read(`/projects/${project.id}`)).defaultPipeline).toBe(
+      "quick-fix",
+    );
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("drafts a change, the fields left out kept, which applied saves the Project Pipeline whole", async () => {
+    const project = await aProject();
+    const base = await aPipeline();
+    const projectPipeline = await aProjectPipeline(project, base);
+    const stageChanges = [
+      ...projectPipeline.stageChanges,
+      { kind: "change", stageKey: "implement", fields: { brief: "Implement it, then lint." } },
+    ];
+
+    const [proposal] = await chat.ninaProposes([
+      PROPOSE_PROJECT_PIPELINE_TOOL,
+      { project: project.id, pipeline: projectPipeline.id, stageChanges },
+    ]);
+
+    const from = {
+      name: projectPipeline.name,
+      description: "Then lint.",
+      basePipelineId: base.id,
+      stageChanges: projectPipeline.stageChanges,
+    };
+    expect(proposal?.change).toEqual({
+      kind: "project-pipeline",
+      projectId: project.id,
+      pipelineId: projectPipeline.id,
+      from,
+      to: { ...from, stageChanges },
+    });
+    expect(await aProjectPipelineNow(projectPipeline.id)).toEqual(projectPipeline);
+    const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(response.status).toBe(200);
+    const saved = await aProjectPipelineNow(projectPipeline.id);
+    expect(saved.stageChanges).toEqual([
+      ...projectPipeline.stageChanges,
+      { ...stageChanges[1], stageName: "Implement" },
+    ]);
+    expect(saved.stages[0]).toMatchObject({ key: "implement", brief: "Implement it, then lint." });
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("refuses applying once the Project Pipeline changed since it was drafted; the Proposal stays open", async () => {
+    const project = await aProject();
+    const base = await aPipeline();
+    const projectPipeline = await aProjectPipeline(project, base);
+    const [proposal] = await chat.ninaProposes([
+      PROPOSE_PROJECT_PIPELINE_TOOL,
+      { project: project.id, pipeline: projectPipeline.id, description: "Lint, then publish." },
+    ]);
+    // The user edits it by hand first.
+    const edited = projectPipelineSchema.parse(
+      await (
+        await chat.api("PUT", `/project-pipelines/${projectPipeline.id}`, {
+          name: projectPipeline.name,
+          description: "Edited by hand.",
+          basePipelineId: base.id,
+          stageChanges: projectPipeline.stageChanges,
+        })
+      ).json(),
+    );
+
+    const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+
+    expect(await chat.reasonsOf(response)).toEqual([
+      `${projectPipeline.name} changed since this was proposed.`,
+    ]);
+    expect((await chat.readProposal(proposal?.id ?? "")).status.kind).toBe("open");
+    expect(await aProjectPipelineNow(projectPipeline.id)).toEqual(edited);
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("refuses drafting for the editor's reasons, an unknown Project, and a change that changes nothing", async () => {
+    const project = await aProject();
+    const base = await aPipeline();
+    const projectPipeline = await aProjectPipeline(project, base);
+
+    const taken = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
+      project: project.id,
+      name: base.name,
+      basePipeline: "no-such-pipeline",
+    });
+    const missingKey = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
+      project: project.id,
+      pipeline: projectPipeline.id,
+      stageChanges: [{ kind: "remove", stageKey: "no-such-stage" }],
+    });
+    const unknownProject = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
+      project: "no-such-project",
+      name: "Mine",
+      basePipeline: base.id,
+    });
+    const nothing = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
+      project: project.id,
+      pipeline: projectPipeline.id,
+      name: projectPipeline.name,
+    });
+
+    expect(taken.isError).toBe(true);
+    expect(taken.text).toContain(`"${base.name}"`);
+    expect(taken.text).toContain(
+      'There is no office-wide Pipeline "no-such-pipeline" to build it from.',
+    );
+    expect(missingKey).toMatchObject({ isError: true });
+    expect(missingKey.text).toContain("Removes no-such-stage, which isn't among the Stages.");
+    expect(unknownProject).toMatchObject({ isError: true });
+    expect(unknownProject.text).toContain('There is no Project "no-such-project".');
+    expect(nothing).toMatchObject({ isError: true });
+    expect(nothing.text).toContain("Nothing changes");
+    expect(await projectPipelinesOf(project)).toEqual([projectPipeline]);
+    // The whole app, a real repository and four chat sessions: slow under a full run.
+  }, 60_000);
+
+  it("answers a library Pipeline's Proposal with the Project Pipelines its Stages would break", async () => {
+    const project = await aProject();
+    const base = await aPipeline();
+    const projectPipeline = await aProjectPipeline(project, base);
+    const withoutTests = base.stages.filter(({ key }) => key !== "tests");
+
+    const answer = await chat.ninaCalls(PROPOSE_LIBRARY_PIPELINE_TOOL, {
+      pipeline: base.id,
+      stages: withoutTests,
+    });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toContain("Applying it leaves these Project Pipelines Broken");
+    expect(answer.text).toContain(
+      `- ${project.name}'s ${projectPipeline.name}: Inserts Lint after Tests, which ${base.name} no longer has.`,
+    );
+    expect(await aProjectPipelineNow(projectPipeline.id)).toEqual(projectPipeline);
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+});
+
+/** A Lint Stage, the Project's lint command. */
+const LINT: Stage = { kind: "script", key: "lint", name: "Lint", optional: false, command: "lint" };
+
+/** A Project Pipeline of the Project, built from `base` with Lint inserted after Tests. */
+async function aProjectPipeline(project: Project, base: Pipeline): Promise<ProjectPipeline> {
+  const response = await chat.api("POST", "/project-pipelines", {
+    projectId: project.id,
+    name: `${base.name} with lint`,
+    description: "Then lint.",
+    basePipelineId: base.id,
+    stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINT }],
+  });
+  expect(response.status).toBe(201);
+  return projectPipelineSchema.parse(await response.json());
+}
+
+async function aProjectPipelineNow(id: string): Promise<ProjectPipeline> {
+  return projectPipelineSchema.parse(await chat.read(`/project-pipelines/${id}`));
+}
+
+async function projectPipelinesOf(project: Project): Promise<ProjectPipeline[]> {
+  return projectPipelineSchema
+    .array()
+    .parse(await chat.read(`/project-pipelines?projectId=${project.id}`));
+}
 
 /** A Stage template of the test's own: the shared database's built-ins stay as they are. */
 async function aStageTemplate(): Promise<StageTemplate> {

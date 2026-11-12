@@ -87,6 +87,8 @@ export class ProposalAppliers {
         return this.applierOf("pipeline").problemsWith(change);
       case "stage-template":
         return this.applierOf("stage-template").problemsWith(change);
+      case "project-pipeline":
+        return this.applierOf("project-pipeline").problemsWith(change);
       case "project":
         return this.applierOf("project").problemsWith(change);
       case "skill-install":
@@ -120,6 +122,8 @@ export class ProposalAppliers {
         return this.applierOf("pipeline").apply(change, proposedBy);
       case "stage-template":
         return this.applierOf("stage-template").apply(change, proposedBy);
+      case "project-pipeline":
+        return this.applierOf("project-pipeline").apply(change, proposedBy);
       case "project":
         return this.applierOf("project").apply(change, proposedBy);
       case "skill-install":

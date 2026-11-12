@@ -164,6 +164,10 @@ function proposedWords(change: ProposedChange): string {
       return `change the Pipeline ${change.pipelineId}`;
     case "stage-template":
       return `change the Stage template ${change.templateId}`;
+    case "project-pipeline":
+      return change.from === null
+        ? `add the Project Pipeline ${change.to.name} to Project ${change.projectId}`
+        : `change Project ${change.projectId}'s Pipeline ${change.from.name}`;
     case "project":
       return `onboard the Project ${change.project.name}`;
     case "skill-install":

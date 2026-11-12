@@ -17,6 +17,8 @@ import {
   pipelineListSchema,
   pipelineSchema,
   processOutputSchema,
+  projectPipelineListSchema,
+  projectPipelineSchema,
   projectSchema,
   recordPath,
   roleCardSchema,
@@ -4178,6 +4180,175 @@ test(
       `The ${template.stage.name} Stage template changed since this was proposed.`,
     );
     await expect(stale.getByRole("button", { name: "Apply change" })).toBeVisible();
+  },
+);
+
+test(
+  "the user applies Nina's new Project Pipeline and her change to one; a stale one is refused, and a library Pipeline's Proposal warns what it breaks",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const stamp = Date.now();
+      const project = await addedProject(page, repository, `Own Pipelines ${stamp}`, "OP");
+      const quickFix = pipelineSchema.parse(
+        await (await page.request.get("/api/pipelines/quick-fix")).json(),
+      );
+      const base = pipelineSchema.parse(
+        await (
+          await page.request.post("/api/pipelines", {
+            data: { name: `Base ${stamp}`, description: "", stages: quickFix.stages },
+          })
+        ).json(),
+      );
+      const lint: Stage = {
+        kind: "script",
+        key: "lint",
+        name: "Lint",
+        optional: false,
+        command: "lint",
+      };
+      const withLint = projectPipelineSchema.parse(
+        await (
+          await page.request.post("/api/project-pipelines", {
+            data: {
+              projectId: project.id,
+              name: `${base.name} with lint`,
+              description: "Then lint.",
+              basePipelineId: base.id,
+              stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: lint }],
+            },
+          })
+        ).json(),
+      );
+      const fields = {
+        name: withLint.name,
+        description: withLint.description,
+        basePipelineId: base.id,
+        stageChanges: withLint.stageChanges,
+      };
+      const nina = chatWith(page, "Nina");
+
+      await page.goto(`/settings/pipelines/${base.id}`);
+      await page.getByRole("button", { name: "Ask Nina", exact: true }).click();
+      await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
+        `Can you propose a change to the ${base.name} Pipeline? `,
+      );
+      const threadId = await chatThreadShown(page);
+      const review: Stage = {
+        kind: "gate",
+        key: "your-review",
+        name: "Your review",
+        optional: false,
+      };
+      const newName = `${base.name} with your review`;
+      await seedProposal(
+        threadId,
+        {
+          kind: "project-pipeline",
+          projectId: project.id,
+          pipelineId: null,
+          from: null,
+          to: {
+            name: newName,
+            description: "Then your review.",
+            basePipelineId: base.id,
+            stageChanges: [{ kind: "insert-before", stageKey: "publish", stage: review }],
+          },
+        },
+        "devops",
+      );
+      await seedProposal(
+        threadId,
+        {
+          kind: "project-pipeline",
+          projectId: project.id,
+          pipelineId: withLint.id,
+          from: fields,
+          to: { ...fields, description: "Lint before publishing." },
+        },
+        "devops",
+      );
+      // Drafted from a description the user has changed since.
+      await seedProposal(
+        threadId,
+        {
+          kind: "project-pipeline",
+          projectId: project.id,
+          pipelineId: withLint.id,
+          from: { ...fields, description: "Lint, as it was." },
+          to: { ...fields, description: "Stale words." },
+        },
+        "devops",
+      );
+      // Base's new Stages leave out Tests, which the Project Pipeline inserts Lint after.
+      await seedProposal(
+        threadId,
+        {
+          kind: "pipeline",
+          pipelineId: base.id,
+          from: base.stages,
+          to: base.stages.filter(({ key }) => key !== "tests"),
+        },
+        "devops",
+      );
+      await page.goto(`/settings/pipelines/${base.id}?chat=devops&thread=${threadId}`);
+
+      const breaking = nina.getByRole("region", {
+        name: `Proposal: Change the ${base.name} Pipeline`,
+      });
+      await expect(breaking).toContainText("Applying this breaks 1 Project Pipeline");
+      await expect(breaking).toContainText(
+        `${project.name} › ${withLint.name}: Inserts Lint after Tests, which ${base.name} no longer has.`,
+      );
+      await breaking.getByRole("button", { name: "Apply anyway" }).scrollIntoViewIfNeeded();
+      await expect(breaking.getByRole("button", { name: "Apply anyway" })).toBeVisible();
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-devops-project-pipeline-proposals.png"),
+      });
+
+      const added = nina.getByRole("region", {
+        name: `Proposal: Add ${newName} to ${project.name}'s Pipelines`,
+      });
+      await expect(added).toContainText("Inserts Your review before Publish");
+      await expect(added).toContainText(
+        `${project.name} getsImplement → Tests → Your review → Publish`,
+      );
+      await added.getByRole("button", { name: "Apply change" }).click();
+      await expect(added).toContainText("Applied");
+      const projectPipelines = projectPipelineListSchema.parse(
+        await (await page.request.get(`/api/project-pipelines?projectId=${project.id}`)).json(),
+      );
+      expect(projectPipelines.map(({ name }) => name).toSorted()).toEqual(
+        [withLint.name, newName].toSorted(),
+      );
+      expect(
+        projectSchema.parse(await (await page.request.get(`/api/projects/${project.id}`)).json())
+          .defaultPipeline,
+      ).toBe("full");
+
+      const changes = nina.getByRole("region", {
+        name: `Proposal: Change ${project.name}'s ${withLint.name}`,
+      });
+      const change = changes.filter({ hasText: "Lint before publishing." });
+      await expect(change.getByRole("listitem").first()).toHaveText(
+        "DescriptionThen lint.Lint before publishing.",
+      );
+      await change.getByRole("button", { name: "Apply change" }).click();
+      await expect(change).toContainText("Applied");
+      const saved = projectPipelineSchema.parse(
+        await (await page.request.get(`/api/project-pipelines/${withLint.id}`)).json(),
+      );
+      expect(saved).toEqual({ ...withLint, description: "Lint before publishing." });
+
+      const stale = changes.filter({ hasText: "Stale words." });
+      await stale.getByRole("button", { name: "Apply change" }).click();
+      await expect(stale).toContainText("The change can't be applied yet");
+      await expect(stale).toContainText(`${withLint.name} changed since this was proposed.`);
+      await expect(stale.getByRole("button", { name: "Apply change" })).toBeVisible();
+    } finally {
+      await repository.remove();
+    }
   },
 );
 

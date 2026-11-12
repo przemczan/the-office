@@ -8,13 +8,16 @@ import {
 import { Link, useNavigate } from "@tanstack/react-router";
 import type {
   Preset,
+  ProjectPipelineBreak,
+  ProjectPipelineCheckRequest,
+  ProjectPipelineFields,
   Proposal,
   ProposalApplication,
   ProposedChange,
   Role,
   RoleCard,
 } from "@the-office/contracts";
-import { Badge, Button, Icon, Input } from "@the-office/ui";
+import { Alert, Badge, Button, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
   applyProposal,
@@ -59,6 +62,7 @@ import { tokensShort } from "./context-words.ts";
 import {
   commandWords,
   ProposedCommandChanges,
+  ProposedProjectPipelineFields,
   ProposedSkillInstallFields,
   ProposedSkillUpdateFields,
   ProposedStageChanges,
@@ -70,6 +74,8 @@ type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
 type ProposedPresetHire = Extract<ProposedChange, { kind: "hire-from-preset" }>;
 type ProposedRoleChange = Extract<ProposedChange, { kind: "change" }>;
 type ProposedLimitChange = Extract<ProposedChange, { kind: OfficeLimit }>;
+type ProposedPipelineChange = Extract<ProposedChange, { kind: "pipeline" }>;
+type ProposedProjectPipeline = Extract<ProposedChange, { kind: "project-pipeline" }>;
 type InitiativeEdit = Extract<ProposedChange, { kind: "initiative" }>["edit"];
 type OfficeLimit = "office-wide-limit" | "size-threshold";
 
@@ -104,8 +110,8 @@ const OFFICE_LIMITS: Record<
  * A Proposal as a card in the drafting person's chat (spec §2.4): a new Role to hire, from scratch
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
- * an Initiative, or Devops' change to a Project's commands, a library Pipeline's Stages or a Stage
- * template's Stage, a Project to onboard, a skill to install from a Source or its update, or a
+ * an Initiative, or Devops' change to a Project's commands, a library Pipeline's Stages, a Project
+ * Pipeline (new or changed) or a Stage template's Stage, a Project to onboard, a skill to install from a Source or its update, or a
  * written skill drafted in a chat. Nothing changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
@@ -190,20 +196,10 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
         </ProposalFrame>
       );
     }
-    case "pipeline": {
-      const name = pipelines?.find(({ id }) => id === change.pipelineId)?.name ?? change.pipelineId;
-      return (
-        <ProposalFrame title={`Change the ${name} Pipeline`}>
-          <ProposedStageChanges from={change.from} to={change.to} />
-          <AnswerFoot
-            proposal={proposal}
-            changes={[pipelineQueries.list().queryKey]}
-            appliedToast={`${name} changed. Tasks that haven't started follow it.`}
-            openNote={STALE_NOTE}
-          />
-        </ProposalFrame>
-      );
-    }
+    case "pipeline":
+      return <PipelineProposal proposal={proposal} change={change} />;
+    case "project-pipeline":
+      return <ProjectPipelineProposal proposal={proposal} change={change} roles={roles ?? []} />;
     case "stage-template": {
       const name =
         stageTemplates?.find(({ id }) => id === change.templateId)?.stage.name ?? change.from.name;
@@ -321,6 +317,142 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
         </ProposalFrame>
       );
   }
+}
+
+/**
+ * New Stages for a library Pipeline, and while it is open the Project Pipelines built from it that
+ * they would leave Broken, each with its Project and why: applying still applies.
+ */
+function PipelineProposal({
+  proposal,
+  change,
+}: {
+  readonly proposal: Proposal;
+  readonly change: ProposedPipelineChange;
+}): ReactNode {
+  const pipeline = useQuery(pipelineQueries.list()).data?.find(
+    ({ id }) => id === change.pipelineId,
+  );
+  const open = proposal.status.kind === "open";
+  const check = useQuery({
+    ...pipelineQueries.libraryCheck({
+      name: pipeline?.name ?? "",
+      description: pipeline?.description ?? "",
+      stages: change.to,
+      pipelineId: change.pipelineId,
+    }),
+    enabled: open && pipeline !== undefined,
+  }).data;
+  const breaks = open ? (check?.breaks ?? []) : [];
+  const name = pipeline?.name ?? change.pipelineId;
+  return (
+    <ProposalFrame title={`Change the ${name} Pipeline`}>
+      <ProposedStageChanges from={change.from} to={change.to} />
+      {breaks.length > 0 && <ProjectPipelineBreaks breaks={breaks} />}
+      <AnswerFoot
+        proposal={proposal}
+        changes={[pipelineQueries.list().queryKey]}
+        appliedToast={`${name} changed. Tasks that haven't started follow it.`}
+        openNote={STALE_NOTE}
+        applyLabel={breaks.length > 0 ? "Apply anyway" : undefined}
+      />
+    </ProposalFrame>
+  );
+}
+
+/** The Project Pipelines a Proposal of their base Pipeline's Stages would leave Broken, and why. */
+function ProjectPipelineBreaks({
+  breaks,
+}: {
+  readonly breaks: readonly ProjectPipelineBreak[];
+}): ReactNode {
+  const count = breaks.length === 1 ? "1 Project Pipeline" : `${breaks.length} Project Pipelines`;
+  return (
+    <div className="proposal-section">
+      <Alert tone="warning" title={`Applying this breaks ${count}`}>
+        <div className="proposal-breaks">
+          {breaks.map(({ projectPipelineId, projectName, name, reasons }) => (
+            <p key={projectPipelineId}>
+              <b>
+                {projectName} › {name}
+              </b>
+              : {reasons.map(({ text }) => text).join(" ")}
+            </p>
+          ))}
+          <p>Each is Broken until its Stage changes are fixed.</p>
+        </div>
+      </Alert>
+    </div>
+  );
+}
+
+/**
+ * A new Project Pipeline of a Project, or a change to one, as the adopted design words it, with the
+ * Stages the Project gets built by the service's check. It never sets the Project's default.
+ */
+function ProjectPipelineProposal({
+  proposal,
+  change,
+  roles,
+}: {
+  readonly proposal: Proposal;
+  readonly change: ProposedProjectPipeline;
+  readonly roles: readonly Role[];
+}): ReactNode {
+  const projectName =
+    useQuery(projectQueries.list()).data?.find(({ id }) => id === change.projectId)?.name ??
+    change.projectId;
+  const pipelines = useQuery(pipelineQueries.list()).data;
+  const pipelineName = (pipelineId: string): string =>
+    pipelines?.find(({ id }) => id === pipelineId)?.name ?? pipelineId;
+  const proposed = useQuery(
+    pipelineQueries.projectPipelineCheck(checkRequest(change, change.to)),
+  ).data;
+  const was = useQuery({
+    ...pipelineQueries.projectPipelineCheck(checkRequest(change, change.from ?? change.to)),
+    enabled: change.from !== null,
+  }).data;
+  const { from, to } = change;
+  return (
+    <ProposalFrame
+      title={
+        from === null
+          ? `Add ${to.name} to ${projectName}'s Pipelines`
+          : `Change ${projectName}'s ${from.name}`
+      }
+    >
+      <ProposedProjectPipelineFields
+        change={change}
+        projectName={projectName}
+        pipelineName={pipelineName}
+        was={was}
+        proposed={proposed}
+        roles={roles}
+      />
+      <AnswerFoot
+        proposal={proposal}
+        changes={[pipelineQueries.list().queryKey]}
+        appliedToast={
+          from === null
+            ? `${to.name} added to ${projectName}'s Pipelines.`
+            : `${to.name} saved. Tasks that haven't started follow it.`
+        }
+        openNote={STALE_NOTE}
+      />
+    </ProposalFrame>
+  );
+}
+
+/** The service's check of the Project Pipeline with these fields, which builds its Stages. */
+function checkRequest(
+  change: ProposedProjectPipeline,
+  fields: ProjectPipelineFields,
+): ProjectPipelineCheckRequest {
+  return {
+    ...fields,
+    projectId: change.projectId,
+    ...(change.pipelineId === null ? {} : { projectPipelineId: change.pipelineId }),
+  };
 }
 
 /** These Proposals change what the user may edit by hand meanwhile, which refuses them. */
@@ -764,6 +896,7 @@ function AnswerFoot({
   appliedToast,
   appliedNote,
   openNote,
+  applyLabel = "Apply change",
 }: {
   readonly proposal: Proposal;
   /** What applying it changes, refreshed once it is applied. */
@@ -771,6 +904,7 @@ function AnswerFoot({
   readonly appliedToast: string;
   readonly appliedNote?: string;
   readonly openNote: string;
+  readonly applyLabel?: string | undefined;
 }): ReactNode {
   const showToast = useToast();
   const answering = useAnswering(proposal, changes, () => showToast(appliedToast));
@@ -795,7 +929,7 @@ function AnswerFoot({
             disabled={answering.busy}
             onClick={() => answering.applying.mutate({})}
           >
-            Apply change
+            {applyLabel}
           </Button>
           <Button
             size="sm"
