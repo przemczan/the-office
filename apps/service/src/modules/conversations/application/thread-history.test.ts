@@ -166,6 +166,18 @@ describe("ThreadHistory", () => {
     expect(answer).not.toContain("Why did the build fail?");
   });
 
+  it("reads a time with no offset in UTC, as it reads a date", async () => {
+    const answer = await history.read({
+      from: `${DAY}T09:01`,
+      to: `${DAY}T10:00:00`,
+      personRole: DEVELOPER,
+    });
+
+    expect(answer).toContain("from 2032-07-14 09:01 UTC to 2032-07-14 10:00 UTC");
+    expect(answer).toContain("3 in 2 Threads");
+    expect(answer).not.toContain("Why did the build fail?");
+  });
+
   it.each([
     [{ personRole: "nobody" }, "Nobody fills or filled the Role nobody"],
     [{ taskId: "no-such-task" }, "The Office has no Task no-such-task"],

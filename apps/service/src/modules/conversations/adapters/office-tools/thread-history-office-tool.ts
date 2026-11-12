@@ -24,7 +24,7 @@ export class ThreadHistoryOfficeTool implements OnModuleInit {
         from: z
           .string()
           .describe(
-            "The range's start: a date, as 2026-11-05, which reads from that day's start in UTC, or a time, as 2026-11-05T09:00:00Z.",
+            "The range's start: a date, as 2026-11-05, which reads from that day's start in UTC, or a time, as 2026-11-05T09:00:00Z; a time with no offset reads in UTC.",
           ),
         to: z
           .string()

@@ -30,6 +30,9 @@ export interface ThreadHistoryQuery {
 /** A date alone, which reads as that whole day in UTC. */
 const DATE_ALONE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A date and time with no offset, which reads in UTC as a date alone does, not the server's zone. */
+const TIME_WITHOUT_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/;
+
 const LAST_MILLISECOND_OF_DAY = 24 * 60 * 60 * 1000 - 1;
 
 /** Which Threads a query reads, or the plain sentence answering a filter that names nothing. */
@@ -202,7 +205,13 @@ export class ThreadHistory {
 /** The time a value names, a date alone reading as its day's start or end; undefined for none. */
 function timeOf(value: string, end: "start" | "end"): Date | undefined {
   const trimmed = value.trim();
-  const time = new Date(DATE_ALONE.test(trimmed) ? `${trimmed}T00:00:00.000Z` : trimmed);
+  const time = new Date(
+    DATE_ALONE.test(trimmed)
+      ? `${trimmed}T00:00:00.000Z`
+      : TIME_WITHOUT_OFFSET.test(trimmed)
+        ? `${trimmed}Z`
+        : trimmed,
+  );
   if (Number.isNaN(time.getTime())) return undefined;
   return DATE_ALONE.test(trimmed) && end === "end"
     ? new Date(time.getTime() + LAST_MILLISECOND_OF_DAY)

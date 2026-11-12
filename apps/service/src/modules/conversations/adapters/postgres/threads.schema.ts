@@ -83,7 +83,11 @@ export const threadMessages = pgTable(
     body: jsonb("body").$type<MessageDraft>().notNull(),
     at: timestamp("at", { withTimezone: true }).notNull(),
   },
-  (table) => [index("thread_messages_thread").on(table.threadId, table.position)],
+  (table) => [
+    index("thread_messages_thread").on(table.threadId, table.position),
+    // `read_threads` reads the log by when its messages were logged, across Threads.
+    index("thread_messages_at").on(table.at),
+  ],
 );
 
 /**

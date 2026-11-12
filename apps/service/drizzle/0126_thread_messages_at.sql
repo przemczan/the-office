@@ -1,0 +1,1 @@
+CREATE INDEX "thread_messages_at" ON "thread_messages" USING btree ("at");
