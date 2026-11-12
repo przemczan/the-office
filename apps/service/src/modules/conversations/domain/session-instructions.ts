@@ -117,14 +117,16 @@ export const READING_OFFICE_TOOLS = [
 
 /**
  * The Office tool a person reads a Task's Stage history with, each run and its Project commands'
- * output, which Pipelines registers. An Agent Stage doesn't get it: its Brief carries what it needs
- * of earlier runs.
+ * output and an Agent Stage run's Stage Thread messages, which Pipelines registers. Agent Stages get
+ * it too, beside `READING_OFFICE_TOOLS` (Pipelines' `AGENT_STAGE_OFFICE_TOOLS`), but planning
+ * sessions and Initiative Threads don't.
  */
 export const READ_STAGE_HISTORY_TOOL = "read_stage_history";
 
 /**
  * The Office tool a person reads Thread messages with, from The Office's log, by a range and
- * filters (spec 2.4). An Agent Stage doesn't get it, as with `read_stage_history`.
+ * filters (spec 2.4). An Agent Stage doesn't get it: it reads Thread messages only through a run's
+ * Stage Thread, with `read_stage_history`.
  */
 export const READ_THREADS_TOOL = "read_threads";
 

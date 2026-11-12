@@ -108,6 +108,11 @@ export class TaskService {
     return task;
   }
 
+  /** The Task, archived ones too, or undefined when there is none of that id. */
+  async find(id: string): Promise<Task | undefined> {
+    return this.repository.find(id);
+  }
+
   /** The Task's kept state changes, oldest first, each with who or what made it. */
   async stateChangesOf(taskId: string): Promise<readonly StateChange[]> {
     return this.repository.stateChangesOf(taskId);

@@ -8,6 +8,7 @@ import {
   aDoneResult,
   anAgentSession,
   anAgentStage,
+  runsOf,
   startPipelinesApplication,
   walkStages,
   type PipelinesApplication,
@@ -88,14 +89,52 @@ describe("read_stage_history", () => {
     expect(passed.text).toContain("```\nCreating network…\nStarted.\n```");
   });
 
-  it("answers plainly for an unknown Task and an unknown run number", async () => {
+  it("answers an Agent Stage's run by its number with what the Agent said in its Stage Thread, and the whole history with how many messages it logged", async () => {
     const taskId = await aTaskWhoseCheckFailedThenPassed();
-    const unknown = randomUUID();
+    const [firstImplement] = await runsOf(pipelines, taskId);
+    const said = pipelines.threadMessages.logged.find(
+      ({ threadId }) => threadId === firstImplement?.threadId,
+    );
 
-    expect(await readStageHistory({ taskId: unknown })).toEqual({
-      text: `The Task ${unknown} has no Stage runs: it hasn't started, or The Office has no Task of that id. list_tasks lists the Tasks with their ids.`,
+    const run = await readStageHistory({ taskId, runNumber: 1 });
+    const history = await readStageHistory({ taskId });
+
+    expect(said?.text).toContain("Done.");
+    expect(run.text).toContain(
+      `Stage Thread, its messages from the run's start to its end:\n\n- ${said?.at.toISOString()} · the Agent: ${said?.text}`,
+    );
+    expect(history.text).toContain(
+      "Stage Thread: 1 message logged during the run; read it with runNumber 1 for them.",
+    );
+    expect(history.text).not.toContain(said?.text);
+  });
+
+  it("answers plainly for an unknown Task, in the whole history and one run alike", async () => {
+    const unknown = randomUUID();
+    const answer = {
+      text: `The Office has no Task ${unknown}. list_tasks lists the Tasks with their ids.`,
       isError: false,
-    });
+    };
+
+    expect(await readStageHistory({ taskId: unknown })).toEqual(answer);
+    expect(await readStageHistory({ taskId: unknown, runNumber: 1 })).toEqual(answer);
+  });
+
+  it("answers plainly for a Task not started yet, naming its state as the board does", async () => {
+    const planning = randomUUID();
+    pipelines.tasks.put(planning, { state: "planning", pipelineId: undefined });
+    const answer = {
+      text: `The Task ${planning} hasn't started: it is in Planning, so no Stage has run yet.`,
+      isError: false,
+    };
+
+    expect(await readStageHistory({ taskId: planning })).toEqual(answer);
+    expect(await readStageHistory({ taskId: planning, runNumber: 1 })).toEqual(answer);
+  });
+
+  it("answers plainly for an unknown run number", async () => {
+    const taskId = await aTaskWhoseCheckFailedThenPassed();
+
     expect(await readStageHistory({ taskId, runNumber: 9 })).toEqual({
       text: "The Task has no run 9: its runs are numbered 1 to 4.",
       isError: false,

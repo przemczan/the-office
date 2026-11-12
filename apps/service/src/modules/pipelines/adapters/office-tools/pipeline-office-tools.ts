@@ -23,6 +23,7 @@ import { StageRunEnvironmentDefinitions } from "../../application/stage-run-envi
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf } from "../../domain/agent-command.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
+import { STAGE_HISTORY_READ_LIMIT } from "../../domain/stage-history-words.js";
 import { ProposalDrafts } from "../../ports/proposal-drafts.js";
 import { toPipelineResponse, toStageTemplateResponse } from "../http/pipeline-responses.js";
 
@@ -90,8 +91,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerReadStageHistory(): void {
     this.registry.register({
       name: READ_STAGE_HISTORY_TOOL,
-      description:
-        "Reads a Task's Stage history, as the user sees it on the Task: every Stage run in the order they ran, with its Stage, start and end, outcome, Handover note, Decisions and their answers, engine, model and tokens, and every Project command it ran with its outcome, exit code, duration and filtered output. Give a run's number as well to read that run with each command's whole output. It reads only The Office's records, never a file.",
+      description: `Reads a Task's Stage history, as the user sees it on the Task: every Stage run in the order they ran, with its Stage, start and end, outcome, Handover note, Decisions and their answers, engine, model and tokens,every Project command it ran with its outcome, exit code, duration and filtered output, and for an Agent Stage's run how many messages its Stage Thread logged. Give a run's number as well to read that run with each command's whole output and, for an Agent Stage, its Stage Thread's messages from the run's start to its end: what the Agent said and tried, with its speakers, tool activity as one line each, and Decisions. One answer holds at most ${STAGE_HISTORY_READ_LIMIT} characters. It reads only The Office's records, never a file or an engine's transcript.`,
       input: z.object({
         taskId: z.string().describe("The Task's id, as list_tasks gives it."),
         runNumber: z
@@ -99,7 +99,9 @@ export class PipelineOfficeTools implements OnModuleInit {
           .int()
           .positive()
           .optional()
-          .describe("One run's number, as the whole history gives it, to read its whole outputs."),
+          .describe(
+            "One run's number, as the whole history gives it, to read its whole outputs and its Stage Thread's messages.",
+          ),
       }),
       run: async ({ taskId, runNumber }) => ({
         text:

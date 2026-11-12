@@ -19,6 +19,9 @@ export const STAGE_HISTORY_READ_LIMIT = 60_000;
 /** Room kept for the lines saying what was cut, so the answer stays within the limit. */
 const CUT_NOTE_ROOM = 120;
 
+/** Room kept for each output's fence. */
+const FENCE_ROOM = 16;
+
 /**
  * How much of the answer the runs' words may take in the whole history, so their outputs keep the
  * rest: past it, the earliest runs are left out, as the latest are the ones a diagnosis needs.
@@ -27,13 +30,23 @@ const HISTORY_WORDS_ROOM = STAGE_HISTORY_READ_LIMIT / 2;
 
 /**
  * A Task's Stage history as text (spec §2.3), in the order the runs ran: each run with its Stage,
- * its times, outcome, Handover note, Decisions, engine and tokens, and every Project command with
- * its filtered output. Capped as `STAGE_HISTORY_READ_LIMIT` says: the earliest runs are left out
- * when their words alone would crowd the outputs out, and each output keeps its end.
+ * its times, outcome, Handover note, Decisions, engine and tokens, how many messages an Agent
+ * Stage's run logged in its Stage Thread (`threadMessageCounts`, by the run's id), and every
+ * Project command with its filtered output. Capped as `STAGE_HISTORY_READ_LIMIT` says: the earliest
+ * runs are left out when their words alone would crowd the outputs out, and each output keeps its
+ * end.
  */
-export function stageHistoryWords(stages: readonly Stage[], runs: readonly StageRun[]): string {
+export function stageHistoryWords(
+  stages: readonly Stage[],
+  runs: readonly StageRun[],
+  threadMessageCounts: ReadonlyMap<string, number>,
+): string {
   if (runs.length === 0) return "The Task has no Stage runs yet.";
-  const shown = latestRunsParts(runs.map((run) => runParts(stages, run, filteredOutputs(run))));
+  const shown = latestRunsParts(
+    runs.map((run) =>
+      runParts(stages, run, filteredOutputs(run), threadCountLines(run, threadMessageCounts)),
+    ),
+  );
   const parts = shown.flatMap((run) => [...run, wordsPart("\n\n")]);
   return capped([
     wordsPart(`${historyHeading(runs.length, runs.length - shown.length)}\n\n`),
@@ -46,7 +59,7 @@ function historyHeading(runCount: number, leftOut: number): string {
     leftOut === 0
       ? `The Task's Stage runs, ${runCount} in the order they ran.`
       : `The Task's Stage runs, ${runCount} in the order they ran: the ${leftOut} earliest are left out to keep this answer within ${STAGE_HISTORY_READ_LIMIT} characters.`;
-  return `${order} Each command shows its filtered output; read one run by its number for each command's whole output.`;
+  return `${order} Each command shows its filtered output; read one run by its number for each command's whole output and, for an Agent Stage, its Stage Thread's messages.`;
 }
 
 /** The latest runs whose words fit `HISTORY_WORDS_ROOM`, the last run always among them. */
@@ -68,16 +81,59 @@ function wordsLength(parts: readonly Part[]): number {
     .reduce((sum, { text }) => sum + text.length, 0);
 }
 
+/** The line naming how many messages the run's Stage Thread holds; none for a run without one. */
+function threadCountLines(
+  { id, number, threadId }: StageRun,
+  threadMessageCounts: ReadonlyMap<string, number>,
+): string[] {
+  const count = threadMessageCounts.get(id);
+  if (threadId === undefined || count === undefined) return [];
+  const messages = count === 1 ? "1 message" : `${count} messages`;
+  return [
+    `Stage Thread: ${messages} logged during the run; read it with runNumber ${number} for them.`,
+  ];
+}
+
 /**
  * One Stage run as text, as `stageHistoryWords` gives it but with each command's whole output in
- * place of its filtered one, as the Stage history shows it.
+ * place of its filtered one, as the Stage history shows it, and an Agent Stage's run ending with
+ * its Stage Thread's messages (`threadWords`, worded within `stageRunThreadRoom`).
  */
 export function stageRunWords(
   stages: readonly Stage[],
   run: StageRun,
   wholeOutputs: readonly string[],
+  threadWords: string | undefined,
 ): string {
-  return capped(runParts(stages, run, wholeOutputs));
+  const thread =
+    threadWords === undefined ? [] : [wordsPart(`${threadHeading(run)}${threadWords}`)];
+  return capped([...runParts(stages, run, wholeOutputs, []), ...thread]);
+}
+
+function threadHeading({ endedAt }: StageRun): string {
+  return `\n\nStage Thread, its messages from the run's start to ${endedAt === undefined ? "now" : "its end"}:\n\n`;
+}
+
+/**
+ * How many characters the run's Stage Thread messages may take in `stageRunWords`: the room the
+ * run's other words leave is shared with the command outputs, each getting at least half of it and
+ * the messages whatever the outputs don't need.
+ */
+export function stageRunThreadRoom(
+  stages: readonly Stage[],
+  run: StageRun,
+  wholeOutputs: readonly string[],
+): number {
+  const parts = runParts(stages, run, wholeOutputs, []);
+  const outputs = parts.filter(({ kind }) => kind === "output");
+  const room =
+    STAGE_HISTORY_READ_LIMIT -
+    wordsLength(parts) -
+    threadHeading(run).length -
+    outputs.length * FENCE_ROOM -
+    CUT_NOTE_ROOM * (outputs.length + 1);
+  const outputsNeed = outputs.reduce((sum, { text }) => sum + text.length, 0);
+  return Math.max(0, room - Math.min(outputsNeed, Math.floor(room / 2)));
 }
 
 /** A piece of the answer: words kept whole, or a command's output, cut from its start to fit. */
@@ -93,7 +149,12 @@ function filteredOutputs(run: StageRun): string[] {
   return run.commandRuns.map(({ output }) => output);
 }
 
-function runParts(stages: readonly Stage[], run: StageRun, outputs: readonly string[]): Part[] {
+function runParts(
+  stages: readonly Stage[],
+  run: StageRun,
+  outputs: readonly string[],
+  threadLines: readonly string[],
+): Part[] {
   const lines = [
     `## Run ${run.number}: ${stageName(stages, run.stageKey)}`,
     "",
@@ -105,6 +166,7 @@ function runParts(stages: readonly Stage[], run: StageRun, outputs: readonly str
     ...decisionLines(run.decisions),
     ...engineLines(run),
     tokensLine(run),
+    ...threadLines,
   ];
   return [wordsPart(lines.join("\n")), ...commandParts(run.commandRuns, outputs)];
 }
@@ -332,7 +394,7 @@ function durationWords(ms: number): string {
 function capped(parts: readonly Part[]): string {
   const outputs = parts.filter(({ kind }) => kind === "output").map(({ text }) => text);
   const fixed = wordsLength(parts);
-  const fenceRoom = outputs.length * 16;
+  const fenceRoom = outputs.length * FENCE_ROOM;
   const whole = fixed + fenceRoom + outputs.reduce((sum, output) => sum + output.length, 0);
   const shares =
     whole <= STAGE_HISTORY_READ_LIMIT

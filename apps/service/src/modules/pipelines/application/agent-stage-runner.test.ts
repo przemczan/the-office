@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { READING_OFFICE_TOOLS } from "../../conversations/index.js";
+import {
+  READ_STAGE_HISTORY_TOOL,
+  READ_THREADS_TOOL,
+  READING_OFFICE_TOOLS,
+} from "../../conversations/index.js";
 import type { AgentStage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
 import { STAGE_RESULT_SCHEMA } from "../domain/stage-result.js";
@@ -55,6 +59,7 @@ describe("AgentStageRunner", () => {
         },
         officeTools: [
           ...READING_OFFICE_TOOLS,
+          READ_STAGE_HISTORY_TOOL,
           "open_decision",
           "consult",
           "attach_file",
@@ -80,6 +85,7 @@ describe("AgentStageRunner", () => {
     expect(record).toContain("- mockup.png (image, image/png, 2048 bytes) · Attachment a-1");
     expect(record).toContain("- build (Build): `npm run build`\n- test (Test): `npm test`");
     expect(record).not.toContain("npm ci");
+    expect(request?.session.officeTools).not.toContain(READ_THREADS_TOOL);
     const [run] = await runsOf(pipelines, taskId);
     expect(run?.outcome).toEqual({
       status: "done",

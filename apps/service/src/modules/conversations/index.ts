@@ -22,6 +22,8 @@ export {
   type StageThreadRequest,
   type StageTurn,
 } from "./application/stage-threads.js";
+export { StageThreadMessages } from "./application/stage-thread-messages.js";
+export type { StageRunWindow } from "./application/thread-history.js";
 export { TaskTokens } from "./application/task-tokens.js";
 export {
   TaskThreadSetups,

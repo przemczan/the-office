@@ -49,4 +49,5 @@ export {
   TaskStopped,
 } from "./domain/task-events.js";
 export { TaskRefused } from "./domain/task-refused.js";
+export { TASK_STATE_NAMES } from "./domain/task-states.js";
 export { WorkModule } from "./work.module.js";

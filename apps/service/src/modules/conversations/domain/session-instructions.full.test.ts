@@ -140,11 +140,25 @@ describe("chatOfficeTools", () => {
     expect(READING_OFFICE_TOOLS).toContain("read_attachment");
   });
 
-  it("gives every chat reading a Task's Stage history, the Office Manager's too, which no Agent Stage reads with", () => {
+  it("gives every chat reading a Task's Stage history, the Office Manager's too, apart from the reading tools every session has", () => {
     for (const roleKey of ["planner", DEVOPS, OFFICE_MANAGER]) {
       expect(chatOfficeTools(roleKey)).toContain(READ_STAGE_HISTORY_TOOL);
     }
     expect(READING_OFFICE_TOOLS).not.toContain(READ_STAGE_HISTORY_TOOL);
+  });
+
+  it("keeps the reading tools every session has to the records, so planning and Initiative Threads read no Stage history or Thread messages", () => {
+    expect(READING_OFFICE_TOOLS).toEqual([
+      "list_projects",
+      "list_people",
+      READ_ROLE_TOOL,
+      "list_tasks",
+      "read_task",
+      "list_ideas",
+      "read_idea",
+      "read_initiative",
+      "read_attachment",
+    ]);
   });
 
   it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {

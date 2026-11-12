@@ -30,6 +30,9 @@ export interface TaskBlocker {
 export abstract class StartedTasks {
   abstract read(taskId: string): Promise<StartedTask>;
 
+  /** The Task, archived ones too, or undefined when The Office has none of that id. */
+  abstract find(taskId: string): Promise<StartedTask | undefined>;
+
   /** Every Task, started or not: as The Office starts, it looks for runs left running among them. */
   abstract list(): Promise<readonly StartedTask[]>;
 

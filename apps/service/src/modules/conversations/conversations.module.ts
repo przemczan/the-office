@@ -58,6 +58,7 @@ import { SkillUpdateProposals } from "./application/skill-update-proposals.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
+import { StageThreadMessages } from "./application/stage-thread-messages.js";
 import { StageThreads } from "./application/stage-threads.js";
 import { TaskConversations } from "./application/task-conversations.js";
 import { TaskTokens } from "./application/task-tokens.js";
@@ -140,6 +141,7 @@ export class ConversationsModule {
         FireAlarmLifts,
         AllowChanges,
         StageThreads,
+        StageThreadMessages,
         StageDecisions,
         TaskTokens,
         ProposalAppliers,
@@ -177,6 +179,7 @@ export class ConversationsModule {
         ProposalAppliers,
         ProposalService,
         StageThreads,
+        StageThreadMessages,
         StageDecisions,
         TaskTokens,
         ThreadRunner,
