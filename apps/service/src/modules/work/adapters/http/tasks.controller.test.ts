@@ -696,9 +696,9 @@ describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
     await sound();
     await sound();
 
-    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
-    expect(await storedTask(waiting.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
-    expect(await storedTask(paused.id)).toMatchObject({ state: "paused", pausedByAlarm: false });
+    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedBy: "alarm" });
+    expect(await storedTask(waiting.id)).toMatchObject({ state: "paused", pausedBy: "alarm" });
+    expect(await storedTask(paused.id)).toMatchObject({ state: "paused", pausedBy: undefined });
     expect(work.published.filter((event) => event instanceof AlarmSounded)).toHaveLength(1);
     const pausedEvents = work.published
       .filter((event) => event instanceof TaskPaused)
@@ -732,9 +732,9 @@ describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
     expect(fireAlarmSchema.parse(await response.json())).toEqual({ on: false });
     expect(await storedTask(resumed.id)).toMatchObject({
       state: "in-progress",
-      pausedByAlarm: false,
+      pausedBy: undefined,
     });
-    expect(await storedTask(held.id)).toMatchObject({ state: "paused", pausedByAlarm: false });
+    expect(await storedTask(held.id)).toMatchObject({ state: "paused", pausedBy: undefined });
     expect(await storedTask(dropped.id)).toMatchObject({ state: "dropped" });
     expect((await readTask(queued.id)).state).toBe("in-progress");
     const given = work.published.find((event) => event instanceof AllClearGiven);

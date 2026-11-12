@@ -17,7 +17,7 @@ const TASK: OfficeTask = {
   title: "Add a filter",
   projectId: "p1",
   state: "in-progress",
-  pausedByAlarm: false,
+  pausedBy: undefined,
 };
 
 function stage(
@@ -221,8 +221,8 @@ describe("nowOf", () => {
 
 describe("the fire alarm on Now", () => {
   const since = at(0);
-  const byAlarm: OfficeTask = { ...TASK, state: "paused", pausedByAlarm: true };
-  const usersOwn: OfficeTask = { ...TASK, id: "t2", state: "paused", pausedByAlarm: false };
+  const byAlarm: OfficeTask = { ...TASK, state: "paused", pausedBy: "alarm" };
+  const usersOwn: OfficeTask = { ...TASK, id: "t2", state: "paused", pausedBy: undefined };
   const warm: TaskResume = {
     kind: "continues-warm",
     stageName: "build Stage",

@@ -1,5 +1,6 @@
 import type { Initiative, InitiativeState, Task } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
+import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { blockersOf, blockingTasksOf } from "./dependency-words.ts";
 import { firstLine, withoutMarkdownMarks } from "./stage-words.ts";
 
@@ -90,11 +91,36 @@ export function progressWords({ done, counted, readyToStart }: InitiativeProgres
   return `${done} of ${counted} ${counted === 1 ? "Task" : "Tasks"} done${ready}`;
 }
 
-/** What Drop did, from the state it left: only a shaping Initiative takes Tasks with it. */
-export function droppedWords(droppedFrom: InitiativeState): string {
-  return droppedFrom === "shaping"
-    ? "Initiative dropped, with its Tasks in Shaping. Its other Tasks stay where they are."
-    : "Initiative dropped. Its Tasks stay where they are.";
+/** What an Initiative's Drop takes with it (spec 2.1): every Task not yet Done or Dropped. */
+export interface DroppedWithIt {
+  readonly open: number;
+  /** Those of them started, whose running Stage stops. */
+  readonly started: number;
+}
+
+export function droppedWithIt(initiativeTasks: readonly Task[]): DroppedWithIt {
+  const open = initiativeTasks.filter(({ state }) => state !== "done" && state !== "dropped");
+  const started = open.filter(({ state }) => !NOT_STARTED.includes(state));
+  return { open: open.length, started: started.length };
+}
+
+/** The Drop dialog's line on the Tasks it drops. */
+export function dropTasksWords({ open, started }: DroppedWithIt): string {
+  if (open === 0) return "Its Tasks are all Done or Dropped already, so it drops none.";
+  const tasks = open === 1 ? "its 1 Task" : `its ${open} Tasks`;
+  return `It drops ${tasks} not yet Done or Dropped, ${startedWords(open, started)}.`;
+}
+
+function startedWords(open: number, started: number): string {
+  if (open === 1) return started === 1 ? "which has started: its Stage stops" : "not started yet";
+  if (started === 0) return "none of them started";
+  return `${started} of them started: ${started === 1 ? "its Stage stops" : "their Stages stop"}`;
+}
+
+/** What Drop did. */
+export function droppedWords({ open }: Pick<DroppedWithIt, "open">): string {
+  if (open === 0) return "Initiative dropped.";
+  return `Initiative dropped, with its ${open === 1 ? "1 open Task" : `${open} open Tasks`}.`;
 }
 
 /** The Outcome block's folded line. */

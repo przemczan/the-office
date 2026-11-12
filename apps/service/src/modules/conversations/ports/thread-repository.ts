@@ -20,6 +20,8 @@ export interface LoggedMessagesRange {
   readonly roleKey?: string;
   /** Only Threads in these homes; undefined for any home, none for no Thread at all. */
   readonly homes?: readonly Home[];
+  /** Only this Thread, by its id. */
+  readonly threadId?: string;
 }
 
 /** A message in The Office's log, with the Thread it was logged in. */
@@ -64,6 +66,9 @@ export abstract class ThreadRepository {
 
   /** The messages logged in the range, in any Thread it takes, the first logged first. */
   abstract loggedIn(range: LoggedMessagesRange): Promise<readonly LoggedMessage[]>;
+
+  /** How many messages `loggedIn` would read for the range, without reading them. */
+  abstract countLoggedIn(range: LoggedMessagesRange): Promise<number>;
 
   abstract decision(id: string): Promise<Decision | undefined>;
 

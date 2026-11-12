@@ -5015,9 +5015,12 @@ test(
 
       await page.getByRole("button", { name: "More for Usage exports for customers" }).click();
       await page.getByRole("menu").getByRole("button", { name: "Drop the Initiative" }).click();
-      await expect(
-        page.getByText("Initiative dropped. Its Tasks stay where they are."),
-      ).toBeVisible();
+      const dropDialog = page.getByRole("dialog", { name: "Drop Usage exports for customers?" });
+      await expect(dropDialog).toContainText(
+        "It drops its 3 Tasks not yet Done or Dropped, none of them started.",
+      );
+      await dropDialog.getByRole("button", { name: "Drop the Initiative" }).click();
+      await expect(page.getByText("Initiative dropped, with its 3 open Tasks.")).toBeVisible();
       await expect(page.getByRole("button", { name: "Add a Task" })).toHaveCount(0);
       await expect(
         page.getByText(

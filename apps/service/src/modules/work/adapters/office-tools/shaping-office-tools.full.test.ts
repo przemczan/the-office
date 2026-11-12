@@ -398,19 +398,17 @@ describe("once the Initiative is dropped", () => {
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
   });
 
-  it("refuses the title and Description of its Tasks, keeping them", async () => {
+  it("refuses the title and Description of its Tasks, dropped with it, keeping them", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
     await work.app.get(InitiativeService).confirm(initiative.id);
     await work.app.get(InitiativeService).drop(initiative.id);
-    const text =
-      "The Initiative is dropped: its Tasks and their dependencies change straight onto it only while it is being shaped.";
 
     expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep it" })).toEqual({
-      text,
+      text: "A Task keeps its title once it has started.",
       isError: true,
     });
     expect(await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "Why" })).toEqual({
-      text,
+      text: "A Task keeps its Description once it has started.",
       isError: true,
     });
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);

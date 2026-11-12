@@ -20,7 +20,9 @@ import {
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
   InitiativePlanningStarted,
+  InitiativePaused,
   InitiativeRestored,
+  InitiativeResumed,
   InitiativeShortNameWritten,
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
@@ -180,6 +182,14 @@ export class WorkWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(InitiativeRestored, (event): WebEventOf<"initiative.restored"> => ({
       type: "initiative.restored",
+      initiativeId: event.initiativeId,
+    }));
+    this.forwarding.forward(InitiativePaused, (event): WebEventOf<"initiative.paused"> => ({
+      type: "initiative.paused",
+      initiativeId: event.initiativeId,
+    }));
+    this.forwarding.forward(InitiativeResumed, (event): WebEventOf<"initiative.resumed"> => ({
+      type: "initiative.resumed",
       initiativeId: event.initiativeId,
     }));
     this.forwarding.forward(

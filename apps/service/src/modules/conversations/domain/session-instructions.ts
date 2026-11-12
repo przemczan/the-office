@@ -1,5 +1,5 @@
 import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
-import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
+import { CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Answerer, type Decision, type DecisionAnswer } from "./decision.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
@@ -132,14 +132,16 @@ export const READING_OFFICE_TOOLS = [
 
 /**
  * The Office tool a person reads a Task's Stage history with, each run and its Project commands'
- * output, which Pipelines registers. An Agent Stage doesn't get it: its Brief carries what it needs
- * of earlier runs.
+ * output and an Agent Stage run's Stage Thread messages, which Pipelines registers. Agent Stages get
+ * it too, beside `READING_OFFICE_TOOLS` (Pipelines' `AGENT_STAGE_OFFICE_TOOLS`), but planning
+ * sessions and Initiative Threads don't.
  */
 export const READ_STAGE_HISTORY_TOOL = "read_stage_history";
 
 /**
  * The Office tool a person reads Thread messages with, from The Office's log, by a range and
- * filters (spec 2.4). An Agent Stage doesn't get it, as with `read_stage_history`.
+ * filters (spec 2.4). An Agent Stage doesn't get it: it reads Thread messages only through a run's
+ * Stage Thread, with `read_stage_history`.
  */
 export const READ_THREADS_TOOL = "read_threads";
 
@@ -235,23 +237,37 @@ export const READ_REPOSITORY_TOOL = "read_repository";
 const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument. A repository on a host, such as GitHub, is read by its Repository URL in place of a path, without cloning it, and onboarded by that URL: The Office clones it when the user applies the Proposal.`;
 
 /**
+ * The Office tool the CTO and the Office Manager create an Initiative with in their chat, when the
+ * user asks (spec §2.1), which Work registers; no other Role and no other session has it.
+ */
+export const CREATE_INITIATIVE_TOOL = "create_initiative";
+
+/**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
- * points to the Planner, so it never creates one; it drafts Roles and Office settings as Proposals
- * the user applies, points the user to whoever is responsible with a Link card, and shows the
- * Office status (ticket 06); they redirect with a Link card and never relay, so they call no one.
- * Anyone else calls a person when the user asks (spec §2.2) and has their Role's own tools besides.
+ * points to the Planner, so it never creates one, though it may create an Initiative, which the CTO
+ * shapes into Tasks; it drafts Roles and Office settings as Proposals the user applies, points the
+ * user to whoever is responsible with a Link card, and shows the Office status (ticket 06); they
+ * redirect with a Link card and never relay, so they call no one. Anyone else calls a person when
+ * the user asks (spec §2.2) and has their Role's own tools besides: the CTO creates an Initiative
+ * too, in their chat only.
  */
 export function chatOfficeTools(roleKey: string): readonly string[] {
   return roleKey === OFFICE_MANAGER
     ? [
         ...CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task"),
+        CREATE_INITIATIVE_TOOL,
         PROPOSE_ROLE_TOOL,
         PROPOSE_OFFICE_SETTING_TOOL,
         READ_OFFICE_INSTRUCTIONS_TOOL,
         POST_LINK_CARD_TOOL,
         SHOW_OFFICE_STATUS_TOOL,
       ]
-    : [...CHAT_OFFICE_TOOLS, ...draftingOfficeTools(roleKey), CONSULT_TOOL];
+    : [
+        ...CHAT_OFFICE_TOOLS,
+        ...draftingOfficeTools(roleKey),
+        ...(roleKey === CTO ? [CREATE_INITIATIVE_TOOL] : []),
+        CONSULT_TOOL,
+      ];
 }
 
 /**

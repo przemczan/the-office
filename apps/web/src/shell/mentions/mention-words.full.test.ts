@@ -24,6 +24,7 @@ function anInitiative(id: string, state: Initiative["state"]): Initiative {
     createdAt: "2026-10-28T10:00:00.000Z",
     endedAt: null,
     archivedAt: null,
+    pausedAt: null,
     planningThreadId: null,
     planningAutoMode: false,
     pipelineId: null,

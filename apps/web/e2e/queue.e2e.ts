@@ -862,6 +862,60 @@ test("Start Ready Tasks starts an Initiative's Ready Tasks, queues one for its b
   await page.request.post(`/api/tasks/${first.id}/drop`);
 });
 
+test(
+  "Pause the Initiative pauses its running Task and queues a Start with the reason; Resume the Initiative goes on and starts it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue pause", "QP");
+    const { initiative, tasks } = await initiativeWithReadyTasks(page, project, [
+      { title: "Pause the running export" },
+      { title: "Pause the waiting import" },
+    ]);
+    const [running, waiting] = tasks as [Task, Task];
+    // In progress without a walk: the Pause's part here is the hold and the queue.
+    await queryOfficeDatabase(`update tasks set state = 'in-progress' where id = $1`, [running.id]);
+    const stateOf = async ({ id }: Task) =>
+      taskSchema.parse(await (await page.request.get(`/api/tasks/${id}`)).json()).state;
+    const head = page.locator("header.task-head");
+
+    await page.goto(`/work/initiatives/${initiative.id}`);
+    await head.getByRole("button", { name: "Pause the Initiative" }).click();
+
+    await expect(page.getByText("Initiative paused: 1 Task paused.").first()).toBeVisible();
+    await expect(head.getByText("Paused", { exact: true })).toBeVisible();
+    await expect(head.getByRole("button", { name: "Resume the Initiative" })).toBeVisible();
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await head.screenshot({
+        path: path.join(SCREENSHOTS, `${colorScheme}-1600-initiative-paused.png`),
+      });
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto(`/tasks/${running.id}`);
+    await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
+
+    const start = await page.request.post(`/api/tasks/${waiting.id}/start`, { data: {} });
+    expect(start.ok()).toBe(true);
+    await page.goto("/work");
+    await showOnly(page, project);
+    await expect(
+      column(page, "Queued").getByRole("article", { name: waiting.title }),
+    ).toContainText("The Initiative is paused.");
+
+    await page.goto(`/work/initiatives/${initiative.id}`);
+    await head.getByRole("button", { name: "Resume the Initiative" }).click();
+
+    await expect(page.getByText("Initiative resumed: 1 Task resumed.").first()).toBeVisible();
+    await expect(head.getByText("Paused", { exact: true })).toBeHidden();
+    await expect.poll(() => stateOf(running)).not.toBe("paused");
+    await expect.poll(() => stateOf(waiting)).not.toBe("ready");
+
+    // Their walks have no more to prove here.
+    await page.request.post(`/api/tasks/${waiting.id}/drop`);
+    await page.request.post(`/api/tasks/${running.id}/drop`);
+  },
+);
+
 // Here, alone, since the alarm holds every file's Starts and pauses every file's started Tasks;
 // each Task is held at the all clear, so no walk starts after the files that left them.
 test("the fire alarm: sounded from the top bar, it stops and holds the Tasks, the strip's desks at 0, chats run no tools unless let; the all clear holds, drops or resumes each", async ({

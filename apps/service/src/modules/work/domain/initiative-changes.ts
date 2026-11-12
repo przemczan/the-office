@@ -1,8 +1,9 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { initiativeProjectIds, type Initiative, type InitiativeState } from "./initiative.js";
-import { THE_USER } from "./author.js";
+import { THE_USER, type Author } from "./author.js";
 import {
   InitiativeBranchMade,
+  InitiativeCreated,
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
   InitiativeShortNameWritten,
@@ -12,6 +13,7 @@ import { derivedShortName, initiativeBranchOf, shortNameProblems } from "./short
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import { newTaskProblems, trimmedNewTask, type NewTask, type Task } from "./task.js";
+import { titleProblem } from "./title.js";
 import {
   changeTaskState,
   createTask,
@@ -23,6 +25,7 @@ import { projectsToPublish, unfinishedPublishingTask } from "./publishing-task.j
 import { addDependency, blockPublishingTask, removeDependency } from "./task-dependencies.js";
 import { changeDescription, changeTitle } from "./task-description.js";
 import { TaskRefused } from "./task-refused.js";
+import type { StateChangeCause } from "./state-change.js";
 import type {
   TaskCreated,
   TaskDependencyAdded,
@@ -38,9 +41,9 @@ export interface InitiativeChange<Event extends DomainEvent> {
   readonly event: Event;
 }
 
-/** An Initiative's change that moves its Tasks too, each by a change of its own. */
+/** An Initiative's change that changes its Tasks too, each by a change of its own. */
 export interface InitiativeTasksChange<Event extends DomainEvent> extends InitiativeChange<Event> {
-  readonly taskChanges: readonly TaskChange<TaskStateChanged>[];
+  readonly taskChanges: readonly TaskChange<DomainEvent>[];
 }
 
 /**
@@ -51,6 +54,44 @@ export interface ConfirmBranching {
   readonly shortName: string;
   readonly projectIds: readonly string[];
   readonly madeAt: Date;
+}
+
+/** What create_initiative is given: the Initiative's name and its outcome, both required. */
+export interface NewInitiative {
+  readonly name: string;
+  readonly outcome: string;
+}
+
+/**
+ * An Initiative being shaped that comes from no Idea (create_initiative, spec 2.1): named and with
+ * its outcome written, no Tasks yet, waiting for the user's Confirm as one shaped from an Idea does.
+ */
+export function createInitiative(
+  setting: NewInitiative,
+  initiativeId: string,
+  createdBy: Author,
+  at: Date,
+): InitiativeChange<InitiativeCreated> {
+  const name = setting.name.trim();
+  const outcome = setting.outcome.trim();
+  const nameProblem = titleProblem(name, "Initiative");
+  const problems = [
+    ...(nameProblem ? [nameProblem] : []),
+    ...(outcome === "" ? ["Write what must be true once the Initiative is done."] : []),
+  ];
+  if (problems.length > 0) throw new InitiativeRefused(problems);
+  const initiative: Initiative = {
+    id: initiativeId,
+    name,
+    outcome,
+    state: "shaping",
+    originIdeaId: undefined,
+    createdBy,
+    createdAt: at,
+    planningAutoMode: false,
+    branches: [],
+  };
+  return { initiative, event: new InitiativeCreated(initiative) };
 }
 
 /**
@@ -178,8 +219,9 @@ export function addBranch(
 }
 
 /**
- * Undefined when it is already dropped. Its Tasks still in Shaping could never move on, so they
- * drop with it; every other Task stays as it is.
+ * Undefined when it is already dropped. Every one of its Tasks not yet Done or Dropped drops with
+ * it, started ones and those its Pause held too, each as by the user's own Drop (spec 2.1, "An
+ * Initiative is done"); a paused one is no longer paused.
  */
 export function dropInitiative(
   initiative: Initiative,
@@ -190,12 +232,28 @@ export function dropInitiative(
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
   }
-  return {
-    ...moveTo(initiative, "dropped", at),
-    taskChanges: inShaping(tasks).flatMap(
-      (task) => changeTaskState(task, "dropped", THE_USER) ?? [],
-    ),
-  };
+  return { ...moveTo(initiative, "dropped", at), taskChanges: dropOpen(tasks, THE_USER) };
+}
+
+/**
+ * The Tasks a Dropped Initiative left open, from before a Drop took them along (spec 2.1), dropped
+ * `by` The Office; none for any other Initiative, or once none is open, so it can run again.
+ */
+export function dropLeftOpenTasks(
+  initiative: Initiative,
+  tasks: readonly Task[],
+  by: StateChangeCause,
+): readonly TaskChange<TaskStateChanged>[] {
+  return initiative.state === "dropped" ? dropOpen(tasks, by) : [];
+}
+
+function dropOpen(
+  tasks: readonly Task[],
+  by: StateChangeCause,
+): readonly TaskChange<TaskStateChanged>[] {
+  return tasks
+    .filter(({ state }) => state !== "done" && state !== "dropped")
+    .flatMap((task) => changeTaskState(task, "dropped", by) ?? []);
 }
 
 function inShaping(tasks: readonly Task[]): readonly Task[] {
@@ -435,13 +493,15 @@ export function tasksByInitiative(board: readonly Task[]): ReadonlyMap<string, r
 }
 
 /** `endedAt` is the moment of a move to Done or Dropped, from which its Archive period counts. */
+/** The Pause's mark lives only beside the active state, so a move out of it clears the mark. */
 function moveTo(
   initiative: Initiative,
   to: InitiativeState,
   endedAt: Date | undefined,
 ): InitiativeChange<InitiativeStateChanged> {
+  const pausedAt = to === "active" ? initiative.pausedAt : undefined;
   return {
-    initiative: { ...initiative, state: to, endedAt },
+    initiative: { ...initiative, state: to, endedAt, pausedAt },
     event: new InitiativeStateChanged(initiative.id, initiative.state, to),
   };
 }

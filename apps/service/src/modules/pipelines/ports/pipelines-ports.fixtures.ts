@@ -25,6 +25,7 @@ import {
   type StageTurn,
 } from "./stage-threads.js";
 import { StageRoleEngines, type NewlyNamedStageRoles } from "./stage-role-engines.js";
+import { StageThreadMessages, type StageRunThreadWindow } from "./stage-thread-messages.js";
 import {
   StartedTasks,
   type StartedTask,
@@ -134,10 +135,10 @@ export class StartedTasksForTests extends StartedTasks {
   /** Puts the Task as Work would, such as In progress as it starts; not paused by the alarm. */
   put(
     taskId: string,
-    task: Omit<StartedTask, "id" | "pausedByAlarm" | "projectId"> & Partial<StartedTask>,
+    task: Omit<StartedTask, "id" | "pausedBy" | "projectId"> & Partial<StartedTask>,
   ): void {
     this.tasks.set(taskId, {
-      pausedByAlarm: false,
+      pausedBy: undefined,
       projectId: "test-project",
       ...task,
       id: taskId,
@@ -152,6 +153,10 @@ export class StartedTasksForTests extends StartedTasks {
     const task = this.tasks.get(taskId);
     if (!task) throw new Error(`There is no Task ${taskId}.`);
     return task;
+  }
+
+  async find(taskId: string): Promise<StartedTask | undefined> {
+    return this.tasks.get(taskId);
   }
 
   /** As Work moves it: a Paused Task stays Paused, held by the user; TaskStateChanged tells of it. */
@@ -188,7 +193,7 @@ export class StartedTasksForTests extends StartedTasks {
     const task = await this.read(taskId);
     const from = task.state;
     if (from !== "in-progress" && from !== "waiting-on-you") return task;
-    this.put(taskId, { ...task, state: "paused", pausedByAlarm: true });
+    this.put(taskId, { ...task, state: "paused", pausedBy: "alarm" });
     await this.announce(new TaskPaused(taskId, from, "alarm"));
     return this.read(taskId);
   }
@@ -201,7 +206,7 @@ export class StartedTasksForTests extends StartedTasks {
 
   async resume(taskId: string): Promise<StartedTask> {
     const task = await this.read(taskId);
-    this.put(taskId, { ...task, state: "in-progress", pausedByAlarm: false });
+    this.put(taskId, { ...task, state: "in-progress", pausedBy: undefined });
     await this.announce(new TaskResumed(taskId));
     return this.read(taskId);
   }
@@ -308,6 +313,45 @@ export class KnownPeopleForTests extends KnownPeople {
   }
 }
 
+/** A message a Stage Thread logged, as the test ports keep it. */
+export interface StageThreadMessageForTests {
+  readonly threadId: string;
+  readonly at: Date;
+  readonly text: string;
+}
+
+/**
+ * Stage Threads' messages in memory, one line each: the Stage Threads log each turn's output here.
+ * Conversations' own tests cover how `read_threads` words them.
+ */
+@Injectable()
+export class StageThreadMessagesForTests extends StageThreadMessages {
+  readonly logged: StageThreadMessageForTests[] = [];
+
+  async words(window: StageRunThreadWindow, limit: number): Promise<string> {
+    const lines: string[] = [];
+    const inWindow = this.inWindow(window);
+    for (const { at, text } of inWindow) {
+      const line = `- ${at.toISOString()} · the Agent: ${text}`;
+      if ([...lines, line].join("\n").length > limit - 100) {
+        return [...lines, `… ${inWindow.length - lines.length} more left out.`].join("\n");
+      }
+      lines.push(line);
+    }
+    return lines.length === 0 ? "No Thread messages were logged." : lines.join("\n");
+  }
+
+  async count(window: StageRunThreadWindow): Promise<number> {
+    return this.inWindow(window).length;
+  }
+
+  private inWindow({ threadId, from, to }: StageRunThreadWindow): StageThreadMessageForTests[] {
+    return this.logged.filter(
+      (message) => message.threadId === threadId && message.at >= from && message.at <= to,
+    );
+  }
+}
+
 /**
  * Stage Threads as a session each on the engine, which tests script: a new session every Stage,
  * started with the record and the Stage's work. Conversations' own tests cover the Context policy.
@@ -349,7 +393,10 @@ export class StageThreadsForTests extends StageThreads {
   /** The Decision each Thread found left running had opened, by its Thread, as a test puts it. */
   readonly leftAsking = new Map<string, AskedDecision>();
 
-  constructor(private readonly sessions: EngineSessions) {
+  constructor(
+    private readonly sessions: EngineSessions,
+    private readonly messages: StageThreadMessagesForTests,
+  ) {
     super();
   }
 
@@ -401,6 +448,11 @@ export class StageThreadsForTests extends StageThreads {
         const event = next.value;
         if (event.kind === "turn-ended") {
           turnRunning = false;
+          this.messages.logged.push({
+            threadId,
+            at: new Date(),
+            text: typeof event.output === "string" ? event.output : JSON.stringify(event.output),
+          });
           await this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
           return { output: event.output, problem, tokens: event.usage };
@@ -908,6 +960,7 @@ export class PipelinesPortsForTestsModule {
       TaskRecordsForTests,
       KnownPeopleForTests,
       StageThreadsForTests,
+      StageThreadMessagesForTests,
       StageDecisionsForTests,
       TaskGitForTests,
       TaskCommandsForTests,

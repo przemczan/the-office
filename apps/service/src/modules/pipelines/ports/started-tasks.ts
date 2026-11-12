@@ -11,8 +11,11 @@ export interface StartedTask {
    * which it is before the Task can be Ready, so a started Task always has one.
    */
   readonly pipelineId: string | undefined;
-  /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */
-  readonly pausedByAlarm: boolean;
+  /**
+   * What holds it Paused apart from the user's own Pause: `alarm` for the fire alarm, `initiative`
+   * for its Initiative's Pause; undefined for none.
+   */
+  readonly pausedBy: string | undefined;
   /** What The Office made it for, such as `publishing` for a Publishing Task; undefined for most. */
   readonly madeFor?: string | undefined;
 }
@@ -29,6 +32,9 @@ export interface TaskBlocker {
  */
 export abstract class StartedTasks {
   abstract read(taskId: string): Promise<StartedTask>;
+
+  /** The Task, archived ones too, or undefined when The Office has none of that id. */
+  abstract find(taskId: string): Promise<StartedTask | undefined>;
 
   /** Every Task, started or not: as The Office starts, it looks for runs left running among them. */
   abstract list(): Promise<readonly StartedTask[]>;

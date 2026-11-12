@@ -17,8 +17,8 @@ export interface Initiative {
   /** What must be true once it is done, in plain language; empty until written. */
   readonly outcome: string;
   readonly state: InitiativeState;
-  /** The Idea it was shaped from. */
-  readonly originIdeaId: string;
+  /** The Idea it was shaped from; undefined for one created with create_initiative. */
+  readonly originIdeaId: string | undefined;
   readonly createdBy: Author;
   readonly createdAt: Date;
   /**
@@ -30,6 +30,11 @@ export interface Initiative {
   readonly archivedAt?: Date;
   /** Its last Restore from the Archive, from which its Archive period counts again. */
   readonly restoredAt?: Date;
+  /**
+   * Set while it is paused (initiative-pause.ts), an active one alone: a mark beside its state, as
+   * the Archive's is.
+   */
+  readonly pausedAt?: Date;
   /**
    * Its latest planning Thread with the Planner, opened by Plan the Initiative; undefined until it
    * is first planned. Only this Thread may move its Tasks to Planning (start_planning).

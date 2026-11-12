@@ -167,7 +167,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   private async resumesOf(
     started: readonly StartedTask[],
   ): Promise<ReadonlyMap<string, TaskResume | undefined>> {
-    const paused = started.filter(({ task }) => task.pausedByAlarm);
+    const paused = started.filter(({ task }) => task.pausedBy === "alarm");
     return new Map(
       await Promise.all(
         paused.map(async ({ task }) => [task.id, await this.resumePlans.of(task.id)] as const),
@@ -190,9 +190,10 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     this.events.subscribe(TaskStateChanged, ({ taskId, to, occurredAt }) =>
       to === "done" ? this.keepOutcome(taskId, "done", occurredAt) : this.announceInBackground(),
     );
-    // What the fire alarm holds is no Outcome: Now shows it with the alarm.
+    // What the fire alarm or an Initiative's Pause holds is no Outcome: Now shows it with the
+    // alarm, and the Initiative that it is paused.
     this.events.subscribe(TaskPaused, ({ taskId, occurredAt, by }) =>
-      by === "alarm" ? this.announceInBackground() : this.keepOutcome(taskId, "paused", occurredAt),
+      by === "user" ? this.keepOutcome(taskId, "paused", occurredAt) : this.announceInBackground(),
     );
     this.events.subscribe(TaskStopped, ({ taskId, occurredAt }) =>
       this.keepOutcome(taskId, "paused", occurredAt),

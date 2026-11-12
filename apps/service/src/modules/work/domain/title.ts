@@ -1,6 +1,6 @@
 export const TITLE_LENGTH = 120;
 
-const RECORD_NAMES = { Idea: "An Idea", Task: "A Task" } as const;
+const RECORD_NAMES = { Idea: "An Idea", Initiative: "An Initiative", Task: "A Task" } as const;
 
 /** Why a title can't be kept, or undefined when it can; `record` names what it titles. */
 export function titleProblem(title: string, record: keyof typeof RECORD_NAMES): string | undefined {

@@ -28,9 +28,11 @@ import type {
   InitiativeTaskAdded,
   InitiativeTasksChange,
 } from "../../domain/initiative-changes.js";
+import type { InitiativeCreated } from "../../domain/initiative-events.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
+import type { TaskStateChanged } from "../../domain/task-events.js";
 import {
   InitiativeRepository,
   type InitiativeTasksUpdate,
@@ -66,6 +68,10 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     if (!canBeRowId(id)) return undefined;
     const [row] = await this.database.select().from(initiatives).where(eq(initiatives.id, id));
     return row && toInitiative(row);
+  }
+
+  async insert({ initiative }: InitiativeChange<InitiativeCreated>): Promise<void> {
+    await this.database.insert(initiatives).values(toInitiativeRow(initiative));
   }
 
   async list(): Promise<readonly Initiative[]> {
@@ -158,6 +164,23 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
         await saveTask(transaction, taskChange.task, taskChange);
       }
       return changed;
+    });
+  }
+
+  async changeTasks(
+    id: string,
+    change: (
+      initiative: Initiative,
+      tasks: readonly Task[],
+    ) => readonly TaskChange<TaskStateChanged>[],
+  ): Promise<readonly TaskChange<TaskStateChanged>[]> {
+    return this.database.transaction(async (transaction) => {
+      const initiative = await heldInitiative(transaction, id);
+      const taskChanges = change(initiative, await heldTasksOf(transaction, id));
+      for (const taskChange of taskChanges) {
+        await saveTask(transaction, taskChange.task, taskChange);
+      }
+      return taskChanges;
     });
   }
 

@@ -191,12 +191,28 @@ function oneLine(summary: string): string {
   return lines.length > 1 && shortened === first ? `${shortened} …` : shortened;
 }
 
+/** How long an answer may grow, and how its read-on note says to read on after the last shown. */
+export interface ThreadHistoryAnswer {
+  readonly limit: number;
+  readOn(lastShownId: string): string;
+}
+
+/** `read_threads`'s own answer: read on by asking it again after the last message shown. */
+const READ_THREADS_ANSWER: ThreadHistoryAnswer = {
+  limit: THREAD_HISTORY_READ_LIMIT,
+  readOn: (lastShownId) =>
+    `read on with the same from, to and filters, and after: "${lastShownId}".`,
+};
+
 /**
  * The `read_threads` answer: the messages grouped by Thread, each Thread from its first message in
- * the range on, oldest first, capped at `THREAD_HISTORY_READ_LIMIT`. A full answer ends saying how
- * many messages it leaves out and the message to read on after.
+ * the range on, oldest first, capped at the answer's limit (`THREAD_HISTORY_READ_LIMIT` for
+ * `read_threads`). A full answer ends saying how many messages it leaves out and how to read on.
  */
-export function threadHistoryWords(history: ThreadMessagesRead): string {
+export function threadHistoryWords(
+  history: ThreadMessagesRead,
+  shape: ThreadHistoryAnswer = READ_THREADS_ANSWER,
+): string {
   const ordered = byThread(history.messages);
   const range = `from ${timeWords(history.from)} to ${timeWords(history.to)}`;
   const filtered = history.filters.length === 0 ? "" : `, ${history.filters.join(", ")}`;
@@ -220,9 +236,9 @@ export function threadHistoryWords(history: ThreadMessagesRead): string {
         ? ""
         : `\n\n## ${history.subjects.get(message.threadId) ?? "A Thread"} (Thread ${message.threadId})\n`;
     const piece = `${heading}\n${messageLine(message)}`;
-    if (answer.length + piece.length > THREAD_HISTORY_READ_LIMIT - READ_ON_NOTE_ROOM) {
+    if (answer.length + piece.length > shape.limit - READ_ON_NOTE_ROOM) {
       const previous = ordered[index - 1];
-      return `${answer}\n\n${readOnNote(ordered.length - index, previous?.id ?? "")}`;
+      return `${answer}\n\n${readOnNote(ordered.length - index, previous?.id ?? "", shape)}`;
     }
     answer += piece;
     shownThread = message.threadId;
@@ -255,9 +271,9 @@ function cutKeepingEnds(text: string, limit: number): string {
   return `${text.slice(0, head)}${note}${text.slice(text.length - (kept - head))}`;
 }
 
-function readOnNote(leftOut: number, lastShownId: string): string {
+function readOnNote(leftOut: number, lastShownId: string, shape: ThreadHistoryAnswer): string {
   const messages = leftOut === 1 ? "1 more message is" : `${leftOut} more messages are`;
-  return `… ${messages} left out to keep this answer within ${THREAD_HISTORY_READ_LIMIT} characters: read on with the same from, to and filters, and after: "${lastShownId}".`;
+  return `… ${messages} left out to keep this answer within ${shape.limit} characters: ${shape.readOn(lastShownId)}`;
 }
 
 /** A time to the minute, in UTC, as "2026-11-12 13:15 UTC". */

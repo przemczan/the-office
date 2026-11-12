@@ -1,5 +1,5 @@
 {
-  "id": "c59f018b-f868-4a29-98ec-9914346a9b70",
+  "id": "eda4dc9d-ab03-4c02-84f8-07beb738ad21",
   "prevId": "ace4d3c0-70be-4d32-9a72-354cd577c368",
   "version": "7",
   "dialect": "postgresql",
@@ -560,12 +560,6 @@
           "name": "task_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true
         },
         "role_key": {
@@ -662,22 +656,6 @@
           ],
           "isUnique": true,
           "where": "\"decisions\".\"answered_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "decisions_open_on_no_task_in_thread": {
-          "name": "decisions_open_on_no_task_in_thread",
-          "columns": [
-            {
-              "expression": "thread_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"decisions\".\"answered_at\" is null and \"decisions\".\"task_id\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -4105,7 +4083,7 @@
           "name": "origin_idea_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_by": {
           "name": "created_by",

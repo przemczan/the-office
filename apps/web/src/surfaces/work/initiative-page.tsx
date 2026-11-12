@@ -21,6 +21,7 @@ import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
 import { InitiativeConversation } from "./initiative-conversation.tsx";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
+import { InitiativePausedBadge } from "./initiative-pause.tsx";
 import { InitiativePipelineBlock } from "./initiative-pipeline-block.tsx";
 import { planningProgressWords } from "./initiative-planning-words.ts";
 import {
@@ -136,6 +137,7 @@ function InitiativeHead({
         <div className="task-head-meta">
           <span className="task-head-badges">
             <InitiativeStateBadge initiative={initiative} cto={cto} />
+            <InitiativePausedBadge initiative={initiative} />
             <ArchivedBadge record={initiative} />
           </span>
           <InitiativeProjects initiative={initiative} projects={projects} />

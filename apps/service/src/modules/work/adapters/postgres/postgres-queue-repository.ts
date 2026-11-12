@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, isNotNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { QueuedTask, Release, Starting } from "../../domain/queue.js";
 import type { Task } from "../../domain/task.js";
@@ -10,7 +10,7 @@ import { STARTED_STATES } from "../../domain/task-states.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { QueueRepository, type HeldForRelease } from "../../ports/queue-repository.js";
 import { queue } from "./queue.schema.js";
-import { tasks } from "./work.schema.js";
+import { initiatives, tasks } from "./work.schema.js";
 import {
   heldTask,
   holdStarts,
@@ -60,6 +60,7 @@ export class PostgresQueueRepository extends QueueRepository {
         startedTasks: startedRows.map(toTask),
         blockers: blockerRows.map(toTask),
         fireAlarmOn: (await this.fireAlarm.read()).on,
+        initiativePaused: await isInitiativePaused(transaction, task.initiativeId),
       };
       const starting = decide(task, held, await heldQueue(transaction));
       if (starting.kind === "started") {
@@ -94,6 +95,7 @@ export class PostgresQueueRepository extends QueueRepository {
       const release = decide(inQueue, {
         tasks: (await transaction.select().from(tasks)).map(toTask),
         fireAlarmOn: (await this.fireAlarm.read()).on,
+        pausedInitiativeIds: await pausedInitiativeIds(transaction),
       });
       for (const started of release.started) await saveStarted(transaction, started);
       for (const { taskId } of release.refused) await removeQueued(transaction, taskId);
@@ -117,6 +119,30 @@ export class PostgresQueueRepository extends QueueRepository {
       }
     });
   }
+}
+
+/**
+ * Read in the hold of Starts, never holding the Initiative: Pause the Initiative holds it and then
+ * its Tasks' rows, so it either pauses a Task this hold starts, or saved its mark before this reads.
+ */
+async function isInitiativePaused(
+  transaction: Transaction,
+  initiativeId: string | undefined,
+): Promise<boolean> {
+  if (initiativeId === undefined) return false;
+  const [row] = await transaction
+    .select({ pausedAt: initiatives.pausedAt })
+    .from(initiatives)
+    .where(eq(initiatives.id, initiativeId));
+  return row?.pausedAt != null;
+}
+
+async function pausedInitiativeIds(transaction: Transaction): Promise<ReadonlySet<string>> {
+  const rows = await transaction
+    .select({ id: initiatives.id })
+    .from(initiatives)
+    .where(isNotNull(initiatives.pausedAt));
+  return new Set(rows.map(({ id }) => id));
 }
 
 async function heldQueue(transaction: Transaction): Promise<QueuedTask[]> {

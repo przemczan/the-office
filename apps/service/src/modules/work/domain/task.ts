@@ -28,6 +28,13 @@ export const TASK_MADE_FOR = ["onboard", "run-environment-setup", "publishing"] 
 export type TaskMadeFor = (typeof TASK_MADE_FOR)[number];
 
 /**
+ * What holds a Paused Task apart from a Pause of the user's own: the fire alarm (spec §2.8), or its
+ * Initiative's Pause (spec §2.1, "Pause the Initiative").
+ */
+export const TASK_HOLDERS = ["alarm", "initiative"] as const;
+export type TaskHolder = (typeof TASK_HOLDERS)[number];
+
+/**
  * Whether the Task is an Initiative's Publishing Task: it works on the Initiative's branch itself
  * and publishes it into the base branch (spec 2.1, "Publishing Tasks").
  */
@@ -104,10 +111,11 @@ export interface Task {
    */
   readonly personRole: string | undefined;
   /**
-   * Whether the fire alarm holds it Paused (spec §2.8), apart from a Pause of the user's own: the
-   * all clear resumes it, or the user's Hold makes it theirs.
+   * What holds it Paused apart from a Pause of the user's own; undefined for that and any other
+   * state. The alarm's Tasks resume at the all clear, or the user's Hold makes them theirs (spec
+   * §2.8); the Initiative's resume with Resume the Initiative, or become the user's as it is dropped.
    */
-  readonly pausedByAlarm: boolean;
+  readonly pausedBy: TaskHolder | undefined;
   /**
    * What The Office made it for, in its Project: its Onboard Task, whose state is the Project's
    * onboarding, its "Set up the run environment" Task, or an Initiative's Publishing Task there;

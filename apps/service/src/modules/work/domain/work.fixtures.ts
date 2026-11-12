@@ -59,7 +59,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     markedPlanned: false,
     hasPlanningThread: false,
     personRole: undefined,
-    pausedByAlarm: false,
+    pausedBy: undefined,
     madeFor: undefined,
     blockedBy: [],
     originIdeaId: undefined,

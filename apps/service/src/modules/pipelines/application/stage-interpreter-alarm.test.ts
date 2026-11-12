@@ -61,7 +61,7 @@ describe("Sounding the fire alarm", () => {
     expect(pipelines.git.commits).toEqual([]);
     expect(await pipelines.tasks.read(taskId)).toMatchObject({
       state: "paused",
-      pausedByAlarm: true,
+      pausedBy: "alarm",
     });
 
     await resume(pipelines, taskId);
@@ -153,7 +153,7 @@ describe("The Office starting with the fire alarm on", () => {
     expect(pipelines.decisions.on(taskId)).toEqual([]);
     expect(await pipelines.tasks.read(taskId)).toMatchObject({
       state: "paused",
-      pausedByAlarm: true,
+      pausedBy: "alarm",
     });
   });
 });

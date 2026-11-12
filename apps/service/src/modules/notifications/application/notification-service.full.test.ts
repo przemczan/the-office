@@ -20,7 +20,7 @@ import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
 import { CTO } from "../../people/index.js";
 import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
-import { InitiativeStateChanged, TaskStateChanged } from "../../work/index.js";
+import { InitiativeStateChanged, TaskPaused, TaskStateChanged } from "../../work/index.js";
 import { toRoutingResponse } from "../adapters/http/notification-responses.js";
 import {
   NotificationRaised,
@@ -232,6 +232,18 @@ describe("NotificationService", () => {
 
     expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
       { kind: "task", taskId: toTheUser },
+    ]);
+  });
+
+  it("tells a Task paused by the user, but none the fire alarm or its Initiative's Pause paused", async () => {
+    const [byTheUser, byTheAlarm, byTheInitiative] = [randomUUID(), randomUUID(), randomUUID()];
+
+    await events.publish(new TaskPaused(byTheAlarm, "in-progress", "alarm"));
+    await events.publish(new TaskPaused(byTheInitiative, "in-progress", "initiative"));
+    await events.publish(new TaskPaused(byTheUser, "in-progress"));
+
+    expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
+      { kind: "task", taskId: byTheUser },
     ]);
   });
 

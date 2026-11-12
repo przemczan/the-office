@@ -11,10 +11,11 @@ import {
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
+import { CARETAKER, CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import {
   caretakerChatInstructions,
   CHAT_OFFICE_TOOLS,
+  CREATE_INITIATIVE_TOOL,
   chatInstructions,
   chatOfficeTools,
   CONSULT_TOOL,
@@ -132,6 +133,23 @@ describe("chatOfficeTools", () => {
     expect(tools).toContain("capture_idea");
   });
 
+  it("gives creating an Initiative to the CTO's and the Office Manager's chats alone", () => {
+    expect(chatOfficeTools(CTO)).toContain(CREATE_INITIATIVE_TOOL);
+    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(CREATE_INITIATIVE_TOOL);
+    for (const roleKey of ["planner", "developer", DEVOPS, CARETAKER]) {
+      expect(chatOfficeTools(roleKey)).not.toContain(CREATE_INITIATIVE_TOOL);
+    }
+    expect(CHAT_OFFICE_TOOLS).not.toContain(CREATE_INITIATIVE_TOOL);
+  });
+
+  it("leaves creating an Initiative out of the CTO's and the Office Manager's Stage and Consultation tools", () => {
+    expect(roleOfficeTools(CTO)).not.toContain(CREATE_INITIATIVE_TOOL);
+    expect(roleOfficeTools(OFFICE_MANAGER)).not.toContain(CREATE_INITIATIVE_TOOL);
+    for (const roleKey of [CTO, OFFICE_MANAGER]) {
+      expect(consultationOfficeTools(roleKey, true)).not.toContain(CREATE_INITIATIVE_TOOL);
+    }
+  });
+
   it("gives every chat every reading tool, the Office Manager's too", () => {
     for (const roleKey of ["planner", DEVOPS, OFFICE_MANAGER]) {
       expect(chatOfficeTools(roleKey)).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
@@ -141,11 +159,25 @@ describe("chatOfficeTools", () => {
     expect(READING_OFFICE_TOOLS).toContain("read_attachment");
   });
 
-  it("gives every chat reading a Task's Stage history, the Office Manager's too, which no Agent Stage reads with", () => {
+  it("gives every chat reading a Task's Stage history, the Office Manager's too, apart from the reading tools every session has", () => {
     for (const roleKey of ["planner", DEVOPS, OFFICE_MANAGER]) {
       expect(chatOfficeTools(roleKey)).toContain(READ_STAGE_HISTORY_TOOL);
     }
     expect(READING_OFFICE_TOOLS).not.toContain(READ_STAGE_HISTORY_TOOL);
+  });
+
+  it("keeps the reading tools every session has to the records, so planning and Initiative Threads read no Stage history or Thread messages", () => {
+    expect(READING_OFFICE_TOOLS).toEqual([
+      "list_projects",
+      "list_people",
+      READ_ROLE_TOOL,
+      "list_tasks",
+      "read_task",
+      "list_ideas",
+      "read_idea",
+      "read_initiative",
+      "read_attachment",
+    ]);
   });
 
   it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {
