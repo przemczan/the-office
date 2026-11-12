@@ -27,6 +27,7 @@ import { installFailure } from "../domain/script-stage-outcome.js";
 import {
   stageCommitMessage,
   UPDATE_BRANCH_TOOL,
+  withPushWords,
   type ExpectedHead,
 } from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
@@ -241,13 +242,13 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (merging || (await this.git.mergeInProgress(task.project.id, run.taskId))) {
       return this.resolveGit.finish(run, task, expected, result);
     }
-    await this.stageGit.commit(
+    const pushFailed = await this.stageGit.commit(
       run,
       task,
       expected,
       stageCommitMessage(stage.name, task.title, result, acceptedIssues(stages, earlierRuns)),
     );
-    return result;
+    return withPushWords(result, pushFailed);
   }
 
   /**
@@ -370,6 +371,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         projectName: task.project.name,
         baseBranch: task.project.baseBranch,
         initiativeBranch: task.initiativeBranch,
+        publishingTask: task.publishingTask,
+        publishingMode: task.project.publishingMode,
         worktree: task.worktree,
       },
       earlier: earlierResults(stages, earlierRuns),

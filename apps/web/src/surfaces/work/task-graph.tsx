@@ -4,12 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObj
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { PLANNING_STEP_WORDS, planningStepOf } from "./initiative-planning-words.ts";
-import {
-  taskGraph,
-  tasksOfInitiative,
-  type GraphEdge,
-  type GraphNode,
-} from "./initiative-words.ts";
+import { ordinaryTasksOf, taskGraph, type GraphEdge, type GraphNode } from "./initiative-words.ts";
 
 interface DrawnEdge {
   readonly key: string;
@@ -39,7 +34,7 @@ export function TaskGraph({
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const graph = useMemo(
-    () => taskGraph(tasksOfInitiative(initiative, tasks), tasks),
+    () => taskGraph(ordinaryTasksOf(initiative, tasks), tasks),
     [initiative, tasks],
   );
   const box = useRef<HTMLDivElement>(null);

@@ -33,6 +33,7 @@ import {
   UsageHistoryForTests,
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
+import { TaskStageEdits } from "./application/task-stage-edits.js";
 import { WorkModule } from "./work.module.js";
 import { ownProjectsQueue } from "./adapters/postgres/postgres-queue-repository.fixtures.js";
 
@@ -66,6 +67,8 @@ export async function startWorkApplication(
   });
   const published: DomainEvent[] = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
+  // Pipelines isn't here to say: no Task's Stages are edited unless a test registers its own.
+  app.get(TaskStageEdits).register(async () => false);
   return { app, url, published };
 }
 

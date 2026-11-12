@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "tasks_open_publishing_task_per_project" ON "tasks" USING btree ("initiative_id","project_id") WHERE "tasks"."made_for" = 'publishing' AND "tasks"."state" NOT IN ('done', 'dropped');

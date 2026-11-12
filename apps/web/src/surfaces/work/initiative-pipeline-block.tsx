@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   initiativeBranchOf,
   SHORT_NAME_MAX_LENGTH,
   type Initiative,
   type Pipeline,
   type Project,
+  type Task,
 } from "@the-office/contracts";
 import { Alert, Button, Icon, Input, Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -12,7 +14,9 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { chooseInitiativePipeline, writeShortName } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
+import { publishingTasksOf, publishingWaitWords } from "./initiative-words.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
@@ -36,13 +40,17 @@ function pipelineName(pipelineId: string, pipelines: readonly Pipeline[] | undef
 /**
  * The Initiative's Pipeline (spec §2.1 "An Initiative's Pipeline"): while it is being shaped the
  * user chooses None or a library Pipeline and edits the Short name its branches are named by;
- * once confirmed it shows the Pipeline and the Initiative's branch in each Project (spec §5.5).
+ * once confirmed it shows the Pipeline, the Initiative's branch in each Project (spec §5.5) and,
+ * once added, the Publishing Tasks (spec 4).
  */
 export function InitiativePipelineBlock({
   initiative,
+  tasks,
   projects,
 }: {
   readonly initiative: Initiative;
+  /** Every Task, where its Publishing Tasks and their blockers are read. */
+  readonly tasks: readonly Task[];
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const fold = useFold({ kind: "initiative", id: initiative.id }, "pipeline", true);
@@ -59,7 +67,12 @@ export function InitiativePipelineBlock({
       {shaping ? (
         <ShapingPipeline initiative={initiative} pipelines={pipelines} />
       ) : (
-        <ConfirmedPipeline initiative={initiative} pipelines={pipelines} projects={projects} />
+        <ConfirmedPipeline
+          initiative={initiative}
+          tasks={tasks}
+          pipelines={pipelines}
+          projects={projects}
+        />
       )}
     </RecordFold>
   );
@@ -194,10 +207,12 @@ function ShortNameEditor({
 
 function ConfirmedPipeline({
   initiative,
+  tasks,
   pipelines,
   projects,
 }: {
   readonly initiative: Initiative;
+  readonly tasks: readonly Task[];
   readonly pipelines: readonly Pipeline[] | undefined;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
@@ -220,9 +235,52 @@ function ConfirmedPipeline({
           ))}
         </ul>
       )}
+      <PublishingTasks initiative={initiative} tasks={tasks} projects={projects} />
       {initiative.state === "active" && (
         <p className="task-quiet">Another Pipeline comes by the CTO's Proposal.</p>
       )}
     </div>
+  );
+}
+
+/**
+ * The Publishing Tasks, one per Project, each publishing the Initiative's whole change there
+ * (spec 2.1, "Publishing Tasks"): its title linking it, its Project and state, and what a started
+ * one waits for before its next Stage.
+ */
+function PublishingTasks({
+  initiative,
+  tasks,
+  projects,
+}: {
+  readonly initiative: Initiative;
+  readonly tasks: readonly Task[];
+  readonly projects: readonly Project[] | undefined;
+}): ReactNode {
+  const publishing = publishingTasksOf(initiative, tasks);
+  if (publishing.length === 0) {
+    return initiative.state === "active" ? (
+      <p className="task-quiet">
+        Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project
+        whose branch holds work, to publish the whole change.
+      </p>
+    ) : null;
+  }
+  return (
+    <ul className="initiative-publishing-tasks" aria-label="Publishing Tasks">
+      {publishing.map((task) => {
+        const wait = publishingWaitWords(task, tasks);
+        return (
+          <li key={task.id}>
+            <ProjectChip projectId={task.projectId} projects={projects} />{" "}
+            <Link to="/tasks/$taskId" params={{ taskId: task.id }}>
+              {task.title}
+            </Link>{" "}
+            <TaskStateBadge state={task.state} />
+            {wait && <p className="task-quiet">{wait}</p>}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

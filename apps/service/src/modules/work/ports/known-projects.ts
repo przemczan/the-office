@@ -17,7 +17,12 @@ export interface KnownProject {
   readonly projectSkillsOff: readonly string[];
   /** How many of its Tasks may be started at once (In progress, Waiting on you or Paused). */
   readonly projectLimit: number;
+  /** How a Task's Publish puts its work into the base branch (spec 2.3). */
+  readonly publishingMode: KnownPublishingMode;
 }
+
+/** A Project's publishing mode: Push + PR, or merge. */
+export type KnownPublishingMode = "push-and-pull-request" | "merge";
 
 /** One of a Project's commands, as a Brief names it. */
 export interface KnownProjectCommand {

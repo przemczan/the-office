@@ -1,4 +1,4 @@
-import type { Task } from "./task.js";
+import { isPublishingTask, type Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import { TaskDependencyAdded, TaskDependencyRemoved, type TaskCreated } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
@@ -55,6 +55,29 @@ export function newTaskBlockerProblems(
   tasks: readonly Task[],
 ): string[] {
   return [...new Set(blockerIds)].flatMap((blockerId) => blockerProblems(blockerId, tasks));
+}
+
+/**
+ * The Office makes the Publishing Task wait for `blockerId`, a Task added to its Initiative or
+ * moved into its Project (spec 2.1, "Publishing Tasks"): unlike the user's dependencies, also once
+ * it has started, when it waits before its next Stage. Undefined when it waits for it already, or
+ * when the blocker waits for the Publishing Task, as the two would then wait for each other.
+ */
+export function blockPublishingTask(
+  task: Task,
+  blockerId: string,
+  tasks: readonly Task[],
+): TaskChange<TaskDependencyAdded> | undefined {
+  if (!isPublishingTask(task)) {
+    throw new Error(`The Task ${task.id} isn't a Publishing Task, so The Office doesn't block it.`);
+  }
+  if (task.blockedBy.includes(blockerId) || blockerId === task.id) return undefined;
+  const blocker = tasks.find(({ id }) => id === blockerId);
+  if (blocker && waitsFor(blocker, task.id, tasks)) return undefined;
+  return {
+    task: { ...task, blockedBy: [...task.blockedBy, blockerId] },
+    event: new TaskDependencyAdded(task.id, blockerId),
+  };
 }
 
 /** Undefined when the Task doesn't wait for it. */

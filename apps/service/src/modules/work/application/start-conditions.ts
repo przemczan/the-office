@@ -114,7 +114,7 @@ export class StartConditionsReader {
     const initiative = await this.initiatives.find(task.initiativeId);
     let base;
     try {
-      base = taskBranchBase(initiative, task.projectId, projectName);
+      base = taskBranchBase(task, initiative, task.projectId, projectName);
     } catch (error) {
       if (!(error instanceof TaskRefused)) throw error;
       return { kind: "not-made", reason: error.message };

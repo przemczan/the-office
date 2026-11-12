@@ -16,12 +16,14 @@ import {
   addCtoTask,
   addDependencyOfItsTask,
   addTaskToInitiative,
+  blockingItsPublishingTask,
   changeDescriptionOfItsTask,
   changeTitleOfItsTask,
   chooseInitiativePipeline,
   dropInitiative,
   finishInitiative,
   removeDependencyOfItsTask,
+  settleInitiative,
   tasksByInitiative,
   writeOutcome,
   writeShortName,
@@ -42,16 +44,27 @@ import { InitiativeNotShaping } from "../domain/initiative-not-shaping.js";
 import {
   initiativePipelineChangeProblems,
   initiativePipelineProblems,
+  startedPublishingTask,
 } from "../domain/initiative-pipeline.js";
+import {
+  createPublishingTask,
+  doneTasksIn,
+  lastPublishedBy,
+  publishingCandidates,
+  swapPublishingPipeline,
+  type PublishingProject,
+} from "../domain/publishing-task.js";
+import { initiativeBranchOf } from "../domain/short-name.js";
 import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
 import { initiativeRecordText, type InitiativeRecord } from "../domain/record-words.js";
 import { searchWords } from "../domain/search.js";
 import { CTO, SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../domain/shaping.js";
-import { newTaskProblems, type NewTask, type Task } from "../domain/task.js";
+import { isPublishingTask, newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import { createdWaitingFor } from "../domain/task-dependencies.js";
 import { TaskStateChanged } from "../domain/task-events.js";
+import { NOT_STARTED_STATES } from "../domain/task-states.js";
 import { AttachmentRepository } from "../ports/attachment-repository.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
@@ -59,10 +72,21 @@ import { InitiativeThreads } from "../ports/initiative-threads.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
+import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
 import { ProposalDrafts } from "../ports/proposal-drafts.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
 import { InitiativeBranching } from "./initiative-branching.js";
+import { TaskStageEdits } from "./task-stage-edits.js";
+
+function requiredProject(
+  projects: ReadonlyMap<string, PublishingProject>,
+  projectId: string,
+): PublishingProject {
+  const project = projects.get(projectId);
+  if (!project) throw new Error(`The Project ${projectId} to publish in wasn't read first.`);
+  return project;
+}
 
 /** The CTO's change as written straight onto the Initiative, or drafted as a Proposal. */
 export type CtoChange =
@@ -74,6 +98,8 @@ export interface InitiativeOnPipeline {
   readonly state: Initiative["state"];
   readonly pipelineId: string;
   readonly projectIds: readonly string[];
+  /** Whether its Pipeline has started, in one of its Publishing Tasks. */
+  readonly pipelineStarted: boolean;
 }
 
 /**
@@ -93,6 +119,8 @@ export class InitiativeService implements OnModuleInit {
     private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
     private readonly branching: InitiativeBranching,
+    private readonly branches: ProjectInitiativeBranches,
+    private readonly stageEdits: TaskStageEdits,
     private readonly people: KnownPeople,
     private readonly threads: InitiativeThreads,
     private readonly proposals: ProposalDrafts,
@@ -103,9 +131,7 @@ export class InitiativeService implements OnModuleInit {
   onModuleInit(): void {
     // A Task ending can leave every other one Done; a Dropped one no longer counts.
     this.events.subscribe(TaskStateChanged, async ({ taskId, to }) => {
-      if (to !== "done" && to !== "dropped") return;
-      const { initiativeId } = (await this.tasks.find(taskId)) ?? {};
-      if (initiativeId) await this.finishIfDone(initiativeId);
+      if (to === "done" || to === "dropped") await this.settleAfter(taskId);
     });
   }
 
@@ -237,6 +263,7 @@ export class InitiativeService implements OnModuleInit {
               state,
               pipelineId,
               projectIds: initiativeProjectIds(byInitiative.get(id) ?? []),
+              pipelineStarted: startedPublishingTask(byInitiative.get(id) ?? []) !== undefined,
             },
           ],
     );
@@ -305,6 +332,7 @@ export class InitiativeService implements OnModuleInit {
       pipelineId,
       pipeline,
       await this.projectsOf(initiative.id),
+      (await this.tasksByInitiative()).get(initiative.id) ?? [],
     );
   }
 
@@ -503,7 +531,9 @@ export class InitiativeService implements OnModuleInit {
         );
         return edit;
       case "pipeline":
+        if (route === "by-proposal") await this.refuseOncePipelineStarted(id);
         await this.choosePipeline(id, edit.pipelineId, route);
+        if (edit.pipelineId !== null) await this.swapPublishingPipelines(id, edit.pipelineId);
         return edit;
     }
   }
@@ -522,21 +552,27 @@ export class InitiativeService implements OnModuleInit {
       ]);
     }
     await this.branching.forNewProject(id, given.projectId);
-    const { task, event } = await this.repository.addTask(id, (initiative, takenOrders, tasks) =>
-      createdWaitingFor(
-        create(
-          initiative,
-          randomUUID(),
-          given,
-          { order: orderAfter(takenOrders), createdBy },
-          new Date(),
+    const { created, blocking } = await this.repository.addTask(
+      id,
+      (initiative, takenOrders, tasks) =>
+        blockingItsPublishingTask(
+          createdWaitingFor(
+            create(
+              initiative,
+              randomUUID(),
+              given,
+              { order: orderAfter(takenOrders), createdBy },
+              new Date(),
+            ),
+            blockedBy,
+            tasks,
+          ),
+          tasks,
         ),
-        blockedBy,
-        tasks,
-      ),
     );
-    await this.events.publish(event);
-    return task;
+    await this.events.publish(created.event);
+    if (blocking) await this.events.publish(blocking.event);
+    return created.task;
   }
 
   private async changeDependencies<Event extends DomainEvent>(
@@ -567,6 +603,113 @@ export class InitiativeService implements OnModuleInit {
     const { task, event } = await this.repository.changeTask(id, taskId, change);
     if (event) await this.events.publish(event);
     else if (route === "straight") throw new InitiativeRefused([sameWords(task)]);
+  }
+
+  /**
+   * The Initiative's done check after its Task `taskId` ended (spec 2.1, "Publishing Tasks"): when
+   * an ordinary Task's end leaves every other one ended, git is asked first, outside any hold,
+   * which Projects' branch holds unpublished work; `settle` then judges it all again as held,
+   * adding their Publishing Tasks, or marks the Initiative done. A Publishing Task's own end adds
+   * none, so a dropped one isn't added again until another Task ends.
+   */
+  private async settleAfter(taskId: string): Promise<void> {
+    const ended = await this.tasks.find(taskId);
+    if (!ended?.initiativeId) return;
+    const id = ended.initiativeId;
+    const [initiative, tasks] = await Promise.all([
+      this.read(id),
+      this.tasksByInitiative().then((byInitiative) => byInitiative.get(id) ?? []),
+    ]);
+    const candidates = isPublishingTask(ended) ? [] : publishingCandidates(initiative, tasks);
+    const projects = await this.publishingProjects(candidates);
+    const unpublished = await this.unpublishedIn(initiative, tasks, [...projects.keys()]);
+    const pipelineName = await this.pipelineNameOf(initiative);
+    const at = new Date();
+    const settled = await this.repository.settle(id, (held, heldTasks, takenOrders) => {
+      const orders = [...takenOrders];
+      return settleInitiative(
+        held,
+        heldTasks,
+        unpublished,
+        (projectId) => {
+          const order = orderAfter(orders);
+          orders.push(order);
+          return createPublishingTask(
+            randomUUID(),
+            requiredProject(projects, projectId),
+            { initiative: held, pipelineName, doneTasks: doneTasksIn(heldTasks, projectId) },
+            order,
+            at,
+          );
+        },
+        at,
+      );
+    });
+    for (const created of settled.created) await this.events.publish(created.event);
+    if (settled.event) await this.events.publish(settled.event);
+  }
+
+  /** The candidates still known, by id, as a Publishing Task's Plan names them. */
+  private async publishingProjects(
+    projectIds: readonly string[],
+  ): Promise<ReadonlyMap<string, PublishingProject>> {
+    const projects = await Promise.all(
+      projectIds.map((projectId) => this.projects.find(projectId)),
+    );
+    return new Map(projects.flatMap((project) => (project ? [[project.id, project]] : [])));
+  }
+
+  /**
+   * Of `projectIds`, those whose Initiative's branch holds work its last Done Publishing Task
+   * didn't publish, or, with none yet, work the base branch doesn't have.
+   */
+  private async unpublishedIn(
+    initiative: Initiative,
+    tasks: readonly Task[],
+    projectIds: readonly string[],
+  ): Promise<ReadonlySet<string>> {
+    if (projectIds.length === 0 || initiative.shortName === undefined) return new Set();
+    const branch = initiativeBranchOf(initiative.shortName);
+    const holding = await Promise.all(
+      projectIds.map((projectId) =>
+        this.branches.holdsUnpublished(projectId, branch, lastPublishedBy(tasks, projectId)?.id),
+      ),
+    );
+    return new Set(projectIds.filter((_, index) => holding[index]));
+  }
+
+  private async pipelineNameOf(initiative: Initiative): Promise<string> {
+    if (initiative.pipelineId === undefined) return "";
+    return (await this.pipelines.find(initiative.pipelineId))?.name ?? initiative.pipelineId;
+  }
+
+  /** Refuses another Pipeline once a Publishing Task has started on the Initiative's. */
+  private async refuseOncePipelineStarted(id: string): Promise<void> {
+    const started = startedPublishingTask((await this.tasksByInitiative()).get(id) ?? []);
+    if (started) {
+      throw new InitiativeRefused([
+        `The Initiative's Pipeline started in ${started.title}, so it can't change.`,
+      ]);
+    }
+  }
+
+  /**
+   * The applied Pipeline on each Publishing Task not yet started whose Stages weren't edited for
+   * it (spec 2.1): those the user edited keep theirs, and with it their Stages.
+   */
+  private async swapPublishingPipelines(id: string, pipelineId: string): Promise<void> {
+    const waiting = ((await this.tasksByInitiative()).get(id) ?? []).filter(
+      (task) => isPublishingTask(task) && NOT_STARTED_STATES.includes(task.state),
+    );
+    for (const publishing of waiting) {
+      if (await this.stageEdits.editedForTask(publishing.id)) continue;
+      const { event } = await this.repository.changeTask(id, publishing.id, (_, held) =>
+        isPublishingTask(held) && NOT_STARTED_STATES.includes(held.state)
+          ? swapPublishingPipeline(held, pipelineId)
+          : undefined,
+      );
+      if (event) await this.events.publish(event);
+    }
   }
 
   /** The Initiative once done, or undefined while it isn't. */

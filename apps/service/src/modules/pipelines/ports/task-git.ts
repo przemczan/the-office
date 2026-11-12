@@ -1,4 +1,8 @@
-import type { BranchUpdate, ConflictHandling } from "../domain/stage-commit.js";
+import type {
+  BranchUpdate,
+  ConflictHandling,
+  PublishingBranchPush,
+} from "../domain/stage-commit.js";
 
 /** The commit and branch a Task's worktree has checked out. */
 export interface WorktreeHead {
@@ -41,6 +45,13 @@ export abstract class TaskGit {
    * with nothing uncommitted: a move along the base, which loses nothing (spec §2.3).
    */
   abstract movedAlongBase(projectId: string, taskId: string, from: string): Promise<boolean>;
+
+  /**
+   * Pushes a Publishing Task's branch, the Initiative's, without force to the base branch's
+   * remote after its Stage's commit (spec 5.5, "The Initiative's branch"); `not-needed` for any
+   * other Task, or when the base branch tracks no remote.
+   */
+  abstract pushPublishingBranch(projectId: string, taskId: string): Promise<PublishingBranchPush>;
 
   /** A few lines of what the Task's commits changed so far; undefined while nothing. */
   abstract changesSoFar(projectId: string, taskId: string): Promise<string | undefined>;

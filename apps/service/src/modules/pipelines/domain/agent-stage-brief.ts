@@ -1,4 +1,4 @@
-import { baseWords } from "./base-words.js";
+import { baseWords, publishingModeWords } from "./base-words.js";
 import type { AllowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { STAGE_KIND_NAMES, type AgentStage, type Stage, type StageKind } from "./stage.js";
@@ -32,6 +32,10 @@ export interface BriefTask {
   readonly baseBranch: string;
   /** The Initiative's branch the Task starts from and publishes into, when it has one. */
   readonly initiativeBranch?: string | undefined;
+  /** Whether it is a Publishing Task, whose worktree holds the Initiative's branch itself. */
+  readonly publishingTask?: boolean;
+  /** The Project's publishing mode, which a Publishing Task's Publish follows. */
+  readonly publishingMode?: "push-and-pull-request" | "merge";
   readonly worktree: {
     readonly path: string;
     readonly branch: string;
@@ -76,7 +80,7 @@ export function agentStageRecord({
   return sections([
     `## The Task\n\n${task.title}, in the Project ${task.projectName}.`,
     task.descriptionSection,
-    `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, which started from ${startedFrom(task)}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
+    `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, ${startedFrom(task)}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
     task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
     task.definitionOfDone.length === 0
       ? undefined
@@ -266,13 +270,18 @@ function sections(parts: readonly (string | undefined)[]): string {
 
 /**
  * What the Task's branch started from, and for a Task of an Initiative with a Pipeline where it
- * publishes and what it takes in (spec §2.3, "Publishing into an Initiative's branch").
+ * publishes and what it takes in (spec §2.3, "Publishing into an Initiative's branch"); a
+ * Publishing Task's is the Initiative's branch itself ("A Publishing Task's Publish").
  */
 function startedFrom(task: BriefTask): string {
-  if (task.initiativeBranch === undefined) return task.baseBranch;
+  if (task.initiativeBranch === undefined) return `which started from ${task.baseBranch}`;
+  if (task.publishingTask) {
+    const mode = publishingModeWords(task.publishingMode, task.initiativeBranch, task.baseBranch);
+    return `the Initiative's own. Its worktree holds ${task.initiativeBranch} itself, the Initiative's whole change in this Project; Publish puts it into ${task.baseBranch} by ${mode}. The Office brings ${task.baseBranch} into it`;
+  }
   const bases = baseWords({
     project: { baseBranch: task.baseBranch },
     initiativeBranch: task.initiativeBranch,
   });
-  return `the Initiative's branch ${task.initiativeBranch}, and its Publish merges into ${task.initiativeBranch}, not ${task.baseBranch}. The Office brings ${bases} into it`;
+  return `which started from the Initiative's branch ${task.initiativeBranch}, and its Publish merges into ${task.initiativeBranch}, not ${task.baseBranch}. The Office brings ${bases} into it`;
 }

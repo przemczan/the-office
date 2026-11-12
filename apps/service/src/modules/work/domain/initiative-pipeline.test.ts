@@ -260,9 +260,13 @@ describe("initiativePipelineProblems", () => {
     const active = anInitiative({ ...ON_FULL, state: "active" });
 
     expect(
-      initiativePipelineChangeProblems(active, "lint-first", pipeline, [
-        { name: "Api", commands: [] },
-      ]),
+      initiativePipelineChangeProblems(
+        active,
+        "lint-first",
+        pipeline,
+        [{ name: "Api", commands: [] }],
+        [],
+      ),
     ).toEqual([
       "The Pipeline Full runs test and lint, which Api has no commands for. Add them on the Project page, or choose another Pipeline.",
     ]);

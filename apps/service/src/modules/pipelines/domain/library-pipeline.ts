@@ -34,6 +34,8 @@ export interface InitiativeOnPipeline {
   readonly state: string;
   readonly pipelineId: string;
   readonly projectIds: readonly string[];
+  /** Whether its Pipeline started in one of its Publishing Tasks, which walk their own Stages. */
+  readonly pipelineStarted: boolean;
 }
 
 /** Who uses a library Pipeline: what removing it would leave without one, and what saving changes. */
@@ -158,14 +160,20 @@ export function pipelineUse(
   };
 }
 
-/** The shaping and active Initiatives that name the Pipeline; done and dropped ones need it no more. */
+/**
+ * The shaping and active Initiatives that name the Pipeline and whose Pipeline hasn't started:
+ * done and dropped ones need it no more, and one whose Publishing Task started on it walks its own
+ * copy of the Stages.
+ */
 function openInitiativesOn(
   pipelineId: string,
   initiatives: readonly InitiativeOnPipeline[],
 ): readonly InitiativeOnPipeline[] {
   return initiatives.filter(
     (initiative) =>
-      initiative.pipelineId === pipelineId && OPEN_INITIATIVE_STATES.includes(initiative.state),
+      initiative.pipelineId === pipelineId &&
+      OPEN_INITIATIVE_STATES.includes(initiative.state) &&
+      !initiative.pipelineStarted,
   );
 }
 

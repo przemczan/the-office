@@ -274,7 +274,7 @@ function EditTaskStagesForm({
           problems={problems}
           roles={roles}
           options={options}
-          commands={commandsOf(project, initiative)}
+          commands={commandsOf(task, project, initiative)}
         />
       </div>
     </Dialog>
@@ -282,10 +282,14 @@ function EditTaskStagesForm({
 }
 
 /** What a Script Stage may run in the Task's Project: its commands, and Publish as it ships there. */
-function commandsOf(project: Project, initiative: Initiative | undefined): StageCommandSource {
+function commandsOf(
+  task: Task,
+  project: Project,
+  initiative: Initiative | undefined,
+): StageCommandSource {
   return {
     kind: "project",
     commands: project.commands,
-    publishing: taskPublishingWords(project, initiative),
+    publishing: taskPublishingWords(task, project, initiative),
   };
 }

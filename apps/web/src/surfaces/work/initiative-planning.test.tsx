@@ -64,6 +64,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     blockedBy: [],
     originIdeaId: null,
     initiativeId: INITIATIVE.id,
+    madeFor: null,
     projectMoves: [],
     createdBy: { kind: "user" },
     createdAt: "2026-11-10T10:00:00.000Z",

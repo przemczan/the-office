@@ -5,6 +5,7 @@ import { TaskGit } from "../ports/task-git.js";
 import { TaskPublishing } from "../ports/task-publishing.js";
 import { TaskRecords } from "../ports/task-records.js";
 import { TaskThreadSessions } from "../ports/task-thread-sessions.js";
+import { InitiativeBranchStages } from "./initiative-branch-stages.js";
 import { StageGit } from "./stage-git.js";
 import type { StageWork } from "./stage-runner.js";
 
@@ -26,6 +27,7 @@ export class PublishStage {
     private readonly git: TaskGit,
     private readonly stageGit: StageGit,
     private readonly threadSessions: TaskThreadSessions,
+    private readonly branchStages: InitiativeBranchStages,
   ) {}
 
   async run(work: StageWork<"script">): Promise<StageOutcome> {
@@ -34,12 +36,18 @@ export class PublishStage {
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
     const text = pullRequestText(task, stages, earlierRuns, stage.key);
-    const publication = await this.publishing.publish(
-      task.project.id,
-      run.taskId,
-      text,
-      stage.publishTarget ?? "publishing-mode",
-    );
+    const publish = () =>
+      this.publishing.publish(
+        task.project.id,
+        run.taskId,
+        text,
+        stage.publishTarget ?? "publishing-mode",
+      );
+    // A fix Task's Publish into the Initiative's branch waits for a running Publishing Task Stage,
+    // whose own Publish holds the branch already as its Stage runs.
+    const publication = task.publishingTask
+      ? await publish()
+      : await this.branchStages.holding(task, publish);
     const outcome = publishOutcome(publication);
     // A merge may have rebased the branch or merged a base into it, before a conflict with the
     // next base too: the next Stage expects HEAD where Publish left it.

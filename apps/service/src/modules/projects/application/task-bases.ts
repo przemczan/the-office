@@ -8,6 +8,9 @@ import {
 } from "../domain/task-base.js";
 import { Git, type GitVariables } from "../ports/git.js";
 
+/** The prefix of a Task's own branch, `office/<task>`. */
+const TASK_BRANCH_PREFIX = "office/";
+
 /** What a Task's branch starts from and publishes into, by the Task's own records. */
 export type TaskBaseLookup = (projectId: string, taskId: string) => Promise<TaskBase>;
 
@@ -33,6 +36,15 @@ export class TaskBases {
   async of(project: Project, taskId: string): Promise<TaskBase> {
     if (!this.lookup) throw new Error("No lookup of a Task's base is registered.");
     return this.lookup(project.id, taskId);
+  }
+
+  /**
+   * The branch the Task's worktree holds: its own `office/<task>`, or, for a Publishing Task, its
+   * Initiative's branch itself (spec §2.3, "A Publishing Task's Publish").
+   */
+  async branchOfTask(project: Project, taskId: string): Promise<string> {
+    const taskBase = await this.of(project, taskId);
+    return taskBase.kind === "publishing-task" ? taskBase.branch : `${TASK_BRANCH_PREFIX}${taskId}`;
   }
 
   /**

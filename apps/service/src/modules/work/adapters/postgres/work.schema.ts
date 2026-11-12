@@ -167,6 +167,10 @@ export const tasks = pgTable(
       .where(
         sql`${table.madeFor} = 'run-environment-setup' AND ${table.state} NOT IN ('done', 'dropped')`,
       ),
+    // And one unfinished Publishing Task per Initiative there, which two done checks racing meet.
+    uniqueIndex("tasks_open_publishing_task_per_project")
+      .on(table.initiativeId, table.projectId)
+      .where(sql`${table.madeFor} = 'publishing' AND ${table.state} NOT IN ('done', 'dropped')`),
   ],
 );
 

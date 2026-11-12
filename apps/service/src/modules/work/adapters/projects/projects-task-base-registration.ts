@@ -30,6 +30,6 @@ export class ProjectsTaskBaseRegistration implements OnModuleInit {
       this.initiatives.read(task.initiativeId),
       this.projects.find(projectId),
     ]);
-    return taskBranchBase(initiative, projectId, project?.name ?? projectId);
+    return taskBranchBase(task, initiative, projectId, project?.name ?? projectId);
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { installFailure, scriptStageOutcome } from "../domain/script-stage-outcome.js";
 import { PUBLISH_COMMAND } from "../domain/stage.js";
-import { stageCommitMessage } from "../domain/stage-commit.js";
+import { stageCommitMessage, withPushWords } from "../domain/stage-commit.js";
 import { acceptedIssues } from "../domain/walk-decisions.js";
 import type { ExpectedHead } from "../domain/stage-commit.js";
 import {
@@ -103,7 +103,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
         outcome,
         acceptedIssues(work.stages, work.earlierRuns),
       );
-      await this.stageGit.commit(run, task, expected, message);
+      return withPushWords(outcome, await this.stageGit.commit(run, task, expected, message));
     }
     return outcome;
   }

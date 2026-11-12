@@ -1,10 +1,15 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Initiative } from "../domain/initiative.js";
 import type { ArchivePage, ArchiveSearch } from "../domain/initiative-archive.js";
-import type { InitiativeChange, InitiativeTasksChange } from "../domain/initiative-changes.js";
+import type {
+  InitiativeChange,
+  InitiativeSettling,
+  InitiativeTaskAdded,
+  InitiativeTasksChange,
+} from "../domain/initiative-changes.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
-import type { TaskCreated, TaskStateChanged } from "../domain/task-events.js";
+import type { TaskStateChanged } from "../domain/task-events.js";
 import type { TaskUpdate } from "./task-repository.js";
 
 /** The Initiative after an update, with the change's event, or undefined when nothing changed. */
@@ -68,8 +73,9 @@ export abstract class InitiativeRepository {
 
   /**
    * Saves the Task `create` makes in the Initiative from every key on the board and every Task,
-   * holding the board's manual order, the Initiative and every change of dependencies meanwhile, so
-   * the Tasks it waits for are judged as they stay. Throws InitiativeNotFound as `update` does.
+   * and the Publishing Task it blocks, holding the board's manual order, the Initiative, every
+   * change of dependencies and the Initiative's Tasks meanwhile, so the Tasks it waits for are
+   * judged as they stay. Throws InitiativeNotFound as `update` does.
    */
   abstract addTask(
     id: string,
@@ -77,8 +83,23 @@ export abstract class InitiativeRepository {
       initiative: Initiative,
       takenOrders: readonly string[],
       tasks: readonly Task[],
-    ) => TaskChange<TaskCreated>,
-  ): Promise<TaskChange<TaskCreated>>;
+    ) => InitiativeTaskAdded,
+  ): Promise<InitiativeTaskAdded>;
+
+  /**
+   * The Initiative's done check (settleInitiative): `settle` judges it from the Initiative and its
+   * Tasks as held, holding the board's manual order, the Initiative and every change of
+   * dependencies in that order, the one every hold of them takes, and saves the Publishing Tasks it
+   * adds and the Initiative's move in one transaction. Throws InitiativeNotFound as `update` does.
+   */
+  abstract settle(
+    id: string,
+    settle: (
+      initiative: Initiative,
+      tasks: readonly Task[],
+      takenOrders: readonly string[],
+    ) => InitiativeSettling,
+  ): Promise<InitiativeSettling>;
 
   /**
    * Applies `change` to the Task's dependencies as TaskRepository.changeDependencies does, holding

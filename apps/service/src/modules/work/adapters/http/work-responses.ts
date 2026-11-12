@@ -127,6 +127,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     initiativeId: task.initiativeId ?? null,
+    madeFor: task.madeFor ?? null,
     projectMoves: task.projectMoves.map((move) => ({
       from: move.from,
       to: move.to,

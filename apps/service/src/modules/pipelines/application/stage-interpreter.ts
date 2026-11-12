@@ -15,9 +15,11 @@ import { OfficeUpdateCancelled, OfficeUpdateHold } from "../../office-updates/in
 import { CTO } from "../../people/index.js";
 import {
   AlarmSounded,
+  TaskDependencyRemoved,
   TaskPaused,
   TaskResumed,
   TaskStarted,
+  TaskStateChanged,
   TaskStopped,
 } from "../../work/index.js";
 import { StaffingHolds } from "./staffing-holds.js";
@@ -56,7 +58,8 @@ import { StageDecisions } from "../ports/stage-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageThreads } from "../ports/stage-threads.js";
 import { StartedTasks, type StartedTask } from "../ports/started-tasks.js";
-import { TaskRecords } from "../ports/task-records.js";
+import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
+import { InitiativeBranchStages } from "./initiative-branch-stages.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import type { StageWork } from "./stage-runner.js";
@@ -116,6 +119,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   private stopping = false;
   /** Tasks whose walk a scheduled Office update held at their next Stage, walked on once cancelled. */
   private readonly heldForUpdate = new Set<string>();
+  /**
+   * Started Publishing Tasks whose walk waits before their next Stage for a blocker to be Done or
+   * Dropped (spec 2.1, "Publishing Tasks"), walked again as any Task ends or loses a blocker.
+   */
+  private readonly heldForBlocker = new Set<string>();
 
   constructor(
     private readonly taskStages: TaskStagesService,
@@ -131,6 +139,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly staffingHolds: StaffingHolds,
     private readonly schedule: Schedule,
     private readonly updateHold: OfficeUpdateHold,
+    private readonly branchStages: InitiativeBranchStages,
   ) {}
 
   onModuleInit(): void {
@@ -142,6 +151,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
     this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
     this.events.subscribe(OfficeUpdateCancelled, () => this.walkHeldForUpdate());
+    this.events.subscribe(TaskStateChanged, ({ to }) => {
+      if (to === "done" || to === "dropped") this.walkHeldForBlocker();
+    });
+    this.events.subscribe(TaskDependencyRemoved, () => this.walkHeldForBlocker());
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
       if (!decision.answer) return;
       const { answeredAt: _answeredAt, ...answer } = decision.answer;
@@ -367,6 +380,12 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.heldForUpdate.clear();
   }
 
+  /** Each walk held for a blocker reads its blockers again, and is held again if one is left. */
+  private walkHeldForBlocker(): void {
+    for (const taskId of this.heldForBlocker) this.walkInBackground(taskId);
+    this.heldForBlocker.clear();
+  }
+
   /** Resolves once the Task's walks, if any go on, have stopped. */
   async walked(taskId: string): Promise<void> {
     for (let walk = this.walks.get(taskId); walk; walk = this.walks.get(taskId)) await walk;
@@ -394,7 +413,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   private async walkStages(taskId: string): Promise<void> {
     // Locked once the Task is Ready, so one read serves the whole walk.
-    const { definitionOfDone } = await this.records.read(taskId);
+    const record = await this.records.read(taskId);
+    const { definitionOfDone } = record;
     while (!this.stopping) {
       // Before the state is read, so a Stop after the read interrupts the run it leads to.
       const interruption = new StageRunInterruption();
@@ -403,12 +423,12 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       if ((await this.tasks.read(taskId)).state !== "in-progress") return;
       // Read afresh each move, so an edit of the Task's Stages for the Task applies to the next one.
       const step = await this.taskStages.holding(taskId, ({ stages }) =>
-        this.takeNextMove(taskId, stages, definitionOfDone),
+        this.takeNextMove(taskId, stages, definitionOfDone, record),
       );
       if (step.step === "over") return;
       if (step.step === "skipped") continue;
       if (step.step === "started") {
-        await this.runStage(step, interruption);
+        await this.runStageOf(record, step, interruption);
         continue;
       }
       const { move, runs, stages } = step;
@@ -430,6 +450,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     taskId: string,
     stages: readonly Stage[],
     definitionOfDone: readonly string[],
+    record: TaskRecord,
   ): Promise<WalkStep> {
     const runs = await this.runs.list(taskId);
     const move = nextMove(stages, runs, definitionOfDone);
@@ -442,6 +463,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     // no work, so it still asks the user.
     if (this.updateHold.isScheduled() && move.stage.kind !== "gate") {
       this.heldForUpdate.add(taskId);
+      return { step: "over" };
+    }
+    // A Task added to its Initiative meanwhile blocks it; a Gate waits too, as it shows the change.
+    if (record.publishingTask && (await this.tasks.waitingFor(taskId)).length > 0) {
+      this.heldForBlocker.add(taskId);
       return { step: "over" };
     }
     const { stage, carriedFailure, sentBack } = move;
@@ -500,6 +526,19 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       "office.stage.run": run.number,
     };
     return this.telemetry.inSpan("stage", attributes, work);
+  }
+
+  /**
+   * A Publishing Task's Stage runs holding its Initiative's branch, so a fix Task's Publish into it
+   * waits for the Stage to end (spec 2.3, "A Publishing Task's Publish").
+   */
+  private async runStageOf(
+    record: TaskRecord,
+    step: StartedStep,
+    interruption: StageRunInterruption,
+  ): Promise<void> {
+    if (!record.publishingTask) return this.runStage(step, interruption);
+    await this.branchStages.holding(record, () => this.runStage(step, interruption));
   }
 
   /** Runs the Stage of the run the walk started, to its end. */

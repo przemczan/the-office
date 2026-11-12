@@ -114,6 +114,35 @@ export function branchUpdateWords(update: BranchUpdate, bases: string): string |
 }
 
 /** What the Stage's Agent is told of a branch that moved since the last Stage (spec §2.3). */
+/** How pushing a Publishing Task's branch after its Stage went, as Projects reports it. */
+export type PublishingBranchPush =
+  | { readonly kind: "not-needed" }
+  | { readonly kind: "pushed" }
+  | { readonly kind: "failed"; readonly reason: string };
+
+/**
+ * The outcome with a failed push's words added: the Stage's work is committed on the branch, so
+ * the push failing doesn't fail the Stage, and the next Stage or Publish pushes again.
+ */
+export function withPushWords(outcome: StageOutcome, words: string | undefined): StageOutcome {
+  if (words === undefined) return outcome;
+  switch (outcome.status) {
+    case "done":
+      return { ...outcome, summary: `${outcome.summary}\n\n${words}` };
+    case "failed":
+      return { ...outcome, error: `${outcome.error}\n\n${words}` };
+    case "needs-decision":
+      return outcome;
+  }
+}
+
+/** Why the Initiative's branch wasn't pushed after the Stage, for its outcome. */
+export function pushFailedWords(push: PublishingBranchPush, branch: string): string | undefined {
+  return push.kind === "failed"
+    ? `The Office couldn't push ${branch} after the Stage: ${push.reason} The work is committed there, and the next Stage or Publish pushes it again.`
+    : undefined;
+}
+
 export function branchMovedWords(from: string, to: string): string {
   return `The Task's branch moved from ${short(from)} to ${short(to)} since the last Stage: read again whatever you read before.`;
 }

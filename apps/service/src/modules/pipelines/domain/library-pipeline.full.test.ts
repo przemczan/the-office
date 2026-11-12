@@ -193,11 +193,49 @@ describe("pipelineUse", () => {
 
   it("names the shaping and active Initiatives naming it, never a done or dropped one", () => {
     const initiatives = [
-      { name: "Checkout", state: "shaping", pipelineId: "full", projectIds: ["site"] },
-      { name: "Search", state: "active", pipelineId: "full", projectIds: ["site", "app"] },
-      { name: "Login", state: "done", pipelineId: "full", projectIds: ["site"] },
-      { name: "Themes", state: "dropped", pipelineId: "full", projectIds: ["app"] },
-      { name: "Billing", state: "active", pipelineId: "quick-fix", projectIds: ["app"] },
+      {
+        name: "Checkout",
+        state: "shaping",
+        pipelineId: "full",
+        projectIds: ["site"],
+        pipelineStarted: false,
+      },
+      {
+        name: "Search",
+        state: "active",
+        pipelineId: "full",
+        projectIds: ["site", "app"],
+        pipelineStarted: false,
+      },
+      {
+        name: "Login",
+        state: "done",
+        pipelineId: "full",
+        projectIds: ["site"],
+        pipelineStarted: false,
+      },
+      {
+        name: "Themes",
+        state: "dropped",
+        pipelineId: "full",
+        projectIds: ["app"],
+        pipelineStarted: false,
+      },
+      {
+        name: "Billing",
+        state: "active",
+        pipelineId: "quick-fix",
+        projectIds: ["app"],
+        pipelineStarted: false,
+      },
+      // Its Publishing Task walks its own copy of the Stages now.
+      {
+        name: "Exports",
+        state: "active",
+        pipelineId: "full",
+        projectIds: ["app"],
+        pipelineStarted: true,
+      },
     ];
 
     expect(pipelineUse("full", [], [], initiatives).initiatives).toEqual(["Checkout", "Search"]);

@@ -4,7 +4,10 @@ import zlib from "node:zlib";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   attachmentSchema,
+  decisionListSchema,
   ideaSchema,
+  initiativeSchema,
+  pipelineSchema,
   projectSchema,
   presetListSchema,
   recordPath,
@@ -12,6 +15,7 @@ import {
   roleSchema,
   taskSchema,
   type Attachment,
+  type Initiative,
   type InitiativeState,
   type NewProject,
   type Project,
@@ -26,6 +30,8 @@ import {
   addTaskWorktree,
   commitOnTaskBranch,
   createTemporaryRepository,
+  createTemporaryRepositoryWithRemote,
+  fileOnRemote,
   type TemporaryRepository,
 } from "./temporary-repository.ts";
 import { createFromTopBar } from "./top-bar.ts";
@@ -2812,6 +2818,195 @@ test(
       await expect(branches.getByText(`initiative/${shortName}`, { exact: true })).toBeVisible();
       await expect(block.getByRole("combobox")).toHaveCount(0);
       expect(revisionIn(own.path, `initiative/${shortName}`)).toBe(base);
+    } finally {
+      await own.remove();
+    }
+  },
+);
+
+/** A library Pipeline of the test's own, by its Stages. */
+async function addedPipeline(
+  page: Page,
+  name: string,
+  stages: readonly Stage[],
+): Promise<{ readonly id: string }> {
+  const response = await page.request.post("/api/pipelines", {
+    data: { name, description: "", stages },
+  });
+  expect(response.status()).toBe(201);
+  return pipelineSchema.parse(await response.json());
+}
+
+async function initiativeOf(page: Page, id: string): Promise<Initiative> {
+  return initiativeSchema.parse(await (await page.request.get(`/api/initiatives/${id}`)).json());
+}
+
+/**
+ * A Stage Thread on the Task, as an Agent Stage leaves one: a Pipeline without one has no Thread
+ * for the walk's Decisions, which are only kept there, waking nobody.
+ */
+async function seedStageThread(taskId: string): Promise<void> {
+  await queryOfficeDatabase(
+    `insert into threads (id, home_kind, home_id, role_key, state, stage_thread, tokens, started_at)
+     values ($1, 'task', $2, 'developer', 'waiting', true, $3, now())`,
+    [crypto.randomUUID(), taskId, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
+  );
+}
+
+/**
+ * Marks the Task Done by the Definition of Done Decision its walk opens past its last Stage, as the
+ * user does: no Agent Stage reported the statements met.
+ */
+async function markDoneByItsDecision(page: Page, taskId: string): Promise<void> {
+  const openOn = async () =>
+    decisionListSchema
+      .parse(await (await page.request.get("/api/decisions/open")).json())
+      .filter((decision) => decision.taskId === taskId);
+  await expect.poll(async () => (await openOn()).length).toBe(1);
+  const [decision] = await openOn();
+  // Kept before the reply reads the Thread's Brief, which needs its Role filled: run alone, this
+  // file hires nobody, so the walk going on is what tells.
+  await page.request.post(`/api/decisions/${decision?.id}/answer`, {
+    data: { kind: "option", option: 1 },
+  });
+  await expect
+    .poll(
+      async () =>
+        taskSchema.parse(await (await page.request.get(`/api/tasks/${taskId}`)).json()).state,
+    )
+    .toBe("done");
+}
+
+async function publishingTasksOf(page: Page, initiativeId: string): Promise<Task[]> {
+  const tasks = ((await (await page.request.get("/api/tasks")).json()) as unknown[]).map((task) =>
+    taskSchema.parse(task),
+  );
+  return tasks.filter(
+    (task) => task.initiativeId === initiativeId && task.madeFor === "publishing",
+  );
+}
+
+test(
+  "an Initiative's last Task Done adds its Publishing Task, whose Gate shows the whole change and whose Publish merges it into main",
+  { tag: "@full" },
+  async ({ page }) => {
+    const own = await createTemporaryRepositoryWithRemote();
+    try {
+      const stamp = Date.now();
+      const publishStage: Stage = {
+        kind: "script",
+        key: "publish",
+        name: "Publish",
+        optional: false,
+        command: "publish",
+      };
+      const reviewStage: Stage = { kind: "gate", key: "review", name: "Review", optional: false };
+      const publishOnly = await addedPipeline(page, `Publish only ${stamp}`, [publishStage]);
+      const reviewed = await addedPipeline(page, `Review and publish ${stamp}`, [
+        reviewStage,
+        publishStage,
+      ]);
+      const project = projectSchema.parse(
+        await (
+          await page.request.post("/api/projects", {
+            data: {
+              name: `Exports ${stamp}`,
+              path: own.path,
+              baseBranch: "main",
+              mark: { label: "EX", colour: "teal" },
+              installCommand: "",
+              commands: [],
+              installInputs: [],
+              publishingMode: "merge",
+              defaultPipeline: reviewed.id,
+            } satisfies NewProject,
+          })
+        ).json(),
+      );
+
+      // An Initiative on the reviewed Pipeline, with one Task in the Project.
+      const idea = ideaSchema.parse(
+        await (
+          await page.request.post("/api/ideas", {
+            data: { title: `Usage exports ${stamp}`, notes: "", projectId: null },
+          })
+        ).json(),
+      );
+      const shaped = initiativeSchema.parse(
+        await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+      );
+      await page.request.put(`/api/initiatives/${shaped.id}/outcome`, {
+        data: { outcome: "Every account exports its usage." },
+      });
+      await page.request.put(`/api/initiatives/${shaped.id}/pipeline`, {
+        data: { pipelineId: reviewed.id },
+      });
+      const task = taskSchema.parse(
+        await (
+          await page.request.post(`/api/initiatives/${shaped.id}/tasks`, {
+            data: {
+              title: "Export the usage",
+              projectId: project.id,
+              priority: "normal",
+              blockedBy: [],
+            },
+          })
+        ).json(),
+      );
+      expect((await page.request.post(`/api/initiatives/${shaped.id}/confirm`)).status()).toBe(200);
+      const initiative = await initiativeOf(page, shaped.id);
+      const branch = `initiative/${initiative.shortName}`;
+
+      // The Task, on the Publish only Pipeline, publishes its work into the Initiative's branch.
+      await page.request.put(`/api/tasks/${task.id}/plan`, { data: { plan: "Export it." } });
+      await page.request.put(`/api/tasks/${task.id}/definition-of-done`, {
+        data: { definitionOfDone: ["The usage exports as a file."] },
+      });
+      await page.request.post(`/api/tasks/${task.id}/plan/confirm`);
+      await page.request.post(`/api/tasks/${task.id}/definition-of-done/confirm`);
+      await choosePipeline(page, task, publishOnly.id);
+      expect((await page.request.post(`/api/tasks/${task.id}/ready`)).status()).toBe(200);
+      await commitOnTaskBranch(own, task.id, "usage-export.txt", "exported\n");
+      // No Agent Stage opens a Thread, so the user's Decision past Publish needs one seeded.
+      await seedStageThread(task.id);
+      expect((await page.request.post(`/api/tasks/${task.id}/start`, { data: {} })).status()).toBe(
+        200,
+      );
+      await expect
+        .poll(async () => fileOnRemote(own, branch, "usage-export.txt"))
+        .toBe("exported\n");
+      await markDoneByItsDecision(page, task.id);
+
+      // Its Done adds the Publishing Task, which the Initiative page lists as Ready.
+      await expect.poll(async () => (await publishingTasksOf(page, initiative.id)).length).toBe(1);
+      const [publishing] = await publishingTasksOf(page, initiative.id);
+      if (!publishing) throw new Error("No Publishing Task was added.");
+      expect(publishing.title).toBe(`${initiative.name} → ${project.name}`);
+      await page.goto(`/work/initiatives/${initiative.id}`);
+      const listed = page.getByRole("list", { name: "Publishing Tasks" });
+      await expect(listed).toContainText(`${initiative.name} → ${project.name}`);
+      await expect(listed).toContainText("Ready");
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-publishing-tasks.png") });
+
+      // Started, its Gate shows the whole change, and Continue publishes it into main.
+      await seedStageThread(publishing.id);
+      expect(
+        (await page.request.post(`/api/tasks/${publishing.id}/start`, { data: {} })).status(),
+      ).toBe(200);
+      await page.goto(`/tasks/${publishing.id}`);
+      const gate = page.getByRole("region", { name: "Gate · Review" });
+      await expect(gate.getByRole("button", { name: "Continue to Publish" })).toBeVisible();
+      await page.getByRole("tab", { name: /Changes/ }).click();
+      const changes = page.getByRole("region", { name: "Changes" });
+      await expect(changes.getByText("Files changed · 1")).toBeVisible();
+      await expect(changes.getByRole("listitem")).toContainText(["usage-export.txt+1−0"]);
+      await gate.getByRole("button", { name: "Continue to Publish" }).click();
+
+      await expect
+        .poll(async () => fileOnRemote(own, "main", "usage-export.txt"))
+        .toBe("exported\n");
+      await markDoneByItsDecision(page, publishing.id);
+      await expect.poll(async () => (await initiativeOf(page, initiative.id)).state).toBe("done");
     } finally {
       await own.remove();
     }

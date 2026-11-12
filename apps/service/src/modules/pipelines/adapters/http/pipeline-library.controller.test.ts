@@ -180,6 +180,7 @@ describe("DELETE /api/pipelines/:id", () => {
       state: "shaping",
       pipelineId: pipeline.id,
       projectIds: [],
+      pipelineStarted: false,
     });
 
     const response = await send("DELETE", `/pipelines/${pipeline.id}`);

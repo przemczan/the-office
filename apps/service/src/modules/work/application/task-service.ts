@@ -19,7 +19,13 @@ import {
   type TaskChange,
 } from "../domain/task-changes.js";
 import { archiveTask, restoreTask } from "../domain/task-archive.js";
-import { addDependency, removeDependency } from "../domain/task-dependencies.js";
+import { unfinishedPublishingTask } from "../domain/publishing-task.js";
+import {
+  addDependency,
+  blockingTasks,
+  blockPublishingTask,
+  removeDependency,
+} from "../domain/task-dependencies.js";
 import { TaskResumed, type TaskMovedToProject } from "../domain/task-events.js";
 import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js";
 import { changeDescription } from "../domain/task-description.js";
@@ -29,6 +35,7 @@ import { TaskRefused } from "../domain/task-refused.js";
 import { STARTED_STATES } from "../domain/task-states.js";
 import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "../domain/written-parts.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
+import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository, type NeighbourIds } from "../ports/task-repository.js";
@@ -43,6 +50,7 @@ export class TaskService {
     private readonly fireAlarm: FireAlarmRepository,
     private readonly worktrees: ProjectWorktrees,
     private readonly initiativeBranching: InitiativeBranching,
+    private readonly initiatives: InitiativeRepository,
     private readonly events: EventBus,
   ) {}
 
@@ -198,7 +206,43 @@ export class TaskService {
         moveTask(held, projectId, await this.moveGrounds(held, stateChanges), THE_USER),
     );
     await this.publishMove(event);
+    if (event && task.initiativeId !== undefined) {
+      await this.blockPublishingTaskIn(task.initiativeId, projectId, task.id);
+    }
     return task;
+  }
+
+  /**
+   * A Task moved into a Project whose Publishing Task isn't Done or Dropped becomes its blocker
+   * (spec 2.1, "Publishing Tasks"), judged again holding the Initiative and the dependencies.
+   */
+  private async blockPublishingTaskIn(
+    initiativeId: string,
+    projectId: string,
+    blockerId: string,
+  ): Promise<void> {
+    const publishing = unfinishedPublishingTask(
+      (await this.repository.list()).filter((task) => task.initiativeId === initiativeId),
+      projectId,
+    );
+    if (!publishing) return;
+    const { event } = await this.initiatives.changeDependencies(
+      initiativeId,
+      publishing.id,
+      (_, held, tasks) =>
+        held.projectId === projectId && unfinishedPublishingTask([held], projectId)
+          ? blockPublishingTask(held, blockerId, tasks)
+          : undefined,
+    );
+    if (event) await this.events.publish(event);
+  }
+
+  /** The Tasks still holding the Task back: its blockers neither Done nor Dropped, in order. */
+  async waitingFor(id: string): Promise<readonly Task[]> {
+    const task = await this.read(id);
+    if (task.blockedBy.length === 0) return [];
+    const board = new Map((await this.repository.list()).map((each) => [each.id, each]));
+    return blockingTasks(task.blockedBy.flatMap((blockerId) => board.get(blockerId) ?? []));
   }
 
   /**

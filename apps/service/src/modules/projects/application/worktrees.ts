@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
@@ -8,7 +8,7 @@ import type { CommandRun } from "../domain/command-run.js";
 import { isCommandSet, type Project } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { mergedBase } from "../domain/resolve.js";
-import type { FreshBase } from "../domain/task-base.js";
+import { initiativeBranchCheckedOut, type FreshBase } from "../domain/task-base.js";
 import {
   Git,
   NO_BRANCH_CHANGES,
@@ -26,9 +26,10 @@ import { TaskBases } from "./task-bases.js";
 
 /** Short, as worktree paths count against Windows' MAX_PATH; a UUID fits. */
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/;
-const TASK_BRANCH_PREFIX = "office/";
 const PUBLISHED_FROM_PREFIX = "refs/office/published-from/";
 const PUBLISHED_FROM_BASE_PREFIX = "refs/office/published-from-base/";
+const PUBLISHED_PREFIX = "refs/office/published/";
+const MOVED_TO_PREFIX = "refs/office/moved-to/";
 /** A throwaway worktree's folder starts with it, which no Task id does. */
 const THROWAWAY_PREFIX = "_";
 const INSTALL_RECORD = "office-install";
@@ -110,8 +111,26 @@ export class Worktrees {
     return exists(this.pathOf(project, taskId));
   }
 
-  branchOf(taskId: string): string {
-    return `${TASK_BRANCH_PREFIX}${taskId}`;
+  /**
+   * The branch the Task's worktree holds: `office/<task>`, or a Publishing Task's Initiative's
+   * branch (`TaskBases.branchOfTask`).
+   */
+  branchOf(project: Project, taskId: string): Promise<string> {
+    return this.taskBases.branchOfTask(project, taskId);
+  }
+
+  /**
+   * The Task whose worktree is at `worktreePath`, by this Project's worktree paths; undefined for
+   * any other folder, such as the user's own checkout or a throwaway worktree.
+   */
+  async taskOfWorktree(project: Project, worktreePath: string): Promise<string | undefined> {
+    const [folder, path] = await Promise.all([
+      realPathOf(this.projectFolder(project)),
+      realPathOf(worktreePath),
+    ]);
+    if (dirname(path) !== folder) return undefined;
+    const name = basename(path);
+    return TASK_ID.test(name) ? name : undefined;
   }
 
   /**
@@ -128,6 +147,29 @@ export class Worktrees {
    */
   publishedFromBaseRefOf(taskId: string): string {
     return `${PUBLISHED_FROM_BASE_PREFIX}${taskId}`;
+  }
+
+  /**
+   * For a Publishing Task, the tip of the Initiative's branch its Publish published, which its
+   * changes are read up to after that (spec §2.3, "A Publishing Task's Publish").
+   */
+  publishedRefOf(taskId: string): string {
+    return `${PUBLISHED_PREFIX}${taskId}`;
+  }
+
+  /**
+   * For a Publishing Task, the commit a fix Task's Publish into the Initiative's branch moved its
+   * worktree to, which the before-Stage check takes as a move along its base.
+   */
+  movedToRefOf(taskId: string): string {
+    return `${MOVED_TO_PREFIX}${taskId}`;
+  }
+
+  /** Where a fix Task's Publish moved a Publishing Task's worktree to; undefined for any other. */
+  async movedToOf(project: Project, taskId: string): Promise<string | undefined> {
+    const taskBase = await this.taskBases.of(project, taskId);
+    if (taskBase.kind !== "publishing-task") return undefined;
+    return this.git.findCommit(project.path, this.movedToRefOf(taskId));
   }
 
   /**
@@ -164,7 +206,10 @@ export class Worktrees {
    * is made each time, so a worktree made before it, or one whose folder was removed, has it too.
    */
   async open(project: Project, taskId: string): Promise<TaskWorktree> {
-    const worktree = { path: this.pathOf(project, taskId), branch: this.branchOf(taskId) };
+    const worktree = {
+      path: this.pathOf(project, taskId),
+      branch: await this.branchOf(project, taskId),
+    };
     if (!(await exists(worktree.path))) await this.add(project, taskId, worktree);
     await ensureScreenshotsFolder(worktree.path);
     return worktree;
@@ -270,6 +315,25 @@ export class Worktrees {
   }
 
   /**
+   * What the Task's changes are read up to: its branch, or, for a Publishing Task once published,
+   * the Initiative's branch's tip it published, as fix Tasks may move the branch on after that.
+   */
+  private async changedRevisionOf(project: Project, taskId: string): Promise<string | undefined> {
+    const branch = await this.branchOf(project, taskId);
+    const taskBase = await this.taskBases.of(project, taskId);
+    if (taskBase.kind === "publishing-task") {
+      const [publishedFrom, published] = await Promise.all([
+        this.git.findCommit(project.path, this.publishedFromRefOf(taskId)),
+        this.git.findCommit(project.path, this.publishedRefOf(taskId)),
+      ]);
+      if (publishedFrom !== undefined && published !== undefined) {
+        return this.publishedRefOf(taskId);
+      }
+    }
+    return (await this.git.hasBranch(project.path, branch)) ? branch : undefined;
+  }
+
+  /**
    * What the Task's commits changed since its branch left the base branch, read from the
    * repository, so it is there with or without the worktree; nothing before the Task has a branch.
    * Once published, since where the published branch forked, so it stays after the base takes it.
@@ -277,20 +341,17 @@ export class Worktrees {
    */
   async changes(project: Project, taskId: string): Promise<TaskChanges> {
     const path = this.pathOf(project, taskId);
-    const branch = this.branchOf(taskId);
     const [changes, worktreeExists] = await Promise.all([
-      this.git
-        .hasBranch(project.path, branch)
-        .then(async (has) =>
-          has
-            ? this.git.branchChanges(
-                project.path,
-                await this.basesOf(project, taskId),
-                branch,
-                await this.publishedFrom(project, taskId),
-              )
-            : NO_BRANCH_CHANGES,
-        ),
+      this.changedRevisionOf(project, taskId).then(async (revision) =>
+        revision === undefined
+          ? NO_BRANCH_CHANGES
+          : this.git.branchChanges(
+              project.path,
+              await this.basesOf(project, taskId),
+              revision,
+              await this.publishedFrom(project, taskId),
+            ),
+      ),
       exists(path),
     ]);
     return { ...changes, worktreePath: worktreeExists ? path : undefined };
@@ -447,6 +508,11 @@ export class Worktrees {
   private async add(project: Project, taskId: string, worktree: TaskWorktree): Promise<void> {
     this.refuseTooLong(worktree.path);
     const variables = this.variablesOf(project);
+    const taskBase = await this.taskBases.of(project, taskId);
+    if (taskBase.kind === "publishing-task") {
+      await this.addOnInitiativeBranch(project, worktree, taskBase.branch, variables);
+      return;
+    }
     // A branch left from a worktree removed earlier is checked out as it is.
     const checkout: WorktreeCheckout = (await this.git.hasBranch(project.path, worktree.branch))
       ? { kind: "branch", branch: worktree.branch }
@@ -457,6 +523,42 @@ export class Worktrees {
         };
     await mkdir(dirname(worktree.path), { recursive: true });
     await this.git.addWorktree(project.path, { path: worktree.path, checkout }, variables);
+  }
+
+  /**
+   * Makes a Publishing Task's worktree on its Initiative's branch itself (spec §2.3, "A Publishing
+   * Task's Publish"): the local branch fast-forwarded first to its copy on the base branch's remote
+   * when that is ahead, from the commit it was read at, so a branch moved meanwhile stays as it
+   * is. Refused, saying where, while another worktree or the user's checkout has the branch, and
+   * when it is gone or has diverged from its remote's.
+   */
+  private async addOnInitiativeBranch(
+    project: Project,
+    worktree: TaskWorktree,
+    branch: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    await this.git.exclusively(project.path, async () => {
+      const initiative = await this.taskBases.freshInitiativeBranch(project, branch, variables);
+      const checkedOutIn = await this.git.worktreeOf(project.path, branch);
+      if (checkedOutIn !== undefined) {
+        throw initiativeBranchCheckedOut(branch, checkedOutIn, project.name);
+      }
+      if (initiative.commit !== initiative.local) {
+        await this.git.moveRef(
+          project.path,
+          `refs/heads/${branch}`,
+          initiative.commit,
+          initiative.local,
+        );
+      }
+      await mkdir(dirname(worktree.path), { recursive: true });
+      await this.git.addWorktree(
+        project.path,
+        { path: worktree.path, checkout: { kind: "branch", branch } },
+        variables,
+      );
+    });
   }
 
   private async startPointOf(
@@ -497,6 +599,11 @@ async function installFingerprint(
       }),
     )
     .digest("hex");
+}
+
+/** The folder's path with its links resolved, as git lists worktrees; as given when it is gone. */
+async function realPathOf(path: string): Promise<string> {
+  return realpath(path).catch(() => resolve(path));
 }
 
 async function exists(path: string): Promise<boolean> {

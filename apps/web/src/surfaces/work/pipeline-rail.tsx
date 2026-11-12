@@ -10,10 +10,12 @@ import { Button } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { taskQueries } from "../../api/work.ts";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
+import { publishingWaitWords } from "./initiative-words.ts";
 import { PipelineProposal } from "./pipeline-proposal.tsx";
 import { StageHistoryWindow } from "./stage-history-window.tsx";
 import { StageMark } from "./stage-mark.tsx";
@@ -83,7 +85,12 @@ export function PipelineRail({
   const stages = stagesOnRail(taskStages.stages, pipeline?.stages);
   const finished = task.state === "done" || task.state === "dropped";
   const label = `Pipeline · ${pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, taskStages.editedForTask)}`;
-  const proposal = <PipelineProposal task={task} pipeline={pipeline} />;
+  const proposal = (
+    <>
+      <PublishingWait task={task} />
+      <PipelineProposal task={task} pipeline={pipeline} />
+    </>
+  );
   const editAction = !finished && task.state !== "shaping" && (
     <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
       Edit for this Task
@@ -115,6 +122,16 @@ export function PipelineRail({
       {editing && <EditTaskStagesDialog task={task} onClose={() => setEditing(false)} />}
     </>
   );
+}
+
+/**
+ * What a started Publishing Task waits for before its next Stage (spec 2.1): a Task added to its
+ * Initiative or moved into its Project, neither Done nor Dropped yet.
+ */
+function PublishingWait({ task }: { readonly task: Task }): ReactNode {
+  const tasks = useQuery(taskQueries.list()).data;
+  const wait = tasks && publishingWaitWords(task, tasks);
+  return wait ? <p className="pipeline-rail-wait">{wait}</p> : null;
 }
 
 /**

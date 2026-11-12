@@ -283,6 +283,11 @@ export const taskSchema = newTaskSchema.extend({
   originIdeaId: z.uuid().nullable(),
   /** The Initiative it is part of (POST /initiatives/:id/tasks). */
   initiativeId: z.uuid().nullable(),
+  /**
+   * What The Office made it for: a Project's Onboard Task, its "Set up the run environment" Task,
+   * or an Initiative's Publishing Task; null for any other Task.
+   */
+  madeFor: z.enum(["onboard", "run-environment-setup", "publishing"]).nullable(),
   /** Each Move to another Project, oldest first. */
   projectMoves: z.array(projectMoveSchema),
   createdBy: authorSchema,

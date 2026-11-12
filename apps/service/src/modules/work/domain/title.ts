@@ -1,4 +1,4 @@
-const TITLE_LENGTH = 120;
+export const TITLE_LENGTH = 120;
 
 const RECORD_NAMES = { Idea: "An Idea", Task: "A Task" } as const;
 

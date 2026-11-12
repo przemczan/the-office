@@ -66,6 +66,7 @@ describe("TaskRecords", () => {
         ],
         useProjectSkills: true,
         projectSkillsOff: [],
+        publishingMode: "merge",
       },
       worktree: {
         path: join("/worktrees", projectId, taskId),
@@ -73,6 +74,8 @@ describe("TaskRecords", () => {
         environment: { PROJECT: projectId },
         screenshotsFolder: ".office/screenshots",
       },
+      initiativeBranch: undefined,
+      publishingTask: false,
     });
   });
 

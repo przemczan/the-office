@@ -19,7 +19,8 @@ import {
   type NewTaskSetting,
   type TaskChange,
 } from "./task-changes.js";
-import { addDependency, removeDependency } from "./task-dependencies.js";
+import { projectsToPublish, unfinishedPublishingTask } from "./publishing-task.js";
+import { addDependency, blockPublishingTask, removeDependency } from "./task-dependencies.js";
 import { changeDescription, changeTitle } from "./task-description.js";
 import { TaskRefused } from "./task-refused.js";
 import type {
@@ -214,6 +215,54 @@ export function finishInitiative(
   const kept = tasks.filter(({ state }) => state !== "dropped");
   if (kept.length === 0 || kept.some(({ state }) => state !== "done")) return undefined;
   return moveTo(initiative, "done", at);
+}
+
+/** What the Initiative's done check came to: the Publishing Tasks it added, and its move to done. */
+export interface InitiativeSettling {
+  readonly initiative: Initiative;
+  readonly event: InitiativeStateChanged | undefined;
+  readonly created: readonly TaskChange<TaskCreated>[];
+}
+
+/**
+ * The Initiative's done check (spec 2.1): first the Publishing Tasks for the Projects whose branch
+ * holds `unpublished` work, made by `publishingTaskIn`, then finishInitiative over every Task, the
+ * new ones too, so an Initiative with a Pipeline is done only once its Publishing Tasks are.
+ */
+export function settleInitiative(
+  initiative: Initiative,
+  tasks: readonly Task[],
+  unpublished: ReadonlySet<string>,
+  publishingTaskIn: (projectId: string) => TaskChange<TaskCreated>,
+  at: Date,
+): InitiativeSettling {
+  const created = projectsToPublish(initiative, tasks, unpublished).map(publishingTaskIn);
+  const finished = finishInitiative(initiative, [...tasks, ...created.map(({ task }) => task)], at);
+  return { initiative: finished?.initiative ?? initiative, event: finished?.event, created };
+}
+
+/** A Task added to an Initiative, with the Publishing Task it now blocks, if any. */
+export interface InitiativeTaskAdded {
+  readonly created: TaskChange<TaskCreated>;
+  readonly blocking: TaskChange<TaskDependencyAdded> | undefined;
+}
+
+/**
+ * The new Task, with its Project's unfinished Publishing Task made to wait for it (spec 2.1,
+ * "Publishing Tasks"); `tasks` are the Initiative's.
+ */
+export function blockingItsPublishingTask(
+  created: TaskChange<TaskCreated>,
+  tasks: readonly Task[],
+): InitiativeTaskAdded {
+  const publishing = unfinishedPublishingTask(
+    tasks.filter(({ initiativeId }) => initiativeId === created.task.initiativeId),
+    created.task.projectId,
+  );
+  return {
+    created,
+    blocking: publishing && blockPublishingTask(publishing, created.task.id, tasks),
+  };
 }
 
 /**

@@ -80,10 +80,34 @@ describe("missingCommandProblems", () => {
     ];
     const tasks = [{ state: "ready", projectId: "site", pipelineId: "mine" }];
     const initiatives = [
-      { name: "Checkout", state: "shaping", pipelineId: "mine", projectIds: ["site", "app"] },
-      { name: "Search", state: "active", pipelineId: "mine", projectIds: ["app"] },
-      { name: "Login", state: "done", pipelineId: "mine", projectIds: ["docs"] },
-      { name: "Billing", state: "active", pipelineId: "full", projectIds: ["docs"] },
+      {
+        name: "Checkout",
+        state: "shaping",
+        pipelineId: "mine",
+        projectIds: ["site", "app"],
+        pipelineStarted: false,
+      },
+      {
+        name: "Search",
+        state: "active",
+        pipelineId: "mine",
+        projectIds: ["app"],
+        pipelineStarted: false,
+      },
+      {
+        name: "Login",
+        state: "done",
+        pipelineId: "mine",
+        projectIds: ["docs"],
+        pipelineStarted: false,
+      },
+      {
+        name: "Billing",
+        state: "active",
+        pipelineId: "full",
+        projectIds: ["docs"],
+        pipelineStarted: false,
+      },
     ];
 
     expect(

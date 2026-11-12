@@ -1,6 +1,11 @@
 import type { ProviderOverride } from "../../../../test/test-application.js";
 import { TaskService } from "../../work/index.js";
-import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
+import {
+  StartedTasks,
+  type StartedTask,
+  type TaskBlocker,
+  type WalkTaskState,
+} from "./started-tasks.js";
 
 /**
  * Work's Tasks on the shared database, listed only from the test's own Projects: as an app starts it
@@ -43,6 +48,10 @@ export class OwnProjectsStartedTasks extends StartedTasks {
 
   drop(taskId: string): Promise<StartedTask> {
     return this.tasks.drop(taskId);
+  }
+
+  waitingFor(taskId: string): Promise<readonly TaskBlocker[]> {
+    return this.tasks.waitingFor(taskId);
   }
 }
 

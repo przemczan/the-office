@@ -30,6 +30,8 @@ import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
 import { StageTemplateLibraryEditor } from "./application/stage-template-library-editor.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
+import { DroppedPublishingTasks } from "./application/dropped-publishing-tasks.js";
+import { InitiativeBranchStages } from "./application/initiative-branch-stages.js";
 import { StageRunners } from "./application/stage-runners.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
 import { PipelineLibraryModule } from "./pipeline-library.module.js";
@@ -56,7 +58,8 @@ export interface PipelinesModuleOptions {
   /**
    * The modules that provide the ports below, Work, People (with its engine cascade),
    * Conversations, Projects and Run environments (Work's Initiatives too), and
-   * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal.
+   * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal, and Work's
+   * `TaskStageEdits`, which it fills with whether a Task's Stages were edited for it.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly startedTasks: Type<StartedTasks>;
@@ -144,6 +147,8 @@ export class PipelinesModule {
         StaffingHolds,
         StageRunners,
         StageInterpreter,
+        InitiativeBranchStages,
+        DroppedPublishingTasks,
         StageGit,
         StageRunWaits,
         ResolveStageGit,

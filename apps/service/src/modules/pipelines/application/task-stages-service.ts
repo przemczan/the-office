@@ -2,7 +2,7 @@ import { walkedStages, withoutResolveStages } from "../domain/resolve-stages.js"
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
-import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
+import { TaskMovedToProject, TaskPipelineConfirmed, TaskStageEdits } from "../../work/index.js";
 import type { Pipeline, StageProblem } from "../domain/pipeline.js";
 import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
 import { reportedMet } from "../domain/pipeline-walk.js";
@@ -49,6 +49,7 @@ export class TaskStagesService implements OnModuleInit {
     private readonly roleFillings: RoleFillings,
     private readonly roleEngines: StageRoleEngines,
     private readonly projects: ProjectDefaults,
+    private readonly stageEdits: TaskStageEdits,
     private readonly events: EventBus,
   ) {}
 
@@ -57,6 +58,12 @@ export class TaskStagesService implements OnModuleInit {
       this.reset(taskId, pipelineId),
     );
     this.events.subscribe(TaskMovedToProject, ({ taskId }) => this.reset(taskId));
+    this.stageEdits.register((taskId) => this.editedForTask(taskId));
+  }
+
+  /** Whether the user edited the Task's own Stages for it, so a Pipeline swap leaves them be. */
+  async editedForTask(taskId: string): Promise<boolean> {
+    return (await this.repository.find(taskId))?.editedForTask ?? false;
   }
 
   /**

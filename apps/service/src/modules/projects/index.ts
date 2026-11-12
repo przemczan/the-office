@@ -28,6 +28,7 @@ export { OutputMask } from "./domain/output-mask.js";
 export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
 export { TaskBases, type TaskBaseLookup } from "./application/task-bases.js";
 export type { TaskBase } from "./domain/task-base.js";
+export type { PublishingBranchPush } from "./domain/publication.js";
 export {
   EnvironmentCheckFinished,
   EnvironmentCheckProgressed,

@@ -41,6 +41,11 @@ export type Publication =
       readonly baseTakenIn: BaseTakenIn;
       /** For a Task of an Initiative's branch, the bases that had moved on, in the order taken in. */
       readonly basesTakenIn?: readonly string[];
+      /**
+       * The Publishing Task whose worktree held the Initiative's branch and was fast-forwarded to
+       * `commit`, for its next Stage's Agent to be told (spec §2.3, "A Publishing Task's Publish").
+       */
+      readonly movedWorktreeOf?: string;
     }
   | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
@@ -53,6 +58,16 @@ export type Publication =
       readonly commit?: string;
     }
   | { readonly kind: "failed"; readonly error: string };
+
+/**
+ * How pushing a Publishing Task's Initiative's branch after a Stage went (spec §5.5, "Pushed"): not
+ * needed, as the Task is no Publishing Task or the base branch tracks no remote; pushed; or refused,
+ * with why in words for the Stage's outcome, which it doesn't fail.
+ */
+export type PublishingBranchPush =
+  | { readonly kind: "not-needed" }
+  | { readonly kind: "pushed" }
+  | { readonly kind: "failed"; readonly reason: string };
 
 /** GitHub's words when credentials without the `workflow` scope push a change to workflows. */
 /** An OAuth App's token lacks the `workflow` scope, or a GitHub App's the `workflows` permission. */

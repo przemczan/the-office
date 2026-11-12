@@ -34,7 +34,8 @@ export class CommittedFiles {
   /** The commit the Task's branch points at; undefined when it has no branch. */
   async taskBranchTip(projectId: string, taskId: string): Promise<string | undefined> {
     const project = await this.projects.read(projectId);
-    return this.git.findCommit(project.path, `refs/heads/${this.worktrees.branchOf(taskId)}`);
+    const branch = await this.worktrees.branchOf(project, taskId);
+    return this.git.findCommit(project.path, `refs/heads/${branch}`);
   }
 
   /** The text of the file `path` names at `commit`; undefined when it names no file there. */

@@ -36,6 +36,8 @@
 - `read_stage_history` (`StageHistory`) reads the Stage run records alone, `list` then `commandOutputs` for one run, and never a file: a test run's `movedFiles` are named by their `paths`, never their `folder` under the Office data directory. Its answer is capped at `STAGE_HISTORY_READ_LIMIT`, the outputs sharing what the words leave, each keeping its end. Pipelines doesn't know Tasks, so an unknown Task and one not started (no own Stages, no runs) get the same plain answer.
 - `StaffingHolds` pauses a Task whose next Stages nobody can work, behind a Decision kept in `staffing_holds`; the interpreter asks it on every `TaskResumed` before walking, so a Resume while the lack stands pauses the Task again.
 - `commandKeysNamedBy` (`domain/stage.ts`, per Stage `commandKeysOfStage`) is the one source of the command keys a list of Stages runs: each Script Stage's key but `publish`, plus `RESOLVE_TEST_COMMAND` for a Publish by the publishing mode beside an Agent Stage. Every missing-command check reads it: the library editor's save, check and Proposal (`missingCommandProblems`, over the Projects with the Pipeline as default, those with a not-started Task on it, `StartedTask.projectId`, and those a shaping or active Initiative naming it spans), a Task's own Stages edit (`TaskStagesService.review`, from the locked Stages on), and through `PipelineLibrary.commandsNamedBy` Projects' and Work's refusals. An Agent Stage's narrowed `permissions.commands` count there too, so a narrowing to a key a Project lacks is refused as a Script Stage's is. Keys alone count: a blank command passes and fails could-not-run when it runs; Stage templates aren't checked.
+- A Publishing Task (`TaskRecord.publishingTask`; its worktree holds `initiativeBranch` itself) walks under three rules. Before every Stage, a Gate too, the walk asks `StartedTasks.waitingFor` and, while a blocker is open, keeps it in `heldForBlocker` and stops, the Task still In progress; any Task's `TaskStateChanged` to Done or Dropped and `TaskDependencyRemoved` walk those again (`walkHeldForBlocker`). Each of its Stages runs holding `InitiativeBranchStages` (`KeyedLocks` on the Project and the branch), and a fix Task's Publish into that branch takes the same lock in `PublishStage`, so it waits for a running Publishing Task Stage; a Publishing Task's own Publish never takes it again (the lock is reentrant anyway). After each Stage's commit `StageGit.commit` pushes its branch (`TaskGit.pushPublishingBranch`) and a failed push only adds its words to the outcome (`withPushWords`). A fix Task's Publish that fast-forwarded its worktree leaves HEAD at the moved-to ref, which `movedAlongBase` accepts, so the next Stage's Agent gets `branchMovedWords`. `DroppedPublishingTasks` removes a dropped one's worktree under the lock, keeping the branch, or the next one can't check it out. `baseWords` names the base branch alone for it, and its Brief says Publish puts the branch into the base by the publishing mode (`publishingModeWords`).
+- A Task's Stages edited for it are told to Work through its `TaskStageEdits` registry, which `TaskStagesService.onModuleInit` fills (`editedForTask`), so the CTO's Pipeline swap leaves those Publishing Tasks be; Pipelines' test ports provide it. The library (`openInitiativesOn`) leaves out an Initiative whose Pipeline started (`PipelineInitiative.pipelineStarted`): its Publishing Tasks walk their own copy.
 
 **Open:** after Publish removes the worktree, a message to the Task's Planning Thread opens a session in a folder that no longer exists (task 14).
 
@@ -148,8 +150,10 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 
 - `agent-stage-runner.ts`: AGENT_STAGE_OFFICE_TOOLS, AgentStageRunner
 - `alarm-resumes.ts`: AlarmResumes
+- `dropped-publishing-tasks.ts`: DroppedPublishingTasks
 - `gate-service.ts`: GateService
 - `gate-stage-runner.ts`: GateStageRunner
+- `initiative-branch-stages.ts`: InitiativeBranchStages
 - `pipeline-library-editor.ts`: PipelineLibraryEditor
 - `pipeline-library.ts`: PipelineCommands, PipelineLibrary
 - `publish-stage.ts`: PublishStage
@@ -176,7 +180,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `task-stages-service.fixtures.ts`: builtIn, quickFix, withGate, refusalOf
 - `task-stages-service.ts`: TaskStagesService
 - `usage-history.ts`: UsageHistory
-- Tests: agent-stage-runner.full.test.ts, agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.full.test.ts, publish-stage.test.ts, roles-named-in-stages.full.test.ts, running-task-test-project-check.test.ts, script-stage-runner.full.test.ts, script-stage-runner.test.ts, staffing-holds.full.test.ts, stage-branch-update.full.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.full.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.full.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.full.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.full.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.full.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.full.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-project-commands.full.test.ts, stage-project-commands.test.ts, stage-result-words.full.test.ts, stage-run-environment-definitions.test.ts, stage-run-interruption.full.test.ts, stage-run-interruption.test.ts, stage-template-library.test.ts, task-stages-service.full.test.ts, task-stages-service.test.ts, usage-estimates-test-project-check.test.ts, usage-history.full.test.ts
+- Tests: agent-stage-runner.full.test.ts, agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.full.test.ts, publish-stage.test.ts, publishing-task-stages.test.ts, roles-named-in-stages.full.test.ts, running-task-test-project-check.test.ts, script-stage-runner.full.test.ts, script-stage-runner.test.ts, staffing-holds.full.test.ts, stage-branch-update.full.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.full.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.full.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.full.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.full.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.full.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.full.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-project-commands.full.test.ts, stage-project-commands.test.ts, stage-result-words.full.test.ts, stage-run-environment-definitions.test.ts, stage-run-interruption.full.test.ts, stage-run-interruption.test.ts, stage-template-library.test.ts, task-stages-service.full.test.ts, task-stages-service.test.ts, usage-estimates-test-project-check.test.ts, usage-history.full.test.ts
 
 ### domain/
 
@@ -184,7 +188,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `agent-stage-brief.ts`: AGENT_STAGE_INSTRUCTIONS, BriefTask, EarlierResult, AgentStageRecord, agentStageRecord, AnsweredQuestion, CarriedRound, StageWorkReasons, HeldRun, agentStageWork, stageResultWords, earlierResults
 - `alarm-resume.ts`: ResumeKind, TaskResume, WalkAhead, SessionAhead, walkAhead, taskResumeOf
 - `allowed-commands.ts`: RunPermission, CommandPermission, NamedCommand, AllowedCommands, stageProjectCommands, allowedCommands, commandKeyRefusal
-- `base-words.ts`: TaskBases, baseWords
+- `base-words.ts`: TaskBases, baseWords, publishingModeWords
 - `built-in-pipelines.ts`: ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE, builtInPipelines
 - `built-in-stage-templates.ts`: builtInStageTemplates
 - `followed-hard-switches.ts`: FollowedHardSwitchValue, FollowedHardSwitches, hardSwitchesSection
@@ -202,7 +206,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `stage-budget.ts`: stageBudget, budgetReached, budgetOutcome, tokensWords
 - `stage-command-run.ts`: CommandOutcome, CommandRun, MovedFiles, ScriptCommandRun, StageCommandPurpose, StageCommandRun, StageCommandRunWithOutput, Installation, installRuns, failedInstall, commandRunsOf, howItEnded
 - `stage-commands.ts`: missingCommandsOnStages, commandsWords
-- `stage-commit.ts`: UPDATE_BRANCH_TOOL, ConflictHandling, BranchUpdate, ExpectedHead, stageCommitMessage, headProblem, branchKept, branchUpdateWords, branchMovedWords
+- `stage-commit.ts`: UPDATE_BRANCH_TOOL, ConflictHandling, BranchUpdate, ExpectedHead, stageCommitMessage, headProblem, branchKept, branchUpdateWords, PublishingBranchPush, withPushWords, pushFailedWords, branchMovedWords
 - `stage-history-words.ts`: STAGE_HISTORY_READ_LIMIT, stageHistoryWords, stageRunWords
 - `stage-interruption.ts`: CutShortBy, actsNow, stopsCommands, waitsForTheTurn, outranks, RESTARTED, notStartedOutcome, interruptedOutcome, StageWorkClosing, closingOf
 - `stage-permissions.ts`: HardSwitchOnCard, StagePermissions
@@ -243,11 +247,11 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `stage-template-repository.ts`: StageTemplateRepository
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads
 - `started-tasks.fixtures.ts`: OwnProjectsStartedTasks, ownProjectsStartedTasks
-- `started-tasks.ts`: WalkTaskState, StartedTask, StartedTasks
+- `started-tasks.ts`: WalkTaskState, StartedTask, TaskBlocker, StartedTasks
 - `task-commands.ts`: ScriptCommandKind, ScriptCommandResult, CommandWait, TaskCommandOptions, AgentCommandOptions, TaskCommands
 - `task-git.ts`: WorktreeHead, TaskGit
 - `task-publishing.ts`: TaskPublishing
-- `task-records.ts`: TaskRecord, TaskRecords
+- `task-records.ts`: PublishingMode, TaskRecord, TaskRecords
 - `task-screenshots.ts`: ScreenshotsAttaching, TaskScreenshots
 - `task-stages-repository.ts`: TaskStagesRepository
 - `task-thread-sessions.ts`: TaskThreadSessions

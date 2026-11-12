@@ -27,6 +27,7 @@ function aTask(id: string, archivedAt: string | null): Task {
     blockedBy: [],
     originIdeaId: null,
     initiativeId: null,
+    madeFor: null,
     projectMoves: [],
     createdBy: { kind: "user" },
     createdAt: "2026-10-28T10:00:00.000Z",

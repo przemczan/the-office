@@ -81,7 +81,8 @@ export class BranchUpdates {
   /**
    * Whether HEAD descends from `from` and is in the history of one of the Task's bases, its
    * Initiative's branch or the base branch, with nothing uncommitted. A base that can't be fetched
-   * proves nothing, so the answer is no.
+   * proves nothing, so the answer is no. A Publishing Task's HEAD at the commit a fix Task's
+   * Publish moved its worktree to (`Worktrees.movedToRefOf`) moved along its base too.
    */
   async movedAlongBase(project: Project, taskId: string, from: string): Promise<boolean> {
     const variables = this.commands.variablesFor(project.environment);
@@ -91,12 +92,13 @@ export class BranchUpdates {
         this.worktrees.freshBases(project, taskId, variables),
       );
       const { commit } = await this.git.head(worktree);
-      const [descends, inBases, uncommitted] = await Promise.all([
+      const [descends, inBases, movedTo, uncommitted] = await Promise.all([
         this.git.contains(project.path, commit, from),
         Promise.all(bases.map((base) => this.git.contains(project.path, base.commit, commit))),
+        this.worktrees.movedToOf(project, taskId),
         this.git.hasUncommittedChanges(worktree, variables),
       ]);
-      return descends && inBases.includes(true) && !uncommitted;
+      return descends && (inBases.includes(true) || movedTo === commit) && !uncommitted;
     } catch (error) {
       if (error instanceof GitCommandFailed || error instanceof InitiativeBranchUnusable) {
         return false;

@@ -31,6 +31,38 @@ export function tasksOfInitiative(initiative: Initiative, tasks: readonly Task[]
   return tasks.filter(({ initiativeId }) => initiativeId === initiative.id);
 }
 
+/**
+ * Whether the Task is an Initiative's Publishing Task (spec 2.1): The Office adds one per Project
+ * once the other Tasks have ended, and it publishes the Initiative's branch into the base branch.
+ */
+export function isPublishingTask({ madeFor }: Pick<Task, "madeFor">): boolean {
+  return madeFor === "publishing";
+}
+
+/** The Initiative's Tasks but its Publishing Tasks, which the Pipeline block lists apart. */
+export function ordinaryTasksOf(initiative: Initiative, tasks: readonly Task[]): Task[] {
+  return tasksOfInitiative(initiative, tasks).filter((task) => !isPublishingTask(task));
+}
+
+/** The Initiative's Publishing Tasks, in the order they were added. */
+export function publishingTasksOf(initiative: Initiative, tasks: readonly Task[]): Task[] {
+  return tasksOfInitiative(initiative, tasks).filter(isPublishingTask);
+}
+
+const STARTED: readonly Task["state"][] = ["in-progress", "waiting-on-you", "paused"];
+
+/**
+ * Why a started Publishing Task waits before its next Stage: a Task added to its Initiative or
+ * moved into its Project that isn't Done or Dropped yet. Undefined when nothing holds it back.
+ */
+export function publishingWaitWords(task: Task, tasks: readonly Task[]): string | undefined {
+  if (!isPublishingTask(task) || !STARTED.includes(task.state)) return undefined;
+  const blockers = blockingTasksOf(task, tasks);
+  if (blockers.length === 0) return undefined;
+  const titles = blockers.map(({ title }) => `“${title}”`).join(", ");
+  return `Waits for ${titles} before its next Stage.`;
+}
+
 /** How far the Initiative is; a Dropped Task no longer counts, as it is done without it (spec §2.1). */
 export interface InitiativeProgress {
   readonly done: number;

@@ -3,11 +3,14 @@ import type { RemoteBranch } from "./publication.js";
 /**
  * What a Task's branch starts from and publishes into (spec §5.5, "A worktree per Task"): the
  * Project's base branch, or, for a Task of an Initiative with a Pipeline, its Initiative's branch
- * in the Project, which takes in the base branch in its turn.
+ * in the Project, which takes in the base branch in its turn; or, for a Publishing Task, the
+ * Initiative's branch itself, which its worktree holds and its Publish takes into the base branch
+ * by the Project's publishing mode (spec §2.3, "A Publishing Task's Publish").
  */
 export type TaskBase =
   | { readonly kind: "base-branch" }
-  | { readonly kind: "initiative-branch"; readonly branch: string };
+  | { readonly kind: "initiative-branch"; readonly branch: string }
+  | { readonly kind: "publishing-task"; readonly branch: string };
 
 /** An Initiative's branch as it stands once fetched: the newer of its local and remote commits. */
 export interface FreshInitiativeBranch {
@@ -51,5 +54,16 @@ export function initiativeBranchDiverged(
 ): InitiativeBranchUnusable {
   return new InitiativeBranchUnusable(
     `The Initiative's branch ${branch} in ${projectName} has diverged from ${branch} on ${remote}: each has commits the other doesn't. Bring them together by hand, then try again.`,
+  );
+}
+
+/** The Publishing Task's worktree can't check out its Initiative's branch, as another one has it. */
+export function initiativeBranchCheckedOut(
+  branch: string,
+  worktreePath: string,
+  projectName: string,
+): InitiativeBranchUnusable {
+  return new InitiativeBranchUnusable(
+    `The Initiative's branch ${branch} of ${projectName} is checked out in ${worktreePath}, so the Publishing Task's worktree can't hold it. Check out another branch there, then try again.`,
   );
 }

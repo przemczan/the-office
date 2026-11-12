@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import type { Initiative, Pipeline, Project } from "@the-office/contracts";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
+import type { Initiative, Pipeline, Project, Task } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -55,26 +61,44 @@ const PROJECTS = [
 ] as unknown as Project[];
 
 /** The block as the page shows it: from the Initiative's query, which a change's answer replaces. */
-function Shown({ initiativeId }: { readonly initiativeId: string }): ReactNode {
+function Shown({
+  initiativeId,
+  tasks,
+}: {
+  readonly initiativeId: string;
+  readonly tasks: readonly Task[];
+}): ReactNode {
   const initiative = useQuery(initiativeQueries.one(initiativeId)).data;
-  return initiative && <InitiativePipelineBlock initiative={initiative} projects={PROJECTS} />;
+  return (
+    initiative && (
+      <InitiativePipelineBlock initiative={initiative} tasks={tasks} projects={PROJECTS} />
+    )
+  );
 }
 
-function rendered(initiative: Initiative): HTMLElement {
+async function rendered(initiative: Initiative, tasks: readonly Task[] = []): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(pipelineQueries.list().queryKey, [REVIEWED, UNREVIEWED]);
   queryClient.setQueryData(initiativeQueries.one(initiative.id).queryKey, initiative);
+  // The Publishing Tasks link their pages.
+  const router = createRouter({
+    routeTree: createRootRoute({
+      component: () => <Shown initiativeId={initiative.id} tasks={tasks} />,
+    }),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
   const page = document.createElement("div");
   document.body.append(page);
-  act(() =>
+  await act(async () => {
     createRoot(page).render(
       <QueryClientProvider client={queryClient}>
-        <Shown initiativeId={initiative.id} />
+        <RouterProvider router={router} />
       </QueryClientProvider>,
-    ),
-  );
+    );
+    await router.load();
+  });
   return page;
 }
 
@@ -97,8 +121,8 @@ describe("the Initiative's Pipeline block", () => {
     localStorage.clear();
   });
 
-  it("starts on None while shaping and says Confirm fixes it", () => {
-    const page = rendered(INITIATIVE);
+  it("starts on None while shaping and says Confirm fixes it", async () => {
+    const page = await rendered(INITIATIVE);
     const select = pipelineSelect(page);
     expect(select.value).toBe("");
     expect(select.selectedOptions[0]?.textContent).toBe("None");
@@ -114,7 +138,7 @@ describe("the Initiative's Pipeline block", () => {
     const chosen = { ...INITIATIVE, pipelineId: REVIEWED.id, shortName: "usage-exports" };
     const fetched = vi.fn<typeof fetch>(() => Promise.resolve(Response.json(chosen)));
     vi.stubGlobal("fetch", fetched);
-    const page = rendered(INITIATIVE);
+    const page = await rendered(INITIATIVE);
 
     await act(async () => {
       choose(pipelineSelect(page), REVIEWED.id);
@@ -134,7 +158,7 @@ describe("the Initiative's Pipeline block", () => {
       Promise.resolve(Response.json({ ...withPipeline, shortName: "exports" })),
     );
     vi.stubGlobal("fetch", fetched);
-    const page = rendered(withPipeline);
+    const page = await rendered(withPipeline);
     expect(page.textContent).toContain("usage-exports");
     expect(page.textContent).toContain("initiative/usage-exports");
     expect(page.textContent).not.toContain("Publishes without your review");
@@ -163,12 +187,12 @@ describe("the Initiative's Pipeline block", () => {
     expect(request?.body).toBe(JSON.stringify({ shortName: "exports" }));
   });
 
-  it("warns that a Pipeline without a Gate publishes without your review", () => {
-    const page = rendered({ ...INITIATIVE, pipelineId: UNREVIEWED.id, shortName: "usage" });
+  it("warns that a Pipeline without a Gate publishes without your review", async () => {
+    const page = await rendered({ ...INITIATIVE, pipelineId: UNREVIEWED.id, shortName: "usage" });
     expect(page.textContent).toContain("Publishes without your review");
   });
 
-  it("once confirmed shows the Pipeline and each Initiative's branch, read-only", () => {
+  it("once confirmed shows the Pipeline and each Initiative's branch, read-only", async () => {
     const active: Initiative = {
       ...INITIATIVE,
       state: "active",
@@ -182,7 +206,7 @@ describe("the Initiative's Pipeline block", () => {
         },
       ],
     };
-    const page = rendered(active);
+    const page = await rendered(active);
     expect(page.querySelector("select")).toBeNull();
     expect(page.textContent).toContain("Reviewed release");
     expect(page.textContent).toContain("Admin panel");
@@ -191,13 +215,57 @@ describe("the Initiative's Pipeline block", () => {
     expect(page.textContent).not.toContain("kept for you to delete");
 
     document.body.replaceChildren();
-    const dropped = rendered({ ...active, state: "dropped", endedAt: "2026-11-12T11:00:00.000Z" });
+    const dropped = await rendered({
+      ...active,
+      state: "dropped",
+      endedAt: "2026-11-12T11:00:00.000Z",
+    });
     expect(dropped.textContent).toContain("kept for you to delete");
     expect(dropped.textContent).not.toContain("CTO's Proposal");
   });
 
-  it("once confirmed with None says it publishes Task by Task", () => {
-    const page = rendered({ ...INITIATIVE, state: "active" });
+  it("once confirmed with None says it publishes Task by Task", async () => {
+    const page = await rendered({ ...INITIATIVE, state: "active" });
     expect(page.textContent).toContain("None: publishes Task by Task");
+  });
+
+  it("lists the Publishing Tasks with their Project and state, and what a started one waits for", async () => {
+    const active: Initiative = {
+      ...INITIATIVE,
+      state: "active",
+      pipelineId: REVIEWED.id,
+      shortName: "usage-exports",
+      branches: [
+        {
+          projectId: "admin-panel",
+          branch: "initiative/usage-exports",
+          madeAt: "2026-11-12T10:00:00.000Z",
+        },
+      ],
+    };
+    const fix = { id: "fix-1", title: "Fix the export", state: "ready" } as Task;
+    const publishing = {
+      id: "publishing-1",
+      title: "Usage exports → Admin panel",
+      projectId: "admin-panel",
+      initiativeId: INITIATIVE.id,
+      madeFor: "publishing",
+      state: "in-progress",
+      blockedBy: [fix.id],
+    } as Task;
+
+    const page = await rendered(active, [fix, publishing]);
+
+    const list = page.querySelector('[aria-label="Publishing Tasks"]');
+    expect(list?.textContent).toContain("Usage exports → Admin panel");
+    expect(list?.textContent).toContain("In progress");
+    expect(list?.textContent).toContain("AP");
+    expect(list?.querySelector("a")?.getAttribute("href")).toBe("/tasks/publishing-1");
+    expect(list?.textContent).toContain("Waits for “Fix the export” before its next Stage.");
+  });
+
+  it("says when The Office adds the Publishing Tasks, while there are none yet", async () => {
+    const page = await rendered({ ...INITIATIVE, state: "active", pipelineId: REVIEWED.id });
+    expect(page.textContent).toContain("The Office adds a Publishing Task in each Project");
   });
 });

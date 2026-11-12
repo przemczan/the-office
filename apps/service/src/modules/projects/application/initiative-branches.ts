@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
+import { InitiativeBranchUnusable } from "../domain/task-base.js";
 import { Git, GitCommandFailed, type GitVariables, type Upstream } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
+import { TaskBases } from "./task-bases.js";
 import { Worktrees, type BaseBranch } from "./worktrees.js";
 
 /** How making an Initiative's branch in a Project went: made at a commit, or refused with why. */
@@ -14,7 +16,8 @@ export type InitiativeBranchMaking =
 /**
  * An Initiative's branch in a Project (spec §5.5 Defaults, "The Initiative's branch"): made at the
  * freshly fetched base branch, only when the name is free here and on the base branch's remote.
- * Nothing is pushed here; a branch the same attempt made can be taken back.
+ * Nothing is pushed here; a branch the same attempt made can be taken back. Whether a branch holds
+ * work not yet published is asked of it too.
  */
 @Injectable()
 export class InitiativeBranches {
@@ -24,6 +27,7 @@ export class InitiativeBranches {
     private readonly worktrees: Worktrees,
     private readonly commands: ProjectCommandRunner,
     private readonly remotes: ProjectRemotes,
+    private readonly taskBases: TaskBases,
   ) {}
 
   /**
@@ -74,6 +78,42 @@ export class InitiativeBranches {
   async exists(projectId: string, branch: string): Promise<boolean> {
     const project = await this.projects.read(projectId);
     return this.git.hasBranch(project.path, branch);
+  }
+
+  /**
+   * Whether `branch`, fetched with the base branch, holds commits not yet published: commits the
+   * Publishing Task `publishedByTaskId` didn't publish (`Worktrees.publishedRefOf`), or, with none
+   * given, commits the freshly fetched base branch doesn't have. True when unsure, as when the
+   * branch is gone or has diverged from its remote's, or git fails, so no work is left unpublished
+   * unseen. Never run inside a database hold: it fetches.
+   */
+  async holdsUnpublished(
+    projectId: string,
+    branch: string,
+    publishedByTaskId?: string,
+  ): Promise<boolean> {
+    const project = await this.projects.read(projectId);
+    const variables = this.commands.variablesFor(project.environment);
+    try {
+      return await this.git.exclusively(project.path, async () => {
+        const base = await this.worktrees.freshBase(project, variables);
+        const { commit } = await this.taskBases.freshInitiativeBranch(project, branch, variables);
+        const published =
+          publishedByTaskId === undefined
+            ? base.commit
+            : await this.git.findCommit(
+                project.path,
+                this.worktrees.publishedRefOf(publishedByTaskId),
+              );
+        if (published === undefined) return true;
+        return !(await this.git.contains(project.path, published, commit));
+      });
+    } catch (error) {
+      if (error instanceof GitCommandFailed || error instanceof InitiativeBranchUnusable) {
+        return true;
+      }
+      throw error;
+    }
   }
 
   /** A refusal when the remote has the branch or can't be asked; undefined when it is free there. */

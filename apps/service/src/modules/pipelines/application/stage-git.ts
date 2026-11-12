@@ -4,6 +4,7 @@ import {
   branchMovedWords,
   branchUpdateWords,
   headProblem,
+  pushFailedWords,
   type ExpectedHead,
 } from "../domain/stage-commit.js";
 import { baseWords } from "../domain/base-words.js";
@@ -108,15 +109,21 @@ export class StageGit {
     return left === undefined ? expected : { ...expected, commit: left };
   }
 
-  /** Commits every change in the worktree with `message`, and records where the branch is now. */
+  /**
+   * Commits every change in the worktree with `message`, and records where the branch is now; a
+   * Publishing Task's branch is pushed after it. Answers why that push failed, for the outcome.
+   */
   async commit(
     run: StageRun,
     task: TaskRecord,
     expected: ExpectedHead,
     message: string,
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     const commit = await this.git.commit(task.project.id, run.taskId, message);
     await this.runs.saveHeadCommit(run.id, commit ?? expected.commit);
+    if (!task.publishingTask) return undefined;
+    const push = await this.git.pushPublishingBranch(task.project.id, run.taskId);
+    return pushFailedWords(push, task.worktree.branch);
   }
 
   /**

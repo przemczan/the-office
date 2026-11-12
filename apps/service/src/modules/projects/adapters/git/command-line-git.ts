@@ -673,7 +673,8 @@ export class CommandLineGit extends Git {
     branch: string,
     forkPoints?: readonly string[],
   ): Promise<BranchChanges> {
-    const range = await this.sinceForked(repositoryPath, bases, `refs/heads/${branch}`, forkPoints);
+    const revision = branch.startsWith("refs/") ? branch : `refs/heads/${branch}`;
+    const range = await this.sinceForked(repositoryPath, bases, revision, forkPoints);
     const [numbers, deleted, diff] = await Promise.all([
       this.process.output({
         folder: repositoryPath,

@@ -21,11 +21,19 @@ export const TASK_STATES = [
 export type TaskState = (typeof TASK_STATES)[number];
 
 /**
- * The Tasks The Office makes for a Project by itself: its Onboard Task, and its "Set up the run
- * environment" Task.
+ * The Tasks The Office makes by itself: a Project's Onboard Task and its "Set up the run
+ * environment" Task, and an Initiative's Publishing Task in a Project (publishing-task.ts).
  */
-export const TASK_MADE_FOR = ["onboard", "run-environment-setup"] as const;
+export const TASK_MADE_FOR = ["onboard", "run-environment-setup", "publishing"] as const;
 export type TaskMadeFor = (typeof TASK_MADE_FOR)[number];
+
+/**
+ * Whether the Task is an Initiative's Publishing Task: it works on the Initiative's branch itself
+ * and publishes it into the base branch (spec 2.1, "Publishing Tasks").
+ */
+export function isPublishingTask(task: Pick<Task, "madeFor">): boolean {
+  return task.madeFor === "publishing";
+}
 
 /** Highest first: the board shows each column by priority, then by manual order. */
 export const PRIORITIES = ["high", "normal", "low"] as const;
@@ -102,7 +110,8 @@ export interface Task {
   readonly pausedByAlarm: boolean;
   /**
    * What The Office made it for, in its Project: its Onboard Task, whose state is the Project's
-   * onboarding, or its "Set up the run environment" Task; undefined for any other Task.
+   * onboarding, its "Set up the run environment" Task, or an Initiative's Publishing Task there;
+   * undefined for any other Task.
    */
   readonly madeFor: TaskMadeFor | undefined;
   /**

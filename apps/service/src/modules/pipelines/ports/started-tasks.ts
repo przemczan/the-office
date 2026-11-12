@@ -13,6 +13,14 @@ export interface StartedTask {
   readonly pipelineId: string | undefined;
   /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */
   readonly pausedByAlarm: boolean;
+  /** What The Office made it for, such as `publishing` for a Publishing Task; undefined for most. */
+  readonly madeFor?: string | undefined;
+}
+
+/** A Task another waits for, as the walk names it. */
+export interface TaskBlocker {
+  readonly id: string;
+  readonly title: string;
 }
 
 /**
@@ -48,4 +56,10 @@ export abstract class StartedTasks {
 
   /** Drops the Task, as the user does. */
   abstract drop(taskId: string): Promise<StartedTask>;
+
+  /**
+   * The Tasks still holding the Task back, neither Done nor Dropped: a started Publishing Task waits
+   * for them before its next Stage (spec 2.1, "Publishing Tasks").
+   */
+  abstract waitingFor(taskId: string): Promise<readonly TaskBlocker[]>;
 }

@@ -12,7 +12,7 @@ import {
   whereOf,
 } from "./linked-records.js";
 import { stateChangeLines, type StateChange } from "./state-change.js";
-import type { Task } from "./task.js";
+import { isPublishingTask, type Task } from "./task.js";
 import { NO_DESCRIPTION } from "./task-description.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 import { confirmationWords } from "./written-parts.js";
@@ -57,6 +57,7 @@ export function taskRecordText(
     `${task.title} (Task ${task.id})`,
     `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; ${pipelineWords(task)}`,
     ...(task.state === "planning" && task.autoMode ? ["- Planning in auto mode"] : []),
+    ...publishingTaskLines(task, links),
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
     ...(task.archivedAt
@@ -102,6 +103,14 @@ export function taskRecordText(
   ].join("\n");
 }
 
+/** What a Publishing Task does, on its record: it publishes its Initiative's whole change. */
+function publishingTaskLines(task: Task, { initiative }: TaskLinks): string[] {
+  if (!isPublishingTask(task) || initiative?.shortName === undefined) return [];
+  return [
+    `- Publishing Task: it publishes the Initiative's whole change in this Project from ${initiativeBranchOf(initiative.shortName)}, which its worktree holds itself, into the base branch`,
+  ];
+}
+
 function orNone(lines: readonly string[]): readonly string[] {
   return lines.length === 0 ? ["None."] : lines;
 }
@@ -134,7 +143,7 @@ export interface InitiativeRecord {
 /**
  * An Initiative's record as an Agent reads it, in its Thread or mentioned in a chat: its state and
  * outcome, the Idea it was shaped from, its Attachments, and its Tasks in the order they were
- * added, each with its Project, state and the Tasks it waits for.
+ * added, each with its Project, state and the Tasks it waits for, its Publishing Tasks apart.
  */
 export function initiativeRecordText({
   initiative,
@@ -144,6 +153,8 @@ export function initiativeRecordText({
   attachments,
   pipelineName,
 }: InitiativeRecord): string {
+  const ordinary = tasks.filter((task) => !isPublishingTask(task));
+  const publishing = tasks.filter(isPublishingTask);
   return [
     `${initiative.name} (Initiative ${initiative.id})`,
     `- ${initiative.state}; spans ${projectsWords(initiativeProjectIds(tasks))}`,
@@ -163,9 +174,16 @@ export function initiativeRecordText({
     outcomeWords(initiative),
     "",
     "Tasks:",
-    ...(tasks.length === 0
+    ...(ordinary.length === 0
       ? ["None yet."]
-      : tasks.map((task) => `- ${initiativeTaskLine(task, blockers)}`)),
+      : ordinary.map((task) => `- ${initiativeTaskLine(task, blockers)}`)),
+    ...(publishing.length === 0
+      ? []
+      : [
+          "",
+          "Publishing Tasks, each publishing the whole change in its Project:",
+          ...publishing.map((task) => `- ${initiativeTaskLine(task, blockers)}`),
+        ]),
     "",
     "Attachments:",
     ...attachmentLines(attachments),

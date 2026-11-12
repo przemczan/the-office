@@ -11,7 +11,8 @@ import {
   type PlanningPipeline,
   type PlanningProject,
 } from "./planning.js";
-import type { Task, TaskState } from "./task.js";
+import { PUBLISHING_TASK_NEVER_PLANNED } from "./publishing-task.js";
+import { isPublishingTask, type Task, type TaskState } from "./task.js";
 import { startPlanningTask, withStateChange, type TaskChange } from "./task-changes.js";
 import { TaskRewrittenInInitiative, TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
@@ -127,6 +128,7 @@ export function startPlanningInInitiative(
   if (task.initiativeId !== initiative.id) {
     throw new TaskRefused([`"${task.title}" isn't one of this Initiative's Tasks.`]);
   }
+  if (isPublishingTask(task)) throw new TaskRefused([PUBLISHING_TASK_NEVER_PLANNED]);
   if (task.state === "planning" && task.initiativePlanningThreadId === threadId) return undefined;
   const problems = [
     ...(task.state === "backlog"
@@ -162,6 +164,7 @@ export function rewritingProblems(
   if (task.initiativeId !== initiativeId) {
     return [`"${task.title}" isn't one of this Initiative's Tasks.`];
   }
+  if (isPublishingTask(task)) return [PUBLISHING_TASK_NEVER_PLANNED];
   if (task.state === "ready") return [];
   if (task.state === "planning") {
     if (task.initiativePlanningThreadId === undefined) {

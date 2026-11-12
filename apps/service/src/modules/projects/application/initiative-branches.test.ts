@@ -51,6 +51,7 @@ async function branchesOnARepository(tracking: boolean): Promise<{
     read: (id: string) =>
       id === project.id ? Promise.resolve(project) : Promise.reject(new ProjectNotFound(id)),
   } as unknown as ProjectService;
+  const taskBases = new TaskBasesForTests(git);
   const branches = new InitiativeBranches(
     projects,
     git,
@@ -59,10 +60,11 @@ async function branchesOnARepository(tracking: boolean): Promise<{
       commands,
       taskCommandsOver(commands),
       new OfficeDataDirectory(officeData),
-      new TaskBasesForTests(git),
+      taskBases,
     ),
     commands,
     new ProjectRemotes(git, identity),
+    taskBases,
   );
   return { repository, branches, project };
 }

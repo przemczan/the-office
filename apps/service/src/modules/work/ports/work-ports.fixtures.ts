@@ -29,7 +29,12 @@ import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
 import { KnownEngineCascade } from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
-import { KnownProjects, type KnownProject, type KnownProjectCommand } from "./known-projects.js";
+import {
+  KnownProjects,
+  type KnownProject,
+  type KnownProjectCommand,
+  type KnownPublishingMode,
+} from "./known-projects.js";
 import { NewProjects, type AddedProject } from "./new-projects.js";
 import {
   ProjectInitiativeBranches,
@@ -60,6 +65,8 @@ export const UNKNOWN_PROJECT = "no-such-project";
 export class KnownProjectsForTests extends KnownProjects {
   /** A Project's commands a test gives it, by the Project's id; any other has build, lint and test. */
   readonly commands = new Map<string, readonly KnownProjectCommand[]>();
+  /** A Project's publishing mode a test gives it; any other merges. */
+  readonly publishingModes = new Map<string, KnownPublishingMode>();
 
   async find(id: string): Promise<KnownProject | undefined> {
     if (id === UNKNOWN_PROJECT) return undefined;
@@ -77,6 +84,7 @@ export class KnownProjectsForTests extends KnownProjects {
       useProjectSkills: true,
       projectSkillsOff: [],
       projectLimit: 12,
+      publishingMode: this.publishingModes.get(id) ?? "merge",
     };
   }
 }
@@ -147,6 +155,22 @@ export class ProjectInitiativeBranchesForTests extends ProjectInitiativeBranches
 
   async exists(projectId: string, branch: string): Promise<boolean> {
     return this.existing.has(`${projectId}/${branch}`);
+  }
+
+  /** Projects whose Initiative's branch a test says holds nothing unpublished; any other does. */
+  readonly published = new Set<string>();
+  /** Each `holdsUnpublished` asked, as `projectId/branch` and the Publishing Task's id, if any. */
+  readonly unpublishedAsked: string[] = [];
+
+  async holdsUnpublished(
+    projectId: string,
+    branch: string,
+    publishedByTaskId?: string,
+  ): Promise<boolean> {
+    this.unpublishedAsked.push(
+      `${projectId}/${branch}${publishedByTaskId ? ` after ${publishedByTaskId}` : ""}`,
+    );
+    return !this.published.has(projectId);
   }
 }
 

@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import type { Publication, PublishTarget, PullRequestText } from "../domain/publication.js";
+import type {
+  Publication,
+  PublishingBranchPush,
+  PublishTarget,
+  PullRequestText,
+} from "../domain/publication.js";
 import type { ResolveEnd, ResolveStart } from "../domain/resolve.js";
 import { commandOf, type ProjectCommandKind } from "../domain/project.js";
 import type { Head } from "../ports/git.js";
@@ -75,7 +80,7 @@ export class TaskWorktrees {
     const project = await this.projects.read(projectId);
     return {
       path: this.worktrees.pathOf(project, taskId),
-      branch: this.worktrees.branchOf(taskId),
+      branch: await this.worktrees.branchOf(project, taskId),
       environment: this.commands.variablesFor(project.environment),
       screenshotsFolder: SCREENSHOTS_FOLDER,
     };
@@ -116,6 +121,16 @@ export class TaskWorktrees {
    */
   async commit(projectId: string, taskId: string, message: string): Promise<string | undefined> {
     return this.worktrees.commit(await this.projects.read(projectId), taskId, message);
+  }
+
+  /**
+   * After a Stage's commit, pushes a Publishing Task's Initiative's branch to the base branch's
+   * remote, without force, on the Office identity (spec §5.5, "Pushed"); not needed for any other
+   * Task, or when the base branch tracks no remote. A refused push answers why, which doesn't fail
+   * the Stage.
+   */
+  async pushPublishingBranch(projectId: string, taskId: string): Promise<PublishingBranchPush> {
+    return this.publishing.pushPublishingBranch(await this.projects.read(projectId), taskId);
   }
 
   /**
@@ -171,7 +186,10 @@ export class TaskWorktrees {
     await this.resolving.abandon(await this.projects.read(projectId), taskId);
   }
 
-  /** Removes the Task's worktree with whatever it holds; its branch stays. */
+  /**
+   * Removes the Task's worktree with whatever it holds; its branch stays. A Publishing Task's
+   * Initiative's branch is kept too, so a later Publishing Task can check it out.
+   */
   async removeWorktree(projectId: string, taskId: string): Promise<void> {
     await this.worktrees.remove(await this.projects.read(projectId), taskId);
   }

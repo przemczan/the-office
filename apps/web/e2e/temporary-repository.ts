@@ -38,6 +38,38 @@ export async function createTemporaryRepository(): Promise<TemporaryRepository> 
   };
 }
 
+/** A temporary repository whose `main` tracks `origin`, a bare repository beside it. */
+export interface TemporaryRepositoryWithRemote extends TemporaryRepository {
+  /** The bare repository's folder. */
+  readonly remote: string;
+}
+
+export async function createTemporaryRepositoryWithRemote(): Promise<TemporaryRepositoryWithRemote> {
+  const repository = await createTemporaryRepository();
+  const remote = path.join(repository.folder, "remote.git");
+  runGit(repository.folder, "init", "--quiet", "--bare", "--initial-branch", "main", remote);
+  runGit(repository.path, "remote", "add", "origin", remote);
+  runGit(repository.path, "push", "--quiet", "--set-upstream", "origin", "main");
+  return { ...repository, remote };
+}
+
+/** The file as `branch` of the bare remote holds it; undefined when it holds none. */
+export function fileOnRemote(
+  repository: TemporaryRepositoryWithRemote,
+  branch: string,
+  file: string,
+): string | undefined {
+  try {
+    return execFileSync("git", ["show", `${branch}:${file}`], {
+      cwd: repository.remote,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 /** Commits `files`, by their paths in the repository, on the branch checked out. */
 export async function commitFiles(
   repository: TemporaryRepository,

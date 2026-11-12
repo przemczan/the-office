@@ -898,7 +898,8 @@
   color: var(--fg-2);
 }
 
-.pipeline-rail-removed {
+.pipeline-rail-removed,
+.pipeline-rail-wait {
   margin: 0;
   padding: 8px 16px 16px;
   font: 400 var(--text-body) / 1.45 var(--font-sans);
@@ -2061,13 +2062,18 @@
   color: var(--fg-3);
 }
 
-.initiative-branches {
+.initiative-branches,
+.initiative-publishing-tasks {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.initiative-publishing-tasks .task-quiet {
+  margin: 2px 0 0;
 }
 
 .task-plan + .task-quiet,

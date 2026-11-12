@@ -23,7 +23,12 @@ import { InitiativeConversation } from "./initiative-conversation.tsx";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { InitiativePipelineBlock } from "./initiative-pipeline-block.tsx";
 import { planningProgressWords } from "./initiative-planning-words.ts";
-import { initiativeProgress, progressWords, tasksOfInitiative } from "./initiative-words.ts";
+import {
+  initiativeProgress,
+  ordinaryTasksOf,
+  progressWords,
+  tasksOfInitiative,
+} from "./initiative-words.ts";
 import { MissingRecord } from "./missing-record.tsx";
 import { OriginBlock } from "./origin-block.tsx";
 import { OutcomeBlock } from "./outcome-block.tsx";
@@ -77,7 +82,7 @@ export function InitiativePage(): ReactNode {
       )}
       <TasksBlock
         initiative={record}
-        initiativeTasks={initiativeTasks}
+        initiativeTasks={ordinaryTasksOf(record, tasks.data)}
         tasks={tasks.data}
         openDecisions={openDecisions}
         projects={projects.data}
@@ -88,7 +93,11 @@ export function InitiativePage(): ReactNode {
           <section className="task-record" aria-label="Record">
             {record.state === "shaping" && <ShapingNote cto={cto} />}
             <OutcomeBlock initiative={record} />
-            <InitiativePipelineBlock initiative={record} projects={projects.data} />
+            <InitiativePipelineBlock
+              initiative={record}
+              tasks={tasks.data}
+              projects={projects.data}
+            />
             <InitiativeAttachments initiative={record} />
             <OriginBlock
               record={{ kind: "initiative", id: record.id }}

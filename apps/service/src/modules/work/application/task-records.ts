@@ -33,13 +33,17 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
     | "commands"
     | "useProjectSkills"
     | "projectSkillsOff"
+    | "publishingMode"
   >;
   readonly worktree: TaskWorktree;
   /**
    * The Initiative's branch the Task starts from and publishes into, its Initiative having a
-   * Pipeline (spec 5.5); undefined for a Task of the base branch.
+   * Pipeline (spec 5.5), or, for a Publishing Task, the one its worktree holds itself; undefined
+   * for a Task of the base branch.
    */
   readonly initiativeBranch: string | undefined;
+  /** Whether it is its Initiative's Publishing Task, which publishes that branch into the base. */
+  readonly publishingTask: boolean;
 }
 
 /**
@@ -71,7 +75,7 @@ export class TaskRecords {
       this.linksOf(task),
       this.worktrees.find(task.projectId, taskId),
     ]);
-    const base = taskBranchBase(links.initiative, project.id, project.name);
+    const base = taskBranchBase(task, links.initiative, project.id, project.name);
     return {
       title: task.title,
       descriptionSection: descriptionSection(task.description),
@@ -87,9 +91,11 @@ export class TaskRecords {
         commands: project.commands,
         useProjectSkills: project.useProjectSkills,
         projectSkillsOff: project.projectSkillsOff,
+        publishingMode: project.publishingMode,
       },
       worktree,
-      initiativeBranch: base.kind === "initiative-branch" ? base.branch : undefined,
+      initiativeBranch: base.kind === "base-branch" ? undefined : base.branch,
+      publishingTask: base.kind === "publishing-task",
     };
   }
 

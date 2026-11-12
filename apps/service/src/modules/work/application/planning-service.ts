@@ -18,7 +18,8 @@ import {
   savePlan,
 } from "../domain/planning-changes.js";
 import type { PlanWriting } from "../domain/written-parts.js";
-import type { ProposedPipeline, Task } from "../domain/task.js";
+import { PUBLISHING_TASK_NEVER_PLANNED } from "../domain/publishing-task.js";
+import { isPublishingTask, type ProposedPipeline, type Task } from "../domain/task.js";
 import {
   markTaskReady,
   startPlanningTask,
@@ -172,6 +173,7 @@ export class PlanningService {
   ): Promise<Task> {
     const task = await this.tasks.find(taskId);
     if (!task) throw new TaskNotFound(taskId);
+    if (isPublishingTask(task)) throw new TaskRefused([PUBLISHING_TASK_NEVER_PLANNED]);
     if (task.state === "planning") return task;
     const problems = stateChangeProblems(task, "planning");
     if (problems.length > 0) throw new TaskRefused(problems);

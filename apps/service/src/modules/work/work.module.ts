@@ -79,6 +79,7 @@ import { StartsSinceReading } from "./application/starts-since-reading.js";
 import { StartService } from "./application/start-service.js";
 import { UsageEstimates } from "./application/usage-estimates.js";
 import { TaskRecords } from "./application/task-records.js";
+import { TaskStageEdits } from "./application/task-stage-edits.js";
 import { TaskArchiving } from "./application/task-archiving.js";
 import { InitiativeArchiving } from "./application/initiative-archiving.js";
 import { TaskService } from "./application/task-service.js";
@@ -261,6 +262,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         QueueService,
         FireAlarmService,
         TaskRecords,
+        TaskStageEdits,
         IdeaRecords,
         StageScreenshots,
         WorkWebEvents,
@@ -289,6 +291,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         QueueService,
         RunEnvironmentSetUps,
         TaskRecords,
+        TaskStageEdits,
         StageScreenshots,
       ],
     };

@@ -402,7 +402,8 @@ export abstract class Git {
    * The files, line counts and diff of what `branch`'s commits changed since it forked from its
    * bases, which are taken as diffSummary takes them, or since `forkPoints` when given. Read from
    * the repository's records, so it needs no worktree of the branch; uncommitted changes in one
-   * aren't in it.
+   * aren't in it. `branch` is a local branch's name, or a whole ref (`refs/…`), such as a
+   * Publishing Task's published tip.
    */
   abstract branchChanges(
     repositoryPath: string,

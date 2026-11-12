@@ -20,4 +20,16 @@ export abstract class ProjectInitiativeBranches {
 
   /** Whether the Project's repository has `branch`. */
   abstract exists(projectId: string, branch: string): Promise<boolean>;
+
+  /**
+   * Whether `branch` holds commits not yet published: commits the Publishing Task
+   * `publishedByTaskId` didn't publish, or, with none given, commits the freshly fetched base
+   * branch doesn't have. True when unsure (the branch is gone, or git failed), so no work is left
+   * unpublished unseen.
+   */
+  abstract holdsUnpublished(
+    projectId: string,
+    branch: string,
+    publishedByTaskId?: string,
+  ): Promise<boolean>;
 }

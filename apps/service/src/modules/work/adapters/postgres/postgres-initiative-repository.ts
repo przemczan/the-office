@@ -22,11 +22,15 @@ import {
   type ArchivePage,
   type ArchiveSearch,
 } from "../../domain/initiative-archive.js";
-import type { InitiativeChange, InitiativeTasksChange } from "../../domain/initiative-changes.js";
+import type {
+  InitiativeChange,
+  InitiativeSettling,
+  InitiativeTaskAdded,
+  InitiativeTasksChange,
+} from "../../domain/initiative-changes.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
-import type { TaskCreated } from "../../domain/task-events.js";
 import {
   InitiativeRepository,
   type InitiativeTasksUpdate,
@@ -186,16 +190,43 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       initiative: Initiative,
       takenOrders: readonly string[],
       tasks: readonly Task[],
-    ) => TaskChange<TaskCreated>,
-  ): Promise<TaskChange<TaskCreated>> {
+    ) => InitiativeTaskAdded,
+  ): Promise<InitiativeTaskAdded> {
+    return this.database.transaction(async (transaction) => {
+      // The manual order, the Initiative, the dependencies, then its Tasks: the order every other
+      // hold takes. Its Tasks are held as the Publishing Task the new one blocks is saved whole.
+      await holdManualOrder(transaction);
+      const initiative = await heldInitiative(transaction, id);
+      const everyTask = await everyTaskHoldingDependencies(transaction);
+      const held = await heldTasksOf(transaction, id);
+      const added = create(initiative, await takenOrders(transaction), withHeld(everyTask, held));
+      await insertTask(transaction, added.created);
+      if (added.blocking) await saveTask(transaction, added.blocking.task, added.blocking);
+      return added;
+    });
+  }
+
+  async settle(
+    id: string,
+    settle: (
+      initiative: Initiative,
+      tasks: readonly Task[],
+      takenOrders: readonly string[],
+    ) => InitiativeSettling,
+  ): Promise<InitiativeSettling> {
     return this.database.transaction(async (transaction) => {
       // The manual order, the Initiative, then the dependencies: the order every other hold takes.
       await holdManualOrder(transaction);
       const initiative = await heldInitiative(transaction, id);
       const everyTask = await everyTaskHoldingDependencies(transaction);
-      const created = create(initiative, await takenOrders(transaction), everyTask);
-      await insertTask(transaction, created);
-      return created;
+      const settled = settle(
+        initiative,
+        everyTask.filter(({ initiativeId }) => initiativeId === id),
+        await takenOrders(transaction),
+      );
+      for (const created of settled.created) await insertTask(transaction, created);
+      if (settled.event) await saveInitiative(transaction, settled.initiative);
+      return settled;
     });
   }
 
@@ -272,6 +303,12 @@ async function heldTasksOf(transaction: Transaction, initiativeId: string): Prom
     .orderBy(asc(tasks.id))
     .for("update");
   return rows.map(toTask);
+}
+
+/** Every Task, the Initiative's as held in place of their earlier read. */
+function withHeld(everyTask: readonly Task[], held: readonly Task[]): Task[] {
+  const heldById = new Map(held.map((task) => [task.id, task]));
+  return everyTask.map((task) => heldById.get(task.id) ?? task);
 }
 
 async function tasksOf(transaction: Transaction, initiativeId: string): Promise<Task[]> {

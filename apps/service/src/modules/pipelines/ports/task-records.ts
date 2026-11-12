@@ -1,3 +1,6 @@
+/** A Project's publishing mode: Push + PR, or merge. */
+export type PublishingMode = "push-and-pull-request" | "merge";
+
 /** A started Task's record, as an Agent Stage works from it. */
 export interface TaskRecord {
   readonly title: string;
@@ -28,12 +31,20 @@ export interface TaskRecord {
     readonly useProjectSkills: boolean;
     /** The keys of the repository's skills and commands the Project turned off, each by itself. */
     readonly projectSkillsOff: readonly string[];
+    /** How Publish puts work into the base branch; undefined in records made before it was kept. */
+    readonly publishingMode?: PublishingMode;
   };
   /**
    * The Initiative's branch the Task starts from and publishes into, its Initiative having a
-   * Pipeline; undefined for a Task of the base branch.
+   * Pipeline, or the one a Publishing Task's worktree holds itself; undefined for a Task of the
+   * base branch.
    */
   readonly initiativeBranch?: string | undefined;
+  /**
+   * Whether it is its Initiative's Publishing Task (spec 2.1): its worktree holds the Initiative's
+   * branch itself, and its Publish puts that branch into the base branch.
+   */
+  readonly publishingTask?: boolean;
   readonly worktree: {
     readonly path: string;
     readonly branch: string;

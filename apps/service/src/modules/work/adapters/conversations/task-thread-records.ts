@@ -183,7 +183,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
         attachments,
         pipelines,
         initiative,
-        startsFrom: initiativeBranchStart(links.initiative, project, pipelines),
+        startsFrom: initiativeBranchStart(task, links.initiative, project, pipelines),
       }),
       asking: false,
       sessionRefusal: CLOSED_TASK_CONVERSATION_WORDS[task.state],
@@ -193,12 +193,13 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
 
 /** The Initiative's branch the Task starts from, with its Initiative's Pipeline by name; undefined for the base branch. */
 function initiativeBranchStart(
+  task: Task,
   initiative: Initiative | undefined,
   project: KnownProject,
   pipelines: readonly PlanningPipeline[],
 ): InitiativeBranchStart | undefined {
-  const base = taskBranchBase(initiative, project.id, project.name);
-  if (base.kind === "base-branch" || initiative?.pipelineId === undefined) return undefined;
+  const base = taskBranchBase(task, initiative, project.id, project.name);
+  if (base.kind !== "initiative-branch" || initiative?.pipelineId === undefined) return undefined;
   const { pipelineId } = initiative;
   const pipeline = pipelines.find(({ id }) => id === pipelineId);
   return {

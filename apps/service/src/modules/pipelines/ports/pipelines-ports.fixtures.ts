@@ -6,7 +6,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
 import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
 import { PipelineRoleSources } from "../../people/index.js";
-import { TaskPaused, TaskResumed, TaskStateChanged } from "../../work/index.js";
+import { TaskPaused, TaskResumed, TaskStageEdits, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { PipelineInitiatives, type PipelineInitiative } from "./pipeline-initiatives.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
@@ -25,7 +25,12 @@ import {
   type StageTurn,
 } from "./stage-threads.js";
 import { StageRoleEngines, type NewlyNamedStageRoles } from "./stage-role-engines.js";
-import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
+import {
+  StartedTasks,
+  type StartedTask,
+  type TaskBlocker,
+  type WalkTaskState,
+} from "./started-tasks.js";
 import type {
   CommandRun,
   Installation,
@@ -47,7 +52,7 @@ import {
   type TaskCommandOptions,
 } from "./task-commands.js";
 import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
-import type { BranchUpdate } from "../domain/stage-commit.js";
+import type { BranchUpdate, PublishingBranchPush } from "../domain/stage-commit.js";
 import {
   RunEnvironmentDefinitions,
   type RunEnvironmentDefinitionFile,
@@ -206,6 +211,13 @@ export class StartedTasksForTests extends StartedTasks {
     this.put(taskId, { ...task, state: "dropped" });
     await this.announce(new TaskStateChanged(taskId, task.state as WalkTaskState, "dropped"));
     return this.read(taskId);
+  }
+
+  /** The blockers a test says still hold each Task back; none unless it says so. */
+  readonly blockers = new Map<string, readonly TaskBlocker[]>();
+
+  async waitingFor(taskId: string): Promise<readonly TaskBlocker[]> {
+    return this.blockers.get(taskId) ?? [];
   }
 }
 
@@ -599,6 +611,17 @@ export class TaskGitForTests extends TaskGit {
     return Promise.resolve(paths);
   }
 
+  /** Every push of a Publishing Task's branch, by Task, in order. */
+  readonly pushes: string[] = [];
+  /** Why pushing each Task's branch fails, when a test says it does. */
+  readonly pushFailures = new Map<string, string>();
+
+  pushPublishingBranch(_projectId: string, taskId: string): Promise<PublishingBranchPush> {
+    this.pushes.push(taskId);
+    const reason = this.pushFailures.get(taskId);
+    return Promise.resolve(reason === undefined ? { kind: "pushed" } : { kind: "failed", reason });
+  }
+
   changesSoFar(_projectId: string, taskId: string): Promise<string | undefined> {
     this.observe?.("changesSoFar");
     return Promise.resolve(this.changes.get(taskId));
@@ -897,6 +920,7 @@ export class PipelinesPortsForTestsModule {
       RunEnvironmentDefinitionsForTests,
       ProposalAppliers,
       PipelineRoleSources,
+      TaskStageEdits,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }
