@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentStageFollowsGate,
   GATE_REACHED,
   gateActionProblems,
   lastActedOnGateRun,
@@ -119,5 +120,26 @@ describe("gateActionProblems", () => {
     expect(gateActionProblems(stages, [aRun("implement")], { kind: "continue" })).toEqual([
       "The Task isn't waiting at a Gate.",
     ]);
+  });
+
+  it("allows Continue with notes only when an Agent Stage comes after the Gate", () => {
+    const withNotes: GateAction = { kind: "continue", feedback: "Build version B." };
+    const lastGate = stages.slice(0, -1);
+
+    expect(gateActionProblems(stages, [aRun("look")], withNotes)).toEqual([]);
+    expect(gateActionProblems(stages, [aRun("first-look")], withNotes)).toEqual([]);
+    expect(gateActionProblems(lastGate, [aRun("look")], withNotes)).toEqual([
+      "No Agent Stage after the Gate reads your notes: continue without them.",
+    ]);
+    expect(gateActionProblems(lastGate, [aRun("look")], { kind: "continue" })).toEqual([]);
+  });
+});
+
+describe("agentStageFollowsGate", () => {
+  it("is whether any Agent Stage comes after the Gate, not just the next one", () => {
+    expect(agentStageFollowsGate(stages, "first-look")).toBe(true);
+    expect(agentStageFollowsGate(stages, "look")).toBe(true);
+    expect(agentStageFollowsGate(stages.slice(0, -1), "look")).toBe(false);
+    expect(agentStageFollowsGate(stages, "missing")).toBe(false);
   });
 });

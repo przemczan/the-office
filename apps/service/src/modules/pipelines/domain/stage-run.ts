@@ -182,11 +182,11 @@ export interface CarriedFailure {
 }
 
 /**
- * What the user did at a Gate (spec §2.3): let the work continue, send it back with feedback to an
- * earlier Agent Stage, or drop the Task.
+ * What the user did at a Gate (spec §2.3): let the work continue, with notes every later Agent Stage
+ * is briefed with or none, send it back with feedback to an earlier Agent Stage, or drop the Task.
  */
 export type GateAction =
-  | { readonly kind: "continue" }
+  | { readonly kind: "continue"; readonly feedback?: string }
   | { readonly kind: "send-back"; readonly stageKey: string; readonly feedback: string }
   | { readonly kind: "drop" };
 

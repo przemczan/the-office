@@ -22,6 +22,7 @@ import {
   type ProjectPipelineEdit,
   type NewProjectPipeline,
   type SendBack,
+  type ContinueAtGate,
   type Stage,
   type StageTemplate,
   type StageTemplateCheckRequest,
@@ -203,9 +204,13 @@ export function editTaskStages(taskId: string, stages: readonly Stage[]): Promis
   return sendToApi("PUT", stagesPath(taskId), { stages }, taskStagesSchema);
 }
 
-/** The Gate's actions; each answers the Task's Stages after it. */
-export function continueAtGate(taskId: string): Promise<TaskStages> {
-  return sendToApi("POST", `${gatePath(taskId)}/continue`, {}, taskStagesSchema);
+/**
+ * The Gate's actions; each answers the Task's Stages after it. Continue may bring notes for the
+ * Agent Stages after the Gate.
+ */
+export function continueAtGate(taskId: string, notes?: string): Promise<TaskStages> {
+  const body: ContinueAtGate = notes === undefined ? {} : { feedback: notes };
+  return sendToApi("POST", `${gatePath(taskId)}/continue`, body, taskStagesSchema);
 }
 
 export function sendBackFromGate(taskId: string, sendBack: SendBack): Promise<TaskStages> {

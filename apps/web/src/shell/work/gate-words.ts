@@ -6,6 +6,11 @@ export interface WaitingGate {
   /** The Stage after the Gate; undefined when the Gate is the last. */
   readonly next: Stage | undefined;
   /**
+   * The first Agent Stage after the Gate, which notes the user continues with brief first, as every
+   * later one; undefined when none comes after it, and so nobody would read notes (spec §2.3).
+   */
+  readonly nextAgentStage: Stage | undefined;
+  /**
    * The Stages before the Gate the work may go back to: none that is a Gate or a Publish (spec
    * §2.3). An Agent reads the feedback; a Script Stage just runs again.
    */
@@ -28,6 +33,7 @@ export function waitingGateOf(taskStages: readonly TaskStage[]): WaitingGate | u
   return {
     gate: waiting.stage,
     next: taskStages[index + 1]?.stage,
+    nextAgentStage: taskStages.slice(index + 1).find(({ stage }) => stage.kind === "agent")?.stage,
     sendBackTargets: before.map(({ stage }) => stage).filter(isSendBackTarget),
     earlier: before.filter(({ state }) => state !== "pending"),
   };
@@ -62,6 +68,16 @@ export function sendBackWords(
     };
   }
   return { placeholder: `What should ${personName} change?`, sent: `Sent back to ${personName}.` };
+}
+
+export const CONTINUE_WITH_NOTES = "Continue with notes…";
+
+/**
+ * What the notes field asks, naming who works the first Agent Stage after the Gate; every later
+ * Agent Stage is briefed with the notes too.
+ */
+export function continueNotesPlaceholder(personName: string): string {
+  return `What should ${personName} know as the work goes on?`;
 }
 
 /** "Continue to Publish" (prototypes/app/now.js), or "Continue" at the last Stage. */

@@ -31,6 +31,18 @@ async function post(taskId: string, action: string, body: unknown = {}): Promise
   });
 }
 
+/** A POST with no body at all, as a client that sends none would. */
+async function postWithoutBody(taskId: string, action: string): Promise<Response> {
+  return fetch(`${await pipelines.app.getUrl()}/api/tasks/${taskId}/gate/${action}`, {
+    method: "POST",
+  });
+}
+
+async function gateActionAfter(response: Response): Promise<unknown> {
+  const { stages: after } = taskStagesSchema.parse(await response.json());
+  return after?.[1]?.runs[0]?.gateAction;
+}
+
 describe("POST /api/tasks/:id/gate/…", () => {
   it("sends the work back with the feedback, answering the Task's Stages", async () => {
     pipelines = await startPipelinesApplication([
@@ -69,5 +81,50 @@ describe("POST /api/tasks/:id/gate/…", () => {
     expect(gateRefusalSchema.parse(await refused.json()).reasons).toEqual([
       "The Task isn't waiting at a Gate.",
     ]);
+  });
+
+  it("continues with no body as plain Continue", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = await walkStages(pipelines, stages);
+
+    const response = await postWithoutBody(taskId, "continue");
+    await pipelines.app.get(StageInterpreter).walked(taskId);
+
+    expect(response.status).toBe(200);
+    expect(await gateActionAfter(response)).toEqual({ kind: "continue" });
+  });
+
+  it("keeps the notes Continue brings when an Agent Stage comes after the Gate", async () => {
+    const reviewed = [...stages.slice(0, 2), anAgentStage("review", { name: "Review" })];
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+    ]);
+    const taskId = await walkStages(pipelines, reviewed);
+
+    const response = await post(taskId, "continue", { feedback: " Build version B. " });
+    await pipelines.app.get(StageInterpreter).walked(taskId);
+
+    expect(response.status).toBe(200);
+    expect(await gateActionAfter(response)).toEqual({
+      kind: "continue",
+      feedback: "Build version B.",
+    });
+  });
+
+  it("refuses notes no Agent Stage after the Gate reads, and takes blank notes as plain Continue", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = await walkStages(pipelines, stages);
+
+    const refused = await post(taskId, "continue", { feedback: "Build version B." });
+    expect(refused.status).toBe(422);
+    expect(gateRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "No Agent Stage after the Gate reads your notes: continue without them.",
+    ]);
+
+    const blank = await post(taskId, "continue", { feedback: "  " });
+    await pipelines.app.get(StageInterpreter).walked(taskId);
+    expect(blank.status).toBe(200);
+    expect(await gateActionAfter(blank)).toEqual({ kind: "continue" });
   });
 });

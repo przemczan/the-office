@@ -22,6 +22,7 @@ import {
   type Stage,
   type StageRun,
   type Task,
+  type TaskStage,
   type TaskStages,
 } from "@the-office/contracts";
 import { taskWorktreePath } from "./office-data.ts";
@@ -2306,6 +2307,19 @@ function aStageRun(
   };
 }
 
+function anAgentStage(key: string, name: string): Stage {
+  return {
+    kind: "agent",
+    key,
+    name,
+    optional: false,
+    role: "developer",
+    brief: "Do it.",
+    session: "fresh",
+    budget: 100_000,
+  };
+}
+
 function stageInSmall(history: Locator, name: string): Locator {
   return history.getByRole("list", { name: "Stages" }).getByRole("button", { name, exact: true });
 }
@@ -2629,6 +2643,93 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await rail.screenshot({ path: path.join(SCREENSHOTS, "dark-420-rail-arcs-scrolled.png") });
   await page.emulateMedia({ colorScheme: "light" });
   await page.setViewportSize({ width: 1600, height: 900 });
+});
+
+test("Continue with notes at a Gate sends them on, and the Gate's run shows them in its Stage history", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Gate notes", "GN");
+  const task = await createdTask(page, project, "A design to pick from");
+  await choosePipeline(page, task);
+  const design = anAgentStage("design", "Design");
+  const look: Stage = { kind: "gate", key: "look", name: "Design review", optional: false };
+  const implement = anAgentStage("implement", "Implement");
+  const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  const gateReached: StageRun["outcome"] = {
+    status: "done",
+    summary: "The Task reached the Gate and waited for the user.",
+    skipped: false,
+    definitionOfDoneMet: null,
+    pullRequestUrl: null,
+    handoverNote: null,
+  };
+  const designed: TaskStage = {
+    stage: design,
+    state: "done",
+    tokens: noTokens,
+    wentBack: null,
+    runs: [{ ...aStageRun(1, at(0), at(5)), outcome: { ...gateReached, summary: "Two versions." } }],
+  };
+  const gateRun = { ...aStageRun(2, at(5), at(5)), outcome: gateReached };
+  const notes = "The design is accepted: implement version B.";
+  const stagesWith = (
+    gateAction: StageRun["gateAction"],
+    implementState: TaskStage["state"],
+  ): TaskStages => ({
+    stages: [
+      designed,
+      {
+        stage: look,
+        state: gateAction ? "done" : "waiting-on-you",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [{ ...gateRun, gateAction }],
+      },
+      { stage: implement, state: implementState, tokens: noTokens, wentBack: null, runs: [] },
+    ],
+    editedForTask: false,
+    lockedStages: 2,
+    testResults: [],
+    definitionOfDoneMet: [],
+  });
+  let stages = stagesWith(null, "pending");
+  await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+  const continued: unknown[] = [];
+  await page.route(`**/api/tasks/${task.id}/gate/continue`, (route) => {
+    continued.push(route.request().postDataJSON());
+    stages = stagesWith({ kind: "continue", feedback: notes }, "running");
+    return route.fulfill({ json: stages });
+  });
+  await page.goto(`/tasks/${task.id}`);
+
+  // The card's Continue stays one click; the window offers notes, as an Agent Stage comes next.
+  const gate = page.getByRole("region", { name: "Gate · Design review" });
+  await expect(gate.getByRole("button", { name: "Continue to Implement" })).toBeVisible();
+  await expect(gate.getByRole("button", { name: "Continue with notes…" })).toHaveCount(0);
+  await gate.getByRole("button", { name: "Show details" }).click();
+  const details = page.getByRole("dialog", { name: /Before Implement/ });
+  await details.getByRole("button", { name: "Continue with notes…" }).click();
+  const notesField = details.getByLabel("Your notes");
+  await expect(notesField).toBeFocused();
+  const continueWithNotes = details.getByRole("button", { name: "Continue to Implement" });
+  await expect(continueWithNotes).toBeDisabled();
+  await notesField.fill(notes);
+  await expect(continueWithNotes).toBeEnabled();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-continue-notes.png") });
+  await continueWithNotes.click();
+  await expect(page.getByText("Continuing to Implement.")).toBeVisible();
+  await expect(details).toHaveCount(0);
+  expect(continued).toEqual([{ feedback: notes }]);
+
+  // The Gate's run shows what the user did, with the notes, as Send back's shows its feedback.
+  await page
+    .getByRole("region", { name: /^Pipeline · / })
+    .getByRole("button", { name: "Design review", exact: true })
+    .click();
+  const gateHistory = page.getByRole("dialog", { name: /^Stage history: Design review/ });
+  await expect(detailsOf(gateHistory, 2)).toContainText("You continued, with notes");
+  await expect(detailsOf(gateHistory, 2)).toContainText(notes);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-notes-history.png") });
 });
 
 test(

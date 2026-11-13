@@ -279,6 +279,9 @@ describe("a run's other words", () => {
     const sendBack = { kind: "send-back", stageKey: "implement", feedback: "Bigger." } as const;
     expect(gateChoiceWords(sendBack, names)).toBe("You sent back to Implement");
     expect(gateChoiceWords({ kind: "continue" }, names)).toBe("You continued");
+    expect(gateChoiceWords({ kind: "continue", feedback: "Build version B." }, names)).toBe(
+      "You continued, with notes",
+    );
     expect(gateChoiceWords({ kind: "drop" }, names)).toBe("You dropped the Task");
   });
 

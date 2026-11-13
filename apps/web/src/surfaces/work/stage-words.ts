@@ -124,7 +124,7 @@ export function budgetWords({
 export function gateActionWords(action: GateAction, names: StageNames): string {
   switch (action.kind) {
     case "continue":
-      return "continued";
+      return action.feedback === undefined ? "continued" : "continued, with notes";
     case "send-back":
       return `sent back to ${names(action.stageKey)}`;
     case "drop":

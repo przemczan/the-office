@@ -281,7 +281,9 @@ function gateActionLines(stages: readonly Stage[], action: GateAction | undefine
   if (!action) return [];
   switch (action.kind) {
     case "continue":
-      return ["At the Gate the user let the work continue."];
+      return action.feedback === undefined
+        ? ["At the Gate the user let the work continue."]
+        : [`At the Gate the user let the work continue: ${action.feedback}`];
     case "send-back":
       return [
         `At the Gate the user sent the work back to "${nameOf(stages, action.stageKey)}": ${action.feedback}`,

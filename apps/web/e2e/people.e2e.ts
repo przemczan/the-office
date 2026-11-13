@@ -2743,6 +2743,8 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await gate.getByRole("button", { name: "Show details" }).click();
     const continueInWindow = details.getByRole("button", { name: "Continue to Build" });
     const sendBackWithNotes = details.getByRole("button", { name: "Send back with notes…" });
+    // Only a Script Stage comes after this Gate, which can't read notes, so Continue offers none.
+    await expect(details.getByRole("button", { name: "Continue with notes…" })).toHaveCount(0);
     await sendBackWithNotes.click();
     await expect(continueInWindow).toHaveCount(0);
     await details.getByRole("button", { name: "Cancel" }).click();

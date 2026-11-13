@@ -49,6 +49,15 @@ function isSendBackTarget(stage: Stage): boolean {
   return stage.kind !== "script" || stage.command !== "publish";
 }
 
+/**
+ * Whether an Agent Stage comes after the Gate, to be briefed with the notes the user continues with
+ * (spec §2.3): notes nobody reads are refused rather than kept to go nowhere.
+ */
+export function agentStageFollowsGate(stages: readonly Stage[], gateKey: string): boolean {
+  const gateIndex = stages.findIndex(({ key }) => key === gateKey);
+  return gateIndex >= 0 && stages.slice(gateIndex + 1).some(({ kind }) => kind === "agent");
+}
+
 /** Every reason the user can't do this at the Task's Gate now; empty when they can. */
 export function gateActionProblems(
   stages: readonly Stage[],
@@ -57,6 +66,13 @@ export function gateActionProblems(
 ): string[] {
   const waiting = waitingGateRun(stages, runs);
   if (!waiting) return ["The Task isn't waiting at a Gate."];
+  if (action.kind === "continue") {
+    const notesGoNowhere =
+      action.feedback !== undefined && !agentStageFollowsGate(stages, waiting.stageKey);
+    return notesGoNowhere
+      ? ["No Agent Stage after the Gate reads your notes: continue without them."]
+      : [];
+  }
   if (action.kind !== "send-back") return [];
   const problems: string[] = [];
   if (!sendBackTargets(stages, waiting.stageKey).some(({ key }) => key === action.stageKey)) {

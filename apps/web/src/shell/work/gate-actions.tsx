@@ -7,7 +7,12 @@ import { taskQueries } from "../../api/work.ts";
 import { MessageField } from "../conversation/message-field.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
-import { defaultSendBackTarget, sendBackWords, type WaitingGate } from "./gate-words.ts";
+import {
+  continueNotesPlaceholder,
+  defaultSendBackTarget,
+  sendBackWords,
+  type WaitingGate,
+} from "./gate-words.ts";
 
 export function ContinueRefused({ error }: { readonly error: Error }): ReactNode {
   return <RefusalAlert title="The Task didn't continue" error={error} />;
@@ -61,7 +66,7 @@ export function useSendingBack(
 export function SendBackFields({ sending }: { readonly sending: SendingBack }): ReactNode {
   const { targets, words } = sending;
   return (
-    <div className="gate-send-back-fields">
+    <div className="gate-step-fields">
       {targets.length > 1 && (
         <Select
           label="Send back to"
@@ -89,6 +94,65 @@ export function SendBackFields({ sending }: { readonly sending: SendingBack }): 
 
 export function useContinuingAtGate(task: Task, waiting: WaitingGate) {
   return useGateAction(task, () => continueAtGate(task.id), continueToast(waiting));
+}
+
+/** Continue with notes as they are being written, for the field and the action that continues. */
+export interface ContinuingWithNotes {
+  readonly notes: string;
+  readonly writeNotes: (notes: string) => void;
+  readonly placeholder: string;
+  /** There are notes to continue with. */
+  readonly written: boolean;
+  readonly isPending: boolean;
+  readonly error: Error | null;
+  readonly send: () => void;
+}
+
+export function useContinuingWithNotes(
+  task: Task,
+  waiting: WaitingGate,
+  roles: readonly Role[] | undefined,
+  onContinued: () => void,
+): ContinuingWithNotes {
+  const [notes, writeNotes] = useState("");
+  const continuing = useGateAction(
+    task,
+    () => continueAtGate(task.id, notes),
+    continueToast(waiting),
+  );
+  return {
+    notes,
+    writeNotes,
+    placeholder: continueNotesPlaceholder(personOf(waiting.nextAgentStage, roles)),
+    written: notes.trim() !== "",
+    isPending: continuing.isPending,
+    error: continuing.error,
+    send: () => continuing.mutate(undefined, { onSuccess: onContinued }),
+  };
+}
+
+/** The notes every Agent Stage after the Gate is briefed with. */
+export function ContinueNotesField({
+  continuing,
+}: {
+  readonly continuing: ContinuingWithNotes;
+}): ReactNode {
+  return (
+    <div className="gate-step-fields">
+      <MessageField
+        label="Your notes"
+        rows={3}
+        placeholder={continuing.placeholder}
+        value={continuing.notes}
+        onChange={continuing.writeNotes}
+        canSend={continuing.written && !continuing.isPending}
+        busyReason={undefined}
+        onSend={continuing.send}
+        autoFocus
+      />
+      {continuing.error && <ContinueRefused error={continuing.error} />}
+    </div>
+  );
 }
 
 function continueToast({ next }: WaitingGate): string {
