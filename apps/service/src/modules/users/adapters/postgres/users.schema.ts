@@ -4,7 +4,8 @@ import type { AddressKind } from "../../domain/address-kind.js";
 
 /**
  * Each user, with their password's scrypt hash, never the password, and their wrong tries in a
- * row, kept here so a restart doesn't reset the slow-down or the lockout.
+ * row, kept here so a restart doesn't reset the slow-down or the lockout. A removed user's row
+ * stays, without a password, so what they did still reads their name; their email is free again.
  */
 export const users = pgTable(
   "users",
@@ -12,13 +13,24 @@ export const users = pgTable(
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     email: text("email").notNull(),
-    passwordHash: text("password_hash").notNull(),
+    /** Null once the user is removed. */
+    passwordHash: text("password_hash"),
+    /** Set while the password is a one-time password, which works until then. */
+    oneTimePasswordExpiresAt: timestamp("one_time_password_expires_at", { withTimezone: true }),
     wrongTriesInARow: integer("wrong_tries_in_a_row").notNull().default(0),
     nextTryAt: timestamp("next_try_at", { withTimezone: true }),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    /** The palette and density the user chose; null for Follow the system and Comfortable. */
+    palette: text("palette"),
+    density: text("density"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
   },
-  (table) => [uniqueIndex("users_email_unique").on(sql`lower(${table.email})`)],
+  (table) => [
+    uniqueIndex("users_active_email_unique")
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.removedAt} IS NULL`),
+  ],
 );
 
 /**

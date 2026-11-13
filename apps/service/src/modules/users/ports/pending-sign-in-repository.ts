@@ -9,6 +9,9 @@ export abstract class PendingSignInRepository {
   /** Removes it; says whether it was there, so two requests can't both use it up. */
   abstract remove(id: string): Promise<boolean>;
 
+  /** Removes the user's. */
+  abstract removeAllOf(userId: string): Promise<void>;
+
   /** Removes those expired by `now`. */
   abstract removeExpired(now: Date): Promise<void>;
 }

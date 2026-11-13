@@ -29,18 +29,21 @@ export class UserWrongTries {
 
   /**
    * Takes a try, counted wrong until it is cleared or undone; throws `SignInRefused` when the
-   * slow-down or the lockout takes none now. Undefined when there is no such user.
+   * slow-down or the lockout takes none now. Undefined when there is no such user, or they were
+   * removed.
    */
   async take(userId: string): Promise<TakenTry | undefined> {
     let before = NO_WRONG_TRIES;
     const user = await this.users.update(userId, (stored) => {
+      if (stored.removedAt !== undefined) return undefined;
       const now = this.schedule.now();
       const refusal = tryRefusal(stored.wrongTries, now);
       if (refusal !== undefined) throw refusal;
       before = stored.wrongTries;
       return { ...stored, wrongTries: afterWrongTry(stored.wrongTries, now) };
     });
-    return user && { user, before };
+    if (user === undefined || user.removedAt !== undefined) return undefined;
+    return { user, before };
   }
 
   /**

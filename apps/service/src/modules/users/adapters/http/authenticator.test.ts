@@ -16,6 +16,7 @@ import {
   signedInCookie,
   type UserForTests,
 } from "../../index.fixtures.js";
+import { Users } from "../../application/users.js";
 import {
   send,
   setCookieOf,
@@ -445,6 +446,22 @@ describe("turning the authenticator off and new recovery codes", () => {
 
     expect(answer.status).toBe(204);
     expect(await account()).toEqual({ state: "off" });
+  });
+});
+
+describe("removing the user", () => {
+  it("removes their authenticator, recovery codes and pending sign-ins", async () => {
+    const { secret } = await turnOn();
+    await office.schedule.advanceBy(STEP);
+    const pending = await pendingCookie();
+    const other = await addUser(office.app, { name: "Grace Hopper" });
+
+    await office.app.get(Users).remove(user.id, other.id);
+
+    for (const table of [authenticators, recoveryCodes, pendingSignIns]) {
+      expect(await database().select().from(table).where(eq(table.userId, user.id))).toEqual([]);
+    }
+    expect((await codeSignIn(pending, { code: codeOf(secret) })).status).toBe(401);
   });
 });
 

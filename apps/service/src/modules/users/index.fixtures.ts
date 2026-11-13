@@ -31,7 +31,7 @@ export async function addUser(
 ): Promise<UserForTests> {
   const email = `ada-${randomUUID().slice(0, 8)}@example.com`;
   const hash = await new ScryptPasswordHashing().hash(password);
-  const user = userOf(randomUUID(), { name, email, password }, hash, new Date());
+  const user = userOf(randomUUID(), { name, email }, hash, new Date());
   await app.get(UserRepository, { strict: false }).add(user);
   return { id: user.id, name, email, password };
 }

@@ -72,7 +72,7 @@ export async function getFromApi<Schema extends z.ZodType>(
 
 /** Sends `body` as JSON to `path` under /api and checks the answer as getFromApi does. */
 export async function sendToApi<Schema extends z.ZodType>(
-  method: "POST" | "PUT",
+  method: "POST" | "PUT" | "PATCH",
   path: `/${string}`,
   body: unknown,
   schema: Schema,

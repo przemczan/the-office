@@ -13,8 +13,12 @@ export interface SignedInOutcome {
   readonly signedInDeviceId: string;
 }
 
-/** How a sign-in ended: signed in, or waiting for a second step such as the authenticator code. */
-export type SignInOutcome = SignedInOutcome | SecondStep;
+/**
+ * How a sign-in ended: signed in; waiting for a second step such as the authenticator code; or,
+ * after a right one-time password, on to setting the user's own password, with no signed-in device
+ * yet.
+ */
+export type SignInOutcome = SignedInOutcome | SecondStep | { readonly outcome: "set-password" };
 
 /**
  * Where every way of signing in ends (spec §2.10), once it has found the user: a second step when
@@ -28,7 +32,11 @@ export class SignIns {
     private readonly wrongTries: UserWrongTries,
   ) {}
 
-  async finish(user: User, way: SignInWay, request: SignInRequest): Promise<SignInOutcome> {
+  async finish(
+    user: User,
+    way: SignInWay,
+    request: SignInRequest,
+  ): Promise<SignedInOutcome | SecondStep> {
     if (!way.enoughAlone) {
       const secondStep = await this.secondSteps.after(user);
       if (secondStep !== undefined) return secondStep;

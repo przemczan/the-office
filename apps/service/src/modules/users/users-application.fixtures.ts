@@ -46,7 +46,7 @@ export async function startUsersApplication({
 }
 
 export interface Sent {
-  readonly method?: "GET" | "POST" | "DELETE";
+  readonly method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   readonly path: string;
   /** The Host the request is addressed to: `localhost` at the app's port unless given. */
   readonly host?: string;

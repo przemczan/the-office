@@ -1,54 +1,13 @@
-import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { decodeBase32IgnorePadding } from "@oslojs/encoding";
 import { generateHOTP } from "@oslojs/otp";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, type Browser, type Page } from "@playwright/test";
 import { NOT_SIGNED_IN } from "./e2e-user.ts";
-import { queryOfficeDatabase } from "./office-database.ts";
+import { asOwnUser as test, type OwnUser } from "./own-user.ts";
 import { screenshotScenario } from "./task-screenshots.ts";
 
-// A user of this file's own, so the shared e2e user never gets an authenticator: every other file
+// A user of this test's own, so the shared e2e user never gets an authenticator: every other file
 // signs in as them with a password alone.
-const GRACE = {
-  name: "Grace Hopper",
-  email: `grace-${randomUUID().slice(0, 8)}@e2e.example`,
-  password: "A ship in port is safe, but that is not what ships are for.",
-};
-
-test.use({
-  storageState: NOT_SIGNED_IN,
-  colorScheme: "light",
-  viewport: { width: 1600, height: 900 },
-});
-
-test.beforeAll(async () => {
-  await queryOfficeDatabase(
-    "INSERT INTO users (id, name, email, password_hash, created_at) VALUES ($1, $2, $3, $4, now())",
-    [randomUUID(), GRACE.name, GRACE.email, passwordHashOf(GRACE.password)],
-  );
-});
-
-/**
- * The password as the service keeps it, `scrypt$N$r$p$salt$key`: adding a user is no screen yet,
- * so the user is seeded. A lower cost than the service's own, which reads it from the hash, so the
- * seeding stays quick.
- */
-function passwordHashOf(password: string): string {
-  const [cost, blockSize, parallelization] = [2 ** 14, 8, 1];
-  const salt = randomBytes(16);
-  const key = scryptSync(password.normalize("NFC"), salt, 64, {
-    N: cost,
-    r: blockSize,
-    p: parallelization,
-  });
-  return [
-    "scrypt",
-    cost,
-    blockSize,
-    parallelization,
-    salt.toString("base64url"),
-    key.toString("base64url"),
-  ].join("$");
-}
+test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
 /** The code the authenticator app shows `steps` time steps from now, on the service's own clock. */
 function codeOf(key: string, steps = 0): string {
@@ -56,11 +15,11 @@ function codeOf(key: string, steps = 0): string {
   return generateHOTP(decodeBase32IgnorePadding(key), BigInt(step), 6);
 }
 
-async function signInWithPassword(page: Page, path: string): Promise<void> {
+async function signInWithPassword(page: Page, user: OwnUser, path: string): Promise<void> {
   await page.goto(path);
   const form = page.getByRole("form", { name: "Sign in with a password" });
-  await form.getByLabel("Email").fill(GRACE.email);
-  await form.getByLabel("Password").fill(GRACE.password);
+  await form.getByLabel("Email").fill(user.email);
+  await form.getByLabel("Password").fill(user.password);
   await form.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
@@ -77,9 +36,9 @@ async function newBrowser(browser: Browser): Promise<Page> {
 test("the user sets up an authenticator, signs in with a password and its code, then with a recovery code, and turns it off", async ({
   page,
   browser,
+  ownUser,
 }) => {
-  await signInWithPassword(page, "/account");
-  await expect(page).toHaveURL(/\/account$/);
+  await page.goto("/account/authenticator");
   await expect(page.getByText("Off: your password alone signs you in.")).toBeVisible();
   await page.getByRole("button", { name: "Set up the authenticator" }).click();
 
@@ -107,7 +66,7 @@ test("the user sets up an authenticator, signs in with a password and its code, 
   // A password alone no longer signs in: the code page asks for the code, outside the shell. The
   // first code's step is taken, so the next step's code, within the drift, signs in at once.
   const withCode = await newBrowser(browser);
-  await signInWithPassword(withCode, "/work");
+  await signInWithPassword(withCode, ownUser, "/work");
   await expect(withCode).toHaveURL(/\/sign-in\/code\?returnTo=%2Fwork$/);
   await expect(withCode.getByRole("heading", { level: 1 })).toHaveText("Authenticator code");
   await expect(withCode.locator(".shell")).toHaveCount(0);
@@ -118,11 +77,11 @@ test("the user sets up an authenticator, signs in with a password and its code, 
   await expect(withCode.locator(".shell")).toBeVisible();
 
   const withRecoveryCode = await newBrowser(browser);
-  await signInWithPassword(withRecoveryCode, "/account");
+  await signInWithPassword(withRecoveryCode, ownUser, "/account/authenticator");
   await withRecoveryCode.getByRole("button", { name: "Use a recovery code" }).click();
   await withRecoveryCode.getByRole("textbox", { name: "Recovery code" }).fill(codes[0] ?? "");
   await withRecoveryCode.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(withRecoveryCode).toHaveURL(/\/account$/);
+  await expect(withRecoveryCode).toHaveURL(/\/account\/authenticator$/);
   await expect(withRecoveryCode.getByText("9 recovery codes left.")).toBeVisible();
 
   await page.reload();
@@ -138,6 +97,6 @@ test("the user sets up an authenticator, signs in with a password and its code, 
   await expect(page.getByText("Off: your password alone signs you in.")).toBeVisible();
 
   const passwordAlone = await newBrowser(browser);
-  await signInWithPassword(passwordAlone, "/account");
-  await expect(passwordAlone).toHaveURL(/\/account$/);
+  await signInWithPassword(passwordAlone, ownUser, "/account/authenticator");
+  await expect(passwordAlone).toHaveURL(/\/account\/authenticator$/);
 });

@@ -19,6 +19,7 @@ const ADA: Account = {
   id: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
   name: "Ada",
   email: "ada@x.io",
+  appearance: { palette: null, density: null },
   authenticator: { state: "off" },
 };
 const SIGNED_OUT = { statusCode: 401, message: "Sign in to The Office first." };
@@ -280,5 +281,25 @@ describe("the authenticator code", () => {
     await until(() =>
       expect(where(router)).toEqual({ pathname: "/sign-in", search: { returnTo: "/projects" } }),
     );
+  });
+});
+
+describe("the account", () => {
+  it("is where Settings › Appearance went, since palette and density are each user's own", async () => {
+    stubService();
+    answer({ "GET /api/account": () => ({ status: 200, body: ADA }) });
+
+    const { router } = await opened("/settings/appearance");
+
+    await until(() => expect(where(router).pathname).toBe("/account/appearance"));
+  });
+
+  it("opens at its profile", async () => {
+    stubService();
+    answer({ "GET /api/account": () => ({ status: 200, body: ADA }) });
+
+    const { router } = await opened("/account");
+
+    await until(() => expect(where(router).pathname).toBe("/account/profile"));
   });
 });

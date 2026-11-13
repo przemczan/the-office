@@ -31,6 +31,10 @@ export class PostgresPendingSignInRepository extends PendingSignInRepository {
     return removed.length > 0;
   }
 
+  async removeAllOf(userId: string): Promise<void> {
+    await this.database.delete(pendingSignIns).where(eq(pendingSignIns.userId, userId));
+  }
+
   async removeExpired(now: Date): Promise<void> {
     await this.database.delete(pendingSignIns).where(lte(pendingSignIns.expiresAt, now));
   }

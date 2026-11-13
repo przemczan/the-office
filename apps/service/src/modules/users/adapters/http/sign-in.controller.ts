@@ -1,9 +1,11 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseFilters } from "@nestjs/common";
 import {
   codeAnswerSchema,
+  firstPasswordSchema,
   firstUserSchema,
   passwordSignInSchema,
   type CodeAnswer,
+  type FirstPassword as FirstPasswordMessage,
   type FirstUser as FirstUserMessage,
   type PasswordSignIn as PasswordSignInMessage,
   type SignInOutcome as SignInOutcomeMessage,
@@ -13,6 +15,7 @@ import type { Request, Response } from "express";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
 import { CodeSignIn } from "../../application/code-sign-in.js";
+import { FirstPassword } from "../../application/first-password.js";
 import { FirstUser } from "../../application/first-user.js";
 import { PasswordSignIn } from "../../application/password-sign-in.js";
 import { SignInWays } from "../../application/sign-in-ways.js";
@@ -33,6 +36,7 @@ export class SignInController {
     private readonly firstUser: FirstUser,
     private readonly passwordSignIn: PasswordSignIn,
     private readonly codeSignIn: CodeSignIn,
+    private readonly firstPassword: FirstPassword,
     private readonly signInWays: SignInWays,
     private readonly officeAddresses: OfficeAddresses,
   ) {}
@@ -85,6 +89,19 @@ export class SignInController {
       answer,
       signInRequestOf(request, address),
     );
+    return answerSignIn(outcome, address.secure, response);
+  }
+
+  /** A user added by another sets their own password, with their one-time password, and is signed in. */
+  @Post("set-password")
+  @HttpCode(200)
+  async setPassword(
+    @Body(new ContractPipe(firstPasswordSchema)) firstPassword: FirstPasswordMessage,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<SignInOutcomeMessage> {
+    const address = this.officeAddresses.addressOf(request);
+    const outcome = await this.firstPassword.set(firstPassword, signInRequestOf(request, address));
     return answerSignIn(outcome, address.secure, response);
   }
 }

@@ -27,7 +27,7 @@ export function CodePage(): ReactNode {
   const signedIn = useSignedIn();
   const signingIn = useMutation({
     mutationFn: () => signInWithCode(codeAnswerOf(draft)),
-    onSuccess: signedIn,
+    onSuccess: (outcome) => (outcome.outcome === "set-password" ? undefined : signedIn(outcome)),
   });
   const refusal = useCodeRefusal(signingIn.error);
   const waitWords = refusal?.waitWords;

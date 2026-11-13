@@ -1,6 +1,7 @@
 import type { SignInOutcome as SignInOutcomeMessage } from "@the-office/contracts";
 import type { Response } from "express";
-import type { SignInOutcome } from "../../application/sign-ins.js";
+import type { SignedInOutcome, SignInOutcome } from "../../application/sign-ins.js";
+import type { SecondStep } from "../../ports/second-steps.js";
 import { clearedPendingSignInCookie, pendingSignInCookie, signInCookie } from "./sign-in-cookie.js";
 
 /** Where the web asks for the authenticator code. */
@@ -8,15 +9,18 @@ const CODE_PAGE = "/sign-in/code";
 
 /**
  * Answers a sign-in in the body, as the sign-in page's own requests read it: signed in, with the
- * sign-in cookie and the pending one cleared, or waiting for the code, with the pending cookie. The
- * tokens travel only in cookies, never in the body.
+ * sign-in cookie and the pending one cleared; waiting for the code, with the pending cookie; or on
+ * to setting the user's own password, with neither. The tokens travel only in cookies, never in the
+ * body.
  */
 export function answerSignIn(
   outcome: SignInOutcome,
   secure: boolean,
   response: Response,
 ): SignInOutcomeMessage {
-  response.setHeader("Set-Cookie", cookiesOf(outcome, secure));
+  if (outcome.outcome !== "set-password") {
+    response.setHeader("Set-Cookie", cookiesOf(outcome, secure));
+  }
   return { outcome: outcome.outcome };
 }
 
@@ -25,7 +29,7 @@ export function answerSignIn(
  * Continue with Google): to `returnTo` once signed in, or to the code page, which goes on to it.
  */
 export function redirectSignIn(
-  outcome: SignInOutcome,
+  outcome: SignedInOutcome | SecondStep,
   secure: boolean,
   returnTo: string,
   response: Response,
@@ -38,7 +42,7 @@ export function redirectSignIn(
   );
 }
 
-function cookiesOf(outcome: SignInOutcome, secure: boolean): string[] {
+function cookiesOf(outcome: SignedInOutcome | SecondStep, secure: boolean): string[] {
   return outcome.outcome === "signed-in"
     ? [signInCookie(outcome.token, secure), clearedPendingSignInCookie(secure)]
     : [pendingSignInCookie(outcome.pendingToken, secure)];

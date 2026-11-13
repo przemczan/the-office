@@ -1,5 +1,8 @@
-/** Why a sign-in is refused: a wrong email, password or code, the slow-down's wait, or the lockout. */
-export type SignInRefusal = "wrong" | "slow-down" | "locked";
+/**
+ * Why a sign-in is refused: a wrong email, password or code, the slow-down's wait, the lockout, or
+ * a right one-time password past its 7 days.
+ */
+export type SignInRefusal = "wrong" | "slow-down" | "locked" | "expired";
 
 /** What was tried: the password, or an authenticator or recovery code. */
 export type TriedWith = "password" | "code";
@@ -10,6 +13,7 @@ const WRONG: Readonly<Record<TriedWith, string>> = {
 };
 const SLOW_DOWN = "Too many wrong tries in a row: wait a moment before the next one.";
 const LOCKED = "Too many wrong tries: signing in with a password or code is locked for a while.";
+const EXPIRED = "This one-time password has expired: ask for a new one.";
 
 /**
  * A sign-in refused. An unknown email gets the same refusal as a wrong password, so it never tells
@@ -36,5 +40,10 @@ export class SignInRefused extends Error {
 
   static locked(until: Date): SignInRefused {
     return new SignInRefused("locked", LOCKED, until);
+  }
+
+  /** Told only to someone who typed the right one-time password, so it gives nothing away. */
+  static expired(): SignInRefused {
+    return new SignInRefused("expired", EXPIRED, undefined);
   }
 }

@@ -11,6 +11,30 @@ export class UserCreated extends DomainEvent {
   }
 }
 
+/**
+ * A user's name, email or appearance changed, their one-time password was made anew, or they set
+ * their own password in place of it.
+ */
+export class UserChanged extends DomainEvent {
+  constructor(readonly userId: string) {
+    super();
+  }
+}
+
+/**
+ * A user removed: their devices are signed out and they can no longer sign in. Their row stays, so
+ * records keep their name. Anything of theirs a later module keeps, such as a linked identity or a
+ * passkey, is cleaned up on this event.
+ */
+export class UserRemoved extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    removedAt: Date,
+  ) {
+    super(removedAt);
+  }
+}
+
 /** A user signed in on a new signed-in device. */
 export class SignedIn extends DomainEvent {
   constructor(

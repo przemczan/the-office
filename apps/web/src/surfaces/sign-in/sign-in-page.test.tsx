@@ -1,4 +1,4 @@
-import type { SignInPage } from "@the-office/contracts";
+import type { Account, SignInPage } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   closeSignInPage,
@@ -61,5 +61,46 @@ describe("the sign-in page", () => {
       email: "ada@example.com",
       password: "twelve chars or more",
     });
+  });
+
+  it("goes on to setting a new user's own password after their one-time password, then signs in with their appearance", async () => {
+    const grace: Account = {
+      id: "6e2d3c4b-5f6a-4b7c-9d8e-0f1a2b3c4d5e",
+      name: "Grace",
+      email: "grace@example.com",
+      appearance: { palette: "mocha", density: "compact" },
+      authenticator: { state: "off" },
+    };
+    const sent = stubService({
+      "GET /api/sign-in": signInPage({ firstRun: false, ways: [{ kind: "password" }] }),
+      "POST /api/sign-in/password": () => ({ status: 200, body: { outcome: "set-password" } }),
+      "POST /api/sign-in/set-password": () => ({ status: 200, body: { outcome: "signed-in" } }),
+      "GET /api/account": () => ({ status: 200, body: grace }),
+    });
+    const { page, router } = await openSignInPage("/sign-in?returnTo=%2Fwork");
+    await until(() => expect(formNamed(page, "Sign in with a password")).not.toBeNull());
+
+    typed(page, "Email", "grace@example.com");
+    typed(page, "Password", "ABCD-EFGH-JKMN-PQRS");
+    submitted(formNamed(page, "Sign in with a password"));
+
+    await until(() => expect(formNamed(page, "Set your password")).not.toBeNull());
+    const form = formNamed(page, "Set your password");
+    typed(page, "New password", "my very own password");
+    typed(page, "Repeat the new password", "my very own passwore");
+    expect(page.textContent).toContain("The two passwords differ.");
+    expect(form?.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+    typed(page, "Repeat the new password", "my very own password");
+    submitted(form);
+
+    await until(() => expect(router.state.location.pathname).toBe("/work"));
+    expect(sent.find(({ request }) => request === "POST /api/sign-in/set-password")?.body).toEqual({
+      email: "grace@example.com",
+      oneTimePassword: "ABCD-EFGH-JKMN-PQRS",
+      password: "my very own password",
+    });
+    // Read before leaving, so the shell's first paint is already the user's own.
+    expect(document.documentElement.dataset.palette).toBe("mocha");
+    expect(document.documentElement.dataset.density).toBe("compact");
   });
 });

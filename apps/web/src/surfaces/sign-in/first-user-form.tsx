@@ -19,7 +19,8 @@ export function FirstUserForm(): ReactNode {
   const signedIn = useSignedIn();
   const creating = useMutation({
     mutationFn: () => createFirstUser({ name: name.trim(), email: email.trim(), password }),
-    onSuccess: signedIn,
+    // The first user sets their own password, so it never asks for one.
+    onSuccess: (outcome) => (outcome.outcome === "set-password" ? undefined : signedIn(outcome)),
     onError: (error) => {
       if (error instanceof ApiError && error.status === 409) {
         void queryClient.invalidateQueries({ queryKey: userQueries.signInPage().queryKey });

@@ -31,6 +31,11 @@ export class PendingSignIns {
     return pendingSignIn;
   }
 
+  /** Ends every one of the user's, such as when they are removed. */
+  async endAllOf(userId: string): Promise<void> {
+    await this.pendingSignIns.removeAllOf(userId);
+  }
+
   /** Uses it up; says whether it was still there, so two requests can't both use it. */
   useUp(pendingSignIn: PendingSignIn): Promise<boolean> {
     return this.pendingSignIns.remove(pendingSignIn.id);

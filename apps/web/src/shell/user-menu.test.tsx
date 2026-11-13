@@ -8,6 +8,7 @@ const ADA: Account = {
   id: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
   name: "Ada",
   email: "ada@x.io",
+  appearance: { palette: null, density: null },
   authenticator: { state: "off" },
 };
 
