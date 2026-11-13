@@ -69,6 +69,7 @@ import {
   sendFileToApi,
   sendToApi,
   sendToApiWithNoAnswer,
+  SignedOut,
 } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { RUN_ENVIRONMENTS } from "./projects.ts";
@@ -614,6 +615,7 @@ export function attachmentContentUrl(id: string): string {
  */
 async function readShownText(id: string, signal?: AbortSignal): Promise<ShownText> {
   const response = await fetch(attachmentContentUrl(id), { signal });
+  if (response.status === 401) throw new SignedOut();
   if (!response.ok || response.body === null) {
     throw new Error(`The file can't be read: ${response.statusText}.`);
   }

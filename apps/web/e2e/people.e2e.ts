@@ -41,6 +41,7 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
+import { E2E_STORAGE_STATE } from "./e2e-user.ts";
 import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
@@ -5474,7 +5475,10 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     const otherTab = await page.context().newPage();
     await otherTab.goto("/work");
     await expect(chatButton(otherTab)).toHaveAccessibleName("Chat: nothing new");
-    const elsewhere = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const elsewhere = await browser.newContext({
+      baseURL: new URL(page.url()).origin,
+      storageState: E2E_STORAGE_STATE,
+    });
     const otherBrowser = await elsewhere.newPage();
     await otherBrowser.goto("/now");
     await chatButton(otherBrowser).click();

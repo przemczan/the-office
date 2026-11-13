@@ -1,0 +1,97 @@
+import { randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
+import { Injectable } from "@nestjs/common";
+import { PasswordHashing } from "../../ports/password-hashing.js";
+
+/** The parameters new hashes get; an older hash keeps its own, written into it. */
+const COST = 2 ** 15;
+const BLOCK_SIZE = 8;
+const PARALLELIZATION = 1;
+const SALT_BYTES = 16;
+const KEY_BYTES = 64;
+const SCHEME = "scrypt";
+
+/** scrypt needs 128 × N × r bytes; Node's 32 MB default is too little from N = 2^15 at r = 8. */
+function memoryFor(cost: number, blockSize: number): number {
+  return 2 * 128 * cost * blockSize;
+}
+
+function derive(
+  password: string,
+  salt: Buffer,
+  keyBytes: number,
+  options: ScryptOptions,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(password.normalize("NFC"), salt, keyBytes, options, (error, key) =>
+      error ? reject(error) : resolve(key),
+    );
+  });
+}
+
+/**
+ * Passwords as Node's scrypt with a random salt (spec §6), written `scrypt$N$r$p$salt$key` (salt
+ * and key in base64url) so the parameters can rise later and old hashes still match.
+ */
+@Injectable()
+export class ScryptPasswordHashing extends PasswordHashing {
+  async hash(password: string): Promise<string> {
+    const salt = randomBytes(SALT_BYTES);
+    const key = await derive(password, salt, KEY_BYTES, {
+      N: COST,
+      r: BLOCK_SIZE,
+      p: PARALLELIZATION,
+      maxmem: memoryFor(COST, BLOCK_SIZE),
+    });
+    return [
+      SCHEME,
+      COST,
+      BLOCK_SIZE,
+      PARALLELIZATION,
+      salt.toString("base64url"),
+      key.toString("base64url"),
+    ].join("$");
+  }
+
+  async matches(password: string, hash: string): Promise<boolean> {
+    const parsed = parseHash(hash);
+    if (parsed === undefined) return false;
+    const { cost, blockSize, parallelization, salt, key } = parsed;
+    try {
+      const derived = await derive(password, salt, key.length, {
+        N: cost,
+        r: blockSize,
+        p: parallelization,
+        maxmem: memoryFor(cost, blockSize),
+      });
+      return timingSafeEqual(derived, key);
+    } catch {
+      // Parameters scrypt refuses, such as a cost that isn't a power of two.
+      return false;
+    }
+  }
+}
+
+interface ParsedHash {
+  readonly cost: number;
+  readonly blockSize: number;
+  readonly parallelization: number;
+  readonly salt: Buffer;
+  readonly key: Buffer;
+}
+
+function parseHash(hash: string): ParsedHash | undefined {
+  const [scheme, cost, blockSize, parallelization, salt, key, ...rest] = hash.split("$");
+  if (scheme !== SCHEME || rest.length > 0 || !salt || !key) return undefined;
+  const numbers = [cost, blockSize, parallelization].map(Number);
+  if (!numbers.every((number) => Number.isSafeInteger(number) && number > 0)) return undefined;
+  const [parsedCost = 0, parsedBlockSize = 0, parsedParallelization = 0] = numbers;
+  const keyBytes = Buffer.from(key, "base64url");
+  if (keyBytes.length === 0) return undefined;
+  return {
+    cost: parsedCost,
+    blockSize: parsedBlockSize,
+    parallelization: parsedParallelization,
+    salt: Buffer.from(salt, "base64url"),
+    key: keyBytes,
+  };
+}

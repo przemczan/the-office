@@ -4,6 +4,7 @@ import {
   configureHttp,
   HTTP_APPLICATION_OPTIONS,
 } from "../../../../platform/http/configure-http.js";
+import { everyoneSignedIn } from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { SessionEndpoints } from "../claude-code-p/session-endpoints.js";
 import { SessionEndpointsController } from "./session-endpoints.controller.js";
 
@@ -19,6 +20,7 @@ export interface ServedEndpoints {
  */
 export async function serveSessionEndpoints(): Promise<ServedEndpoints> {
   const moduleRef = await Test.createTestingModule({
+    imports: [everyoneSignedIn()],
     controllers: [SessionEndpointsController],
     providers: [SessionEndpoints],
   }).compile();

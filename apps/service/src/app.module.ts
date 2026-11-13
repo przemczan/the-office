@@ -55,6 +55,7 @@ import {
 } from "./modules/run-environments/index.js";
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
+import { CookieSignedInRequests, UsersModule } from "./modules/users/index.js";
 import {
   FireAlarmService,
   InitiativeService,
@@ -71,6 +72,7 @@ import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
+import { RequestAccessModule } from "./platform/http/request-access.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
@@ -199,9 +201,15 @@ export class AppModule {
         PeopleModule,
         pipelines,
         projects,
+        RequestAccessModule.register({
+          publicAddress: config.publicAddress,
+          imports: [UsersModule],
+          signedInRequests: CookieSignedInRequests,
+        }),
         runEnvironments,
         SkillsModule,
         TelemetryModule,
+        UsersModule,
         WebAppModule.register(webApp),
         work,
         WorkstationModule,

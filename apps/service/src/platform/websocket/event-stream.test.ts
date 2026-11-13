@@ -5,9 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../test/test-application.js";
 import { EventBus } from "../events/event-bus.js";
 import { EventsModule } from "../events/events.module.js";
+import { SIGNED_OUT } from "./event-stream.js";
 import { EventStreamModule } from "./event-stream.module.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 import {
+  devicesForTests,
+  DevicesForTests,
   LampLit,
   LampDimmed,
   messageSchema,
@@ -131,5 +134,59 @@ describe("the event stream", () => {
     });
 
     expect(refusedWith).toBe(404);
+  });
+});
+
+describe("signed-in devices", () => {
+  let guarded: INestApplication;
+  let guardedPort: number;
+  let devices: DevicesForTests;
+
+  beforeEach(async () => {
+    ({ app: guarded, port: guardedPort } = await startTestApplication({
+      imports: [EventsModule, EventStreamModule, devicesForTests()],
+      requestAccess: "guarded",
+    }));
+    devices = guarded.get(DevicesForTests);
+  });
+
+  afterEach(async () => {
+    await guarded.close();
+  });
+
+  function connectAs(cookie: string | undefined): WsClient {
+    return new WsClient(`ws://localhost:${guardedPort}${EVENTS_PATH}`, {
+      headers: cookie === undefined ? {} : { cookie },
+    });
+  }
+
+  it("refuses a WebSocket without a signed-in device, on localhost too", async () => {
+    const signedOut = devices.signIn("signed-out");
+    devices.signOut("signed-out");
+
+    for (const cookie of [undefined, signedOut]) {
+      const client = connectAs(cookie);
+      const refusedWith = await new Promise((resolve) => {
+        client.on("unexpected-response", (_request, response) => resolve(response.statusCode));
+        client.on("open", () => resolve("open"));
+      });
+
+      expect(refusedWith).toBe(401);
+    }
+  });
+
+  it("closes the WebSockets of a device once it is signed out, and only its own", async () => {
+    const leaving = connectAs(devices.signIn("leaving"));
+    const staying = connectAs(devices.signIn("staying"));
+    await Promise.all(
+      [leaving, staying].map((client) => new Promise((resolve) => client.once("open", resolve))),
+    );
+    const closedWith = new Promise((resolve) => leaving.once("close", (code) => resolve(code)));
+
+    devices.signOut("leaving");
+
+    expect(await closedWith).toBe(SIGNED_OUT);
+    expect(staying.readyState).toBe(WsClient.OPEN);
+    staying.close();
   });
 });

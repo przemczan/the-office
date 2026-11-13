@@ -1,0 +1,30 @@
+/* ---- the account: one column of cards */
+.account-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-panel);
+  max-width: 960px;
+  padding: var(--pad-page);
+}
+
+.account-block-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-count {
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.account-banner {
+  padding: var(--pad-card);
+}
+
+.account-device {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

@@ -1,0 +1,43 @@
+/* ---- the sign-in page: bare, outside the shell, one column in the window's middle */
+.sign-in-page {
+  display: grid;
+  place-items: start center;
+  min-height: 100vh;
+  padding: max(48px, 12vh) var(--pad-page) 48px;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.sign-in-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-panel);
+  width: min(400px, 100%);
+}
+
+.sign-in-column h1 {
+  margin: 0;
+  font: var(--type-page-title);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+
+.sign-in-office {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: var(--type-section-title);
+  color: var(--fg-1);
+}
+
+.sign-in-lead {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--fg-2);
+}
+
+.sign-in-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}

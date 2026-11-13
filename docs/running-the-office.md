@@ -1,6 +1,6 @@
 # Running The Office
 
-How The Office runs on a Linux host, kept running by systemd, and how it updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Updating The Office").
+How The Office runs on a Linux host, kept running by systemd, how it is reached through a reverse proxy, how a user gets back in, and how it updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Updating The Office").
 
 ## `npm start` runs the launcher
 
@@ -41,6 +41,33 @@ WantedBy=multi-user.target
 ```
 
 Then `systemctl daemon-reload` and `systemctl enable --now the-office`. Put the user's own folders on `PATH` too when Agents need tools from them, such as `~/.local/bin`.
+
+## Behind a reverse proxy
+
+The Office is used at `localhost`, by IP on a trusted local network over plain HTTP (`OFFICE_HOST` set to the machine's IP address or `0.0.0.0`), or at its **public address**: HTTPS and a domain, through a reverse proxy the user sets up ([spec §5.1](spec/5.1-shape.md)). Setting up the proxy is the user's; what The Office needs from it:
+
+- **HTTPS to the browser.** The proxy ends TLS and passes requests on to The Office's own address and port (`http://127.0.0.1:4310`) over plain HTTP.
+- **The original `Host`.** The Office answers only requests addressed to `localhost`, `127.0.0.1`, the IP address it listens on, or the public address's name, so the proxy passes the browser's `Host` on unchanged (nginx: `proxy_set_header Host $host;`; Caddy does by default).
+- **`X-Forwarded-Proto: https`.** A request at the public address's name counts as HTTPS only with it, and only then does the sign-in cookie get `Secure` (nginx: `proxy_set_header X-Forwarded-Proto $scheme;`; Caddy sets it).
+- **WebSocket upgrades on `/api/events`.** The live updates come over a WebSocket there (nginx: `proxy_http_version 1.1;`, `proxy_set_header Upgrade $http_upgrade;` and `proxy_set_header Connection "upgrade";` in that location; Caddy passes them by default).
+
+Then give The Office its public address in `.env` and restart it:
+
+```ini
+OFFICE_PUBLIC_ADDRESS=https://office.example.com
+```
+
+It is an `https://` address with no path; an invalid one stops the start with a config problem. Left blank, The Office has no public address and refuses requests to any name but `localhost`. Pages at the public address get the ways to sign in that need HTTPS and a name ([spec §2.10](spec/2.10-users-and-signing-in.md)).
+
+## Setting a user's password on the host
+
+A user who lost their password gets back in through a command on the host, in the checkout:
+
+```sh
+npm run set-password -- --email ada@example.com
+```
+
+It asks for the new password twice without showing it (or reads one line from standard input when that isn't a terminal), sets it, lifts the user's lockout and signs out all their signed-in devices. It reads `.env` as the service does, so it reaches the same database; the service may run meanwhile. An unknown email ends it with a message and a non-zero exit code.
 
 ## How an Office update works
 

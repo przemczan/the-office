@@ -7,6 +7,7 @@ import {
   OFFICE_IDENTITY_SETTINGS_PATH,
   officeSshKeySchema,
 } from "@the-office/contracts";
+import { E2E_STORAGE_STATE } from "./e2e-user.ts";
 import { FAKE_GITHUB_URL, installApp } from "./fake-github.ts";
 import { serveRepository } from "./git-host.ts";
 import { E2E_HOST_KEY_FINGERPRINT } from "./ssh-host.ts";
@@ -42,7 +43,10 @@ function repositoryList(page: Page): Locator {
 test.describe.serial("Sign in with GitHub", () => {
   test.afterAll(async ({ playwright }, testInfo) => {
     // Signed out even when a test before "signing out" failed.
-    const api = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL });
+    const api = await playwright.request.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      storageState: E2E_STORAGE_STATE,
+    });
     await api.delete("/api/github/sign-in");
     await api.dispose();
   });

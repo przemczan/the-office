@@ -7,7 +7,8 @@
     "build": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\" && tsc -b tsconfig.build.json",
     "dev": "npm run build && concurrently --kill-others --names build,service \"tsc -b tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch-path=dist --enable-source-maps --env-file-if-exists=../../.env dist/dev.js\"",
     "db:generate": "drizzle-kit generate",
-    "start": "node --env-file-if-exists=../../.env ../../tools/office-launcher/src/main.ts"
+    "start": "node --env-file-if-exists=../../.env ../../tools/office-launcher/src/main.ts",
+    "set-password": "node --env-file-if-exists=../../.env dist/set-password.js"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.310",

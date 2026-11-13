@@ -11,7 +11,8 @@ import {
   GITHUB_SIGN_IN_FAILED_PARAMETER,
   type BoardFilters,
 } from "@the-office/contracts";
-import { Shell } from "./shell/shell.tsx";
+import { RootLayout } from "./shell/root-layout.tsx";
+import { AccountPage } from "./surfaces/account/account-page.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
@@ -41,6 +42,7 @@ import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx"
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
+import { SignInPage } from "./surfaces/sign-in/sign-in-page.tsx";
 import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
@@ -80,8 +82,9 @@ export interface OverPageSearch {
   readonly needsYou?: true;
 }
 
+// The sign-in page opens bare, every other page in the shell (`RootLayout`).
 const rootRoute = createRootRoute({
-  component: Shell,
+  component: RootLayout,
   validateSearch: (search: Record<string, unknown>): OverPageSearch => ({
     ...(typeof search["chat"] === "string" && { chat: search["chat"] }),
     ...(typeof search["thread"] === "string" && { thread: search["thread"] }),
@@ -89,6 +92,30 @@ const rootRoute = createRootRoute({
   }),
   // Like the click-through, an address that names no page opens Now.
   notFoundComponent: () => <Navigate to="/now" replace />,
+});
+
+/** Where the sign-in page returns to once signed in: a path of this app with its query. */
+export interface SignInSearch {
+  readonly returnTo?: string;
+}
+
+// Outside the shell, the one page shown before signing in (spec §2.10); at first run it creates the
+// first user instead.
+const signInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "sign-in",
+  component: SignInPage,
+  validateSearch: (search: Record<string, unknown>): SignInSearch =>
+    typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {},
+  staticData: { title: "Sign in" },
+});
+
+// The signed-in user's own: their name and email and their signed-in devices.
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "account",
+  component: AccountPage,
+  staticData: { title: "Account" },
 });
 
 // Now is home (spec §4).
@@ -481,6 +508,8 @@ const settingsAppearanceRoute = createRoute({
 
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
+    signInRoute,
+    accountRoute,
     homeRoute,
     nowRoute,
     workRoute.addChildren([boardRoute, ideasRoute, initiativesRoute, archivedRoute]),
@@ -525,3 +554,6 @@ export const router = createRouter({
     ]),
   ]),
 });
+
+/** The app's router; a test makes one on the same route tree with a memory history. */
+export type OfficeRouter = typeof router;

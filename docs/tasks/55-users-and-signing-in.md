@@ -11,7 +11,7 @@ The Office has several users, and everyone signs in before using it, localhost i
 ## Definition of Done
 
 - [ ] The spec and the glossary describe users and signing in, spec 5.1's no-sign-in rule is replaced and task 28's PIN is dropped. Check: Task 3afd3982's Gate.
-- [ ] The first user is created at first run; a user signs in with a password and stays signed in with a cookie whose token is stored hashed per signed-in device; every `/api` request and WebSocket, from localhost too, needs a signed-in device except the sign-in pages, their callbacks, `/api/health` and the `-p` hook; the Host and Origin checks accept the public address; wrong passwords slow down and lock out; a user signs out any of their signed-in devices; `npm run set-password` sets a new password. Check: Task 54467d4a's service tests (the whole-app guard test among them) and `sign-in.e2e.ts`.
+- [x] The first user is created at first run; a user signs in with a password and stays signed in with a cookie whose token is stored hashed per signed-in device; every `/api` request and WebSocket, from localhost too, needs a signed-in device except the sign-in pages, their callbacks, `/api/health` and the `-p` hook; the Host and Origin checks accept the public address; wrong passwords slow down and lock out; a user signs out any of their signed-in devices; `npm run set-password` sets a new password. Check: Task 54467d4a's service tests (the whole-app guard test among them) and `sign-in.e2e.ts`.
 - [ ] A user adds an account for someone else with a one-time password shown once, the new user sets their own password at first sign-in, removing a user signs out all their devices, and palette and density are per user. Check: Task 4807a232's service and e2e tests.
 - [ ] Records name the user who did each thing (an Idea, Task or Initiative created, a Task started or moved, a Decision answered, a message written in a Thread, a setting changed), an Agent's Brief says which user asked, and Since you left begins at each user's own absence. Check: Task 2727e7bb's service, web and e2e tests.
 - [ ] A user sets up an authenticator, is asked for a code after a password, Continue with GitHub or Continue with Google, and signs in with a recovery code instead; wrong codes count toward the lockout. Check: Task 1b3bfd22's service tests on a manual clock and its e2e test.
@@ -37,7 +37,7 @@ The Office has several users, and everyone signs in before using it, localhost i
 ## Steps
 
 - [x] 1. The spec and the glossary for users and signing in, and this file (Task 3afd3982).
-- [ ] 2. Users and signing in with a password: the `users` module, the first user, the password, signed-in devices and Sign out, the guard, the public address, slow-down and lockout, the recovery command (Task 54467d4a).
+- [x] 2. Users and signing in with a password: the `users` module, the first user, the password, signed-in devices and Sign out, the guard, the public address, slow-down and lockout, the recovery command (Task 54467d4a).
       Read: [module template](../../apps/service/docs/module-template.md); the platform map (`http/local-requests.ts`, `websocket/event-stream.ts`, `config/office-config.ts`); `apps/web/src/MAP.md`; `apps/web/e2e/MAP.md`.
 - [ ] 3. Creating and removing users: Settings › Users, the one-time password, setting one's own password at first sign-in, removing a user, the account page, palette and density per user (Task 4807a232).
       Read: the users map; the settings and account surfaces' maps; `packages/ui/src/appearance/`.
@@ -54,10 +54,12 @@ The Office has several users, and everyone signs in before using it, localhost i
 
 ## State
 
-- Step 1 written: [spec 2.10](../spec/2.10-users-and-signing-in.md) is new; spec 5.1 (addresses, the public address, the Host and Origin checks), 5.2 (libraries), 5.3 (the Users module), 6 (threat model, hashes), 2.1, 2.4 and 2.5 (who did what), 3, 4 and 8 are amended; the glossary has a Users and signing in section; task 28 has no PIN.
-- Every number and name the outcome left open is a Default marked proposed (2.10's Defaults, the public address in 5.1, Users in 5.3), for the user to settle at Task 3afd3982's Gate; later steps follow whatever the Gate settles.
-- Traps: "Sign in with GitHub" is The Office's git identity and `github_sign_in` its table; the user's way is "Continue with GitHub". A signed-in device is never a session in the UI, the API, the code or the database. Records from before users name the first user.
+- Steps 1 and 2 written. Step 2: the `users` module (`apps/service/src/modules/users/`, its map names the extension points: `SignIns.finish`, the `SecondSteps` port bound to `NoSecondSteps`, the `SignInWays` registry); the platform's Host/Origin check with `OFFICE_PUBLIC_ADDRESS` and address kinds, the sign-in guard (`platform/http/request-access.ts`, port `SignedInRequests`, `@SignedIn()`), the event stream refusing signed-out upgrades and closing a signed-out device's sockets; `npm run set-password`; the web's sign-in page (`surfaces/sign-in/`), Account (`surfaces/account/`) and the top bar's user menu; e2e's `setup` project signs in once and every project reuses its storage state.
+- Defaults as spec 2.10 proposes them: 3 free wrong tries, waits of 2/4/8/16 s, lockout from the 10th for 15 min doubling to 24 h; 30 days after the last use; passwords 12 to 256 characters; cookie `office_signed_in`.
+- Traps: other modules' service tests boot unguarded (`startTestApplication`'s `requestAccess`); a test of the guard uses the users fixtures. Every e2e file shares the one e2e user (`e2e/e2e-user.ts`), so no e2e test may lock it out. Unknown emails' wrong tries are in memory. "Sign in with GitHub" is The Office's git identity, never a user's way. A signed-in device is never a session.
+- Next: step 3, Task 4807a232 (creating and removing users, palette and density per user).
 
 ## Progress
 
 - 2026-11-13 · step 1: spec 2.10, the amendments, the glossary terms, task 28 without a PIN, and this file; next is step 2, Task 54467d4a.
+- 2026-11-13 · step 2: the users module, the guard on /api and the WebSocket, the public address, slow-down and lockout, signed-in devices, npm run set-password, the sign-in and Account pages and e2e signed in through a setup project; next is step 3, Task 4807a232.
