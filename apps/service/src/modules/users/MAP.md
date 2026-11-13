@@ -67,6 +67,7 @@ GitHubIdentityProvider, CookieSignedInRequests, Accounts, Passwords, SignInWays,
 
 ### adapters/crypto/
 
+- `scrypt-password-hashing.fixtures.ts`: quickPasswordHashing
 - `scrypt-password-hashing.ts`: ScryptPasswordHashing
 - Tests: scrypt-password-hashing.test.ts
 

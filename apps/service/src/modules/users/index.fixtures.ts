@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { expect } from "vitest";
-import { ScryptPasswordHashing } from "./adapters/crypto/scrypt-password-hashing.js";
+import { quickPasswordHashing } from "./adapters/crypto/scrypt-password-hashing.fixtures.js";
 import { SIGN_IN_COOKIE } from "./adapters/http/sign-in-cookie.js";
 import { userOf } from "./domain/user.js";
 import { UserRepository } from "./ports/user-repository.js";
@@ -25,7 +25,7 @@ export async function addUser(
   { name = "Ada Lovelace", password = A_PASSWORD }: { name?: string; password?: string } = {},
 ): Promise<UserForTests> {
   const email = `ada-${randomUUID().slice(0, 8)}@example.com`;
-  const hash = await new ScryptPasswordHashing().hash(password);
+  const hash = await quickPasswordHashing.hash(password);
   const user = userOf(randomUUID(), { name, email }, hash, new Date());
   await app.get(UserRepository, { strict: false }).add(user);
   return { id: user.id, name, email, password };

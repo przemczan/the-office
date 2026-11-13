@@ -11,7 +11,9 @@ import {
   type TestApplicationOptions,
 } from "../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../test/test-database.js";
+import { quickPasswordHashing } from "./adapters/crypto/scrypt-password-hashing.fixtures.js";
 import { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
+import { PasswordHashing } from "./ports/password-hashing.js";
 import { UsersModule, type UsersModuleOptions } from "./users.module.js";
 
 export const PUBLIC_ADDRESS = "https://office.example.com";
@@ -25,7 +27,10 @@ export interface UsersApplicationOptions {
   readonly databaseUrl?: string;
   /** The identity providers bound, none unless the test brings some, such as `FakeIdentityProvider`. */
   readonly identityProviders?: UsersModuleOptions;
-  /** Replaces these providers wherever they are bound, such as `SecondSteps`. */
+  /**
+   * Replaces these providers wherever they are bound, such as `SecondSteps`. `PasswordHashing` is
+   * always the quick one, `quickPasswordHashing`.
+   */
   readonly overrides?: TestApplicationOptions["overrides"];
 }
 
@@ -51,7 +56,7 @@ export async function startUsersApplication({
         signedInRequests: CookieSignedInRequests,
       }),
     ],
-    overrides,
+    overrides: [{ provide: PasswordHashing, useValue: quickPasswordHashing }, ...overrides],
     requestAccess: "guarded",
   });
   return { ...started, schedule: started.app.get(Schedule) as ManualSchedule };

@@ -77,7 +77,7 @@ export class UsersModule {
       providers: [
         { provide: UserRepository, useClass: PostgresUserRepository },
         { provide: SignedInDeviceRepository, useClass: PostgresSignedInDeviceRepository },
-        { provide: PasswordHashing, useClass: ScryptPasswordHashing },
+        { provide: PasswordHashing, useFactory: () => new ScryptPasswordHashing() },
         { provide: SecondSteps, useClass: NoSecondSteps },
         { provide: PasskeyRepository, useClass: PostgresPasskeyRepository },
         { provide: PasskeyCeremonies, useClass: SimpleWebAuthnPasskeyCeremonies },
