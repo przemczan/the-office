@@ -75,7 +75,11 @@ export function send(
         path,
         headers: {
           host,
-          ...(payload !== undefined && { "content-type": "application/json" }),
+          // Node sends a DELETE's body only with its length given, as browsers give it.
+          ...(payload !== undefined && {
+            "content-type": "application/json",
+            "content-length": String(Buffer.byteLength(payload)),
+          }),
           ...headers,
         },
       },
@@ -97,13 +101,21 @@ export function send(
   });
 }
 
-/** The sign-in cookie an answer set, as a Cookie header sends it back, and its attributes. */
-export function setCookieOf(answer: Answer): {
+/**
+ * A cookie an answer set, as a Cookie header sends it back, and its attributes: the one named, or
+ * the first.
+ */
+export function setCookieOf(
+  answer: Answer,
+  name?: string,
+): {
   readonly cookie: string;
   readonly attributes: string[];
 } {
-  const [setCookie] = answer.headers["set-cookie"] ?? [];
-  if (setCookie === undefined) throw new Error("The answer set no cookie.");
+  const setCookies = answer.headers["set-cookie"] ?? [];
+  const setCookie =
+    name === undefined ? setCookies[0] : setCookies.find((set) => set.startsWith(`${name}=`));
+  if (setCookie === undefined) throw new Error(`The answer set no cookie ${name ?? ""}.`);
   const [cookie = "", ...attributes] = setCookie.split(";").map((part) => part.trim());
   return { cookie, attributes };
 }

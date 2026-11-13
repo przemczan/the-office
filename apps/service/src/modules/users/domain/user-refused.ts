@@ -21,6 +21,14 @@ export class UserNotFound extends Error {
   }
 }
 
+/** A code sent without a pending sign-in, or with one used up or expired: sign in again. */
+export class PendingSignInEnded extends Error {
+  constructor() {
+    super("This sign-in has ended: sign in again.");
+    this.name = "PendingSignInEnded";
+  }
+}
+
 export class SignedInDeviceNotFound extends Error {
   constructor() {
     super("You have no such signed-in device.");

@@ -9,12 +9,18 @@ import type { SignInRefusal, UserRefusal } from "@the-office/contracts";
 import type { Response } from "express";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import { SignInRefused } from "../../domain/sign-in-refused.js";
-import { FirstUserExists, SignedInDeviceNotFound, UserRefused } from "../../domain/user-refused.js";
+import {
+  FirstUserExists,
+  PendingSignInEnded,
+  SignedInDeviceNotFound,
+  UserRefused,
+} from "../../domain/user-refused.js";
 
-type UsersRefusal = SignInRefused | UserRefused | FirstUserExists | SignedInDeviceNotFound;
+type UsersRefusal =
+  SignInRefused | UserRefused | FirstUserExists | PendingSignInEnded | SignedInDeviceNotFound;
 
 /** Answers the users module's own refusals as Nest answers its errors, with `message` for the web. */
-@Catch(SignInRefused, UserRefused, FirstUserExists, SignedInDeviceNotFound)
+@Catch(SignInRefused, UserRefused, FirstUserExists, PendingSignInEnded, SignedInDeviceNotFound)
 @Injectable()
 export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
   constructor(private readonly schedule: Schedule) {}
@@ -34,10 +40,18 @@ export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
       response.status(refusal.statusCode).json(refusal);
       return;
     }
-    const statusCode =
-      error instanceof FirstUserExists ? HttpStatus.CONFLICT : HttpStatus.NOT_FOUND;
+    const statusCode = statusCodeOf(error);
     response.status(statusCode).json({ statusCode, message: error.message });
   }
+}
+
+function statusCodeOf(
+  error: FirstUserExists | PendingSignInEnded | SignedInDeviceNotFound,
+): HttpStatus {
+  if (error instanceof FirstUserExists) return HttpStatus.CONFLICT;
+  // Not signed in after all: the code page sends the user back to sign in.
+  if (error instanceof PendingSignInEnded) return HttpStatus.UNAUTHORIZED;
+  return HttpStatus.NOT_FOUND;
 }
 
 /** A wrong try answers 422; a try not taken, for the slow-down or the lockout, 429. */

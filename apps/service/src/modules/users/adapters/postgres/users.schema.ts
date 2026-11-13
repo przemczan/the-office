@@ -47,3 +47,48 @@ export const signedInDevices = pgTable(
     ),
   ],
 );
+
+/**
+ * Each user's authenticator: its secret in base32, readable since codes are checked against it (a
+ * copy of the database holds all The Office's data anyway), confirmed once a first code was right,
+ * and the last time step whose code was taken.
+ */
+export const authenticators = pgTable("authenticators", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  secret: text("secret").notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  lastUsedStep: integer("last_used_step"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+/** Each user's recovery codes, as SHA-256 hashes only, each used once. */
+export const recoveryCodes = pgTable(
+  "recovery_codes",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    madeAt: timestamp("made_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [uniqueIndex("recovery_codes_user_code").on(table.userId, table.codeHash)],
+);
+
+/** Each sign-in waiting for an authenticator code: its token's SHA-256 only, until it expires. */
+export const pendingSignIns = pgTable(
+  "pending_sign_ins",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    madeAt: timestamp("made_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("pending_sign_ins_user").on(table.userId)],
+);

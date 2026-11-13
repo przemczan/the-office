@@ -4,18 +4,27 @@ import { ScryptPasswordHashing } from "./adapters/crypto/scrypt-password-hashing
 import { AccountController } from "./adapters/http/account.controller.js";
 import { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
 import { SignInController } from "./adapters/http/sign-in.controller.js";
+import { PostgresAuthenticatorRepository } from "./adapters/postgres/postgres-authenticator-repository.js";
+import { PostgresPendingSignInRepository } from "./adapters/postgres/postgres-pending-sign-in-repository.js";
 import { PostgresSignedInDeviceRepository } from "./adapters/postgres/postgres-signed-in-device-repository.js";
 import { PostgresUserRepository } from "./adapters/postgres/postgres-user-repository.js";
-import { NoSecondSteps } from "./adapters/second-steps/no-second-steps.js";
+import { AuthenticatorSecondStep } from "./adapters/second-steps/authenticator-second-step.js";
 import { Accounts } from "./application/accounts.js";
+import { AuthenticatorCodes } from "./application/authenticator-codes.js";
+import { Authenticators } from "./application/authenticators.js";
+import { CodeSignIn } from "./application/code-sign-in.js";
 import { FirstUser } from "./application/first-user.js";
 import { PasswordSignIn } from "./application/password-sign-in.js";
 import { Passwords } from "./application/passwords.js";
+import { PendingSignIns } from "./application/pending-sign-ins.js";
 import { SignInWays } from "./application/sign-in-ways.js";
 import { SignIns } from "./application/sign-ins.js";
 import { SignedInDevices } from "./application/signed-in-devices.js";
 import { UnknownEmailTries } from "./application/unknown-email-tries.js";
+import { UserWrongTries } from "./application/user-wrong-tries.js";
+import { AuthenticatorRepository } from "./ports/authenticator-repository.js";
 import { PasswordHashing } from "./ports/password-hashing.js";
+import { PendingSignInRepository } from "./ports/pending-sign-in-repository.js";
 import { SecondSteps } from "./ports/second-steps.js";
 import { SignedInDeviceRepository } from "./ports/signed-in-device-repository.js";
 import { UserRepository } from "./ports/user-repository.js";
@@ -31,18 +40,33 @@ import { UserRepository } from "./ports/user-repository.js";
   providers: [
     { provide: UserRepository, useClass: PostgresUserRepository },
     { provide: SignedInDeviceRepository, useClass: PostgresSignedInDeviceRepository },
+    { provide: AuthenticatorRepository, useClass: PostgresAuthenticatorRepository },
+    { provide: PendingSignInRepository, useClass: PostgresPendingSignInRepository },
     { provide: PasswordHashing, useClass: ScryptPasswordHashing },
-    { provide: SecondSteps, useClass: NoSecondSteps },
+    { provide: SecondSteps, useClass: AuthenticatorSecondStep },
     Accounts,
+    AuthenticatorCodes,
+    Authenticators,
+    CodeSignIn,
     FirstUser,
     PasswordSignIn,
     Passwords,
+    PendingSignIns,
     SignIns,
     SignInWays,
     SignedInDevices,
     UnknownEmailTries,
+    UserWrongTries,
     CookieSignedInRequests,
   ],
-  exports: [Accounts, Passwords, SignIns, SignInWays, SignedInDevices, CookieSignedInRequests],
+  exports: [
+    Accounts,
+    Authenticators,
+    Passwords,
+    SignIns,
+    SignInWays,
+    SignedInDevices,
+    CookieSignedInRequests,
+  ],
 })
 export class UsersModule {}

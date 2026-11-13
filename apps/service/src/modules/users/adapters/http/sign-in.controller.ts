@@ -1,7 +1,9 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseFilters } from "@nestjs/common";
 import {
+  codeAnswerSchema,
   firstUserSchema,
   passwordSignInSchema,
+  type CodeAnswer,
   type FirstUser as FirstUserMessage,
   type PasswordSignIn as PasswordSignInMessage,
   type SignInOutcome as SignInOutcomeMessage,
@@ -10,17 +12,19 @@ import {
 import type { Request, Response } from "express";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
+import { CodeSignIn } from "../../application/code-sign-in.js";
 import { FirstUser } from "../../application/first-user.js";
 import { PasswordSignIn } from "../../application/password-sign-in.js";
 import { SignInWays } from "../../application/sign-in-ways.js";
-import type { SignInOutcome } from "../../application/sign-ins.js";
-import { signInCookie } from "./sign-in-cookie.js";
+import { answerSignIn } from "./sign-in-answers.js";
+import { pendingSignInTokenOf } from "./sign-in-cookie.js";
 import { addressKindOf, signInRequestOf } from "./sign-in-request.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
 
 /**
  * The sign-in pages (spec §2.10), open to anyone that passed the Host and Origin checks: every way
- * to sign in, and later its callback, lives under `/sign-in`, which the guard leaves open.
+ * to sign in, its callback and the authenticator code live under `/sign-in`, which the guard leaves
+ * open.
  */
 @Controller("sign-in")
 @UseFilters(UserRefusalsFilter)
@@ -28,6 +32,7 @@ export class SignInController {
   constructor(
     private readonly firstUser: FirstUser,
     private readonly passwordSignIn: PasswordSignIn,
+    private readonly codeSignIn: CodeSignIn,
     private readonly signInWays: SignInWays,
     private readonly officeAddresses: OfficeAddresses,
   ) {}
@@ -47,7 +52,7 @@ export class SignInController {
   ): Promise<SignInOutcomeMessage> {
     const address = this.officeAddresses.addressOf(request);
     const outcome = await this.firstUser.create(firstUser, signInRequestOf(request, address));
-    return answered(outcome, address.secure, response);
+    return answerSignIn(outcome, address.secure, response);
   }
 
   @Post("password")
@@ -63,16 +68,23 @@ export class SignInController {
       password,
       signInRequestOf(request, address),
     );
-    return answered(outcome, address.secure, response);
+    return answerSignIn(outcome, address.secure, response);
   }
-}
 
-/** The outcome as the web reads it; signed in, the cookie carries the token, never the body. */
-function answered(
-  outcome: SignInOutcome,
-  secure: boolean,
-  response: Response,
-): SignInOutcomeMessage {
-  response.setHeader("Set-Cookie", signInCookie(outcome.token, secure));
-  return { outcome: outcome.outcome };
+  /** The authenticator code, or a recovery code, for the pending sign-in its cookie names. */
+  @Post("code")
+  @HttpCode(200)
+  async withCode(
+    @Body(new ContractPipe(codeAnswerSchema)) answer: CodeAnswer,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<SignInOutcomeMessage> {
+    const address = this.officeAddresses.addressOf(request);
+    const outcome = await this.codeSignIn.signIn(
+      pendingSignInTokenOf(request.headers.cookie),
+      answer,
+      signInRequestOf(request, address),
+    );
+    return answerSignIn(outcome, address.secure, response);
+  }
 }

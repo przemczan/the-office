@@ -41,3 +41,16 @@
   flex-direction: column;
   gap: var(--gap-card);
 }
+
+.sign-in-back {
+  align-self: flex-start;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+
+.sign-in-back:hover,
+.sign-in-back:focus-visible {
+  color: var(--fg-1);
+  text-decoration: underline;
+}

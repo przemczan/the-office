@@ -1,6 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 
-// The events name the user and their devices, never a password, hash or token.
+// The events name the user and their devices, never a password, hash, token, secret or code.
 
 export class UserCreated extends DomainEvent {
   constructor(
@@ -35,6 +35,40 @@ export class SignedOut extends DomainEvent {
 /** A user's password set anew, their lockout lifted. */
 export class PasswordSet extends DomainEvent {
   constructor(readonly userId: string) {
+    super();
+  }
+}
+
+/** A user's authenticator turned on, confirmed with a first code. */
+export class AuthenticatorSetUp extends DomainEvent {
+  constructor(readonly userId: string) {
+    super();
+  }
+}
+
+/** A user's authenticator turned off, by the user or the host command, their recovery codes gone. */
+export class AuthenticatorRemoved extends DomainEvent {
+  constructor(readonly userId: string) {
+    super();
+  }
+}
+
+/** A new set of recovery codes made for a user, the old set no longer working. */
+export class RecoveryCodesMade extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly count: number,
+  ) {
+    super();
+  }
+}
+
+/** One of a user's recovery codes used, and how many are left. */
+export class RecoveryCodeUsed extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly left: number,
+  ) {
     super();
   }
 }

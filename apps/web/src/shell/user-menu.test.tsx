@@ -4,7 +4,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { buttonNamed, closePage, openPage, stubService, until } from "./page.fixtures.tsx";
 import { UserMenu } from "./user-menu.tsx";
 
-const ADA: Account = { id: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d", name: "Ada", email: "ada@x.io" };
+const ADA: Account = {
+  id: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+  name: "Ada",
+  email: "ada@x.io",
+  authenticator: { state: "off" },
+};
 
 async function openedMenu(): Promise<Awaited<ReturnType<typeof openPage>>> {
   const opened = await openPage("/now", {

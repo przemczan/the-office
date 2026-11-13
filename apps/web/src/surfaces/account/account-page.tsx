@@ -15,11 +15,13 @@ import { userQueries } from "../../api/users.ts";
 import { momentWords } from "../../shell/time.ts";
 import { useSignOut } from "../../shell/use-sign-out.ts";
 import { ADDRESS_KIND_WORDS, browserWords } from "./account-words.ts";
+import { AuthenticatorSection } from "./authenticator-section.tsx";
 import "./account.css";
 
 /**
- * The signed-in user's account (spec §2.10): their name and email, and their signed-in devices,
- * this one marked, each with Sign out. Signing out this one lands on the sign-in page.
+ * The signed-in user's account (spec §2.10): their name and email, their authenticator, and their
+ * signed-in devices, this one marked, each with Sign out. Signing out this one lands on the
+ * sign-in page.
  */
 export function AccountPage(): ReactNode {
   const account = useQuery(userQueries.account());
@@ -45,6 +47,7 @@ export function AccountPage(): ReactNode {
           />
         )}
       </Card>
+      <AuthenticatorSection authenticator={account.data?.authenticator} />
       <Card
         padding="none"
         title={

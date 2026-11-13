@@ -3,18 +3,21 @@ import { Outlet, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { SignedOut } from "../api/api-client.ts";
 import { useConnectedEventStream } from "../api/event-stream-provider.tsx";
-import { SIGN_IN_PATH, userQueries } from "../api/users.ts";
+import { SIGN_IN_CODE_PATH, SIGN_IN_PATH, userQueries } from "../api/users.ts";
 import { Shell } from "./shell.tsx";
 
+/** The pages shown before signing in, bare: the sign-in page and the authenticator code's. */
+const BARE_PAGES: ReadonlySet<string> = new Set([SIGN_IN_PATH, SIGN_IN_CODE_PATH]);
+
 /**
- * Every page's frame: the sign-in page alone, bare, and every other page in the shell, shown only
+ * Every page's frame: the sign-in pages alone, bare, and every other page in the shell, shown only
  * once the account has answered (spec §2.10).
  */
 export function RootLayout(): ReactNode {
   // By the matches shown rather than the location, which changes as a navigation starts: the
   // shell's pages would otherwise show for a moment outside it, and the sign-in page inside it.
   const onSignInPage = useMatches({
-    select: (matches) => matches.some((match) => match.routeId === SIGN_IN_PATH),
+    select: (matches) => matches.some((match) => BARE_PAGES.has(match.routeId)),
   });
   if (onSignInPage) return <Outlet />;
   return (

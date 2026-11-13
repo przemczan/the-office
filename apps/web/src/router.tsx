@@ -42,6 +42,7 @@ import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx"
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
+import { CodePage } from "./surfaces/sign-in/code-page.tsx";
 import { SignInPage } from "./surfaces/sign-in/sign-in-page.tsx";
 import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
@@ -108,6 +109,16 @@ const signInRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): SignInSearch =>
     typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {},
   staticData: { title: "Sign in" },
+});
+
+// After a sign-in that needs the authenticator code, outside the shell too (spec §2.10).
+const signInCodeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "sign-in/code",
+  component: CodePage,
+  validateSearch: (search: Record<string, unknown>): SignInSearch =>
+    typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {},
+  staticData: { title: "Authenticator code" },
 });
 
 // The signed-in user's own: their name and email and their signed-in devices.
@@ -509,6 +520,7 @@ const settingsAppearanceRoute = createRoute({
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     signInRoute,
+    signInCodeRoute,
     accountRoute,
     homeRoute,
     nowRoute,

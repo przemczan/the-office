@@ -69,6 +69,12 @@ npm run set-password -- --email ada@example.com
 
 It asks for the new password twice without showing it (or reads one line from standard input when that isn't a terminal), sets it, lifts the user's lockout and signs out all their signed-in devices. It reads `.env` as the service does, so it reaches the same database; the service may run meanwhile. An unknown email ends it with a message and a non-zero exit code.
 
+For a user who lost their authenticator and their recovery codes too, `--clear-authenticator` also removes both, so they sign in with the new password alone and can set up an authenticator again:
+
+```sh
+npm run set-password -- --email ada@example.com --clear-authenticator
+```
+
 ## How an Office update works
 
 1. A daily check, the first at the service's start, and **Check for updates** in Settings › Updates fetch the checkout's upstream (`@{upstream}`, normally `origin/main`) and list the commits it is behind. Nothing is installed. git runs as the service's own user with its own config: this is no Project, so the Office identity has no part in it.

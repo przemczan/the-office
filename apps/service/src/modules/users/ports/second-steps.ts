@@ -1,13 +1,18 @@
-import type { SignInWayKind } from "../domain/sign-in-way.js";
 import type { User } from "../domain/user.js";
 
-/** A step a sign-in still needs after its way, such as an authenticator code. */
-export type SecondStep = never;
+/**
+ * A step a sign-in still needs after its way: the authenticator code, with the token of the pending
+ * sign-in that waits for it, which its own cookie carries.
+ */
+export interface SecondStep {
+  readonly outcome: "code-needed";
+  readonly pendingToken: string;
+}
 
 /**
- * What a user must still do after signing in one way before they are signed in (spec §2.10): an
- * authenticator code once they set one up, which the authenticator's Task binds; none for now.
+ * What a user must still do after signing in a way that isn't enough alone before they are signed
+ * in (spec §2.10): an authenticator code once they set one up.
  */
 export abstract class SecondSteps {
-  abstract after(user: User, way: SignInWayKind): Promise<SecondStep | undefined>;
+  abstract after(user: User): Promise<SecondStep | undefined>;
 }
