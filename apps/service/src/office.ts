@@ -11,6 +11,7 @@ import {
   InitiativeArchiving,
   QueueService,
   TaskArchiving,
+  UsageWindowResumes,
 } from "./modules/work/index.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
@@ -98,7 +99,8 @@ function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): voi
  * Puts right the answers the last run cut short, finishes a fire alarm's sounding it stopped
  * during (spec §2.8), which also pauses again the Tasks an all clear it stopped during had resumed
  * before turning the alarm off, drops the Tasks that Initiatives dropped earlier left open (spec
- * §2.1), so none of them starts, then releases the kept queue (spec §2.1), since a desk may have
+ * §2.1), so none of them starts, sets again the resume of each Task the usage window paused,
+ * resuming one whose reset passed meanwhile (spec §2.1), then releases the kept queue (spec §2.1), since a desk may have
  * been freed while the service was down; the release holds while the alarm is on. Last, it starts the
  * daily archiving of finished Tasks and ended Initiatives, here only so a test app never runs it, and sweeps the run
  * environments the last run left (spec §5.5) in the background, as the container runtime may be
@@ -110,6 +112,7 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
   await app.get(SubAgentsAndProcesses).recover();
   await app.get(FireAlarmService).finishSounding();
   await app.get(DroppedInitiativeTasks).dropLeftOpen();
+  await app.get(UsageWindowResumes).start();
   await app.get(QueueService).release();
   app.get(TaskArchiving).start();
   app.get(InitiativeArchiving).start();

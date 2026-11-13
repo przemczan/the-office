@@ -216,21 +216,37 @@ export class TaskRewrittenInInitiative extends DomainEvent {
 }
 
 /**
- * Who paused a Task: the user; the fire alarm (spec §2.8), which the all clear resumes; or its
- * Initiative's Pause, which Resume the Initiative resumes.
+ * Who paused a Task: the user; the fire alarm (spec §2.8), which the all clear resumes; its
+ * Initiative's Pause, which Resume the Initiative resumes; or its engine's usage window, used up
+ * until its reset, which resumes it.
  */
 export type PausedBy = "user" | TaskHolder;
 
 /**
+ * A Stage's turn the engine refused because a usage window of its account is used up (spec §2.1,
+ * "A pause by the usage window"): the engine, its name at the time for the words, the window in
+ * the engine module's words, and when the window resets, when the Task resumes.
+ */
+export interface UsageWindowRefusal {
+  readonly engineId: string;
+  readonly engineName: string;
+  readonly window: string;
+  readonly resetsAt: Date;
+}
+
+/**
  * The Task is held Paused: its running Stage is held once the Agent's turn ends (spec §2.4), or, by
- * the fire alarm, at its next safe point (spec §2.8). `from` is Paused when the alarm took over a
- * Resume the user asked for while it was on, or the Initiative's Pause took over the alarm's hold.
+ * the fire alarm, at its next safe point (spec §2.8); by the usage window, its Stage's run already
+ * ended held by the Stage runner, with the refusal it resumes after. `from` is Paused when the
+ * alarm took over a Resume the user asked for while it was on, the Initiative's Pause took over the
+ * alarm's or the usage window's hold, or a refusal again moved the usage window's resume on.
  */
 export class TaskPaused extends DomainEvent {
   constructor(
     readonly taskId: string,
     readonly from: TaskState,
     readonly by: PausedBy = "user",
+    readonly usageWindow?: UsageWindowRefusal,
   ) {
     super();
   }

@@ -7,12 +7,16 @@ import type {
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { ReadingSource, UsageWindow, UsageWindows } from "../../domain/usage-windows.js";
-import type {
-  RateLimitStatus,
-  SessionEvent,
-  TokenUsage,
-  TurnEndedEvent,
-  TurnOutcome,
+import {
+  UNKNOWN_RESET_RETRY_MS,
+  type KnownUsageWindowName,
+  type RateLimitEvent,
+  type RateLimitStatus,
+  type SessionEvent,
+  type TokenUsage,
+  type TurnEndedEvent,
+  type TurnOutcome,
+  type UsageWindowName,
 } from "../../ports/session-events.js";
 import { OFFICE_TOOL_PREFIX, portToolName } from "../office-rules/office-tool-names.js";
 
@@ -25,6 +29,17 @@ const RATE_LIMIT_STATUSES: Readonly<
   allowed: "allowed",
   allowed_warning: "warning",
   rejected: "rejected",
+};
+
+type EngineWindowName = NonNullable<SDKRateLimitEvent["rate_limit_info"]["rateLimitType"]>;
+
+const USAGE_WINDOW_NAMES: Readonly<Record<EngineWindowName, KnownUsageWindowName>> = {
+  five_hour: "five-hour",
+  seven_day: "seven-day",
+  seven_day_opus: "seven-day-opus",
+  seven_day_sonnet: "seven-day-sonnet",
+  seven_day_overage_included: "seven-day-overage-included",
+  overage: "overage",
 };
 
 /**
@@ -124,7 +139,13 @@ function sameUsage(one: TokenUsage, other: TokenUsage): boolean {
   );
 }
 
-function assistantEvents({ message, parent_tool_use_id }: SDKAssistantMessage): SessionEvent[] {
+function assistantEvents({
+  message,
+  parent_tool_use_id,
+  error,
+}: SDKAssistantMessage): SessionEvent[] {
+  // The engine's own message for a refused turn, not the Agent's words: its text is the turn's error.
+  if (error === "rate_limit") return [];
   const withinToolCall = parent_tool_use_id ?? undefined;
   return message.content.flatMap((block): SessionEvent[] => {
     switch (block.type) {
@@ -202,12 +223,54 @@ function outcomeOf(result: SDKResultMessage, succeeded: boolean): TurnOutcome {
   return INTERRUPTED_REASONS.has(result.terminal_reason ?? "") ? "interrupted" : "failed";
 }
 
-function rateLimit({ rate_limit_info: info }: SDKRateLimitEvent): SessionEvent {
+function rateLimit({ rate_limit_info: info }: SDKRateLimitEvent): RateLimitEvent {
   return {
     kind: "rate-limit",
     status: RATE_LIMIT_STATUSES[info.status],
+    window: info.rateLimitType === undefined ? undefined : usageWindowName(info.rateLimitType),
     resetsAt: info.resetsAt === undefined ? undefined : new Date(info.resetsAt * 1000),
   };
+}
+
+/** A window a newer engine adds keeps its own name, so a refusal for it still pauses. */
+function usageWindowName(engineName: string): UsageWindowName {
+  return engineName in USAGE_WINDOW_NAMES
+    ? USAGE_WINDOW_NAMES[engineName as EngineWindowName]
+    : engineName;
+}
+
+/**
+ * Tells a turn the engine refused for a used-up usage window from a failed one (spec 5.4,
+ * docs/engine-check.md engine.usage-window-refusal): the engine reads a 429's rate-limit headers
+ * into a `rejected` event and ends the turn with an error, so a turn that fails while the turn's
+ * latest event is `rejected` is refused. A turn failing after an `allowed` event (overloaded, a
+ * 5xx) stays failed, and so does `error: "rate_limit"` without a rejected event, as the engine
+ * uses it for other 429s too. Call `settled` on each turn's end, which forgets the turn.
+ */
+export class RefusedTurns {
+  private latest: RateLimitEvent | undefined;
+
+  constructor(private readonly now: () => Date = () => new Date()) {}
+
+  seen(event: SessionEvent): void {
+    if (event.kind === "rate-limit") this.latest = event;
+  }
+
+  settled(ended: TurnEndedEvent): TurnEndedEvent {
+    const latest = this.latest;
+    this.latest = undefined;
+    if (ended.outcome !== "failed" || latest?.status !== "rejected") return ended;
+    const resetGiven = latest.resetsAt !== undefined;
+    return {
+      ...ended,
+      outcome: "usage-window-used-up",
+      usedUpWindow: {
+        window: latest.window ?? "unknown",
+        resetsAt: latest.resetsAt ?? new Date(this.now().getTime() + UNKNOWN_RESET_RETRY_MS),
+        resetGiven,
+      },
+    };
+  }
 }
 
 /** The usage query's windows as the port has them; undefined for an account without them. */

@@ -45,7 +45,7 @@ export const ROUTING_GROUPS: readonly RoutingGroup[] = [
     level: "office",
     label: "Office",
     kinds: [
-      { level: "office.window", label: "5-hour window nearly used or reset" },
+      { level: "office.window", label: "A usage window nearly used, used up or reset" },
       { level: "office.down", label: "The service or an Agent engine down" },
       { level: "office.alarm-lifted", label: "Alarm lifted with work waiting" },
       { level: "office.update.done", label: "The Office updated" },

@@ -9,7 +9,7 @@ import {
 } from "../../conversations/index.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
 import { TaskBases, type NewProject, type TaskBaseLookup } from "../../projects/index.js";
-import type { AccountWindowsReading } from "../domain/cap-waits.js";
+import type { AccountWindowsReading, UsedUpWindowReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
 import type { AllStageResults, DecisionWaitingOnTheUser } from "../domain/record-words.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
@@ -507,9 +507,15 @@ export class ModelPricesForTests extends ModelPrices {
 @Injectable()
 export class AccountWindowsForTests extends AccountWindows {
   reading: AccountWindowsReading | undefined;
+  /** The used-up window of each engine id a test gives, kept until the test's own clock passes it. */
+  readonly usedUp = new Map<EngineId, UsedUpWindowReading>();
 
   of(engineId: EngineId): AccountWindowsReading | undefined {
     return engineId === FIRST_CLAUDE_CODE_ENGINE.id ? this.reading : undefined;
+  }
+
+  usedUpUntil(engineId: EngineId): UsedUpWindowReading | undefined {
+    return this.usedUp.get(engineId);
   }
 }
 

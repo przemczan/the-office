@@ -1,8 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { OFFICE_UPDATE_SCHEDULED, OfficeUpdateHold } from "../../office-updates/index.js";
-import { EngineModels, type EngineId } from "../../engine/index.js";
+import { EngineModels, usageWindowWords, type EngineId } from "../../engine/index.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import type { DailyCapsAtStart, UsageAtStart, WindowsAtStart } from "../domain/cap-waits.js";
+import type {
+  DailyCapsAtStart,
+  UsageAtStart,
+  UsedUpAtStart,
+  WindowsAtStart,
+} from "../domain/cap-waits.js";
 import { hasPipeline, type Task } from "../domain/task.js";
 import { taskBranchBase } from "../domain/task-branch-base.js";
 import { TaskRefused } from "../domain/task-refused.js";
@@ -166,6 +171,12 @@ export class StartConditionsReader {
         : NOTHING_SINCE_READING;
       return [{ engineId, caps: windowCaps, reading, startedSinceReading }];
     });
+    const usedUp = engineIds.flatMap((engineId): UsedUpAtStart[] => {
+      const window = this.windows.usedUpUntil(engineId);
+      return window === undefined
+        ? []
+        : [{ engineId, windowWords: usageWindowWords(window.window), until: window.until }];
+    });
     return {
       now,
       measures,
@@ -173,6 +184,7 @@ export class StartConditionsReader {
       windows,
       daily: daily.filter(({ engineId }) => engineIds.includes(engineId)),
       engineNames,
+      usedUp,
     };
   }
 }

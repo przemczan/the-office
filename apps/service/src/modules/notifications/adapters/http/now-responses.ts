@@ -1,4 +1,4 @@
-import { taskStateSchema, type Now as NowResponse } from "@the-office/contracts";
+import { taskHolderSchema, taskStateSchema, type Now as NowResponse } from "@the-office/contracts";
 import type {
   CurrentStage,
   FireAlarmOnNow,
@@ -41,8 +41,20 @@ function toNeedsYouResponse(item: NeedsYouItem): NowResponse["needsYou"][number]
   return { ...item, waitingSince: item.waitingSince.toISOString() };
 }
 
-function toRunningResponse({ stage, state, ...task }: RunningTask): NowResponse["running"][number] {
-  return { ...task, state: taskStateSchema.parse(state), stage: toStageResponse(stage) };
+function toRunningResponse({
+  stage,
+  state,
+  pausedBy,
+  resumesAt,
+  ...task
+}: RunningTask): NowResponse["running"][number] {
+  return {
+    ...task,
+    state: taskStateSchema.parse(state),
+    pausedBy: pausedBy === undefined ? null : taskHolderSchema.parse(pausedBy),
+    resumesAt: resumesAt?.toISOString() ?? null,
+    stage: toStageResponse(stage),
+  };
 }
 
 function toFireAlarmResponse({

@@ -191,9 +191,11 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       to === "done" ? this.keepOutcome(taskId, "done", occurredAt) : this.announceInBackground(),
     );
     // What the fire alarm or an Initiative's Pause holds is no Outcome: Now shows it with the
-    // alarm, and the Initiative that it is paused.
-    this.events.subscribe(TaskPaused, ({ taskId, occurredAt, by }) =>
-      by === "user" ? this.keepOutcome(taskId, "paused", occurredAt) : this.announceInBackground(),
+    // alarm, and the Initiative that it is paused. A refusal for a used-up usage window is.
+    this.events.subscribe(TaskPaused, ({ taskId, occurredAt, by, from, usageWindow }) =>
+      by === "user" || (by === "usage-window" && usageWindow !== undefined && from !== "paused")
+        ? this.keepOutcome(taskId, "paused", occurredAt)
+        : this.announceInBackground(),
     );
     this.events.subscribe(TaskStopped, ({ taskId, occurredAt }) =>
       this.keepOutcome(taskId, "paused", occurredAt),

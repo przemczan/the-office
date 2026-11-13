@@ -281,6 +281,14 @@ function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
         error: outcome.error,
         budgetReached: outcome.budgetReached ?? null,
         interrupted: outcome.interrupted ?? null,
+        refusedTurn: outcome.refused
+          ? {
+              engineName: outcome.refused.engineName,
+              windowWords: outcome.refused.windowWords,
+              resetsAt: outcome.refused.resetsAt,
+              sessionLeft: outcome.refused.sessionLeft,
+            }
+          : null,
         handoverNote,
       };
   }

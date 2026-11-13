@@ -2,7 +2,7 @@ import { z } from "zod";
 import { tokenTotalsSchema } from "./conversations.js";
 import { engineIdSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
-import { taskStateSchema } from "./work.js";
+import { taskHolderSchema, taskStateSchema } from "./work.js";
 
 /** Something that waits on the user, oldest first in Needs you. */
 export const needsYouItemSchema = z.discriminatedUnion("kind", [
@@ -41,6 +41,10 @@ export const runningTaskSchema = z.object({
   title: z.string(),
   projectId: z.string(),
   state: taskStateSchema,
+  /** What holds a Paused Task apart from the user's own Pause, as the Task's `pausedBy`. */
+  pausedBy: taskHolderSchema.nullable(),
+  /** When a Task the usage window paused resumes by itself. */
+  resumesAt: z.iso.datetime().nullable(),
   /** Null before its first Stage run. */
   stage: currentStageSchema.nullable(),
 });
@@ -166,6 +170,7 @@ export const notificationKindSchema = z.enum([
   "outcomes.task-paused",
   "outcomes.initiative-done",
   "office.window.nearly-used",
+  "office.window.used-up",
   "office.window.reset",
   "office.down.service",
   "office.down.engine",

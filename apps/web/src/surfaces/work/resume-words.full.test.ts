@@ -31,6 +31,26 @@ function held(interrupted: "pause" | "stop" | "restart"): StageRun {
       error: "Held.",
       budgetReached: null,
       interrupted,
+      refusedTurn: null,
+      handoverNote: null,
+    },
+  });
+}
+
+/** A run the usage window held, its refused turn leaving a session or not. */
+function refused(sessionLeft: boolean): StageRun {
+  return aRun({
+    outcome: {
+      status: "failed",
+      error: "Paused: the usage window is used up.",
+      budgetReached: null,
+      interrupted: "usage-window",
+      refusedTurn: {
+        engineName: "Claude Code",
+        windowWords: "5-hour window",
+        resetsAt: "2026-11-13T14:00:00.000Z",
+        sessionLeft,
+      },
       handoverNote: null,
     },
   });
@@ -102,6 +122,16 @@ describe("resumeWords", () => {
 
   it("says so while the Agent's turn still ends before the Pause holds it", () => {
     expect(resumeWords(heldWork({ latestRun: aRun({ endedAt: null }) })).label).toBe(
+      "Resume · continues Ada's session",
+    );
+  });
+
+  it("begins anew when a refused first turn left no session, and goes on in the Thread when one was left", () => {
+    expect(resumeWords(heldWork({ latestRun: refused(false) }))).toEqual({
+      label: "Resume · fresh session with a Brief",
+      hint: "The engine refused the Stage's first turn, which left no session, so the Stage begins again with its full Brief.",
+    });
+    expect(resumeWords(heldWork({ latestRun: refused(true) })).label).toBe(
       "Resume · continues Ada's session",
     );
   });

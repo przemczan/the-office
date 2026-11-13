@@ -4,6 +4,7 @@ import {
   StartedTasks,
   type StartedTask,
   type TaskBlocker,
+  type UsageWindowRefusal,
   type WalkTaskState,
 } from "./started-tasks.js";
 
@@ -44,6 +45,10 @@ export class OwnProjectsStartedTasks extends StartedTasks {
 
   holdForFireAlarm(taskId: string): Promise<boolean> {
     return this.tasks.holdForFireAlarm(taskId);
+  }
+
+  pauseForUsageWindow(taskId: string, refusal: UsageWindowRefusal): Promise<StartedTask> {
+    return this.tasks.pauseForUsageWindow(taskId, refusal);
   }
 
   resume(taskId: string): Promise<StartedTask> {

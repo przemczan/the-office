@@ -44,6 +44,7 @@ const SHOWS: { readonly [Kind in Message["kind"]]: "always" | "with-details" } =
   context: "with-details",
   "changes-allowed": "always",
   failure: "always",
+  "usage-window-used-up": "always",
   held: "always",
   decision: "always",
   "decision-answer": "always",

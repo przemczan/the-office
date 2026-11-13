@@ -18,13 +18,12 @@ import {
   type StageTemplate,
 } from "@the-office/contracts";
 import { createTemporaryRepository } from "./temporary-repository.ts";
+import { screenshotScenario } from "./task-screenshots.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
 
 /** A Task's screenshots for its review, kept by The Office across runs (git ignores it). */
-const TASK_SCREENSHOTS = path.resolve(import.meta.dirname, "../../../.office/screenshots");
-
 test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
 // The e2e files share one database: each limit is raised and put back, never lowered below its
@@ -848,29 +847,6 @@ async function projectPipeline(page: Page, projectPipelineId: string): Promise<P
   return projectPipelineSchema.parse(
     await (await page.request.get(`/api/project-pipelines/${projectPipelineId}`)).json(),
   );
-}
-
-/**
- * The page as it is, in each palette at 1600, 900 and 390 wide, with nothing scrolling sideways,
- * into the Task's screenshots for its review.
- */
-async function screenshotScenario(page: Page, name: string): Promise<void> {
-  for (const colorScheme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme });
-    await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
-    for (const width of [1600, 900, 390]) {
-      await page.setViewportSize({ width, height: 900 });
-      const sideways = await page
-        .locator("html")
-        .evaluate((html) => html.scrollWidth - html.clientWidth);
-      expect(sideways).toBe(0);
-      await page.screenshot({
-        path: path.join(TASK_SCREENSHOTS, `${name}-${colorScheme}-${width}.png`),
-      });
-    }
-  }
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.setViewportSize({ width: 1600, height: 900 });
 }
 
 async function addedPipeline(

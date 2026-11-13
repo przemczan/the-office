@@ -203,6 +203,10 @@ export const taskStateSchema = z.enum([
 ]);
 export type TaskState = z.infer<typeof taskStateSchema>;
 
+/** What holds a Paused Task apart from a Pause of the user's own. */
+export const taskHolderSchema = z.enum(["alarm", "initiative", "usage-window"]);
+export type TaskHolder = z.infer<typeof taskHolderSchema>;
+
 /** Highest first. */
 export const prioritySchema = z.enum(["high", "normal", "low"]);
 export type Priority = z.infer<typeof prioritySchema>;
@@ -263,8 +267,14 @@ export type ProjectMove = z.infer<typeof projectMoveSchema>;
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
-  /** Paused by the fire alarm, apart from the user's own Pause; the all clear resumes it. */
-  pausedByAlarm: z.boolean(),
+  /**
+   * What holds it Paused apart from the user's own Pause, null for that and every other state: the
+   * fire alarm, whose all clear resumes it; its Initiative's Pause; or its engine's usage window,
+   * used up until `resumesAt`.
+   */
+  pausedBy: taskHolderSchema.nullable(),
+  /** When a Task the usage window paused resumes by itself, its window's reset; null otherwise. */
+  resumesAt: z.iso.datetime().nullable(),
   plan: z.string(),
   /** False while the Plan is the Planner's proposal; true once the user confirmed or edited it. */
   planConfirmed: z.boolean(),

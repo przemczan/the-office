@@ -1,3 +1,7 @@
+import type { UsageWindowName } from "../domain/usage-windows.js";
+
+export type { KnownUsageWindowName, UsageWindowName } from "../domain/usage-windows.js";
+
 /**
  * The tokens one turn used, split as the engine reports them. The four parts add up to the turn's
  * tokens; none of them includes another.
@@ -156,8 +160,29 @@ export interface TurnTokensEvent {
   readonly soFar: TokenUsage;
 }
 
-/** How a turn ended. */
-export type TurnOutcome = "completed" | "interrupted" | "failed";
+/**
+ * How a turn ended. `usage-window-used-up`: the engine refused it because one of its account's usage
+ * windows is used up (spec 5.4), which is no failure; the turn's end names the window.
+ */
+export type TurnOutcome = "completed" | "interrupted" | "failed" | "usage-window-used-up";
+
+/**
+ * How long a refused turn waits when the engine gives no reset time and none was read: long enough
+ * not to spend a Start on each refusal, short enough that an hour's window lost is the worst case. A
+ * turn refused again then sets the wait from what the engine says that time.
+ */
+export const UNKNOWN_RESET_RETRY_MS = 60 * 60 * 1000;
+
+/** The window a refused turn found used up, and when it resets. */
+export interface UsedUpWindow {
+  readonly window: UsageWindowName;
+  readonly resetsAt: Date;
+  /**
+   * False when the engine gave no reset time and `resetsAt` is `UNKNOWN_RESET_RETRY_MS` on; the
+   * engine's sessions then use the latest reading of the windows, when there is one.
+   */
+  readonly resetGiven: boolean;
+}
 
 /** A turn ended: the session waits for a message, or takes the next one already sent. */
 export interface TurnEndedEvent {
@@ -176,6 +201,8 @@ export interface TurnEndedEvent {
   readonly output: unknown;
   /** Why a failed turn failed, in the engine's words. */
   readonly errors: readonly string[];
+  /** For a turn refused as `usage-window-used-up`, the window and its reset; undefined otherwise. */
+  readonly usedUpWindow?: UsedUpWindow;
 }
 
 export type RateLimitStatus = "allowed" | "warning" | "rejected";
@@ -187,6 +214,8 @@ export type RateLimitStatus = "allowed" | "warning" | "rejected";
 export interface RateLimitEvent {
   readonly kind: "rate-limit";
   readonly status: RateLimitStatus;
+  /** The window it concerns, when the engine names one. */
+  readonly window: UsageWindowName | undefined;
   /** When the window it concerns resets, when the engine says. */
   readonly resetsAt: Date | undefined;
 }

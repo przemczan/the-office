@@ -28,6 +28,7 @@ import {
   NO_TOKENS,
   type SessionEvent,
   type TokenUsage,
+  type TurnEndedEvent,
 } from "../ports/session-events.js";
 import {
   SessionLanguageServers,
@@ -100,6 +101,11 @@ export class EngineSessions {
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
   async capabilitiesOf(engineId: EngineId): Promise<EngineCapabilities> {
     return this.engines.of(await this.listed(engineId)).capabilities;
+  }
+
+  /** The name Settings › Engines gives `engineId`, or the id itself once none lists it. */
+  async nameOf(engineId: EngineId): Promise<string> {
+    return (await this.find(engineId))?.name ?? engineId;
   }
 
   /** Whether `engine`'s sessions read its account's usage windows. */
@@ -234,6 +240,11 @@ export class EngineSessions {
         await this.readUsageWindows(settings, session);
       },
       turnEnded: (usage) => this.turnEnded(settings, usage),
+      refused: async (refusedTurn) => {
+        if (refusedTurn.usedUpWindow === undefined) return refusedTurn;
+        const usedUpWindow = await this.usageWindows.refused(engine, refusedTurn.usedUpWindow);
+        return { ...refusedTurn, usedUpWindow };
+      },
       skillCalled: (skill) => this.skillCalled(sessionId, engine.id, skill),
       failed: async (error) => {
         if (!isRefusal(error)) await this.engineDown(sessionId, engine, error);
@@ -308,6 +319,8 @@ export class EngineSessions {
 interface SessionWatch {
   readonly rateLimited: () => Promise<void>;
   readonly turnEnded: (usage: TokenUsage) => Promise<void>;
+  /** A turn was refused for a used-up usage window: it answers the turn with its reset settled. */
+  readonly refused: (ended: TurnEndedEvent) => Promise<TurnEndedEvent>;
   /** The session's Agent or a subagent called the Skill tool for `skill`. */
   readonly skillCalled: (skill: string) => Promise<void>;
   readonly failed: (error: unknown) => Promise<void>;
@@ -363,8 +376,7 @@ class WatchedSession implements EngineSession {
   private async readEvents(): Promise<void> {
     try {
       for await (const event of this.session.events) {
-        await this.observe(event);
-        this.reported.push(event);
+        this.reported.push(await this.observe(event));
       }
       this.spans.stopped();
       this.reported.close();
@@ -377,11 +389,13 @@ class WatchedSession implements EngineSession {
     }
   }
 
-  private async observe(event: SessionEvent): Promise<void> {
+  /** The event as it is reported: a refused turn with its reset settled. */
+  private async observe(event: SessionEvent): Promise<SessionEvent> {
     if (event.kind === "turn-ended") {
       this.spans.turnEnded(event);
       // Counted before the turn is reported, so a reading or the day's use read once it ended includes it.
       await this.watch.turnEnded(event.usage);
+      if (event.outcome === "usage-window-used-up") return this.watch.refused(event);
     }
     if (event.kind === "tool-call") {
       const skill = calledSkill(event.tool, event.input);
@@ -391,6 +405,7 @@ class WatchedSession implements EngineSession {
       this.readingWindows = true;
       void this.watch.rateLimited().finally(() => (this.readingWindows = false));
     }
+    return event;
   }
 }
 

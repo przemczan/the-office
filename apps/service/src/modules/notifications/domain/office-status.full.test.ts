@@ -52,6 +52,8 @@ describe("officeStatusText", () => {
             title: "Rename dialog",
             projectId: "p1",
             state: "in-progress",
+            pausedBy: undefined,
+            resumesAt: undefined,
             stage: { key: "build", name: "Implement", role: "developer", since: AN_HOUR_AGO },
           },
           {
@@ -59,6 +61,8 @@ describe("officeStatusText", () => {
             title: "Nightly export",
             projectId: "p1",
             state: "paused",
+            pausedBy: undefined,
+            resumesAt: undefined,
             stage: undefined,
           },
         ],

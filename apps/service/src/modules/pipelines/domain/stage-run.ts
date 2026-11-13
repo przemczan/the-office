@@ -73,8 +73,35 @@ export type StageOutcome = (
        * the base: the user is asked, and no round goes (spec §2.3).
        */
       readonly branchMoved?: true;
+      /**
+       * Set on a run held as its engine refused a turn for a used-up usage window (spec 2.3): which
+       * message it refused, for the Stage to be sent again as it resumes.
+       */
+      readonly refused?: RefusedTurn;
     }
 ) & { readonly handoverNote?: string };
+
+/**
+ * A turn of the Stage's Agent the engine refused because a usage window of its account was used up
+ * (spec 2.1, 2.3): no failure, the Stage is held until the reset and sent the message again.
+ */
+export interface RefusedTurn {
+  /** What the refused turn answered: the Stage's work, or The Office's correction of its result. */
+  readonly message: "work" | "correction";
+  /** For a refused correction, the problems it named, which go with it again. */
+  readonly problems?: string;
+  /**
+   * Whether the refused turn left a session to go on in: not when it was the first of a session
+   * the Stage began, which then holds nothing but the refused work, so the Stage begins anew.
+   */
+  readonly sessionLeft: boolean;
+  /** The engine that refused it, by its name at the time. */
+  readonly engineName: string;
+  /** The used-up window as the user reads it, such as "5-hour window". */
+  readonly windowWords: string;
+  /** When the window resets, as an ISO time: the run is kept as JSON. */
+  readonly resetsAt: string;
+}
 
 /**
  * Why The Office interrupted a run (spec §2.4): the user's Stop, which stops the Agent's turn now
@@ -83,12 +110,19 @@ export type StageOutcome = (
  * alarm (spec §2.8) holds it as a Pause does, but stops its Project commands at once, so a Script
  * Stage stops then; its Stage runs again after the all clear. Or The Office restarting during the
  * Stage, which ends it as Stop does, and stops its Project commands too; its Stage runs again only
- * once the user says so in a Decision.
+ * once the user says so in a Decision. Or the engine refusing the Agent's turn for a used-up usage
+ * window, which holds it as a Pause does until the window resets (spec 2.3).
  */
-export type StageInterruption = "stop" | "pause" | "alarm" | "restart";
+export type StageInterruption = "stop" | "pause" | "alarm" | "restart" | "usage-window";
 
-/** What can be asked of a running Stage run: the user's Pause or Stop, or the fire alarm. */
-export type AskedInterruption = Extract<StageInterruption, "stop" | "pause" | "alarm">;
+/**
+ * What can be asked of a running Stage run: the user's Pause or Stop, the fire alarm, or the Stage
+ * runner itself once the engine refused a turn for a used-up usage window (spec 2.3).
+ */
+export type AskedInterruption = Extract<
+  StageInterruption,
+  "stop" | "pause" | "alarm" | "usage-window"
+>;
 
 /** The base branch moved on since the Task's branch left it, so Publish can't take the branch. */
 export interface BaseMoved {

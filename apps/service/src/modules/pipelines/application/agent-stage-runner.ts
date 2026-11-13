@@ -5,6 +5,7 @@ import {
   NoEngineListed,
   READ_ONLY_GIT_COMMANDS,
   RUN_PROJECT_COMMAND_TOOL,
+  usageWindowWords,
 } from "../../engine/index.js";
 import { READ_STAGE_HISTORY_TOOL, READING_OFFICE_TOOLS } from "../../conversations/index.js";
 import { narrowedPermissionProfile } from "../../people/index.js";
@@ -38,6 +39,7 @@ import {
   addTokens,
   NO_STAGE_TOKENS,
   type CarriedFailure,
+  type RefusedTurn,
   type StageOutcome,
   type StageRun,
 } from "../domain/stage-run.js";
@@ -53,6 +55,7 @@ import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { StartedTasks } from "../ports/started-tasks.js";
 import {
   StageThreads,
   type AskedDecision,
@@ -97,6 +100,15 @@ export const AGENT_STAGE_OFFICE_TOOLS = [
 type Ending = Parameters<StageThread["end"]>[0];
 
 /**
+ * What reading the Stage's result came to: its outcome; the run held by the user or the alarm; or
+ * the run held as the engine refused a turn for a used-up usage window.
+ */
+type ResultReading =
+  | { readonly kind: "result"; readonly outcome: StageOutcome }
+  | { readonly kind: "held" }
+  | { readonly kind: "refused"; readonly refused: RefusedTurn };
+
+/**
  * Runs Agent Stages (spec §2.3): the person who fills the Stage's Role works it in its Stage Thread,
  * in the session the Context policy gives it with the Stage's declared session, briefed from the
  * record, with the Project's dependencies installed first. Its result is read against the result
@@ -108,6 +120,9 @@ type Ending = Parameters<StageThread["end"]>[0];
  * (`ResolveStageGit`). An interrupted run (spec §2.4) ends its session uncommitted instead:
  * a Stop, or The Office shutting down, stops the running turn now and discards the Stage's
  * uncommitted edits; a Pause waits for the turn to end and keeps them for the Stage to go on with.
+ * A turn the engine refuses for a used-up usage window, its first or the correction, holds the run
+ * as a Pause does (spec 2.3): no correction follows, the Task is paused until the window resets,
+ * and the Stage is sent the refused message again as it resumes.
  */
 @Injectable()
 export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
@@ -129,6 +144,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly events: EventBus,
     private readonly waits: StageRunWaits,
     private readonly commandRuns: StageCommandRuns,
+    private readonly startedTasks: StartedTasks,
   ) {}
 
   onModuleInit(): void {
@@ -206,7 +222,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       await this.events.publish(
         new StageRunThreadOpened(work.run.taskId, work.run.id, work.run.stageKey),
       );
-      const result = await this.resultOf(work, thread, task.definitionOfDone.length);
+      const reading = await this.resultOf(work, thread, engineName, task.definitionOfDone.length);
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();
       if (asked) await this.keep(work, asked);
@@ -215,9 +231,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       await this.commandRuns.end(work.run.id);
       await thread.endSession();
       const after = await this.stageGit.afterTurn(work.run, expected);
-      const outcome = result
-        ? await this.commitWork(work, task, after, result, merging)
-        : await this.holdWork(work, task, after);
+      const outcome =
+        reading.kind === "result"
+          ? await this.commitWork(work, task, after, reading.outcome, merging)
+          : await this.holdWork(
+              work,
+              task,
+              after,
+              reading.kind === "refused" ? reading.refused : undefined,
+            );
       ending = endingOf(outcome);
       return outcome;
     } catch (error) {
@@ -265,13 +287,14 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     { run, interruption }: StageWork<"agent">,
     task: TaskRecord,
     expected: ExpectedHead,
+    refused?: RefusedTurn,
   ): Promise<StageOutcome> {
     const held = interruption.requested;
     if (!held) throw new Error(`Stage run ${run.id} was held, yet nothing interrupted it.`);
     const after = await this.stageGit.checkHead(run, task, expected);
     if (after) return changedGitItself(after, undefined);
     const discarded = await this.stageGit.settleInterrupted(run, task, expected, held);
-    return interruptedOutcome(held, discarded, { cutShortBy: interruption.cutShortBy });
+    return interruptedOutcome(held, discarded, { cutShortBy: interruption.cutShortBy, refused });
   }
 
   private async open(
@@ -429,15 +452,16 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   }
 
   /**
-   * The Stage's result, corrected once in the same session when it doesn't match the schema;
-   * undefined once the user holds the run: at the end of the turn running after a Pause, at once
-   * after a Stop, which stops that turn.
+   * The Stage's result, corrected once in the same session when it doesn't match the schema; held
+   * once the user holds the run: at the end of the turn running after a Pause, at once after a
+   * Stop, which stops that turn; or refused, once the engine refuses a turn for a used-up window.
    */
   private async resultOf(
     work: StageWork<"agent">,
     thread: StageThread,
+    engineName: string,
     statementCount: number,
-  ): Promise<StageOutcome | undefined> {
+  ): Promise<ResultReading> {
     const { interruption } = work;
     const stopListening = interruption.onNow(() => {
       thread.interrupt().catch((error: unknown) => {
@@ -445,10 +469,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       });
     });
     try {
-      return await this.readResult(work, thread, statementCount);
+      return await this.readResult(work, thread, engineName, statementCount);
     } catch (error) {
       // An engine that can't interrupt ends the session instead, so the turn read fails.
-      if (interruption.now) return undefined;
+      if (interruption.now) return { kind: "held" };
       throw error;
     } finally {
       stopListening();
@@ -458,8 +482,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   private async readResult(
     work: StageWork<"agent">,
     thread: StageThread,
+    engineName: string,
     statementCount: number,
-  ): Promise<StageOutcome | undefined> {
+  ): Promise<ResultReading> {
     let tokens = NO_STAGE_TOKENS;
     const counted = async (turn: StageTurn): Promise<StageTurn> => {
       tokens = addTokens(tokens, turn.tokens);
@@ -467,32 +492,85 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       return turn;
     };
     // Stopped while the session opened, before there was a turn to stop.
-    if (work.interruption.now) return undefined;
+    if (work.interruption.now) return { kind: "held" };
     const firstTurn = await counted(await thread.nextTurn());
-    if (work.interruption.requested) return undefined;
+    if (firstTurn.usedUpWindow) {
+      // A session the Stage began holds nothing but the refused work; one it went on in stays.
+      const sessionLeft = thread.move.move === "resume";
+      return this.refused(work, thread, engineName, firstTurn.usedUpWindow, {
+        message: "work",
+        sessionLeft,
+      });
+    }
+    if (work.interruption.requested) return { kind: "held" };
     const first = await this.withScreenshots(
       work,
       readingOf(firstTurn, await thread.askedDecision(), statementCount),
     );
-    if (first.valid) return first.outcome;
+    if (first.valid) return { kind: "result", outcome: first.outcome };
     // The correction is another engine call, so the budget is checked before it too.
     const reached = await this.budgetCheck(work);
-    if (reached) return reached;
+    if (reached) return { kind: "result", outcome: reached };
     const correctedTurn = await counted(
       await thread.send(
         correctionMessage(first.problems),
         `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
       ),
     );
-    if (work.interruption.requested) return undefined;
+    if (correctedTurn.usedUpWindow) {
+      return this.refused(work, thread, engineName, correctedTurn.usedUpWindow, {
+        message: "correction",
+        problems: first.problems,
+        sessionLeft: true,
+      });
+    }
+    if (work.interruption.requested) return { kind: "held" };
     const corrected = await this.withScreenshots(
       work,
       readingOf(correctedTurn, await thread.askedDecision(), statementCount),
     );
-    if (corrected.valid) return corrected.outcome;
+    if (corrected.valid) return { kind: "result", outcome: corrected.outcome };
     return {
-      status: "failed",
-      error: `The Stage's result still didn't match its schema after one correction: ${corrected.problems}`,
+      kind: "result",
+      outcome: {
+        status: "failed",
+        error: `The Stage's result still didn't match its schema after one correction: ${corrected.problems}`,
+      },
+    };
+  }
+
+  /**
+   * The engine refused the Agent's turn for a used-up usage window (spec 2.3): no failure and no
+   * correction. Unless the user or the alarm holds the run already, which stays, the run is held by
+   * the usage window and Work pauses the Task until the window resets; either way the run's end
+   * records the refused message, which the Stage is sent again as it resumes. The run is asked to
+   * hold here only: Work's TaskPaused for it asks the walk nothing (`StageInterpreter`).
+   */
+  private async refused(
+    { run, interruption }: StageWork<"agent">,
+    thread: StageThread,
+    engineName: string,
+    usedUp: NonNullable<StageTurn["usedUpWindow"]>,
+    message: Pick<RefusedTurn, "message" | "problems" | "sessionLeft">,
+  ): Promise<ResultReading> {
+    if (interruption.requested === undefined) {
+      interruption.request("usage-window");
+      await this.runs.saveHeldBy(run.id, "usage-window");
+      await this.startedTasks.pauseForUsageWindow(run.taskId, {
+        engineId: thread.engine,
+        engineName,
+        window: usedUp.window,
+        resetsAt: usedUp.resetsAt,
+      });
+    }
+    return {
+      kind: "refused",
+      refused: {
+        ...message,
+        engineName,
+        windowWords: usageWindowWords(usedUp.window),
+        resetsAt: usedUp.resetsAt.toISOString(),
+      },
     };
   }
 
@@ -561,16 +639,26 @@ function stageSessionOf(
   earlierRuns: readonly StageRun[],
 ): Pick<StageThreadRequest, "declared" | "previousThreadId"> {
   const held = heldRun(stage, earlierRuns);
-  const inItsThread =
-    answeredQuestion(stage, earlierRuns) !== undefined || held?.threadId !== undefined;
+  const heldWithASession = held !== undefined && leftASession(held);
+  const inItsThread = answeredQuestion(stage, earlierRuns) !== undefined || heldWithASession;
   return {
     declared: inItsThread ? undefined : stage.session,
     previousThreadId: previousAgentThread(
       stages,
-      // A run held before its session began left no Thread: the one before it is the last.
-      held && held.threadId === undefined ? earlierRuns.slice(0, -1) : earlierRuns,
+      // A run held before its session began left none: the one before it is the last, and the
+      // Stage begins as it first did, with the full Brief.
+      held && !heldWithASession ? earlierRuns.slice(0, -1) : earlierRuns,
     ),
   };
+}
+
+/**
+ * Whether a held run left a session for the Stage to go on in: not when it was held before its
+ * session began, nor when the engine refused the first turn of a session it began (spec 2.3).
+ */
+function leftASession({ threadId, outcome }: StageRun): boolean {
+  if (threadId === undefined) return false;
+  return outcome?.status !== "failed" || outcome.refused?.sessionLeft !== false;
 }
 
 /** The previous run's Stage Thread, when an Agent worked it: the one a Stage may continue. */
@@ -599,6 +687,7 @@ function heldRunOf({ outcome, decisions }: StageRun): HeldRun | undefined {
     ...(outcome.notStarted && { notStarted: true }),
     ...(outcome.cutShort && { cutShort: true }),
     ...(guidance !== undefined && { guidance }),
+    ...(outcome.refused && { refused: outcome.refused }),
   };
 }
 

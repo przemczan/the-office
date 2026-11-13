@@ -41,6 +41,8 @@ describeAgentEngineContract("ScriptedEngine replaying the recordings", {
   model: "scripted",
   timeoutMs: 5000,
   mcpServer: CONTRACT_MCP_SERVER,
+  usageWindowUsedUp: true,
+  failedTurns: true,
   engineFor: async (scenario) =>
     new ScriptedEngine(await readRecording(join(RECORDINGS, `${scenario}.jsonl`))),
 });
@@ -51,6 +53,8 @@ describeAgentEngineContract("ScriptedEngine without capabilities", {
   model: "scripted",
   timeoutMs: 5000,
   mcpServer: CONTRACT_MCP_SERVER,
+  usageWindowUsedUp: true,
+  failedTurns: true,
   engineFor: async (scenario) =>
     new ScriptedEngine(await readRecording(join(RECORDINGS, `${scenario}.jsonl`)), NO_CAPABILITY),
 });
@@ -216,6 +220,35 @@ describe("ScriptedEngine", () => {
 
     expect((await reading).at(-1)).toMatchObject({ consumedMessageIds: [brief.id] });
     expect(engine.sessions[0]?.received).toEqual([{ step: "start", brief }, { step: "end" }]);
+  });
+
+  it("gives a refused turn's reset the seconds after the replay its step names, for a test to see it come", async () => {
+    const refused: SessionEvent = {
+      ...TURN_ENDED,
+      outcome: "usage-window-used-up",
+      usedUpWindow: { window: "five-hour", resetsAt: new Date(0), resetGiven: true },
+    };
+    const engine = new ScriptedEngine([
+      [
+        { step: "start", brief: { id: "brief", text: "Build it." } },
+        { step: "event", event: refused, resetsInSeconds: 30 },
+        { step: "end" },
+      ],
+    ]);
+    const before = Date.now();
+    const session = await engine.start({
+      id: randomUUID(),
+      options: options(),
+      brief: { id: randomUUID(), text: "Build it." },
+    });
+    const reading = readAll(session.events);
+    await vi.waitFor(() => expect(engine.sessions[0]?.reportedEvents).toHaveLength(1));
+    await session.end();
+
+    const [ended] = await reading;
+    expect(
+      ended?.kind === "turn-ended" && ended.usedUpWindow?.resetsAt.getTime(),
+    ).toBeGreaterThanOrEqual(before + 30_000);
   });
 
   it("holds at a wait step until the test reaches its mark, the events before it reported", async () => {

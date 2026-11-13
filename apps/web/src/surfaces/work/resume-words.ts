@@ -40,6 +40,12 @@ export function resumeWords({
       hint: "The Task waits on your answer to its Decision, then goes on.",
     };
   }
+  if (latestRun && beginsAnew(latestRun)) {
+    return {
+      label: SESSION_LABELS.fresh(personName),
+      hint: "The engine refused the Stage's first turn, which left no session, so the Stage begins again with its full Brief.",
+    };
+  }
   if (latestRun && goesOnInItsThread(latestRun) && thread) {
     return {
       label: SESSION_LABELS[thread.context.move](personName),
@@ -55,13 +61,20 @@ export function resumeWords({
   return { label: "Resume", hint: "The Pipeline goes on from where you paused it." };
 }
 
+/** A run held by a used-up usage window whose refused first turn left no session to go on in. */
+function beginsAnew({ outcome }: StageRun): boolean {
+  return outcome?.status === "failed" && outcome.refusedTurn?.sessionLeft === false;
+}
+
 /** A run still ending its turn, or one the user held, goes on in its Stage Thread. */
 function goesOnInItsThread({ threadId, outcome }: StageRun): boolean {
   if (threadId === null) return false;
   if (!outcome) return true;
   return (
     outcome.status === "failed" &&
-    (outcome.interrupted === "pause" || outcome.interrupted === "stop")
+    (outcome.interrupted === "pause" ||
+      outcome.interrupted === "stop" ||
+      outcome.interrupted === "usage-window")
   );
 }
 

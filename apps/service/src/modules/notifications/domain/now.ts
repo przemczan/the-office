@@ -9,9 +9,12 @@ export interface OfficeTask {
   readonly state: string;
   /**
    * What holds it Paused apart from the user's own Pause: `alarm` for the fire alarm, `initiative`
-   * for its Initiative's Pause; undefined for none.
+   * for its Initiative's Pause, `usage-window` for its engine's used-up usage window; undefined for
+   * none.
    */
   readonly pausedBy: string | undefined;
+  /** When a Task the usage window paused resumes by itself; undefined otherwise. */
+  readonly resumesAt: Date | undefined;
 }
 
 /** The fire alarm, from Work: off, or on since it was sounded. */
@@ -103,6 +106,9 @@ export interface RunningTask {
   readonly title: string;
   readonly projectId: string;
   readonly state: string;
+  /** What holds it Paused, as `OfficeTask.pausedBy` says. */
+  readonly pausedBy: string | undefined;
+  readonly resumesAt: Date | undefined;
   /** Undefined before its first Stage run. */
   readonly stage: CurrentStage | undefined;
 }
@@ -216,6 +222,8 @@ export function nowOf(parts: NowParts): Now {
     title: task.title,
     projectId: task.projectId,
     state: task.state,
+    pausedBy: task.pausedBy,
+    resumesAt: task.resumesAt,
     stage: stages && currentStageOf(stages),
   }));
   return {

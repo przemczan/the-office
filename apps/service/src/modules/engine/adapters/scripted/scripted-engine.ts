@@ -34,6 +34,7 @@ import {
   inPlaces,
   type CallerRequest,
   type CallerStep,
+  type EventStep,
   type ReadStep,
   type SessionScript,
 } from "./session-script.js";
@@ -348,7 +349,7 @@ export class ScriptedSession implements EngineSession {
     try {
       for (const step of script) {
         if (step.step === "event") {
-          for (const event of await this.replay(step.event)) {
+          for (const event of await this.replay(withRelativeReset(step))) {
             this.reportedEvents.push(event);
             this.reported.push(event);
           }
@@ -512,4 +513,13 @@ function isRead(step: CallerStep): step is Extract<CallerStep, { step: ReadStep 
 
 function describe(step: AwaitedRequest): string {
   return step.step === "send" ? `send a message with priority ${step.priority}` : step.step;
+}
+
+/** The step's event, a refused turn's reset moved to `resetsInSeconds` from now when it gives one. */
+function withRelativeReset({ event, resetsInSeconds }: EventStep): SessionEvent {
+  if (resetsInSeconds === undefined || event.kind !== "turn-ended" || !event.usedUpWindow) {
+    return event;
+  }
+  const resetsAt = new Date(Date.now() + resetsInSeconds * 1000);
+  return { ...event, usedUpWindow: { ...event.usedUpWindow, resetsAt } };
 }

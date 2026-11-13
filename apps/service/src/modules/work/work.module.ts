@@ -73,6 +73,7 @@ import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
 import { SearchService } from "./application/search-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
+import { UsageWindowResumes } from "./application/usage-window-resumes.js";
 import { QueueService } from "./application/queue-service.js";
 import { StartConditionsReader } from "./application/start-conditions.js";
 import { DailyCaps } from "./application/daily-caps.js";
@@ -265,6 +266,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         UsageEstimates,
         QueueService,
         FireAlarmService,
+        UsageWindowResumes,
         TaskRecords,
         TaskStageEdits,
         IdeaRecords,
@@ -294,6 +296,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         DroppedInitiativeTasks,
         OfficeLimits,
         QueueService,
+        UsageWindowResumes,
         RunEnvironmentSetUps,
         TaskRecords,
         TaskStageEdits,

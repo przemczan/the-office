@@ -11,12 +11,14 @@ import {
   TaskResumed,
   TaskStateChanged,
   TaskStopped,
+  type UsageWindowRefusal,
 } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import { THE_PLANNER } from "./planning.js";
 import {
   BY_THE_FIRE_ALARM,
   BY_THE_PIPELINE,
+  BY_THE_USAGE_WINDOW,
   type StateChange,
   type StateChangeCause,
 } from "./state-change.js";
@@ -102,6 +104,7 @@ export function createTask(
     hasPlanningThread: false,
     personRole: undefined,
     pausedBy: undefined,
+    resumesAt: undefined,
     madeFor: undefined,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
@@ -131,7 +134,7 @@ export function changeTaskState(
   if (task.state === to) return undefined;
   return withStateChange(
     {
-      task: { ...task, state: to, pausedBy: undefined },
+      task: { ...task, state: to, pausedBy: undefined, resumesAt: undefined },
       event: new TaskStateChanged(task.id, task.state, to),
     },
     task,
@@ -250,7 +253,7 @@ export function pauseTask(task: Task, by: StateChangeCause): TaskChange<TaskPaus
   refuseUnlessRunning(task, "paused");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: undefined },
+      task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
       event: new TaskPaused(task.id, task.state),
     },
     task,
@@ -276,6 +279,51 @@ export function pauseTaskForAlarm(task: Task): TaskChange<TaskPaused> | undefine
 }
 
 /**
+ * A pause by the usage window (spec §2.1): a Stage's turn was refused because its engine's usage
+ * window is used up, so a Task In progress or Waiting on you is held Paused until the window's
+ * reset, its Stage's run already ended held. One paused by the usage window has its resume moved to
+ * the new reset. Undefined for any other: a Task the user, the alarm or its Initiative holds stays
+ * theirs.
+ */
+export function pauseTaskForUsageWindow(
+  task: Task,
+  refusal: UsageWindowRefusal,
+): TaskChange<TaskPaused> | undefined {
+  const pausedByTheWindow = task.state === "paused" && task.pausedBy === "usage-window";
+  if (!pausedByTheWindow && task.state !== "in-progress" && task.state !== "waiting-on-you") {
+    return undefined;
+  }
+  return withStateChange(
+    {
+      task: { ...task, state: "paused", pausedBy: "usage-window", resumesAt: refusal.resetsAt },
+      event: new TaskPaused(task.id, task.state, "usage-window", refusal),
+    },
+    task,
+    BY_THE_USAGE_WINDOW,
+  );
+}
+
+/**
+ * The usage window's reset, for a Task it paused: the Task goes on In progress, where its Pipeline
+ * was held, or, while the fire alarm is on, is held by the alarm until the all clear, as a Resume
+ * then is. Undefined for any other Task, and before its reset.
+ */
+export function resumeTaskAtReset(
+  task: Task,
+  { fireAlarmOn, now }: { readonly fireAlarmOn: boolean; readonly now: Date },
+): TaskChange<TaskResumed | TaskPaused> | undefined {
+  if (task.state !== "paused" || task.pausedBy !== "usage-window") return undefined;
+  if (task.resumesAt !== undefined && task.resumesAt > now) return undefined;
+  if (fireAlarmOn) {
+    return {
+      task: { ...task, pausedBy: "alarm", resumesAt: undefined },
+      event: new TaskPaused(task.id, "paused", "alarm"),
+    };
+  }
+  return resumed(task, BY_THE_USAGE_WINDOW);
+}
+
+/**
  * Stop (spec §2.4): as Pause, but the Stage running now is interrupted; a Task paused already can
  * still be stopped, so its Stage doesn't run to its end. The Stop is the user's, even of a Task
  * the fire alarm paused.
@@ -284,7 +332,7 @@ export function stopTask(task: Task): TaskChange<TaskStopped> {
   if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: undefined },
+      task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
       event: new TaskStopped(task.id, task.state),
     },
     task,
@@ -295,12 +343,13 @@ export function stopTask(task: Task): TaskChange<TaskStopped> {
 /**
  * Pause the Initiative, for one of its Tasks (spec §2.1): one In progress or Waiting on you is held
  * Paused by the Initiative, its running Stage once the Agent's current turn ends, and one the fire
- * alarm holds becomes the Initiative's, so the all clear doesn't resume it. Undefined for any
- * other: a Task the user paused stays theirs.
+ * alarm or the usage window holds becomes the Initiative's, so neither the all clear nor the reset
+ * resumes it; the usage window's reset is kept for Resume the Initiative. Undefined for any other:
+ * a Task the user paused stays theirs.
  */
 export function pauseTaskForInitiative(task: Task): TaskChange<TaskPaused> | undefined {
   if (task.state === "paused") {
-    if (task.pausedBy !== "alarm") return undefined;
+    if (task.pausedBy !== "alarm" && task.pausedBy !== "usage-window") return undefined;
     return {
       task: { ...task, pausedBy: "initiative" },
       event: new TaskPaused(task.id, "paused", "initiative"),
@@ -320,16 +369,23 @@ export function pauseTaskForInitiative(task: Task): TaskChange<TaskPaused> | und
 /**
  * Resume the Initiative, for one of its Tasks: one its Pause held goes on In progress, where its
  * Pipeline was held, or, while the fire alarm is on, is held by the alarm until the all clear, as a
- * Resume then is. Undefined for any other Task, which the Initiative doesn't hold.
+ * Resume then is; one it took over from the usage window before the window's reset stays paused by
+ * the usage window until then. Undefined for any other Task, which the Initiative doesn't hold.
  */
 export function resumeTaskForInitiative(
   task: Task,
-  { fireAlarmOn }: { readonly fireAlarmOn: boolean },
+  { fireAlarmOn, now }: { readonly fireAlarmOn: boolean; readonly now: Date },
 ): TaskChange<TaskResumed | TaskPaused> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "initiative") return undefined;
+  if (task.resumesAt !== undefined && task.resumesAt > now) {
+    return {
+      task: { ...task, pausedBy: "usage-window" },
+      event: new TaskPaused(task.id, "paused", "usage-window"),
+    };
+  }
   if (fireAlarmOn) {
     return {
-      task: { ...task, pausedBy: "alarm" },
+      task: { ...task, pausedBy: "alarm", resumesAt: undefined },
       event: new TaskPaused(task.id, "paused", "alarm"),
     };
   }
@@ -363,19 +419,19 @@ export function resumeTask(
     throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
   }
   return {
-    task: { ...task, pausedBy: "alarm" },
+    task: { ...task, pausedBy: "alarm", resumesAt: undefined },
     event: new TaskPaused(task.id, "paused", "alarm"),
   };
 }
 
-function resumed(task: Task): TaskChange<TaskResumed> {
+function resumed(task: Task, by: StateChangeCause = THE_USER): TaskChange<TaskResumed> {
   return withStateChange(
     {
-      task: { ...task, state: "in-progress", pausedBy: undefined },
+      task: { ...task, state: "in-progress", pausedBy: undefined, resumesAt: undefined },
       event: new TaskResumed(task.id),
     },
     task,
-    THE_USER,
+    by,
   );
 }
 

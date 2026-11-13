@@ -5,11 +5,11 @@ describe("taskStateWords", () => {
   it("reads a Paused Task by what holds it", () => {
     expect(taskStateWords("paused")).toBe("Paused");
     expect(taskStateWords("paused", { stopped: true })).toBe("Stopped");
-    expect(taskStateWords("paused", { pausedByAlarm: true })).toBe("Paused by the alarm");
+    expect(taskStateWords("paused", { pausedBy: "alarm" })).toBe("Paused by the alarm");
   });
 
   it("gives the alarm's words over a Stop", () => {
-    expect(taskStateWords("paused", { pausedByAlarm: true, stopped: true })).toBe(
+    expect(taskStateWords("paused", { pausedBy: "alarm", stopped: true })).toBe(
       "Paused by the alarm",
     );
   });
@@ -17,7 +17,7 @@ describe("taskStateWords", () => {
   it("names any other state as it is, whatever its Stage last did", () => {
     expect(taskStateWords("in-progress", { stopped: true })).toBe("In progress");
     expect(taskStateWords("dropped", { stopped: true })).toBe("Dropped");
-    expect(taskStateWords("waiting-on-you", { pausedByAlarm: true })).toBe("Waiting on you");
+    expect(taskStateWords("waiting-on-you", { pausedBy: "alarm" })).toBe("Waiting on you");
   });
 });
 

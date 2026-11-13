@@ -1,5 +1,5 @@
 import { answerWords, type Decision } from "./decision.js";
-import type { Message } from "./message.js";
+import { usageWindowUsedUpWords, type Message } from "./message.js";
 import type { Proposal, ProposedChange } from "./proposal.js";
 
 /** The most characters a `read_threads` answer holds, as `read_stage_history`'s does. */
@@ -131,6 +131,8 @@ function speakerAndText(
       };
     case "failure":
       return { speaker: THE_OFFICE, text: `Couldn't answer: ${message.reason}` };
+    case "usage-window-used-up":
+      return { speaker: THE_OFFICE, text: usageWindowUsedUpWords(message) };
     case "held":
       return { speaker: THE_OFFICE, text: message.text };
   }

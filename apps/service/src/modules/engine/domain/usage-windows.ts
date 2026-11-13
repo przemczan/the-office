@@ -33,3 +33,24 @@ function sameWindow(one: UsageWindow, other: UsageWindow): boolean {
     one.percentUsed === other.percentUsed && one.resetsAt?.getTime() === other.resetsAt?.getTime()
   );
 }
+
+/**
+ * The usage windows the Claude Code engine names (docs/engine-check.md,
+ * engine.usage-window-refusal): its `rateLimitType`s, in the port's words.
+ */
+export const USAGE_WINDOW_NAMES = [
+  "five-hour",
+  "seven-day",
+  "seven-day-opus",
+  "seven-day-sonnet",
+  "seven-day-overage-included",
+  "overage",
+] as const;
+
+export type KnownUsageWindowName = (typeof USAGE_WINDOW_NAMES)[number];
+
+/**
+ * A usage window: one the port names, or the engine's own name for one it doesn't, so a refusal for a
+ * window a newer engine adds still pauses rather than fails; `unknown` when the engine named none.
+ */
+export type UsageWindowName = KnownUsageWindowName | (string & {});

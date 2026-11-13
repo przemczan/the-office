@@ -47,6 +47,7 @@ function usage(windows: WindowsAtStart, estimate: EngineUsage | undefined): Usag
     windows: [windows],
     daily: [],
     engineNames: ENGINE_NAMES,
+    usedUp: [],
   };
 }
 
@@ -116,6 +117,7 @@ function dailyUsage(daily: DailyCapsAtStart, estimate: EngineUsage | undefined):
     windows: [],
     daily: [daily],
     engineNames: ENGINE_NAMES,
+    usedUp: [],
   };
 }
 

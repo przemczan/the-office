@@ -16,8 +16,19 @@ export type ScriptStep =
   | { readonly step: "read-usage-windows"; readonly windows: UsageWindows | undefined }
   | { readonly step: "read-context-usage"; readonly usage: ContextUsage }
   | { readonly step: "end" }
-  | { readonly step: "event"; readonly event: SessionEvent }
+  | EventStep
   | WaitStep;
+
+export interface EventStep {
+  readonly step: "event";
+  readonly event: SessionEvent;
+  /**
+   * For a refused turn's end, its window resets this many seconds after the replay reaches it, in
+   * place of the script's `resetsAt`, so a test can see the reset come. Never recorded: a test
+   * writes it.
+   */
+  readonly resetsInSeconds?: number;
+}
 
 /**
  * The replay holds here until the test reaches the mark (`ScriptedSession.reach`), such as a
@@ -123,16 +134,24 @@ const sessionEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("turn-tokens"), soFar: tokenUsage }),
   z.object({
     kind: z.literal("turn-ended"),
-    outcome: z.enum(["completed", "interrupted", "failed"]),
+    outcome: z.enum(["completed", "interrupted", "failed", "usage-window-used-up"]),
     consumedMessageIds: z.array(z.string()),
     usage: tokenUsage,
     sessionCostUsd: z.number(),
     output: absent(z.unknown()),
     errors: z.array(z.string()),
+    usedUpWindow: z
+      .object({ window: z.string(), resetsAt: z.coerce.date(), resetGiven: z.boolean() })
+      .optional(),
   }),
   z.object({
     kind: z.literal("rate-limit"),
     status: z.enum(["allowed", "warning", "rejected"]),
+    // Recordings made before refused turns were told apart leave it out.
+    window: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? undefined),
     resetsAt: absent(z.coerce.date()),
   }),
   z.object({
@@ -213,7 +232,11 @@ const scriptStep = z.discriminatedUnion("step", [
     usage: z.object({ tokens: z.number(), window: z.number() }),
   }),
   z.object({ step: z.literal("end") }),
-  z.object({ step: z.literal("event"), event: sessionEvent }),
+  z.object({
+    step: z.literal("event"),
+    event: sessionEvent,
+    resetsInSeconds: z.number().positive().optional(),
+  }),
   z.object({ step: z.literal("wait"), mark: z.string() }),
 ]) satisfies z.ZodType<ScriptStep, unknown>;
 

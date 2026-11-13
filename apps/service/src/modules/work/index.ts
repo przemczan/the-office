@@ -11,6 +11,7 @@ export { TaskArchiving } from "./application/task-archiving.js";
 export { TaskRecords } from "./application/task-records.js";
 export { TaskStageEdits, type TaskStageEditLookup } from "./application/task-stage-edits.js";
 export { TaskService } from "./application/task-service.js";
+export { UsageWindowResumes } from "./application/usage-window-resumes.js";
 export { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./domain/attachment-events.js";
 export {
   IdeaCaptured,
@@ -35,6 +36,7 @@ export {
   TaskDefinitionOfDoneSaved,
   TaskDependencyRemoved,
   TaskPaused,
+  type UsageWindowRefusal,
   TaskPipelineConfirmed,
   TaskMovedToProject,
   TaskPipelineProposed,

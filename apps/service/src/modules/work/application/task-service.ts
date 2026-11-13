@@ -13,8 +13,10 @@ import {
   createTask,
   pauseTask,
   pauseTaskForAlarm,
+  pauseTaskForUsageWindow,
   reorderTask,
   resumeTask,
+  resumeTaskAtReset,
   stopTask,
   type TaskChange,
 } from "../domain/task-changes.js";
@@ -26,7 +28,12 @@ import {
   blockPublishingTask,
   removeDependency,
 } from "../domain/task-dependencies.js";
-import { TaskResumed, type TaskMovedToProject, type TaskPaused } from "../domain/task-events.js";
+import {
+  TaskResumed,
+  type TaskMovedToProject,
+  type TaskPaused,
+  type UsageWindowRefusal,
+} from "../domain/task-events.js";
 import { isInitiativePaused } from "../domain/initiative-pause.js";
 import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js";
 import { changeDescription } from "../domain/task-description.js";
@@ -289,6 +296,33 @@ export class TaskService {
    */
   async hold(id: string, reason: string): Promise<Task> {
     return this.update(id, (task) => pauseTask(task, { kind: "office", reason }));
+  }
+
+  /**
+   * A pause by the usage window (spec §2.1): the Stage runner ended the run held as the engine
+   * refused its turn, so TaskPaused by the usage window asks Pipelines for nothing; the Task resumes
+   * at the window's reset (UsageWindowResumes). One paused by it already has its resume moved on.
+   */
+  async pauseForUsageWindow(id: string, refusal: UsageWindowRefusal): Promise<Task> {
+    return this.update(id, (task) => pauseTaskForUsageWindow(task, refusal));
+  }
+
+  /**
+   * The usage window's reset, for a Task it paused: resumed, so its Pipeline walks on where it was
+   * held; while the fire alarm is on the alarm holds it instead, until the all clear. A Task the
+   * user, the alarm or its Initiative holds by now, or whose reset moved on, stays as it is.
+   */
+  async resumeAtReset(id: string, now: Date): Promise<Task> {
+    const fireAlarmOn = await this.fireAlarmOn();
+    const { task, event } = await this.repository.update(id, (held) =>
+      resumeTaskAtReset(held, { fireAlarmOn, now }),
+    );
+    // Read again after the save, as a Resume does: an alarm sounded meanwhile passed it by as Paused.
+    if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
+      return this.update(id, pauseTaskForAlarm);
+    }
+    if (event) await this.events.publish(event);
+    return task;
   }
 
   /** Holds the Task now; TaskStopped tells Pipelines to interrupt the Stage running. */

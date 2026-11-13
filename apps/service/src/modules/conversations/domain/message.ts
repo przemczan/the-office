@@ -1,3 +1,4 @@
+import { usageWindowWords } from "../../engine/index.js";
 import type { ContextMove, ContextReason } from "./context-policy.js";
 import type { AtUsersRequest, DecisionAnswer } from "./decision.js";
 import type { OpenPage } from "./open-page.js";
@@ -32,6 +33,7 @@ export type MessageDraft =
   | OfficeStatusCard
   | ContextLine
   | ChangesAllowedLine
+  | UsageWindowUsedUpLine
   | StageWorkClosing;
 
 /**
@@ -72,8 +74,32 @@ export type StageWorkClosing =
   | { readonly kind: "failure"; readonly reason: string }
   | { readonly kind: "held"; readonly heldBy: HeldBy; readonly text: string };
 
-/** How a running Stage was held: by the user's Pause or Stop, or by the fire alarm. */
-export type HeldBy = "pause" | "stop" | "alarm";
+/**
+ * How a running Stage was held: by the user's Pause or Stop, by the fire alarm, or as its engine
+ * refused a turn for a used-up usage window (spec 2.3).
+ */
+export type HeldBy = "pause" | "stop" | "alarm" | "usage-window";
+
+/**
+ * The engine refused the person's turn because a usage window of its account is used up (spec 2.4):
+ * The Office's line, a notice rather than a failure. The window by the port's name, its reset as an
+ * ISO time, as the log is kept as JSON.
+ */
+export interface UsageWindowUsedUpLine {
+  readonly kind: "usage-window-used-up";
+  readonly engineName: string;
+  readonly window: string;
+  readonly resetsAt: string;
+}
+
+/** "Claude Code's 5-hour window is used up until 2026-11-13 14:00 UTC", the line in words. */
+export function usageWindowUsedUpWords({
+  engineName,
+  window,
+  resetsAt,
+}: Omit<UsageWindowUsedUpLine, "kind">): string {
+  return `${engineName}'s ${usageWindowWords(window)} is used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC.`;
+}
 
 /**
  * Whether a message the user wrote reached the person: one written into a running Stage Thread

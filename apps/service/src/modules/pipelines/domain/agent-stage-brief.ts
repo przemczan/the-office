@@ -1,9 +1,11 @@
 import { baseWords, publishingModeWords } from "./base-words.js";
 import type { AllowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
+import { correctionMessage } from "./stage-result.js";
 import { STAGE_KIND_NAMES, type AgentStage, type Stage, type StageKind } from "./stage.js";
 import type {
   CarriedFailure,
+  RefusedTurn,
   SentBack,
   StageInterruption,
   StageOutcome,
@@ -144,6 +146,11 @@ export interface HeldRun {
   readonly cutShort?: true;
   /** The user's own words in their answer to run it again after a restart. */
   readonly guidance?: string;
+  /**
+   * Set when the engine refused the Agent's last turn for a used-up usage window: the message it
+   * refused, which is sent again (spec 2.3).
+   */
+  readonly refused?: Pick<RefusedTurn, "message" | "problems">;
 }
 
 /**
@@ -184,6 +191,9 @@ The user paused this Stage after your last turn, and has resumed it. Your edits 
   alarm: `## Held by the fire alarm
 
 The user sounded the fire alarm while this Stage ran, which held it after your last turn, and has given the all clear. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
+  "usage-window": `## Paused for the usage window
+
+Your engine refused your last turn because a usage window of its account was used up, so The Office paused this Stage until the window reset, and has resumed it now. Your edits are in the worktree as you left them.`,
   restart: `## The Office restarted
 
 The Office restarted while this Stage ran, which ended your session at once, and the user chose to run the Stage again. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
@@ -197,14 +207,27 @@ const CUT_SHORT: Readonly<Partial<Record<StageInterruption, string>>> = {
     "The Office cut your last turn short, so some of your edits may be half-done: check them before you go on.",
 };
 
-function heldSection({ by, notStarted, cutShort, guidance }: HeldRun): string | undefined {
+/** A refused turn may have been cut off after some of its tool calls, as CUT_SHORT says of others. */
+const REFUSED_HALF_DONE =
+  "The engine may have refused your turn after some of its tool calls, so some of your edits may be half-done: check them before you go on.";
+
+function heldSection({ by, notStarted, cutShort, guidance, refused }: HeldRun): string | undefined {
   if (notStarted) {
     return guidance === undefined ? undefined : `## The user's words for this Stage\n\n${guidance}`;
   }
   const words = guidance === undefined ? "" : `\n\nThe user's words for it:\n\n${guidance}`;
-  const cutWords = cutShort ? CUT_SHORT[by] : undefined;
+  const cutWords = refused ? REFUSED_HALF_DONE : cutShort ? CUT_SHORT[by] : undefined;
   const cut = cutWords === undefined ? "" : `\n\n${cutWords}`;
-  return `${HELD_SECTIONS[by]}${cut}${words}`;
+  const resent = refused ? `\n\n${refusedMessageWords(refused)}` : "";
+  return `${HELD_SECTIONS[by]}${cut}${resent}${words}`;
+}
+
+/** The message the engine refused, sent again: the Stage's work, or the correction of its result. */
+function refusedMessageWords({ message, problems }: NonNullable<HeldRun["refused"]>): string {
+  if (message === "work") {
+    return "The message the engine refused was this Stage's work, above: do it now, and end with its result.";
+  }
+  return `The message the engine refused was The Office's request to correct your result, sent again:\n\n${correctionMessage(problems ?? "")}`;
 }
 
 /**

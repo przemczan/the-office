@@ -808,6 +808,18 @@ export class ThreadRunner implements OnModuleDestroy {
         { kind: "failure", reason: turn.errors.join(" ") || "The engine ended the turn." },
       ]);
     }
+    // No failure: the user writes again once the window resets (spec 2.4).
+    if (turn.outcome === "usage-window-used-up" && turn.usedUpWindow) {
+      const engineId = (await this.repository.find(threadId))?.session?.engineId;
+      await this.log(threadId, [
+        {
+          kind: "usage-window-used-up",
+          engineName: engineId === undefined ? "The engine" : await this.engine.nameOf(engineId),
+          window: turn.usedUpWindow.window,
+          resetsAt: turn.usedUpWindow.resetsAt.toISOString(),
+        },
+      ]);
+    }
     const usage = await live.session.readContextUsage();
     const wroteNote = live.handingOver;
     const handingOver =

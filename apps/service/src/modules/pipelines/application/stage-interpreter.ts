@@ -146,9 +146,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   onModuleInit(): void {
     this.events.subscribe(TaskStarted, ({ taskId }) => this.walkInBackground(taskId));
     this.events.subscribe(TaskResumed, ({ taskId }) => this.walkInBackground(taskId));
-    this.events.subscribe(TaskPaused, ({ taskId, by }) =>
-      this.interrupt(taskId, by === "alarm" ? "alarm" : "pause"),
-    );
+    this.events.subscribe(TaskPaused, async ({ taskId, by }) => {
+      // The Stage runner pauses a Task for a used-up usage window once it held the run itself.
+      if (by === "usage-window") return;
+      await this.interrupt(taskId, by === "alarm" ? "alarm" : "pause");
+    });
     this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
     this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
     this.events.subscribe(OfficeUpdateCancelled, () => this.walkHeldForUpdate());
@@ -680,6 +682,7 @@ function heldByAfterRestart({
   pausedBy,
 }: Pick<StartedTask, "state" | "pausedBy">): StageInterruption {
   if (state !== "paused") return "restart";
+  if (pausedBy === "usage-window") return "usage-window";
   return pausedBy === "alarm" ? "alarm" : "pause";
 }
 

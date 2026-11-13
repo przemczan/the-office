@@ -141,6 +141,8 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens, as the Thread counts them. */
   readonly tokens: TokenTotals;
+  /** Set when the engine refused the turn as a usage window is used up: which, and its reset. */
+  readonly usedUpWindow?: { readonly window: string; readonly resetsAt: Date };
 }
 
 /** A Decision the person asked in a Stage Thread, with the id it is answered by. */
@@ -632,7 +634,7 @@ export class StageThreads {
         const next = await events.next();
         if (next.done) throw new Error("The session ended before the Stage's turn did.");
         if (next.value.kind === "turn-ended") {
-          const turn = await this.turnEnded(threadId, session, next.value);
+          const turn = await this.turnEnded(threadId, session, engine, next.value);
           const { delivered, stillToLand } = bargeIns.turnEnded(
             next.value.consumedMessageIds,
             next.value.outcome === "completed",
@@ -736,6 +738,7 @@ export class StageThreads {
   private async turnEnded(
     threadId: string,
     session: EngineSession,
+    engineId: EngineId,
     turn: Extract<SessionEvent, { kind: "turn-ended" }>,
   ): Promise<StageTurn> {
     const problem =
@@ -755,7 +758,26 @@ export class StageThreads {
         endedAt: new Date(),
       }),
     );
-    return { output: turn.output, problem, tokens: turn.usage };
+    const { usedUpWindow } = turn;
+    // The Stage runner holds the run; the line says why, as a notice (spec 2.4).
+    if (usedUpWindow) {
+      await this.log(threadId, [
+        {
+          kind: "usage-window-used-up",
+          engineName: await this.engine.nameOf(engineId),
+          window: usedUpWindow.window,
+          resetsAt: usedUpWindow.resetsAt.toISOString(),
+        },
+      ]);
+    }
+    return {
+      output: turn.output,
+      problem,
+      tokens: turn.usage,
+      ...(usedUpWindow && {
+        usedUpWindow: { window: usedUpWindow.window, resetsAt: usedUpWindow.resetsAt },
+      }),
+    };
   }
 
   /**

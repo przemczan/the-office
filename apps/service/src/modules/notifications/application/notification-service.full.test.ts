@@ -16,11 +16,21 @@ import type { ManualSchedule } from "../../../platform/schedule/schedule.fixture
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
-import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
+import {
+  EngineDown,
+  UsageWindowReset,
+  UsageWindowsChanged,
+  UsageWindowUsedUp,
+} from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
 import { CTO } from "../../people/index.js";
 import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
-import { InitiativeStateChanged, TaskPaused, TaskStateChanged } from "../../work/index.js";
+import {
+  InitiativeStateChanged,
+  TaskPaused,
+  TaskResumed,
+  TaskStateChanged,
+} from "../../work/index.js";
 import { toRoutingResponse } from "../adapters/http/notification-responses.js";
 import {
   NotificationRaised,
@@ -247,6 +257,34 @@ describe("NotificationService", () => {
     ]);
   });
 
+  it("tells a Task its engine's used-up usage window paused, with when it resumes, cleared by the resume", async () => {
+    const [refused, handedBack] = [randomUUID(), randomUUID()];
+    const resetsAt = new Date(2001, 0, testDay, 14);
+    const refusal = {
+      engineId: "claude-code",
+      engineName: "Claude Code",
+      window: "five-hour",
+      resetsAt,
+    };
+
+    await events.publish(new TaskPaused(refused, "in-progress", "usage-window", refusal));
+    // A refusal moving the resume on, and the Initiative's Resume handing a Task back: no Outcome.
+    await events.publish(new TaskPaused(refused, "paused", "usage-window", refusal));
+    await events.publish(new TaskPaused(handedBack, "paused", "usage-window"));
+
+    expect(raised.map(({ notification }) => notification)).toEqual([
+      expect.objectContaining({
+        kind: "outcomes.task-paused",
+        line: "Paused: Claude Code's 5-hour window is used up. Resumes at 14:00.",
+        pointsTo: { kind: "task", taskId: refused },
+      }),
+    ]);
+
+    await events.publish(new TaskResumed(refused));
+
+    expect(cleared).toEqual([raised[0]?.notification.id]);
+  });
+
   it("clears a Task's outcome once the user opens the Task", async () => {
     const taskId = randomUUID();
 
@@ -308,6 +346,39 @@ describe("NotificationService", () => {
       ["office.window.reset", ["in-app"]],
     ]);
     expect(cleared).toContain(raised[0]?.notification.id);
+  });
+
+  it("tells an engine's usage window used up in the office.window row, handled at its reset", async () => {
+    const resetsAt = new Date(2001, 0, testDay, 14);
+    const otherEngine = { id: "used-up-lab-account", name: "Lab account" };
+
+    await events.publish(
+      new UsageWindowUsedUp("claude-code", "Claude Code", "five-hour", resetsAt),
+    );
+    await events.publish(
+      new UsageWindowUsedUp(otherEngine.id, otherEngine.name, "seven-day-opus", resetsAt),
+    );
+
+    expect(raised.map(({ notification }) => notification)).toEqual([
+      expect.objectContaining({
+        kind: "office.window.used-up",
+        line: "Claude Code's 5-hour window is used up until 14:00. Tasks on it are paused and wait.",
+        pointsTo: { kind: "office", engineId: "claude-code" },
+        channels: ["in-app"],
+      }),
+      expect.objectContaining({
+        line: "Lab account's Opus weekly window is used up until 14:00. Tasks on it are paused and wait.",
+      }),
+    ]);
+
+    // A 5-hour reading going down doesn't tell a used-up window reset; its own reset does.
+    await events.publish(reading(91));
+    await events.publish(reading(4));
+    expect(cleared).not.toContain(raised[0]?.notification.id);
+    await events.publish(new UsageWindowReset("claude-code", "five-hour"));
+
+    expect(cleared).toContain(raised[0]?.notification.id);
+    expect(cleared).not.toContain(raised[1]?.notification.id);
   });
 
   it("keeps each engine's 5-hour window apart, telling and clearing only that engine's", async () => {

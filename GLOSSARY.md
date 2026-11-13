@@ -181,6 +181,10 @@ _Avoid_: Unpause, unfreeze, restart the Initiative
 What a Ready Task's whole Pipeline is expected to use on each engine it uses, in the measures ticked in Settings › Office limits (tokens, the 5-hour window, the 7-day window, cost); from done Tasks of the same Project and Pipeline, else the Planner's estimate in the Plan.
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
+**Usage window**:
+One of a Claude Code engine's limits on use over time, such as the 5-hour window, the 7-day window or a model's weekly window, each with a reset time. It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1-work.md#defaults)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
+_Avoid_: Quota, rate limit, plan limit
+
 **Window cap**:
 A Claude Code engine's cap, one for each window, on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit, Project limits and Task limits count started Tasks), threshold

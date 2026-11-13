@@ -275,7 +275,12 @@ const WINDOWS = {
 
 const RATE_LIMIT: SessionScript[number] = {
   step: "event",
-  event: { kind: "rate-limit", status: "allowed", resetsAt: WINDOWS.fiveHour.resetsAt },
+  event: {
+    kind: "rate-limit",
+    status: "allowed",
+    window: "five-hour",
+    resetsAt: WINDOWS.fiveHour.resetsAt,
+  },
 };
 
 /** A workstation with TypeScript and C++, and no Kotlin. */

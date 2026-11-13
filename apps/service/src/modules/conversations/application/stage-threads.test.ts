@@ -936,3 +936,39 @@ function reported(event: Extract<Step, { step: "event" }>["event"]): Step {
 function outputOf(text: string): Step {
   return reported({ kind: "process-output", callId: "bash-1", text });
 }
+
+describe("a turn refused for a used-up usage window", () => {
+  it("logs the engine's window and its reset as a notice, and hands the refusal to the Stage", async () => {
+    const resetsAt = new Date("2026-11-13T14:00:00.000Z");
+    await startWith(
+      started(
+        {
+          step: "event",
+          event: {
+            kind: "turn-ended",
+            outcome: "usage-window-used-up",
+            consumedMessageIds: ["brief"],
+            usage: USAGE,
+            sessionCostUsd: 0,
+            output: undefined,
+            errors: ["You've hit your limit · resets 2pm (UTC)"],
+            usedUpWindow: { window: "seven-day", resetsAt, resetGiven: true },
+          },
+        },
+        { step: "read-context-usage", usage: { tokens: 30_000, window: 1_000_000 } },
+      ),
+    );
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+
+    const turn = await stageThread.nextTurn();
+
+    expect(turn.usedUpWindow).toEqual({ window: "seven-day", resetsAt });
+    expect(drafts(await repository.messages(stageThread.threadId)).at(-1)).toEqual({
+      kind: "usage-window-used-up",
+      engineName: "Claude Code",
+      window: "seven-day",
+      resetsAt: "2026-11-13T14:00:00.000Z",
+    });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+});

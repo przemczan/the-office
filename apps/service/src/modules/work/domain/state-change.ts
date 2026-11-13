@@ -11,7 +11,7 @@ export type AutoModeConfirmation =
 /**
  * Who or what moved a Task between states: the user, or a person, as an Author; its Pipeline, as a
  * Stage waits on the user, completes or drops it; the fire alarm; the queue, starting it as its turn
- * came; auto mode, marking it Ready with what it confirmed first; or The Office itself, for the
+ * came; its engine's usage window, used up or reset; auto mode, marking it Ready with what it confirmed first; or The Office itself, for the
  * reason it gives.
  */
 export type StateChangeCause =
@@ -19,12 +19,14 @@ export type StateChangeCause =
   | { readonly kind: "pipeline" }
   | { readonly kind: "fire-alarm" }
   | { readonly kind: "queue" }
+  | { readonly kind: "usage-window" }
   | { readonly kind: "auto-mode"; readonly confirmed: readonly AutoModeConfirmation[] }
   | { readonly kind: "office"; readonly reason: string };
 
 export const BY_THE_PIPELINE: StateChangeCause = { kind: "pipeline" };
 export const BY_THE_FIRE_ALARM: StateChangeCause = { kind: "fire-alarm" };
 export const BY_THE_QUEUE: StateChangeCause = { kind: "queue" };
+export const BY_THE_USAGE_WINDOW: StateChangeCause = { kind: "usage-window" };
 
 /**
  * A Task's move from one state to another, kept with the Task for its record (problem J of task
@@ -68,6 +70,8 @@ function causeWords(cause: StateChangeCause): string {
       return "the fire alarm";
     case "queue":
       return "the queue, as its turn came";
+    case "usage-window":
+      return "its engine's usage window";
     case "auto-mode":
       return autoModeWords(cause.confirmed);
     case "office":

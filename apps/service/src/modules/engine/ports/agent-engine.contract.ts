@@ -43,6 +43,8 @@ export const CONTRACT_SCENARIOS = [
   "mcp-tool",
   "background",
   "background-stop",
+  "usage-window-used-up",
+  "failed-after-allowed",
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
@@ -60,6 +62,13 @@ export interface EngineUnderContract {
   engineFor(scenario: ContractScenario): Promise<AgentEngine>;
   /** Called once a scenario's sessions have ended, as a recording engine saves them. */
   afterScenario?(scenario: ContractScenario, engine: AgentEngine): Promise<void>;
+  /**
+   * Whether the engine's account has a usage window used up, so its turns are refused: a recording
+   * replays it, and a live engine only when the account's window really ran out.
+   */
+  readonly usageWindowUsedUp?: boolean;
+  /** Whether a turn can be made to fail on purpose, after an allowed rate-limit event: a recording only. */
+  readonly failedTurns?: boolean;
   /** The fake local MCP server `mcp-tool` runs on; undefined skips it, for an engine without them yet. */
   readonly mcpServer?: ContractMcpServer;
 }
@@ -456,6 +465,46 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
             expect(window?.percentUsed).toBeLessThanOrEqual(100);
           }
         });
+      }),
+      under.timeoutMs,
+    );
+
+    it.runIf(under.usageWindowUsedUp === true)(
+      "ends a turn refused for a used-up usage window as such, naming the window and its reset",
+      scenario("usage-window-used-up", async (engine, options) => {
+        const brief = message("Reply with the single word: ready");
+        const session = await engine.start({ id: randomUUID(), options, brief });
+        const log = new EventLog(session);
+
+        const turn = await log.nextTurn();
+        expect(turn.outcome).toBe("usage-window-used-up");
+        expect(turn.usedUpWindow?.window).toMatch(/\S/);
+        expect(turn.usedUpWindow?.resetsAt).toBeInstanceOf(Date);
+        expect(
+          log.events.some((event) => event.kind === "rate-limit" && event.status === "rejected"),
+        ).toBe(true);
+        await session.end();
+        await log.finished;
+      }),
+      under.timeoutMs,
+    );
+
+    it.runIf(under.failedTurns === true)(
+      "ends a turn failing after an allowed rate-limit event as an ordinary failure",
+      scenario("failed-after-allowed", async (engine, options) => {
+        const brief = message("Reply with the single word: ready");
+        const session = await engine.start({ id: randomUUID(), options, brief });
+        const log = new EventLog(session);
+
+        const turn = await log.nextTurn();
+        expect(turn.outcome).toBe("failed");
+        expect(turn.usedUpWindow).toBeUndefined();
+        expect(turn.errors.length).toBeGreaterThan(0);
+        expect(
+          log.events.some((event) => event.kind === "rate-limit" && event.status === "allowed"),
+        ).toBe(true);
+        await session.end();
+        await log.finished;
       }),
       under.timeoutMs,
     );

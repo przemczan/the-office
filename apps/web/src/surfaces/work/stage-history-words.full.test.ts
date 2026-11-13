@@ -1,5 +1,6 @@
 import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { momentWords } from "../../shell/time.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   carriedFailureWords,
@@ -78,6 +79,7 @@ const failed = (fields: Partial<Extract<StageRun["outcome"], { status: "failed" 
     error: "2 tests failed.",
     budgetReached: null,
     interrupted: null,
+    refusedTurn: null,
     handoverNote: null,
     ...fields,
   }) as const;
@@ -191,6 +193,27 @@ describe("runBadge", () => {
 });
 
 describe("runResultText", () => {
+  it("words a run the usage window held with its reset in local time, not the service's UTC", () => {
+    const resetsAt = "2026-11-13T14:00:00.000Z";
+    const outcome = failed({
+      error: "Paused: Claude Code's 5-hour window is used up until 2026-11-13 14:00 UTC.",
+      interrupted: "usage-window",
+      refusedTurn: {
+        engineName: "Claude Code",
+        windowWords: "5-hour window",
+        resetsAt,
+        sessionLeft: true,
+      },
+    });
+
+    const text = runResultText(aTaskStage(implement), aRun({ outcome }));
+
+    expect(text).toContain(
+      `Paused: Claude Code's 5-hour window is used up until ${momentWords(resetsAt, new Date())}. `,
+    );
+    expect(text).not.toMatch(/UTC/);
+  });
+
   it("gives a failure's whole error, or the budget it reached", () => {
     const stage = aTaskStage(tests);
     expect(runResultText(stage, aRun({ outcome: failed({ error: "One\nTwo" }) }))).toBe("One\nTwo");

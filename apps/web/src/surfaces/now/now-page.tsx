@@ -141,10 +141,6 @@ function RunningCard({
   readonly clock: Date;
 }): ReactNode {
   const { stage } = task;
-  const pausedByAlarm =
-    useQuery(nowQueries.now()).data?.fireAlarm?.paused.some(
-      ({ taskId }) => taskId === task.taskId,
-    ) ?? false;
   const person = stage?.role ? roles?.find(({ key }) => key === stage.role) : undefined;
   return (
     <ItemCard
@@ -159,7 +155,11 @@ function RunningCard({
           <ProjectChip projectId={task.projectId} projects={projects} />
           {task.state !== "in-progress" && (
             <Badge tone={TASK_STATE_TONES[task.state]}>
-              {taskStateWords(task.state, { pausedByAlarm })}
+              {taskStateWords(task.state, {
+                pausedBy: task.pausedBy,
+                resumesAt: task.resumesAt,
+                now: clock,
+              })}
             </Badge>
           )}
         </div>

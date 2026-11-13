@@ -30,6 +30,7 @@ import {
   StartedTasks,
   type StartedTask,
   type TaskBlocker,
+  type UsageWindowRefusal,
   type WalkTaskState,
 } from "./started-tasks.js";
 import type {
@@ -43,6 +44,7 @@ import type {
 import type { PublishTarget } from "../domain/stage.js";
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
+import type { StageSessionMove } from "../domain/stage-run.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import {
   TaskCommands,
@@ -195,6 +197,21 @@ export class StartedTasksForTests extends StartedTasks {
     if (from !== "in-progress" && from !== "waiting-on-you") return task;
     this.put(taskId, { ...task, state: "paused", pausedBy: "alarm" });
     await this.announce(new TaskPaused(taskId, from, "alarm"));
+    return this.read(taskId);
+  }
+
+  /** Each pause by the usage window, with its refusal, in order. */
+  readonly usageWindowPauses: { readonly taskId: string; readonly refusal: UsageWindowRefusal }[] =
+    [];
+
+  /** As Work pauses it by the usage window: TaskPaused tells Pipelines, which leaves the run to its runner. */
+  async pauseForUsageWindow(taskId: string, refusal: UsageWindowRefusal): Promise<StartedTask> {
+    const task = await this.read(taskId);
+    this.usageWindowPauses.push({ taskId, refusal });
+    this.put(taskId, { ...task, state: "paused", pausedBy: "usage-window" });
+    await this.announce(
+      new TaskPaused(taskId, task.state as "in-progress", "usage-window", refusal),
+    );
     return this.read(taskId);
   }
 
@@ -400,6 +417,9 @@ export class StageThreadsForTests extends StageThreads {
     super();
   }
 
+  /** How each Stage's session begins, as a test sets it: a new session, unless set. */
+  move: StageSessionMove = "fresh";
+
   /** What `sessionAhead` answers, as a test sets it: a new session, unless set. */
   ahead: StageSessionAhead = { move: "fresh", cacheWarm: false, contextTokens: 0, briefTokens: 0 };
 
@@ -455,7 +475,15 @@ export class StageThreadsForTests extends StageThreads {
           });
           await this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
-          return { output: event.output, problem, tokens: event.usage };
+          const { usedUpWindow } = event;
+          return {
+            output: event.output,
+            problem,
+            tokens: event.usage,
+            ...(usedUpWindow && {
+              usedUpWindow: { window: usedUpWindow.window, resetsAt: usedUpWindow.resetsAt },
+            }),
+          };
         }
       }
     };
@@ -466,8 +494,8 @@ export class StageThreadsForTests extends StageThreads {
     };
     return {
       threadId,
-      // A new session every Stage, as said above.
-      move: { move: "fresh" },
+      // A new session every Stage, unless a test says the Stage went on in one.
+      move: { move: this.move },
       engine,
       model,
       nextTurn,

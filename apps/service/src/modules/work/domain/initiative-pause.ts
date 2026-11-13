@@ -43,13 +43,14 @@ export function pauseInitiative(
 
 /**
  * Resume the Initiative: clears the mark and resumes each Task its Pause held, which the fire alarm
- * holds instead while it is on (resumeTaskForInitiative); a Task the user paused stays Paused.
+ * holds instead while it is on, and the usage window until its reset (resumeTaskForInitiative); a
+ * Task the user paused stays Paused.
  * Refused with the reason for one that isn't paused.
  */
 export function resumeInitiative(
   initiative: Initiative,
   tasks: readonly Task[],
-  { fireAlarmOn }: { readonly fireAlarmOn: boolean },
+  { fireAlarmOn, now = new Date() }: { readonly fireAlarmOn: boolean; readonly now?: Date },
 ): InitiativeTasksChange<InitiativeResumed> {
   if (!isInitiativePaused(initiative)) {
     throw new InitiativeRefused([
@@ -59,6 +60,6 @@ export function resumeInitiative(
   return {
     initiative: { ...initiative, pausedAt: undefined },
     event: new InitiativeResumed(initiative.id),
-    taskChanges: tasks.flatMap((task) => resumeTaskForInitiative(task, { fireAlarmOn }) ?? []),
+    taskChanges: tasks.flatMap((task) => resumeTaskForInitiative(task, { fireAlarmOn, now }) ?? []),
   };
 }

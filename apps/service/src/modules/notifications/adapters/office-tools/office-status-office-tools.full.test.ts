@@ -61,6 +61,7 @@ describe("the show_office_status tool", () => {
         projectId: "p1",
         state: "waiting-on-you",
         pausedBy: undefined,
+        resumesAt: undefined,
       },
     ];
     app.get(OpenDecisionsForTests).open = [

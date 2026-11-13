@@ -1,24 +1,30 @@
 import type { Priority, TaskState } from "@the-office/contracts";
 import { Badge, type BadgeProps, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { PRIORITY_ICONS, PRIORITY_NAMES, TASK_STATE_TONES, taskStateWords } from "./work-words.ts";
+import {
+  PRIORITY_ICONS,
+  PRIORITY_NAMES,
+  TASK_STATE_TONES,
+  taskStateWords,
+  type PausedHold,
+} from "./work-words.ts";
 
 /** The Task's state, a Paused one by what holds it, as `taskStateWords` says. */
 export function TaskStateBadge({
   state,
-  pausedByAlarm = false,
+  pausedBy = null,
+  resumesAt = null,
   stopped = false,
   tone = TASK_STATE_TONES[state],
-}: {
+}: PausedHold & {
   readonly state: TaskState;
-  readonly pausedByAlarm?: boolean;
   readonly stopped?: boolean;
   /** Where a page's design draws it otherwise. */
   readonly tone?: NonNullable<BadgeProps["tone"]>;
 }): ReactNode {
   return (
     <Badge tone={tone} dot>
-      {taskStateWords(state, { pausedByAlarm, stopped })}
+      {taskStateWords(state, { pausedBy, resumesAt, stopped })}
     </Badge>
   );
 }

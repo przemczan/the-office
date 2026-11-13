@@ -78,6 +78,8 @@ export function runTimeWords({ startedAt, endedAt }: StageRun, now: Date): strin
   return `${momentWords(startedAt, now)} → ${until} · ${taken}${endedAt ? "" : " so far"}`;
 }
 
+type FailedOutcome = Extract<NonNullable<StageRun["outcome"]>, { status: "failed" }>;
+
 /** How a run stands, as its badge says it. The Stage's state speaks for a run still going. */
 export function runBadge(
   run: StageRun,
@@ -102,7 +104,11 @@ export function runBadge(
       if (outcome.interrupted === "stop") {
         return { words: STAGE_STATE_WORDS.stopped, tone: "warning" };
       }
-      if (outcome.interrupted === "pause" || outcome.interrupted === "alarm") {
+      if (
+        outcome.interrupted === "pause" ||
+        outcome.interrupted === "alarm" ||
+        outcome.interrupted === "usage-window"
+      ) {
         return { words: STAGE_STATE_WORDS.paused, tone: "warning" };
       }
       return { words: STAGE_STATE_WORDS.failed, tone: "danger" };
@@ -126,10 +132,20 @@ export function runResultText({ stage, state }: TaskStage, run: StageRun): strin
     case "needs-decision":
       return outcome.question;
     case "failed":
-      return outcome.budgetReached
-        ? `The Task ${budgetWords(outcome.budgetReached)}.`
-        : outcome.error;
+      if (outcome.budgetReached) return `The Task ${budgetWords(outcome.budgetReached)}.`;
+      if (outcome.interrupted === "usage-window" && outcome.refusedTurn) {
+        return usageWindowHeldWords(outcome.refusedTurn);
+      }
+      return outcome.error;
   }
+}
+
+/** A run held by a used-up usage window, its reset in local time (the service words it in UTC). */
+function usageWindowHeldWords(
+  { engineName, windowWords, resetsAt }: NonNullable<FailedOutcome["refusedTurn"]>,
+  now: Date = new Date(),
+): string {
+  return `Paused: ${engineName}'s ${windowWords} is used up until ${momentWords(resetsAt, now)}. The engine refused the Agent's turn, which is no failure: the Stage's uncommitted edits stay in the worktree, and it goes on by itself once the window resets.`;
 }
 
 /** A run in the Stage history's list says what it came to in plain words, whatever else it holds. */

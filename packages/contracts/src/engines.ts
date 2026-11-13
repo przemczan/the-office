@@ -257,3 +257,25 @@ export const engineSettingsRefusalSchema = z.object({
   reasons: z.array(z.string()).min(1),
 });
 export type EngineSettingsRefusal = z.infer<typeof engineSettingsRefusalSchema>;
+
+const KNOWN_USAGE_WINDOW_WORDS: Readonly<Record<string, string>> = {
+  "five-hour": "5-hour window",
+  "seven-day": "7-day window",
+  "seven-day-opus": "Opus weekly window",
+  "seven-day-sonnet": "Sonnet weekly window",
+  "seven-day-overage-included": "weekly window",
+  overage: "extra usage",
+  unknown: "usage window",
+};
+
+/**
+ * A usage window as the user reads it, such as "5-hour window", from the Engine port's name for it;
+ * mirrors the Engine module's `usageWindowWords` (its domain doesn't read the contracts), so the
+ * web words a window as the service's queue reasons and Notifications do. A window the engine
+ * names but the port doesn't is worded by its own name.
+ */
+export function usageWindowWords(window: string): string {
+  return Object.hasOwn(KNOWN_USAGE_WINDOW_WORDS, window)
+    ? (KNOWN_USAGE_WINDOW_WORDS[window] as string)
+    : `${window} window`;
+}

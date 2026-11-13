@@ -5,14 +5,8 @@ import type { TaskChange } from "./task-changes.js";
 import type { TaskStarted } from "./task-events.js";
 import { TaskQueued } from "./queue-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { withStarted } from "./cap-waits.js";
-import {
-  capWaitsAtStart,
-  startReasons,
-  startTask,
-  type HeldAtStart,
-  type StartConditions,
-} from "./task-start.js";
+import { startWaitsForUsage, withStarted } from "./cap-waits.js";
+import { startReasons, startTask, type HeldAtStart, type StartConditions } from "./task-start.js";
 import { overlapsOf, overlapWords } from "./task-overlap.js";
 import { STARTED_STATES } from "./task-states.js";
 import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
@@ -175,7 +169,7 @@ export function releaseQueue(
       const stillQueued = { ...queued, ...heldBy(allWaits) };
       waiting.push(stillQueued);
       if (!sameReasons(queued, stillQueued)) reasonsChanged.push(task.id);
-      const { resetsAt } = capWaitsAtStart(conditions.usage);
+      const { resetsAt } = startWaitsForUsage(conditions.usage);
       if (resetsAt) capResets.push(resetsAt);
     } else {
       started.push(startTask(task, conditions, held, BY_THE_QUEUE));

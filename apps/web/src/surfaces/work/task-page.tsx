@@ -169,7 +169,8 @@ function TaskHead({
           <h2>{task.title}</h2>
           <TaskStateBadge
             state={task.state}
-            pausedByAlarm={task.pausedByAlarm}
+            pausedBy={task.pausedBy}
+            resumesAt={task.resumesAt}
             stopped={stoppedAtCurrentStage(taskStages?.stages ?? [])}
             {...((task.state === "in-progress" || task.state === "planning") && { tone: "info" })}
           />

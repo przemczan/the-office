@@ -6,9 +6,11 @@ import type {
   Priority,
   Role,
   Task,
+  TaskHolder,
   TaskState,
 } from "@the-office/contracts";
 import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
+import { pausedByUsageWindowWords } from "../usage-window-words.ts";
 
 /** Each Task state as the UI names it (spec §2.1). */
 export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
@@ -26,19 +28,30 @@ export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
 /** A Stage the user stopped, and the Task held there. */
 export const STOPPED = "Stopped";
 
+/** What holds a Paused Task, as the Task carries it, for its state's words. */
+export interface PausedHold {
+  readonly pausedBy?: TaskHolder | null;
+  /** When a Task the usage window holds resumes by itself. */
+  readonly resumesAt?: string | null;
+}
+
 /**
- * How a Task's state reads, a Paused one by what holds it. Stop leaves the Task Paused (spec §2.1)
- * and only its held Stage knows, so `stopped` can come only from a page that has the Task's Stages.
+ * How a Task's state reads, a Paused one by what holds it: the alarm, the usage window with when it
+ * resumes (spec 2.1), else Paused. Stop leaves the Task Paused (spec §2.1) and only its held Stage
+ * knows, so `stopped` can come only from a page that has the Task's Stages.
  */
 export function taskStateWords(
   state: TaskState,
   {
-    pausedByAlarm = false,
+    pausedBy = null,
+    resumesAt = null,
     stopped = false,
-  }: { readonly pausedByAlarm?: boolean; readonly stopped?: boolean } = {},
+    now = new Date(),
+  }: PausedHold & { readonly stopped?: boolean; readonly now?: Date } = {},
 ): string {
   if (state !== "paused") return TASK_STATE_NAMES[state];
-  if (pausedByAlarm) return PAUSED_BY_THE_ALARM;
+  if (pausedBy === "alarm") return PAUSED_BY_THE_ALARM;
+  if (pausedBy === "usage-window") return pausedByUsageWindowWords(resumesAt, now);
   return stopped ? STOPPED : TASK_STATE_NAMES.paused;
 }
 

@@ -51,6 +51,7 @@ import {
   type TemporaryRepository,
 } from "./temporary-repository.ts";
 import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
+import { screenshotScenario } from "./task-screenshots.ts";
 import { createFromTopBar } from "./top-bar.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -6527,6 +6528,78 @@ test(
       await page.screenshot({
         path: path.join(SCREENSHOTS, "light-1600-consultation-in-the-callee-chat.png"),
       });
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+// The engine replays the last sessions in e2e/sessions.jsonl: Implement's turn refused because the
+// 5-hour window is used up, its reset a minute after the refusal (`resetsInSeconds`), then a fresh
+// session after the reset, as the refused turn left none, which does the work.
+test(
+  "a Stage refused for a used-up usage window pauses its Task until the reset, then goes on by itself",
+  { tag: "@full" },
+  async ({ page }) => {
+    test.setTimeout(240_000);
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Export", "EX", PASSING_COMMANDS);
+      const title = "Export keeps its filter";
+      const taskId = await readyTask(page, project.id, title);
+      const library = pipelineListSchema.parse(
+        await (await page.request.get("/api/pipelines")).json(),
+      );
+      const implementOnly = (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
+        ({ key }) => key === "implement",
+      );
+      const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
+        data: { stages: implementOnly },
+      });
+      expect(edited.status()).toBe(200);
+      await page.goto(`/tasks/${taskId}`);
+      await page.getByRole("button", { name: "Start", exact: true }).click();
+
+      // Paused with why and when it resumes, in local time, and no failure.
+      const paused = page
+        .locator(".task-head")
+        .getByText(/^Usage window used up · resumes \d\d:\d\d$/);
+      await expect(paused).toBeVisible({ timeout: 30_000 });
+      const task = taskSchema.parse(await (await page.request.get(`/api/tasks/${taskId}`)).json());
+      expect(task).toMatchObject({ state: "paused", pausedBy: "usage-window" });
+      expect(task.resumesAt).not.toBeNull();
+      await screenshotScenario(page, "usage-window-task-page");
+
+      // The Stage's Thread says why, as a notice.
+      const rail = page.getByRole("region", { name: /^Pipeline · / });
+      await rail.getByRole("button", { name: "Implement", exact: true }).click();
+      const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+      await history.getByRole("tab", { name: "Thread" }).click();
+      await expect(
+        history.getByText(/^Claude Code's 5-hour window is used up until \d\d:\d\d$/),
+      ).toBeVisible();
+      await screenshotScenario(page, "usage-window-thread-line");
+      await page.keyboard.press("Escape");
+
+      // The board's card and Now say the same.
+      await page.goto("/work");
+      const card = page.getByRole("article", { name: title });
+      await expect(card.getByText(/^Usage window used up · resumes \d\d:\d\d$/)).toBeVisible();
+      await screenshotScenario(page, "usage-window-board");
+      await page.goto("/");
+      await expect(page.getByRole("article", { name: `Running: ${title}` })).toContainText(
+        /Usage window used up · resumes \d\d:\d\d/,
+      );
+
+      // At the reset the Task resumes by itself, and the Stage finishes its work.
+      await page.goto(`/tasks/${taskId}`);
+      await expect(page.locator(".task-head").getByText("Done", { exact: true })).toBeVisible({
+        timeout: 120_000,
+      });
+      const resumed = taskSchema.parse(
+        await (await page.request.get(`/api/tasks/${taskId}`)).json(),
+      );
+      expect(resumed).toMatchObject({ pausedBy: null, resumesAt: null });
     } finally {
       await repository.remove();
     }

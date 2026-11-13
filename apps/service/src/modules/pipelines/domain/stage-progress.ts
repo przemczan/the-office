@@ -83,7 +83,9 @@ function stateOf(stage: Stage, { outcome, decisions, gateAction }: StageRun): St
  * as a Pause does.
  */
 function heldState(interrupted: StageInterruption | undefined): StageState | undefined {
-  if (interrupted === "pause" || interrupted === "alarm") return "paused";
+  if (interrupted === "pause" || interrupted === "alarm" || interrupted === "usage-window") {
+    return "paused";
+  }
   if (interrupted === "stop") return "stopped";
   return undefined;
 }

@@ -187,16 +187,16 @@ describe("the Initiative's Pause, for one of its Tasks", () => {
 
   it("resumes only a Task its Pause held, which the alarm holds instead while it is on", () => {
     const held = aTask({ state: "paused", pausedBy: "initiative" });
-    const resumed = resumeTaskForInitiative(held, { fireAlarmOn: false });
-    const forTheAlarm = resumeTaskForInitiative(held, { fireAlarmOn: true });
+    const resumed = resumeTaskForInitiative(held, { fireAlarmOn: false, now: new Date() });
+    const forTheAlarm = resumeTaskForInitiative(held, { fireAlarmOn: true, now: new Date() });
 
     expect(resumed?.task).toEqual(aTask({ state: "in-progress" }));
     expect(resumed?.event).toBeInstanceOf(TaskResumed);
     expect(forTheAlarm?.task).toEqual(aTask({ state: "paused", pausedBy: "alarm" }));
     expect(forTheAlarm?.event).toMatchObject({ from: "paused", by: "alarm" });
-    expect(resumeTaskForInitiative(aTask({ state: "paused" }), { fireAlarmOn: false })).toBe(
-      undefined,
-    );
+    expect(
+      resumeTaskForInitiative(aTask({ state: "paused" }), { fireAlarmOn: false, now: new Date() }),
+    ).toBe(undefined);
   });
 
   it("refuses a single Resume while the Initiative is paused", () => {

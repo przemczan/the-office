@@ -28,10 +28,11 @@ export const TASK_MADE_FOR = ["onboard", "run-environment-setup", "publishing"] 
 export type TaskMadeFor = (typeof TASK_MADE_FOR)[number];
 
 /**
- * What holds a Paused Task apart from a Pause of the user's own: the fire alarm (spec §2.8), or its
- * Initiative's Pause (spec §2.1, "Pause the Initiative").
+ * What holds a Paused Task apart from a Pause of the user's own: the fire alarm (spec §2.8), its
+ * Initiative's Pause (spec §2.1, "Pause the Initiative"), or its engine's usage window used up, until
+ * its reset (spec §2.1, "A pause by the usage window").
  */
-export const TASK_HOLDERS = ["alarm", "initiative"] as const;
+export const TASK_HOLDERS = ["alarm", "initiative", "usage-window"] as const;
 export type TaskHolder = (typeof TASK_HOLDERS)[number];
 
 /**
@@ -116,6 +117,12 @@ export interface Task {
    * §2.8); the Initiative's resume with Resume the Initiative, or become the user's as it is dropped.
    */
   readonly pausedBy: TaskHolder | undefined;
+  /**
+   * When a Task paused by the usage window resumes by itself: the window's reset. Kept while its
+   * Initiative's Pause takes it over, so Resume the Initiative before the reset leaves it paused by
+   * the usage window until then; undefined for every other Task.
+   */
+  readonly resumesAt: Date | undefined;
   /**
    * What The Office made it for, in its Project: its Onboard Task, whose state is the Project's
    * onboarding, its "Set up the run environment" Task, or an Initiative's Publishing Task there;

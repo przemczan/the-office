@@ -61,6 +61,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     hasPlanningThread: false,
     personRole: undefined,
     pausedBy: undefined,
+    resumesAt: undefined,
     madeFor: undefined,
     blockedBy: [],
     originIdeaId: undefined,
@@ -113,4 +114,5 @@ export const NO_USAGE_AT_START: UsageAtStart = {
   windows: [],
   daily: [],
   engineNames: new Map(),
+  usedUp: [],
 };

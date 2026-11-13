@@ -2465,6 +2465,41 @@ describe("a message sent with an Open page", () => {
 });
 
 describe("when a session doesn't answer", () => {
+  it("logs a turn refused for a used-up usage window as its own notice, not a failure, and waits for the user", async () => {
+    const resetsAt = new Date("2026-11-13T14:00:00.000Z");
+    await startWith(
+      started(
+        {
+          step: "event",
+          event: {
+            kind: "turn-ended",
+            outcome: "usage-window-used-up",
+            consumedMessageIds: ["brief"],
+            usage: USAGE,
+            sessionCostUsd: 0,
+            output: undefined,
+            errors: ["You've hit your limit · resets 2pm (UTC)"],
+            usedUpWindow: { window: "five-hour", resetsAt, resetGiven: true },
+          },
+        },
+        { step: "read-context-usage", usage: { tokens: 32_000, window: WINDOW } },
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.");
+    await waiting(thread.id);
+
+    const log = drafts(await threads.messages(thread.id));
+    expect(log.some((message) => message.kind === "failure")).toBe(false);
+    expect(log.at(-1)).toEqual({
+      kind: "usage-window-used-up",
+      engineName: "Claude Code",
+      window: "five-hour",
+      resetsAt: "2026-11-13T14:00:00.000Z",
+    });
+  });
+
   it("puts back the session the Thread had when a new one fails to start", async () => {
     // No script: the engine refuses to start the session.
     await startWith();

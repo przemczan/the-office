@@ -264,6 +264,7 @@ describe("loopBacks", () => {
     error: "A test failed.",
     budgetReached: null,
     interrupted: null,
+    refusedTurn: null,
     handoverNote: null,
   } as const;
   const lint: Stage = { ...tests, key: "lint", name: "Lint" };

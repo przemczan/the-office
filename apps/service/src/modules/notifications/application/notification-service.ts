@@ -8,7 +8,14 @@ import {
   DecisionReopened,
   TurnEnded,
 } from "../../conversations/index.js";
-import { EngineDown, EngineRemoved, UsageWindowsChanged } from "../../engine/index.js";
+import {
+  EngineDown,
+  EngineRemoved,
+  UsageWindowReset,
+  UsageWindowsChanged,
+  UsageWindowUsedUp,
+  usageWindowWords,
+} from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed, shortCommit } from "../../office-updates/index.js";
 import { CTO, OFFICE_MANAGER } from "../../people/index.js";
 import {
@@ -39,9 +46,11 @@ import {
   taskDone,
   taskFailed,
   taskPaused,
+  taskPausedByUsageWindow,
   windowMove,
   windowNearlyUsed,
   windowReset,
+  windowUsedUp,
   type Failure,
   type Handling,
   type Notification,
@@ -155,11 +164,27 @@ export class NotificationService implements OnModuleInit {
       if (to !== "done") return;
       await this.raise(taskDone(taskId, (await this.tasks.read(taskId)).personRole));
     });
-    this.events.subscribe(TaskPaused, async ({ taskId, by }) => {
+    this.events.subscribe(TaskPaused, async ({ taskId, by, from, usageWindow }) => {
+      const { personRole } = await this.tasks.read(taskId);
+      if (by === "user") {
+        await this.raise(taskPaused(taskId, personRole, "pause"));
+        return;
+      }
+      // A refusal pauses a running Task; one moving a paused Task's resume on was told already, and
+      // a Task handed back to the window by its Initiative's Resume was paused by the user.
+      if (by === "usage-window" && usageWindow !== undefined && from !== "paused") {
+        const window = usageWindowWords(usageWindow.window);
+        await this.raise(
+          taskPausedByUsageWindow(
+            taskId,
+            personRole,
+            { ...usageWindow, window },
+            this.schedule.now(),
+          ),
+        );
+      }
       // The user sounded the alarm, or paused the whole Initiative, themselves; Now shows what the
       // alarm holds, and the Initiative shows it is paused.
-      if (by !== "user") return;
-      await this.raise(taskPaused(taskId, (await this.tasks.read(taskId)).personRole, "pause"));
     });
     this.events.subscribe(TaskStopped, async ({ taskId }) => {
       await this.raise(taskPaused(taskId, (await this.tasks.read(taskId)).personRole, "stop"));
@@ -196,6 +221,21 @@ export class NotificationService implements OnModuleInit {
         await this.raise(windowReset(engine, await this.officeManager()));
       }
     });
+    this.events.subscribe(UsageWindowUsedUp, async ({ engineId, engineName, window, resetsAt }) => {
+      // A later refusal moving the reset on replaces what was said.
+      await this.handle({ kind: "used-up-window-reset", engineId });
+      await this.raise(
+        windowUsedUp(
+          { id: engineId, name: engineName },
+          { window: usageWindowWords(window), resetsAt },
+          await this.officeManager(),
+          this.schedule.now(),
+        ),
+      );
+    });
+    this.events.subscribe(UsageWindowReset, ({ engineId }) =>
+      this.handle({ kind: "used-up-window-reset", engineId }),
+    );
     this.events.subscribe(EngineDown, async ({ engineId, engineName, reason }) =>
       this.raise(
         engineDown({ id: engineId, name: engineName }, reason, await this.officeManager()),

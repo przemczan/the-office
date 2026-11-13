@@ -2,6 +2,7 @@ import { STAGE_KIND_NAMES, type Stage } from "./stage.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import type {
   GateAction,
+  RefusedTurn,
   StageInterruption,
   StageOutcome,
   StageRun,
@@ -242,6 +243,7 @@ const INTERRUPTION_WORDS: Readonly<Record<StageInterruption, string>> = {
   stop: "stopped by the user",
   pause: "paused by the user",
   alarm: "held by the fire alarm",
+  "usage-window": "paused as the engine's usage window was used up",
   restart: "ended as The Office restarted",
 };
 
@@ -250,12 +252,19 @@ function failedWhy(outcome: Extract<StageOutcome, { status: "failed" }>): string
     outcome.interrupted && INTERRUPTION_WORDS[outcome.interrupted],
     outcome.notStarted && "recorded without starting, as The Office had restarted",
     outcome.cutShort && "its Agent's turn cut short",
+    outcome.refused && refusedWords(outcome.refused),
     outcome.budgetReached &&
       `the Task's ${outcome.budgetReached.used} tokens reached the Stage's budget of ${outcome.budgetReached.budget}`,
     outcome.baseMoved && baseMovedWords(outcome.baseMoved.conflictedFiles),
     outcome.branchMoved && "the branch had moved outside The Office",
   ].filter((reason): reason is string => typeof reason === "string");
   return reasons.length === 0 ? "" : ` (${reasons.join("; ")})`;
+}
+
+/** "the engine refused the correction: Claude Code's 5-hour window is used up until …". */
+function refusedWords({ message, engineName, windowWords, resetsAt }: RefusedTurn): string {
+  const refused = message === "work" ? "the Stage's work" : "the correction";
+  return `the engine refused ${refused}: ${engineName}'s ${windowWords} is used up until ${resetsAt}`;
 }
 
 function baseMovedWords(conflictedFiles: readonly string[]): string {

@@ -13,11 +13,23 @@ export interface StartedTask {
   readonly pipelineId: string | undefined;
   /**
    * What holds it Paused apart from the user's own Pause: `alarm` for the fire alarm, `initiative`
-   * for its Initiative's Pause; undefined for none.
+   * for its Initiative's Pause, `usage-window` for its engine's usage window used up; undefined for
+   * none.
    */
   readonly pausedBy: string | undefined;
   /** What The Office made it for, such as `publishing` for a Publishing Task; undefined for most. */
   readonly madeFor?: string | undefined;
+}
+
+/**
+ * A Stage's turn its engine refused because a usage window of its account is used up: the engine,
+ * its name, the window by the engine module's name for it, and its reset, when the Task resumes.
+ */
+export interface UsageWindowRefusal {
+  readonly engineId: string;
+  readonly engineName: string;
+  readonly window: string;
+  readonly resetsAt: Date;
 }
 
 /** A Task another waits for, as the walk names it. */
@@ -56,6 +68,13 @@ export abstract class StartedTasks {
    * Office starts again after stopping during a sounding. Whether the alarm is on.
    */
   abstract holdForFireAlarm(taskId: string): Promise<boolean>;
+
+  /**
+   * Pauses the Task by the usage window until its reset, when it resumes by itself (spec 2.1, "A
+   * pause by the usage window"); one paused by it already has its resume moved on. Its running
+   * Stage isn't asked to pause: the Stage runner ends the run held itself.
+   */
+  abstract pauseForUsageWindow(taskId: string, refusal: UsageWindowRefusal): Promise<StartedTask>;
 
   /** Resumes a Paused Task, as the user's Resume does. */
   abstract resume(taskId: string): Promise<StartedTask>;

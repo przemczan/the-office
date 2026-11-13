@@ -2,7 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@ne
 import { OfficeUpdateCancelled } from "../../office-updates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
-import { UsageWindowsRead } from "../../engine/index.js";
+import { UsageWindowReset, UsageWindowsRead, UsageWindowUsedUp } from "../../engine/index.js";
 import { RoleCardChanged } from "../../people/index.js";
 import { ProjectLimitChanged } from "../../projects/index.js";
 import { AllClearGiven } from "../domain/fire-alarm-events.js";
@@ -84,6 +84,10 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       this.startsSinceReading.forgetUntil(engineId, readAt);
       return this.release();
     });
+    // A used-up usage window holds the queued Tasks on its engine, which their reasons name, until
+    // its reset; the release for that reset is set with the caps' (setCapRelease).
+    this.events.subscribe(UsageWindowUsedUp, () => this.release());
+    this.events.subscribe(UsageWindowReset, () => this.release());
     // A Task a cap holds sets the release for when the cap resets.
     this.events.subscribe(TaskQueued, () => this.release());
   }
@@ -151,7 +155,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * An hour before, and at, the next reset that frees a Task a cap holds. The next release counts
+   * An hour before, and at, the next reset that frees a Task a cap or a used-up usage window holds. The next release counts
    * from when the caps were weighed: a moment that passed since then releases at once, rather than
    * holding the Task until the next one.
    */

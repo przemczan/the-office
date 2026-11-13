@@ -14,6 +14,7 @@ import { OpenPageChip } from "../open-page-chip.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
 import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
+import { usageWindowUsedUpWords } from "../usage-window-words.ts";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionInThread } from "./decision-card.tsx";
@@ -486,6 +487,13 @@ function MessageItem({
           <span>
             {message.reason} · {clockOf(message.at)}
           </span>
+        </div>
+      );
+    case "usage-window-used-up":
+      return (
+        <div className="message-office">
+          <Icon name="pause" size={12} />
+          <span>{usageWindowUsedUpWords(message)}</span>
         </div>
       );
     case "held":

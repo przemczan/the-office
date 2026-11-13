@@ -127,7 +127,20 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
      * Set when the user stopped or paused the run, the fire alarm held it, or The Office restarted
      * during it.
      */
-    interrupted: z.enum(["stop", "pause", "alarm", "restart"]).nullable(),
+    interrupted: z.enum(["stop", "pause", "alarm", "restart", "usage-window"]).nullable(),
+    /**
+     * Set on a run held as its engine refused a turn for a used-up usage window: the window, its
+     * reset, and whether the refused turn left a session for the Stage to go on in (else Resume
+     * begins a fresh one with the full brief).
+     */
+    refusedTurn: z
+      .object({
+        engineName: z.string(),
+        windowWords: z.string(),
+        resetsAt: z.iso.datetime(),
+        sessionLeft: z.boolean(),
+      })
+      .nullable(),
     ...handoverNoteField,
   }),
 ]);

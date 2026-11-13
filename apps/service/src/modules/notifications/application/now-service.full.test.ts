@@ -104,7 +104,14 @@ describe("NowService", () => {
     expect(activity.status).toBe(204);
     const taskId = randomUUID();
     tasks.tasks = [
-      { id: taskId, title: "Add a filter", projectId: "p1", state: "done", pausedBy: undefined },
+      {
+        id: taskId,
+        title: "Add a filter",
+        projectId: "p1",
+        state: "done",
+        pausedBy: undefined,
+        resumesAt: undefined,
+      },
     ];
 
     await events.publish(new TaskStateChanged(taskId, "in-progress", "done"));

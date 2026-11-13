@@ -1,6 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineId, EngineKind } from "./engines.js";
-import type { UsageWindows } from "./usage-windows.js";
+import type { UsageWindowName, UsageWindows } from "./usage-windows.js";
 
 /**
  * An engine's account's usage windows changed, as read after the engine signalled a rate limit
@@ -12,6 +12,31 @@ export class UsageWindowsChanged extends DomainEvent {
     readonly engineId: EngineId,
     readonly engineName: string,
     readonly windows: UsageWindows,
+  ) {
+    super();
+  }
+}
+
+/**
+ * An engine refused a turn because one of its account's usage windows is used up (spec 5.4):
+ * announced once per engine until `resetsAt`, or again when a later refusal moves the reset on.
+ */
+export class UsageWindowUsedUp extends DomainEvent {
+  constructor(
+    readonly engineId: EngineId,
+    readonly engineName: string,
+    readonly window: UsageWindowName,
+    readonly resetsAt: Date,
+  ) {
+    super();
+  }
+}
+
+/** The used-up window of `engineId`'s account reached its reset: its turns may run again. */
+export class UsageWindowReset extends DomainEvent {
+  constructor(
+    readonly engineId: EngineId,
+    readonly window: UsageWindowName,
   ) {
     super();
   }

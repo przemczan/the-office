@@ -67,6 +67,11 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens. */
   readonly tokens: StageTokens;
+  /**
+   * Set when the engine refused the turn because a usage window of its account is used up (spec
+   * 5.4): the window, as the engine module names it, and when it resets. No failure.
+   */
+  readonly usedUpWindow?: { readonly window: string; readonly resetsAt: Date };
 }
 
 /** A Decision the person opened in their Stage Thread, by the id it is answered by. */

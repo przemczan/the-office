@@ -650,13 +650,25 @@ export const messageSchema = z.discriminatedUnion("kind", [
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),
   /**
-   * The user held the Stage with Pause or Stop, or the fire alarm held it, which is no failure:
-   * The Office's line.
+   * The engine refused the person's turn as a usage window of its account is used up, until
+   * `resetsAt`: The Office's notice, no failure. `window` is the engine's window by the port's name
+   * (`five-hour`, `seven-day`, …), or the engine's own name for one the port doesn't name.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("usage-window-used-up"),
+    engineName: z.string(),
+    window: z.string(),
+    resetsAt: z.iso.datetime(),
+  }),
+  /**
+   * The user held the Stage with Pause or Stop, the fire alarm held it, or a used-up usage window
+   * did, which is no failure: The Office's line.
    */
   z.object({
     ...messageFields,
     kind: z.literal("held"),
-    heldBy: z.enum(["pause", "stop", "alarm"]),
+    heldBy: z.enum(["pause", "stop", "alarm", "usage-window"]),
     text: z.string(),
   }),
   /** A Decision the person opened (The Office, when null), as its card shows it now, answered or not. */

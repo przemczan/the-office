@@ -74,6 +74,17 @@ const EVERY_KIND: {
   context: [contextLine, contextLabel(contextLine, "Jan")],
   "changes-allowed": [{ at, id: "6", kind: "changes-allowed", allowed: true }, "Changes allowed"],
   failure: [{ at, id: "7", kind: "failure", reason: "It broke" }, "It broke"],
+  "usage-window-used-up": [
+    {
+      at,
+      id: "7u",
+      kind: "usage-window-used-up",
+      engineName: "Claude Code",
+      window: "five-hour",
+      resetsAt: at,
+    },
+    "Claude Code's 5-hour window is used up until",
+  ],
   held: [{ at, id: "8", kind: "held", heldBy: "pause", text: "Paused here" }, "Paused here"],
   decision: [{ at, id: "9", kind: "decision", roleKey: "developer", decision }, "A Decision card"],
   "decision-answer": [

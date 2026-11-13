@@ -411,7 +411,7 @@ function footOf(task: Task, planner: string | undefined, waiting: boolean): Reac
     case "paused":
       return (
         <>
-          <TaskStateBadge state="paused" pausedByAlarm={task.pausedByAlarm} />
+          <TaskStateBadge state="paused" pausedBy={task.pausedBy} resumesAt={task.resumesAt} />
           {waiting && <TaskStateBadge state="waiting-on-you" />}
         </>
       );

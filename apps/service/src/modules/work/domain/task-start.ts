@@ -1,4 +1,4 @@
-import { capWaits, exceededCaps, type CapWaits, type UsageAtStart } from "./cap-waits.js";
+import { startWaitsForUsage, type UsageAtStart } from "./cap-waits.js";
 import { hasPipeline, NO_PIPELINE_YET, type Task } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
@@ -138,14 +138,9 @@ export function startReasons(
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...projectLimitWaits(task, conditions.project, others),
       ...taskLimitWaits(stage, conditions.person, others),
-      ...capWaitsAtStart(conditions.usage).waits,
+      ...startWaitsForUsage(conditions.usage).waits,
     ],
   };
-}
-
-/** What holds the Start for the caps it would pass. */
-export function capWaitsAtStart(usage: UsageAtStart): CapWaits {
-  return capWaits(exceededCaps(usage), usage.now);
 }
 
 /**

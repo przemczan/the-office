@@ -149,8 +149,10 @@ export const tasks = pgTable(
     hasPlanningThread: boolean("has_planning_thread").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
-    /** Null unless the fire alarm or its Initiative's Pause holds it Paused. */
+    /** Null unless the fire alarm, its Initiative's Pause or the usage window holds it Paused. */
     pausedBy: text("paused_by").$type<TaskHolder>(),
+    /** Null unless the usage window paused it: the window's reset, when it resumes by itself. */
+    resumesAt: timestamp("resumes_at", { withTimezone: true }),
     /** Null for a Task the user or an Agent made. */
     madeFor: text("made_for").$type<TaskMadeFor>(),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */

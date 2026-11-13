@@ -95,6 +95,19 @@ describe("messageInHistory", () => {
     expect(
       words(aMessage("a", "06T09:02:00", { kind: "failure", reason: "The engine stopped." })),
     ).toEqual({ speaker: "The Office", text: "Couldn't answer: The engine stopped." });
+    expect(
+      words(
+        aMessage("a", "06T09:02:30", {
+          kind: "usage-window-used-up",
+          engineName: "Claude Code",
+          window: "five-hour",
+          resetsAt: "2026-11-13T14:00:00.000Z",
+        }),
+      ),
+    ).toEqual({
+      speaker: "The Office",
+      text: "Claude Code's 5-hour window is used up until 2026-11-13 14:00 UTC.",
+    });
   });
 
   it("shows tool activity as its one-line summary", () => {

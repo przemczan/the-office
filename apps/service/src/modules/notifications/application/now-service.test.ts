@@ -76,6 +76,7 @@ describe("NowService", () => {
         projectId: "p1",
         state: "in-progress",
         pausedBy: undefined,
+        resumesAt: undefined,
       },
     ];
     app.get(TaskStageProgressForTests).stages.set(taskId, [
@@ -116,6 +117,8 @@ describe("NowService", () => {
         title: "Add a filter",
         projectId: "p1",
         state: "in-progress",
+        pausedBy: null,
+        resumesAt: null,
         stage: {
           key: "build",
           name: "Build",
@@ -142,7 +145,14 @@ describe("NowService", () => {
   it("carries the fire alarm while it is on, with how each Task it paused would resume", async () => {
     const taskId = randomUUID();
     tasks.tasks = [
-      { id: taskId, title: "Add a filter", projectId: "p1", state: "paused", pausedBy: "alarm" },
+      {
+        id: taskId,
+        title: "Add a filter",
+        projectId: "p1",
+        state: "paused",
+        pausedBy: "alarm",
+        resumesAt: undefined,
+      },
     ];
     const alarm = app.get(OfficeFireAlarmForTests);
     const off = await readNow();

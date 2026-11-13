@@ -25,7 +25,15 @@ function aGate(): NeedsYouItem {
 }
 
 function aRunningTask(state: TaskState): RunningTask {
-  return { taskId: crypto.randomUUID(), title: "Build cache", projectId: "p1", state, stage: null };
+  return {
+    taskId: crypto.randomUUID(),
+    title: "Build cache",
+    projectId: "p1",
+    state,
+    pausedBy: null,
+    resumesAt: null,
+    stage: null,
+  };
 }
 
 describe("waitingWords", () => {

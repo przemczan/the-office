@@ -25,6 +25,21 @@ export interface AccountWindowsReading {
   readonly sevenDay: WindowReading;
 }
 
+/** A window of an account the engine refuses turns for, until its reset (spec §5.4). */
+export interface UsedUpWindowReading {
+  /** By the engine module's name for it (`UsageWindowName`), such as "five-hour". */
+  readonly window: string;
+  readonly until: Date;
+}
+
+/** An engine id the Task spends on whose account has a window used up. */
+export interface UsedUpAtStart {
+  readonly engineId: EngineId;
+  /** The window in the engine module's words (`usageWindowWords`), such as "5-hour window". */
+  readonly windowWords: string;
+  readonly until: Date;
+}
+
 /** One engine id's windows, as a Start weighs them. */
 export interface WindowsAtStart {
   readonly engineId: EngineId;
@@ -66,6 +81,8 @@ export interface UsageAtStart {
   readonly daily: readonly DailyCapsAtStart[];
   /** Each listed engine's name by its id, which the words name it by. */
   readonly engineNames: ReadonlyMap<EngineId, string>;
+  /** Each engine id the Task's engines fall under whose usage window is used up now. */
+  readonly usedUp: readonly UsedUpAtStart[];
 }
 
 /** A cap the Start would pass, worded in full and short, with when it resets. */
@@ -132,6 +149,35 @@ export function capWaits(exceeded: readonly ExceededCap[], now: Date): CapWaits 
     waits: exceeded.map(({ words, short }) => ({ reason: words, short })),
     resetsAt: new Date(lastReset),
   };
+}
+
+/**
+ * What holds the Start for the caps it would pass, and for each engine it spends on whose usage
+ * window is used up, whatever its caps say (spec §2.1, "A queue for Start"): until the last of
+ * them resets.
+ */
+export function startWaitsForUsage(usage: UsageAtStart): CapWaits {
+  const caps = capWaits(exceededCaps(usage), usage.now);
+  const usedUp = usedUpWindows(usage);
+  if (usedUp.length === 0) return caps;
+  const resets = [caps.resetsAt, ...usedUp.map(({ resetsAt }) => resetsAt)].flatMap((reset) =>
+    reset === undefined ? [] : [reset.getTime()],
+  );
+  return {
+    waits: [...usedUp.map(({ words, short }) => ({ reason: words, short })), ...caps.waits],
+    resetsAt: new Date(Math.max(...resets)),
+  };
+}
+
+/** Each engine the Task spends on whose usage window is used up, worded with its reset. */
+export function usedUpWindows(usage: UsageAtStart): ExceededCap[] {
+  return usage.usedUp
+    .filter(({ until }) => until > usage.now)
+    .map(({ engineId, windowWords, until }) => ({
+      words: `${usage.engineNames.get(engineId) ?? engineId}'s ${windowWords} is used up until ${shortResetWords(until, usage.now)}.`,
+      short: `${windowWords} used up · until ${shortResetWords(until, usage.now)}`,
+      resetsAt: until,
+    }));
 }
 
 /** Every ticked cap the Start would pass, the windows' and the Daily caps'. */

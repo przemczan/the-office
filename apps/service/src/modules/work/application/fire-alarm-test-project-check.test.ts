@@ -135,7 +135,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           const resume = plan.paused.find((paused) => paused.taskId === taskId)?.resume;
           await note(
             `Run 1 (${held.session ?? "no session"}) held ${Math.round(heldAfterMs / 1000)} s after the alarm: ${JSON.stringify(held.outcome)}`,
-            `  Task ${pausedTask.state}, paused by the alarm: ${pausedTask.pausedByAlarm}`,
+            `  Task ${pausedTask.state}, paused by: ${pausedTask.pausedBy}`,
             `  Now: stopping ${plan.stopping}, resume ${JSON.stringify(resume)}, total ${plan.resumeTokens}`,
           );
 
@@ -163,7 +163,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           expect(held.outcome?.status === "failed" && held.outcome.error).toMatch(
             /^Held by the fire alarm\. The Stage's uncommitted edits stay/,
           );
-          expect(pausedTask).toMatchObject({ state: "paused", pausedByAlarm: true });
+          expect(pausedTask).toMatchObject({ state: "paused", pausedBy: "alarm" });
           expect(plan.stopping).toBe(false);
           expect(resume).toMatchObject({ kind: "continues-warm", stageName });
           expect(resume?.contextTokens).toBeGreaterThan(0);

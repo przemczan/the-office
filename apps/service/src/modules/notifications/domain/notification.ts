@@ -160,6 +160,41 @@ export function taskPaused(
     : taskOutcome("outcomes.task-paused", taskId, personRole, "I stopped where I was.", "Stopped.");
 }
 
+/**
+ * Paused by The Office as its engine refused a turn for a used-up usage window (spec 2.1): why,
+ * and when it resumes by itself. `window` is the usage window as the user reads it.
+ */
+export function taskPausedByUsageWindow(
+  taskId: string,
+  personRole: string | undefined,
+  { engineName, window, resetsAt }: UsedUpWindowWords,
+  now: Date,
+): NotificationDraft {
+  const resumes = clockWords(resetsAt, now);
+  return taskOutcome(
+    "outcomes.task-paused",
+    taskId,
+    personRole,
+    `I paused: ${engineName}'s ${window} is used up. I'll go on at ${resumes}.`,
+    `Paused: ${engineName}'s ${window} is used up. Resumes at ${resumes}.`,
+  );
+}
+
+/** A used-up usage window, worded: the engine's name, the window as the user reads it, its reset. */
+export interface UsedUpWindowWords {
+  readonly engineName: string;
+  readonly window: string;
+  readonly resetsAt: Date;
+}
+
+/** "14:00" on the service's day, "Mon 17 Nov 14:00" on another. */
+function clockWords(at: Date, now: Date): string {
+  const time = at.toTimeString().slice(0, 5);
+  if (at.toDateString() === now.toDateString()) return time;
+  const day = at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  return `${day.replace(",", "")} ${time}`;
+}
+
 function taskOutcome(
   kind: NotificationKind,
   taskId: string,
@@ -216,6 +251,23 @@ export function windowReset(
     officeManager,
     `${engine.name}'s 5-hour window reset, so we have all of it again.`,
     `${engine.name}'s 5-hour window reset.`,
+  );
+}
+
+/** The engine refuses turns until the window's reset; Tasks on it pause and wait (spec 2.7). */
+export function windowUsedUp(
+  engine: NamedEngine,
+  { window, resetsAt }: Pick<UsedUpWindowWords, "window" | "resetsAt">,
+  officeManager: string | undefined,
+  now: Date,
+): NotificationDraft {
+  const until = clockWords(resetsAt, now);
+  return engineKind(
+    engine,
+    "office.window.used-up",
+    officeManager,
+    `${engine.name}'s ${window} is used up until ${until}. I've paused the Tasks on it, and the rest wait.`,
+    `${engine.name}'s ${window} is used up until ${until}. Tasks on it are paused and wait.`,
   );
 }
 
@@ -324,6 +376,8 @@ export type Handling =
   /** The user opened Now, where the 5-hour window shows. */
   | { readonly kind: "now-opened" }
   | { readonly kind: "window-reset"; readonly engineId: string }
+  /** The engine's used-up usage window reached its reset, or a refusal moved the reset on. */
+  | { readonly kind: "used-up-window-reset"; readonly engineId: string }
   /** A turn came back from the engine, which therefore answers again. */
   | { readonly kind: "engine-answered"; readonly engineId: string }
   /** Settings › Engines removed the engine, so nothing about it is left to act on. */
@@ -350,6 +404,8 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
       return levelsOf(kind).includes("office.window");
     case "window-reset":
       return kind === "office.window.nearly-used" && isAbout(pointsTo, handling.engineId);
+    case "used-up-window-reset":
+      return kind === "office.window.used-up" && isAbout(pointsTo, handling.engineId);
     case "engine-answered":
       return kind === "office.down.engine" && isAbout(pointsTo, handling.engineId);
     case "engine-removed":

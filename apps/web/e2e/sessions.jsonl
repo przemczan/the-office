@@ -361,3 +361,13 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-nina-called"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-usage-window-refused","text":"Implement the Task whose turn is refused"}}
+{"step":"event","event":{"kind":"rate-limit","status":"rejected","window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"usage-window-used-up","consumedMessageIds":["brief-usage-window-refused"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":["You've hit your limit · resets 2pm (UTC)"],"usedUpWindow":{"window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z","resetGiven":true}},"resetsInSeconds":60}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-usage-window-resumed","text":"Implement the Task again after the reset"}}
+{"step":"event","event":{"kind":"text","text":"The export keeps its filter now.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-usage-window-resumed"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"The export keeps its filter.","handoverNote":"The filter is kept in the export.","definitionOfDoneMet":[1]},"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
+{"step":"end"}

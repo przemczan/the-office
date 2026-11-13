@@ -268,6 +268,7 @@ describe("attachmentsOfGateRun", () => {
         error: "Restarted.",
         budgetReached: null,
         interrupted: null,
+        refusedTurn: null,
         handoverNote: null,
       },
     ],

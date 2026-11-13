@@ -1,0 +1,5 @@
+{"step":"start","brief":{"id":"c7d2a9e4-6b1f-4f03-8a5e-2e9b4c1d7f60","text":"Reply with the single word: ready"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z"}}
+{"step":"event","event":{"kind":"text","text":"API Error: Repeated 529 Overloaded errors · check status.claude.com","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"failed","consumedMessageIds":["c7d2a9e4-6b1f-4f03-8a5e-2e9b4c1d7f60"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":["API Error: Repeated 529 Overloaded errors · check status.claude.com"]}}
+{"step":"end"}

@@ -18,6 +18,7 @@ const TASK: OfficeTask = {
   projectId: "p1",
   state: "in-progress",
   pausedBy: undefined,
+  resumesAt: undefined,
 };
 
 function stage(
