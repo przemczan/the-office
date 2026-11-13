@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { WorkSearch, type SearchMatches } from "../../ports/work-search.js";
+import { WorkSearch, type IdMatches, type SearchMatches } from "../../ports/work-search.js";
 import { bestFirst, matching, searchVectorOf } from "./search-vector.js";
 import { attachments, attachmentTexts, ideas, initiatives, tasks } from "./work.schema.js";
 import { toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
@@ -32,6 +32,32 @@ const documentVector = sql`setweight(${searchVectorOf(attachments.name)}, 'A')
 export class PostgresWorkSearch extends WorkSearch {
   constructor(@Inject(DATABASE) private readonly database: Database) {
     super();
+  }
+
+  async startingWithId(idPrefix: string): Promise<IdMatches> {
+    const startsWith = `${idPrefix}%`;
+    const [taskRows, ideaRows, initiativeRows] = await Promise.all([
+      this.database
+        .select()
+        .from(tasks)
+        .where(sql`${tasks.id}::text LIKE ${startsWith}`)
+        .orderBy(asc(tasks.id)),
+      this.database
+        .select()
+        .from(ideas)
+        .where(sql`${ideas.id}::text LIKE ${startsWith}`)
+        .orderBy(asc(ideas.id)),
+      this.database
+        .select()
+        .from(initiatives)
+        .where(sql`${initiatives.id}::text LIKE ${startsWith}`)
+        .orderBy(asc(initiatives.id)),
+    ]);
+    return {
+      tasks: taskRows.map(toTask),
+      ideas: ideaRows.map(toIdea),
+      initiatives: initiativeRows.map(toInitiative),
+    };
   }
 
   async matchingTaskIds(words: readonly string[]): Promise<ReadonlySet<string>> {

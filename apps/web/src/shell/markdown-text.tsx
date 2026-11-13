@@ -1,8 +1,10 @@
+import { useNavigate } from "@tanstack/react-router";
 import { recordLinkOf } from "@the-office/contracts";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import { CopyableCodeBlock, CopyableQuote } from "./markdown-copy-blocks.tsx";
 import "./markdown-text.css";
 import { RecordMention } from "./record-mention.tsx";
 
@@ -11,7 +13,10 @@ function MarkdownHeading({ children }: { readonly children?: ReactNode }): React
   return <p className="markdown-heading">{children}</p>;
 }
 
-/** A link to a Task, Decision or Idea shows as its chip; any other opens in a new tab. */
+/**
+ * A link to a Task, Initiative, Decision or Idea shows as its chip; one to another page of the app
+ * opens it here; any other opens in a new tab.
+ */
 function MarkdownLink({
   href,
   children,
@@ -21,8 +26,37 @@ function MarkdownLink({
 }): ReactNode {
   const record = href === undefined ? undefined : recordLinkOf(href);
   if (record) return <RecordMention link={record} written={children} />;
+  if (href !== undefined && isAppPath(href))
+    return <AppPageLink href={href}>{children}</AppPageLink>;
   return (
     <a href={href} target="_blank" rel="noreferrer noopener">
+      {children}
+    </a>
+  );
+}
+
+/** A path on the app's own origin; `//host` is another site. */
+function isAppPath(href: string): boolean {
+  return href.startsWith("/") && !href.startsWith("//");
+}
+
+function AppPageLink({
+  href,
+  children,
+}: {
+  readonly href: string;
+  readonly children?: ReactNode;
+}): ReactNode {
+  const navigate = useNavigate();
+  const opened = (event: MouseEvent<HTMLAnchorElement>): void => {
+    // A modified or middle click keeps the browser's own way, such as a new tab.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+    event.preventDefault();
+    void navigate({ href });
+  };
+  return (
+    <a href={href} onClick={opened}>
       {children}
     </a>
   );
@@ -38,16 +72,23 @@ const MESSAGE_COMPONENTS: Components = {
   h5: MarkdownHeading,
   h6: MarkdownHeading,
   a: MarkdownLink,
+  pre: CopyableCodeBlock,
+  blockquote: CopyableQuote,
 };
 
 const DOCUMENT_PLUGINS = [remarkGfm];
 
-const DOCUMENT_COMPONENTS: Components = { a: MarkdownLink };
+const DOCUMENT_COMPONENTS: Components = {
+  a: MarkdownLink,
+  pre: CopyableCodeBlock,
+  blockquote: CopyableQuote,
+};
 
 /**
  * Text written by people and The Office, in Markdown. Raw HTML shows as text (there is no raw HTML
- * plugin) and unsafe link targets are dropped by the renderer's URL check. A link to a Task, Decision
- * or Idea shows as a chip for it in the app; any other opens in a new tab. An inline one holds no
+ * plugin) and unsafe link targets are dropped by the renderer's URL check. A link to a Task,
+ * Initiative, Decision or Idea shows as a chip for it, one to another page of the app opens it in
+ * place, and any other opens in a new tab. A code block or a quote has Copy. An inline one holds no
  * blocks, for a line inside a row. A single line break stays a break, as typed in a message.
  */
 export function MarkdownText({

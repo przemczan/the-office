@@ -86,17 +86,26 @@ export function workThreadInstructions(person: SessionPerson, inTheThread: strin
 const OFFICE_INSTRUCTIONS_LEAD_IN =
   "The user's general guidelines for everyone in The Office. Where they disagree, your Role's instructions and a Project's own CLAUDE.md win.";
 
+/**
+ * How every session writes what the user reads (spec §2.4): records as links to their pages, which
+ * the web shows as chips or opens in the app, and text to copy in a code block, which has Copy.
+ * The paths are the web's, as contracts' `recordPath` builds them.
+ */
+export const WRITING_FOR_THE_USER_RULE =
+  "When you mention a Task, Initiative, Idea or Project to the user, write it as a Markdown link to its page with its full ID, never a shortened one: `[title](/tasks/<id>)`, `[name](/work/initiatives/<id>)`, `[title](/work/ideas?idea=<id>)`, `[name](/projects/<id>)`. Put text the user is meant to copy, such as a message, a command or a passage you propose, in a fenced code block: it has a Copy button.";
+
 function personInstructions({
   card: { name, title, responsibilities, instructions },
   officeInstructions,
 }: SessionPerson): string[] {
   const whoTheyAre = `You are ${name}, the ${title} in The Office, where people like you work with the user on their Projects. ${responsibilities}`;
-  if (officeInstructions === "") return [whoTheyAre, instructions];
+  if (officeInstructions === "") return [whoTheyAre, instructions, WRITING_FOR_THE_USER_RULE];
   return [
     whoTheyAre,
     `## Office instructions\n\n${OFFICE_INSTRUCTIONS_LEAD_IN}\n\n${officeInstructions}`,
     // Closes the section above, or the Role's words would read as part of what they overrule.
     `## Your Role's instructions\n\n${instructions}`,
+    WRITING_FOR_THE_USER_RULE,
   ];
 }
 

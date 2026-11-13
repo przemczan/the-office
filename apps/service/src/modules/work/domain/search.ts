@@ -23,6 +23,18 @@ export function searchWords(query: string): string[] {
   return [...new Set(words)].slice(0, MAX_SEARCH_WORDS);
 }
 
+/**
+ * The start of a record's ID when the query is one, full or shortened as people quote it, lower-cased;
+ * undefined for anything else. Shorter than 8 characters reads as a word, not an ID.
+ */
+export function idPrefixOf(query: string): string | undefined {
+  const typed = query.trim().toLowerCase();
+  return ID_PREFIX.test(typed) ? typed : undefined;
+}
+
+/** Hex digits and dashes, from 8 characters up to a whole UUID, starting as an ID does. */
+const ID_PREFIX = /^[0-9a-f][0-9a-f-]{7,35}$/;
+
 /** A document's text as the search keeps it: Postgres stores no NUL character in text. */
 export function searchedText(text: string): string {
   return text.replaceAll("\u0000", "");
