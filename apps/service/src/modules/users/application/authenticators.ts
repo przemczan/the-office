@@ -83,7 +83,7 @@ export class Authenticators {
     if (step === undefined) throw SignInRefused.wrong("code");
     const recoveryCodes = newRecoveryCodes();
     const confirmed = await this.authenticators.confirm(
-      userId,
+      authenticator,
       step,
       now,
       recoveryCodes.map(recoveryCodeHashOf),

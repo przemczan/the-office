@@ -357,6 +357,18 @@ describe("wrong codes", () => {
     });
   });
 
+  it("stay counted when a right password is sent at the same time", async () => {
+    const { secret } = await turnOn();
+    const pending = await pendingCookie();
+    const wrongCode = (): Promise<unknown> =>
+      codeSignIn(pending, { code: codeOf(secret, 10) }).then(refusalOf);
+
+    await Promise.all([passwordSignIn(), wrongCode(), wrongCode(), wrongCode()]);
+
+    // Three wrong codes at least are still counted, so the next try waits.
+    expect(await wrongCode()).not.toEqual({ status: 422, refusal: "wrong" });
+  });
+
   it("are counted with recovery codes too, and a right code resets the count", async () => {
     const { secret } = await turnOn();
     const pending = await pendingCookie();

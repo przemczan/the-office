@@ -15,10 +15,11 @@ export abstract class AuthenticatorRepository {
 
   /**
    * Turns the user's authenticator on, the step of its first code taken, with these recovery code
-   * hashes, all at once. Says whether it did: not when there is none waiting to be confirmed.
+   * hashes, all at once. Says whether it did: not when it is no longer waiting to be confirmed with
+   * this secret, as when it was set up again since.
    */
   abstract confirm(
-    userId: string,
+    authenticator: Authenticator,
     step: number,
     confirmedAt: Date,
     recoveryCodeHashes: readonly string[],

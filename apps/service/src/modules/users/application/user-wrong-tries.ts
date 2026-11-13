@@ -43,9 +43,17 @@ export class UserWrongTries {
     return user && { user, before };
   }
 
-  /** Undoes a right try's count, leaving the wrong ones before it: a step of the sign-in remains. */
+  /**
+   * Undoes a right try's count, leaving the wrong ones before it: a step of the sign-in remains.
+   * When other tries were counted since, the count stays as it is, so a right password sent
+   * alongside wrong codes can't wipe them out.
+   */
   async undo({ user, before }: TakenTry): Promise<void> {
-    await this.users.update(user.id, (stored) => ({ ...stored, wrongTries: before }));
+    await this.users.update(user.id, (stored) =>
+      stored.wrongTries.inARow === user.wrongTries.inARow
+        ? { ...stored, wrongTries: before }
+        : undefined,
+    );
   }
 
   /** Clears the count: a right sign-in, or a right code, resets it. */

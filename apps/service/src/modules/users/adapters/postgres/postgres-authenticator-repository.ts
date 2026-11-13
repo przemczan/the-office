@@ -39,16 +39,23 @@ export class PostgresAuthenticatorRepository extends AuthenticatorRepository {
   }
 
   confirm(
-    userId: string,
+    authenticator: Authenticator,
     step: number,
     confirmedAt: Date,
     recoveryCodeHashes: readonly string[],
   ): Promise<boolean> {
+    const { userId, secret } = toRow(authenticator);
     return this.database.transaction(async (transaction) => {
       const confirmed = await transaction
         .update(authenticators)
         .set({ confirmedAt, lastUsedStep: step })
-        .where(and(eq(authenticators.userId, userId), isNull(authenticators.confirmedAt)))
+        .where(
+          and(
+            eq(authenticators.userId, userId),
+            eq(authenticators.secret, secret),
+            isNull(authenticators.confirmedAt),
+          ),
+        )
         .returning({ userId: authenticators.userId });
       if (confirmed.length === 0) return false;
       await replaceCodes(transaction, userId, recoveryCodeHashes, confirmedAt);
