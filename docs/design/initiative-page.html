@@ -1563,6 +1563,9 @@
       .pd-s-rows .pd-row-label {
         padding-bottom: 0;
       }
+      .pd-where {
+        margin: 2px 4px 0;
+      }
       .pd-loop-words {
         margin: 2px 4px 0;
         font: var(--type-caption);
@@ -2018,7 +2021,7 @@
           publishing: "long",
           note: {
             today: "A long Pipeline today is only its name in the fold.",
-            proposed: "<strong>A long Pipeline</strong>, 7 Stages, one optional (skipped in notnullsoft). Wide and at 900px it fits across. <strong>At 390px</strong> the Stages don't fit at 96px each, so the diagram stacks: a Stage a row, a Project a column, nothing scrolling sideways; the Publishing Tasks are listed under it.",
+            proposed: "<strong>A long Pipeline</strong>, 7 Stages, one optional (skipped in notnullsoft). At 900px it fits across, and wide too once the record column gives it 672px (a window about 1400px wide); narrower, it stacks. <strong>At 390px</strong> the Stages don't fit at 96px each, so the diagram stacks: a Stage a row, a Project a column, nothing scrolling sideways; the Publishing Tasks are listed under it.",
           },
         },
       };
@@ -2249,25 +2252,11 @@
         portInset: 12,
         laneSpacing: 4,
         clearance: 10,
+        straighten: 8,
       };
       function proposedEdges(edges, boxes) {
         const key = ({ from, to }) => `${from}>${to}`;
         const drawn = edges.filter(({ from, to }) => boxes.has(from) && boxes.has(to));
-        // Ports: several edges at one side of a Task spread 8px apart, ordered by the other end's height so they don't cross.
-        const outY = new Map();
-        const inY = new Map();
-        const spread = (list, box, otherMiddle, into) => {
-          const sorted = [...list].sort((first, second) => otherMiddle(first) - otherMiddle(second));
-          const reach = Math.max(0, (box.bottom - box.top) / 2 - CURVE.portInset);
-          sorted.forEach((edge, index) => {
-            const offset = (index - (sorted.length - 1) / 2) * CURVE.portSpacing;
-            into.set(key(edge), box.middle + Math.max(-reach, Math.min(reach, offset)));
-          });
-        };
-        for (const [id, box] of boxes) {
-          spread(drawn.filter(({ from }) => from === id), box, ({ to }) => boxes.get(to).middle, outY);
-          spread(drawn.filter(({ to }) => to === id), box, ({ from }) => boxes.get(from).middle, inY);
-        }
         const columns = new Map();
         for (const box of boxes.values()) {
           const column = columns.get(box.column) ?? { left: Infinity, right: -Infinity, boxes: [] };
@@ -2276,16 +2265,43 @@
           column.boxes.push(box);
           columns.set(box.column, column);
         }
-        // The heights an edge runs at: its blocker's port, a free lane through each column it skips, the waiting Task's port.
+        // The heights an edge runs at through the columns it skips, from the blocker's height to the waiting Task's.
+        const lanesOf = (edge, start, end) => {
+          const through = [];
+          for (let column = boxes.get(edge.from).column + 1; column < boxes.get(edge.to).column; column++) through.push(laneThrough(columns.get(column), through.at(-1) ?? start, end));
+          return through;
+        };
+        // Sketched from mid-height to mid-height, to order the ports.
+        const lanes = new Map(drawn.map((edge) => [key(edge), lanesOf(edge, boxes.get(edge.from).middle, boxes.get(edge.to).middle)]));
+        // Ports: several edges at one side of a Task spread 8px apart, ordered by the height each runs at next to it, so they don't cross.
+        const outY = new Map();
+        const inY = new Map();
+        const portReach = (box) => Math.max(0, (box.bottom - box.top) / 2 - CURVE.portInset);
+        const portFits = (box, y) => Math.abs(y - box.middle) <= portReach(box);
+        const spread = (list, box, nextHeight, into) => {
+          const sorted = [...list].sort((first, second) => nextHeight(first) - nextHeight(second));
+          const reach = portReach(box);
+          sorted.forEach((edge, index) => {
+            const offset = (index - (sorted.length - 1) / 2) * CURVE.portSpacing;
+            into.set(key(edge), box.middle + Math.max(-reach, Math.min(reach, offset)));
+          });
+        };
+        for (const [id, box] of boxes) {
+          spread(drawn.filter(({ from }) => from === id), box, (edge) => lanes.get(key(edge))[0] ?? boxes.get(edge.to).middle, outY);
+          spread(drawn.filter(({ to }) => to === id), box, (edge) => lanes.get(key(edge)).at(-1) ?? boxes.get(edge.from).middle, inY);
+        }
+        // The heights an edge runs at: its blocker's port, a lane through each column it skips, the waiting Task's port.
         const routes = drawn.map((edge) => {
-          const from = boxes.get(edge.from);
-          const to = boxes.get(edge.to);
+          const start = outY.get(key(edge));
           const end = inY.get(key(edge));
-          const levels = [outY.get(key(edge))];
-          for (let column = from.column + 1; column < to.column; column++) levels.push(laneThrough(columns.get(column), levels[levels.length - 1], end));
-          levels.push(end);
+          const levels = [start, ...lanesOf(edge, start, end), end];
+          // Ends 8px apart or less: one straight line, the end that is alone on its side of its Task moving to meet the other.
+          if (levels.length === 2 && Math.abs(end - start) <= CURVE.straighten) {
+            if (drawn.filter(({ to }) => to === edge.to).length === 1 && portFits(boxes.get(edge.to), start)) levels[1] = start;
+            else if (drawn.filter(({ from }) => from === edge.from).length === 1 && portFits(boxes.get(edge.from), end)) levels[0] = end;
+          }
           for (let index = 1; index < levels.length; index++) if (Math.abs(levels[index] - levels[index - 1]) < 1) levels[index] = levels[index - 1];
-          return { edge, from, to, levels };
+          return { edge, from: boxes.get(edge.from), to: boxes.get(edge.to), levels };
         });
         // Bends that share a gap stand 4px apart, so no two vertical runs lie on one line.
         const bendsByGap = new Map();
@@ -2333,15 +2349,17 @@
           })
           .join("");
       }
-      /** Where an edge crosses a column it skips: at its own height if that misses every Task by 10px, else the nearest free lane. */
+      /**
+       * Where an edge crosses a column it skips: at its own height if that misses every Task there by 10px, else just above
+       * or below the column, whichever is shorter. Never between two Tasks: their 12px gap is too tight, and a line there
+       * reads as leaving the Task beside it.
+       */
       function laneThrough(column, y, target) {
-        const sorted = [...column.boxes].sort((first, second) => first.top - second.top);
-        const blocked = (candidate) => sorted.some((box) => candidate > box.top - CURVE.clearance && candidate < box.bottom + CURVE.clearance);
-        if (!blocked(y)) return y;
-        const candidates = [sorted[0].top - CURVE.clearance, sorted[sorted.length - 1].bottom + CURVE.clearance];
-        for (let index = 0; index + 1 < sorted.length; index++) candidates.push((sorted[index].bottom + sorted[index + 1].top) / 2);
+        if (!column.boxes.some((box) => y > box.top - CURVE.clearance && y < box.bottom + CURVE.clearance)) return y;
+        const above = Math.min(...column.boxes.map(({ top }) => top)) - CURVE.clearance;
+        const below = Math.max(...column.boxes.map(({ bottom }) => bottom)) + CURVE.clearance;
         const cost = (candidate) => Math.abs(candidate - y) + Math.abs(candidate - target);
-        return candidates.reduce((best, candidate) => (cost(candidate) < cost(best) ? candidate : best));
+        return cost(above) <= cost(below) ? above : below;
       }
 
       /* ---------- The record column ---------- */
@@ -2584,15 +2602,16 @@
             return `<li>${rowLabel(ini, pipeline, row)}${where}${loops}</li>`;
           })
           .join("");
-        return `<div class="pd-stacked"><div class="pd-s-head"><span class="overline">Stage</span></div>${projectHeads}${lines}</div><ul class="pd-s-rows" aria-label="Publishing Tasks">${labels}</ul>`;
+        return `<div class="pd-stacked"><div class="pd-s-head"><span class="overline">Stage</span></div>${projectHeads}${lines}</div><ul class="pd-s-rows" aria-label="Projects">${labels}</ul>`;
       }
       /** In the stacked view the marks have no words under them, so each row says where it is. */
       function stageWhere(pipeline, task) {
         const index = currentIndex(pipeline, task);
         if (index < 0) return "";
         const stage = pipeline.stages[index];
-        const words = STAGE_STATE_WORDS[task.stages[stage.key].state] || "Next";
-        return `<p class="task-quiet sm" style="margin:2px 4px 0">${stage.name}: ${words}</p>`;
+        const stageState = task.stages[stage.key].state;
+        const words = stageState !== "pending" ? `${stage.name}: ${STAGE_STATE_WORDS[stageState]}` : task.state === "dropped" ? `Dropped before ${stage.name}` : `${stage.name}: Next`;
+        return `<p class="task-quiet sm pd-where">${words}</p>`;
       }
 
       /* ---------- The Stage history window, opened from a Stage of a Publishing Task ---------- */
@@ -2758,11 +2777,12 @@
                 <dt>64px</dt><dd>column gap (was 44): room for both runs and a bend</dd>
                 <dt>≥ 12px</dt><dd>straight out of the blocker, before the first bend</dd>
                 <dt>≥ 12px</dt><dd>straight into the arrowhead, after the last bend</dd>
-                <dt>8px</dt><dd>corner radius, or half the height difference when that is less; under 1px, a straight line</dd>
+                <dt>8px</dt><dd>corner radius, or half the height difference when that is less</dd>
+                <dt>≤ 8px</dt><dd>apart at both ends: one straight line, the end that is alone on its side of its Task moving to meet the other</dd>
                 <dt>8 × 8px</dt><dd>arrowhead, its own path in the line's colour, its tip 2px off the Task</dd>
-                <dt>8px</dt><dd>apart: edges meeting one side of a Task, ordered by the other end's height, kept 12px inside its corners</dd>
+                <dt>8px</dt><dd>apart: edges meeting one side of a Task, ordered by the height each runs at next to it, kept 12px inside its corners</dd>
                 <dt>4px</dt><dd>apart: bends sharing a gap</dd>
-                <dt>10px</dt><dd>clearance when skipping a column: the line keeps its height if it misses every Task there by 10px, else takes the nearest gap between them</dd>
+                <dt>10px</dt><dd>clearance when skipping a column: the line keeps its height if it misses every Task there by 10px, else runs 10px above or below the column, whichever is shorter; never between two Tasks</dd>
               </dl>
             </div>
             <div>
