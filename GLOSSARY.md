@@ -1,6 +1,6 @@
 # The Office
 
-A single-user workspace, run like an office, where AI agents turn ideas into published changes across the user's projects while the user plans, steers and tunes the work. Always written with "The"; formerly called Software Factory.
+A workspace for a few users, each signed in, run like an office, where AI agents turn ideas into published changes across the users' projects while the users plan, steer and tune the work. Always written with "The"; formerly called Software Factory.
 
 ## Language
 
@@ -46,7 +46,7 @@ The only credentials The Office's git uses, shared by every Project and separate
 _Avoid_: Machine credentials, service account, bot
 
 **Sign in with GitHub**:
-The Office's sign-in to GitHub through a GitHub App the user registers and installs once; its user token, kept fresh by The Office and never seen by Agents, fetches, pushes and opens pull requests for every GitHub Project.
+The Office's sign-in to GitHub through a GitHub App the user registers and installs once; its user token, kept fresh by The Office and never seen by Agents, fetches, pushes and opens pull requests for every GitHub Project. It is The Office's own git identity, one and shared by every user; a user signing in to The Office with their GitHub account is Continue with GitHub, which uses the same App but never this sign-in or its token.
 _Avoid_: GitHub login, GitHub token, OAuth (in the UI)
 
 **Office ssh key**:
@@ -254,7 +254,7 @@ The Task, Initiative, Idea, person or Project whose page is open beside the chat
 _Avoid_: Current page, page context, focus, selection
 
 **Brief**:
-What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, the records mentioned in the message it starts on and its Open page's, and the previous Stage's Handover note.
+What a new session is given to pick up work: the record of the Task or Initiative, which user asked, the person's memory when they keep one, the records mentioned in the message it starts on and its Open page's, and the previous Stage's Handover note.
 _Avoid_: Prompt, context dump, summary
 
 **Details**:
@@ -512,9 +512,63 @@ A Caretaker Thread's switch, confirmed by the user, under which the Caretaker ca
 _Avoid_: Admin mode, unlock, elevated mode
 
 **Palette**:
-The set of colours the app is shown in, picked in Settings › Appearance or from the rail's Theme menu and kept in this browser: Light, Dark, Graphite, Paper, Midnight, Mist, Mocha, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald or Citrine, or following the system. Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald are dark, and Light, Paper, Mist, Sage, Lavender, Cobalt and Citrine light. It changes colours only, never layout.
+The set of colours the app is shown in, picked in Settings › Appearance or from the rail's Theme menu, each user's own: Light, Dark, Graphite, Paper, Midnight, Mist, Mocha, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald or Citrine, or following the system. Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald are dark, and Light, Paper, Mist, Sage, Lavender, Cobalt and Citrine light. It changes colours only, never layout.
 _Avoid_: Theme, mode, colour scheme
 
 **Density**:
-How much air the app is shown with, picked in Settings › Appearance or from the rail's Theme menu and kept in this browser: Compact, Comfortable or Relaxed. It changes spacing, control heights and text sizes only, never colours.
+How much air the app is shown with, picked in Settings › Appearance or from the rail's Theme menu, each user's own: Compact, Comfortable or Relaxed. It changes spacing, control heights and text sizes only, never colours.
 _Avoid_: Size, zoom, scale
+
+### Users and signing in
+
+**User**:
+Someone who signs in to The Office with an account. The first user is created at first run; any user adds an account for someone else and can remove one. For now every user can do everything. A user is never a person of The Office: people are the Roles users hire.
+_Avoid_: Person, member, admin, operator, login
+
+**Account**:
+A user's own record and page: their name, email, password, authenticator, recovery codes, linked identities, passkeys and signed-in devices, opened from the top bar's user menu. Not an engine's account, which is the Claude account a Claude Code engine runs on.
+_Avoid_: Profile, login, user settings
+
+**One-time password**:
+The password The Office makes when a user adds an account for someone else, shown once to the adding user to pass on; it works for one sign-in, at which the new user sets their own password.
+_Avoid_: Temporary password, invite code, OTP
+
+**Signed-in device**:
+A browser a user signed in from, kept with a hashed token, the browser it came from and when it was last used; listed on the user's account with Sign out. Never called a session, which means only the engine's session behind a Thread.
+_Avoid_: Session, login, token, device session
+
+**Sign out**:
+Ends a signed-in device: this one from the top bar's user menu, any of a user's from their account.
+_Avoid_: Log out, log off
+
+**Authenticator**:
+An app on a user's phone or computer that shows a new 6-digit **authenticator code** every 30 seconds, set up from the user's account; once set up, The Office asks for a code after a password, Continue with GitHub or Continue with Google.
+_Avoid_: 2FA, MFA, TOTP, OTP, verification code (in the UI)
+
+**Recovery code**:
+One of a set of codes shown once when a user sets up their authenticator, each standing in once for an authenticator code; making a new set ends the old one.
+_Avoid_: Backup code, reset code
+
+**Passkey**:
+A key a user's device or password manager keeps for The Office at one address, added from the user's account; it signs the user in alone, with no password or authenticator code. It works only at `localhost` or the public address it was added at.
+_Avoid_: WebAuthn, security key, FIDO (in the UI)
+
+**Linked identity**:
+A user's GitHub or Google identity, linked from their account; Continue with GitHub and Continue with Google sign in only an identity linked this way, found by the provider's own id, never by matching an email.
+_Avoid_: Social login, connected account, external account
+
+**Continue with GitHub**:
+Signing in to The Office with a user's linked GitHub identity, through the GitHub App registered for Sign in with GitHub, which it never changes; offered at every address once the App is registered. Not Sign in with GitHub, The Office's own git identity.
+_Avoid_: Sign in with GitHub, GitHub login, GitHub OAuth
+
+**Continue with Google**:
+Signing in to The Office with a user's linked Google identity, through a Google OAuth client the user sets up in Settings › Users; offered at `localhost` and the public address only.
+_Avoid_: Sign in with Google, Google login, Google OAuth
+
+**Public address**:
+The HTTPS address with a domain at which The Office is reached through the reverse proxy the user sets up, given to The Office in its settings.
+_Avoid_: Domain, external URL, base URL
+
+**Lockout**:
+The time a user's password and codes are refused after too many wrong tries in a row, shown on the sign-in page with when to try again; a passkey and the recovery command still get the user in.
+_Avoid_: Ban, block, rate limit (in the UI)

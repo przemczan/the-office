@@ -74,7 +74,7 @@ Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-d
 | §2.3, §5.5, §8 | Conflicts at Publish: the Resolve Stage, the Project's Test and a Gate before Publish again | 26 |
 | §2.7 | The kinds × channels grid (with the Phone column); quiet hours; batching; the at-desk hold (phone pushes through a recording port until 28's Web Push) | 27 |
 | §2.8 | The fire alarm and the all clear | 27 |
-| §4, §2.7 | The phone: HTTPS on the LAN with a local certificate authority, the PIN, the installed app, phone views, phone push (postponed; left out of tasks 29 and 30 until the user decides) | 28 |
+| §4, §2.7 | The phone: HTTPS on the LAN with a local certificate authority, the installed app, phone views, phone push, a phone signing in like any other device (postponed; left out of tasks 29 and 30 until the user decides) | 28 |
 | §5.4 | The `-p` fallback adapter, matching the Agent SDK adapter (start at login left out for now, §3) | 29 |
 | §3, §2.1–§2.8, §5.4 | The tier 2 test, all day from the desk, on the Test Project on Linux, driven through the API (the phone left out while task 28 is postponed) | 30 |
 
@@ -98,4 +98,11 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 | §2.4, §8 | Talking to The Office from chat apps (WhatsApp first) | 43 |
 | §6 | Stack-specific checks for installs and publishing | 44 |
 | §2.1, §2.3, §4, §5.3, §5.5, §6, §8 | A Project from a git repository (any git URL cloned into the Office data directory; a picker of the user's GitHub repositories; Devops' onboarding by URL); the Office identity, the only credentials The Office's git uses: Sign in with GitHub (a GitHub App registered by its manifest, signed in by its web flow) for every GitHub Project's fetch, push and pull requests, and the Office ssh key for ssh remotes; other hosts over https anonymously | 46 |
+| §2.10, §5.1, §5.2, §5.3, §6 | Users and signing in with a password: the Users module, the first user at first run, signed-in devices and Sign out, the guard on every request and WebSocket (localhost included), the public address behind a reverse proxy, slow-down and lockout, `npm run set-password` | 55 |
+| §2.10 | Adding an account for someone else with a one-time password, setting one's own password at first sign-in, removing a user | 55 |
+| §2.1, §2.4, §2.5, §2.10, §4 | Records name the user who did each thing; the Brief says which user asked; palette and density per user | 55 |
+| §2.10, §6 | Authenticator codes and recovery codes | 55 |
+| §2.10 | Passkeys, at `localhost` and the public address | 55 |
+| §2.10, §5.3 | Continue with GitHub through the GitHub module's App, and linked identities | 55 |
+| §2.10 | Continue with Google, at `localhost` and the public address | 55 |
 | §3 | The tier 3 acceptance run | 45 |
