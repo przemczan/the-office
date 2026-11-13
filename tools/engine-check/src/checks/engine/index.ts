@@ -2,6 +2,7 @@ import type { Check } from "../../check.ts";
 import { autoMemoryCheck } from "./auto-memory.ts";
 import { backgroundTasksCheck } from "./background-tasks.ts";
 import { decisionWaitCheck } from "./decision-wait.ts";
+import { foregroundSubAgentsCheck } from "./foreground-sub-agents.ts";
 import { interruptCheck } from "./interrupt.ts";
 import { leanOptionsCheck } from "./lean-options.ts";
 import { lspToolCheck } from "./lsp-tool.ts";
@@ -30,4 +31,5 @@ export const engineChecks: readonly Check[] = [
   turnUsageCheck,
   lspToolCheck,
   backgroundTasksCheck,
+  foregroundSubAgentsCheck,
 ];

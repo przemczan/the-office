@@ -126,12 +126,15 @@ export class ClaudeCodePEngine extends AgentEngine {
       { sessionId: id, configFolder },
       options,
     );
-    const streamEvents = new StreamEvents(options.mcpServers.map(({ name }) => name));
+    const streamEvents = new StreamEvents(
+      options.mcpServers.map(({ name }) => name),
+      options,
+    );
     const holds = { toolHold: options.toolHold, approvalHold: options.approvalHold };
     const decide: ToolDecider = (tool, input) => toolDecision(rules, holds, tool, input);
     const { paths } = this.operatingSystem;
     const endpoints = this.endpoints.open({
-      preToolUse: officeRulesHook(rules, streamEvents.refusals, holds),
+      preToolUse: officeRulesHook(rules, streamEvents.refusals, holds, options),
     });
     const resources: SessionResources = {
       endpoints,

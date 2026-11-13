@@ -584,6 +584,8 @@ export class StageThreads {
       ),
       mcpServers,
       outputSchema: request.session.outputSchema,
+      // The end of the turn is the Stage's result, so no Sub-agent may outlive it (spec §2.9).
+      subAgentsInForeground: true,
       approvalHold: this.approvalHolds.of(id),
       turnLabel: `${card.name} in the Stage ${request.stageName}`,
       telemetry: {

@@ -1,8 +1,10 @@
 import type { SDKMessage, SDKSystemMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MessagePriority, UserMessage } from "../../ports/engine-session.js";
 import type { SessionEvent } from "../../ports/session-events.js";
+import { callAsRun } from "../office-rules/foreground-sub-agents.js";
 import { BackgroundTasks } from "./background-tasks.js";
 import { McpServerStarts } from "./mcp-server-starts.js";
+import type { HookRewrites } from "./office-rules-hook.js";
 import { sessionEvents, TurnTokens } from "./sdk-events.js";
 import { ToolRefusals } from "./tool-refusals.js";
 
@@ -19,20 +21,24 @@ export class StreamEvents {
   private readonly mcpServerStarts: McpServerStarts;
 
   /**
-   * `mcpServers`: the names of the session's MCP servers; `background`: its Sub-agents and
-   * Processes, which the session reports to and tells of an interrupt and of its end.
+   * `mcpServers`: the names of the session's MCP servers; `session`: how its hook changes the calls
+   * it allows; `background`: its Sub-agents and Processes, which the session reports to and tells
+   * of an interrupt and of its end.
    */
   constructor(
     mcpServers: readonly string[],
-    readonly background = new BackgroundTasks(),
+    private readonly session: HookRewrites = {},
+    readonly background = new BackgroundTasks(session),
   ) {
     this.mcpServerStarts = new McpServerStarts(mcpServers);
   }
 
   of(message: SDKMessage): SessionEvent[] {
-    const events = sessionEvents(message).map((event) =>
-      event.kind === "turn-ended" ? this.turnTokens.settled(event) : event,
-    );
+    const events = sessionEvents(message).map((event) => {
+      if (event.kind === "turn-ended") return this.turnTokens.settled(event);
+      if (event.kind === "tool-call") return callAsRun(event, this.session);
+      return event;
+    });
     return [
       ...this.mcpServerStarts.eventsOf(message),
       ...this.refusals.withRefusals(message, events),

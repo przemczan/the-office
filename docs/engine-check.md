@@ -304,6 +304,12 @@ Slow: 11 minutes each (`ENGINE_CHECK_LONG_TOOL_MINUTES`); run only with `--inclu
 - **Records:** for each kind, whether `task_started` came, its `task_type` and `is_backgrounded`, the `task_notification` status and reason, and the call's structured result status (`completed`, `async_launched`); whether a Sub-agent's messages stream with `parent_tool_use_id` (the background one's too); the `task_type` of the Monitor call; whether the exit code shows in the notification's `summary` or in the output file; whether the Bash result names the output file, whether the notification names the same one, where it is (`repository`, `temp folder`, `home folder`), and whether the check could read every line from it; the task types `background_tasks_changed` listed; and, for the interrupt, what became of each of the three.
 - **Observed:** not yet recorded. The service's `BackgroundTasks` (`apps/service/src/modules/engine/adapters/claude-code/background-tasks.ts`) assumes what spec 2.9 expects: a foreground Sub-agent starts from its call whether or not `task_started` comes; a background one ends with its notification and its `summary`; a Process's output file is named in its Bash result ("Output is being written to: …") and in the notification's `output_file`; no exit code (unless a `summary` names one); `local_bash` alone is a Process until this names Monitor's `task_type`; an interrupt stops a foreground Sub-agent and leaves background work running.
 
+### engine.foreground-sub-agents
+
+- **Run:** one session whose `PreToolUse` hook allows a Sub-agent call (`Agent` or `Task`) with `updatedInput` setting `run_in_background: false`, every other field as the model gave it, as the Office rules hook does in a Stage session (spec 2.9, "In a Stage"). One turn asks for a background Sub-agent (`general-purpose`, `model: "haiku"`) that replies with a word, then for the Agent to repeat what it answered.
+- **Records:** how the turn ended; whether the model's call still asked for the background; the call's structured result status (`completed` in the foreground, `async_launched` in the background); `task_started`'s `is_backgrounded`, if it came; whether the word is in the call's result and in the turn's result.
+- **Observed:** not yet recorded. The service's hook and `BackgroundTasks` assume the engine takes the hook's `updatedInput` in place of the call's input: the call answers `completed` with the Sub-agent's word, within the turn.
+
 ## The `-p` fallback
 
 Each capability of `EngineCapabilities` on the pinned binary in `-p`, started as [How a check runs](#how-a-check-runs) describes (task 29, spec §5.4 Defaults). Every check gave the same result on Windows and Linux.
@@ -355,6 +361,11 @@ Each capability of `EngineCapabilities` on the pinned binary in `-p`, started as
 
 - **Run:** as `engine.background-tasks`, on the `-p` route, with an `interrupt` control request.
 - **Observed:** not yet recorded. The service maps the `-p` stream with the same `BackgroundTasks`, so a difference from `engine.background-tasks` (such as no `tool_use_result` on the `-p` stream, which the mapping then reads from the result's text) is read here.
+
+### fallback.foreground-sub-agents
+
+- **Run:** as `engine.foreground-sub-agents`, on the `-p` route, the hook answering over `localhost`.
+- **Observed:** not yet recorded. The service's `-p` hook endpoint returns the same `updatedInput` as the SDK's hook, so a difference from `engine.foreground-sub-agents` is the binary's reading of an HTTP hook's output.
 
 ## The OpenAI-compatible API
 

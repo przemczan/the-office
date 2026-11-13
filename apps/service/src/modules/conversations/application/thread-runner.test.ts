@@ -2948,6 +2948,46 @@ describe("a Thread's Sub-agents and Processes", () => {
     );
   });
 
+  it("leave a chat's Sub-agent in the background its call asked for, unlike a Stage's", async () => {
+    await startWith(
+      started(
+        background({
+          kind: "tool-call",
+          callId: "agent-1",
+          tool: "Agent",
+          officeTool: false,
+          input: { prompt: "Review the change.", run_in_background: true },
+          withinToolCall: undefined,
+        }),
+        background({
+          kind: "sub-agent-started",
+          callId: "agent-1",
+          engineTaskId: "a1",
+          withinToolCall: undefined,
+          description: "Review the change",
+          agentKind: "general-purpose",
+          prompt: "Review the change.",
+          background: true,
+        }),
+        ...aTurn("brief", "A review runs."),
+        ...heldOpen,
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Review the change.");
+    await answered(thread.id, 3);
+
+    const [session] = engine.sessions;
+    expect(session?.options.subAgentsInForeground).toBeUndefined();
+    expect(session?.reportedEvents.find(({ kind }) => kind === "tool-call")).toMatchObject({
+      input: { run_in_background: true },
+    });
+    expect(await app.get(SubAgentsAndProcesses).list(thread.id)).toMatchObject([
+      { kind: "sub-agent", callId: "agent-1", background: true },
+    ]);
+  });
+
   it("stops every one still Running after a restart, as ended when The Office restarted", async () => {
     await startWith(
       started(...aSubAgentAndAProcess, ...aTurn("brief", "Started the app."), ...heldOpen),

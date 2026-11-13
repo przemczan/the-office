@@ -6,6 +6,7 @@ import { currentOperatingSystem } from "../../../../platform/os/current-operatin
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { McpServerConnections, type McpToolAnswer } from "../mcp-servers/mcp-server-connections.js";
+import { callAsRun } from "../office-rules/foreground-sub-agents.js";
 import { mcpToolOf } from "../office-rules/office-tool-names.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
@@ -403,11 +404,17 @@ export class ScriptedSession implements EngineSession {
           return [event];
         }
         const held = await this.options.toolHold?.();
-        if (held !== undefined)
+        if (held !== undefined) {
           this.heldCalls.set(event.callId, { tool: event.tool, reason: held });
-        else if (event.officeTool) this.runOfficeTool(event.callId, event.tool, event.input);
-        return [event];
+          return [event];
+        }
+        if (event.officeTool) this.runOfficeTool(event.callId, event.tool, event.input);
+        return [callAsRun(event, this.options)];
       }
+      case "sub-agent-started":
+        return [
+          this.options.subAgentsInForeground === true ? { ...event, background: false } : event,
+        ];
       case "tool-result": {
         const mcpCall = this.mcpCalls.get(event.callId);
         if (mcpCall) {

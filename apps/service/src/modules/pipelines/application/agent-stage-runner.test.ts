@@ -73,6 +73,12 @@ describe("AgentStageRunner", () => {
     expect(request?.session.instructions).toContain(
       "Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command",
     );
+    expect(request?.session.instructions).toContain(
+      "The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it",
+    );
+    expect(request?.session.instructions).toContain(
+      "Stop the background commands you no longer need before you end it.",
+    );
     const record = request?.record ?? "";
     expect(record).toContain("## The Task\n\nRename a device, in the Project Admin panel.");
     expect(record).toContain(

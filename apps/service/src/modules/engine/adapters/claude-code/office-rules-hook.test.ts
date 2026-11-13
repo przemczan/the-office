@@ -230,4 +230,78 @@ describe("officeRulesHook", () => {
       });
     });
   });
+
+  describe("a Sub-agent call", () => {
+    const REVIEW = {
+      description: "Review the diff",
+      prompt: "Review the diff.",
+      subagent_type: "general-purpose",
+      run_in_background: true,
+    };
+
+    it.each(["Agent", "Task"])(
+      "runs in the foreground in a session that asks it, every other field as the Agent gave it (%s)",
+      async (tool) => {
+        const hook = officeRulesHook(
+          rules(),
+          new ToolRefusals(),
+          {},
+          {
+            subAgentsInForeground: true,
+          },
+        );
+
+        await expect(hook(preToolUse(tool, REVIEW), "c1", SIGNAL)).resolves.toEqual({
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "allow",
+            updatedInput: { ...REVIEW, run_in_background: false },
+          },
+        });
+      },
+    );
+
+    it("goes through unchanged in a session that doesn't ask it, as a chat's", async () => {
+      const hook = officeRulesHook(readOnly(), new ToolRefusals());
+
+      await expect(hook(preToolUse("Agent", REVIEW), "c1", SIGNAL)).resolves.toEqual({
+        hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" },
+      });
+    });
+
+    it("stays refused when the Office rules refuse it, with no input to run", async () => {
+      const reason = "Refused by The Office: the fire alarm is on.";
+      const hook = officeRulesHook(
+        rules(),
+        new ToolRefusals(),
+        { toolHold: () => Promise.resolve(reason) },
+        { subAgentsInForeground: true },
+      );
+
+      await expect(hook(preToolUse("Agent", REVIEW), "c1", SIGNAL)).resolves.toEqual({
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          permissionDecisionReason: reason,
+        },
+      });
+    });
+
+    it("leaves a background command alone in a session whose Sub-agents run in the foreground", async () => {
+      const hook = officeRulesHook(
+        rules(),
+        new ToolRefusals(),
+        {},
+        {
+          subAgentsInForeground: true,
+        },
+      );
+
+      await expect(
+        hook(preToolUse("Bash", { command: "npm run dev", run_in_background: true }), "c1", SIGNAL),
+      ).resolves.toEqual({
+        hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" },
+      });
+    });
+  });
 });

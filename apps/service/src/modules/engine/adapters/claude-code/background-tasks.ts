@@ -10,13 +10,13 @@ import type {
 import { open } from "node:fs/promises";
 import { StringDecoder } from "node:string_decoder";
 import type { BackgroundEnding, BackgroundEvent } from "../../ports/session-events.js";
+import { SUB_AGENT_TOOLS } from "../office-rules/foreground-sub-agents.js";
+import type { HookRewrites } from "./office-rules-hook.js";
 import { toolResultText } from "./sdk-events.js";
 
 /** How often a running Process's output file is read (spec 2.9: "every half second"). */
 export const OUTPUT_READ_EVERY_MS = 500;
 
-/** The tools whose call starts a Sub-agent: `Agent` is the newer name of `Task`. */
-const SUB_AGENT_TOOLS: ReadonlySet<string> = new Set(["Task", "Agent"]);
 /** The tools whose call may run a command in the background. */
 const COMMAND_TOOLS: ReadonlySet<string> = new Set(["Bash", "PowerShell"]);
 /** The tools the Agent stops a task with: `KillShell` is `TaskStop`'s older name. */
@@ -84,7 +84,14 @@ export class BackgroundTasks {
   private interrupts = 0;
   private sessionEnding = false;
 
-  constructor(private readonly readEveryMs = OUTPUT_READ_EVERY_MS) {}
+  /**
+   * `subAgentsInForeground`: whether the session's hook runs every Sub-agent in the foreground,
+   * though the call the stream shows asks for the background.
+   */
+  constructor(
+    private readonly session: HookRewrites = {},
+    private readonly readEveryMs = OUTPUT_READ_EVERY_MS,
+  ) {}
 
   /** Where the session's events that no message brings at once go. */
   reportTo(report: Report): void {
@@ -161,7 +168,8 @@ export class BackgroundTasks {
     input: Readonly<Record<string, unknown>>,
     withinToolCall: string | undefined,
   ): BackgroundEvent {
-    const background = input["run_in_background"] === true;
+    const background =
+      this.session.subAgentsInForeground !== true && input["run_in_background"] === true;
     this.subAgents.set(callId, {
       callId,
       engineTaskId: undefined,

@@ -134,6 +134,11 @@ export interface SessionOptions {
   readonly languageServers: readonly LanguageServer[];
   /** What each turn's output must match, or undefined for a reply in plain words. */
   readonly outputSchema: JsonSchema | undefined;
+  /**
+   * Whether every Sub-agent runs in the foreground, whatever its call asks (spec §2.9): for a
+   * session whose turn's end is its work's end, such as a Stage's. Undefined for every other.
+   */
+  readonly subAgentsInForeground?: boolean;
   /** Undefined for a session whose tool calls The Office never holds as a whole. */
   readonly toolHold?: ToolHold;
   /** Undefined for a session where a call waiting on approval is refused. */

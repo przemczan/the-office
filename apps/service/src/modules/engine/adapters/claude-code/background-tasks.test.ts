@@ -12,6 +12,7 @@ import {
   RECORDED_EVENTS,
   recordedEvents,
   playRecordedSession,
+  subAgentAnsweredInForeground,
   taskNotification,
   taskStop,
   type Wire,
@@ -52,6 +53,23 @@ describe("BackgroundTasks on the Agent SDK's stream", () => {
     expect(recorded.outputWithinCommand).toBe(true);
   });
 
+  it("reports a Sub-agent whose call asked for the background as one in a session that lets it", async () => {
+    const wire = sdkWire();
+    const reading = new AdapterReading(wire.messages);
+
+    wire.send(subAgentAnsweredInForeground("toolu_01Review", "The diff is sound.")[0]!);
+    await reading.until("sub-agent-started");
+    wire.end();
+    const events = await reading.done;
+
+    expect(events.find((event) => event.kind === "tool-call")).toMatchObject({
+      input: { run_in_background: true },
+    });
+    expect(events.find((event) => event.kind === "sub-agent-started")).toMatchObject({
+      background: true,
+    });
+  });
+
   it("reports a command the Agent stopped with TaskStop as stopped by the Agent", async () => {
     const wire = sdkWire();
     const reading = new AdapterReading(wire.messages);
@@ -70,5 +88,33 @@ describe("BackgroundTasks on the Agent SDK's stream", () => {
       ending: { state: "stopped", by: "agent" },
       exitCode: undefined,
     });
+  });
+
+  it("reports a Sub-agent the session runs in the foreground as one, and its call as it ran, though the call asked for the background", async () => {
+    const wire = sdkWire();
+    const reading = new AdapterReading(wire.messages, { subAgentsInForeground: true });
+
+    wire.send(...subAgentAnsweredInForeground("toolu_01Review", "The diff is sound."));
+    await reading.until("sub-agent-ended");
+    wire.end();
+    const events = await reading.done;
+
+    expect(events.find((event) => event.kind === "tool-call")).toMatchObject({
+      tool: "Agent",
+      input: { prompt: "Review the diff.", run_in_background: false },
+    });
+    expect(backgroundEvents(events)).toEqual([
+      expect.objectContaining({
+        kind: "sub-agent-started",
+        callId: "toolu_01Review",
+        background: false,
+      }),
+      expect.objectContaining({
+        kind: "sub-agent-ended",
+        callId: "toolu_01Review",
+        ending: { state: "finished" },
+        reportedBack: "The diff is sound.",
+      }),
+    ]);
   });
 });

@@ -791,7 +791,7 @@ describe("a Stage Thread's Sub-agents and Processes", () => {
           description: "Review the change",
           agentKind: "general-purpose",
           prompt: "Review it.",
-          background: true,
+          background: false,
         }),
         reported({ kind: "text", text: "Looks right.", withinToolCall: "agent-1" }),
         ...aTurn({ status: "started" }),
@@ -843,7 +843,7 @@ describe("a Stage Thread's Sub-agents and Processes", () => {
       {
         kind: "sub-agent",
         callId: "agent-1",
-        background: true,
+        background: false,
         ending: { state: "failed", reason: "Its context window filled." },
         lastSequence: 1,
       },
@@ -851,6 +851,81 @@ describe("a Stage Thread's Sub-agents and Processes", () => {
     expect((await kept.messages(threadId, "agent-1", 0)).messages).toMatchObject([
       { kind: "text", sequence: 1, text: "Looks right." },
     ]);
+  });
+
+  it("runs a Sub-agent the Agent asks for in the background in the foreground, so it answers before the Stage's result is read", async () => {
+    await startWith(
+      started(
+        reported({
+          kind: "tool-call",
+          callId: "agent-1",
+          tool: "Agent",
+          officeTool: false,
+          input: {
+            description: "Review the change",
+            prompt: "Review it.",
+            subagent_type: "general-purpose",
+            run_in_background: true,
+          },
+          withinToolCall: undefined,
+        }),
+        reported({
+          kind: "sub-agent-started",
+          callId: "agent-1",
+          engineTaskId: undefined,
+          withinToolCall: undefined,
+          description: "Review the change",
+          agentKind: "general-purpose",
+          prompt: "Review it.",
+          background: true,
+        }),
+        reported({ kind: "text", text: "Looks right.", withinToolCall: "agent-1" }),
+        reported({
+          kind: "sub-agent-ended",
+          callId: "agent-1",
+          ending: { state: "finished" },
+          reportedBack: "The change is sound.",
+          toolCallCount: 3,
+          totalTokens: 900,
+        }),
+        reported({
+          kind: "tool-result",
+          callId: "agent-1",
+          text: "The change is sound.",
+          isError: false,
+          withinToolCall: undefined,
+        }),
+        ...aTurn({ status: "done" }, "Reviewed."),
+      ),
+    );
+    const kept = app.get(SubAgentsAndProcesses);
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    const [session] = engine.sessions;
+
+    const turn = await stageThread.nextTurn();
+
+    expect(session?.options.subAgentsInForeground).toBe(true);
+    const kinds = session?.reportedEvents.map(({ kind }) => kind) ?? [];
+    expect(kinds.indexOf("sub-agent-ended")).toBeLessThan(kinds.indexOf("turn-ended"));
+    expect(session?.reportedEvents.find(({ kind }) => kind === "tool-call")).toMatchObject({
+      input: {
+        description: "Review the change",
+        prompt: "Review it.",
+        subagent_type: "general-purpose",
+        run_in_background: false,
+      },
+    });
+    expect(turn.output).toEqual({ status: "done" });
+    expect(await kept.list(stageThread.threadId)).toMatchObject([
+      {
+        kind: "sub-agent",
+        callId: "agent-1",
+        background: false,
+        ending: { state: "finished" },
+        reportedBack: "The change is sound.",
+      },
+    ]);
+    await stageThread.end({ handoverNote: "Left: nothing.", closing: undefined });
   });
 });
 

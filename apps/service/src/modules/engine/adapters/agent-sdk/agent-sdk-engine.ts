@@ -29,7 +29,7 @@ import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { writeLanguageServerPlugin } from "../claude-code/language-server-plugin.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
-import { officeRulesHook } from "../claude-code/office-rules-hook.js";
+import { officeRulesHook, type HookRewrites } from "../claude-code/office-rules-hook.js";
 import { toolDecision, type SessionHolds } from "../office-rules/tool-decision.js";
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
@@ -91,6 +91,7 @@ export class AgentSdkEngine extends AgentEngine {
         options,
       ),
       holds: { toolHold: options.toolHold, approvalHold: options.approvalHold },
+      rewrites: { subAgentsInForeground: options.subAgentsInForeground },
       skills: options.skills,
       paths: this.operatingSystem.paths,
     };
@@ -106,7 +107,10 @@ export class AgentSdkEngine extends AgentEngine {
         : await McpConfigFile.write(this.officeData.folder("sessions"), id, mcpConfig);
     let session: AgentSdkSession;
     try {
-      const streamEvents = new StreamEvents(options.mcpServers.map(({ name }) => name));
+      const streamEvents = new StreamEvents(
+        options.mcpServers.map(({ name }) => name),
+        options,
+      );
       session = new AgentSdkSession(
         id,
         held,
@@ -149,6 +153,7 @@ export class AgentSdkEngine extends AgentEngine {
 interface HeldTo {
   readonly rules: OfficeRules;
   readonly holds: SessionHolds;
+  readonly rewrites: HookRewrites;
   readonly skills: SessionSkills | undefined;
   readonly paths: PathRules;
 }
@@ -181,7 +186,12 @@ class AgentSdkSession implements EngineSession {
     this.engine = query({
       prompt: this.input,
       options: options({
-        preToolUse: officeRulesHook(held.rules, this.parts.streamEvents.refusals, held.holds),
+        preToolUse: officeRulesHook(
+          held.rules,
+          this.parts.streamEvents.refusals,
+          held.holds,
+          held.rewrites,
+        ),
         spawnProcess: parts.engineProcess.spawn,
       }),
     });

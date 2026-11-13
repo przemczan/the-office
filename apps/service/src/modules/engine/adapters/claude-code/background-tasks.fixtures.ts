@@ -4,6 +4,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { vi } from "vitest";
 import type { BackgroundEvent, SessionEvent } from "../../ports/session-events.js";
 import { BackgroundTasks } from "./background-tasks.js";
+import type { HookRewrites } from "./office-rules-hook.js";
 import { message } from "./sdk-events.fixtures.js";
 import { StreamEvents } from "./stream-events.js";
 
@@ -98,6 +99,31 @@ export function backgroundCommand(
     system({
       subtype: "background_tasks_changed",
       tasks: [{ task_id: taskId, task_type: "local_bash", description: "Run it" }],
+    }),
+  ];
+}
+
+/** A Sub-agent's call that asks for the background, and its answer as a foreground one ends. */
+export function subAgentAnsweredInForeground(callId: string, answer: string): SDKMessage[] {
+  return [
+    assistant([
+      {
+        type: "tool_use",
+        id: callId,
+        name: "Agent",
+        input: {
+          description: "Review the diff",
+          prompt: "Review the diff.",
+          subagent_type: "general-purpose",
+          run_in_background: true,
+        },
+      },
+    ]),
+    toolResult(callId, [{ type: "text", text: answer }], {
+      status: "completed",
+      content: [{ type: "text", text: answer }],
+      totalToolUseCount: 2,
+      totalTokens: 900,
     }),
   ];
 }
@@ -281,14 +307,16 @@ export interface Wire {
 export class AdapterReading {
   readonly events: SessionEvent[] = [];
   readonly done: Promise<SessionEvent[]>;
-  readonly background = new BackgroundTasks(READ_EVERY_MS);
+  readonly background: BackgroundTasks;
 
-  constructor(messages: AsyncIterable<SDKMessage>) {
-    const stream = new StreamEvents([], this.background);
-    this.background.reportTo((event) => this.events.push(event));
+  constructor(messages: AsyncIterable<SDKMessage>, session: HookRewrites = {}) {
+    const background = new BackgroundTasks(session, READ_EVERY_MS);
+    this.background = background;
+    const stream = new StreamEvents([], session, background);
+    background.reportTo((event) => this.events.push(event));
     this.done = (async () => {
       for await (const each of messages) this.events.push(...stream.of(each));
-      await this.background.ended();
+      await background.ended();
       return this.events;
     })();
   }

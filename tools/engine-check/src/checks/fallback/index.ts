@@ -1,5 +1,6 @@
 import type { Check } from "../../check.ts";
 import { fallbackBackgroundTasksCheck } from "../engine/background-tasks.ts";
+import { fallbackForegroundSubAgentsCheck } from "../engine/foreground-sub-agents.ts";
 import { fallbackLongOfficeToolCheck } from "../engine/long-office-tool.ts";
 import { fallbackHookUnreachableCheck } from "./hook-unreachable.ts";
 import { fallbackInterruptCheck } from "./interrupt.ts";
@@ -21,4 +22,5 @@ export const fallbackChecks: readonly Check[] = [
   fallbackLongOfficeToolCheck,
   fallbackPriorityLaterCheck,
   fallbackBackgroundTasksCheck,
+  fallbackForegroundSubAgentsCheck,
 ];

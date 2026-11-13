@@ -330,6 +330,38 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
     }
   }, 180_000);
 
+  it("runs a Sub-agent asked for in the background in the foreground in a session that asks it, so it answers within the turn", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-foreground-sub-agent-"));
+    try {
+      const session = await liveEngine().start({
+        id: randomUUID(),
+        options: { ...options(folder), subAgentsInForeground: true },
+        brief: message(
+          "Use the Agent tool with run_in_background set to true and this prompt: Reply with the single word: foreground-17. " +
+            "Then reply with what it answered.",
+        ),
+      });
+      const reported: SessionEvent[] = [];
+      for await (const event of session.events) {
+        reported.push(event);
+        if (event.kind === "turn-ended") break;
+      }
+      await session.end();
+
+      expect(reported.find((event) => event.kind === "sub-agent-started")).toMatchObject({
+        background: false,
+      });
+      const ended = reported.findIndex((event) => event.kind === "sub-agent-ended");
+      expect(reported[ended]).toMatchObject({
+        ending: { state: "finished" },
+        reportedBack: expect.stringContaining("foreground-17"),
+      });
+      expect(ended).toBeLessThan(reported.findIndex((event) => event.kind === "turn-ended"));
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 180_000);
+
   it("ends what a session started when the session ends", async () => {
     const folder = await mkdtemp(join(tmpdir(), "office-leftovers-"));
     try {

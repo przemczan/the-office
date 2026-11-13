@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { linux } from "../../../../platform/os/linux.js";
 import { OfficeRules } from "../../domain/office-rules.js";
 import type { EndpointSession, OpenEndpoints } from "../claude-code-p/session-endpoints.js";
-import { officeRulesHook } from "../claude-code/office-rules-hook.js";
+import { officeRulesHook, type HookRewrites } from "../claude-code/office-rules-hook.js";
 import { ToolRefusals } from "../claude-code/tool-refusals.js";
 import { serveSessionEndpoints, type ServedEndpoints } from "./session-endpoints.fixtures.js";
 
@@ -24,9 +24,9 @@ const RULES = new OfficeRules({
 });
 
 /** A session held to the Office rules as an adapter holds one. */
-function session(): EndpointSession & { refusals: ToolRefusals } {
+function session(rewrites: HookRewrites = {}): EndpointSession & { refusals: ToolRefusals } {
   const refusals = new ToolRefusals();
-  return { refusals, preToolUse: officeRulesHook(RULES, refusals) };
+  return { refusals, preToolUse: officeRulesHook(RULES, refusals, {}, rewrites) };
 }
 
 let served: ServedEndpoints;
@@ -69,6 +69,21 @@ const preToolUse = (tool_name: string, tool_input: unknown) => ({
 });
 
 describe("the hook endpoint", () => {
+  it("answers a Stage session's Sub-agent call with its input made to run in the foreground", async () => {
+    const endpoints = open(session({ subAgentsInForeground: true }));
+    const review = { description: "Review", prompt: "Review the diff.", run_in_background: true };
+
+    const response = await postHook(endpoints, preToolUse("Agent", review));
+
+    await expect(response.json()).resolves.toEqual({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+        updatedInput: { ...review, run_in_background: false },
+      },
+    });
+  });
+
   it("answers as the session's hook: allows what the Office rules allow", async () => {
     const endpoints = open(session());
 
