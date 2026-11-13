@@ -124,7 +124,7 @@ describe("choose_pipeline", () => {
     const result = await call({ projectId, pipelineId: null });
 
     expect(result).toEqual({
-      text: `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`,
+      text: `Whether the Initiative has a Pipeline in The ${projectId} was fixed at Confirm.`,
       isError: true,
     });
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
@@ -162,7 +162,7 @@ describe("a Proposal of another Pipeline", () => {
     const appliers = work.app.get(ProposalAppliers);
 
     expect(await appliers.problemsWith(proposed("full"))).toEqual([
-      `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`,
+      `Whether the Initiative has a Pipeline in The ${projectId} was fixed at Confirm.`,
     ]);
     await expect(appliers.apply(proposed("full"), "cto")).rejects.toThrow(ProposalRefused);
   });

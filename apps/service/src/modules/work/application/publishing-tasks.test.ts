@@ -255,7 +255,7 @@ describe("Publishing Tasks", () => {
         THE_USER,
       ),
     ).rejects.toThrow(
-      `The Initiative's Pipeline in ${projectId} started in ${swapped.title}, so it can't change.`,
+      `The Initiative's Pipeline in The ${projectId} started in ${swapped.title}, so it can't change.`,
     );
     // Another Project's Publishing Task that started doesn't hold this one's Pipeline.
     await initiatives.applyProposal(
@@ -320,7 +320,7 @@ describe("Publishing Tasks", () => {
         pipelineId: null,
       }),
     ).resolves.toEqual([
-      `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`,
+      `Whether the Initiative has a Pipeline in The ${projectId} was fixed at Confirm.`,
     ]);
     await expect(
       initiatives.problemsWithProposal(initiative.id, {
@@ -329,7 +329,7 @@ describe("Publishing Tasks", () => {
         pipelineId: "full",
       }),
     ).resolves.toEqual([
-      `Whether the Initiative has a Pipeline in ${otherProjectId} was fixed at Confirm.`,
+      `Whether the Initiative has a Pipeline in The ${otherProjectId} was fixed at Confirm.`,
     ]);
   });
 

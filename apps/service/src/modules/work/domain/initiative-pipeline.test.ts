@@ -22,6 +22,11 @@ import { anInitiative, aTask } from "./work.fixtures.js";
 
 const at = new Date("2026-11-12T10:00:00.000Z");
 const NONE_TAKEN = new Set<string>();
+
+/** A Project named by its id, as the words below name it. */
+function named(id: string): { id: string; name: string } {
+  return { id, name: id };
+}
 const SYNC = { name: "Sync it", state: "shaping" as const };
 /** On Full in app only, None in any other Project. */
 const ON_FULL = {
@@ -53,7 +58,7 @@ describe("chooseInitiativePipeline", () => {
   it("chooses straight in one Project while shaping, deriving the Short name from the title", () => {
     const change = chooseInitiativePipeline(
       anInitiative(SYNC),
-      "app",
+      named("app"),
       "full",
       "straight",
       NONE_TAKEN,
@@ -74,7 +79,7 @@ describe("chooseInitiativePipeline", () => {
   it("derives past the Short names other Initiatives hold", () => {
     const change = chooseInitiativePipeline(
       anInitiative(SYNC),
-      "app",
+      named("app"),
       "full",
       "straight",
       new Set(["sync-it"]),
@@ -86,7 +91,7 @@ describe("chooseInitiativePipeline", () => {
   it("gives two Projects different Pipelines under one Short name", () => {
     const change = chooseInitiativePipeline(
       anInitiative(ON_FULL),
-      "api",
+      named("api"),
       "quick",
       "straight",
       new Set(["sync-it"]),
@@ -104,7 +109,13 @@ describe("chooseInitiativePipeline", () => {
   it("keeps the Short name it has when another Pipeline is chosen", () => {
     const initiative = anInitiative({ ...ON_FULL, shortName: "mine" });
 
-    const change = chooseInitiativePipeline(initiative, "app", "quick", "straight", NONE_TAKEN);
+    const change = chooseInitiativePipeline(
+      initiative,
+      named("app"),
+      "quick",
+      "straight",
+      NONE_TAKEN,
+    );
 
     expect(change?.initiative).toMatchObject({
       pipelines: [{ projectId: "app", pipelineId: "quick" }],
@@ -115,7 +126,7 @@ describe("chooseInitiativePipeline", () => {
   it("goes back to None in one Project while shaping, keeping the Short name while another has one", () => {
     const change = chooseInitiativePipeline(
       anInitiative(ON_TWO),
-      "app",
+      named("app"),
       undefined,
       "straight",
       NONE_TAKEN,
@@ -130,7 +141,7 @@ describe("chooseInitiativePipeline", () => {
   it("goes back to None everywhere while shaping, keeping no entry and no Short name", () => {
     const change = chooseInitiativePipeline(
       anInitiative(ON_FULL),
-      "app",
+      named("app"),
       undefined,
       "straight",
       NONE_TAKEN,
@@ -143,21 +154,28 @@ describe("chooseInitiativePipeline", () => {
 
   it("changes nothing when the Project follows that Pipeline already", () => {
     expect(
-      chooseInitiativePipeline(anInitiative(ON_FULL), "app", "full", "straight", NONE_TAKEN),
+      chooseInitiativePipeline(anInitiative(ON_FULL), named("app"), "full", "straight", NONE_TAKEN),
     ).toBeUndefined();
     expect(
-      chooseInitiativePipeline(anInitiative(ON_FULL), "api", undefined, "straight", NONE_TAKEN),
+      chooseInitiativePipeline(
+        anInitiative(ON_FULL),
+        named("api"),
+        undefined,
+        "straight",
+        NONE_TAKEN,
+      ),
     ).toBeUndefined();
   });
 
   it("isn't straight once active, so the CTO's change becomes a Proposal", () => {
     const active = anInitiative({ ...ON_FULL, state: "active" });
 
-    expect(() => chooseInitiativePipeline(active, "app", "quick", "straight", NONE_TAKEN)).toThrow(
-      InitiativeNotShaping,
-    );
+    expect(() =>
+      chooseInitiativePipeline(active, named("app"), "quick", "straight", NONE_TAKEN),
+    ).toThrow(InitiativeNotShaping);
     expect(
-      chooseInitiativePipeline(active, "app", "quick", "by-proposal", NONE_TAKEN)?.initiative,
+      chooseInitiativePipeline(active, named("app"), "quick", "by-proposal", NONE_TAKEN)
+        ?.initiative,
     ).toMatchObject({
       pipelines: [{ projectId: "app", pipelineId: "quick" }],
       shortName: "sync-it",
@@ -176,11 +194,13 @@ describe("chooseInitiativePipeline", () => {
 
     expect(
       refusalOf(() =>
-        chooseInitiativePipeline(active, "app", undefined, "by-proposal", NONE_TAKEN),
+        chooseInitiativePipeline(active, named("app"), undefined, "by-proposal", NONE_TAKEN),
       ),
     ).toEqual(["Whether the Initiative has a Pipeline in app was fixed at Confirm."]);
     expect(
-      refusalOf(() => chooseInitiativePipeline(active, "api", "full", "by-proposal", NONE_TAKEN)),
+      refusalOf(() =>
+        chooseInitiativePipeline(active, named("api"), "full", "by-proposal", NONE_TAKEN),
+      ),
     ).toEqual(["Whether the Initiative has a Pipeline in api was fixed at Confirm."]);
   });
 
@@ -191,7 +211,13 @@ describe("chooseInitiativePipeline", () => {
       pipelines: [{ projectId: "app", pipelineId: undefined }],
     });
 
-    const change = chooseInitiativePipeline(active, "web", "full", "by-proposal", NONE_TAKEN);
+    const change = chooseInitiativePipeline(
+      active,
+      named("web"),
+      "full",
+      "by-proposal",
+      NONE_TAKEN,
+    );
 
     expect(change?.initiative).toMatchObject({
       pipelines: [
@@ -202,7 +228,7 @@ describe("chooseInitiativePipeline", () => {
     });
     expect(
       refusalOf(() =>
-        chooseInitiativePipeline(active, "web", undefined, "by-proposal", NONE_TAKEN),
+        chooseInitiativePipeline(active, named("web"), undefined, "by-proposal", NONE_TAKEN),
       ),
     ).toEqual(["Whether the Initiative has a Pipeline in web was fixed at Confirm."]);
   });
@@ -370,7 +396,7 @@ describe("the pipeline edit", () => {
         active,
         { kind: "pipeline", projectId: "app", pipelineId: "full" },
         [],
-        "Full",
+        { pipeline: "Full" },
       ),
     ).toEqual(["The Initiative follows Full in app already."]);
   });
@@ -452,7 +478,7 @@ describe("initiativePipelineChangeProblems", () => {
 
   it("refuses None once active", () => {
     expect(initiativePipelineChangeProblems(active, app, undefined, [])).toEqual([
-      "Whether the Initiative has a Pipeline in app was fixed at Confirm.",
+      "Whether the Initiative has a Pipeline in App was fixed at Confirm.",
     ]);
   });
 });

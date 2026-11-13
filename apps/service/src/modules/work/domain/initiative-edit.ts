@@ -67,17 +67,17 @@ export function sameDescriptionWords(task: Pick<Task, "title">): string {
 /**
  * Every reason applying the edit to the Initiative as it is now would be refused, judged as applying
  * it judges, in words the CTO acts on; an edit that changes nothing is refused too. `board` is
- * every Task, and `pipelineName` the name of the Pipeline a `pipeline` edit names. Whether its
- * Project, or that Pipeline, is known is the caller's to judge.
+ * every Task, and `names` those of the Project and the Pipeline a `pipeline` edit names, their ids
+ * when left out. Whether that Project, or that Pipeline, is known is the caller's to judge.
  */
 export function initiativeEditProblems(
   initiative: Initiative,
   edit: InitiativeEdit,
   board: readonly Task[],
-  pipelineName?: string,
+  names: PipelineEditNames = {},
 ): string[] {
   try {
-    const unchanged = whatStaysAsItIs(initiative, edit, board, pipelineName);
+    const unchanged = whatStaysAsItIs(initiative, edit, board, names);
     return unchanged === undefined ? [] : [unchanged];
   } catch (error) {
     if (error instanceof InitiativeRefused || error instanceof TaskRefused)
@@ -92,7 +92,7 @@ function whatStaysAsItIs(
   initiative: Initiative,
   edit: InitiativeEdit,
   board: readonly Task[],
-  pipelineName: string | undefined,
+  names: PipelineEditNames,
 ): string | undefined {
   switch (edit.kind) {
     case "outcome":
@@ -131,18 +131,26 @@ function whatStaysAsItIs(
         ? undefined
         : sameDescriptionWords(task);
     }
-    case "pipeline":
+    case "pipeline": {
+      const project = { id: edit.projectId, name: names.project ?? edit.projectId };
       // Judged only, so no Short name derived here is kept, and no taken ones are needed.
       return chooseInitiativePipeline(
         initiative,
-        edit.projectId,
+        project,
         edit.pipelineId ?? undefined,
         "by-proposal",
         new Set(),
       )
         ? undefined
-        : `The Initiative follows ${pipelineName ?? edit.pipelineId} in ${edit.projectId} already.`;
+        : `The Initiative follows ${names.pipeline ?? edit.pipelineId ?? "None"} in ${project.name} already.`;
+    }
   }
+}
+
+/** The names a `pipeline` edit's words use for its Project and Pipeline. */
+export interface PipelineEditNames {
+  readonly project?: string;
+  readonly pipeline?: string;
 }
 
 function taskOn(board: readonly Task[], taskId: string): Task {

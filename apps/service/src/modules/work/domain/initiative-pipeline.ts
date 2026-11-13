@@ -24,7 +24,7 @@ export function initiativePipelineChangeProblems(
     initiative,
     { kind: "pipeline", projectId: project.id, pipelineId: choice?.pipelineId ?? null },
     [],
-    choice?.pipeline?.name,
+    { project: project.name, pipeline: choice?.pipeline?.name },
   );
   if (judged.length > 0) return judged;
   const started = startedPublishingTask(tasks, project.id);

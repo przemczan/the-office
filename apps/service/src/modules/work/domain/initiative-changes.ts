@@ -179,16 +179,17 @@ function sameProjects(first: readonly string[], second: readonly string[]): bool
  */
 export function chooseInitiativePipeline(
   initiative: Initiative,
-  projectId: string,
+  project: { readonly id: string; readonly name: string },
   pipelineId: string | undefined,
   route: InitiativeChangeRoute,
   taken: ReadonlySet<string>,
 ): InitiativeChange<InitiativePipelineChosen> | undefined {
+  const projectId = project.id;
   const current = pipelineIn(initiative, projectId);
   if (initiative.state !== "shaping") {
     const fixedNone = current === undefined && isPipelineFixed(initiative, projectId);
     if (pipelineId === undefined || fixedNone) {
-      throw new InitiativeRefused([pipelineFixedAtConfirmWords(projectId)]);
+      throw new InitiativeRefused([pipelineFixedAtConfirmWords(project.name)]);
     }
   }
   if (pipelineId === current) return undefined;
@@ -208,8 +209,8 @@ export function chooseInitiativePipeline(
   };
 }
 
-function pipelineFixedAtConfirmWords(projectId: string): string {
-  return `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`;
+function pipelineFixedAtConfirmWords(projectName: string): string {
+  return `Whether the Initiative has a Pipeline in ${projectName} was fixed at Confirm.`;
 }
 
 /**

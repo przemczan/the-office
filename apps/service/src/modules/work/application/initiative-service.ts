@@ -337,7 +337,7 @@ export class InitiativeService implements OnModuleInit {
       if (problems.length > 0) throw new InitiativeRefused(problems);
     }
     const { initiative, event } = await this.repository.updateNaming(id, (held, taken) =>
-      chooseInitiativePipeline(held, projectId, chosen, route, taken),
+      chooseInitiativePipeline(held, project, chosen, route, taken),
     );
     if (event) await this.events.publish(event);
     return initiative;
@@ -352,17 +352,18 @@ export class InitiativeService implements OnModuleInit {
     return initiative;
   }
 
-  /** Every reason applying the CTO's Proposal of another Pipeline in one Project would be refused now. */
+  /**
+   * Every reason applying the CTO's Proposal of another Pipeline in one Project would be refused
+   * now.
+   */
   private async pipelineChangeProblems(
     initiative: Initiative,
     projectId: string,
     pipelineId: string | null,
   ): Promise<string[]> {
     const tasks = (await this.tasksByInitiative()).get(initiative.id) ?? [];
-    const project = await this.projects.find(projectId);
-    if (!project || !tasks.some((task) => task.projectId === projectId)) {
-      return [notSpannedWords(projectId)];
-    }
+    const project = await this.spannedProjectIn(tasks, projectId);
+    if (!project) return [notSpannedWords(projectId)];
     const choice =
       pipelineId === null
         ? undefined
@@ -373,11 +374,18 @@ export class InitiativeService implements OnModuleInit {
   /** A Project the Initiative's Tasks span, still known; refused otherwise. */
   private async spannedProject(id: string, projectId: string): Promise<KnownProject> {
     const tasks = (await this.tasksByInitiative()).get(id) ?? [];
-    const project = await this.projects.find(projectId);
-    if (!project || !tasks.some((task) => task.projectId === projectId)) {
-      throw new InitiativeRefused([notSpannedWords(projectId)]);
-    }
+    const project = await this.spannedProjectIn(tasks, projectId);
+    if (!project) throw new InitiativeRefused([notSpannedWords(projectId)]);
     return project;
+  }
+
+  /** The Project when one of the Initiative's `tasks` is in it and it is still known. */
+  private async spannedProjectIn(
+    tasks: readonly Task[],
+    projectId: string,
+  ): Promise<KnownProject | undefined> {
+    if (!tasks.some((task) => task.projectId === projectId)) return undefined;
+    return this.projects.find(projectId);
   }
 
   /**
@@ -740,8 +748,9 @@ export class InitiativeService implements OnModuleInit {
     const tasks = (await this.tasksByInitiative()).get(id) ?? [];
     const started = startedPublishingTask(tasks, projectId);
     if (started) {
+      const projectName = (await this.projects.find(projectId))?.name ?? projectId;
       throw new InitiativeRefused([
-        `The Initiative's Pipeline in ${projectId} started in ${started.title}, so it can't change.`,
+        `The Initiative's Pipeline in ${projectName} started in ${started.title}, so it can't change.`,
       ]);
     }
   }
