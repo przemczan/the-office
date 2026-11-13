@@ -13,10 +13,26 @@
 .markdown-text p,
 .markdown-text ul,
 .markdown-text ol,
-.markdown-text pre,
-.markdown-text blockquote,
+.markdown-text :where(.markdown-copyable),
 .markdown-text table {
   margin: 0 0 6px;
+}
+
+/* A code block or quote, with Copy in its top-right corner, clear of its text. */
+.markdown-text .markdown-copyable {
+  position: relative;
+}
+
+.markdown-text .markdown-copyable > pre,
+.markdown-text .markdown-copyable > blockquote {
+  margin: 0;
+  padding-right: calc(var(--control-h) + 4px);
+}
+
+.markdown-text .markdown-copy {
+  position: absolute;
+  top: 4px;
+  right: 4px;
 }
 
 .markdown-text ul,
@@ -74,8 +90,7 @@
 .markdown-document p,
 .markdown-document ul,
 .markdown-document ol,
-.markdown-document pre,
-.markdown-document blockquote,
+.markdown-document :where(.markdown-copyable),
 .markdown-document table {
   margin: 0 0 12px;
 }

@@ -12,12 +12,19 @@ export interface SearchMatches {
   readonly documents: readonly Attachment[];
 }
 
+/** The records whose ID starts with what the user typed, by kind, in ID order. */
+export type IdMatches = Omit<SearchMatches, "documents">;
+
 /**
  * The full-text search over Work's records. A record matches when each word starts a word in it:
  * a Task by its title, Plan, Definition of Done and Tags; an Idea by its title and notes; an
- * Initiative by its name and outcome; a document by its name and text.
+ * Initiative by its name and outcome; a document by its name and text. Tasks, Ideas and
+ * Initiatives are also found by the start of their ID.
  */
 export abstract class WorkSearch {
+  /** Every Task, Idea and Initiative whose ID starts with `idPrefix`, archived ones too. */
+  abstract startingWithId(idPrefix: string): Promise<IdMatches>;
+
   /** The ids of every Task matching all `words`. */
   abstract matchingTaskIds(words: readonly string[]): Promise<ReadonlySet<string>>;
 

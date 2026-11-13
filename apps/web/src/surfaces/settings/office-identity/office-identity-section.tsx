@@ -3,6 +3,7 @@ import type { OfficeSshKey } from "@the-office/contracts";
 import { Button, Card, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { officeIdentityQueries } from "../../../api/office-identity.ts";
+import { useCopyText } from "../../../shell/copy-text.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
@@ -36,17 +37,16 @@ function SshKeyCard(): ReactNode {
   const sshKey = useQuery(officeIdentityQueries.sshKey());
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const copyText = useCopyText();
   const [shown, setShown] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const copy = (publicKey: string): void => {
-    navigator.clipboard.writeText(publicKey).then(
-      () => showToast("The Office ssh key's public half copied."),
-      () => {
-        // Shown, the key can be selected and copied by hand.
-        setShown(true);
-        showToast("The key couldn't be copied. Select it and copy it instead.");
-      },
-    );
+    copyText(publicKey, {
+      copied: "The Office ssh key's public half copied.",
+      notCopied: "The key couldn't be copied. Select it and copy it instead.",
+      // Shown, the key can be selected and copied by hand.
+      onNotCopied: () => setShown(true),
+    });
   };
   const regenerated = (newKey: OfficeSshKey): void => {
     queryClient.setQueryData(officeIdentityQueries.sshKey().queryKey, newKey);

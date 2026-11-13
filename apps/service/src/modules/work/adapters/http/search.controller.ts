@@ -6,6 +6,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SearchService } from "../../application/search-service.js";
+import { searchedQuery } from "./searched-query.js";
 import { toSearchResultsResponse } from "./work-responses.js";
 
 /** The top bar's search across Work's records; people are matched in the web, from those hired. */
@@ -17,6 +18,6 @@ export class SearchController {
   async everything(
     @Query(new ContractPipe(searchEverythingQuerySchema)) { query, project }: SearchEverythingQuery,
   ): Promise<SearchResultsResponse> {
-    return toSearchResultsResponse(await this.search.everything(query, project));
+    return toSearchResultsResponse(await this.search.everything(searchedQuery(query), project));
   }
 }

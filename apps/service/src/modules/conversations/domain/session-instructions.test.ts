@@ -23,6 +23,7 @@ import {
   READING_OFFICE_TOOLS,
   PROPOSE_ROLE_TOOL,
   workThreadInstructions,
+  WRITING_FOR_THE_USER_RULE,
 } from "./session-instructions.js";
 
 describe("the Office instructions in a session's standing instructions", () => {
@@ -76,11 +77,22 @@ describe("the Office instructions in a session's standing instructions", () => {
         "Answer in plain words.",
         "## Your Role's instructions",
         "Write the test first.",
+        WRITING_FOR_THE_USER_RULE,
         theRest,
       ].map((part) => text.indexOf(part));
 
       expect(places).not.toContain(-1);
       expect(places).toEqual(places.toSorted((first, second) => first - second));
+    });
+
+    it("tell the person to link the records they mention by their full ID and to fence text to copy", () => {
+      expect(standing("")).toContain(WRITING_FOR_THE_USER_RULE);
+      expect(WRITING_FOR_THE_USER_RULE).toContain(
+        "write it as a Markdown link to its page with its full ID, never a shortened one: `[title](/tasks/<id>)`, `[name](/work/initiatives/<id>)`, `[title](/work/ideas?idea=<id>)`, `[name](/projects/<id>)`.",
+      );
+      expect(WRITING_FOR_THE_USER_RULE).toContain(
+        "Put text the user is meant to copy, such as a message, a command or a passage you propose, in a fenced code block",
+      );
     });
   });
 });

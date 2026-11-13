@@ -42,6 +42,7 @@ import {
   roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
   workThreadInstructions,
+  WRITING_FOR_THE_USER_RULE,
 } from "./session-instructions.js";
 
 describe("chatInstructions", () => {
@@ -115,7 +116,11 @@ describe("the Office instructions in a session's standing instructions", () => {
     it("add nothing when empty, not even the heading", () => {
       const text = standing("");
 
-      expect(text.startsWith(`${whoTheyAre}\n\nWrite the test first.\n\n${theRest}`)).toBe(true);
+      expect(
+        text.startsWith(
+          `${whoTheyAre}\n\nWrite the test first.\n\n${WRITING_FOR_THE_USER_RULE}\n\n${theRest}`,
+        ),
+      ).toBe(true);
       expect(text).not.toContain("Office instructions");
       expect(text).not.toContain("## Your Role's instructions");
       expect(text).not.toContain("CLAUDE.md");

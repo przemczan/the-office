@@ -5,11 +5,11 @@ import { initiativeProjectIds, type Initiative } from "../domain/initiative.js";
 import { tasksByInitiative } from "../domain/initiative-changes.js";
 import { boardOrder } from "../domain/manual-order.js";
 import { isInProjectFilter, type ProjectFilter } from "../domain/project-filter.js";
-import { SEARCH_RESULT_LIMIT, searchWords } from "../domain/search.js";
+import { idPrefixOf, SEARCH_RESULT_LIMIT, searchWords } from "../domain/search.js";
 import type { Task } from "../domain/task.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
-import { WorkSearch } from "../ports/work-search.js";
+import { WorkSearch, type IdMatches } from "../ports/work-search.js";
 
 /** A record a search found, with the Projects it is in: none for one Office-wide. */
 export interface Found<Record> {
@@ -55,42 +55,59 @@ export class SearchService {
     private readonly ideas: IdeaRepository,
   ) {}
 
-  /** The board's Tasks matching `query`, in the board's order; every Task for no words. */
+  /**
+   * The board's Tasks matching `query` by its words or as the start of their ID, in the board's
+   * order; every Task for no words.
+   */
   async tasksMatching(query: string): Promise<readonly Task[]> {
     const board = (await this.tasks.list()).toSorted(boardOrder);
     const words = searchWords(query);
     if (words.length === 0) return board;
-    const matching = await this.search.matchingTaskIds(words);
-    return board.filter(({ id }) => matching.has(id));
+    const [matching, byId] = await Promise.all([
+      this.search.matchingTaskIds(words),
+      this.startingWithId(query),
+    ]);
+    const byIdIds = new Set(byId.tasks.map(({ id }) => id));
+    return board.filter(({ id }) => matching.has(id) || byIdIds.has(id));
   }
 
-  /** Nothing for no words. */
+  /**
+   * The records whose ID starts with `query` first, then those its words match; nothing for no
+   * words.
+   */
   async everything(query: string, filter: ProjectFilter): Promise<SearchResults> {
     const words = searchWords(query);
     if (words.length === 0) return NOTHING_FOUND;
-    const [matches, board, ideas] = await Promise.all([
+    const [byId, byWords, board, ideas] = await Promise.all([
+      this.startingWithId(query),
       this.search.matches(words),
       this.tasks.list(),
       this.ideas.list(),
     ]);
     const projects = new ProjectsOf(board, ideas);
     const tasks = narrowed(
-      matches.tasks.map((task) => ({ record: task, projectIds: [task.projectId] })),
+      firstOfEach(byId.tasks, byWords.tasks).map((task) => ({
+        record: task,
+        projectIds: [task.projectId],
+      })),
       filter,
     );
     const foundIdeas = narrowed(
-      matches.ideas.map((idea) => ({ record: idea, projectIds: projects.ofIdea(idea.id) })),
+      firstOfEach(byId.ideas, byWords.ideas).map((idea) => ({
+        record: idea,
+        projectIds: projects.ofIdea(idea.id),
+      })),
       filter,
     );
     const initiatives = narrowed(
-      matches.initiatives.map((initiative) => ({
+      firstOfEach(byId.initiatives, byWords.initiatives).map((initiative) => ({
         record: initiative,
         projectIds: projects.ofInitiative(initiative.id),
       })),
       filter,
     );
     const documents = narrowed(
-      matches.documents.map((document) => ({
+      byWords.documents.map((document) => ({
         record: document,
         projectIds: projects.ofOwner(document.owner),
       })),
@@ -109,6 +126,23 @@ export class SearchService {
       },
     };
   }
+
+  /** Nothing when `query` isn't the start of an ID. */
+  private async startingWithId(query: string): Promise<IdMatches> {
+    const idPrefix = idPrefixOf(query);
+    return idPrefix === undefined ? NO_ID_MATCHES : this.search.startingWithId(idPrefix);
+  }
+}
+
+const NO_ID_MATCHES: IdMatches = { tasks: [], ideas: [], initiatives: [] };
+
+/** Each record once, where it first comes: `first`'s records before the rest. */
+function firstOfEach<Record extends { readonly id: string }>(
+  first: readonly Record[],
+  rest: readonly Record[],
+): Record[] {
+  const seen = new Set(first.map(({ id }) => id));
+  return [...first, ...rest.filter(({ id }) => !seen.has(id))];
 }
 
 /**

@@ -1906,6 +1906,23 @@ test(
   },
 );
 
+test("the top bar's search finds a Task by the first 8 characters of its ID and opens it", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Searched by ID", "SI");
+  const task = await createdTask(page, project, "Wombat found by its ID");
+  const search = page.getByRole("combobox", { name: "Search The Office" });
+  const found = page.getByRole("listbox", { name: "Found" });
+
+  await page.goto("/work");
+  await search.click();
+  await page.keyboard.type(task.id.slice(0, 8));
+  await expect(found.getByRole("option").first()).toHaveAccessibleName("Wombat found by its ID");
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
+});
+
 test("a Task's page shows its record, takes Attachments of every kind and opens them", async ({
   page,
 }) => {

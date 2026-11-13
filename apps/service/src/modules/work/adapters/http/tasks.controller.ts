@@ -55,6 +55,7 @@ import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
 import { reasonsOf } from "../../domain/wait.js";
+import { searchedQuery } from "./searched-query.js";
 import { toQueueResponse, toTaskResponse, toUsageEstimateResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
@@ -79,7 +80,7 @@ export class TasksController {
   async list(
     @Query(new ContractPipe(searchQuerySchema)) { query }: SearchQuery,
   ): Promise<TaskResponse[]> {
-    return (await this.search.tasksMatching(query)).map(toTaskResponse);
+    return (await this.search.tasksMatching(searchedQuery(query))).map(toTaskResponse);
   }
 
   @Get(":id")
