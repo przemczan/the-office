@@ -82,7 +82,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 39 | Attachment versions | Work and the Task page | postponed |
 | 40 | Stage templates in the Pipeline library: run as the Initiative `791c8082-e0b0-4043-85d0-596497ce7a24` | Projects | done |
 | 41 | [The Graphite and Paper palettes, the densities, skill usage counts](41-palettes-densities-skill-usage-counts.md) | Settings | done |
-| 55 | [An Agent's Attachment is replaced, not repeated, until the next Gate](55-attachments-replaced-within-a-gate.md) | Work and the Task page | in progress |
+| 55 | [An Agent's Attachment is replaced, not repeated, until the next Gate](55-attachments-replaced-within-a-gate.md) | Work and the Task page | done |
 | 42 | Email and chat-app Notifications | Now | todo |
 | 43 | Talking to The Office from chat apps | Conversations | todo |
 | 44 | Stack-specific checks for installs and publishing | Projects | todo |
@@ -124,6 +124,7 @@ As in tier 2 (the user, 2026-10-31): a fix is built where it is found only when 
   - A local server's Server values are environment variables of its own process; on Linux they are readable to the same user, as any process's environment is.
   - Tools whose `mcp__<server>__<tool>` name runs over 64 characters are left out of sessions and flagged in the review.
   - Claude Code lists MCP tools as deferred, so the Agent loads them with ToolSearch before its first call (seen live with Haiku).
+- **Service tests failing on the Windows workstation (found in task 55, 2026-11-13):** `publishing-initiative-branch.test.ts` and `publishing-publishing-task.test.ts` expect a worktree path with backslashes where git answers forward slashes; `compose-command-line.test.ts` and `projects-task-run-environments-runtime.test.ts` (3) end could-not-run on Docker Desktop. Each fails the same way alone; Linux not checked.
 
 Read these only when a step needs them:
 
