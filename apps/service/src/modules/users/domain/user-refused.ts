@@ -21,6 +21,14 @@ export class UserNotFound extends Error {
   }
 }
 
+/** A user asked for by id that isn't one of The Office's users, or was removed. */
+export class UserIdNotFound extends Error {
+  constructor() {
+    super("No such user.");
+    this.name = "UserIdNotFound";
+  }
+}
+
 export class SignedInDeviceNotFound extends Error {
   constructor() {
     super("You have no such signed-in device.");

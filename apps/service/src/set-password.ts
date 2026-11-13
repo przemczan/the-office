@@ -6,6 +6,7 @@ import { readDatabaseUrl } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { RequestAccessModule } from "./platform/http/request-access.module.js";
+import { WebEventForwarding } from "./platform/websocket/web-event-forwarding.js";
 import { setPasswordCommand, type SetPasswordConsole } from "./set-password-command.js";
 
 const CONTROL_C = "\u0003";
@@ -66,6 +67,10 @@ class SetPasswordModule {
   static register(databaseUrl: string): DynamicModule {
     return {
       module: SetPasswordModule,
+      // The users module maps its web events here; with no WebSocket, they go nowhere.
+      global: true,
+      providers: [WebEventForwarding],
+      exports: [WebEventForwarding],
       imports: [
         DatabaseModule.forRoot({ url: databaseUrl }),
         EventsModule,

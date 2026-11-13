@@ -5,12 +5,18 @@ import type { User } from "../domain/user.js";
 import { SecondSteps } from "../ports/second-steps.js";
 import { SignedInDevices } from "./signed-in-devices.js";
 
-/** How a sign-in ended: signed in, with the new device's token for its cookie. */
-export interface SignInOutcome {
+/** Signed in, with the new device's token for its cookie. */
+export interface SignedInOutcome {
   readonly outcome: "signed-in";
   readonly token: string;
   readonly signedInDeviceId: string;
 }
+
+/**
+ * How a sign-in ended: signed in, or, after a right one-time password, on to setting the user's
+ * own password, with no signed-in device yet.
+ */
+export type SignInOutcome = SignedInOutcome | { readonly outcome: "set-password" };
 
 /**
  * Where every way of signing in ends (spec §2.10), once it has found the user: a second step when
@@ -23,7 +29,7 @@ export class SignIns {
     private readonly signedInDevices: SignedInDevices,
   ) {}
 
-  async finish(user: User, way: SignInWayKind, request: SignInRequest): Promise<SignInOutcome> {
+  async finish(user: User, way: SignInWayKind, request: SignInRequest): Promise<SignedInOutcome> {
     const secondStep = await this.secondSteps.after(user, way);
     // No second step exists yet; the authenticator's Task answers with the outcome asking for it.
     if (secondStep !== undefined) return secondStep;

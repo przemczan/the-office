@@ -13,6 +13,7 @@ import {
 } from "@the-office/contracts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { branchOnHost, serveRepository } from "./git-host.ts";
+import { asOwnUser } from "./own-user.ts";
 import { openPipelinePicker, optionNames } from "./pipeline-picker.ts";
 import { addedBasePipeline, addedProjectPipeline } from "./project-pipelines.ts";
 import {
@@ -1324,7 +1325,8 @@ test(
   },
 );
 
-test(
+// As a user of its own, since it chooses palettes, which are each user's.
+asOwnUser(
   "a dark Logo shows in the dark palette, swapped without a reload, and the light one stands in without it",
   { tag: "@full" },
   async ({ page, context }) => {
@@ -1357,7 +1359,7 @@ test(
     await howItLooks(page).getByRole("tab", { name: "Light" }).click();
 
     const settings = await context.newPage();
-    await settings.goto("/settings/appearance");
+    await settings.goto("/account/appearance");
     await settings
       .getByRole("group", { name: "Palette" })
       .getByRole("button", { name: "Dark" })

@@ -74,9 +74,9 @@ test("signing out another device on the Account page ends it: its WebSocket clos
   const socket = await otherSocket;
   const socketClosed = new Promise<void>((resolve) => socket.on("close", () => resolve()));
 
-  await page.goto("/account");
+  await page.goto("/account/signed-in-devices");
   await signInWithPassword(page);
-  await expect(page).toHaveURL(/\/account$/);
+  await expect(page).toHaveURL(/\/account\/signed-in-devices$/);
   const devices = page.getByRole("table");
   const thisDevice = devices.getByRole("row").filter({ hasText: "This device" });
   await expect(thisDevice).toHaveCount(1);

@@ -198,11 +198,13 @@ async function aProjectSkill(name: string, description: string, folder = ""): Pr
   await writeFile(path.join(skillFolder, "SKILL.md"), skillMd(name, description));
 }
 
-async function choosePalette(page: Page, palette: "Light" | "Dark"): Promise<void> {
-  await page.getByRole("button", { name: "Theme" }).click();
-  await page.getByRole("menu").getByRole("button", { name: palette }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-palette", palette.toLowerCase());
-  await page.keyboard.press("Escape");
+/**
+ * Shows the page in the system's light or dark, which the shared user follows: choosing a palette
+ * would change it for that user in every file.
+ */
+async function showPalette(page: Page, palette: "light" | "dark"): Promise<void> {
+  await page.emulateMedia({ colorScheme: palette });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
 }
 
 /** Name, description and path share one left edge, the switches one right edge, nothing scrolls. */
@@ -311,11 +313,11 @@ test(
     await skillsBlock.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-project-skills.png"),
     });
-    await choosePalette(page, "Dark");
+    await showPalette(page, "dark");
     await skillsBlock.screenshot({
       path: path.join(SCREENSHOTS, "dark-1600-project-skills.png"),
     });
-    await choosePalette(page, "Light");
+    await showPalette(page, "light");
 
     for (const width of [900, 600]) {
       await page.setViewportSize({ width, height: 900 });

@@ -17,6 +17,7 @@ import {
   type Stage,
   type StageTemplate,
 } from "@the-office/contracts";
+import { asOwnUser } from "./own-user.ts";
 import { createTemporaryRepository } from "./temporary-repository.ts";
 import { screenshotScenario } from "./task-screenshots.ts";
 
@@ -998,78 +999,83 @@ async function screenshotEachLook(
   await page.setViewportSize({ width: 1600, height: 900 });
 }
 
-test.describe("Appearance", { tag: "@full" }, () => {
+// Account › Appearance, here since it moved from Settings. A palette and a density are each user's,
+// so each test chooses as a user of its own and the shared user's stay as every file expects.
+asOwnUser.describe("Account › Appearance", { tag: "@full" }, () => {
   // A system in dark, so each choice shows as a change from what the system gives.
-  test.use({ colorScheme: "dark" });
+  asOwnUser.use({ colorScheme: "dark" });
 
-  test("switches every palette and Follow the system, each kept across reloads", async ({
-    page,
-  }) => {
-    await page.goto("/settings/appearance");
-    const html = page.locator("html");
-    const palette = page.getByRole("group", { name: "Palette" });
-    await expect(palette.getByRole("button", { name: "Follow the system" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(html).toHaveAttribute("data-palette", "dark");
+  asOwnUser(
+    "switches every palette and Follow the system, each kept across reloads",
+    async ({ page }) => {
+      // Settings › Appearance's old address leads to it.
+      await page.goto("/settings/appearance");
+      await expect(page).toHaveURL(/\/account\/appearance$/);
+      const html = page.locator("html");
+      const palette = page.getByRole("group", { name: "Palette" });
+      await expect(palette.getByRole("button", { name: "Follow the system" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(html).toHaveAttribute("data-palette", "dark");
 
-    // Each card previews its own palette, whatever palette is shown.
-    const previewColours = await palette
-      .locator(".palette-preview")
-      .evaluateAll((previews) => previews.map((preview) => getComputedStyle(preview).background));
-    expect(new Set(previewColours).size).toBe(previewColours.length);
+      // Each card previews its own palette, whatever palette is shown.
+      const previewColours = await palette
+        .locator(".palette-preview")
+        .evaluateAll((previews) => previews.map((preview) => getComputedStyle(preview).background));
+      expect(new Set(previewColours).size).toBe(previewColours.length);
 
-    for (const [name, shown, base] of [
-      ["Light", "light", "light"],
-      ["Dark", "dark", "dark"],
-      ["Graphite", "graphite", "dark"],
-      ["Paper", "paper", "light"],
-      ["Midnight", "midnight", "dark"],
-      ["Mist", "mist", "light"],
-      ["Mocha", "mocha", "dark"],
-      ["Sage", "sage", "light"],
-      ["Aubergine", "aubergine", "dark"],
-      ["Lavender", "lavender", "light"],
-      ["Lagoon", "lagoon", "dark"],
-      ["Cobalt", "cobalt", "light"],
-      ["Emerald", "emerald", "dark"],
-      ["Citrine", "citrine", "light"],
-    ] as const) {
-      await palette.getByRole("button", { name }).click();
-      await expect(html).toHaveAttribute("data-palette", shown);
-      await expect(html).toHaveAttribute("data-theme", base);
-      await page.reload();
-      await expect(html).toHaveAttribute("data-palette", shown);
-      await expect(html).toHaveAttribute("data-theme", base);
-      await expect(palette.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
-      for (const width of [1600, 600]) {
-        await page.setViewportSize({ width, height: 900 });
-        const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
-        expect(sideways).toBe(0);
-        await page.screenshot({
-          path: path.join(SCREENSHOTS, `${shown}-${width}-settings-appearance.png`),
-        });
+      for (const [name, shown, base] of [
+        ["Light", "light", "light"],
+        ["Dark", "dark", "dark"],
+        ["Graphite", "graphite", "dark"],
+        ["Paper", "paper", "light"],
+        ["Midnight", "midnight", "dark"],
+        ["Mist", "mist", "light"],
+        ["Mocha", "mocha", "dark"],
+        ["Sage", "sage", "light"],
+        ["Aubergine", "aubergine", "dark"],
+        ["Lavender", "lavender", "light"],
+        ["Lagoon", "lagoon", "dark"],
+        ["Cobalt", "cobalt", "light"],
+        ["Emerald", "emerald", "dark"],
+        ["Citrine", "citrine", "light"],
+      ] as const) {
+        await palette.getByRole("button", { name }).click();
+        await expect(html).toHaveAttribute("data-palette", shown);
+        await expect(html).toHaveAttribute("data-theme", base);
+        await page.reload();
+        await expect(html).toHaveAttribute("data-palette", shown);
+        await expect(html).toHaveAttribute("data-theme", base);
+        await expect(palette.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+        for (const width of [1600, 600]) {
+          await page.setViewportSize({ width, height: 900 });
+          const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
+          expect(sideways).toBe(0);
+          await page.screenshot({
+            path: path.join(SCREENSHOTS, `${shown}-${width}-account-appearance.png`),
+          });
+        }
+        await page.setViewportSize({ width: 1600, height: 900 });
       }
-      await page.setViewportSize({ width: 1600, height: 900 });
-    }
 
-    await palette.getByRole("button", { name: "Follow the system" }).click();
-    await page.reload();
-    await expect(palette.getByRole("button", { name: "Follow the system" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(html).toHaveAttribute("data-palette", "dark");
-    await page.emulateMedia({ colorScheme: "light" });
-    await expect(html).toHaveAttribute("data-palette", "light");
-  });
+      await palette.getByRole("button", { name: "Follow the system" }).click();
+      await page.reload();
+      await expect(palette.getByRole("button", { name: "Follow the system" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(html).toHaveAttribute("data-palette", "dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await expect(html).toHaveAttribute("data-palette", "light");
+    },
+  );
 
-  test("switches to Compact and to Relaxed, each kept across reloads", async ({ page }) => {
-    await page.goto("/settings/appearance");
+  asOwnUser("switches to Compact and to Relaxed, each kept across reloads", async ({ page }) => {
+    await page.goto("/account/appearance");
     const html = page.locator("html");
     const density = page.getByRole("group", { name: "Density" });
-    const settingsPage = page.locator(".settings-page");
+    const accountPage = page.locator(".account-page");
     await expect(density.getByRole("button", { name: "Comfortable" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -1094,9 +1100,7 @@ test.describe("Appearance", { tag: "@full" }, () => {
       await expect(html).toHaveAttribute("data-density", shown);
       await expect(density.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
       // The page pads --pad-page at that density.
-      const padding = await settingsPage.evaluate(
-        (element) => getComputedStyle(element).paddingTop,
-      );
+      const padding = await accountPage.evaluate((element) => getComputedStyle(element).paddingTop);
       expect(Number.parseFloat(padding)).toBe(pagePadding);
       // A density changes no colour.
       await expect(html).toHaveAttribute("data-palette", "dark");
@@ -1105,7 +1109,7 @@ test.describe("Appearance", { tag: "@full" }, () => {
         const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
         expect(sideways).toBe(0);
         await page.screenshot({
-          path: path.join(SCREENSHOTS, `${shown}-${width}-settings-appearance.png`),
+          path: path.join(SCREENSHOTS, `${shown}-${width}-account-appearance.png`),
           fullPage: true,
         });
       }

@@ -512,11 +512,11 @@ A Caretaker Thread's switch, confirmed by the user, under which the Caretaker ca
 _Avoid_: Admin mode, unlock, elevated mode
 
 **Palette**:
-The set of colours the app is shown in, picked in Settings › Appearance or from the rail's Theme menu, each user's own: Light, Dark, Graphite, Paper, Midnight, Mist, Mocha, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald or Citrine, or following the system. Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald are dark, and Light, Paper, Mist, Sage, Lavender, Cobalt and Citrine light. It changes colours only, never layout.
+The set of colours the app is shown in, picked in Account › Appearance or from the rail's Theme menu, each user's own: Light, Dark, Graphite, Paper, Midnight, Mist, Mocha, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald or Citrine, or following the system. Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald are dark, and Light, Paper, Mist, Sage, Lavender, Cobalt and Citrine light. It changes colours only, never layout.
 _Avoid_: Theme, mode, colour scheme
 
 **Density**:
-How much air the app is shown with, picked in Settings › Appearance or from the rail's Theme menu, each user's own: Compact, Comfortable or Relaxed. It changes spacing, control heights and text sizes only, never colours.
+How much air the app is shown with, picked in Account › Appearance or from the rail's Theme menu, each user's own: Compact, Comfortable or Relaxed. It changes spacing, control heights and text sizes only, never colours.
 _Avoid_: Size, zoom, scale
 
 ### Users and signing in

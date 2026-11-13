@@ -9,7 +9,7 @@ import type { SignedInDevices } from "./signed-in-devices.js";
 
 const USER = userOf(
   "user-1",
-  { name: "Ada", email: "ada@example.com", password: "" },
+  { name: "Ada", email: "ada@example.com" },
   "scrypt$…",
   new Date("2026-11-13T09:00:00.000Z"),
 );

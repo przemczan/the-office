@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { SignedInDevice } from "../../domain/signed-in-device.js";
 import { SignedInDeviceRepository } from "../../ports/signed-in-device-repository.js";
-import { signedInDevices } from "./users.schema.js";
+import { signedInDevices, users } from "./users.schema.js";
 
 type SignedInDeviceRow = typeof signedInDevices.$inferSelect;
 
@@ -18,11 +18,13 @@ export class PostgresSignedInDeviceRepository extends SignedInDeviceRepository {
   }
 
   async findByTokenHash(tokenHash: string): Promise<SignedInDevice | undefined> {
+    // A removed user's devices sign in nothing, even one made by a sign-in that raced the removal.
     const [row] = await this.database
-      .select()
+      .select({ device: signedInDevices })
       .from(signedInDevices)
-      .where(eq(signedInDevices.tokenHash, tokenHash));
-    return row && toSignedInDevice(row);
+      .innerJoin(users, eq(users.id, signedInDevices.userId))
+      .where(and(eq(signedInDevices.tokenHash, tokenHash), isNull(users.removedAt)));
+    return row && toSignedInDevice(row.device);
   }
 
   async findAll(ids: readonly string[]): Promise<readonly SignedInDevice[]> {
@@ -58,10 +60,15 @@ export class PostgresSignedInDeviceRepository extends SignedInDeviceRepository {
     return removed.length > 0;
   }
 
-  async removeAllOf(userId: string): Promise<readonly string[]> {
+  async removeAllOf(userId: string, except?: string): Promise<readonly string[]> {
     const removed = await this.database
       .delete(signedInDevices)
-      .where(eq(signedInDevices.userId, userId))
+      .where(
+        and(
+          eq(signedInDevices.userId, userId),
+          except === undefined ? undefined : ne(signedInDevices.id, except),
+        ),
+      )
       .returning({ id: signedInDevices.id });
     return removed.map(({ id }) => id);
   }

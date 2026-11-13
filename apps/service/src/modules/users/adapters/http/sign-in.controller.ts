@@ -1,7 +1,9 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseFilters } from "@nestjs/common";
 import {
+  firstPasswordSchema,
   firstUserSchema,
   passwordSignInSchema,
+  type FirstPassword as FirstPasswordMessage,
   type FirstUser as FirstUserMessage,
   type PasswordSignIn as PasswordSignInMessage,
   type SignInOutcome as SignInOutcomeMessage,
@@ -10,6 +12,7 @@ import {
 import type { Request, Response } from "express";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
+import { FirstPassword } from "../../application/first-password.js";
 import { FirstUser } from "../../application/first-user.js";
 import { PasswordSignIn } from "../../application/password-sign-in.js";
 import { SignInWays } from "../../application/sign-in-ways.js";
@@ -28,6 +31,7 @@ export class SignInController {
   constructor(
     private readonly firstUser: FirstUser,
     private readonly passwordSignIn: PasswordSignIn,
+    private readonly firstPassword: FirstPassword,
     private readonly signInWays: SignInWays,
     private readonly officeAddresses: OfficeAddresses,
   ) {}
@@ -65,6 +69,19 @@ export class SignInController {
     );
     return answered(outcome, address.secure, response);
   }
+
+  /** A user added by another sets their own password, with their one-time password, and is signed in. */
+  @Post("set-password")
+  @HttpCode(200)
+  async setPassword(
+    @Body(new ContractPipe(firstPasswordSchema)) firstPassword: FirstPasswordMessage,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<SignInOutcomeMessage> {
+    const address = this.officeAddresses.addressOf(request);
+    const outcome = await this.firstPassword.set(firstPassword, signInRequestOf(request, address));
+    return answered(outcome, address.secure, response);
+  }
 }
 
 /** The outcome as the web reads it; signed in, the cookie carries the token, never the body. */
@@ -73,6 +90,8 @@ function answered(
   secure: boolean,
   response: Response,
 ): SignInOutcomeMessage {
-  response.setHeader("Set-Cookie", signInCookie(outcome.token, secure));
+  if (outcome.outcome === "signed-in") {
+    response.setHeader("Set-Cookie", signInCookie(outcome.token, secure));
+  }
   return { outcome: outcome.outcome };
 }

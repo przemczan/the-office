@@ -28,11 +28,15 @@ export {
   type Palette,
   type PaletteBase,
 } from "./appearance/apply-appearance.ts";
-export type { Appearance } from "./appearance/appearance-store.ts";
+export type {
+  Appearance,
+  AppearanceChosenListener,
+  ChosenAppearance,
+} from "./appearance/appearance-store.ts";
 export { DensityPreview } from "./appearance/density-preview.tsx";
 export { PalettePreview } from "./appearance/palette-preview.tsx";
 export { PaletteSwatch } from "./appearance/palette-swatch.tsx";
-export { useAppearance } from "./appearance/use-appearance.ts";
+export { adoptAppearance, onAppearanceChosen, useAppearance } from "./appearance/use-appearance.ts";
 
 export {
   BarChart,

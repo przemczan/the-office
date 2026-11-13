@@ -75,7 +75,15 @@ export class SignedInDevices {
 
   /** Signs out every device of the user, as the host command and removing a user do. */
   async signOutAll(userId: string): Promise<void> {
-    const signedOut = await this.devices.removeAllOf(userId);
+    await this.publishSignedOut(userId, await this.devices.removeAllOf(userId));
+  }
+
+  /** Signs out every device of the user but this one, as changing their password does. */
+  async signOutOthers(userId: string, signedInDeviceId: string): Promise<void> {
+    await this.publishSignedOut(userId, await this.devices.removeAllOf(userId, signedInDeviceId));
+  }
+
+  private async publishSignedOut(userId: string, signedOut: readonly string[]): Promise<void> {
     if (signedOut.length > 0) await this.eventBus.publish(new SignedOut(userId, signedOut));
   }
 }
