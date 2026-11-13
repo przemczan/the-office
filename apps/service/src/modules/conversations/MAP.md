@@ -179,7 +179,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `thread-runner.ts`: SentWith, ThreadRunner
 - `thread-service.ts`: InitiativeThreadOpening, TaskThreadStarting, ThreadService
 - `work-records.ts`: WorkRecordSource, ProjectWork, WorkRecords
-- Tests: briefs.full.test.ts, consultations.full.test.ts, consultations.test.ts, devops-proposals.full.test.ts, devops-skill-sources.full.test.ts, held-calls.full.test.ts, held-calls.test.ts, link-cards.full.test.ts, office-instructions.full.test.ts, office-instructions.test.ts, openai-compatible-api-test-project-check.test.ts, proposal-service.full.test.ts, proposal-service.test.ts, session-log.test.ts, session-memory.full.test.ts, stage-threads.full.test.ts, stage-threads.test.ts, task-tokens.test.ts, thread-history.test.ts, thread-runner.test.ts
+- Tests: barge-ins.full.test.ts, briefs.full.test.ts, consultations.full.test.ts, consultations.test.ts, devops-proposals.full.test.ts, devops-skill-sources.full.test.ts, held-calls.full.test.ts, held-calls.test.ts, link-cards.full.test.ts, office-instructions.full.test.ts, office-instructions.test.ts, openai-compatible-api-test-project-check.test.ts, proposal-service.full.test.ts, proposal-service.test.ts, session-log.test.ts, session-memory.full.test.ts, stage-threads.full.test.ts, stage-threads.test.ts, task-tokens.test.ts, thread-history.test.ts, thread-runner.test.ts
 
 ### domain/
 

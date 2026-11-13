@@ -39,13 +39,16 @@ export interface TaskBlocker {
 }
 
 /**
- * The user a Resume or a Drop is recorded by, as Work's records keep them: `user` null when the
- * answer that asked for it doesn't say which user gave it.
+ * Who a Resume or a Drop is recorded by, as Work's records keep them: the user who answered the
+ * Decision that asked for it (`user` null when the answer doesn't say which user gave it), or the
+ * Consultant who answered it, by their Role's key.
  */
-export interface ByTheUser {
-  readonly kind: "user";
-  readonly user: { readonly userId: string; readonly name: string } | null;
-}
+export type ResumedOrDroppedBy =
+  | {
+      readonly kind: "user";
+      readonly user: { readonly userId: string; readonly name: string } | null;
+    }
+  | { readonly kind: "person"; readonly roleKey: string };
 
 /**
  * The started Tasks the Stage interpreter moves along, in Work. Bound to Work's TaskService, which
@@ -86,10 +89,10 @@ export abstract class StartedTasks {
   abstract pauseForUsageWindow(taskId: string, refusal: UsageWindowRefusal): Promise<StartedTask>;
 
   /** Resumes a Paused Task, as the user's Resume does. */
-  abstract resume(taskId: string, by: ByTheUser): Promise<StartedTask>;
+  abstract resume(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask>;
 
   /** Drops the Task, as the user does. */
-  abstract drop(taskId: string, by: ByTheUser): Promise<StartedTask>;
+  abstract drop(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask>;
 
   /**
    * The Tasks still holding the Task back, neither Done nor Dropped: a started Publishing Task waits

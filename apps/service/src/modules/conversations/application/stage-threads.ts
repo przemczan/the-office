@@ -17,12 +17,11 @@ import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Decision } from "../domain/decision.js";
-import {
-  latestWriter,
-  type Message,
-  type MessageDelivery,
-  type MessageDraft,
-  type StageWorkClosing,
+import type {
+  Message,
+  MessageDelivery,
+  MessageDraft,
+  StageWorkClosing,
 } from "../domain/message.js";
 import { SessionMemory } from "./session-memory.js";
 import {
@@ -313,19 +312,18 @@ export class StageThreads {
   /**
    * The user writes into a Stage Thread while its Stage runs (barge-in, spec §2.4): the message is
    * logged waiting, with the user who wrote it, and marked delivered once a turn of the person's
-   * has taken it; the person reads who wrote it unless the same user wrote the one before. Refused
-   * once the Stage's session has ended.
+   * has taken it; the person reads who wrote it unless the same user wrote the one before in this
+   * Stage's session. Refused once the Stage's session has ended.
    */
   async bargeIn(threadId: string, text: string, writtenBy: UserRef): Promise<Thread> {
     if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
     const bargeIns = this.bargeIns.get(threadId);
     if (!bargeIns) throw new ThreadRefused([STAGE_ENDING]);
     const id = randomUUID();
-    const previous = latestWriter(await this.repository.messages(threadId));
     const thread = await this.change(threadId, (latest) =>
       bargeIn(latest, { id, text, writtenBy, at: new Date() }),
     );
-    const said = { id, text: messageFromUser(text, writtenBy, previous) };
+    const said = { id, text: messageFromUser(text, writtenBy, bargeIns.writerBefore(writtenBy)) };
     if (!bargeIns.take(said)) await this.mark(threadId, [said.id], "not-delivered");
     return thread;
   }

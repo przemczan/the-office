@@ -202,6 +202,18 @@ describe("roleChangeByLine", () => {
     );
   });
 
+  it("names the person alone on their own change, which no user saved", () => {
+    const own: RoleChange = {
+      kind: "card-changed",
+      at,
+      cardVersion: 3,
+      changes: [],
+      proposedBy: "cto",
+      savedBy: null,
+    };
+    expect(roleChangeByLine(own, roles, nameOfUser)).toBe("by Grace");
+  });
+
   it("names the user who changed the skills, and nobody when no user did", () => {
     const skills: RoleChange = {
       kind: "skills-changed",

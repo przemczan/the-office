@@ -321,9 +321,10 @@ function sameValue(first: RoleCardFieldChange["to"], second: RoleCardFieldChange
 }
 
 /**
- * Who made a Role change: who drafted the Proposal a user applied, by name, and who applied it, or
- * the user who made the change themselves ("by you", "by Ann Lee"); undefined when neither is known,
- * as on a person's own change. A Role nobody fills any more by its key.
+ * Who made a Role change: who drafted the Proposal a user applied, by name, and who applied it; the
+ * person who changed their own card, with no user saving it ("by Grace"); or the user who made the
+ * change themselves ("by you", "by Ann Lee"); undefined when nobody is known. A Role nobody fills any
+ * more by its key.
  */
 export function roleChangeByLine(
   change: RoleChange,
@@ -334,7 +335,9 @@ export function roleChangeByLine(
   const proposedBy = change.kind === "skills-changed" ? null : change.proposedBy;
   if (proposedBy !== null) {
     const name = roles?.find(({ key }) => key === proposedBy)?.card.name ?? proposedBy;
-    return `proposed by ${name}, applied by ${nameOfUser(user, "you")}`;
+    return user === null
+      ? `by ${name}`
+      : `proposed by ${name}, applied by ${nameOfUser(user, "you")}`;
   }
   return user === null ? undefined : `by ${nameOfUser(user, "you")}`;
 }

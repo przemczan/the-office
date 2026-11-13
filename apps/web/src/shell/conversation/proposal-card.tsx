@@ -984,11 +984,6 @@ interface ProposalAnswering {
   readonly error: Error | null;
 }
 
-/**
- * Applying and declining the Proposal; each refreshes the Thread's log, whose message carries the
- * Proposal as it is now, and applying also what it changed (`changes`). A refusal leaves it open
- * and is shown on the card.
- */
 /** Who applied or declined it, "by you" or "by Ann Lee", and when; then `more`, if any. */
 function AnsweredNote({
   status,
@@ -1006,6 +1001,11 @@ function AnsweredNote({
   );
 }
 
+/**
+ * Applying and declining the Proposal; each refreshes the Thread's log, whose message carries the
+ * Proposal as it is now, and applying also what it changed (`changes`). A refusal leaves it open
+ * and is shown on the card.
+ */
 function useAnswering(
   proposal: Proposal,
   changes: readonly QueryKey[],

@@ -10,7 +10,7 @@ import {
 } from "../domain/staffing-decision.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StaffingHoldRepository } from "../ports/staffing-hold-repository.js";
-import { StartedTasks, type ByTheUser } from "../ports/started-tasks.js";
+import { StartedTasks, type ResumedOrDroppedBy } from "../ports/started-tasks.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
@@ -38,9 +38,7 @@ export class StaffingHolds implements OnModuleInit {
     this.events.subscribe(DecisionAnswered, async ({ decision }) => {
       const { answer } = decision;
       if (!answer) return;
-      // A person's answer at the user's request is the user's own; a Consultant's names no user.
-      const user = answer.atUsersRequest?.user ?? answer.user ?? null;
-      await this.answered(decision.id, answer, { kind: "user", user });
+      await this.answered(decision.id, answer, answeredBy(answer));
     });
   }
 
@@ -76,13 +74,13 @@ export class StaffingHolds implements OnModuleInit {
   }
 
   /**
-   * The answer of the user `by`: drop the Task, or resume it, which holds it again while the lack
-   * stands.
+   * The answer, given `by` a user or a Consultant: drop the Task, or resume it, which holds it again
+   * while the lack stands.
    */
   private async answered(
     decisionId: string,
     answer: { readonly kind: string; readonly option?: number },
-    by: ByTheUser,
+    by: ResumedOrDroppedBy,
   ): Promise<void> {
     const taskId = await this.holds.release(decisionId);
     if (!taskId) return;
@@ -94,6 +92,17 @@ export class StaffingHolds implements OnModuleInit {
     }
     await this.tasks.resume(taskId, by);
   }
+}
+
+/**
+ * Who the answer's Resume or Drop is recorded by: the Consultant who gave it, or else the user, as a
+ * person's answer at the user's request is the user's own.
+ */
+function answeredBy(
+  answer: NonNullable<DecisionAnswered["decision"]["answer"]>,
+): ResumedOrDroppedBy {
+  if (answer.answeredBy !== undefined) return { kind: "person", roleKey: answer.answeredBy };
+  return { kind: "user", user: answer.atUsersRequest?.user ?? answer.user ?? null };
 }
 
 function stackOf(reason: unknown): string {

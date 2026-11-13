@@ -277,7 +277,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskStage
 - `stage-thread-messages.ts`: StageRunThreadWindow, StageThreadMessages
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads
 - `started-tasks.fixtures.ts`: OwnProjectsStartedTasks, ownProjectsStartedTasks
-- `started-tasks.ts`: WalkTaskState, StartedTask, UsageWindowRefusal, TaskBlocker, ByTheUser, StartedTasks
+- `started-tasks.ts`: WalkTaskState, StartedTask, UsageWindowRefusal, TaskBlocker, ResumedOrDroppedBy, StartedTasks
 - `task-commands.ts`: ScriptCommandKind, ScriptCommandResult, CommandWait, TaskCommandOptions, AgentCommandOptions, TaskCommands
 - `task-git.ts`: WorktreeHead, TaskGit
 - `task-publishing.ts`: TaskPublishing

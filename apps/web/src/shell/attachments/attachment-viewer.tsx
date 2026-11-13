@@ -82,7 +82,7 @@ export function AttachmentViewer({
           <span>
             {index + 1} of {images.length}
             {roundName !== undefined && ` · ${roundName}`} · Added by{" "}
-            {authorName(image.addedBy, roles, signedInUserId)},{dayAndClockOf(image.addedAt)}
+            {authorName(image.addedBy, roles, signedInUserId)}, {dayAndClockOf(image.addedAt)}
           </span>
           <span className="attachment-viewer-links">
             <a href={original} target="_blank" rel="noopener noreferrer">
