@@ -6,6 +6,7 @@ import type {
   StageSessionMove,
   StageTokens,
   AskedInterruption,
+  HoldingUser,
 } from "../domain/stage-run.js";
 
 /**
@@ -45,11 +46,18 @@ export abstract class StageRunRepository {
   /** Saves the Decisions the walk opened on the run, replacing those saved before. */
   abstract saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void>;
 
-  /** Saves what the user asked of the run while it runs, replacing what they asked before. */
   /** Since when the running run waits for a free run environment; undefined once it doesn't. */
   abstract saveWaitingSince(runId: string, waitingSince: Date | undefined): Promise<void>;
 
-  abstract saveHeldBy(runId: string, heldBy: AskedInterruption): Promise<void>;
+  /**
+   * Saves what the user, or the fire alarm, asked of the run while it runs, with the user who
+   * asked, replacing what was asked before.
+   */
+  abstract saveHeldBy(
+    runId: string,
+    heldBy: AskedInterruption,
+    heldByUser: HoldingUser | undefined,
+  ): Promise<void>;
 
   /**
    * Saves what the user did at a Gate's run; false when an action was saved first, as each Gate

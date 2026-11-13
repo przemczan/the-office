@@ -25,6 +25,7 @@ import {
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
   HANDOVER_REQUEST,
+  messageFromUser,
   openingMessage,
   sessionOfficeTools,
   withLeftOutServers,
@@ -49,8 +50,9 @@ import {
   type OpenPage,
   type OpenPageRecord,
 } from "../domain/open-page.js";
-import type { Message, MessageDraft } from "../domain/message.js";
+import { latestWriter, type Message, type MessageDraft } from "../domain/message.js";
 import type { Thread, ThreadSession } from "../domain/thread.js";
+import type { UserRef } from "../domain/user.js";
 import {
   answerDecision,
   beginAnswer,
@@ -130,6 +132,16 @@ interface GivenRecords {
   readonly ofRunningSession: () => Promise<OpenPageRecord | undefined>;
 }
 
+/**
+ * What the person takes: a user's message, by who wrote it, or The Office's message of answered
+ * Decisions, which names who answered in its words (`writtenBy` undefined).
+ */
+interface Taken {
+  readonly id: string;
+  readonly text: string;
+  readonly writtenBy: UserRef | undefined;
+}
+
 const NO_RECORDS: GivenRecords = {
   mentioned: [],
   openPage: undefined,
@@ -195,13 +207,19 @@ export class ThreadRunner implements OnModuleDestroy {
    * instead (barge-in). Refused while the person is still answering in this Thread, when nobody
    * fills their Role any more, or in a chat, when their Chat is off. The session gets the record
    * of each Task, Idea or Decision the message mentions with it, and the Open page's; the log keeps
-   * the message as written, with its Open page and whose Handover note it started from
-   * (`handoverNoteFrom`) when a Link card gave it.
+   * the message as written, with the user who wrote it (`writtenBy`), its Open page and whose
+   * Handover note it started from (`handoverNoteFrom`) when a Link card gave it. The session is told
+   * who wrote it when it starts on it, and when another user wrote the message before.
    */
-  async send(threadId: string, text: string, sent: SentWith = {}): Promise<Thread> {
+  async send(
+    threadId: string,
+    text: string,
+    writtenBy: UserRef,
+    sent: SentWith = {},
+  ): Promise<Thread> {
     const thread = await this.threadOf(threadId);
     if (thread.stageThread && thread.state === "answering") {
-      return this.stageThreads.bargeIn(threadId, text);
+      return this.stageThreads.bargeIn(threadId, text, writtenBy);
     }
     const current = await this.personOf(thread);
     if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
@@ -215,6 +233,7 @@ export class ThreadRunner implements OnModuleDestroy {
       text,
       delivery: "delivered",
       at: new Date(),
+      writtenBy,
       handoverNoteFrom,
       openPage,
     };
@@ -232,7 +251,7 @@ export class ThreadRunner implements OnModuleDestroy {
     return this.take(
       thread,
       current,
-      { id: said.id, text },
+      { id: said.id, text, writtenBy },
       (latest, opening) => beginAnswer(latest, { ...opening, said }),
       [],
       given,
@@ -243,14 +262,15 @@ export class ThreadRunner implements OnModuleDestroy {
    * Answers one of the Thread's open Decisions and has the person take the answer, with its
    * question, as their next message, under the Context policy as any message is, together with any
    * answers that waited for it. In an Initiative's planning Thread an answer given while the person
-   * is answering is kept for their turn's end instead (spec §2.4). Refused once it is answered,
-   * with an answer that isn't one, and in a Thread on a Task while the person is still answering.
+   * is answering is kept for their turn's end instead (spec §2.4). `answerer` is who answered: a
+   * user, a Consultant or a person at the user's request. Refused once it is answered, with an
+   * answer that isn't one, and in a Thread on a Task while the person is still answering.
    */
   async answerDecision(
     threadId: string,
     decisionId: string,
     answer: DecisionAnswer,
-    answerer?: Answerer,
+    answerer: Answerer,
   ): Promise<Thread> {
     const thread = await this.threadOf(threadId);
     const open = openDecisionOf(thread, decisionId);
@@ -277,6 +297,7 @@ export class ThreadRunner implements OnModuleDestroy {
     const said = {
       id: messageId,
       text: await this.answersMessage(thread, answers, answerer),
+      writtenBy: undefined,
     };
     // Briefed as the Thread will be once answered: the message, not the Brief, carries this one.
     const answered: Thread = {
@@ -313,7 +334,11 @@ export class ThreadRunner implements OnModuleDestroy {
     if (waiting.length === 0) return;
     const current = await this.personOf(thread);
     const decisions = waiting.map(({ decision }) => decision);
-    const said = { id: randomUUID(), text: await this.answersMessage(thread, decisions) };
+    const said = {
+      id: randomUUID(),
+      text: await this.answersMessage(thread, decisions),
+      writtenBy: undefined,
+    };
     await this.take(
       thread,
       current,
@@ -347,8 +372,9 @@ export class ThreadRunner implements OnModuleDestroy {
   }
 
   /**
-   * What the person is sent for the answered Decisions: in a Thread on a Task its one answer, and in
-   * an Initiative's planning Thread every answer, each naming its Task and who gave it for the user.
+   * What the person is sent for the answered Decisions: in a Thread on a Task its one answer, by
+   * `answerer` when given, and in an Initiative's planning Thread every answer, each naming its Task
+   * and who gave it, as recorded.
    */
   private async answersMessage(
     thread: Thread,
@@ -361,7 +387,11 @@ export class ThreadRunner implements OnModuleDestroy {
     if (thread.home.kind !== "initiative") {
       const [only] = given;
       if (!only) throw new Error(`Thread ${thread.id} has no answer to send.`);
-      return decisionAnswerMessage(only.decision, only.answer, answerer);
+      return decisionAnswerMessage(
+        only.decision,
+        only.answer,
+        answerer ?? (await this.answererOf(only.answer)),
+      );
     }
     const onTasks = await Promise.all(
       given.map(async (answer) => ({
@@ -370,17 +400,19 @@ export class ThreadRunner implements OnModuleDestroy {
           answer.decision.taskId === undefined
             ? undefined
             : await this.work.taskTitle(answer.decision.taskId),
-        answerer: await this.atUsersRequestAnswerer(answer.answer),
+        answerer: await this.answererOf(answer.answer),
       })),
     );
     return decisionAnswersOnTasksMessage(onTasks);
   }
 
-  /** The person who gave the answer for the user, at their request, by their name; or nobody. */
-  private async atUsersRequestAnswerer({
-    atUsersRequest,
-  }: GivenAnswer): Promise<Answerer | undefined> {
-    if (!atUsersRequest) return undefined;
+  /**
+   * Who gave a recorded answer, as the person is told: the person who gave it for the user at their
+   * request, by their name, or else the user who gave it. Only a user's answer and one at their
+   * request wait for a turn's end, so neither a Consultant's nor The Office's comes here.
+   */
+  private async answererOf({ atUsersRequest, user }: GivenAnswer): Promise<Answerer> {
+    if (!atUsersRequest) return { kind: "user", user: user ?? null };
     const person = await this.roleCards.find(atUsersRequest.roleKey);
     return {
       kind: "at-users-request",
@@ -444,7 +476,7 @@ export class ThreadRunner implements OnModuleDestroy {
   private async take<Event extends DomainEvent>(
     thread: Thread,
     current: SessionRole,
-    said: Answer["said"],
+    said: Taken,
     begin: (latest: Thread, opening: Opening) => ThreadChange<Event>,
     answers: readonly Decision[] = [],
     given: GivenRecords = NO_RECORDS,
@@ -456,6 +488,10 @@ export class ThreadRunner implements OnModuleDestroy {
     const { decision } = move;
     // Read before the message is logged, so the log holds only the messages before it.
     const openPage = newSession ? undefined : await given.ofRunningSession();
+    const text =
+      newSession || !said.writtenBy
+        ? said.text
+        : messageFromUser(said.text, said.writtenBy, await this.previousWriter(thread.id));
     const answering = await this.change(thread.id, (latest) =>
       begin(latest, {
         personName: current.card.name,
@@ -464,19 +500,21 @@ export class ThreadRunner implements OnModuleDestroy {
         brief: place.brief.text,
       }),
     );
-    const withRecords = withOpenPageRecord(
-      withMentionedRecords(said.text, given.mentioned),
-      openPage,
-    );
+    const withRecords = withOpenPageRecord(withMentionedRecords(text, given.mentioned), openPage);
     this.answerInBackground(answering, {
-      said: newSession ? said : { ...said, text: withRecords },
-      briefed: briefedMessage(place.brief.text, said.text),
+      said: { id: said.id, text: newSession ? said.text : withRecords },
+      briefed: briefedMessage(place.brief.text, said.text, said.writtenBy),
       ...move,
       replaced: newSession ? thread.session : undefined,
       place,
       answers,
     });
     return answering;
+  }
+
+  /** Who wrote the Thread's latest user message; undefined when the user has written none. */
+  private async previousWriter(threadId: string): Promise<UserRef | null | undefined> {
+    return latestWriter(await this.repository.messages(threadId));
   }
 
   /** Ends every running session with the service. */

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { officeInstructionsQuery } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { ToastProvider } from "../toasts.tsx";
+import { BY_ANN, BY_YOU, signIn } from "../user.fixtures.ts";
 import { ProposalCard } from "./proposal-card.tsx";
 
 declare global {
@@ -95,7 +96,7 @@ describe("ProposalCard on the Office instructions", () => {
 
   it("applies as the other Office settings do, refreshing the Office instructions", async () => {
     const fetched = serviceAnswering(
-      officeInstructionsProposal(SEVERAL_LINES, { kind: "applied", at: AT }),
+      officeInstructionsProposal(SEVERAL_LINES, { kind: "applied", at: AT, by: null }),
     );
     const queryClient = new QueryClient();
     const refreshed = vi.spyOn(queryClient, "invalidateQueries");
@@ -113,8 +114,8 @@ describe("ProposalCard on the Office instructions", () => {
   });
 
   it.each([
-    [{ kind: "applied", at: AT }, "Applied"],
-    [{ kind: "declined", at: AT }, "Not applied"],
+    [{ kind: "applied", at: AT, by: null }, "Applied"],
+    [{ kind: "declined", at: AT, by: null }, "Not applied"],
   ] satisfies [ProposalStatus, string][])("shows what became of it: %j", (status, words) => {
     serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));
     const card = cardOf(officeInstructionsProposal(SEVERAL_LINES, status));
@@ -122,6 +123,25 @@ describe("ProposalCard on the Office instructions", () => {
     expect(card.querySelector(".proposal-text")?.textContent).toBe(SEVERAL_LINES);
     expect(card.querySelectorAll("button")).toHaveLength(0);
   });
+
+  it.each([
+    [{ kind: "applied", at: AT, by: BY_YOU }, "Applied", "by you"],
+    [{ kind: "applied", at: AT, by: BY_ANN }, "Applied", "by Ann Lee"],
+    [{ kind: "declined", at: AT, by: BY_YOU }, "Not applied", "by you"],
+    [{ kind: "declined", at: AT, by: BY_ANN }, "Not applied", "by Ann Lee"],
+  ] satisfies [ProposalStatus, string, string][])(
+    "names the user who applied or declined it: %j",
+    (status, badge, by) => {
+      serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));
+      const queryClient = new QueryClient();
+      signIn(queryClient);
+      const card = cardOf(officeInstructionsProposal(SEVERAL_LINES, status), queryClient);
+      expect(card.querySelector(".proposal-foot")?.textContent).toContain(badge);
+      expect(card.querySelector(".proposal-foot .proposal-note")?.textContent).toMatch(
+        new RegExp(`^${by} · `),
+      );
+    },
+  );
 });
 
 function proposalOf(
@@ -208,7 +228,7 @@ describe("ProposalCard on a Project Pipeline", () => {
   });
 
   it("refreshes the Pipeline lists once applied, and says so", async () => {
-    serviceReading({}, { ...newOne, status: { kind: "applied", at: AT } });
+    serviceReading({}, { ...newOne, status: { kind: "applied", at: AT, by: null } });
     const queryClient = new QueryClient();
     const refreshed = vi.spyOn(queryClient, "invalidateQueries");
     const card = cardOf(newOne, queryClient);
@@ -285,7 +305,7 @@ describe("ProposalCard on a library Pipeline's Stages", () => {
     serviceReading({
       "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
     });
-    const card = cardOf({ ...proposal, status: { kind: "applied", at: AT } });
+    const card = cardOf({ ...proposal, status: { kind: "applied", at: AT, by: null } });
 
     expect(card.textContent).not.toContain("breaks");
   });

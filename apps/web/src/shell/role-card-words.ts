@@ -10,6 +10,7 @@ import {
   type HardSwitchValue,
   type PermissionProfile,
   type ProposedChange,
+  type Role,
   type RoleCard,
   type RoleCardField,
   type RoleCardOptions,
@@ -20,6 +21,7 @@ import {
 } from "@the-office/contracts";
 import type { z } from "zod";
 import { EFFORT_LABELS, modelLabel } from "./engine-words.ts";
+import type { UserNamer } from "./use-user-name.ts";
 
 /**
  * The words a Role card is shown in, the click-through's (prototypes/app/people.js): on People, and
@@ -316,6 +318,25 @@ export function proposedFieldChanges(
 
 function sameValue(first: RoleCardFieldChange["to"], second: RoleCardFieldChange["to"]): boolean {
   return JSON.stringify(first) === JSON.stringify(second);
+}
+
+/**
+ * Who made a Role change: who drafted the Proposal a user applied, by name, and who applied it, or
+ * the user who made the change themselves ("by you", "by Ann Lee"); undefined when neither is known,
+ * as on a person's own change. A Role nobody fills any more by its key.
+ */
+export function roleChangeByLine(
+  change: RoleChange,
+  roles: readonly Pick<Role, "key" | "card">[] | undefined,
+  nameOfUser: UserNamer,
+): string | undefined {
+  const user = change.kind === "skills-changed" ? change.changedBy : change.savedBy;
+  const proposedBy = change.kind === "skills-changed" ? null : change.proposedBy;
+  if (proposedBy !== null) {
+    const name = roles?.find(({ key }) => key === proposedBy)?.card.name ?? proposedBy;
+    return `proposed by ${name}, applied by ${nameOfUser(user, "you")}`;
+  }
+  return user === null ? undefined : `by ${nameOfUser(user, "you")}`;
 }
 
 /** What a skills change gave and took, such as "Skills gained release-notes; lost tdd". */

@@ -91,3 +91,13 @@ export const signedInDeviceSchema = z.object({
 export type SignedInDevice = z.infer<typeof signedInDeviceSchema>;
 
 export const signedInDeviceListSchema = z.array(signedInDeviceSchema);
+
+/**
+ * The user who did something, as a record keeps them: their id and their name as it was then, so a
+ * record reads the same after a rename or the user's removal.
+ */
+export const userRefSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+});
+export type UserRef = z.infer<typeof userRefSchema>;

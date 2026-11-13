@@ -20,6 +20,10 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
+  ANOTHER_SIGNED_IN_FOR_TESTS,
+  signedInAs,
+} from "../../../../platform/http/signed-in-requests.fixtures.js";
+import {
   SkillAdded,
   SkillEveryoneChanged,
   SkillRemoved,
@@ -27,6 +31,8 @@ import {
   SkillUsed,
 } from "../../domain/skill-events.js";
 import { SkillsModule } from "../../skills.module.js";
+import { RoleSkills } from "../../application/role-skills.js";
+import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
 import { SessionSkillRepository } from "../../ports/session-skill-repository.js";
 import { aRecord } from "../postgres/postgres-session-skill-repository.fixtures.js";
 import { aZip } from "../zip/zip.fixtures.js";
@@ -63,10 +69,15 @@ function webEvents(): unknown[] {
   });
 }
 
-function send(method: "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<Response> {
+function send(
+  method: "POST" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
   return fetch(`${url}/api${path}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
@@ -225,6 +236,28 @@ describe("PUT /api/skills/:name/roles", () => {
       roleSkillsChanged(first),
       ...[first, second].toSorted().map(roleSkillsChanged),
     ]);
+  });
+
+  it("keeps the signed-in user who changed each Role's skills", async () => {
+    const name = aName();
+    await write(name);
+    const roleKey = `role-${randomUUID()}`;
+    await send("PUT", `/skills/${name}/roles`, { roles: [roleKey] });
+    await send(
+      "PUT",
+      `/skills/${name}/roles`,
+      { roles: [] },
+      signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS),
+    );
+
+    const changes = await app.get(RoleSkills).changes(roleKey);
+
+    expect(changes.map(({ added, removed, changedBy }) => ({ added, removed, changedBy }))).toEqual(
+      [
+        { added: [], removed: [name], changedBy: BEN_ITO },
+        { added: [name], removed: [], changedBy: ANN_LEE },
+      ],
+    );
   });
 });
 

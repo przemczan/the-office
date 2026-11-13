@@ -48,6 +48,7 @@ export function aRun(
     model: undefined,
     decisions,
     heldBy: undefined,
+    heldByUser: undefined,
     waitingSince: undefined,
     sentBack: undefined,
     gateAction: undefined,

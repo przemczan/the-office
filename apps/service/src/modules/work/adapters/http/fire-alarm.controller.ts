@@ -5,8 +5,10 @@ import {
   type FireAlarm as FireAlarmResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { FireAlarmService } from "../../application/fire-alarm-service.js";
 import type { FireAlarm } from "../../domain/fire-alarm.js";
+import { authorOf } from "./signed-in-author.js";
 
 /**
  * The top bar's fire alarm (spec §2.8): read it, sound it, which needs no confirmation, and give
@@ -31,8 +33,9 @@ export class FireAlarmController {
   @HttpCode(HttpStatus.OK)
   async allClear(
     @Body(new ContractPipe(allClearSchema)) choices: AllClear,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<FireAlarmResponse> {
-    return toFireAlarmResponse(await this.fireAlarm.giveAllClear(choices));
+    return toFireAlarmResponse(await this.fireAlarm.giveAllClear(choices, authorOf(signedIn)));
   }
 }
 

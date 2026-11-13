@@ -3,10 +3,9 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment } from "../../domain/attachment.js";
-import { THE_USER } from "../../domain/author.js";
 import { confirmPipeline } from "../../domain/planning-changes.js";
 import { changeTitle } from "../../domain/task-description.js";
-import { aLink, anIdea } from "../../domain/work.fixtures.js";
+import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
@@ -111,7 +110,7 @@ describe("PostgresAttachmentRepository", () => {
       mediaType: "image/png",
       size: 2048,
       text: false,
-      addedBy: THE_USER,
+      addedBy: ANN_LEE,
       addedAt: new Date("2026-10-25T09:06:00.000Z"),
     };
     await attachments.add(link);

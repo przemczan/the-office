@@ -47,3 +47,16 @@ export const signedInDevices = pgTable(
     ),
   ],
 );
+
+/**
+ * When every module's records made before users existed were given the first user (one row at
+ * most): until it is written, each start claims them again.
+ */
+export const earlierRecordsClaimed = pgTable(
+  "earlier_records_claimed",
+  {
+    id: integer("id").primaryKey().default(1),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [check("earlier_records_claimed_one_row", sql`${table.id} = 1`)],
+);

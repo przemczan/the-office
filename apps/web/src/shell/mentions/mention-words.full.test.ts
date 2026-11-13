@@ -20,7 +20,7 @@ function anInitiative(id: string, state: Initiative["state"]): Initiative {
     state,
     originIdeaId: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
     projectIds: [],
-    createdBy: { kind: "user" },
+    createdBy: { kind: "user", user: null },
     createdAt: "2026-10-28T10:00:00.000Z",
     endedAt: null,
     archivedAt: null,

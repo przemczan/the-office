@@ -21,9 +21,14 @@ function fromUser(id: string, handoverNoteFrom: string | null = null): Message {
     kind: "user",
     text: id,
     delivery: "delivered",
+    writtenBy: null,
     handoverNoteFrom,
     openPage: null,
   };
+}
+
+function writtenBy(id: string, userId: string): Message {
+  return { ...fromUser(id), writtenBy: { userId, name: userId } } as Message;
 }
 
 function toolCall(id: string): Message {
@@ -73,6 +78,18 @@ describe("groupedMessages", () => {
     expect(shape(groups)).toEqual([
       ["turn", "a"],
       ["turn", "b"],
+    ]);
+  });
+
+  it("keeps two users' messages apart, and joins one user's", () => {
+    const groups = groupedMessages([
+      writtenBy("a", "ada"),
+      writtenBy("b", "ada"),
+      writtenBy("c", "ann"),
+    ]);
+    expect(shape(groups)).toEqual([
+      ["turn", "a", "b"],
+      ["turn", "c"],
     ]);
   });
 

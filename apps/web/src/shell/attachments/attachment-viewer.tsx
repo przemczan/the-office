@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { attachmentContentUrl } from "../../api/work.ts";
 import { dayAndClockOf } from "../time.ts";
+import { useSignedInUserId } from "../use-user-name.ts";
 import { authorName } from "../work/work-words.ts";
 import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
 
@@ -30,6 +31,7 @@ export function AttachmentViewer({
   readonly onClose: () => void;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
+  const signedInUserId = useSignedInUserId();
   const viewed = images[index];
   const hasPrevious = index > 0;
   const hasNext = index < images.length - 1;
@@ -80,7 +82,7 @@ export function AttachmentViewer({
           <span>
             {index + 1} of {images.length}
             {roundName !== undefined && ` · ${roundName}`} · Added by{" "}
-            {authorName(image.addedBy, roles)}, {dayAndClockOf(image.addedAt)}
+            {authorName(image.addedBy, roles, signedInUserId)},{dayAndClockOf(image.addedAt)}
           </span>
           <span className="attachment-viewer-links">
             <a href={original} target="_blank" rel="noopener noreferrer">

@@ -3,12 +3,11 @@ import { ATTACHMENT_SIZE_LIMIT } from "./attachment.js";
 import { addFile, addLink, moveAttachment, removeAttachment } from "./attachment-changes.js";
 import { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./attachment-events.js";
 import { AttachmentRefused } from "./attachment-refused.js";
-import { THE_USER } from "./author.js";
-import { aLink } from "./work.fixtures.js";
+import { ANN_LEE, aLink } from "./work.fixtures.js";
 
 const adding = {
   owner: { kind: "idea", ideaId: "idea-1" },
-  addedBy: THE_USER,
+  addedBy: ANN_LEE,
   addedAt: new Date("2026-10-25T09:05:00.000Z"),
 } as const;
 

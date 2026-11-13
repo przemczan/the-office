@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { assignmentsChange, skillsOfRole, withRoleSkills } from "../../domain/role-skills.js";
 import { aSkill } from "../../domain/skill.fixtures.js";
+import { ANN_LEE } from "../../domain/user.fixtures.js";
 import { PostgresRoleSkillRepository } from "./postgres-role-skill-repository.js";
 import { PostgresSkillRepository } from "./postgres-skill-repository.js";
 
@@ -38,6 +39,7 @@ function adding(roleKey: string, skillName: string, at: Date) {
       current,
       withRoleSkills(current, roleKey, [...skillsOfRole(current, roleKey), skillName]),
       at,
+      ANN_LEE,
     ),
   );
 }

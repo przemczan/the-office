@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { THE_USER, type Author } from "../domain/author.js";
+import type { Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
 import type { StateChange } from "../domain/state-change.js";
 import { newTaskProblems, type NewTask, type Priority, type Task } from "../domain/task.js";
@@ -197,12 +197,12 @@ export class TaskService {
   }
 
   /**
-   * Move, by the user: the Task goes to another Project, with no Pipeline there yet, refused with
+   * Move, by `by`, the user: the Task goes to another Project, with no Pipeline there yet, refused with
    * every reason it can't. Its history and worktree are read holding the Task, so a planning or a
    * person's Thread that opens meanwhile either refuses the Move or finds the Task moved. A Ready
    * Task leaves Ready in the same save, published after the Move, as a changing Save publishes it.
    */
-  async move(id: string, projectId: string): Promise<Task> {
+  async move(id: string, projectId: string, by: Author): Promise<Task> {
     if (!(await this.projects.find(projectId))) {
       throw new TaskRefused([`There is no Project "${projectId}".`]);
     }
@@ -216,7 +216,7 @@ export class TaskService {
     const { task, event } = await this.repository.updateWithStateChanges(
       id,
       async (held, stateChanges) =>
-        moveTask(held, projectId, await this.moveGrounds(held, stateChanges), THE_USER),
+        moveTask(held, projectId, await this.moveGrounds(held, stateChanges), by),
     );
     await this.publishMove(event);
     if (event && task.initiativeId !== undefined) {
@@ -269,25 +269,25 @@ export class TaskService {
   }
 
   /** Drops the Task, by the user: on its page, or by their answer to a Decision. */
-  async drop(id: string): Promise<Task> {
-    return this.update(id, (task) => changeTaskState(task, "dropped", THE_USER));
+  async drop(id: string, by: Author): Promise<Task> {
+    return this.update(id, (task) => changeTaskState(task, "dropped", by));
   }
 
   /** Takes a Done or Dropped Task off the board into the Archive, its state as it was. */
-  async archive(id: string): Promise<Task> {
-    return this.update(id, (task) => archiveTask(task, new Date()));
+  async archive(id: string, by: Author): Promise<Task> {
+    return this.update(id, (task) => archiveTask(task, new Date(), by));
   }
 
   /** Returns an archived Task to the board in the state it had. */
-  async restore(id: string): Promise<Task> {
-    return this.update(id, (task) => restoreTask(task, new Date()));
+  async restore(id: string, by: Author): Promise<Task> {
+    return this.update(id, (task) => restoreTask(task, new Date(), by));
   }
 
   /**
    * The user's Pause; TaskPaused tells Pipelines to hold its running Stage once the turn ends.
    */
-  async pause(id: string): Promise<Task> {
-    return this.update(id, (task) => pauseTask(task, THE_USER));
+  async pause(id: string, by: Author): Promise<Task> {
+    return this.update(id, (task) => pauseTask(task, by));
   }
 
   /**
@@ -326,8 +326,8 @@ export class TaskService {
   }
 
   /** Holds the Task now; TaskStopped tells Pipelines to interrupt the Stage running. */
-  async stop(id: string): Promise<Task> {
-    return this.update(id, stopTask);
+  async stop(id: string, by: Author): Promise<Task> {
+    return this.update(id, (task) => stopTask(task, by));
   }
 
   /**
@@ -335,9 +335,9 @@ export class TaskService {
    * fire alarm is on, the alarm holds the Task instead, until the all clear; while its Initiative
    * is paused, it is refused.
    */
-  async resume(id: string): Promise<Task> {
+  async resume(id: string, by: Author): Promise<Task> {
     const fireAlarmOn = await this.fireAlarmOn();
-    const { task, event } = await this.resumeHeld(id, fireAlarmOn);
+    const { task, event } = await this.resumeHeld(id, fireAlarmOn, by);
     // Read again after the save: an alarm sounded meanwhile may have passed the Task by as Paused.
     if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
       return this.update(id, pauseTaskForAlarm);
@@ -378,15 +378,16 @@ export class TaskService {
   private async resumeHeld(
     id: string,
     fireAlarmOn: boolean,
+    by: Author,
   ): Promise<TaskUpdate<TaskResumed | TaskPaused>> {
     const { initiativeId } = await this.read(id);
     if (initiativeId === undefined) {
       return this.repository.update(id, (held) =>
-        resumeTask(held, { fireAlarmOn, initiativePaused: false }),
+        resumeTask(held, { fireAlarmOn, initiativePaused: false }, by),
       );
     }
     return this.initiatives.changeTask(initiativeId, id, (initiative, held) =>
-      resumeTask(held, { fireAlarmOn, initiativePaused: isInitiativePaused(initiative) }),
+      resumeTask(held, { fireAlarmOn, initiativePaused: isInitiativePaused(initiative) }, by),
     );
   }
 

@@ -3,10 +3,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { THE_USER } from "../domain/author.js";
 import { KnownProjectsForTests } from "../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../work-application.fixtures.js";
 import { RunEnvironmentSetUps } from "./run-environment-set-ups.js";
+import { ANN_LEE } from "../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -28,7 +28,7 @@ describe("RunEnvironmentSetUps.add", () => {
       .get(KnownProjectsForTests)
       .commands.set(projectId, [{ key: "build", name: "Build", commandLine: "npm run build" }]);
 
-    await expect(work.app.get(RunEnvironmentSetUps).add(projectId, THE_USER)).rejects.toThrow(
+    await expect(work.app.get(RunEnvironmentSetUps).add(projectId, ANN_LEE)).rejects.toThrow(
       `The Pipeline Set up run environment runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
     );
     expect(await work.app.get(RunEnvironmentSetUps).openOf(projectId)).toBeUndefined();

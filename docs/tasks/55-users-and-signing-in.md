@@ -41,7 +41,7 @@ The Office has several users, and everyone signs in before using it, localhost i
       Read: [module template](../../apps/service/docs/module-template.md); the platform map (`http/local-requests.ts`, `websocket/event-stream.ts`, `config/office-config.ts`); `apps/web/src/MAP.md`; `apps/web/e2e/MAP.md`.
 - [ ] 3. Creating and removing users: Settings › Users, the one-time password, setting one's own password at first sign-in, removing a user, the account page, palette and density per user (Task 4807a232).
       Read: the users map; the settings and account surfaces' maps; `packages/ui/src/appearance/`.
-- [ ] 4. Records name the user who did each thing, the Brief says which user asked, Since you left per user (Task 2727e7bb).
+- [x] 4. Records name the user who did each thing, the Brief says which user asked, Since you left per user (Task 2727e7bb).
       Read: the work, conversations and notifications maps.
 - [ ] 5. Authenticator codes and recovery codes, with `@oslojs/otp` (Task 1b3bfd22).
       Read: the users map (`SecondSteps`, `SignIns.finish`).
@@ -57,9 +57,13 @@ The Office has several users, and everyone signs in before using it, localhost i
 - Steps 1 and 2 written. Step 2: the `users` module (`apps/service/src/modules/users/`, its map names the extension points: `SignIns.finish`, the `SecondSteps` port bound to `NoSecondSteps`, the `SignInWays` registry); the platform's Host/Origin check with `OFFICE_PUBLIC_ADDRESS` and address kinds, the sign-in guard (`platform/http/request-access.ts`, port `SignedInRequests`, `@SignedIn()`), the event stream refusing signed-out upgrades and closing a signed-out device's sockets; `npm run set-password`; the web's sign-in page (`surfaces/sign-in/`), Account (`surfaces/account/`) and the top bar's user menu; e2e's `setup` project signs in once and every project reuses its storage state.
 - Defaults as spec 2.10 proposes them: 3 free wrong tries, waits of 2/4/8/16 s, lockout from the 10th for 15 min doubling to 24 h; 30 days after the last use; passwords 12 to 256 characters; cookie `office_signed_in`.
 - Traps: other modules' service tests boot unguarded (`startTestApplication`'s `requestAccess`); a test of the guard uses the users fixtures. Every e2e file shares the one e2e user (`e2e/e2e-user.ts`), so no e2e test may lock it out. Unknown emails' wrong tries are in memory. "Sign in with GitHub" is The Office's git identity, never a user's way. A signed-in device is never a session.
+- Step 4 written: records keep the signed-in user as a snapshot `{ userId, name }` (contracts `userRefSchema`); each module's domain has its own user shape, and controllers map `@SignedIn()` onto it. Records from before users existed hold null ("the user") until the first user claims them: each module registers an idempotent claim with the platform's `EarlierRecords` (`platform/earlier-records/`), and `users` runs them after the first user is made, then again at each start until they finish (`earlier_records_claimed` flag). Migrations 0136–0140.
+- Briefs have a "## Who asked" section (`work/domain/who-asked.ts`, through Pipelines' `TaskRecords`). Since you left is per user (`user_activity` keyed by user id, `GET /now/since-you-left`); the phone counts The Office away only when every user is away. The web words a user ref "You"/the name through `shell/use-user-name.ts`.
+- Traps: an Agent's own record (an Agent's `remember`, `change_role`, an engine removal's card version) names no user; the claims only fill JSON nulls the migrations wrote, never SQL nulls. Unguarded test apps sign in the fixed test user of `signed-in-requests.fixtures.ts`.
 - Next: step 3, Task 4807a232 (creating and removing users, palette and density per user).
 
 ## Progress
 
 - 2026-11-13 · step 1: spec 2.10, the amendments, the glossary terms, task 28 without a PIN, and this file; next is step 2, Task 54467d4a.
 - 2026-11-13 · step 2: the users module, the guard on /api and the WebSocket, the public address, slow-down and lockout, signed-in devices, npm run set-password, the sign-in and Account pages and e2e signed in through a setup project; next is step 3, Task 4807a232.
+- 2026-11-13 · step 4: records name the signed-in user in Work, Conversations, People, Skills and Pipelines, earlier records claimed by the first user, Briefs say who asked, the web shows You or the name, Since you left per user; next is step 3, Task 4807a232.

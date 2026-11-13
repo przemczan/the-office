@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { RunEnvironmentSetUps, TaskRefused } from "../../../work/index.js";
 import { RunEnvironmentSettingRefused } from "../../domain/run-environment-setting-refused.js";
-import { SetUpTasks, type SetUpTask } from "../../ports/set-up-tasks.js";
+import { SetUpTasks, type AskingUser, type SetUpTask } from "../../ports/set-up-tasks.js";
 
 /** Work's "Set up the run environment" Tasks, each added as the user asked. */
 @Injectable()
@@ -15,9 +15,9 @@ export class WorkSetUpTasks extends SetUpTasks {
     return task && setUpTaskOf(task);
   }
 
-  async add(projectId: string): Promise<SetUpTask> {
+  async add(projectId: string, by: AskingUser): Promise<SetUpTask> {
     try {
-      return setUpTaskOf(await this.setUps.add(projectId, { kind: "user" }));
+      return setUpTaskOf(await this.setUps.add(projectId, { kind: "user", user: by }));
     } catch (error) {
       if (error instanceof TaskRefused) throw new RunEnvironmentSettingRefused(error.reasons);
       throw error;

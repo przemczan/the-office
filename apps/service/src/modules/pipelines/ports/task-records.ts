@@ -15,6 +15,11 @@ export interface TaskRecord {
    * Initiative), as a section of the Brief with how to read them; none when it is linked to none.
    */
   readonly linkedRecordsSection: string | undefined;
+  /**
+   * Who created the Task and who started it, or queued it to start, as a section of the Brief: Work
+   * words it as its records name who did what.
+   */
+  readonly whoAskedSection: string;
   readonly project: {
     readonly id: string;
     readonly name: string;

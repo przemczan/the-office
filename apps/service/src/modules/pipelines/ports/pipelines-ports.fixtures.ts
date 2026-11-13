@@ -253,6 +253,8 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
     attachmentLines: ["- mockup.png (image, image/png, 2048 bytes) · Attachment a-1"],
     linkedRecordsSection: undefined,
+    whoAskedSection:
+      "## Who asked\n\nThe Task was created by the user Ann Lee and started by the user Ben Ito.",
     project: {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Admin panel",

@@ -68,6 +68,7 @@ import {
 } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
+import { EarlierRecordsModule } from "./platform/earlier-records/earlier-records.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
@@ -170,6 +171,7 @@ export class AppModule {
       imports: [
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
+        EarlierRecordsModule,
         EngineAccountsModule,
         engineCascade,
         EngineModule,

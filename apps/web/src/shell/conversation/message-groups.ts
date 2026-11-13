@@ -110,8 +110,16 @@ function isTurnMessage(message: Message): message is TurnMessage {
   return message.kind === "user" || message.kind === "person";
 }
 
-/** A Handover note the user passed on is another's words under its own line, so it joins nothing. */
+/**
+ * A user's messages join only that user's, as each user's turn shows their name. A Handover note the
+ * user passed on is another's words under its own line, so it joins nothing.
+ */
 function sameAuthor(a: TurnMessage, b: TurnMessage): boolean {
   if (a.kind === "person") return b.kind === "person" && a.roleKey === b.roleKey;
-  return b.kind === "user" && a.handoverNoteFrom === null && b.handoverNoteFrom === null;
+  return (
+    b.kind === "user" &&
+    a.writtenBy?.userId === b.writtenBy?.userId &&
+    a.handoverNoteFrom === null &&
+    b.handoverNoteFrom === null
+  );
 }

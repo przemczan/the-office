@@ -52,9 +52,10 @@ export interface WorkApplication {
 export async function startWorkApplication(
   officeDataFolder: string,
   overrides: readonly ProviderOverride[] = [],
+  databaseUrl?: string,
 ): Promise<WorkApplication> {
   const { app, url } = await startTestApplication({
-    database: true,
+    database: databaseUrl === undefined ? true : { url: databaseUrl },
     // No Projects of its own by default: a test that queues Tasks names its own in `overrides`.
     overrides: [ownProjectsQueue(), ...overrides],
     imports: [
@@ -112,16 +113,24 @@ export function webEventsOf({ app, published }: WorkApplication): unknown[] {
   });
 }
 
-/** A JSON request to the application's API. */
+/**
+ * A JSON request to the application's API, signed in as `SIGNED_IN_FOR_TESTS` unless `headers`
+ * name another user (`signedInAs`).
+ */
 export function sendJson(
   { url }: WorkApplication,
   method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
+  headers: Readonly<Record<string, string>> = {},
 ): Promise<Response> {
   const init: RequestInit =
     body === undefined
-      ? { method }
-      : { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+      ? { method, headers }
+      : {
+          method,
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        };
   return fetch(`${url}/api${path}`, init);
 }

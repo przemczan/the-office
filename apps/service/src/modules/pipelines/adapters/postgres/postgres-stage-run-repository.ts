@@ -8,6 +8,7 @@ import type {
   StageRunDecision,
   StageTokens,
   AskedInterruption,
+  HoldingUser,
 } from "../../domain/stage-run.js";
 import { StageRunRepository, type StageRunThread } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
@@ -65,8 +66,15 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .where(eq(stageRuns.id, runId));
   }
 
-  async saveHeldBy(runId: string, heldBy: AskedInterruption): Promise<void> {
-    await this.database.update(stageRuns).set({ heldBy }).where(eq(stageRuns.id, runId));
+  async saveHeldBy(
+    runId: string,
+    heldBy: AskedInterruption,
+    heldByUser: HoldingUser | undefined,
+  ): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({ heldBy, heldByUser: heldByUser ?? null })
+      .where(eq(stageRuns.id, runId));
   }
 
   async saveGateAction(runId: string, gateAction: GateAction): Promise<boolean> {
@@ -125,6 +133,7 @@ function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">):
     model: row.model ?? undefined,
     headCommit: row.headCommit ?? undefined,
     heldBy: row.heldBy ?? undefined,
+    heldByUser: row.heldByUser ?? undefined,
     gateAction: row.gateAction ?? undefined,
     outcome: row.outcome ?? undefined,
     waitingSince: row.waitingSince ?? undefined,

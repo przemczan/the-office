@@ -1,4 +1,4 @@
-import type { Author } from "./author.js";
+import type { ArchivedBy, Author } from "./author.js";
 
 /**
  * Shaping with the CTO → active on "Confirm the Initiative" → done once its Tasks are, with
@@ -28,8 +28,12 @@ export interface Initiative {
   readonly endedAt?: Date;
   /** Set while it is in the Archive (initiative-archive.ts), a Done or Dropped one alone. */
   readonly archivedAt?: Date;
+  /** Who archived it, while it is; undefined too for one archived before that was kept. */
+  readonly archivedBy?: ArchivedBy;
   /** Its last Restore from the Archive, from which its Archive period counts again. */
   readonly restoredAt?: Date;
+  /** Who last restored it, with `restoredAt`. */
+  readonly restoredBy?: Author;
   /**
    * Set while it is paused (initiative-pause.ts), an active one alone: a mark beside its state, as
    * the Archive's is.
@@ -40,6 +44,8 @@ export interface Initiative {
    * is first planned. Only this Thread may move its Tasks to Planning (start_planning).
    */
   readonly planningThreadId?: string;
+  /** Who asked for its latest planning Thread; undefined until it is first planned. */
+  readonly planningStartedBy?: Author;
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   readonly planningAutoMode: boolean;
   /**

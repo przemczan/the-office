@@ -54,6 +54,7 @@ describe("TaskRecords", () => {
       definitionOfDone: [],
       attachmentLines: [`- Mockup (link to https://example.com/mockup) · Attachment ${link.id}`],
       linkedRecordsSection: undefined,
+      whoAskedSection: "## Who asked\n\nThe Task was created by the user Ann Lee.",
       project: {
         id: projectId,
         name: `The ${projectId}`,

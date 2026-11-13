@@ -19,11 +19,12 @@ import {
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { PlanningService } from "../../application/planning-service.js";
-import { THE_USER } from "../../domain/author.js";
 import { toIdeaResponse, toInitiativeResponse, toTaskResponse } from "./work-responses.js";
+import { authorOf } from "./signed-in-author.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("ideas")
@@ -36,10 +37,13 @@ export class IdeasController {
   ) {}
 
   @Post()
-  async capture(@Body(new ContractPipe(newIdeaSchema)) given: NewIdea): Promise<IdeaResponse> {
+  async capture(
+    @Body(new ContractPipe(newIdeaSchema)) given: NewIdea,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<IdeaResponse> {
     const idea = await this.ideas.capture(
       { title: given.title, notes: given.notes, projectId: given.projectId ?? undefined },
-      THE_USER,
+      authorOf(signedIn),
     );
     return toIdeaResponse(idea);
   }
@@ -61,15 +65,19 @@ export class IdeasController {
   async shape(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.ideas.shape(id, projectId, THE_USER));
+    return toTaskResponse(await this.ideas.shape(id, projectId, authorOf(signedIn)));
   }
 
   /** Shape into an Initiative: the Initiative the Idea became, being shaped, with no Tasks yet. */
   @Post(":id/initiative")
   @HttpCode(HttpStatus.CREATED)
-  async shapeIntoInitiative(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
-    return toInitiativeResponse(await this.initiatives.shape(id, THE_USER), []);
+  async shapeIntoInitiative(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return toInitiativeResponse(await this.initiatives.shape(id, authorOf(signedIn)), []);
   }
 
   /** Plan as a Task with the Planner: the Task the Idea became, in Planning with its Thread. */
@@ -78,8 +86,9 @@ export class IdeasController {
   async shapeAndPlan(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.shapeAndPlan(id, projectId, THE_USER));
+    return toTaskResponse(await this.planning.shapeAndPlan(id, projectId, authorOf(signedIn)));
   }
 
   @Post(":id/drop")

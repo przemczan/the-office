@@ -11,6 +11,7 @@ import {
   projectPipelineRequests,
 } from "../http/project-pipeline-library.controller.fixtures.js";
 import { aChangeTo, aNewOne, fieldsOf } from "./project-pipeline-proposals.fixtures.js";
+import { ANN_LEE } from "../../../conversations/index.fixtures.js";
 
 // The test database is shared by every test file: these tests make Pipelines and Projects of their
 // own, under names no one else uses, and never change the built-ins.
@@ -74,7 +75,7 @@ describe("a Proposal of a Project Pipeline, refused as the editor's save is", ()
       'There is no Project "no-such-project".',
     ]);
     for (const proposal of [takenName, unknownBase, unknownProject]) {
-      await expect(appliers().apply(proposal, "devops")).rejects.toThrow(ProposalRefused);
+      await expect(appliers().apply(proposal, "devops", ANN_LEE)).rejects.toThrow(ProposalRefused);
     }
   });
 
@@ -93,7 +94,7 @@ describe("a Proposal of a Project Pipeline, refused as the editor's save is", ()
     expect(await appliers().problemsWith(anotherProjects)).toEqual([
       `There is no Project Pipeline "${projectPipeline.id}".`,
     ]);
-    await expect(appliers().apply(unknown, "devops")).rejects.toThrow(ProposalRefused);
+    await expect(appliers().apply(unknown, "devops", ANN_LEE)).rejects.toThrow(ProposalRefused);
     expect(await read(projectPipeline.id)).toEqual(projectPipeline);
   });
 
@@ -126,7 +127,7 @@ describe("a Proposal of a Project Pipeline, refused as the editor's save is", ()
       "Nothing changes: give the Project Pipeline's name, description, base Pipeline or Stage changes as they should be.",
     ]);
     for (const proposal of [missingKey, missingCommand, nothing]) {
-      await expect(appliers().apply(proposal, "devops")).rejects.toThrow(ProposalRefused);
+      await expect(appliers().apply(proposal, "devops", ANN_LEE)).rejects.toThrow(ProposalRefused);
     }
     expect(await read(projectPipeline.id)).toEqual(projectPipeline);
   });

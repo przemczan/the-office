@@ -40,6 +40,11 @@
 - `migrations.ts`: runPendingMigrations
 - Tests: database.module.test.ts
 
+### earlier-records/
+
+- `earlier-records.module.ts`: EarlierRecordsModule
+- `earlier-records.ts`: EarlierRecordsClaim, EarlierRecords
+
 ### events/
 
 - `domain-event.ts`: DomainEvent, DomainEventClass
@@ -89,8 +94,8 @@
 - `office-addresses.ts`: OfficeAddresses
 - `request-access.module.ts`: RequestAccessOptions, RequestAccessModule
 - `request-access.ts`: needsSignIn, refuseNonLocalRequests, refuseSignedOutRequests
-- `signed-in-requests.fixtures.ts`: SIGNED_IN_FOR_TESTS, EveryoneSignedIn, everyoneSignedIn
-- `signed-in-requests.ts`: SignedIn, SignedInRequests, rememberSignedIn, signedInOfRequest, SIGN_IN_FIRST
+- `signed-in-requests.fixtures.ts`: SIGNED_IN_FOR_TESTS, ANOTHER_SIGNED_IN_FOR_TESTS, signedInAs, EveryoneSignedIn, everyoneSignedIn
+- `signed-in-requests.ts`: SignedInUser, SignedIn, userOf, SignedInRequests, rememberSignedIn, signedInOfRequest, SIGN_IN_FIRST
 - `upload-body.ts`: uploadBody, uploadedBytes
 - Tests: configure-http.test.ts, contract-pipe.test.ts, local-requests.test.ts
 

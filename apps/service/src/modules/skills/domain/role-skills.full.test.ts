@@ -9,6 +9,7 @@ import {
   type RoleSkillAssignment,
 } from "./role-skills.js";
 import { aSkill } from "./skill.fixtures.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const at = new Date("2026-10-25T10:00:00.000Z");
 const assignments: RoleSkillAssignment[] = [
@@ -43,12 +44,24 @@ describe("assignmentsChange", () => {
       ["reviewer"],
     );
 
-    expect(assignmentsChange(assignments, after, at)).toEqual({
+    expect(assignmentsChange(assignments, after, at, ANN_LEE)).toEqual({
       assignments: after,
       changes: [
-        { roleKey: "developer", added: ["refactoring"], removed: ["debugging"], changedAt: at },
-        { roleKey: "planner", added: [], removed: ["grilling"], changedAt: at },
-        { roleKey: "reviewer", added: ["grilling"], removed: [], changedAt: at },
+        {
+          roleKey: "developer",
+          added: ["refactoring"],
+          removed: ["debugging"],
+          changedAt: at,
+          changedBy: ANN_LEE,
+        },
+        { roleKey: "planner", added: [], removed: ["grilling"], changedAt: at, changedBy: ANN_LEE },
+        {
+          roleKey: "reviewer",
+          added: ["grilling"],
+          removed: [],
+          changedAt: at,
+          changedBy: ANN_LEE,
+        },
       ],
     });
   });
@@ -56,7 +69,7 @@ describe("assignmentsChange", () => {
   it("names no change when the Roles keep their skills", () => {
     const after = withRoleSkills(assignments, "developer", ["debugging", "tdd"]);
 
-    expect(assignmentsChange(assignments, after, at).changes).toEqual([]);
+    expect(assignmentsChange(assignments, after, at, ANN_LEE).changes).toEqual([]);
   });
 });
 

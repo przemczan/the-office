@@ -4,6 +4,7 @@ import { aProposal, aProposedCard } from "./proposal.fixtures.js";
 import { declineProposal } from "./proposal-changes.js";
 import { ProposalRefused } from "./proposal-refused.js";
 import { aThread } from "./thread.fixtures.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const AT = new Date("2026-10-27T10:00:00.000Z");
 const thread = aThread({
@@ -29,11 +30,11 @@ describe("applying a Proposal", () => {
   });
 
   it("refuses once it is applied or declined", () => {
-    const applied = aProposal({ status: { kind: "applied", at: AT } });
-    const declined = aProposal({ status: { kind: "declined", at: AT } });
+    const applied = aProposal({ status: { kind: "applied", at: AT, by: ANN_LEE } });
+    const declined = aProposal({ status: { kind: "declined", at: AT, by: ANN_LEE } });
 
     expect(() => changeToApply(applied, undefined)).toThrow("This Proposal is applied already.");
     expect(() => changeToApply(declined, undefined)).toThrow("This Proposal was declined.");
-    expect(() => declineProposal(applied, thread, AT)).toThrow(ProposalRefused);
+    expect(() => declineProposal(applied, thread, AT, ANN_LEE)).toThrow(ProposalRefused);
   });
 });

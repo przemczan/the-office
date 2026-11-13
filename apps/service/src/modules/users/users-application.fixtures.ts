@@ -1,4 +1,5 @@
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
+import type { ModuleMetadata } from "@nestjs/common";
 import { DatabaseModule } from "../../platform/database/database.module.js";
 import { EventsModule } from "../../platform/events/events.module.js";
 import { RequestAccessModule } from "../../platform/http/request-access.module.js";
@@ -19,6 +20,8 @@ export interface UsersApplication extends TestApplication {
 export interface UsersApplicationOptions {
   /** The database it runs on: the run's shared one unless the test brings its own. */
   readonly databaseUrl?: string;
+  /** More modules to boot with it, such as one adding a claim on earlier records. */
+  readonly imports?: NonNullable<ModuleMetadata["imports"]>;
 }
 
 /**
@@ -27,9 +30,11 @@ export interface UsersApplicationOptions {
  */
 export async function startUsersApplication({
   databaseUrl = testDatabaseUrl(),
+  imports = [],
 }: UsersApplicationOptions = {}): Promise<UsersApplication> {
   const started = await startTestApplication({
     imports: [
+      ...imports,
       DatabaseModule.forRoot({ url: databaseUrl }),
       EventsModule,
       EventStreamModule,

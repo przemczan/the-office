@@ -7,6 +7,7 @@ import { OfficeInstructions } from "../../application/office-instructions.js";
 import { ProposalAppliers } from "../../application/proposal-appliers.js";
 import type { ProposedSettingChange } from "../../domain/proposal.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
+import type { UserRef } from "../../domain/user.js";
 
 type OfficeInstructionsChange = ProposedSettingChange<"office-instructions">;
 
@@ -26,7 +27,7 @@ export class OfficeInstructionsProposals implements OnModuleInit {
     this.appliers.registerSetting("office-instructions", {
       valueNow: () => this.textNow(),
       problemsWith: ({ to }) => this.problemsWith(to),
-      apply: (change) => this.apply(change),
+      apply: (change, _proposedBy, appliedBy) => this.apply(change, appliedBy),
     });
   }
 
@@ -43,10 +44,13 @@ export class OfficeInstructionsProposals implements OnModuleInit {
       : [];
   }
 
-  private async apply(change: OfficeInstructionsChange): Promise<OfficeInstructionsChange> {
+  private async apply(
+    change: OfficeInstructionsChange,
+    appliedBy: UserRef,
+  ): Promise<OfficeInstructionsChange> {
     const text = allowedText(change.to);
     if (text === undefined) throw new ProposalRefused([RULE]);
-    await this.instructions.replace(change.from, text);
+    await this.instructions.replace(change.from, text, appliedBy);
     return { ...change, to: text };
   }
 }

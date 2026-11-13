@@ -14,6 +14,7 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 import { StageThreadMessages } from "./stage-thread-messages.js";
 import { ThreadHistory } from "./thread-history.js";
 import { WorkRecords } from "./work-records.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 
 // Every test file shares the database: this one's Roles, Tasks and Project are its own, and its
 // messages are logged on a day nobody else's are.
@@ -85,7 +86,7 @@ beforeAll(async () => {
   history = app.get(ThreadHistory);
   repository = app.get(ThreadRepository);
   await logged(DEVELOPER, { kind: "chat", roleKey: DEVELOPER }, "09:00", [
-    { kind: "user", text: "Why did the build fail?", delivery: "delivered" },
+    { kind: "user", text: "Why did the build fail?", delivery: "delivered", writtenBy: ANN_LEE },
     { kind: "tool-activity", roleKey: DEVELOPER, tool: "Bash", summary: "npm run build\nmore" },
     { kind: "person", roleKey: DEVELOPER, text: "A missing import." },
   ]);
@@ -135,7 +136,7 @@ describe("ThreadHistory", () => {
       "Thread messages logged from 2032-07-14 00:00 UTC to 2032-07-14 23:59 UTC, with Jim, the Developer: 4 in 2 Threads",
     );
     expect(answer).toMatch(
-      /## Chat with Jim, the Developer: "Why did the build fail" \(Thread [\w-]+\)\n\n- 2032-07-14 09:00 UTC · the user: Why did the build fail\?\n- 2032-07-14 09:01 UTC · Jim, the Developer: \[Bash\] npm run build …\n- 2032-07-14 09:02 UTC · Jim, the Developer: A missing import\./,
+      /## Chat with Jim, the Developer: "Why did the build fail" \(Thread [\w-]+\)\n\n- 2032-07-14 09:00 UTC · the user Ann Lee: Why did the build fail\?\n- 2032-07-14 09:01 UTC · Jim, the Developer: \[Bash\] npm run build …\n- 2032-07-14 09:02 UTC · Jim, the Developer: A missing import\./,
     );
     expect(answer).toContain(
       `## Jim, the Developer's Stage Thread on the Task "Fix login" (Task ${TASK})`,

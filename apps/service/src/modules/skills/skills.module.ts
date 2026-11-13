@@ -20,6 +20,7 @@ import { PostgresRoleSkillRepository } from "./adapters/postgres/postgres-role-s
 import { PostgresSessionSkillRepository } from "./adapters/postgres/postgres-session-skill-repository.js";
 import { PostgresSkillRepository } from "./adapters/postgres/postgres-skill-repository.js";
 import { PostgresSkillUseRepository } from "./adapters/postgres/postgres-skill-use-repository.js";
+import { SkillsEarlierRecords } from "./adapters/postgres/skills-earlier-records.js";
 import { SkillWebEvents } from "./adapters/websocket/skill-web-events.js";
 import { YauzlZipReader } from "./adapters/zip/yauzl-zip-reader.js";
 import { ProjectSkills } from "./application/project-skills.js";
@@ -60,6 +61,7 @@ import { ZipReader } from "./ports/zip-reader.js";
     ProjectSkills,
     RoleSkills,
     SkillWebEvents,
+    SkillsEarlierRecords,
   ],
   exports: [SkillLibrary, SkillSources, SkillUpdates, SessionSkills, ProjectSkills, RoleSkills],
 })

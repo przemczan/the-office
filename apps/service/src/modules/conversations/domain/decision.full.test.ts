@@ -11,6 +11,7 @@ import {
 } from "./thread-changes.js";
 import { aThread } from "./thread.fixtures.js";
 import { aDecision, AT, TASK_HOME, SESSION, DRAFT, WARM, refusalOf } from "./decision.fixtures.js";
+import { ANSWERED_BY_ANN_LEE } from "./user.fixtures.js";
 
 describe("what an Agent asks in a Decision", () => {
   it("is a question with two or more named options, one of them recommended with a reason", () => {
@@ -57,14 +58,20 @@ describe("the user's answer", () => {
     );
   });
 
-  it("reaches the asking session with the question", () => {
-    expect(decisionAnswerMessage(decision, { kind: "option", option: 0 })).toBe(
-      'The user answered your Decision "Should the export include archived Projects?" with the option "Only active Projects".',
+  it("reaches the asking session with the question and the user who answered", () => {
+    expect(
+      decisionAnswerMessage(decision, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE),
+    ).toBe(
+      'The user Ann Lee answered your Decision "Should the export include archived Projects?" with the option "Only active Projects".',
     );
     expect(
-      decisionAnswerMessage(decision, { kind: "free-answer", text: "Ask me next week." }),
+      decisionAnswerMessage(
+        decision,
+        { kind: "free-answer", text: "Ask me next week." },
+        ANSWERED_BY_ANN_LEE,
+      ),
     ).toBe(
-      'The user answered your Decision "Should the export include archived Projects?" in their own words:\n\nAsk me next week.',
+      'The user Ann Lee answered your Decision "Should the export include archived Projects?" in their own words:\n\nAsk me next week.',
     );
   });
 });

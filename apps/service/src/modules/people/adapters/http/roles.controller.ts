@@ -8,11 +8,14 @@ import {
   type RoleCard,
   type RoleCardOptions,
   type RoleChange as RoleChangeResponse,
+  type UserRef as UserRefResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import type { RoleHistoryEntry } from "../../application/role-history.js";
 import { RoleService } from "../../application/role-service.js";
 import type { Preset } from "../../domain/presets.js";
+import type { UserRef } from "../../domain/user.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
 import { filledKeys, toRoleResponse } from "./role-responses.js";
 
@@ -44,11 +47,15 @@ export class RolesController {
   }
 
   @Post("roles")
-  async hire(@Body(new ContractPipe(hireSchema)) hiring: Hire): Promise<RoleResponse> {
+  async hire(
+    @Body(new ContractPipe(hireSchema)) hiring: Hire,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<RoleResponse> {
+    const user = userOf(signedIn);
     const role =
       "card" in hiring
-        ? await this.roles.hireFromScratch(...cardAndSkills(hiring.card))
-        : await this.roles.hire(hiring.roleKey, hiring.name);
+        ? await this.roles.hireFromScratch(...cardAndSkills(hiring.card), user)
+        : await this.roles.hire(hiring.roleKey, hiring.name, user);
     return toRoleResponse(role, await this.filledRoleKeys());
   }
 
@@ -68,8 +75,9 @@ export class RolesController {
   async changeCard(
     @Param("key") key: string,
     @Body(new ContractPipe(roleCardSchema)) card: RoleCard,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<RoleResponse> {
-    const role = await this.roles.changeCard(key, ...cardAndSkills(card));
+    const role = await this.roles.changeCard(key, ...cardAndSkills(card), userOf(signedIn));
     return toRoleResponse(role, await this.filledRoleKeys());
   }
 
@@ -109,7 +117,12 @@ function toChangeResponse(entry: RoleHistoryEntry): RoleChangeResponse {
   const at = entry.at.toISOString();
   switch (entry.kind) {
     case "hired":
-      return { kind: "hired", at, proposedBy: entry.proposedBy ?? null };
+      return {
+        kind: "hired",
+        at,
+        proposedBy: entry.proposedBy ?? null,
+        savedBy: userResponse(entry.savedBy),
+      };
     case "card-changed":
       return {
         kind: "card-changed",
@@ -117,8 +130,19 @@ function toChangeResponse(entry: RoleHistoryEntry): RoleChangeResponse {
         cardVersion: entry.cardVersion,
         changes: entry.changes.map(({ field, from, to }) => ({ field, from, to })),
         proposedBy: entry.proposedBy ?? null,
+        savedBy: userResponse(entry.savedBy),
       };
     case "skills-changed":
-      return { kind: "skills-changed", at, added: [...entry.added], removed: [...entry.removed] };
+      return {
+        kind: "skills-changed",
+        at,
+        added: [...entry.added],
+        removed: [...entry.removed],
+        changedBy: userResponse(entry.changedBy),
+      };
   }
+}
+
+function userResponse(user: UserRef | null): UserRefResponse | null {
+  return user && { userId: user.userId, name: user.name };
 }

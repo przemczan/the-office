@@ -5,6 +5,7 @@ import { NO_TOKENS } from "./thread.js";
 import { bargeIn, logMessages, startChatThread } from "./thread-changes.js";
 import { aThread, aUserMessage } from "./thread.fixtures.js";
 import { ThreadRefused } from "./thread-refused.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const AT = new Date("2026-10-25T10:00:00.000Z");
 const JAN = { roleKey: "planner", name: "Jan", chat: true };
@@ -77,8 +78,8 @@ describe("barge-in", () => {
   it("is refused once the Stage's work in the Thread has ended", () => {
     const waiting = { ...running, state: "waiting" as const };
 
-    expect(() => bargeIn(waiting, { id: "said", text: "Too late?", at: AT })).toThrow(
-      ThreadRefused,
-    );
+    expect(() =>
+      bargeIn(waiting, { id: "said", text: "Too late?", at: AT, writtenBy: ANN_LEE }),
+    ).toThrow(ThreadRefused);
   });
 });

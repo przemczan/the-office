@@ -18,7 +18,7 @@ const INITIATIVE: Initiative = {
   state: "active",
   originIdeaId: null,
   projectIds: ["admin-panel"],
-  createdBy: { kind: "user" },
+  createdBy: { kind: "user", user: null },
   createdAt: "2026-11-10T09:00:00.000Z",
   endedAt: null,
   archivedAt: null,

@@ -30,7 +30,7 @@ CookieSignedInRequests, Accounts, Passwords, SignInWays, SignIns, SignInOutcome,
 
 ## Tables
 
-- `adapters/postgres/users.schema.ts`: users, signed_in_devices
+- `adapters/postgres/users.schema.ts`: users, signed_in_devices, earlier_records_claimed
 
 ## Files
 
@@ -59,7 +59,7 @@ CookieSignedInRequests, Accounts, Passwords, SignInWays, SignIns, SignInOutcome,
 
 - `postgres-signed-in-device-repository.ts`: PostgresSignedInDeviceRepository
 - `postgres-user-repository.ts`: PostgresUserRepository
-- `users.schema.ts`: users, signedInDevices
+- `users.schema.ts`: users, signedInDevices, earlierRecordsClaimed
 
 ### adapters/second-steps/
 
@@ -68,6 +68,7 @@ CookieSignedInRequests, Accounts, Passwords, SignInWays, SignIns, SignInOutcome,
 ### application/
 
 - `accounts.ts`: Accounts
+- `earlier-records-claims.ts`: EarlierRecordsClaims
 - `first-user.ts`: FirstUser
 - `password-sign-in.ts`: PasswordSignIn
 - `passwords.ts`: Passwords
@@ -76,7 +77,7 @@ CookieSignedInRequests, Accounts, Passwords, SignInWays, SignIns, SignInOutcome,
 - `sign-ins.ts`: SignInOutcome, SignIns
 - `signed-in-devices.ts`: NewSignedInDevice, SignedInDevices
 - `unknown-email-tries.ts`: UnknownEmailTries
-- Tests: password-sign-in.test.ts, sign-ins.test.ts
+- Tests: earlier-records-claims.test.ts, password-sign-in.test.ts, sign-ins.test.ts
 
 ### domain/
 

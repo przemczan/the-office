@@ -10,6 +10,7 @@ import type {
   TaskState,
 } from "@the-office/contracts";
 import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
+import { userName } from "../use-user-name.ts";
 import { pausedByUsageWindowWords } from "../usage-window-words.ts";
 
 /** Each Task state as the UI names it (spec §2.1). */
@@ -105,9 +106,16 @@ export const PRIORITY_ICONS: Readonly<Record<Priority, string>> = {
   low: "chevron-down",
 };
 
-/** "You" for the user, or the person's first name when their Role is known. */
-export function authorName(author: Author, roles: readonly Role[] | undefined): string {
-  if (author.kind === "user") return "You";
+/**
+ * "You" for the signed-in user, another user's name, or the person's first name when their Role is
+ * known.
+ */
+export function authorName(
+  author: Author,
+  roles: readonly Role[] | undefined,
+  signedInUserId: string | undefined,
+): string {
+  if (author.kind === "user") return userName(author.user, signedInUserId);
   return roles?.find((role) => role.key === author.roleKey)?.card.name ?? author.roleKey;
 }
 

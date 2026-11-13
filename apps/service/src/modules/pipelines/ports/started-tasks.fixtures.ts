@@ -2,6 +2,7 @@ import type { ProviderOverride } from "../../../../test/test-application.js";
 import { TaskService } from "../../work/index.js";
 import {
   StartedTasks,
+  type ByTheUser,
   type StartedTask,
   type TaskBlocker,
   type UsageWindowRefusal,
@@ -51,12 +52,12 @@ export class OwnProjectsStartedTasks extends StartedTasks {
     return this.tasks.pauseForUsageWindow(taskId, refusal);
   }
 
-  resume(taskId: string): Promise<StartedTask> {
-    return this.tasks.resume(taskId);
+  resume(taskId: string, by: ByTheUser): Promise<StartedTask> {
+    return this.tasks.resume(taskId, by);
   }
 
-  drop(taskId: string): Promise<StartedTask> {
-    return this.tasks.drop(taskId);
+  drop(taskId: string, by: ByTheUser): Promise<StartedTask> {
+    return this.tasks.drop(taskId, by);
   }
 
   waitingFor(taskId: string): Promise<readonly TaskBlocker[]> {

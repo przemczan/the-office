@@ -8,6 +8,7 @@ import { PostgresSignedInDeviceRepository } from "./adapters/postgres/postgres-s
 import { PostgresUserRepository } from "./adapters/postgres/postgres-user-repository.js";
 import { NoSecondSteps } from "./adapters/second-steps/no-second-steps.js";
 import { Accounts } from "./application/accounts.js";
+import { EarlierRecordsClaims } from "./application/earlier-records-claims.js";
 import { FirstUser } from "./application/first-user.js";
 import { PasswordSignIn } from "./application/password-sign-in.js";
 import { Passwords } from "./application/passwords.js";
@@ -34,6 +35,7 @@ import { UserRepository } from "./ports/user-repository.js";
     { provide: PasswordHashing, useClass: ScryptPasswordHashing },
     { provide: SecondSteps, useClass: NoSecondSteps },
     Accounts,
+    EarlierRecordsClaims,
     FirstUser,
     PasswordSignIn,
     Passwords,

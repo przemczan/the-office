@@ -1,6 +1,7 @@
 import { pipelineIn, type Initiative } from "./initiative.js";
 import { pipelineGroups, type PlanningPipeline } from "./planning.js";
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import { shapingWhoAskedSection } from "./who-asked.js";
 
 /** The Role that shapes Initiatives, by the key a hired CTO keeps (spec §2.2). */
 export const CTO = "cto";
@@ -37,7 +38,7 @@ export interface ShapingProject {
 }
 
 /**
- * The CTO's shaping Brief: the Initiative's record, the Project its Idea was captured in when it
+ * The CTO's shaping Brief: the Initiative's record, who shaped or created it, the Project its Idea was captured in when it
  * was, then the Pipelines each Project it spans may follow, with what each follows now.
  */
 export function shapingBrief(
@@ -60,6 +61,7 @@ export function shapingBrief(
       : "Whether each Project has one was fixed at Confirm; choose_pipeline drafts a Proposal of another Pipeline for a Project that has one, or of a first one for a Project the Initiative came to span since.";
   return [
     record,
+    shapingWhoAskedSection(initiative),
     ...(ideaProjectId === undefined
       ? []
       : [

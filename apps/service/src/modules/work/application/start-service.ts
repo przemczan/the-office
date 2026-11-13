@@ -1,3 +1,4 @@
+import type { Author } from "../domain/author.js";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
@@ -48,10 +49,10 @@ export class StartService {
     private readonly schedule: Schedule,
   ) {}
 
-  async start(id: string, onOverlap: OverlapChoice): Promise<Starting> {
+  async start(id: string, onOverlap: OverlapChoice, by: Author): Promise<Starting> {
     const conditions = await this.conditions.of(await this.read(id));
     const starting = await this.queue.start(id, (task, held, queue) =>
-      startOrQueue(task, conditions, held, queue, { now: this.schedule.now(), onOverlap }),
+      startOrQueue(task, conditions, held, queue, { now: this.schedule.now(), onOverlap, by }),
     );
     if (starting.kind === "started") {
       this.startsSinceReading.record(this.schedule.now(), conditions.usage.estimate);

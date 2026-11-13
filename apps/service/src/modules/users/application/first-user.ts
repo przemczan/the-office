@@ -8,6 +8,7 @@ import { UserCreated } from "../domain/user-events.js";
 import { FirstUserExists, UserRefused } from "../domain/user-refused.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
+import { EarlierRecordsClaims } from "./earlier-records-claims.js";
 import { SignIns, type SignInOutcome } from "./sign-ins.js";
 
 /**
@@ -22,6 +23,7 @@ export class FirstUser {
     private readonly signIns: SignIns,
     private readonly schedule: Schedule,
     private readonly eventBus: EventBus,
+    private readonly earlierRecordsClaims: EarlierRecordsClaims,
   ) {}
 
   /** Whether The Office still waits for its first user. */
@@ -30,7 +32,7 @@ export class FirstUser {
   }
 
   /**
-   * Creates the first user and signs them in. Throws UserRefused with every problem, and
+   * Creates the first user, gives them the records made before users existed, and signs them in. Throws UserRefused with every problem, and
    * FirstUserExists once a user exists, also when another first user was made meanwhile.
    */
   async create(newUser: NewUser, request: SignInRequest): Promise<SignInOutcome> {
@@ -46,6 +48,7 @@ export class FirstUser {
     );
     if (!(await this.users.addFirst(user))) throw new FirstUserExists();
     await this.eventBus.publish(new UserCreated(user.id, now));
+    await this.earlierRecordsClaims.claimIfDue();
     return this.signIns.finish(user, "password", request);
   }
 }

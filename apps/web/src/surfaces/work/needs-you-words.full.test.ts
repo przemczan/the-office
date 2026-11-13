@@ -24,6 +24,7 @@ function decisionPutTo(putTo: string | null): Decision {
     askedAt: "2026-11-04T10:00:00.000Z",
     answer: null,
     answeredAt: null,
+    answeredByUser: null,
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,

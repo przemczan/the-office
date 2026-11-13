@@ -46,7 +46,7 @@ describe("PostgresMemoryRepository", () => {
   it("lists the notes newest first, as they were written", async () => {
     roleKey = await aPerson();
     const older = aNote({ writtenAt: new Date("2026-10-27T09:00:00.000Z") });
-    const newer = aNote({ projectId: "p1", source: { kind: "user" } });
+    const newer = aNote({ projectId: "p1", source: { kind: "user", user: null } });
     await memory.append(older);
     await memory.append(newer);
 

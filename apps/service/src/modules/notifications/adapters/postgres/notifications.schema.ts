@@ -29,16 +29,12 @@ export const taskOutcomes = pgTable(
   (table) => [index("task_outcomes_occurred_at").on(table.occurredAt)],
 );
 
-/** The user's activity, in one row once they are first seen. */
-export const userActivity = pgTable(
-  "user_activity",
-  {
-    id: smallint("id").primaryKey().default(1),
-    lastActiveAt: timestamp("last_active_at", { withTimezone: true }).notNull(),
-    leftAt: timestamp("left_at", { withTimezone: true }).notNull(),
-  },
-  (table) => [check("user_activity_one_row", sql`${table.id} = 1`)],
-);
+/** Each user's activity, once they are first seen: where their Since you left begins. */
+export const userActivity = pgTable("user_activity", {
+  userId: text("user_id").primaryKey(),
+  lastActiveAt: timestamp("last_active_at", { withTimezone: true }).notNull(),
+  leftAt: timestamp("left_at", { withTimezone: true }).notNull(),
+});
 
 /** Each Thread's tokens so far at its last count, which the next count is measured from. */
 export const threadTokenCounts = pgTable("thread_token_counts", {

@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import type { StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
 import { TaskMovedToProject, TaskStateChanged } from "./task-events.js";
 import { moveProblems, moveTask, type MoveGrounds } from "./task-move.js";
 import { TaskRefused } from "./task-refused.js";
-import { aPlannedTask, aTask } from "./work.fixtures.js";
+import { ANN_LEE, aPlannedTask, aTask } from "./work.fixtures.js";
 
 const CREATED_AT = new Date("2026-10-25T09:30:00.000Z");
-const CREATED: StateChange = { from: undefined, to: "backlog", at: CREATED_AT, by: THE_USER };
+const CREATED: StateChange = { from: undefined, to: "backlog", at: CREATED_AT, by: ANN_LEE };
 const NEVER_PLANNED: MoveGrounds = { stateChanges: [CREATED], hasWorktree: false };
 const TO_SHOP = "shop";
 
@@ -18,7 +17,7 @@ function aReadyTask(fields: Partial<Task> = {}): Task {
 }
 
 const READY_FROM_BACKLOG: MoveGrounds = {
-  stateChanges: [CREATED, { from: "backlog", to: "ready", at: CREATED_AT, by: THE_USER }],
+  stateChanges: [CREATED, { from: "backlog", to: "ready", at: CREATED_AT, by: ANN_LEE }],
   hasWorktree: false,
 };
 
@@ -65,9 +64,9 @@ describe("moveProblems", () => {
     const grounds: MoveGrounds = {
       stateChanges: [
         CREATED,
-        { from: "backlog", to: "planning", at: CREATED_AT, by: THE_USER },
-        { from: "planning", to: "ready", at: CREATED_AT, by: THE_USER },
-        { from: "ready", to: "backlog", at: CREATED_AT, by: THE_USER },
+        { from: "backlog", to: "planning", at: CREATED_AT, by: ANN_LEE },
+        { from: "planning", to: "ready", at: CREATED_AT, by: ANN_LEE },
+        { from: "ready", to: "backlog", at: CREATED_AT, by: ANN_LEE },
       ],
       hasWorktree: false,
     };
@@ -82,7 +81,7 @@ describe("moveProblems", () => {
       from: "backlog",
       to: "ready",
       at: CREATED_AT,
-      by: THE_USER,
+      by: ANN_LEE,
     };
 
     for (const stateChanges of [[], [sinceKeeping]]) {
@@ -117,7 +116,7 @@ describe("moveTask", () => {
       proposedPipeline: { pipelineId: "full", reason: "It needs a review." },
     });
 
-    const change = moveTask(task, TO_SHOP, NEVER_PLANNED, THE_USER);
+    const change = moveTask(task, TO_SHOP, NEVER_PLANNED, ANN_LEE);
 
     expect(change?.task).toMatchObject({
       projectId: "shop",
@@ -150,7 +149,7 @@ describe("moveTask", () => {
       priority: "high",
     });
 
-    expect(moveTask(task, TO_SHOP, NEVER_PLANNED, THE_USER)?.task).toMatchObject({
+    expect(moveTask(task, TO_SHOP, NEVER_PLANNED, ANN_LEE)?.task).toMatchObject({
       initiativeId: "initiative-1",
       blockedBy: ["task-2"],
       originIdeaId: "idea-1",
@@ -160,23 +159,23 @@ describe("moveTask", () => {
   });
 
   it("keeps the Move in the Task, after any earlier one", () => {
-    const earlier = { from: "docs", to: "admin-panel", at: CREATED_AT, by: THE_USER };
+    const earlier = { from: "docs", to: "admin-panel", at: CREATED_AT, by: ANN_LEE };
 
-    const change = moveTask(aTask({ projectMoves: [earlier] }), TO_SHOP, NEVER_PLANNED, THE_USER);
+    const change = moveTask(aTask({ projectMoves: [earlier] }), TO_SHOP, NEVER_PLANNED, ANN_LEE);
 
     expect(change?.task.projectMoves).toEqual([
       earlier,
-      { from: "admin-panel", to: "shop", at: change?.event.occurredAt, by: THE_USER },
+      { from: "admin-panel", to: "shop", at: change?.event.occurredAt, by: ANN_LEE },
     ]);
   });
 
   it("takes a Ready Task back to Backlog in the same save, its move kept", () => {
-    const change = moveTask(aReadyTask(), TO_SHOP, READY_FROM_BACKLOG, THE_USER);
+    const change = moveTask(aReadyTask(), TO_SHOP, READY_FROM_BACKLOG, ANN_LEE);
 
     expect(change?.task.state).toBe("backlog");
     expect(change?.event.leftReady).toBeInstanceOf(TaskStateChanged);
     expect(change?.event.leftReady).toMatchObject({ from: "ready", to: "backlog" });
-    expect(change?.stateChange).toMatchObject({ from: "ready", to: "backlog", by: THE_USER });
+    expect(change?.stateChange).toMatchObject({ from: "ready", to: "backlog", by: ANN_LEE });
   });
 
   it("leaves a Task in Shaping there, for Confirm alone to move on", () => {
@@ -186,7 +185,7 @@ describe("moveTask", () => {
       aTask({ state: "shaping" }),
       TO_SHOP,
       { stateChanges: [shaping], hasWorktree: false },
-      THE_USER,
+      ANN_LEE,
     );
 
     expect(change?.task).toMatchObject({ state: "shaping", projectId: "shop" });
@@ -194,12 +193,12 @@ describe("moveTask", () => {
   });
 
   it("changes nothing for the Project the Task is in", () => {
-    expect(moveTask(aTask(), "admin-panel", NEVER_PLANNED, THE_USER)).toBeUndefined();
+    expect(moveTask(aTask(), "admin-panel", NEVER_PLANNED, ANN_LEE)).toBeUndefined();
   });
 
   it("refuses with every reason", () => {
     expect(() =>
-      moveTask(aTask(), TO_SHOP, { ...NEVER_PLANNED, hasWorktree: true }, THE_USER),
+      moveTask(aTask(), TO_SHOP, { ...NEVER_PLANNED, hasWorktree: true }, ANN_LEE),
     ).toThrow(TaskRefused);
   });
 });

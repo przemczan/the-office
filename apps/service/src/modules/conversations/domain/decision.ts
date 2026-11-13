@@ -1,4 +1,5 @@
 import type { Thread } from "./thread.js";
+import type { UserRef } from "./user.js";
 
 /** Whether the Decision asks approval of a call, which a Consultant may pass on. */
 export function isApproval({ kind }: Pick<Decision, "kind">): boolean {
@@ -41,19 +42,24 @@ export type DecisionAnswer =
 
 /**
  * The person who answered a Decision for the user, when the user asked them to in a Thread of the
- * person's own (spec §2.4): by the key of their Role, and the Thread the user asked them in.
+ * person's own (spec §2.4): by the key of their Role, the Thread the user asked them in, and the
+ * user who wrote the latest message there, as the one who asked.
  */
 export interface AtUsersRequest {
   readonly roleKey: string;
   readonly threadId: string;
+  /** Null when no user is named: an answer from before users existed, or a Thread with no message. */
+  readonly user: UserRef | null;
 }
 
 /**
- * Who gave an answer, besides the user themselves: `answeredBy` is the Consultant who gave it, by
- * the key of their Role; `atUsersRequest` the person who gave the user's answer for them. For a
- * Consultation and the Pipeline's `guidedBy`, an answer at the user's request is the user's own.
+ * Who gave an answer: `user` the user who gave it themselves, `answeredBy` the Consultant who gave
+ * it, by the key of their Role; `atUsersRequest` the person who gave the user's answer for them. For
+ * a Consultation and the Pipeline's `guidedBy`, an answer at the user's request is the user's own.
  */
 export interface AnswerGivenBy {
+  /** Set when a user gave it themselves; null on an answer from before users existed. */
+  readonly user?: UserRef | null | undefined;
   readonly answeredBy?: string | undefined;
   readonly atUsersRequest?: AtUsersRequest | undefined;
   /**
@@ -63,26 +69,34 @@ export interface AnswerGivenBy {
   readonly byTheOffice?: boolean | undefined;
 }
 
-/** An answer given, and when; with neither of `AnswerGivenBy`'s set, the user gave it. */
+/** An answer given, and when. */
 export type GivenAnswer = DecisionAnswer & AnswerGivenBy & { readonly answeredAt: Date };
 
 /**
- * A person who answers a Decision in place of the user: the Consultant it was put to, or a person
- * the user asked to answer it for them in a Thread of their own.
+ * Who answers a Decision: a user themselves, the Consultant it was put to, a person the user asked
+ * to answer it for them in a Thread of their own, or The Office.
  */
 export type Answerer =
+  | { readonly kind: "user"; readonly user: UserRef | null }
   | { readonly kind: "consultant"; readonly roleKey: string; readonly name: string }
   | ({ readonly kind: "at-users-request"; readonly name: string } & AtUsersRequest)
   | { readonly kind: "the-office" };
 
-/** What the answer records of who gave it: nothing when the user did. */
-export function answerGivenBy(answerer: Answerer | undefined): AnswerGivenBy {
-  if (!answerer) return {};
+/** What the answer records of who gave it. */
+export function answerGivenBy(answerer: Answerer): AnswerGivenBy {
   switch (answerer.kind) {
+    case "user":
+      return { user: answerer.user };
     case "consultant":
       return { answeredBy: answerer.roleKey };
     case "at-users-request":
-      return { atUsersRequest: { roleKey: answerer.roleKey, threadId: answerer.threadId } };
+      return {
+        atUsersRequest: {
+          roleKey: answerer.roleKey,
+          threadId: answerer.threadId,
+          user: answerer.user,
+        },
+      };
     case "the-office":
       return { byTheOffice: true };
   }

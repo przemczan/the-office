@@ -2,6 +2,7 @@ import { z } from "zod";
 import { engineCapabilitySchema, engineIdSchema, engineModelSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
+import { userRefSchema } from "./users.js";
 
 /** How hard the model thinks. */
 export const effortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
@@ -231,9 +232,20 @@ const roleCardValueSchema = z.union([
  */
 const proposedBySchema = z.string().nullable();
 
+/**
+ * The user who made a change; null when no user did (a person's own `change_role`, an engine's
+ * removal) or before users existed, until the first user claims it.
+ */
+const changedBySchema = userRefSchema.nullable();
+
 /** GET /roles/:key/changes, newest first: the Role's change history, ending with the hire. */
 export const roleChangeSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("hired"), at: z.iso.datetime(), proposedBy: proposedBySchema }),
+  z.object({
+    kind: z.literal("hired"),
+    at: z.iso.datetime(),
+    proposedBy: proposedBySchema,
+    savedBy: changedBySchema,
+  }),
   z.object({
     kind: z.literal("card-changed"),
     at: z.iso.datetime(),
@@ -243,12 +255,14 @@ export const roleChangeSchema = z.discriminatedUnion("kind", [
       z.object({ field: roleCardFieldSchema, from: roleCardValueSchema, to: roleCardValueSchema }),
     ),
     proposedBy: proposedBySchema,
+    savedBy: changedBySchema,
   }),
   z.object({
     kind: z.literal("skills-changed"),
     at: z.iso.datetime(),
     added: z.array(z.string()),
     removed: z.array(z.string()),
+    changedBy: changedBySchema,
   }),
 ]);
 export type RoleChange = z.infer<typeof roleChangeSchema>;
@@ -263,9 +277,12 @@ export const roleRefusalSchema = z.object({
 });
 export type RoleRefusal = z.infer<typeof roleRefusalSchema>;
 
-/** Who wrote a Memory note: the user on the Memory tab, or an Agent in one of its Threads. */
+/**
+ * Who wrote a Memory note: a user on the Memory tab (null before users existed, until the first user
+ * claims it), or an Agent in one of its Threads.
+ */
 export const memoryNoteSourceSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("user") }),
+  z.object({ kind: z.literal("user"), user: userRefSchema.nullable() }),
   z.object({
     kind: z.literal("agent"),
     threadId: z.string(),

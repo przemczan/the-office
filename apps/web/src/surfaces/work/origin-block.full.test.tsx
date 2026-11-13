@@ -26,7 +26,7 @@ const IDEA: Idea = {
   state: "shaped",
   taskId: null,
   initiativeId: "6f1c2b3a-9d8e-4f7a-8b6c-5d4e3f2a1b0c",
-  capturedBy: { kind: "user" },
+  capturedBy: { kind: "user", user: null },
   capturedAt: "2026-11-07T10:00:00.000Z",
   droppedAt: null,
 };

@@ -13,10 +13,10 @@ import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
 import { nextMidnight } from "./cap-waits.js";
 import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
-import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { ANN_LEE, aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
-const NO_CHOICE = { now: NOW, onOverlap: undefined };
+const NO_CHOICE = { now: NOW, onOverlap: undefined, by: ANN_LEE };
 
 /** A Project limit high enough that only the tests about it reach it. */
 const ROOMY_PROJECT = { name: "Admin panel", projectLimit: 12 };
@@ -53,6 +53,7 @@ function queued(
     taskId,
     place,
     queuedAt: NOW,
+    queuedBy: ANN_LEE,
     reasons: reasonsOf(waits),
     shortReasons: shortReasonsOf(waits),
     behind,
@@ -119,6 +120,7 @@ describe("startOrQueue with an Overlap", () => {
     const starting = startOrQueue(task, developer, held, [], {
       now: NOW,
       onOverlap: "start-anyway",
+      by: ANN_LEE,
     });
 
     expect(starting.kind).toBe("started");
@@ -128,6 +130,7 @@ describe("startOrQueue with an Overlap", () => {
     const starting = startOrQueue(task, developer, held, [queued("q", 1)], {
       now: NOW,
       onOverlap: "queue-behind",
+      by: ANN_LEE,
     });
 
     expect(starting).toEqual({
@@ -143,6 +146,7 @@ describe("startOrQueue with an Overlap", () => {
     const starting = startOrQueue(task, developer, blocked, [], {
       now: NOW,
       onOverlap: "queue-behind",
+      by: ANN_LEE,
     });
 
     expect(starting).toMatchObject({
@@ -161,6 +165,7 @@ describe("startOrQueue with an Overlap", () => {
     const starting = startOrQueue(task, developer, blocked, [], {
       now: NOW,
       onOverlap: "start-anyway",
+      by: ANN_LEE,
     });
 
     expect(starting).toMatchObject({

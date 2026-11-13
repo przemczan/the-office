@@ -46,7 +46,7 @@ const BACKLOG_TASK: Task = {
   initiativeId: null,
   madeFor: null,
   projectMoves: [],
-  createdBy: { kind: "user" },
+  createdBy: { kind: "user", user: null },
   createdAt: "2026-10-28T10:00:00.000Z",
   archivedAt: null,
   endedAt: null,
@@ -60,7 +60,7 @@ const IDEA: Idea = {
   state: "shaped",
   taskId: BACKLOG_TASK.id,
   initiativeId: null,
-  capturedBy: { kind: "user" },
+  capturedBy: { kind: "user", user: null },
   capturedAt: "2026-11-07T10:00:00.000Z",
   droppedAt: null,
 };

@@ -13,6 +13,14 @@ export abstract class UserRepository {
 
   abstract anyExists(): Promise<boolean>;
 
+  /** The first user, the earliest created. */
+  abstract first(): Promise<User | undefined>;
+
+  /** Whether earlier records were given the first user (`EarlierRecordsClaims`). */
+  abstract earlierRecordsClaimed(): Promise<boolean>;
+
+  abstract markEarlierRecordsClaimed(at: Date): Promise<void>;
+
   abstract find(id: string): Promise<User | undefined>;
 
   /** The user with this email, compared without case. */

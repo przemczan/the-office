@@ -6,7 +6,6 @@ import { ideaSchema, initiativeSchema, taskListSchema, taskSchema } from "@the-o
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AttachmentService } from "../../application/attachment-service.js";
 import type { Attachment as DomainAttachment } from "../../domain/attachment.js";
-import { THE_USER } from "../../domain/author.js";
 import { SEARCH_RESULT_LIMIT } from "../../domain/search.js";
 import { AttachmentFiles } from "../../ports/attachment-files.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
@@ -16,6 +15,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { NONE_IN_OTHER_PROJECTS, searchHttp } from "../../search.controller.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -258,7 +258,7 @@ function anOldDocument(id: string, taskId: string): DomainAttachment {
     mediaType: "text/markdown",
     size: 10,
     text: true,
-    addedBy: THE_USER,
+    addedBy: ANN_LEE,
     addedAt: new Date(),
   };
 }

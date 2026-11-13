@@ -2,6 +2,8 @@ import { TurnEnded } from "./conversation-events.js";
 import type { Message } from "./message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "./thread.js";
 import type { ThreadChange } from "./thread-changes.js";
+import type { UserRef } from "./user.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 /** A Thread in the Planner's chat with nothing said yet. */
 export function aThread(fields: Partial<Thread> = {}): Thread {
@@ -30,8 +32,13 @@ export function storedBeforeOfficeInstructions(thread: Thread): ThreadChange<Tur
   return { thread: stored, logged: [], event: new TurnEnded(stored, new Date()) };
 }
 
-/** What the user wrote in `thread`. */
-export function aUserMessage(thread: Thread, text: string, id = crypto.randomUUID()): Message {
+/** What the user `writtenBy`, Ann Lee unless named, wrote in `thread`. */
+export function aUserMessage(
+  thread: Thread,
+  text: string,
+  id = crypto.randomUUID(),
+  writtenBy: UserRef | null = ANN_LEE,
+): Message {
   return {
     kind: "user",
     id,
@@ -39,5 +46,6 @@ export function aUserMessage(thread: Thread, text: string, id = crypto.randomUUI
     text,
     delivery: "delivered",
     at: new Date("2026-10-25T09:01:00.000Z"),
+    writtenBy,
   };
 }

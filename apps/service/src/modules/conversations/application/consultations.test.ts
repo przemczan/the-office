@@ -71,6 +71,7 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 
 // What consultations.test.ts and consultations.full.test.ts share.
 
@@ -329,7 +330,7 @@ async function developerOnATask(): Promise<Thread> {
     roleKey: askerKey,
     title: "Build the export",
   });
-  return app.get(ThreadRunner).send(opened.id, "Build the export.");
+  return app.get(ThreadRunner).send(opened.id, "Build the export.", ANN_LEE);
 }
 
 /** The Consultation on the Task, once it has started. */
@@ -471,7 +472,7 @@ function requests(person: string, callId = "c-1"): Step[] {
 
 async function aChatWith(roleKey: string, said: string): Promise<Thread> {
   const opened = await threads.startInChat(roleKey);
-  return app.get(ThreadRunner).send(opened.id, said);
+  return app.get(ThreadRunner).send(opened.id, said, ANN_LEE);
 }
 
 /** The Consultations in the person's chat, once one has started. */

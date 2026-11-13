@@ -20,6 +20,7 @@ import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
+import { ANN_LEE } from "../../domain/user.fixtures.js";
 
 type Step = SessionScript[number];
 
@@ -155,7 +156,7 @@ export class DevopsChat {
   /** A new chat Thread with Nina, sent `message`; its id. */
   private async askNina(message: string): Promise<string> {
     const started = await this.app.get(ThreadService, { strict: false }).startInChat(DEVOPS);
-    await this.app.get(ThreadRunner, { strict: false }).send(started.id, message);
+    await this.app.get(ThreadRunner, { strict: false }).send(started.id, message, ANN_LEE);
     return started.id;
   }
 

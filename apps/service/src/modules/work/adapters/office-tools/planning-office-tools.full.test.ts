@@ -7,7 +7,6 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
-import { THE_USER } from "../../domain/author.js";
 import { PLANNING_OFFICE_TOOLS } from "../conversations/task-thread-records.js";
 import type { Task } from "../../domain/task.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
@@ -28,6 +27,7 @@ import {
 } from "./planning-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -63,9 +63,9 @@ async function aTaskInPlanning(): Promise<Task> {
     .get(TaskService)
     .create(
       { title: "Fix the login redirect", projectId: `project-${randomUUID()}`, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
-  return work.app.get(PlanningService).plan(created.id);
+  return work.app.get(PlanningService).plan(created.id, ANN_LEE);
 }
 
 /** Calls the Office tool as the Planner's session on the Task would. */
@@ -129,7 +129,7 @@ describe("write_plan", () => {
 
   it("refuses a session on no Task, and a Task past Planning, with the reason", async () => {
     const chat = await call(WRITE_PLAN, { plan: "Anything." }, CHAT_SESSION);
-    await work.app.get(TaskService).drop(task.id);
+    await work.app.get(TaskService).drop(task.id, ANN_LEE);
     const dropped = await call(WRITE_PLAN, { plan: "Anything." });
 
     expect(chat).toEqual({
@@ -277,7 +277,7 @@ describe("write_tags", () => {
       .get(TaskService)
       .create(
         { title: "Export logs", projectId: "firmware", priority: "low", tags: ["docs"] },
-        THE_USER,
+        ANN_LEE,
       );
 
     const result = await call(WRITE_TAGS, { tags: ["Login ", "auth flow", "login"] });
@@ -314,9 +314,9 @@ async function inAutoMode(): Promise<void> {
     .get(TaskService)
     .create(
       { title: "Remember the sort", projectId: `project-${randomUUID()}`, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
-  task = await work.app.get(PlanningService).makeAPlan(created.id, true);
+  task = await work.app.get(PlanningService).makeAPlan(created.id, true, ANN_LEE);
   work.app.get(SessionTasksForTests).tasks.set(SESSION, task.id);
 }
 
@@ -427,13 +427,13 @@ describe("on a Ready Task", () => {
     await planning.confirmPlan(task.id);
     await planning.confirmDefinitionOfDone(task.id);
     await planning.confirmPipeline(task.id, "quick-fix");
-    await planning.markReady(task.id);
+    await planning.markReady(task.id, ANN_LEE);
 
     await call(WRITE_DEFINITION_OF_DONE, { statements: ["The query string is kept too."] });
     expect(await current()).toMatchObject({ state: "planning", definitionOfDoneConfirmed: false });
     const markedAgain = await call(MARK_PLANNED, {});
     await planning.confirmDefinitionOfDone(task.id);
-    await planning.markReady(task.id);
+    await planning.markReady(task.id, ANN_LEE);
     await call(PROPOSE_PIPELINE, { pipelineId: "full", why: "It changes code." });
 
     expect(markedAgain.text).toContain("Auto mode is off: the user confirms");

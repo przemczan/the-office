@@ -18,7 +18,7 @@ import { InitiativeRefused } from "./initiative-refused.js";
 import type { PipelineCommands, TaskPipelineChoice } from "./pipeline-commands.js";
 import { initiativePipelineLines } from "./record-words.js";
 import { SHAPING_OPENING, shapingBrief } from "./shaping.js";
-import { anInitiative, aTask } from "./work.fixtures.js";
+import { ANN_LEE, anInitiative, aTask } from "./work.fixtures.js";
 
 const at = new Date("2026-11-12T10:00:00.000Z");
 const NONE_TAKEN = new Set<string>();
@@ -270,7 +270,7 @@ describe("confirmInitiative with the Initiative's Pipelines", () => {
   it("keeps the branch made in each Project with a Pipeline, two on different Pipelines", () => {
     const branched = { shortName: "sync-it", projectIds: ["app", "api"], madeAt: at };
 
-    const { initiative } = confirmInitiative(anInitiative(ON_TWO), tasks, branched);
+    const { initiative } = confirmInitiative(anInitiative(ON_TWO), tasks, branched, ANN_LEE);
 
     expect(initiative).toMatchObject({
       state: "active",
@@ -289,7 +289,7 @@ describe("confirmInitiative with the Initiative's Pipelines", () => {
   it("fixes None for a Project with no Pipeline beside one with a Pipeline, branched only there", () => {
     const branched = { shortName: "sync-it", projectIds: ["app"], madeAt: at };
 
-    const { initiative } = confirmInitiative(anInitiative(ON_FULL), tasks, branched);
+    const { initiative } = confirmInitiative(anInitiative(ON_FULL), tasks, branched, ANN_LEE);
 
     expect(initiative.pipelines).toEqual([
       { projectId: "app", pipelineId: "full" },
@@ -301,23 +301,23 @@ describe("confirmInitiative with the Initiative's Pipelines", () => {
   it("is refused when a Project with a Pipeline, one in Shaping too, has no branch made", () => {
     const branched = { shortName: "sync-it", projectIds: ["api"], madeAt: at };
 
-    expect(refusalOf(() => confirmInitiative(anInitiative(ON_TWO), tasks, branched))).toEqual([
-      "The Initiative changed while it was being confirmed; confirm it again.",
-    ]);
+    expect(
+      refusalOf(() => confirmInitiative(anInitiative(ON_TWO), tasks, branched, ANN_LEE)),
+    ).toEqual(["The Initiative changed while it was being confirmed; confirm it again."]);
   });
 
   it("is refused when a branch was made in a Project on None", () => {
     const branched = { shortName: "sync-it", projectIds: ["app", "api"], madeAt: at };
 
-    expect(refusalOf(() => confirmInitiative(anInitiative(ON_FULL), tasks, branched))).toEqual([
-      "The Initiative changed while it was being confirmed; confirm it again.",
-    ]);
+    expect(
+      refusalOf(() => confirmInitiative(anInitiative(ON_FULL), tasks, branched, ANN_LEE)),
+    ).toEqual(["The Initiative changed while it was being confirmed; confirm it again."]);
   });
 
   it("is refused when its Short name changed after the branches were made", () => {
     const branched = { shortName: "old", projectIds: ["app", "api"], madeAt: at };
 
-    expect(() => confirmInitiative(anInitiative(ON_TWO), tasks, branched)).toThrow(
+    expect(() => confirmInitiative(anInitiative(ON_TWO), tasks, branched, ANN_LEE)).toThrow(
       InitiativeRefused,
     );
   });
@@ -327,6 +327,7 @@ describe("confirmInitiative with the Initiative's Pipelines", () => {
       anInitiative({ ...SYNC, shortName: "left-over" }),
       tasks,
       undefined,
+      ANN_LEE,
     );
 
     expect(initiative.pipelines).toEqual([
@@ -343,7 +344,7 @@ describe("dropInitiative", () => {
     const branches = [{ projectId: "app", madeAt: at }];
     const active = anInitiative({ ...ON_FULL, state: "active", branches });
 
-    expect(dropInitiative(active, [], at)?.initiative.branches).toEqual(branches);
+    expect(dropInitiative(active, [], at, ANN_LEE)?.initiative.branches).toEqual(branches);
   });
 });
 

@@ -10,7 +10,7 @@ import {
 } from "../domain/staffing-decision.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StaffingHoldRepository } from "../ports/staffing-hold-repository.js";
-import { StartedTasks } from "../ports/started-tasks.js";
+import { StartedTasks, type ByTheUser } from "../ports/started-tasks.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
@@ -36,7 +36,11 @@ export class StaffingHolds implements OnModuleInit {
   onModuleInit(): void {
     this.events.subscribe(RoleLetGo, () => this.holdTasksLackingPeople());
     this.events.subscribe(DecisionAnswered, async ({ decision }) => {
-      if (decision.answer) await this.answered(decision.id, decision.answer);
+      const { answer } = decision;
+      if (!answer) return;
+      // A person's answer at the user's request is the user's own; a Consultant's names no user.
+      const user = answer.atUsersRequest?.user ?? answer.user ?? null;
+      await this.answered(decision.id, answer, { kind: "user", user });
     });
   }
 
@@ -71,20 +75,24 @@ export class StaffingHolds implements OnModuleInit {
     }
   }
 
-  /** The user's answer: drop the Task, or resume it, which holds it again while the lack stands. */
+  /**
+   * The answer of the user `by`: drop the Task, or resume it, which holds it again while the lack
+   * stands.
+   */
   private async answered(
     decisionId: string,
     answer: { readonly kind: string; readonly option?: number },
+    by: ByTheUser,
   ): Promise<void> {
     const taskId = await this.holds.release(decisionId);
     if (!taskId) return;
     const { state } = await this.tasks.read(taskId);
     if (state !== "paused") return;
     if (answer.kind === "option" && answer.option === STAFFING_OPTIONS.drop) {
-      await this.tasks.drop(taskId);
+      await this.tasks.drop(taskId, by);
       return;
     }
-    await this.tasks.resume(taskId);
+    await this.tasks.resume(taskId, by);
   }
 }
 

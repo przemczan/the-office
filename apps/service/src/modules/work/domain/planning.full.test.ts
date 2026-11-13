@@ -27,6 +27,7 @@ const NO_LINKS: TaskLinks = {
 
 const RECORD: PlanningRecord = {
   task: aTask({ originIdeaId: "idea-1" }),
+  stateChanges: [],
   project: {
     name: "Admin panel",
     baseBranch: "main",
@@ -55,6 +56,7 @@ describe("a planning Brief", () => {
       [
         "You are planning a Task with the user, in the Task's planning Thread.",
         "## The Task\n\nFix the login redirect (Task task-1), in the Project Admin panel.",
+        "## Who asked\n\nThe Task was created by the user Ann Lee.",
         "## What the user wants, in their own words\n\nNone: the title is all there is.",
         "## Where you work\n\nThe Task's worktree, at /office/worktrees/admin-panel/task-1 on the branch office/task-1, which started from the freshly fetched main.",
         '## Where it came from\n\nThe Idea "Export usage as CSV". Its notes:\n\nMonthly, per Project, for the accountant.',
@@ -72,7 +74,7 @@ describe("a planning Brief", () => {
     const task = aTask({ description: "After signing in, land on the page I came from." });
 
     expect(planningBrief({ ...RECORD, task })).toContain(
-      "## The Task\n\nFix the login redirect (Task task-1), in the Project Admin panel.\n\n## What the user wants, in their own words\n\nAfter signing in, land on the page I came from.",
+      "## What the user wants, in their own words\n\nAfter signing in, land on the page I came from.",
     );
   });
 

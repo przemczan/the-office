@@ -15,7 +15,6 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { THE_USER } from "../../domain/author.js";
 import { SHAPING_OPENING } from "../../domain/shaping.js";
 import { InitiativeStateChanged } from "../../domain/initiative-events.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
@@ -35,6 +34,7 @@ import {
 } from "../../work-application.fixtures.js";
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -280,7 +280,7 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
     expect((await work.app.get(TaskRepository).stateChangesOf(shaping.id)).at(-1)).toMatchObject({
       from: "shaping",
       to: "dropped",
-      by: THE_USER,
+      by: ANN_LEE,
     });
   });
 
@@ -307,7 +307,7 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
       expect((await taskOf(task)).state).toBe("dropped");
       expect((await work.app.get(TaskRepository).stateChangesOf(task.id)).at(-1)).toMatchObject({
         to: "dropped",
-        by: THE_USER,
+        by: ANN_LEE,
       });
     }
     expect((await taskOf(done)).state).toBe("done");
