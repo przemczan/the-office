@@ -12,8 +12,8 @@ The Office has several users, and everyone signs in before using it, localhost i
 
 - [ ] The spec and the glossary describe users and signing in, spec 5.1's no-sign-in rule is replaced and task 28's PIN is dropped. Check: Task 3afd3982's Gate.
 - [ ] The first user is created at first run; a user signs in with a password and stays signed in with a cookie whose token is stored hashed per signed-in device; every `/api` request and WebSocket, from localhost too, needs a signed-in device except the sign-in pages, their callbacks, `/api/health` and the `-p` hook; the Host and Origin checks accept the public address; wrong passwords slow down and lock out; a user signs out any of their signed-in devices; `npm run set-password` sets a new password. Check: Task 54467d4a's service tests (the whole-app guard test among them) and `sign-in.e2e.ts`.
-- [ ] A user adds an account for someone else with a one-time password shown once, the new user sets their own password at first sign-in, and removing a user signs out all their devices. Check: Task 4807a232's service and e2e tests.
-- [ ] Records name the user who did each thing (an Idea, Task or Initiative created, a Task started or moved, a Decision answered, a message written in a Thread, a setting changed), an Agent's Brief says which user asked, and palette and density are per user. Check: Task 2727e7bb's service, web and e2e tests.
+- [ ] A user adds an account for someone else with a one-time password shown once, the new user sets their own password at first sign-in, removing a user signs out all their devices, and palette and density are per user. Check: Task 4807a232's service and e2e tests.
+- [ ] Records name the user who did each thing (an Idea, Task or Initiative created, a Task started or moved, a Decision answered, a message written in a Thread, a setting changed), an Agent's Brief says which user asked, and Since you left begins at each user's own absence. Check: Task 2727e7bb's service, web and e2e tests.
 - [ ] A user sets up an authenticator, is asked for a code after a password, Continue with GitHub or Continue with Google, and signs in with a recovery code instead; wrong codes count toward the lockout. Check: Task 1b3bfd22's service tests on a manual clock and its e2e test.
 - [ ] A user adds passkeys from their account and signs in with one alone, at `localhost` and the public address only. Check: Task 98340c1d's service tests and an e2e test with a virtual authenticator.
 - [ ] A user links their GitHub identity and signs in with Continue with GitHub, only a linked identity signing in and Sign in with GitHub left untouched. Check: Task f69f7428's service tests against the fake GitHub and its e2e test.
@@ -39,10 +39,10 @@ The Office has several users, and everyone signs in before using it, localhost i
 - [x] 1. The spec and the glossary for users and signing in, and this file (Task 3afd3982).
 - [ ] 2. Users and signing in with a password: the `users` module, the first user, the password, signed-in devices and Sign out, the guard, the public address, slow-down and lockout, the recovery command (Task 54467d4a).
       Read: [module template](../../apps/service/docs/module-template.md); the platform map (`http/local-requests.ts`, `websocket/event-stream.ts`, `config/office-config.ts`); `apps/web/src/MAP.md`; `apps/web/e2e/MAP.md`.
-- [ ] 3. Creating and removing users: Settings › Users, the one-time password, setting one's own password at first sign-in, removing a user (Task 4807a232).
-      Read: the users map; the settings surface's map.
-- [ ] 4. Records name the user who did each thing, the Brief says which user asked, palette and density per user (Task 2727e7bb).
-      Read: the work, conversations and notifications maps; `packages/ui/src/appearance/`.
+- [ ] 3. Creating and removing users: Settings › Users, the one-time password, setting one's own password at first sign-in, removing a user, the account page, palette and density per user (Task 4807a232).
+      Read: the users map; the settings and account surfaces' maps; `packages/ui/src/appearance/`.
+- [ ] 4. Records name the user who did each thing, the Brief says which user asked, Since you left per user (Task 2727e7bb).
+      Read: the work, conversations and notifications maps.
 - [ ] 5. Authenticator codes and recovery codes, with `@oslojs/otp` (Task 1b3bfd22).
       Read: the users map (`SecondSteps`, `SignIns.finish`).
 - [ ] 6. Passkeys, with `@simplewebauthn/server` and `@simplewebauthn/browser` (Task 98340c1d).

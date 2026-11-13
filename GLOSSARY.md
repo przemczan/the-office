@@ -562,11 +562,11 @@ Signing in to The Office with a user's linked GitHub identity, through the GitHu
 _Avoid_: Sign in with GitHub, GitHub login, GitHub OAuth
 
 **Continue with Google**:
-Signing in to The Office with a user's linked Google identity, through a Google OAuth client the user sets up in Settings › Users; offered at `localhost` and the public address only.
+Signing in to The Office with a user's linked Google identity, through a Google OAuth client a user sets up in Settings › Signing in; offered at `localhost` and the public address only.
 _Avoid_: Sign in with Google, Google login, Google OAuth
 
 **Public address**:
-The HTTPS address with a domain at which The Office is reached through the reverse proxy the user sets up, given to The Office in its settings.
+The HTTPS address with a domain at which The Office is reached through the reverse proxy the user sets up, given to The Office as `OFFICE_PUBLIC_ADDRESS` when it starts.
 _Avoid_: Domain, external URL, base URL
 
 **Lockout**:

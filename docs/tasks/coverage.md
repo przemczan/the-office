@@ -99,8 +99,8 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 | §6 | Stack-specific checks for installs and publishing | 44 |
 | §2.1, §2.3, §4, §5.3, §5.5, §6, §8 | A Project from a git repository (any git URL cloned into the Office data directory; a picker of the user's GitHub repositories; Devops' onboarding by URL); the Office identity, the only credentials The Office's git uses: Sign in with GitHub (a GitHub App registered by its manifest, signed in by its web flow) for every GitHub Project's fetch, push and pull requests, and the Office ssh key for ssh remotes; other hosts over https anonymously | 46 |
 | §2.10, §5.1, §5.2, §5.3, §6 | Users and signing in with a password: the Users module, the first user at first run, signed-in devices and Sign out, the guard on every request and WebSocket (localhost included), the public address behind a reverse proxy, slow-down and lockout, `npm run set-password` | 55 |
-| §2.10 | Adding an account for someone else with a one-time password, setting one's own password at first sign-in, removing a user | 55 |
-| §2.1, §2.4, §2.5, §2.10, §4 | Records name the user who did each thing; the Brief says which user asked; palette and density per user | 55 |
+| §2.10, §4 | Adding an account for someone else with a one-time password, setting one's own password at first sign-in, removing a user; the account page; palette and density per user | 55 |
+| §2.1, §2.4, §2.5, §2.7, §2.10 | Records name the user who did each thing; the Brief says which user asked; Since you left per user | 55 |
 | §2.10, §6 | Authenticator codes and recovery codes | 55 |
 | §2.10 | Passkeys, at `localhost` and the public address | 55 |
 | §2.10, §5.3 | Continue with GitHub through the GitHub module's App, and linked identities | 55 |
