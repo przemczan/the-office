@@ -30,13 +30,16 @@ export interface ProjectOnPipeline {
   readonly commands: readonly { readonly key: string }[];
 }
 
-/** An Initiative as the library weighs who uses a Pipeline: one that names it as its own. */
+/**
+ * An Initiative as the library weighs who uses a Pipeline: one that names it as its own in one
+ * Project it spans, so an Initiative on it in two Projects comes twice.
+ */
 export interface InitiativeOnPipeline {
   readonly name: string;
   readonly state: string;
+  readonly projectId: string;
   readonly pipelineId: string;
-  readonly projectIds: readonly string[];
-  /** Whether its Pipeline started in one of its Publishing Tasks, which walk their own Stages. */
+  /** Whether its Pipeline started in that Project's Publishing Task, which walks its own Stages. */
   readonly pipelineStarted: boolean;
 }
 
@@ -178,7 +181,7 @@ export function pipelineUse(
       .map(({ id, name }) => ({ projectId: id, name })),
     notStarted: onPipeline.filter(({ state }) => NOT_STARTED_STATES.includes(state)).length,
     running: onPipeline.filter(({ state }) => RUNNING_STATES.includes(state)).length,
-    initiatives: openInitiativesOn(pipelineId, initiatives).map(({ name }) => name),
+    initiatives: [...new Set(openInitiativesOn(pipelineId, initiatives).map(({ name }) => name))],
     projectPipelines: projectPipelines
       .filter(({ basePipelineId }) => basePipelineId === pipelineId)
       .map(({ id, name, projectId }) => ({
@@ -191,9 +194,9 @@ export function pipelineUse(
 }
 
 /**
- * The shaping and active Initiatives that name the Pipeline and whose Pipeline hasn't started:
- * done and dropped ones need it no more, and one whose Publishing Task started on it walks its own
- * copy of the Stages.
+ * The shaping and active Initiatives that name the Pipeline in a Project whose Publishing Task
+ * hasn't started on it: done and dropped ones need it no more, and a Publishing Task that started
+ * on it walks its own copy of the Stages.
  */
 function openInitiativesOn(
   pipelineId: string,
@@ -271,12 +274,12 @@ function initiativesReason(
   initiatives: readonly InitiativeOnPipeline[],
 ): string | undefined {
   const names = initiatives
-    .filter(({ projectIds }) => projectIds.includes(project.id))
+    .filter(({ projectId }) => projectId === project.id)
     .map(({ name }) => name);
   if (names.length === 0) return undefined;
   return names.length === 1
-    ? `the Initiative ${names[0]}, which spans it, names it`
-    : `the Initiatives ${names.join(", ")}, which span it, name it`;
+    ? `the Initiative ${names[0]} names it there`
+    : `the Initiatives ${names.join(", ")} name it there`;
 }
 
 /**

@@ -16,6 +16,7 @@ function anInitiativeRecord(
     tasks,
     blockers: new Map(tasks.map((task) => [task.id, task])),
     attachments: [],
+    pipelineNames: new Map(),
     ...fields,
   };
 }

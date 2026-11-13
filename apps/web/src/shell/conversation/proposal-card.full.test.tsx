@@ -290,3 +290,36 @@ describe("ProposalCard on a library Pipeline's Stages", () => {
     expect(card.textContent).not.toContain("breaks");
   });
 });
+
+describe("ProposalCard on the CTO's change of an Initiative's Pipeline", () => {
+  const proposal = proposalOf({
+    kind: "initiative",
+    initiativeId: "9b0f7a51-3c2d-4e8f-a6b1-0c9d8e7f6a5b",
+    edit: { kind: "pipeline", projectId: "the-office", pipelineId: "pp-linux" },
+  });
+
+  it("names the Project and that Project's own Project Pipeline it proposes", async () => {
+    serviceReading({
+      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
+      "/project-pipelines": [
+        {
+          id: "pp-linux",
+          projectId: "the-office",
+          name: "Full with Linux check",
+          description: "",
+          basePipeline: { id: "full", name: "Full" },
+          stageChanges: [],
+          rows: [],
+          stages: [TESTS],
+          broken: [],
+        },
+      ],
+    });
+    const card = cardOf(proposal);
+
+    await vi.waitFor(() =>
+      expect(card.textContent).toContain("Initiative's PipelineFull with Linux check"),
+    );
+    expect(card.textContent).toContain("Projectthe-office");
+  });
+});

@@ -16,8 +16,8 @@ import { TaskRefused } from "./task-refused.js";
 
 /**
  * A change of the CTO's to an Initiative (spec §2.1 Defaults): its outcome, a new Task, the
- * title, Description or a dependency of one of its Tasks, or the Initiative's Pipeline (null for
- * None). Written straight onto it while it is being shaped; once it is
+ * title, Description or a dependency of one of its Tasks, or the Initiative's Pipeline in one
+ * Project (null for None). Written straight onto it while it is being shaped; once it is
  * active, a Proposal carries it, which Conversations keeps as drafted and Work applies.
  */
 export type InitiativeEdit =
@@ -38,7 +38,11 @@ export type InitiativeEdit =
   | { readonly kind: "remove-dependency"; readonly taskId: string; readonly blockerId: string }
   | { readonly kind: "task-title"; readonly taskId: string; readonly title: string }
   | { readonly kind: "task-description"; readonly taskId: string; readonly description: string }
-  | { readonly kind: "pipeline"; readonly pipelineId: string | null };
+  | {
+      readonly kind: "pipeline";
+      readonly projectId: string;
+      readonly pipelineId: string | null;
+    };
 
 /** The Task an `add-task` edit asks for. */
 export function newTaskOf(edit: Extract<InitiativeEdit, { kind: "add-task" }>): NewTask {
@@ -131,12 +135,13 @@ function whatStaysAsItIs(
       // Judged only, so no Short name derived here is kept, and no taken ones are needed.
       return chooseInitiativePipeline(
         initiative,
+        edit.projectId,
         edit.pipelineId ?? undefined,
         "by-proposal",
         new Set(),
       )
         ? undefined
-        : `The Initiative follows ${pipelineName ?? edit.pipelineId} already.`;
+        : `The Initiative follows ${pipelineName ?? edit.pipelineId} in ${edit.projectId} already.`;
   }
 }
 

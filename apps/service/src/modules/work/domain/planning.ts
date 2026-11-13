@@ -87,10 +87,13 @@ export interface PlanningRecord {
   readonly startsFrom?: InitiativeBranchStart | undefined;
 }
 
-/** The Initiative's branch a Task starts from and publishes into, its Initiative having a Pipeline. */
+/**
+ * The Initiative's branch a Task starts from and publishes into, its Initiative having a Pipeline
+ * in the Task's Project.
+ */
 export interface InitiativeBranchStart {
   readonly branch: string;
-  /** The Initiative's Pipeline, by name, which runs only in its Publishing Tasks. */
+  /** The Initiative's Pipeline in the Task's Project, by name, which runs only in its Publishing Task. */
   readonly initiativePipeline: string;
 }
 
@@ -135,7 +138,7 @@ function initiativeBranchSection(
   { branch, initiativePipeline }: InitiativeBranchStart,
   baseBranch: string,
 ): string {
-  return `## The Initiative's branch\n\nThe Initiative has the Pipeline ${initiativePipeline}, so this Task starts from its branch ${branch} and publishes into it by merge, never into ${baseBranch} directly. The Initiative's Pipeline runs only in its Publishing Tasks, which take ${branch} into ${baseBranch} once its Tasks are done; this Task keeps a Pipeline of its own, the one you propose below.`;
+  return `## The Initiative's branch\n\nThe Initiative has the Pipeline ${initiativePipeline} in this Project, so this Task starts from its branch ${branch} and publishes into it by merge, never into ${baseBranch} directly. The Initiative's Pipeline runs only in the Project's Publishing Task, which takes ${branch} into ${baseBranch} once its Tasks are done; this Task keeps a Pipeline of its own, the one you propose below.`;
 }
 
 /**
@@ -214,7 +217,7 @@ function brokenDefaultWords(
 
 /** A Project with its own Pipelines, as a planning Brief lists them. */
 export interface ProjectPipelinesInBrief {
-  readonly project: PlanningProject;
+  readonly project: Pick<PlanningProject, "name" | "defaultPipeline">;
   /** Its Project Pipelines, in any order: its default is listed first. */
   readonly own: readonly PlanningPipeline[];
 }

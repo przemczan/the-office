@@ -30,7 +30,7 @@ function anInitiative(id: string, fields: Partial<Initiative> = {}): Initiative 
     pausedAt: null,
     planningThreadId: null,
     planningAutoMode: false,
-    pipelineId: null,
+    pipelines: [],
     shortName: null,
     branches: [],
     ...fields,

@@ -406,12 +406,14 @@ export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promi
   return sendToApi("PUT", `${initiativePath(id)}/outcome`, change, initiativeSchema);
 }
 
-/** The Initiative's Pipeline, a library Pipeline or None (null), chosen while it is being shaped. */
+/**
+ * The Initiative's Pipeline in one Project it spans, an office-wide Pipeline, one of that Project's
+ * own or None (null), chosen while it is being shaped.
+ */
 export function chooseInitiativePipeline(
   id: string,
-  pipelineId: InitiativePipelineChoice["pipelineId"],
+  choice: InitiativePipelineChoice,
 ): Promise<Initiative> {
-  const choice: InitiativePipelineChoice = { pipelineId };
   return sendToApi("PUT", `${initiativePath(id)}/pipeline`, choice, initiativeSchema);
 }
 

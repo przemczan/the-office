@@ -17,6 +17,7 @@ import { TaskStateChanged } from "../domain/task-events.js";
 import { initiativesHttp, aProjectId } from "../initiatives.controller.fixtures.js";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import {
+  KnownProjectsForTests,
   ProjectInitiativeBranchesForTests,
   WorkSettingsForTests,
 } from "../ports/work-ports.fixtures.js";
@@ -69,9 +70,13 @@ function branches(): ProjectInitiativeBranchesForTests {
   return work.app.get(ProjectInitiativeBranchesForTests);
 }
 
-/** An active Initiative on Quick fix, under a title of its own, with a Task in each Project. */
+/**
+ * An active Initiative, under a title of its own, with a Task in each Project, on Quick fix in each
+ * unless `pipelineOf` names another Pipeline, or None with null.
+ */
 async function activeOnQuickFix(
   projectIds: readonly string[],
+  pipelineOf: (projectId: string) => string | null = () => "quick-fix",
 ): Promise<{ initiative: Initiative; tasks: Task[] }> {
   const title = `Usage exports ${randomUUID().slice(0, 8)}`;
   const idea = ideaSchema.parse(
@@ -83,10 +88,16 @@ async function activeOnQuickFix(
   await sendJson(work, "PUT", `/initiatives/${shaped.id}/outcome`, {
     outcome: "Every account exports its usage.",
   });
-  await sendJson(work, "PUT", `/initiatives/${shaped.id}/pipeline`, { pipelineId: "quick-fix" });
   const tasks: Task[] = [];
   for (const id of projectIds) tasks.push(await addTask(shaped, id));
   ownIds.push(...tasks.map(({ id }) => id));
+  for (const id of projectIds) {
+    const chosen = await sendJson(work, "PUT", `/initiatives/${shaped.id}/pipeline`, {
+      projectId: id,
+      pipelineId: pipelineOf(id),
+    });
+    expect(chosen.status).toBe(200);
+  }
   expect((await post(shaped, "confirm")).status).toBe(200);
   return { initiative: await read(shaped), tasks };
 }
@@ -203,7 +214,7 @@ describe("Publishing Tasks", () => {
     expect((await taskOf(here)).blockedBy).toEqual([fix.id]);
   });
 
-  it("takes the Pipeline the CTO's applied Proposal names until one has started, unless its Stages were edited", async () => {
+  it("takes the Pipeline the CTO's applied Proposal names in its Project until it has started, unless its Stages were edited", async () => {
     const { initiative, tasks } = await activeOnQuickFix([projectId, otherProjectId]);
     for (const task of tasks) await end(task, "done");
     const publishing = await publishingTasksOf(initiative);
@@ -215,11 +226,22 @@ describe("Publishing Tasks", () => {
 
     await initiatives.applyProposal(
       initiative.id,
-      { kind: "pipeline", pipelineId: "full" },
+      { kind: "pipeline", projectId, pipelineId: "full" },
       THE_USER,
     );
 
     expect((await taskOf(swapped)).pipelineId).toBe("full");
+    expect((await taskOf(edited)).pipelineId).toBe("quick-fix");
+    expect((await read(initiative)).pipelines).toEqual([
+      { projectId, pipelineId: "full" },
+      { projectId: otherProjectId, pipelineId: "quick-fix" },
+    ]);
+
+    await initiatives.applyProposal(
+      initiative.id,
+      { kind: "pipeline", projectId: otherProjectId, pipelineId: "full" },
+      THE_USER,
+    );
     expect((await taskOf(edited)).pipelineId).toBe("quick-fix");
 
     await work.app.get(TaskRepository).update(swapped.id, (held) => ({
@@ -229,9 +251,150 @@ describe("Publishing Tasks", () => {
     await expect(
       initiatives.applyProposal(
         initiative.id,
-        { kind: "pipeline", pipelineId: "quick-fix" },
+        { kind: "pipeline", projectId, pipelineId: "quick-fix" },
         THE_USER,
       ),
-    ).rejects.toThrow(`The Initiative's Pipeline started in ${swapped.title}, so it can't change.`);
+    ).rejects.toThrow(
+      `The Initiative's Pipeline in ${projectId} started in ${swapped.title}, so it can't change.`,
+    );
+    // Another Project's Publishing Task that started doesn't hold this one's Pipeline.
+    await initiatives.applyProposal(
+      initiative.id,
+      { kind: "pipeline", projectId: otherProjectId, pipelineId: "quick-fix" },
+      THE_USER,
+    );
+    expect((await read(initiative)).pipelines).toEqual([
+      { projectId, pipelineId: "full" },
+      { projectId: otherProjectId, pipelineId: "quick-fix" },
+    ]);
+  });
+
+  it("makes the branch and a Publishing Task only in the Project with a Pipeline beside one on None", async () => {
+    const { initiative, tasks } = await activeOnQuickFix([projectId, otherProjectId], (id) =>
+      id === projectId ? "quick-fix" : null,
+    );
+    const branch = `initiative/${initiative.shortName}`;
+
+    expect(initiative.pipelines).toEqual([
+      { projectId, pipelineId: "quick-fix" },
+      { projectId: otherProjectId, pipelineId: null },
+    ]);
+    expect(initiative.branches.map(({ projectId: id }) => id)).toEqual([projectId]);
+    expect(branches().made).toContain(`${projectId}/${branch}`);
+    expect(branches().made).not.toContain(`${otherProjectId}/${branch}`);
+
+    for (const task of tasks) await end(task, "done");
+    const publishing = await publishingTasksOf(initiative);
+
+    expect(publishing.map(({ projectId: id, pipelineId }) => [id, pipelineId])).toEqual([
+      [projectId, "quick-fix"],
+    ]);
+  });
+
+  it("gives two Projects their own Pipelines, each Publishing Task following its Project's", async () => {
+    const { initiative, tasks } = await activeOnQuickFix([projectId, otherProjectId], (id) =>
+      id === projectId ? "quick-fix" : "full",
+    );
+    for (const task of tasks) await end(task, "done");
+
+    const publishing = await publishingTasksOf(initiative);
+
+    expect(publishing.map(({ projectId: id, pipelineId }) => [id, pipelineId]).toSorted()).toEqual(
+      [
+        [projectId, "quick-fix"],
+        [otherProjectId, "full"],
+      ].toSorted(),
+    );
+  });
+
+  it("refuses the Proposal of None once active, and of a Pipeline in a Project Confirm fixed on None", async () => {
+    const { initiative } = await activeOnQuickFix([projectId, otherProjectId], (id) =>
+      id === projectId ? "quick-fix" : null,
+    );
+    const initiatives = work.app.get(InitiativeService);
+
+    await expect(
+      initiatives.problemsWithProposal(initiative.id, {
+        kind: "pipeline",
+        projectId,
+        pipelineId: null,
+      }),
+    ).resolves.toEqual([
+      `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`,
+    ]);
+    await expect(
+      initiatives.problemsWithProposal(initiative.id, {
+        kind: "pipeline",
+        projectId: otherProjectId,
+        pipelineId: "full",
+      }),
+    ).resolves.toEqual([
+      `Whether the Initiative has a Pipeline in ${otherProjectId} was fixed at Confirm.`,
+    ]);
+  });
+
+  it("starts a Project spanned after Confirm on None, which a Proposal gives a Pipeline and its branch", async () => {
+    const { initiative } = await activeOnQuickFix([projectId]);
+    const later = await addTask(initiative, otherProjectId);
+    ownIds.push(later.id);
+    const branch = `initiative/${initiative.shortName}`;
+    const initiatives = work.app.get(InitiativeService);
+
+    const spanned = await read(initiative);
+    expect(spanned.pipelines).toEqual([
+      { projectId, pipelineId: "quick-fix" },
+      { projectId: otherProjectId, pipelineId: null },
+    ]);
+    expect(spanned.branches.map(({ projectId: id }) => id)).toEqual([projectId]);
+    await expect(
+      initiatives.problemsWithProposal(initiative.id, {
+        kind: "pipeline",
+        projectId: otherProjectId,
+        pipelineId: "full",
+      }),
+    ).resolves.toEqual([]);
+
+    await initiatives.applyProposal(
+      initiative.id,
+      { kind: "pipeline", projectId: otherProjectId, pipelineId: "full" },
+      THE_USER,
+    );
+
+    const given = await read(initiative);
+    expect(given.pipelines).toEqual([
+      { projectId, pipelineId: "quick-fix" },
+      { projectId: otherProjectId, pipelineId: "full" },
+    ]);
+    expect(given.branches.map(({ projectId: id }) => id)).toEqual([projectId, otherProjectId]);
+    expect(branches().existing.has(`${otherProjectId}/${branch}`)).toBe(true);
+  });
+
+  it("refuses the Proposal of a Pipeline running a command that Project lacks, and in a Project it doesn't span", async () => {
+    const { initiative } = await activeOnQuickFix([projectId]);
+    work.app.get(KnownProjectsForTests).commands.set(otherProjectId, []);
+    ownIds.push((await addTask(initiative, otherProjectId)).id);
+    const initiatives = work.app.get(InitiativeService);
+
+    const [lacking] = await initiatives.problemsWithProposal(initiative.id, {
+      kind: "pipeline",
+      projectId: otherProjectId,
+      pipelineId: "quick-fix",
+    });
+    const nowhere = aProjectId();
+
+    expect(lacking).toMatch(
+      new RegExp(
+        `^The Pipeline Quick fix runs .*, which The ${otherProjectId} has no commands? for\\.`,
+      ),
+    );
+    await expect(
+      initiatives.problemsWithProposal(initiative.id, {
+        kind: "pipeline",
+        projectId: nowhere,
+        pipelineId: "quick-fix",
+      }),
+    ).resolves.toEqual([
+      `The Initiative has no Task in the Project "${nowhere}", so it has no Pipeline there.`,
+    ]);
   });
 });

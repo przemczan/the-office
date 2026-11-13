@@ -5,10 +5,13 @@ import {
   droppedWithIt,
   droppedWords,
   dropTasksWords,
+  graphLineKinds,
+  initiativePipelineIn,
   initiativeProgress,
   outcomeSummary,
   progressWords,
   taskGraph,
+  tasksFoldSummary,
 } from "./initiative-words.ts";
 
 const INITIATIVE_ID = "3f0c2b1a-9d8e-4f7a-8b6c-5d4e3f2a1b0c";
@@ -164,5 +167,61 @@ describe("the folded lines", () => {
     expect(attachmentsSummary(0)).toBe("None");
     expect(attachmentsSummary(1)).toBe("1 Attachment");
     expect(attachmentsSummary(2)).toBe("2 Attachments");
+  });
+  it("says what the Tasks fold holds and what moves, each state only when a Task is in it", () => {
+    const tasks = [
+      aTask("a", { state: "done" }),
+      aTask("b", { state: "done", projectId: "app" }),
+      aTask("c", { state: "in-progress" }),
+      aTask("d", { state: "waiting-on-you", projectId: "app" }),
+      aTask("e"),
+      aTask("f", { state: "dropped" }),
+    ];
+
+    expect(tasksFoldSummary({ state: "active" }, tasks)).toBe(
+      "6 across 2 Projects · 2 done · 1 in progress · 1 waiting on you · 1 dropped",
+    );
+    expect(tasksFoldSummary({ state: "active" }, [aTask("a")])).toBe("1 across 1 Project");
+  });
+
+  it("says the Tasks are in Shaping until confirmed, or that there are none yet", () => {
+    expect(
+      tasksFoldSummary({ state: "shaping" }, [aTask("a"), aTask("b", { projectId: "app" })]),
+    ).toBe("2 across 2 Projects · in Shaping until you confirm");
+    expect(tasksFoldSummary({ state: "shaping" }, [])).toBe("None yet");
+  });
+});
+
+describe("graphLineKinds", () => {
+  it("samples only the kinds of line the graph draws", () => {
+    const schema = aTask("schema", { state: "done" });
+    const api = aTask("api", { blockedBy: ["schema"] });
+    const outside = aTask("outside", { initiativeId: null });
+    const app = aTask("app", { blockedBy: ["api", "outside"] });
+
+    expect(graphLineKinds(taskGraph([api, app], [api, app]))).toEqual(["must-be-done-first"]);
+    expect(graphLineKinds(taskGraph([schema, api], [schema, api]))).toEqual([
+      "must-be-done-first",
+      "blocker-done",
+    ]);
+    expect(graphLineKinds(taskGraph([api, app], [api, app, outside]))).toEqual([
+      "must-be-done-first",
+      "from-outside",
+    ]);
+  });
+});
+
+describe("initiativePipelineIn", () => {
+  it("answers the Pipeline of each Project, null for None", () => {
+    const initiative = {
+      pipelines: [
+        { projectId: "firmware", pipelineId: "full" },
+        { projectId: "app", pipelineId: null },
+      ],
+    };
+
+    expect(initiativePipelineIn(initiative, "firmware")).toBe("full");
+    expect(initiativePipelineIn(initiative, "app")).toBeNull();
+    expect(initiativePipelineIn(initiative, "service")).toBeNull();
   });
 });

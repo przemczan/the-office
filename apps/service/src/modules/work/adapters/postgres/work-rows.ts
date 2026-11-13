@@ -192,7 +192,10 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
     restoredAt: initiative.restoredAt ?? null,
     pausedAt: initiative.pausedAt ?? null,
     planningThreadId: initiative.planningThreadId ?? null,
-    pipelineId: initiative.pipelineId ?? null,
+    pipelines: initiative.pipelines.map(({ projectId, pipelineId }) => ({
+      projectId,
+      pipelineId: pipelineId ?? null,
+    })),
     shortName: initiative.shortName ?? null,
     branches: initiative.branches.map((branch) => ({
       ...branch,
@@ -210,7 +213,10 @@ export function toInitiative(row: InitiativeRow): Initiative {
     restoredAt: row.restoredAt ?? undefined,
     pausedAt: row.pausedAt ?? undefined,
     planningThreadId: row.planningThreadId ?? undefined,
-    pipelineId: row.pipelineId ?? undefined,
+    pipelines: row.pipelines.map(({ projectId, pipelineId }) => ({
+      projectId,
+      pipelineId: pipelineId ?? undefined,
+    })),
     shortName: row.shortName ?? undefined,
     branches: row.branches.map((branch) => ({ ...branch, madeAt: new Date(branch.madeAt) })),
   };

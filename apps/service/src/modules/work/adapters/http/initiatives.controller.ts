@@ -112,16 +112,18 @@ export class InitiativesController {
   }
 
   /**
-   * The user's choice of the Initiative's Pipeline, null for None; refused once the Initiative is
-   * no longer being shaped, where only the CTO's Proposal changes it.
+   * The user's choice of the Initiative's Pipeline in one Project it spans, null for None; refused
+   * once the Initiative is no longer being shaped, where only the CTO's Proposal changes it.
    */
   @Put(":id/pipeline")
   async choosePipeline(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(initiativePipelineChoiceSchema))
-    { pipelineId }: InitiativePipelineChoice,
+    { projectId, pipelineId }: InitiativePipelineChoice,
   ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.choosePipeline(id, pipelineId, "straight"));
+    return this.respond(
+      await this.initiatives.choosePipeline(id, projectId, pipelineId, "straight"),
+    );
   }
 
   /** The user's own Short name; refused once the Initiative is no longer being shaped. */

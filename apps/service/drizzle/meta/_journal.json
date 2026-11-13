@@ -918,6 +918,20 @@
       "when": 1794559121044,
       "tag": "0130_project_pipelines",
       "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1794561884463,
+      "tag": "0131_initiative_pipeline_per_project",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1794561894973,
+      "tag": "0132_initiative_pipeline_column_removed",
+      "breakpoints": true
     }
   ]
 }

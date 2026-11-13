@@ -3,6 +3,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Author } from "../domain/author.js";
 import { taskPipelineProblems } from "../domain/pipeline-commands.js";
+import { pipelineChoiceIn } from "./pipeline-choice.js";
 import { makeAPlanOpening, PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
 import {
   acceptInAutoMode,
@@ -358,30 +359,15 @@ export class PlanningService {
     task: Pick<Task, "projectId">,
     pipelineId: string,
   ): Promise<void> {
-    const [pipeline, project] = await Promise.all([
-      this.pipelines.commandsNamedBy(pipelineId),
+    const [choice, project] = await Promise.all([
+      pipelineChoiceIn(task.projectId, pipelineId, this.pipelines, this.projects),
       this.projects.find(task.projectId),
     ]);
     if (!project) {
-      if (!pipeline) throw new TaskRefused([`There is no Pipeline "${pipelineId}".`]);
+      if (!choice.pipeline) throw new TaskRefused([`There is no Pipeline "${pipelineId}".`]);
       return;
     }
-    const problems = taskPipelineProblems(
-      {
-        pipelineId,
-        pipeline,
-        ownerName:
-          pipeline?.projectId === undefined || pipeline.projectId === project.id
-            ? undefined
-            : (await this.projects.find(pipeline.projectId))?.name,
-        choices: pipeline
-          ? []
-          : (await this.pipelines.listFor(project.id))
-              .filter(({ broken = [] }) => broken.length === 0)
-              .map(({ id }) => id),
-      },
-      project,
-    );
+    const problems = taskPipelineProblems(choice, project);
     if (problems.length > 0) throw new TaskRefused(problems);
   }
 

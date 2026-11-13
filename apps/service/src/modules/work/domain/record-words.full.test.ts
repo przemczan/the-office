@@ -193,6 +193,7 @@ describe("initiativeRecordText", () => {
         tasks: [],
         blockers: new Map(),
         attachments: [],
+        pipelineNames: new Map(),
       }),
     ).toContain(
       "- Shaped from: Export usage as CSV (Idea idea-1), in the Project admin-panel, shaped; read_idea reads it",
@@ -209,6 +210,7 @@ describe("initiativeRecordText", () => {
         tasks: [],
         blockers: new Map(),
         attachments: [],
+        pipelineNames: new Map(),
       }),
     ).toContain(
       "- Shaped from: Export usage as CSV (Idea idea-1), Office-wide, shaped; read_idea reads it",
@@ -229,6 +231,7 @@ describe("initiativeRecordText", () => {
       tasks: [],
       blockers: new Map(),
       attachments: [],
+      pipelineNames: new Map(),
     });
 
     expect(text).toContain("- Dropped on 2026-10-30T09:00:00.000Z");

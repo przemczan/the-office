@@ -1,5 +1,13 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { initiativeProjectIds, type Initiative, type InitiativeState } from "./initiative.js";
+import {
+  hasAnyPipeline,
+  initiativeProjectIds,
+  isPipelineFixed,
+  pipelineIn,
+  type Initiative,
+  type InitiativePipeline,
+  type InitiativeState,
+} from "./initiative.js";
 import { THE_USER, type Author } from "./author.js";
 import {
   InitiativeBranchMade,
@@ -89,6 +97,7 @@ export function createInitiative(
     createdBy,
     createdAt: at,
     planningAutoMode: false,
+    pipelines: [],
     branches: [],
   };
   return { initiative, event: new InitiativeCreated(initiative) };
@@ -96,9 +105,9 @@ export function createInitiative(
 
 /**
  * "Confirm the Initiative": its outcome and Task list are agreed, so it becomes active and its
- * Tasks in Shaping move to Backlog. Whether it has a Pipeline is fixed here: with one, `branched`
- * must hold its branch in every Project its Tasks span, Tasks still in Shaping too, and is kept;
- * on None it keeps no Short name.
+ * Tasks in Shaping move to Backlog. Whether each Project its Tasks span (Tasks still in Shaping
+ * too) has a Pipeline is fixed here: `branched` must hold its branch in exactly the Projects with
+ * one, and is kept; with None in every Project it keeps no Short name.
  */
 export function confirmInitiative(
   initiative: Initiative,
@@ -113,65 +122,95 @@ export function confirmInitiative(
   const confirmed = moveTo(initiative, "active", undefined);
   return {
     ...confirmed,
-    initiative: { ...confirmed.initiative, ...fixedPipeline(initiative, tasks, branched) },
+    initiative: { ...confirmed.initiative, ...fixedPipelines(initiative, tasks, branched) },
     taskChanges: inShaping(tasks).map(moveToBacklogOnConfirm),
   };
 }
 
 const CONFIRM_AGAIN = "The Initiative changed while it was being confirmed; confirm it again.";
 
-function fixedPipeline(
+/** Every Project the Initiative spans with its Pipeline or None, as Confirm fixes them. */
+function fixedPipelines(
   initiative: Initiative,
   tasks: readonly Task[],
   branched: ConfirmBranching | undefined,
-): Pick<Initiative, "shortName" | "branches"> {
-  if (initiative.pipelineId === undefined) {
+): Pick<Initiative, "pipelines" | "shortName" | "branches"> {
+  const pipelines = initiativeProjectIds(tasks).map((projectId) => ({
+    projectId,
+    pipelineId: pipelineIn(initiative, projectId),
+  }));
+  const withPipeline = projectsWithPipeline(pipelines);
+  if (withPipeline.length === 0) {
     if (branched !== undefined) throw new InitiativeRefused([CONFIRM_AGAIN]);
-    return { shortName: undefined, branches: initiative.branches };
+    return { pipelines, shortName: undefined, branches: initiative.branches };
   }
-  if (branched === undefined || branched.shortName !== initiative.shortName) {
+  if (
+    branched === undefined ||
+    branched.shortName !== initiative.shortName ||
+    !sameProjects(withPipeline, branched.projectIds)
+  ) {
     throw new InitiativeRefused([CONFIRM_AGAIN]);
   }
-  const unbranched = initiativeProjectIds(tasks).filter(
-    (projectId) => !branched.projectIds.includes(projectId),
-  );
-  if (unbranched.length > 0) throw new InitiativeRefused([CONFIRM_AGAIN]);
   return {
+    pipelines,
     shortName: initiative.shortName,
     branches: branched.projectIds.map((projectId) => ({ projectId, madeAt: branched.madeAt })),
   };
 }
 
+/** The Projects of `pipelines` that have a Pipeline, in their order. */
+export function projectsWithPipeline(pipelines: readonly InitiativePipeline[]): string[] {
+  return pipelines.flatMap(({ projectId, pipelineId }) =>
+    pipelineId === undefined ? [] : [projectId],
+  );
+}
+
+function sameProjects(first: readonly string[], second: readonly string[]): boolean {
+  return first.length === second.length && first.every((projectId) => second.includes(projectId));
+}
+
 /**
- * The Initiative's Pipeline (spec 2.1), undefined for None: chosen straight while shaping, by the
- * CTO's Proposal once active, where whether it has one stays as Confirm fixed it. The first
- * Pipeline chosen derives its Short name from the title, past those `taken`; None leaves it none.
- * Undefined when it follows that Pipeline already.
+ * The Initiative's Pipeline in one Project (spec 2.1), undefined for None: chosen straight while
+ * shaping, by the CTO's Proposal once active. Confirm fixed whether each Project it spanned then
+ * has one, so a Proposal only swaps one Pipeline for another there; a Project it came to span
+ * since has None until a Proposal gives it one. The first Pipeline chosen in any Project derives
+ * the Short name from the title, past those `taken`; None everywhere leaves it none. Undefined when
+ * the Project follows that Pipeline already.
  */
 export function chooseInitiativePipeline(
   initiative: Initiative,
+  projectId: string,
   pipelineId: string | undefined,
   route: InitiativeChangeRoute,
   taken: ReadonlySet<string>,
 ): InitiativeChange<InitiativePipelineChosen> | undefined {
+  const current = pipelineIn(initiative, projectId);
   if (initiative.state !== "shaping") {
-    if (pipelineId === undefined || initiative.pipelineId === undefined) {
-      throw new InitiativeRefused([PIPELINE_FIXED_AT_CONFIRM]);
+    const fixedNone = current === undefined && isPipelineFixed(initiative, projectId);
+    if (pipelineId === undefined || fixedNone) {
+      throw new InitiativeRefused([pipelineFixedAtConfirmWords(projectId)]);
     }
   }
-  if (pipelineId === initiative.pipelineId) return undefined;
-  requireOpenTo(initiative, route, "its Pipeline is chosen straight onto it");
-  const shortName =
-    pipelineId === undefined
-      ? undefined
-      : (initiative.shortName ?? derivedShortName(initiative.name, initiative.id, taken));
+  if (pipelineId === current) return undefined;
+  requireOpenTo(initiative, route, "its Pipelines are chosen straight onto it");
+  const others = initiative.pipelines.filter((entry) => entry.projectId !== projectId);
+  // While shaping, None is no entry, so only the Projects given a Pipeline are kept.
+  const pipelines =
+    pipelineId === undefined && initiative.state === "shaping"
+      ? others
+      : [...others, { projectId, pipelineId }];
+  const shortName = hasAnyPipeline({ ...initiative, pipelines })
+    ? (initiative.shortName ?? derivedShortName(initiative.name, initiative.id, taken))
+    : undefined;
   return {
-    initiative: { ...initiative, pipelineId, shortName },
-    event: new InitiativePipelineChosen(initiative.id, pipelineId, shortName),
+    initiative: { ...initiative, pipelines, shortName },
+    event: new InitiativePipelineChosen(initiative.id, projectId, pipelineId, shortName),
   };
 }
 
-const PIPELINE_FIXED_AT_CONFIRM = "Whether the Initiative has a Pipeline was fixed at Confirm.";
+function pipelineFixedAtConfirmWords(projectId: string): string {
+  return `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`;
+}
 
 /**
  * The user's own Short name, while shaping and with a Pipeline chosen (spec 5.5); refused when
@@ -183,9 +222,9 @@ export function writeShortName(
   taken: ReadonlySet<string>,
 ): InitiativeChange<InitiativeShortNameWritten> | undefined {
   const written = shortName.trim();
-  if (initiative.pipelineId === undefined) {
+  if (!hasAnyPipeline(initiative)) {
     throw new InitiativeRefused([
-      "Choose a Pipeline first: an Initiative on None has no branch to name.",
+      "Choose a Pipeline first: an Initiative on None in every Project has no branch to name.",
     ]);
   }
   if (written === initiative.shortName) return undefined;
@@ -199,8 +238,8 @@ export function writeShortName(
 }
 
 /**
- * The Initiative's branch made in a Project its Tasks come to span once it is active; undefined
- * when the record has it there already.
+ * The Initiative's branch made, once it is active, in a Project with a Pipeline its Tasks come to
+ * span again, or that a Proposal gave a Pipeline; undefined when the record has it there already.
  */
 export function addBranch(
   initiative: Initiative,
@@ -208,8 +247,8 @@ export function addBranch(
   at: Date,
 ): InitiativeChange<InitiativeBranchMade> | undefined {
   const { shortName } = initiative;
-  if (initiative.pipelineId === undefined || shortName === undefined) {
-    throw new InitiativeRefused(["An Initiative on None has no branch to make."]);
+  if (pipelineIn(initiative, projectId) === undefined || shortName === undefined) {
+    throw new InitiativeRefused([`The Initiative has None in ${projectId}, so no branch to make.`]);
   }
   if (initiative.branches.some((branch) => branch.projectId === projectId)) return undefined;
   return {

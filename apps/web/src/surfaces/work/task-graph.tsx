@@ -4,13 +4,15 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObj
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { PLANNING_STEP_WORDS, planningStepOf } from "./initiative-planning-words.ts";
-import { ordinaryTasksOf, taskGraph, type GraphEdge, type GraphNode } from "./initiative-words.ts";
-
-interface DrawnEdge {
-  readonly key: string;
-  readonly path: string;
-  readonly blockerDone: boolean;
-}
+import {
+  graphLineKinds,
+  ordinaryTasksOf,
+  taskGraph,
+  type GraphLineKind,
+  type GraphNode,
+  type TaskGraph as TaskGraphLayout,
+} from "./initiative-words.ts";
+import { routeEdges, type EdgeRoute, type RouteEdge, type TaskBox } from "./task-graph-routes.ts";
 
 /**
  * The Initiative's Tasks as a graph (prototypes/app/work.js `graph`): a column per dependency
@@ -38,49 +40,80 @@ export function TaskGraph({
     [initiative, tasks],
   );
   const box = useRef<HTMLDivElement>(null);
-  const drawn = useDrawnEdges(box, graph.edges);
+  const routes = useEdgeRoutes(box, graph);
   return (
-    <div className="task-graph" ref={box} role="group" aria-label="Task graph">
-      <svg className="task-graph-edges" aria-hidden="true">
-        <defs>
-          <marker
-            id="task-graph-arrow"
-            viewBox="0 0 8 8"
-            refX="6"
-            refY="4"
-            markerWidth="8"
-            markerHeight="8"
-            orient="auto"
-          >
-            <path d="M0,0 L8,4 L0,8 z" className="task-graph-arrow" />
-          </marker>
-        </defs>
-        {drawn.map(({ key, path, blockerDone }) => (
-          <path
-            key={key}
-            d={path}
-            className={blockerDone ? "blocker-done" : undefined}
-            markerEnd="url(#task-graph-arrow)"
-          />
-        ))}
-      </svg>
-      <div className="task-graph-columns">
-        {graph.columns.map((column) => (
-          <div key={column[0]?.task.id} className="task-graph-column">
-            {column.map((node) => (
-              <TaskNode
-                key={node.task.id}
-                node={node}
-                initiative={initiative}
-                openDecisions={openDecisions}
-                initiatives={initiatives}
-                projects={projects}
+    <>
+      <GraphLegend kinds={graphLineKinds(graph)} />
+      <div className="task-graph" ref={box} role="group" aria-label="Task graph">
+        <svg className="task-graph-edges" aria-hidden="true">
+          {routes.map(({ key, line, head, blockerDone, fromOutside }) => (
+            <g key={key}>
+              <path
+                d={line}
+                className={classes(
+                  "task-graph-edge",
+                  blockerDone && "blocker-done",
+                  fromOutside && "from-outside",
+                )}
               />
-            ))}
-          </div>
-        ))}
+              <path
+                d={head}
+                className={classes("task-graph-head", blockerDone && "blocker-done")}
+              />
+            </g>
+          ))}
+        </svg>
+        <div className="task-graph-columns">
+          {graph.columns.map((column) => (
+            <div key={column[0]?.task.id} className="task-graph-column">
+              {column.map((node) => (
+                <TaskNode
+                  key={node.task.id}
+                  node={node}
+                  initiative={initiative}
+                  openDecisions={openDecisions}
+                  initiatives={initiatives}
+                  projects={projects}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
+  );
+}
+
+const LINE_KIND_WORDS: Readonly<Record<GraphLineKind, string>> = {
+  "must-be-done-first": "must be Done first",
+  "blocker-done": "its blocker is Done",
+  "from-outside": "from outside this Initiative",
+};
+
+/** A sample of each kind of line the graph holds, with what it means. */
+function GraphLegend({ kinds }: { readonly kinds: readonly GraphLineKind[] }): ReactNode {
+  return (
+    <ul className="task-graph-legend" aria-label="What the arrows mean">
+      {kinds.map((kind) => (
+        <li key={kind}>
+          <svg className="task-graph-legend-sample" viewBox="0 0 28 8" aria-hidden="true">
+            <path
+              d="M0 4H20"
+              className={classes(
+                "task-graph-edge",
+                kind === "blocker-done" && "blocker-done",
+                kind === "from-outside" && "from-outside",
+              )}
+            />
+            <path
+              d="M20 0L28 4L20 8Z"
+              className={classes("task-graph-head", kind === "blocker-done" && "blocker-done")}
+            />
+          </svg>
+          {LINE_KIND_WORDS[kind]}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -127,43 +160,59 @@ function outsideWords(task: Task, initiatives: readonly Initiative[] | undefined
   return initiative ? `Initiative ${initiative.name}` : "outside this Initiative";
 }
 
-/** The edges' curves, measured from where the nodes were laid out, again whenever the box resizes. */
-function useDrawnEdges(
-  box: RefObject<HTMLDivElement | null>,
-  edges: readonly GraphEdge[],
-): DrawnEdge[] {
-  const [drawn, setDrawn] = useState<DrawnEdge[]>([]);
+function classes(...names: readonly (string | false)[]): string {
+  return names.filter(Boolean).join(" ");
+}
+
+/** The edges' routes, measured from where the nodes were laid out, again whenever the box resizes. */
+function useEdgeRoutes(box: RefObject<HTMLDivElement | null>, graph: TaskGraphLayout): EdgeRoute[] {
+  const edges = useMemo(() => routeEdgesOf(graph), [graph]);
+  const [routes, setRoutes] = useState<EdgeRoute[]>([]);
   useLayoutEffect(() => {
     const element = box.current;
     if (!element) return;
-    const draw = (): void => setDrawn(edgeCurves(element, edges));
+    const draw = (): void => setRoutes(routeEdges(measuredBoxes(element, graph.columns), edges));
     draw();
     const observer = new ResizeObserver(draw);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [box, edges]);
-  return drawn;
+  }, [box, graph, edges]);
+  return routes;
 }
 
-function edgeCurves(element: HTMLElement, edges: readonly GraphEdge[]): DrawnEdge[] {
+function routeEdgesOf({ columns, edges }: TaskGraphLayout): RouteEdge[] {
+  const outsideIds = new Set(
+    columns.flat().flatMap(({ task, outside }) => (outside ? [task.id] : [])),
+  );
+  return edges.map((edge) => ({ ...edge, fromOutside: outsideIds.has(edge.from) }));
+}
+
+/** Each node's box in the graph's own coordinates, as the graph scrolls sideways. */
+function measuredBoxes(
+  element: HTMLElement,
+  columns: TaskGraphLayout["columns"],
+): Map<string, TaskBox> {
   const origin = element.getBoundingClientRect();
-  const nodeBox = (taskId: string): DOMRect | undefined =>
-    element.querySelector(`[data-task="${CSS.escape(taskId)}"]`)?.getBoundingClientRect();
-  return edges.flatMap(({ from, to, blockerDone }) => {
-    const blocker = nodeBox(from);
-    const waiting = nodeBox(to);
-    if (!blocker || !waiting) return [];
-    const x1 = blocker.right - origin.left + element.scrollLeft;
-    const y1 = blocker.top + blocker.height / 2 - origin.top;
-    const x2 = waiting.left - origin.left + element.scrollLeft - 6;
-    const y2 = waiting.top + waiting.height / 2 - origin.top;
-    const middle = (x1 + x2) / 2;
-    return [
-      {
-        key: `${from}>${to}`,
-        path: `M${x1},${y1} C${middle},${y1} ${middle},${y2} ${x2},${y2}`,
-        blockerDone,
-      },
-    ];
-  });
+  return new Map(
+    columns.flatMap((column, index) =>
+      column.flatMap(({ task }): [string, TaskBox][] => {
+        const node = element.querySelector(`[data-task="${CSS.escape(task.id)}"]`);
+        if (!node) return [];
+        const { left, right, top, bottom } = node.getBoundingClientRect();
+        const x = element.scrollLeft - origin.left;
+        return [
+          [
+            task.id,
+            {
+              left: left + x,
+              right: right + x,
+              top: top - origin.top,
+              bottom: bottom - origin.top,
+              column: index,
+            },
+          ],
+        ];
+      }),
+    ),
+  );
 }

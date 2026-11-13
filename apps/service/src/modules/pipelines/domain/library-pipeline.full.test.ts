@@ -194,55 +194,42 @@ describe("pipelineUse", () => {
 
   it("names the shaping and active Initiatives naming it, never a done or dropped one", () => {
     const initiatives = [
-      {
-        name: "Checkout",
-        state: "shaping",
-        pipelineId: "full",
-        projectIds: ["site"],
-        pipelineStarted: false,
-      },
-      {
-        name: "Search",
-        state: "active",
-        pipelineId: "full",
-        projectIds: ["site", "app"],
-        pipelineStarted: false,
-      },
-      {
-        name: "Login",
-        state: "done",
-        pipelineId: "full",
-        projectIds: ["site"],
-        pipelineStarted: false,
-      },
-      {
-        name: "Themes",
-        state: "dropped",
-        pipelineId: "full",
-        projectIds: ["app"],
-        pipelineStarted: false,
-      },
-      {
-        name: "Billing",
-        state: "active",
-        pipelineId: "quick-fix",
-        projectIds: ["app"],
-        pipelineStarted: false,
-      },
+      { name: "Checkout", state: "shaping", projectId: "site", pipelineId: "full" },
+      // On it in two Projects, still named once.
+      { name: "Search", state: "active", projectId: "site", pipelineId: "full" },
+      { name: "Search", state: "active", projectId: "app", pipelineId: "full" },
+      { name: "Login", state: "done", projectId: "site", pipelineId: "full" },
+      { name: "Themes", state: "dropped", projectId: "app", pipelineId: "full" },
+      { name: "Billing", state: "active", projectId: "app", pipelineId: "quick-fix" },
       // Its Publishing Task walks its own copy of the Stages now.
-      {
-        name: "Exports",
-        state: "active",
-        pipelineId: "full",
-        projectIds: ["app"],
-        pipelineStarted: true,
-      },
-    ];
+      { name: "Exports", state: "active", projectId: "app", pipelineId: "full", started: true },
+    ].map(({ started = false, ...initiative }) => ({ ...initiative, pipelineStarted: started }));
 
     expect(pipelineUse("full", [], [], initiatives, []).initiatives).toEqual([
       "Checkout",
       "Search",
     ]);
+  });
+
+  it("names an Initiative whose Pipeline started in one Project's Publishing Task but not another's", () => {
+    const initiatives = [
+      {
+        name: "Search",
+        state: "active",
+        projectId: "site",
+        pipelineId: "full",
+        pipelineStarted: true,
+      },
+      {
+        name: "Search",
+        state: "active",
+        projectId: "app",
+        pipelineId: "full",
+        pipelineStarted: false,
+      },
+    ];
+
+    expect(pipelineUse("full", [], [], initiatives, []).initiatives).toEqual(["Search"]);
   });
 });
 

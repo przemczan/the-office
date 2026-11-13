@@ -13,7 +13,7 @@ import {
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
-import { initiativeProjectIds, type Initiative } from "../../domain/initiative.js";
+import { initiativeProjectIds, pipelineIn, type Initiative } from "../../domain/initiative.js";
 import {
   INITIATIVE_PLANNING_INSTRUCTIONS,
   initiativePlanningBrief,
@@ -21,7 +21,7 @@ import {
 } from "../../domain/initiative-planning.js";
 import { PLANNER } from "../../domain/planning.js";
 import { initiativeRecordText } from "../../domain/record-words.js";
-import { SHAPING_INSTRUCTIONS, shapingBrief } from "../../domain/shaping.js";
+import { SHAPING_INSTRUCTIONS, shapingBrief, type ShapingProject } from "../../domain/shaping.js";
 import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task } from "../../domain/task.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
@@ -114,7 +114,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       return {
         instructions: SHAPING_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,
-        record: shapingBrief(initiative, idea?.projectId, record, await this.pipelines.list()),
+        record: await this.shapingBrief(initiative, idea?.projectId, record, tasks),
         sessionRefusal,
         branchReads,
       };
@@ -125,6 +125,31 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       record: await this.planningBrief(initiative, record, tasks, threadId),
       sessionRefusal,
       branchReads,
+    };
+  }
+
+  private async shapingBrief(
+    initiative: Initiative,
+    ideaProjectId: string | undefined,
+    record: string,
+    tasks: readonly Task[],
+  ): Promise<string> {
+    const [officeWide, projects] = await Promise.all([
+      this.pipelines.list(),
+      Promise.all(initiativeProjectIds(tasks).map((id) => this.shapingProject(id))),
+    ]);
+    return shapingBrief(initiative, ideaProjectId, record, projects, officeWide);
+  }
+
+  private async shapingProject(id: string): Promise<ShapingProject> {
+    const [project, pipelines] = await Promise.all([
+      this.projects.find(id),
+      this.pipelines.listFor(id),
+    ]);
+    return {
+      id,
+      name: project?.name ?? id,
+      ownPipelines: pipelines.filter(({ projectId }) => projectId === id),
     };
   }
 
@@ -170,20 +195,22 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
 }
 
 /**
- * The Projects an active Initiative with a Pipeline is read at its branch in (spec §2.4): those it
- * spans now that it has its branch in; one it stopped spanning is read at its base. Undefined while
- * it is shaping, on None, or confirmed before Initiatives had a Pipeline, so it reads base branches.
+ * The Projects an active Initiative is read at its branch in (spec §2.4): those it spans now that
+ * have a Pipeline and its branch; one it stopped spanning, or with None, is read at its base.
+ * Undefined while it is shaping, or on None in every Project, so it reads base branches.
  */
 function initiativeBranchReads(
   initiative: Initiative,
   tasks: readonly Task[],
 ): InitiativeBranchReads | undefined {
-  const { state, pipelineId, shortName, branches } = initiative;
-  if (state !== "active" || pipelineId === undefined || shortName === undefined) return undefined;
+  const { state, shortName, branches } = initiative;
+  if (state !== "active" || shortName === undefined) return undefined;
   const branched = new Set(branches.map(({ projectId }) => projectId));
   return {
     shortName,
     branch: initiativeBranchOf(shortName),
-    projectIds: initiativeProjectIds(tasks).filter((projectId) => branched.has(projectId)),
+    projectIds: initiativeProjectIds(tasks).filter(
+      (projectId) => branched.has(projectId) && pipelineIn(initiative, projectId) !== undefined,
+    ),
   };
 }

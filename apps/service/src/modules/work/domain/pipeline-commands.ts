@@ -95,8 +95,3 @@ export function missingCommandsWords(
   const listed = `${missing.slice(0, -1).join(", ")} and ${missing.at(-1)}`;
   return `The Pipeline ${pipelineName} runs ${listed}, which ${projectName} has no commands for. Add them on the Project page, or choose another Pipeline.`;
 }
-
-/** Why an Initiative can't follow a Project Pipeline (spec §2.1, "An Initiative's Pipeline"). */
-export function projectPipelineForInitiativeWords(pipelineName: string, ownerName: string): string {
-  return `${pipelineName} is a Project Pipeline of ${ownerName}; an Initiative's Pipeline is an office-wide one.`;
-}

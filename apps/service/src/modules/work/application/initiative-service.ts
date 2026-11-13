@@ -6,7 +6,7 @@ import { moveAttachment } from "../domain/attachment-changes.js";
 import type { Author } from "../domain/author.js";
 import type { Idea } from "../domain/idea.js";
 import { shapeIdeaIntoInitiative } from "../domain/idea-changes.js";
-import { initiativeProjectIds, type Initiative } from "../domain/initiative.js";
+import { initiativeProjectIds, pipelineIn, type Initiative } from "../domain/initiative.js";
 import {
   archiveInitiative,
   restoreInitiative,
@@ -46,7 +46,6 @@ import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import { InitiativeNotShaping } from "../domain/initiative-not-shaping.js";
 import {
   initiativePipelineChangeProblems,
-  initiativePipelineProblems,
   startedPublishingTask,
 } from "../domain/initiative-pipeline.js";
 import {
@@ -74,13 +73,14 @@ import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { InitiativeThreads } from "../ports/initiative-threads.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
-import { projectPipelineForInitiativeWords } from "../domain/pipeline-commands.js";
+import { taskPipelineProblems } from "../domain/pipeline-commands.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
 import { ProposalDrafts } from "../ports/proposal-drafts.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
 import { InitiativeBranching } from "./initiative-branching.js";
+import { pipelineChoiceIn } from "./pipeline-choice.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
 
 function requiredProject(
@@ -96,13 +96,13 @@ function requiredProject(
 export type CtoChange =
   { readonly kind: "written"; readonly edit: InitiativeEdit } | { readonly kind: "proposed" };
 
-/** An Initiative that names a Pipeline, with the Projects it spans, as the library weighs it. */
+/** An Initiative that names a Pipeline in one Project it spans, as the library weighs it. */
 export interface InitiativeOnPipeline {
   readonly name: string;
   readonly state: Initiative["state"];
+  readonly projectId: string;
   readonly pipelineId: string;
-  readonly projectIds: readonly string[];
-  /** Whether its Pipeline has started, in one of its Publishing Tasks. */
+  /** Whether its Pipeline has started there, in that Project's Publishing Task. */
   readonly pipelineStarted: boolean;
 }
 
@@ -269,11 +269,17 @@ export class InitiativeService implements OnModuleInit {
     ]);
     const tasks = tasksByInitiative(board).get(id) ?? [];
     const blockers = new Map(board.map((task) => [task.id, task]));
-    const pipeline =
-      initiative.pipelineId === undefined
-        ? undefined
-        : await this.pipelines.find(initiative.pipelineId);
-    return { initiative, idea, tasks, blockers, attachments, pipelineName: pipeline?.name };
+    const pipelineNames = await this.pipelineNamesOf(initiative);
+    return { initiative, idea, tasks, blockers, attachments, pipelineNames };
+  }
+
+  /** The names of the Pipelines the Initiative has in its Projects, by id, those still known. */
+  private async pipelineNamesOf(initiative: Initiative): Promise<ReadonlyMap<string, string>> {
+    const ids = [...new Set(initiative.pipelines.flatMap(({ pipelineId }) => pipelineId ?? []))];
+    const pipelines = await Promise.all(ids.map((pipelineId) => this.pipelines.read(pipelineId)));
+    return new Map(
+      pipelines.flatMap((pipeline) => (pipeline ? [[pipeline.id, pipeline.name]] : [])),
+    );
   }
 
   /** The Idea it was shaped from; undefined for one created from none. */
@@ -284,25 +290,22 @@ export class InitiativeService implements OnModuleInit {
     return idea;
   }
 
-  /** Every Initiative that names a Pipeline, with the Projects its Tasks span. */
+  /** Every Initiative's Pipeline in each Project it spans that has one. */
   async withPipelines(): Promise<readonly InitiativeOnPipeline[]> {
     const [every, byInitiative] = await Promise.all([
       this.repository.list(),
       this.tasksByInitiative(),
     ]);
-    return every.flatMap(({ id, name, state, pipelineId }) =>
-      pipelineId === undefined
-        ? []
-        : [
-            {
-              name,
-              state,
-              pipelineId,
-              projectIds: initiativeProjectIds(byInitiative.get(id) ?? []),
-              pipelineStarted: startedPublishingTask(byInitiative.get(id) ?? []) !== undefined,
-            },
-          ],
-    );
+    return every.flatMap((initiative) => {
+      const tasks = byInitiative.get(initiative.id) ?? [];
+      return initiativeProjectIds(tasks).flatMap((projectId) => {
+        const pipelineId = pipelineIn(initiative, projectId);
+        if (pipelineId === undefined) return [];
+        const { name, state } = initiative;
+        const pipelineStarted = startedPublishingTask(tasks, projectId) !== undefined;
+        return [{ name, state, projectId, pipelineId, pipelineStarted }];
+      });
+    });
   }
 
   /**
@@ -315,22 +318,26 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * The Initiative's Pipeline, null for None: by the user or the CTO straight onto it while it is
-   * being shaped, or by the CTO's Proposal once active. Refused for a Pipeline the library lacks,
-   * or one running a command a Project it spans lacks (spec 2.3).
+   * The Initiative's Pipeline in one Project it spans, null for None: by the user or the CTO
+   * straight onto it while it is being shaped, or by the CTO's Proposal once active. Refused for a
+   * Project it doesn't span, and for a Pipeline that Project's Tasks couldn't follow (spec 2.3):
+   * unknown, another Project's Project Pipeline, Broken, or running a command the Project lacks.
    */
   async choosePipeline(
     id: string,
+    projectId: string,
     pipelineId: string | null,
     route: InitiativeChangeRoute,
   ): Promise<Initiative> {
+    const project = await this.spannedProject(id, projectId);
     const chosen = pipelineId ?? undefined;
     if (chosen !== undefined) {
-      const problems = await this.pipelineProblems(await this.read(id), chosen);
+      const choice = await pipelineChoiceIn(projectId, chosen, this.pipelines, this.projects);
+      const problems = taskPipelineProblems(choice, project);
       if (problems.length > 0) throw new InitiativeRefused(problems);
     }
     const { initiative, event } = await this.repository.updateNaming(id, (held, taken) =>
-      chooseInitiativePipeline(held, chosen, route, taken),
+      chooseInitiativePipeline(held, projectId, chosen, route, taken),
     );
     if (event) await this.events.publish(event);
     return initiative;
@@ -345,56 +352,32 @@ export class InitiativeService implements OnModuleInit {
     return initiative;
   }
 
-  /**
-   * Why the Initiative can't follow the Pipeline: none in the library by that id, a Project
-   * Pipeline, or a command it runs that a Project the Initiative spans lacks.
-   */
-  private async pipelineProblems(initiative: Initiative, pipelineId: string): Promise<string[]> {
-    const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
-    if (!pipeline) return [await this.noSuchPipelineWords(pipelineId)];
-    if (pipeline.projectId !== undefined) {
-      return [await this.projectPipelineWords(pipeline.name, pipeline.projectId)];
-    }
-    return initiativePipelineProblems(pipeline, await this.projectsOf(initiative.id));
-  }
-
-  /** Every reason applying the CTO's Proposal of another Pipeline would be refused now. */
+  /** Every reason applying the CTO's Proposal of another Pipeline in one Project would be refused now. */
   private async pipelineChangeProblems(
     initiative: Initiative,
+    projectId: string,
     pipelineId: string | null,
   ): Promise<string[]> {
-    const pipeline =
-      pipelineId === null ? undefined : await this.pipelines.commandsNamedBy(pipelineId);
-    if (pipelineId !== null && !pipeline) return [await this.noSuchPipelineWords(pipelineId)];
-    if (pipeline?.projectId !== undefined) {
-      return [await this.projectPipelineWords(pipeline.name, pipeline.projectId)];
+    const tasks = (await this.tasksByInitiative()).get(initiative.id) ?? [];
+    const project = await this.projects.find(projectId);
+    if (!project || !tasks.some((task) => task.projectId === projectId)) {
+      return [notSpannedWords(projectId)];
     }
-    return initiativePipelineChangeProblems(
-      initiative,
-      pipelineId,
-      pipeline,
-      await this.projectsOf(initiative.id),
-      (await this.tasksByInitiative()).get(initiative.id) ?? [],
-    );
+    const choice =
+      pipelineId === null
+        ? undefined
+        : await pipelineChoiceIn(projectId, pipelineId, this.pipelines, this.projects);
+    return initiativePipelineChangeProblems(initiative, project, choice, tasks);
   }
 
-  private async noSuchPipelineWords(pipelineId: string): Promise<string> {
-    const known = (await this.pipelines.list()).map(({ id }) => id).join(", ");
-    return `There is no Pipeline "${pipelineId}". The library has ${known}.`;
-  }
-
-  private async projectPipelineWords(pipelineName: string, projectId: string): Promise<string> {
-    const owner = await this.projects.find(projectId);
-    return projectPipelineForInitiativeWords(pipelineName, owner?.name ?? projectId);
-  }
-
-  /** The Projects the Initiative's Tasks span, those still known. */
-  private async projectsOf(id: string): Promise<KnownProject[]> {
+  /** A Project the Initiative's Tasks span, still known; refused otherwise. */
+  private async spannedProject(id: string, projectId: string): Promise<KnownProject> {
     const tasks = (await this.tasksByInitiative()).get(id) ?? [];
-    const projects = await Promise.all(
-      initiativeProjectIds(tasks).map((projectId) => this.projects.find(projectId)),
-    );
-    return projects.filter((project) => project !== undefined);
+    const project = await this.projects.find(projectId);
+    if (!project || !tasks.some((task) => task.projectId === projectId)) {
+      throw new InitiativeRefused([notSpannedWords(projectId)]);
+    }
+    return project;
   }
 
   /**
@@ -503,7 +486,9 @@ export class InitiativeService implements OnModuleInit {
       const problems = await this.branching.newProjectProblems(id, edit.projectId);
       if (problems.length > 0) return problems;
     }
-    if (edit.kind === "pipeline") return this.pipelineChangeProblems(initiative, edit.pipelineId);
+    if (edit.kind === "pipeline") {
+      return this.pipelineChangeProblems(initiative, edit.projectId, edit.pipelineId);
+    }
     return initiativeEditProblems(initiative, edit, await this.tasks.list());
   }
 
@@ -582,9 +567,7 @@ export class InitiativeService implements OnModuleInit {
         );
         return edit;
       case "pipeline":
-        if (route === "by-proposal") await this.refuseOncePipelineStarted(id);
-        await this.choosePipeline(id, edit.pipelineId, route);
-        if (edit.pipelineId !== null) await this.swapPublishingPipelines(id, edit.pipelineId);
+        await this.changePipeline(id, edit.projectId, edit.pipelineId, route);
         return edit;
     }
   }
@@ -674,7 +657,7 @@ export class InitiativeService implements OnModuleInit {
     const candidates = isPublishingTask(ended) ? [] : publishingCandidates(initiative, tasks);
     const projects = await this.publishingProjects(candidates);
     const unpublished = await this.unpublishedIn(initiative, tasks, [...projects.keys()]);
-    const pipelineName = await this.pipelineNameOf(initiative);
+    const pipelineNames = await this.pipelineNamesOf(initiative);
     const at = new Date();
     const settled = await this.repository.settle(id, (held, heldTasks, takenOrders) => {
       const orders = [...takenOrders];
@@ -688,7 +671,11 @@ export class InitiativeService implements OnModuleInit {
           return createPublishingTask(
             randomUUID(),
             requiredProject(projects, projectId),
-            { initiative: held, pipelineName, doneTasks: doneTasksIn(heldTasks, projectId) },
+            {
+              initiative: held,
+              pipelineName: pipelineNameIn(held, projectId, pipelineNames),
+              doneTasks: doneTasksIn(heldTasks, projectId),
+            },
             order,
             at,
           );
@@ -729,28 +716,50 @@ export class InitiativeService implements OnModuleInit {
     return new Set(projectIds.filter((_, index) => holding[index]));
   }
 
-  private async pipelineNameOf(initiative: Initiative): Promise<string> {
-    if (initiative.pipelineId === undefined) return "";
-    return (await this.pipelines.find(initiative.pipelineId))?.name ?? initiative.pipelineId;
+  /**
+   * The Initiative's Pipeline in one Project, as the CTO writes it while shaping or the user applies
+   * their Proposal: refused once that Project's Publishing Task has started; the Initiative's branch
+   * made there when a Project it came to span once active gets its first Pipeline; and the
+   * Pipeline swapped on that Project's Publishing Task not yet started.
+   */
+  private async changePipeline(
+    id: string,
+    projectId: string,
+    pipelineId: string | null,
+    route: InitiativeChangeRoute,
+  ): Promise<void> {
+    if (route === "by-proposal") await this.refuseOncePipelineStarted(id, projectId);
+    await this.branching.givingPipeline(id, projectId, () =>
+      this.choosePipeline(id, projectId, pipelineId, route),
+    );
+    if (pipelineId !== null) await this.swapPublishingPipelines(id, projectId, pipelineId);
   }
 
-  /** Refuses another Pipeline once a Publishing Task has started on the Initiative's. */
-  private async refuseOncePipelineStarted(id: string): Promise<void> {
-    const started = startedPublishingTask((await this.tasksByInitiative()).get(id) ?? []);
+  /** Refuses another Pipeline in the Project once its Publishing Task has started. */
+  private async refuseOncePipelineStarted(id: string, projectId: string): Promise<void> {
+    const tasks = (await this.tasksByInitiative()).get(id) ?? [];
+    const started = startedPublishingTask(tasks, projectId);
     if (started) {
       throw new InitiativeRefused([
-        `The Initiative's Pipeline started in ${started.title}, so it can't change.`,
+        `The Initiative's Pipeline in ${projectId} started in ${started.title}, so it can't change.`,
       ]);
     }
   }
 
   /**
-   * The applied Pipeline on each Publishing Task not yet started whose Stages weren't edited for
-   * it (spec 2.1): those the user edited keep theirs, and with it their Stages.
+   * The applied Pipeline on the Project's Publishing Task not yet started, unless its Stages were
+   * edited for it (spec 2.1): one the user edited keeps its own, and with it its Stages.
    */
-  private async swapPublishingPipelines(id: string, pipelineId: string): Promise<void> {
+  private async swapPublishingPipelines(
+    id: string,
+    projectId: string,
+    pipelineId: string,
+  ): Promise<void> {
     const waiting = ((await this.tasksByInitiative()).get(id) ?? []).filter(
-      (task) => isPublishingTask(task) && NOT_STARTED_STATES.includes(task.state),
+      (task) =>
+        isPublishingTask(task) &&
+        task.projectId === projectId &&
+        NOT_STARTED_STATES.includes(task.state),
     );
     for (const publishing of waiting) {
       if (await this.stageEdits.editedForTask(publishing.id)) continue;
@@ -794,4 +803,18 @@ export class InitiativeService implements OnModuleInit {
     for (const taskChange of taskChanges) await this.events.publish(taskChange.event);
     return initiative;
   }
+}
+
+function notSpannedWords(projectId: string): string {
+  return `The Initiative has no Task in the Project "${projectId}", so it has no Pipeline there.`;
+}
+
+/** The name of the Initiative's Pipeline in the Project, or its id when the library lost it. */
+function pipelineNameIn(
+  initiative: Initiative,
+  projectId: string,
+  names: ReadonlyMap<string, string>,
+): string {
+  const pipelineId = pipelineIn(initiative, projectId) ?? "";
+  return names.get(pipelineId) ?? pipelineId;
 }

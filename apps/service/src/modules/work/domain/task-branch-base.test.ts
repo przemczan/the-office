@@ -21,7 +21,7 @@ describe("taskBranchBase", () => {
 
   it("is the Initiative's branch in the Project for an Initiative with a Pipeline", () => {
     const initiative = anInitiative({
-      pipelineId: "full",
+      pipelines: [{ projectId: "admin-panel", pipelineId: "full" }],
       shortName: "usage-exports",
       branches: [{ projectId: "admin-panel", madeAt }],
     });
@@ -32,9 +32,28 @@ describe("taskBranchBase", () => {
     });
   });
 
+  it("is the base branch in a Project on None beside one with a Pipeline and its branch", () => {
+    const initiative = anInitiative({
+      pipelines: [
+        { projectId: "admin-panel", pipelineId: "full" },
+        { projectId: "website", pipelineId: undefined },
+      ],
+      shortName: "usage-exports",
+      branches: [{ projectId: "admin-panel", madeAt }],
+    });
+
+    expect(taskBranchBase(ORDINARY, initiative, "website", "Website")).toEqual({
+      kind: "base-branch",
+    });
+    expect(taskBranchBase(ORDINARY, initiative, "admin-panel", "Admin panel")).toEqual({
+      kind: "initiative-branch",
+      branch: "initiative/usage-exports",
+    });
+  });
+
   it("is the Initiative's branch itself for its Publishing Task", () => {
     const initiative = anInitiative({
-      pipelineId: "full",
+      pipelines: [{ projectId: "admin-panel", pipelineId: "full" }],
       shortName: "usage-exports",
       branches: [{ projectId: "admin-panel", madeAt }],
     });
@@ -46,7 +65,7 @@ describe("taskBranchBase", () => {
 
   it("refuses, naming the Project, when the Initiative with a Pipeline has no branch there", () => {
     const initiative = anInitiative({
-      pipelineId: "full",
+      pipelines: [{ projectId: "admin-panel", pipelineId: "full" }],
       shortName: "usage-exports",
       branches: [{ projectId: "website", madeAt }],
     });

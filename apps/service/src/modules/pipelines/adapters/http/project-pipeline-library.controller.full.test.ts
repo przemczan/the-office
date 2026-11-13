@@ -269,6 +269,34 @@ describe("removing a Project Pipeline", () => {
     ]);
   });
 
+  it("is refused while an open Initiative names it in its Project, until its Publishing Task there started", async () => {
+    const base = await aBasePipeline();
+    const projectId = aProject();
+    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
+    const naming = {
+      name: `Checkout ${projectId}`,
+      state: "active" as const,
+      projectId,
+      pipelineId: projectPipeline.id,
+      pipelineStarted: false,
+    };
+    pipelines.initiatives.initiatives.push(naming);
+
+    const use = await send("GET", `/project-pipelines/${projectPipeline.id}/use`);
+    const refused = await send("DELETE", `/project-pipelines/${projectPipeline.id}`);
+
+    expect(pipelineUseSchema.parse(await use.json()).initiatives).toBe(1);
+    expect(refused.status).toBe(422);
+    expect(pipelineRemovalRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      `The Initiative ${naming.name} names it; choose another Pipeline for it first.`,
+    ]);
+
+    const index = pipelines.initiatives.initiatives.indexOf(naming);
+    pipelines.initiatives.initiatives.splice(index, 1, { ...naming, pipelineStarted: true });
+
+    expect((await send("DELETE", `/project-pipelines/${projectPipeline.id}`)).status).toBe(204);
+  });
+
   it("answers 404 for a Project Pipeline that isn't there", async () => {
     expect((await send("DELETE", "/project-pipelines/nowhere")).status).toBe(404);
     expect((await send("GET", "/project-pipelines/nowhere")).status).toBe(404);

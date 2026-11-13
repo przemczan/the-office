@@ -628,8 +628,28 @@ async function shapedOwnInitiative(): Promise<Initiative> {
   return shape(ideaSchema.parse(await response.json()));
 }
 
-async function choose(initiative: Initiative, pipelineId: string | null): Promise<Response> {
-  return sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, { pipelineId });
+async function choose(
+  initiative: Initiative,
+  projectId: string,
+  pipelineId: string | null,
+): Promise<Response> {
+  return sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
+    projectId,
+    pipelineId,
+  });
+}
+
+/** `pipelineId` chosen in each of `projectIds`, answering the Initiative as the last made it. */
+async function chooseIn(
+  initiative: Initiative,
+  projectIds: readonly string[],
+  pipelineId: string,
+): Promise<Initiative> {
+  let chosen = initiative;
+  for (const projectId of projectIds) {
+    chosen = await initiativeFrom(await choose(initiative, projectId, pipelineId));
+  }
+  return chosen;
 }
 
 async function initiativeFrom(response: Response): Promise<Initiative> {
@@ -647,63 +667,104 @@ function branches(): ProjectInitiativeBranchesForTests {
 }
 
 describe("the Initiative's Pipeline and branches", () => {
-  it("starts on None, and takes a Pipeline straight while shaping, with a Short name from the title", async () => {
+  it("starts on None in each Project, and takes a Pipeline in one straight while shaping, with a Short name from the title", async () => {
     const initiative = await shapedOwnInitiative();
-    expect(initiative).toMatchObject({ pipelineId: null, shortName: null, branches: [] });
+    const projectId = aProjectId();
+    await addTask(initiative, projectId);
+    expect(await read(initiative)).toMatchObject({
+      pipelines: [{ projectId, pipelineId: null }],
+      shortName: null,
+      branches: [],
+    });
     work.published.length = 0;
 
-    const chosen = await initiativeFrom(await choose(initiative, "full"));
+    const chosen = await initiativeFrom(await choose(initiative, projectId, "full"));
 
-    expect(chosen.pipelineId).toBe("full");
+    expect(chosen.pipelines).toEqual([{ projectId, pipelineId: "full" }]);
     expect(chosen.shortName).toBe(initiative.name.toLowerCase().replaceAll(" ", "-"));
     expect(webEventsOf(work)).toContainEqual({
       type: "initiative.pipeline-chosen",
       initiativeId: initiative.id,
     });
-    expect((await initiativeFrom(await choose(initiative, null))).shortName).toBeNull();
+    expect((await initiativeFrom(await choose(initiative, projectId, null))).shortName).toBeNull();
   });
 
-  it("refuses a Pipeline the library lacks, and one a spanned Project lacks a command for", async () => {
+  it("gives two Projects different Pipelines, answering one per Project in the order its Tasks came", async () => {
     const initiative = await shapedOwnInitiative();
-    const projectId = aProjectId();
-    work.app.get(KnownProjectsForTests).commands.set(projectId, []);
-    await addTask(initiative, projectId);
+    const [first, second] = [aProjectId(), aProjectId()];
+    await addTask(initiative, first);
+    await addTask(initiative, second);
 
-    expect((await reasonsOf(await choose(initiative, "no-such")))[0]).toMatch(
-      /^There is no Pipeline "no-such"\. The library has /,
-    );
-    expect(await reasonsOf(await choose(initiative, "full"))).toEqual([
-      `The Pipeline Full runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
+    await choose(initiative, second, "quick-fix");
+    const chosen = await initiativeFrom(await choose(initiative, first, "full"));
+
+    expect(chosen.pipelines).toEqual([
+      { projectId: first, pipelineId: "full" },
+      { projectId: second, pipelineId: "quick-fix" },
     ]);
   });
 
-  it("refuses a Project Pipeline, naming its Project: an Initiative's Pipeline is an office-wide one", async () => {
+  it("refuses a Project the Initiative doesn't span", async () => {
     const initiative = await shapedOwnInitiative();
-    const projectId = aProjectId();
-    await addTask(initiative, projectId);
-    const library = projectPipelinesForTests(work.app);
-    const projectPipeline = await library.aProjectPipeline(
-      projectId,
-      await library.aBasePipeline(),
-    );
+    await addTask(initiative);
+    const elsewhere = aProjectId();
 
-    expect(await reasonsOf(await choose(initiative, projectPipeline.id))).toEqual([
-      `${projectPipeline.name} is a Project Pipeline of The ${projectId}; an Initiative's Pipeline is an office-wide one.`,
+    expect(await reasonsOf(await choose(initiative, elsewhere, "full"))).toEqual([
+      `The Initiative has no Task in the Project "${elsewhere}", so it has no Pipeline there.`,
+    ]);
+  });
+
+  it("refuses a Pipeline the library lacks, and one that Project lacks a command for, not another's lack", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [lacking, other] = [aProjectId(), aProjectId()];
+    work.app.get(KnownProjectsForTests).commands.set(lacking, []);
+    await addTask(initiative, lacking);
+    await addTask(initiative, other);
+
+    expect((await reasonsOf(await choose(initiative, lacking, "no-such")))[0]).toMatch(
+      new RegExp(`^There is no Pipeline "no-such"\\. The ${lacking} can choose `),
+    );
+    expect(await reasonsOf(await choose(initiative, lacking, "full"))).toEqual([
+      `The Pipeline Full runs test, which The ${lacking} has no command for. Add it on the Project page, or choose another Pipeline.`,
+    ]);
+    expect((await choose(initiative, other, "full")).status).toBe(200);
+  });
+
+  it("takes a Project Pipeline in its own Project, and refuses it in another, naming its Project", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [owner, other] = [aProjectId(), aProjectId()];
+    await addTask(initiative, owner);
+    await addTask(initiative, other);
+    const library = projectPipelinesForTests(work.app);
+    const projectPipeline = await library.aProjectPipeline(owner, await library.aBasePipeline());
+
+    expect(await reasonsOf(await choose(initiative, other, projectPipeline.id))).toEqual([
+      `${projectPipeline.name} is a Project Pipeline of The ${owner}: only The ${owner}'s Tasks can follow it.`,
+    ]);
+    const chosen = await initiativeFrom(await choose(initiative, owner, projectPipeline.id));
+    expect(chosen.pipelines).toEqual([
+      { projectId: owner, pipelineId: projectPipeline.id },
+      { projectId: other, pipelineId: null },
     ]);
   });
 
   it("writes the user's Short name, refusing one that is taken or not of the form", async () => {
     const initiative = await shapedOwnInitiative();
     const other = await shapedOwnInitiative();
-    const { shortName: taken } = await initiativeFrom(await choose(other, "full"));
-    await choose(initiative, "full");
-    const own = `own-${randomUUID().slice(0, 8)}`;
+    const [own, others] = [aProjectId(), aProjectId()];
+    await addTask(initiative, own);
+    await addTask(other, others);
+    const { shortName: taken } = await initiativeFrom(await choose(other, others, "full"));
+    await choose(initiative, own, "full");
+    const written = `own-${randomUUID().slice(0, 8)}`;
 
-    const written = await initiativeFrom(
-      await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, { shortName: own }),
+    const response = await initiativeFrom(
+      await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, {
+        shortName: written,
+      }),
     );
 
-    expect(written.shortName).toBe(own);
+    expect(response.shortName).toBe(written);
     expect(
       await reasonsOf(
         await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, {
@@ -720,12 +781,12 @@ describe("the Initiative's Pipeline and branches", () => {
     ).toHaveLength(1);
   });
 
-  it("makes the branch in each Project its Tasks span at Confirm, and keeps them after a Drop", async () => {
+  it("makes the branch in each Project with a Pipeline at Confirm, and keeps them after a Drop", async () => {
     const initiative = await shapedOwnInitiative();
     const [first, second] = [aProjectId(), aProjectId()];
     await addTask(initiative, first);
     await addTask(initiative, second);
-    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    const { shortName } = await chooseIn(initiative, [first, second], "full");
     const branch = `initiative/${shortName}`;
 
     expect((await post(initiative, "confirm")).status).toBe(200);
@@ -743,12 +804,33 @@ describe("the Initiative's Pipeline and branches", () => {
     });
   });
 
+  it("makes the branch at Confirm only in the Project with a Pipeline, fixing None in the other", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [withPipeline, onNone] = [aProjectId(), aProjectId()];
+    await addTask(initiative, withPipeline);
+    await addTask(initiative, onNone);
+    const { shortName } = await initiativeFrom(await choose(initiative, withPipeline, "full"));
+    const branch = `initiative/${shortName}`;
+
+    const confirmed = await initiativeFrom(await post(initiative, "confirm"));
+
+    expect(branches().made).toEqual([`${withPipeline}/${branch}`]);
+    expect(confirmed).toMatchObject({
+      pipelines: [
+        { projectId: withPipeline, pipelineId: "full" },
+        { projectId: onNone, pipelineId: null },
+      ],
+      shortName,
+      branches: [{ projectId: withPipeline, branch }],
+    });
+  });
+
   it("refuses Confirm naming the Project and why, removing the branch made, and stays shaping", async () => {
     const initiative = await shapedOwnInitiative();
     const [first, second] = [aProjectId(), aProjectId()];
     await addTask(initiative, first);
     await addTask(initiative, second);
-    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    const { shortName } = await chooseIn(initiative, [first, second], "full");
     branches().refusing.set(
       second,
       `The branch initiative/${shortName} already exists in The ${second}.`,
@@ -765,7 +847,7 @@ describe("the Initiative's Pipeline and branches", () => {
     const initiative = await shapedOwnInitiative();
     const [stuck, second, refusing] = [aProjectId(), aProjectId(), aProjectId()];
     for (const projectId of [stuck, second, refusing]) await addTask(initiative, projectId);
-    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    const { shortName } = await chooseIn(initiative, [stuck, second, refusing], "full");
     branches().failingRemoval.add(stuck);
     branches().refusing.set(refusing, `The remote of The ${refusing} couldn't be asked.`);
 
@@ -778,21 +860,27 @@ describe("the Initiative's Pipeline and branches", () => {
 
   it("makes no branch and keeps no Short name at Confirm on None", async () => {
     const initiative = await shapedOwnInitiative();
-    await addTask(initiative);
+    const projectId = aProjectId();
+    await addTask(initiative, projectId);
 
     const confirmed = await initiativeFrom(await post(initiative, "confirm"));
 
-    expect(confirmed).toMatchObject({ pipelineId: null, shortName: null, branches: [] });
+    expect(confirmed).toMatchObject({
+      pipelines: [{ projectId, pipelineId: null }],
+      shortName: null,
+      branches: [],
+    });
     expect(branches().made).toEqual([]);
   });
 
   it("refuses changing the Pipeline or the Short name on the page once active", async () => {
     const initiative = await shapedOwnInitiative();
-    await addTask(initiative);
-    await choose(initiative, "full");
+    const projectId = aProjectId();
+    await addTask(initiative, projectId);
+    await choose(initiative, projectId, "full");
     await post(initiative, "confirm");
 
-    expect(await reasonsOf(await choose(initiative, "quick-fix"))).toHaveLength(1);
+    expect(await reasonsOf(await choose(initiative, projectId, "quick-fix"))).toHaveLength(1);
     expect(
       await reasonsOf(
         await sendJson(work, "PUT", `/initiatives/${initiative.id}/short-name`, { shortName: "x" }),
@@ -800,37 +888,26 @@ describe("the Initiative's Pipeline and branches", () => {
     ).toHaveLength(1);
   });
 
-  it("makes the branch in a Project an added Task brings once active, or refuses the Task with the reason", async () => {
+  it("gives a Project an added Task brings once active None, making no branch there and refusing none for its commands", async () => {
     const initiative = await shapedOwnInitiative();
-    await addTask(initiative);
-    const { shortName } = await initiativeFrom(await choose(initiative, "full"));
+    const first = aProjectId();
+    await addTask(initiative, first);
+    const { shortName } = await initiativeFrom(await choose(initiative, first, "full"));
     await post(initiative, "confirm");
-    const [joining, refusing, lacking] = [aProjectId(), aProjectId(), aProjectId()];
-    branches().refusing.set(refusing, `The base branch of The ${refusing} couldn't be fetched.`);
+    const [joining, lacking] = [aProjectId(), aProjectId()];
     work.app.get(KnownProjectsForTests).commands.set(lacking, []);
-    work.published.length = 0;
 
     await addTask(initiative, joining);
-    const addInto = (projectId: string) =>
-      sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
-        title: "Export endpoint",
-        projectId,
-        priority: "normal",
-        blockedBy: [],
-      });
+    await addTask(initiative, lacking);
 
-    expect(branches().made).toContain(`${joining}/initiative/${shortName}`);
-    expect(webEventsOf(work)).toContainEqual({
-      type: "initiative.branch-made",
-      initiativeId: initiative.id,
-      projectId: joining,
+    expect(branches().made).toEqual([`${first}/initiative/${shortName}`]);
+    expect(await read(initiative)).toMatchObject({
+      pipelines: [
+        { projectId: first, pipelineId: "full" },
+        { projectId: joining, pipelineId: null },
+        { projectId: lacking, pipelineId: null },
+      ],
+      branches: [{ projectId: first }],
     });
-    expect((await read(initiative)).branches.map(({ projectId }) => projectId)).toContain(joining);
-    expect(await reasonsOf(await addInto(refusing))).toEqual([
-      `The base branch of The ${refusing} couldn't be fetched.`,
-    ]);
-    expect(await reasonsOf(await addInto(lacking))).toEqual([
-      `The Pipeline Full runs test, which The ${lacking} has no command for. Add it on the Project page, or choose another Pipeline.`,
-    ]);
   });
 });

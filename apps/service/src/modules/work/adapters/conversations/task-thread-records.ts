@@ -20,7 +20,7 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { ASKING_INSTRUCTIONS, askingBrief } from "../../domain/asking.js";
-import type { Initiative } from "../../domain/initiative.js";
+import { pipelineIn, type Initiative } from "../../domain/initiative.js";
 import {
   PLANNER,
   PLANNING_INSTRUCTIONS,
@@ -211,7 +211,10 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   }
 }
 
-/** The Initiative's branch the Task starts from, with its Initiative's Pipeline by name; undefined for the base branch. */
+/**
+ * The Initiative's branch the Task starts from, with its Initiative's Pipeline in the Task's
+ * Project by name; undefined for the base branch.
+ */
 function initiativeBranchStart(
   task: Task,
   initiative: Initiative | undefined,
@@ -219,8 +222,8 @@ function initiativeBranchStart(
   pipelines: readonly PlanningPipeline[],
 ): InitiativeBranchStart | undefined {
   const base = taskBranchBase(task, initiative, project.id, project.name);
-  if (base.kind !== "initiative-branch" || initiative?.pipelineId === undefined) return undefined;
-  const { pipelineId } = initiative;
+  const pipelineId = initiative && pipelineIn(initiative, task.projectId);
+  if (base.kind !== "initiative-branch" || pipelineId === undefined) return undefined;
   const pipeline = pipelines.find(({ id }) => id === pipelineId);
   return {
     branch: base.branch,

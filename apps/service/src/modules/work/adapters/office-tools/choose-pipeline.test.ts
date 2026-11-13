@@ -24,6 +24,8 @@ let work: WorkApplication;
 /** The shaping session's Initiative, under a title of its own: Short names are Office-wide. */
 let initiative: Initiative;
 let shortName: string;
+/** The Project the Initiative's one Task is in. */
+let projectId: string;
 
 const SESSION = "shaping-session";
 
@@ -42,14 +44,10 @@ beforeEach(async () => {
     .get(IdeaService)
     .capture({ title: shortName, notes: "", projectId: undefined }, THE_USER);
   initiative = await work.app.get(InitiativeService).shape(idea.id, THE_USER);
+  projectId = `project-${randomUUID()}`;
   await work.app
     .get(InitiativeService)
-    .addTask(
-      initiative.id,
-      { title: "Queue writes", projectId: `project-${randomUUID()}`, priority: "normal" },
-      [],
-      THE_USER,
-    );
+    .addTask(initiative.id, { title: "Queue writes", projectId, priority: "normal" }, [], THE_USER);
   work.app.get(SessionInitiativesForTests).initiatives.set(SESSION, initiative.id);
 });
 
@@ -68,16 +66,22 @@ function current(): Promise<Initiative> {
 }
 
 async function confirmedOn(pipelineId: string | null): Promise<void> {
-  await work.app.get(InitiativeService).choosePipeline(initiative.id, pipelineId, "straight");
+  await work.app
+    .get(InitiativeService)
+    .choosePipeline(initiative.id, projectId, pipelineId, "straight");
   await work.app.get(InitiativeService).confirm(initiative.id);
 }
 
-function proposed(pipelineId: string | null) {
+function proposed(pipelineId: string | null, inProject = projectId) {
   return {
     kind: "initiative",
     initiativeId: initiative.id,
-    edit: { kind: "pipeline", pipelineId },
+    edit: { kind: "pipeline", projectId: inProject, pipelineId },
   } as const;
+}
+
+function pipelineOf(chosen: Initiative): string | undefined {
+  return chosen.pipelines.find((entry) => entry.projectId === projectId)?.pipelineId;
 }
 
 describe("choose_pipeline", () => {
@@ -86,20 +90,23 @@ describe("choose_pipeline", () => {
   });
 
   it("sets the Initiative's Pipeline straight onto it while shaping, naming its Short name and that it has no Gate", async () => {
-    const result = await call({ pipelineId: "full" });
+    const result = await call({ projectId, pipelineId: "full" });
 
     expect(result).toEqual({
-      text: `The Initiative follows Full, on its page. Its Short name is ${shortName}, so Confirm makes initiative/${shortName} in each Project it spans. It has no Gate, so it publishes without the user's review; say so to the user.`,
+      text: `In ${projectId} the Initiative follows Full, on its page. Its Short name is ${shortName}, so Confirm makes initiative/${shortName} in ${projectId}. It has no Gate, so it publishes without the user's review; say so to the user.`,
       isError: false,
     });
-    expect(await current()).toMatchObject({ pipelineId: "full", shortName });
+    expect(await current()).toMatchObject({
+      pipelines: [{ projectId, pipelineId: "full" }],
+      shortName,
+    });
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
   });
 
   it("drafts a Proposal of another Pipeline once the Initiative is active", async () => {
     await confirmedOn("full");
 
-    const result = await call({ pipelineId: "quick-fix" });
+    const result = await call({ projectId, pipelineId: "quick-fix" });
 
     expect(result).toEqual({
       text: "The Initiative is active, so this is drafted as a Proposal in this Thread: it changes the Initiative once the user applies it.",
@@ -108,19 +115,31 @@ describe("choose_pipeline", () => {
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([
       { sessionId: SESSION, change: proposed("quick-fix") },
     ]);
-    expect((await current()).pipelineId).toBe("full");
+    expect(pipelineOf(await current())).toBe("full");
   });
 
   it("drafts nothing for None once the Initiative is active", async () => {
     await confirmedOn("full");
 
-    const result = await call({ pipelineId: null });
+    const result = await call({ projectId, pipelineId: null });
 
     expect(result).toEqual({
-      text: "Whether the Initiative has a Pipeline was fixed at Confirm.",
+      text: `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`,
       isError: true,
     });
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
+  });
+});
+
+describe("choose_pipeline's Project", () => {
+  it("is refused for a Project the Initiative doesn't span", async () => {
+    const elsewhere = `project-${randomUUID()}`;
+
+    expect(await call({ projectId: elsewhere, pipelineId: "full" })).toEqual({
+      text: `The Initiative has no Task in the Project "${elsewhere}", so it has no Pipeline there.`,
+      isError: true,
+    });
+    expect((await current()).pipelines).toEqual([]);
   });
 });
 
@@ -132,7 +151,10 @@ describe("a Proposal of another Pipeline", () => {
     expect(await appliers.problemsWith(proposed("quick-fix"))).toEqual([]);
     await appliers.apply(proposed("quick-fix"), "cto");
 
-    expect(await current()).toMatchObject({ pipelineId: "quick-fix", shortName });
+    expect(await current()).toMatchObject({
+      pipelines: [{ projectId, pipelineId: "quick-fix" }],
+      shortName,
+    });
   });
 
   it("is refused for an Initiative confirmed with None", async () => {
@@ -140,17 +162,14 @@ describe("a Proposal of another Pipeline", () => {
     const appliers = work.app.get(ProposalAppliers);
 
     expect(await appliers.problemsWith(proposed("full"))).toEqual([
-      "Whether the Initiative has a Pipeline was fixed at Confirm.",
+      `Whether the Initiative has a Pipeline in ${projectId} was fixed at Confirm.`,
     ]);
     await expect(appliers.apply(proposed("full"), "cto")).rejects.toThrow(ProposalRefused);
   });
 
-  it("is refused when a Project the Initiative spans lacks a command the Pipeline runs", async () => {
+  it("is refused when that Project lacks a command the Pipeline runs", async () => {
     await confirmedOn("full");
-    const [projectId] = (await work.app.get(InitiativeService).record(initiative.id)).tasks.map(
-      (task) => task.projectId,
-    );
-    work.app.get(KnownProjectsForTests).commands.set(projectId ?? "", []);
+    work.app.get(KnownProjectsForTests).commands.set(projectId, []);
     const appliers = work.app.get(ProposalAppliers);
 
     expect(await appliers.problemsWith(proposed("quick-fix"))).toEqual([
@@ -161,10 +180,10 @@ describe("a Proposal of another Pipeline", () => {
 });
 
 describe("a Proposal of a Task in a Project the Initiative doesn't span yet", () => {
-  it("is refused when that Project lacks a command the Initiative's Pipeline runs", async () => {
+  it("isn't refused for a command that Project lacks, as it has None there", async () => {
     await confirmedOn("full");
-    const projectId = `project-${randomUUID()}`;
-    work.app.get(KnownProjectsForTests).commands.set(projectId, []);
+    const newProjectId = `project-${randomUUID()}`;
+    work.app.get(KnownProjectsForTests).commands.set(newProjectId, []);
 
     expect(
       await work.app.get(ProposalAppliers).problemsWith({
@@ -173,14 +192,12 @@ describe("a Proposal of a Task in a Project the Initiative doesn't span yet", ()
         edit: {
           kind: "add-task",
           title: "Export",
-          projectId,
+          projectId: newProjectId,
           priority: "normal",
           blockedBy: [],
           taskId: undefined,
         },
       }),
-    ).toEqual([
-      `The Pipeline Full runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
-    ]);
+    ).toEqual([]);
   });
 });

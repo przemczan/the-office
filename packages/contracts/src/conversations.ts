@@ -448,10 +448,14 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("task-title"), taskId: z.uuid(), title: z.string() }),
       z.object({ kind: z.literal("task-description"), taskId: z.uuid(), description: z.string() }),
       /**
-       * Another library Pipeline as the Initiative's Pipeline; null is None, which applying
-       * refuses, as whether it has one was fixed at Confirm.
+       * Another Pipeline as the Initiative's Pipeline in one Project it spans; null is None, which
+       * applying refuses, as whether a Project has one was fixed at Confirm.
        */
-      z.object({ kind: z.literal("pipeline"), pipelineId: z.string().nullable() }),
+      z.object({
+        kind: z.literal("pipeline"),
+        projectId: z.string(),
+        pipelineId: z.string().nullable(),
+      }),
     ]),
   }),
   /**

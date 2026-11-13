@@ -28,12 +28,14 @@ import {
   initiativeProgress,
   ordinaryTasksOf,
   progressWords,
+  tasksFoldSummary,
   tasksOfInitiative,
 } from "./initiative-words.ts";
 import { MissingRecord } from "./missing-record.tsx";
 import { OriginBlock } from "./origin-block.tsx";
 import { OutcomeBlock } from "./outcome-block.tsx";
-import { RecordBlock } from "./record-block.tsx";
+import { RecordFold } from "./record-fold.tsx";
+import { useFold } from "./record-folds.ts";
 import { StartReadyTasksNote } from "./start-ready-tasks.tsx";
 import { TaskGraph } from "./task-graph.tsx";
 
@@ -93,12 +95,12 @@ export function InitiativePage(): ReactNode {
         <div className="task-columns">
           <section className="task-record" aria-label="Record">
             {record.state === "shaping" && <ShapingNote cto={cto} />}
-            <OutcomeBlock initiative={record} />
             <InitiativePipelineBlock
               initiative={record}
               tasks={tasks.data}
               projects={projects.data}
             />
+            <OutcomeBlock initiative={record} />
             <InitiativeAttachments initiative={record} />
             <OriginBlock
               record={{ kind: "initiative", id: record.id }}
@@ -153,6 +155,10 @@ function InitiativeHead({
   );
 }
 
+/**
+ * The Initiative's own Tasks as a graph, in a fold remembered per Initiative in this browser; its
+ * line says what the graph holds and what moves.
+ */
 function TasksBlock({
   initiative,
   initiativeTasks,
@@ -168,35 +174,32 @@ function TasksBlock({
   readonly projects: readonly Project[] | undefined;
   readonly cto: Role | undefined;
 }): ReactNode {
+  const fold = useFold({ kind: "initiative", id: initiative.id }, "tasks", true);
   const initiatives = useQuery(initiativeQueries.list());
-  const projectCount = initiative.projectIds.length;
   return (
-    <RecordBlock
+    <RecordFold
+      fold={fold}
       icon="git-fork"
       title="Tasks"
-      actions={<span className="task-quiet">An arrow means “must be Done first”</span>}
+      summary={tasksFoldSummary(initiative, initiativeTasks)}
     >
       {initiativeTasks.length === 0 ? (
         <p className="task-quiet">
           No Tasks yet.
-          {cto && initiative.state === "shaping" && ` ${cto.card.name} drafts them with you.`}
+          {cto &&
+            initiative.state === "shaping" &&
+            ` ${cto.card.name} drafts them with you in the conversation, straight onto this page.`}
         </p>
       ) : (
-        <>
-          <p className="task-quiet">
-            {initiativeTasks.length} across {projectCount}{" "}
-            {projectCount === 1 ? "Project" : "Projects"}
-          </p>
-          <TaskGraph
-            initiative={initiative}
-            tasks={tasks}
-            openDecisions={openDecisions}
-            initiatives={initiatives.data}
-            projects={projects}
-          />
-        </>
+        <TaskGraph
+          initiative={initiative}
+          tasks={tasks}
+          openDecisions={openDecisions}
+          initiatives={initiatives.data}
+          projects={projects}
+        />
       )}
-    </RecordBlock>
+    </RecordFold>
   );
 }
 

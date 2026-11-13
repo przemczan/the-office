@@ -1,18 +1,20 @@
-/** An Initiative that names a library Pipeline, as the library weighs who uses it. */
+/**
+ * An Initiative's Pipeline in one Project it spans, as the library weighs who uses a Pipeline: an
+ * office-wide one or that Project's own Project Pipeline.
+ */
 export interface PipelineInitiative {
   readonly name: string;
   readonly state: "shaping" | "active" | "done" | "dropped";
+  readonly projectId: string;
   readonly pipelineId: string;
-  /** The Projects the Initiative spans. */
-  readonly projectIds: readonly string[];
-  /** Whether its Pipeline has started, in one of its Publishing Tasks. */
+  /** Whether its Pipeline has started there, in that Project's Publishing Task. */
   readonly pipelineStarted: boolean;
 }
 
 /**
- * Work's Initiatives that have a Pipeline of their own (spec §2.1, "An Initiative's Pipeline"):
- * every one, whatever its state; the library counts only the shaping and active ones whose
- * Pipeline hasn't started.
+ * Work's Initiatives' Pipelines (spec §2.1, "An Initiative's Pipeline"), one for each Project an
+ * Initiative spans with a Pipeline, whatever its state; the library counts only the shaping and
+ * active ones whose Pipeline hasn't started in that Project.
  */
 export abstract class PipelineInitiatives {
   abstract withPipelines(): Promise<readonly PipelineInitiative[]>;

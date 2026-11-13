@@ -1,4 +1,4 @@
-import type { Initiative } from "./initiative.js";
+import { pipelineIn, type Initiative } from "./initiative.js";
 import { initiativeBranchOf } from "./short-name.js";
 import { isPublishingTask, type Task } from "./task.js";
 import { TaskRefused } from "./task-refused.js";
@@ -6,7 +6,7 @@ import { TaskRefused } from "./task-refused.js";
 /**
  * What a Task's branch starts from and publishes into (spec 5.5, "A worktree per Task"): the
  * Project's base branch, or the Initiative's branch in the Project for a Task of an Initiative
- * with a Pipeline. A Publishing Task works on the Initiative's branch itself and publishes it into
+ * with a Pipeline in that Project. A Publishing Task works on the Initiative's branch itself and publishes it into
  * the base branch.
  */
 export type TaskBranchBase =
@@ -18,17 +18,17 @@ const BASE_BRANCH: TaskBranchBase = { kind: "base-branch" };
 
 /**
  * The base of a Task in the Project `projectId`, by its Initiative: the base branch with none or
- * one on None, else the Initiative's branch there, which a Publishing Task holds itself. Refused
+ * one on None in that Project, else the Initiative's branch there, which a Publishing Task holds itself. Refused
  * when the Initiative has a Pipeline but no branch in the Project, never the base branch in its
  * place, as the Task would publish there.
  */
 export function taskBranchBase(
   task: Pick<Task, "madeFor">,
-  initiative: Pick<Initiative, "name" | "pipelineId" | "shortName" | "branches"> | undefined,
+  initiative: Pick<Initiative, "name" | "pipelines" | "shortName" | "branches"> | undefined,
   projectId: string,
   projectName: string,
 ): TaskBranchBase {
-  if (initiative?.pipelineId === undefined) return BASE_BRANCH;
+  if (!initiative || pipelineIn(initiative, projectId) === undefined) return BASE_BRANCH;
   const { shortName } = initiative;
   if (
     shortName === undefined ||

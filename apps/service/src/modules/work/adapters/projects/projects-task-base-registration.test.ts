@@ -49,6 +49,7 @@ async function aTaskOfAnInitiative(
   const initiative = await shape(ideaSchema.parse(await idea.json()));
   const task = await addTask(initiative, aProjectId());
   const chosen = await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
+    projectId: task.projectId,
     pipelineId,
   });
   const { shortName } = initiativeSchema.parse(await chosen.json());
@@ -84,6 +85,28 @@ describe("ProjectsTaskBaseRegistration", () => {
     await expect(lookUp(task)).resolves.toEqual({ kind: "base-branch" });
     await expect(lookUp(alone)).resolves.toEqual({ kind: "base-branch" });
     expect((await work.app.get(TaskRecords).read(task.id)).initiativeBranch).toBeUndefined();
+  });
+
+  it("gives the base branch in a Project on None beside one with a Pipeline, which gets the branch", async () => {
+    const title = `Device names ${randomUUID().slice(0, 8)}`;
+    const idea = await sendJson(work, "POST", "/ideas", { title, notes: "", projectId: null });
+    const initiative = await shape(ideaSchema.parse(await idea.json()));
+    const onPipeline = await addTask(initiative, aProjectId());
+    const onNone = await addTask(initiative, aProjectId());
+    const chosen = await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
+      projectId: onPipeline.projectId,
+      pipelineId: "full",
+    });
+    const { shortName } = initiativeSchema.parse(await chosen.json());
+    expect((await post(initiative, "confirm")).status).toBe(200);
+    const branch = `initiative/${shortName}`;
+
+    await expect(lookUp(onPipeline)).resolves.toEqual({ kind: "initiative-branch", branch });
+    await expect(lookUp(onNone)).resolves.toEqual({ kind: "base-branch" });
+    expect((await work.app.get(TaskRecords).read(onNone.id)).initiativeBranch).toBeUndefined();
+    const { existing } = work.app.get(ProjectInitiativeBranchesForTests);
+    expect(existing.has(`${onPipeline.projectId}/${branch}`)).toBe(true);
+    expect(existing.has(`${onNone.projectId}/${branch}`)).toBe(false);
   });
 });
 

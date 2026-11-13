@@ -43,11 +43,13 @@ export interface Initiative {
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   readonly planningAutoMode: boolean;
   /**
-   * The Initiative's Pipeline, a library Pipeline's id (spec 2.1); undefined for None, which every
-   * Initiative starts on and those confirmed before it existed keep.
+   * The Initiative's Pipeline in each Project it was given one for (spec 2.1). While shaping, the
+   * Projects a Pipeline was chosen for; from Confirm, every Project it spanned then, None included,
+   * as Confirm fixed it. A Project with no entry has None: every Project starts there, and one it
+   * comes to span once active is still open to the CTO's Proposal, as nothing was fixed for it.
    */
-  readonly pipelineId?: string;
-  /** What its branches are named by (short-name.ts); undefined while it has no Pipeline. */
+  readonly pipelines: readonly InitiativePipeline[];
+  /** What its branches are named by (short-name.ts); undefined while no Project has a Pipeline. */
   readonly shortName?: string;
   /**
    * The Projects The Office made the Initiative's branch in, at Confirm or as it came to span
@@ -60,6 +62,39 @@ export interface Initiative {
 export interface InitiativeBranch {
   readonly projectId: string;
   readonly madeAt: Date;
+}
+
+/**
+ * The Initiative's Pipeline in one Project: a library Pipeline's id, office-wide or that Project's
+ * own; undefined for None, which publishes the Project's Tasks one by one.
+ */
+export interface InitiativePipeline {
+  readonly projectId: string;
+  readonly pipelineId: string | undefined;
+}
+
+/** The Initiative's Pipeline in the Project; undefined for None. */
+export function pipelineIn(
+  initiative: Pick<Initiative, "pipelines">,
+  projectId: string,
+): string | undefined {
+  return initiative.pipelines.find((entry) => entry.projectId === projectId)?.pipelineId;
+}
+
+/** Whether any Project of the Initiative has a Pipeline, so it has a Short name and branches. */
+export function hasAnyPipeline(initiative: Pick<Initiative, "pipelines">): boolean {
+  return initiative.pipelines.some(({ pipelineId }) => pipelineId !== undefined);
+}
+
+/**
+ * Whether the Project's Pipeline, or its None, was fixed: at Confirm, or by a Proposal applied
+ * since. Never while shaping.
+ */
+export function isPipelineFixed(initiative: Initiative, projectId: string): boolean {
+  return (
+    initiative.state !== "shaping" &&
+    initiative.pipelines.some((entry) => entry.projectId === projectId)
+  );
 }
 
 /** The Projects an Initiative spans: its Tasks', each once, in the order its Tasks come. */

@@ -66,23 +66,23 @@ A thought captured quickly and not yet shaped into work; it may become an Initia
 _Avoid_: Draft, note, backlog item
 
 **Initiative**:
-A multi-task effort toward one outcome, whose Tasks are ordered by dependencies. It may have an Initiative's Pipeline, and then works on the Initiative's branch.
+A multi-task effort toward one outcome, whose Tasks are ordered by dependencies. In each Project it spans it may have an Initiative's Pipeline, and then works there on the Initiative's branch.
 _Avoid_: Plan, epic, roadmap, effort
 
 **Initiative's Pipeline**:
-The Pipeline an Initiative may have, chosen from the office-wide Pipelines while shaping, never a Project Pipeline, None by default. With one, the Initiative works on the Initiative's branch and its Publishing Tasks follow it.
+The Pipeline an Initiative has in one of the Projects it spans, an office-wide Pipeline or that Project's own Project Pipeline, chosen while shaping, None by default; whether a Project has one is fixed at Confirm. With one, the Initiative works on the Initiative's branch in that Project, and the Pipeline runs only in that Project's Publishing Task.
 _Avoid_: Initiative workflow, release Pipeline
 
 **Initiative's branch**:
-`initiative/<short name>`, made from the base branch in each Project an Initiative with a Pipeline spans. Its Tasks start from it and publish into it, it keeps up with the base, and it is kept until the user deletes it.
+`initiative/<short name>`, made from the base branch in each Project where an Initiative has a Pipeline. Its Tasks start from it and publish into it, it keeps up with the base, and it is kept until the user deletes it.
 _Avoid_: Feature branch, integration branch, epic branch
 
 **Short name** (an Initiative's):
-The name of its Initiative's branch, made from its title, editable while shaping and fixed at Confirm.
+The name of its Initiative's branch, one for the whole Initiative, made from its title once any of its Projects has a Pipeline, editable while shaping and fixed at Confirm.
 _Avoid_: Slug, key
 
 **Publishing Task**:
-The Task "<Initiative> → <Project>" that The Office adds per Project once every other Task of an Initiative with a Pipeline is Done or Dropped. It follows the Initiative's Pipeline on the Initiative's branch, and its Publish puts the whole change into the base branch.
+The Task "<Initiative> → <Project>" that The Office adds in each Project where an Initiative has a Pipeline, once every other Task of the Initiative is Done or Dropped. It follows its Project's Initiative's Pipeline on the Initiative's branch, and its Publish puts the whole change into the base branch.
 _Avoid_: Release Task, merge Task, final Task
 
 **Task**:
@@ -294,7 +294,7 @@ A daily window, off until the user sets it, in which no Notification goes to the
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
-A named, ordered set of Stages that a Task's work follows; a Publishing Task follows its Initiative's Pipeline. It is an office-wide Pipeline or a Project Pipeline.
+A named, ordered set of Stages that a Task's work follows; a Publishing Task follows its Project's Initiative's Pipeline. It is an office-wide Pipeline or a Project Pipeline.
 _Avoid_: Workflow, flow, process (a Process is a session's background command)
 
 **Pipeline library**:
@@ -302,7 +302,7 @@ The office-wide Pipelines and, beside them, the Stage templates, edited in Setti
 _Avoid_: Pipeline catalog, Pipeline templates
 
 **Project Pipeline**:
-A Pipeline that belongs to one Project, built from a base Pipeline plus its Stage changes each time it is read; only that Project's Tasks and default can choose it.
+A Pipeline that belongs to one Project, built from a base Pipeline plus its Stage changes each time it is read; only that Project's Tasks, its default and an Initiative's Pipeline in that Project can choose it.
 _Avoid_: Custom Pipeline, derived Pipeline, Project-owned Pipeline
 
 **Office-wide Pipeline**:

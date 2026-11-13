@@ -2035,15 +2035,13 @@
   color: var(--fg-3);
 }
 
-/* The Initiative's Pipeline block: its choice, Short name and branches, a column of lines. */
-.initiative-pipeline,
+/* The Pipelines card's Short name, edited while shaping (its other rules are at the end). */
 .initiative-short-name {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.initiative-pipeline code,
 .initiative-short-name code {
   font-family: var(--font-mono);
 }
@@ -2060,20 +2058,6 @@
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--fg-3);
-}
-
-.initiative-branches,
-.initiative-publishing-tasks {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.initiative-publishing-tasks .task-quiet {
-  margin: 2px 0 0;
 }
 
 .task-plan + .task-quiet,
@@ -3121,19 +3105,60 @@
   pointer-events: none;
 }
 
-.task-graph-edges path {
+.task-graph-edge {
   fill: none;
   stroke: var(--border-strong);
   stroke-width: 1.5;
+  stroke-linejoin: round;
 }
 
-.task-graph-edges path.blocker-done {
+.task-graph-edge.from-outside {
+  stroke-dasharray: 4 3;
+}
+
+.task-graph-head {
+  fill: var(--border-strong);
+  stroke: none;
+}
+
+.task-graph-edge.blocker-done {
   stroke: var(--success-border);
 }
 
-.task-graph-edges .task-graph-arrow {
-  fill: var(--border-strong);
-  stroke: none;
+.task-graph-head.blocker-done {
+  fill: var(--success-border);
+}
+
+/* Light's success border (green-100) all but vanishes on white. */
+:root[data-palette="light"] .task-graph-edge.blocker-done {
+  stroke: color-mix(in oklab, var(--success) 45%, var(--success-border));
+}
+
+:root[data-palette="light"] .task-graph-head.blocker-done {
+  fill: color-mix(in oklab, var(--success) 45%, var(--success-border));
+}
+
+.task-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+}
+
+.task-graph-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-graph-legend-sample {
+  width: 28px;
+  height: 8px;
+  overflow: visible;
 }
 
 .task-graph-columns {

@@ -52,6 +52,12 @@ export const ideas = pgTable("ideas", {
   droppedAt: timestamp("dropped_at", { withTimezone: true }),
 });
 
+/** An Initiative's Pipeline in one Project, as kept in its row; null for None. */
+export interface InitiativePipelineRow {
+  readonly projectId: string;
+  readonly pipelineId: string | null;
+}
+
 /** The Initiative's branch in one Project as jsonb keeps it: its time as an ISO string. */
 export interface InitiativeBranchRow {
   readonly projectId: string;
@@ -81,9 +87,15 @@ export const initiatives = pgTable(
     /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
     planningThreadId: uuid("planning_thread_id"),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
-    /** The Initiative's Pipeline; null for None, which every Initiative from before it has. */
-    pipelineId: text("pipeline_id"),
-    /** Null while it has no Pipeline; unique among those that have one, whatever their state. */
+    /**
+     * The Initiative's Pipeline in each Project it was given one or None for (Initiative.pipelines);
+     * a Project without an entry has None.
+     */
+    pipelines: jsonb("pipelines")
+      .$type<InitiativePipelineRow[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    /** Null while no Project has a Pipeline; unique among those that have one, whatever their state. */
     shortName: text("short_name"),
     /** The Projects its branch was made in, oldest first; kept after a Drop, as the branches are. */
     branches: jsonb("branches")

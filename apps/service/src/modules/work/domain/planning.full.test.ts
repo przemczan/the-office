@@ -118,6 +118,7 @@ describe("a planning Brief", () => {
         tasks: [task],
         blockers: new Map([[task.id, task]]),
         attachments: [],
+        pipelineNames: new Map(),
       },
     });
 
@@ -140,7 +141,7 @@ describe("a planning Brief", () => {
       "on the branch office/task-1, which started from the freshly fetched initiative/usage-exports.",
     );
     expect(brief).toContain(
-      "## The Initiative's branch\n\nThe Initiative has the Pipeline Full (full), so this Task starts from its branch initiative/usage-exports and publishes into it by merge, never into main directly. The Initiative's Pipeline runs only in its Publishing Tasks, which take initiative/usage-exports into main once its Tasks are done; this Task keeps a Pipeline of its own, the one you propose below.",
+      "## The Initiative's branch\n\nThe Initiative has the Pipeline Full (full) in this Project, so this Task starts from its branch initiative/usage-exports and publishes into it by merge, never into main directly. The Initiative's Pipeline runs only in the Project's Publishing Task, which takes initiative/usage-exports into main once its Tasks are done; this Task keeps a Pipeline of its own, the one you propose below.",
     );
   });
 

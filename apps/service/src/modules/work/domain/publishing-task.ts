@@ -1,5 +1,5 @@
 import { normalizedFilesToChange } from "./files-to-change.js";
-import type { Initiative } from "./initiative.js";
+import { pipelineIn, type Initiative } from "./initiative.js";
 import { initiativeBranchOf } from "./short-name.js";
 import type { StateChangeCause } from "./state-change.js";
 import { isPublishingTask, type Task } from "./task.js";
@@ -11,8 +11,8 @@ import { TITLE_LENGTH } from "./title.js";
 
 /*
  * Publishing Tasks (spec 2.1, "Publishing Tasks"): once every other Task of an active Initiative
- * with a Pipeline is Done or Dropped, The Office adds one per Project whose Initiative's branch
- * holds unpublished work. It follows the Initiative's Pipeline on that branch itself, and its
+ * is Done or Dropped, The Office adds one per Project with a Pipeline whose Initiative's branch
+ * holds unpublished work. It follows the Initiative's Pipeline in that Project on that branch, and its
  * Publish puts the whole change into the base branch by the Project's publishing mode.
  */
 
@@ -121,8 +121,11 @@ export function createPublishingTask(
   createdAt: Date,
 ): TaskChange<TaskCreated> {
   const { initiative, doneTasks } = grounds;
-  if (initiative.pipelineId === undefined) {
-    throw new Error(`The Initiative ${initiative.id} has no Pipeline to publish by.`);
+  const pipelineId = pipelineIn(initiative, project.id);
+  if (pipelineId === undefined) {
+    throw new Error(
+      `The Initiative ${initiative.id} has no Pipeline in ${project.id} to publish by.`,
+    );
   }
   return createTaskMadeFor(
     id,
@@ -131,7 +134,7 @@ export function createPublishingTask(
       madeFor: "publishing",
       title: publishingTaskTitle(initiative, project),
       description: initiative.outcome,
-      pipelineId: initiative.pipelineId,
+      pipelineId,
       plan: publishingTaskPlan(project, grounds),
       filesToChange: publishingTaskFiles(doneTasks),
       definitionOfDone: publishingTaskDefinitionOfDone(doneTasks, project, branchOf(initiative)),
@@ -144,11 +147,11 @@ export function createPublishingTask(
 
 /**
  * The Projects that may get a Publishing Task now, before git is asked about their work: only for
- * an active Initiative with a Pipeline whose other Tasks have all ended, each Project it has its
+ * an active Initiative whose other Tasks have all ended, each Project it has a Pipeline and its
  * branch in and no unfinished Publishing Task.
  */
 export function publishingCandidates(initiative: Initiative, tasks: readonly Task[]): string[] {
-  if (initiative.state !== "active" || initiative.pipelineId === undefined) return [];
+  if (initiative.state !== "active") return [];
   const ordinary = tasks.filter((task) => !isPublishingTask(task));
   if (ordinary.length === 0 || ordinary.some((task) => !hasEnded(task))) return [];
   const publishing = new Set(
@@ -156,7 +159,9 @@ export function publishingCandidates(initiative: Initiative, tasks: readonly Tas
   );
   return initiative.branches
     .map(({ projectId }) => projectId)
-    .filter((projectId) => !publishing.has(projectId));
+    .filter(
+      (projectId) => pipelineIn(initiative, projectId) !== undefined && !publishing.has(projectId),
+    );
 }
 
 /** Of the candidates, the Projects whose branch holds unpublished work (`unpublished`). */
@@ -169,7 +174,7 @@ export function projectsToPublish(
 }
 
 /**
- * The Initiative's Pipeline, as the CTO's applied Proposal changed it, on a Publishing Task not yet
+ * The Initiative's Pipeline in its Project, as the CTO's applied Proposal changed it, on a Publishing Task not yet
  * started (spec 2.1, "An Initiative's Pipeline"). Undefined when it follows that Pipeline already;
  * whether its Stages were edited for it is the caller's to judge.
  */

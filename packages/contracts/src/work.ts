@@ -52,6 +52,16 @@ export const initiativeBranchSchema = z.object({
 export type InitiativeBranch = z.infer<typeof initiativeBranchSchema>;
 
 /**
+ * The Initiative's Pipeline in one Project it spans (spec 2.1): an office-wide Pipeline or that
+ * Project's own, which its Publishing Task there follows; null for None, which publishes Task by Task.
+ */
+export const initiativePipelineSchema = z.object({
+  projectId: z.string(),
+  pipelineId: z.string().nullable(),
+});
+export type InitiativePipeline = z.infer<typeof initiativePipelineSchema>;
+
+/**
  * POST /ideas/:id/initiative makes one, being shaped, as does create_initiative in a CTO's or the
  * Office Manager's chat; its Tasks name it.
  */
@@ -86,17 +96,23 @@ export const initiativeSchema = z.object({
   planningThreadId: z.uuid().nullable(),
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   planningAutoMode: z.boolean(),
-  /** The Initiative's Pipeline, a library Pipeline's id (spec 2.1); null for None. */
-  pipelineId: z.string().nullable(),
-  /** The Short name its branches are named by (spec 5.5); null while it has no Pipeline. */
+  /** The Initiative's Pipeline in each Project it spans (spec 2.1), in `projectIds`' order. */
+  pipelines: z.array(initiativePipelineSchema),
+  /** The Short name its branches are named by (spec 5.5); null while no Project has a Pipeline. */
   shortName: z.string().nullable(),
   /** The Initiative's branch in each Project, as The Office made it; kept after a Drop. */
   branches: z.array(initiativeBranchSchema),
 });
 export type Initiative = z.infer<typeof initiativeSchema>;
 
-/** PUT /initiatives/:id/pipeline: the Initiative's Pipeline, chosen while shaping; null for None. */
-export const initiativePipelineChoiceSchema = z.object({ pipelineId: z.string().nullable() });
+/**
+ * PUT /initiatives/:id/pipeline: the Initiative's Pipeline in one Project it spans, chosen while
+ * shaping from the office-wide Pipelines and that Project's own; null for None.
+ */
+export const initiativePipelineChoiceSchema = z.object({
+  projectId: z.string(),
+  pipelineId: z.string().nullable(),
+});
 export type InitiativePipelineChoice = z.infer<typeof initiativePipelineChoiceSchema>;
 
 /** PUT /initiatives/:id/short-name: the user's Short name, edited while shaping. */

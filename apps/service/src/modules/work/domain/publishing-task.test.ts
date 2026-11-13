@@ -24,7 +24,10 @@ const ACTIVE_ON_FULL = anInitiative({
   name: "Usage exports",
   outcome: "Every account can export its usage.",
   state: "active",
-  pipelineId: "full",
+  pipelines: [
+    { projectId: "admin-panel", pipelineId: "full" },
+    { projectId: "website", pipelineId: "full" },
+  ],
   shortName: "usage-exports",
   branches: [
     { projectId: "admin-panel", madeAt },
@@ -166,6 +169,35 @@ describe("the Publishing Task's words", () => {
   });
 });
 
+describe("createPublishingTask in an Initiative with a Pipeline per Project", () => {
+  const twoPipelines = {
+    ...ACTIVE_ON_FULL,
+    pipelines: [
+      { projectId: "admin-panel", pipelineId: "full" },
+      { projectId: "website", pipelineId: "quick-fix" },
+      { projectId: "docs", pipelineId: undefined },
+    ],
+  };
+  const grounds = { initiative: twoPipelines, pipelineName: "Quick fix", doneTasks: [] };
+
+  it("follows the Initiative's Pipeline in its own Project", () => {
+    const website = { ...ADMIN_PANEL, id: "website", name: "Website" };
+
+    const { task } = createPublishingTask("publishing-1", website, grounds, "a1", at);
+
+    expect(task.pipelineId).toBe("quick-fix");
+    expect(task.plan).toContain("The Task follows the Initiative's Pipeline, Quick fix.");
+  });
+
+  it("is never made for a Project on None", () => {
+    const docs = { ...ADMIN_PANEL, id: "docs", name: "Docs" };
+
+    expect(() => createPublishingTask("publishing-1", docs, grounds, "a1", at)).toThrow(
+      "has no Pipeline in docs to publish by",
+    );
+  });
+});
+
 describe("projectsToPublish", () => {
   const everyProject = new Set(["admin-panel", "website"]);
   const ended = [doneIn("admin-panel", "t-1"), doneIn("website", "t-2")];
@@ -178,12 +210,31 @@ describe("projectsToPublish", () => {
   });
 
   it("is none for an Initiative on None, or one not active", () => {
-    const onNone = { ...ACTIVE_ON_FULL, pipelineId: undefined };
+    const onNone = {
+      ...ACTIVE_ON_FULL,
+      pipelines: ACTIVE_ON_FULL.pipelines.map(({ projectId }) => ({
+        projectId,
+        pipelineId: undefined,
+      })),
+    };
 
     expect(projectsToPublish(onNone, ended, everyProject)).toEqual([]);
     expect(projectsToPublish({ ...ACTIVE_ON_FULL, state: "dropped" }, ended, everyProject)).toEqual(
       [],
     );
+  });
+
+  it("is only the Project with a Pipeline beside one on None", () => {
+    const onePipeline = {
+      ...ACTIVE_ON_FULL,
+      pipelines: [
+        { projectId: "admin-panel", pipelineId: "full" },
+        { projectId: "website", pipelineId: undefined },
+      ],
+      branches: [{ projectId: "admin-panel", madeAt }],
+    };
+
+    expect(projectsToPublish(onePipeline, ended, everyProject)).toEqual(["admin-panel"]);
   });
 
   it("is none while a Task is open", () => {
@@ -278,18 +329,33 @@ describe("a Publishing Task's own rules", () => {
     expect(blockPublishingTask(publishing, "fix-1", [publishing, fix])).toBeUndefined();
   });
 
-  it("refuses another Pipeline once a Publishing Task has started on the Initiative's", () => {
+  it("refuses another Pipeline in its Project once it has started, not in another Project", () => {
+    const tasks = [{ ...publishing, title: "Usage exports → Admin panel" }];
+    const choice = {
+      pipelineId: "quick-fix",
+      pipeline: { name: "Quick fix", keys: [], hasGate: false, broken: [] },
+      choices: [],
+    };
+    const project = (id: string, name: string) => ({ id, name, commands: [] });
+
     expect(
       initiativePipelineChangeProblems(
         ACTIVE_ON_FULL,
-        "quick-fix",
-        { name: "Quick fix", keys: [], hasGate: false, broken: [] },
-        [],
-        [{ ...publishing, title: "Usage exports → Admin panel" }],
+        project("admin-panel", "Admin panel"),
+        choice,
+        tasks,
       ),
     ).toEqual([
-      "The Initiative's Pipeline started in Usage exports → Admin panel, so it can't change.",
+      "The Initiative's Pipeline in Admin panel started in Usage exports → Admin panel, so it can't change.",
     ]);
+    expect(
+      initiativePipelineChangeProblems(
+        ACTIVE_ON_FULL,
+        project("website", "Website"),
+        choice,
+        tasks,
+      ),
+    ).toEqual([]);
   });
 
   it("swaps the Pipeline of one not yet started", () => {
@@ -318,6 +384,7 @@ describe("a Publishing Task's own rules", () => {
       tasks: [ordinary, added],
       blockers: new Map(),
       attachments: [],
+      pipelineNames: new Map([["full", "Full"]]),
     });
 
     expect(record).toContain(

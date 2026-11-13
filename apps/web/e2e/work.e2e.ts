@@ -2958,7 +2958,7 @@ test(
         ).json(),
       );
 
-      // An Initiative on the reviewed Pipeline, with one Task in the Project.
+      // An Initiative with one Task in the Project, on the reviewed Pipeline there.
       const idea = ideaSchema.parse(
         await (
           await page.request.post("/api/ideas", {
@@ -2972,9 +2972,6 @@ test(
       await page.request.put(`/api/initiatives/${shaped.id}/outcome`, {
         data: { outcome: "Every account exports its usage." },
       });
-      await page.request.put(`/api/initiatives/${shaped.id}/pipeline`, {
-        data: { pipelineId: reviewed.id },
-      });
       const task = taskSchema.parse(
         await (
           await page.request.post(`/api/initiatives/${shaped.id}/tasks`, {
@@ -2987,6 +2984,11 @@ test(
           })
         ).json(),
       );
+      // Each Project the Initiative spans chooses its own Pipeline.
+      const chosen = await page.request.put(`/api/initiatives/${shaped.id}/pipeline`, {
+        data: { projectId: project.id, pipelineId: reviewed.id },
+      });
+      expect(chosen.status()).toBe(200);
       expect((await page.request.post(`/api/initiatives/${shaped.id}/confirm`)).status()).toBe(200);
       const initiative = await initiativeOf(page, shaped.id);
       const branch = `initiative/${initiative.shortName}`;

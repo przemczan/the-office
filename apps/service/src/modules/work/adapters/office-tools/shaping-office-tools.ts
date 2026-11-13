@@ -3,6 +3,7 @@ import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
+import { pipelineIn } from "../../domain/initiative.js";
 import type { InitiativeEdit } from "../../domain/initiative-edit.js";
 import { PRIORITIES } from "../../domain/task.js";
 import { initiativeBranchOf } from "../../domain/short-name.js";
@@ -213,36 +214,44 @@ export class ShapingOfficeTools implements OnModuleInit {
   private registerChoosePipeline(): void {
     this.registry.register({
       name: CHOOSE_PIPELINE,
-      description: `Chooses this Initiative's Pipeline from the library, or None with null: with one, its Tasks publish into the Initiative's branch, initiative/<Short name>, in each Project it spans, and its Publishing Tasks publish the whole change; with None, each Task publishes on its own. The Short name comes from the Initiative's title; only the user edits it. Whether it has a Pipeline is fixed at Confirm; once it is active only another library Pipeline can be proposed. Refused when a Project it spans lacks a command the Pipeline runs. ${WHERE_IT_GOES}`,
+      description: `Chooses this Initiative's Pipeline in one Project it spans, from the office-wide Pipelines and that Project's own Project Pipelines, or None with null. Each Project has its own: with one, the Project's Tasks publish into the Initiative's branch there, initiative/<Short name>, and its Publishing Task publishes the whole change through that Pipeline; with None, each of its Tasks publishes on its own. The Short name comes from the Initiative's title once any Project has a Pipeline; only the user edits it. Whether each Project has a Pipeline is fixed at Confirm; once it is active only another Pipeline can be proposed for a Project that has one, or a first one for a Project it came to span since. Refused for another Project's Project Pipeline, and when the Project lacks a command the Pipeline runs. ${WHERE_IT_GOES}`,
       input: z.object({
+        projectId: z.string().describe("The id of a Project this Initiative spans."),
         pipelineId: z
           .string()
           .nullable()
-          .describe("An office-wide Pipeline's id, as the Brief lists them; null for None."),
+          .describe(
+            "An office-wide Pipeline's id or one of that Project's Project Pipelines, as the Brief lists them; null for None.",
+          ),
       }),
-      run: ({ pipelineId }, { sessionId }) =>
-        this.change(sessionId, { kind: "pipeline", pipelineId }, async () =>
-          this.pipelineChosenWords(await this.initiativeIn(sessionId)),
+      run: ({ projectId, pipelineId }, { sessionId }) =>
+        this.change(sessionId, { kind: "pipeline", projectId, pipelineId }, async () =>
+          this.pipelineChosenWords(await this.initiativeIn(sessionId), projectId),
         ),
     });
   }
 
-  /** The Initiative's Pipeline as now chosen, its branch, and the warning when it has no Gate. */
-  private async pipelineChosenWords(initiativeId: string): Promise<string> {
-    const { pipelineId, shortName } = await this.initiatives.read(initiativeId);
+  /**
+   * The Initiative's Pipeline as now chosen in the Project, its branch, and the warning when it has
+   * no Gate.
+   */
+  private async pipelineChosenWords(initiativeId: string, projectId: string): Promise<string> {
+    const initiative = await this.initiatives.read(initiativeId);
+    const pipelineId = pipelineIn(initiative, projectId);
     if (pipelineId === undefined) {
-      return "The Initiative's Pipeline is None, on its page: each of its Tasks publishes on its own.";
+      return `The Initiative's Pipeline in ${projectId} is None, on its page: each of its Tasks there publishes on its own.`;
     }
     const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
+    const { shortName } = initiative;
     const branch =
       shortName === undefined
         ? ""
-        : ` Its Short name is ${shortName}, so Confirm makes ${initiativeBranchOf(shortName)} in each Project it spans.`;
+        : ` Its Short name is ${shortName}, so Confirm makes ${initiativeBranchOf(shortName)} in ${projectId}.`;
     const noGate =
       pipeline?.hasGate === false
         ? " It has no Gate, so it publishes without the user's review; say so to the user."
         : "";
-    return `The Initiative follows ${pipeline?.name ?? pipelineId}, on its page.${branch}${noGate}`;
+    return `In ${projectId} the Initiative follows ${pipeline?.name ?? pipelineId}, on its page.${branch}${noGate}`;
   }
 
   /** The CTO's change to the session's Initiative, answered as `written` words it or as proposed. */

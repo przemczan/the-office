@@ -72,7 +72,7 @@ describe("missingCommandProblems", () => {
     ]);
   });
 
-  it("counts a Project a shaping or active Initiative naming it spans, never a done one's", () => {
+  it("counts a Project a shaping or active Initiative names it in, never a done one's", () => {
     const projects = [
       project({ id: "site", name: "Site", defaultPipeline: "full" }),
       project({ id: "app", name: "App", defaultPipeline: "full" }),
@@ -80,42 +80,52 @@ describe("missingCommandProblems", () => {
     ];
     const tasks = [{ state: "ready", projectId: "site", pipelineId: "mine" }];
     const initiatives = [
-      {
-        name: "Checkout",
-        state: "shaping",
-        pipelineId: "mine",
-        projectIds: ["site", "app"],
-        pipelineStarted: false,
-      },
-      {
-        name: "Search",
-        state: "active",
-        pipelineId: "mine",
-        projectIds: ["app"],
-        pipelineStarted: false,
-      },
-      {
-        name: "Login",
-        state: "done",
-        pipelineId: "mine",
-        projectIds: ["docs"],
-        pipelineStarted: false,
-      },
-      {
-        name: "Billing",
-        state: "active",
-        pipelineId: "full",
-        projectIds: ["docs"],
-        pipelineStarted: false,
-      },
-    ];
+      { name: "Checkout", state: "shaping", projectId: "site", pipelineId: "mine" },
+      { name: "Checkout", state: "shaping", projectId: "app", pipelineId: "mine" },
+      { name: "Search", state: "active", projectId: "app", pipelineId: "mine" },
+      { name: "Login", state: "done", projectId: "docs", pipelineId: "mine" },
+      { name: "Billing", state: "active", projectId: "docs", pipelineId: "full" },
+    ].map((initiative) => ({ ...initiative, pipelineStarted: false }));
 
     expect(
       missingCommandProblems("mine", stages, projects, tasks, initiatives).map(({ text }) => text),
     ).toEqual([
-      "Stage 2 · Full tests: Site has no command test-full (a Task of it that hasn't started uses it; the Initiative Checkout, which spans it, names it)",
-      "Stage 2 · Full tests: App has no command test-full (the Initiatives Checkout, Search, which span it, name it)",
+      "Stage 2 · Full tests: Site has no command test-full (a Task of it that hasn't started uses it; the Initiative Checkout names it there)",
+      "Stage 2 · Full tests: App has no command test-full (the Initiatives Checkout, Search name it there)",
     ]);
+  });
+
+  it("weighs only the Project an Initiative names it in, not another Project it spans on another Pipeline", () => {
+    const projects = [
+      project({ id: "site", name: "Site", defaultPipeline: "full" }),
+      project({ id: "app", name: "App", defaultPipeline: "full" }),
+    ];
+    // Checkout spans both Projects: on this Pipeline in Site only, on another in App.
+    const initiatives = [
+      { name: "Checkout", state: "active", projectId: "site", pipelineId: "mine" },
+      { name: "Checkout", state: "active", projectId: "app", pipelineId: "full" },
+    ].map((initiative) => ({ ...initiative, pipelineStarted: false }));
+
+    expect(
+      missingCommandProblems("mine", stages, projects, [], initiatives).map(({ text }) => text),
+    ).toEqual([
+      "Stage 2 · Full tests: Site has no command test-full (the Initiative Checkout names it there)",
+    ]);
+  });
+
+  it("leaves out a Project whose Publishing Task started on it, which walks its own Stages", () => {
+    const projects = [project({ id: "site", name: "Site", defaultPipeline: "full" })];
+    const initiatives = [
+      {
+        name: "Checkout",
+        state: "active",
+        projectId: "site",
+        pipelineId: "mine",
+        pipelineStarted: true,
+      },
+    ];
+
+    expect(missingCommandProblems("mine", stages, projects, [], initiatives)).toEqual([]);
   });
 
   it("names a key an Agent Stage narrows to on that Stage", () => {

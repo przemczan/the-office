@@ -129,8 +129,12 @@ export type InitiativeEdit =
   | { readonly kind: "remove-dependency"; readonly taskId: string; readonly blockerId: string }
   | { readonly kind: "task-title"; readonly taskId: string; readonly title: string }
   | { readonly kind: "task-description"; readonly taskId: string; readonly description: string }
-  /** Another library Pipeline as the Initiative's Pipeline; null for None. */
-  | { readonly kind: "pipeline"; readonly pipelineId: string | null };
+  /** Another Pipeline as the Initiative's Pipeline in one Project it spans; null for None. */
+  | {
+      readonly kind: "pipeline";
+      readonly projectId: string;
+      readonly pipelineId: string | null;
+    };
 
 /**
  * Devops' change to a Project's install command, install inputs and commands (spec §2.3): each

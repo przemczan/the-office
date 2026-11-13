@@ -589,6 +589,11 @@ function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): Re
   const tasks = useQuery(taskQueries.list()).data;
   const projects = useQuery(projectQueries.list()).data;
   const pipelines = useQuery(pipelineQueries.list()).data;
+  // An Initiative's Pipeline in a Project may be that Project's own Project Pipeline.
+  const projectPipelines = useQuery({
+    ...projectPipelineQueries.list(edit.kind === "pipeline" ? edit.projectId : ""),
+    enabled: edit.kind === "pipeline",
+  }).data;
   const taskTitle = (id: string): string => tasks?.find((task) => task.id === id)?.title ?? id;
   switch (edit.kind) {
     case "outcome":
@@ -646,10 +651,15 @@ function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): Re
     case "pipeline":
       return (
         <dl className="proposal-fields">
+          <ProposedField label="Project">
+            {projects?.find(({ id }) => id === edit.projectId)?.name ?? edit.projectId}
+          </ProposedField>
           <ProposedField label="Initiative's Pipeline">
             {edit.pipelineId === null
               ? "None"
-              : (pipelines?.find(({ id }) => id === edit.pipelineId)?.name ?? edit.pipelineId)}
+              : ([...(pipelines ?? []), ...(projectPipelines ?? [])].find(
+                  ({ id }) => id === edit.pipelineId,
+                )?.name ?? edit.pipelineId)}
           </ProposedField>
         </dl>
       );

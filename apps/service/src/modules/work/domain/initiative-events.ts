@@ -46,10 +46,14 @@ export class InitiativeOutcomeWritten extends DomainEvent {
   }
 }
 
-/** The Initiative's Pipeline chosen, undefined for None, with the Short name it then has. */
+/**
+ * The Initiative's Pipeline chosen in one Project, undefined for None, with the Short name it then
+ * has.
+ */
 export class InitiativePipelineChosen extends DomainEvent {
   constructor(
     readonly initiativeId: string,
+    readonly projectId: string,
     readonly pipelineId: string | undefined,
     readonly shortName: string | undefined,
   ) {

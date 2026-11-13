@@ -25,7 +25,7 @@ const INITIATIVE: Initiative = {
   pausedAt: null,
   planningThreadId: null,
   planningAutoMode: false,
-  pipelineId: null,
+  pipelines: [],
   shortName: null,
   branches: [],
 };

@@ -103,6 +103,7 @@ export function shapeIdeaIntoInitiative(
     createdBy: shapedBy,
     createdAt: at,
     planningAutoMode: false,
+    pipelines: [],
     branches: [],
   };
   return {

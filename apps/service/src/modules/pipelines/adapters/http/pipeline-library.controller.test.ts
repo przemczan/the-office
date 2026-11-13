@@ -182,8 +182,8 @@ describe("DELETE /api/pipelines/:id", () => {
     pipelines.initiatives.initiatives.push({
       name: "Checkout",
       state: "shaping",
+      projectId: randomUUID(),
       pipelineId: pipeline.id,
-      projectIds: [],
       pipelineStarted: false,
     });
 

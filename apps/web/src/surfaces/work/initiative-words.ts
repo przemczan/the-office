@@ -32,6 +32,14 @@ export function tasksOfInitiative(initiative: Initiative, tasks: readonly Task[]
   return tasks.filter(({ initiativeId }) => initiativeId === initiative.id);
 }
 
+/** The Initiative's Pipeline in the Project, a Pipeline's id; null for None. */
+export function initiativePipelineIn(
+  initiative: Pick<Initiative, "pipelines">,
+  projectId: string,
+): string | null {
+  return initiative.pipelines.find((entry) => entry.projectId === projectId)?.pipelineId ?? null;
+}
+
 /**
  * Whether the Task is an Initiative's Publishing Task (spec 2.1): The Office adds one per Project
  * once the other Tasks have ended, and it publishes the Initiative's branch into the base branch.
@@ -132,6 +140,52 @@ export function outcomeSummary(outcome: string): string {
 export function attachmentsSummary(count: number): string {
   if (count === 0) return "None";
   return `${count} ${count === 1 ? "Attachment" : "Attachments"}`;
+}
+
+/** The states the Tasks fold's line counts, in its order, each only when a Task is in it. */
+const TASKS_FOLD_STATES: readonly (readonly [Task["state"], string])[] = [
+  ["done", "done"],
+  ["in-progress", "in progress"],
+  ["waiting-on-you", "waiting on you"],
+  ["dropped", "dropped"],
+];
+
+/**
+ * The Tasks fold's line: how many of the Initiative's own Tasks across how many Projects, then
+ * what moves ("2 done · 1 in progress"), or that it is in Shaping until confirmed. `initiativeTasks`
+ * leave out its Publishing Tasks, which the Pipelines card shows, and blockers from outside it.
+ */
+export function tasksFoldSummary(
+  initiative: Pick<Initiative, "state">,
+  initiativeTasks: readonly Pick<Task, "state" | "projectId">[],
+): string {
+  if (initiativeTasks.length === 0) return "None yet";
+  const projectCount = new Set(initiativeTasks.map(({ projectId }) => projectId)).size;
+  const across = `${initiativeTasks.length} across ${projectCount} ${projectCount === 1 ? "Project" : "Projects"}`;
+  if (initiative.state === "shaping") return `${across} · in Shaping until you confirm`;
+  const counts = TASKS_FOLD_STATES.flatMap(([state, words]) => {
+    const count = initiativeTasks.filter((task) => task.state === state).length;
+    return count === 0 ? [] : [`${count} ${words}`];
+  });
+  return [across, ...counts].join(" · ");
+}
+
+/** A kind of line the Task graph draws, as its legend samples it. */
+export type GraphLineKind = "must-be-done-first" | "blocker-done" | "from-outside";
+
+/**
+ * The kinds of line the graph holds, in the legend's order: "must be Done first" always, then a
+ * Done blocker's green line and an outside blocker's dashed one when an edge is drawn so.
+ */
+export function graphLineKinds(graph: TaskGraph): GraphLineKind[] {
+  const outsideIds = new Set(
+    graph.columns.flat().flatMap(({ task, outside }) => (outside ? [task.id] : [])),
+  );
+  return [
+    "must-be-done-first",
+    ...(graph.edges.some(({ blockerDone }) => blockerDone) ? (["blocker-done"] as const) : []),
+    ...(graph.edges.some(({ from }) => outsideIds.has(from)) ? (["from-outside"] as const) : []),
+  ];
 }
 
 /** A Task in the graph; a blocker from outside the Initiative is drawn too, marked. */

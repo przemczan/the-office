@@ -17,7 +17,7 @@ import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
-import { initiativeProjectIds, type Initiative } from "../../domain/initiative.js";
+import { initiativeProjectIds, pipelineIn, type Initiative } from "../../domain/initiative.js";
 import {
   ARCHIVE_PAGE_SIZE,
   type ArchivePage,
@@ -65,7 +65,10 @@ export function toInitiativeResponse(
     pausedAt: initiative.pausedAt?.toISOString() ?? null,
     planningThreadId: initiative.planningThreadId ?? null,
     planningAutoMode: initiative.planningAutoMode,
-    pipelineId: initiative.pipelineId ?? null,
+    pipelines: initiativeProjectIds(tasks).map((projectId) => ({
+      projectId,
+      pipelineId: pipelineIn(initiative, projectId) ?? null,
+    })),
     shortName: initiative.shortName ?? null,
     branches: initiativeBranchesOf(initiative),
   };

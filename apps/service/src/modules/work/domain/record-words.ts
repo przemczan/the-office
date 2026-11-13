@@ -2,7 +2,7 @@ import { initiativeBranchOf } from "./short-name.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
 import { authorWords } from "./author.js";
 import type { Idea } from "./idea.js";
-import { initiativeProjectIds, type Initiative } from "./initiative.js";
+import { initiativeProjectIds, pipelineIn, type Initiative } from "./initiative.js";
 import {
   linkedIdeaWords,
   linkedInitiativeWords,
@@ -161,8 +161,8 @@ export interface InitiativeRecord {
   /** Every Task by its id, where the Tasks its Tasks wait for are looked up. */
   readonly blockers: ReadonlyMap<string, Task>;
   readonly attachments: readonly Attachment[];
-  /** The name of the Initiative's Pipeline, when it has one the library still has. */
-  readonly pipelineName?: string;
+  /** The names of the Pipelines it has in its Projects, by id, those the library still has. */
+  readonly pipelineNames: ReadonlyMap<string, string>;
 }
 
 /**
@@ -176,7 +176,7 @@ export function initiativeRecordText({
   tasks,
   blockers,
   attachments,
-  pipelineName,
+  pipelineNames,
 }: InitiativeRecord): string {
   const ordinary = tasks.filter((task) => !isPublishingTask(task));
   const publishing = tasks.filter(isPublishingTask);
@@ -193,7 +193,7 @@ export function initiativeRecordText({
     ...(initiative.archivedAt
       ? [`- Archived on ${initiative.archivedAt.toISOString()}: off the board, its state as it was`]
       : []),
-    ...initiativePipelineLines(initiative, pipelineName),
+    ...initiativePipelineLines(initiative, initiativeProjectIds(tasks), pipelineNames),
     "",
     "Outcome:",
     outcomeWords(initiative),
@@ -216,17 +216,26 @@ export function initiativeRecordText({
 }
 
 /**
- * The Initiative's Pipeline, its Short name and its branch in each Project (spec 2.1, 5.5); None
- * publishes Task by Task.
+ * The Initiative's Pipeline in each Project it spans (`projectIds`), its Short name and its branch
+ * in each Project (spec 2.1, 5.5); a Project with None publishes Task by Task.
  */
 export function initiativePipelineLines(
   initiative: Initiative,
-  pipelineName: string | undefined,
+  projectIds: readonly string[],
+  pipelineNames: ReadonlyMap<string, string>,
 ): string[] {
-  const { pipelineId, shortName } = initiative;
-  if (pipelineId === undefined)
-    return ["- Initiative's Pipeline: None, so each Task publishes on its own"];
-  const pipeline = pipelineName === undefined ? pipelineId : `${pipelineName} (${pipelineId})`;
+  const { shortName } = initiative;
+  const pipelineLines = projectIds.map((projectId) => {
+    const pipelineId = pipelineIn(initiative, projectId);
+    const name = pipelineId === undefined ? undefined : pipelineNames.get(pipelineId);
+    const pipeline =
+      pipelineId === undefined
+        ? "None, so each of its Tasks publishes on its own"
+        : name === undefined
+          ? pipelineId
+          : `${name} (${pipelineId})`;
+    return `- Initiative's Pipeline in the Project ${projectId}: ${pipeline}`;
+  });
   const branchLines =
     shortName === undefined
       ? []
@@ -235,7 +244,7 @@ export function initiativePipelineLines(
             `- Initiative's branch ${initiativeBranchOf(shortName)} in the Project ${projectId}, made on ${madeAt.toISOString()}`,
         );
   return [
-    `- Initiative's Pipeline: ${pipeline}`,
+    ...pipelineLines,
     ...(shortName === undefined ? [] : [`- Short name: ${shortName}`]),
     ...branchLines,
   ];
