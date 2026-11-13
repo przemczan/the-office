@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { searchResultsSchema } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AttachmentService } from "../../application/attachment-service.js";
 import type { Task } from "../../domain/task.js";
@@ -67,6 +68,12 @@ afterEach(async () => {
 
 const call = officeToolCaller(() => work);
 
+async function searchedAttachmentIds(query: string): Promise<string[]> {
+  const response = await fetch(`${work.url}/api/search?${new URLSearchParams({ query })}`);
+  const { attachments } = searchResultsSchema.parse(await response.json());
+  return attachments.map(({ id }) => id);
+}
+
 describe("attach_file", () => {
   it.each(["design.html", "design.htm"])("attaches %s as an HTML file", async (name) => {
     await writeFile(join(worktree, name), "<h1>Design</h1>");
@@ -88,6 +95,62 @@ describe("attach_file", () => {
       .get(AttachmentService)
       .listOf({ kind: "task", taskId: task.id });
     expect(attachment).toMatchObject({ kind: "image", mediaType: "image/png" });
+  });
+
+  it("never replaces the user's upload, a link, a file from another path or another Task's file", async () => {
+    const service = work.app.get(AttachmentService);
+    const owner = { kind: "task", taskId: task.id } as const;
+    const uploaded = await service.addFile(
+      owner,
+      {
+        name: "report.md",
+        mediaType: "text/markdown",
+        content: new TextEncoder().encode("# Mine"),
+      },
+      THE_USER,
+    );
+    await call(ATTACH_LINK, { url: "https://example.com/report.md", name: "report.md" });
+    const other = await startAttaching(folder);
+    try {
+      await writeFile(join(other.worktree, "docs", "report.md"), "# The other Task's");
+      await other.work.app.get(AttachmentService).attachFromWorktree(
+        other.task.id,
+        {
+          path: "docs/report.md",
+          name: "report.md",
+          mediaType: "text/markdown",
+          content: new Uint8Array(),
+        },
+        "planner",
+      );
+      await writeFile(join(worktree, "report.md"), "# From the root");
+      await call(ATTACH_FILE, { path: "report.md" });
+      await writeFile(join(worktree, "docs", "report.md"), "# From docs");
+
+      const result = await call(ATTACH_FILE, { path: "docs/report.md" });
+
+      expect(result.text).toMatch(/^Attached report\.md/);
+      const attached = await service.listOf(owner);
+      expect(attached).toHaveLength(4);
+      expect(attached[0]).toEqual(uploaded);
+      expect(
+        await other.work.app.get(AttachmentService).listOf({ kind: "task", taskId: other.task.id }),
+      ).toHaveLength(1);
+    } finally {
+      await other.work.app.close();
+    }
+  });
+
+  it("searches a replaced document by its new text alone", async () => {
+    await writeFile(join(worktree, "docs", "notes.md"), "# Thumbnails\n\nmarmalade");
+    await call(ATTACH_FILE, { path: "docs/notes.md" });
+    await writeFile(join(worktree, "docs", "notes.md"), "# Thumbnails\n\nporcupine");
+
+    await call(ATTACH_FILE, { path: "docs/notes.md" });
+
+    const [notes] = await work.app.get(AttachmentService).listOf({ kind: "task", taskId: task.id });
+    expect(await searchedAttachmentIds("marmalade")).not.toContain(notes?.id);
+    expect(await searchedAttachmentIds("porcupine")).toContain(notes?.id);
   });
 
   it("refuses a session on no Task", async () => {

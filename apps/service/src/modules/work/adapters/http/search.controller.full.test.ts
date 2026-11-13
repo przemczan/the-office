@@ -258,6 +258,7 @@ function anOldDocument(id: string, taskId: string): DomainAttachment {
     mediaType: "text/markdown",
     size: 10,
     text: true,
+    sourcePath: undefined,
     addedBy: THE_USER,
     addedAt: new Date(),
   };

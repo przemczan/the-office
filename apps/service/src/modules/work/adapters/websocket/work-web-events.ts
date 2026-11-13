@@ -5,6 +5,7 @@ import {
   AttachmentAdded,
   AttachmentMoved,
   AttachmentRemoved,
+  AttachmentReplaced,
 } from "../../domain/attachment-events.js";
 import {
   IdeaCaptured,
@@ -380,6 +381,11 @@ export class WorkWebEvents implements OnModuleInit {
   private forwardAttachmentEvents(): void {
     this.forwarding.forward(AttachmentAdded, (event): WebEventOf<"attachment.added"> => ({
       type: "attachment.added",
+      attachmentId: event.attachment.id,
+      owner: toOwnerResponse(event.attachment.owner),
+    }));
+    this.forwarding.forward(AttachmentReplaced, (event): WebEventOf<"attachment.replaced"> => ({
+      type: "attachment.replaced",
       attachmentId: event.attachment.id,
       owner: toOwnerResponse(event.attachment.owner),
     }));

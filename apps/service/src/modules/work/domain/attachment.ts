@@ -37,6 +37,11 @@ interface StoredFile {
   readonly size: number;
   /** Whether it is a text file (`isText`), judged once as it is attached; a document always is. */
   readonly text: boolean;
+  /**
+   * The path an Agent attached it from, relative to the Task's worktree; undefined for the user's
+   * uploads and for files attached before it was kept.
+   */
+  readonly sourcePath: string | undefined;
 }
 
 /** A file as it is attached: as the user uploads it, or as an Agent attaches it. */
@@ -46,6 +51,8 @@ export interface NewFile {
   readonly size: number;
   /** Whether its bytes are text, by `isText`. */
   readonly text: boolean;
+  /** Relative to the Task's worktree, for a file an Agent attaches from there. */
+  readonly sourcePath: string | undefined;
 }
 
 /** A link as the user gives it. */

@@ -3,7 +3,7 @@ import { mediaTypeOf, SCREENSHOT_SIZE_LIMIT, storedFileKind } from "../domain/at
 import { AttachmentRefused } from "../domain/attachment-refused.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
 import { WorktreeFiles } from "../ports/worktree-files.js";
-import { AttachmentService, type UploadedFile } from "./attachment-service.js";
+import { AttachmentService, type WorktreeUpload } from "./attachment-service.js";
 import { TaskService } from "./task-service.js";
 
 /** The screenshots attached, by their names, or why none was. */
@@ -14,7 +14,8 @@ export type ScreenshotsAttaching =
 /**
  * Attaches the screenshots an Agent lists in its Stage's result (research §8): exactly those, from
  * the screenshots folder of the Task's worktree, each an image of at most 2 MiB, in the name of the
- * person who listed them. All or none, so a list corrected after a refusal attaches nothing twice.
+ * person who listed them. All or none, so a list corrected after a refusal attaches nothing twice;
+ * one attached again from the same path replaces the earlier copy as `attach_file` does.
  */
 @Injectable()
 export class StageScreenshots {
@@ -41,10 +42,11 @@ export class StageScreenshots {
     const names: string[] = [];
     for (const reading of readings) {
       if (!("file" in reading)) continue;
-      const attachment = await this.attachments.addFile({ kind: "task", taskId }, reading.file, {
-        kind: "person",
+      const { attachment } = await this.attachments.attachFromWorktree(
+        taskId,
+        reading.file,
         roleKey,
-      });
+      );
       names.push(attachment.name);
     }
     return { kind: "attached", names };
@@ -53,7 +55,7 @@ export class StageScreenshots {
   private async readScreenshot(
     worktree: TaskWorktree,
     path: string,
-  ): Promise<{ readonly file: UploadedFile } | { readonly problem: string }> {
+  ): Promise<{ readonly file: WorktreeUpload } | { readonly problem: string }> {
     try {
       const file = await this.files.read(worktree.path, path, {
         within: worktree.screenshotsFolder,

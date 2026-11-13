@@ -23,6 +23,17 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
     });
   }
 
+  async replace(file: StoredFileAttachment, documentText?: string): Promise<void> {
+    const { id, ...copy } = toAttachmentRow(file);
+    await this.database.transaction(async (transaction) => {
+      await transaction.update(attachments).set(copy).where(eq(attachments.id, id));
+      await transaction.delete(attachmentTexts).where(eq(attachmentTexts.attachmentId, id));
+      if (documentText !== undefined) {
+        await transaction.insert(attachmentTexts).values({ attachmentId: id, text: documentText });
+      }
+    });
+  }
+
   async find(id: string): Promise<Attachment | undefined> {
     const [row] = await this.database.select().from(attachments).where(eq(attachments.id, id));
     return row && toAttachment(row);

@@ -23,6 +23,17 @@ export function waitingGateRun(
 }
 
 /**
+ * The Task's last Gate run the user acted on: done, not skipped, with its Gate action. It ended as
+ * the Task reached the Gate, so what the Gate showed is what was there by its `endedAt`.
+ */
+export function lastActedOnGateRun(runs: readonly StageRun[]): StageRun | undefined {
+  return runs.findLast(
+    ({ gateAction, outcome }) =>
+      gateAction !== undefined && outcome?.status === "done" && outcome.skipped !== true,
+  );
+}
+
+/**
  * The Stages a Gate may send the work back to (spec §2.3, the user's answer of 2026-10-26): any
  * Stage before it but a Gate, which would only wait again, and a Publish, whose work has already
  * left the workstation. An Agent Stage is briefed with the feedback; a Script Stage can't read it,

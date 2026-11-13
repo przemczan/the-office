@@ -30,6 +30,7 @@ import {
   TaskDecisionsForTests,
   TaskThreadsForTests,
   StageResultsForTests,
+  TaskGatesForTests,
   UsageHistoryForTests,
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
@@ -93,6 +94,7 @@ export function workModuleForTests(): DynamicModule {
     proposalDrafts: ProposalDraftsForTests,
     usageHistory: UsageHistoryForTests,
     stageResults: StageResultsForTests,
+    taskGates: TaskGatesForTests,
     modelPrices: ModelPricesForTests,
     accountWindows: AccountWindowsForTests,
     accountWindowRatios: AccountWindowRatiosForTests,

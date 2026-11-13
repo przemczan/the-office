@@ -48,6 +48,7 @@ import {
   ProjectInitiativeBranchesForTests,
   ProjectWorktreesForTests,
   StageResultsForTests,
+  TaskGatesForTests,
   TaskBasesForTests,
   UsageHistoryForTests,
 } from "../ports/work-ports.fixtures.js";
@@ -177,6 +178,7 @@ const STAND_INS = [
   ProjectWorktreesForTests,
   ProjectInitiativeBranchesForTests,
   StageResultsForTests,
+  TaskGatesForTests,
   UsageHistoryForTests,
   ModelPricesForTests,
   AccountWindowsForTests,
@@ -251,6 +253,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         proposalDrafts: ProposalService,
         usageHistory: UsageHistoryForTests,
         stageResults: StageResultsForTests,
+        taskGates: TaskGatesForTests,
         modelPrices: ModelPricesForTests,
         accountWindows: AccountWindowsForTests,
         accountWindowRatios: AccountWindowRatiosForTests,
