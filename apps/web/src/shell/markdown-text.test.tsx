@@ -61,10 +61,22 @@ function withClipboard(): Mock<(text: string) => Promise<void>> {
   return writeText;
 }
 
+function withCopyCommand(run: () => boolean): Mock<(command: string) => boolean> {
+  const execCommand = vi.fn<(command: string) => boolean>(run);
+  Object.defineProperty(document, "execCommand", { value: execCommand, configurable: true });
+  return execCommand;
+}
+
+function selectedTextArea(): string {
+  const textArea = document.querySelector("textarea");
+  return textArea ? textArea.value.slice(textArea.selectionStart, textArea.selectionEnd) : "";
+}
+
 describe("MarkdownText", () => {
   afterEach(() => {
     document.body.replaceChildren();
     Reflect.deleteProperty(navigator, "clipboard");
+    Reflect.deleteProperty(document, "execCommand");
   });
 
   it("shows raw HTML as text, never as elements", () => {
@@ -98,7 +110,34 @@ describe("MarkdownText", () => {
     expect(writeText).toHaveBeenCalledWith("First line\nnext line\n\nSecond paragraph.");
   });
 
-  it("says the text couldn't be copied where the browser offers no clipboard", async () => {
+  it("copies with the browser's copy command where it offers no clipboard, as over plain http", async () => {
+    let selectedText = "";
+    withCopyCommand(() => {
+      selectedText = selectedTextArea();
+      return true;
+    });
+    const { page } = await mounted("```\nnpm test\n```");
+
+    await act(async () => copyButton(page, "Copy the code").click());
+
+    expect(selectedText).toBe("npm test");
+    expect(document.body.textContent).toContain("Copied.");
+    expect(document.querySelector("textarea")).toBeNull();
+  });
+
+  it("copies with the copy command when the clipboard refuses the text", async () => {
+    withClipboard().mockRejectedValue(new Error("Document is not focused."));
+    const copyCommand = withCopyCommand(() => true);
+    const { page } = await mounted("```\nnpm test\n```");
+
+    await act(async () => copyButton(page, "Copy the code").click());
+
+    expect(copyCommand).toHaveBeenCalledWith("copy");
+    expect(document.body.textContent).toContain("Copied.");
+  });
+
+  it("says the text couldn't be copied where the browser can't copy at all", async () => {
+    withCopyCommand(() => false);
     const { page } = await mounted("```\nnpm test\n```");
 
     await act(async () => copyButton(page, "Copy the code").click());
@@ -134,6 +173,7 @@ describe("MarkdownDocument", () => {
   afterEach(() => {
     document.body.replaceChildren();
     Reflect.deleteProperty(navigator, "clipboard");
+    Reflect.deleteProperty(document, "execCommand");
   });
 
   it("shows raw HTML as text, never as elements", () => {
