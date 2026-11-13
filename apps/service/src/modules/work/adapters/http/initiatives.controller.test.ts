@@ -349,7 +349,7 @@ describe("POST /api/initiatives/:id/start", () => {
         {
           taskId: refused.id,
           title: refused.title,
-          reasons: ['There is no Pipeline "full" in the library.'],
+          reasons: ['There is no Pipeline "full" this Task\'s Project can follow.'],
         },
       ],
     });
