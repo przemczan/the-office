@@ -7,6 +7,16 @@ export class AttachmentAdded extends DomainEvent {
   }
 }
 
+/**
+ * An Agent attached a new copy of the file in its place (spec §2.1): its id, owner and `addedAt`
+ * are as they were, so it is announced as it happens.
+ */
+export class AttachmentReplaced extends DomainEvent {
+  constructor(readonly attachment: Attachment) {
+    super();
+  }
+}
+
 /** Moved with its Idea into the Task the Idea was shaped into. */
 export class AttachmentMoved extends DomainEvent {
   constructor(

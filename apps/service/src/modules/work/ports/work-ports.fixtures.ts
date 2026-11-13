@@ -42,6 +42,7 @@ import {
 } from "./project-initiative-branches.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { StageResults, type TaskStageResults } from "./stage-results.js";
+import { TaskGates } from "./task-gates.js";
 import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
 import { SessionPeople } from "./session-people.js";
 import { SessionInitiatives, type SessionInitiativeThread } from "./session-initiatives.js";
@@ -227,6 +228,16 @@ export class StageResultsForTests extends StageResults {
 
   async ofTask(taskId: string): Promise<AllStageResults> {
     return this.allResults.get(taskId) ?? { lines: [], handoverNotes: [] };
+  }
+}
+
+/** When each Task's last acted-on Gate run ended, as a test sets it; none for any other Task. */
+@Injectable()
+export class TaskGatesForTests extends TaskGates {
+  readonly lastActedOnGateEnds = new Map<string, Date>();
+
+  async lastActedOnGateEnd(taskId: string): Promise<Date | undefined> {
+    return this.lastActedOnGateEnds.get(taskId);
   }
 }
 
@@ -580,6 +591,7 @@ const PORTS = [
   ProjectWorktreesForTests,
   ProjectInitiativeBranchesForTests,
   StageResultsForTests,
+  TaskGatesForTests,
   KnownPeopleForTests,
   KnownEngineCascadeForTests,
   SessionPeopleForTests,

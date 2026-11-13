@@ -16,7 +16,12 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
-import { ProjectWorktreesForTests, SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
+import { AttachmentReplaced } from "../../domain/attachment-events.js";
+import {
+  ProjectWorktreesForTests,
+  SessionTasksForTests,
+  TaskGatesForTests,
+} from "../../ports/work-ports.fixtures.js";
 
 /** A Stage's session on the test's Task, of the person the fixtures name "planner". */
 const SESSION = "stage-session";
@@ -104,6 +109,45 @@ describe("attach_file", () => {
         addedBy: { kind: "person", roleKey: "planner" },
       }),
     ]);
+  });
+
+  it("replaces the copy it attached from the same path before a Gate: one Attachment, the new bytes, its first id and place", async () => {
+    await writeFile(join(worktree, "docs", "design.html"), "<h1>First</h1>");
+    await call(ATTACH_FILE, { path: "docs/design.html" });
+    const service = work.app.get(AttachmentService);
+    const [first] = await service.listOf({ kind: "task", taskId: task.id });
+    await writeFile(join(worktree, "docs", "design.html"), "<h1>Second copy</h1>");
+
+    const result = await call(ATTACH_FILE, { path: "./docs/design.html" });
+
+    expect(result).toEqual({
+      text: `Replaced design.html (Attachment ${first?.id}) with the new copy.`,
+      isError: false,
+    });
+    const attached = await service.listOf({ kind: "task", taskId: task.id });
+    expect(attached).toEqual([{ ...first, size: 20 }]);
+    expect(await text((await service.open(first?.id ?? "")).content)).toBe("<h1>Second copy</h1>");
+    expect(work.published.filter((event) => event instanceof AttachmentReplaced)).toEqual([
+      expect.objectContaining({ attachment: { ...first, size: 20 } }),
+    ]);
+  });
+
+  it("adds a new Attachment from the same path once the user acted at a Gate on the Task", async () => {
+    await writeFile(join(worktree, "docs", "design.html"), "<h1>First</h1>");
+    await call(ATTACH_FILE, { path: "docs/design.html" });
+    work.app.get(TaskGatesForTests).lastActedOnGateEnds.set(task.id, new Date());
+    await writeFile(join(worktree, "docs", "design.html"), "<h1>Sent back</h1>");
+
+    const result = await call(ATTACH_FILE, { path: "docs/design.html" });
+
+    const attached = await work.app
+      .get(AttachmentService)
+      .listOf({ kind: "task", taskId: task.id });
+    expect(attached).toHaveLength(2);
+    expect(result).toEqual({
+      text: `Attached design.html (text file, text/html, 18 bytes) to the Task as Attachment ${attached[1]?.id}.`,
+      isError: false,
+    });
   });
 
   it("refuses a file outside the worktree, git's own files, a folder and a missing file", async () => {

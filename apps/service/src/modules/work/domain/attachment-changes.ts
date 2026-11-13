@@ -11,7 +11,12 @@ import {
   type NewLink,
   type StoredFileAttachment,
 } from "./attachment.js";
-import { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./attachment-events.js";
+import {
+  AttachmentAdded,
+  AttachmentMoved,
+  AttachmentRemoved,
+  AttachmentReplaced,
+} from "./attachment-events.js";
 import { AttachmentRefused } from "./attachment-refused.js";
 import type { Author } from "./author.js";
 
@@ -62,6 +67,51 @@ export function addFile(
     ...adding,
   };
   return { attachment, event: new AttachmentAdded(attachment) };
+}
+
+/**
+ * The Attachment a file an Agent attaches to a Task from `sourcePath` in its worktree replaces
+ * (spec §2.1, the user's answer of 2026-11-13): the one an Agent attached from the same path to the
+ * same Task since the user last acted at a Gate on it, whose run ended at `lastActedOnGateEnd`
+ * (undefined before any). Never a link, anything the user attached, or anything on an Idea or an
+ * Initiative, so what a Gate already showed the user stays as it was.
+ */
+export function attachmentToReplace(
+  attachments: readonly Attachment[],
+  adding: Adding,
+  sourcePath: string,
+  lastActedOnGateEnd: Date | undefined,
+): StoredFileAttachment | undefined {
+  const { owner, addedBy } = adding;
+  if (owner.kind !== "task" || addedBy.kind !== "person") return undefined;
+  return attachments
+    .filter(
+      (attachment): attachment is StoredFileAttachment =>
+        attachment.kind !== "link" &&
+        attachment.owner.kind === "task" &&
+        attachment.owner.taskId === owner.taskId &&
+        attachment.addedBy.kind === "person" &&
+        attachment.sourcePath === sourcePath &&
+        (lastActedOnGateEnd === undefined || attachment.addedAt > lastActedOnGateEnd),
+    )
+    .at(-1);
+}
+
+/**
+ * The new copy in `replaced`'s place: its id, owner and `addedAt` kept, so whatever names it and
+ * the round showing it stay; the rest is the new file's, refused as `addFile` refuses it.
+ */
+export function replaceFile(
+  replaced: StoredFileAttachment,
+  given: NewFile,
+  addedBy: Author,
+): AttachmentChange<AttachmentReplaced> & { readonly attachment: StoredFileAttachment } {
+  const { attachment } = addFile(replaced.id, given, {
+    owner: replaced.owner,
+    addedBy,
+    addedAt: replaced.addedAt,
+  });
+  return { attachment, event: new AttachmentReplaced(attachment) };
 }
 
 export function moveAttachment(

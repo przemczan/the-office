@@ -711,6 +711,7 @@ export const workEventInvalidations: Readonly<
   "task.pipeline-proposed": () => [TASKS],
   "task.pipeline-confirmed": () => [TASKS],
   "attachment.added": () => [ATTACHMENTS],
+  "attachment.replaced": () => [ATTACHMENTS],
   "attachment.moved": () => [ATTACHMENTS],
   "attachment.removed": () => [ATTACHMENTS],
   "saved-view.saved": () => [SAVED_VIEWS],

@@ -318,13 +318,14 @@ export function toAttachmentRow(attachment: Attachment): AttachmentRow {
     addedAt: attachment.addedAt,
   };
   return attachment.kind === "link"
-    ? { ...fields, url: attachment.url, mediaType: null, size: null, text: null }
+    ? { ...fields, url: attachment.url, mediaType: null, size: null, text: null, sourcePath: null }
     : {
         ...fields,
         url: null,
         mediaType: attachment.mediaType,
         size: attachment.size,
         text: attachment.text,
+        sourcePath: attachment.sourcePath ?? null,
       };
 }
 
@@ -347,6 +348,7 @@ export function toAttachment(row: AttachmentRow): Attachment {
     mediaType: present(row.mediaType),
     size: present(row.size),
     text: row.text ?? false,
+    sourcePath: row.sourcePath ?? undefined,
   };
 }
 

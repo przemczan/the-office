@@ -15,10 +15,10 @@ Chosen by the user on 2026-11-13, a small part of the postponed Attachment versi
 
 ## Definition of Done
 
-- [ ] Spec 2.1's Attachment line says the rule above, as the user's answer of 2026-11-13. Check: read the changed line against Goal.
-- [ ] An Agent's `attach_file` of the same path twice before a Gate leaves one Attachment with the second copy's bytes and the first one's id and `addedAt`; after the user acted at a Gate, the same path adds a new one. Check: `attachment-service` / office tool tests on Postgres.
-- [ ] A user's upload, a link, a different path and another Task are never replaced. Check: the same tests.
-- [ ] Screenshots from a Stage result replace by path the same way. Check: `stage-screenshots` test.
+- [x] Spec 2.1's Attachment line says the rule above, as the user's answer of 2026-11-13. Check: read the changed line against Goal.
+- [x] An Agent's `attach_file` of the same path twice before a Gate leaves one Attachment with the second copy's bytes and the first one's id and `addedAt`; after the user acted at a Gate, the same path adds a new one. Check: `attachment-service` / office tool tests on Postgres.
+- [x] A user's upload, a link, a different path and another Task are never replaced. Check: the same tests.
+- [x] Screenshots from a Stage result replace by path the same way. Check: `stage-screenshots` test.
 - [ ] Open pages show the new copy without a reload: the Attachments tab, the Gate's list, an open preview or document window, and search finds the new text. Check: web unit tests; one e2e test if the module has one for Attachments.
 - [ ] `npm run verify` passes.
 
@@ -35,14 +35,19 @@ Chosen by the user on 2026-11-13, a small part of the postponed Attachment versi
 
 ## Steps
 
-- [ ] **1. Service.** Spec 2.1 amended. A migration adding the source path (worktree-relative, null for the user's uploads and older rows) to `attachments`. `AttachmentService` gets a replace use case: in Work's domain, the rule that picks the Attachment to replace (owner a Task, added by a person, same path, added after the Task last waited at a Gate); the bytes and PDF text written before the row as `addFile` does, `attachment_texts` updated, and an `AttachmentReplaced` event (with the web event). When the Task last waited at a Gate comes from Pipelines through a new Work port, bound in `app.module.ts` the way `StageResults` is (Pipelines calls Work, so never import Pipelines from Work); the boundary is the end of the last Gate run done, not skipped, and acted on by the user (see State). `attach_file` and `StageScreenshots.attach` pass the path and word the answer. Read: `attachment-service.ts`, `domain/attachment.ts`, `domain/attachment-changes.ts`, `domain/attachment-events.ts`, `postgres-attachment-repository.ts`, `attachment-office-tools.ts`, `stage-screenshots.ts`, `work-web-events.ts`, Pipelines' `domain/gate.ts`, and how `StageResults` is bound.
+- [x] **1. Service.** Spec 2.1 amended. A migration adding the source path (worktree-relative, null for the user's uploads and older rows) to `attachments`. `AttachmentService` gets a replace use case: in Work's domain, the rule that picks the Attachment to replace (owner a Task, added by a person, same path, added after the Task last waited at a Gate); the bytes and PDF text written before the row as `addFile` does, `attachment_texts` updated, and an `AttachmentReplaced` event (with the web event). When the Task last waited at a Gate comes from Pipelines through a new Work port, bound in `app.module.ts` the way `StageResults` is (Pipelines calls Work, so never import Pipelines from Work); the boundary is the end of the last Gate run done, not skipped, and acted on by the user (see State). `attach_file` and `StageScreenshots.attach` pass the path and word the answer. Read: `attachment-service.ts`, `domain/attachment.ts`, `domain/attachment-changes.ts`, `domain/attachment-events.ts`, `postgres-attachment-repository.ts`, `attachment-office-tools.ts`, `stage-screenshots.ts`, `work-web-events.ts`, Pipelines' `domain/gate.ts`, and how `StageResults` is bound.
 - [ ] **2. Web.** The contracts' web event for a replaced Attachment; the Task's Attachments, the Gate's list and search refetched on it; an open preview or document window loads the new bytes (the content URL must not serve the old copy from the browser's cache: check the route's cache headers and the URL the web builds). Read: `apps/web/src/surfaces/work/MAP.md`, `attachments-block.tsx`, `shell/attachments/`, the web event handling for `AttachmentAdded`.
 - [ ] **3. Close.** `npm run verify`, the log archived, the README row done.
 
 ## State
 
-Task written 2026-11-13 from the user's question; nothing built. Decided with the user: the Goal's rule (by worktree path, until the Task waits at a Gate, same id and `addedAt`, screenshots too, links and the user's uploads never).
+Step 1 (service) built. Spec 2.1's Attachment line carries the rule (the user, 2026-11-13). Migration 0135 adds `attachments.source_path` (worktree-relative, "/"; null for links, uploads, older rows); `WorktreeFile.path` gives it, resolved, from `readWorktreeFile`.
+- Rule: `attachmentToReplace`/`replaceFile` in Work's `domain/attachment-changes.ts`; `AttachmentService.attachFromWorktree` (one Task at a time) is what `attach_file` and `StageScreenshots.attach` call; `addFile` stays for the user's uploads.
+- Boundary: Work's `TaskGates` port (`ports/task-gates.ts`, fake `TaskGatesForTests`) bound in `app.module.ts` to Pipelines' `TaskGateRuns` (`UsageHistoryModule`; `lastActedOnGateRun` in `domain/gate.ts`): `endedAt` of the last Gate run done, not skipped, with a Gate action.
+- Replace keeps id and `addedAt`; bytes and PDF text swapped by `AttachmentFiles.replace` (old set aside as `.previous`, undone if the row update fails); `attachment_texts` rewritten in `PostgresAttachmentRepository.replace`.
+- Event: `AttachmentReplaced` → web event `attachment.replaced` `{ attachmentId, owner }` (contracts `packages/contracts/src/work.ts`). The web only refetches Attachments on it (`apps/web/src/api/work.ts`, one line so the typed map compiles).
 
-Traps: a Gate's run ends the moment the Task reaches it (`attachment-rounds.ts`), and what tells a waiting run from an acted-on one is its Gate action: the window to replace in starts at the end of the last Gate run the user acted on (any action), so while the Task waits, a file an Agent attaches from a person's Thread replaces the copy the waiting Gate shows, which the user hasn't acted on yet. The content route is on The Office's own origin with a sandboxing CSP for HTML; keep that as it is.
+Traps for step 2: the content URL (`/api/attachments/:id/content`) stays the same after a replace and the route sets no Cache-Control or ETag (only `X-Content-Type-Options` and, for HTML, the CSP), so an open preview, iframe or image won't reload by itself: the web must refetch or change the URL (e.g. a version from the event or the Attachment's size) and should not rely on HTTP caching. The search results and the Gate's list need their own refetch on `attachment.replaced`. `initiative-thread-records.full.test.ts` fails on HEAD too (Pipeline descriptions in the Brief), not this task's.
 
 ## Progress
+- 2026-11-13 · step 1: an Agent's file from the same worktree path replaces its earlier copy until the user acts at a Gate (spec 2.1, migration 0135, `attachFromWorktree`, `TaskGates` port to Pipelines' `TaskGateRuns`, `attachment.replaced`); next step 2

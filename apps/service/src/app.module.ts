@@ -35,6 +35,7 @@ import {
   PipelinesModule,
   TaskStagesService,
   StageResultWords,
+  TaskGateRuns,
   UsageHistory,
   UsageHistoryModule,
 } from "./modules/pipelines/index.js";
@@ -131,6 +132,7 @@ export class AppModule {
       proposalDrafts: ProposalService,
       usageHistory: UsageHistory,
       stageResults: StageResultWords,
+      taskGates: TaskGateRuns,
       modelPrices: ModelPrices,
       accountWindows: UsageWindowState,
       accountWindowRatios: UsageWindowSamples,
