@@ -11,16 +11,29 @@ import { Schedule } from "../../../../platform/schedule/schedule.js";
 import { SignInRefused } from "../../domain/sign-in-refused.js";
 import {
   FirstUserExists,
+  PasskeyNotFound,
   SignedInDeviceNotFound,
   UserIdNotFound,
   UserRefused,
 } from "../../domain/user-refused.js";
 
 type UsersRefusal =
-  SignInRefused | UserRefused | FirstUserExists | SignedInDeviceNotFound | UserIdNotFound;
+  | SignInRefused
+  | UserRefused
+  | FirstUserExists
+  | SignedInDeviceNotFound
+  | UserIdNotFound
+  | PasskeyNotFound;
 
 /** Answers the users module's own refusals as Nest answers its errors, with `message` for the web. */
-@Catch(SignInRefused, UserRefused, FirstUserExists, SignedInDeviceNotFound, UserIdNotFound)
+@Catch(
+  SignInRefused,
+  UserRefused,
+  FirstUserExists,
+  SignedInDeviceNotFound,
+  UserIdNotFound,
+  PasskeyNotFound,
+)
 @Injectable()
 export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
   constructor(private readonly schedule: Schedule) {}

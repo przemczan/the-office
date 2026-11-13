@@ -9,22 +9,39 @@ export const addressKindSchema = z.enum(["localhost", "loopback-ip", "local-netw
 export type AddressKind = z.infer<typeof addressKindSchema>;
 
 /**
- * A way to sign in the sign-in page offers. A union by `kind`, which Continue with GitHub, Continue
- * with Google and passkeys join as their Tasks add them.
+ * A way to sign in the sign-in page offers. A union by `kind`, which Continue with GitHub and
+ * Continue with Google join as their Tasks add them.
  */
 export const signInWaySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("password") }),
+  z.object({ kind: z.literal("passkey") }),
 ]);
 export type SignInWay = z.infer<typeof signInWaySchema>;
 export type SignInWayKind = SignInWay["kind"];
 
 /**
+ * Why a way doesn't work at the page's address: it is an IP address (`127.0.0.1`, which a passkey
+ * can't be kept for), or it isn't a domain name over HTTPS.
+ */
+export const wayUnavailableReasonSchema = z.enum(["ip-address", "needs-https-domain"]);
+export type WayUnavailableReason = z.infer<typeof wayUnavailableReasonSchema>;
+
+/** A way set up that doesn't work here, why, and the address it works at instead, when one does. */
+export const unavailableWaySchema = z.object({
+  kind: z.enum(["password", "passkey"]) satisfies z.ZodType<SignInWayKind>,
+  reason: wayUnavailableReasonSchema,
+  elsewhere: z.string().optional(),
+});
+export type UnavailableWay = z.infer<typeof unavailableWaySchema>;
+
+/**
  * `GET /sign-in`: whether The Office waits for its first user, whose form the page then shows,
- * and the ways that work at the address the page was opened at.
+ * the ways that work at the address the page was opened at, and those that don't, with why.
  */
 export const signInPageSchema = z.object({
   firstRun: z.boolean(),
   ways: z.array(signInWaySchema),
+  unavailable: z.array(unavailableWaySchema),
 });
 export type SignInPage = z.infer<typeof signInPageSchema>;
 
@@ -67,13 +84,14 @@ export type FirstPassword = z.infer<typeof firstPasswordSchema>;
 
 /**
  * A refused sign-in: a wrong email or password (422), a right one-time password past its days
- * (422), or a try not taken (429) for the slow-down's wait or the lockout, with when to try again.
- * An unknown email is answered as a wrong password.
+ * (422), a passkey that signed nobody in (422, one answer for every reason), or a try not taken
+ * (429) for the slow-down's wait or the lockout, with when to try again. An unknown email is
+ * answered as a wrong password.
  */
 export const signInRefusalSchema = z.object({
   statusCode: z.union([z.literal(422), z.literal(429)]),
   message: z.string(),
-  refusal: z.enum(["wrong", "slow-down", "locked", "expired"]),
+  refusal: z.enum(["wrong", "slow-down", "locked", "expired", "passkey"]),
   tryAgainAt: z.iso.datetime().optional(),
 });
 export type SignInRefusal = z.infer<typeof signInRefusalSchema>;

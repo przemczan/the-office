@@ -14,6 +14,7 @@ import {
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
 import { AppearanceSection } from "./surfaces/account/appearance-section.tsx";
+import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
@@ -141,6 +142,13 @@ const accountAppearanceRoute = createRoute({
   getParentRoute: () => accountRoute,
   path: "appearance",
   component: AppearanceSection,
+  staticData: { title: "Account" },
+});
+
+const accountPasskeysRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "passkeys",
+  component: PasskeysSection,
   staticData: { title: "Account" },
 });
 
@@ -555,6 +563,7 @@ export const router = createRouter({
       accountHomeRoute,
       accountProfileRoute,
       accountAppearanceRoute,
+      accountPasskeysRoute,
       accountSignedInDevicesRoute,
     ]),
     homeRoute,

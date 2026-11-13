@@ -7,12 +7,13 @@ import "./account.css";
 const SECTIONS: readonly MenuSection[] = [
   { to: "/account/profile", icon: "user-round", label: "Profile" },
   { to: "/account/appearance", icon: "palette", label: "Appearance" },
+  { to: "/account/passkeys", icon: "key-round", label: "Passkeys" },
   { to: "/account/signed-in-devices", icon: "monitor-smartphone", label: "Signed-in devices" },
 ];
 
 /**
- * The signed-in user's account (spec §2.10): their own profile, password, appearance and signed-in
- * devices, each a section beside the open one.
+ * The signed-in user's account (spec §2.10): their own profile, password, appearance, passkeys and
+ * signed-in devices, each a section beside the open one.
  */
 export function AccountPage(): ReactNode {
   return (

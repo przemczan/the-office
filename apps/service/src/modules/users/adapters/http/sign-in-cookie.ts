@@ -34,9 +34,14 @@ function cookie(value: string, maxAge: number, secure: boolean): string {
 
 /** The token a Cookie header carries, or undefined when it has none. */
 export function signInTokenOf(cookieHeader: string | undefined): string | undefined {
+  return cookieValueOf(cookieHeader, SIGN_IN_COOKIE);
+}
+
+/** The value of the cookie of this name a Cookie header carries, or undefined when it has none. */
+export function cookieValueOf(cookieHeader: string | undefined, name: string): string | undefined {
   for (const pair of (cookieHeader ?? "").split(";")) {
     const separator = pair.indexOf("=");
-    if (separator === -1 || pair.slice(0, separator).trim() !== SIGN_IN_COOKIE) continue;
+    if (separator === -1 || pair.slice(0, separator).trim() !== name) continue;
     const value = pair.slice(separator + 1).trim();
     return value === "" ? undefined : value;
   }

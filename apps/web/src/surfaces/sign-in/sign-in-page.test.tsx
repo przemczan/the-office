@@ -19,7 +19,7 @@ afterEach(closeSignInPage);
 
 describe("the sign-in page", () => {
   it("offers only the ways the service lists for this address", async () => {
-    stubService({ "GET /api/sign-in": signInPage({ firstRun: false, ways: [] }) });
+    stubService({ "GET /api/sign-in": signInPage({ firstRun: false, ways: [], unavailable: [] }) });
 
     const { page } = await openSignInPage("/sign-in");
 
@@ -29,19 +29,27 @@ describe("the sign-in page", () => {
 
   it("draws the password way when it is listed, each kind by its own view", async () => {
     stubService({
-      "GET /api/sign-in": signInPage({ firstRun: false, ways: [{ kind: "password" }] }),
+      "GET /api/sign-in": signInPage({
+        firstRun: false,
+        ways: [{ kind: "password" }],
+        unavailable: [],
+      }),
     });
 
     const { page } = await openSignInPage("/sign-in");
 
     await until(() => expect(formNamed(page, "Sign in with a password")).not.toBeNull());
     expect(page.querySelectorAll("form")).toHaveLength(1);
-    expect(Object.keys(SIGN_IN_WAYS)).toEqual(["password"]);
+    expect(Object.keys(SIGN_IN_WAYS)).toEqual(["password", "passkey"]);
   });
 
   it("asks for the first user at first run, and signs them in", async () => {
     const sent = stubService({
-      "GET /api/sign-in": signInPage({ firstRun: true, ways: [{ kind: "password" }] }),
+      "GET /api/sign-in": signInPage({
+        firstRun: true,
+        ways: [{ kind: "password" }],
+        unavailable: [],
+      }),
       "POST /api/sign-in/first-user": () => ({ status: 201, body: { outcome: "signed-in" } }),
     });
 
@@ -71,7 +79,11 @@ describe("the sign-in page", () => {
       appearance: { palette: "mocha", density: "compact" },
     };
     const sent = stubService({
-      "GET /api/sign-in": signInPage({ firstRun: false, ways: [{ kind: "password" }] }),
+      "GET /api/sign-in": signInPage({
+        firstRun: false,
+        ways: [{ kind: "password" }],
+        unavailable: [],
+      }),
       "POST /api/sign-in/password": () => ({ status: 200, body: { outcome: "set-password" } }),
       "POST /api/sign-in/set-password": () => ({ status: 200, body: { outcome: "signed-in" } }),
       "GET /api/account": () => ({ status: 200, body: grace }),

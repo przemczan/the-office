@@ -3,6 +3,7 @@ import type { SignInRequest } from "../domain/signed-in-device.js";
 import type { SignInWayKind } from "../domain/sign-in-way.js";
 import type { User } from "../domain/user.js";
 import { SecondSteps } from "../ports/second-steps.js";
+import { SignInWays } from "./sign-in-ways.js";
 import { SignedInDevices } from "./signed-in-devices.js";
 
 /** Signed in, with the new device's token for its cookie. */
@@ -20,19 +21,23 @@ export type SignInOutcome = SignedInOutcome | { readonly outcome: "set-password"
 
 /**
  * Where every way of signing in ends (spec §2.10), once it has found the user: a second step when
- * `SecondSteps` asks for one, such as an authenticator code, else a new signed-in device.
+ * `SecondSteps` asks for one, such as an authenticator code, unless the way is enough alone, as a
+ * passkey is; else a new signed-in device.
  */
 @Injectable()
 export class SignIns {
   constructor(
     private readonly secondSteps: SecondSteps,
+    private readonly signInWays: SignInWays,
     private readonly signedInDevices: SignedInDevices,
   ) {}
 
   async finish(user: User, way: SignInWayKind, request: SignInRequest): Promise<SignedInOutcome> {
-    const secondStep = await this.secondSteps.after(user, way);
-    // No second step exists yet; the authenticator's Task answers with the outcome asking for it.
-    if (secondStep !== undefined) return secondStep;
+    if (!this.signInWays.isEnoughAlone(way)) {
+      const secondStep = await this.secondSteps.after(user, way);
+      // No second step exists yet; the authenticator's Task answers with the outcome asking for it.
+      if (secondStep !== undefined) return secondStep;
+    }
     const { token, device } = await this.signedInDevices.signIn(user.id, request);
     return { outcome: "signed-in", token, signedInDeviceId: device.id };
   }

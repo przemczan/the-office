@@ -41,3 +41,27 @@
   flex-direction: column;
   gap: var(--gap-card);
 }
+
+/* "or" between two ways, on a rule */
+.sign-in-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: var(--gap-card) 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.sign-in-or::before,
+.sign-in-or::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+/* a quiet line: a way that doesn't work here, or a passkey window closed */
+.sign-in-quiet {
+  margin: var(--gap-card) 0 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
