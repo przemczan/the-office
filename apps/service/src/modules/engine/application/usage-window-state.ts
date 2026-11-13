@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import {
   UsageWindowReset,
   UsageWindowsChanged,
@@ -35,12 +36,12 @@ export interface UsedUpUsageWindow {
 @Injectable()
 export class UsageWindowState {
   private readonly readings = new Map<EngineId, UsageWindowReading>();
-  private readonly usedUp = new Map<
-    EngineId,
-    UsedUpUsageWindow & { readonly timer: NodeJS.Timeout }
-  >();
+  private readonly usedUp = new Map<EngineId, UsedUpUsageWindow & { readonly reset: Wait }>();
 
-  constructor(private readonly events: EventBus) {}
+  constructor(
+    private readonly events: EventBus,
+    private readonly schedule: Schedule,
+  ) {}
 
   /** Every engine's latest reading, in the order each was first read; kept in memory only. */
   get readingsByEngine(): ReadonlyMap<EngineId, UsageWindowReading> {
@@ -66,36 +67,39 @@ export class UsageWindowState {
   }
 
   /** `engineId`'s used-up window while its reset is ahead; undefined otherwise. */
-  usedUpUntil(engineId: EngineId, now = new Date()): UsedUpUsageWindow | undefined {
+  usedUpUntil(engineId: EngineId): UsedUpUsageWindow | undefined {
     const usedUp = this.usedUp.get(engineId);
-    if (usedUp === undefined || usedUp.until <= now) return undefined;
+    if (usedUp === undefined || usedUp.until <= this.schedule.now()) return undefined;
     return { engineName: usedUp.engineName, window: usedUp.window, until: usedUp.until };
   }
 
   /**
    * A turn on `engine` was refused for `refused`'s window. When the engine gave no reset time, the
-   * latest reading's reset of that window stands in, if it is ahead. Announced once per engine until
-   * the reset, and again when the reset moves on; at the reset the window is announced reset.
+   * used-up window already known stands in, or else the latest reading's reset of that window, if
+   * it is ahead. Announced once per engine until the reset, and again when the reset moves on; at
+   * the reset, on The Office's clock, the window is announced reset.
    */
-  async refused(
-    engine: Pick<Engine, "id" | "name">,
-    refused: UsedUpWindow,
-    now = new Date(),
-  ): Promise<UsedUpWindow> {
-    const resolved = this.withReadReset(engine.id, refused, now);
-    const known = this.usedUp.get(engine.id);
+  async refused(engine: Pick<Engine, "id" | "name">, refused: UsedUpWindow): Promise<UsedUpWindow> {
+    const known = this.usedUpUntil(engine.id);
+    if (known !== undefined && !refused.resetGiven) {
+      return { window: known.window, resetsAt: known.until, resetGiven: true };
+    }
+    const resolved = this.withReadReset(engine.id, refused);
     if (known !== undefined && known.until >= resolved.resetsAt) return resolved;
-    if (known !== undefined) clearTimeout(known.timer);
-    const timer = setTimeout(() => {
-      this.usedUp.delete(engine.id);
-      void this.events.publish(new UsageWindowReset(engine.id, resolved.window));
-    }, resolved.resetsAt.getTime() - now.getTime());
-    timer.unref();
+    this.usedUp.get(engine.id)?.reset.cancel();
+    const reset = this.schedule.once(
+      "The reset of a used-up usage window",
+      resolved.resetsAt,
+      () => {
+        this.usedUp.delete(engine.id);
+        return this.events.publish(new UsageWindowReset(engine.id, resolved.window));
+      },
+    );
     this.usedUp.set(engine.id, {
       engineName: engine.name,
       window: resolved.window,
       until: resolved.resetsAt,
-      timer,
+      reset,
     });
     await this.events.publish(
       new UsageWindowUsedUp(engine.id, engine.name, resolved.window, resolved.resetsAt),
@@ -103,7 +107,7 @@ export class UsageWindowState {
     return resolved;
   }
 
-  private withReadReset(engineId: EngineId, refused: UsedUpWindow, now: Date): UsedUpWindow {
+  private withReadReset(engineId: EngineId, refused: UsedUpWindow): UsedUpWindow {
     if (refused.resetGiven) return refused;
     const reading = this.readings.get(engineId);
     const read =
@@ -112,7 +116,7 @@ export class UsageWindowState {
         : refused.window === "seven-day"
           ? reading?.sevenDay.resetsAt
           : undefined;
-    return read !== undefined && read > now
+    return read !== undefined && read > this.schedule.now()
       ? { ...refused, resetsAt: read, resetGiven: true }
       : refused;
   }
@@ -120,8 +124,7 @@ export class UsageWindowState {
   /** Drops `engineId`'s reading and used-up window, so Now no longer lists it. */
   forget(engineId: EngineId): void {
     this.readings.delete(engineId);
-    const usedUp = this.usedUp.get(engineId);
-    if (usedUp !== undefined) clearTimeout(usedUp.timer);
+    this.usedUp.get(engineId)?.reset.cancel();
     this.usedUp.delete(engineId);
   }
 }

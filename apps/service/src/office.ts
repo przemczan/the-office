@@ -100,8 +100,8 @@ function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): voi
  * during (spec §2.8), which also pauses again the Tasks an all clear it stopped during had resumed
  * before turning the alarm off, drops the Tasks that Initiatives dropped earlier left open (spec
  * §2.1), so none of them starts, sets again the resume of each Task the usage window paused,
- * resuming one whose reset passed meanwhile (spec §2.1), then releases the kept queue (spec §2.1), since a desk may have
- * been freed while the service was down; the release holds while the alarm is on. Last, it starts the
+ * resuming one whose reset passed meanwhile (spec §2.1), then releases the kept queue (spec §2.1),
+ * since a desk may have been freed while the service was down; the release holds while the alarm is on. Last, it starts the
  * daily archiving of finished Tasks and ended Initiatives, here only so a test app never runs it, and sweeps the run
  * environments the last run left (spec §5.5) in the background, as the container runtime may be
  * slow or not there. After every module's start, so the walks the release starts aren't taken for

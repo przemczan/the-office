@@ -6568,6 +6568,11 @@ test(
       const task = taskSchema.parse(await (await page.request.get(`/api/tasks/${taskId}`)).json());
       expect(task).toMatchObject({ state: "paused", pausedBy: "usage-window" });
       expect(task.resumesAt).not.toBeNull();
+      // Work pauses the Task before the run is saved held: once it is, the refused first turn left
+      // no session, so Resume begins the Stage anew.
+      await expect(
+        page.getByRole("button", { name: "Resume · fresh session with a Brief", exact: true }),
+      ).toBeVisible();
       await screenshotScenario(page, "usage-window-task-page");
 
       // The Stage's Thread says why, as a notice.

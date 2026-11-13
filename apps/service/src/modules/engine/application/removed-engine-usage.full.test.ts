@@ -29,7 +29,7 @@ function setUp() {
   const events = new EventBus();
   const dayUsage = new DayUsage(new DayUsageForTests(), new ManualSchedule());
   const windowSamples = new UsageWindowSamples(new UsageWindowSamplesForTests());
-  const usageWindows = new UsageWindowState(events);
+  const usageWindows = new UsageWindowState(events, new ManualSchedule());
   new RemovedEngineUsage(events, dayUsage, windowSamples, usageWindows).onModuleInit();
   return { events, dayUsage, windowSamples, usageWindows };
 }

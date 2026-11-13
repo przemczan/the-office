@@ -191,7 +191,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         }),
         new Telemetry(trace.getTracer("test"), metrics.getMeter("test")),
         events,
-        new UsageWindowState(events),
+        new UsageWindowState(events, new ManualSchedule()),
         registry,
         new DayUsage(new DayUsageForTests(), new ManualSchedule()),
         new UsageWindowSamples(new UsageWindowSamplesForTests()),

@@ -155,9 +155,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * An hour before, and at, the next reset that frees a Task a cap or a used-up usage window holds. The next release counts
-   * from when the caps were weighed: a moment that passed since then releases at once, rather than
-   * holding the Task until the next one.
+   * An hour before, and at, the next reset that frees a Task a cap or a used-up usage window holds.
+   * The next release counts from when the caps were weighed: a moment that passed since then
+   * releases at once, rather than holding the Task until the next one.
    */
   private setCapRelease(capResets: readonly Date[], weighed: Date): void {
     this.capRelease?.cancel();

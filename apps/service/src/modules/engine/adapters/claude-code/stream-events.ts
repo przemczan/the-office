@@ -10,8 +10,9 @@ import { ToolRefusals } from "./tool-refusals.js";
 
 /**
  * The port's events of one session's stream, message by message, as both Claude Code adapters
- * read it: each message's own events (a turn refused for a used-up usage window told apart), the tool refusals it shows, the running turn's tokens, the
- * session's MCP servers that failed to start, and its Sub-agents and Processes. What the clock
+ * read it: each message's own events (a turn refused for a used-up usage window told apart), the
+ * tool refusals it shows, the running turn's tokens, the session's MCP servers that failed to
+ * start, and its Sub-agents and Processes. What the clock
  * brings, a Process's output and its end, the session takes from `background`'s report.
  */
 export class StreamEvents {

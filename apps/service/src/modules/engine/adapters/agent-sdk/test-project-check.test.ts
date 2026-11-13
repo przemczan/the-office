@@ -98,7 +98,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           }),
           new Telemetry(tracing.getTracer("the-office"), metering.getMeter("the-office")),
           events,
-          new UsageWindowState(events),
+          new UsageWindowState(events, new ManualSchedule()),
           new OfficeToolRegistry(),
           new DayUsage(new DayUsageForTests(), new ManualSchedule()),
           new UsageWindowSamples(new UsageWindowSamplesForTests()),

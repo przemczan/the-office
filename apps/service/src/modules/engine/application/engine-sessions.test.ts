@@ -155,10 +155,10 @@ function setUpOn(
   events.subscribeToEveryEvent((event) => {
     published.push(event);
   });
-  const usageWindows = new UsageWindowState(events);
+  const schedule = new ManualSchedule();
+  const usageWindows = new UsageWindowState(events, schedule);
   const officeTools = new OfficeToolRegistry();
   officeTools.register(NOTE_TOOL);
-  const schedule = new ManualSchedule();
   const dayUsage = new DayUsage(new DayUsageForTests(), schedule);
   const windowSamples = new UsageWindowSamples(new UsageWindowSamplesForTests());
   const running = new RunningEngineSessions();

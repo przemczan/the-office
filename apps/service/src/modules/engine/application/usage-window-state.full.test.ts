@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
 import { NO_TOKENS } from "../ports/session-events.js";
@@ -24,7 +25,7 @@ describe("UsageWindowState", () => {
     const published: DomainEvent[] = [];
     events.subscribe(UsageWindowsChanged, (event) => void published.push(event));
     events.subscribe(UsageWindowsRead, (event) => void published.push(event));
-    const state = new UsageWindowState(events);
+    const state = new UsageWindowState(events, new ManualSchedule());
     const later = new Date("2026-11-02T09:05:00.000Z");
 
     await state.update(CLAUDE_CODE, readingAt(new Date("2026-11-02T09:00:00.000Z")));
@@ -43,7 +44,7 @@ describe("UsageWindowState", () => {
     const events = new EventBus();
     const changes: UsageWindowsChanged[] = [];
     events.subscribe(UsageWindowsChanged, (event) => void changes.push(event));
-    const state = new UsageWindowState(events);
+    const state = new UsageWindowState(events, new ManualSchedule());
     const at = new Date("2026-11-02T09:00:00.000Z");
 
     await state.update(CLAUDE_CODE, readingAt(at, 90));
@@ -56,7 +57,7 @@ describe("UsageWindowState", () => {
   });
 
   it("gives the reading only to an engine id with windows", async () => {
-    const state = new UsageWindowState(new EventBus());
+    const state = new UsageWindowState(new EventBus(), new ManualSchedule());
     await state.update(CLAUDE_CODE, readingAt(new Date("2026-11-02T09:00:00.000Z")));
 
     expect(state.of("claude-code")?.fiveHour.percentUsed).toBe(40);
