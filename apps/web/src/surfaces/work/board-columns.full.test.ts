@@ -43,6 +43,7 @@ function inQueue(taskId: string, place: number): QueuedTask {
     place,
     queuedAt: "2026-11-07T10:00:00.000Z",
     reasons: ["The Office-wide limit is reached."],
+    shortReasons: ["Office-wide limit reached (3)"],
     behind: [],
   };
 }

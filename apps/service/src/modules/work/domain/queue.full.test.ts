@@ -12,6 +12,7 @@ import {
 import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
 import { nextMidnight } from "./cap-waits.js";
+import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
 import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
@@ -45,14 +46,28 @@ function started(id: string, personRole: string, fields: Partial<Task> = {}): Ta
 function queued(
   taskId: string,
   place: number,
-  reasons: readonly string[] = [],
+  waits: readonly Wait[] = [],
   behind: readonly string[] = [],
 ): QueuedTask {
-  return { taskId, place, queuedAt: NOW, reasons, behind };
+  return {
+    taskId,
+    place,
+    queuedAt: NOW,
+    reasons: reasonsOf(waits),
+    shortReasons: shortReasonsOf(waits),
+    behind,
+  };
 }
 
 const blocker = aTask({ id: "b", title: "Queue schema", state: "ready" });
-const BLOCKED = 'Blocked by "Queue schema", which must be Done first.';
+const BLOCKED: Wait = {
+  reason: 'Blocked by "Queue schema", which must be Done first.',
+  short: "Blocked",
+};
+const AT_TASK_LIMIT: Wait = {
+  reason: "The developer is at the Task limit (1).",
+  short: "The developer's Task limit reached (1)",
+};
 
 describe("startOrQueue", () => {
   it("keeps a queued Task's place when Start is asked again, announcing nothing", () => {
@@ -73,7 +88,7 @@ describe("startOrQueue", () => {
 
     expect(starting).toEqual({
       kind: "queued",
-      queued: queued("a", 2, ["The developer is at the Task limit (1)."]),
+      queued: queued("a", 2, [AT_TASK_LIMIT]),
     });
   });
 });
@@ -87,7 +102,10 @@ describe("startOrQueue with an Overlap", () => {
     initiativePaused: false,
   };
   const task = ready("a", { filesToChange: ["src/auth/login.ts"] });
-  const BEHIND_LOGIN = 'Queued behind "Login" until it is Done or Dropped.';
+  const BEHIND_LOGIN: Wait = {
+    reason: 'Queued behind "Login" until it is Done or Dropped.',
+    short: 'Behind "Login"',
+  };
 
   it("refuses until the user chooses, naming the Task", () => {
     expect(() => startOrQueue(task, developer, held, [], NO_CHOICE)).toThrow(
@@ -129,7 +147,11 @@ describe("startOrQueue with an Overlap", () => {
 
     expect(starting).toMatchObject({
       kind: "queued",
-      queued: { reasons: [BLOCKED, BEHIND_LOGIN], behind: ["x"] },
+      queued: {
+        reasons: [BLOCKED.reason, BEHIND_LOGIN.reason],
+        shortReasons: [BLOCKED.short, BEHIND_LOGIN.short],
+        behind: ["x"],
+      },
     });
   });
 
@@ -141,7 +163,10 @@ describe("startOrQueue with an Overlap", () => {
       onOverlap: "start-anyway",
     });
 
-    expect(starting).toMatchObject({ kind: "queued", queued: { reasons: [BLOCKED], behind: [] } });
+    expect(starting).toMatchObject({
+      kind: "queued",
+      queued: { reasons: [BLOCKED.reason], behind: [] },
+    });
   });
 
   it("is released once the Task it is behind is Done or Dropped, and not before", () => {
@@ -203,7 +228,12 @@ describe("releaseQueue", () => {
 
     expect(release.started.map(({ task }) => task.id)).toEqual(["b"]);
     expect(release.waiting).toEqual([
-      queued("a", 1, ["The Project limit is reached: 1 of A's Tasks is started."]),
+      queued("a", 1, [
+        {
+          reason: "The Project limit is reached: 1 of A's Tasks is started.",
+          short: "Project limit reached (1)",
+        },
+      ]),
     ]);
   });
 
@@ -245,19 +275,15 @@ describe("releaseQueue", () => {
     const tasks = [started("x", "developer"), ready("a", { blockedBy: ["b"] }), blocker];
     const free = [started("x", "developer"), ready("a"), blocker];
 
-    const same = releaseQueue(
-      [queued("a", 1, [BLOCKED, "The developer is at the Task limit (1)."])],
-      alarmOff(tasks),
-      (id) => conditions.get(id),
+    const same = releaseQueue([queued("a", 1, [BLOCKED, AT_TASK_LIMIT])], alarmOff(tasks), (id) =>
+      conditions.get(id),
     );
-    const changed = releaseQueue(
-      [queued("a", 1, [BLOCKED, "The developer is at the Task limit (1)."])],
-      alarmOff(free),
-      (id) => conditions.get(id),
+    const changed = releaseQueue([queued("a", 1, [BLOCKED, AT_TASK_LIMIT])], alarmOff(free), (id) =>
+      conditions.get(id),
     );
 
     expect(same.reasonsChanged).toEqual([]);
-    expect(changed.waiting).toEqual([queued("a", 1, ["The developer is at the Task limit (1)."])]);
+    expect(changed.waiting).toEqual([queued("a", 1, [AT_TASK_LIMIT])]);
     expect(changed.reasonsChanged).toEqual(["a"]);
   });
 
@@ -307,6 +333,9 @@ describe("releaseQueue", () => {
     expect(release.started.map(({ task }) => task.id)).toEqual(["a"]);
     expect(release.waiting.map(({ reasons }) => reasons)).toEqual([
       [expect.stringContaining("80% used, 6% expected of the Tasks started since it was read")],
+    ]);
+    expect(release.waiting.map(({ shortReasons }) => shortReasons)).toEqual([
+      [expect.stringMatching(/^5-hour window cap \(90%\) · resets /)],
     ]);
     expect(release.capResets).toEqual([resetsAt]);
   });

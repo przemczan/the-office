@@ -219,11 +219,12 @@ export function toSavedViewResponse(savedView: SavedView): SavedViewResponse {
 
 /** The queue, given first place first, each Task with its place counted from 1. */
 export function toQueueResponse(queue: readonly QueuedTask[]): QueuedTaskResponse[] {
-  return queue.map(({ taskId, queuedAt, reasons, behind }, index) => ({
+  return queue.map(({ taskId, queuedAt, reasons, shortReasons, behind }, index) => ({
     taskId,
     place: index + 1,
     queuedAt: queuedAt.toISOString(),
     reasons: [...reasons],
+    shortReasons: [...shortReasons],
     behind: [...behind],
   }));
 }

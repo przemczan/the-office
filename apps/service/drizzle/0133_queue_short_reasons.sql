@@ -1,0 +1,1 @@
+ALTER TABLE "queue" ADD COLUMN "short_reasons" text[] DEFAULT '{}' NOT NULL;

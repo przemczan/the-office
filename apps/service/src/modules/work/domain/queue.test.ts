@@ -4,6 +4,7 @@ import { TaskQueued } from "./queue-events.js";
 import { releaseQueue, startOrQueue, type QueuedTask } from "./queue.js";
 import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
+import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
 import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
@@ -36,14 +37,28 @@ function started(id: string, personRole: string, fields: Partial<Task> = {}): Ta
 function queued(
   taskId: string,
   place: number,
-  reasons: readonly string[] = [],
+  waits: readonly Wait[] = [],
   behind: readonly string[] = [],
 ): QueuedTask {
-  return { taskId, place, queuedAt: NOW, reasons, behind };
+  return {
+    taskId,
+    place,
+    queuedAt: NOW,
+    reasons: reasonsOf(waits),
+    shortReasons: shortReasonsOf(waits),
+    behind,
+  };
 }
 
 const blocker = aTask({ id: "b", title: "Queue schema", state: "ready" });
-const BLOCKED = 'Blocked by "Queue schema", which must be Done first.';
+const BLOCKED: Wait = {
+  reason: 'Blocked by "Queue schema", which must be Done first.',
+  short: "Blocked",
+};
+const AT_TASK_LIMIT: Wait = {
+  reason: "The developer is at the Task limit (1).",
+  short: "The developer's Task limit reached (1)",
+};
 
 describe("startOrQueue", () => {
   it("starts a Task nothing holds", () => {
@@ -70,7 +85,7 @@ describe("startOrQueue", () => {
 
     expect(starting).toEqual({
       kind: "queued",
-      queued: queued("a", 5, ["The developer is at the Task limit (1)."]),
+      queued: queued("a", 5, [AT_TASK_LIMIT]),
       event: expect.any(TaskQueued) as TaskQueued,
     });
   });
@@ -88,7 +103,7 @@ describe("startOrQueue", () => {
     ).toThrow(
       new TaskRefused([
         "Nobody fills the Role Implement needs: hire a person for it on People first.",
-        BLOCKED,
+        BLOCKED.reason,
       ]),
     );
   });
@@ -131,8 +146,18 @@ describe("releaseQueue", () => {
     );
 
     expect(release.started.map(({ task }) => task.id)).toEqual(["a"]);
-    expect(release.waiting).toEqual([queued("b", 2, ["The developer is at the Task limit (1)."])]);
+    expect(release.waiting).toEqual([queued("b", 2, [AT_TASK_LIMIT])]);
     expect(release.refused).toEqual([]);
+  });
+
+  it("gives short reasons to a Task queued before them, as reasons changed", () => {
+    const tasks = [started("x", "developer"), ready("a")];
+    const queuedBefore = { ...queued("a", 1, [AT_TASK_LIMIT]), shortReasons: [] };
+
+    const release = releaseQueue([queuedBefore], alarmOff(tasks), (id) => conditions.get(id));
+
+    expect(release.waiting).toEqual([queued("a", 1, [AT_TASK_LIMIT])]);
+    expect(release.reasonsChanged).toEqual(["a"]);
   });
 
   it("takes a queued Task on a Broken Pipeline out of the queue, with why, and starts the next", () => {
@@ -168,7 +193,14 @@ describe("releaseQueue", () => {
     ];
 
     const release = releaseQueue(
-      [queued("a", 1, ["The Project limit is reached: 1 of A's Tasks is started."])],
+      [
+        queued("a", 1, [
+          {
+            reason: "The Project limit is reached: 1 of A's Tasks is started.",
+            short: "Project limit reached (1)",
+          },
+        ]),
+      ],
       alarmOff(tasks),
       () => projectA,
     );
@@ -184,7 +216,9 @@ describe("releaseQueue", () => {
     );
 
     expect(release.started).toEqual([]);
-    expect(release.waiting).toEqual([queued("a", 1, ["The fire alarm is on."])]);
+    expect(release.waiting).toEqual([
+      queued("a", 1, [{ reason: "The fire alarm is on.", short: "Fire alarm on" }]),
+    ]);
   });
 
   it("holds a Task of a paused Initiative queued, while another Initiative's starts", () => {
@@ -200,6 +234,8 @@ describe("releaseQueue", () => {
     );
 
     expect(release.started.map(({ task }) => task.id)).toEqual(["c"]);
-    expect(release.waiting).toEqual([queued("a", 1, ["The Initiative is paused."])]);
+    expect(release.waiting).toEqual([
+      queued("a", 1, [{ reason: "The Initiative is paused.", short: "Initiative paused" }]),
+    ]);
   });
 });

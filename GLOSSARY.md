@@ -157,6 +157,10 @@ _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
 _Avoid_: Backlog (a Task state), waiting list, pending
 
+**Short reason**:
+A queued Task's reason in a few words, such as "Office-wide limit reached (3)" or "5-hour window cap (80%) · resets 14:30", which its board card shows, with the full reason on hover.
+_Avoid_: label, summary, short form
+
 **Overlap**:
 Two Tasks in one Project whose Plans expect to change some of the same files; Start warns of it before a Task joins one in progress.
 _Avoid_: Conflict (git's, found at Publish), collision, clash

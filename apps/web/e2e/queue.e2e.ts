@@ -26,8 +26,10 @@ import { createTemporaryRepository, type TemporaryRepository } from "./temporary
 
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
 const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
+const ONLY_DESK_SHORT = "Office-wide limit reached (1)";
 const CAP_WAIT =
   "The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task. It resets at 12:00.";
+const CAP_WAIT_SHORT = "5-hour window cap (90%) · resets 12:00";
 
 /** An API engine the Usage estimate test lists in the browser only. */
 const LOCAL_MODELS: ApiEngine = {
@@ -117,11 +119,15 @@ async function readyTask(page: Page, project: Project, title: string): Promise<T
 }
 
 /** Seeds the Task last in the queue, as a Start that only waits leaves it. */
-async function queued(task: Task, reason = ONLY_DESK): Promise<void> {
+async function queued(
+  task: Task,
+  reason = ONLY_DESK,
+  shortReason = ONLY_DESK_SHORT,
+): Promise<void> {
   await queryOfficeDatabase(
-    `insert into queue (task_id, place, queued_at, reasons)
-       values ($1, (select coalesce(max(place), 0) + 1 from queue), now(), $2)`,
-    [task.id, [reason]],
+    `insert into queue (task_id, place, queued_at, reasons, short_reasons)
+       values ($1, (select coalesce(max(place), 0) + 1 from queue), now(), $2, $3)`,
+    [task.id, [reason], [shortReason]],
   );
 }
 
@@ -149,9 +155,12 @@ test(
 
     await page.goto("/work");
     const card = page.getByRole("article", { name: "Queued sync of the inbox" });
-    // The card says why it waits; its place is the Queued column's order.
-    await expect(card).toContainText(`Queued${ONLY_DESK}`);
+    // The card says why it waits, in short with the full reason on hover; its place is the Queued
+    // column's order.
+    await expect(card.locator(".queued-mark")).toHaveText(`Queued${ONLY_DESK_SHORT}`);
     await expect(card).not.toContainText("Place");
+    await card.getByText(ONLY_DESK_SHORT).hover();
+    await expect(page.getByRole("tooltip")).toHaveText(ONLY_DESK);
 
     await page.goto("/now");
     const queue = page.getByRole("article", { name: /^Queued: / });
@@ -316,7 +325,15 @@ test("Start queues a Task its Project limit holds, with the limit as the reason 
   await page.goto("/work");
   await showOnly(page, project);
   const card = (name: string) => column(page, name).getByRole("article", { name: task.title });
-  await expect(card("Queued")).toContainText(projectLimit);
+  // The card says it in short, the full reason on hover, and Now in full.
+  await expect(card("Queued").locator(".queued-mark")).toHaveText(
+    "QueuedProject limit reached (1)",
+  );
+  await card("Queued").getByText("Project limit reached (1)").hover();
+  await expect(page.getByRole("tooltip")).toHaveText(projectLimit);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-board-queued-short-reason.png"),
+  });
   await page.goto("/now");
   await expect(page.getByRole("article", { name: `Queued: ${task.title}` })).toContainText(
     projectLimit,
@@ -394,6 +411,7 @@ test(
           place: 1,
           queuedAt: new Date().toISOString(),
           reasons: [ONLY_DESK],
+          shortReasons: [ONLY_DESK_SHORT],
           behind: [],
         },
       };
@@ -422,7 +440,7 @@ test(
     ]);
     const planned = await readyTask(page, project, "Estimate the inbox filters");
     const unknown = await readyTask(page, project, "Estimate the empty state");
-    await queued(planned, CAP_WAIT);
+    await queued(planned, CAP_WAIT, CAP_WAIT_SHORT);
     // The estimates as the service gives them; Work's own tests cover how they are reached.
     const fromHistory: UsageEstimate = {
       basis: { source: "history", tasks: 4 },
@@ -469,7 +487,7 @@ test(
       "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
     );
     const queuedCard = page.getByRole("article", { name: planned.title });
-    await expect(queuedCard).toContainText(`Queued${CAP_WAIT}`);
+    await expect(queuedCard).toContainText(`Queued${CAP_WAIT_SHORT}`);
     await expect(estimateOn(planned.title)).toHaveText(PLANNER_WORDS);
 
     await page.goto("/now");

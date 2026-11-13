@@ -515,6 +515,11 @@ export const queuedTaskSchema = z.object({
   place: z.number().int().positive(),
   queuedAt: z.iso.datetime(),
   reasons: z.array(z.string()),
+  /**
+   * The board card's short form of `reasons`, one per reason in the same order; empty for a Task
+   * queued before short reasons until the queue's next release.
+   */
+  shortReasons: z.array(z.string()),
   /** The Tasks it was queued behind for an Overlap, each until it is Done or Dropped. */
   behind: z.array(z.uuid()),
 });

@@ -9,6 +9,7 @@ import { INITIATIVE_PAUSED } from "./initiative-pause.js";
 import { TaskRefused } from "./task-refused.js";
 import { initiativeBranchGoneRefusal } from "./task-branch-base.js";
 import { STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
+import { reasonsOf, type Wait } from "./wait.js";
 
 /** A Stage of the Task's Pipeline as Start sees it: an Agent Stage names the Role that works it. */
 export interface StartingStage {
@@ -95,7 +96,7 @@ export interface HeldAtStart {
  */
 export interface StartReasons {
   readonly refusals: readonly string[];
-  readonly waits: readonly string[];
+  readonly waits: readonly Wait[];
 }
 
 /** The Agent Stage whose Role's person the Task counts against, as the click-through counts. */
@@ -128,10 +129,12 @@ export function startReasons(
       ...initiativeBranchRefusals(task, conditions),
     ],
     waits: [
-      ...blockedProblems(blockers),
-      ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
-      ...(initiativePaused ? [INITIATIVE_PAUSED] : []),
-      ...(conditions.officeUpdateHold ? [conditions.officeUpdateHold] : []),
+      ...blockedProblems(blockers).map((reason) => ({ reason, short: "Blocked" })),
+      ...(fireAlarmOn ? [{ reason: FIRE_ALARM_ON, short: "Fire alarm on" }] : []),
+      ...(initiativePaused ? [{ reason: INITIATIVE_PAUSED, short: "Initiative paused" }] : []),
+      ...(conditions.officeUpdateHold
+        ? [{ reason: conditions.officeUpdateHold, short: "Office update scheduled" }]
+        : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...projectLimitWaits(task, conditions.project, others),
       ...taskLimitWaits(stage, conditions.person, others),
@@ -156,7 +159,9 @@ export function startTask(
   by: StateChangeCause,
 ): TaskChange<TaskStarted> {
   const { refusals, waits } = startReasons(task, conditions, held);
-  if (refusals.length > 0 || waits.length > 0) throw new TaskRefused([...refusals, ...waits]);
+  if (refusals.length > 0 || waits.length > 0) {
+    throw new TaskRefused([...refusals, ...reasonsOf(waits)]);
+  }
   if (!hasPipeline(task)) throw new TaskRefused([NO_PIPELINE_YET]);
   const personRole = conditions.stages && firstAgentStage(conditions.stages)?.role;
   return withStateChange(
@@ -202,10 +207,15 @@ function initiativeBranchRefusals(task: Task, conditions: StartConditions): stri
   return [initiativeBranchGoneRefusal(problem.branch, conditions.project?.name ?? task.projectId)];
 }
 
-function officeWideLimitWaits(limit: number, others: readonly Task[]): string[] {
+function officeWideLimitWaits(limit: number, others: readonly Task[]): Wait[] {
   if (others.length < limit) return [];
   const desks = limit === 1 ? "the only desk is" : `all ${limit} desks are`;
-  return [`The Office-wide limit is reached: ${desks} in use.`];
+  return [
+    {
+      reason: `The Office-wide limit is reached: ${desks} in use.`,
+      short: `Office-wide limit reached (${limit})`,
+    },
+  ];
 }
 
 /** Only the Project's own started Tasks count, so a full Project never holds another's Task. */
@@ -213,22 +223,31 @@ function projectLimitWaits(
   task: Task,
   project: StartingProject | undefined,
   others: readonly Task[],
-): string[] {
+): Wait[] {
   if (!project) return [];
   const started = others.filter((other) => other.projectId === task.projectId).length;
   if (started < project.projectLimit) return [];
   const verb = started === 1 ? "is" : "are";
-  return [`The Project limit is reached: ${started} of ${project.name}'s Tasks ${verb} started.`];
+  return [
+    {
+      reason: `The Project limit is reached: ${started} of ${project.name}'s Tasks ${verb} started.`,
+      short: `Project limit reached (${project.projectLimit})`,
+    },
+  ];
 }
 
 function taskLimitWaits(
   stage: AgentStartingStage | undefined,
   person: StartingPerson | undefined,
   others: readonly Task[],
-): string[] {
+): Wait[] {
   if (!stage || !person || person.taskLimit === "none") return [];
   const theirs = others.filter((other) => other.personRole === stage.role).length;
-  return theirs >= person.taskLimit
-    ? [`${person.name} is at the Task limit (${person.taskLimit}).`]
-    : [];
+  if (theirs < person.taskLimit) return [];
+  return [
+    {
+      reason: `${person.name} is at the Task limit (${person.taskLimit}).`,
+      short: `${person.name}'s Task limit reached (${person.taskLimit})`,
+    },
+  ];
 }

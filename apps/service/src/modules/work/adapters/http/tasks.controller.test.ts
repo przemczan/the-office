@@ -13,6 +13,7 @@ import {
   taskSchema,
   workRefusalSchema,
   type PlanChange,
+  type QueuedTask,
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -238,6 +239,11 @@ async function proposedWithMakeAPlan(autoMode: boolean): Promise<Task> {
   await planning.proposeDefinitionOfDone(task.id, ["Signing in returns to the page asked for."]);
   await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
   return task;
+}
+
+/** The whole queue, first place first. */
+async function listedQueue(): Promise<QueuedTask[]> {
+  return queueSchema.parse(await (await sendJson(work, "GET", "/queue")).json());
 }
 
 async function autoModeSetting(): Promise<boolean> {
@@ -642,7 +648,7 @@ describe("The queue", () => {
 
   /** The test's own Tasks in the queue, first place first. */
   async function ownQueue(): Promise<string[]> {
-    const queue = queueSchema.parse(await (await sendJson(work, "GET", "/queue")).json());
+    const queue = await listedQueue();
     return queue.map(({ taskId }) => taskId).filter((taskId) => ownIds.includes(taskId));
   }
 
@@ -658,9 +664,11 @@ describe("The queue", () => {
     expect(check).toEqual({ ...nothing, waits: [ONLY_DESK] });
     expect(response.status).toBe(200);
     expect(answer.task.state).toBe("ready");
-    expect(answer.queued).toMatchObject({ taskId: second.id, reasons: [ONLY_DESK] });
+    const shortly = { reasons: [ONLY_DESK], shortReasons: ["Office-wide limit reached (1)"] };
+    expect(answer.queued).toMatchObject({ taskId: second.id, ...shortly });
     expect(webEventsOf(work)).toEqual([{ type: "task.queued", taskId: second.id }]);
     expect(await ownQueue()).toEqual([second.id]);
+    expect((await listedQueue()).find(({ taskId }) => taskId === second.id)).toMatchObject(shortly);
 
     work.published.length = 0;
     await finish(first.id);

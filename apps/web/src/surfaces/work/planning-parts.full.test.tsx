@@ -205,6 +205,7 @@ describe("the Plan's block", () => {
       place: 1,
       queuedAt: "2026-10-28T10:00:00.000Z",
       reasons: [],
+      shortReasons: [],
       behind: [],
     };
 

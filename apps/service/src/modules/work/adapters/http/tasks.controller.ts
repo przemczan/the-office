@@ -54,6 +54,7 @@ import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
+import { reasonsOf } from "../../domain/wait.js";
 import { toQueueResponse, toTaskResponse, toUsageEstimateResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
@@ -239,7 +240,7 @@ export class TasksController {
     const { refusals, waits, blockers, overlaps, usageEstimate } = await this.starting.check(id);
     return {
       refusals: [...refusals],
-      waits: [...waits],
+      waits: reasonsOf(waits),
       blockers: blockers.map(({ id: taskId, title }) => ({ taskId, title })),
       overlaps: overlaps.map(({ taskId, title }) => ({ taskId, title })),
       usageEstimate: usageEstimate ? toUsageEstimateResponse(usageEstimate) : null,

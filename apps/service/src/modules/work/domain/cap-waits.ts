@@ -1,6 +1,7 @@
 import type { EngineId } from "../../engine/index.js";
 import type { EngineUsage, UsageMeasure, UsageWindowName } from "./usage-estimate.js";
 import type { WindowCaps } from "./usage-settings.js";
+import type { Wait } from "./wait.js";
 
 /*
  * The caps a Start is weighed against (spec §2.1, "Usage estimates"): it waits in the queue while
@@ -67,15 +68,16 @@ export interface UsageAtStart {
   readonly engineNames: ReadonlyMap<EngineId, string>;
 }
 
-/** A cap the Start would pass, worded, with when it resets. */
+/** A cap the Start would pass, worded in full and short, with when it resets. */
 export interface ExceededCap {
   readonly words: string;
+  readonly short: string;
   readonly resetsAt: Date;
 }
 
-/** What holds a Start for its caps: the words of each, and when the last of them resets. */
+/** What holds a Start for its caps: the wait of each, and when the last of them resets. */
 export interface CapWaits {
-  readonly waits: readonly string[];
+  readonly waits: readonly Wait[];
   /** Undefined when no cap holds it. */
   readonly resetsAt: Date | undefined;
 }
@@ -126,7 +128,10 @@ export function capWaits(exceeded: readonly ExceededCap[], now: Date): CapWaits 
   if (exceeded.length === 0) return NO_CAP_WAITS;
   const lastReset = Math.max(...exceeded.map(({ resetsAt }) => resetsAt.getTime()));
   if (lastReset - now.getTime() <= PROMPT_CACHE_HOUR) return NO_CAP_WAITS;
-  return { waits: exceeded.map(({ words }) => words), resetsAt: new Date(lastReset) };
+  return {
+    waits: exceeded.map(({ words, short }) => ({ reason: words, short })),
+    resetsAt: new Date(lastReset),
+  };
 }
 
 /** Every ticked cap the Start would pass, the windows' and the Daily caps'. */
@@ -159,6 +164,7 @@ export function exceededWindowCaps(usage: UsageAtStart): ExceededCap[] {
       return [
         {
           words: `${where} would pass its ${percent(cap)} cap: ${use}. It resets ${resetWords(read.resetsAt, usage.now)}.`,
+          short: `${WINDOW_WORDS[name]} cap (${percent(cap)}) · resets ${shortResetWords(read.resetsAt, usage.now)}`,
           resetsAt: read.resetsAt,
         },
       ];
@@ -189,6 +195,7 @@ export function exceededDailyCaps(usage: UsageAtStart): ExceededCap[] {
       return [
         {
           words: `${engineWords(usage, daily.engineId)} Daily cap of ${amount(cap)} would be passed: ${use}. It resets at midnight.`,
+          short: `Daily cap (${amount(cap)}) · resets at midnight`,
           resetsAt: nextMidnight(usage.now),
         },
       ];
@@ -284,10 +291,26 @@ const MONTHS = [
 
 /** On the service's clock, as "today" is (spec §2.7): "at 14:30", or "on Thu 5 Nov at 14:30". */
 function resetWords(resetsAt: Date, now: Date): string {
-  const time = `at ${twoDigits(resetsAt.getHours())}:${twoDigits(resetsAt.getMinutes())}`;
-  if (resetsAt.toDateString() === now.toDateString()) return time;
-  const day = `${WEEKDAYS[resetsAt.getDay()]} ${resetsAt.getDate()} ${MONTHS[resetsAt.getMonth()]}`;
-  return `on ${day} ${time}`;
+  const time = `at ${clockTime(resetsAt)}`;
+  return isSameDay(resetsAt, now) ? time : `on ${dayWords(resetsAt)} ${time}`;
+}
+
+/** As `resetWords`, for a short reason: "14:30", or "Thu 5 Nov 14:30". */
+function shortResetWords(resetsAt: Date, now: Date): string {
+  const time = clockTime(resetsAt);
+  return isSameDay(resetsAt, now) ? time : `${dayWords(resetsAt)} ${time}`;
+}
+
+function isSameDay(one: Date, other: Date): boolean {
+  return one.toDateString() === other.toDateString();
+}
+
+function dayWords(date: Date): string {
+  return `${WEEKDAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+}
+
+function clockTime(date: Date): string {
+  return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}`;
 }
 
 function twoDigits(value: number): string {

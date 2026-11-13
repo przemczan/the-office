@@ -16,6 +16,11 @@ export const queue = pgTable("queue", {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** The short reason of each of `reasons`, in the same order; none until a release on a row queued before them. */
+  shortReasons: text("short_reasons")
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   /** The Tasks it was queued behind for an Overlap; a Task is dropped, never deleted, so ids hold. */
   behind: uuid("behind")
     .array()

@@ -10,6 +10,7 @@ import {
   type StartConditions,
   type StartReasons,
 } from "./task-start.js";
+import type { Wait } from "./wait.js";
 import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
@@ -47,7 +48,7 @@ function refused(...refusals: string[]): StartReasons {
   return { refusals, waits: [] };
 }
 
-function waiting(...waits: string[]): StartReasons {
+function waiting(...waits: Wait[]): StartReasons {
   return { refusals: [], waits };
 }
 
@@ -143,7 +144,10 @@ describe("startReasons", () => {
     const one = { ...conditions, project: { name: "Admin panel", projectLimit: 1 } };
 
     expect(startReasons(ready, one, held([started("a", { projectId: "admin-panel" })]))).toEqual(
-      waiting("The Project limit is reached: 1 of Admin panel's Tasks is started."),
+      waiting({
+        reason: "The Project limit is reached: 1 of Admin panel's Tasks is started.",
+        short: "Project limit reached (1)",
+      }),
     );
   });
 
@@ -151,7 +155,24 @@ describe("startReasons", () => {
     const lowered = { ...conditions, officeWideLimit: 1 };
 
     expect(startReasons(ready, lowered, held([started("a"), started("b")]))).toEqual(
-      waiting("The Office-wide limit is reached: the only desk is in use."),
+      waiting({
+        reason: "The Office-wide limit is reached: the only desk is in use.",
+        short: "Office-wide limit reached (1)",
+      }),
+    );
+  });
+
+  it("waits while its person is at the Task limit, naming them", () => {
+    const busy = [
+      started("a", { personRole: "developer" }),
+      started("b", { personRole: "developer" }),
+    ];
+
+    expect(startReasons(ready, conditions, held(busy))).toEqual(
+      waiting({
+        reason: "Ada is at the Task limit (2).",
+        short: "Ada's Task limit reached (2)",
+      }),
     );
   });
 
@@ -165,9 +186,15 @@ describe("startReasons", () => {
 
     expect(startReasons(ready, lowered, held([started("a")], blockers))).toEqual(
       waiting(
-        'Blocked by "Queue schema", which must be Done first.',
-        'Blocked by "Sync protocol messages", which must be Done first.',
-        "The Office-wide limit is reached: the only desk is in use.",
+        { reason: 'Blocked by "Queue schema", which must be Done first.', short: "Blocked" },
+        {
+          reason: 'Blocked by "Sync protocol messages", which must be Done first.',
+          short: "Blocked",
+        },
+        {
+          reason: "The Office-wide limit is reached: the only desk is in use.",
+          short: "Office-wide limit reached (1)",
+        },
       ),
     );
   });
@@ -175,18 +202,19 @@ describe("startReasons", () => {
   it("waits while the fire alarm is on, before the limits", () => {
     const alarmOn = { ...held([]), fireAlarmOn: true };
 
-    expect(startReasons(ready, conditions, alarmOn)).toEqual({
-      refusals: [],
-      waits: ["The fire alarm is on."],
-    });
+    expect(startReasons(ready, conditions, alarmOn)).toEqual(
+      waiting({ reason: "The fire alarm is on.", short: "Fire alarm on" }),
+    );
   });
 
   it("waits while the Task's Initiative is paused, with the alarm's wait first", () => {
     const paused = { ...held([]), fireAlarmOn: true, initiativePaused: true };
 
-    expect(startReasons(ready, conditions, paused)).toEqual({
-      refusals: [],
-      waits: ["The fire alarm is on.", "The Initiative is paused."],
-    });
+    expect(startReasons(ready, conditions, paused)).toEqual(
+      waiting(
+        { reason: "The fire alarm is on.", short: "Fire alarm on" },
+        { reason: "The Initiative is paused.", short: "Initiative paused" },
+      ),
+    );
   });
 });

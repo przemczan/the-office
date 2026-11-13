@@ -161,13 +161,18 @@ async function saveStarted(
 }
 
 async function saveQueued(transaction: Transaction, queued: QueuedTask): Promise<void> {
-  const row = { ...queued, reasons: [...queued.reasons], behind: [...queued.behind] };
+  const row = {
+    ...queued,
+    reasons: [...queued.reasons],
+    shortReasons: [...queued.shortReasons],
+    behind: [...queued.behind],
+  };
   await transaction
     .insert(queue)
     .values(row)
     .onConflictDoUpdate({
       target: queue.taskId,
-      set: { reasons: row.reasons, behind: row.behind },
+      set: { reasons: row.reasons, shortReasons: row.shortReasons, behind: row.behind },
     });
 }
 
@@ -179,6 +184,13 @@ async function removeQueued(transaction: Transaction, taskId: string): Promise<b
   return removed.length > 0;
 }
 
-function toQueuedTask({ taskId, place, queuedAt, reasons, behind }: QueueRow): QueuedTask {
-  return { taskId, place, queuedAt, reasons, behind };
+function toQueuedTask({
+  taskId,
+  place,
+  queuedAt,
+  reasons,
+  shortReasons,
+  behind,
+}: QueueRow): QueuedTask {
+  return { taskId, place, queuedAt, reasons, shortReasons, behind };
 }

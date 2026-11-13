@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueuedTask } from "@the-office/contracts";
-import { Badge, Button, Icon, SplitButton } from "@the-office/ui";
+import { Badge, Button, Icon, SplitButton, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { moveToTopOfQueue, moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { reasonsBesideBlockers } from "./queue-reasons.ts";
+import { distinctShortReasons, reasonsBesideBlockers } from "./queue-reasons.ts";
 
 /** The Task's place in the queue for Start; undefined while it isn't queued. */
 export function useQueued(taskId: string): QueuedTask | undefined {
@@ -26,17 +26,30 @@ export function QueuedMark({ queued }: { readonly queued: QueuedTask }): ReactNo
 }
 
 /**
- * A board card's short "Queued": only the waits beside its blockers, which the card names in its
- * "Blocked by" line, and no place, which the Queued column's order shows.
+ * A board card's short "Queued": the short reasons of the waits beside its blockers, which the card
+ * names in its "Blocked by" line, with their full reasons on hover, and no place, which the Queued
+ * column's order shows.
  */
 export function QueuedCardMark({ queued }: { readonly queued: QueuedTask }): ReactNode {
-  const reasons = reasonsBesideBlockers(queued.reasons);
+  const reasons = reasonsBesideBlockers(queued);
   return (
     <span className="queued-mark">
       <Badge tone="info" size="sm">
         Queued
       </Badge>
-      {reasons.length > 0 && <span>{reasons.join(" ")}</span>}
+      {reasons.length > 0 && (
+        <Tooltip
+          content={
+            <span className="queued-full-reasons">
+              {reasons.map(({ reason }) => (
+                <span key={reason}>{reason}</span>
+              ))}
+            </span>
+          }
+        >
+          <span className="queued-short-reasons">{distinctShortReasons(reasons).join(" · ")}</span>
+        </Tooltip>
+      )}
     </span>
   );
 }

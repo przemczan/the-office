@@ -58,22 +58,34 @@ describe("exceededWindowCaps", () => {
       {
         words:
           "The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 5% of this Task. It resets at 12:00.",
+        short: "5-hour window cap (90%) · resets 12:00",
         resetsAt: IN_THREE_HOURS,
       },
+    ]);
+  });
+
+  it("names the day of a reset after today in the short reason", () => {
+    const sevenDayCap = {
+      ...claudeCode(10, IN_THREE_HOURS),
+      caps: { fiveHour: undefined, sevenDay: 95 },
+    };
+
+    expect(exceededWindowCaps(usage(sevenDayCap, estimateOf(5)))).toEqual([
+      expect.objectContaining({ short: "7-day window cap (95%) · resets Thu 5 Nov 14:30" }),
     ]);
   });
 });
 
 function cap(resetsAt: Date): ExceededCap {
-  return { words: `Resets ${resetsAt.toISOString()}.`, resetsAt };
+  return { words: `Resets ${resetsAt.toISOString()}.`, short: "Cap", resetsAt };
 }
 
 describe("capWaits", () => {
   it("holds the Start with every cap it would pass, until the last of them resets", () => {
     expect(capWaits([cap(IN_HALF_AN_HOUR), cap(IN_THREE_HOURS)], NOW)).toEqual({
       waits: [
-        `Resets ${IN_HALF_AN_HOUR.toISOString()}.`,
-        `Resets ${IN_THREE_HOURS.toISOString()}.`,
+        { reason: `Resets ${IN_HALF_AN_HOUR.toISOString()}.`, short: "Cap" },
+        { reason: `Resets ${IN_THREE_HOURS.toISOString()}.`, short: "Cap" },
       ],
       resetsAt: IN_THREE_HOURS,
     });
@@ -117,6 +129,7 @@ describe("exceededDailyCaps", () => {
       {
         words:
           "The Claude Code engine's Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 3,500 tokens left of the estimates of the Tasks in progress and 1,000 tokens of this Task. It resets at midnight.",
+        short: "Daily cap (10,000 tokens) · resets at midnight",
         resetsAt: MIDNIGHT,
       },
     ]);

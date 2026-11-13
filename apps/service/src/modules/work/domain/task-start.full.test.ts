@@ -8,6 +8,7 @@ import {
   type StartConditions,
   type StartReasons,
 } from "./task-start.js";
+import type { Wait } from "./wait.js";
 import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
@@ -45,8 +46,13 @@ function refused(...refusals: string[]): StartReasons {
   return { refusals, waits: [] };
 }
 
-function waiting(...waits: string[]): StartReasons {
-  return { refusals: [], waits };
+/** Waits by their full reasons alone; the default run's tests check the short ones. */
+function waiting(...reasons: string[]): StartReasons {
+  return { refusals: [], waits: reasons.map(waitFor) };
+}
+
+function waitFor(reason: string): Wait {
+  return expect.objectContaining({ reason }) as Wait;
 }
 
 const nothing: StartReasons = { refusals: [], waits: [] };
@@ -83,8 +89,8 @@ describe("startReasons", () => {
     expect(startReasons(ready, noPipeline, held([started("a")], blockers))).toEqual({
       refusals: [`There is no Pipeline "${ready.pipelineId}" this Task's Project can follow.`],
       waits: [
-        'Blocked by "Queue schema", which must be Done first.',
-        "The Office-wide limit is reached: the only desk is in use.",
+        waitFor('Blocked by "Queue schema", which must be Done first.'),
+        waitFor("The Office-wide limit is reached: the only desk is in use."),
       ],
     });
   });
@@ -189,7 +195,7 @@ describe("startReasons", () => {
 
     expect(startReasons(ready, updateScheduled, held([]))).toEqual({
       refusals: [],
-      waits: ["An update is scheduled."],
+      waits: [{ reason: "An update is scheduled.", short: "Office update scheduled" }],
     });
   });
 

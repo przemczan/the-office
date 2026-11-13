@@ -15,6 +15,7 @@ import {
 } from "./task-start.js";
 import { overlapsOf, overlapWords } from "./task-overlap.js";
 import { STARTED_STATES } from "./task-states.js";
+import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
 
 /**
  * A Ready Task in the one Office-wide queue (spec §2.1, "A queue for Start"): only waits kept Start
@@ -26,8 +27,10 @@ export interface QueuedTask {
   /** Orders the queue, lowest first; Move up swaps it with the one ahead. */
   readonly place: number;
   readonly queuedAt: Date;
-  /** The waits that held it at its last turn, as the board and Now show them. */
+  /** The waits that held it at its last turn, in full, as the Task page and Now show them. */
   readonly reasons: readonly string[];
+  /** The short reason of each of `reasons`, in the same order, as the board card shows them. */
+  readonly shortReasons: readonly string[];
   /** The Tasks it was queued behind for an Overlap: it waits until each is Done or Dropped. */
   readonly behind: readonly string[];
 }
@@ -57,7 +60,7 @@ export function startOrQueue(
   { now, onOverlap }: { readonly now: Date; readonly onOverlap: OverlapChoice },
 ): Starting {
   const { refusals, waits } = startReasons(task, conditions, held);
-  if (refusals.length > 0) throw new TaskRefused([...refusals, ...waits]);
+  if (refusals.length > 0) throw new TaskRefused([...refusals, ...reasonsOf(waits)]);
   const overlaps = overlapsOf(task, held.startedTasks);
   if (overlaps.length > 0 && onOverlap === undefined) {
     throw new TaskRefused(overlaps.map(overlapWords));
@@ -70,25 +73,33 @@ export function startOrQueue(
   const allWaits = [...waits, ...behindWaits(behind, held.startedTasks)];
   if (allWaits.length === 0)
     return { kind: "started", change: startTask(task, conditions, held, THE_USER) };
-  if (queued) return { kind: "queued", queued: { ...queued, reasons: allWaits, behind } };
+  if (queued) return { kind: "queued", queued: { ...queued, ...heldBy(allWaits), behind } };
   const joined = {
     taskId: task.id,
     place: lastPlace(queue) + 1,
     queuedAt: now,
-    reasons: allWaits,
+    ...heldBy(allWaits),
     behind,
   };
-  return { kind: "queued", queued: joined, event: new TaskQueued(task.id, allWaits) };
+  return { kind: "queued", queued: joined, event: new TaskQueued(task.id, reasonsOf(allWaits)) };
+}
+
+/** A queued Task's reasons and short reasons, from the waits that hold it. */
+function heldBy(waits: readonly Wait[]): Pick<QueuedTask, "reasons" | "shortReasons"> {
+  return { reasons: reasonsOf(waits), shortReasons: shortReasonsOf(waits) };
 }
 
 /**
  * What holds a Task queued behind others: each of them not yet Done or Dropped, which `tasks`
  * holds as started (a Task it is behind that isn't there has ended or left).
  */
-function behindWaits(behind: readonly string[], tasks: readonly Task[]): string[] {
+function behindWaits(behind: readonly string[], tasks: readonly Task[]): Wait[] {
   return tasks
     .filter(({ id, state }) => behind.includes(id) && STARTED_STATES.includes(state))
-    .map(({ title }) => `Queued behind "${title}" until it is Done or Dropped.`);
+    .map(({ title }) => ({
+      reason: `Queued behind "${title}" until it is Done or Dropped.`,
+      short: `Behind "${title}"`,
+    }));
 }
 
 /** The queue in its order, first place first. */
@@ -103,7 +114,7 @@ export interface Release {
   readonly refused: readonly { readonly taskId: string; readonly refusals: readonly string[] }[];
   /** Tasks still waiting, with the waits that hold them now. */
   readonly waiting: readonly QueuedTask[];
-  /** The ids of those held by other reasons than at their last turn. */
+  /** The ids of those held by other reasons (or short reasons) than at their last turn. */
   readonly reasonsChanged: readonly string[];
   /** When the caps holding each waiting Task last reset, for those caps hold. */
   readonly capResets: readonly Date[];
@@ -161,8 +172,9 @@ export function releaseQueue(
     const allWaits = [...waits, ...behindWaits(queued.behind, tasks)];
     if (refusals.length > 0) refused.push({ taskId: task.id, refusals });
     else if (allWaits.length > 0) {
-      waiting.push({ ...queued, reasons: allWaits });
-      if (!sameReasons(queued.reasons, allWaits)) reasonsChanged.push(task.id);
+      const stillQueued = { ...queued, ...heldBy(allWaits) };
+      waiting.push(stillQueued);
+      if (!sameReasons(queued, stillQueued)) reasonsChanged.push(task.id);
       const { resetsAt } = capWaitsAtStart(conditions.usage);
       if (resetsAt) capResets.push(resetsAt);
     } else {
@@ -173,8 +185,13 @@ export function releaseQueue(
   return { started, refused, waiting, reasonsChanged, capResets };
 }
 
-function sameReasons(one: readonly string[], other: readonly string[]): boolean {
-  return one.length === other.length && one.every((reason, at) => reason === other[at]);
+/** Whether both hold the same reasons and short reasons; a Task queued before short reasons has none. */
+function sameReasons(one: QueuedTask, other: QueuedTask): boolean {
+  return sameWords(one.reasons, other.reasons) && sameWords(one.shortReasons, other.shortReasons);
+}
+
+function sameWords(one: readonly string[], other: readonly string[]): boolean {
+  return one.length === other.length && one.every((words, at) => words === other[at]);
 }
 
 /**
