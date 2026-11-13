@@ -73,7 +73,8 @@ export function pendingSignInTokenOf(cookieHeader: string | undefined): string |
   return cookieValueOf(cookieHeader, PENDING_SIGN_IN_COOKIE);
 }
 
-function cookieValueOf(cookieHeader: string | undefined, name: string): string | undefined {
+/** The value of the cookie of this name a Cookie header carries, or undefined when it has none. */
+export function cookieValueOf(cookieHeader: string | undefined, name: string): string | undefined {
   for (const pair of (cookieHeader ?? "").split(";")) {
     const separator = pair.indexOf("=");
     if (separator === -1 || pair.slice(0, separator).trim() !== name) continue;

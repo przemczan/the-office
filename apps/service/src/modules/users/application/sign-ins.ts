@@ -22,7 +22,8 @@ export type SignInOutcome = SignedInOutcome | SecondStep | { readonly outcome: "
 
 /**
  * Where every way of signing in ends (spec §2.10), once it has found the user: a second step when
- * the way isn't enough alone and `SecondSteps` asks for one, else a new signed-in device.
+ * `SecondSteps` asks for one, such as an authenticator code, unless the way is enough alone, as a
+ * passkey is; else a new signed-in device.
  */
 @Injectable()
 export class SignIns {

@@ -11,6 +11,7 @@ import { Schedule } from "../../../../platform/schedule/schedule.js";
 import { SignInRefused } from "../../domain/sign-in-refused.js";
 import {
   FirstUserExists,
+  PasskeyNotFound,
   PendingSignInEnded,
   SignedInDeviceNotFound,
   UserIdNotFound,
@@ -23,7 +24,8 @@ type UsersRefusal =
   | FirstUserExists
   | PendingSignInEnded
   | SignedInDeviceNotFound
-  | UserIdNotFound;
+  | UserIdNotFound
+  | PasskeyNotFound;
 
 /** Answers the users module's own refusals as Nest answers its errors, with `message` for the web. */
 @Catch(
@@ -33,6 +35,7 @@ type UsersRefusal =
   PendingSignInEnded,
   SignedInDeviceNotFound,
   UserIdNotFound,
+  PasskeyNotFound,
 )
 @Injectable()
 export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
@@ -59,7 +62,12 @@ export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
 }
 
 function statusCodeOf(
-  error: FirstUserExists | PendingSignInEnded | SignedInDeviceNotFound | UserIdNotFound,
+  error:
+    | FirstUserExists
+    | PendingSignInEnded
+    | SignedInDeviceNotFound
+    | UserIdNotFound
+    | PasskeyNotFound,
 ): HttpStatus {
   if (error instanceof FirstUserExists) return HttpStatus.CONFLICT;
   // Not signed in after all: the code page sends the user back to sign in.

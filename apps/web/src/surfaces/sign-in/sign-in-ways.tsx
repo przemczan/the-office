@@ -1,5 +1,11 @@
-import type { SignInWay, SignInWayKind } from "@the-office/contracts";
+import type { SignInWay, SignInWayKind, UnavailableWay } from "@the-office/contracts";
 import { Fragment, type ReactNode } from "react";
+import {
+  elsewhereHref,
+  elsewhereWords,
+  passkeysUnavailableWords,
+} from "../../shell/passkey-words.ts";
+import { PasskeyWay } from "./passkey-way.tsx";
 import { PasswordWay } from "./password-way.tsx";
 
 /** What draws one kind of way to sign in, given that way as the service listed it. */
@@ -9,15 +15,55 @@ export type SignInWayView<Kind extends SignInWayKind> = (props: {
 
 /**
  * Each way to sign in by its kind. Every kind the contract's union has needs its entry, so a way a
- * later Task adds (Continue with GitHub, Continue with Google, a passkey) can't be left undrawn.
+ * later Task adds (Continue with GitHub, Continue with Google) can't be left undrawn.
  */
 export const SIGN_IN_WAYS: { readonly [Kind in SignInWayKind]: SignInWayView<Kind> } = {
   password: PasswordWay,
+  passkey: PasskeyWay,
 };
 
-/** The ways the service listed for this address, each drawn by its kind, in the service's order. */
-export function SignInWays({ ways }: { readonly ways: readonly SignInWay[] }): ReactNode {
-  return ways.map((way) => <Fragment key={way.kind}>{wayView(way)}</Fragment>);
+/**
+ * Why a way set up doesn't work at this address, by its kind; a password works everywhere. Later
+ * ways that depend on the address (Continue with Google) add their words here.
+ */
+const UNAVAILABLE_WORDS: { readonly [Kind in SignInWayKind]: (way: UnavailableWay) => string } = {
+  password: () => "Signing in with a password doesn't work at this address.",
+  passkey: (way) => passkeysUnavailableWords(way.reason),
+};
+
+/**
+ * The ways the service listed for this address, each drawn by its kind, in the service's order,
+ * "or" between them, then why the others don't work here, each with where they do.
+ */
+export function SignInWays({
+  ways,
+  unavailable,
+}: {
+  readonly ways: readonly SignInWay[];
+  readonly unavailable: readonly UnavailableWay[];
+}): ReactNode {
+  return (
+    <>
+      {ways.map((way, index) => (
+        <Fragment key={way.kind}>
+          {index > 0 && (
+            <div className="sign-in-or" role="separator">
+              or
+            </div>
+          )}
+          {wayView(way)}
+        </Fragment>
+      ))}
+      {unavailable.map((way) => (
+        <p key={way.kind} className="sign-in-quiet">
+          {UNAVAILABLE_WORDS[way.kind](way)}{" "}
+          {way.elsewhere !== undefined && (
+            <a href={elsewhereHref(way.elsewhere, "/sign-in")}>{elsewhereWords(way.elsewhere)}</a>
+          )}
+        </p>
+      ))}
+    </>
+  );
 }
 
 function wayView<Kind extends SignInWayKind>(

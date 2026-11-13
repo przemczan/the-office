@@ -82,8 +82,8 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 39 | Attachment versions | Work and the Task page | postponed |
 | 40 | Stage templates in the Pipeline library: run as the Initiative `791c8082-e0b0-4043-85d0-596497ce7a24` | Projects | done |
 | 41 | [The Graphite and Paper palettes, the densities, skill usage counts](41-palettes-densities-skill-usage-counts.md) | Settings | done |
-| 55 | [Users and signing in](55-users-and-signing-in.md) | All | in progress |
 | 55 | [An Agent's Attachment is replaced, not repeated, until the next Gate](55-attachments-replaced-within-a-gate.md) | Work and the Task page | done |
+| 55 | [Users and signing in](55-users-and-signing-in.md) | All | in progress |
 | 42 | Email and chat-app Notifications | Now | todo |
 | 43 | Talking to The Office from chat apps | Conversations | todo |
 | 44 | Stack-specific checks for installs and publishing | Projects | todo |

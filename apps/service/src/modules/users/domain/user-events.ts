@@ -96,3 +96,33 @@ export class RecoveryCodeUsed extends DomainEvent {
     super();
   }
 }
+
+/** A user added a passkey from their account. */
+export class PasskeyAdded extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly passkeyId: string,
+    addedAt: Date,
+  ) {
+    super(addedAt);
+  }
+}
+
+export class PasskeyRenamed extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly passkeyId: string,
+  ) {
+    super();
+  }
+}
+
+/** A user removed a passkey: it signs nobody in any more. */
+export class PasskeyRemoved extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly passkeyId: string,
+  ) {
+    super();
+  }
+}

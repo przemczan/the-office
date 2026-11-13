@@ -10,17 +10,21 @@ const CODE_PAGE = "/sign-in/code";
 /**
  * Answers a sign-in in the body, as the sign-in page's own requests read it: signed in, with the
  * sign-in cookie and the pending one cleared; waiting for the code, with the pending cookie; or on
- * to setting the user's own password, with neither. The tokens travel only in cookies, never in the
+ * to setting the user's own password, with neither. `otherCookies` are set along with them, such as
+ * a finished passkey ceremony's cookie forgotten. The tokens travel only in cookies, never in the
  * body.
  */
 export function answerSignIn(
   outcome: SignInOutcome,
   secure: boolean,
   response: Response,
+  otherCookies: readonly string[] = [],
 ): SignInOutcomeMessage {
-  if (outcome.outcome !== "set-password") {
-    response.setHeader("Set-Cookie", cookiesOf(outcome, secure));
-  }
+  const cookies = [
+    ...(outcome.outcome === "set-password" ? [] : cookiesOf(outcome, secure)),
+    ...otherCookies,
+  ];
+  if (cookies.length > 0) response.setHeader("Set-Cookie", cookies);
   return { outcome: outcome.outcome };
 }
 

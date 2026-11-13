@@ -10,7 +10,6 @@ import {
   type Profile,
   type User,
 } from "../domain/user.js";
-import { SignInRefused } from "../domain/sign-in-refused.js";
 import { PasswordSet, UserChanged } from "../domain/user-events.js";
 import { UserIdNotFound, UserRefused } from "../domain/user-refused.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
@@ -67,25 +66,12 @@ export class Accounts {
     if (user === undefined || user.removedAt !== undefined) throw new UserIdNotFound();
     const problems = passwordProblems(newPassword, user.email);
     if (problems.length > 0) throw new UserRefused(problems);
-    if ((await this.currentUserOf(userId, currentPassword)) === undefined) {
-      throw new UserIdNotFound();
-    }
+    await this.passwordChecks.currentUserOf(userId, currentPassword);
     const passwordHash = await this.passwordHashing.hash(newPassword);
     const set = await this.users.update(userId, (stored) => withPassword(stored, passwordHash));
     if (set === undefined) throw new UserIdNotFound();
     await this.signedInDevices.signOutOthers(userId, signedInDeviceId);
     await this.eventBus.publish(new PasswordSet(userId));
-  }
-
-  private async currentUserOf(userId: string, currentPassword: string): Promise<User | undefined> {
-    try {
-      return await this.passwordChecks.userOf(userId, currentPassword);
-    } catch (error) {
-      if (error instanceof SignInRefused && error.refusal === "wrong") {
-        throw new UserRefused(["The current password is wrong."]);
-      }
-      throw error;
-    }
   }
 
   /** Keeps the user's palette and density, which follow them to every browser they sign in on. */

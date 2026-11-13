@@ -971,8 +971,15 @@
     {
       "idx": 138,
       "version": "7",
-      "when": 1794605254131,
-      "tag": "0138_authenticators_and_recovery_codes",
+      "when": 1794603909146,
+      "tag": "0138_passkeys",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1794607702188,
+      "tag": "0139_authenticators_and_recovery_codes",
       "breakpoints": true
     }
   ]

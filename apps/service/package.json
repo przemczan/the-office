@@ -29,6 +29,7 @@
     "@opentelemetry/sdk-trace": "3.0.0",
     "@oslojs/encoding": "1.1.0",
     "@oslojs/otp": "1.1.0",
+    "@simplewebauthn/server": "14.1.0",
     "@the-office/contracts": "*",
     "ajv": "8.20.0",
     "cross-spawn": "7.0.6",

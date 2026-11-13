@@ -43,7 +43,8 @@ describe("the first user", () => {
     const before = await send(office.port, { path: "/api/sign-in" });
     expect(signInPageSchema.parse(before.body)).toEqual({
       firstRun: true,
-      ways: [{ kind: "password" }],
+      ways: [{ kind: "password" }, { kind: "passkey" }],
+      unavailable: [],
     });
 
     const refused = await send(office.port, {
@@ -176,6 +177,6 @@ describe("signing in with a password", () => {
   ])("offers a password at %s", async (_, host) => {
     const page = await send(office.port, { path: "/api/sign-in", host: host(office.port) });
 
-    expect(signInPageSchema.parse(page.body).ways).toEqual([{ kind: "password" }]);
+    expect(signInPageSchema.parse(page.body).ways).toContainEqual({ kind: "password" });
   });
 });

@@ -21,7 +21,7 @@ import { PasswordSignIn } from "../../application/password-sign-in.js";
 import { SignInWays } from "../../application/sign-in-ways.js";
 import { answerSignIn } from "./sign-in-answers.js";
 import { pendingSignInTokenOf } from "./sign-in-cookie.js";
-import { addressKindOf, signInRequestOf } from "./sign-in-request.js";
+import { pageAddressOf, signInRequestOf } from "./sign-in-request.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
 
 /**
@@ -43,9 +43,14 @@ export class SignInController {
 
   @Get()
   async page(@Req() request: Request): Promise<SignInPage> {
-    const addressKind = addressKindOf(this.officeAddresses.addressOf(request));
-    const ways = await this.signInWays.at(addressKind);
-    return { firstRun: await this.firstUser.isAwaited(), ways: ways.map((kind) => ({ kind })) };
+    const { ways, unavailable } = await this.signInWays.at(
+      pageAddressOf(request, this.officeAddresses),
+    );
+    return {
+      firstRun: await this.firstUser.isAwaited(),
+      ways: ways.map((kind) => ({ kind })),
+      unavailable: [...unavailable],
+    };
   }
 
   @Post("first-user")

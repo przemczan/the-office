@@ -1,7 +1,9 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { oneTimePasswordAsTyped } from "../domain/one-time-password.js";
+import { SignInRefused } from "../domain/sign-in-refused.js";
 import { isWaitingForFirstSignIn, type User } from "../domain/user.js";
+import { UserIdNotFound, UserRefused } from "../domain/user-refused.js";
 import { tryRefusal, wrongTryAnswer } from "../domain/wrong-tries.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
@@ -55,6 +57,25 @@ export class PasswordChecks implements OnModuleInit {
     }
     await this.wrongTries.undo(taken);
     return { ...taken.user, wrongTries: taken.before };
+  }
+
+  /**
+   * The signed-in user, once `currentPassword` is theirs, asked again before a change to their
+   * account, under the same checks. Throws UserRefused for a wrong one, SignInRefused for the
+   * slow-down's wait or the lockout, and UserIdNotFound when they were removed.
+   */
+  async currentUserOf(userId: string, currentPassword: string): Promise<User> {
+    let user: User | undefined;
+    try {
+      user = await this.userOf(userId, currentPassword);
+    } catch (error) {
+      if (error instanceof SignInRefused && error.refusal === "wrong") {
+        throw new UserRefused(["The current password is wrong."]);
+      }
+      throw error;
+    }
+    if (user === undefined) throw new UserIdNotFound();
+    return user;
   }
 
   private matches(password: string, user: User): Promise<boolean> {

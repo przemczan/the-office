@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { PASSWORD_WAY, type SignInWay } from "../domain/sign-in-way.js";
+import type { PageAddress } from "../domain/page-address.js";
+import { PASSKEY_WAY, PASSWORD_WAY, type SignInWay } from "../domain/sign-in-way.js";
 import { userOf } from "../domain/user.js";
 import { SecondSteps, type SecondStep } from "../ports/second-steps.js";
 import { SignInWays } from "./sign-in-ways.js";
@@ -22,6 +23,8 @@ class CodeAlwaysNeeded extends SecondSteps {
     return Promise.resolve(CODE_NEEDED);
   }
 }
+
+const PUBLIC_ADDRESS = "https://office.example.com";
 
 function signInsWith(secondSteps: SecondSteps) {
   const signIn = vi.fn<SignedInDevices["signIn"]>().mockResolvedValue({
@@ -46,9 +49,8 @@ function signInsWith(secondSteps: SecondSteps) {
   return { signIns, signIn, clear };
 }
 
-// A way of a later Task's: GitHub and Google aren't enough alone, a passkey is.
-const notEnoughAlone: SignInWay = { ...PASSWORD_WAY };
-const enoughAlone: SignInWay = { ...PASSWORD_WAY, enoughAlone: true };
+const notEnoughAlone: SignInWay = PASSWORD_WAY;
+const enoughAlone: SignInWay = PASSKEY_WAY;
 
 describe("SignIns.finish", () => {
   it("asks for the code after a way that isn't enough alone, signing nobody in", async () => {
@@ -91,25 +93,73 @@ describe("SignIns.finish", () => {
 });
 
 describe("SignInWays", () => {
-  // A way of a later Task's, working only where a name and HTTPS or localhost are.
-  const named = {
-    kind: "password",
-    enoughAlone: true,
-    worksAt: (addressKind) => addressKind === "localhost" || addressKind === "public",
-    isAvailable: () => Promise.resolve(true),
-  } satisfies SignInWay;
-  const unavailable = { ...named, isAvailable: () => Promise.resolve(false) } satisfies SignInWay;
+  const pages: Readonly<Record<string, PageAddress>> = {
+    localhost: {
+      kind: "localhost",
+      host: "localhost:4310",
+      secure: false,
+      publicAddress: PUBLIC_ADDRESS,
+    },
+    "a loopback IP": {
+      kind: "loopback-ip",
+      host: "127.0.0.1:4310",
+      secure: false,
+      publicAddress: PUBLIC_ADDRESS,
+    },
+    "a local network IP": {
+      kind: "local-network-ip",
+      host: "192.168.1.20:4310",
+      secure: false,
+      publicAddress: PUBLIC_ADDRESS,
+    },
+    "the public address over HTTPS": {
+      kind: "public",
+      host: "office.example.com",
+      secure: true,
+      publicAddress: PUBLIC_ADDRESS,
+    },
+    "the public address over plain HTTP": {
+      kind: "public",
+      host: "office.example.com",
+      secure: false,
+      publicAddress: PUBLIC_ADDRESS,
+    },
+  };
 
   it.each([
-    ["localhost", 2],
-    ["loopback-ip", 1],
-    ["local-network-ip", 1],
-    ["public", 2],
-  ] as const)("lists at %s only the ways set up that work there", async (addressKind, count) => {
-    const ways = new SignInWays();
-    ways.add(named);
-    ways.add(unavailable);
+    ["localhost", ["password", "passkey"], []],
+    [
+      "a loopback IP",
+      ["password"],
+      [{ kind: "passkey", reason: "ip-address", elsewhere: "http://localhost:4310" }],
+    ],
+    [
+      "a local network IP",
+      ["password"],
+      [{ kind: "passkey", reason: "needs-https-domain", elsewhere: PUBLIC_ADDRESS }],
+    ],
+    ["the public address over HTTPS", ["password", "passkey"], []],
+    [
+      "the public address over plain HTTP",
+      ["password"],
+      [{ kind: "passkey", reason: "needs-https-domain", elsewhere: PUBLIC_ADDRESS }],
+    ],
+  ])("offers at %s %j, and says why not the others", async (page, ways, unavailable) => {
+    expect(await new SignInWays().at(pages[page] as PageAddress)).toEqual({ ways, unavailable });
+  });
 
-    expect(await ways.at(addressKind)).toHaveLength(count);
+  it("leaves out a way that isn't set up, wherever it would work", async () => {
+    const notSetUp = {
+      kind: "passkey",
+      enoughAlone: true,
+      unavailableAt: () => undefined,
+      isAvailable: () => Promise.resolve(false),
+    } satisfies SignInWay;
+    const ways = new SignInWays();
+    ways.add(notSetUp);
+
+    const { ways: offered } = await ways.at(pages["localhost"] as PageAddress);
+
+    expect(offered).toEqual(["password", "passkey"]);
   });
 });

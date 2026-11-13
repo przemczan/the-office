@@ -10,7 +10,7 @@ import {
   until,
 } from "./sign-in-page.fixtures.tsx";
 
-const SIGN_IN_PAGE = { firstRun: false, ways: [{ kind: "password" }] };
+const SIGN_IN_PAGE = { firstRun: false, ways: [{ kind: "password" }], unavailable: [] };
 
 async function triedPassword(
   path: string,

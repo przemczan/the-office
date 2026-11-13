@@ -43,3 +43,11 @@ export class SignedInDeviceNotFound extends Error {
     this.name = "SignedInDeviceNotFound";
   }
 }
+
+/** A passkey asked for by id that isn't one of the signed-in user's. */
+export class PasskeyNotFound extends Error {
+  constructor() {
+    super("You have no such passkey.");
+    this.name = "PasskeyNotFound";
+  }
+}

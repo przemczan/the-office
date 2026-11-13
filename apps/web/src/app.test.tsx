@@ -14,7 +14,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 // The shell itself is the shell's tests'; here it only says it is shown.
 vi.mock("./shell/shell.tsx", () => ({ Shell: () => <p>The shell</p> }));
 
-const SIGN_IN_PAGE: SignInPage = { firstRun: false, ways: [{ kind: "password" }] };
+const SIGN_IN_PAGE: SignInPage = { firstRun: false, ways: [{ kind: "password" }], unavailable: [] };
 const ADA: Account = {
   id: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
   name: "Ada",

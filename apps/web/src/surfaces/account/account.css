@@ -119,6 +119,23 @@
   background: var(--surface-sunken);
 }
 
+/* ---- Passkeys: a passkey's name over where it works, and its row's buttons */
+.account-passkey {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-passkey-at {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.account-row-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
 /* ---- Appearance: the Palette and Density cards, each a group of choices with their previews */
 .appearance-choices {
   display: grid;

@@ -39,7 +39,13 @@ export function SignInPage(): ReactNode {
           />
         )}
         {page.data && (
-          <Card>{firstRun ? <FirstUserForm /> : <SignInWays ways={page.data.ways} />}</Card>
+          <Card>
+            {firstRun ? (
+              <FirstUserForm />
+            ) : (
+              <SignInWays ways={page.data.ways} unavailable={page.data.unavailable} />
+            )}
+          </Card>
         )}
       </div>
     </main>
