@@ -7,10 +7,19 @@ import type { ManualSchedule } from "../../platform/schedule/schedule.fixtures.j
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { startTestApplication, type TestApplication } from "../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../test/test-database.js";
+import { ScryptPasswordHashing } from "./adapters/crypto/scrypt-password-hashing.js";
 import { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
+import { PasswordHashing } from "./ports/password-hashing.js";
 import { UsersModule } from "./users.module.js";
 
 export const PUBLIC_ADDRESS = "https://office.example.com";
+
+/**
+ * scrypt at a cost tests can afford: the spec's takes about 100 ms a hash, so a lockout test's
+ * dozen tries outran the test timeout under a full run's load. Hashes carry their own cost, so
+ * either matches the other's.
+ */
+export const testPasswordHashing = new ScryptPasswordHashing(2 ** 10);
 
 export interface UsersApplication extends TestApplication {
   readonly schedule: ManualSchedule;
@@ -40,6 +49,7 @@ export async function startUsersApplication({
         signedInRequests: CookieSignedInRequests,
       }),
     ],
+    overrides: [{ provide: PasswordHashing, useValue: testPasswordHashing }],
     requestAccess: "guarded",
   });
   return { ...started, schedule: started.app.get(Schedule) as ManualSchedule };

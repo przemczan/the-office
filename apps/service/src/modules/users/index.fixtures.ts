@@ -4,12 +4,11 @@ import { decodeBase32IgnorePadding } from "@oslojs/encoding";
 import { generateHOTP } from "@oslojs/otp";
 import { authenticatorSetupSchema, recoveryCodesSchema } from "@the-office/contracts";
 import { expect } from "vitest";
-import { ScryptPasswordHashing } from "./adapters/crypto/scrypt-password-hashing.js";
 import { SIGN_IN_COOKIE } from "./adapters/http/sign-in-cookie.js";
 import { timeStepAt } from "./domain/authenticator.js";
 import { userOf } from "./domain/user.js";
 import { UserRepository } from "./ports/user-repository.js";
-import { send } from "./users-application.fixtures.js";
+import { send, testPasswordHashing } from "./users-application.fixtures.js";
 
 /** A password the rules take. */
 export const A_PASSWORD = "correct horse battery staple";
@@ -30,7 +29,7 @@ export async function addUser(
   { name = "Ada Lovelace", password = A_PASSWORD }: { name?: string; password?: string } = {},
 ): Promise<UserForTests> {
   const email = `ada-${randomUUID().slice(0, 8)}@example.com`;
-  const hash = await new ScryptPasswordHashing().hash(password);
+  const hash = await testPasswordHashing.hash(password);
   const user = userOf(randomUUID(), { name, email }, hash, new Date());
   await app.get(UserRepository, { strict: false }).add(user);
   return { id: user.id, name, email, password };

@@ -150,7 +150,7 @@ describe("signing in with a password", () => {
 
     const database = office.app.get<symbol, Database>(DATABASE);
     const [row] = await database.select().from(users).where(eq(users.id, user.id));
-    expect(row?.passwordHash).toMatch(/^scrypt\$32768\$8\$1\$[\w-]+\$[\w-]+$/);
+    expect(row?.passwordHash).toMatch(/^scrypt\$\d+\$8\$1\$[\w-]+\$[\w-]+$/);
     expect(row?.passwordHash).not.toContain(user.password);
     const devices = await database
       .select()

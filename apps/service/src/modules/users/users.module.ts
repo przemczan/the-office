@@ -47,7 +47,7 @@ import { UserRepository } from "./ports/user-repository.js";
     { provide: SignedInDeviceRepository, useClass: PostgresSignedInDeviceRepository },
     { provide: AuthenticatorRepository, useClass: PostgresAuthenticatorRepository },
     { provide: PendingSignInRepository, useClass: PostgresPendingSignInRepository },
-    { provide: PasswordHashing, useClass: ScryptPasswordHashing },
+    { provide: PasswordHashing, useValue: new ScryptPasswordHashing() },
     { provide: SecondSteps, useClass: AuthenticatorSecondStep },
     Accounts,
     AuthenticatorCodes,

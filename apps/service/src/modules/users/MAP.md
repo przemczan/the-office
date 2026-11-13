@@ -54,7 +54,7 @@ CookieSignedInRequests, answerSignIn, redirectSignIn, Accounts, Authenticators, 
 ### ./
 
 - `index.fixtures.ts`: A_PASSWORD, UserForTests, addUser, signedInCookie, authenticatorCodeOf, turnOnAuthenticator, send, setCookieOf, startUsersApplication, UsersApplication
-- `users-application.fixtures.ts`: PUBLIC_ADDRESS, UsersApplication, UsersApplicationOptions, startUsersApplication, Sent, Answer, send, setCookieOf
+- `users-application.fixtures.ts`: PUBLIC_ADDRESS, testPasswordHashing, UsersApplication, UsersApplicationOptions, startUsersApplication, Sent, Answer, send, setCookieOf
 - `users.module.ts`: UsersModule
 
 ### adapters/crypto/
