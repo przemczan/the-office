@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tooltipPlace } from "./tooltip-place.ts";
+import { popoverPlace, tooltipPlace } from "./tooltip-place.ts";
 
 const VIEW = { width: 1000, height: 800 };
 const TOOLTIP = { width: 100, height: 30 };
@@ -40,5 +40,21 @@ describe("tooltipPlace", () => {
 
   it("keeps its start in the window when it is wider than the window", () => {
     expect(tooltipPlace(boxAt(480, 400), { width: 1200, height: 30 }, "top", VIEW).left).toBe(8);
+  });
+});
+
+describe("popoverPlace", () => {
+  const POPOVER = { width: 240, height: 120 };
+
+  it("sits under its trigger, their left edges together", () => {
+    expect(popoverPlace(boxAt(300, 400), POPOVER, VIEW)).toEqual({ left: 300, top: 426 });
+  });
+
+  it("sits over its trigger when only that has the room", () => {
+    expect(popoverPlace(boxAt(300, 700), POPOVER, VIEW)).toEqual({ left: 300, top: 574 });
+  });
+
+  it("shifts left to stay within the window", () => {
+    expect(popoverPlace(boxAt(900, 400), POPOVER, VIEW).left).toBe(752);
   });
 });

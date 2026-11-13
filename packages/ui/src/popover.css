@@ -1,0 +1,85 @@
+/* A trigger keeps sitting above a card's stretched link, as a tooltip's does. */
+.popover-trigger {
+  position: relative;
+}
+
+.popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-toast);
+  width: max-content;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-3);
+  font: var(--type-caption);
+  color: var(--fg-2);
+  animation: popover-in var(--duration-fast) var(--ease-out);
+}
+
+.popover:focus {
+  outline: none;
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+.popover a {
+  color: var(--fg-1);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 2px;
+}
+
+.popover a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Its first line: what it holds, an icon before it. */
+.popover-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  font: 600 var(--text-xs) / 1.35 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.popover-head svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.popover-sub {
+  margin: 0 0 8px;
+  color: var(--fg-3);
+}
+
+.popover-foot {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-3);
+}
+
+/* A plain mark's words, pressed open where there is no hover: as its tooltip would say them. */
+.popover-words {
+  max-width: 260px;
+  margin: 0;
+  font: 500 var(--text-xs) / 1.4 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.popover:has(> .popover-words) {
+  min-width: 0;
+  padding: 8px 10px;
+}

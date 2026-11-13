@@ -2050,8 +2050,9 @@ test("the user has Jan make a plan from the title and the Description, then conf
   await expect(
     page
       .getByRole("region", { name: "Planning", exact: true })
-      .getByRole("article", { name: title }),
-  ).toContainText("Planning with Jan");
+      .getByRole("article", { name: title })
+      .getByRole("img", { name: "Planning with Jan" }),
+  ).toBeVisible();
   await page.goto(`/tasks/${task.id}`);
 
   // Jan starts at once, from the record, the Description in the Brief.
@@ -2176,11 +2177,15 @@ async function waitForAnotherTaskAndStopWaiting(page: Page, project: Project): P
   await expect(page.getByRole("button", { name: "Queue behind it" })).toBeVisible();
 
   await page.goto("/work");
+  await page
+    .getByRole("region", { name: "Ready", exact: true })
+    .getByRole("article", { name: "Sign-in returns to the page" })
+    .getByRole("button", { name: "Blocked by 1 Task" })
+    .click();
   await expect(
     page
-      .getByRole("region", { name: "Ready", exact: true })
-      .getByRole("article", { name: "Sign-in returns to the page" })
-      .getByText(`Blocked by ${blockerTitle}`),
+      .getByRole("dialog", { name: "Blocked by 1 Task" })
+      .getByRole("link", { name: blockerTitle }),
   ).toBeVisible();
   await page.goto(`/tasks/${blocker.id}`);
   await expect(
@@ -2282,7 +2287,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   const card = page
     .getByRole("region", { name: "In progress", exact: true })
     .getByRole("article", { name: "Sign-in returns to the page" });
-  await expect(card.getByText("Waiting on you", { exact: true })).toBeVisible();
+  await expect(card.getByRole("img", { name: "Waiting on you" })).toBeVisible();
 
   // Now holds the Decision, answered in place, and the Task at its desk.
   await page.goto("/");
@@ -6593,7 +6598,9 @@ test(
       // The board's card and Now say the same.
       await page.goto("/work");
       const card = page.getByRole("article", { name: title });
-      await expect(card.getByText(/^Usage window used up · resumes \d\d:\d\d$/)).toBeVisible();
+      await expect(
+        card.getByRole("img", { name: /^Usage window used up · resumes \d\d:\d\d$/ }),
+      ).toBeVisible();
       await screenshotScenario(page, "usage-window-board");
       await page.goto("/");
       await expect(page.getByRole("article", { name: `Running: ${title}` })).toContainText(

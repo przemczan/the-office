@@ -159,6 +159,7 @@ export {
   type DialogStep,
   type TooltipProps,
 } from "./overlays.tsx";
+export { PlainMark, Popover, type PlainMarkProps, type PopoverProps } from "./popover.tsx";
 export { Card } from "./card.tsx";
 export {
   Button,

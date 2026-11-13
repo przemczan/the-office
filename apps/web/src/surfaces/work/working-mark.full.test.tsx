@@ -70,18 +70,20 @@ describe("WorkingMark", () => {
     );
   });
 
-  it("shows the Stage's name before the avatars, and says it", () => {
+  it("says the Stage's name with the names, and shows only the avatars", () => {
     const mark = rendered(<WorkingMark people={working("Jim Halpert")} stageName="Implement" />);
 
-    expect(mark.querySelector(".working-mark-stage")?.textContent).toBe("Implement");
     expect(mark.querySelector("[role=img]")?.getAttribute("aria-label")).toBe(
       "Working now: Jim Halpert · Implement",
     );
+    expect(mark.textContent).not.toContain("Implement");
   });
 
-  it("shows no Stage name without one", () => {
+  it("says the names alone without a Stage name", () => {
     const mark = rendered(<WorkingMark people={working("Jim Halpert")} />);
 
-    expect(mark.querySelector(".working-mark-stage")).toBeNull();
+    expect(mark.querySelector("[role=img]")?.getAttribute("aria-label")).toBe(
+      "Working now: Jim Halpert",
+    );
   });
 });

@@ -17,6 +17,7 @@ export function ProjectMark({
   project,
   size = "md",
   palette,
+  namedOnHover = true,
 }: {
   /** A Project still being added has neither `id` nor `icon`. */
   readonly project: Pick<Project, "name" | "mark"> & Partial<Pick<Project, "id" | "icon">>;
@@ -24,6 +25,8 @@ export function ProjectMark({
   readonly size?: "md" | "xl" | "page";
   /** The palette whose version shows, when not the base of the one shown, as in a preview. */
   readonly palette?: ProjectImagePalette;
+  /** Off where a `Tooltip` around it names the Project instead of the browser's own title. */
+  readonly namedOnHover?: boolean;
 }): ReactNode {
   const { colour, label } = project.mark;
   const { address, onError } = useShownProjectImage(project.id, project.icon, palette);
@@ -33,7 +36,7 @@ export function ProjectMark({
     <span
       className={`project-mark size-${size} mark-colour-${custom ? "custom" : colour}${iconShown ? " has-icon" : ""}`}
       style={custom ? customColourStyle(colour) : undefined}
-      title={project.name}
+      title={namedOnHover ? project.name : undefined}
       aria-hidden="true"
     >
       {iconShown ? <img src={address} alt="" onError={onError} /> : label}
