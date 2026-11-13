@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { API_PATH } from "./api.js";
 import { webEventSchema } from "./events.js";
 
 /**
@@ -9,12 +10,29 @@ export const addressKindSchema = z.enum(["localhost", "loopback-ip", "local-netw
 export type AddressKind = z.infer<typeof addressKindSchema>;
 
 /**
- * A way to sign in the sign-in page offers. A union by `kind`, which Continue with GitHub and
- * Continue with Google join as their Tasks add them.
+ * The providers a user links an identity of from their account and signs in with (spec §2.10):
+ * GitHub now, Google with its Task.
+ */
+export const identityProviderSchema = z.enum(["github"]);
+export type IdentityProvider = z.infer<typeof identityProviderSchema>;
+
+/**
+ * Where a provider sends the browser back after Continue with it, for signing in and for linking
+ * alike, under `/api/sign-in`, which needs no signed-in device. The GitHub App lists it as a
+ * callback URL on each address The Office is opened at.
+ */
+export function identityCallbackPath(provider: IdentityProvider): string {
+  return `${API_PATH}/sign-in/${provider}/callback`;
+}
+
+/**
+ * A way to sign in the sign-in page offers. A union by `kind`, which Continue with Google joins
+ * with its Task.
  */
 export const signInWaySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("password") }),
   z.object({ kind: z.literal("passkey") }),
+  z.object({ kind: z.literal("github") }),
 ]);
 export type SignInWay = z.infer<typeof signInWaySchema>;
 export type SignInWayKind = SignInWay["kind"];
@@ -28,7 +46,7 @@ export type WayUnavailableReason = z.infer<typeof wayUnavailableReasonSchema>;
 
 /** A way set up that doesn't work here, why, and the address it works at instead, when one does. */
 export const unavailableWaySchema = z.object({
-  kind: z.enum(["password", "passkey"]) satisfies z.ZodType<SignInWayKind>,
+  kind: z.enum(["password", "passkey", "github"]) satisfies z.ZodType<SignInWayKind>,
   reason: wayUnavailableReasonSchema,
   elsewhere: z.string().optional(),
 });
@@ -44,6 +62,23 @@ export const signInPageSchema = z.object({
   unavailable: z.array(unavailableWaySchema),
 });
 export type SignInPage = z.infer<typeof signInPageSchema>;
+
+/**
+ * The query parameter that lands the browser on the sign-in page with why Continue with a provider
+ * didn't sign it in.
+ */
+export const SIGN_IN_FAILED_PARAMETER = "signInFailed";
+
+/**
+ * `POST /sign-in/github`: where the sign-in page returns to once signed in, as its `?returnTo=`
+ * says; The Office keeps it only when it is a path of its own.
+ */
+export const identitySignInSchema = z.object({ returnTo: z.string().optional() });
+export type IdentitySignIn = z.infer<typeof identitySignInSchema>;
+
+/** A provider's authorize page, where the browser goes next; the provider sends it back to The Office. */
+export const identityAuthorizationSchema = z.object({ authorizeUrl: z.url() });
+export type IdentityAuthorization = z.infer<typeof identityAuthorizationSchema>;
 
 /** `POST /sign-in/first-user`: the first user's name, email and password. */
 export const firstUserSchema = z.object({
@@ -211,3 +246,43 @@ export const signedInDeviceSchema = z.object({
 export type SignedInDevice = z.infer<typeof signedInDeviceSchema>;
 
 export const signedInDeviceListSchema = z.array(signedInDeviceSchema);
+
+/**
+ * The query parameter that lands the browser on the account's Linked identities with why linking
+ * didn't work.
+ */
+export const LINK_FAILED_PARAMETER = "linkFailed";
+
+/** Where linking returns to, the account's Linked identities section. */
+export const LINKED_IDENTITIES_PATH = "/account/linked-identities";
+
+/** A user's identity at a provider: the provider's name for it, such as a GitHub login, for display only. */
+export const linkedIdentitySchema = z.object({
+  name: z.string(),
+  linkedAt: z.iso.datetime(),
+  lastSignedInAt: z.iso.datetime().nullable(),
+});
+export type LinkedIdentity = z.infer<typeof linkedIdentitySchema>;
+
+/**
+ * `GET /account/linked-identities`: each provider, whether it is set up (GitHub once the GitHub App
+ * is registered) and the user's identity there, when linked.
+ */
+export const linkedIdentityListSchema = z.array(
+  z.object({
+    provider: identityProviderSchema,
+    available: z.boolean(),
+    linked: linkedIdentitySchema.nullable(),
+  }),
+);
+export type LinkedIdentityList = z.infer<typeof linkedIdentityListSchema>;
+
+/**
+ * `GET /account/identity-callback-urls/github`: the callback URLs a provider must list for
+ * Continue with it to come back to The Office, at this page's address and at the public address.
+ */
+export const identityCallbackUrlsSchema = z.object({
+  thisAddress: z.string(),
+  publicAddress: z.string().nullable(),
+});
+export type IdentityCallbackUrls = z.infer<typeof identityCallbackUrlsSchema>;

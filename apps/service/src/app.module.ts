@@ -56,7 +56,11 @@ import {
 } from "./modules/run-environments/index.js";
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
-import { CookieSignedInRequests, UsersModule } from "./modules/users/index.js";
+import {
+  CookieSignedInRequests,
+  GitHubIdentityProvider,
+  UsersModule,
+} from "./modules/users/index.js";
 import {
   FireAlarmService,
   InitiativeService,
@@ -92,6 +96,11 @@ export class AppModule {
   ): DynamicModule {
     // One instance, so every token read goes through the same sign-in changes and refreshes once.
     const github = GitHubModule.register({ web: config.gitHub.webUrl, api: config.gitHub.apiUrl });
+    // One instance, so the guard and the sign-in pages share the same signed-in devices and trips.
+    const users = UsersModule.register({
+      imports: [github],
+      identityProviders: [GitHubIdentityProvider],
+    });
     // One instance, so every git change on a repository goes through the same locks.
     const projects = ProjectsModule.register({
       imports: [PipelineLibraryModule, github],
@@ -205,13 +214,13 @@ export class AppModule {
         projects,
         RequestAccessModule.register({
           publicAddress: config.publicAddress,
-          imports: [UsersModule],
+          imports: [users],
           signedInRequests: CookieSignedInRequests,
         }),
         runEnvironments,
         SkillsModule,
         TelemetryModule,
-        UsersModule,
+        users,
         WebAppModule.register(webApp),
         work,
         WorkstationModule,

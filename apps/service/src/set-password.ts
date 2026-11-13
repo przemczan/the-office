@@ -65,6 +65,8 @@ const terminal: SetPasswordConsole = {
 @Module({})
 class SetPasswordModule {
   static register(databaseUrl: string): DynamicModule {
+    // Setting a password needs no identity provider.
+    const users = UsersModule.register({ imports: [], identityProviders: [] });
     return {
       module: SetPasswordModule,
       // The users module maps its web events here; with no WebSocket, they go nowhere.
@@ -74,11 +76,11 @@ class SetPasswordModule {
       imports: [
         DatabaseModule.forRoot({ url: databaseUrl }),
         EventsModule,
-        UsersModule,
+        users,
         // The users module's controllers ask for the addresses, though no request reaches them here.
         RequestAccessModule.register({
           publicAddress: undefined,
-          imports: [UsersModule],
+          imports: [users],
           signedInRequests: CookieSignedInRequests,
         }),
       ],

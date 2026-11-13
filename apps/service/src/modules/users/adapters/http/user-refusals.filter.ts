@@ -8,9 +8,11 @@ import {
 import type { SignInRefusal, UserRefusal } from "@the-office/contracts";
 import type { Response } from "express";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
+import { IdentityRefused } from "../../domain/identity-refused.js";
 import { SignInRefused } from "../../domain/sign-in-refused.js";
 import {
   FirstUserExists,
+  LinkedIdentityNotFound,
   PasskeyNotFound,
   SignedInDeviceNotFound,
   UserIdNotFound,
@@ -23,7 +25,9 @@ type UsersRefusal =
   | FirstUserExists
   | SignedInDeviceNotFound
   | UserIdNotFound
-  | PasskeyNotFound;
+  | PasskeyNotFound
+  | IdentityRefused
+  | LinkedIdentityNotFound;
 
 /** Answers the users module's own refusals as Nest answers its errors, with `message` for the web. */
 @Catch(
@@ -33,6 +37,8 @@ type UsersRefusal =
   SignedInDeviceNotFound,
   UserIdNotFound,
   PasskeyNotFound,
+  IdentityRefused,
+  LinkedIdentityNotFound,
 )
 @Injectable()
 export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
@@ -53,8 +59,11 @@ export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
       response.status(refusal.statusCode).json(refusal);
       return;
     }
+    // A first user made already, or a provider not set up or refusing to start, is a conflict.
     const statusCode =
-      error instanceof FirstUserExists ? HttpStatus.CONFLICT : HttpStatus.NOT_FOUND;
+      error instanceof FirstUserExists || error instanceof IdentityRefused
+        ? HttpStatus.CONFLICT
+        : HttpStatus.NOT_FOUND;
     response.status(statusCode).json({ statusCode, message: error.message });
   }
 }

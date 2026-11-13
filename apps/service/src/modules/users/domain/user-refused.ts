@@ -43,3 +43,10 @@ export class PasskeyNotFound extends Error {
     this.name = "PasskeyNotFound";
   }
 }
+
+export class LinkedIdentityNotFound extends Error {
+  constructor() {
+    super("You have no such linked identity.");
+    this.name = "LinkedIdentityNotFound";
+  }
+}

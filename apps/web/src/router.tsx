@@ -9,11 +9,14 @@ import {
 import {
   GITHUB_APP_REGISTRATION_FAILED_PARAMETER,
   GITHUB_SIGN_IN_FAILED_PARAMETER,
+  LINK_FAILED_PARAMETER,
+  SIGN_IN_FAILED_PARAMETER,
   type BoardFilters,
 } from "@the-office/contracts";
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
 import { AppearanceSection } from "./surfaces/account/appearance-section.tsx";
+import { LinkedIdentitiesSection } from "./surfaces/account/linked-identities-section.tsx";
 import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
@@ -98,9 +101,13 @@ const rootRoute = createRootRoute({
   notFoundComponent: () => <Navigate to="/now" replace />,
 });
 
-/** Where the sign-in page returns to once signed in: a path of this app with its query. */
+/**
+ * Where the sign-in page returns to once signed in, a path of this app with its query, and why
+ * Continue with a provider didn't sign in, when it came back refused.
+ */
 export interface SignInSearch {
   readonly returnTo?: string;
+  readonly [SIGN_IN_FAILED_PARAMETER]?: string;
 }
 
 // Outside the shell, the one page shown before signing in (spec §2.10); at first run it creates the
@@ -109,8 +116,12 @@ const signInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "sign-in",
   component: SignInPage,
-  validateSearch: (search: Record<string, unknown>): SignInSearch =>
-    typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {},
+  validateSearch: (search: Record<string, unknown>): SignInSearch => ({
+    ...(typeof search["returnTo"] === "string" && { returnTo: search["returnTo"] }),
+    ...(typeof search[SIGN_IN_FAILED_PARAMETER] === "string" && {
+      [SIGN_IN_FAILED_PARAMETER]: search[SIGN_IN_FAILED_PARAMETER],
+    }),
+  }),
   staticData: { title: "Sign in" },
 });
 
@@ -149,6 +160,22 @@ const accountPasskeysRoute = createRoute({
   getParentRoute: () => accountRoute,
   path: "passkeys",
   component: PasskeysSection,
+  staticData: { title: "Account" },
+});
+
+/** Why linking an identity didn't work, when the provider's trip back came refused. */
+export interface LinkedIdentitiesSearch {
+  readonly [LINK_FAILED_PARAMETER]?: string;
+}
+
+const accountLinkedIdentitiesRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "linked-identities",
+  component: LinkedIdentitiesSection,
+  validateSearch: (search: Record<string, unknown>): LinkedIdentitiesSearch =>
+    typeof search[LINK_FAILED_PARAMETER] === "string"
+      ? { [LINK_FAILED_PARAMETER]: search[LINK_FAILED_PARAMETER] }
+      : {},
   staticData: { title: "Account" },
 });
 
@@ -564,6 +591,7 @@ export const router = createRouter({
       accountProfileRoute,
       accountAppearanceRoute,
       accountPasskeysRoute,
+      accountLinkedIdentitiesRoute,
       accountSignedInDevicesRoute,
     ]),
     homeRoute,

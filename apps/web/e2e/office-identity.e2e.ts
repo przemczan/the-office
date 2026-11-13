@@ -7,10 +7,11 @@ import {
   OFFICE_IDENTITY_SETTINGS_PATH,
   officeSshKeySchema,
 } from "@the-office/contracts";
-import { E2E_STORAGE_STATE } from "./e2e-user.ts";
+import { E2E_STORAGE_STATE, NOT_SIGNED_IN } from "./e2e-user.ts";
 import { FAKE_GITHUB_URL, installApp } from "./fake-github.ts";
 import { serveRepository } from "./git-host.ts";
 import { E2E_HOST_KEY_FINGERPRINT } from "./ssh-host.ts";
+import { screenshotScenario } from "./task-screenshots.ts";
 import { createTemporaryRepository } from "./temporary-repository.ts";
 
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -48,6 +49,7 @@ test.describe.serial("Sign in with GitHub", () => {
       storageState: E2E_STORAGE_STATE,
     });
     await api.delete("/api/github/sign-in");
+    await api.delete("/api/account/linked-identities/github");
     await api.dispose();
   });
 
@@ -96,6 +98,47 @@ test.describe.serial("Sign in with GitHub", () => {
     await expect(
       page.getByRole("link", { name: "Install the App on more repositories" }),
     ).toBeVisible();
+  });
+
+  test("a user links their GitHub account and continues with it, leaving Sign in with GitHub as it was", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    // Settings lists the callback URLs Continue with GitHub needs; registering listed them already.
+    await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+    const continueWith = page.getByRole("region", { name: "Continue with GitHub" });
+    await expect(continueWith).toContainText("/api/sign-in/github/callback");
+    await screenshotScenario(page, "settings-office-identity-continue-with-github", {
+      fullPage: true,
+    });
+
+    // The same GitHub account as the git identity's, office-user, linked from the account.
+    await page.goto("/account/linked-identities");
+    await page.getByRole("button", { name: "Link GitHub" }).click();
+    await expect(page).toHaveURL("/account/linked-identities");
+    await expect(page.locator(".account-identity")).toContainText("office-user");
+    await screenshotScenario(page, "account-linked-identities");
+
+    // A browser not signed in continues with it from the sign-in page.
+    const fresh = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      storageState: NOT_SIGNED_IN,
+    });
+    try {
+      const signingIn = await fresh.newPage();
+      await signingIn.goto("/sign-in?returnTo=%2Fsettings%2Foffice-identity");
+      await screenshotScenario(signingIn, "sign-in-continue-with-github");
+      await signingIn.getByRole("button", { name: "Continue with GitHub" }).click();
+
+      await expect(signingIn).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
+      // Sign in with GitHub is untouched: still signed in, its token still listing repositories.
+      await expect(signingIn.getByText("Signed in as")).toBeVisible();
+      await expect(signingIn.getByText("office-user", { exact: true })).toBeVisible();
+      const repositories = await signingIn.request.get("/api/github/repositories");
+      expect(repositories.status()).toBe(200);
+    } finally {
+      await fresh.close();
+    }
   });
 
   test(

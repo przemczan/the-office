@@ -5,26 +5,31 @@ import {
   type GitHubAppManifestForm,
 } from "@the-office/contracts";
 import type { Request } from "express";
+import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
 import { AppRegistration } from "../../application/app-registration.js";
 import { GitHubAppRegistrationFailed } from "../../domain/github-app.js";
-import { textOrUndefined } from "./query-text.js";
+import { textOrUndefined } from "../../../../platform/http/query-text.js";
 import { officeOriginOf, returnUrlsOf } from "./github-return-urls.js";
 
 /** Registering the GitHub App by its manifest, from Settings › Office identity. */
 @Controller("github/app")
 export class GitHubAppController {
-  constructor(private readonly registration: AppRegistration) {}
+  constructor(
+    private readonly registration: AppRegistration,
+    private readonly addresses: OfficeAddresses,
+  ) {}
 
   /**
    * The form the browser posts to GitHub. GitHub sends the browser back to the address it reached
-   * The Office on, which is the Office's own origin whatever address the service listens on.
+   * The Office on, which is the Office's own origin whatever address the service listens on; the
+   * App also lists Continue with GitHub's callback there and at the public address.
    */
   @Get("manifest")
   manifest(@Req() request: Request): GitHubAppManifestForm {
-    const officeOrigin = officeOriginOf(request);
+    const officeOrigin = officeOriginOf(request, this.addresses);
     const { action, manifest } = this.registration.manifestForm(
       officeOrigin,
-      returnUrlsOf(officeOrigin),
+      returnUrlsOf(officeOrigin, this.addresses.publicAddress),
     );
     return { action, manifest: JSON.stringify(manifest) };
   }

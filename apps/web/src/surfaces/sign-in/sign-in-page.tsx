@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Button, Card, useAppearance } from "@the-office/ui";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { SIGN_IN_FAILED_PARAMETER } from "@the-office/contracts";
+import { Alert, Button, Card, useAppearance } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { userQueries } from "../../api/users.ts";
 import { OfficeMark } from "../../shell/office-mark.tsx";
@@ -11,7 +13,7 @@ import "./sign-in.css";
 /**
  * The sign-in page, outside the shell (spec §2.10): at first run the first user's form, otherwise
  * only the ways to sign in that work at the address the page was opened at, as the service lists
- * them.
+ * them, and why Continue with a provider didn't sign in, when it came back refused.
  */
 export function SignInPage(): ReactNode {
   const page = useQuery(userQueries.signInPage());
@@ -38,6 +40,7 @@ export function SignInPage(): ReactNode {
             }
           />
         )}
+        <ProviderRefusal />
         {page.data && (
           <Card>
             {firstRun ? (
@@ -49,6 +52,24 @@ export function SignInPage(): ReactNode {
         )}
       </div>
     </main>
+  );
+}
+
+/** Why the provider's trip back signed nobody in; dismissed by the user. */
+function ProviderRefusal(): ReactNode {
+  const search = useSearch({ from: "/sign-in" });
+  const navigate = useNavigate({ from: "/sign-in" });
+  const reason = search[SIGN_IN_FAILED_PARAMETER];
+  if (reason === undefined) return null;
+  const { [SIGN_IN_FAILED_PARAMETER]: _dismissed, ...rest } = search;
+  return (
+    <Alert
+      tone="danger"
+      title="You weren't signed in"
+      onClose={() => void navigate({ search: rest, replace: true })}
+    >
+      {reason}
+    </Alert>
   );
 }
 

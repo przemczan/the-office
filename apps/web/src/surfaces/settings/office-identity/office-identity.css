@@ -92,3 +92,39 @@
 .known-host-key-type {
   color: var(--fg-3);
 }
+
+/* ---- Continue with GitHub: the callback URLs to add to the App, each with Copy */
+.office-identity-continue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.office-identity-subtitle {
+  margin: 0;
+  font: var(--type-label);
+}
+
+.office-identity-callbacks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.office-identity-callback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.office-identity-callback code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: var(--type-mono);
+}

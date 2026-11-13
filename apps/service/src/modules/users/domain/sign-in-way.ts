@@ -1,11 +1,12 @@
+import type { IdentityProviderId } from "./linked-identity.js";
 import type { PageAddress } from "./page-address.js";
 import { relyingPartyAt } from "./relying-party.js";
 
 /**
- * The ways to sign in (spec §2.10): a password and a passkey now; Continue with GitHub and
- * Continue with Google join as their Tasks add them, each with the addresses it works at.
+ * The ways to sign in (spec §2.10): a password, a passkey, and Continue with each identity
+ * provider, each with the addresses it works at.
  */
-export type SignInWayKind = "password" | "passkey";
+export type SignInWayKind = "password" | "passkey" | IdentityProviderId;
 
 /**
  * Why a way doesn't work on the page's address: it is an IP address, which a passkey can't be

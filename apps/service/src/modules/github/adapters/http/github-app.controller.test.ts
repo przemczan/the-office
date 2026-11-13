@@ -1,3 +1,4 @@
+import { request as httpRequest } from "node:http";
 import type { INestApplication } from "@nestjs/common";
 import {
   GITHUB_APP_REGISTRATION_FAILED_PARAMETER,
@@ -11,6 +12,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { GitHubModule } from "../../github.module.js";
@@ -26,19 +28,47 @@ let url: string;
 let apps: GitHubAppForTests;
 let published: DomainEvent[];
 
+const PUBLIC_ADDRESS = "https://office.example.com";
+
 beforeEach(async () => {
   github = await FakeGitHub.start();
+  await startOffice(undefined);
+});
+
+async function startOffice(publicAddress: string | undefined): Promise<void> {
   apps = new GitHubAppForTests();
   ({ app, url } = await startTestApplication({
     imports: [EventsModule, EventStreamModule, GitHubModule.register(github.urls)],
     overrides: [
       { provide: GitHubAppRepository, useValue: apps },
       { provide: GitHubSignInRepository, useValue: new GitHubSignInForTests() },
+      { provide: OfficeAddresses, useValue: new OfficeAddresses(publicAddress) },
     ],
   }));
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
-});
+}
+
+/** The manifest's callback URLs, the form asked for at `host`, as a browser there would. */
+function callbackUrlsAt(host: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const { port } = new URL(url);
+    const outgoing = httpRequest(
+      { host: "127.0.0.1", port, path: "/api/github/app/manifest", headers: { host } },
+      (incoming) => {
+        let text = "";
+        incoming.setEncoding("utf8");
+        incoming.on("data", (chunk: string) => (text += chunk));
+        incoming.on("end", () => {
+          const form = gitHubAppManifestFormSchema.parse(JSON.parse(text));
+          resolve((JSON.parse(form.manifest) as { callback_urls: unknown }).callback_urls);
+        });
+      },
+    );
+    outgoing.on("error", reject);
+    outgoing.end();
+  });
+}
 
 afterEach(async () => {
   await app.close();
@@ -121,5 +151,31 @@ describe("/api/github/app", () => {
     expect(conversions()).toBe(0);
     expect(apps.app).toBeUndefined();
     expect(published).toEqual([]);
+  });
+
+  it("lists Sign in with GitHub's callback first, then Continue with GitHub's here and at the public address", async () => {
+    await app.close();
+    await startOffice(PUBLIC_ADDRESS);
+    const { port } = new URL(url);
+
+    expect(await callbackUrlsAt(`localhost:${port}`)).toEqual([
+      `http://localhost:${port}/api/github/sign-in/callback`,
+      `http://localhost:${port}/api/sign-in/github/callback`,
+      `${PUBLIC_ADDRESS}/api/sign-in/github/callback`,
+    ]);
+    // Behind the reverse proxy the request looks like plain HTTP: the public address is the setting's.
+    expect(await callbackUrlsAt("office.example.com")).toEqual([
+      `${PUBLIC_ADDRESS}/api/github/sign-in/callback`,
+      `${PUBLIC_ADDRESS}/api/sign-in/github/callback`,
+    ]);
+  });
+
+  it("lists Continue with GitHub's callback only here when The Office has no public address", async () => {
+    const { port } = new URL(url);
+
+    expect(await callbackUrlsAt(`127.0.0.1:${port}`)).toEqual([
+      `http://127.0.0.1:${port}/api/github/sign-in/callback`,
+      `http://127.0.0.1:${port}/api/sign-in/github/callback`,
+    ]);
   });
 });

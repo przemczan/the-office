@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { IdentityProviderId } from "./linked-identity.js";
 
 // The events name the user and their devices, never a password, hash or token.
 
@@ -88,6 +89,27 @@ export class PasskeyRemoved extends DomainEvent {
   constructor(
     readonly userId: string,
     readonly passkeyId: string,
+  ) {
+    super();
+  }
+}
+
+/** A user linked their identity at a provider from their account. */
+export class IdentityLinked extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly provider: IdentityProviderId,
+    linkedAt: Date,
+  ) {
+    super(linkedAt);
+  }
+}
+
+/** A user unlinked their identity at a provider: it signs nobody in any more. */
+export class IdentityUnlinked extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly provider: IdentityProviderId,
   ) {
     super();
   }

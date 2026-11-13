@@ -40,7 +40,7 @@ describe("the sign-in page", () => {
 
     await until(() => expect(formNamed(page, "Sign in with a password")).not.toBeNull());
     expect(page.querySelectorAll("form")).toHaveLength(1);
-    expect(Object.keys(SIGN_IN_WAYS)).toEqual(["password", "passkey"]);
+    expect(Object.keys(SIGN_IN_WAYS)).toEqual(["password", "passkey", "github"]);
   });
 
   it("asks for the first user at first run, and signs them in", async () => {

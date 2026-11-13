@@ -26,7 +26,7 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: OverPageSearch, SignInSearch, IdeasSearch, InitiativeSearch, TaskSearch, HireSearch, OfficeIdentitySearch, router, OfficeRouter
+- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TaskSearch, HireSearch, OfficeIdentitySearch, router, OfficeRouter
 - `signed-out.ts`: officeQueryClient, sendToSignIn
 - Tests: app.test.tsx
 
@@ -39,6 +39,7 @@
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, ThreadEvents, ThreadEventsContext, EventStreamProvider, useThreadEvents, useConnectedEventStream, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, ThreadSubscription, SIGNED_OUT_CLOSE_CODE, RECONNECT_DELAYS_MS, EventStream
 - `github.ts`: gitHubQueries, gitHubAppManifestForm, startGitHubSignIn, signOutOfGitHub, gitHubEventInvalidations
+- `linked-identities.ts`: LINKED_IDENTITIES, linkedIdentityQueries, continueWith, startLinking, unlinkIdentity
 - `mcp-servers.ts`: mcpServerQueries, addMcpServer, readPastedConfig, changeMcpServer, changeMcpServerState, assignMcpServer, removeMcpServer, mcpServerEventInvalidations
 - `notifications.ts`: nowQueries, notificationQueries, setTiming, setRoutingChannel, resetRouting, reportActivity, notificationEventCacheUpdates
 - `office-identity.ts`: officeIdentityQueries, regenerateSshKey, scanHost, confirmFingerprint

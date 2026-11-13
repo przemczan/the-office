@@ -7,6 +7,7 @@ import { PostgresGitHubSignIn } from "./adapters/postgres/postgres-github-sign-i
 import { GitHubWebEvents } from "./adapters/websocket/github-web-events.js";
 import { AppRegistration } from "./application/app-registration.js";
 import { GitHubAccess } from "./application/github-access.js";
+import { GitHubIdentities } from "./application/github-identities.js";
 import { GitHubPullRequests } from "./application/github-pull-requests.js";
 import { GitHubSignIn } from "./application/github-sign-in.js";
 import { GITHUB_URLS, GitHubUrls } from "./application/github-urls.js";
@@ -17,7 +18,8 @@ import { GitHubSignInRepository } from "./ports/github-sign-in-repository.js";
 
 /**
  * Sign in with GitHub (spec §5.3): the GitHub App registered by its manifest, the user's sign-in
- * through it, their token in use, and pull requests opened as them. GitHub's base URLs are given, so tests talk to a fake GitHub server instead.
+ * through it, their token in use, and pull requests opened as them; and who a user of The Office is
+ * on GitHub, for Continue with GitHub, through the same App. GitHub's base URLs are given, so tests talk to a fake GitHub server instead.
  */
 @Module({})
 export class GitHubModule {
@@ -34,10 +36,11 @@ export class GitHubModule {
         SignInChanges,
         GitHubSignIn,
         GitHubAccess,
+        GitHubIdentities,
         GitHubPullRequests,
         GitHubWebEvents,
       ],
-      exports: [GitHubAccess, GitHubPullRequests],
+      exports: [GitHubAccess, GitHubIdentities, GitHubPullRequests],
     };
   }
 }

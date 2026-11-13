@@ -5,10 +5,14 @@ import { RequestAccessModule } from "../../platform/http/request-access.module.j
 import { Schedule } from "../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
-import { startTestApplication, type TestApplication } from "../../../test/test-application.js";
+import {
+  startTestApplication,
+  type TestApplication,
+  type TestApplicationOptions,
+} from "../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../test/test-database.js";
 import { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
-import { UsersModule } from "./users.module.js";
+import { UsersModule, type UsersModuleOptions } from "./users.module.js";
 
 export const PUBLIC_ADDRESS = "https://office.example.com";
 
@@ -19,6 +23,10 @@ export interface UsersApplication extends TestApplication {
 export interface UsersApplicationOptions {
   /** The database it runs on: the run's shared one unless the test brings its own. */
   readonly databaseUrl?: string;
+  /** The identity providers bound, none unless the test brings some, such as `FakeIdentityProvider`. */
+  readonly identityProviders?: UsersModuleOptions;
+  /** Replaces these providers wherever they are bound, such as `SecondSteps`. */
+  readonly overrides?: TestApplicationOptions["overrides"];
 }
 
 /**
@@ -27,19 +35,23 @@ export interface UsersApplicationOptions {
  */
 export async function startUsersApplication({
   databaseUrl = testDatabaseUrl(),
+  identityProviders = { imports: [], identityProviders: [] },
+  overrides = [],
 }: UsersApplicationOptions = {}): Promise<UsersApplication> {
+  const users = UsersModule.register(identityProviders);
   const started = await startTestApplication({
     imports: [
       DatabaseModule.forRoot({ url: databaseUrl }),
       EventsModule,
       EventStreamModule,
-      UsersModule,
+      users,
       RequestAccessModule.register({
         publicAddress: PUBLIC_ADDRESS,
-        imports: [UsersModule],
+        imports: [users],
         signedInRequests: CookieSignedInRequests,
       }),
     ],
+    overrides,
     requestAccess: "guarded",
   });
   return { ...started, schedule: started.app.get(Schedule) as ManualSchedule };
@@ -87,7 +99,8 @@ export function send(
           resolve({
             status: incoming.statusCode ?? 0,
             headers: incoming.headers,
-            body: text === "" ? undefined : JSON.parse(text),
+            // A redirect's body is Express's words for it, not JSON.
+            body: incoming.headers["content-type"]?.includes("json") ? JSON.parse(text) : undefined,
           }),
         );
       },

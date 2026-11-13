@@ -181,6 +181,8 @@ describe("the whole app, signed out", () => {
         { method: "POST", path: "/api/sign-in/first-user" },
         { method: "POST", path: "/api/sign-in/password" },
         { method: "POST", path: "/api/sign-in/set-password" },
+        { method: "POST", path: "/api/sign-in/github" },
+        { method: "GET", path: "/api/sign-in/github/callback" },
         { method: "GET", path: "/api/health" },
       ]),
     );
@@ -193,6 +195,10 @@ describe("the whole app, signed out", () => {
         { method: "PATCH", path: "/api/account" },
         { method: "POST", path: "/api/account/password" },
         { method: "PUT", path: "/api/account/appearance" },
+        { method: "GET", path: "/api/account/linked-identities" },
+        { method: "POST", path: "/api/account/linked-identities/github" },
+        { method: "DELETE", path: "/api/account/linked-identities/github" },
+        { method: "GET", path: "/api/account/identity-callback-urls/github" },
       ]),
     );
 

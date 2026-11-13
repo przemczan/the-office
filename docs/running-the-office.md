@@ -66,6 +66,16 @@ A passkey is kept for one address, its relying party: `localhost`, or the public
 - **A domain name.** The public address must be a name such as `office.example.com`, not an IP address, and reached over HTTPS (with `X-Forwarded-Proto: https`, as above). At `127.0.0.1`, on a local network IP over plain HTTP, or at the public address over plain HTTP, the sign-in page and the account hide passkeys and say where they work instead.
 - **The same address as when it was added.** A passkey added at `localhost` works only at `localhost` (at any port), and one added at the public address only there; a user who uses both adds one at each. Changing `OFFICE_PUBLIC_ADDRESS` to another name leaves the passkeys added at the old one useless: the account marks them as for an address no longer The Office's, to be removed, and new ones are added at the new address.
 
+### Continue with GitHub
+
+Users sign in with their GitHub account through the GitHub App registered for Sign in with GitHub, by its user authorization flow; there is nothing new to register. Each user links their GitHub account from their account (Account › Linked identities) first, and only a linked account signs in. It never changes Sign in with GitHub: The Office reads who the GitHub user is, revokes the token GitHub handed out at once and keeps nothing of it. What it needs of the App:
+
+- **A callback URL for each address users sign in at.** GitHub sends the browser back only to a URL the App lists: `/api/sign-in/github/callback` on each address, such as `http://localhost:4310/api/sign-in/github/callback`, `http://192.168.1.20:4310/api/sign-in/github/callback` and `https://office.example.com/api/sign-in/github/callback`. An App registered from The Office lists the one of the address it was registered from and of the public address; Settings › Office identity lists this address's and the public address's, to add on GitHub in the App's settings under General › Identifying and authorizing users (Add Callback URL). An App lists at most 10. Sign in with GitHub's own callback stays first: GitHub sends a callback URL it doesn't list to the first one, whose page then says to add it. A user not signed in gets only the guard's refusal there, since that page needs a signed-in device; adding the URL is the fix either way.
+- **Public, for anyone but its owner.** The Office registers the App as private, and GitHub lets only a private App's owner (or the members of the organization owning it) authorize it. For other users to continue with GitHub, make it public in the App's settings under Advanced › Make public. The Office kept none of the App's private key, and only linked accounts sign in.
+- **Its authorization kept on the git identity's account.** Revoking the App's authorization on GitHub (Settings › Applications › Authorized GitHub Apps) from the account Sign in with GitHub uses ends that sign-in's token too.
+
+Not yet checked on real GitHub, only against the fake one: that GitHub takes a plain-HTTP callback URL on a local network IP, and whether a loopback callback (`localhost`, `127.0.0.1`) must match its port exactly.
+
 ## Setting a user's password on the host
 
 A user who lost their password gets back in through a command on the host, in the checkout:

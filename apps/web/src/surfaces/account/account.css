@@ -68,6 +68,37 @@
   gap: var(--space-2);
 }
 
+/* ---- Linked identities: one row per provider, its icon, the identity and its actions */
+.account-identities {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--pad-card);
+}
+
+.account-identity + .account-identity {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.account-identity-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.account-identity-when {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
 /* ---- Appearance: the Palette and Density cards, each a group of choices with their previews */
 .appearance-choices {
   display: grid;
