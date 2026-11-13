@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { agentStageRecord, agentStageWork, type BriefTask } from "./agent-stage-brief.js";
 import { allowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
+import type { AgentStage, Stage } from "./stage.js";
 
 const GIT = ["status", "diff"];
 const COMMANDS = [
@@ -223,6 +224,86 @@ describe("agentStageWork", () => {
 
     expect(work).toBe(
       "## The Stage: Implement\n\nBuild it.\n\n## The Office restarted\n\nThe Office restarted while this Stage ran, which ended your session at once, and the user chose to run the Stage again. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.\n\nThe user's words for it:\n\nSkip the dialog's tests.",
+    );
+  });
+});
+
+describe("agentStageWork's Later Stages", () => {
+  const implement: AgentStage = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    optional: false,
+    role: "developer",
+    brief: "Build it.",
+    session: "fresh",
+    budget: 100_000,
+  };
+  const lint: Stage = {
+    kind: "script",
+    key: "lint-after",
+    name: "Lint after review",
+    optional: false,
+    command: "build",
+  };
+  const review: AgentStage = {
+    ...implement,
+    key: "review",
+    name: "Review & fix",
+    role: "reviewer",
+    brief: "Review the diff.\nFix what you find.",
+  };
+  const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
+  const titles: Readonly<Record<string, string>> = { developer: "Developer", reviewer: "Reviewer" };
+
+  function workIn(stage: AgentStage, stages: readonly Stage[]): string {
+    return agentStageWork(stage, {
+      pipeline: { stages, commands: COMMANDS, roleTitle: (roleKey) => titles[roleKey] ?? roleKey },
+    });
+  }
+
+  it("lists every Stage after this one in order: a command, a Role and its brief, a Gate", () => {
+    expect(workIn(implement, [implement, review, lint, look])).toBe(
+      "## The Stage: Implement\n\nBuild it.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Review & fix (Agent Stage, Reviewer): Review the diff.\n  Fix what you find.\n- Lint after review (Script Stage): runs `npm run build`.\n- UI acceptance (Gate): the user looks at the work there and lets it continue or sends it back.",
+    );
+  });
+
+  it("leaves out the Stages before this one", () => {
+    const work = workIn(review, [implement, review, look]);
+
+    expect(work).not.toContain("- Implement");
+    expect(work).toContain("in order:\n\n- UI acceptance (Gate)");
+  });
+
+  it("marks an optional Stage, and one whose failure comes back here", () => {
+    const work = workIn(implement, [
+      implement,
+      { ...lint, onFailure: { goBackTo: "implement", rounds: 2 } },
+      { ...review, optional: true, onFailure: { goBackTo: "lint-after", rounds: 1 } },
+    ]);
+
+    expect(work).toContain(
+      "- Lint after review (Script Stage): runs `npm run build`. If it fails, the work comes back here.\n- Review & fix (Agent Stage, Reviewer, optional): Review the diff.\n  Fix what you find.",
+    );
+    expect(work).not.toContain("find. If it fails");
+  });
+
+  it("says what a Publish does, and names a command the Project hasn't set", () => {
+    const work = workIn(implement, [
+      implement,
+      { ...lint, name: "Lint", command: "lint" },
+      { ...lint, key: "publish", name: "Publish", command: "publish" },
+    ]);
+
+    expect(work).toContain(
+      "- Lint (Script Stage): runs the Project's command lint, which isn't set.",
+    );
+    expect(work).toContain("- Publish (Script Stage): The Office publishes the Task's work.");
+  });
+
+  it("tells the last Stage that no Stage comes after it", () => {
+    expect(workIn(implement, [look, implement])).toBe(
+      "## The Stage: Implement\n\nBuild it.\n\n## Later Stages\n\nNo Stage comes after this one in the Task's Pipeline.",
     );
   });
 });

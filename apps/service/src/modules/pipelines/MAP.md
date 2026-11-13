@@ -210,7 +210,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 ### domain/
 
 - `agent-command.ts`: AgentCommand, agentCommandOf, AgentCommandEnd, agentCommandAnswer
-- `agent-stage-brief.ts`: AGENT_STAGE_INSTRUCTIONS, BriefTask, EarlierResult, AgentStageRecord, agentStageRecord, AnsweredQuestion, CarriedRound, StageWorkReasons, HeldRun, agentStageWork, stageResultWords, earlierResults
+- `agent-stage-brief.ts`: AGENT_STAGE_INSTRUCTIONS, BriefTask, EarlierResult, AgentStageRecord, agentStageRecord, AnsweredQuestion, CarriedRound, StageWorkReasons, StagePipeline, HeldRun, agentStageWork, stageResultWords, earlierResults
 - `alarm-resume.ts`: ResumeKind, TaskResume, WalkAhead, SessionAhead, walkAhead, taskResumeOf
 - `allowed-commands.ts`: RunPermission, CommandPermission, NamedCommand, AllowedCommands, stageProjectCommands, allowedCommands, commandKeyRefusal
 - `base-words.ts`: TaskBases, baseWords, publishingModeWords
