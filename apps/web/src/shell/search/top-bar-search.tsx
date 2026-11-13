@@ -41,8 +41,9 @@ const SHORTCUT = /mac|iphone|ipad/i.test(navigator.userAgent) ? "⌘K" : "Ctrl K
 
 /**
  * The top bar's search (spec §2.1): Tasks, Initiatives, Ideas, people and documents by their text,
- * and records by their ID or a pasted link, in the Projects the Project filter shows. ⌘K or Ctrl+K focuses it; the arrows choose, Enter
- * opens. A document opens over the page, so the top bar holds it once the search closes.
+ * and records by their ID or a pasted link, in the Projects the Project filter shows. ⌘K or Ctrl+K
+ * focuses it; the arrows choose, Enter opens. A document opens over the page, so the top bar holds
+ * it once the search closes.
  */
 export function TopBarSearch({
   onOpenDocument,
