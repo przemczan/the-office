@@ -12,13 +12,15 @@ import {
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
+import { CARETAKER, CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import {
   caretakerChatInstructions,
   CHAT_OFFICE_TOOLS,
+  CREATE_INITIATIVE_TOOL,
   chatInstructions,
   chatOfficeTools,
-  CONSULTATION_OFFICE_TOOLS,
+  CONSULT_TOOL,
+  consultationOfficeTools,
   consultationInstructions,
   LIST_PIPELINES_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
@@ -100,7 +102,7 @@ describe("the Office instructions in a session's standing instructions", () => {
     {
       kind: "a Consultation",
       standing: (officeInstructions: string) =>
-        consultationInstructions({ card, officeInstructions }),
+        consultationInstructions({ card, officeInstructions }, true),
       theRest: "You are in a Consultation",
     },
   ])("in $kind", ({ standing, theRest }) => {
@@ -123,7 +125,7 @@ describe("the Office instructions in a session's standing instructions", () => {
 
 describe("chatOfficeTools", () => {
   it("gives a person's chat every chat tool", () => {
-    expect(chatOfficeTools("planner")).toEqual(CHAT_OFFICE_TOOLS);
+    expect(chatOfficeTools("planner")).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
   });
 
   it("leaves creating a Task out of the Office Manager's, who points to the Planner", () => {
@@ -131,6 +133,23 @@ describe("chatOfficeTools", () => {
 
     expect(tools).not.toContain("create_task");
     expect(tools).toContain("capture_idea");
+  });
+
+  it("gives creating an Initiative to the CTO's and the Office Manager's chats alone", () => {
+    expect(chatOfficeTools(CTO)).toContain(CREATE_INITIATIVE_TOOL);
+    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(CREATE_INITIATIVE_TOOL);
+    for (const roleKey of ["planner", "developer", DEVOPS, CARETAKER]) {
+      expect(chatOfficeTools(roleKey)).not.toContain(CREATE_INITIATIVE_TOOL);
+    }
+    expect(CHAT_OFFICE_TOOLS).not.toContain(CREATE_INITIATIVE_TOOL);
+  });
+
+  it("leaves creating an Initiative out of the CTO's and the Office Manager's Stage and Consultation tools", () => {
+    expect(roleOfficeTools(CTO)).not.toContain(CREATE_INITIATIVE_TOOL);
+    expect(roleOfficeTools(OFFICE_MANAGER)).not.toContain(CREATE_INITIATIVE_TOOL);
+    for (const roleKey of [CTO, OFFICE_MANAGER]) {
+      expect(consultationOfficeTools(roleKey, true)).not.toContain(CREATE_INITIATIVE_TOOL);
+    }
   });
 
   it("gives every chat every reading tool, the Office Manager's too", () => {
@@ -142,11 +161,25 @@ describe("chatOfficeTools", () => {
     expect(READING_OFFICE_TOOLS).toContain("read_attachment");
   });
 
-  it("gives every chat reading a Task's Stage history, the Office Manager's too, which no Agent Stage reads with", () => {
+  it("gives every chat reading a Task's Stage history, the Office Manager's too, apart from the reading tools every session has", () => {
     for (const roleKey of ["planner", DEVOPS, OFFICE_MANAGER]) {
       expect(chatOfficeTools(roleKey)).toContain(READ_STAGE_HISTORY_TOOL);
     }
     expect(READING_OFFICE_TOOLS).not.toContain(READ_STAGE_HISTORY_TOOL);
+  });
+
+  it("keeps the reading tools every session has to the records, so planning and Initiative Threads read no Stage history or Thread messages", () => {
+    expect(READING_OFFICE_TOOLS).toEqual([
+      "list_projects",
+      "list_people",
+      READ_ROLE_TOOL,
+      "list_tasks",
+      "read_task",
+      "list_ideas",
+      "read_idea",
+      "read_initiative",
+      "read_attachment",
+    ]);
   });
 
   it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {
@@ -176,6 +209,7 @@ describe("chatOfficeTools", () => {
       READ_SKILL_UPDATE_TOOL,
       PROPOSE_SKILL_UPDATE_TOOL,
       READ_REPOSITORY_TOOL,
+      CONSULT_TOOL,
     ]);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_PROJECT_PIPELINE_TOOL);
@@ -211,13 +245,14 @@ describe("chatOfficeTools", () => {
   });
 });
 
-describe("CONSULTATION_OFFICE_TOOLS", () => {
-  it("gives a Consultant every reading tool, and no Decision or Consultation of their own", () => {
-    expect(CONSULTATION_OFFICE_TOOLS).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
-    expect(CONSULTATION_OFFICE_TOOLS).not.toContain(OPEN_DECISION_TOOL);
+describe("consultationOfficeTools", () => {
+  it("gives a Consultant every reading tool, and no Decision of their own", () => {
+    const tools = consultationOfficeTools("cto", true);
+    expect(tools).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
+    expect(tools).not.toContain(OPEN_DECISION_TOOL);
   });
 
   it("gives a Consultant reading the Task's Stage history", () => {
-    expect(CONSULTATION_OFFICE_TOOLS).toContain(READ_STAGE_HISTORY_TOOL);
+    expect(consultationOfficeTools("cto", false)).toContain(READ_STAGE_HISTORY_TOOL);
   });
 });

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../domain/message.js";
 import type { Thread } from "../../domain/thread.js";
-import { logMessages } from "../../domain/thread-changes.js";
+import { logMessages, openDecision } from "../../domain/thread-changes.js";
 import type { LoggedMessagesRange } from "../../ports/thread-repository.js";
 import { aUserMessage } from "../../domain/thread.fixtures.js";
 import {
@@ -49,6 +49,36 @@ describe("PostgresThreadRepository", () => {
     await expect(
       repository.listIn({ kind: "chat", roleKey: `role-${randomUUID()}` }),
     ).resolves.toEqual([]);
+  });
+
+  it("keeps a call made from a chat on no Task, with its kind, apart from Waiting on you", async () => {
+    const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
+    await repository.add(thread);
+    const call = {
+      kind: "request" as const,
+      question: "Set up the Project's commands.",
+      context: "The user asked for it.",
+      options: [],
+      recommendation: { option: 0, reason: "Only Devops drafts them." },
+      putTo: "devops",
+      askedAt: AT,
+    };
+
+    const { thread: waiting } = await repository.update(thread.id, (latest) =>
+      openDecision(latest, { ...call, id: randomUUID() }),
+    );
+    const [opened] = waiting.openDecisions;
+
+    expect(opened).toMatchObject({ kind: "request", taskId: undefined, putTo: "devops" });
+    await expect(repository.decision(opened?.id ?? "")).resolves.toEqual(opened);
+    await expect(repository.find(thread.id)).resolves.toMatchObject({ openDecisions: [opened] });
+    expect(await repository.unansweredOnNoTask()).toContainEqual(opened);
+    // One open call per chat Thread holds in the database too, past the domain's own rule.
+    await expect(
+      repository.update(thread.id, (latest) =>
+        openDecision({ ...latest, openDecisions: [] }, { ...call, id: randomUUID() }),
+      ),
+    ).rejects.toThrow(/"decisions"/);
   });
 
   it("saves a change with the messages it logged, in their order", async () => {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { TaskPaused, TaskResumed, TaskStopped } from "../../work/index.js";
+import { TaskPaused, TaskResumed, TaskStateChanged, TaskStopped } from "../../work/index.js";
 import {
   AN_INTERRUPTED_SESSION,
   aDoneResult,
@@ -33,6 +33,15 @@ async function pause(taskId: string): Promise<void> {
   const { state } = await pipelines.tasks.read(taskId);
   pipelines.tasks.put(taskId, { state: "paused", pipelineId: "for-tests" });
   await pipelines.app.get(EventBus).publish(new TaskPaused(taskId, state as "in-progress"));
+}
+
+/** The user's Drop of the Task, or of its Initiative, as Work announces it once it is Dropped. */
+async function drop(taskId: string): Promise<void> {
+  const { state } = await pipelines.tasks.read(taskId);
+  pipelines.tasks.put(taskId, { state: "dropped", pipelineId: "for-tests" });
+  await pipelines.app
+    .get(EventBus)
+    .publish(new TaskStateChanged(taskId, state as "in-progress", "dropped"));
 }
 
 /** The user's Resume, as Work announces it, waiting for the walk it starts. */
@@ -89,6 +98,23 @@ describe("Stop", () => {
     expect(pipelines.git.commits).toEqual([]);
     expect(pipelines.decisions.on(taskId)).toEqual([]);
     expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
+  });
+});
+
+describe("Drop", () => {
+  it("stops a started Task's running turn now, as Stop does, and the walk goes on with no Stage", async () => {
+    pipelines = await startPipelinesApplication([AN_INTERRUPTED_SESSION]);
+    const taskId = randomUUID();
+    whileTheFirstTurnRuns(taskId, drop);
+
+    await walkStages(pipelines, [implement, review], taskId);
+
+    const [run, ...more] = await runsOf(pipelines, taskId);
+    expect(run?.outcome).toMatchObject({ status: "failed", interrupted: "stop" });
+    expect(more).toEqual([]);
+    expect(pipelines.stageThreads.interrupted).toEqual([run?.threadId]);
+    expect(pipelines.stageThreads.requests).toHaveLength(1);
+    expect((await pipelines.tasks.read(taskId)).state).toBe("dropped");
   });
 });
 

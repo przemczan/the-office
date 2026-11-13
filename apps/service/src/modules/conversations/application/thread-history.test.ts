@@ -11,6 +11,7 @@ import { aThread } from "../domain/thread.fixtures.js";
 import { logMessages } from "../domain/thread-changes.js";
 import { ProjectRecordSource } from "../ports/project-record-source.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { StageThreadMessages } from "./stage-thread-messages.js";
 import { ThreadHistory } from "./thread-history.js";
 import { WorkRecords } from "./work-records.js";
 
@@ -33,6 +34,7 @@ beforeAll(async () => {
     database: true,
     providers: [
       ThreadHistory,
+      StageThreadMessages,
       WorkRecords,
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       {
@@ -102,16 +104,17 @@ afterAll(async () => {
   await app.close();
 });
 
-/** A Thread with the person in the home, its messages logged from `time` on that day, a minute apart. */
+/** A Thread with the person in the home, its messages logged from `time` on the day, a minute apart. */
 async function logged(
   roleKey: string,
   home: Home,
   time: string,
   drafts: readonly MessageDraft[],
+  day: string = DAY,
 ): Promise<Thread> {
   const thread = aThread({ id: randomUUID(), home, roleKey, stageThread: home.kind === "task" });
   await repository.add(thread);
-  const start = new Date(`${DAY}T${time}:00.000Z`).getTime();
+  const start = new Date(`${day}T${time}:00.000Z`).getTime();
   const messages = drafts.map((draft, index) => ({
     ...draft,
     id: randomUUID(),
@@ -191,6 +194,72 @@ describe("ThreadHistory", () => {
   ])("answers %o with a plain sentence", async (asked, sentence) => {
     await expect(history.read({ ...onTheDay, ...asked })).resolves.toMatch(
       new RegExp(`^${sentence}`),
+    );
+  });
+});
+
+describe("StageThreadMessages", () => {
+  // A day of its own, so the Threads above count none of these messages.
+  const STAGE_DAY = "2032-07-16";
+  const at = (time: string) => new Date(`${STAGE_DAY}T${time}:00.000Z`);
+  let stageThread: Thread;
+
+  beforeAll(async () => {
+    stageThread = await logged(
+      DEVELOPER,
+      { kind: "task", taskId: TASK },
+      "13:00",
+      [
+        { kind: "person", roleKey: DEVELOPER, text: "Before the run." },
+        { kind: "person", roleKey: DEVELOPER, text: "Tried the old route first." },
+        { kind: "tool-activity", roleKey: DEVELOPER, tool: "Bash", summary: "npm test\nFAIL" },
+        { kind: "person", roleKey: DEVELOPER, text: `It failed: ${"x".repeat(5_000)}` },
+        { kind: "person", roleKey: DEVELOPER, text: "After the run." },
+      ],
+      STAGE_DAY,
+    );
+    await logged(
+      CARETAKER,
+      { kind: "task", taskId: TASK },
+      "13:02",
+      [{ kind: "person", roleKey: CARETAKER, text: "Another Thread on the Task." }],
+      STAGE_DAY,
+    );
+  });
+
+  const runWindow = () => ({
+    taskId: TASK,
+    threadId: stageThread.id,
+    from: at("13:01"),
+    to: at("13:03"),
+  });
+
+  it("reads the Stage Thread's messages in the run's window alone, worded as read_threads words them", async () => {
+    const words = await app.get(StageThreadMessages).words(runWindow(), 60_000);
+
+    expect(words).toContain(
+      `## Jim, the Developer's Stage Thread on the Task "Fix login" (Task ${TASK})`,
+    );
+    expect(words).toContain(
+      "- 2032-07-16 13:01 UTC · Jim, the Developer: Tried the old route first.",
+    );
+    expect(words).toContain("- 2032-07-16 13:02 UTC · Jim, the Developer: [Bash] npm test …");
+    expect(words).toMatch(/It failed: x+\n {2}… \d+ characters cut …/);
+    expect(words).not.toContain("Before the run.");
+    expect(words).not.toContain("After the run.");
+    expect(words).not.toContain("Another Thread on the Task.");
+    await expect(app.get(StageThreadMessages).count(runWindow())).resolves.toBe(3);
+  });
+
+  it("keeps within the limit it is given, saying how many messages are left out and how read_threads reads on", async () => {
+    const words = await app.get(StageThreadMessages).words(runWindow(), 2_000);
+
+    expect(words.length).toBeLessThanOrEqual(2_000);
+    expect(words).toContain("Tried the old route first.");
+    expect(words).not.toContain("It failed");
+    const lastShown = (await repository.messages(stageThread.id))[2];
+    expect(words).toContain(
+      `… 1 more message is left out to keep this answer within 2000 characters: read_threads with taskId "${TASK}", from "2032-07-16T13:01:00.000Z", to "2032-07-16T13:03:00.000Z" and after "${lastShown?.id}" reads on, where your session has it.`,
     );
   });
 });

@@ -341,3 +341,23 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-takes-answer-for-the-user"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-jan-calls-nina","text":"Jan calls Nina from his chat"}}
+{"step":"event","event":{"kind":"tool-call","callId":"call-nina","tool":"consult","officeTool":true,"input":{"person":"Devops","kind":"request","question":"Add an End to end test command to Called up.","context":"The user asked me to have it set up; I can't draft Project commands.","why":"Only Devops drafts a Project's commands."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"call-nina","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I asked Nina to set it up.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-jan-calls-nina"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"answer-from-nina","text":"Nina's answer"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"Nina drafted it: apply her Proposal in her chat.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-from-nina"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-nina-called","text":"Nina's Consultation in her chat"}}
+{"step":"event","event":{"kind":"tool-call","callId":"draft-commands","tool":"propose_project_commands","officeTool":true,"input":{"project":"called-up","change":{"commands":[{"key":"test-e2e","name":"End to end","kind":"test","commandLine":"npm run e2e"}]}},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"draft-commands","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"answer-jan","tool":"answer_consultation","officeTool":true,"input":{"answer":"I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"answer-jan","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"Drafted, and answered Jan.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-nina-called"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}

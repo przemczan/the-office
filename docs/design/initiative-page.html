@@ -1,0 +1,2922 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Initiative page · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, copied as they were on 2026-11-13) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-inverse: var(--white);
+        --fg-disabled: var(--gray-300);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --text-xl: 18px;
+        --text-2xl: 20px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono: 400 var(--text-sm) / 1.5 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.06);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --stage-mark-size: 24px;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --surface-hover: var(--gray-25);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --fg-disabled: #4a4a46;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+      /* packages/ui/src/appearance/densities/comfortable.css */
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+        --text-body: 14px;
+      }
+
+      /* ---------- Base (design-system/tokens/base.css) ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.92em;
+      }
+      @supports selector(::-webkit-scrollbar) {
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          border: 3px solid transparent;
+          border-radius: var(--radius-full);
+          background: var(--border-strong) padding-box;
+        }
+      }
+      @supports not selector(::-webkit-scrollbar) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: var(--border-strong) transparent;
+        }
+      }
+      :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      @keyframes pulse-ring {
+        0% {
+          opacity: 0.7;
+          transform: scale(0.9);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.35);
+        }
+      }
+      @keyframes live-dot {
+        50% {
+          opacity: 0.35;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+
+      /* ---------- packages/ui, re-drawn: badge, button, select, input, alert, card, fold button ---------- */
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-badge);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.dot::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        background: none;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+        font-size: var(--text-xs);
+      }
+      .btn.primary {
+        background: var(--accent);
+        color: var(--white);
+      }
+      .btn.secondary {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-1);
+      }
+      .btn.secondary:hover,
+      .btn.ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn.ghost {
+        color: var(--fg-2);
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .field-label {
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+      .field-hint {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .select {
+        position: relative;
+        display: inline-flex;
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .select select {
+        width: 100%;
+        min-width: 200px;
+        max-width: 100%;
+        height: var(--control-sm);
+        padding: 0 28px 0 10px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        text-overflow: ellipsis;
+        appearance: none;
+        cursor: pointer;
+      }
+      .select svg {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        color: var(--fg-3);
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+      .input {
+        width: 100%;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        font: 400 var(--text-sm) / 1 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .input:focus {
+        border-color: var(--accent);
+        outline: none;
+      }
+      .alert {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-lg);
+        background: var(--info-subtle);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+      }
+      .alert > svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--info-fg);
+      }
+      .alert.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .alert.warning > svg {
+        color: var(--warning-fg);
+      }
+      .alert-title {
+        display: block;
+        font-weight: 600;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 12px;
+        padding: 14px 18px 0 16px;
+      }
+      .card-head .task-block-title {
+        flex: 1;
+        font: var(--type-card-title);
+      }
+      .card-body {
+        padding: 10px 18px 16px 16px;
+      }
+      /* packages/ui FoldButton: a chevron that turns, and whatever it holds */
+      .fold-button {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        min-width: 0;
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .fold-chevron {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        color: var(--fg-3);
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .fold-button[aria-expanded="true"] .fold-chevron {
+        transform: rotate(90deg);
+      }
+      .project-mark {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 5px;
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .project-mark::before,
+      .mark-square {
+        content: "";
+        flex: none;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: var(--mark);
+      }
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--tone);
+        color: var(--white);
+        font: 600 10px/1 var(--font-sans);
+      }
+      .live-dot {
+        display: inline-block;
+        flex: none;
+        width: 6px;
+        height: 6px;
+        margin-right: 4px;
+        border-radius: 50%;
+        background: var(--info);
+        vertical-align: 1px;
+        animation: live-dot 1.6s ease-in-out infinite;
+      }
+      .link {
+        font-weight: 500;
+        color: var(--fg-1);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 3px;
+      }
+      .link:hover {
+        text-decoration-color: currentColor;
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .stage {
+        display: grid;
+        gap: 12px;
+        padding: 16px 24px 40px;
+      }
+      .scenario-note {
+        max-width: 130ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .address {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .address code {
+        overflow-wrap: anywhere;
+        font: 500 var(--text-xs) / 1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(720px, calc(100vh - 250px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(720px, min(844px, calc(100vh - 250px)));
+      }
+      .reference {
+        display: grid;
+        gap: 20px;
+        max-width: 1500px;
+        margin: 12px auto 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference-columns {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 12px 28px;
+      }
+      .reference h2 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference h3 {
+        margin: 0 0 8px;
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+      .reference p {
+        margin: 0 0 6px;
+      }
+      .reference strong,
+      .reference code {
+        color: var(--fg-1);
+      }
+      .compare {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 640px), 1fr));
+        gap: 16px;
+      }
+      .compare figure {
+        min-width: 0;
+        margin: 0;
+      }
+      .compare figcaption {
+        margin-bottom: 8px;
+      }
+      .compare .card-body {
+        padding: 12px;
+      }
+      .anatomy {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+        gap: 16px;
+      }
+      .anatomy svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .anatomy .node-box {
+        fill: var(--surface);
+        stroke: var(--border);
+      }
+      .anatomy .node-text {
+        font: 500 12px var(--font-sans);
+        fill: var(--fg-2);
+      }
+      .anatomy .edge {
+        fill: none;
+        stroke: var(--fg-3);
+        stroke-width: 1.5;
+      }
+      .anatomy .head {
+        fill: var(--fg-3);
+      }
+      .anatomy .dimension {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 1;
+      }
+      .anatomy .dimension-text {
+        font: 500 10.5px var(--font-mono);
+        fill: var(--accent-subtle-fg);
+      }
+      .numbers {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 4px 14px;
+        margin: 8px 0 0;
+      }
+      .numbers dt {
+        font: 500 var(--text-xs) / 1.45 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .numbers dd {
+        margin: 0;
+      }
+
+      /* ---------- The app's frame: rail, top bar ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail-item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .frame.w-390 .top {
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .top h1 {
+        flex: none;
+        margin: 0;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+      }
+      .crumb {
+        min-width: 0;
+        overflow: hidden;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .main {
+        position: relative;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        container: page / inline-size;
+      }
+      .toast {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        z-index: 30;
+        max-width: min(420px, calc(100% - 32px));
+        padding: 10px 14px;
+        border-radius: var(--radius-lg);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        font: var(--type-body-sm);
+        box-shadow: var(--shadow-3);
+      }
+
+      /* ---------- The Initiative page (work.css, re-drawn) ---------- */
+      .task-page {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 16px var(--pad-page) var(--pad-page);
+      }
+      .task-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 10px 16px;
+      }
+      .task-head-grow {
+        flex: 1 1 420px;
+        min-width: 0;
+      }
+      .task-head h2 {
+        margin: 0;
+        font: 600 var(--text-2xl) / 1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .task-head-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        align-items: center;
+        margin-top: 6px;
+        font-size: var(--text-body);
+        color: var(--fg-2);
+      }
+      .task-head-meta > :not(:first-child)::before {
+        content: "·";
+        margin-right: 14px;
+        color: var(--border-strong);
+      }
+      .task-head-projects {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+      }
+      .task-head-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .task-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr);
+        gap: var(--gap-panel);
+        align-items: start;
+        margin-top: 6px;
+      }
+      .task-columns.narrow {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .task-record {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      .task-block-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .task-block-title svg {
+        color: var(--fg-2);
+      }
+      .record-fold {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .record-fold-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding-right: 14px;
+      }
+      .record-fold-row:hover {
+        background: var(--surface-hover);
+      }
+      .record-fold-head {
+        gap: 8px;
+        padding: 12px 0 12px 16px;
+      }
+      .record-fold-head .task-block-title {
+        flex: none;
+        margin-right: 4px;
+        font: var(--type-card-title);
+      }
+      .record-fold-summary {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-2);
+        font: 400 var(--text-body) / 1.45 var(--font-sans);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .record-fold-head[aria-expanded="true"] .record-fold-summary {
+        visibility: hidden;
+      }
+      .record-fold-body {
+        padding: 2px 18px 16px 16px;
+        font-size: var(--text-body);
+      }
+      .task-plan,
+      .task-quiet {
+        margin: 0;
+        font: 400 var(--text-body) / 1.55 var(--font-sans);
+      }
+      .task-quiet {
+        color: var(--fg-3);
+      }
+      .task-quiet.sm {
+        font: var(--type-caption);
+      }
+      .initiative-pipeline,
+      .initiative-short-name {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .initiative-short-name-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .initiative-short-name-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .initiative-short-name-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-width: 420px;
+      }
+      .initiative-short-name-editor .actions {
+        display: flex;
+        gap: 6px;
+      }
+      .initiative-branches,
+      .initiative-publishing-tasks {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .initiative-branches li,
+      .initiative-publishing-tasks li {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+      }
+
+      /* The Task graph (task-graph.tsx and work.css) */
+      .task-graph {
+        position: relative;
+        overflow-x: auto;
+        padding: 4px 2px 8px;
+      }
+      .task-graph-edges {
+        position: absolute;
+        top: 0;
+        left: 0;
+        overflow: visible;
+        pointer-events: none;
+      }
+      .task-graph-edges path {
+        fill: none;
+        stroke: var(--border-strong);
+        stroke-width: 1.5;
+      }
+      .task-graph-edges path.blocker-done {
+        stroke: var(--success-border);
+      }
+      .task-graph-edges .task-graph-arrow {
+        fill: var(--border-strong);
+        stroke: none;
+      }
+      .task-graph-columns {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 44px;
+        width: max-content;
+        min-width: 100%;
+      }
+      .task-graph-column {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-card);
+      }
+      .task-graph-node {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        width: 200px;
+        padding: var(--pad-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: inherit;
+        font: 400 var(--text-body) / 1.45 var(--font-sans);
+      }
+      .task-graph-node:hover {
+        border-color: var(--border-strong);
+      }
+      .task-graph-node.outside {
+        border-style: dashed;
+        background: transparent;
+      }
+      .task-graph-node-title {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        font-weight: 500;
+      }
+      .task-graph-node-title .mark-square {
+        margin-top: 5px;
+      }
+      .task-graph-node-sub {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* New: the arrows that come in straight, in today's 44px gap */
+      .task-graph.proposed .task-graph-edges path.edge {
+        stroke-linejoin: round;
+      }
+      .task-graph.proposed .task-graph-edges path.edge.from-outside {
+        stroke-dasharray: 4 3;
+      }
+      .task-graph.proposed .task-graph-edges path.head {
+        fill: var(--border-strong);
+        stroke: none;
+      }
+      .task-graph.proposed .task-graph-edges path.head.blocker-done {
+        fill: var(--success-border);
+      }
+      .graph-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 18px;
+        margin: 0 0 6px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .graph-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .graph-legend svg path.line {
+        fill: none;
+        stroke: var(--border-strong);
+        stroke-width: 1.5;
+      }
+      .graph-legend svg path.tip {
+        fill: var(--border-strong);
+      }
+      .graph-legend .done path.line {
+        stroke: var(--success-border);
+      }
+      .graph-legend .done path.tip {
+        fill: var(--success-border);
+      }
+      .graph-legend .outside path.line {
+        stroke-dasharray: 4 3;
+      }
+      /* In the light palette a Done blocker's green-100 line all but vanishes on white: proposed a stronger green. */
+      [data-palette="light"] .graph-legend .done path.line,
+      [data-palette="light"] .task-graph.proposed .task-graph-edges path.edge.blocker-done {
+        stroke: color-mix(in oklab, var(--success) 45%, var(--success-border));
+      }
+      [data-palette="light"] .graph-legend .done path.tip,
+      [data-palette="light"] .task-graph.proposed .task-graph-edges path.head.blocker-done {
+        fill: color-mix(in oklab, var(--success) 45%, var(--success-border));
+      }
+
+      /* The Stage mark (stage-mark.tsx and work.css) */
+      .stage-mark {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: var(--stage-mark-size);
+        height: var(--stage-mark-size);
+        border: 2px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--fg-3);
+      }
+      .stage-mark svg {
+        stroke-width: 3;
+      }
+      .stage-mark-kind-gate {
+        width: calc(var(--stage-mark-size) * 0.875);
+        height: calc(var(--stage-mark-size) * 0.875);
+        margin: calc(var(--stage-mark-size) * 0.0625) 0;
+        border-radius: 5px;
+        transform: rotate(45deg);
+      }
+      .stage-mark-kind-gate svg {
+        transform: rotate(-45deg);
+      }
+      .stage-mark-done {
+        border-color: var(--success);
+        background: var(--success);
+        color: var(--white);
+      }
+      .stage-mark-failed {
+        border-color: var(--danger);
+        background: var(--danger);
+        color: var(--white);
+      }
+      .stage-mark-waiting-on-you {
+        border-color: var(--warning);
+        background: var(--warning);
+        color: var(--gray-950);
+      }
+      .stage-mark-paused,
+      .stage-mark-stopped {
+        border-color: var(--warning);
+        color: var(--warning-fg);
+      }
+      .stage-mark-running {
+        border-color: var(--info);
+        color: var(--info);
+      }
+      .stage-mark-running::after {
+        content: "";
+        position: absolute;
+        inset: -3px;
+        border: 2px solid var(--info);
+        border-radius: inherit;
+        animation: pulse-ring 1.6s var(--ease-out) infinite;
+      }
+      .stage-mark-skipped {
+        border-style: dashed;
+      }
+      /* New: a Stage no Publishing Task walks yet, drawn lighter than a pending one */
+      .stage-mark-placeholder {
+        border-style: dashed;
+        border-color: var(--border-strong);
+        background: var(--surface);
+      }
+
+      /* ---------- New: the Pipeline diagram ---------- */
+      .pipeline-diagram-block {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .pd-choice {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 12px 24px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .pd-choice .initiative-short-name {
+        gap: 4px;
+        padding-top: 2px;
+      }
+      .pd-choice > .field-hint {
+        flex: 1 1 220px;
+        margin: 0;
+        padding-top: 2px;
+      }
+      /* A Project a block: its mark and its Pipeline, its branch and Publishing Task, then its own Stages */
+      .pd-projects {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .pd-project {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+        padding: 14px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .pd-project:first-child {
+        padding-top: 0;
+        border-top: 0;
+      }
+      .pd-project:last-child {
+        padding-bottom: 0;
+      }
+      .pd-project-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 12px;
+        min-width: 0;
+      }
+      .pd-project-head .select select {
+        min-width: 180px;
+      }
+      .pd-pipeline-name {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 8px;
+        min-width: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .pd-pipeline-name b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .pd-pipeline-name > :not(:first-child)::before {
+        content: "·";
+        margin-right: 8px;
+        color: var(--border-strong);
+      }
+      .pd-none-line {
+        margin: 0;
+        padding: 8px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-md);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .pd-none {
+        padding: 12px 14px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+      }
+      .pd-none p {
+        margin: 0;
+        font: 400 var(--text-body) / 1.5 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .pd-none p + p {
+        margin-top: 2px;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .pipeline-diagram {
+        --stages: 5;
+        min-width: 0;
+      }
+      .pipeline-diagram[data-fit="across"] .pd-stacked-view,
+      .pipeline-diagram[data-fit="stacked"] .pd-across-view {
+        display: none;
+      }
+      /* Across: the Project's Stages on a line, each with its mark, its name and its state (or who works it) */
+      .pd-cells {
+        display: grid;
+        grid-template-columns: repeat(var(--stages), minmax(0, 1fr));
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .pd-cell-name {
+        font: 600 var(--text-xs) / 1.35 var(--font-sans);
+        color: var(--fg-1);
+        text-align: center;
+        overflow-wrap: anywhere;
+      }
+      .pd-cell-who {
+        min-height: 15px;
+        font: 400 11px/1.4 var(--font-sans);
+        color: var(--fg-3);
+        text-align: center;
+      }
+      .pd-row-label {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        min-width: 0;
+        font: var(--type-body-sm);
+      }
+      .pd-row-label .link {
+        overflow-wrap: anywhere;
+      }
+      .pd-row-pending {
+        color: var(--fg-3);
+      }
+      .pd-branch {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        font: 500 11.5px/1.4 var(--font-mono);
+        color: var(--fg-2);
+        overflow-wrap: anywhere;
+      }
+      .pd-branch svg {
+        flex: none;
+        color: var(--fg-3);
+      }
+      .pd-branch .pd-branch-note {
+        font: 400 var(--text-xs) / 1.4 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .pd-published {
+        font: var(--type-caption);
+        color: var(--success-fg);
+      }
+      .pd-track {
+        --mark-top: 0px;
+
+        position: relative;
+        padding-top: var(--mark-top);
+      }
+      .pd-track.has-loop {
+        --mark-top: 30px;
+      }
+      .pd-line,
+      .pd-reached {
+        position: absolute;
+        top: calc(var(--mark-top) + 11px);
+        height: 2px;
+        border-radius: 2px;
+        pointer-events: none;
+      }
+      .pd-line {
+        background: var(--border-strong);
+      }
+      .pd-track.placeholder .pd-line {
+        background: repeating-linear-gradient(90deg, var(--border-strong) 0 4px, transparent 4px 8px);
+      }
+      .pd-reached {
+        background: var(--success);
+      }
+      .pd-reached.live {
+        background: linear-gradient(90deg, var(--success) calc(100% - 40px), var(--info));
+      }
+      .pd-cell {
+        display: flex;
+        justify-content: center;
+        min-width: 0;
+      }
+      .pd-cell-button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        min-width: 0;
+        max-width: 100%;
+        padding: 0 4px 4px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        cursor: pointer;
+      }
+      span.pd-cell-button {
+        cursor: default;
+      }
+      .pd-cell-state {
+        min-height: 15px;
+        font: 500 11px/1.4 var(--font-sans);
+        color: var(--fg-3);
+        text-align: center;
+      }
+      button.pd-cell-button:hover .pd-cell-name {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      button.pd-cell-button:hover .stage-mark {
+        box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--fg-3);
+      }
+      .pd-cell.selected .stage-mark {
+        box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent);
+      }
+      .pd-cell-running .pd-cell-state {
+        color: var(--info-fg);
+      }
+      .pd-cell-failed .pd-cell-state {
+        color: var(--danger-fg);
+      }
+      .pd-cell-waiting-on-you .pd-cell-state,
+      .pd-cell-stopped .pd-cell-state {
+        color: var(--warning-fg);
+      }
+      .pd-cell-done .pd-cell-state {
+        color: var(--success-fg);
+      }
+      /* A loop-back, square with small rounded corners as on the Task page's rail */
+      .pd-arc {
+        position: absolute;
+        top: 9px;
+        height: calc(var(--mark-top) - 9px - 6px);
+        border: 1.5px dashed var(--danger);
+        border-bottom: 0;
+        border-radius: 5px 5px 0 0;
+        pointer-events: none;
+      }
+      .pd-arc::after {
+        content: "";
+        position: absolute;
+        bottom: -6px;
+        left: -4.75px;
+        border: 4px solid transparent;
+        border-top: 7px solid var(--danger);
+        border-bottom: 0;
+      }
+      .pd-arc::before {
+        content: "";
+        position: absolute;
+        right: -1.5px;
+        bottom: -6px;
+        height: 6px;
+        border-right: 1.5px dashed var(--danger);
+      }
+      .pd-arc-mark {
+        position: absolute;
+        top: -1px;
+        left: 50%;
+        padding: 1px 7px;
+        border: 1px solid var(--danger-border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: 600 11px/1.4 var(--font-sans);
+        white-space: nowrap;
+        color: var(--danger-fg);
+        transform: translate(-50%, -50%);
+        pointer-events: auto;
+        cursor: pointer;
+      }
+      /* Stacked: the Project's Stages down a vertical line, a Stage a row, when they don't fit across */
+      .pd-s-stages {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .pd-s-stage {
+        position: relative;
+        display: block;
+      }
+      /* The line runs through the marks' centres: 4px padding + half the 24px mark */
+      .pd-s-stage::before,
+      .pd-s-stage::after {
+        content: "";
+        position: absolute;
+        left: 15px;
+        width: 2px;
+        background: var(--border-strong);
+      }
+      .pd-s-stage::before {
+        top: 0;
+        bottom: 50%;
+      }
+      .pd-s-stage::after {
+        top: 50%;
+        bottom: 0;
+      }
+      .pd-s-stage.placeholder::before,
+      .pd-s-stage.placeholder::after {
+        background: repeating-linear-gradient(180deg, var(--border-strong) 0 4px, transparent 4px 8px);
+      }
+      .pd-s-stage.first::before,
+      .pd-s-stage.last::after {
+        display: none;
+      }
+      .pd-s-stage.reached-above::before,
+      .pd-s-stage.reached-below::after {
+        background: var(--success);
+      }
+      .pd-s-stage .pd-cell-button {
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 6px 4px;
+        text-align: left;
+      }
+      /* A Gate's diamond is narrower: kept on the line's centre */
+      .pd-s-stage .stage-mark-kind-gate {
+        margin-inline: calc(var(--stage-mark-size) * 0.0625);
+      }
+      .pd-s-name {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 8px;
+        min-width: 0;
+      }
+      .pd-s-name b {
+        font: 600 var(--text-sm) / 1.35 var(--font-sans);
+        color: var(--fg-1);
+        overflow-wrap: anywhere;
+      }
+      .pd-s-name .pd-cell-state,
+      .pd-s-name .pd-cell-who {
+        min-height: 0;
+        text-align: left;
+      }
+      button.pd-cell-button:hover .pd-s-name b {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .pd-loop-words {
+        display: block;
+        margin: 4px 0 0;
+        padding: 2px 4px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        font: var(--type-caption);
+        color: var(--danger-fg);
+        text-align: left;
+        cursor: pointer;
+      }
+      .pd-loop-words:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      /* The conversation, as today (initiative-conversation.tsx), in brief */
+      .conversation {
+        display: flex;
+        flex-direction: column;
+        min-height: 460px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .conversation-tabs {
+        display: flex;
+        gap: 18px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .conversation-tab {
+        margin-bottom: -1px;
+        padding: 11px 0 9px;
+        border-bottom: 2px solid transparent;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .conversation-tab.on {
+        border-color: var(--accent);
+        color: var(--fg-1);
+      }
+      .conversation-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+      }
+      .turn {
+        display: flex;
+        gap: 10px;
+      }
+      .turn-name {
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+      }
+      .turn-name span {
+        margin-left: 6px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .turn-text {
+        margin: 2px 0 0;
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .composer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 12px 12px;
+        padding: 8px 8px 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .conversation-handle {
+        position: absolute;
+        top: 50%;
+        right: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 7px;
+        border: 1px solid var(--border-strong);
+        border-right: 0;
+        border-radius: 8px 0 0 8px;
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        writing-mode: vertical-rl;
+        box-shadow: var(--shadow-1);
+        cursor: pointer;
+        transform: translateY(-50%);
+      }
+
+      /* The Stage history window, as the Task page opens it (stage-history-window.tsx), in brief */
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: max(24px, 7%) 12px 12px;
+        background: rgba(15, 15, 14, 0.42);
+      }
+      .window {
+        display: flex;
+        flex-direction: column;
+        width: min(980px, 94%);
+        height: 86%;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .window-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 16px 12px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .window-head h3 {
+        margin: 3px 0 0;
+        font: var(--type-section-title);
+        overflow-wrap: anywhere;
+      }
+      .window-strip {
+        display: flex;
+        gap: 4px;
+        padding: 10px 14px;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--border);
+      }
+      .window-strip button {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px 5px 6px;
+        border: 0;
+        border-radius: var(--radius-full);
+        background: none;
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        color: var(--fg-2);
+        cursor: pointer;
+        --stage-mark-size: 18px;
+      }
+      .window-strip button:hover {
+        background: var(--control-hover);
+      }
+      .window-strip button[aria-current="true"] {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+        box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent);
+      }
+      .window-strip .stage-mark svg {
+        width: 10px;
+        height: 10px;
+      }
+      .window-body {
+        display: grid;
+        flex: 1;
+        grid-template-columns: 260px minmax(0, 1fr);
+        min-height: 0;
+        overflow: auto;
+      }
+      .run-list {
+        margin: 0;
+        padding: 10px;
+        list-style: none;
+        border-right: 1px solid var(--border);
+      }
+      .run-list li {
+        padding: 9px 10px;
+        border-radius: var(--radius-lg);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .run-list li.on {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+      .run-list b {
+        display: block;
+        margin-bottom: 2px;
+        font: 600 var(--text-sm) / 1.4 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .run-detail {
+        padding: 16px 20px;
+        font: var(--type-body-sm);
+      }
+      .run-detail p {
+        max-width: 72ch;
+        margin: 0 0 10px;
+      }
+      .window-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+      }
+      .frame.w-390 .window-body {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .frame.w-390 .run-list {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      /* ---------- Widths: by the page's own width (container `page`), as work.css does ---------- */
+      @container page (max-width: 640px) {
+        .task-page {
+          padding: 12px 14px 20px;
+        }
+        .task-head h2 {
+          font-size: var(--text-xl);
+        }
+        .record-fold-head {
+          padding-left: 12px;
+        }
+        .record-fold-body {
+          padding: 2px 12px 14px;
+        }
+        .pd-choice .select select {
+          min-width: 0;
+        }
+        .pd-choice .field {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <p class="address" id="address"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+      <section class="reference" aria-label="What it proposes" id="reference"></section>
+    </main>
+    <script>
+      /* ---------- Icons (lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+        kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        "git-fork": '<circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"/><path d="M12 12v3"/>',
+        "git-branch": '<line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+        route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+        target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+        paperclip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+        lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+        "message-square": '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+        square: '<rect width="14" height="14" x="5" y="5" rx="2"/>',
+        minus: '<path d="M5 12h14"/>',
+        play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+        "triangle-alert": '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        "arrow-right": '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+      const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+
+      /* ---------- Mock data: `Initiative`, `Task`, `TaskStage` and `Pipeline` as packages/contracts has them ---------- */
+      const PROJECTS = {
+        "not-astray": { id: "not-astray", name: "not-astray", mark: "#14a38b", base: "main", publishing: "Merged into main" },
+        notnullsoft: { id: "notnullsoft", name: "notnullsoft", mark: "#7c5cd6", base: "main", publishing: "Pull request #214, merged into main" },
+      };
+      const CTO_NAME = "Michael";
+      const INITIATIVE = {
+        id: "7f3c2a90-51d8-4e0b-9a3c-0c51a2e6b1d4",
+        name: "Offline sync",
+        outcome: "Field notes written offline in not-astray reach notnullsoft's sync service once the phone is back online, and a conflict is shown to the user rather than lost.",
+        projectIds: ["not-astray", "notnullsoft"],
+        originIdea: "Work offline in the field",
+      };
+      /** The Stages of the library's Pipelines; `who` is what `whoWorks` says (pipeline-words.ts). */
+      const STAGE = {
+        integrate: { key: "integrate", name: "Integrate", kind: "agent", who: "Jim" },
+        review: { key: "review", name: "Review", kind: "agent", who: "Oscar" },
+        check: { key: "check", name: "Check", kind: "script", who: "verify" },
+        e2e: { key: "e2e", name: "End-to-end tests", kind: "script", who: "test:e2e" },
+        notes: { key: "notes", name: "Release notes", kind: "agent", who: "Jim", optional: true },
+        gate: { key: "your-review", name: "Your review", kind: "gate", who: "waits for you" },
+        publish: { key: "publish", name: "Publish", kind: "script", who: "publish" },
+      };
+      const PIPELINES = [
+        { id: "ship-an-initiative", name: "Ship an Initiative", stages: [STAGE.integrate, STAGE.review, STAGE.check, STAGE.gate, STAGE.publish] },
+        { id: "publish-straight-away", name: "Publish straight away", stages: [STAGE.integrate, STAGE.check, STAGE.publish] },
+        { id: "ship-with-tests-and-notes", name: "Ship with tests and notes", stages: [STAGE.integrate, STAGE.review, STAGE.check, STAGE.e2e, STAGE.notes, STAGE.gate, STAGE.publish] },
+      ];
+      const pipelineById = (id) => PIPELINES.find((pipeline) => pipeline.id === id);
+      const hasGate = (pipeline) => pipeline.stages.some(({ kind }) => kind === "gate");
+
+      /** The Initiative's Tasks but its Publishing Tasks, with a blocker from outside it; `column` is their depth (taskGraph). */
+      const GRAPH_TASKS = [
+        { id: "t-rate-limits", title: "Rate limits on the sync API", projectId: "notnullsoft", column: 0, blockedBy: [], outside: true, initiativeName: "API hardening" },
+        { id: "t-protocol", title: "Sync protocol v2 schema", projectId: "notnullsoft", column: 0, blockedBy: [] },
+        { id: "t-local-store", title: "Local store on SQLite", projectId: "not-astray", column: 0, blockedBy: [] },
+        { id: "t-endpoint", title: "Sync endpoint with a conflict log", projectId: "notnullsoft", column: 1, blockedBy: ["t-rate-limits", "t-protocol"] },
+        { id: "t-queue", title: "Offline queue for edits", projectId: "not-astray", column: 1, blockedBy: ["t-local-store"] },
+        { id: "t-conflicts", title: "Conflict resolution screen", projectId: "not-astray", column: 2, blockedBy: ["t-endpoint", "t-queue", "t-local-store"] },
+        { id: "t-status", title: "Sync status in Settings", projectId: "not-astray", column: 2, blockedBy: ["t-queue"] },
+        { id: "t-rollout", title: "Roll out behind a flag", projectId: "not-astray", column: 3, blockedBy: ["t-conflicts", "t-status"] },
+      ];
+      const graphTask = (id) => GRAPH_TASKS.find((task) => task.id === id);
+      const TASK_STATES = {
+        shaping: { "t-protocol": "shaping", "t-local-store": "shaping", "t-endpoint": "shaping", "t-queue": "shaping", "t-conflicts": "shaping", "t-status": "shaping", "t-rollout": "shaping" },
+        active: { "t-protocol": "done", "t-local-store": "done", "t-endpoint": "in-progress", "t-queue": "waiting-on-you", "t-conflicts": "ready", "t-status": "backlog", "t-rollout": "backlog" },
+        finished: { "t-protocol": "done", "t-local-store": "done", "t-endpoint": "done", "t-queue": "done", "t-conflicts": "done", "t-status": "dropped", "t-rollout": "done" },
+      };
+      /** The blocker from outside is another Initiative's, Done. */
+      const taskStateOf = (task, states) => (task.outside ? "done" : TASK_STATES[states][task.id]);
+
+      /** A Publishing Task, titled "<Initiative> → <Project>", and its Stages' states (TaskStage.state, wentBack). */
+      const publishingTask = (projectId, taskState, stages) => ({
+        id: `pt-${projectId}`,
+        title: `${INITIATIVE.name} → ${projectId}`,
+        projectId,
+        state: taskState,
+        stages,
+      });
+      const at = (state, extra = {}) => ({ state, ...extra });
+      const BRANCHES = INITIATIVE.projectIds.map((projectId) => ({ projectId, branch: "initiative/offline-sync" }));
+      /** Proposed: each Project the Initiative spans has a Pipeline of its own, by id, or null for None. */
+      const samePipeline = (pipelineId) => Object.fromEntries(INITIATIVE.projectIds.map((projectId) => [projectId, pipelineId]));
+      const EACH_ITS_OWN = { "not-astray": "ship-an-initiative", notnullsoft: "publish-straight-away" };
+      const PUBLISHING = {
+        publishing: [
+          publishingTask("not-astray", "waiting-on-you", { integrate: at("done"), review: at("done"), check: at("done"), "your-review": at("waiting-on-you"), publish: at("pending") }),
+          publishingTask("notnullsoft", "in-progress", {
+            integrate: at("running", { round: 2 }),
+            review: at("pending"),
+            check: at("failed", { wentBack: { stageKey: "integrate", round: 1, rounds: 2 } }),
+            "your-review": at("pending"),
+            publish: at("pending"),
+          }),
+        ],
+        done: [
+          publishingTask("not-astray", "done", { integrate: at("done"), review: at("done"), check: at("done"), "your-review": at("done"), publish: at("done") }),
+          publishingTask("notnullsoft", "done", { integrate: at("done", { round: 2 }), review: at("done"), check: at("done"), "your-review": at("done"), publish: at("done") }),
+        ],
+        dropped: [
+          publishingTask("not-astray", "dropped", { integrate: at("done"), review: at("stopped"), check: at("pending"), "your-review": at("pending"), publish: at("pending") }),
+          publishingTask("notnullsoft", "dropped", { integrate: at("pending"), review: at("pending"), check: at("pending"), "your-review": at("pending"), publish: at("pending") }),
+        ],
+        long: [
+          publishingTask("not-astray", "in-progress", { integrate: at("done"), review: at("done"), check: at("done"), e2e: at("running"), notes: at("pending"), "your-review": at("pending"), publish: at("pending") }),
+          publishingTask("notnullsoft", "waiting-on-you", { integrate: at("done"), review: at("done"), check: at("done"), e2e: at("done"), notes: at("skipped"), "your-review": at("waiting-on-you"), publish: at("pending") }),
+        ],
+      };
+
+      /* ---------- Words (work-words.ts, stage-rail-words.ts) ---------- */
+      const TASK_STATE_NAMES = { shaping: "Shaping", backlog: "Backlog", planning: "Planning", ready: "Ready", "in-progress": "In progress", "waiting-on-you": "Waiting on you", paused: "Paused", done: "Done", dropped: "Dropped" };
+      const TASK_STATE_TONES = { shaping: "", backlog: "", planning: "", ready: "", "in-progress": "success", "waiting-on-you": "warning", paused: "warning", done: "success", dropped: "danger" };
+      const STAGE_STATE_WORDS = { pending: "", running: "Running", "waiting-on-you": "Waiting on you", paused: "Paused", stopped: "Stopped", done: "Done", skipped: "Skipped", failed: "Failed" };
+      const STAGE_STATE_ICONS = { done: "check", failed: "x", "waiting-on-you": "pause", paused: "pause", stopped: "square", skipped: "minus" };
+      const INITIATIVE_STATES = { shaping: ["warning", `Shaping with ${CTO_NAME}`], active: ["info", "Active"], done: ["success", "Done"], dropped: ["danger", "Dropped"] };
+      const NONE_CONFIRMED = "None: publishes Task by Task";
+      const taskBadge = (taskState) => `<span class="badge dot ${TASK_STATE_TONES[taskState]}">${TASK_STATE_NAMES[taskState]}</span>`;
+      const projectMark = (projectId) => `<span class="project-mark" style="--mark:${PROJECTS[projectId].mark}">${PROJECTS[projectId].name}</span>`;
+      const stageMark = (stage, stageState) => {
+        const symbol = STAGE_STATE_ICONS[stageState];
+        return `<span class="stage-mark stage-mark-${stageState} stage-mark-kind-${stage.kind}">${symbol ? icon(symbol, 12) : ""}</span>`;
+      };
+
+      /* ---------- Scenarios ---------- */
+      const SCENARIOS = {
+        "shaping-none": {
+          label: "Shaping: None",
+          initiative: { state: "shaping", pipelineId: null, pipelines: samePipeline(null), shortName: null, branches: [] },
+          tasks: null,
+          note: {
+            today: "Shaping, with no Tasks yet and None as the Pipeline: the Tasks card says Michael drafts them with you; under Outcome, the Pipeline fold holds the select.",
+            proposed: "<strong>Shaping with None, no Tasks yet:</strong> the Tasks card folds to “None yet”. The Pipelines card has a block per Project, each with its own select, None in both; a dashed line says what None does there. <strong>Pick a Pipeline in one Project's select</strong> to see its Stages appear, the other Project staying None.",
+          },
+        },
+        "shaping-gate": {
+          label: "Shaping: with a Gate",
+          initiative: { state: "shaping", pipelineId: "ship-an-initiative", pipelines: samePipeline("ship-an-initiative"), shortName: "offline-sync", branches: [] },
+          tasks: "shaping",
+          note: {
+            today: "Shaping with a Pipeline: the fold lists its Stages in a line, then the Short name and the branch it makes at Confirm.",
+            proposed: "<strong>Shaping, both Projects with a Pipeline that has a Gate:</strong> the Short name sits at the top, once, as it names the branch in every Project. Each Project's block has its own select, the branch it gets at Confirm, and a preview of its Stages (the Gate a diamond). The Tasks drafted so far are in Shaping, their arrows grey. <strong>Edit</strong> the Short name to see both branches follow it, or <strong>choose another Pipeline</strong> for one Project.",
+          },
+        },
+        "shaping-no-gate": {
+          label: "Shaping: no Gate",
+          initiative: { state: "shaping", pipelineId: "publish-straight-away", pipelines: { "not-astray": null, notnullsoft: "publish-straight-away" }, shortName: "offline-sync", branches: [] },
+          tasks: "shaping",
+          note: {
+            today: "Shaping with a Pipeline that has no Gate: the warning sits under the Stages' line.",
+            proposed: "<strong>Shaping, one Project with a Pipeline without a Gate, the other with None:</strong> notnullsoft's block carries the warning “Publishes without your review” right above its Stages, which have no diamond. not-astray stays None: its Tasks publish on their own, and it gets no branch and no Publishing Task.",
+          },
+        },
+        active: {
+          label: "Active, before publishing",
+          initiative: { state: "active", pipelineId: "ship-an-initiative", pipelines: EACH_ITS_OWN, shortName: "offline-sync", branches: BRANCHES },
+          tasks: "active",
+          note: {
+            today: "<strong>The arrows today:</strong> each is one curve across a 44px gap. Where two Tasks sit at different heights the line still turns under the arrowhead, so it meets the arrow from the side: see Sync protocol → Sync endpoint, Local store → Offline queue, and the three into Conflict resolution screen.",
+            proposed: "<strong>Active, before any Publishing Task</strong>, the graph for the arrows: Tasks at different heights, an edge that skips a column (Local store → Conflict resolution screen), three edges into one Task, a dashed blocker from outside the Initiative, and green edges from Done blockers. Every arrow leaves straight and comes in straight, in today's 44px gap. The Pipelines card shows each Project's own Pipeline (not-astray: Ship an Initiative, notnullsoft: Publish straight away) with its branch and its Stages dashed, waiting for its Publishing Task.",
+          },
+        },
+        publishing: {
+          label: "Publishing in 2 Projects",
+          initiative: { state: "active", pipelineId: "ship-an-initiative", pipelines: EACH_ITS_OWN, shortName: "offline-sync", branches: BRANCHES },
+          tasks: "finished",
+          publishing: "publishing",
+          note: {
+            today: "Publishing: the fold lists the two Publishing Tasks with their state; how far each has got, and why, is only on each Task's page.",
+            proposed: "<strong>Publishing in two Projects, each through its own Pipeline:</strong> every other Task is Done or Dropped, so each Project has its Publishing Task. not-astray's (Ship an Initiative) is <strong>Waiting on you</strong> at Your review, the Gate; notnullsoft's (Publish straight away) Check <strong>failed</strong> and the work went back to Integrate, round 1 of 2. <strong>Select a Stage</strong> (or the ↺ mark) for its history; a title opens its Task.",
+          },
+        },
+        done: {
+          label: "Done",
+          initiative: { state: "done", pipelineId: "ship-an-initiative", pipelines: EACH_ITS_OWN, shortName: "offline-sync", branches: BRANCHES },
+          tasks: "finished",
+          publishing: "done",
+          note: {
+            today: "Done: the Pipeline's name, the branches kept for you to delete, and the two Publishing Tasks, Done.",
+            proposed: "<strong>Done:</strong> both Publishing Tasks walked every Stage of their own Pipeline, so their tracks are green to the end; each says how it published, and its branch is kept for you to delete. The folded line says “Published in 2 Projects”.",
+          },
+        },
+        dropped: {
+          label: "Dropped",
+          initiative: { state: "dropped", pipelineId: "ship-an-initiative", pipelines: EACH_ITS_OWN, shortName: "offline-sync", branches: BRANCHES },
+          tasks: "finished",
+          publishing: "dropped",
+          note: {
+            today: "Dropped while publishing: the branches are kept, and the Publishing Tasks show Dropped.",
+            proposed: "<strong>Dropped while publishing:</strong> not-astray's Publishing Task was stopped at Review, notnullsoft's never started; both were dropped with the Initiative. Each track keeps where it stopped, and the branches are kept for you to delete.",
+          },
+        },
+        "none-confirmed": {
+          label: "None, confirmed",
+          initiative: { state: "active", pipelineId: null, pipelines: samePipeline(null), shortName: null, branches: [] },
+          tasks: "active",
+          note: {
+            today: "Confirmed with None: the fold says None: publishes Task by Task.",
+            proposed: "<strong>Confirmed with None in every Project:</strong> the Pipelines card <strong>starts folded</strong>, as its line says all there is: “None: publishes Task by Task”. Unfolded, the dashed placeholder says what that means. It is still a fold, so it can be opened, and it is remembered once you do. With None in only some Projects, the card starts open, and those Projects' blocks say None.",
+          },
+        },
+        long: {
+          label: "Long Pipeline",
+          initiative: { state: "active", pipelineId: "ship-with-tests-and-notes", pipelines: samePipeline("ship-with-tests-and-notes"), shortName: "offline-sync", branches: BRANCHES },
+          tasks: "finished",
+          publishing: "long",
+          note: {
+            today: "A long Pipeline today is only its name in the fold.",
+            proposed: "<strong>A long Pipeline</strong>, 7 Stages, one optional (skipped in notnullsoft), here in both Projects. At 900px it fits across, and wide too once the record column gives it 672px (a window about 1400px wide); narrower, it stacks. <strong>At 390px</strong> the Stages don't fit at 96px each, so each Project's Stages stack: a Stage a row down a vertical line, its state beside its name, nothing scrolling sideways. Each Project decides on its own, so a short Pipeline can stay across beside a long one that stacks.",
+          },
+        },
+      };
+
+      /* ---------- State, as this browser holds it ---------- */
+      const state = {
+        view: "proposed",
+        scenario: "active",
+        width: "wide",
+        palette: "light",
+        folds: {},
+        choices: {},
+        shortNames: {},
+        editingShortName: false,
+        selected: undefined,
+        toast: undefined,
+      };
+      let toastTimer;
+      const scenario = () => SCENARIOS[state.scenario];
+      function initiative() {
+        const base = scenario().initiative;
+        const pipelineId = state.scenario in state.choices ? state.choices[state.scenario] : base.pipelineId;
+        // Proposed: chosen per Project, kept as `<scenario>:<Project>`.
+        const pipelines = Object.fromEntries(
+          INITIATIVE.projectIds.map((projectId) => {
+            const key = `${state.scenario}:${projectId}`;
+            return [projectId, key in state.choices ? state.choices[key] : base.pipelines[projectId]];
+          }),
+        );
+        const hasPipeline = state.view === "today" ? pipelineId !== null : Object.values(pipelines).some(Boolean);
+        const shortName = state.shortNames[state.scenario] ?? base.shortName ?? (hasPipeline ? "offline-sync" : null);
+        return { ...INITIATIVE, ...base, pipelineId, pipelines, shortName };
+      }
+      const publishingOf = () => (scenario().publishing ? PUBLISHING[scenario().publishing] : []);
+      /** Folds start as the block says until the user folds one, then are remembered (record-folds.ts); per Initiative, here per scenario. */
+      function isOpen(block) {
+        const key = `${state.view}:${state.scenario}:${block}`;
+        if (key in state.folds) return state.folds[key];
+        const ini = initiative();
+        if (block === "pipeline" && state.view === "proposed") return !(projectsWithPipeline(ini).length === 0 && ini.state !== "shaping");
+        return block === "tasks" || block === "pipeline" || block === "outcome";
+      }
+
+      /* ---------- The page ---------- */
+      function app() {
+        const ini = initiative();
+        const rail = ["home", "kanban", "users", "folder"].map((name) => `<span class="rail-item${name === "kanban" ? " on" : ""}">${icon(name, 18)}</span>`).join("");
+        const narrow = state.width !== "wide";
+        return `<div class="app">
+          <nav class="rail" aria-label="The Office"><span class="rail-mark">O</span>${rail}</nav>
+          <header class="top"><h1>Work</h1><span class="crumb">Initiatives › ${ini.name}</span></header>
+          <div class="main"><div class="task-page">
+            ${head(ini)}
+            ${state.view === "today" ? todayTasksBlock(ini) : tasksFold(ini)}
+            <div class="task-columns${narrow ? " narrow" : ""}">
+              <section class="task-record" aria-label="Record">${record(ini)}</section>
+              ${narrow ? "" : conversation(ini)}
+            </div>
+          </div></div>
+          ${narrow ? `<button type="button" class="conversation-handle" data-action="toast" data-value="The conversation's drawer opens over the page, as today.">${icon("message-square", 14)}Conversation</button>` : ""}
+          ${state.selected ? stageHistoryWindow() : ""}
+          ${state.toast ? `<div class="toast" role="status">${state.toast}</div>` : ""}
+        </div>`;
+      }
+      function progressWords(ini) {
+        const states = scenario().tasks;
+        const tasks = states ? GRAPH_TASKS.filter((task) => !task.outside).map((task) => ({ ...task, state: taskStateOf(task, states) })) : [];
+        const counted = [...tasks, ...publishingOf()].filter((task) => task.state !== "dropped");
+        const done = counted.filter((task) => task.state === "done").length;
+        const readyToStart = tasks.filter((task) => task.state === "ready" && task.blockedBy.every((id) => taskStateOf(graphTask(id), states) === "done")).length;
+        return `${done} of ${plural(counted.length, "Task", "Tasks")} done${readyToStart ? ` · ${readyToStart} ready to start` : ""}`;
+      }
+      function head(ini) {
+        const [tone, words] = INITIATIVE_STATES[ini.state];
+        const actions =
+          ini.state === "shaping"
+            ? `<button type="button" class="btn sm primary" data-action="toast" data-value="Confirm makes the Initiative active, as today.">${icon("check", 14)}Confirm</button>`
+            : ini.state === "active"
+              ? `<button type="button" class="btn sm secondary" data-action="toast" data-value="Start Ready Tasks, as today.">${icon("play", 12)}Start Ready Tasks</button>`
+              : "";
+        return `<header class="task-head">
+          <div class="task-head-grow">
+            <h2>${ini.name}</h2>
+            <div class="task-head-meta">
+              <span><span class="badge dot ${tone}">${words}</span></span>
+              <span class="task-head-projects">${ini.projectIds.map(projectMark).join("")}</span>
+              <span>${progressWords(ini)}</span>
+            </div>
+          </div>
+          <div class="task-head-actions">${actions}<button type="button" class="icon-button" aria-label="More" data-action="toast" data-value="The Initiative's menu, as today.">${icon("ellipsis", 16)}</button></div>
+        </header>`;
+      }
+
+      /* ---------- The Tasks block: today a card, proposed a fold ---------- */
+      function todayTasksBlock(ini) {
+        const states = scenario().tasks;
+        const body = states
+          ? `<p class="task-quiet">${GRAPH_TASKS.filter((task) => !task.outside).length} across ${plural(ini.projectIds.length, "Project", "Projects")}</p>${graph("today", states, "graph-page")}`
+          : `<p class="task-quiet">No Tasks yet. ${CTO_NAME} drafts them with you.</p>`;
+        return `<section class="card" aria-label="Tasks">
+          <div class="card-head"><span class="task-block-title">${icon("git-fork", 15)}Tasks</span><span class="task-quiet sm">An arrow means “must be Done first”</span></div>
+          <div class="card-body">${body}</div>
+        </section>`;
+      }
+      /** The folded line: what the graph holds, and how far it is. */
+      function tasksSummary(ini) {
+        const states = scenario().tasks;
+        if (!states) return "None yet";
+        const tasks = GRAPH_TASKS.filter((task) => !task.outside);
+        const where = `${tasks.length} across ${plural(ini.projectIds.length, "Project", "Projects")}`;
+        if (states === "shaping") return `${where} · in Shaping until you confirm`;
+        const count = (taskState) => tasks.filter((task) => taskStateOf(task, states) === taskState).length;
+        const parts = [
+          [count("done"), "done"],
+          [count("in-progress"), "in progress"],
+          [count("waiting-on-you"), "waiting on you"],
+          [count("dropped"), "dropped"],
+        ]
+          .filter(([number]) => number > 0)
+          .map(([number, words]) => `${number} ${words}`);
+        return [where, ...parts].join(" · ");
+      }
+      function tasksFold(ini) {
+        const states = scenario().tasks;
+        const body = states
+          ? `${graphLegend(states)}${graph("proposed", states, "graph-page")}`
+          : `<p class="task-quiet">No Tasks yet. ${CTO_NAME} drafts them with you in the conversation, straight onto this page.</p>`;
+        return recordFold({ block: "tasks", icon: "git-fork", title: "Tasks", summary: tasksSummary(ini), body });
+      }
+      const legendLine = () =>
+        `<svg width="30" height="10" viewBox="0 0 30 10" aria-hidden="true"><path class="line" d="M1,5 L22.5,5"/><path class="tip" d="M22,1 L30,5 L22,9 Z"/></svg>`;
+      function graphLegend(states) {
+        const edges = edgesOf(states);
+        const items = [`<span>${legendLine()}must be Done first</span>`];
+        if (edges.some(({ blockerDone }) => blockerDone)) items.push(`<span class="done">${legendLine()}its blocker is Done</span>`);
+        if (edges.some(({ outside }) => outside)) items.push(`<span class="outside">${legendLine()}from outside this Initiative</span>`);
+        return `<p class="graph-legend">${items.join("")}</p>`;
+      }
+      function recordFold({ block, icon: iconName, title, summary, body }) {
+        const open = isOpen(block);
+        return `<section class="record-fold" aria-label="${title}">
+          <div class="record-fold-row">
+            <button type="button" class="fold-button record-fold-head" aria-expanded="${open}" data-action="fold" data-value="${block}">
+              <span class="fold-chevron">${icon("chevron-right", 14)}</span>
+              <span class="task-block-title">${icon(iconName, 15)}${title}</span>
+              <span class="record-fold-summary">${escapeHtml(summary)}</span>
+            </button>
+          </div>
+          ${open ? `<div class="record-fold-body">${body}</div>` : ""}
+        </section>`;
+      }
+
+      /* ---------- The Task graph (task-graph.tsx): the nodes; the edges are drawn once laid out ---------- */
+      function graph(variant, states, id) {
+        const columns = [];
+        for (const task of GRAPH_TASKS) (columns[task.column] ??= []).push(task);
+        const nodes = columns
+          .map(
+            (column) => `<div class="task-graph-column">${column
+              .map((task) => {
+                const taskState = taskStateOf(task, states);
+                return `<a href="#" class="task-graph-node${task.outside ? " outside" : ""}" data-task="${task.id}" data-column="${task.column}" data-action="open-task" data-title="${escapeHtml(task.title)}">
+                  <span class="task-graph-node-title"><span class="mark-square" style="--mark:${PROJECTS[task.projectId].mark}" title="${task.projectId}"></span>${task.title}</span>
+                  <span class="task-graph-node-sub">${taskBadge(taskState)}${task.outside ? `<span>Initiative ${task.initiativeName}</span>` : ""}</span>
+                </a>`;
+              })
+              .join("")}</div>`,
+          )
+          .join("");
+        return `<div class="task-graph ${variant}" id="${id}" data-graph="${variant}" data-states="${states}" role="group" aria-label="Task graph">
+          <svg class="task-graph-edges" aria-hidden="true"></svg>
+          <div class="task-graph-columns">${nodes}</div>
+        </div>`;
+      }
+      function edgesOf(states) {
+        return GRAPH_TASKS.filter((task) => !task.outside).flatMap((task) =>
+          task.blockedBy.map((blockerId) => {
+            const blocker = graphTask(blockerId);
+            return { from: blockerId, to: task.id, blockerDone: taskStateOf(blocker, states) === "done", outside: Boolean(blocker.outside) };
+          }),
+        );
+      }
+      /** Each node's box in the graph's own coordinates, as `edgeCurves` measures it. */
+      function measure(element) {
+        const origin = element.getBoundingClientRect();
+        const boxes = new Map();
+        for (const node of element.querySelectorAll("[data-task]")) {
+          const rect = node.getBoundingClientRect();
+          const left = rect.left - origin.left + element.scrollLeft;
+          const top = rect.top - origin.top;
+          boxes.set(node.dataset.task, { left, right: left + rect.width, top, bottom: top + rect.height, middle: top + rect.height / 2, column: Number(node.dataset.column) });
+        }
+        return boxes;
+      }
+      function drawGraph(element) {
+        const svg = element.querySelector(".task-graph-edges");
+        // Measured without the last drawing, so a narrower page doesn't keep its width.
+        svg.setAttribute("width", "0");
+        svg.setAttribute("height", "0");
+        svg.setAttribute("width", String(element.scrollWidth));
+        svg.setAttribute("height", String(element.scrollHeight));
+        const edges = edgesOf(element.dataset.states);
+        const boxes = measure(element);
+        svg.innerHTML = element.dataset.graph === "today" ? todayEdges(element.id, edges, boxes) : proposedEdges(edges, boxes);
+      }
+
+      /** Today (`edgeCurves`): one cubic curve from the blocker's right edge to 6px before the waiting Task, an arrow marker scaled by the stroke. */
+      function todayEdges(id, edges, boxes) {
+        const marker = `arrow-${id}`;
+        const paths = edges.map(({ from, to, blockerDone }) => {
+          const blocker = boxes.get(from);
+          const waiting = boxes.get(to);
+          const x1 = blocker.right;
+          const y1 = blocker.middle;
+          const x2 = waiting.left - 6;
+          const y2 = waiting.middle;
+          const middle = (x1 + x2) / 2;
+          return `<path d="M${x1},${y1} C${middle},${y1} ${middle},${y2} ${x2},${y2}"${blockerDone ? ' class="blocker-done"' : ""} marker-end="url(#${marker})"/>`;
+        });
+        return `<defs><marker id="${marker}" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="task-graph-arrow"/></marker></defs>${paths.join("")}`;
+      }
+
+      /**
+       * Proposed: a straight run out of the blocker, the bend in the gap, and a straight run into the
+       * arrowhead, so the head always points along the line. The numbers the build takes.
+       */
+      const CURVE = {
+        columnGap: 44,
+        runOut: 6,
+        runIn: 4,
+        arrowLength: 8,
+        arrowWidth: 8,
+        tipGap: 2,
+        radius: 6,
+        portSpacing: 8,
+        portInset: 12,
+        laneSpacing: 4,
+        clearance: 10,
+        straighten: 8,
+      };
+      function proposedEdges(edges, boxes) {
+        const key = ({ from, to }) => `${from}>${to}`;
+        const drawn = edges.filter(({ from, to }) => boxes.has(from) && boxes.has(to));
+        const columns = new Map();
+        for (const box of boxes.values()) {
+          const column = columns.get(box.column) ?? { left: Infinity, right: -Infinity, boxes: [] };
+          column.left = Math.min(column.left, box.left);
+          column.right = Math.max(column.right, box.right);
+          column.boxes.push(box);
+          columns.set(box.column, column);
+        }
+        // The heights an edge runs at through the columns it skips, from the blocker's height to the waiting Task's.
+        const lanesOf = (edge, start, end) => {
+          const through = [];
+          for (let column = boxes.get(edge.from).column + 1; column < boxes.get(edge.to).column; column++) through.push(laneThrough(columns.get(column), through.at(-1) ?? start, end));
+          return through;
+        };
+        // Sketched from mid-height to mid-height, to order the ports.
+        const lanes = new Map(drawn.map((edge) => [key(edge), lanesOf(edge, boxes.get(edge.from).middle, boxes.get(edge.to).middle)]));
+        // Ports: several edges at one side of a Task spread 8px apart, ordered by the height each runs at next to it, so they don't cross.
+        const outY = new Map();
+        const inY = new Map();
+        const portReach = (box) => Math.max(0, (box.bottom - box.top) / 2 - CURVE.portInset);
+        const portFits = (box, y) => Math.abs(y - box.middle) <= portReach(box);
+        const spread = (list, box, nextHeight, into) => {
+          const sorted = [...list].sort((first, second) => nextHeight(first) - nextHeight(second));
+          const reach = portReach(box);
+          sorted.forEach((edge, index) => {
+            const offset = (index - (sorted.length - 1) / 2) * CURVE.portSpacing;
+            into.set(key(edge), box.middle + Math.max(-reach, Math.min(reach, offset)));
+          });
+        };
+        for (const [id, box] of boxes) {
+          spread(drawn.filter(({ from }) => from === id), box, (edge) => lanes.get(key(edge))[0] ?? boxes.get(edge.to).middle, outY);
+          spread(drawn.filter(({ to }) => to === id), box, (edge) => lanes.get(key(edge)).at(-1) ?? boxes.get(edge.from).middle, inY);
+        }
+        // The heights an edge runs at: its blocker's port, a lane through each column it skips, the waiting Task's port.
+        const routes = drawn.map((edge) => {
+          const start = outY.get(key(edge));
+          const end = inY.get(key(edge));
+          const levels = [start, ...lanesOf(edge, start, end), end];
+          // Ends 8px apart or less: one straight line, the end that is alone on its side of its Task moving to meet the other.
+          if (levels.length === 2 && Math.abs(end - start) <= CURVE.straighten) {
+            if (drawn.filter(({ to }) => to === edge.to).length === 1 && portFits(boxes.get(edge.to), start)) levels[1] = start;
+            else if (drawn.filter(({ from }) => from === edge.from).length === 1 && portFits(boxes.get(edge.from), end)) levels[0] = end;
+          }
+          for (let index = 1; index < levels.length; index++) if (Math.abs(levels[index] - levels[index - 1]) < 1) levels[index] = levels[index - 1];
+          return { edge, from: boxes.get(edge.from), to: boxes.get(edge.to), levels };
+        });
+        // Bends that share a gap stand 4px apart, so no two vertical runs lie on one line.
+        const bendsByGap = new Map();
+        for (const route of routes) {
+          route.levels.slice(1).forEach((level, index) => {
+            if (level === route.levels[index]) return;
+            const gap = route.from.column + index;
+            if (!bendsByGap.has(gap)) bendsByGap.set(gap, []);
+            bendsByGap.get(gap).push({ route, index, middle: (level + route.levels[index]) / 2 });
+          });
+        }
+        const bendX = new Map();
+        for (const [gap, bends] of bendsByGap) {
+          const left = columns.get(gap).right + CURVE.runOut + CURVE.radius;
+          const right = columns.get(gap + 1).left - CURVE.tipGap - CURVE.arrowLength - CURVE.runIn - CURVE.radius;
+          const centre = (left + right) / 2;
+          const reach = Math.max(0, (right - left) / 2);
+          bends.sort((first, second) => first.middle - second.middle);
+          bends.forEach((bend, order) => {
+            const offset = (order - (bends.length - 1) / 2) * CURVE.laneSpacing;
+            bendX.set(`${key(bend.route.edge)}#${bend.index}`, centre + Math.max(-reach, Math.min(reach, offset)));
+          });
+        }
+        return routes
+          .map(({ edge, from, to, levels }) => {
+            const tip = to.left - CURVE.tipGap;
+            const base = tip - CURVE.arrowLength;
+            const last = levels[levels.length - 1];
+            let path = `M${from.right},${levels[0]}`;
+            for (let index = 1; index < levels.length; index++) {
+              const y0 = levels[index - 1];
+              const y1 = levels[index];
+              if (y0 === y1) continue;
+              const x = bendX.get(`${key(edge)}#${index - 1}`);
+              const sign = Math.sign(y1 - y0);
+              const radius = Math.min(CURVE.radius, Math.abs(y1 - y0) / 2);
+              path += ` L${x - radius},${y0} A${radius},${radius} 0 0 ${sign > 0 ? 1 : 0} ${x},${y0 + sign * radius}`;
+              path += ` L${x},${y1 - sign * radius} A${radius},${radius} 0 0 ${sign > 0 ? 0 : 1} ${x + radius},${y1}`;
+            }
+            path += ` L${base + 0.5},${last}`;
+            const done = edge.blockerDone ? " blocker-done" : "";
+            const outside = edge.outside ? " from-outside" : "";
+            const half = CURVE.arrowWidth / 2;
+            return `<path class="edge${done}${outside}" d="${path}"/><path class="head${done}" d="M${base},${last - half} L${tip},${last} L${base},${last + half} Z"/>`;
+          })
+          .join("");
+      }
+      /**
+       * Where an edge crosses a column it skips: at its own height if that misses every Task there by 10px, else just above
+       * or below the column, whichever is shorter. Never between two Tasks: their 12px gap is too tight, and a line there
+       * reads as leaving the Task beside it.
+       */
+      function laneThrough(column, y, target) {
+        if (!column.boxes.some((box) => y > box.top - CURVE.clearance && y < box.bottom + CURVE.clearance)) return y;
+        const above = Math.min(...column.boxes.map(({ top }) => top)) - CURVE.clearance;
+        const below = Math.max(...column.boxes.map(({ bottom }) => bottom)) + CURVE.clearance;
+        const cost = (candidate) => Math.abs(candidate - y) + Math.abs(candidate - target);
+        return cost(above) <= cost(below) ? above : below;
+      }
+
+      /* ---------- The record column ---------- */
+      function record(ini) {
+        const shapingNote =
+          ini.state === "shaping"
+            ? `<div class="alert" role="note">${icon("info", 16)}<span>${CTO_NAME} drafts the outcome and the Tasks with you in the conversation, straight onto this page. Once you confirm the Initiative, each change ${CTO_NAME} wants is a Proposal you apply.</span></div>`
+            : "";
+        const outcome = recordFold({ block: "outcome", icon: "target", title: "Outcome", summary: ini.outcome, body: `<p class="task-plan">${ini.outcome}</p>` });
+        const attachments = recordFold({ block: "attachments", icon: "paperclip", title: "Attachments", summary: "None", body: `<p class="task-quiet">No Attachments yet.</p>` });
+        const origin = recordFold({ block: "origin", icon: "lightbulb", title: "Origin", summary: `From the Idea “${ini.originIdea}”`, body: `<p class="task-plan">From the Idea <a href="#" class="link" data-action="toast" data-value="Opens the Idea, as today.">${ini.originIdea}</a>.</p>` });
+        if (state.view === "today") return `${shapingNote}${outcome}${todayPipelineFold(ini)}${attachments}${origin}`;
+        return `${shapingNote}${pipelinesFold(ini)}${outcome}${attachments}${origin}`;
+      }
+      function choiceSelect(ini) {
+        const options = [["", "None"], ...PIPELINES.map(({ id, name }) => [id, name])]
+          .map(([value, label]) => `<option value="${value}"${value === (ini.pipelineId ?? "") ? " selected" : ""}>${label}</option>`)
+          .join("");
+        return `<label class="field"><span class="field-label">Initiative's Pipeline</span><span class="select"><select data-action="choose-pipeline">${options}</select>${icon("chevron-down", 13)}</span><span class="field-hint">Whether it has a Pipeline is fixed at Confirm.</span></label>`;
+      }
+      function shortName(ini, withBranchLine) {
+        if (state.editingShortName) {
+          return `<form class="initiative-short-name-editor" data-form="short-name">
+            <label class="field"><span class="field-label">Short name</span><input class="input" name="shortName" value="${escapeHtml(ini.shortName ?? "")}" maxlength="40" autocomplete="off" /><span class="field-hint">Lower-case a–z, 0–9 and -, at most 40 characters. The branch is initiative/${escapeHtml(ini.shortName ?? "")}.</span></label>
+            <span class="actions"><button type="submit" class="btn sm primary">${icon("check", 14)}Save</button><button type="button" class="btn sm ghost" data-action="cancel-short-name">Cancel</button></span>
+          </form>`;
+        }
+        return `<div class="initiative-short-name">
+          <div class="initiative-short-name-row"><span class="initiative-short-name-label">Short name</span><code>${escapeHtml(ini.shortName ?? "Not made yet")}</code><button type="button" class="btn sm secondary" data-action="edit-short-name">Edit</button></div>
+          ${withBranchLine && ini.shortName ? `<p class="task-quiet">At Confirm, each Project it spans gets the branch <code>initiative/${escapeHtml(ini.shortName)}</code>.</p>` : ""}
+        </div>`;
+      }
+      const noGateAlert = (pipeline) =>
+        `<div class="alert warning" role="note">${icon("triangle-alert", 16)}<span><span class="alert-title">Publishes without your review</span>No Stage of ${pipeline.name} is a Gate, so the Initiative's branch is published into each base branch without you looking at it first.</span></div>`;
+
+      /** Today (initiative-pipeline-block.tsx). */
+      function todayPipelineFold(ini) {
+        const pipeline = ini.pipelineId && pipelineById(ini.pipelineId);
+        const shaping = ini.state === "shaping";
+        const summary = pipeline ? pipeline.name : shaping ? "None" : NONE_CONFIRMED;
+        let body;
+        if (shaping) {
+          body = `<div class="initiative-pipeline">${choiceSelect(ini)}${
+            pipeline
+              ? `<p class="task-quiet">${pipeline.stages.map(({ name }) => name).join(" → ")}</p>${hasGate(pipeline) ? "" : noGateAlert(pipeline)}${shortName(ini, true)}`
+              : `<p class="task-quiet">None: each Task publishes on its own, as it is done.</p>`
+          }</div>`;
+        } else if (!pipeline) {
+          body = `<p class="task-plan">${NONE_CONFIRMED}</p>`;
+        } else {
+          const ended = ini.state === "done" || ini.state === "dropped";
+          const publishing = publishingOf();
+          const branches = `<ul class="initiative-branches" aria-label="Initiative's branches">${ini.branches
+            .map(({ projectId, branch }) => `<li>${projectMark(projectId)} <code>${branch}</code>${ended ? `<span class="task-quiet"> · kept for you to delete</span>` : ""}</li>`)
+            .join("")}</ul>`;
+          const tasks =
+            publishing.length === 0
+              ? ini.state === "active"
+                ? `<p class="task-quiet">Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project whose branch holds work, to publish the whole change.</p>`
+                : ""
+              : `<ul class="initiative-publishing-tasks" aria-label="Publishing Tasks">${publishing
+                  .map((task) => `<li>${projectMark(task.projectId)} <a href="#" class="link" data-action="open-task" data-title="${task.title}">${task.title}</a> ${taskBadge(task.state)}</li>`)
+                  .join("")}</ul>`;
+          body = `<div class="initiative-pipeline"><p class="task-plan">${pipeline.name}</p>${branches}${tasks}${ini.state === "active" ? `<p class="task-quiet">Another Pipeline comes by the CTO's Proposal.</p>` : ""}</div>`;
+        }
+        return recordFold({ block: "pipeline", icon: "route", title: "Pipeline", summary, body });
+      }
+
+      /* ---------- New: the Pipelines card, a Pipeline per Project, each with its diagram ---------- */
+      /** Where a Publishing Task is: the Stage it is at, or -1 once it walked them all. */
+      function currentIndex(pipeline, task) {
+        const states = pipeline.stages.map(({ key }) => task.stages[key].state);
+        const held = states.findIndex((stageState) => ["running", "waiting-on-you", "paused", "stopped"].includes(stageState));
+        if (held >= 0) return held;
+        const failed = states.findIndex((stageState) => stageState === "failed");
+        if (failed >= 0) return failed;
+        const next = states.findIndex((stageState) => stageState === "pending");
+        return next;
+      }
+      /** How far the line is green: to the Stage it is at, or to the end. */
+      function reachedIndex(pipeline, task) {
+        const current = currentIndex(pipeline, task);
+        return current < 0 ? pipeline.stages.length - 1 : current;
+      }
+      const pipelineOf = (ini, projectId) => (ini.pipelines[projectId] ? pipelineById(ini.pipelines[projectId]) : null);
+      const projectsWithPipeline = (ini) => ini.projectIds.filter((projectId) => pipelineOf(ini, projectId));
+      const publishingTaskOf = (projectId) => publishingOf().find((task) => task.projectId === projectId);
+      function pipelineShape(pipeline) {
+        const gates = pipeline.stages.filter(({ kind }) => kind === "gate").length;
+        return `${plural(pipeline.stages.length, "Stage", "Stages")}, ${gates === 0 ? "no Gate" : plural(gates, "Gate", "Gates")}`;
+      }
+      /** Where one Project's Publishing Task is, for the folded line. */
+      function whereIs(pipeline, task) {
+        if (!task) return "no Publishing Task";
+        const index = currentIndex(pipeline, task);
+        if (index < 0) return "published";
+        const stage = pipeline.stages[index];
+        const stageState = task.stages[stage.key].state;
+        const how = stageState === "waiting-on-you" ? ", waiting on you" : stageState === "failed" ? ", failed" : "";
+        return `at ${stage.name}${how}`;
+      }
+      function pipelinesSummary(ini) {
+        const projects = projectsWithPipeline(ini);
+        if (projects.length === 0) return ini.state === "shaping" ? "None: each Task publishes on its own" : NONE_CONFIRMED;
+        const publishing = publishingOf();
+        const named = ini.projectIds.map((projectId) => `${projectId}: ${pipelineOf(ini, projectId)?.name ?? "None"}`).join(" · ");
+        if (ini.state === "shaping") return named;
+        if (ini.state === "dropped") return `Dropped · ${plural(projects.length, "branch", "branches")} kept for you to delete`;
+        if (ini.state === "done") return `Published in ${plural(publishing.length, "Project", "Projects")}`;
+        if (publishing.length === 0) return `${named} · start once every Task is Done or Dropped`;
+        return projects.map((projectId) => `${projectId} ${whereIs(pipelineOf(ini, projectId), publishingTaskOf(projectId))}`).join(" · ");
+      }
+      /** New: the Pipelines card, a block per Project with its own Pipeline, above Outcome. */
+      function pipelinesFold(ini) {
+        const shaping = ini.state === "shaping";
+        const anyPipeline = projectsWithPipeline(ini).length > 0;
+        const parts = [];
+        if (shaping) parts.push(`<div class="pd-choice"><p class="field-hint">Each Project publishes through a Pipeline of its own, or None. Whether a Project has one is fixed at Confirm.</p>${anyPipeline ? shortName(ini, false) : ""}</div>`);
+        if (!shaping && !anyPipeline) {
+          parts.push(`<div class="pd-none"><p>${NONE_CONFIRMED}.</p><p>Each Task publishes on its own, as it is done. Whether its Projects have a Pipeline was fixed at Confirm.</p></div>`);
+        } else {
+          parts.push(`<ol class="pd-projects" aria-label="Projects">${ini.projectIds.map((projectId) => projectBlock(ini, projectId)).join("")}</ol>`);
+          parts.push(pipelinesFoot(ini));
+        }
+        return recordFold({ block: "pipeline", icon: "route", title: "Pipelines", summary: pipelinesSummary(ini), body: `<div class="pipeline-diagram-block">${parts.join("")}</div>` });
+      }
+      function pipelinesFoot(ini) {
+        if (projectsWithPipeline(ini).length === 0) return "";
+        const publishing = publishingOf();
+        if (ini.state === "shaping") return `<p class="task-quiet sm">Once every other Task is Done or Dropped, each Project with a Pipeline gets a Publishing Task that walks its Stages.</p>`;
+        if (ini.state === "dropped") return `<p class="task-quiet sm">Dropped: no Publishing Task is added any more.</p>`;
+        if (ini.state === "done") return "";
+        if (publishing.length === 0)
+          return `<p class="task-quiet sm">Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project with a Pipeline whose branch holds work, to publish its whole change; you start it, or Start Ready Tasks does. Another Pipeline for a Project comes by the CTO's Proposal.</p>`;
+        const started = publishing.filter((task) => !["ready", "dropped"].includes(task.state));
+        if (started.length === 0) return "";
+        return started.length === publishing.length
+          ? `<p class="task-quiet sm">Their Publishing Tasks have started, so these Pipelines no longer change. Select a Stage for its history.</p>`
+          : `<p class="task-quiet sm">A Project's Pipeline no longer changes once its Publishing Task has started. Select a Stage for its history.</p>`;
+      }
+      function projectChoice(ini, projectId) {
+        const chosen = ini.pipelines[projectId] ?? "";
+        const options = [["", "None"], ...PIPELINES.map(({ id, name }) => [id, name])]
+          .map(([value, label]) => `<option value="${value}"${value === chosen ? " selected" : ""}>${label}</option>`)
+          .join("");
+        return `<span class="select"><select data-action="choose-pipeline" data-project="${projectId}" aria-label="${projectId}'s Pipeline">${options}</select>${icon("chevron-down", 13)}</span>`;
+      }
+      /** One Project: its mark and its Pipeline (a select while shaping), its branch and Publishing Task, then its Stages. */
+      function projectBlock(ini, projectId) {
+        const pipeline = pipelineOf(ini, projectId);
+        const shaping = ini.state === "shaping";
+        const shape = pipeline ? `<span>${pipelineShape(pipeline)}</span>` : "";
+        const which = shaping
+          ? `${projectChoice(ini, projectId)}${shape ? `<span class="pd-pipeline-name">${shape}</span>` : ""}`
+          : `<span class="pd-pipeline-name">${pipeline ? `<b>${pipeline.name}</b>${shape}` : `<b>None</b><span>publishes Task by Task</span>`}</span>`;
+        const head = `<div class="pd-project-head">${projectMark(projectId)}${which}</div>`;
+        if (!pipeline) {
+          const words = shaping
+            ? "None: its Tasks publish on their own, each as it is done. Choose a Pipeline to publish this Project's whole change at once, after its last Task, through the Stages you pick."
+            : "Its Tasks publish on their own, each as it is done: no branch of the Initiative here, and no Publishing Task.";
+          return `<li class="pd-project">${head}<p class="pd-none-line">${words}</p></li>`;
+        }
+        const task = publishingTaskOf(projectId);
+        const warning = shaping && !hasGate(pipeline) ? projectNoGateAlert(pipeline, projectId) : "";
+        return `<li class="pd-project">${head}${projectLabel(ini, projectId, task)}${warning}${diagram(pipeline, projectId, task)}</li>`;
+      }
+      const projectNoGateAlert = (pipeline, projectId) =>
+        `<div class="alert warning" role="note">${icon("triangle-alert", 16)}<span><span class="alert-title">Publishes without your review</span>No Stage of ${pipeline.name} is a Gate, so the Initiative's branch in ${projectId} is published into ${PROJECTS[projectId].base} without you looking at it first.</span></div>`;
+      /** The diagram: both layouts drawn, one shown by its own width once laid out (`data-fit`). */
+      function diagram(pipeline, projectId, task) {
+        const stages = pipeline.stages;
+        return `<div class="pipeline-diagram" data-fit="across" data-stages="${stages.length}" style="--stages:${stages.length}" role="group" aria-label="${pipeline.name} in ${projectId}">
+            <div class="pd-across-view">${acrossTrack(pipeline, task)}</div>
+            <div class="pd-stacked-view">${stackedTrack(pipeline, task)}</div>
+          </div>`;
+      }
+      function projectLabel(ini, projectId, task) {
+        const ended = ini.state === "done" || ini.state === "dropped";
+        const branchNote = ini.state === "shaping" ? "made at Confirm" : ended ? "kept for you to delete" : "";
+        const branch = `<span class="pd-branch">${icon("git-branch", 12)}initiative/${escapeHtml(ini.shortName ?? "")}${branchNote ? ` <span class="pd-branch-note">· ${branchNote}</span>` : ""}</span>`;
+        const who = task
+          ? `<a href="#" class="link" data-action="open-task" data-title="${task.title}">${task.title}</a>${taskBadge(task.state)}${task.state === "done" ? `<span class="pd-published">${PROJECTS[projectId].publishing}</span>` : ""}`
+          : ini.state === "active"
+            ? `<span class="pd-row-pending">No Publishing Task yet</span>`
+            : "";
+        return `<div class="pd-row-label">${who}${branch}</div>`;
+      }
+      function loopWords(pipeline, task) {
+        return pipeline.stages
+          .filter(({ key }) => task.stages[key].wentBack)
+          .map((stage) => {
+            const { stageKey, round, rounds } = task.stages[stage.key].wentBack;
+            const back = pipeline.stages.find(({ key }) => key === stageKey);
+            return `${stage.name} failed: back to ${back.name}, round ${round} of ${rounds}`;
+          });
+      }
+      function cellButton(task, stage, extraClass = "") {
+        const stageState = task.stages[stage.key].state;
+        const words = STAGE_STATE_WORDS[stageState];
+        const round = task.stages[stage.key].round;
+        const label = `${task.projectId}: ${stage.name}${words ? `, ${words}` : ", not reached"}${round ? `, round ${round}` : ""}`;
+        return `<button type="button" class="pd-cell-button${extraClass}" data-action="stage" data-task="${task.id}" data-stage="${stage.key}" aria-label="${label}" title="${label}">${stageMark(stage, stageState)}`;
+      }
+      const isSelected = (task, stage) => state.selected?.taskId === task.id && state.selected.stageKey === stage.key;
+      /** Under a Stage's name: its state once its Publishing Task reached it, else who works it. */
+      function stageWords(stage, step) {
+        if (!step || step.state === "pending") return `<span class="pd-cell-who">${stage.who}${stage.optional ? " · optional" : ""}</span>`;
+        const live = step.state === "running" ? '<span class="live-dot"></span>' : "";
+        const round = step.round && step.state === "running" ? ` · round ${step.round}` : "";
+        return `<span class="pd-cell-state">${live}${STAGE_STATE_WORDS[step.state]}${round}</span>`;
+      }
+      /** Across: the Stages on a line, as the Task page's rail; dashed with hollow marks until its Publishing Task is added. */
+      function acrossTrack(pipeline, task) {
+        const stages = pipeline.stages;
+        const share = 100 / stages.length;
+        const line = `<span class="pd-line" style="left:${share / 2}%;right:${share / 2}%"></span>`;
+        if (!task) {
+          const cells = stages
+            .map((stage) => `<li class="pd-cell"><span class="pd-cell-button"><span class="stage-mark stage-mark-placeholder stage-mark-kind-${stage.kind}"></span><span class="pd-cell-name">${stage.name}</span>${stageWords(stage)}</span></li>`)
+            .join("");
+          return `<div class="pd-track placeholder">${line}<ol class="pd-cells" aria-label="Stages">${cells}</ol></div>`;
+        }
+        const reached = reachedIndex(pipeline, task);
+        const live = task.stages[stages[reached].key].state === "running";
+        const loops = stages.map((stage, index) => ({ stage, index, wentBack: task.stages[stage.key].wentBack })).filter(({ wentBack }) => wentBack);
+        const cells = stages
+          .map((stage) => {
+            const step = task.stages[stage.key];
+            return `<li class="pd-cell pd-cell-${step.state}${isSelected(task, stage) ? " selected" : ""}">${cellButton(task, stage)}<span class="pd-cell-name">${stage.name}</span>${stageWords(stage, step)}</button></li>`;
+          })
+          .join("");
+        const arcs = loops
+          .map(({ stage, index, wentBack }) => {
+            const back = stages.findIndex(({ key }) => key === wentBack.stageKey);
+            const words = `${stage.name} failed: back to ${stages[back].name}, round ${wentBack.round} of ${wentBack.rounds}`;
+            return `<div class="pd-arc" style="left:${(back + 0.5) * share}%;right:${100 - (index + 0.5) * share}%"><button type="button" class="pd-arc-mark" data-action="stage" data-task="${task.id}" data-stage="${stage.key}" aria-label="${words}" title="${words}">↺ ${wentBack.round} of ${wentBack.rounds}</button></div>`;
+          })
+          .join("");
+        return `<div class="pd-track${loops.length ? " has-loop" : ""}">
+            ${line}
+            ${reached > 0 ? `<span class="pd-reached${live ? " live" : ""}" style="left:${share / 2}%;width:${reached * share}%"></span>` : ""}
+            <ol class="pd-cells" aria-label="Stages">${cells}</ol>${arcs}
+          </div>`;
+      }
+      /** Stacked: a Stage a row down a vertical line, its state beside its name; a loop-back in words under it. */
+      function stackedTrack(pipeline, task) {
+        const stages = pipeline.stages;
+        const reached = task ? reachedIndex(pipeline, task) : -1;
+        const rows = stages
+          .map((stage, index) => {
+            const ends = `${index === 0 ? " first" : ""}${index === stages.length - 1 ? " last" : ""}`;
+            if (!task) {
+              return `<li class="pd-s-stage placeholder${ends}"><span class="pd-cell-button"><span class="stage-mark stage-mark-placeholder stage-mark-kind-${stage.kind}"></span><span class="pd-s-name"><b>${stage.name}</b>${stageWords(stage)}</span></span></li>`;
+            }
+            const step = task.stages[stage.key];
+            const reach = `${index <= reached && index > 0 ? " reached-above" : ""}${index < reached ? " reached-below" : ""}`;
+            return `<li class="pd-s-stage pd-cell pd-cell-${step.state}${isSelected(task, stage) ? " selected" : ""}${ends}${reach}">${cellButton(task, stage)}<span class="pd-s-name"><b>${stage.name}</b>${stageWords(stage, step)}</span></button></li>`;
+          })
+          .join("");
+        const loops = task
+          ? loopWords(pipeline, task)
+              .map((words, index) => `<button type="button" class="pd-loop-words" data-action="stage" data-task="${task.id}" data-stage="${pipeline.stages.filter(({ key }) => task.stages[key].wentBack)[index].key}">↺ ${words}</button>`)
+              .join("")
+          : "";
+        return `<ol class="pd-s-stages" aria-label="Stages">${rows}</ol>${loops}`;
+      }
+
+      /* ---------- The Stage history window, opened from a Stage of a Publishing Task ---------- */
+      const RUN_WORDS = {
+        "integrate:done": "Merged the Initiative's Done Tasks on initiative/offline-sync; no conflicts.",
+        "integrate:running": "Fixing the 3 tests Check found failing, on the Initiative's branch.",
+        "review:done": "Read the whole change against the outcome; nothing to change.",
+        "review:stopped": "Stopped when the Initiative was dropped.",
+        "check:done": "verify passed: 412 tests, none failed.",
+        "check:failed": "verify failed: 3 tests in sync-endpoint.test.ts. Went back to Integrate, round 1 of 2.",
+        "e2e:done": "test:e2e passed: 41 specs.",
+        "e2e:running": "Running test:e2e: 18 of 41 specs so far.",
+        "notes:skipped": "Optional, skipped: nothing user-facing changed in this Project.",
+        "your-review:waiting-on-you": "Waiting for you: Continue, Send back with notes… or Drop, on the Task's page.",
+        "your-review:done": "You continued.",
+        "publish:done": "Published the Initiative's branch into main.",
+      };
+      function runsOf(task, stage) {
+        const { state: stageState, round } = task.stages[stage.key];
+        if (stageState === "pending") return [];
+        const runs = [{ number: round ?? 1, state: stageState, when: stageState === "running" || stageState === "waiting-on-you" ? "since 14:02" : "13:12 – 13:31", words: RUN_WORDS[`${stage.key}:${stageState}`] ?? "" }];
+        if (round && round > 1) runs.push({ number: round - 1, state: "done", when: "12:40 – 13:05", words: RUN_WORDS[`${stage.key}:done`] ?? "" });
+        return runs;
+      }
+      function stageHistoryWindow() {
+        const task = publishingOf().find(({ id }) => id === state.selected.taskId);
+        const pipeline = task && pipelineOf(initiative(), task.projectId);
+        if (!pipeline) return "";
+        const stage = pipeline.stages.find(({ key }) => key === state.selected.stageKey);
+        const strip = pipeline.stages
+          .map((each) => `<button type="button" data-action="stage" data-task="${task.id}" data-stage="${each.key}" aria-current="${each.key === stage.key}">${stageMark(each, task.stages[each.key].state)}${each.name}</button>`)
+          .join("");
+        const runs = runsOf(task, stage);
+        const list = runs.length
+          ? runs.map((run, index) => `<li class="${index === 0 ? "on" : ""}"><b>Run ${run.number} · ${STAGE_STATE_WORDS[run.state]}</b>${run.when}</li>`).join("")
+          : `<li>${task.state === "ready" || task.state === "dropped" ? "Runs once the Task starts." : "Hasn't run yet."}</li>`;
+        const detail = runs.length
+          ? `<p><span class="overline">Outcome</span></p><p>${runs[0].words}</p>`
+          : `<p class="task-quiet">Nothing to show until this Stage runs.</p>`;
+        return `<div class="backdrop"><div class="window" role="dialog" aria-modal="true" aria-label="Stage history">
+          <div class="window-head"><div class="grow"><span class="overline">Stage history · ${stage.name}</span><h3>${task.title}</h3></div><button type="button" class="icon-button" aria-label="Close" data-action="close-window">${icon("x", 16)}</button></div>
+          <div class="window-strip">${strip}</div>
+          <div class="window-body"><ol class="run-list">${list}</ol><div class="run-detail">${detail}</div></div>
+          <div class="window-bar"><button type="button" class="btn sm secondary" data-action="open-task" data-title="${task.title}">Open the Task${icon("arrow-right", 14)}</button><span class="grow"></span><button type="button" class="btn sm secondary" data-action="close-window">Close</button></div>
+        </div></div>`;
+      }
+
+      /* ---------- The conversation, as today, in brief ---------- */
+      const CONVERSATION = {
+        shaping: "I've drafted seven Tasks across not-astray and notnullsoft. For each Project, shall its whole change publish at once, through a Pipeline, or Task by Task?",
+        active: "Sync endpoint is in progress; Offline queue for edits is waiting for your answer on its Plan.",
+        done: "Published in both Projects. The branches are still there if you'd like to delete them.",
+        dropped: "Dropped, as you asked. I've left the branches in place.",
+      };
+      function conversation(ini) {
+        return `<section class="conversation" aria-label="Conversation">
+          <div class="conversation-tabs"><span class="conversation-tab on">${CTO_NAME} · CTO</span><span class="conversation-tab">Angela · Planner</span></div>
+          <div class="conversation-body">
+            <div class="turn"><span class="avatar" style="--tone:#7c5cd6">MS</span><div><div class="turn-name">${CTO_NAME}<span>CTO · 14:05</span></div><p class="turn-text">${CONVERSATION[ini.state]}</p></div></div>
+          </div>
+          <div class="composer"><span class="grow">Write to ${CTO_NAME}…</span><button type="button" class="icon-button" aria-label="Send">${icon("send", 15)}</button></div>
+        </section>`;
+      }
+
+      /* ---------- Rendering ---------- */
+      function render() {
+        const root = document.documentElement;
+        root.dataset.palette = state.palette;
+        if (state.palette === "dark") root.dataset.theme = "dark";
+        else delete root.dataset.theme;
+        renderBar();
+        const note = scenario().note;
+        const viewNote =
+          state.view === "today"
+            ? "<strong>Today</strong> (initiative-page.tsx): the Tasks card doesn't fold; the record column has Outcome, then the Pipeline fold, Attachments and Origin."
+            : "<strong>Proposed:</strong> the Tasks card folds to one line; its arrows leave and come in straight, in today's 44px gap; a Pipelines card sits above Outcome, in place of today's Pipeline fold, with a Pipeline of its own for each Project and its Stages drawn as a diagram.";
+        document.getElementById("note").innerHTML = `${viewNote} ${note[state.view]}`;
+        document.getElementById("address").innerHTML = `<span>Address</span><code>/work/initiatives/${INITIATIVE.id}</code><span>· the folds are remembered in this browser, per Initiative, never in the address</span>`;
+        const main = document.querySelector("#frame .main");
+        const scrollTop = main ? main.scrollTop : 0;
+        const frame = document.getElementById("frame");
+        frame.className = `frame w-${state.width}`;
+        frame.innerHTML = app();
+        frame.querySelector(".main").scrollTop = scrollTop;
+        renderReference();
+        afterLayout();
+      }
+      /** What needs the layout: the edges, and whether each diagram fits across (96px a Stage). */
+      function afterLayout() {
+        for (const element of document.querySelectorAll(".task-graph[data-graph]")) drawGraph(element);
+        for (const element of document.querySelectorAll(".pipeline-diagram")) {
+          const fits = element.clientWidth >= Number(element.dataset.stages) * 96;
+          element.dataset.fit = fits ? "across" : "stacked";
+        }
+      }
+      const VIEWS = [
+        ["today", "Today"],
+        ["proposed", "Proposed"],
+      ];
+      const WIDTHS = [
+        ["wide", "Wide"],
+        ["900", "900px"],
+        ["390", "390px"],
+      ];
+      const PALETTES = [
+        ["light", "Light"],
+        ["dark", "Dark"],
+      ];
+      function segments(action, options, current) {
+        return `<div class="segments">${options.map(([value, label]) => `<button type="button" data-action="${action}" data-value="${value}" aria-pressed="${current === value}">${label}</button>`).join("")}</div>`;
+      }
+      function renderBar() {
+        const scenarios = Object.entries(SCENARIOS).map(([key, { label }]) => [key, label]);
+        document.getElementById("bar").innerHTML = `<span class="bar-title">The Initiative page</span><span class="bar-tag">PROPOSAL</span>
+          <div class="control"><span class="control-label">View</span>${segments("view", VIEWS, state.view)}</div>
+          <div class="control"><span class="control-label">Width</span>${segments("width", WIDTHS, state.width)}</div>
+          <div class="control"><span class="control-label">Palette</span>${segments("palette", PALETTES, state.palette)}</div>
+          <span class="bar-break"></span>
+          <div class="control"><span class="control-label">Scenario</span>${segments("scenario", scenarios, state.scenario)}</div>`;
+      }
+
+      /* ---------- The reference under the frame ---------- */
+      function anatomy() {
+        const nodes = (waitingLeft) => `
+          <rect class="node-box" x="16" y="24" width="200" height="76" rx="8"/><text class="node-text" x="32" y="66">Blocker</text>
+          <rect class="node-box" x="${waitingLeft}" y="120" width="200" height="76" rx="8"/><text class="node-text" x="${waitingLeft + 16}" y="162">Waiting Task</text>`;
+        const today = `<svg viewBox="0 0 470 236" role="img" aria-label="Today's edge">
+          <defs><marker id="anatomy-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="head"/></marker></defs>
+          ${nodes(260)}
+          <path class="edge" d="M216,62 C235,62 235,158 254,158" marker-end="url(#anatomy-arrow)"/>
+          <path class="dimension" d="M216,214 L260,214 M216,209 L216,219 M260,209 L260,219"/><text class="dimension-text" x="222" y="230">gap 44</text>
+          <text class="dimension-text" x="268" y="96">12px head over a</text><text class="dimension-text" x="268" y="109">line still turning</text>
+        </svg>`;
+        const proposed = `<svg viewBox="0 0 470 236" role="img" aria-label="The proposed edge">
+          ${nodes(260)}
+          <path class="edge" d="M216,62 L234,62 A6,6 0 0 1 240,68 L240,152 A6,6 0 0 0 246,158 L250.5,158"/>
+          <path class="head" d="M250,154 L258,158 L250,162 Z"/>
+          <path class="dimension" d="M216,48 L222,48 M216,44 L216,52 M222,44 L222,52"/><text class="dimension-text" x="212" y="40">≥6 out</text>
+          <path class="dimension" d="M246,174 L258,174 M246,170 L246,178 M258,170 L258,178"/><text class="dimension-text" x="236" y="190">≥12 in</text>
+          <text class="dimension-text" x="246" y="76">r 6</text>
+          <text class="dimension-text" x="268" y="96">8×8 head,</text><text class="dimension-text" x="268" y="109">tip 2px off</text>
+          <path class="dimension" d="M216,214 L260,214 M216,209 L216,219 M260,209 L260,219"/><text class="dimension-text" x="222" y="230">gap 44</text>
+        </svg>`;
+        return `<div class="anatomy"><figure style="margin:0"><figcaption><strong>Today</strong>: one cubic curve across 44px; the arrowhead is a marker scaled by the stroke, 12px long, sitting on the last 12px of the curve, which is still turning.</figcaption>${today}</figure>
+          <figure style="margin:0"><figcaption><strong>Proposed</strong>, in the same 44px: out straight, a bend with 6px corners in the gap, in straight; the head is its own 8×8 triangle in the line's colour.</figcaption>${proposed}</figure></div>`;
+      }
+      function renderReference() {
+        document.getElementById("reference").innerHTML = `
+          <div>
+            <h2>The arrows, Today and Proposed, on the same graph</h2>
+            <p>The Active scenario's Tasks, drawn both ways with the same measuring as the app: from the blocker's right edge at mid-height to the waiting Task's left edge.</p>
+          </div>
+          <div class="compare">
+            <figure><figcaption><strong>Today</strong> (<code>edgeCurves</code>, task-graph.tsx)</figcaption><div class="card"><div class="card-body">${graph("today", "active", "graph-compare-today")}</div></div></figure>
+            <figure><figcaption><strong>Proposed</strong>: the same graph, the numbers below</figcaption><div class="card"><div class="card-body">${graph("proposed", "active", "graph-compare-proposed")}</div></div></figure>
+          </div>
+          ${anatomy()}
+          <div class="reference-columns">
+            <div>
+              <h2>The numbers the build takes</h2>
+              <dl class="numbers">
+                <dt>44px</dt><dd>column gap, as today</dd>
+                <dt>≥ 6px</dt><dd>straight out of the blocker, before the first corner</dd>
+                <dt>≥ 12px</dt><dd>straight into the tip after the last corner: at least 4px of line, then the 8px head</dd>
+                <dt>6px</dt><dd>corner radius, or half the height difference when that is less</dd>
+                <dt>12px</dt><dd>left in the middle of the gap for the vertical runs: up to four bends, 4px apart</dd>
+                <dt>≤ 8px</dt><dd>apart at both ends: one straight line, the end that is alone on its side of its Task moving to meet the other</dd>
+                <dt>8 × 8px</dt><dd>arrowhead, its own path in the line's colour, its tip 2px off the Task</dd>
+                <dt>8px</dt><dd>apart: edges meeting one side of a Task, ordered by the height each runs at next to it, kept 12px inside its corners</dd>
+                <dt>4px</dt><dd>apart: bends sharing a gap</dd>
+                <dt>10px</dt><dd>clearance when skipping a column: the line keeps its height if it misses every Task there by 10px, else runs 10px above or below the column, whichever is shorter; never between two Tasks</dd>
+              </dl>
+            </div>
+            <div>
+              <h2>1. The Tasks card folds</h2>
+              <p>A <code>RecordFold</code> like the record's others, starting open and remembered in this browser per Initiative (<code>useFold</code>, block <code>tasks</code>). Folded, its line says what it holds: “7 across 2 Projects · 2 done · 1 in progress · 1 waiting on you”; while shaping “7 across 2 Projects · in Shaping until you confirm”; with none, “None yet”.</p>
+              <p>“An arrow means ‘must be Done first’” becomes a small legend at the top of the body, with the green and dashed kinds when the graph has them; folded, it isn't needed.</p>
+            </div>
+            <div>
+              <h2>3. A Pipelines card, a Pipeline per Project, above Outcome</h2>
+              <p>It takes today's Pipeline fold's place and moves it to the top of the record column. An Initiative can span several Projects, each publishing its own way, so each Project gets its own Pipeline, or None: a block per Project with its select while shaping (the Short name once, at the top), its branch and, once added, its Publishing Task walking its Stages, as the Task page's rail does. A Stage opens its history in place; a title opens the Task.</p>
+              <p>Each Project's Stages lie across while each has 96px; narrower, they stack, a Stage a row down a vertical line, so nothing scrolls sideways.</p>
+            </div>
+            <div>
+              <h2>About the mock</h2>
+              <p>Its data follows <code>Initiative</code>, <code>Task</code>, <code>TaskStage</code> and <code>Pipeline</code> in <code>packages/contracts</code>: Offline sync across not-astray and notnullsoft, seven Tasks at four depths and a blocker from the Initiative “API hardening”. The edges are measured from the laid-out nodes, as in the app, and drawn again on resize. Opening a Task, the conversation and the head's actions show a toast. Folds are kept for the page's life. It uses the Geist fonts only where they are installed, and makes no network requests.</p>
+            </div>
+          </div>`;
+      }
+
+      /* ---------- What the controls do ---------- */
+      function showToast(words) {
+        clearTimeout(toastTimer);
+        state.toast = words;
+        render();
+        toastTimer = setTimeout(() => {
+          state.toast = undefined;
+          render();
+        }, 2600);
+      }
+      document.getElementById("bar").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action]");
+        if (!button) return;
+        const { action, value } = button.dataset;
+        state.selected = undefined;
+        state.editingShortName = false;
+        if (action === "scenario") {
+          state.scenario = value;
+          render();
+          document.querySelector("#frame .main").scrollTop = 0;
+          return;
+        }
+        state[action] = value;
+        render();
+      });
+      const frame = document.getElementById("frame");
+      frame.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-action]");
+        if (!target || target.tagName === "SELECT") return;
+        const { action, value } = target.dataset;
+        if (target.tagName === "A") event.preventDefault();
+        if (action === "fold") {
+          state.folds[`${state.view}:${state.scenario}:${value}`] = !isOpen(value);
+          render();
+        } else if (action === "open-task") {
+          state.selected = undefined;
+          showToast(`Opens the Task's page: ${target.dataset.title}`);
+        } else if (action === "toast") {
+          showToast(value);
+        } else if (action === "stage") {
+          state.selected = { taskId: target.dataset.task, stageKey: target.dataset.stage };
+          render();
+        } else if (action === "close-window") {
+          state.selected = undefined;
+          render();
+        } else if (action === "edit-short-name") {
+          state.editingShortName = true;
+          render();
+          frame.querySelector('input[name="shortName"]')?.focus();
+        } else if (action === "cancel-short-name") {
+          state.editingShortName = false;
+          render();
+        }
+      });
+      frame.addEventListener("change", (event) => {
+        if (event.target.dataset.action !== "choose-pipeline") return;
+        const { project } = event.target.dataset;
+        state.choices[project ? `${state.scenario}:${project}` : state.scenario] = event.target.value === "" ? null : event.target.value;
+        state.editingShortName = false;
+        render();
+      });
+      frame.addEventListener("submit", (event) => {
+        if (event.target.dataset.form !== "short-name") return;
+        event.preventDefault();
+        const typed = new FormData(event.target).get("shortName").trim();
+        state.shortNames[state.scenario] = typed.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 40) || "offline-sync";
+        state.editingShortName = false;
+        render();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && state.selected) {
+          state.selected = undefined;
+          render();
+        }
+      });
+      window.addEventListener("resize", afterLayout);
+      render();
+    </script>
+  </body>
+</html>

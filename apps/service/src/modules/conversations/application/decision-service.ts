@@ -5,12 +5,14 @@ import { RoleCards } from "../../people/index.js";
 import {
   answerForUserProblems,
   answerGivenBy,
+  isApproval,
+  isOnTask,
   type Answerer,
   type Decision,
   type DecisionAnswer,
   type DecisionDraft,
+  type DecisionOnTask,
 } from "../domain/decision.js";
-import { isApproval } from "../domain/consult.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
 import type { Home, Thread } from "../domain/thread.js";
 import { openDecision, openDecisionOf, recordDecisionAnswer } from "../domain/thread-changes.js";
@@ -127,9 +129,12 @@ export class DecisionService {
     return answered;
   }
 
-  /** Every Decision waiting on the user, the first asked first: what Waiting on you shows. */
-  listOpen(): Promise<readonly Decision[]> {
-    return this.repository.openDecisions();
+  /**
+   * Every Decision waiting on the user, the first asked first: what Waiting on you shows. Each is on
+   * a Task, as a call made from a chat never waits on the user (spec §2.4).
+   */
+  async listOpen(): Promise<readonly DecisionOnTask[]> {
+    return (await this.repository.openDecisions()).filter(isOnTask);
   }
 
   /**
@@ -169,12 +174,14 @@ export class DecisionService {
     return open.filter((decision) => decision.taskId === taskId).length;
   }
 
-  /** The Decisions the Thread waits on, the first asked first, by their Task and question. */
+  /** The Decisions on Tasks the Thread waits on, the first asked first, by their Task and question. */
   async openInThread(
     threadId: string,
   ): Promise<readonly { readonly taskId: string; readonly question: string }[]> {
     const thread = await this.repository.find(threadId);
-    return (thread?.openDecisions ?? []).map(({ taskId, question }) => ({ taskId, question }));
+    return (thread?.openDecisions ?? [])
+      .filter(isOnTask)
+      .map(({ taskId, question }) => ({ taskId, question }));
   }
 
   /** The Thread's Decisions, open and answered, which its log's cards show. */

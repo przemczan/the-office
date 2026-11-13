@@ -5,6 +5,7 @@ import { withStateChange, type TaskChange } from "./task-changes.js";
 import { blockedProblems } from "./task-dependencies.js";
 import { TaskStarted } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
+import { INITIATIVE_PAUSED } from "./initiative-pause.js";
 import { TaskRefused } from "./task-refused.js";
 import { initiativeBranchGoneRefusal } from "./task-branch-base.js";
 import { STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
@@ -79,15 +80,18 @@ export interface HeldAtStart {
   readonly blockers: readonly Task[];
   /** Whether the fire alarm is on, which holds every Start until the all clear (spec §2.8). */
   readonly fireAlarmOn: boolean;
+  /** Whether the Task's Initiative is paused, which holds its Start until it is resumed. */
+  readonly initiativePaused: boolean;
 }
 
 /**
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
  * refusal (not Ready, a Broken Pipeline, a vacant Role, a person who only talks, its Initiative's
- * branch gone) stops Start; a wait (a Task it waits for not yet Done or Dropped, the fire alarm, a
- * scheduled Office update, the Office-wide limit, its Project limit, its person's Task limit, a cap
- * it would pass) only holds the Task until its blockers end, the all clear, a desk, its Project and
- * its person are free, and the cap allows it. Both are empty when it can start.
+ * branch gone) stops Start; a wait (a Task it waits for not yet Done or Dropped, the fire alarm, its
+ * Initiative's Pause, a scheduled Office update, the Office-wide limit, its Project limit, its
+ * person's Task limit, a cap it would pass) only holds the Task until its blockers end, the all
+ * clear, its Initiative's Resume, a desk, its Project and its person are free, and the cap allows
+ * it. Both are empty when it can start.
  */
 export interface StartReasons {
   readonly refusals: readonly string[];
@@ -103,7 +107,7 @@ export function firstAgentStage(stages: readonly StartingStage[]): AgentStarting
 export function startReasons(
   task: Task,
   conditions: StartConditions,
-  { startedTasks, blockers, fireAlarmOn }: HeldAtStart,
+  { startedTasks, blockers, fireAlarmOn, initiativePaused }: HeldAtStart,
 ): StartReasons {
   if (task.state !== "ready") {
     return refusedFor(
@@ -126,6 +130,7 @@ export function startReasons(
     waits: [
       ...blockedProblems(blockers),
       ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
+      ...(initiativePaused ? [INITIATIVE_PAUSED] : []),
       ...(conditions.officeUpdateHold ? [conditions.officeUpdateHold] : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...projectLimitWaits(task, conditions.project, others),

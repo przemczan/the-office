@@ -42,6 +42,7 @@ import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { CallChains } from "./call-chains.js";
 import { StageThreads } from "./stage-threads.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
@@ -166,6 +167,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
+      CallChains,
       ThreadContexts,
       AllowChanges,
       ThreadRunner,

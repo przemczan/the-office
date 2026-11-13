@@ -165,6 +165,14 @@ _Avoid_: Conflict (git's, found at Publish), collision, clash
 The action on an active Initiative's page that runs Start on each of its Ready Tasks, a blocker inside the Initiative first and the board's order otherwise, every rule of Start applying; a Task that overlaps one already started is queued behind it without asking, one refused doesn't stop the rest, and the page then says what started, what was queued and what was refused.
 _Avoid_: Start all, bulk start, launch the Initiative
 
+**Pause the Initiative**:
+The action on an active Initiative's page that pauses each of its Tasks In progress or Waiting on you, as the user's own Pause does, and holds every Start of its Tasks, which queue with the reason "The Initiative is paused.", until **Resume the Initiative**; the Initiative shows Paused, a mark beside its state. While it is paused, Resume on one of its Tasks is refused, and Stop and Drop still work.
+_Avoid_: Freeze, suspend, hold the Initiative
+
+**Resume the Initiative**:
+The action on a paused Initiative's page that resumes exactly the Tasks its Pause paused, leaving a Task the user paused themselves Paused, and lets its queued Tasks start as the queue allows; while the fire alarm is on, those Tasks resume at the all clear.
+_Avoid_: Unpause, unfreeze, restart the Initiative
+
 **Usage estimate**:
 What a Ready Task's whole Pipeline is expected to use on each engine it uses, in the measures ticked in Settings › Office limits (tokens, the 5-hour window, the 7-day window, cost); from done Tasks of the same Project and Pipeline, else the Planner's estimate in the Plan.
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
@@ -222,8 +230,12 @@ One author's neighbouring messages in a Thread, shown together under one name.
 _Avoid_: Bubble
 
 **Consultation**:
-A Thread on a Task in which an Agent asks a Consultant for an answer, or for approval of a call past a Hard switch; the user can read it or take it over, but not join it.
+A Thread in which a Consultant answers what another person asks them: a question, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file. On a Task the user can read it or take it over, but not join it.
 _Avoid_: Delegation, escalation (for this), handoff
+
+**Request**:
+A consult asking a person to do something the asker can't, such as "ask Devops to set that up": a Decision put to them with no options, which they answer in their own words, saying what they did, such as a Proposal they drafted, or why they can't.
+_Avoid_: Task (for this), delegation, ticket
 
 **Mention**:
 A Task, Initiative, Idea or Decision named in a chat message or in a Task's Description, picked with `@` or pasted as the link to its page; in a chat message the Agent there is given its record with the message, and in a Description the link carries its id for an Agent to read it.
@@ -416,7 +428,7 @@ A command an Agent's session, or one of its Sub-agents, runs in the background, 
 _Avoid_: Background task, shell, job, background command (in the UI)
 
 **Consultant**:
-A person whom other Agents may consult on a Task.
+A person whom other people of The Office may consult or call, with a question, for an approval or with a Request, in a Consultation.
 _Avoid_: Expert, advisor, Staff
 
 **Task limit**:

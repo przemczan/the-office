@@ -61,6 +61,7 @@ async function answering(taskId: string, option: number): Promise<void> {
         stageThread: false,
       },
       {
+        kind: "question",
         id: asked.id,
         threadId: "8f0b1a52-3c1e-4a4e-9d0e-1f5b6c7d8e9f",
         taskId,

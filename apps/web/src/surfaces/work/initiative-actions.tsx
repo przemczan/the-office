@@ -7,7 +7,6 @@ import { threadQueries } from "../../api/conversations.ts";
 import {
   autoModeQuery,
   confirmInitiative,
-  dropInitiative,
   ideaQueries,
   planInitiative,
   taskQueries,
@@ -18,8 +17,10 @@ import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { canBeArchived } from "../../shell/work/work-words.ts";
 import { canHoldBack } from "./dependency-words.ts";
+import { InitiativePauseButton } from "./initiative-pause.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
-import { droppedWords, tasksOfInitiative } from "./initiative-words.ts";
+import { DropInitiativeDialog } from "./drop-initiative-dialog.tsx";
+import { tasksOfInitiative } from "./initiative-words.ts";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 import { StartReadyTasksButton } from "./start-ready-tasks.tsx";
@@ -29,9 +30,10 @@ import { useRememberedAutoMode } from "./use-planning.ts";
  * The Initiative page's head actions (prototypes/app/work.js `initiativePage`): "Confirm the
  * Initiative" while shaping, Plan the Initiative while it is active with a Task in Backlog, the
  * link to its planning Thread once it has one, Start Ready Tasks while it is active with a Ready
- * Task, its answer going to `onStartedReadyTasks`, "Add a Task" while it is open (in the Project of
- * the Idea it was shaped from until it has Tasks), and its menu with
- * Drop until it has ended, Archive once it has.
+ * Task, its answer going to `onStartedReadyTasks`, Pause the Initiative while it is active and
+ * Resume the Initiative while it is paused, "Add a Task" while it is open (in the Project of
+ * the Idea it was shaped from, if any, until it has Tasks), and its menu with
+ * Drop until it has ended, asking first in DropInitiativeDialog, Archive once it has.
  */
 export function InitiativeActions({
   initiative,
@@ -42,7 +44,10 @@ export function InitiativeActions({
 }): ReactNode {
   const [adding, setAdding] = useState(false);
   const tasks = useQuery(taskQueries.list());
-  const originIdea = useQuery(ideaQueries.one(initiative.originIdeaId));
+  const originIdea = useQuery({
+    ...ideaQueries.one(initiative.originIdeaId ?? ""),
+    enabled: initiative.originIdeaId !== null,
+  });
   const open = initiative.state === "shaping" || initiative.state === "active";
   const initiativeTasks = tasksOfInitiative(initiative, tasks.data ?? []);
   return (
@@ -55,6 +60,7 @@ export function InitiativeActions({
         initiativeTasks={initiativeTasks}
         onStarted={onStartedReadyTasks}
       />
+      <InitiativePauseButton initiative={initiative} />
       {open && (
         <Button
           variant="secondary"
@@ -64,7 +70,7 @@ export function InitiativeActions({
           Add a Task
         </Button>
       )}
-      <InitiativeMenu initiative={initiative} />
+      <InitiativeMenu initiative={initiative} initiativeTasks={initiativeTasks} />
       {adding && (
         <NewTaskDialog
           initiative={initiative}
@@ -168,11 +174,16 @@ function confirmedWords(confirmed: Initiative, planner: string | undefined): str
   return `Initiative confirmed. Its Tasks moved to Backlog, to wait until ${until}.`;
 }
 
-function InitiativeMenu({ initiative }: { readonly initiative: Initiative }): ReactNode {
+function InitiativeMenu({
+  initiative,
+  initiativeTasks,
+}: {
+  readonly initiative: Initiative;
+  readonly initiativeTasks: readonly Task[];
+}): ReactNode {
   const [open, setOpen] = useState(false);
+  const [dropping, setDropping] = useState(false);
   const copyLink = useCopyRecordLink();
-  const showToast = useToast();
-  const dropping = useInitiativeChange(initiative, () => dropInitiative(initiative.id));
   const archiving = useArchivingInitiative();
   const items: MenuItem[] = [
     {
@@ -193,30 +204,32 @@ function InitiativeMenu({ initiative }: { readonly initiative: Initiative }): Re
       icon: <Icon name="x" size={14} />,
       label: "Drop the Initiative",
       danger: true,
-      onSelect: () => {
-        // Read now: the state changes under the mutation, as the Initiative's event lands first.
-        const words = droppedWords(initiative.state);
-        dropping.mutate(undefined, {
-          onSuccess: () => showToast(words),
-          onError: (error) => showToast(error.message),
-        });
-      },
+      onSelect: () => setDropping(true),
     });
   }
   return (
-    <Menu
-      open={open}
-      onOpenChange={setOpen}
-      align="end"
-      width={200}
-      trigger={
-        <IconButton
-          variant="secondary"
-          icon={<Icon name="ellipsis" size={14} />}
-          label={`More for ${initiative.name}`}
+    <>
+      <Menu
+        open={open}
+        onOpenChange={setOpen}
+        align="end"
+        width={200}
+        trigger={
+          <IconButton
+            variant="secondary"
+            icon={<Icon name="ellipsis" size={14} />}
+            label={`More for ${initiative.name}`}
+          />
+        }
+        items={items}
+      />
+      {dropping && (
+        <DropInitiativeDialog
+          initiative={initiative}
+          initiativeTasks={initiativeTasks}
+          onClose={() => setDropping(false)}
         />
-      }
-      items={items}
-    />
+      )}
+    </>
   );
 }

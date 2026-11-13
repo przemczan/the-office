@@ -3,26 +3,34 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
 import {
+  backToTheCallerWords,
+  callProblems,
   consultantAnswerProblems,
   consultantNamed,
+  consultationAnswerLine,
+  consultationAskedLine,
   consultationOpening,
   consultationTitle,
   consultDecision,
   passedOnTo,
+  passedOnToTheUserWords,
   THE_OFFICE,
   type Consult,
   type ConsultantPerson,
 } from "../domain/consult.js";
 import { TurnEnded } from "../domain/conversation-events.js";
-import type { Decision, DecisionAnswer } from "../domain/decision.js";
+import { answerWords, type Decision, type DecisionAnswer } from "../domain/decision.js";
 import type { Thread } from "../domain/thread.js";
 import {
+  logMessages,
   passDecisionOn,
   putDecisionToUser,
   startConsultationThread,
+  type ConsultationThreadStart,
 } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { CallChains } from "./call-chains.js";
 import { DecisionService } from "./decision-service.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { ThreadRunner } from "./thread-runner.js";
@@ -33,20 +41,22 @@ export const STOPPED_BY_THE_FIRE_ALARM =
 
 /** A Consultation whose Consultant the Decision still waits on. */
 interface ConsultationAtWork {
-  readonly consultantKey: string;
+  readonly consultation: Thread;
   readonly askerThreadId: string;
   readonly decision: Decision;
 }
 
 /**
- * Consultations (spec §2.2, §2.4, §6): an Agent's consult goes to the Consultant it names as a
- * Decision put to them, and they answer it in a sub-thread on the Task, in a fresh session with
- * their memory and the Task's brief. The Agent still waits on the Decision as it would on the
- * user, so the user may answer it in the Consultant's place: that takes the Consultation over. A
- * consult of someone who isn't a hired Consultant goes to the user. A Consultant asked to approve
- * may pass it on, at most two steps up, then it is the user's. The fire alarm stops each
- * Consultation answering and opens none while it is on; the Decision still waits on its Consultant,
- * who is asked again once the all clear is given (spec §2.8).
+ * Consultations (spec §2.2, §2.4, §6): an Agent's consult or call goes to the Consultant it names
+ * as a Decision put to them, and they answer it in a sub-thread, on the Task or, for a call made
+ * outside a Task, in their own chat, in a fresh session of their own: their tools and permissions,
+ * never the asker's. The Agent still waits on the Decision as it would on the user; on a Task the
+ * user may answer it in the Consultant's place, which takes the Consultation over. A consult of
+ * someone who isn't a hired Consultant goes to the user, and from a chat back to the caller, as a
+ * chat has no Needs you. A Consultant may call someone themselves and pass an approval on, at most
+ * `CALL_STEPS` people down one chain and nobody twice. The fire alarm stops each Consultation
+ * answering and opens none while it is on; the Decision still waits on its Consultant, who is asked
+ * again once the all clear is given (spec §2.8).
  */
 @Injectable()
 export class Consultations implements OnModuleInit {
@@ -58,6 +68,7 @@ export class Consultations implements OnModuleInit {
     private readonly decisions: DecisionService,
     private readonly runner: ThreadRunner,
     private readonly fireAlarm: FireAlarmInThreads,
+    private readonly chains: CallChains,
     private readonly events: EventBus,
   ) {}
 
@@ -71,7 +82,10 @@ export class Consultations implements OnModuleInit {
 
   /**
    * Puts the consult to the Consultant it names, or to the user when it names no hired Consultant
-   * or the asker is that person. Returns the Consultant, undefined when the user is asked.
+   * or the asker is that person. Refused for someone already in the chain of calls, once it has
+   * asked `CALL_STEPS` people, and from a chat naming nobody who can be called, which has no Needs
+   * you: the caller asks the user in their answer. Returns the Consultant, undefined when the user
+   * is asked.
    */
   async put(sessionId: string, consult: Consult): Promise<ConsultantPerson | undefined> {
     const asker = await this.repository.findBySession(sessionId);
@@ -81,6 +95,15 @@ export class Consultations implements OnModuleInit {
       await this.roleCards.consultants(),
       asker.session?.roleKey ?? asker.roleKey,
     );
+    if (consultant) {
+      const problems = callProblems(await this.chains.ofCaller(asker), consultant);
+      if (problems.length > 0) throw new ThreadRefused(problems);
+    } else if (asker.home.kind === "chat" && consult.person?.trim()) {
+      // Naming nobody, it asks the user directly, which a chat refuses as it opens no Decision.
+      throw new ThreadRefused([
+        "Nobody who can be called fills that Role: ask the user in your answer instead.",
+      ]);
+    }
     const draft = consultDecision(
       consult,
       consultant ? { kind: "consultant", roleKey: consultant.roleKey } : { kind: "user" },
@@ -91,46 +114,67 @@ export class Consultations implements OnModuleInit {
 
   /**
    * The Consultant's answer, given from the Consultation's session: it answers the Decision the
-   * Agent waits on. Refused outside a Consultation, and once the Decision is answered, as when the
-   * user took the Consultation over.
+   * Agent waits on, and the Consultation logs it as a line. Refused outside a Consultation, and
+   * once the Decision is answered, as when the user took the Consultation over.
    */
   async answer(sessionId: string, answer: DecisionAnswer): Promise<void> {
-    const { consultantKey, decision } = await this.waitingIn(sessionId);
+    const { consultation, decision } = await this.waitingIn(sessionId);
     const problems = consultantAnswerProblems(decision, answer);
     if (problems.length > 0) throw new ThreadRefused(problems);
     await this.decisions.answer(decision.id, answer, {
       kind: "consultant",
-      roleKey: consultantKey,
-      name: await this.nameOf(consultantKey),
+      roleKey: consultation.roleKey,
+      name: await this.nameOf(consultation.roleKey),
     });
+    const askerName = await this.askerNameOf(decision);
+    await this.logLine(
+      consultation.id,
+      decision.id,
+      consultationAnswerLine(askerName, answerWords(decision, answer)),
+    );
   }
 
   /**
    * The Consultant passes the approval put to them on (spec §2.2), from the Consultation's session:
    * to the Consultant they name, who answers it in a Consultation of their own, or to the user
-   * once it is the last step up or they name nobody who can be consulted. The Office's Decision
-   * put to them goes on to the user (spec §2.3). Returns the next Consultant, undefined when the
-   * user is asked.
+   * once the chain of calls has asked `CALL_STEPS` people or they name nobody who can be consulted.
+   * Refused for someone already in the chain. The Office's Decision put to them goes on to the
+   * user (spec §2.3). From a chat, the user's turn goes back to the caller as an answer. Returns
+   * the next Consultant, undefined when the user is asked.
    */
   async passOn(
     sessionId: string,
     person: string | undefined,
     reason: string,
   ): Promise<ConsultantPerson | undefined> {
-    const { consultantKey, askerThreadId, decision } = await this.waitingIn(sessionId);
-    const next = passedOnTo(decision, person, await this.roleCards.consultants());
+    const { consultation, askerThreadId, decision } = await this.waitingIn(sessionId);
+    const next = passedOnTo(
+      decision,
+      person,
+      await this.roleCards.consultants(),
+      await this.chains.ofDecision(decision),
+    );
+    if (next.kind === "refused") throw new ThreadRefused([...next.problems]);
+    const to = next.kind === "consultant" ? next.consultant : undefined;
     const { thread: asker, event } = await this.repository.update(askerThreadId, (latest) =>
       passDecisionOn(latest, {
         decisionId: decision.id,
-        by: consultantKey,
-        to: next?.roleKey,
+        by: consultation.roleKey,
+        to: to?.roleKey,
         reason,
         passedOnAt: new Date(),
       }),
     );
     if (event) await this.events.publish(event);
-    if (next) await this.openFor(asker);
-    return next;
+    if (to) {
+      await this.openFor(asker);
+    } else if (decision.taskId === undefined) {
+      await this.backToTheCaller(
+        decision.id,
+        passedOnToTheUserWords(await this.nameOf(consultation.roleKey), reason),
+      );
+    }
+    return to;
   }
 
   /** The fire alarm sounded: every Consultation answering stops now (spec §2.8). */
@@ -148,30 +192,41 @@ export class Consultations implements OnModuleInit {
   }
 
   /**
-   * The all clear was given (spec §2.8): on each of the Tasks that go on, a Decision still waiting
-   * on its Consultant has them asked: again in the Consultation the alarm stopped, or in one it
-   * kept from opening.
+   * The all clear was given (spec §2.8): on each of the Tasks that go on, and for every call made
+   * outside a Task, a Decision still waiting on its Consultant has them asked: again in the
+   * Consultation the alarm stopped, or in one it kept from opening.
    */
   async goOnAfterAllClear(taskIds: readonly string[]): Promise<void> {
-    for (const taskId of taskIds) {
-      const threads = await this.repository.listIn({ kind: "task", taskId });
-      for (const asker of threads) {
-        await this.askAgainFor(asker, threads).catch((error: unknown) => {
-          this.logger.error(
-            `Thread ${asker.id}'s Consultant wasn't asked again after the all clear: ${String(error)}`,
-          );
-        });
-      }
+    const onTasks = await Promise.all(
+      taskIds.map((taskId) => this.repository.listIn({ kind: "task", taskId })),
+    );
+    for (const asker of [...onTasks.flat(), ...(await this.callersOutsideTasks())]) {
+      await this.askAgainFor(asker).catch((error: unknown) => {
+        this.logger.error(
+          `Thread ${asker.id}'s Consultant wasn't asked again after the all clear: ${String(error)}`,
+        );
+      });
     }
   }
 
-  private async askAgainFor(asker: Thread, threads: readonly Thread[]): Promise<void> {
+  /**
+   * The Threads waiting on a call made outside a Task, which the fire alarm holds no Task for: those
+   * of a person someone fills, as nobody else could take the answer.
+   */
+  private async callersOutsideTasks(): Promise<readonly Thread[]> {
+    const calls = await this.repository.unansweredOnNoTask();
+    const callers: Thread[] = [];
+    for (const { threadId } of calls) {
+      const thread = await this.repository.find(threadId);
+      if (thread && (await this.roleCards.find(thread.roleKey))) callers.push(thread);
+    }
+    return callers;
+  }
+
+  private async askAgainFor(asker: Thread): Promise<void> {
     const decision = putToAConsultant(asker);
-    if (!decision?.putTo || asker.consultation) return;
-    const stopped = threads.find(
-      ({ consultation, roleKey }) =>
-        consultation?.decisionId === decision.id && roleKey === decision.putTo,
-    );
+    if (!decision?.putTo) return;
+    const stopped = await this.consultationOf(asker, decision);
     if (!stopped) {
       await this.openFor(asker);
       return;
@@ -198,54 +253,65 @@ export class Consultations implements OnModuleInit {
         "You passed this Decision on: it waits on someone else now. There is nothing left to answer.",
       ]);
     }
-    return { consultantKey: consultation.roleKey, askerThreadId, decision };
+    return { consultation, askerThreadId, decision };
   }
 
   /**
    * Opens the Consultation for the Decision the Thread's Agent, or The Office, put to a Consultant,
-   * once for each Consultant it is put to; none while the fire alarm is on.
+   * once for each Consultant it is put to; none while the fire alarm is on. A Consultation that
+   * can't start leaves the Decision to the user: on a Task as it waits on them, from a chat as an
+   * answer back to the caller.
    */
   async openFor(asker: Thread): Promise<void> {
     const decision = putToAConsultant(asker);
-    if (!decision?.putTo || asker.consultation) return;
+    if (!decision?.putTo) return;
     if ((await this.fireAlarm.read()).on) return;
+    if (await this.consultationOf(asker, decision)) return;
     const consultantKey = decision.putTo;
-    const threads = await this.repository.listIn(asker.home);
-    const opened = threads.some(
-      ({ consultation, roleKey }) =>
-        consultation?.decisionId === decision.id && roleKey === consultantKey,
-    );
-    if (opened) return;
     try {
       await this.start(asker, decision, consultantKey);
     } catch (error) {
       this.logger.warn(
         `Consultation for Decision ${decision.id} did not start; the user is asked: ${String(error)}`,
       );
-      await this.putToUser(asker.id, decision.id);
+      await this.putToUser(asker.id, decision, consultantKey);
     }
   }
 
+  /** The Consultation opened for the Decision with the Consultant it is put to now, if any. */
+  private async consultationOf(asker: Thread, decision: Decision): Promise<Thread | undefined> {
+    const home = consultationHome(asker, decision.putTo ?? "");
+    if (!home) return undefined;
+    const threads = await this.repository.listIn(home);
+    return threads.find(
+      ({ consultation, roleKey }) =>
+        consultation?.decisionId === decision.id && roleKey === decision.putTo,
+    );
+  }
+
   private async start(asker: Thread, decision: Decision, consultantKey: string): Promise<void> {
-    if (asker.home.kind !== "task") return;
+    const home = consultationHome(asker, consultantKey);
+    if (!home) return;
     const [askerName, consultant, opening] = await Promise.all([
       this.askerNameOf(decision),
       this.roleCards.find(consultantKey),
       this.openingFor(decision),
     ]);
     if (!consultant) throw new Error(`Nobody fills the Role "${consultantKey}" now.`);
+    const start: ConsultationThreadStart = {
+      home,
+      roleKey: consultantKey,
+      title: consultationTitle(askerName, consultant.card.name),
+    };
     const { thread, event } = startConsultationThread(
       randomUUID(),
-      {
-        taskId: asker.home.taskId,
-        roleKey: consultantKey,
-        title: consultationTitle(askerName, consultant.card.name),
-      },
+      start,
       { decisionId: decision.id, askerThreadId: asker.id, askerRoleKey: decision.roleKey },
       new Date(),
     );
     await this.repository.add(thread);
     await this.events.publish(event);
+    await this.logLine(thread.id, decision.id, consultationAskedLine(askerName, decision));
     await this.runner.open(thread.id, opening);
   }
 
@@ -263,6 +329,27 @@ export class Consultations implements OnModuleInit {
     return consultationOpening(decision, askerName, passers);
   }
 
+  /** The Consultation shows what it was asked and its answer, as the asker's Thread shows its card. */
+  private async logLine(threadId: string, decisionId: string, text: string): Promise<void> {
+    const { event } = await this.repository.update(threadId, (latest) =>
+      logMessages(
+        latest,
+        [
+          {
+            kind: "consultation-line",
+            id: randomUUID(),
+            threadId,
+            at: new Date(),
+            decisionId,
+            text,
+          },
+        ],
+        new Date(),
+      ),
+    );
+    if (event) await this.events.publish(event);
+  }
+
   private async askerNameOf(decision: Decision): Promise<string> {
     return decision.roleKey === undefined ? THE_OFFICE : this.nameOf(decision.roleKey);
   }
@@ -272,16 +359,56 @@ export class Consultations implements OnModuleInit {
     return (await this.roleCards.find(roleKey))?.card.name ?? roleKey;
   }
 
-  /** The Decision waits on the user instead, which tells them it needs them. */
-  private async putToUser(askerThreadId: string, decisionId: string): Promise<void> {
+  /**
+   * The Decision is the user's instead: on a Task it waits on them, which tells them it needs them;
+   * from a chat, which has no Needs you, The Office answers the caller so they ask the user.
+   */
+  private async putToUser(
+    askerThreadId: string,
+    decision: Decision,
+    consultantKey: string,
+  ): Promise<void> {
+    if (decision.taskId === undefined) {
+      const name = await this.nameOf(consultantKey);
+      await this.backToTheCaller(decision.id, `${name} can't take this call now.`);
+      return;
+    }
     const { event } = await this.repository.update(askerThreadId, (latest) =>
-      putDecisionToUser(latest, decisionId, new Date()),
+      putDecisionToUser(latest, decision.id, new Date()),
     );
     if (event) await this.events.publish(event);
   }
+
+  private async backToTheCaller(decisionId: string, why: string): Promise<void> {
+    await this.decisions.answer(
+      decisionId,
+      { kind: "free-answer", text: backToTheCallerWords(why) },
+      { kind: "the-office" },
+    );
+  }
 }
 
-/** The Decision the Thread waits on that is put to a Consultant: only a Thread on a Task has one. */
+/** The Decision the Thread waits on that is put to a Consultant. */
 function putToAConsultant({ openDecisions }: Thread): Decision | undefined {
   return openDecisions.find((decision) => decision.putTo !== undefined);
+}
+
+/**
+ * Where the Consultation of a Decision asked in `asker` opens (spec §2.4): on the asker's Task, or
+ * in the Consultant's own chat for a call made from a chat or a Consultation there. An Initiative's
+ * Threads call no one yet.
+ */
+function consultationHome(
+  asker: Thread,
+  consultantKey: string,
+): ConsultationThreadStart["home"] | undefined {
+  const { home } = asker;
+  switch (home.kind) {
+    case "task":
+      return home;
+    case "chat":
+      return { kind: "chat", roleKey: consultantKey };
+    case "initiative":
+      return undefined;
+  }
 }

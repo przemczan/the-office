@@ -86,8 +86,10 @@ export interface ThreadSession {
 export type ContextOverride = "start-fresh" | "continue-anyway";
 
 /**
- * What makes a Thread a Consultation (spec §2.4): a sub-thread on a Task where a Consultant, whose
- * Role the Thread's `roleKey` is, answers the Decision an Agent, or The Office, put to them.
+ * What makes a Thread a Consultation (spec §2.4): a sub-thread where a Consultant, whose Role the
+ * Thread's `roleKey` is, answers the Decision an Agent, or The Office, put to them. It is on the
+ * asker's Task, or in the Consultant's own chat for a call made outside a Task. A Consultation may
+ * call someone itself, so its asker's Thread may be a Consultation too.
  */
 export interface Consultation {
   readonly decisionId: string;

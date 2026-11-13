@@ -1,6 +1,6 @@
 import type { Initiative, QueuedTask, Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { COLUMNS } from "./board-columns.ts";
+import { cardsIn, COLUMNS } from "./board-columns.ts";
 import {
   boardGroups,
   columnCount,
@@ -64,6 +64,7 @@ function anInitiative(id: string, fields: Partial<Initiative> = {}): Initiative 
     createdAt: "2026-10-28T10:00:00.000Z",
     endedAt: null,
     archivedAt: null,
+    pausedAt: null,
     planningThreadId: null,
     planningAutoMode: false,
     pipelineId: null,
@@ -260,6 +261,26 @@ describe("foldedGroupWords", () => {
   it("counts the cards per column, leaving the empty columns out", () => {
     expect(foldedGroupWords(group(groupsOf(), "pairing"), queue)).toBe("Backlog 1 · Ready 1");
     expect(foldedGroupWords(group(groupsOf(), NO_INITIATIVE), queue)).toBe("Backlog 1 · Done 1");
+  });
+});
+
+describe("a dropped Initiative's Tasks", () => {
+  const dropped = anInitiative("export", { state: "dropped" });
+  const tasks = [
+    aTask("export-1", { initiativeId: "export", state: "dropped" }),
+    aTask("export-2", { initiativeId: "export", state: "dropped" }),
+    aTask("export-3", { initiativeId: "export", state: "done" }),
+  ];
+  const done = COLUMNS.find((column) => column.key === "done") ?? COLUMNS[0]!;
+
+  it("show in the Done column, grouped by Initiative and not", () => {
+    const groups = groupsOf({ tasks, initiatives: [dropped] });
+
+    expect(ids(cardsIn(done, group(groups, "export").onBoard, []))).toEqual(ids(tasks));
+    expect(ids(cardsIn(done, tasks, []))).toEqual(ids(tasks));
+    for (const column of COLUMNS.filter(({ key }) => key !== "done")) {
+      expect(cardsIn(column, tasks, [])).toEqual([]);
+    }
   });
 });
 

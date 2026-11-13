@@ -29,6 +29,7 @@ import {
   RunEnvironmentDefinitionsForTests,
   StageRoleEnginesForTests,
   StageDecisionsForTests,
+  StageThreadMessagesForTests,
   StageThreadsForTests,
   StartedTasksForTests,
   TaskUsageForTests,
@@ -52,6 +53,7 @@ export interface PipelinesApplication {
   readonly people: KnownPeopleForTests;
   readonly projects: ProjectDefaultsForTests;
   readonly stageThreads: StageThreadsForTests;
+  readonly threadMessages: StageThreadMessagesForTests;
   readonly decisions: StageDecisionsForTests;
   readonly git: TaskGitForTests;
   readonly commands: TaskCommandsForTests;
@@ -103,6 +105,7 @@ export async function startPipelinesApplication(
         knownPeople: KnownPeopleForTests,
         projectDefaults: ProjectDefaultsForTests,
         stageThreads: StageThreadsForTests,
+        stageThreadMessages: StageThreadMessagesForTests,
         stageDecisions: StageDecisionsForTests,
         taskGit: TaskGitForTests,
         taskCommands: TaskCommandsForTests,
@@ -130,6 +133,7 @@ export async function startPipelinesApplication(
     people: app.get(KnownPeopleForTests, { strict: false }),
     projects: app.get(ProjectDefaultsForTests, { strict: false }),
     stageThreads: app.get(StageThreadsForTests, { strict: false }),
+    threadMessages: app.get(StageThreadMessagesForTests, { strict: false }),
     decisions: app.get(StageDecisionsForTests, { strict: false }),
     git: app.get(TaskGitForTests, { strict: false }),
     commands: app.get(TaskCommandsForTests, { strict: false }),

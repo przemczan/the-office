@@ -154,8 +154,8 @@ function handoverNoteLines(notes: readonly HandoverNote[]): string[] {
 /** What an Initiative's record and a planning Brief's Initiative section are worded from. */
 export interface InitiativeRecord {
   readonly initiative: Initiative;
-  /** The Idea it was shaped from. */
-  readonly idea: Idea;
+  /** The Idea it was shaped from; undefined for one created from none (create_initiative). */
+  readonly idea?: Idea;
   /** Its Tasks, in the order they were added. */
   readonly tasks: readonly Task[];
   /** Every Task by its id, where the Tasks its Tasks wait for are looked up. */
@@ -167,7 +167,7 @@ export interface InitiativeRecord {
 
 /**
  * An Initiative's record as an Agent reads it, in its Thread or mentioned in a chat: its state and
- * outcome, the Idea it was shaped from, its Attachments, and its Tasks in the order they were
+ * outcome, the Idea it was shaped from if any, its Attachments, and its Tasks in the order they were
  * added, each with its Project, state and the Tasks it waits for, its Publishing Tasks apart.
  */
 export function initiativeRecordText({
@@ -183,7 +183,7 @@ export function initiativeRecordText({
   return [
     `${initiative.name} (Initiative ${initiative.id})`,
     `- ${initiative.state}; spans ${projectsWords(initiativeProjectIds(tasks))}`,
-    `- Shaped from: ${linkedIdeaWords(idea)}`,
+    ...(idea ? [`- Shaped from: ${linkedIdeaWords(idea)}`] : []),
     `- Created by ${authorWords(initiative.createdBy)} on ${initiative.createdAt.toISOString()}`,
     ...(initiative.endedAt
       ? [

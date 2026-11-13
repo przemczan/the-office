@@ -6,7 +6,9 @@ import {
   giveTaskAllClear,
   pauseTask,
   pauseTaskForAlarm,
+  pauseTaskForInitiative,
   resumeTask,
+  resumeTaskForInitiative,
   stopTask,
   withStateChange,
 } from "./task-changes.js";
@@ -124,7 +126,10 @@ describe("Pause, Stop and Resume", () => {
   });
 
   it("resumes a Paused Task In progress", () => {
-    const resumed = resumeTask(aTask({ state: "paused" }), { fireAlarmOn: false });
+    const resumed = resumeTask(aTask({ state: "paused" }), {
+      fireAlarmOn: false,
+      initiativePaused: false,
+    });
 
     expect(resumed.task).toEqual(aTask({ state: "in-progress" }));
     expect(resumed.event).toBeInstanceOf(TaskResumed);
@@ -134,7 +139,7 @@ describe("Pause, Stop and Resume", () => {
   it("pauses a running Task for the fire alarm, apart from the user's Pause, leaving a Task the user paused theirs", () => {
     const paused = pauseTaskForAlarm(aTask({ state: "waiting-on-you" }));
 
-    expect(paused?.task).toEqual(aTask({ state: "paused", pausedByAlarm: true }));
+    expect(paused?.task).toEqual(aTask({ state: "paused", pausedBy: "alarm" }));
     expect(paused?.event).toMatchObject({ taskId: "task-1", from: "waiting-on-you", by: "alarm" });
     expect(pauseTaskForAlarm(aTask({ state: "paused" }))).toBeUndefined();
     expect(pauseTaskForAlarm(aTask({ state: "ready" }))).toBeUndefined();
@@ -142,12 +147,63 @@ describe("Pause, Stop and Resume", () => {
 });
 
 describe("giveTaskAllClear", () => {
-  const pausedByAlarm = aTask({ state: "paused", pausedByAlarm: true });
+  const pausedByAlarm = aTask({ state: "paused", pausedBy: "alarm" });
 
   it("resumes a Task the alarm paused, In progress where its Pipeline was held", () => {
     const change = giveTaskAllClear(pausedByAlarm, "resume");
 
-    expect(change?.task).toMatchObject({ state: "in-progress", pausedByAlarm: false });
+    expect(change?.task).toMatchObject({ state: "in-progress", pausedBy: undefined });
     expect(change?.event).toBeInstanceOf(TaskResumed);
+  });
+
+  it("leaves a Task the Initiative's Pause holds to Resume the Initiative", () => {
+    expect(giveTaskAllClear(aTask({ state: "paused", pausedBy: "initiative" }), "resume")).toBe(
+      undefined,
+    );
+  });
+});
+
+describe("the Initiative's Pause, for one of its Tasks", () => {
+  it("pauses a Task In progress or Waiting on you, its Stage held as by the user's Pause", () => {
+    for (const state of ["in-progress", "waiting-on-you"] as const) {
+      const paused = pauseTaskForInitiative(aTask({ state }));
+
+      expect(paused?.task).toEqual(aTask({ state: "paused", pausedBy: "initiative" }));
+      expect(paused?.event).toBeInstanceOf(TaskPaused);
+      expect(paused?.event).toMatchObject({ taskId: "task-1", from: state, by: "initiative" });
+      expect(paused?.stateChange).toMatchObject({ from: state, to: "paused", by: THE_USER });
+    }
+  });
+
+  it("takes over a Task the fire alarm holds, leaving a Task the user paused theirs", () => {
+    const takenOver = pauseTaskForInitiative(aTask({ state: "paused", pausedBy: "alarm" }));
+
+    expect(takenOver?.task).toEqual(aTask({ state: "paused", pausedBy: "initiative" }));
+    expect(takenOver?.event).toMatchObject({ from: "paused", by: "initiative" });
+    expect(takenOver?.stateChange).toBeUndefined();
+    expect(pauseTaskForInitiative(aTask({ state: "paused" }))).toBeUndefined();
+    expect(pauseTaskForInitiative(aTask({ state: "ready" }))).toBeUndefined();
+  });
+
+  it("resumes only a Task its Pause held, which the alarm holds instead while it is on", () => {
+    const held = aTask({ state: "paused", pausedBy: "initiative" });
+    const resumed = resumeTaskForInitiative(held, { fireAlarmOn: false });
+    const forTheAlarm = resumeTaskForInitiative(held, { fireAlarmOn: true });
+
+    expect(resumed?.task).toEqual(aTask({ state: "in-progress" }));
+    expect(resumed?.event).toBeInstanceOf(TaskResumed);
+    expect(forTheAlarm?.task).toEqual(aTask({ state: "paused", pausedBy: "alarm" }));
+    expect(forTheAlarm?.event).toMatchObject({ from: "paused", by: "alarm" });
+    expect(resumeTaskForInitiative(aTask({ state: "paused" }), { fireAlarmOn: false })).toBe(
+      undefined,
+    );
+  });
+
+  it("refuses a single Resume while the Initiative is paused", () => {
+    const held = aTask({ state: "paused", pausedBy: "initiative" });
+
+    expect(() => resumeTask(held, { fireAlarmOn: false, initiativePaused: true })).toThrow(
+      new TaskRefused(["The Initiative is paused: resume it to go on."]),
+    );
   });
 });

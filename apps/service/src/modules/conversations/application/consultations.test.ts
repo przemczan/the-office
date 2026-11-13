@@ -2,7 +2,7 @@ import { ANSWER_CONSULTATION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import {
   ANSWER_CONSULTATION_TOOL as SESSION_ANSWER_TOOL,
-  CONSULTATION_OFFICE_TOOLS,
+  consultationOfficeTools,
 } from "../domain/session-instructions.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { randomUUID } from "node:crypto";
@@ -29,6 +29,8 @@ import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import type { Thread } from "../domain/thread.js";
+import { startStageThread } from "../domain/thread-changes.js";
+import { SESSION } from "../domain/decision.fixtures.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
 import { OfficeInstructionsRepositoryForTests } from "../ports/office-instructions-repository.fixtures.js";
@@ -45,6 +47,7 @@ import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { CallChains } from "./call-chains.js";
 import { StageDecisions } from "./stage-decisions.js";
 import { StageThreads } from "./stage-threads.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
@@ -94,6 +97,9 @@ let consultantKey: string;
 let devopsKey: string;
 
 let architectKey: string;
+
+/** Whether the asker is a Consultant too, whom a callee could call back. */
+let askerIsAConsultant: boolean;
 
 let threads: ThreadService;
 
@@ -146,6 +152,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         { roleKey: consultantKey, name: "Casey", title: "CTO" },
         { roleKey: devopsKey, name: "Riley", title: "Devops" },
         { roleKey: architectKey, name: "Ari", title: "Architect" },
+        ...(askerIsAConsultant ? [{ roleKey: askerKey, name: "Dana", title: "Developer" }] : []),
       ]),
     hiredKeys: () => Promise.resolve(new Set([askerKey, consultantKey, devopsKey, architectKey])),
     roleTitle: (key) => key,
@@ -178,6 +185,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
+      CallChains,
       ThreadContexts,
       AllowChanges,
       ThreadRunner,
@@ -202,9 +210,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       DecisionOfficeTools,
     ],
   }));
-  // As the Work and People modules register the tools the Consultation reads records with.
-  for (const name of CONSULTATION_OFFICE_TOOLS.filter(
-    (tool) => tool !== ANSWER_CONSULTATION_TOOL,
+  // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
+  for (const name of consultationOfficeTools(consultantKey, true).filter(
+    (tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL,
   )) {
     app.get(OfficeToolRegistry).register({
       name,
@@ -357,6 +365,7 @@ function setUpEachTest(): void {
     consultantKey = `consultant-${randomUUID()}`;
     devopsKey = `devops-${randomUUID()}`;
     architectKey = `architect-${randomUUID()}`;
+    askerIsAConsultant = false;
   });
 
   afterEach(async () => {
@@ -430,11 +439,327 @@ describe("a consult of a hired Consultant", () => {
     const opening = consultantSession?.received[0];
     expect(opening?.step === "start" && opening.brief.text).toContain(QUESTION);
     expect(consultantSession?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...CONSULTATION_OFFICE_TOOLS,
+      ...consultationOfficeTools(consultantKey, true),
     ]);
+    const consultationLog = await threads.messages(consultation.id);
+    expect(consultationLog).toContainEqual(
+      expect.objectContaining({
+        kind: "consultation-line",
+        text: "Your answer to Dana: Postgres",
+      }),
+    );
     const answer = askerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
       `Casey answered your Decision "${QUESTION}" with the option "Postgres".`,
     );
+  });
+});
+
+/** The asker calls `person` with a request, then ends their turn. */
+function requests(person: string, callId = "c-1"): Step[] {
+  return [
+    ...usesTool(callId, CONSULT_TOOL, {
+      person,
+      kind: "request",
+      question: "Set up the Project's commands.",
+      context: "The user asked me to have it set up.",
+      why: "I can't draft Project commands.",
+    }),
+    ...aTurn("brief", "I asked them."),
+  ];
+}
+
+async function aChatWith(roleKey: string, said: string): Promise<Thread> {
+  const opened = await threads.startInChat(roleKey);
+  return app.get(ThreadRunner).send(opened.id, said);
+}
+
+/** The Consultations in the person's chat, once one has started. */
+async function consultationInChatOf(roleKey: string): Promise<Thread> {
+  return vi.waitFor(
+    async () => {
+      const found = (await threads.listInChat(roleKey)).find(({ consultation }) => consultation);
+      if (!found) throw new Error("No Consultation yet.");
+      return found;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+/** The Thread once its person answered in it and waits again. */
+async function answeredOnce(threadId: string): Promise<Thread> {
+  return vi.waitFor(
+    async () => {
+      const thread = await threads.read(threadId);
+      if (!thread.session || thread.state !== "waiting") throw new Error("Not answered yet.");
+      return thread;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+async function answeredIn(threadId: string) {
+  return vi.waitFor(
+    async () => {
+      const [decision] = await decisions.listInThread(threadId);
+      if (!decision?.answer) throw new Error("Not answered yet.");
+      return decision;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+/** What the session read back from the tool call `callId`. */
+function toolResultOf(session: (typeof engine.sessions)[number] | undefined, callId: string) {
+  return session?.reportedEvents.find(
+    (event) => event.kind === "tool-result" && event.callId === callId,
+  );
+}
+
+describe("a call from a chat", () => {
+  it("opens the callee's Consultation in their own chat, and their answer in words reaches the caller", async () => {
+    await startWith(
+      started(...requests("Devops"), ...ASKER_TAKES_THE_ANSWER),
+      started(
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, {
+          answer: "I drafted a Proposal of the Project's commands.",
+        }),
+        ...aTurn("brief", "Done."),
+      ),
+    );
+    const caller = await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const consultation = await consultationInChatOf(devopsKey);
+    await settled(consultation.id);
+    const answered = await answeredIn(caller.id);
+    await settled(caller.id);
+
+    expect(consultation).toMatchObject({
+      home: { kind: "chat", roleKey: devopsKey },
+      title: "Consultation · Dana and Riley",
+      consultation: { askerThreadId: caller.id, askerRoleKey: askerKey },
+    });
+    expect(answered).toMatchObject({
+      kind: "request",
+      taskId: undefined,
+      putTo: devopsKey,
+      answer: {
+        kind: "free-answer",
+        text: "I drafted a Proposal of the Project's commands.",
+        answeredBy: devopsKey,
+      },
+    });
+    const [callerSession, calleeSession] = engine.sessions;
+    const opening = calleeSession?.received[0];
+    expect(opening?.step === "start" && opening.brief.text).toContain(
+      "Dana asks you to: Set up the Project's commands.",
+    );
+    const answer = callerSession?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `Riley answered your request "Set up the Project's commands." in their own words:\n\nI drafted a Proposal of the Project's commands.`,
+    );
+    const lines = (await threads.messages(consultation.id))
+      .filter((message) => message.kind === "consultation-line")
+      .map((line) => line.kind === "consultation-line" && line.text);
+    expect(lines).toEqual([
+      "Dana asks you to: Set up the Project's commands.",
+      "Your answer to Dana: I drafted a Proposal of the Project's commands.",
+    ]);
+  });
+
+  it("gives the callee their own tools, never the caller's, and no write access", async () => {
+    await startWith(started(...requests("Devops")), started(...aTurn("brief", "Looking.")));
+    await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const consultation = await consultationInChatOf(devopsKey);
+    await vi.waitFor(() => {
+      if (engine.sessions.length < 2) throw new Error("The callee hasn't started yet.");
+    });
+    await settled(consultation.id);
+
+    const [, calleeSession] = engine.sessions;
+    expect(calleeSession?.options.officeTools.map(({ name }) => name)).toEqual([
+      ...consultationOfficeTools(devopsKey, true),
+    ]);
+    expect(calleeSession?.options.profile).toMatchObject({
+      edit: false,
+      run: { kind: "read-only-git" },
+    });
+    expect(calleeSession?.options.workstation).toBe(false);
+  });
+
+  it("refuses a call naming nobody who can be called: the caller asks the user in their answer", async () => {
+    await startWith(started(...requests("Janitor"), ...aTurn("brief", "I'll ask the user.")));
+    const caller = await aChatWith(askerKey, "Ask the janitor.");
+
+    await settled(caller.id);
+
+    expect(toolResultOf(engine.sessions[0], "c-1")).toMatchObject({
+      isError: true,
+      text: "Nobody who can be called fills that Role: ask the user in your answer instead.",
+    });
+    expect(await decisions.listInThread(caller.id)).toEqual([]);
+  });
+
+  it("goes back to the caller as a line when the callee passes it on to the user", async () => {
+    await startWith(
+      started(
+        ...usesTool("c-1", CONSULT_TOOL, {
+          person: "Devops",
+          kind: "approval",
+          question: "Install ffmpeg on the machine.",
+          context: "Video exports need it.",
+          why: "No other way.",
+        }),
+        ...aTurn("brief", "I asked."),
+        ...ASKER_TAKES_THE_ANSWER,
+      ),
+      started(
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, {
+          passOn: { why: "It changes the machine." },
+        }),
+        ...aTurn("brief", "Passed on."),
+      ),
+    );
+    const caller = await aChatWith(askerKey, "Ask Devops whether ffmpeg may be installed.");
+
+    const answered = await answeredIn(caller.id);
+    await settled(caller.id);
+
+    expect(answered.answer).toMatchObject({ kind: "free-answer", byTheOffice: true });
+    expect(await decisions.listOpen()).not.toContainEqual(
+      expect.objectContaining({ id: answered.id }),
+    );
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toContain(
+      "Riley passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
+    );
+  });
+});
+
+describe("a call from a Consultation", () => {
+  it("nests: the callee calls a third person, whose answer comes back down the chain", async () => {
+    await startWith(
+      started(...requests("Devops"), ...ASKER_TAKES_THE_ANSWER),
+      started(
+        ...usesTool("c-2", CONSULT_TOOL, {
+          person: "CTO",
+          question: QUESTION,
+          context: "Before I draft the commands.",
+          options: OPTIONS,
+          recommended: 2,
+          why: "It is what the Projects use.",
+        }),
+        ...aTurn("brief", "I asked the CTO."),
+        { step: "send", message: { id: "cto-answer", text: "" }, priority: "later" },
+        ...usesTool("c-4", ANSWER_CONSULTATION_TOOL, { answer: "Drafted, for Postgres." }),
+        ...aTurn("cto-answer", "Done."),
+      ),
+      started(
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...aTurn("brief", "Postgres."),
+      ),
+    );
+    const caller = await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const answered = await answeredIn(caller.id);
+    await settled(caller.id);
+
+    const devopsConsultation = await consultationInChatOf(devopsKey);
+    const ctoConsultation = await consultationInChatOf(consultantKey);
+    expect(ctoConsultation.consultation).toMatchObject({
+      askerThreadId: devopsConsultation.id,
+      askerRoleKey: devopsKey,
+    });
+    expect(answered.answer).toMatchObject({
+      text: "Drafted, for Postgres.",
+      answeredBy: devopsKey,
+    });
+    const [, devopsSession, ctoSession] = engine.sessions;
+    expect(devopsSession?.options.officeTools.map(({ name }) => name)).toContain(CONSULT_TOOL);
+    // The chain has asked two people: the CTO can call nobody else.
+    expect(ctoSession?.options.officeTools.map(({ name }) => name)).not.toContain(CONSULT_TOOL);
+  });
+
+  it("refuses calling someone already in the chain, naming them", async () => {
+    // The asker is a Consultant too, so the callee could otherwise call them back.
+    askerIsAConsultant = true;
+    await startWith(
+      started(...requests("Devops")),
+      started(
+        ...usesTool("c-2", CONSULT_TOOL, {
+          person: "Developer",
+          kind: "request",
+          question: "Tell me which Project.",
+          context: "Before I draft.",
+          why: "I need the Project.",
+        }),
+        ...aTurn("brief", "I'll answer from what I have."),
+      ),
+    );
+    await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    await answeredOnce((await consultationInChatOf(devopsKey)).id);
+
+    expect(toolResultOf(engine.sessions[1], "c-2")).toMatchObject({
+      isError: true,
+      text: "Dana is already in this chain of calls: answer from what you have, or pass it on to the user.",
+    });
+  });
+
+  it("refuses a third person down one chain, even without the tool", async () => {
+    await startWith(
+      started(...requests("Devops")),
+      started(...requests("CTO", "c-2")),
+      started(...aTurn("brief", "Looking.")),
+    );
+    await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const ctoConsultation = await answeredOnce((await consultationInChatOf(consultantKey)).id);
+    await expect(
+      consultations.put(ctoConsultation.session?.id ?? "", {
+        kind: "request",
+        person: "Architect",
+        request: "Review it.",
+        context: "",
+        why: "A third opinion.",
+      }),
+    ).rejects.toThrow(
+      "This chain of calls has asked 2 people already, the most it may: answer from what you have, or pass it on to the user.",
+    );
+  });
+});
+
+describe("a call from a Stage that can write", () => {
+  it("gives the callee no write access of the Stage's: their session is built from them alone", async () => {
+    await startWith(started(...aTurn("brief", "Looking.")));
+    const { thread } = startStageThread(
+      randomUUID(),
+      { taskId: randomUUID(), roleKey: askerKey, title: "Implement · Dana" },
+      new Date(),
+    );
+    const stageSession = { ...SESSION, id: randomUUID(), roleKey: askerKey };
+    const stage = { ...thread, state: "answering" as const, session: stageSession };
+    await app.get(ThreadRepository).add(stage);
+
+    await consultations.put(stageSession.id, {
+      kind: "request",
+      person: "Devops",
+      request: "Set up the Project's commands.",
+      context: "The Stage needs them.",
+      why: "Only Devops drafts them.",
+    });
+    await consultations.openFor(await threads.read(stage.id));
+    const consultation = await consultationOn(stage);
+    await settled(consultation.id);
+
+    const [calleeSession] = engine.sessions;
+    expect(consultation.home).toEqual(stage.home);
+    expect(calleeSession?.options.profile).toMatchObject({
+      edit: false,
+      run: { kind: "read-only-git" },
+    });
+    expect(calleeSession?.options.workstation).toBe(false);
+    expect(calleeSession?.options.officeTools.map(({ name }) => name)).not.toContain("change_role");
   });
 });

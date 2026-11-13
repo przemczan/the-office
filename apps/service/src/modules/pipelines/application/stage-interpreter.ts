@@ -15,6 +15,7 @@ import { OfficeUpdateCancelled, OfficeUpdateHold } from "../../office-updates/in
 import { CTO } from "../../people/index.js";
 import {
   AlarmSounded,
+  STARTED_STATES,
   TaskDependencyRemoved,
   TaskPaused,
   TaskResumed,
@@ -151,12 +152,15 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
     this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
     this.events.subscribe(OfficeUpdateCancelled, () => this.walkHeldForUpdate());
-    this.events.subscribe(TaskStateChanged, ({ to }) => {
+    this.events.subscribe(TaskStateChanged, async ({ taskId, from, to }) => {
+      // A started Task dropped, alone or with its Initiative, has its running Stage stopped.
+      if (to === "dropped" && STARTED_STATES.includes(from)) await this.interrupt(taskId, "stop");
       if (to === "done" || to === "dropped") this.walkHeldForBlocker();
     });
     this.events.subscribe(TaskDependencyRemoved, () => this.walkHeldForBlocker());
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
-      if (!decision.answer) return;
+      // A call made from a chat is on no Task, so no Pipeline waits on it.
+      if (!decision.answer || decision.taskId === undefined) return;
       const { answeredAt: _answeredAt, ...answer } = decision.answer;
       return this.takeAnswer(decision.taskId, decision.id, answer);
     });
@@ -303,11 +307,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const own = await this.taskStages.find(id);
     if (!own) return;
     const held = task.state === "in-progress" && (await this.tasks.holdForFireAlarm(id));
-    const { state, pausedByAlarm } = held ? await this.tasks.read(id) : task;
+    const { state, pausedBy } = held ? await this.tasks.read(id) : task;
     const runs = await this.runs.list(id);
     const last = runs.at(-1);
     if (last && !last.outcome) {
-      await this.endLeftRunning(last, runs.slice(0, -1), { state, pausedByAlarm });
+      await this.endLeftRunning(last, runs.slice(0, -1), { state, pausedBy });
     }
     if (state !== "in-progress") return;
     const { definitionOfDone } = await this.records.read(id);
@@ -329,7 +333,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   private async endLeftRunning(
     run: StageRun,
     earlierRuns: readonly StageRun[],
-    held: Pick<StartedTask, "state" | "pausedByAlarm">,
+    held: Pick<StartedTask, "state" | "pausedBy">,
   ): Promise<void> {
     const interruption: StageInterruption = run.heldBy ?? heldByAfterRestart(held);
     const task = await this.records.read(run.taskId);
@@ -673,10 +677,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 /** What holds a run left running with nothing recorded on it, by the state of its Task. */
 function heldByAfterRestart({
   state,
-  pausedByAlarm,
-}: Pick<StartedTask, "state" | "pausedByAlarm">): StageInterruption {
+  pausedBy,
+}: Pick<StartedTask, "state" | "pausedBy">): StageInterruption {
   if (state !== "paused") return "restart";
-  return pausedByAlarm ? "alarm" : "pause";
+  return pausedBy === "alarm" ? "alarm" : "pause";
 }
 
 function stackOf(reason: unknown): string {

@@ -1,11 +1,15 @@
-import { ANSWER_DECISION_TOOL as CONTRACT_ANSWER_DECISION_TOOL } from "@the-office/contracts";
+import {
+  ANSWER_DECISION_TOOL as CONTRACT_ANSWER_DECISION_TOOL,
+  CONSULT_TOOL as CONTRACT_CONSULT_TOOL,
+} from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { CARETAKER, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { aDecision } from "./decision.fixtures.js";
 import {
   ANSWER_DECISION_TOOL,
   CHANGE_ROLE_TOOL,
-  CONSULTATION_OFFICE_TOOLS,
+  CONSULT_TOOL,
+  consultationOfficeTools,
   caretakerChatInstructions,
   chatInstructions,
   chatOfficeTools,
@@ -59,7 +63,7 @@ describe("the Office instructions in a session's standing instructions", () => {
     {
       kind: "a Consultation",
       standing: (officeInstructions: string) =>
-        consultationInstructions({ card, officeInstructions }),
+        consultationInstructions({ card, officeInstructions }, true),
       theRest: "You are in a Consultation",
     },
   ])("in $kind", ({ standing, theRest }) => {
@@ -98,7 +102,7 @@ describe("chatOfficeTools", () => {
     for (const roleKey of ["planner", DEVOPS, CARETAKER, OFFICE_MANAGER]) {
       expect(chatOfficeTools(roleKey)).toContain(READ_THREADS_TOOL);
     }
-    expect(CONSULTATION_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
+    expect(consultationOfficeTools(DEVOPS, true)).toContain(READ_THREADS_TOOL);
     expect(PERSON_READING_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
     expect(READING_OFFICE_TOOLS).not.toContain(READ_THREADS_TOOL);
   });
@@ -109,7 +113,7 @@ describe("answer_decision", () => {
     for (const roleKey of ["planner", DEVOPS, CARETAKER, OFFICE_MANAGER]) {
       expect(chatOfficeTools(roleKey)).toContain(ANSWER_DECISION_TOOL);
     }
-    expect(CONSULTATION_OFFICE_TOOLS).not.toContain(ANSWER_DECISION_TOOL);
+    expect(consultationOfficeTools("planner", true)).not.toContain(ANSWER_DECISION_TOOL);
     expect(PERSON_READING_OFFICE_TOOLS).not.toContain(ANSWER_DECISION_TOOL);
     expect(ANSWER_DECISION_TOOL).toBe(CONTRACT_ANSWER_DECISION_TOOL);
   });
@@ -151,5 +155,28 @@ describe("the message an answered Decision is sent with", () => {
     ).toBe(
       `On the Task "Export" (${decision.taskId}): Ada answered your Decision "${decision.question}" for the user, at their request, with the option "Every Project".`,
     );
+  });
+});
+
+describe("calling a person", () => {
+  it("is in every chat but the Office Manager's, who redirects and never relays", () => {
+    for (const roleKey of ["planner", DEVOPS, CARETAKER]) {
+      expect(chatOfficeTools(roleKey)).toContain(CONSULT_TOOL);
+    }
+    expect(chatOfficeTools(OFFICE_MANAGER)).not.toContain(CONSULT_TOOL);
+    expect(CONSULT_TOOL).toBe(CONTRACT_CONSULT_TOOL);
+  });
+
+  it("is in a Consultation only while its chain of calls may ask one more", () => {
+    expect(consultationOfficeTools("planner", true)).toContain(CONSULT_TOOL);
+    expect(consultationOfficeTools("planner", false)).not.toContain(CONSULT_TOOL);
+  });
+
+  it("gives a Consultation its Consultant's own drafting tools, never the asker's", () => {
+    expect(consultationOfficeTools(DEVOPS, false)).toEqual(
+      expect.arrayContaining(["propose_project_commands", "read_repository", "create_task"]),
+    );
+    expect(consultationOfficeTools("planner", false)).not.toContain("propose_project_commands");
+    expect(consultationOfficeTools(DEVOPS, true)).not.toContain(CHANGE_ROLE_TOOL);
   });
 });

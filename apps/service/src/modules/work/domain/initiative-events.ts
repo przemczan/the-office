@@ -78,6 +78,23 @@ export class InitiativeBranchMade extends DomainEvent {
   }
 }
 
+/** Pause the Initiative: none of its Tasks runs or starts until it is resumed (spec §2.1). */
+export class InitiativePaused extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
+/** Resume the Initiative: the Tasks its Pause held go on, and its queued Tasks may start. */
+export class InitiativeResumed extends DomainEvent {
+  constructor(readonly initiativeId: string) {
+    super();
+  }
+}
+
 /** Plan the Initiative opened its planning Thread with the Planner, in auto mode or not. */
 export class InitiativePlanningStarted extends DomainEvent {
   constructor(

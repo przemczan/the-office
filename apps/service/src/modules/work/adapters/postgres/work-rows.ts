@@ -186,9 +186,11 @@ export function toIdea(row: IdeaRow): Idea {
 export function toInitiativeRow(initiative: Initiative): InitiativeRow {
   return {
     ...initiative,
+    originIdeaId: initiative.originIdeaId ?? null,
     endedAt: initiative.endedAt ?? null,
     archivedAt: initiative.archivedAt ?? null,
     restoredAt: initiative.restoredAt ?? null,
+    pausedAt: initiative.pausedAt ?? null,
     planningThreadId: initiative.planningThreadId ?? null,
     pipelineId: initiative.pipelineId ?? null,
     shortName: initiative.shortName ?? null,
@@ -202,9 +204,11 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
 export function toInitiative(row: InitiativeRow): Initiative {
   return {
     ...row,
+    originIdeaId: row.originIdeaId ?? undefined,
     endedAt: row.endedAt ?? undefined,
     archivedAt: row.archivedAt ?? undefined,
     restoredAt: row.restoredAt ?? undefined,
+    pausedAt: row.pausedAt ?? undefined,
     planningThreadId: row.planningThreadId ?? undefined,
     pipelineId: row.pipelineId ?? undefined,
     shortName: row.shortName ?? undefined,
@@ -235,7 +239,7 @@ export function toTaskRow(task: Task): TaskRow {
     markedPlanned: task.markedPlanned,
     hasPlanningThread: task.hasPlanningThread,
     personRole: task.personRole ?? null,
-    pausedByAlarm: task.pausedByAlarm,
+    pausedBy: task.pausedBy ?? null,
     madeFor: task.madeFor ?? null,
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
@@ -272,7 +276,7 @@ export function toTask(row: TaskRow): Task {
     markedPlanned: row.markedPlanned,
     hasPlanningThread: row.hasPlanningThread,
     personRole: row.personRole ?? undefined,
-    pausedByAlarm: row.pausedByAlarm,
+    pausedBy: row.pausedBy ?? undefined,
     madeFor: row.madeFor ?? undefined,
     blockedBy: row.blockedBy,
     originIdeaId: row.originIdeaId ?? undefined,

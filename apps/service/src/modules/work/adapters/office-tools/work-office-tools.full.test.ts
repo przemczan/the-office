@@ -14,7 +14,14 @@ import { TaskService } from "../../application/task-service.js";
 import type { AttachmentOwner } from "../../domain/attachment.js";
 import { THE_USER } from "../../domain/author.js";
 import {
+  CREATED_INITIATIVE_SHAPING_OPENING,
+  CTO,
+  SHAPING_THREAD_TITLE,
+} from "../../domain/shaping.js";
+import {
   IdeaCardsForTests,
+  InitiativeThreadsForTests,
+  KnownPeopleForTests,
   UNKNOWN_PROJECT,
   UNKNOWN_SESSION,
 } from "../../ports/work-ports.fixtures.js";
@@ -25,8 +32,17 @@ import { AttachmentFiles } from "../../ports/attachment-files.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
 import { aPdf } from "../pdf/pdf.fixtures.js";
 import { attachments as attachmentRows } from "../postgres/work.schema.js";
+import {
+  INITIATIVE_PLANNING_OFFICE_TOOLS,
+  SHAPING_OFFICE_TOOLS,
+} from "../conversations/initiative-thread-records.js";
+import {
+  ASKING_OFFICE_TOOLS,
+  PLANNING_OFFICE_TOOLS,
+} from "../conversations/task-thread-records.js";
 import { READ_INITIATIVE } from "./shaping-office-tools.js";
 import {
+  CREATE_INITIATIVE,
   CREATE_TASK,
   ATTACHMENT_ANSWER_BUDGET,
   LIST_IDEAS,
@@ -250,6 +266,132 @@ describe("create_task", () => {
         (candidate) => candidate.projectId === projectId,
       ),
     ).toEqual([]);
+  });
+});
+
+/** A title of its own: every test file shares the database. */
+function ownTitle(name: string): string {
+  return `${name} ${randomUUID()}`;
+}
+
+/** The Initiative create_initiative made under `name`. */
+async function created(name: string) {
+  return (await work.app.get(InitiativeService).list()).find(
+    (initiative) => initiative.name === name,
+  );
+}
+
+describe("create_initiative", () => {
+  it("takes a title and an outcome, both required, and nothing else", () => {
+    const [tool] = work.app.get(OfficeToolRegistry).named([CREATE_INITIATIVE]);
+    const schema = z.toJSONSchema(tool!.input) as {
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+
+    expect(Object.keys(schema.properties)).toEqual(["title", "outcome"]);
+    expect(schema.required).toEqual(["title", "outcome"]);
+  });
+
+  it("is in no planning, asking, shaping or Initiative planning session's tools", () => {
+    for (const tools of [
+      PLANNING_OFFICE_TOOLS,
+      ASKING_OFFICE_TOOLS,
+      SHAPING_OFFICE_TOOLS,
+      INITIATIVE_PLANNING_OFFICE_TOOLS,
+    ]) {
+      expect(tools).not.toContain(CREATE_INITIATIVE);
+    }
+  });
+
+  it("creates an Initiative being shaped in the person's name, from no Idea", async () => {
+    const name = ownTitle("Single sign-on");
+    const result = await call(CREATE_INITIATIVE, {
+      title: ` ${name} `,
+      outcome: " People sign in once, in the admin panel and the shop. ",
+    });
+
+    const initiative = await created(name);
+    expect(initiative).toMatchObject({
+      state: "shaping",
+      outcome: "People sign in once, in the admin panel and the shop.",
+      originIdeaId: undefined,
+      createdBy: { kind: "person", roleKey: "planner" },
+    });
+    expect(result).toEqual({
+      text: `Created the Initiative "${name}" (Initiative ${initiative?.id}), being shaped: it waits for the user's Confirm on its page. Its shaping Thread with the CTO is open, where its Tasks are agreed.`,
+      isError: false,
+    });
+  });
+
+  it("opens its shaping Thread with the CTO, with an opening that names no Idea", async () => {
+    const name = ownTitle("Usage export");
+    await call(CREATE_INITIATIVE, { title: name, outcome: "Usage exports as CSV." });
+
+    const initiative = await created(name);
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
+      {
+        initiativeId: initiative?.id,
+        roleKey: CTO,
+        title: SHAPING_THREAD_TITLE,
+        opening: CREATED_INITIATIVE_SHAPING_OPENING,
+      },
+    ]);
+    expect(CREATED_INITIATIVE_SHAPING_OPENING).not.toContain("Idea");
+  });
+
+  it("stands without a CTO, and the user's Thread started later has the same opening", async () => {
+    work.app.get(KnownPeopleForTests).vacant.add(CTO);
+    const name = ownTitle("Dark mode");
+    const result = await call(CREATE_INITIATIVE, { title: name, outcome: "Every page has one." });
+
+    expect(result.text).toContain(
+      "Its shaping Thread with the CTO didn't open: the user starts it on its page once a CTO is hired.",
+    );
+    const initiative = await created(name);
+    expect(initiative?.state).toBe("shaping");
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([]);
+
+    work.app.get(KnownPeopleForTests).vacant.delete(CTO);
+    await work.app.get(InitiativeService).startShapingThread(initiative?.id ?? "");
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
+      expect.objectContaining({ opening: CREATED_INITIATIVE_SHAPING_OPENING }),
+    ]);
+  });
+
+  it("refuses a blank title or outcome with every reason, and creates nothing", async () => {
+    const before = (await work.app.get(InitiativeService).list()).length;
+    const result = await call(CREATE_INITIATIVE, { title: " ", outcome: "" });
+
+    expect(result).toEqual({
+      text: "Give the Initiative a title. Write what must be true once the Initiative is done.",
+      isError: true,
+    });
+    expect(await work.app.get(InitiativeService).list()).toHaveLength(before);
+  });
+
+  it("refuses a title longer than one line or the title limit, as an Idea's is", async () => {
+    const tooLong = await call(CREATE_INITIATIVE, { title: "x".repeat(121), outcome: "Faster." });
+    const twoLines = await call(CREATE_INITIATIVE, { title: "One\nTwo", outcome: "Faster." });
+
+    expect(tooLong).toEqual({
+      text: "An Initiative's title may be at most 120 characters.",
+      isError: true,
+    });
+    expect(twoLines).toEqual({ text: "An Initiative's title must be one line.", isError: true });
+  });
+
+  it("reads back with no Shaped from line in its record", async () => {
+    const name = ownTitle("Faster board");
+    await call(CREATE_INITIATIVE, { title: name, outcome: "The board opens in a second." });
+    const initiative = await created(name);
+
+    const record = await call(READ_INITIATIVE, { initiativeId: initiative?.id });
+
+    expect(record.isError).toBe(false);
+    expect(record.text).toContain(`${name} (Initiative ${initiative?.id})`);
+    expect(record.text).toContain("The board opens in a second.");
+    expect(record.text).not.toContain("Shaped from");
   });
 });
 

@@ -1309,8 +1309,8 @@ describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
     await fireAlarmService.finishSounding();
 
     expect(whileOff).toBe("in-progress");
-    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
-    expect(await storedTask(waiting.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
+    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedBy: "alarm" });
+    expect(await storedTask(waiting.id)).toMatchObject({ state: "paused", pausedBy: "alarm" });
   });
 
   it("queues Start with the alarm as its reason, and the release, as at boot, starts nothing", async () => {
@@ -1340,7 +1340,7 @@ describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
     const again = await sendJson(work, "POST", `/tasks/${task.id}/resume`);
 
     expect(taskSchema.parse(await resumed.json()).state).toBe("paused");
-    expect(await storedTask(task.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
+    expect(await storedTask(task.id)).toMatchObject({ state: "paused", pausedBy: "alarm" });
     expect(workRefusalSchema.parse(await again.json()).reasons).toEqual([
       "The fire alarm is on. The Task resumes with the all clear.",
     ]);

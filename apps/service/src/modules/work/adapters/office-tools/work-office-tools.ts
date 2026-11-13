@@ -44,6 +44,7 @@ export const LIST_IDEAS = "list_ideas";
 export const READ_IDEA = "read_idea";
 export const READ_ATTACHMENT = "read_attachment";
 export const CREATE_TASK = "create_task";
+export const CREATE_INITIATIVE = "create_initiative";
 
 /**
  * The most characters read_attachment answers a text file or a PDF's text with, its header
@@ -68,7 +69,8 @@ const LINES_HEADING_ROOM = ", its text in 99,999,999 lines, a marker line before
 /**
  * The Office tools sessions work with Work's records by (spec §6): every session reads every Task,
  * Idea and Attachment, whatever it is on; a chat also captures an Idea and creates a Task in
- * Backlog, each in the name of the person in the session.
+ * Backlog, and the CTO's and the Office Manager's an Initiative being shaped, each in the name of
+ * the person in the session.
  */
 @Injectable()
 export class WorkOfficeTools implements OnModuleInit {
@@ -92,6 +94,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registerReadAttachment();
     this.registerCaptureIdea();
     this.registerCreateTask();
+    this.registerCreateInitiative();
   }
 
   private registerListTasks(): void {
@@ -348,6 +351,33 @@ export class WorkOfficeTools implements OnModuleInit {
           return parts.plan === undefined
             ? created
             : `${created} Its Plan and Definition of Done are Not confirmed until the user confirms each on the Task page.`;
+        }),
+    });
+  }
+
+  private registerCreateInitiative(): void {
+    this.registry.register({
+      name: CREATE_INITIATIVE,
+      description:
+        "Creates an Initiative in your name, only when the user asks for one or agrees to it: one outcome reached by Tasks across Projects. It lands being shaped and waits for the user's Confirm on its page, as one shaped from an Idea does. Name in its outcome the Projects it is meant to touch; its Tasks are added while it is shaped with the CTO, in its shaping Thread.",
+      input: z.object({
+        title: z.string().describe("One line naming the Initiative."),
+        outcome: z
+          .string()
+          .describe(
+            "What must be true once it is done, in plain language, naming the Projects it is meant to touch.",
+          ),
+      }),
+      run: ({ title, outcome }, { sessionId }) =>
+        answered(async () => {
+          const { initiative, shapingThreadOpened } = await this.initiatives.create(
+            { name: title, outcome },
+            await personInSession(this.sessionPeople, sessionId),
+          );
+          const thread = shapingThreadOpened
+            ? "Its shaping Thread with the CTO is open, where its Tasks are agreed."
+            : "Its shaping Thread with the CTO didn't open: the user starts it on its page once a CTO is hired.";
+          return `Created the Initiative "${initiative.name}" (Initiative ${initiative.id}), being shaped: it waits for the user's Confirm on its page. ${thread}`;
         }),
     });
   }

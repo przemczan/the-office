@@ -2,7 +2,9 @@ import type { Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   attachmentsSummary,
+  droppedWithIt,
   droppedWords,
+  dropTasksWords,
   initiativeProgress,
   outcomeSummary,
   progressWords,
@@ -111,12 +113,44 @@ describe("initiativeProgress", () => {
   });
 });
 
-describe("droppedWords", () => {
-  it("says a shaping Initiative took its Tasks in Shaping with it, an active one none", () => {
-    expect(droppedWords("shaping")).toBe(
-      "Initiative dropped, with its Tasks in Shaping. Its other Tasks stay where they are.",
+describe("what a Drop takes with it", () => {
+  it("counts the Tasks not yet Done or Dropped, and those of them started", () => {
+    const states: Task["state"][] = [
+      "shaping",
+      "backlog",
+      "ready",
+      "in-progress",
+      "waiting-on-you",
+      "done",
+      "dropped",
+    ];
+    const tasks = states.map((state) => aTask(state, { state }));
+
+    expect(droppedWithIt(tasks)).toEqual({ open: 5, started: 2 });
+  });
+
+  it("says how many Tasks the Drop takes along and how many of them are started", () => {
+    expect(dropTasksWords({ open: 0, started: 0 })).toBe(
+      "Its Tasks are all Done or Dropped already, so it drops none.",
     );
-    expect(droppedWords("active")).toBe("Initiative dropped. Its Tasks stay where they are.");
+    expect(dropTasksWords({ open: 1, started: 0 })).toBe(
+      "It drops its 1 Task not yet Done or Dropped, not started yet.",
+    );
+    expect(dropTasksWords({ open: 1, started: 1 })).toBe(
+      "It drops its 1 Task not yet Done or Dropped, which has started: its Stage stops.",
+    );
+    expect(dropTasksWords({ open: 3, started: 0 })).toBe(
+      "It drops its 3 Tasks not yet Done or Dropped, none of them started.",
+    );
+    expect(dropTasksWords({ open: 3, started: 1 })).toBe(
+      "It drops its 3 Tasks not yet Done or Dropped, 1 of them started: its Stage stops.",
+    );
+  });
+
+  it("says in the toast that the Initiative was dropped with its open Tasks", () => {
+    expect(droppedWords({ open: 0 })).toBe("Initiative dropped.");
+    expect(droppedWords({ open: 1 })).toBe("Initiative dropped, with its 1 open Task.");
+    expect(droppedWords({ open: 3 })).toBe("Initiative dropped, with its 3 open Tasks.");
   });
 });
 

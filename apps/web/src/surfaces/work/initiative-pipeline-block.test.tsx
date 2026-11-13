@@ -29,6 +29,7 @@ const INITIATIVE: Initiative = {
   createdAt: "2026-11-12T09:00:00.000Z",
   endedAt: null,
   archivedAt: null,
+  pausedAt: null,
   planningThreadId: null,
   planningAutoMode: false,
   pipelineId: null,

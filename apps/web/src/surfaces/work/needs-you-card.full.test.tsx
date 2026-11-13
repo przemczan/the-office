@@ -42,6 +42,7 @@ function aDecision(id: string, question: string): Decision {
   return {
     id,
     threadId: PLANNING_THREAD,
+    kind: "question",
     taskId: TASK.id,
     roleKey: "planner",
     question,
@@ -56,6 +57,7 @@ function aDecision(id: string, question: string): Decision {
     answeredAt: null,
     answeredBy: null,
     atUsersRequest: null,
+    answeredByTheOffice: false,
   };
 }
 

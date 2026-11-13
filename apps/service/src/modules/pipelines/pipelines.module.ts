@@ -42,6 +42,7 @@ import { ProjectDefaults } from "./ports/project-defaults.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
 import { StageRoleEngines } from "./ports/stage-role-engines.js";
+import { StageThreadMessages } from "./ports/stage-thread-messages.js";
 import { StageThreads } from "./ports/stage-threads.js";
 import { RunEnvironmentDefinitions } from "./ports/run-environment-definitions.js";
 import { StaffingHoldRepository } from "./ports/staffing-hold-repository.js";
@@ -68,6 +69,7 @@ export interface PipelinesModuleOptions {
   readonly knownPeople: Type<KnownPeople>;
   readonly projectDefaults: Type<ProjectDefaults>;
   readonly stageThreads: Type<StageThreads>;
+  readonly stageThreadMessages: Type<StageThreadMessages>;
   readonly stageDecisions: Type<StageDecisions>;
   readonly taskGit: Type<TaskGit>;
   readonly taskCommands: Type<TaskCommands>;
@@ -94,6 +96,7 @@ export class PipelinesModule {
     knownPeople,
     projectDefaults,
     stageThreads,
+    stageThreadMessages,
     stageDecisions,
     taskGit,
     taskCommands,
@@ -129,6 +132,7 @@ export class PipelinesModule {
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: ProjectDefaults, useExisting: projectDefaults },
         { provide: StageThreads, useExisting: stageThreads },
+        { provide: StageThreadMessages, useExisting: stageThreadMessages },
         { provide: StageDecisions, useExisting: stageDecisions },
         { provide: TaskGit, useExisting: taskGit },
         { provide: TaskCommands, useExisting: taskCommands },

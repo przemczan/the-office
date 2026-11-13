@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gte,
@@ -160,25 +161,13 @@ export class PostgresThreadRepository extends ThreadRepository {
     return rows.map(toMessage);
   }
 
-  async loggedIn({
-    from,
-    to,
-    roleKey,
-    homes,
-  }: LoggedMessagesRange): Promise<readonly LoggedMessage[]> {
-    if (homes?.length === 0) return [];
+  async loggedIn(range: LoggedMessagesRange): Promise<readonly LoggedMessage[]> {
+    if (range.homes?.length === 0) return [];
     const rows = await this.database
       .select({ message: threadMessages, thread: threads })
       .from(threadMessages)
       .innerJoin(threads, eq(threads.id, threadMessages.threadId))
-      .where(
-        and(
-          gte(threadMessages.at, from),
-          lte(threadMessages.at, to),
-          roleKey === undefined ? undefined : eq(threads.roleKey, roleKey),
-          homes === undefined ? undefined : or(...homes.map(inHome)),
-        ),
-      )
+      .where(loggedInRange(range))
       .orderBy(asc(threadMessages.position));
     const threadRows = [...new Map(rows.map(({ thread }) => [thread.id, thread])).values()];
     const byId = new Map(
@@ -188,6 +177,16 @@ export class PostgresThreadRepository extends ThreadRepository {
       const found = byId.get(thread.id);
       return found ? [{ thread: found, message: toMessage(message) }] : [];
     });
+  }
+
+  async countLoggedIn(range: LoggedMessagesRange): Promise<number> {
+    if (range.homes?.length === 0) return 0;
+    const [row] = await this.database
+      .select({ logged: count() })
+      .from(threadMessages)
+      .innerJoin(threads, eq(threads.id, threadMessages.threadId))
+      .where(loggedInRange(range));
+    return row?.logged ?? 0;
   }
 
   async decision(id: string): Promise<Decision | undefined> {
@@ -232,16 +231,27 @@ export class PostgresThreadRepository extends ThreadRepository {
     const rows = await this.database
       .select()
       .from(decisions)
-      .where(and(isNull(decisions.answeredAt), isNull(decisions.putTo)))
+      // A call made from a chat never waits on the user: a chat has no Needs you (spec §2.4).
+      .where(
+        and(isNull(decisions.answeredAt), isNull(decisions.putTo), isNotNull(decisions.taskId)),
+      )
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
   }
 
   async unansweredOn(taskId: string): Promise<readonly Decision[]> {
+    return this.unansweredWhere(eq(decisions.taskId, taskId));
+  }
+
+  async unansweredOnNoTask(): Promise<readonly Decision[]> {
+    return this.unansweredWhere(isNull(decisions.taskId));
+  }
+
+  private async unansweredWhere(where: SQL): Promise<readonly Decision[]> {
     const rows = await this.database
       .select()
       .from(decisions)
-      .where(and(eq(decisions.taskId, taskId), isNull(decisions.answeredAt)))
+      .where(and(where, isNull(decisions.answeredAt)))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
   }
@@ -321,6 +331,23 @@ function homeColumns(home: Home): { readonly kind: Home["kind"]; readonly id: st
     case "initiative":
       return { kind: "initiative", id: home.initiativeId };
   }
+}
+
+/** The condition a message logged in the range meets, its Thread joined. */
+function loggedInRange({
+  from,
+  to,
+  roleKey,
+  homes,
+  threadId,
+}: LoggedMessagesRange): SQL | undefined {
+  return and(
+    gte(threadMessages.at, from),
+    lte(threadMessages.at, to),
+    roleKey === undefined ? undefined : eq(threads.roleKey, roleKey),
+    homes === undefined ? undefined : or(...homes.map(inHome)),
+    threadId === undefined ? undefined : eq(threadMessages.threadId, threadId),
+  );
 }
 
 /** The condition a Thread in the home meets. */
@@ -408,9 +435,17 @@ function toMessage(row: MessageRow): Message {
 /** What a Decision is saved as; the approval it gave a held call is spent apart from it. */
 type SavedDecision = Omit<DecisionRow, "approvalSpentAt">;
 
-function toDecisionRow({ answer, roleKey, putTo, passedOn, ...fields }: Decision): SavedDecision {
+function toDecisionRow({
+  answer,
+  taskId,
+  roleKey,
+  putTo,
+  passedOn,
+  ...fields
+}: Decision): SavedDecision {
   const decision = {
     ...fields,
+    taskId: taskId ?? null,
     roleKey: roleKey ?? null,
     putTo: putTo ?? null,
     passedOn: passedOn.map(({ passedOnAt, ...passing }) => ({
@@ -426,6 +461,7 @@ function toDecisionRow({ answer, roleKey, putTo, passedOn, ...fields }: Decision
 function toDecision({
   answer,
   answeredAt,
+  taskId,
   roleKey,
   putTo,
   passedOn,
@@ -434,6 +470,7 @@ function toDecision({
 }: DecisionRow): Decision {
   return {
     ...row,
+    taskId: taskId ?? undefined,
     roleKey: roleKey ?? undefined,
     putTo: putTo ?? undefined,
     passedOn: passedOn.map(({ passedOnAt, ...passing }) => ({

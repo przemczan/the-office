@@ -6,7 +6,7 @@ import {
   READ_ONLY_GIT_COMMANDS,
   RUN_PROJECT_COMMAND_TOOL,
 } from "../../engine/index.js";
-import { READING_OFFICE_TOOLS } from "../../conversations/index.js";
+import { READ_STAGE_HISTORY_TOOL, READING_OFFICE_TOOLS } from "../../conversations/index.js";
 import { narrowedPermissionProfile } from "../../people/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
@@ -77,11 +77,15 @@ import { StageRunners } from "./stage-runners.js";
  * The Office tools of an Agent Stage's session (spec §6): it reads every record and Attachment, its
  * own Task's and those of the Tasks, Idea and Initiative it is linked to, asks the user with a
  * Decision, consults a person (in tier 1 the user answers in their place), attaches a file or a link to the Task, asks The Office to update the Task's
- * branch from the base, and runs the Project's commands where they run (`StageProjectCommands`).
- * The names are the tools' own, which Conversations, Work and Pipelines register.
+ * branch from the base, runs the Project's commands where they run (`StageProjectCommands`), and
+ * reads the Stage history, an earlier run's whole outputs and Stage Thread too, so a later Stage
+ * doesn't repeat a failed approach. Never `read_threads`: it reads Thread messages only through a
+ * run's Stage Thread. The names are the tools' own, which Conversations, Work and Pipelines
+ * register.
  */
 export const AGENT_STAGE_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
+  READ_STAGE_HISTORY_TOOL,
   "open_decision",
   "consult",
   "attach_file",

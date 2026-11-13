@@ -53,6 +53,16 @@ const EVERY_KIND: {
     "Mine",
   ],
   person: [{ at, id: "2", kind: "person", roleKey: "developer", text: "Theirs" }, "Theirs"],
+  "consultation-line": [
+    {
+      at,
+      id: "c-1",
+      kind: "consultation-line",
+      decisionId: "d-1",
+      text: "Your answer to Ada: Drafted it.",
+    },
+    "Your answer to Ada: Drafted it.",
+  ],
   "handover-note": [
     { at, id: "3", kind: "handover-note", roleKey: "developer", text: "For the next" },
     "For the next",

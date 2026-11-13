@@ -20,6 +20,8 @@ export interface LoggedMessagesRange {
   readonly roleKey?: string;
   /** Only Threads in these homes; undefined for any home, none for no Thread at all. */
   readonly homes?: readonly Home[];
+  /** Only this Thread, by its id. */
+  readonly threadId?: string;
 }
 
 /** A message in The Office's log, with the Thread it was logged in. */
@@ -65,6 +67,9 @@ export abstract class ThreadRepository {
   /** The messages logged in the range, in any Thread it takes, the first logged first. */
   abstract loggedIn(range: LoggedMessagesRange): Promise<readonly LoggedMessage[]>;
 
+  /** How many messages `loggedIn` would read for the range, without reading them. */
+  abstract countLoggedIn(range: LoggedMessagesRange): Promise<number>;
+
   abstract decision(id: string): Promise<Decision | undefined>;
 
   /** The Thread's Decisions, open and answered, the first asked first. */
@@ -87,6 +92,9 @@ export abstract class ThreadRepository {
 
   /** Every Decision on the Task nobody has answered, a Consultant's too, the first asked first. */
   abstract unansweredOn(taskId: string): Promise<readonly Decision[]>;
+
+  /** Every call made outside a Task nobody has answered, the first asked first. */
+  abstract unansweredOnNoTask(): Promise<readonly Decision[]>;
 
   abstract proposal(id: string): Promise<Proposal | undefined>;
 

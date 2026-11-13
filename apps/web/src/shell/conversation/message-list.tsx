@@ -462,6 +462,15 @@ function MessageItem({
           </span>
         </div>
       );
+    case "consultation-line":
+      return (
+        <div className="message-notice">
+          <Icon name="users" size={12} />
+          <span>
+            <MarkdownText text={message.text} inline />
+          </span>
+        </div>
+      );
     case "context":
       return <ContextLine line={message} personName={personName} />;
     case "changes-allowed":
@@ -503,8 +512,9 @@ function MessageItem({
 }
 
 /**
- * The answer to a Decision, as it went to the person who asked: the user's, or the one a person gave
- * for the user at their request, under that person's name.
+ * The answer to a Decision, as it went to the person who asked: the user's, the Consultant's it was
+ * put to, or the one a person gave for the user at their request, under that person's name. The
+ * Office's, sending a call made from a chat back to its caller, is a line of its own.
  */
 function DecisionAnswerItem({
   message,
@@ -512,11 +522,15 @@ function DecisionAnswerItem({
   readonly message: Extract<Message, { kind: "decision-answer" }>;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
-  const { atUsersRequest } = message;
-  const answerer = atUsersRequest && {
-    roleKey: atUsersRequest.roleKey,
-    name: roleFirstName(atUsersRequest.roleKey, roles),
-  };
+  const words = answerWords(message.answer, message.decision);
+  if (message.decision.answeredByTheOffice) {
+    return (
+      <div className="message-office">
+        <MarkdownText text={words} inline />
+      </div>
+    );
+  }
+  const answerer = answererOf(message, roles);
   return (
     <TurnFrame
       avatar={
@@ -526,19 +540,37 @@ function DecisionAnswerItem({
           <PersonAvatar roleKey={answerer.roleKey} name={answerer.name} size="xs" />
         )
       }
-      by={
-        answerer === null
-          ? "You · answering the Decision"
-          : `${answerer.name} · answering the Decision at your request`
-      }
+      by={answerer === null ? "You · answering the Decision" : `${answerer.name} · ${answerer.how}`}
       at={message.at}
       labelled
     >
       <div className="message-text">
-        <MarkdownText text={answerWords(message.answer, message.decision)} />
+        <MarkdownText text={words} />
       </div>
     </TurnFrame>
   );
+}
+
+/** The person who gave the answer, and how; null when the user did. */
+function answererOf(
+  { atUsersRequest, decision }: Extract<Message, { kind: "decision-answer" }>,
+  roles: Parameters<typeof roleFirstName>[1],
+): { readonly roleKey: string; readonly name: string; readonly how: string } | null {
+  if (atUsersRequest) {
+    return {
+      roleKey: atUsersRequest.roleKey,
+      name: roleFirstName(atUsersRequest.roleKey, roles),
+      how: "answering the Decision at your request",
+    };
+  }
+  if (decision.answeredBy) {
+    return {
+      roleKey: decision.answeredBy,
+      name: roleFirstName(decision.answeredBy, roles),
+      how: "answering in a Consultation",
+    };
+  }
+  return null;
 }
 
 /** A Handover note in the stream: its first lines when it reads whole elsewhere (spec 4.1). */

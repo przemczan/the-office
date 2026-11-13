@@ -36,6 +36,7 @@ import {
   ALLOW_CHANGES_ADVICE,
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
+  CONSULT_TOOL,
   HANDOVER_REQUEST,
 } from "../domain/session-instructions.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
@@ -52,7 +53,7 @@ import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import { approvalQuestion, APPROVAL_OPTIONS } from "../domain/consult.js";
-import type { Decision } from "../domain/decision.js";
+import type { Decision, DecisionKind } from "../domain/decision.js";
 import { openDecision } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
@@ -68,6 +69,7 @@ import { InterruptedAnswers } from "./interrupted-answers.js";
 import type { SessionEvent } from "./session-log.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { CallChains } from "./call-chains.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 import { TaskTokens } from "./task-tokens.js";
 import { ThreadContexts } from "./thread-contexts.js";
@@ -283,6 +285,7 @@ async function startOn(
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
+      CallChains,
       ThreadContexts,
       AllowChanges,
       ThreadRunner,
@@ -546,7 +549,10 @@ describe("a new Thread's first message", () => {
       effort: "high",
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
     });
-    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([...CHAT_OFFICE_TOOLS]);
+    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
+      ...CHAT_OFFICE_TOOLS,
+      CONSULT_TOOL,
+    ]);
     expect(JSON.stringify(session?.options)).not.toContain(GITHUB_USER_TOKEN);
     expect(session?.options.instructions).toContain("You are Jan, the Planner in The Office");
     // A chat's session is on no Task, so the Office tools writing onto one refuse it.
@@ -1556,6 +1562,7 @@ describe("a Decision", () => {
 
     const thread = await threads.read(opened.id);
     const decision = {
+      kind: "question",
       id: expect.any(String),
       threadId: opened.id,
       taskId: opened.home.kind === "task" ? opened.home.taskId : "",
@@ -1614,7 +1621,7 @@ describe("a Decision", () => {
     await expect(decisions.listOpen()).resolves.not.toContainEqual(
       expect.objectContaining({ id: open.id }),
     );
-    await expect(decisions.openOn(open.taskId)).resolves.toBe(0);
+    await expect(decisions.openOn(open.taskId ?? "")).resolves.toBe(0);
     await expect(decisions.answer(open.id, { kind: "option", option: 1 })).rejects.toThrow(
       "This Decision is answered already.",
     );
@@ -1947,6 +1954,7 @@ async function openedInThread(
   fields: {
     readonly putTo?: string;
     readonly byTheOffice?: boolean;
+    readonly kind?: DecisionKind;
     readonly question?: string;
     readonly options?: readonly string[];
   } = {},
@@ -2082,6 +2090,7 @@ describe("a Decision answered for the user, at their request", () => {
       putTo: "devops",
     });
     const approval = await openedInThread((await storedThreadOnATask()).id, {
+      kind: "approval",
       question: approvalQuestion("Install ffmpeg on the machine."),
       options: APPROVAL_OPTIONS,
     });
@@ -2233,7 +2242,10 @@ describe("a message mentioning records", () => {
     workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
     workRecords.set(ideaId, "Dark mode (Idea) · Notes: for the night shift.");
     workRecords.set(initiativeId, "Offline sync (Initiative) · Outcome: writes survive.");
-    workRecords.set(decision.taskId, "Admin export (Task) · Plan: ask about archived Projects.");
+    workRecords.set(
+      decision.taskId ?? "",
+      "Admin export (Task) · Plan: ask about archived Projects.",
+    );
     const chat = await threads.startInChat(roleKey);
     const said = "Compare [@Export CSV](/tasks/x) with [@Dark mode](/work/ideas?idea=y).";
 

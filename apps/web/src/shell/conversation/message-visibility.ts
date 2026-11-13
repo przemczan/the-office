@@ -47,6 +47,7 @@ const SHOWS: { readonly [Kind in Message["kind"]]: "always" | "with-details" } =
   held: "always",
   decision: "always",
   "decision-answer": "always",
+  "consultation-line": "always",
   proposal: "always",
   "link-card": "always",
   idea: "always",

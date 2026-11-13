@@ -25,6 +25,7 @@ export type MessageDraft =
   | McpServerNotStarted
   | DecisionCard
   | DecisionAnswerLine
+  | ConsultationLine
   | ProposalCard
   | LinkCard
   | IdeaCard
@@ -41,6 +42,17 @@ export const USERS_OWN_MESSAGE_KINDS = [
   "user",
   "changes-allowed",
 ] as const satisfies readonly Message["kind"][];
+
+/**
+ * The Office's line in a Consultation (spec §2.4), so it shows the call as the asker's Thread does:
+ * what was asked as it opens (`consultationAskedLine`), and the Consultant's answer once it reached
+ * the asker (`consultationAnswerLine`).
+ */
+interface ConsultationLine {
+  readonly kind: "consultation-line";
+  readonly decisionId: string;
+  readonly text: string;
+}
 
 /**
  * The user allowed changes in the Caretaker's Thread, or switched them off: The Office's line

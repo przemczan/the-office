@@ -19,7 +19,13 @@ import type { Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
 import type { StateChangeCause } from "../../domain/state-change.js";
-import type { Priority, ProposedPipeline, TaskMadeFor, TaskState } from "../../domain/task.js";
+import type {
+  Priority,
+  ProposedPipeline,
+  TaskHolder,
+  TaskMadeFor,
+  TaskState,
+} from "../../domain/task.js";
 import { searchVectorOf } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
@@ -60,9 +66,8 @@ export const initiatives = pgTable(
     name: text("name").notNull(),
     outcome: text("outcome").notNull(),
     state: text("state").$type<InitiativeState>().notNull(),
-    originIdeaId: uuid("origin_idea_id")
-      .notNull()
-      .references((): AnyPgColumn => ideas.id),
+    /** Null for one created with create_initiative, from no Idea. */
+    originIdeaId: uuid("origin_idea_id").references((): AnyPgColumn => ideas.id),
     createdBy: jsonb("created_by").$type<Author>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     /** Null while it is shaping or active, and for one that ended before this was kept. */
@@ -71,6 +76,8 @@ export const initiatives = pgTable(
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     /** Null until it is first restored from the Archive. */
     restoredAt: timestamp("restored_at", { withTimezone: true }),
+    /** Null while it isn't paused. */
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
     /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
     planningThreadId: uuid("planning_thread_id"),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
@@ -130,7 +137,8 @@ export const tasks = pgTable(
     hasPlanningThread: boolean("has_planning_thread").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
-    pausedByAlarm: boolean("paused_by_alarm").notNull().default(false),
+    /** Null unless the fire alarm or its Initiative's Pause holds it Paused. */
+    pausedBy: text("paused_by").$type<TaskHolder>(),
     /** Null for a Task the user or an Agent made. */
     madeFor: text("made_for").$type<TaskMadeFor>(),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */

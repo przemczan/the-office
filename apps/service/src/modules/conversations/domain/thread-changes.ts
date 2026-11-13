@@ -1,10 +1,10 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { isApproval } from "./consult.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
   answerProblems,
   attachmentProblems,
   decisionProblems,
+  isApproval,
   type AnswerGivenBy,
   type Decision,
   type DecisionAnswer,
@@ -133,17 +133,28 @@ export function startStageThread(
   return threadOnTask(id, start, startedAt, { stageThread: true, consultation: undefined });
 }
 
+/** Where a Consultation is, whose it is and what it is called. */
+export interface ConsultationThreadStart {
+  /** The asker's Task, or the callee's chat for a call made outside a Task (spec §2.4). */
+  readonly home: Extract<Home, { kind: "task" | "chat" }>;
+  readonly roleKey: string;
+  readonly title: string;
+}
+
 /**
- * A Consultation on the Task (spec §2.4): the Consultant, whose Role `start` names, answers the
- * Decision the Agent put to them, in a sub-thread titled with both people.
+ * A Consultation (spec §2.4): the Consultant, whose Role `start` names, answers the Decision put
+ * to them, in a sub-thread titled with both people, on the asker's Task or in their own chat.
  */
 export function startConsultationThread(
   id: string,
-  start: TaskThreadStart,
+  { home, ...person }: ConsultationThreadStart,
   consultation: Consultation,
   startedAt: Date,
 ): { readonly thread: Thread; readonly event: ThreadStarted } {
-  return threadOnTask(id, start, startedAt, { stageThread: false, consultation });
+  if (home.kind === "chat" && home.roleKey !== person.roleKey) {
+    throw new Error("A Consultation outside a Task opens in the callee's own chat.");
+  }
+  return titledThread(id, home, person, startedAt, { stageThread: false, consultation });
 }
 
 /** Where a Thread on an Initiative is, who answers in it, and what it is called. */
@@ -362,8 +373,9 @@ export interface DecisionOpening extends DecisionDraft {
  * The person opens a Decision (spec §2.4): its card is logged, and the Thread waits on it until the
  * user answers. In a Thread on a Task it is on that Task, and refused while another Decision waits.
  * In an Initiative's planning Thread it names one of the Initiative's Tasks, several may be open,
- * and it is refused while another waits on the same Task. Refused in a chat, which only talks, and
- * with every problem of what is asked, in words the person acts on.
+ * and it is refused while another waits on the same Task. In a chat, which only talks, only a call
+ * put to a person opens one, on no Task. Refused with every problem of what is asked, in words the
+ * person acts on.
  */
 export function openDecision(
   thread: Thread,
@@ -378,7 +390,7 @@ export function openDecision(
     ...draft
   }: DecisionOpening,
 ): ThreadChange<DecisionOpened> {
-  const taskId = decisionTaskOf(thread, named);
+  const taskId = decisionTaskOf(thread, named, putTo);
   const problems = [
     ...decisionProblems(draft),
     ...attachmentProblems(attachmentIds, attachmentsOfTheTask),
@@ -386,6 +398,7 @@ export function openDecision(
   if (problems.length > 0) throw new ThreadRefused(problems);
   const decision: Decision = {
     ...draft,
+    kind: draft.kind ?? "question",
     attachmentIds: [...new Set(attachmentIds)],
     id,
     threadId: thread.id,
@@ -413,14 +426,31 @@ export function openDecision(
   };
 }
 
-/** The Task a Decision opened in the Thread is on, refused where none may be opened. */
-function decisionTaskOf(thread: Thread, named: string | undefined): string {
+/**
+ * The Task a Decision opened in the Thread is on, refused where none may be opened. In a chat only a
+ * call put to a person opens one, on no Task (spec §2.4), and one at a time.
+ */
+function decisionTaskOf(
+  thread: Thread,
+  named: string | undefined,
+  putTo: string | undefined,
+): string | undefined {
   const { home, openDecisions } = thread;
   switch (home.kind) {
-    case "chat":
-      throw new ThreadRefused([
-        "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
-      ]);
+    case "chat": {
+      if (putTo === undefined || named !== undefined) {
+        throw new ThreadRefused([
+          "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+        ]);
+      }
+      const [waiting] = openDecisions;
+      if (waiting) {
+        throw new ThreadRefused([
+          `Your call "${waiting.question}" still waits on its answer. End your turn: it comes as your next message.`,
+        ]);
+      }
+      return undefined;
+    }
     case "task": {
       if (named !== undefined && named !== home.taskId) {
         throw new ThreadRefused([
@@ -640,7 +670,7 @@ function answerLine(
 /** The open Decision with the answer recorded on it, with who gave it. */
 function answered(
   open: Decision,
-  { answer, answeredAt, answeredBy, atUsersRequest }: DecisionRecording,
+  { answer, answeredAt, answeredBy, atUsersRequest, byTheOffice }: DecisionRecording,
 ): Decision {
   return {
     ...open,
@@ -649,6 +679,7 @@ function answered(
       answeredAt,
       ...(answeredBy === undefined ? {} : { answeredBy }),
       ...(atUsersRequest === undefined ? {} : { atUsersRequest }),
+      ...(byTheOffice ? { byTheOffice } : {}),
     },
   };
 }

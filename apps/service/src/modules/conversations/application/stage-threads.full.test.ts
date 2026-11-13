@@ -56,6 +56,7 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { CallChains } from "./call-chains.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { MentionedRecords } from "./mentioned-records.js";
@@ -182,6 +183,7 @@ async function startOn(
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
+      CallChains,
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
@@ -1230,7 +1232,7 @@ describe("Office tools on a Stage", () => {
 
     await callInStage(stageThread.threadId, CONSULT_TOOL, {
       person: "Devops",
-      approval: true,
+      kind: "approval",
       question: "Install ffmpeg on the machine.",
       context: "The thumbnails need it; the Project has no copy.",
       why: "Nothing else makes the thumbnails.",
@@ -1248,7 +1250,7 @@ describe("Office tools on a Stage", () => {
     const { stageThread } = await aStageRun(anAskingStage(aPerson("Ada")));
 
     const result = await callInStage(stageThread.threadId, CONSULT_TOOL, {
-      approval: true,
+      kind: "approval",
       question: "Push the branch to a fork.",
       context: "The reviewer wants to try it.",
       why: "They can't reach the workstation.",

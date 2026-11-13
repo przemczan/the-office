@@ -26,7 +26,8 @@ import {
   blockPublishingTask,
   removeDependency,
 } from "../domain/task-dependencies.js";
-import { TaskResumed, type TaskMovedToProject } from "../domain/task-events.js";
+import { TaskResumed, type TaskMovedToProject, type TaskPaused } from "../domain/task-events.js";
+import { isInitiativePaused } from "../domain/initiative-pause.js";
 import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js";
 import { changeDescription } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
@@ -38,7 +39,7 @@ import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
-import { TaskRepository, type NeighbourIds } from "../ports/task-repository.js";
+import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/task-repository.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 
 /** The Tasks use cases. Each change is saved first and its event published after. */
@@ -106,6 +107,11 @@ export class TaskService {
     const task = await this.repository.find(id);
     if (!task) throw new TaskNotFound(id);
     return task;
+  }
+
+  /** The Task, archived ones too, or undefined when there is none of that id. */
+  async find(id: string): Promise<Task | undefined> {
+    return this.repository.find(id);
   }
 
   /** The Task's kept state changes, oldest first, each with who or what made it. */
@@ -292,13 +298,12 @@ export class TaskService {
 
   /**
    * TaskResumed tells Pipelines to walk the Task's Stages on from where they were held. While the
-   * fire alarm is on, the alarm holds the Task instead, until the all clear.
+   * fire alarm is on, the alarm holds the Task instead, until the all clear; while its Initiative
+   * is paused, it is refused.
    */
   async resume(id: string): Promise<Task> {
     const fireAlarmOn = await this.fireAlarmOn();
-    const { task, event } = await this.repository.update(id, (held) =>
-      resumeTask(held, { fireAlarmOn }),
-    );
+    const { task, event } = await this.resumeHeld(id, fireAlarmOn);
     // Read again after the save: an alarm sounded meanwhile may have passed the Task by as Paused.
     if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
       return this.update(id, pauseTaskForAlarm);
@@ -333,6 +338,22 @@ export class TaskService {
     if (!event) return;
     await this.events.publish(event);
     if (event.leftReady) await this.events.publish(event.leftReady);
+  }
+
+  /** Whether its Initiative is paused is read holding the Initiative, then the Task. */
+  private async resumeHeld(
+    id: string,
+    fireAlarmOn: boolean,
+  ): Promise<TaskUpdate<TaskResumed | TaskPaused>> {
+    const { initiativeId } = await this.read(id);
+    if (initiativeId === undefined) {
+      return this.repository.update(id, (held) =>
+        resumeTask(held, { fireAlarmOn, initiativePaused: false }),
+      );
+    }
+    return this.initiatives.changeTask(initiativeId, id, (initiative, held) =>
+      resumeTask(held, { fireAlarmOn, initiativePaused: isInitiativePaused(initiative) }),
+    );
   }
 
   private async fireAlarmOn(): Promise<boolean> {

@@ -1,4 +1,4 @@
-import type { Decision, DecisionAnswer, DecisionDraft } from "./decision.js";
+import { isApproval, type Decision, type DecisionAnswer, type DecisionDraft } from "./decision.js";
 
 /** Who asks a Decision no person opened, such as a Pipeline's (spec §2.3). */
 export const THE_OFFICE = "The Office";
@@ -14,19 +14,16 @@ export function approvalQuestion(call: string): string {
   return `Allow this call? ${call}`;
 }
 
-/** Whether the Decision asks approval of a call, which a Consultant may pass on. */
-export function isApproval({ question, options }: DecisionDraft): boolean {
-  return (
-    question.startsWith(approvalQuestion("")) &&
-    options.length === APPROVAL_OPTIONS.length &&
-    APPROVAL_OPTIONS.every((option, index) => options[index] === option)
-  );
-}
+/**
+ * How many people may be asked down one chain of calls, counting nested calls and passes-on
+ * together (spec §2.2): such as Planner → Devops → CTO, or Devops → CTO → the user.
+ */
+export const CALL_STEPS = 2;
 
-/** How many times an approval may be passed on before it is the user's Decision (spec §2.2). */
-export const PASS_ON_STEPS = 2;
-
-/** What an Agent asks the person it consults: a question, or approval of a call. */
+/**
+ * What an Agent asks the person it consults: a question, approval of a call, or a request, asking
+ * them to do something they can and the Agent can't (spec §2.2).
+ */
 export type Consult =
   | {
       readonly kind: "question";
@@ -49,6 +46,15 @@ export type Consult =
       readonly call: string;
       readonly context: string;
       /** Why the Agent needs the call. */
+      readonly why: string;
+    }
+  | {
+      readonly kind: "request";
+      readonly person?: string;
+      /** What the Agent asks them to do, as the user reads it. */
+      readonly request: string;
+      readonly context: string;
+      /** Why the Agent needs it done. */
       readonly why: string;
     };
 
@@ -83,28 +89,79 @@ export function consultantNamed(
 }
 
 /**
- * The Consultant a Decision passed on goes to: the one the passing Consultant names, unless that
- * is the last step up, or they name nobody who can be consulted or someone already asked on it,
- * the asker included. Then it is the user's (spec §2.2: nothing is passed back down).
+ * A chain of calls (spec §2.2): the first asker, every asker up its Consultations, and everyone a
+ * Decision down it was put to or passed on to, by the keys of their Roles; and how many people it
+ * has asked so far.
+ */
+export interface CallChain {
+  readonly roleKeys: readonly string[];
+  readonly steps: number;
+}
+
+/**
+ * The chain a call by `askerRoleKey` would join: `above` holds the Decisions the asker's Thread
+ * answers, its Consultation's first, then the one that Consultation's asker answers, and so on up;
+ * none for a Thread that is no Consultation. For a pass-on, `above` starts with the Decision passed
+ * on. The Office asks no one down a chain, so it is in none.
+ */
+export function callChain(askerRoleKey: string | undefined, above: readonly Decision[]): CallChain {
+  const roleKeys = new Set<string>(askerRoleKey === undefined ? [] : [askerRoleKey]);
+  let steps = 0;
+  for (const { roleKey, putTo, passedOn } of above) {
+    for (const key of [roleKey, ...passedOn.map((passer) => passer.roleKey), putTo]) {
+      if (key !== undefined) roleKeys.add(key);
+    }
+    steps += passedOn.length + (putTo === undefined ? 0 : 1);
+  }
+  return { roleKeys: [...roleKeys], steps };
+}
+
+/** Whether a chain may ask one more person: fewer than `CALL_STEPS` were asked down it. */
+export function canCall({ steps }: CallChain): boolean {
+  return steps < CALL_STEPS;
+}
+
+/** Every problem with calling `callee` down the chain, in words the Agent acts on (spec §2.2). */
+export function callProblems(chain: CallChain, callee: ConsultantPerson): string[] {
+  if (chain.roleKeys.includes(callee.roleKey)) {
+    return [
+      `${callee.name} is already in this chain of calls: answer from what you have, or pass it on to the user.`,
+    ];
+  }
+  if (!canCall(chain)) {
+    return [
+      `This chain of calls has asked ${CALL_STEPS} people already, the most it may: answer from what you have, or pass it on to the user.`,
+    ];
+  }
+  return [];
+}
+
+/** Where a Decision passed on goes: to a Consultant, to the user, or nowhere, refused. */
+export type PassingOnTo =
+  | { readonly kind: "consultant"; readonly consultant: ConsultantPerson }
+  | { readonly kind: "user" }
+  | { readonly kind: "refused"; readonly problems: readonly string[] };
+
+/**
+ * Where the Decision passed on goes, `chain` being the one it is in: to the Consultant the passing
+ * one names, refused when that person is already in the chain. To the user when they name nobody
+ * who can be consulted, or once the chain has asked `CALL_STEPS` people (spec §2.2: nothing is
+ * passed back down).
  */
 export function passedOnTo(
   decision: Decision,
   person: string | undefined,
   consultants: readonly ConsultantPerson[],
-): ConsultantPerson | undefined {
+  chain: CallChain,
+): PassingOnTo {
   // The Office puts its own Decision to the CTO, the top of the steps, before the user (spec §2.3).
-  if (decision.roleKey === undefined) return undefined;
-  if (decision.passedOn.length + 1 >= PASS_ON_STEPS) return undefined;
-  const asked = new Set([
-    decision.roleKey,
-    decision.putTo,
-    ...decision.passedOn.map(({ roleKey }) => roleKey),
-  ]);
-  return consultantNamed(
-    person,
-    consultants.filter(({ roleKey }) => !asked.has(roleKey)),
-    decision.putTo ?? "",
-  );
+  if (decision.roleKey === undefined) return { kind: "user" };
+  const named = consultantNamed(person, consultants, decision.putTo ?? "");
+  if (!named || !canCall(chain)) return { kind: "user" };
+  const problems = callProblems(chain, named);
+  return problems.length > 0
+    ? { kind: "refused", problems }
+    : { kind: "consultant", consultant: named };
 }
 
 /**
@@ -118,20 +175,32 @@ export function consultDecision(consult: Consult, party: ConsultedParty): Decisi
     person && party.kind === "user"
       ? `For ${person}: nobody who can be consulted fills that Role, so you answer in their place.\n\n${consult.context}`
       : consult.context;
-  if (consult.kind === "question") {
-    return {
-      question: consult.question,
-      context,
-      options: consult.options,
-      recommendation: { option: consult.recommended, reason: consult.why },
-    };
+  switch (consult.kind) {
+    case "question":
+      return {
+        kind: "question",
+        question: consult.question,
+        context,
+        options: consult.options,
+        recommendation: { option: consult.recommended, reason: consult.why },
+      };
+    case "approval":
+      return {
+        kind: "approval",
+        question: approvalQuestion(consult.call),
+        context,
+        options: APPROVAL_OPTIONS,
+        recommendation: { option: 0, reason: consult.why },
+      };
+    case "request":
+      return {
+        kind: "request",
+        question: consult.request,
+        context,
+        options: [],
+        recommendation: { option: 0, reason: consult.why },
+      };
   }
-  return {
-    question: approvalQuestion(consult.call),
-    context,
-    options: APPROVAL_OPTIONS,
-    recommendation: { option: 0, reason: consult.why },
-  };
 }
 
 /**
@@ -161,18 +230,19 @@ export function consultationOpening(
   passers: readonly { readonly name: string; readonly reason: string }[] = [],
 ): string {
   if (decision.roleKey === undefined) return officeConsultationOpening(decision);
+  const passedOn = passers.map(({ name, reason }) => `${name} passed it on to you: ${reason}`);
+  if (decision.kind === "request") return requestOpening(decision, askerName, passedOn);
   const options = decision.options
     .map(
       (option, index) =>
         `${index + 1}. ${option}${index === decision.recommendation.option ? " (recommended)" : ""}`,
     )
     .join("\n");
-  const passedOn = passers.map(({ name, reason }) => `${name} passed it on to you: ${reason}`);
   const howToAnswer = isApproval(decision)
     ? "Answer with the answer_consultation tool: choose Allow once or Deny by its number, or pass it on when the call isn't yours to decide. It reaches them as their next message."
     : "Answer with the answer_consultation tool: choose one of the options by its number, or give an answer in your own words. It reaches them as their next message.";
   return [
-    `${askerName} asks for your answer on this Task.`,
+    `${askerName} asks for your answer${onItsTask(decision)}.`,
     ...passedOn,
     `Question: ${decision.question}`,
     `What they found: ${decision.context}`,
@@ -180,6 +250,59 @@ export function consultationOpening(
     `Why they recommend the option they do: ${decision.recommendation.reason}`,
     howToAnswer,
   ].join("\n\n");
+}
+
+/**
+ * What the callee of a request is asked (spec §2.2): what the asker asks them to do, why, and that
+ * they answer in their own words with what they did, using their own tools, or why they can't.
+ */
+function requestOpening(
+  decision: Decision,
+  askerName: string,
+  passedOn: readonly string[],
+): string {
+  return [
+    `${askerName} asks you to: ${decision.question}`,
+    ...passedOn,
+    `What they found: ${decision.context}`,
+    `Why they need it: ${decision.recommendation.reason}`,
+    `Do it with your own tools${onItsTask(decision)}, then answer with the answer_consultation tool in your own words: what you did, such as a Proposal you drafted for the user to apply, or why you can't. It reaches them as their next message.`,
+  ].join("\n\n");
+}
+
+function onItsTask({ taskId }: Decision): string {
+  return taskId === undefined ? "" : " on this Task";
+}
+
+/** The visible line a Consultation opens with: what its Consultant is asked (spec §2.4). */
+export function consultationAskedLine(askerName: string, decision: Decision): string {
+  switch (decision.kind) {
+    case "request":
+      return `${askerName} asks you to: ${decision.question}`;
+    case "approval":
+      return `${askerName} asks your approval: ${decision.question}`;
+    case "question":
+      return `${askerName} asks: ${decision.question}`;
+  }
+}
+
+/** The visible line a Consultation logs once its callee answered (spec §2.4). */
+export function consultationAnswerLine(askerName: string, answerWords: string): string {
+  return `Your answer to ${askerName}: ${answerWords}`;
+}
+
+/**
+ * What The Office answers a call made from a chat that fell back to the user, as a chat has no
+ * Needs you (spec §2.4): the caller asks the user in their reply.
+ */
+export function backToTheCallerWords(why: string): string {
+  return `${why} So it is the user's now: ask them in your reply.`;
+}
+
+/** Why a call made from a chat is back with its caller: who passed it on to the user, and why. */
+export function passedOnToTheUserWords(passerName: string, reason: string): string {
+  const trimmed = reason.trim();
+  return `${passerName} passed it on to the user: ${/[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`}`;
 }
 
 /**

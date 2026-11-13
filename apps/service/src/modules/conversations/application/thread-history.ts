@@ -27,6 +27,14 @@ export interface ThreadHistoryQuery {
   readonly after?: string | undefined;
 }
 
+/** An Agent Stage's run in its Stage Thread: the messages logged from its start to its end. */
+export interface StageRunWindow {
+  readonly taskId: string;
+  readonly threadId: string;
+  readonly from: Date;
+  readonly to: Date;
+}
+
 /** A date alone, which reads as that whole day in UTC. */
 const DATE_ALONE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -91,6 +99,31 @@ export class ThreadHistory {
       subjects: await this.subjectsOf(logged, records),
       after: given(query.after),
     });
+  }
+
+  /**
+   * The messages an Agent Stage's run logged in its Stage Thread, for `read_stage_history`: worded
+   * as `read` words them, within `limit`, a cut answer reading on through `read_threads`.
+   */
+  async ofStageRun(window: StageRunWindow, limit: number): Promise<string> {
+    const { taskId, threadId, from, to } = window;
+    const logged = await this.threads.loggedIn({ from, to, threadId });
+    const records = await this.recordsOf(logged);
+    return threadHistoryWords(
+      {
+        from,
+        to,
+        filters: [],
+        messages: logged.map(({ message }) => messageInHistory(message, records)),
+        subjects: await this.subjectsOf(logged, records),
+        after: undefined,
+      },
+      {
+        limit,
+        readOn: (lastShownId) =>
+          `read_threads with taskId "${taskId}", from "${from.toISOString()}", to "${to.toISOString()}" and after "${lastShownId}" reads on, where your session has it.`,
+      },
+    );
   }
 
   private async threadsAsked(query: ThreadHistoryQuery): Promise<ThreadsAsked> {

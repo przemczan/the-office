@@ -5,11 +5,14 @@ import {
   consultantNamed,
   consultationOpening,
   consultationTitle,
+  callChain,
+  callProblems,
+  CALL_STEPS,
   consultDecision,
-  isApproval,
   passedOnTo,
   type ConsultantPerson,
 } from "./consult.js";
+import type { Decision } from "./decision.js";
 import { aDecision } from "./decision.fixtures.js";
 
 const CTO: ConsultantPerson = { roleKey: "cto", name: "Casey", title: "CTO" };
@@ -65,11 +68,61 @@ describe("consultDecision", () => {
       { kind: "user" },
     );
     expect(draft.options).toEqual(["Allow once", "Deny"]);
+    expect(draft.kind).toBe("approval");
   });
 });
 
+describe("callChain", () => {
+  it("holds the asker alone outside a Consultation", () => {
+    expect(callChain("planner", [])).toEqual({ roleKeys: ["planner"], steps: 0 });
+  });
+
+  it("holds every asker and everyone asked up the Consultations, counting who was asked", () => {
+    const planners = aDecision({ roleKey: "planner", putTo: "devops" });
+    const devops = aDecision({
+      roleKey: "devops",
+      putTo: "architect",
+      passedOn: [{ roleKey: "cto", reason: "Architecture.", passedOnAt: new Date() }],
+    });
+
+    expect(callChain("architect", [devops, planners])).toEqual({
+      roleKeys: ["architect", "devops", "cto", "planner"],
+      steps: 3,
+    });
+  });
+});
+
+describe("callProblems", () => {
+  it("lets the first two people down a chain be called", () => {
+    expect(callProblems(callChain("planner", []), DEVOPS)).toEqual([]);
+    const planners = aDecision({ roleKey: "planner", putTo: "devops" });
+    expect(callProblems(callChain("devops", [planners]), CTO)).toEqual([]);
+  });
+
+  it("refuses someone already in the chain, naming them", () => {
+    const planners = aDecision({ roleKey: "cto", putTo: "devops" });
+    expect(callProblems(callChain("devops", [planners]), CTO)).toEqual([
+      "Casey is already in this chain of calls: answer from what you have, or pass it on to the user.",
+    ]);
+  });
+
+  it("refuses a third person down one chain", () => {
+    const planners = aDecision({ roleKey: "planner", putTo: "devops" });
+    const devops = aDecision({ roleKey: "devops", putTo: "cto" });
+    expect(callProblems(callChain("cto", [devops, planners]), ARCHITECT)).toEqual([
+      `This chain of calls has asked ${CALL_STEPS} people already, the most it may: answer from what you have, or pass it on to the user.`,
+    ]);
+  });
+});
+
+/** The chain a pass-on of `decision` is in, with the Decisions above it. */
+function chainOf(decision: Decision, above: readonly Decision[] = []) {
+  return callChain(decision.roleKey, [decision, ...above]);
+}
+
 describe("passedOnTo", () => {
   const approval = aDecision({
+    kind: "approval",
     roleKey: "developer",
     question: approvalQuestion("Install ffmpeg."),
     options: [...APPROVAL_OPTIONS],
@@ -77,38 +130,95 @@ describe("passedOnTo", () => {
   });
 
   it("finds the Consultant the first passer names", () => {
-    expect(passedOnTo(approval, "CTO", [DEVOPS, CTO])).toBe(CTO);
+    expect(passedOnTo(approval, "CTO", [DEVOPS, CTO], chainOf(approval))).toEqual({
+      kind: "consultant",
+      consultant: CTO,
+    });
   });
 
-  it("gives the second step up to the user", () => {
+  it("gives the step past the chain's last to the user", () => {
     const passedOnce = aDecision({
       ...approval,
       putTo: "cto",
       passedOn: [{ roleKey: "devops", reason: "Architecture.", passedOnAt: new Date() }],
     });
-    expect(passedOnTo(passedOnce, "Architect", [DEVOPS, CTO, ARCHITECT])).toBeUndefined();
+    expect(
+      passedOnTo(passedOnce, "Architect", [DEVOPS, CTO, ARCHITECT], chainOf(passedOnce)),
+    ).toEqual({ kind: "user" });
   });
 
-  it("gives it to the user for nobody named, someone not hired, or someone already asked", () => {
-    expect(passedOnTo(approval, undefined, [CTO])).toBeUndefined();
-    expect(passedOnTo(approval, "Architect", [CTO])).toBeUndefined();
-    expect(passedOnTo(approval, "Devops", [DEVOPS, CTO])).toBeUndefined();
+  it("counts a nested call as a step: a Consultant asked by one passes on to the user", () => {
+    const planners = aDecision({ roleKey: "planner", putTo: "devops" });
+    const devopsApproval = aDecision({ ...approval, roleKey: "devops", putTo: "cto" });
+    expect(
+      passedOnTo(
+        devopsApproval,
+        "Architect",
+        [CTO, ARCHITECT],
+        chainOf(devopsApproval, [planners]),
+      ),
+    ).toEqual({ kind: "user" });
+  });
+
+  it("gives it to the user for nobody named, or someone not hired", () => {
+    expect(passedOnTo(approval, undefined, [CTO], chainOf(approval))).toEqual({ kind: "user" });
+    expect(passedOnTo(approval, "Architect", [CTO], chainOf(approval))).toEqual({ kind: "user" });
+  });
+
+  it("refuses passing it on to someone already in the chain, naming them", () => {
     const askedByTheCto = aDecision({ ...approval, roleKey: "cto" });
-    expect(passedOnTo(askedByTheCto, "CTO", [DEVOPS, CTO])).toBeUndefined();
+    expect(passedOnTo(askedByTheCto, "CTO", [DEVOPS, CTO], chainOf(askedByTheCto))).toEqual({
+      kind: "refused",
+      problems: [
+        "Casey is already in this chain of calls: answer from what you have, or pass it on to the user.",
+      ],
+    });
+  });
+
+  it("gives The Office's own Decision to the user", () => {
+    const offices = aDecision({ roleKey: undefined, putTo: "cto" });
+    expect(passedOnTo(offices, "Devops", [DEVOPS], chainOf(offices))).toEqual({ kind: "user" });
   });
 });
 
-describe("isApproval", () => {
-  it("tells an approval of a call from a question", () => {
+describe("a request", () => {
+  it("opens a Decision of its own kind, with no options, why it is needed as its reason", () => {
     expect(
-      isApproval({
-        question: approvalQuestion("Install ffmpeg."),
-        context: "",
-        options: [...APPROVAL_OPTIONS],
-        recommendation: { option: 0, reason: "" },
+      consultDecision(
+        {
+          kind: "request",
+          person: "Devops",
+          request: "Set up the Project's commands.",
+          context: "The user asked for it.",
+          why: "Only Devops drafts Project commands.",
+        },
+        { kind: "consultant", roleKey: "devops" },
+      ),
+    ).toEqual({
+      kind: "request",
+      question: "Set up the Project's commands.",
+      context: "The user asked for it.",
+      options: [],
+      recommendation: { option: 0, reason: "Only Devops drafts Project commands." },
+    });
+  });
+
+  it("opens its Consultation asking the callee to do it with their own tools, in words", () => {
+    const opening = consultationOpening(
+      aDecision({
+        kind: "request",
+        taskId: undefined,
+        question: "Set up the Project's commands.",
+        options: [],
+        recommendation: { option: 0, reason: "Only Devops drafts them." },
       }),
-    ).toBe(true);
-    expect(isApproval(aDecision({ options: [...APPROVAL_OPTIONS] }))).toBe(false);
+      "Angela",
+    );
+
+    expect(opening).toContain("Angela asks you to: Set up the Project's commands.");
+    expect(opening).toContain("Why they need it: Only Devops drafts them.");
+    expect(opening).toContain("Do it with your own tools, then answer");
+    expect(opening).not.toContain("on this Task");
   });
 });
 
@@ -130,7 +240,11 @@ describe("a Consultation", () => {
 
   it("says who passed an approval on and why, and that it can be passed on again", () => {
     const opening = consultationOpening(
-      aDecision({ question: approvalQuestion("Install ffmpeg."), options: [...APPROVAL_OPTIONS] }),
+      aDecision({
+        kind: "approval",
+        question: approvalQuestion("Install ffmpeg."),
+        options: [...APPROVAL_OPTIONS],
+      }),
       "Dana",
       [{ name: "Dev", reason: "It changes the build machine for every Project." }],
     );

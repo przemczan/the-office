@@ -58,7 +58,9 @@ export class MentionedRecords {
       case "decision": {
         const decision = await this.repository.decision(mention.decisionId);
         if (!decision) return undefined;
-        return decisionRecordText(decision, await this.work.taskRecord(decision.taskId));
+        const taskRecord =
+          decision.taskId === undefined ? undefined : await this.work.taskRecord(decision.taskId);
+        return decisionRecordText(decision, taskRecord);
       }
     }
   }

@@ -795,6 +795,36 @@ test("the Initiatives tab is a board by state, Dropped folded at the foot of Don
   ]);
 });
 
+test("dropping an active Initiative asks first, naming the Tasks it drops, and its Task shows as Dropped on the board", async ({
+  page,
+}) => {
+  const word = aWordOfItsOwn();
+  const name = `Offline maps ${word}`;
+  const project = await addedProject(page, "Initiative drop", "ID");
+  const initiativeId = await seedInitiative(page, name, { state: "active", createdAt: daysAgo(2) });
+  await seedTaskOf(page, project, `Tile cache ${word}`, initiativeId);
+
+  await page.goto(`/work/initiatives/${initiativeId}`);
+  await page.getByRole("button", { name: `More for ${name}` }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Drop the Initiative" }).click();
+  const dialog = page.getByRole("dialog", { name: `Drop ${name}?` });
+  await expect(dialog).toContainText(
+    "It drops its 1 Task not yet Done or Dropped, not started yet.",
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-drop-initiative.png") });
+  await dialog.getByRole("button", { name: "Drop the Initiative" }).click();
+  await expect(page.getByText("Initiative dropped, with its 1 open Task.")).toBeVisible();
+  await expect(dialog).toBeHidden();
+
+  await page.goto("/work");
+  await page.getByLabel("Search Tasks").fill(word);
+  const card = column(page, "Done").getByRole("article", { name: `Tile cache ${word}` });
+  await expect(card).toContainText("Dropped");
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-dropped-initiative-board.png"),
+  });
+});
+
 test(
   "an ended Initiative is archived from its card, found from the board's search in the Archived tab, and restored to Done",
   { tag: "@full" },
@@ -927,8 +957,8 @@ test(
     // A Thread waiting on an open Decision shows nobody, however long it stays answering.
     const decisionId = crypto.randomUUID();
     await queryOfficeDatabase(
-      `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
-     values ($1, $2, $3, 'caretaker', 'Which way?', 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', '[]', now())`,
+      `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, attachment_ids, asked_at)
+     values ($1, $2, $3, 'caretaker', 'question', 'Which way?', 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', '[]', now())`,
       [decisionId, workingThread, done.id],
     );
     await moveThreadTo(page, workingThread, "answering", "Asking");
@@ -1650,8 +1680,8 @@ async function seedDecision(
     [threadId, task.id, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
   );
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
-     values ($1, $2, $3, 'developer', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', $5, now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, attachment_ids, asked_at)
+     values ($1, $2, $3, 'developer', 'question', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', $5, now())`,
     [decisionId, threadId, task.id, question, JSON.stringify(attachmentIds)],
   );
   return { threadId, decisionId };

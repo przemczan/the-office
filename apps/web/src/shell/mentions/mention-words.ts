@@ -67,11 +67,18 @@ export function mentionables(
         label: name,
         path: recordPath({ kind: "initiative", initiativeId: id }),
       })),
-    ...decisions.map(({ id, taskId, threadId }) => ({
-      kind: "decision" as const,
-      label: `Decision on ${titleOf(taskId)}`,
-      path: recordPath({ kind: "decision", taskId, threadId, decisionId: id }),
-    })),
+    // Every Decision waiting on the user is on a Task: a call made from a chat never is.
+    ...decisions.flatMap(({ id, taskId, threadId }) =>
+      taskId === null
+        ? []
+        : [
+            {
+              kind: "decision" as const,
+              label: `Decision on ${titleOf(taskId)}`,
+              path: recordPath({ kind: "decision", taskId, threadId, decisionId: id }),
+            },
+          ],
+    ),
     ...ideas
       .filter(({ state }) => state !== "dropped")
       .map(({ id, title }) => ({

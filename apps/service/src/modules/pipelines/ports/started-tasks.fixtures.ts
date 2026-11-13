@@ -30,6 +30,10 @@ export class OwnProjectsStartedTasks extends StartedTasks {
     return this.tasks.read(taskId);
   }
 
+  find(taskId: string): Promise<StartedTask | undefined> {
+    return this.tasks.find(taskId);
+  }
+
   changeState(taskId: string, state: WalkTaskState): Promise<StartedTask> {
     return this.tasks.changeState(taskId, state);
   }
