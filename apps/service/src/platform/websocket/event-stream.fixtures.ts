@@ -94,6 +94,15 @@ export class DevicesForTests extends SignedInRequests {
     for (const listener of this.listeners) listener([signedInDeviceId]);
   }
 
+  /** Signs the device out without telling `onSignedOut`, as another process or an expiry does. */
+  signOutUntold(signedInDeviceId: string): void {
+    this.signedIn.delete(signedInDeviceId);
+  }
+
+  signedOutAmong(signedInDeviceIds: readonly string[]): Promise<readonly string[]> {
+    return Promise.resolve(signedInDeviceIds.filter((id) => !this.signedIn.has(id)));
+  }
+
   signedInOf(request: IncomingMessage): Promise<SignedIn | undefined> {
     const signedInDeviceId = /^device=(.+)$/.exec(request.headers.cookie ?? "")?.[1];
     return Promise.resolve(

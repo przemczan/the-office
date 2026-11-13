@@ -19,6 +19,12 @@ export abstract class SignedInRequests {
 
   /** Calls `listener` with the ids of each set of signed-in devices signed out, until unsubscribed. */
   abstract onSignedOut(listener: (signedInDeviceIds: readonly string[]) => void): Unsubscribe;
+
+  /**
+   * Of these signed-in devices, the ones no longer signed in, including those `onSignedOut` never
+   * tells of: signed out by another process, such as the host's recovery command, or expired.
+   */
+  abstract signedOutAmong(signedInDeviceIds: readonly string[]): Promise<readonly string[]>;
 }
 
 const signedInRequests = new WeakMap<IncomingMessage, SignedIn>();

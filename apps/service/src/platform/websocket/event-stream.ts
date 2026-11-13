@@ -20,11 +20,14 @@ import type { DomainEvent } from "../events/domain-event.js";
 import { EventBus, type Unsubscribe } from "../events/event-bus.js";
 import { OfficeAddresses } from "../http/office-addresses.js";
 import { SignedInRequests } from "../http/signed-in-requests.js";
+import { Schedule, type Wait } from "../schedule/schedule.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 
 const GOING_AWAY = 1001;
 /** Closes a client whose signed-in device was signed out (an application's own code, 4000–4999). */
 export const SIGNED_OUT = 4401;
+/** How often the open clients' devices are checked, as their last use is written (spec §2.10). */
+export const SIGNED_IN_CHECK_EVERY_MS = 60 * 1000;
 
 /**
  * A client's subscriptions: the event types without a scope, and those scoped to each Thread; and
@@ -52,6 +55,7 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
   private readonly subscriptions = new Map<WebSocket, Subscriptions>();
   private stopForwarding: Unsubscribe | undefined;
   private stopClosingSignedOut: Unsubscribe | undefined;
+  private nextSignedInCheck: Wait | undefined;
 
   constructor(
     private readonly httpAdapterHost: HttpAdapterHost,
@@ -59,6 +63,7 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     private readonly webEventForwarding: WebEventForwarding,
     private readonly officeAddresses: OfficeAddresses,
     private readonly signedInRequests: SignedInRequests,
+    private readonly schedule: Schedule,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -67,12 +72,15 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     this.stopClosingSignedOut = this.signedInRequests.onSignedOut((signedInDeviceIds) =>
       this.closeSignedOut(signedInDeviceIds),
     );
+    this.checkSignedInLater();
   }
 
   // Before the HTTP server closes, which waits for every open connection to end.
   beforeApplicationShutdown(): void {
     this.stopForwarding?.();
     this.stopClosingSignedOut?.();
+    this.nextSignedInCheck?.cancel();
+    this.nextSignedInCheck = undefined;
     this.httpServer().off("upgrade", this.upgrade);
     for (const client of this.subscriptions.keys()) client.close(GOING_AWAY);
     this.webSocketServer.close();
@@ -153,6 +161,30 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     if (subscribed.size > 0) subscriptions.byThread.set(threadId, subscribed);
     else subscriptions.byThread.delete(threadId);
     sendTo(client, { type: "subscriptions", events: [...subscribed].toSorted(), threadId });
+  }
+
+  /**
+   * `onSignedOut` tells only of sign-outs in this process; the recovery command signs devices out
+   * from its own, and a device expires without an event. So each minute the stream asks which of
+   * its clients' devices are still signed in.
+   */
+  private checkSignedInLater(): void {
+    const at = new Date(this.schedule.now().getTime() + SIGNED_IN_CHECK_EVERY_MS);
+    this.nextSignedInCheck = this.schedule.once("closing signed-out WebSockets", at, async () => {
+      try {
+        await this.closeSignedOutClients();
+      } finally {
+        if (this.nextSignedInCheck !== undefined) this.checkSignedInLater();
+      }
+    });
+  }
+
+  private async closeSignedOutClients(): Promise<void> {
+    const signedInDeviceIds = new Set(
+      [...this.subscriptions.values()].map(({ signedInDeviceId }) => signedInDeviceId),
+    );
+    if (signedInDeviceIds.size === 0) return;
+    this.closeSignedOut(await this.signedInRequests.signedOutAmong([...signedInDeviceIds]));
   }
 
   private closeSignedOut(signedInDeviceIds: readonly string[]): void {

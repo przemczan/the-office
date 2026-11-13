@@ -50,6 +50,17 @@ export class SignedInDevices {
     return seen;
   }
 
+  /** Of these devices, the ones no longer signed in: signed out or expired. */
+  async signedOutAmong(ids: readonly string[]): Promise<readonly string[]> {
+    const now = this.schedule.now();
+    const signedIn = new Set(
+      (await this.devices.findAll(ids))
+        .filter((device) => isSignedIn(device, now))
+        .map((device) => device.id),
+    );
+    return ids.filter((id) => !signedIn.has(id));
+  }
+
   /** The user's devices still signed in, the most recently used first. */
   async listOf(userId: string): Promise<readonly SignedInDevice[]> {
     const now = this.schedule.now();

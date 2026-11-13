@@ -26,4 +26,8 @@ export class CookieSignedInRequests extends SignedInRequests {
   onSignedOut(listener: (signedInDeviceIds: readonly string[]) => void): Unsubscribe {
     return this.eventBus.subscribe(SignedOut, (event) => listener(event.signedInDeviceIds));
   }
+
+  signedOutAmong(signedInDeviceIds: readonly string[]): Promise<readonly string[]> {
+    return this.signedInDevices.signedOutAmong(signedInDeviceIds);
+  }
 }

@@ -19,6 +19,10 @@ export class EveryoneSignedIn extends SignedInRequests {
   onSignedOut(): Unsubscribe {
     return () => undefined;
   }
+
+  signedOutAmong(): Promise<readonly string[]> {
+    return Promise.resolve([]);
+  }
 }
 
 @Module({ providers: [EveryoneSignedIn], exports: [EveryoneSignedIn] })

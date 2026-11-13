@@ -51,6 +51,10 @@ class CookieSignedIn extends SignedInRequests {
   onSignedOut(): Unsubscribe {
     return () => undefined;
   }
+
+  signedOutAmong(): Promise<readonly string[]> {
+    return Promise.resolve([]);
+  }
 }
 
 @Module({ providers: [CookieSignedIn], exports: [CookieSignedIn] })

@@ -1,7 +1,10 @@
 import { EVENTS_PATH, signedInDeviceListSchema } from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SIGNED_OUT } from "../../../../platform/websocket/event-stream.js";
+import {
+  SIGNED_IN_CHECK_EVERY_MS,
+  SIGNED_OUT,
+} from "../../../../platform/websocket/event-stream.js";
 import { addUser, type UserForTests } from "../../index.fixtures.js";
 import {
   send,
@@ -108,7 +111,20 @@ describe("signed-in devices", () => {
       (await send(office.port, { path: "/api/account", headers: { cookie: theirs } })).status,
     ).toBe(200);
   });
+
+  it("closes an expired device's WebSocket at the next minute's check", async () => {
+    const expiring = await signInFrom("Firefox on the laptop");
+    const socket = await openWebSocket(expiring);
+    const closedWith = new Promise((resolve) => socket.once("close", (code) => resolve(code)));
+
+    office.schedule.setTime(new Date(office.schedule.now().getTime() + THIRTY_ONE_DAYS_MS));
+    await office.schedule.advanceBy(SIGNED_IN_CHECK_EVERY_MS);
+
+    expect(await closedWith).toBe(SIGNED_OUT);
+  });
 });
+
+const THIRTY_ONE_DAYS_MS = 31 * 24 * 60 * 60 * 1000;
 
 describe("Sign out", () => {
   it("ends this device and has the browser forget its cookie", async () => {

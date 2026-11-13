@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { SignedInDevice } from "../../domain/signed-in-device.js";
 import { SignedInDeviceRepository } from "../../ports/signed-in-device-repository.js";
@@ -23,6 +23,15 @@ export class PostgresSignedInDeviceRepository extends SignedInDeviceRepository {
       .from(signedInDevices)
       .where(eq(signedInDevices.tokenHash, tokenHash));
     return row && toSignedInDevice(row);
+  }
+
+  async findAll(ids: readonly string[]): Promise<readonly SignedInDevice[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.database
+      .select()
+      .from(signedInDevices)
+      .where(inArray(signedInDevices.id, [...ids]));
+    return rows.map(toSignedInDevice);
   }
 
   async listOf(userId: string): Promise<readonly SignedInDevice[]> {

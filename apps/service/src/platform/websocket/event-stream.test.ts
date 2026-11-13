@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../test/test-application.js";
 import { EventBus } from "../events/event-bus.js";
 import { EventsModule } from "../events/events.module.js";
-import { SIGNED_OUT } from "./event-stream.js";
+import { Schedule } from "../schedule/schedule.js";
+import type { ManualSchedule } from "../schedule/schedule.fixtures.js";
+import { SIGNED_IN_CHECK_EVERY_MS, SIGNED_OUT } from "./event-stream.js";
 import { EventStreamModule } from "./event-stream.module.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 import {
@@ -184,6 +186,23 @@ describe("signed-in devices", () => {
     const closedWith = new Promise((resolve) => leaving.once("close", (code) => resolve(code)));
 
     devices.signOut("leaving");
+
+    expect(await closedWith).toBe(SIGNED_OUT);
+    expect(staying.readyState).toBe(WsClient.OPEN);
+    staying.close();
+  });
+
+  it("closes, within a minute, the WebSockets of a device signed out by another process", async () => {
+    const schedule = guarded.get(Schedule) as ManualSchedule;
+    const leaving = connectAs(devices.signIn("leaving"));
+    const staying = connectAs(devices.signIn("staying"));
+    await Promise.all(
+      [leaving, staying].map((client) => new Promise((resolve) => client.once("open", resolve))),
+    );
+    const closedWith = new Promise((resolve) => leaving.once("close", (code) => resolve(code)));
+
+    devices.signOutUntold("leaving");
+    await schedule.advanceBy(SIGNED_IN_CHECK_EVERY_MS);
 
     expect(await closedWith).toBe(SIGNED_OUT);
     expect(staying.readyState).toBe(WsClient.OPEN);

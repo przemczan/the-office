@@ -6,6 +6,9 @@ export abstract class SignedInDeviceRepository {
 
   abstract findByTokenHash(tokenHash: string): Promise<SignedInDevice | undefined>;
 
+  /** The devices of these ids that are still kept. */
+  abstract findAll(ids: readonly string[]): Promise<readonly SignedInDevice[]>;
+
   /** The user's devices, the most recently used first. */
   abstract listOf(userId: string): Promise<readonly SignedInDevice[]>;
 
