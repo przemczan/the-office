@@ -110,8 +110,14 @@ function badgedFavicon(favicon: string, count: number): Promise<string> {
   if (!badge) {
     badge = faviconWith(favicon, count);
     badges.set(key, badge);
+    void forgetIfPlain(key, badge, favicon);
   }
   return badge;
+}
+
+/** A favicon that couldn't be drawn is tried again next time, not kept plain for good. */
+async function forgetIfPlain(key: string, badge: Promise<string>, favicon: string): Promise<void> {
+  if ((await badge) === favicon) badges.delete(key);
 }
 
 /** The favicon itself while nothing waits; drawn with the count in a dot otherwise. */
