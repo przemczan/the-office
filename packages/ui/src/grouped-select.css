@@ -1,5 +1,6 @@
 /* A Select with groups and options that say why they can't be chosen: see grouped-select.tsx. */
 .grouped-select {
+  position: relative;
   display: grid;
   min-width: 0;
 }
@@ -59,9 +60,20 @@
   color: var(--fg-3);
 }
 
+/* Opens over what follows the field, as a native select's list does, not pushing it down. */
 .grouped-select-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: var(--z-dropdown);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(28rem, calc(100vw - 32px));
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
   margin-top: 4px;
   padding: 4px;
   border: 1px solid var(--border);

@@ -24,6 +24,9 @@ import {
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
 
+/** A Task's screenshots for its review, kept by The Office across runs (git ignores it). */
+const TASK_SCREENSHOTS = path.resolve(import.meta.dirname, "../../../.office/screenshots");
+
 const ICON_FILE = {
   name: "icon.png",
   mimeType: "image/png",
@@ -657,6 +660,27 @@ test(
     await expect(page.getByText(/^Implement → Tests → Publish\./)).toBeVisible();
   },
 );
+
+test("the default Pipeline picker opens over the rows under it, not pushing them down", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Picker overlay");
+  await page.goto(`/projects/${project.id}/pipelines`);
+  const publishing = page.getByText("Publishing", { exact: true });
+  const before = await publishing.boundingBox();
+
+  const picker = await openPipelinePicker(page, "Default Pipeline");
+  await expect(picker).toBeVisible();
+
+  expect(await publishing.boundingBox()).toEqual(before);
+  const coveredByList = await publishing.evaluate((label) => {
+    const box = label.getBoundingClientRect();
+    const onTop = document.elementFromPoint(box.left + 4, box.top + box.height / 2);
+    return onTop?.closest('[role="listbox"]') !== null;
+  });
+  expect(coveredByList).toBe(true);
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "default-pipeline-picker-open.png") });
+});
 
 test(
   "a Project's default Pipeline is set to one of its own Project Pipelines",
