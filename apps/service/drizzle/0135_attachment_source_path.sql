@@ -1,0 +1,1 @@
+ALTER TABLE "attachments" ADD COLUMN "source_path" text;

@@ -1,6 +1,6 @@
 {
-  "id": "c6982a61-d950-4f13-aa9c-614cdf4355ad",
-  "prevId": "c3d381b8-0b5e-4e19-8dc0-13f52e210c4a",
+  "id": "c3d381b8-0b5e-4e19-8dc0-13f52e210c4a",
+  "prevId": "c542ca0c-080b-43a6-aa9b-e689ddc58d34",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3584,37 +3584,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.earlier_records_claimed": {
-      "name": "earlier_records_claimed",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "default": 1
-        },
-        "claimed_at": {
-          "name": "claimed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "earlier_records_claimed_one_row": {
-          "name": "earlier_records_claimed_one_row",
-          "value": "\"earlier_records_claimed\".\"id\" = 1"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.signed_in_devices": {
       "name": "signed_in_devices",
       "schema": "",
@@ -4176,6 +4145,12 @@
         "text": {
           "name": "text",
           "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_path": {
+          "name": "source_path",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

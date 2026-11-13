@@ -5,7 +5,7 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { Attachment } from "../../domain/attachment.js";
 import { confirmPipeline } from "../../domain/planning-changes.js";
 import { changeTitle } from "../../domain/task-description.js";
-import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
+import { aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
@@ -110,7 +110,8 @@ describe("PostgresAttachmentRepository", () => {
       mediaType: "image/png",
       size: 2048,
       text: false,
-      addedBy: ANN_LEE,
+      sourcePath: ".office/screenshots/screen.png",
+      addedBy: { kind: "person", roleKey: "developer" },
       addedAt: new Date("2026-10-25T09:06:00.000Z"),
     };
     await attachments.add(link);
@@ -122,6 +123,33 @@ describe("PostgresAttachmentRepository", () => {
     await attachments.remove(link.id);
 
     await expect(attachments.listOf(owner)).resolves.toEqual([image]);
+  });
+
+  it("keeps a file's new copy over its record, its document text replaced", async () => {
+    const task = await createdTask(aProjectId());
+    const owner = { kind: "task", taskId: task.id } as const;
+    const design: Attachment = {
+      id: randomUUID(),
+      owner,
+      kind: "file",
+      name: "design.html",
+      mediaType: "text/html",
+      size: 100,
+      text: true,
+      sourcePath: "docs/design.html",
+      addedBy: { kind: "person", roleKey: "designer" },
+      addedAt: new Date("2026-10-25T09:06:00.000Z"),
+    };
+    await attachments.add(design);
+    const copy = {
+      ...design,
+      size: 120,
+      addedBy: { kind: "person", roleKey: "developer" },
+    } as const;
+
+    await attachments.replace(copy);
+
+    await expect(attachments.listOf(owner)).resolves.toEqual([copy]);
   });
 });
 

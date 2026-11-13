@@ -1,6 +1,12 @@
-import type { QueuedTask } from "@the-office/contracts";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
+import type { QueuedTask, Task } from "@the-office/contracts";
 import { act } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { QueuedCardMark } from "./queue-parts.tsx";
 
@@ -9,7 +15,7 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-// jsdom has no layout, so the tooltip never resizes.
+// jsdom has no layout, so the tooltip and the popover never resize.
 globalThis.ResizeObserver = class {
   observe(): void {}
   unobserve(): void {}
@@ -21,6 +27,7 @@ const WINDOW_CAP =
   "The Claude Code engine's 5-hour window would pass its 80% cap: 78% used, 0% expected of the Tasks started since it was read and 4% of this Task. It resets at 14:30.";
 const OTHER_ENGINE_WINDOW_CAP = WINDOW_CAP.replace("Claude Code", "Work account");
 const BLOCKED = 'Blocked by "Queue schema", which must be Done first.';
+const OVERLAP = 'Queued behind "Rework the importer" until it is Done or Dropped.';
 
 function queuedTask(reasons: readonly [string, string][]): QueuedTask {
   return {
@@ -33,39 +40,57 @@ function queuedTask(reasons: readonly [string, string][]): QueuedTask {
   };
 }
 
-function rendered(queued: QueuedTask): HTMLElement {
+const roots: Root[] = [];
+
+async function rendered(
+  queued: QueuedTask,
+  behind: readonly Pick<Task, "id" | "title">[] = [],
+  blockers = 0,
+): Promise<HTMLElement> {
+  const router = createRouter({
+    routeTree: createRootRoute({
+      component: () => <QueuedCardMark queued={queued} behind={behind} blockers={blockers} />,
+    }),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
   const page = document.createElement("div");
   document.body.append(page);
-  act(() => createRoot(page).render(<QueuedCardMark queued={queued} />));
+  const root = createRoot(page);
+  roots.push(root);
+  await act(async () => root.render(<RouterProvider router={router} />));
   return page;
 }
 
-function shortReasons(page: HTMLElement): string | undefined {
-  return page.querySelector(".queued-short-reasons")?.textContent;
-}
+const clock = (page: HTMLElement): HTMLButtonElement | null =>
+  page.querySelector<HTMLButtonElement>('button[aria-label="Queued"]');
 
-function hoverShortReasons(page: HTMLElement): void {
+function hover(page: HTMLElement): void {
   act(() => {
-    page
-      .querySelector(".queued-short-reasons")
-      ?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    clock(page)?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
   });
 }
 
-function fullReasons(): string[] {
-  const tooltip = document.querySelector('[role="tooltip"]');
-  return [...(tooltip?.querySelectorAll(".queued-full-reasons > span") ?? [])].map(
+function press(page: HTMLElement): void {
+  act(() => clock(page)?.click());
+}
+
+const tooltip = (): Element | null => document.querySelector('[role="tooltip"]');
+const popover = (): Element | null => document.querySelector('[role="dialog"]');
+
+const fullReasons = (): string[] =>
+  [...(popover()?.querySelectorAll(".queued-full-reasons > li") ?? [])].map(
     (line) => line.textContent,
   );
-}
 
 describe("QueuedCardMark", () => {
   afterEach(() => {
+    // Unmounted first, as an open popover lies on the body, outside the page.
+    act(() => roots.splice(0).forEach((root) => root.unmount()));
     document.body.replaceChildren();
   });
 
-  it("shows the short reasons, each once, and leaves the blockers to the card's own line", () => {
-    const page = rendered(
+  it("shows the clock alone, with the short reasons, each once, on hover", async () => {
+    const page = await rendered(
       queuedTask([
         [BLOCKED, "Blocked"],
         [OFFICE_WIDE_LIMIT, "Office-wide limit reached (3)"],
@@ -73,31 +98,53 @@ describe("QueuedCardMark", () => {
         [OTHER_ENGINE_WINDOW_CAP, "5-hour window cap (80%) · resets 14:30"],
       ]),
     );
+    expect(page.textContent).toBe("");
 
-    expect(shortReasons(page)).toBe(
-      "Office-wide limit reached (3) · 5-hour window cap (80%) · resets 14:30",
+    hover(page);
+
+    expect(tooltip()?.textContent).toBe(
+      "Queued: Office-wide limit reached (3) · 5-hour window cap (80%) · resets 14:30",
     );
   });
 
-  it("shows the full reasons on hover, one to a line, without the blockers", () => {
-    const page = rendered(
+  it("shows its place and the full reasons on a press, one to a line, without the blockers", async () => {
+    const page = await rendered(
       queuedTask([
         [BLOCKED, "Blocked"],
         [OFFICE_WIDE_LIMIT, "Office-wide limit reached (3)"],
         [WINDOW_CAP, "5-hour window cap (80%) · resets 14:30"],
       ]),
+      [],
+      1,
     );
-    expect(fullReasons()).toEqual([]);
+    expect(popover()).toBeNull();
 
-    hoverShortReasons(page);
+    press(page);
 
+    expect(popover()?.textContent).toContain("Queued, place 1");
     expect(fullReasons()).toEqual([OFFICE_WIDE_LIMIT, WINDOW_CAP]);
+    expect(popover()?.querySelector(".popover-foot")?.textContent).toBe(
+      "And its 1 blocker, under the lock.",
+    );
   });
 
-  it("shows only Queued when its blockers alone hold it", () => {
-    const page = rendered(queuedTask([[BLOCKED, "Blocked"]]));
+  it("links the Tasks it is queued behind", async () => {
+    const page = await rendered(queuedTask([[OVERLAP, 'Behind "Rework the importer"']]), [
+      { id: "0b7f0c6e-2d0b-4c55-9d1c-6f0e2b9d4a11", title: "Rework the importer" },
+    ]);
 
-    expect(shortReasons(page)).toBeUndefined();
-    expect(page.querySelector(".tooltip-trigger")).toBeNull();
+    press(page);
+
+    const link = popover()?.querySelector(".queued-behind a");
+    expect(link?.textContent).toBe("Rework the importer");
+    expect(link?.getAttribute("href")).toBe("/tasks/0b7f0c6e-2d0b-4c55-9d1c-6f0e2b9d4a11");
+  });
+
+  it("says only Queued on hover when its blockers alone hold it", async () => {
+    const page = await rendered(queuedTask([[BLOCKED, "Blocked"]]));
+
+    hover(page);
+
+    expect(tooltip()?.textContent).toBe("Queued");
   });
 });

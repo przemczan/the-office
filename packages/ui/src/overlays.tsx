@@ -4,8 +4,9 @@
 // design-system/ stays as exported, hence the wrapper rather than an edit there. The conversation's
 // drawer on the Task and Initiative pages is the exception, closing on a press outside: a side view
 // with its draft kept, not a window, and built apart from these
-// (apps/web/src/surfaces/work/conversation-drawer.tsx). `Tooltip` is built here too: the design
-// system's sits inside its trigger, where anything clipping or stacking around it covers it. One press
+// (apps/web/src/surfaces/work/conversation-drawer.tsx). `Tooltip` is built here too (its press-to-open
+// companion, `Popover`, in popover.tsx): the design system's sits inside its trigger, where anything
+// clipping or stacking around it covers it. A popover's Esc goes first, as a menu's does. One press
 // of Escape closes one thing: a menu first, then a window, then the side panel opened last (the chat
 // drawer, the Needs you panel, the conversation's drawer), by the order in `openSidePanels`.
 import {
@@ -264,6 +265,9 @@ export function useCloseOnEscape(
   }, [open, onClose, element]);
 }
 
+/** Where longer words wrap, so they read as a short paragraph rather than one long line. */
+const TOOLTIP_READING_WIDTH_PX = 300;
+
 export interface TooltipProps {
   readonly content: ReactNode;
   /** Where it prefers to sit; it takes the opposite side when only that has the room. */
@@ -271,10 +275,18 @@ export interface TooltipProps {
   readonly children: ReactNode;
   /** Holds it open or closed, whatever the pointer and focus do. */
   readonly open?: boolean;
+  /** Makes the trigger a focus stop, for `children` that aren't one, such as an icon. */
+  readonly focusable?: boolean;
 }
 
 /** Words on hover or focus of `children`, over everything, kept within the window. */
-export function Tooltip({ content, side = "top", children, open }: TooltipProps): ReactNode {
+export function Tooltip({
+  content,
+  side = "top",
+  children,
+  open,
+  focusable = false,
+}: TooltipProps): ReactNode {
   const [pointedAt, setPointedAt] = useState(false);
   const trigger = useRef<HTMLSpanElement>(null);
   useCloseOnTriggerMove(pointedAt, setPointedAt, trigger);
@@ -282,6 +294,7 @@ export function Tooltip({ content, side = "top", children, open }: TooltipProps)
     <span
       ref={trigger}
       className="tooltip-trigger"
+      tabIndex={focusable ? 0 : undefined}
       onMouseEnter={() => setPointedAt(true)}
       onMouseLeave={() => setPointedAt(false)}
       onFocus={() => setPointedAt(true)}
@@ -329,7 +342,7 @@ function TooltipBody({
       className="tooltip"
       style={{
         ...(place ?? { visibility: "hidden" }),
-        maxWidth: `calc(100vw - ${2 * TOOLTIP_WINDOW_MARGIN_PX}px)`,
+        maxWidth: `min(${TOOLTIP_READING_WIDTH_PX}px, calc(100vw - ${2 * TOOLTIP_WINDOW_MARGIN_PX}px))`,
       }}
     >
       {content}

@@ -949,6 +949,12 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     attachmentId: z.uuid(),
     owner: attachmentOwnerSchema,
   }),
+  /** An Agent attached a new copy of the file in its place: same id, new bytes (spec §2.1). */
+  webEventSchema.extend({
+    type: z.literal("attachment.replaced"),
+    attachmentId: z.uuid(),
+    owner: attachmentOwnerSchema,
+  }),
   webEventSchema.extend({
     type: z.literal("attachment.moved"),
     attachmentId: z.uuid(),

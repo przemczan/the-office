@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import type { Engine, EngineSettings, Notification, Now } from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
+import { asOwnUser } from "./own-user.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -120,7 +121,10 @@ for (const palette of PALETTES) {
   }
 }
 
-/** The palettes a system's light or dark can't show, so they are chosen in storage. */
+/**
+ * The palettes a system's light or dark can't show, so they are chosen, each by a user of the test's
+ * own: a palette is the user's, and the shared user's is every other file's.
+ */
 const CHOSEN_PALETTES = [
   { palette: "graphite", base: "dark" },
   { palette: "paper", base: "light" },
@@ -135,22 +139,17 @@ const CHOSEN_PALETTES = [
   { palette: "emerald", base: "dark" },
   { palette: "citrine", base: "light" },
 ] as const;
-/** Where the browser keeps the chosen palette (packages/ui's APPEARANCE_RULES). */
-const PALETTE_STORAGE_KEY = "the-office.palette";
 
 for (const { palette, base } of CHOSEN_PALETTES) {
-  test.describe(`${palette}, 1600 wide`, { tag: "@full" }, () => {
+  asOwnUser.describe(`${palette}, 1600 wide`, { tag: "@full" }, () => {
     // The system says the other base, so the page shows the chosen palette, not the system's.
-    test.use({
+    asOwnUser.use({
       colorScheme: base === "dark" ? "light" : "dark",
       viewport: { width: 1600, height: 900 },
     });
 
-    test("the rail opens each surface in it", async ({ page }) => {
-      await page.addInitScript(({ key, chosen }) => localStorage.setItem(key, chosen), {
-        key: PALETTE_STORAGE_KEY,
-        chosen: palette,
-      });
+    asOwnUser("the rail opens each surface in it", async ({ page, ownUser }) => {
+      await ownUser.chooseAppearance({ palette });
       await page.goto("/now");
       const html = page.locator("html");
       await expect(html).toHaveAttribute("data-palette", palette);
@@ -170,9 +169,6 @@ for (const { palette, base } of CHOSEN_PALETTES) {
   });
 }
 
-/** Where the browser keeps the chosen density (packages/ui's APPEARANCE_RULES). */
-const DENSITY_STORAGE_KEY = "the-office.density";
-
 /**
  * Compact and Relaxed, in Light: a palette and a density are separate layers, so the palettes run
  * in Comfortable above and the densities in Light here, plus Graphite in Compact and Paper in
@@ -187,122 +183,119 @@ const CHOSEN_DENSITIES = [
 
 for (const { density, palette, widths } of CHOSEN_DENSITIES) {
   for (const width of widths) {
-    test.describe(`${density} in ${palette}, ${width} wide`, { tag: "@full" }, () => {
-      test.use({ viewport: { width, height: 900 } });
+    asOwnUser.describe(`${density} in ${palette}, ${width} wide`, { tag: "@full" }, () => {
+      asOwnUser.use({ viewport: { width, height: 900 } });
 
-      test("the rail opens each surface at that density, none wider than the window", async ({
-        page,
-      }) => {
-        await page.addInitScript(
-          (kept) => {
-            for (const [key, chosen] of kept) localStorage.setItem(key, chosen);
-          },
-          [
-            [PALETTE_STORAGE_KEY, palette],
-            [DENSITY_STORAGE_KEY, density],
-          ] as const,
-        );
-        await page.goto("/now");
-        const html = page.locator("html");
-        await expect(html).toHaveAttribute("data-density", density);
-        await expect(html).toHaveAttribute("data-palette", palette);
-        const rail = page.getByRole("navigation", { name: "Surfaces" });
-        for (const surface of SURFACES) {
-          await rail.getByRole("link", { name: surface.name, exact: true }).click();
+      asOwnUser(
+        "the rail opens each surface at that density, none wider than the window",
+        async ({ page, ownUser }) => {
+          await ownUser.chooseAppearance({ palette, density });
+          await page.goto("/now");
+          const html = page.locator("html");
+          await expect(html).toHaveAttribute("data-density", density);
+          await expect(html).toHaveAttribute("data-palette", palette);
+          const rail = page.getByRole("navigation", { name: "Surfaces" });
+          for (const surface of SURFACES) {
+            await rail.getByRole("link", { name: surface.name, exact: true }).click();
 
-          await expect(page).toHaveURL(new RegExp(`${surface.path}$`));
-          await expect(page.getByRole("heading", { level: 1 })).toHaveText(surface.name);
-          const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
-          expect(sideways, `${surface.name} scrolls sideways`).toBe(0);
-          await page.mouse.move(width / 2, 600);
-          await page.screenshot({
-            path: path.join(
-              SCREENSHOTS,
-              `${palette}-${density}-${width}-${surface.name.toLowerCase()}.png`,
-            ),
-          });
-        }
-      });
+            await expect(page).toHaveURL(new RegExp(`${surface.path}$`));
+            await expect(page.getByRole("heading", { level: 1 })).toHaveText(surface.name);
+            const sideways = await html.evaluate((root) => root.scrollWidth - root.clientWidth);
+            expect(sideways, `${surface.name} scrolls sideways`).toBe(0);
+            await page.mouse.move(width / 2, 600);
+            await page.screenshot({
+              path: path.join(
+                SCREENSHOTS,
+                `${palette}-${density}-${width}-${surface.name.toLowerCase()}.png`,
+              ),
+            });
+          }
+        },
+      );
     });
   }
 }
 
-test.describe("the palette", { tag: "@full" }, () => {
-  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+// Chosen by a user of the test's own, as the palette and the density are each user's.
+asOwnUser.describe("the palette", { tag: "@full" }, () => {
+  asOwnUser.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
-  test("chosen in the rail, it is shown at once and kept over the system's", async ({ page }) => {
-    await page.goto("/now");
-    const html = page.locator("html");
-    await expect(html).toHaveAttribute("data-palette", "light");
+  asOwnUser(
+    "chosen in the rail, it is shown at once and kept over the system's",
+    async ({ page }) => {
+      await page.goto("/now");
+      const html = page.locator("html");
+      await expect(html).toHaveAttribute("data-palette", "light");
 
-    await page.getByRole("button", { name: "Theme" }).click();
-    const menu = page.getByRole("menu");
-    await expect(menu.getByRole("button")).toHaveText([
-      "Light",
-      "Dark",
-      "Graphite",
-      "Paper",
-      "Midnight",
-      "Mist",
-      "Mocha",
-      "Sage",
-      "Aubergine",
-      "Lavender",
-      "Lagoon",
-      "Cobalt",
-      "Emerald",
-      "Citrine",
-      "Compact",
-      "Comfortable",
-      "Relaxed",
-    ]);
-    // Each palette shows in its own colours, whatever palette is shown.
-    const swatchColours = await menu
-      .locator(".palette-swatch")
-      .evaluateAll((swatches) =>
-        swatches.map((swatch) => getComputedStyle(swatch).backgroundColor),
-      );
-    expect(new Set(swatchColours).size).toBe(14);
-    // Fourteen palettes and three densities still fit on a window 900 high.
-    const menuBox = await menu.boundingBox();
-    expect(menuBox?.y).toBeGreaterThanOrEqual(0);
-    expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(900);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-theme-menu.png") });
-    await menu.getByRole("button", { name: "Dark" }).click();
-
-    await expect(html).toHaveAttribute("data-palette", "dark");
-    await expect(html).toHaveAttribute("data-theme", "dark");
-    await page.reload();
-    await expect(html).toHaveAttribute("data-palette", "dark");
-
-    await page.getByRole("button", { name: "Theme" }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Graphite" }).click();
-    await expect(html).toHaveAttribute("data-palette", "graphite");
-    await expect(html).toHaveAttribute("data-theme", "dark");
-
-    await page.getByRole("button", { name: "Theme" }).click();
-    await page.getByRole("menu").getByRole("button", { name: "Sage" }).click();
-    await expect(html).toHaveAttribute("data-palette", "sage");
-    await expect(html).toHaveAttribute("data-theme", "light");
-    await page.reload();
-    await expect(html).toHaveAttribute("data-palette", "sage");
-
-    for (const [name, palette, base] of [
-      ["Aubergine", "aubergine", "dark"],
-      ["Cobalt", "cobalt", "light"],
-      ["Emerald", "emerald", "dark"],
-      ["Citrine", "citrine", "light"],
-    ] as const) {
       await page.getByRole("button", { name: "Theme" }).click();
-      await page.getByRole("menu").getByRole("button", { name }).click();
-      await expect(html).toHaveAttribute("data-palette", palette);
-      await expect(html).toHaveAttribute("data-theme", base);
-      await page.reload();
-      await expect(html).toHaveAttribute("data-palette", palette);
-    }
-  });
+      const menu = page.getByRole("menu");
+      await expect(menu.getByRole("button")).toHaveText([
+        "Light",
+        "Dark",
+        "Graphite",
+        "Paper",
+        "Midnight",
+        "Mist",
+        "Mocha",
+        "Sage",
+        "Aubergine",
+        "Lavender",
+        "Lagoon",
+        "Cobalt",
+        "Emerald",
+        "Citrine",
+        "Compact",
+        "Comfortable",
+        "Relaxed",
+      ]);
+      // Each palette shows in its own colours, whatever palette is shown.
+      const swatchColours = await menu
+        .locator(".palette-swatch")
+        .evaluateAll((swatches) =>
+          swatches.map((swatch) => getComputedStyle(swatch).backgroundColor),
+        );
+      expect(new Set(swatchColours).size).toBe(14);
+      // Fourteen palettes and three densities still fit on a window 900 high.
+      const menuBox = await menu.boundingBox();
+      expect(menuBox?.y).toBeGreaterThanOrEqual(0);
+      expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(900);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-theme-menu.png") });
+      await menu.getByRole("button", { name: "Dark" }).click();
 
-  test("chosen in one tab, it shows in the others", async ({ page, context }) => {
+      await expect(html).toHaveAttribute("data-palette", "dark");
+      await expect(html).toHaveAttribute("data-theme", "dark");
+      await page.reload();
+      await expect(html).toHaveAttribute("data-palette", "dark");
+
+      await page.getByRole("button", { name: "Theme" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Graphite" }).click();
+      await expect(html).toHaveAttribute("data-palette", "graphite");
+      await expect(html).toHaveAttribute("data-theme", "dark");
+
+      await page.getByRole("button", { name: "Theme" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Sage" }).click();
+      await expect(html).toHaveAttribute("data-palette", "sage");
+      await expect(html).toHaveAttribute("data-theme", "light");
+      await page.reload();
+      await expect(html).toHaveAttribute("data-palette", "sage");
+
+      for (const [name, palette, base] of [
+        ["Aubergine", "aubergine", "dark"],
+        ["Cobalt", "cobalt", "light"],
+        ["Emerald", "emerald", "dark"],
+        ["Citrine", "citrine", "light"],
+      ] as const) {
+        await page.getByRole("button", { name: "Theme" }).click();
+        await page.getByRole("menu").getByRole("button", { name }).click();
+        await expect(html).toHaveAttribute("data-palette", palette);
+        await expect(html).toHaveAttribute("data-theme", base);
+        await page.reload();
+        await expect(html).toHaveAttribute("data-palette", palette);
+      }
+    },
+  );
+
+  asOwnUser("chosen in one tab, it shows in the others", async ({ page, context }) => {
     await page.goto("/now");
     const other = await context.newPage();
     await other.goto("/now");
@@ -322,48 +315,48 @@ test.describe("the palette", { tag: "@full" }, () => {
   });
 });
 
-test.describe("the density", { tag: "@full" }, () => {
-  test.use({ colorScheme: "light" });
+asOwnUser.describe("the density", { tag: "@full" }, () => {
+  asOwnUser.use({ colorScheme: "light" });
 
-  test("chosen in the rail, it is shown at once, kept, and chosen in Settings › Appearance", async ({
-    page,
-    context,
-  }) => {
-    await page.goto("/now");
-    const other = await context.newPage();
-    await other.goto("/now");
-    const html = page.locator("html");
-    await expect(html).toHaveAttribute("data-density", "comfortable");
+  asOwnUser(
+    "chosen in the rail, it is shown at once, kept, and chosen in Account › Appearance",
+    async ({ page, context }) => {
+      await page.goto("/now");
+      const other = await context.newPage();
+      await other.goto("/now");
+      const html = page.locator("html");
+      await expect(html).toHaveAttribute("data-density", "comfortable");
 
-    await page.getByRole("button", { name: "Theme" }).click();
-    const menu = page.getByRole("menu");
-    await expect(menu.locator(".menu-choice:has(svg)")).toHaveText(["Light", "Comfortable"]);
-    await menu.getByRole("button", { name: "Compact" }).click();
+      await page.getByRole("button", { name: "Theme" }).click();
+      const menu = page.getByRole("menu");
+      await expect(menu.locator(".menu-choice:has(svg)")).toHaveText(["Light", "Comfortable"]);
+      await menu.getByRole("button", { name: "Compact" }).click();
 
-    await expect(html).toHaveAttribute("data-density", "compact");
-    await expect(html).toHaveAttribute("data-palette", "light");
-    await expect(other.locator("html")).toHaveAttribute("data-density", "compact");
-    await page.reload();
-    await expect(html).toHaveAttribute("data-density", "compact");
-    await page.getByRole("button", { name: "Theme" }).click();
-    await expect(page.getByRole("menu").locator(".menu-choice:has(svg)")).toHaveText([
-      "Light",
-      "Compact",
-    ]);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-theme-menu-compact.png") });
-    await page.keyboard.press("Escape");
+      await expect(html).toHaveAttribute("data-density", "compact");
+      await expect(html).toHaveAttribute("data-palette", "light");
+      await expect(other.locator("html")).toHaveAttribute("data-density", "compact");
+      await page.reload();
+      await expect(html).toHaveAttribute("data-density", "compact");
+      await page.getByRole("button", { name: "Theme" }).click();
+      await expect(page.getByRole("menu").locator(".menu-choice:has(svg)")).toHaveText([
+        "Light",
+        "Compact",
+      ]);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-theme-menu-compact.png") });
+      await page.keyboard.press("Escape");
 
-    await page.goto("/settings/appearance");
-    const density = page.getByRole("group", { name: "Density" });
-    await expect(density.getByRole("button", { name: "Compact" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(density.getByRole("button", { name: "Comfortable" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-  });
+      await page.goto("/account/appearance");
+      const density = page.getByRole("group", { name: "Density" });
+      await expect(density.getByRole("button", { name: "Compact" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(density.getByRole("button", { name: "Comfortable" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    },
+  );
 });
 
 test.describe("the rail's toggle", { tag: "@full" }, () => {

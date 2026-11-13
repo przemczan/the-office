@@ -128,7 +128,8 @@ export class AttachmentsController {
   /**
    * A file's bytes, typed by its kind rather than by the media type it was uploaded with, since it
    * is opened on The Office's own origin: only images, Markdown, other text files as plain text
-   * and sandboxed HTML show in the browser.
+   * and sandboxed HTML show in the browser. Never kept by the browser unasked, as an Agent's new
+   * copy keeps the address (spec §2.1).
    */
   @Get("attachments/:id/content")
   async content(
@@ -136,6 +137,7 @@ export class AttachmentsController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const { attachment, content } = await this.attachments.open(id);
+    response.setHeader("Cache-Control", "no-cache");
     response.setHeader("X-Content-Type-Options", "nosniff");
     if (isHtmlFile(attachment)) {
       response.setHeader("Content-Security-Policy", HTML_FILE_CONTENT_SECURITY_POLICY);

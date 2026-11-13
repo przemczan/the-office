@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { GATE_REACHED, gateActionProblems, sendBackTargets, waitingGateRun } from "./gate.js";
+import {
+  GATE_REACHED,
+  gateActionProblems,
+  lastActedOnGateRun,
+  sendBackTargets,
+  waitingGateRun,
+} from "./gate.js";
 import type { Stage } from "./stage.js";
 import { NO_STAGE_TOKENS, type GateAction, type StageRun } from "./stage-run.js";
 
@@ -57,6 +63,19 @@ const sendBack = (stageKey: string, feedback = "Name it Save."): GateAction => (
   kind: "send-back",
   stageKey,
   feedback,
+});
+
+describe("lastActedOnGateRun", () => {
+  it("is the last Gate run the user acted on, never one still waiting or skipped", () => {
+    const actedOn = { ...aRun("first-look", sendBack("implement")), id: "acted-on" };
+    const skipped: StageRun = {
+      ...aRun("look", { kind: "continue" }),
+      outcome: { status: "done", summary: "Skipped.", skipped: true },
+    };
+
+    expect(lastActedOnGateRun([aRun("implement"), actedOn, skipped, aRun("look")])).toBe(actedOn);
+    expect(lastActedOnGateRun([aRun("implement"), aRun("first-look")])).toBeUndefined();
+  });
 });
 
 describe("sendBackTargets", () => {

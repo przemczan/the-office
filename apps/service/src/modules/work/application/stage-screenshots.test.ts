@@ -6,7 +6,7 @@ import { buffer } from "node:stream/consumers";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SCREENSHOT_SIZE_LIMIT } from "../domain/attachment.js";
 import type { Task } from "../domain/task.js";
-import { ProjectWorktreesForTests } from "../ports/work-ports.fixtures.js";
+import { ProjectWorktreesForTests, TaskGatesForTests } from "../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../work-application.fixtures.js";
 import { AttachmentService } from "./attachment-service.js";
 import { StageScreenshots } from "./stage-screenshots.js";
@@ -105,5 +105,41 @@ describe("StageScreenshots.attach", () => {
       ],
     });
     expect(await attachments()).toEqual([]);
+  });
+
+  it("replaces an Agent's copy from the same worktree path until the user acts at a Gate, keeping its id and place", async () => {
+    const service = work.app.get(AttachmentService);
+    const first = await service.attachFromWorktree(
+      task.id,
+      {
+        path: ".office/screenshots/home.png",
+        name: "home.png",
+        mediaType: "image/png",
+        content: A_PNG,
+      },
+      "planner",
+    );
+    const newCopy = new Uint8Array([...A_PNG, 13, 10]);
+    await writeFile(join(screenshots, "home.png"), newCopy);
+
+    await attach(["home.png"]);
+
+    const [replaced, ...others] = await attachments();
+    expect(others).toEqual([]);
+    expect(replaced).toEqual({
+      ...first.attachment,
+      size: newCopy.byteLength,
+      addedBy: { kind: "person", roleKey: "developer" },
+    });
+    const content = await buffer((await service.open(replaced?.id ?? "")).content);
+    expect(new Uint8Array(content)).toEqual(newCopy);
+
+    work.app.get(TaskGatesForTests).lastActedOnGateEnds.set(task.id, new Date());
+    await attach(["home.png"]);
+
+    expect((await attachments()).map(({ id }) => id)).toEqual([
+      first.attachment.id,
+      expect.not.stringMatching(first.attachment.id),
+    ]);
   });
 });

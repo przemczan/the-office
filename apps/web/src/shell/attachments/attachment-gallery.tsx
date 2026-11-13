@@ -1,10 +1,10 @@
 import type { Attachment } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { attachmentContentUrl } from "../../api/work.ts";
 import { AttachmentChips } from "./attachment-chips.tsx";
 import { roundName, type AttachmentRound } from "./attachment-rounds.ts";
 import { AttachmentViewer, type ViewedImage } from "./attachment-viewer.tsx";
+import { useAttachmentContentUrl } from "./use-attachment-content-url.ts";
 
 /**
  * Attachments by round: each round's images as thumbnails that open the viewer, then its other
@@ -91,20 +91,32 @@ function RoundContent({
       {images.length > 0 && (
         <div className="attachment-thumbnails">
           {images.map((image) => (
-            <button
-              key={image.id}
-              type="button"
-              className="attachment-thumbnail"
-              aria-label={`View ${image.name}`}
-              onClick={() => onView(image)}
-            >
-              <img src={attachmentContentUrl(image.id)} alt="" loading="lazy" />
-            </button>
+            <Thumbnail key={image.id} image={image} onView={onView} />
           ))}
         </div>
       )}
       <AttachmentChips attachments={attachments.filter((attachment) => !isImage(attachment))} />
     </div>
+  );
+}
+
+function Thumbnail({
+  image,
+  onView,
+}: {
+  readonly image: Attachment;
+  readonly onView: (image: Attachment) => void;
+}): ReactNode {
+  const src = useAttachmentContentUrl(image.id);
+  return (
+    <button
+      type="button"
+      className="attachment-thumbnail"
+      aria-label={`View ${image.name}`}
+      onClick={() => onView(image)}
+    >
+      <img src={src} alt="" loading="lazy" />
+    </button>
   );
 }
 

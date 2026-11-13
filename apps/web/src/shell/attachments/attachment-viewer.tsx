@@ -3,11 +3,11 @@ import type { Attachment } from "@the-office/contracts";
 import { Button, Dialog, Icon } from "@the-office/ui";
 import { useEffect, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
-import { attachmentContentUrl } from "../../api/work.ts";
 import { dayAndClockOf } from "../time.ts";
 import { useSignedInUserId } from "../use-user-name.ts";
 import { authorName } from "../work/work-words.ts";
 import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
+import { useAttachmentContentUrl } from "./use-attachment-content-url.ts";
 
 /** An image the viewer steps to, with the round it came in when there are several. */
 export interface ViewedImage {
@@ -33,6 +33,7 @@ export function AttachmentViewer({
   const roles = useQuery(roleQueries.list()).data;
   const signedInUserId = useSignedInUserId();
   const viewed = images[index];
+  const original = useAttachmentContentUrl(viewed?.image.id ?? "");
   const hasPrevious = index > 0;
   const hasNext = index < images.length - 1;
   useEffect(() => {
@@ -47,7 +48,6 @@ export function AttachmentViewer({
   }, [index, hasPrevious, hasNext, onStep]);
   if (!viewed) return null;
   const { image, roundName } = viewed;
-  const original = attachmentContentUrl(image.id);
   return (
     <Dialog
       size="extra-large"

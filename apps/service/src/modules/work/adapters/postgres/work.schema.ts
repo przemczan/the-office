@@ -262,6 +262,8 @@ export const attachments = pgTable(
      * judged it, until the start judges it (`AttachmentService.judgeFilesAttachedBefore`).
      */
     text: boolean("text"),
+    /** Relative to the Task's worktree; null for a link, the user's uploads and older files. */
+    sourcePath: text("source_path"),
     addedBy: jsonb("added_by").$type<AuthorRow>().notNull(),
     addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
   },

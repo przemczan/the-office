@@ -8,7 +8,7 @@ import { roleSkillChanges } from "./skills.schema.js";
 
 /**
  * Skills' claim on its records from before users existed (spec §2.10): every change of a Role's
- * skills that names no user (jsonb null, as migration 0139 left them) names the first user. One
+ * skills that names no user (jsonb null, as migration 0143 left them) names the first user. One
  * UPDATE, touching only what still names none, so running it again changes nothing; a change no
  * user made (SQL null) stays as it is.
  */

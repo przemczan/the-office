@@ -1,5 +1,7 @@
 /** A file from a Task's worktree, read whole. */
 export interface WorktreeFile {
+  /** Relative to the worktree, links resolved, with "/" between folders, however it was asked for. */
+  readonly path: string;
   readonly name: string;
   readonly content: Uint8Array;
 }

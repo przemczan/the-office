@@ -1,6 +1,6 @@
 {
-  "id": "e551ec6e-8fc2-42dd-b158-ba7d947bcac6",
-  "prevId": "e79db0bd-3b8b-47f7-9fee-db35390027b5",
+  "id": "337c92b9-a754-4add-acae-dec9b5ec079f",
+  "prevId": "4a4d1f6d-7aba-4936-a020-542f5e1387d0",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -144,12 +144,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "saved_by": {
-          "name": "saved_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -774,12 +768,6 @@
         "status_at": {
           "name": "status_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status_by": {
-          "name": "status_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         }
@@ -2622,12 +2610,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "held_by_user": {
-          "name": "held_by_user",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "gate_action": {
           "name": "gate_action",
           "type": "jsonb",
@@ -3602,33 +3584,130 @@
       },
       "isRLSEnabled": false
     },
-    "public.earlier_records_claimed": {
-      "name": "earlier_records_claimed",
+    "public.passkeys": {
+      "name": "passkeys",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "default": 1
+          "notNull": true
         },
-        "claimed_at": {
-          "name": "claimed_at",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "credential_id": {
+          "name": "credential_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "public_key": {
+          "name": "public_key",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "counter": {
+          "name": "counter",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transports": {
+          "name": "transports",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rp_id": {
+          "name": "rp_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "device_type": {
+          "name": "device_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "backed_up": {
+          "name": "backed_up",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "last_used_at": {
+          "name": "last_used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "passkeys_user": {
+          "name": "passkeys_user",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "passkeys_user_id_users_id_fk": {
+          "name": "passkeys_user_id_users_id_fk",
+          "tableFrom": "passkeys",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "passkeys_credential_id_unique": {
+          "name": "passkeys_credential_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "credential_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
-        "earlier_records_claimed_one_row": {
-          "name": "earlier_records_claimed_one_row",
-          "value": "\"earlier_records_claimed\".\"id\" = 1"
+        "passkeys_device_type": {
+          "name": "passkeys_device_type",
+          "value": "\"passkeys\".\"device_type\" IN ('single-device', 'multi-device')"
         }
       },
       "isRLSEnabled": false
@@ -3763,7 +3842,13 @@
           "name": "password_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "one_time_password_expires_at": {
+          "name": "one_time_password_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "wrong_tries_in_a_row": {
           "name": "wrong_tries_in_a_row",
@@ -3784,16 +3869,34 @@
           "primaryKey": false,
           "notNull": false
         },
+        "palette": {
+          "name": "palette",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "density": {
+          "name": "density",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
-        "users_email_unique": {
-          "name": "users_email_unique",
+        "users_active_email_unique": {
+          "name": "users_active_email_unique",
           "columns": [
             {
               "expression": "lower(\"email\")",
@@ -3803,6 +3906,7 @@
             }
           ],
           "isUnique": true,
+          "where": "\"users\".\"removed_at\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3875,12 +3979,6 @@
         "queued_at": {
           "name": "queued_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "queued_by": {
-          "name": "queued_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
@@ -4203,6 +4301,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "source_path": {
+          "name": "source_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "added_by": {
           "name": "added_by",
           "type": "jsonb",
@@ -4477,21 +4581,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "archived_by": {
-          "name": "archived_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "restored_at": {
           "name": "restored_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restored_by": {
-          "name": "restored_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -4504,12 +4596,6 @@
         "planning_thread_id": {
           "name": "planning_thread_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "planning_started_by": {
-          "name": "planning_started_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -4871,21 +4957,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "archived_by": {
-          "name": "archived_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "restored_at": {
           "name": "restored_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restored_by": {
-          "name": "restored_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

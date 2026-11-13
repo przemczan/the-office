@@ -1,4 +1,5 @@
-import { momentWords } from "../../shell/time.ts";
+import { momentWords } from "./time.ts";
+import { useClock } from "./use-clock.ts";
 
 /** Up to this long, the wait is counted down in seconds; longer, it names the time. */
 const COUNTED_DOWN_MS = 60_000;
@@ -16,4 +17,10 @@ export function tryAgainWords(tryAgainAt: string, now: Date): string | undefined
     return `Try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`;
   }
   return `Try again at ${momentWords(tryAgainAt, now)}.`;
+}
+
+/** When to try again, renewed every second while a wait runs; undefined with none. */
+export function useTryAgainWords(tryAgainAt: string | undefined): string | undefined {
+  const now = useClock(1000);
+  return tryAgainAt === undefined ? undefined : tryAgainWords(tryAgainAt, now);
 }

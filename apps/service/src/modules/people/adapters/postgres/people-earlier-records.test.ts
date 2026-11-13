@@ -42,7 +42,7 @@ afterEach(async () => {
 
 const FIRST_USER = { userId: randomUUID(), name: "Dee Ray" };
 const AT = new Date("2026-11-01T10:00:00.000Z");
-/** A user field as migration 0139 left it on what a user did before users existed. */
+/** A user field as migration 0143 left it on what a user did before users existed. */
 const KEPT_BEFORE_USERS = sql`'null'::jsonb`;
 
 function database(): Database {

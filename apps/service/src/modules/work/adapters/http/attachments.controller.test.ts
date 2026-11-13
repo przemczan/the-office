@@ -129,4 +129,14 @@ describe("GET /api/attachments/:id/content", () => {
     expect(await response.text()).toBe(":root { --accent: red; }");
     expect((await contentOf(script)).headers.get("content-type")).toBe("text/plain; charset=utf-8");
   });
+
+  it("has the browser ask again every time, the web's copy in the address left aside", async () => {
+    const design = await uploadToTask("design.html", "text/html", "<h1>Design</h1>");
+
+    const response = await fetch(`${work.url}/api/attachments/${design.id}/content?copy=2`);
+
+    expect(response.headers.get("cache-control")).toBe("no-cache");
+    expect(response.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
+    expect(await response.text()).toBe("<h1>Design</h1>");
+  });
 });

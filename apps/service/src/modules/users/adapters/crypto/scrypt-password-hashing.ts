@@ -1,9 +1,8 @@
 import { randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
-import { Injectable } from "@nestjs/common";
 import { PasswordHashing } from "../../ports/password-hashing.js";
 
 /** The parameters new hashes get; an older hash keeps its own, written into it. */
-const COST = 2 ** 15;
+const SPEC_COST = 2 ** 15;
 const BLOCK_SIZE = 8;
 const PARALLELIZATION = 1;
 const SALT_BYTES = 16;
@@ -32,19 +31,23 @@ function derive(
  * Passwords as Node's scrypt with a random salt (spec §6), written `scrypt$N$r$p$salt$key` (salt
  * and key in base64url) so the parameters can rise later and old hashes still match.
  */
-@Injectable()
 export class ScryptPasswordHashing extends PasswordHashing {
+  /** `cost` is the spec's but in tests, which hash too often to pay for it each time. */
+  constructor(private readonly cost: number = SPEC_COST) {
+    super();
+  }
+
   async hash(password: string): Promise<string> {
     const salt = randomBytes(SALT_BYTES);
     const key = await derive(password, salt, KEY_BYTES, {
-      N: COST,
+      N: this.cost,
       r: BLOCK_SIZE,
       p: PARALLELIZATION,
-      maxmem: memoryFor(COST, BLOCK_SIZE),
+      maxmem: memoryFor(this.cost, BLOCK_SIZE),
     });
     return [
       SCHEME,
-      COST,
+      this.cost,
       BLOCK_SIZE,
       PARALLELIZATION,
       salt.toString("base64url"),

@@ -1,0 +1,2254 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Task card icons · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, as board-by-initiative.html copies them) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-inverse: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-full: 999px;
+        --radius-badge: var(--radius-sm);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+
+        /* packages/ui/src/appearance/densities/comfortable.css */
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      :is(button, a, input, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: badge, button, icon button, avatar, progress, tooltip ---------- */
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-badge);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.sm {
+        height: 18px;
+        padding: 0 6px;
+        font-size: var(--text-2xs);
+      }
+      .badge.dot::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: none;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+        font-size: var(--text-xs);
+      }
+      .btn.secondary {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-1);
+      }
+      .btn.secondary:hover {
+        background: var(--control-hover);
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .icon-button.bordered {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-2);
+      }
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        color: var(--white);
+        font: 600 8px/1 var(--font-sans);
+      }
+      .progress {
+        flex: none;
+        width: 64px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--border);
+      }
+      .progress span {
+        display: block;
+        height: 100%;
+        background: var(--success);
+      }
+      /* shell/project-mark.tsx: the Project's letters on its colour */
+      .project-mark {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        background: var(--mark-bg);
+        color: var(--white);
+        font: 700 8px/1 var(--font-sans);
+        letter-spacing: 0.02em;
+      }
+      /* packages/ui/src/tooltip.css, plus a reading width (proposed): an estimate is a sentence. */
+      .tooltip {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 70;
+        width: max-content;
+        max-width: min(300px, calc(100vw - 16px));
+        padding: 5px 8px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-inverse);
+        box-shadow: var(--shadow-2);
+        font: 500 12px/1.35 var(--font-sans);
+        color: var(--fg-inverse);
+        pointer-events: none;
+      }
+      /* shell.css's live dot */
+      .live-dot {
+        position: relative;
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--info);
+      }
+      .live-dot::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: inherit;
+        animation: pulse-dot 1.6s var(--ease-out) infinite;
+      }
+      @keyframes pulse-dot {
+        from {
+          opacity: 0.6;
+          transform: scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: scale(2.6);
+        }
+      }
+
+      /* ---------- New in packages/ui (proposed): Popover, the press-to-open window for information with links ---------- */
+      .popover {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 60;
+        width: max-content;
+        min-width: 220px;
+        max-width: min(320px, calc(100vw - 16px));
+        padding: 10px 12px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        font: var(--type-caption);
+        color: var(--fg-2);
+        animation: popover-in var(--duration-fast) var(--ease-out);
+      }
+      .popover:focus {
+        outline: none;
+      }
+      @keyframes popover-in {
+        from {
+          opacity: 0;
+          transform: translateY(-3px);
+        }
+      }
+      .popover-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 0 2px;
+        font: 600 var(--text-xs) / 1.35 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .popover-head svg {
+        flex: none;
+        color: var(--fg-3);
+      }
+      .popover-sub {
+        margin: 0 0 8px;
+        color: var(--fg-3);
+      }
+      .popover-list {
+        display: grid;
+        gap: 2px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      /* A blocker's title wraps rather than being cut: it is what the popover is for. */
+      .popover-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 8px;
+        margin: 0 -6px;
+        padding: 5px 6px;
+        border-radius: var(--radius-md);
+      }
+      .popover-row:hover {
+        background: var(--control-hover);
+      }
+      .popover a {
+        color: var(--fg-1);
+        font-weight: 500;
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+      }
+      .popover a:hover {
+        text-decoration-color: currentColor;
+      }
+      .popover-row a {
+        overflow-wrap: anywhere;
+      }
+      .popover-waits {
+        display: grid;
+        gap: 6px;
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .popover-waits li {
+        display: grid;
+        grid-template-columns: 14px minmax(0, 1fr);
+        gap: 6px;
+        color: var(--fg-1);
+      }
+      .popover-waits svg {
+        margin-top: 1px;
+        color: var(--fg-3);
+      }
+      .popover-foot {
+        margin: 10px 0 0;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+        color: var(--fg-3);
+      }
+      .popover-words {
+        max-width: 260px;
+        font: 500 12px/1.4 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .popover.words {
+        min-width: 0;
+        padding: 8px 10px;
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .segments .star {
+        margin-left: 4px;
+        color: var(--ember-500);
+      }
+      .stage {
+        display: grid;
+        gap: 12px;
+        padding: 16px 24px 48px;
+      }
+      .scenario-note {
+        max-width: 120ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .address {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .address code {
+        font: 500 var(--text-xs) / 1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(660px, calc(100vh - 230px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(660px, min(844px, calc(100vh - 230px)));
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px 28px;
+        max-width: 1400px;
+        margin-top: 12px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p,
+      .reference ul {
+        margin: 0 0 6px;
+      }
+      .reference ul {
+        padding-left: 18px;
+      }
+      .reference strong {
+        color: var(--fg-1);
+      }
+      .reference .wide {
+        grid-column: 1 / -1;
+      }
+      .chosen {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+
+      /* The marks' legend under the frame */
+      .legend {
+        width: 100%;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      .legend th,
+      .legend td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: middle;
+      }
+      .legend th {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .legend td:first-child {
+        width: 64px;
+      }
+      .legend td:nth-child(2) {
+        width: 150px;
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .legend td:nth-child(3) {
+        width: 120px;
+      }
+      .how {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: var(--type-caption);
+        white-space: nowrap;
+      }
+      .how.press {
+        color: var(--info-fg);
+      }
+      .legend-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .legend-wrap .legend tr:last-child td {
+        border-bottom: 0;
+      }
+
+      /* ---------- The app's frame: rail, top bar ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail-item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .frame.w-390 .top {
+        padding: 0 12px;
+      }
+      .top h1 {
+        margin: 0;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .main {
+        position: relative;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      /* ---------- Work (apps/web/src/surfaces/work/work.css, re-drawn) ---------- */
+      .work-page {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-panel);
+        min-width: 0;
+        padding: var(--pad-page);
+      }
+      .frame.w-390 .work-page {
+        padding: 16px 12px;
+      }
+      .tabs {
+        display: flex;
+        gap: 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        margin-bottom: -1px;
+        padding: 8px 0;
+        border-bottom: 2px solid transparent;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .tab.on {
+        border-color: var(--accent);
+        color: var(--fg-1);
+      }
+      .board-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .search {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: 8px;
+        min-width: 180px;
+        max-width: 420px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: var(--type-caption);
+        white-space: nowrap;
+      }
+      .switch-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        padding: 0 0 0 12px;
+        border: 0;
+        border-left: 1px solid var(--border);
+        background: none;
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        color: var(--fg-1);
+        cursor: pointer;
+      }
+      .switch {
+        position: relative;
+        width: 28px;
+        height: 16px;
+        border-radius: var(--radius-full);
+        background: var(--gray-200);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch-row[aria-checked="true"] .switch {
+        background: var(--accent);
+      }
+      .switch-row[aria-checked="true"] .switch::after {
+        left: 14px;
+      }
+      .frame.w-390 .switch-row {
+        margin-left: 0;
+        padding-left: 0;
+        border-left: 0;
+      }
+
+      /* The board: six columns in one row, scrolling sideways when they don't fit (as adopted) */
+      .board-scroll {
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(220px, 1fr));
+        gap: var(--gap-card);
+        align-items: start;
+      }
+      .board-column {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        background: var(--surface-sunken);
+      }
+      .board-column h3,
+      .board-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 2px 2px 0;
+        font: 600 13px/1 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .board-count {
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+      .board-hint {
+        padding: 0 2px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .board-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 48px;
+      }
+      .board-empty {
+        padding: 16px 8px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        text-align: center;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .board-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--edge, var(--border));
+        border-radius: 8px;
+        background: var(--surface);
+      }
+      .board-card.edge-running,
+      .board-card.edge-done {
+        --edge: var(--success);
+      }
+      .board-card.edge-decision,
+      .board-card.edge-paused {
+        --edge: var(--warning);
+      }
+      .board-card.edge-failed {
+        --edge: var(--danger);
+      }
+      .board-card[draggable="true"] {
+        cursor: grab;
+      }
+      .board-card.dragging {
+        opacity: 0.4;
+      }
+      .board-card.drop-before {
+        box-shadow: 0 -3px 0 0 var(--accent);
+      }
+      .board-card:has(.board-card-title:hover) {
+        border-color: var(--border-strong);
+      }
+      .board-card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .board-card-title {
+        flex: 1;
+        min-width: 0;
+        font: 500 13px/1.35 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .board-card-title:hover {
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+      }
+      /* The title's link covers the whole card; what else the card holds sits above it. */
+      .board-card-title::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+      }
+      .board-card :is(button, a:not(.board-card-title), .mk, .tip-wrap, .board-card-working) {
+        position: relative;
+        z-index: 1;
+      }
+      .priority-icon {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        margin-top: 1px;
+      }
+      .priority-high {
+        color: var(--danger-fg);
+      }
+      .priority-low {
+        color: var(--fg-3);
+      }
+
+      /* Today's lines */
+      .board-card-meta,
+      .board-card-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+      }
+      .board-card-blocked {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .board-card-blocked svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--fg-3);
+      }
+      .board-card-blocked a {
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+      }
+      .board-card-note {
+        color: var(--fg-2);
+      }
+      .queued-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        color: var(--fg-2);
+      }
+      .queued-short {
+        position: relative;
+        z-index: 1;
+      }
+      .usage-estimate {
+        display: inline-flex;
+        align-items: flex-start;
+        gap: 6px;
+        color: var(--fg-2);
+      }
+      .usage-estimate svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--fg-3);
+      }
+      .board-card-working {
+        display: flex;
+        flex: 1 1 0;
+        justify-content: flex-end;
+        cursor: pointer;
+      }
+      .working-stage {
+        margin-right: 6px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: var(--fg-3);
+      }
+
+      /* ---------- The marks (proposed) ---------- */
+      /* One mark: an icon, sometimes a count. Plain ones show their words on hover and focus; a
+         pressable one (bordered, with a count) opens a popover. Above the title's stretched link. */
+      .mk {
+        position: relative;
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: 22px;
+        min-width: 22px;
+        padding: 0 4px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        font: 600 11px/1 var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .mk svg {
+        flex: none;
+      }
+      .mk.t-quiet:hover {
+        color: var(--fg-1);
+      }
+      .mk.t-warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .mk.t-danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .mk.t-info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .mk.press {
+        padding: 0 6px 0 5px;
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-2);
+      }
+      .mk.press.t-info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .mk.press:hover {
+        border-color: var(--fg-3);
+        color: var(--fg-1);
+      }
+      .mk.press.t-info:hover {
+        border-color: var(--info);
+        color: var(--info-fg);
+      }
+      .mk.press[aria-expanded="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-subtle);
+      }
+      .mk.prio {
+        min-width: 16px;
+        padding: 0;
+        border: 0;
+      }
+      .mk.prio-high {
+        color: var(--danger-fg);
+      }
+      .mk.project {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+      }
+      .mk.working {
+        gap: 5px;
+        padding: 0 0 0 2px;
+        border: 0;
+      }
+      .mk.working .avatars {
+        display: inline-flex;
+      }
+      .mk.working .avatars > * + * {
+        margin-left: -6px;
+        box-shadow: 0 0 0 2px var(--surface);
+      }
+      .working-others {
+        margin-left: 2px;
+        color: var(--fg-3);
+      }
+      .board-card-head .mk.prio {
+        height: 18px;
+      }
+
+      /* Foot row: the title alone on top, every mark in one row under it */
+      .card-marks {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+      }
+      .card-marks .mk.project {
+        margin-right: 2px;
+      }
+      /* Who works on it, or Plan, keeps the right end, also when a full row wraps to a second line. */
+      .card-marks > :is(.mk.working, .icon-button) {
+        margin-left: auto;
+      }
+
+      /* Inline: the marks follow the title's last word */
+      .inline-body {
+        flex: 1;
+        min-width: 0;
+        font: 500 13px/22px var(--font-sans);
+      }
+      .inline-body .board-card-title {
+        margin-right: 4px;
+      }
+      .inline-body .mk {
+        height: 20px;
+        min-width: 20px;
+        margin: 1px 2px 1px 0;
+        vertical-align: top;
+      }
+      .inline-body .mk.working {
+        margin-left: 2px;
+      }
+      .lay-inline .board-card-head {
+        gap: 5px;
+      }
+      .lay-inline .board-card-head > .mk {
+        margin-top: 2px;
+      }
+      .lay-inline .board-card-head > .icon-button {
+        margin-top: -1px;
+      }
+
+      /* Corner badges: the Project's tile leads, bubbles sit on the card's top edge */
+      .lay-corner .board-cards {
+        gap: 16px;
+        padding-top: 10px;
+      }
+      .mk.tile {
+        min-width: 0;
+        height: auto;
+        padding: 0;
+        border: 0;
+      }
+      .mk.tile .project-mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        font-size: 9px;
+      }
+      .prio-pip {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        display: grid;
+        place-items: center;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--surface);
+        box-shadow: 0 0 0 1px var(--border-strong);
+      }
+      .prio-pip.prio-high {
+        color: var(--danger-fg);
+      }
+      .prio-pip.prio-low {
+        color: var(--fg-3);
+      }
+      .corner-bubbles {
+        position: absolute;
+        top: -10px;
+        right: 34px;
+        z-index: 2;
+        display: flex;
+        gap: 3px;
+      }
+      .mk.bubble {
+        height: 19px;
+        min-width: 19px;
+        padding: 0 5px;
+        border: 0;
+        border-radius: var(--radius-full);
+        box-shadow: 0 0 0 2px var(--surface-sunken);
+        font-size: 10.5px;
+      }
+      .mk.bubble.t-danger {
+        background: var(--danger);
+        color: var(--white);
+      }
+      .mk.bubble.t-warning {
+        background: var(--warning);
+        color: var(--gray-950);
+      }
+      .mk.bubble.t-info,
+      .mk.bubble.press.t-info {
+        background: var(--info);
+        color: var(--white);
+      }
+      .mk.bubble.press {
+        background: var(--fg-2);
+        color: var(--surface);
+      }
+      .mk.bubble.t-quiet {
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-3);
+      }
+      .mk.bubble.press[aria-expanded="true"] {
+        box-shadow:
+          0 0 0 2px var(--surface-sunken),
+          0 0 0 4px var(--accent);
+      }
+      .lay-corner .board-card-head {
+        gap: 10px;
+      }
+      .lay-corner .board-card-title {
+        padding-top: 2px;
+      }
+      .corner-foot {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+        margin-top: -2px;
+      }
+
+      /* Group by Initiative, as adopted: one row of column heads, then the groups */
+      .grouped {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-card);
+        min-width: calc(6 * 220px + 5 * var(--gap-card));
+      }
+      .board-heads,
+      .group-row {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(220px, 1fr));
+        gap: var(--gap-card);
+        align-items: start;
+      }
+      .board-head {
+        padding: 6px 12px;
+      }
+      .board-group {
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        background: var(--surface-sunken);
+      }
+      .group-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        padding: 10px 12px;
+      }
+      .group-name {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+      }
+      .group-progress {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .group-projects {
+        display: inline-flex;
+        gap: 4px;
+      }
+      .group-row {
+        padding: 0 10px 10px;
+      }
+      .group-row .board-cards {
+        min-height: 24px;
+      }
+      .fold-button {
+        display: inline-grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .fold-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .fold-button svg {
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .fold-button[aria-expanded="true"] svg {
+        transform: rotate(90deg);
+      }
+
+      /* Everything at once */
+      .specimens {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 24px;
+      }
+      .specimen {
+        display: grid;
+        gap: 8px;
+      }
+      .specimen-label {
+        margin: 0;
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .specimen-note {
+        flex-basis: 100%;
+        max-width: 72ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        z-index: 80;
+        padding: 8px 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-inverse);
+        box-shadow: var(--shadow-3);
+        font: 500 var(--text-sm) / 1.4 var(--font-sans);
+        color: var(--fg-inverse);
+        opacity: 0;
+        transform: translate(-50%, 8px);
+        transition:
+          opacity var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+        pointer-events: none;
+      }
+      .toast.on {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <p class="address" id="address"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+      <section class="reference" aria-label="What it proposes">
+        <div class="wide chosen">
+          <h2>Chosen: Foot row</h2>
+          <p>The user chose Foot row at the Gate on 2026-11-13; the build follows it. Inline and Corner badges stay on this page as the layouts that were weighed.</p>
+          <p>The title keeps the card's whole width on its own line, as today, and every other mark sits in <strong>one row under it, always in the same order</strong>: the Project, then what needs you (Failed, Waiting on you, Paused), then what holds it (Blocked, Queued), then the quiet ones (Planning, the Usage estimate), and at the right end who is working, or Plan in Backlog. Reading down a column, the same mark is always in the same place, so a red or amber mark or a lock count stands out at a glance. Its marks sit away from the title, so a press on a mark rarely lands on the title by mistake, and the foot already exists in <code>BoardCard</code>, so it is the smallest change. A card is two lines unless a long title wraps; only a card holding nearly every mark at once, in a 220px column, wraps its row, and who is working stays at the right end of the second line.</p>
+          <p><strong>Inline</strong> is the densest, but its marks move with the title's last word, so nothing lines up from card to card, and small marks inside a line of link text are easy to miss with a finger. <strong>Corner badges</strong> reads urgency fastest, but its bubbles sit on the card's edge, over the gap between two cards: they need more space between cards, a bubble can be cut by the column's edge when the board scrolls, and several bubbles on a card in a 220px column crowd the menu.</p>
+        </div>
+        <div class="wide">
+          <h2>The marks</h2>
+          <div class="legend-wrap" id="legend"></div>
+        </div>
+        <div>
+          <h2>Two kinds of hidden information</h2>
+          <p><strong>Plain information</strong> (the Usage estimate, what holds a Paused Task, a state, Planning, the Project, the priority, who is working): only the mark shows; its words show in <code>Tooltip</code> on hover and on keyboard focus. With the mouse, a press on such a mark opens the Task, as a press on the card does.</p>
+          <p><strong>Information with links</strong> (the blockers, each a link to its Task; the queue's waits and the Task it is queued behind): the mark is a button, bordered and with a count, and a press opens a <strong>popover</strong> anchored to it, with the full information and its links. Hovering it first shows a tooltip: "Blocked by 3 Tasks: press for them"; the clock's names its place and the queue's short reasons, as today's card shows them, and the press gives the full ones.</p>
+        </div>
+        <div>
+          <h2>The popover</h2>
+          <ul>
+            <li>Opens on a press of its mark, or Enter or Space on it; keyboard focus moves to its first link, and Tab walks its links, then on past the mark.</li>
+            <li>Closes on a press anywhere else (which then does what it does), on Esc (focus goes back to its mark), on a second press of its mark, or on following a link.</li>
+            <li>One is open at a time: opening another closes the first.</li>
+            <li>Never starts a drag: pressing a mark turns the card's dragging off until the press ends, and the popover lies on the page's body, outside the card. Nor does it open the Task.</li>
+            <li>Not a window in spec 4.1's sense: no head, no bar, no backdrop, nothing to answer; Esc closes it first, as it does a menu.</li>
+          </ul>
+        </div>
+        <div>
+          <h2>By touch</h2>
+          <p>There is no hover on a touch screen, so a press on <strong>any</strong> mark shows what its tooltip would, in the same popover, and the rest of the card opens the Task. Switch <strong>Input</strong> to Touch in the bar to try it with a mouse.</p>
+        </div>
+        <div>
+          <h2>Counts</h2>
+          <p>A count shows where it says something at a glance: how many Tasks block it (the lock), its place in the queue (the clock, "#2"), and how many more people work on it than the three avatars shown ("+1"). No count on a state: there is only one.</p>
+        </div>
+        <div>
+          <h2>About the mock</h2>
+          <p>Its data follows <code>Task</code> and <code>QueuedTask</code> in <code>packages/contracts</code>, and its words are the app's: <code>taskStateWords</code>, <code>usageEstimateWords</code>, <code>planningNoteWords</code>, the service's queue reasons. The icons are Lucide, as <code>packages/ui</code>'s <code>Icon</code> draws them. Tooltips, popovers, opening a Task (a toast here), Plan, dragging a card within its column and folding a group work. It uses the Geist fonts only where they are installed, and makes no network requests.</p>
+        </div>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script>
+      /* ---------- Icons (lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        "chevrons-up": '<path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        hand:
+          '<path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+        pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+        "triangle-alert":
+          '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        "circle-x": '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+        map:
+          '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        "mouse-pointer-click":
+          '<path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>',
+        "mouse-pointer":
+          '<path d="M12.586 12.586 19 19"/><path d="M3.688 3.037a.497.497 0 0 0-.651.651l6.5 15.999a.501.501 0 0 0 .947-.062l1.569-6.083a2 2 0 0 1 1.448-1.479l6.124-1.579a.5.5 0 0 0 .063-.947z"/>',
+        home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+        kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+        users:
+          '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder:
+          '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        dot: '<circle cx="12" cy="12" r="3" fill="currentColor"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+      const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+      /* ---------- Mock data: `Task` and `QueuedTask` as packages/contracts/src/work.ts has them, in brief ---------- */
+      const PROJECTS = {
+        "the-office": { name: "the-office", label: "TO", colour: "var(--ember-500)" },
+        "not-astray": { name: "not-astray", label: "NA", colour: "var(--teal-500)" },
+        notnullsoft: { name: "notnullsoft", label: "NN", colour: "var(--violet-500)" },
+      };
+      /** For display only: who works on a Task now (GET /people-working). */
+      const PEOPLE = {
+        jim: { name: "Jim", initials: "Ji", colour: "var(--blue-500)" },
+        oscar: { name: "Oscar", initials: "Os", colour: "var(--teal-500)" },
+        stanley: { name: "Stanley", initials: "St", colour: "var(--violet-500)" },
+        angela: { name: "Angela", initials: "An", colour: "var(--amber-700)" },
+        kevin: { name: "Kevin", initials: "Ke", colour: "var(--gray-600)" },
+      };
+      const PLANNER = "Angela";
+      /** The service's words for each wait (task-start.ts, cap-waits.ts, queue.ts). */
+      const WAITS = {
+        limit: { reason: "Jim is at the Task limit (1).", short: "Jim's Task limit reached (1)" },
+        cap: {
+          reason:
+            "Claude Code's Daily cap of 10,000 tokens would be passed: 8,200 tokens used today, 1,100 left of the estimates of the Tasks in progress and 2,400 of this Task. It resets at midnight.",
+          short: "Daily cap (10,000 tokens) · resets at midnight",
+        },
+      };
+      /** usageEstimateWords, as the app says them. */
+      const ESTIMATES = {
+        e1: "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.",
+        e2: "Expected: 80k tokens · 4% of the 5-hour window, from the Planner's estimate.",
+        e3: "Expected: Claude Code: 60k tokens · 3% of the 5-hour window · $0.60; Local models: 40k tokens · no cost, from the Planner's estimate.",
+        none: "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
+      };
+      const INITIATIVES = [
+        { id: "board", name: "Board by Initiative", projects: ["the-office"], done: 1, counted: 4 },
+        { id: "offline", name: "Offline sync for the field app", projects: ["not-astray", "notnullsoft"], done: 2, counted: 9 },
+      ];
+      const task = (id, fields) => ({
+        id,
+        project: "the-office",
+        priority: "normal",
+        blockedBy: [],
+        working: [],
+        stage: null,
+        waiting: false,
+        queued: null,
+        estimate: null,
+        initiative: null,
+        ...fields,
+      });
+      /** GET /tasks, in the board's order. */
+      let TASKS = [
+        task("b1", { title: "Toast covers the status strip", state: "backlog" }),
+        task("b2", { title: "Remember folded groups in this browser", state: "backlog", priority: "low", blockedBy: ["p2"], initiative: "board" }),
+        task("b3", { title: "Offline banner copy", project: "notnullsoft", state: "backlog", priority: "low", initiative: "offline" }),
+        task("p2", { title: "Build group by Initiative on the Work board", state: "planning", priority: "high", waiting: true, blockedBy: ["i1"], initiative: "board" }),
+        task("p1", { title: "Landing page copy", project: "notnullsoft", state: "planning", working: ["angela"] }),
+        task("p3", { title: "Release notes from Handover notes", state: "planning", autoMode: true, working: ["angela"] }),
+        task("r3", { title: "Keep pending changes in IndexedDB", project: "not-astray", state: "ready", priority: "high", estimate: "none", initiative: "offline" }),
+        task("r1", { title: "Upgrade TanStack Router", state: "ready", estimate: "e1" }),
+        task("r2", { title: "Cache map tiles", project: "not-astray", state: "ready", estimate: "e2", blockedBy: ["i4", "r3"] }),
+        task("q1", { title: "Retry queue with backoff", project: "not-astray", state: "ready", estimate: "e2", queued: { place: 1, waits: ["limit"], behind: [] }, initiative: "offline" }),
+        task("q2", { title: "Sync status in the header", project: "not-astray", state: "ready", estimate: "e1", queued: { place: 2, waits: ["cap"], behind: ["i5"] }, initiative: "offline" }),
+        task("i1", { title: "Design the Work board's group by Initiative view", state: "in-progress", priority: "high", working: ["stanley"], stage: "Create a design", initiative: "board" }),
+        task("i2", { title: "Devcontainer for not-astray", project: "not-astray", state: "in-progress", working: ["jim", "oscar"], stage: "Implement" }),
+        task("i3", { title: "Rules for settling conflicts", project: "notnullsoft", state: "waiting-on-you", priority: "high", initiative: "offline" }),
+        task("i5", { title: "Sync endpoint", project: "notnullsoft", state: "waiting-on-you", failed: "Tests failed with no retries left.", initiative: "offline" }),
+        task("i4", { title: "Crash on an empty route list", project: "not-astray", state: "paused", priority: "high", pausedBy: "usage-window", resumesAt: "14:00" }),
+        task("i6", { title: "Move attachments to the new store", state: "paused", pausedBy: "alarm", waiting: true }),
+        task("d1", { title: "CPU limit: an Automatic option", state: "done" }),
+        task("d3", { title: "Dark palette contrast", state: "done", priority: "low" }),
+        task("d2", { title: "Spike: CRDT libraries", project: "notnullsoft", state: "dropped", priority: "low", initiative: "offline" }),
+      ];
+      /** Not a state the app reaches (a queued Task has nobody working on it): every mark at once. */
+      const EVERYTHING = task("x1", {
+        title: "Conflict resolution screen for the field app",
+        project: "not-astray",
+        state: "ready",
+        priority: "high",
+        blockedBy: ["i3", "i5", "r3"],
+        queued: { place: 2, waits: ["cap", "limit"], behind: ["i2"] },
+        estimate: "e3",
+        working: ["jim", "oscar", "stanley", "kevin"],
+        stage: "Implement",
+      });
+      const findTask = (id) => (id === EVERYTHING.id ? EVERYTHING : TASKS.find((t) => t.id === id));
+
+      /* ---------- The board's rules (board-columns.ts, work-words.ts) ---------- */
+      const STATE_NAMES = {
+        backlog: "Backlog",
+        planning: "Planning",
+        ready: "Ready",
+        "in-progress": "In progress",
+        "waiting-on-you": "Waiting on you",
+        paused: "Paused",
+        done: "Done",
+        dropped: "Dropped",
+      };
+      const STATE_TONES = { "in-progress": "info", "waiting-on-you": "warning", paused: "warning", done: "success" };
+      const EDGES = { "in-progress": "edge-running", "waiting-on-you": "edge-decision", paused: "edge-paused", done: "edge-done", dropped: "edge-failed" };
+      const COLUMNS = [
+        { key: "backlog", label: "Backlog", holds: (t) => t.state === "backlog", hint: "Not planned yet" },
+        { key: "planning", label: "Planning", holds: (t) => t.state === "planning", hint: `Plan and Definition of Done with ${PLANNER}` },
+        { key: "ready", label: "Ready", holds: (t) => t.state === "ready" && !t.queued, hint: "Starting is your call" },
+        { key: "queued", label: "Queued", holds: (t) => !!t.queued, order: (a, b) => a.queued.place - b.queued.place, hint: "They start by themselves when their turn comes" },
+        { key: "in-progress", label: "In progress", holds: (t) => ["in-progress", "waiting-on-you", "paused"].includes(t.state), hint: "Agents work its Pipeline" },
+        { key: "done", label: "Done", holds: (t) => ["done", "dropped"].includes(t.state), hint: "Done and dropped" },
+      ];
+      const cardsIn = (column, tasks) => {
+        const cards = tasks.filter(column.holds);
+        return column.order ? cards.toSorted(column.order) : cards;
+      };
+      const blockersOf = (t) => t.blockedBy.map(findTask).filter((b) => b && !["done", "dropped"].includes(b.state));
+      const pausedWords = (t) =>
+        t.pausedBy === "alarm" ? "Paused by the alarm" : t.pausedBy === "usage-window" ? `Usage window used up · resumes ${t.resumesAt}` : "Paused";
+      const planningWords = (t) => `Planning with ${PLANNER}${t.autoMode ? ", in auto mode" : ""}`;
+      const workingWords = (t) => {
+        const names = t.working.map((key) => PEOPLE[key].name).join(", ");
+        return `Working now: ${t.stage ? `${names} · ${t.stage}` : names}`;
+      };
+      const planTip = `${PLANNER} makes a plan for you to confirm. Auto mode is off.`;
+      /** A queued Task's waits but its blockers (reasonsBesideBlockers): the service's own, then an Overlap's. */
+      const queueWaits = (t) => [
+        ...t.queued.waits.map((key) => WAITS[key]),
+        ...t.queued.behind.map(findTask).map((b) => ({ reason: `Queued behind "${b.title}" until it is Done or Dropped.`, short: `Behind "${b.title}"` })),
+      ];
+      const shortReasons = (t) => [...new Set(queueWaits(t).map((wait) => wait.short))].join(" · ");
+      const isMovable = (t) => ["backlog", "planning", "ready"].includes(t.state) && !t.queued;
+
+      /* ---------- The marks: what each card shows, in the one order every layout keeps ---------- */
+      function marksOf(t) {
+        const marks = [];
+        const blockers = blockersOf(t);
+        if (t.failed)
+          marks.push({ key: "failed", icon: "triangle-alert", tone: "danger", attention: true, words: `Failed: ${t.failed} The Office's Decision waits for you on the Task's page.` });
+        if ((t.state === "waiting-on-you" && !t.failed) || t.waiting) marks.push({ key: "waiting", icon: "hand", tone: "warning", attention: true, words: "Waiting on you" });
+        if (t.state === "paused") marks.push({ key: "paused", icon: "pause", tone: "warning", attention: true, words: pausedWords(t) });
+        if (t.state === "dropped") marks.push({ key: "dropped", icon: "circle-x", tone: "quiet", attention: true, words: "Dropped" });
+        if (blockers.length)
+          marks.push({
+            key: "blocked",
+            icon: "lock",
+            tone: "neutral",
+            press: true,
+            attention: true,
+            count: String(blockers.length),
+            words: `Blocked by ${plural(blockers.length, "Task", "Tasks")}`,
+            hint: blockers.length === 1 ? "press for it" : "press for them",
+          });
+        if (t.queued)
+          marks.push({
+            key: "queued",
+            icon: "clock",
+            tone: "info",
+            press: true,
+            attention: true,
+            count: `#${t.queued.place}`,
+            words: `Queued, place ${t.queued.place}`,
+            hint: shortReasons(t) ? `${shortReasons(t)}. Press for the full reasons.` : "press for why",
+          });
+        if (t.state === "planning" && !t.waiting) marks.push({ key: "planning", icon: "map", tone: "quiet", words: planningWords(t) });
+        if (t.estimate) marks.push({ key: "estimate", icon: "gauge", tone: "quiet", words: ESTIMATES[t.estimate] });
+        return marks;
+      }
+
+      function markEl(t, m, variant = "") {
+        const count = m.count ? `<span>${esc(m.count)}</span>` : "";
+        const classes = `mk t-${m.tone} ${m.press ? "press" : ""} ${variant}`;
+        if (m.press)
+          return `<button type="button" class="${classes}" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(m.words)}" data-tip="${esc(`${m.words}: ${m.hint}`)}" data-pop="${m.key}" data-task="${t.id}" draggable="false">${icon(m.icon, 13)}${count}</button>`;
+        return `<span class="${classes}" tabindex="0" role="img" aria-label="${esc(m.words)}" data-tip="${esc(m.words)}" data-mark="${m.key}" data-task="${t.id}">${icon(m.icon, 13)}${count}</span>`;
+      }
+      function projectEl(t) {
+        const p = PROJECTS[t.project];
+        return `<span class="mk project" tabindex="0" role="img" aria-label="Project: ${esc(p.name)}" data-tip="${esc(p.name)}" data-mark="project" data-task="${t.id}"><span class="project-mark" style="--mark-bg:${p.colour}">${p.label}</span></span>`;
+      }
+      function priorityName(t) {
+        return t.priority === "high" ? "High priority" : "Low priority";
+      }
+      function priorityEl(t) {
+        if (t.priority === "normal") return "";
+        const name = priorityName(t);
+        return `<span class="mk prio prio-${t.priority}" tabindex="0" role="img" aria-label="${name}" data-tip="${name}" data-mark="priority" data-task="${t.id}">${icon(t.priority === "high" ? "chevrons-up" : "chevron-down", 14)}</span>`;
+      }
+      /** Corner badges: the Project's tile, the priority a pip on its corner. */
+      function tileEl(t) {
+        const p = PROJECTS[t.project];
+        const words = t.priority === "normal" ? p.name : `${p.name} · ${priorityName(t)}`;
+        const pip =
+          t.priority === "normal" ? "" : `<span class="prio-pip prio-${t.priority}">${icon(t.priority === "high" ? "chevrons-up" : "chevron-down", 10)}</span>`;
+        return `<span class="mk tile" tabindex="0" role="img" aria-label="Project: ${esc(words)}" data-tip="${esc(words)}" data-mark="project" data-task="${t.id}"><span class="project-mark" style="--mark-bg:${p.colour}">${p.label}</span>${pip}</span>`;
+      }
+      function workingEl(t, { stage = false } = {}) {
+        const people = t.working.map((key) => PEOPLE[key]);
+        const words = workingWords(t);
+        const avatars = people
+          .slice(0, 3)
+          .map((p) => `<span class="avatar" style="background:${p.colour}">${p.initials}</span>`)
+          .join("");
+        const others = people.length > 3 ? `<span class="working-others">+${people.length - 3}</span>` : "";
+        const stageName = stage && t.stage ? `<span class="working-stage">${esc(t.stage)}</span>` : "";
+        return `<span class="mk working" tabindex="0" role="img" aria-label="${esc(words)}" data-tip="${esc(words)}" data-mark="working" data-task="${t.id}">${stageName}<span class="live-dot"></span><span class="avatars">${avatars}</span>${others}</span>`;
+      }
+      const planEl = (t) =>
+        `<button type="button" class="icon-button bordered" aria-label="Plan" data-tip="${esc(`Plan: ${planTip}`)}" data-action="plan" data-task="${t.id}" draggable="false">${icon("map", 14)}</button>`;
+      const titleEl = (t) => `<a class="board-card-title" href="#" data-open="${t.id}" draggable="false">${esc(t.title)}</a>`;
+      const menuEl = (t) =>
+        `<button type="button" class="icon-button" aria-label="More for this Task" data-action="menu" data-task="${t.id}" draggable="false">${icon("ellipsis", 15)}</button>`;
+      /** What a card ends with: Plan in Backlog, else who works on it. */
+      const endOf = (t) => (t.state === "backlog" ? planEl(t) : t.working.length ? workingEl(t) : "");
+
+      /* ---------- The layouts ---------- */
+      function todayCard(t) {
+        const p = PROJECTS[t.project];
+        const blockers = blockersOf(t);
+        const priority =
+          t.priority === "normal"
+            ? ""
+            : `<span class="priority-icon priority-${t.priority}" title="${priorityName(t)}">${icon(t.priority === "high" ? "chevrons-up" : "chevron-down", 14)}</span>`;
+        const blocked = blockers.length
+          ? `<div class="board-card-blocked">${icon("lock", 12)}<span>Blocked by ${blockers
+              .map((b) => `<a href="#" data-open="${b.id}" draggable="false">${esc(b.title)}</a>`)
+              .join(", ")}</span></div>`
+          : "";
+        const estimate = t.estimate ? `<span class="usage-estimate" role="note" aria-label="Usage estimate">${icon("gauge", 13)}<span>${esc(ESTIMATES[t.estimate])}</span></span>` : "";
+        const working = t.working.length ? `<span class="board-card-working">${workingEl(t, { stage: true })}</span>` : "";
+        const foot = todayFoot(t);
+        return `<div class="board-card-head">${priority}${titleEl(t)}${menuEl(t)}</div>
+          <div class="board-card-meta"><span class="project-mark" title="${esc(p.name)}" style="--mark-bg:${p.colour}">${p.label}</span></div>
+          ${blocked}
+          ${foot || estimate || working ? `<div class="board-card-foot">${foot}${estimate}${working}</div>` : ""}`;
+      }
+      function todayFoot(t) {
+        const badge = (words, tone = "") => `<span class="badge dot ${tone}">${esc(words)}</span>`;
+        if (t.queued) {
+          const waits = queueWaits(t);
+          return `<span class="queued-mark"><span class="badge sm info">Queued</span>${
+            waits.length ? `<span class="queued-short" tabindex="0" data-tip="${esc(waits.map((w) => w.reason).join(" "))}">${esc(shortReasons(t))}</span>` : ""
+          }</span>`;
+        }
+        switch (t.state) {
+          case "backlog":
+            return `<span class="tip-wrap" data-tip="${esc(planTip)}"><button type="button" class="btn secondary sm" data-action="plan" data-task="${t.id}" draggable="false">${icon("map", 14)}Plan</button></span>`;
+          case "planning":
+            return t.waiting ? badge("Waiting on you", "warning") : `<span class="board-card-note">${esc(planningWords(t))}</span>`;
+          case "ready":
+          case "in-progress":
+          case "done":
+            return "";
+          case "paused":
+            return badge(pausedWords(t), "warning") + (t.waiting ? badge("Waiting on you", "warning") : "");
+          default:
+            return badge(STATE_NAMES[t.state], STATE_TONES[t.state] ?? "");
+        }
+      }
+      function footCard(t) {
+        return `<div class="board-card-head">${priorityEl(t)}${titleEl(t)}${menuEl(t)}</div>
+          <div class="card-marks">${projectEl(t)}${marksOf(t)
+            .map((m) => markEl(t, m))
+            .join("")}${endOf(t)}</div>`;
+      }
+      function inlineCard(t) {
+        return `<div class="board-card-head">${priorityEl(t)}${projectEl(t)}<div class="inline-body">${titleEl(t)}${marksOf(t)
+          .map((m) => markEl(t, m))
+          .join("")}${endOf(t)}</div>${menuEl(t)}</div>`;
+      }
+      function cornerCard(t) {
+        const marks = marksOf(t);
+        const bubbles = marks.filter((m) => m.attention);
+        const quiet = marks.filter((m) => !m.attention);
+        const foot = quiet.map((m) => markEl(t, m)).join("") + endOf(t);
+        return `${bubbles.length ? `<div class="corner-bubbles">${bubbles.map((m) => markEl(t, m, "bubble")).join("")}</div>` : ""}
+          <div class="board-card-head">${tileEl(t)}${titleEl(t)}${menuEl(t)}</div>
+          ${foot ? `<div class="corner-foot">${foot}</div>` : ""}`;
+      }
+      const LAYOUTS = {
+        today: { name: "Today", card: todayCard },
+        foot: { name: "Foot row", card: footCard, chosen: true },
+        inline: { name: "Inline", card: inlineCard },
+        corner: { name: "Corner badges", card: cornerCard },
+      };
+      function cardEl(t, { movable = isMovable(t) } = {}) {
+        const edge = t.waiting ? "edge-decision" : (EDGES[t.state] ?? "");
+        return `<article class="board-card ${edge}" aria-label="${esc(t.title)}" data-task-card="${t.id}" draggable="${movable}">${LAYOUTS[state.layout].card(t)}</article>`;
+      }
+
+      /* ---------- Popover contents ---------- */
+      function blockedPopover(t) {
+        const blockers = blockersOf(t);
+        const rows = blockers
+          .map((b) => {
+            const p = PROJECTS[b.project];
+            const tone = b.waiting ? "warning" : (STATE_TONES[b.state] ?? "");
+            const stateWords = b.state === "paused" ? "Paused" : STATE_NAMES[b.state];
+            return `<li class="popover-row"><span class="project-mark" style="--mark-bg:${p.colour}" title="${esc(p.name)}">${p.label}</span><a href="#" data-open="${b.id}">${esc(b.title)}</a><span class="badge sm dot ${tone}">${stateWords}</span></li>`;
+          })
+          .join("");
+        return {
+          label: `Blocked by ${plural(blockers.length, "Task", "Tasks")}`,
+          html: `<p class="popover-head">${icon("lock", 13)}Blocked by ${plural(blockers.length, "Task", "Tasks")}</p>
+            <p class="popover-sub">${blockers.length === 1 ? "It must be Done first." : "Each must be Done first."}</p>
+            <ul class="popover-list">${rows}</ul>`,
+        };
+      }
+      function queuedPopover(t) {
+        const { place, waits, behind } = t.queued;
+        const waitRows = waits.map((key) => `<li>${icon("dot", 14)}<span>${esc(WAITS[key].reason)}</span></li>`);
+        const behindRows = behind.map((id) => {
+          const b = findTask(id);
+          return `<li>${icon("dot", 14)}<span>Queued behind <a href="#" data-open="${b.id}">${esc(b.title)}</a> until it is Done or Dropped.</span></li>`;
+        });
+        const blocked = blockersOf(t).length;
+        return {
+          label: `Queued, place ${place}`,
+          html: `<p class="popover-head">${icon("clock", 13)}Queued, place ${place}</p>
+            <p class="popover-sub">It starts by itself once nothing holds it. Waiting for:</p>
+            <ul class="popover-waits">${[...waitRows, ...behindRows].join("")}</ul>
+            ${blocked ? `<p class="popover-foot">And its ${plural(blocked, "blocker", "blockers")}, under the lock.</p>` : ""}`,
+        };
+      }
+      const POPOVERS = { blocked: blockedPopover, queued: queuedPopover };
+
+      /* ---------- State and the switcher ---------- */
+      const OPTIONS = {
+        layout: Object.entries(LAYOUTS).map(([key, { name, chosen }]) => [key, name, chosen]),
+        board: [
+          ["full", "Full board"],
+          ["everything", "Everything at once"],
+          ["group", "Group by Initiative"],
+        ],
+        width: [
+          ["wide", "Wide"],
+          ["900", "900px"],
+          ["390", "390px"],
+        ],
+        palette: [
+          ["light", "Light"],
+          ["dark", "Dark"],
+        ],
+        input: [
+          ["mouse", "Mouse"],
+          ["touch", "Touch"],
+        ],
+      };
+      const LABELS = { layout: "Layout", board: "Board", width: "Width", palette: "Palette", input: "Input" };
+      // A touch screen starts in Touch, as it has no hover; the address or the switcher can change it.
+      const state = { layout: "foot", board: "full", width: "wide", palette: "light", input: matchMedia("(hover: none)").matches ? "touch" : "mouse" };
+      const folded = new Set();
+      for (const [key, value] of new URLSearchParams(location.hash.slice(1))) {
+        if (key in state && OPTIONS[key].some(([option]) => option === value)) state[key] = value;
+      }
+
+      function barHtml() {
+        const controls = Object.entries(OPTIONS)
+          .map(
+            ([key, options]) => `<div class="control"><span class="control-label">${LABELS[key]}</span><div class="segments" role="group" aria-label="${LABELS[key]}">${options
+              .map(
+                ([value, label, chosen]) =>
+                  `<button type="button" data-set="${key}" data-value="${value}" aria-pressed="${state[key] === value}">${label}${chosen ? '<span class="star" title="Chosen at the Gate">●</span>' : ""}</button>`,
+              )
+              .join("")}</div></div>`,
+          )
+          .join("");
+        return `<span class="bar-title">Task card icons</span><span class="bar-tag">PROPOSAL</span><span class="bar-break"></span>${controls}`;
+      }
+
+      const NOTES = {
+        today: "<strong>Today</strong>: the card as <code>BoardCard</code> draws it: the priority, title and menu; the Project's mark; a “Blocked by” line naming every blocker; and a foot in words: Plan, the planning note, a state badge, Queued with its short reasons, the Usage estimate's whole sentence, and the Stage's name beside who works it.",
+        foot: "<strong>Foot row</strong> (chosen at the Gate):the title alone on top, every other mark in one row under it, in the same order on every card, who works on it (or Plan) at the right end.",
+        inline: "<strong>Inline</strong>: the Project's tile before the title and the marks straight after its last word, so a short title takes one line.",
+        corner: "<strong>Corner badges</strong>: the Project's tile leads, with the priority as a pip on its corner; what needs you or holds the Task sits as bubbles on the card's top edge; the quiet marks and who works on it in the bottom-right corner.",
+      };
+      const BOARD_NOTES = {
+        full: "A board with a card in every column and state.",
+        everything: "One card with everything at once: high priority, blocked by three, queued behind another Task with two waits, a Usage estimate on two engines and four people working (not a state the app reaches: a stress test of the space).",
+        group: "Group by Initiative, as adopted: one row of column heads, then a group per Initiative.",
+      };
+      const HINT = " Hover or focus a mark for its words; press the lock or the clock for the popover.";
+
+      function render() {
+        document.documentElement.dataset.palette = state.palette;
+        document.documentElement.dataset.theme = state.palette;
+        history.replaceState(null, "", `#${new URLSearchParams(state)}`);
+        closePopover(false);
+        hideTip();
+        document.getElementById("bar").innerHTML = barHtml();
+        document.getElementById("note").innerHTML = `${NOTES[state.layout]} ${BOARD_NOTES[state.board]}${state.layout === "today" ? "" : HINT}`;
+        document.getElementById("address").innerHTML = `<span>Address</span><code>/work${state.board === "group" ? "?group=initiative" : ""}</code>`;
+        const frame = document.getElementById("frame");
+        frame.className = `frame w-${state.width} lay-${state.layout}`;
+        frame.innerHTML = appHtml();
+        document.getElementById("legend").innerHTML = legendHtml();
+      }
+
+      function appHtml() {
+        const rail = [
+          ["home", "Now"],
+          ["kanban", "Work", true],
+          ["users", "People"],
+          ["folder", "Projects"],
+        ]
+          .map(([name, label, on]) => `<span class="rail-item${on ? " on" : ""}" title="${label}">${icon(name, 18)}</span>`)
+          .join("");
+        const tabs = ["Tasks", "Initiatives", "Ideas", "Archived"].map((tab, i) => `<span class="tab${i === 0 ? " on" : ""}">${tab}</span>`).join("");
+        const grouped = state.board === "group";
+        const filters = `<div class="board-filters"><span class="search">${icon("search", 14)}Search Tasks</span><span class="chip">High priority</span><span class="chip">${icon("lock", 12)}Blocked</span><span class="chip">Working now</span>
+          <button type="button" class="switch-row" role="switch" aria-checked="${grouped}" data-action="group"><span class="switch"></span>Group by Initiative</button></div>`;
+        const body = state.board === "everything" ? everythingHtml() : grouped ? groupedHtml() : boardHtml();
+        return `<div class="app"><nav class="rail"><span class="rail-mark">O</span>${rail}</nav>
+          <header class="top"><h1>Work</h1><span class="grow"></span></header>
+          <div class="main"><div class="work-page"><div class="tabs">${tabs}</div>${filters}${body}</div></div></div>`;
+      }
+
+      function columnHtml(column) {
+        const cards = cardsIn(column, TASKS);
+        return `<section class="board-column" aria-label="${column.label}"><h3>${column.label} <span class="board-count">${cards.length}</span></h3><div class="board-hint">${column.hint}</div>
+          <div class="board-cards" data-list="${column.key}">${cards.length ? cards.map((t) => cardEl(t)).join("") : '<div class="board-empty">Nothing here</div>'}</div></section>`;
+      }
+      const boardHtml = () => `<div class="board-scroll"><div class="board">${COLUMNS.map(columnHtml).join("")}</div></div>`;
+
+      function groupedHtml() {
+        const heads = COLUMNS.map((c) => `<h3 class="board-head">${c.label} <span class="board-count">${cardsIn(c, TASKS).length}</span></h3>`).join("");
+        const groups = [...INITIATIVES, { id: "none", name: "No Initiative" }]
+          .map((group) => {
+            const tasks = TASKS.filter((t) => (t.initiative ?? "none") === group.id);
+            const open = !folded.has(group.id);
+            const extra = group.projects
+              ? `<span class="badge sm dot info">Active</span><span class="group-projects">${group.projects
+                  .map((key) => `<span class="project-mark" style="--mark-bg:${PROJECTS[key].colour}" title="${PROJECTS[key].name}">${PROJECTS[key].label}</span>`)
+                  .join("")}</span><span class="group-progress"><span class="progress"><span style="width:${(100 * group.done) / group.counted}%"></span></span>${group.done} of ${group.counted} Tasks done</span>`
+              : `<span class="group-progress">${plural(tasks.length, "Task", "Tasks")}</span>`;
+            const row = open
+              ? `<div class="group-row">${COLUMNS.map((c) => `<div class="board-cards" data-list="${c.key}:${group.id}">${cardsIn(c, tasks).map((t) => cardEl(t)).join("")}</div>`).join("")}</div>`
+              : "";
+            return `<section class="board-group" aria-label="${esc(group.name)}"><header class="group-head"><button type="button" class="fold-button" aria-expanded="${open}" aria-label="${open ? "Fold" : "Unfold"} ${esc(group.name)}" data-fold="${group.id}">${icon("chevron-right", 14)}</button><span class="group-name">${esc(group.name)}</span>${extra}</header>${row}</section>`;
+          })
+          .join("");
+        return `<div class="board-scroll"><div class="grouped"><div class="board-heads">${heads}</div>${groups}</div></div>`;
+      }
+
+      function everythingHtml() {
+        const plain = findTask("r1");
+        const specimen = (width, label) =>
+          `<div class="specimen"><p class="specimen-label">${label}</p><section class="board-column" style="width:${width}px" aria-label="${label}"><h3>Queued <span class="board-count">2</span></h3>
+            <div class="board-cards">${cardEl(EVERYTHING, { movable: false })}${cardEl(plain, { movable: false })}</div></section></div>`;
+        // At 390px the board's columns stay 220px and scroll sideways; a 320px column wouldn't fit.
+        const wider = state.width === "390" ? "" : specimen(320, "A wider column, 320px");
+        return `<div class="specimens">${specimen(220, "A column at its narrowest, 220px")}${wider}
+          <p class="specimen-note">Under it, an ordinary Ready card for comparison. The board's columns are 220px at their narrowest and the board scrolls sideways below that, so every window under about 1,500px, a phone's included, shows its cards at 220px: the width every layout must hold.</p></div>`;
+      }
+
+      /* The marks' legend, drawn with the layout's own marks so they work there too. */
+      function legendHtml() {
+        const sample = (id) => findTask(id);
+        const markOf = (t, key) => marksOf(t).find((m) => m.key === key);
+        const variant = state.layout === "corner" ? "bubble" : "";
+        const attention = (t, key) => markEl(t, markOf(t, key), variant);
+        const quiet = (t, key) => markEl(t, markOf(t, key));
+        const rows = [
+          [priorityEl(sample("i1")), "Priority", "hover", "High priority or Low priority; Normal shows nothing, as most Tasks are."],
+          [state.layout === "corner" ? tileEl(sample("i1")) : projectEl(sample("i1")), "Project", "hover", "The Project's name (its mark is its letters, or its icon, on its colour)."],
+          [attention(sample("i5"), "failed"), "Failed", "hover", "What failed; The Office's Decision about it waits on the Task's page."],
+          [attention(sample("i3"), "waiting"), "Waiting on you", "hover", "Waiting on you: a Decision is open."],
+          [attention(sample("i4"), "paused"), "Paused", "hover", "What holds it: the alarm, or the usage window and when it resumes."],
+          [attention(sample("d2"), "dropped"), "Dropped", "hover", "Dropped."],
+          [attention(sample("r2"), "blocked"), "Blocked", "press", "Hovered, how many. Pressed, every Task that must be Done first, each a link with its Project and state. The count is how many."],
+          [attention(sample("q2"), "queued"), "Queued", "press", "Hovered, its place and the short reasons, each once. Pressed, each wait in full words and the Task it is queued behind as a link. The count is its place."],
+          [quiet(sample("p3"), "planning"), "Planning", "hover", "Planning with Angela, and whether in auto mode."],
+          [quiet(sample("r1"), "estimate"), "Usage estimate", "hover", "The whole estimate: each measure, per engine, and where it came from."],
+          [workingEl(EVERYTHING), "Someone working", "hover", "Who, and the Stage when it is theirs; a press opens the Task, as today. +1 counts those past three."],
+          [planEl(sample("b1")), "Plan", "action", "Starts a plan, as today's Plan button; its tooltip says how."],
+          [menuEl(sample("b1")), "Task menu", "action", "As today."],
+        ];
+        const how = {
+          hover: `<span class="how">${icon("mouse-pointer", 13)}Hover or focus</span>`,
+          press: `<span class="how press">${icon("mouse-pointer-click", 13)}Press: popover</span>`,
+          action: `<span class="how">Press: acts</span>`,
+        };
+        const today = state.layout === "today" ? "<caption class=\"visually-hidden\">The proposed marks</caption>" : "";
+        return `<table class="legend">${today}<thead><tr><th>Mark</th><th>What</th><th>How</th><th>What it shows</th></tr></thead><tbody>${rows
+          .map(([mark, what, kind, words]) => `<tr><td>${mark}</td><td>${what}</td><td>${how[kind]}</td><td>${words}</td></tr>`)
+          .join("")}</tbody></table>`;
+      }
+
+      /* ---------- Tooltip (packages/ui Tooltip's behaviour: hover or focus, placed above, flipped when there is no room) ---------- */
+      let tip = null;
+      function showTip(trigger) {
+        if (openPop?.trigger === trigger) return;
+        hideTip();
+        tip = document.createElement("span");
+        tip.className = "tooltip";
+        tip.setAttribute("role", "tooltip");
+        tip.textContent = trigger.dataset.tip;
+        tip.style.visibility = "hidden";
+        document.body.append(tip);
+        const from = trigger.getBoundingClientRect();
+        const size = tip.getBoundingClientRect();
+        const margin = 8;
+        let top = from.top - size.height - 6;
+        if (top < margin) top = from.bottom + 6;
+        const left = Math.min(Math.max(margin, from.left + from.width / 2 - size.width / 2), innerWidth - size.width - margin);
+        Object.assign(tip.style, { top: `${top}px`, left: `${left}px`, visibility: "visible" });
+        tip.trigger = trigger;
+      }
+      function hideTip() {
+        tip?.remove();
+        tip = null;
+      }
+
+      /* ---------- Popover (proposed packages/ui Popover) ---------- */
+      let openPop = null;
+      function openPopover(trigger, { label, html, words = false }, byKeyboard) {
+        closePopover(false);
+        hideTip();
+        const el = document.createElement("div");
+        el.className = `popover${words ? " words" : ""}`;
+        el.id = "card-popover";
+        el.tabIndex = -1;
+        el.setAttribute("role", "dialog");
+        el.setAttribute("aria-label", label);
+        el.innerHTML = html;
+        document.body.append(el);
+        if (trigger.matches("button")) {
+          trigger.setAttribute("aria-expanded", "true");
+          trigger.setAttribute("aria-controls", el.id);
+        }
+        openPop = { trigger, el };
+        placePopover();
+        if (byKeyboard) (el.querySelector("a, button") ?? el).focus();
+      }
+      function closePopover(returnFocus) {
+        if (!openPop) return;
+        const { trigger, el } = openPop;
+        el.remove();
+        if (trigger.matches("button")) {
+          trigger.setAttribute("aria-expanded", "false");
+          trigger.removeAttribute("aria-controls");
+        }
+        openPop = null;
+        if (returnFocus) trigger.focus();
+      }
+      /** Under its mark, its left edge on the mark's; above when there is no room below; kept in the window. */
+      function placePopover() {
+        if (!openPop) return;
+        const { trigger, el } = openPop;
+        const from = trigger.getBoundingClientRect();
+        if (from.bottom < 0 || from.top > innerHeight || !trigger.isConnected) return closePopover(false);
+        const size = el.getBoundingClientRect();
+        const margin = 8;
+        let top = from.bottom + 6;
+        if (top + size.height > innerHeight - margin && from.top - size.height - 6 > margin) top = from.top - size.height - 6;
+        const left = Math.min(Math.max(margin, from.left), innerWidth - size.width - margin);
+        Object.assign(el.style, { top: `${top}px`, left: `${left}px` });
+      }
+      function focusableAfter(element) {
+        const all = [...document.querySelectorAll('a[href], button, [tabindex="0"]')].filter((e) => !e.closest(".popover") && e.offsetParent !== null);
+        return all[all.indexOf(element) + 1];
+      }
+
+      /* ---------- Toast ---------- */
+      function toast(text) {
+        const el = document.getElementById("toast");
+        el.textContent = text;
+        el.classList.add("on");
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => el.classList.remove("on"), 2400);
+      }
+
+      /* ---------- Events ---------- */
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        const set = target.closest("[data-set]");
+        if (set) {
+          state[set.dataset.set] = set.dataset.value;
+          return render();
+        }
+        const fold = target.closest("[data-fold]");
+        if (fold) {
+          folded.has(fold.dataset.fold) ? folded.delete(fold.dataset.fold) : folded.add(fold.dataset.fold);
+          return render();
+        }
+        const pop = target.closest("[data-pop]");
+        if (pop) {
+          event.preventDefault();
+          if (openPop?.trigger === pop) return closePopover(false);
+          return openPopover(pop, POPOVERS[pop.dataset.pop](findTask(pop.dataset.task)), event.detail === 0);
+        }
+        const open = target.closest("[data-open]");
+        if (open) {
+          event.preventDefault();
+          closePopover(false);
+          return toast(`Opens the Task page: ${findTask(open.dataset.open).title}`);
+        }
+        const action = target.closest("[data-action]");
+        if (action) {
+          const t = action.dataset.task && findTask(action.dataset.task);
+          if (action.dataset.action === "group") {
+            state.board = state.board === "group" ? "full" : "group";
+            return render();
+          }
+          if (action.dataset.action === "plan") return toast(`${PLANNER} starts a plan for “${t.title}”.`);
+          return toast(`The Task menu of “${t.title}”, as today.`);
+        }
+        const plain = target.closest("[data-tip]");
+        if (plain && state.input === "touch") {
+          // No hover on a touch screen: a press on a mark shows its words in the popover.
+          event.preventDefault();
+          if (openPop?.trigger === plain) return closePopover(false);
+          return openPopover(plain, { label: plain.dataset.tip, html: `<div class="popover-words">${esc(plain.dataset.tip)}</div>`, words: true }, false);
+        }
+        const mark = target.closest(".board-card [data-mark]");
+        if (mark) return toast(`Opens the Task page: ${findTask(mark.dataset.task).title}`);
+      });
+
+      // A press anywhere else closes the popover, then does what it does.
+      document.addEventListener(
+        "pointerdown",
+        (event) => {
+          if (openPop && !openPop.el.contains(event.target) && !openPop.trigger.contains(event.target)) closePopover(false);
+          // Pressing a mark never starts the card's drag.
+          const control = event.target.closest(".board-card :is(.mk, button, a:not(.board-card-title))");
+          const card = control?.closest('.board-card[draggable="true"]');
+          if (card) {
+            card.draggable = false;
+            card.dataset.dragOff = "";
+          }
+        },
+        { capture: true },
+      );
+      document.addEventListener("pointerup", () =>
+        setTimeout(() =>
+          document.querySelectorAll("[data-drag-off]").forEach((card) => {
+            card.draggable = true;
+            delete card.dataset.dragOff;
+          }),
+        ),
+      );
+      document.addEventListener("pointercancel", () =>
+        document.querySelectorAll("[data-drag-off]").forEach((card) => {
+          card.draggable = true;
+          delete card.dataset.dragOff;
+        }),
+      );
+
+      document.addEventListener("keydown", (event) => {
+        if (!openPop) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          return closePopover(true);
+        }
+        if (event.key === "Tab" && openPop.el.contains(document.activeElement)) {
+          const links = [...openPop.el.querySelectorAll("a, button")];
+          const forward = !event.shiftKey;
+          const atEdge = forward ? document.activeElement === links.at(-1) || links.length === 0 : document.activeElement === links[0] || document.activeElement === openPop.el;
+          if (!atEdge) return;
+          event.preventDefault();
+          const trigger = openPop.trigger;
+          closePopover(!forward);
+          if (forward) (focusableAfter(trigger) ?? trigger).focus();
+        }
+      });
+
+      document.addEventListener("mouseover", (event) => {
+        if (state.input === "touch") return;
+        const trigger = event.target.closest("[data-tip]");
+        if (trigger && tip?.trigger !== trigger) showTip(trigger);
+        if (!trigger && tip) hideTip();
+      });
+      document.addEventListener("focusin", (event) => {
+        const trigger = event.target.closest?.("[data-tip]");
+        if (trigger && event.target.matches(":focus-visible")) showTip(trigger);
+        else if (tip && tip.trigger !== trigger) hideTip();
+      });
+      document.addEventListener("focusout", (event) => {
+        if (tip && tip.trigger === event.target && !tip.trigger.matches(":hover")) hideTip();
+      });
+      window.addEventListener(
+        "scroll",
+        () => {
+          hideTip();
+          placePopover();
+        },
+        { capture: true, passive: true },
+      );
+      window.addEventListener("resize", () => {
+        hideTip();
+        placePopover();
+      });
+
+      /* Dragging a card within its column (and group), as the board does; a drop elsewhere is refused. */
+      let dragging = null;
+      document.addEventListener("dragstart", (event) => {
+        const card = event.target.closest?.(".board-card");
+        if (!card) return;
+        closePopover(false);
+        hideTip();
+        dragging = { id: card.dataset.taskCard, list: card.parentElement.dataset.list };
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", dragging.id);
+        requestAnimationFrame(() => card.classList.add("dragging"));
+      });
+      document.addEventListener("dragover", (event) => {
+        const over = event.target.closest?.(".board-card");
+        document.querySelectorAll(".drop-before").forEach((c) => c.classList.remove("drop-before"));
+        if (!dragging || !over || over.parentElement.dataset.list !== dragging.list || over.dataset.taskCard === dragging.id) return;
+        event.preventDefault();
+        over.classList.add("drop-before");
+      });
+      document.addEventListener("drop", (event) => {
+        const over = event.target.closest?.(".board-card");
+        if (!dragging || !over || over.parentElement.dataset.list !== dragging.list) return;
+        event.preventDefault();
+        const moved = TASKS.find((t) => t.id === dragging.id);
+        TASKS = TASKS.filter((t) => t !== moved);
+        TASKS.splice(TASKS.findIndex((t) => t.id === over.dataset.taskCard), 0, moved);
+      });
+      document.addEventListener("dragend", () => {
+        dragging = null;
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

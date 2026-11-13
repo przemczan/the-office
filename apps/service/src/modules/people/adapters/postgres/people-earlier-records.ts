@@ -9,7 +9,7 @@ import { roleCardVersions } from "./roles.schema.js";
 
 /**
  * People's claim on its records from before users existed (spec §2.10): every Role card version and
- * every Memory note a user wrote that names no user (jsonb null, as migration 0139 left them) names
+ * every Memory note a user wrote that names no user (jsonb null, as migration 0143 left them) names
  * the first user. One UPDATE each, touching only what still names none, so running it again
  * changes nothing; a version no user saved (SQL null) and an Agent's note stay as they are.
  */

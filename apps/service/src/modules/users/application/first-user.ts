@@ -9,7 +9,7 @@ import { FirstUserExists, UserRefused } from "../domain/user-refused.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { EarlierRecordsClaims } from "./earlier-records-claims.js";
-import { SignIns, type SignInOutcome } from "./sign-ins.js";
+import { SignIns, type SignedInOutcome } from "./sign-ins.js";
 
 /**
  * The first user, created at first run (spec §2.10): while no user exists, the sign-in page asks
@@ -35,7 +35,7 @@ export class FirstUser {
    * Creates the first user, gives them the records made before users existed, and signs them in. Throws UserRefused with every problem, and
    * FirstUserExists once a user exists, also when another first user was made meanwhile.
    */
-  async create(newUser: NewUser, request: SignInRequest): Promise<SignInOutcome> {
+  async create(newUser: NewUser, request: SignInRequest): Promise<SignedInOutcome> {
     const problems = newUserProblems(newUser);
     if (problems.length > 0) throw new UserRefused(problems);
     if (!(await this.isAwaited())) throw new FirstUserExists();
@@ -49,6 +49,7 @@ export class FirstUser {
     if (!(await this.users.addFirst(user))) throw new FirstUserExists();
     await this.eventBus.publish(new UserCreated(user.id, now));
     await this.earlierRecordsClaims.claimIfDue();
-    return this.signIns.finish(user, "password", request);
+    // Just made, the user has no authenticator yet to ask a code of.
+    return this.signIns.signIn(user, request);
   }
 }

@@ -17,7 +17,8 @@ import { projectEventInvalidations, repositoryCloneEventInvalidations } from "./
 import { officeUpdateEventInvalidations } from "./api/office-updates.ts";
 import { runEnvironmentEventInvalidations } from "./api/run-environments.ts";
 import { skillEventCacheUpdates, skillEventInvalidations } from "./api/skills.ts";
-import { workEventInvalidations } from "./api/work.ts";
+import { userEventInvalidations } from "./api/users.ts";
+import { workEventCacheUpdates, workEventInvalidations } from "./api/work.ts";
 import { router as officeRouter, type OfficeRouter } from "./router.tsx";
 import { officeQueryClient, sendToSignIn } from "./signed-out.ts";
 
@@ -35,6 +36,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...engineEventInvalidations,
   ...threadEventInvalidations,
   ...workEventInvalidations,
+  ...userEventInvalidations,
 };
 
 // The event types that carry what changed or name exactly what it changes, and how they change the
@@ -43,6 +45,7 @@ const EVENT_CACHE_UPDATES: EventCacheUpdates = {
   ...threadEventCacheUpdates,
   ...notificationEventCacheUpdates,
   ...skillEventCacheUpdates,
+  ...workEventCacheUpdates,
 };
 
 /**

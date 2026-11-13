@@ -7,6 +7,8 @@ export const SIGNED_IN: Account = {
   id: "7e6d5c4b-3a2f-4e1d-8c0b-9a8f7e6d5c4b",
   name: "Ada Park",
   email: "ada@x.io",
+  appearance: { palette: null, density: null },
+  authenticator: { state: "off" },
 };
 
 /** A record of the signed-in user's own, as a record keeps them. */

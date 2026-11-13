@@ -856,7 +856,7 @@ test("dropping an active Initiative asks first, naming the Tasks it drops, and i
   await page.goto("/work");
   await page.getByLabel("Search Tasks").fill(word);
   const card = column(page, "Done").getByRole("article", { name: `Tile cache ${word}` });
-  await expect(card).toContainText("Dropped");
+  await expect(card.getByRole("img", { name: "Dropped" })).toBeVisible();
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-dropped-initiative-board.png"),
   });
@@ -964,10 +964,10 @@ test(
     const card = page.getByRole("article", { name: done.title });
     const mark = card.getByRole("img", { name: words });
 
-    // Nobody working: no mark, and a card with nothing else to say keeps having no foot.
+    // Nobody working: no mark, and a card with nothing else to say shows only its Project's mark.
     await expect(card).toBeVisible();
     await expect(mark).toHaveCount(0);
-    await expect(card.locator(".board-card-foot")).toHaveCount(0);
+    await expect(card.locator(".board-card-marks > *")).toHaveCount(1);
 
     // The Thread's events refresh the mark on the open board, with no reload.
     await moveThreadTo(page, workingThread, "answering", "Started");
@@ -989,7 +989,7 @@ test(
 
     await moveThreadTo(page, workingThread, "waiting", "Stopped");
     await expect(mark).toHaveCount(0);
-    await expect(card.locator(".board-card-foot")).toHaveCount(0);
+    await expect(card.locator(".board-card-marks > *")).toHaveCount(1);
 
     // A Thread waiting on an open Decision shows nobody, however long it stays answering.
     const decisionId = crypto.randomUUID();
@@ -1025,7 +1025,7 @@ test(
 );
 
 test(
-  "a card names the current Stage beside the person working it, on one line however long",
+  "a card names the current Stage in the words of the person working it, not on the card",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Stage worked now", "SW");
@@ -1067,21 +1067,19 @@ test(
     await page.getByRole("button", { name: "Show only Stage worked now" }).click();
     const card = page.getByRole("article", { name: task.title });
     await expect(card).toBeVisible();
-    await expect(card.locator(".working-mark-stage")).toHaveCount(0);
 
     await moveThreadTo(page, stageThread, "answering", "Implementing");
     const mark = card.getByRole("img", { name: words });
     await expect(mark).toBeVisible();
-    const shownName = mark.locator(".working-mark-stage");
-    await expect(shownName).toHaveText(stageName);
-    // Cut short with an ellipsis, beside the Paused badge on the foot's one line.
-    expect(await shownName.evaluate((name) => name.scrollWidth > name.clientWidth)).toBe(true);
-    const badgeBox = await card.locator(".board-card-foot > :first-child").boundingBox();
+    // The card shows the avatars alone: the Stage's name is in the mark's words.
+    await expect(card).not.toContainText(stageName);
+    // On the marks' one row, beside the Paused mark, at the right end.
+    const pausedBox = await card.getByRole("img", { name: "Paused" }).boundingBox();
     const markBox = await mark.boundingBox();
     expect(
       Math.abs(
-        (badgeBox?.y ?? 0) +
-          (badgeBox?.height ?? 0) / 2 -
+        (pausedBox?.y ?? 0) +
+          (pausedBox?.height ?? 0) / 2 -
           ((markBox?.y ?? 0) + (markBox?.height ?? 0) / 2),
       ),
     ).toBeLessThan(4);
@@ -1101,7 +1099,7 @@ test(
 );
 
 test(
-  "a narrow card planning in auto mode wraps its note and keeps the mark inside the card",
+  "a narrow card planning in auto mode shows Planning as an icon and keeps the mark inside the card",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Narrow planning card", "NP");
@@ -1120,45 +1118,34 @@ test(
     await moveThreadTo(page, thread, "answering", "Planning");
     const mark = card.locator(".working-mark");
     await expect(mark).toBeVisible();
-    const note = card.locator(".board-card-note");
-    await expect(note).toHaveText(/, in auto mode$/);
+    // Planning is an icon, its words on hover.
+    const planning = card.getByRole("img", { name: /^Planning with .+, in auto mode$/ });
+    await expect(planning).toBeVisible();
 
-    const foot = card.locator(".board-card-foot");
+    const row = card.locator(".board-card-marks");
     const markParts = [mark.locator(".live-dot"), mark.locator(".working-mark-avatars")];
-    const lineHeight = (await mark.boundingBox())?.height ?? 0;
-    // The mark spilled only while the note fit on one line but left too little for the mark, a span
-    // of a few board widths, so the board grows in steps smaller than the mark: from its narrowest
-    // columns, where the note wraps, to columns wide enough for the note and the mark on one line.
-    let noteWrapped = false;
-    for (let width = 1100; width <= 2500; width += 50) {
+    for (let width = 1100; width <= 2500; width += 100) {
       await page.setViewportSize({ width, height: 900 });
-      const footBox = await foot.boundingBox();
-      const footRight = (footBox?.x ?? 0) + (footBox?.width ?? 0);
+      const rowBox = await row.boundingBox();
+      const rowRight = (rowBox?.x ?? 0) + (rowBox?.width ?? 0);
       for (const part of markParts) {
         const box = await part.boundingBox();
         expect(box?.width, `at ${width}px`).toBeGreaterThan(0);
-        expect((box?.x ?? 0) + (box?.width ?? 0), `at ${width}px`).toBeLessThanOrEqual(footRight);
+        expect((box?.x ?? 0) + (box?.width ?? 0), `at ${width}px`).toBeLessThanOrEqual(rowRight);
       }
       expect(
-        await foot.evaluate((element) => element.scrollWidth <= element.clientWidth),
+        await row.evaluate((element) => element.scrollWidth <= element.clientWidth),
         `at ${width}px`,
       ).toBe(true);
-      // All of the note shown, and the mark beside it at the right.
-      expect(
-        await note.evaluate((element) => element.scrollWidth <= element.clientWidth),
-        `at ${width}px`,
-      ).toBe(true);
-      const noteBox = await note.boundingBox();
+      // The mark after Planning, at the right.
+      const planningBox = await planning.boundingBox();
       const markBox = await mark.boundingBox();
       expect(markBox?.x, `at ${width}px`).toBeGreaterThan(
-        (noteBox?.x ?? 0) + (noteBox?.width ?? 0),
+        (planningBox?.x ?? 0) + (planningBox?.width ?? 0),
       );
-      noteWrapped ||= (noteBox?.height ?? 0) > lineHeight * 1.5;
     }
-    // The narrowest board leaves no room for the note on one line: it wrapped onto a second.
-    expect(noteWrapped).toBe(true);
 
-    // Where the mark used to spill past the card's edge.
+    // Where the mark once spilled past the card's edge.
     await page.setViewportSize({ width: 1950, height: 900 });
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1950-planning-card.png") });
     await page.emulateMedia({ colorScheme: "dark" });
@@ -1192,9 +1179,11 @@ test(
       .click();
     await page.getByRole("menu").getByRole("button", { name: "Drop…" }).click();
     await page.getByRole("button", { name: "Drop the Task" }).click();
-    await expect(column(page, "Done").getByRole("article", { name: "Drop me" })).toContainText(
-      "Dropped",
-    );
+    await expect(
+      column(page, "Done")
+        .getByRole("article", { name: "Drop me" })
+        .getByRole("img", { name: "Dropped" }),
+    ).toBeVisible();
 
     await page.goto(`/projects/${project.id}`);
     const work = page.getByText("Not planned yet").locator("..");
@@ -1240,7 +1229,7 @@ test(
     await expect(page.getByText(`${task.title} is back on the board.`)).toBeVisible();
     await expect(row).toHaveCount(0);
     await workTab(page, "Tasks").click();
-    await expect(card).toContainText("Dropped");
+    await expect(card.getByRole("img", { name: "Dropped" })).toBeVisible();
   },
 );
 
@@ -1321,7 +1310,9 @@ test(
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-moved-task-origin.png") });
     await page.goto("/work");
     await expect(
-      page.getByRole("article", { name: "Pair the barcode scanner" }).getByTitle(to.name),
+      page
+        .getByRole("article", { name: "Pair the barcode scanner" })
+        .getByRole("img", { name: to.name }),
     ).toBeAttached();
 
     await page.goto(`/tasks/${old.id}`);

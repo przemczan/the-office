@@ -59,6 +59,13 @@ OFFICE_PUBLIC_ADDRESS=https://office.example.com
 
 It is an `https://` address with no path; an invalid one stops the start with a config problem. Left blank, The Office has no public address and refuses requests to any name but `localhost`. Pages at the public address get the ways to sign in that need HTTPS and a name ([spec §2.10](spec/2.10-users-and-signing-in.md)).
 
+### Passkeys
+
+A passkey is kept for one address, its relying party: `localhost`, or the public address's name. So passkeys need:
+
+- **A domain name.** The public address must be a name such as `office.example.com`, not an IP address, and reached over HTTPS (with `X-Forwarded-Proto: https`, as above). At `127.0.0.1`, on a local network IP over plain HTTP, or at the public address over plain HTTP, the sign-in page and the account hide passkeys and say where they work instead.
+- **The same address as when it was added.** A passkey added at `localhost` works only at `localhost` (at any port), and one added at the public address only there; a user who uses both adds one at each. Changing `OFFICE_PUBLIC_ADDRESS` to another name leaves the passkeys added at the old one useless: the account marks them as for an address no longer The Office's, to be removed, and new ones are added at the new address.
+
 ## Setting a user's password on the host
 
 A user who lost their password gets back in through a command on the host, in the checkout:
@@ -68,6 +75,12 @@ npm run set-password -- --email ada@example.com
 ```
 
 It asks for the new password twice without showing it (or reads one line from standard input when that isn't a terminal), sets it, lifts the user's lockout and signs out all their signed-in devices. It reads `.env` as the service does, so it reaches the same database; the service may run meanwhile. An unknown email ends it with a message and a non-zero exit code.
+
+For a user who lost their authenticator and their recovery codes too, `--clear-authenticator` also removes both, so they sign in with the new password alone and can set up an authenticator again:
+
+```sh
+npm run set-password -- --email ada@example.com --clear-authenticator
+```
 
 ## How an Office update works
 

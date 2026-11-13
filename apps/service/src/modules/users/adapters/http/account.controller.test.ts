@@ -1,4 +1,9 @@
-import { EVENTS_PATH, signedInDeviceListSchema } from "@the-office/contracts";
+import {
+  EVENTS_PATH,
+  accountSchema,
+  signedInDeviceListSchema,
+  userRefusalSchema,
+} from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -143,5 +148,102 @@ describe("Sign out", () => {
     expect((await send(office.port, { path: "/api/account", headers: { cookie } })).status).toBe(
       401,
     );
+  });
+});
+
+describe("the account", () => {
+  it("changes the name and email, refusing another user's email", async () => {
+    const cookie = await signInFrom("Firefox");
+    const other = await addUser(office.app, { name: "Grace Hopper" });
+
+    const changed = await send(office.port, {
+      method: "PATCH",
+      path: "/api/account",
+      headers: { cookie },
+      body: { name: " Ada King ", email: `king-${user.email}` },
+    });
+    expect(accountSchema.parse(changed.body)).toMatchObject({
+      name: "Ada King",
+      email: `king-${user.email}`,
+    });
+
+    const taken = await send(office.port, {
+      method: "PATCH",
+      path: "/api/account",
+      headers: { cookie },
+      body: { email: other.email.toUpperCase() },
+    });
+    expect(taken.status).toBe(422);
+    expect(userRefusalSchema.parse(taken.body).reasons).toEqual(["Another user has this email."]);
+  });
+
+  it("changes the password with the current one, signing out every other device", async () => {
+    const laptop = await signInFrom("Firefox on the laptop");
+    const phone = await signInFrom("Safari on the phone");
+    const newPassword = "a brand new password, long enough";
+
+    const wrong = await send(office.port, {
+      method: "POST",
+      path: "/api/account/password",
+      headers: { cookie: laptop },
+      body: { currentPassword: "not the password at all", newPassword },
+    });
+    expect(wrong.status).toBe(422);
+    expect(userRefusalSchema.parse(wrong.body).reasons).toEqual(["The current password is wrong."]);
+
+    const changed = await send(office.port, {
+      method: "POST",
+      path: "/api/account/password",
+      headers: { cookie: laptop },
+      body: { currentPassword: user.password, newPassword },
+    });
+
+    expect(changed.status).toBe(204);
+    expect(
+      (await send(office.port, { path: "/api/account", headers: { cookie: phone } })).status,
+    ).toBe(401);
+    expect(
+      (await send(office.port, { path: "/api/account", headers: { cookie: laptop } })).status,
+    ).toBe(200);
+    expect(
+      (
+        await send(office.port, {
+          method: "POST",
+          path: "/api/sign-in/password",
+          body: { email: user.email, password: newPassword },
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it("keeps the user's palette and density, starting from the defaults", async () => {
+    const cookie = await signInFrom("Firefox");
+    const before = await send(office.port, { path: "/api/account", headers: { cookie } });
+    expect(accountSchema.parse(before.body).appearance).toEqual({ palette: null, density: null });
+
+    const chosen = await send(office.port, {
+      method: "PUT",
+      path: "/api/account/appearance",
+      headers: { cookie },
+      body: { palette: "mocha", density: "compact" },
+    });
+    expect(accountSchema.parse(chosen.body).appearance).toEqual({
+      palette: "mocha",
+      density: "compact",
+    });
+
+    const elsewhere = await signInFrom("Chrome on the desktop");
+    const after = await send(office.port, { path: "/api/account", headers: { cookie: elsewhere } });
+    expect(accountSchema.parse(after.body).appearance).toEqual({
+      palette: "mocha",
+      density: "compact",
+    });
+    const unknown = await send(office.port, {
+      method: "PUT",
+      path: "/api/account/appearance",
+      headers: { cookie },
+      body: { palette: "neon", density: null },
+    });
+    expect(unknown.status).toBe(400);
   });
 });

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Button, Card, useAppearance } from "@the-office/ui";
+import { Button, Card } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { userQueries } from "../../api/users.ts";
-import { OfficeMark } from "../../shell/office-mark.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { FirstUserForm } from "./first-user-form.tsx";
+import { OfficeName } from "./office-name.tsx";
 import { SignInWays } from "./sign-in-ways.tsx";
 import "./sign-in.css";
 
@@ -39,19 +39,15 @@ export function SignInPage(): ReactNode {
           />
         )}
         {page.data && (
-          <Card>{firstRun ? <FirstUserForm /> : <SignInWays ways={page.data.ways} />}</Card>
+          <Card>
+            {firstRun ? (
+              <FirstUserForm />
+            ) : (
+              <SignInWays ways={page.data.ways} unavailable={page.data.unavailable} />
+            )}
+          </Card>
         )}
       </div>
     </main>
-  );
-}
-
-function OfficeName(): ReactNode {
-  const { base } = useAppearance();
-  return (
-    <div className="sign-in-office">
-      <OfficeMark size={28} tone={base} />
-      <span>The Office</span>
-    </div>
   );
 }

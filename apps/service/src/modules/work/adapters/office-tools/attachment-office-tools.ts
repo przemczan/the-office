@@ -4,7 +4,6 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { attachmentKindWords, mediaTypeOf, type Attachment } from "../../domain/attachment.js";
-import type { Author } from "../../domain/author.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import { SessionTasks } from "../../ports/session-tasks.js";
@@ -39,22 +38,22 @@ export class AttachmentOfficeTools implements OnModuleInit {
     this.registry.register({
       name: ATTACH_FILE,
       description:
-        "Attaches a file from the Task's worktree to the Task, such as a screenshot, a report or a document (.md), for the user to see with the Task. A design for the user to approve is attached before its Gate, as one self-contained .html file, since the preview loads nothing from outside the file. The Office keeps a copy, so a later change to the file doesn't change the Attachment.",
+        "Attaches a file from the Task's worktree to the Task, such as a screenshot, a report or a document (.md), for the user to see with the Task. A design for the user to approve is attached before its Gate, as one self-contained .html file, since the preview loads nothing from outside the file. The Office keeps a copy, so a later change to the file doesn't change the Attachment; attaching the same path again replaces that copy until the user acts at the Task's next Gate.",
       input: z.object({
         path: z.string().describe("The file's path, relative to the worktree."),
       }),
       run: ({ path }, { sessionId }) =>
         answered(async () => {
-          const { taskId, addedBy } = await this.attaching(sessionId);
+          const { taskId, roleKey } = await this.attaching(sessionId);
           const task = await this.tasks.read(taskId);
           const worktree = await this.worktrees.find(task.projectId, taskId);
           const file = await readWorktreeFile(worktree.path, path);
-          const attachment = await this.attachments.addFile(
-            { kind: "task", taskId },
+          const { attachment, replaced } = await this.attachments.attachFromWorktree(
+            taskId,
             { ...file, mediaType: mediaTypeOf(file.name) },
-            addedBy,
+            roleKey,
           );
-          return attachedWords(attachment);
+          return replaced ? replacedWords(attachment) : attachedWords(attachment);
         }),
     });
   }
@@ -70,11 +69,11 @@ export class AttachmentOfficeTools implements OnModuleInit {
       }),
       run: ({ url, name }, { sessionId }) =>
         answered(async () => {
-          const { taskId, addedBy } = await this.attaching(sessionId);
+          const { taskId, roleKey } = await this.attaching(sessionId);
           const attachment = await this.attachments.addLink(
             { kind: "task", taskId },
             { url, name: name ?? "" },
-            addedBy,
+            { kind: "person", roleKey },
           );
           return attachedWords(attachment);
         }),
@@ -84,7 +83,7 @@ export class AttachmentOfficeTools implements OnModuleInit {
   /** The Task the session works on, and the person attaching in it. */
   private async attaching(
     sessionId: string,
-  ): Promise<{ readonly taskId: string; readonly addedBy: Author }> {
+  ): Promise<{ readonly taskId: string; readonly roleKey: string }> {
     const [taskId, roleKey] = await Promise.all([
       this.sessionTasks.taskInSession(sessionId),
       this.sessionPeople.personInSession(sessionId),
@@ -94,8 +93,12 @@ export class AttachmentOfficeTools implements OnModuleInit {
         "This tool works in a Thread on a Task, and this session is on none.",
       );
     }
-    return { taskId, addedBy: { kind: "person", roleKey } };
+    return { taskId, roleKey };
   }
+}
+
+function replacedWords(attachment: Attachment): string {
+  return `Replaced ${attachment.name} (Attachment ${attachment.id}) with the new copy.`;
 }
 
 function attachedWords(attachment: Attachment): string {

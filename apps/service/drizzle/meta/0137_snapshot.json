@@ -1,6 +1,6 @@
 {
-  "id": "e79db0bd-3b8b-47f7-9fee-db35390027b5",
-  "prevId": "c6982a61-d950-4f13-aa9c-614cdf4355ad",
+  "id": "4a4d1f6d-7aba-4936-a020-542f5e1387d0",
+  "prevId": "c3d381b8-0b5e-4e19-8dc0-13f52e210c4a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2610,12 +2610,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "held_by_user": {
-          "name": "held_by_user",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "gate_action": {
           "name": "gate_action",
           "type": "jsonb",
@@ -3590,37 +3584,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.earlier_records_claimed": {
-      "name": "earlier_records_claimed",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "default": 1
-        },
-        "claimed_at": {
-          "name": "claimed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "earlier_records_claimed_one_row": {
-          "name": "earlier_records_claimed_one_row",
-          "value": "\"earlier_records_claimed\".\"id\" = 1"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.signed_in_devices": {
       "name": "signed_in_devices",
       "schema": "",
@@ -3751,7 +3714,13 @@
           "name": "password_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "one_time_password_expires_at": {
+          "name": "one_time_password_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "wrong_tries_in_a_row": {
           "name": "wrong_tries_in_a_row",
@@ -3772,16 +3741,34 @@
           "primaryKey": false,
           "notNull": false
         },
+        "palette": {
+          "name": "palette",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "density": {
+          "name": "density",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
-        "users_email_unique": {
-          "name": "users_email_unique",
+        "users_active_email_unique": {
+          "name": "users_active_email_unique",
           "columns": [
             {
               "expression": "lower(\"email\")",
@@ -3791,6 +3778,7 @@
             }
           ],
           "isUnique": true,
+          "where": "\"users\".\"removed_at\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3863,12 +3851,6 @@
         "queued_at": {
           "name": "queued_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "queued_by": {
-          "name": "queued_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
@@ -4191,6 +4173,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "source_path": {
+          "name": "source_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "added_by": {
           "name": "added_by",
           "type": "jsonb",
@@ -4465,21 +4453,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "archived_by": {
-          "name": "archived_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "restored_at": {
           "name": "restored_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restored_by": {
-          "name": "restored_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -4492,12 +4468,6 @@
         "planning_thread_id": {
           "name": "planning_thread_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "planning_started_by": {
-          "name": "planning_started_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -4859,21 +4829,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "archived_by": {
-          "name": "archived_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "restored_at": {
           "name": "restored_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restored_by": {
-          "name": "restored_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

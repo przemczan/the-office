@@ -8,10 +8,19 @@ import type { ManualSchedule } from "../../platform/schedule/schedule.fixtures.j
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { startTestApplication, type TestApplication } from "../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../test/test-database.js";
+import { ScryptPasswordHashing } from "./adapters/crypto/scrypt-password-hashing.js";
 import { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
+import { PasswordHashing } from "./ports/password-hashing.js";
 import { UsersModule } from "./users.module.js";
 
 export const PUBLIC_ADDRESS = "https://office.example.com";
+
+/**
+ * scrypt at a cost tests can afford: the spec's takes about 100 ms a hash, so a lockout test's
+ * dozen tries outran the test timeout under a full run's load. Hashes carry their own cost, so
+ * either matches the other's.
+ */
+export const testPasswordHashing = new ScryptPasswordHashing(2 ** 10);
 
 export interface UsersApplication extends TestApplication {
   readonly schedule: ManualSchedule;
@@ -45,13 +54,14 @@ export async function startUsersApplication({
         signedInRequests: CookieSignedInRequests,
       }),
     ],
+    overrides: [{ provide: PasswordHashing, useValue: testPasswordHashing }],
     requestAccess: "guarded",
   });
   return { ...started, schedule: started.app.get(Schedule) as ManualSchedule };
 }
 
 export interface Sent {
-  readonly method?: "GET" | "POST" | "DELETE";
+  readonly method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   readonly path: string;
   /** The Host the request is addressed to: `localhost` at the app's port unless given. */
   readonly host?: string;
@@ -80,7 +90,11 @@ export function send(
         path,
         headers: {
           host,
-          ...(payload !== undefined && { "content-type": "application/json" }),
+          // Node sends a DELETE's body only with its length given, as browsers give it.
+          ...(payload !== undefined && {
+            "content-type": "application/json",
+            "content-length": String(Buffer.byteLength(payload)),
+          }),
           ...headers,
         },
       },
@@ -102,13 +116,21 @@ export function send(
   });
 }
 
-/** The sign-in cookie an answer set, as a Cookie header sends it back, and its attributes. */
-export function setCookieOf(answer: Answer): {
+/**
+ * A cookie an answer set, as a Cookie header sends it back, and its attributes: the one named, or
+ * the first.
+ */
+export function setCookieOf(
+  answer: Answer,
+  name?: string,
+): {
   readonly cookie: string;
   readonly attributes: string[];
 } {
-  const [setCookie] = answer.headers["set-cookie"] ?? [];
-  if (setCookie === undefined) throw new Error("The answer set no cookie.");
+  const setCookies = answer.headers["set-cookie"] ?? [];
+  const setCookie =
+    name === undefined ? setCookies[0] : setCookies.find((set) => set.startsWith(`${name}=`));
+  if (setCookie === undefined) throw new Error(`The answer set no cookie ${name ?? ""}.`);
   const [cookie = "", ...attributes] = setCookie.split(";").map((part) => part.trim());
   return { cookie, attributes };
 }

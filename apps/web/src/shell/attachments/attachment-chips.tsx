@@ -2,11 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { isHtmlFile, isPlainTextFile, type Attachment } from "@the-office/contracts";
 import { Alert, Dialog, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { attachmentContentUrl, attachmentQueries, SHOWN_TEXT_LIMIT } from "../../api/work.ts";
+import { attachmentQueries, SHOWN_TEXT_LIMIT } from "../../api/work.ts";
 import { MarkdownDocument } from "../markdown-text.tsx";
 import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
 import { HtmlPreviewDialog } from "./html-preview-dialog.tsx";
 import { PlainTextFile } from "./plain-text-file.tsx";
+import { useAttachmentContentUrl } from "./use-attachment-content-url.ts";
 
 const KIND_ICONS: Readonly<Record<Attachment["kind"], string>> = {
   link: "link",
@@ -57,6 +58,7 @@ function AttachmentOpener({
   readonly attachment: Attachment;
   readonly onOpenHere: () => void;
 }): ReactNode {
+  const contentUrl = useAttachmentContentUrl(attachment.id);
   const label = (
     <>
       <Icon
@@ -80,7 +82,7 @@ function AttachmentOpener({
       </AttachmentDownloadLink>
     );
   }
-  const href = attachment.kind === "link" ? attachment.url : attachmentContentUrl(attachment.id);
+  const href = attachment.kind === "link" ? attachment.url : contentUrl;
   return (
     <a className="attachment-open" href={href} target="_blank" rel="noopener noreferrer">
       {label}

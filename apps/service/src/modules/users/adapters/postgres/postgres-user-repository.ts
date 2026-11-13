@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { User } from "../../domain/user.js";
 import { UserRefused } from "../../domain/user-refused.js";
@@ -7,6 +7,9 @@ import { UserRepository } from "../../ports/user-repository.js";
 import { earlierRecordsClaimed, users } from "./users.schema.js";
 
 type UserRow = typeof users.$inferSelect;
+
+const EMAIL_TAKEN = "Another user has this email.";
+const UNIQUE_VIOLATION = "23505";
 
 @Injectable()
 export class PostgresUserRepository extends UserRepository {
@@ -31,7 +34,7 @@ export class PostgresUserRepository extends UserRepository {
       .values(toRow(user))
       .onConflictDoNothing()
       .returning({ id: users.id });
-    if (added.length === 0) throw new UserRefused(["Another user has this email."]);
+    if (added.length === 0) throw new UserRefused([EMAIL_TAKEN]);
   }
 
   async anyExists(): Promise<boolean> {
@@ -60,6 +63,15 @@ export class PostgresUserRepository extends UserRepository {
       .onConflictDoNothing();
   }
 
+  async listActive(): Promise<readonly User[]> {
+    const rows = await this.database
+      .select()
+      .from(users)
+      .where(isNull(users.removedAt))
+      .orderBy(asc(sql`lower(${users.name})`), asc(users.createdAt));
+    return rows.map(toUser);
+  }
+
   async find(id: string): Promise<User | undefined> {
     const [row] = await this.database.select().from(users).where(eq(users.id, id));
     return row && toUser(row);
@@ -69,33 +81,87 @@ export class PostgresUserRepository extends UserRepository {
     const [row] = await this.database
       .select()
       .from(users)
-      .where(eq(sql`lower(${users.email})`, email.trim().toLowerCase()));
+      .where(
+        and(eq(sql`lower(${users.email})`, email.trim().toLowerCase()), isNull(users.removedAt)),
+      );
     return row && toUser(row);
   }
 
-  update(id: string, change: (user: User) => User | undefined): Promise<User | undefined> {
+  async namesOf(ids: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.database
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(inArray(users.id, [...ids]));
+    return new Map(rows.map(({ id, name }) => [id, name]));
+  }
+
+  async update(id: string, change: (user: User) => User | undefined): Promise<User | undefined> {
+    try {
+      return await this.database.transaction(async (transaction) => {
+        const [row] = await transaction.select().from(users).where(eq(users.id, id)).for("update");
+        if (!row) return undefined;
+        const user = toUser(row);
+        const changed = change(user);
+        if (!changed) return user;
+        await transaction.update(users).set(toRow(changed)).where(eq(users.id, id));
+        return changed;
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) throw new UserRefused([EMAIL_TAKEN]);
+      throw error;
+    }
+  }
+
+  removeAmongActive(
+    id: string,
+    remove: (user: User, activeUserIds: readonly string[]) => User,
+  ): Promise<User | undefined> {
     return this.database.transaction(async (transaction) => {
-      const [row] = await transaction.select().from(users).where(eq(users.id, id)).for("update");
+      // Locked in one order, so two removals at once wait for each other rather than deadlock; the
+      // second then reads the first's removal, as a row it waited for is read again.
+      const rows = await transaction
+        .select()
+        .from(users)
+        .where(isNull(users.removedAt))
+        .orderBy(asc(users.id))
+        .for("update");
+      const row = rows.find((active) => active.id === id);
       if (!row) return undefined;
-      const user = toUser(row);
-      const changed = change(user);
-      if (!changed) return user;
-      await transaction.update(users).set(toRow(changed)).where(eq(users.id, id));
-      return changed;
+      const removedUser = remove(
+        toUser(row),
+        rows.map((active) => active.id),
+      );
+      await transaction.update(users).set(toRow(removedUser)).where(eq(users.id, id));
+      return removedUser;
     });
   }
 }
 
-function toRow({ id, name, email, passwordHash, wrongTries, createdAt }: User): UserRow {
+function isUniqueViolation(error: unknown): boolean {
+  const cause = error instanceof Error ? (error.cause ?? error) : error;
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    cause.code === UNIQUE_VIOLATION
+  );
+}
+
+function toRow(user: User): UserRow {
   return {
-    id,
-    name,
-    email,
-    passwordHash,
-    wrongTriesInARow: wrongTries.inARow,
-    nextTryAt: wrongTries.nextTryAt ?? null,
-    lockedUntil: wrongTries.lockedUntil ?? null,
-    createdAt,
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    passwordHash: user.passwordHash ?? null,
+    oneTimePasswordExpiresAt: user.oneTimePasswordExpiresAt ?? null,
+    wrongTriesInARow: user.wrongTries.inARow,
+    nextTryAt: user.wrongTries.nextTryAt ?? null,
+    lockedUntil: user.wrongTries.lockedUntil ?? null,
+    palette: user.appearance.palette ?? null,
+    density: user.appearance.density ?? null,
+    createdAt: user.createdAt,
+    removedAt: user.removedAt ?? null,
   };
 }
 
@@ -104,12 +170,15 @@ function toUser(row: UserRow): User {
     id: row.id,
     name: row.name,
     email: row.email,
-    passwordHash: row.passwordHash,
+    passwordHash: row.passwordHash ?? undefined,
+    oneTimePasswordExpiresAt: row.oneTimePasswordExpiresAt ?? undefined,
     wrongTries: {
       inARow: row.wrongTriesInARow,
       nextTryAt: row.nextTryAt ?? undefined,
       lockedUntil: row.lockedUntil ?? undefined,
     },
+    appearance: { palette: row.palette ?? undefined, density: row.density ?? undefined },
     createdAt: row.createdAt,
+    removedAt: row.removedAt ?? undefined,
   };
 }

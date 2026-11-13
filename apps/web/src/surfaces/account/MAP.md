@@ -1,10 +1,10 @@
 # Account surface: map
 
-**Owns:** the user's account (`/account`, opened from the top bar's user menu, spec §2.10): "Your account" with their name and email (`userQueries.account`), and "Signed-in devices" (`userQueries.signedInDevices`), most recently used first, as `packages/ui`'s `DataTable` (stacked under 640px): each device's browser in words from its user agent (`browserWords` in `account-words.ts`: "Chrome on Linux", "A browser" when unknown), the kind of address in words (`ADDRESS_KIND_WORDS`: Localhost, Loopback IP, Local network, Public address), when it signed in and was last used, "This device" marked with a badge, and Sign out on each, through the shell's `useSignOut`: another device's reads the list again, this one's lands on the sign-in page.
+**Owns:** the user's account (`/account`, opened from the top bar's user menu, spec §2.10), a `SectionLayout` of sections (`account-page.tsx`'s `SECTIONS`; `/account` opens Profile): Profile (`profile-section.tsx`: the name and email from `userQueries.account`, Save sending `PATCH /account` and setting the account query from the answer, Discard; and the Password card, the current password and the new one twice, `POST /account/password`, which signs out every other device, the list then read again), Authenticator (`authenticator-section.tsx`: off, with Set up the authenticator; on, with a badge, the recovery codes left, Make new recovery codes and Turn off. Each opens a window (`authenticator-dialogs.tsx`): setting up shows the QR code, drawn here by `uqr`'s `renderSVG` into an `<img>` data address (dark on light in every palette, as scanners need it), the key in groups of 4 to type by hand and the code field, then, once on, the recovery codes this once (`recovery-codes-view.tsx`, with Copy the codes and Download the codes, a text file made in the browser); Turn off takes a code or a recovery code, New recovery codes a code, then shows the new ones. The code field and the refusal with its wait are the shell's, `shell/code-answer-field.tsx`, shared with the code page), Appearance (`appearance-section.tsx`, moved from Settings: the Palette card, a choice per palette in `PALETTES`, each previewed by `PalettePreview`, or following the system, and the Density card, a choice per density in `DENSITIES`, previewed by `DensityPreview`, through `useAppearance`, which the shell's `AccountAppearance` saves to the account), Passkeys (`passkeys-section.tsx`, `passkeyQueries.list` from `api/passkeys.ts`: each passkey with its name, where it works in words, `passkeyAtWords` in `shell/passkey-words.ts`, "Works at localhost", "Use it at office.example.com" linking the public address, or "Old address" for an rp id no longer The Office's, which can only be removed; added and last used; Rename and Remove, confirmed, in `passkey-dialogs.tsx`; "Add a passkey" in `add-passkey-dialog.tsx`: the current password, `POST /account/passkeys/options`, then the name, then `startRegistration` and `POST /account/passkeys`, the browser's window closed being quiet; where adding doesn't work, the reason and a link to where it does in place of the button) and Signed-in devices (`signed-in-devices-section.tsx`, `userQueries.signedInDevices`, most recently used first, as `packages/ui`'s `DataTable`, stacked under 640px: each device's browser in words from its user agent, `browserWords` in `account-words.ts`, "Chrome on Linux", "A browser" when unknown; the kind of address in words, `ADDRESS_KIND_WORDS`; when it signed in and was last used; "This device" marked; and Sign out on each, through the shell's `useSignOut`: another device's reads the list again, this one's lands on the sign-in page).
 
-**Talks to:** the service through `api/users.ts`; the shell's `useSignOut` (`shell/use-sign-out.ts`, shared with the user menu) and the time words.
+**Talks to:** the service through `api/users.ts` (the authenticator's: `GET /account`'s `authenticator`, `POST /account/authenticator`, `/confirm`, `DELETE /account/authenticator`, `POST /account/recovery-codes`, refused as `RefusedAs<SignInRefusal>`); the shell's `useSignOut` (`shell/use-sign-out.ts`, shared with the user menu), its page heading and toasts, and the time words; `packages/ui`'s appearance store, whose choices the shell's `AccountAppearance` (`shell/account-appearance.tsx`) saves.
 
-**Traps:** a signed-in device is never called a session, in words or names. Signing out another device closes its WebSocket with 4401 and its next request answers 401; nothing here waits for that. Later Tasks add the password, authenticator, recovery codes, linked identities and passkeys here.
+**Traps:** a signed-in device is never called a session, in words or names. Signing out another device closes its WebSocket with 4401 and its next request answers 401; nothing here waits for that. The secret and the recovery codes live only in the mutation that answered them and go when its window closes; nothing caches them. A wrong current password is answered in the account's words ("The current password is wrong."), but it counts toward the same slow-down and lockout as signing in. Later Tasks add their sections here: linked identities. A passkey's options are tied to the device that asked and live 5 minutes; Add the passkey again after closing the browser's window uses the same ones. Tests mock `@simplewebauthn/browser`.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
@@ -12,6 +12,16 @@
 
 ### ./
 
+- `account-card-title.tsx`: AccountCardTitle
 - `account-page.tsx`: AccountPage
 - `account-words.ts`: ADDRESS_KIND_WORDS, browserWords
-- Tests: account-page.test.tsx, account-words.full.test.ts
+- `add-passkey-dialog.tsx`: AddPasskeyDialog
+- `appearance-section.tsx`: AppearanceSection
+- `authenticator-dialogs.tsx`: SetUpAuthenticatorDialog, TurnOffAuthenticatorDialog, NewRecoveryCodesDialog
+- `authenticator-section.tsx`: AuthenticatorSection, recoveryCodesLeftWords
+- `passkey-dialogs.tsx`: RenamePasskeyDialog, RemovePasskeyDialog
+- `passkeys-section.tsx`: PasskeysSection
+- `profile-section.tsx`: ProfileSection
+- `recovery-codes-view.tsx`: RecoveryCodesView, RecoveryCodesActions
+- `signed-in-devices-section.tsx`: SignedInDevicesSection
+- Tests: account-page.test.tsx, account-words.full.test.ts, passkeys-section.test.tsx

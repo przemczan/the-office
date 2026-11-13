@@ -21,9 +21,33 @@ export class UserNotFound extends Error {
   }
 }
 
+/** A code sent without a pending sign-in, or with one used up or expired: sign in again. */
+export class PendingSignInEnded extends Error {
+  constructor() {
+    super("This sign-in has ended: sign in again.");
+    this.name = "PendingSignInEnded";
+  }
+}
+
+/** A user asked for by id that isn't one of The Office's users, or was removed. */
+export class UserIdNotFound extends Error {
+  constructor() {
+    super("No such user.");
+    this.name = "UserIdNotFound";
+  }
+}
+
 export class SignedInDeviceNotFound extends Error {
   constructor() {
     super("You have no such signed-in device.");
     this.name = "SignedInDeviceNotFound";
+  }
+}
+
+/** A passkey asked for by id that isn't one of the signed-in user's. */
+export class PasskeyNotFound extends Error {
+  constructor() {
+    super("You have no such passkey.");
+    this.name = "PasskeyNotFound";
   }
 }

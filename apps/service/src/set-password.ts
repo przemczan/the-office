@@ -1,11 +1,17 @@
 import { stdin, stdout, stderr } from "node:process";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { CookieSignedInRequests, Passwords, UsersModule } from "./modules/users/index.js";
+import {
+  Authenticators,
+  CookieSignedInRequests,
+  Passwords,
+  UsersModule,
+} from "./modules/users/index.js";
 import { readDatabaseUrl } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { RequestAccessModule } from "./platform/http/request-access.module.js";
+import { WebEventForwarding } from "./platform/websocket/web-event-forwarding.js";
 import { setPasswordCommand, type SetPasswordConsole } from "./set-password-command.js";
 
 const CONTROL_C = "\u0003";
@@ -66,6 +72,10 @@ class SetPasswordModule {
   static register(databaseUrl: string): DynamicModule {
     return {
       module: SetPasswordModule,
+      // The users module maps its web events here; with no WebSocket, they go nowhere.
+      global: true,
+      providers: [WebEventForwarding],
+      exports: [WebEventForwarding],
       imports: [
         DatabaseModule.forRoot({ url: databaseUrl }),
         EventsModule,
@@ -89,7 +99,10 @@ async function main(): Promise<number> {
     },
   );
   try {
-    return await setPasswordCommand(process.argv.slice(2), terminal, app.get(Passwords));
+    return await setPasswordCommand(process.argv.slice(2), terminal, {
+      passwords: app.get(Passwords),
+      authenticators: app.get(Authenticators),
+    });
   } finally {
     await app.close();
   }

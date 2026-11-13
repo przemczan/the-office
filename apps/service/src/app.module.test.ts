@@ -180,7 +180,19 @@ describe("the whole app, signed out", () => {
         { method: "GET", path: "/api/sign-in" },
         { method: "POST", path: "/api/sign-in/first-user" },
         { method: "POST", path: "/api/sign-in/password" },
+        { method: "POST", path: "/api/sign-in/set-password" },
         { method: "GET", path: "/api/health" },
+      ]),
+    );
+    expect(routes).toEqual(
+      expect.arrayContaining([
+        { method: "GET", path: "/api/users" },
+        { method: "POST", path: "/api/users" },
+        { method: "POST", path: "/api/users/x/one-time-password" },
+        { method: "DELETE", path: "/api/users/x" },
+        { method: "PATCH", path: "/api/account" },
+        { method: "POST", path: "/api/account/password" },
+        { method: "PUT", path: "/api/account/appearance" },
       ]),
     );
 

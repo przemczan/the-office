@@ -39,7 +39,11 @@ export async function readWorktreeFile(
   if (file.size > sizeLimit) {
     throw new AttachmentRefused([`${path} is over ${sizeWords(sizeLimit)}.`]);
   }
-  return { name: basename(filePath), content: await readFile(filePath) };
+  return {
+    path: inside.split(sep).join("/"),
+    name: basename(filePath),
+    content: await readFile(filePath),
+  };
 }
 
 /** The Task's worktree files, read as readWorktreeFile reads them. */

@@ -74,7 +74,7 @@ function autoModeSwitch(page: HTMLElement): HTMLElement | null {
 /** Clicks the button whose words start with `name`, then lets the request go out. */
 async function press(page: HTMLElement, name: string): Promise<void> {
   const button = [...page.querySelectorAll("button")].find((found) =>
-    found.textContent.startsWith(name),
+    (found.getAttribute("aria-label") ?? found.textContent).startsWith(name),
   );
   await act(async () => {
     button?.click();

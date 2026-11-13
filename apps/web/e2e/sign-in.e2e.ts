@@ -25,9 +25,10 @@ test("before signing in only the sign-in page shows, with no WebSocket; signing 
   // No shell: no rail, no top bar, no status strip.
   await expect(page.getByRole("navigation", { name: "Surfaces" })).toHaveCount(0);
   await expect(page.locator(".shell")).toHaveCount(0);
-  // Only the ways this address offers: on localhost, a password alone for now.
+  // Only the ways this address offers: on localhost, a password and a passkey.
   await expect(page.getByRole("form")).toHaveCount(1);
   await expect(page.getByRole("form", { name: "Sign in with a password" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in with a passkey" })).toBeVisible();
   await screenshotScenario(page, "sign-in-page");
 
   const form = page.getByRole("form", { name: "Sign in with a password" });
@@ -74,9 +75,9 @@ test("signing out another device on the Account page ends it: its WebSocket clos
   const socket = await otherSocket;
   const socketClosed = new Promise<void>((resolve) => socket.on("close", () => resolve()));
 
-  await page.goto("/account");
+  await page.goto("/account/signed-in-devices");
   await signInWithPassword(page);
-  await expect(page).toHaveURL(/\/account$/);
+  await expect(page).toHaveURL(/\/account\/signed-in-devices$/);
   const devices = page.getByRole("table");
   const thisDevice = devices.getByRole("row").filter({ hasText: "This device" });
   await expect(thisDevice).toHaveCount(1);

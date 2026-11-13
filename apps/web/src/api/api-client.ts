@@ -72,7 +72,7 @@ export async function getFromApi<Schema extends z.ZodType>(
 
 /** Sends `body` as JSON to `path` under /api and checks the answer as getFromApi does. */
 export async function sendToApi<Schema extends z.ZodType>(
-  method: "POST" | "PUT",
+  method: "POST" | "PUT" | "PATCH",
   path: `/${string}`,
   body: unknown,
   schema: Schema,
@@ -149,12 +149,37 @@ export async function sendToApiRefusedAs<
     body: JSON.stringify(body),
   });
   if (response.ok) return schema.parse(await response.json());
-  const answer = await bodyOf(response.clone());
-  const refusal = refusalSchema.safeParse(answer);
+  throw await refusedAs(response, refusalSchema);
+}
+
+/**
+ * Sends `body` as JSON to `path` under /api as sendToApiWithNoAnswer does; a refusal whose body
+ * `refusalSchema` describes fails as `RefusedAs` with that body.
+ */
+export async function sendToApiWithNoAnswerRefusedAs(
+  method: "POST" | "PUT" | "DELETE",
+  path: `/${string}`,
+  body: unknown,
+  refusalSchema: z.ZodType<{ readonly message: string }>,
+): Promise<void> {
+  const response = await fetch(`${API_PATH}${path}`, {
+    method,
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw await refusedAs(response, refusalSchema);
+}
+
+/** A refusal as `RefusedAs` when `refusalSchema` describes its body; a 401 is always `SignedOut`. */
+async function refusedAs(
+  response: Response,
+  refusalSchema: z.ZodType<{ readonly message: string }>,
+): Promise<Error> {
+  const refusal = refusalSchema.safeParse(await bodyOf(response.clone()));
   if (response.status !== 401 && refusal.success) {
-    throw new RefusedAs(response.status, refusal.data.message, refusal.data);
+    return new RefusedAs(response.status, refusal.data.message, refusal.data);
   }
-  throw await refusalOf(response);
+  return refusalOf(response);
 }
 
 /** Deletes what `path` under /api names; the service answers with no body. */

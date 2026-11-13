@@ -43,7 +43,8 @@ describe("the first user", () => {
     const before = await send(office.port, { path: "/api/sign-in" });
     expect(signInPageSchema.parse(before.body)).toEqual({
       firstRun: true,
-      ways: [{ kind: "password" }],
+      ways: [{ kind: "password" }, { kind: "passkey" }],
+      unavailable: [],
     });
 
     const refused = await send(office.port, {
@@ -138,7 +139,7 @@ describe("signing in with a password", () => {
 
     expect(atLocalhost.status).toBe(200);
     expect(atLocalhost.body).toEqual({ outcome: "signed-in" });
-    const cookies = [atLocalhost, atPublicHttps, atPublicHttp].map(setCookieOf);
+    const cookies = [atLocalhost, atPublicHttps, atPublicHttp].map((answer) => setCookieOf(answer));
     for (const { attributes } of cookies) {
       expect(attributes).toEqual(expect.arrayContaining(["HttpOnly", "SameSite=Lax", "Path=/"]));
     }
@@ -150,7 +151,7 @@ describe("signing in with a password", () => {
 
     const database = office.app.get<symbol, Database>(DATABASE);
     const [row] = await database.select().from(users).where(eq(users.id, user.id));
-    expect(row?.passwordHash).toMatch(/^scrypt\$32768\$8\$1\$[\w-]+\$[\w-]+$/);
+    expect(row?.passwordHash).toMatch(/^scrypt\$\d+\$8\$1\$[\w-]+\$[\w-]+$/);
     expect(row?.passwordHash).not.toContain(user.password);
     const devices = await database
       .select()
@@ -176,6 +177,6 @@ describe("signing in with a password", () => {
   ])("offers a password at %s", async (_, host) => {
     const page = await send(office.port, { path: "/api/sign-in", host: host(office.port) });
 
-    expect(signInPageSchema.parse(page.body).ways).toEqual([{ kind: "password" }]);
+    expect(signInPageSchema.parse(page.body).ways).toContainEqual({ kind: "password" });
   });
 });
