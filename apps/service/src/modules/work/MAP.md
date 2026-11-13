@@ -198,7 +198,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, canBeRowId, holdManualOrder, holdShortNames, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, heldTask, saveTask, insertTask, keepStateChange, stateChangesOf, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings, engineCaps
 - `work.schema.ts`: ProjectMoveRow, ideas, InitiativePipelineRow, InitiativeBranchRow, initiatives, tasks, taskStateChanges, attachments, attachmentTexts
-- Tests: paused-by-migration.test.ts, postgres-work-repositories.full.test.ts, postgres-work-repositories.test.ts
+- Tests: initiative-pipeline-per-project-migration.test.ts, paused-by-migration.test.ts, postgres-work-repositories.full.test.ts, postgres-work-repositories.test.ts
 
 ### adapters/projects/
 
@@ -293,7 +293,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `saved-view-refused.ts`: SavedViewRefused
 - `saved-view.ts`: SAVED_VIEW_NAME_LENGTH, BoardFilters, SavedView, NewSavedView, keptBoardFilters, newSavedViewProblems, saveView
 - `search.ts`: MAX_SEARCH_WORDS, SEARCH_RESULT_LIMIT, SEARCHED_TEXT_LIMIT, searchWords, searchedText
-- `shaping.ts`: CTO, SHAPING_THREAD_TITLE, SHAPING_INSTRUCTIONS, SHAPING_OPENING, CREATED_INITIATIVE_SHAPING_OPENING, shapingOpeningOf, shapingBrief
+- `shaping.ts`: CTO, SHAPING_THREAD_TITLE, SHAPING_INSTRUCTIONS, SHAPING_OPENING, CREATED_INITIATIVE_SHAPING_OPENING, shapingOpeningOf, ShapingProject, shapingBrief
 - `short-name.ts`: SHORT_NAME_MAX_LENGTH, initiativeBranchOf, derivedShortName, shortNameProblems
 - `state-change.ts`: AutoModeConfirmation, StateChangeCause, BY_THE_PIPELINE, BY_THE_FIRE_ALARM, BY_THE_QUEUE, StateChange, stateChangeLines
 - `task-archive.ts`: DEFAULT_ARCHIVE_PERIOD, isArchived, archiveTask, restoreTask, archiveCutoff, archivePeriodStart, archiveIfDue, isFinishedOnTheBoard

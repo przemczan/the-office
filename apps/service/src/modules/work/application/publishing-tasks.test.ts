@@ -369,6 +369,29 @@ describe("Publishing Tasks", () => {
     expect(branches().existing.has(`${otherProjectId}/${branch}`)).toBe(true);
   });
 
+  it("refuses the Proposal giving a Project its first Pipeline when git can't make the branch there", async () => {
+    const { initiative } = await activeOnQuickFix([projectId]);
+    ownIds.push((await addTask(initiative, otherProjectId)).id);
+    const reason = `The base branch main isn't in ${otherProjectId}.`;
+    branches().refusing.set(otherProjectId, reason);
+    const initiatives = work.app.get(InitiativeService);
+
+    await expect(
+      initiatives.applyProposal(
+        initiative.id,
+        { kind: "pipeline", projectId: otherProjectId, pipelineId: "full" },
+        THE_USER,
+      ),
+    ).rejects.toThrow(reason);
+
+    const kept = await read(initiative);
+    expect(kept.pipelines).toEqual([
+      { projectId, pipelineId: "quick-fix" },
+      { projectId: otherProjectId, pipelineId: null },
+    ]);
+    expect(kept.branches.map(({ projectId: id }) => id)).toEqual([projectId]);
+  });
+
   it("refuses the Proposal of a Pipeline running a command that Project lacks, and in a Project it doesn't span", async () => {
     const { initiative } = await activeOnQuickFix([projectId]);
     work.app.get(KnownProjectsForTests).commands.set(otherProjectId, []);

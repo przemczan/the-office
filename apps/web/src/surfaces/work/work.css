@@ -3219,3 +3219,381 @@
 .task-graph-node-step {
   color: var(--fg-2);
 }
+
+/* ---- The Initiative page's Pipelines card (docs/design/initiative-page.html, Proposed): the shaping
+   line and Short name, then a block per Project with its own Pipeline, or None, and its track. */
+.initiative-pipelines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.initiative-pipelines-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.initiative-pipelines-intro,
+.initiative-pipelines-foot {
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-projects {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.initiative-pipelines-project {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.initiative-pipelines-project:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.initiative-pipelines-project:last-child {
+  padding-bottom: 0;
+}
+
+.initiative-pipelines-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+}
+
+.initiative-pipelines-project-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 600 var(--text-body) / 1.4 var(--font-sans);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.initiative-pipelines-shape {
+  min-width: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-shape b {
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.initiative-pipelines-none-line {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-none {
+  padding: 12px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.initiative-pipelines-none p {
+  margin: 0;
+  font: 400 var(--text-body) / 1.5 var(--font-sans);
+  color: var(--fg-2);
+}
+
+.initiative-pipelines-none p + p {
+  margin-top: 2px;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  font: var(--type-body-sm);
+}
+
+.initiative-pipelines-label a {
+  overflow-wrap: anywhere;
+}
+
+.initiative-pipelines-pending,
+.initiative-pipelines-edited {
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-published {
+  font: var(--type-caption);
+  color: var(--success-fg);
+}
+
+.initiative-pipelines-branch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-branch code {
+  font: 500 11.5px/1.4 var(--font-mono);
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.initiative-pipelines-branch-note {
+  font: 400 var(--text-xs) / 1.4 var(--font-sans);
+}
+
+.initiative-pipelines-wait {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--warning-fg);
+}
+
+/* A Project's track: across, its Stages on a line, or stacked, a Stage a row down one. */
+.initiative-track {
+  min-width: 0;
+}
+
+.initiative-track-across {
+  position: relative;
+}
+
+.initiative-track-line,
+.initiative-track-reached {
+  position: absolute;
+  height: 2px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.initiative-track-line {
+  background: var(--border-strong);
+}
+
+.initiative-track-placeholder .initiative-track-line {
+  background: repeating-linear-gradient(90deg, var(--border-strong) 0 4px, transparent 4px 8px);
+}
+
+.initiative-track-reached {
+  background: var(--success);
+}
+
+.initiative-track-across .initiative-track-reached-live {
+  background: linear-gradient(90deg, var(--success) calc(100% - 40px), var(--info));
+}
+
+.initiative-track-cells,
+.initiative-track-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.initiative-track-cells {
+  display: grid;
+}
+
+.initiative-track-cells > .initiative-track-stage {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.initiative-track-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 4px 4px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+
+button.initiative-track-body {
+  cursor: pointer;
+}
+
+button.initiative-track-body:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.initiative-track-placeholder .stage-mark {
+  border-style: dashed;
+  background: var(--surface);
+}
+
+.initiative-track-name {
+  font: 600 var(--text-xs) / 1.35 var(--font-sans);
+  color: var(--fg-1);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.initiative-track-words {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 15px;
+  font: 500 11px/1.4 var(--font-sans);
+  color: var(--fg-3);
+  text-align: center;
+}
+
+button.initiative-track-body:hover .initiative-track-name {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+button.initiative-track-body:hover .stage-mark {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 4px var(--fg-3);
+}
+
+.initiative-track-stage-selected .stage-mark {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--accent);
+}
+
+.initiative-track-stage-running .initiative-track-words {
+  color: var(--info-fg);
+}
+
+.initiative-track-stage-failed .initiative-track-words {
+  color: var(--danger-fg);
+}
+
+.initiative-track-stage-waiting-on-you .initiative-track-words,
+.initiative-track-stage-stopped .initiative-track-words {
+  color: var(--warning-fg);
+}
+
+.initiative-track-stage-done .initiative-track-words {
+  color: var(--success-fg);
+}
+
+/* Stacked: the line runs through the marks' centres, 4px of padding and half the 24px mark in. */
+.initiative-track-row {
+  position: relative;
+}
+
+.initiative-track-row::before,
+.initiative-track-row::after {
+  content: "";
+  position: absolute;
+  left: 15px;
+  width: 2px;
+  background: var(--border-strong);
+}
+
+.initiative-track-row::before {
+  top: 0;
+  bottom: 50%;
+}
+
+.initiative-track-row::after {
+  top: 50%;
+  bottom: 0;
+}
+
+.initiative-track-placeholder .initiative-track-row::before,
+.initiative-track-placeholder .initiative-track-row::after {
+  background: repeating-linear-gradient(180deg, var(--border-strong) 0 4px, transparent 4px 8px);
+}
+
+.initiative-track-first::before,
+.initiative-track-last::after {
+  display: none;
+}
+
+.initiative-track-reached-above::before,
+.initiative-track-reached-below::after {
+  background: var(--success);
+}
+
+.initiative-track-row .initiative-track-body {
+  flex-direction: row;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 4px;
+  text-align: left;
+}
+
+/* A Gate's diamond is narrower: kept on the line's centre. */
+.initiative-track-row .stage-mark-kind-gate {
+  margin-inline: calc(var(--stage-mark-size) * 0.0625);
+}
+
+.initiative-track-row-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  min-width: 0;
+}
+
+.initiative-track-row .initiative-track-name {
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.initiative-track-row .initiative-track-words {
+  min-height: 0;
+  text-align: left;
+}
+
+.initiative-track-loop-words {
+  display: block;
+  margin: 4px 0 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: var(--type-caption);
+  color: var(--danger-fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.initiative-track-loop-words:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.initiative-track-loop-words:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}

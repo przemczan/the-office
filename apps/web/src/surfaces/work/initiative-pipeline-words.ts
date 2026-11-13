@@ -55,8 +55,7 @@ export interface ProjectPublishing {
   readonly pipelineName: string | null;
   /** Its Publishing Task once added: its state and the Stages it walks. */
   readonly publishingTask:
-    | { readonly state: TaskState; readonly stages: readonly TaskStage[] }
-    | undefined;
+    { readonly state: TaskState; readonly stages: readonly TaskStage[] } | undefined;
 }
 
 /**

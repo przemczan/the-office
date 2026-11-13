@@ -34,7 +34,7 @@ import {
   fileOnRemote,
   type TemporaryRepository,
 } from "./temporary-repository.ts";
-import { openPipelinePicker } from "./pipeline-picker.ts";
+import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
 import {
   addedBasePipeline,
   addedProjectPipeline,
@@ -44,6 +44,7 @@ import { createFromTopBar } from "./top-bar.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
+const TASK_SCREENSHOTS = path.resolve(import.meta.dirname, "../../../.office/screenshots");
 
 let repository: TemporaryRepository;
 
@@ -2808,6 +2809,30 @@ test(
   },
 );
 
+/**
+ * The whole page as it is, in each palette at 1600, 900 and 390 wide, with nothing scrolling
+ * sideways, into the Task's screenshots for its review.
+ */
+async function screenshotScenario(page: Page, name: string): Promise<void> {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
+    for (const width of [1600, 900, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const sideways = await page
+        .locator("html")
+        .evaluate((html) => html.scrollWidth - html.clientWidth);
+      expect(sideways).toBe(0);
+      await page.screenshot({
+        path: path.join(TASK_SCREENSHOTS, `${name}-${colorScheme}-${width}.png`),
+        fullPage: true,
+      });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1600, height: 900 });
+}
+
 /** What `git rev-parse` names in the repository. */
 function revisionIn(repositoryPath: string, revision: string): string {
   return execFileSync("git", ["rev-parse", revision], {
@@ -2835,21 +2860,27 @@ test(
       const base = revisionIn(own.path, "main");
 
       await page.goto(`/work/initiatives/${initiativeId}`);
-      const block = page.getByRole("region", { name: "Pipeline", exact: true });
-      const choice = block.getByLabel("Initiative's Pipeline");
-      await expect(choice).toHaveValue("");
-      await choice.selectOption({ value: "full" });
-      await expect(choice).toHaveValue("full");
+      const block = page.getByRole("region", { name: "Pipelines", exact: true });
+      // Each Project the Initiative spans has a block of its own, choosing its own Pipeline.
+      const projectBlock = block.getByRole("listitem", { name: project.name, exact: true });
+      const picker = `${project.name}'s Pipeline`;
+      const choice = projectBlock.getByRole("combobox", { name: picker, exact: true });
+      await expect(choice).toHaveText("None");
+      await pickPipeline(projectBlock, picker, "Full");
+      await expect(choice).toHaveText("Full");
 
       const shortName = `branched-${word}`;
       await block.getByRole("button", { name: "Edit", exact: true }).click();
       await block.getByLabel("Short name").fill(shortName);
       await block.getByRole("button", { name: "Save", exact: true }).click();
       await expect(block.getByText(`initiative/${shortName}`, { exact: true })).toBeVisible();
+      await screenshotScenario(page, "initiative-pipelines-shaping");
 
       await page.getByRole("button", { name: "Confirm the Initiative" }).click();
-      const branches = block.getByRole("list", { name: "Initiative's branches" });
-      await expect(branches.getByText(`initiative/${shortName}`, { exact: true })).toBeVisible();
+      await expect(projectBlock.getByText(/^Full · \d+ Stages/)).toBeVisible();
+      await expect(
+        projectBlock.getByText(`initiative/${shortName}`, { exact: true }),
+      ).toBeVisible();
       await expect(block.getByRole("combobox")).toHaveCount(0);
       expect(revisionIn(own.path, `initiative/${shortName}`)).toBe(base);
     } finally {
@@ -3019,10 +3050,18 @@ test(
       if (!publishing) throw new Error("No Publishing Task was added.");
       expect(publishing.title).toBe(`${initiative.name} → ${project.name}`);
       await page.goto(`/work/initiatives/${initiative.id}`);
-      const listed = page.getByRole("list", { name: "Publishing Tasks" });
-      await expect(listed).toContainText(`${initiative.name} → ${project.name}`);
+      // Each Project's Publishing Task is in its block of the Pipelines card.
+      const listed = page
+        .getByRole("region", { name: "Pipelines", exact: true })
+        .getByRole("listitem", { name: project.name, exact: true });
+      await expect(
+        listed.getByRole("link", { name: `${initiative.name} → ${project.name}` }),
+      ).toBeVisible();
       await expect(listed).toContainText("Ready");
-      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-publishing-tasks.png") });
+      await expect(
+        listed.getByRole("group", { name: `Review and publish ${stamp} in ${project.name}` }),
+      ).toBeVisible();
+      await screenshotScenario(page, "initiative-pipelines-publishing");
 
       // Started, its Gate shows the whole change, and Continue publishes it into main.
       await seedStageThread(publishing.id);
@@ -3032,6 +3071,15 @@ test(
       await page.goto(`/tasks/${publishing.id}`);
       const gate = page.getByRole("region", { name: "Gate · Review" });
       await expect(gate.getByRole("button", { name: "Continue to Publish" })).toBeVisible();
+      // On the Initiative page, its Project's track waits on you at the Gate.
+      await page.goto(`/work/initiatives/${initiative.id}`);
+      await expect(
+        listed
+          .getByRole("button", { name: /Waiting on you/ })
+          .and(listed.locator("[aria-current]")),
+      ).toBeVisible();
+      await screenshotScenario(page, "initiative-pipelines-at-gate");
+      await page.goto(`/tasks/${publishing.id}`);
       await page.getByRole("tab", { name: /Changes/ }).click();
       const changes = page.getByRole("region", { name: "Changes" });
       await expect(changes.getByText("Files changed · 1")).toBeVisible();

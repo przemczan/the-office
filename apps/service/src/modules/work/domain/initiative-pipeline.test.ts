@@ -15,6 +15,7 @@ import {
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { initiativePipelineChangeProblems } from "./initiative-pipeline.js";
 import { InitiativeRefused } from "./initiative-refused.js";
+import type { PipelineCommands, TaskPipelineChoice } from "./pipeline-commands.js";
 import { initiativePipelineLines } from "./record-words.js";
 import { SHAPING_OPENING, shapingBrief } from "./shaping.js";
 import { anInitiative, aTask } from "./work.fixtures.js";
@@ -393,7 +394,11 @@ describe("initiativePipelineChangeProblems", () => {
       { projectId: "api", pipelineId: "quick" },
     ],
   });
-  const choice = (pipelineId: string, pipeline = full, ownerName?: string) => ({
+  const choice = (
+    pipelineId: string,
+    pipeline: PipelineCommands = full,
+    ownerName?: string,
+  ): TaskPipelineChoice => ({
     pipelineId,
     pipeline,
     ownerName,

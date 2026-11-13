@@ -285,7 +285,7 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
           const chose = await ask(
             live,
             ctoThread,
-            `Please choose the library Pipeline "${pipeline.name}" (id ${pipeline.id}) as this Initiative's Pipeline now, with choose_pipeline. The outcome and the Tasks are written already: change nothing else.`,
+            `Please choose the library Pipeline "${pipeline.name}" (id ${pipeline.id}) as this Initiative's Pipeline in the Project ${project.name} (id ${project.id}) now, with choose_pipeline. The outcome and the Tasks are written already: change nothing else.`,
           );
           initiative = await readInitiative(live, initiativeId);
           const choosePipelineCalls = chose.messages.filter(
@@ -294,14 +294,17 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
           );
           const proposals = chose.messages.filter(({ kind }) => kind === "proposal");
           const hasGate = pipeline.stages.some(({ kind }) => kind === "gate");
+          const chosenInProject = initiative.pipelines.find(
+            ({ projectId }) => projectId === project.id,
+          )?.pipelineId;
           await note(
             `CTO: ${chose.answer.replaceAll("\n", " / ")}`,
-            `  choose_pipeline calls ${choosePipelineCalls.length}, Proposals ${proposals.length}; Initiative's Pipeline ${initiative.pipelineId}, Short name ${initiative.shortName}`,
+            `  choose_pipeline calls ${choosePipelineCalls.length}, Proposals ${proposals.length}; Initiative's Pipeline in the Project ${chosenInProject}, Short name ${initiative.shortName}`,
             `  the page shows ${initiative.shortName === null ? "no branch" : initiativeBranchOf(initiative.shortName)}; "publishes without your review" shown: ${!hasGate}`,
           );
           expect(choosePipelineCalls.length).toBeGreaterThan(0);
           expect(proposals).toEqual([]);
-          expect(initiative.pipelineId).toBe(pipeline.id);
+          expect(chosenInProject).toBe(pipeline.id);
           expect(initiative.shortName).toBe(run.shortName);
           expect(hasGate).toBe(true);
 

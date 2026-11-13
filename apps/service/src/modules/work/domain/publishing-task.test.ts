@@ -336,12 +336,11 @@ describe("a Publishing Task's own rules", () => {
       pipeline: { name: "Quick fix", keys: [], hasGate: false, broken: [] },
       choices: [],
     };
-    const project = (id: string, name: string) => ({ id, name, commands: [] });
 
     expect(
       initiativePipelineChangeProblems(
         ACTIVE_ON_FULL,
-        project("admin-panel", "Admin panel"),
+        { id: "admin-panel", name: "Admin panel", commands: [] },
         choice,
         tasks,
       ),
@@ -351,7 +350,7 @@ describe("a Publishing Task's own rules", () => {
     expect(
       initiativePipelineChangeProblems(
         ACTIVE_ON_FULL,
-        project("website", "Website"),
+        { id: "website", name: "Website", commands: [] },
         choice,
         tasks,
       ),

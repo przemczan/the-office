@@ -40,7 +40,11 @@ import {
   type ProjectPublishing,
 } from "./initiative-pipeline-words.ts";
 import { InitiativePipelineTrack } from "./initiative-pipeline-track.tsx";
-import { initiativePipelineIn, publishingTasksOf, publishingWaitWords } from "./initiative-words.ts";
+import {
+  initiativePipelineIn,
+  publishingTasksOf,
+  publishingWaitWords,
+} from "./initiative-words.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
 import { StageHistoryWindow } from "./stage-history-window.tsx";
@@ -123,8 +127,7 @@ export function InitiativePipelineBlock({
     const pipelineId = initiativePipelineIn(initiative, projectId);
     // A Project's latest Publishing Task, should one have been dropped and another added.
     const publishingTask = publishing.findLast((task) => task.projectId === projectId);
-    const stagesRead =
-      publishingTask && publishingStages[publishing.indexOf(publishingTask)]?.data;
+    const stagesRead = publishingTask && publishingStages[publishing.indexOf(publishingTask)]?.data;
     return {
       projectId,
       project,
@@ -357,7 +360,9 @@ function PublishingLabel({
           {publishingTask.state === "done" && project && (
             <span className="initiative-pipelines-published">{publishedWords(project)}</span>
           )}
-          {edited && <span className="initiative-pipelines-edited">Stages edited for this Task</span>}
+          {edited && (
+            <span className="initiative-pipelines-edited">Stages edited for this Task</span>
+          )}
         </>
       ) : (
         initiative.state === "active" && (
