@@ -238,6 +238,11 @@
   height: 0;
 }
 
+/* Each insert point is its own stacking context, so an open one's menu would sit under the later points. */
+.stage-changes-insert.open {
+  z-index: 4;
+}
+
 .stage-changes-insert > * {
   position: absolute;
   top: -11px;
