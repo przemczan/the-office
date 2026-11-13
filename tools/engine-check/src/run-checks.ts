@@ -1,7 +1,7 @@
 import { deleteSession, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { rmdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { Check, Observation, Platform } from "./check.ts";
+import { CheckSkipped, type Check, type Observation, type Platform } from "./check.ts";
 import { ClaudeCodePSession } from "./claude-code-p/claude-code-p-session.ts";
 import type { Expectations } from "./expectations.ts";
 import { diffJson, type JsonDifference } from "./json.ts";
@@ -12,7 +12,7 @@ import { transcriptFolder } from "./transcripts.ts";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
-export type CheckStatus = "matches" | "differs" | "unrecorded" | "failed";
+export type CheckStatus = "matches" | "differs" | "unrecorded" | "skipped" | "failed";
 
 export interface SessionTranscript {
   readonly sessionId: string;
@@ -29,6 +29,8 @@ export interface CheckOutcome {
   readonly expected?: Observation;
   readonly differences: readonly JsonDifference[];
   readonly error?: string;
+  /** Why a skipped check observed nothing. */
+  readonly reason?: string;
   readonly tokens: TokenUsage;
   readonly durationMs: number;
   readonly sessions: readonly SessionTranscript[];
@@ -74,6 +76,9 @@ export async function runCheck(
       expected === undefined ? "unrecorded" : differences.length === 0 ? "matches" : "differs";
     return outcome({ status, observed, differences });
   } catch (error) {
+    if (error instanceof CheckSkipped) {
+      return outcome({ status: "skipped", differences: [], reason: error.message });
+    }
     return outcome({
       status: "failed",
       differences: [],
@@ -94,7 +99,7 @@ export async function runCheck(
   }
 
   function outcome(
-    result: Pick<CheckOutcome, "status" | "observed" | "differences" | "error">,
+    result: Pick<CheckOutcome, "status" | "observed" | "differences" | "error" | "reason">,
   ): CheckOutcome {
     return {
       id: check.id,

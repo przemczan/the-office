@@ -15,7 +15,8 @@ import { runCheck, sumTokens, type CheckOutcome } from "./run-checks.ts";
 const USAGE = `Usage: npm run engine-check -- [--only <id prefix>]... [--include-slow] [--record]
 
 Runs the engine checks on this platform and compares each observation with the one recorded in
-expectations.json. Exits non-zero when a check differs, has no recorded result or fails.
+expectations.json. Exits non-zero when a check differs, has no recorded result or fails; a check
+that can't observe what it is for on this account now is skipped, with the reason.
 
   --only <prefix>   run only checks whose id starts with the prefix (repeatable)
   --include-slow    also run the slow checks, which are left out otherwise, even when --only names them
@@ -71,7 +72,9 @@ async function main(): Promise<number> {
   process.stdout.write(describeSummary(outcomes, reportPath, values.record));
 
   const failed = outcomes.some((outcome) => outcome.status === "failed");
-  const mismatched = outcomes.some((outcome) => outcome.status !== "matches");
+  const mismatched = outcomes.some(
+    (outcome) => outcome.status !== "matches" && outcome.status !== "skipped",
+  );
   return failed || (mismatched && !values.record) ? 1 : 0;
 }
 
@@ -111,6 +114,9 @@ function describeOutcome(outcome: CheckOutcome): string {
       );
     }
   }
+  if (outcome.reason !== undefined) {
+    lines.push(`  ${outcome.reason}`);
+  }
   if (outcome.error !== undefined) {
     lines.push(...outcome.error.split("\n").map((line) => `  ${line}`));
   }
@@ -129,7 +135,7 @@ function describeSummary(
   );
   return [
     "",
-    `${count("matches")} match, ${count("differs")} differ, ${count("unrecorded")} unrecorded, ${count("failed")} failed`,
+    `${count("matches")} match, ${count("differs")} differ, ${count("unrecorded")} unrecorded, ${count("skipped")} skipped, ${count("failed")} failed`,
     `Tokens: in ${input}, out ${output}, cache read ${cacheRead}, cache write ${cacheCreation}`,
     `Report with every session's messages and hook calls: ${reportPath}`,
     ...(recorded ? [`Recorded observations into ${expectationsPath}`] : []),

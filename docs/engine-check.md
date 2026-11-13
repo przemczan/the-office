@@ -268,6 +268,18 @@ Slow: 11 minutes each (`ENGINE_CHECK_LONG_TOOL_MINUTES`); run only with `--inclu
 - **Observed:** the event carries `resetsAt` but no top-level `utilization`, and names one `rateLimitType` (`five_hour`). Both windows, each with `utilization` (a 0–1 fraction) and `resetsAt`, are only in `rate_limit_info.unifiedWindows`, which the typings do not declare. The usage query has `five_hour` and `seven_day` with `utilization` (0–100) and `resets_at`.
 - **Meaning:** §5.4 names both sources; the adapter treats the event as the signal and reads the windows from the usage query, never from the undeclared field (task 06).
 
+### engine.usage-window-refusal
+
+Added 2026-11-13 (Task 3de35a58). **Not run live yet:** no window of the account ran out while the Task ran, and an Agent's session has no signed-in engine to run it with. The live run is listed in the after-tier-3 fixes ([docs/tasks/README.md](tasks/README.md)).
+
+- **Run:** the usage query first, which makes no model call. While no window it reports (`five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet`, `seven_day_oauth_apps`, each `model_scoped` window) is at 100%, the check is **skipped** with that reason and spends no turn. Otherwise one turn, recording which message kinds arrive, the `rate_limit_event`'s statuses and fields, the assistant messages' `error` and whether their text is a usage limit, whether a tool call was made, and the result's `subtype`, `is_error`, `terminal_reason`, `api_error_status` and whether its text is a usage limit. The texts and reset times stay in the report, as they vary by account and hour.
+- **Evidence so far** (no recorded trace of a real refused turn could be found: the Stage histories of 2026-11-12/13 show none, and the engine's transcripts are out of an Agent's reach; read instead from the pinned SDK's typings and the pinned binary's code, 0.3.310):
+  - A used-up window comes back from the API as HTTP 429 with the `anthropic-ratelimit-unified-*` headers. The binary reads them into the rate-limit info with `status: "rejected"`, `rateLimitType` from the header (`five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet`, `seven_day_overage_included` or `overage`, the typings' list), `resetsAt` in epoch seconds when the header has one, and the overage fields.
+  - It ends the turn with a synthetic assistant message, not a model reply: `error: "rate_limit"`, one text block that starts with one of the SDK's `USAGE_LIMIT_ERROR_PREFIXES` (such as "You've hit your limit · resets 2pm"), `apiError: "usage_limit_reached"` internally. The same `error` value, `rate_limit`, is used for other 429s (a usage limit without the unified headers), so it alone doesn't name a window.
+  - The result has no rate-limit subtype: the typings' error subtypes are about turns, budgets and schema retries, so a refused turn is expected as `subtype: "success"` with `is_error: true`, the text as `result` and `api_error_status: 429`. To be confirmed live, with `terminal_reason`.
+  - Overloaded (529) and server errors (5xx) end with `error: "overloaded"` or `"server_error"` after the engine's own retries (`system:api_retry` messages); no rejected `rate_limit_event` is made for them, as the info is read only from a 429's headers.
+- **Meaning:** a turn is refused for a used-up window when it ends with an error after a `rate_limit_event` with `status: "rejected"` in the same turn; the window and the reset come from that event. `error: "rate_limit"` without a rejected event, and any error after an `allowed` event, stay ordinary failures (§5.4, the spec amendment of Task 3de35a58).
+
 ### engine.parallel-sessions
 
 - **Run:** three sessions in three worktrees of one repository, each held inside a tool call by a hook barrier until all three arrive.
@@ -337,6 +349,13 @@ Each capability of `EngineCapabilities` on the pinned binary in `-p`, started as
 - **Run:** a turn under `--json-schema` asking for `{answer: "OK"}`.
 - **Observed:** the turn completes with `structured_output` exactly `{answer: "OK"}`. The turn streams `rate_limit_event`, with `resetsAt` and a `rateLimitType`; which window it names follows the account's use (`seven_day` on these runs, `five_hour` in `engine.rate-limit-event`), so only that it names one is recorded.
 - **Meaning:** `outputSchema` holds. `usageWindows` reads the windows from `get_usage`, with the event as the signal, as on the SDK (`engine.rate-limit-event`).
+
+### fallback.usage-window-refusal
+
+Added 2026-11-13 (Task 3de35a58), not run live yet, as `engine.usage-window-refusal`.
+
+- **Run:** as `engine.usage-window-refusal`, on the pinned binary in `-p`, with `get_usage` deciding whether to skip.
+- **Expected:** the same messages as on the SDK, since `-p` streams the binary's own messages, which the SDK passes on unchanged.
 
 ### fallback.interrupt
 

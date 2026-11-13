@@ -13,6 +13,7 @@ import { parallelSessionsCheck } from "./parallel-sessions.ts";
 import { rateLimitEventCheck } from "./rate-limit-event.ts";
 import { resumeCacheCheck } from "./resume-cache.ts";
 import { turnUsageCheck } from "./turn-usage.ts";
+import { usageWindowRefusalCheck } from "./usage-window-refusal.ts";
 
 /** The engine behaviours of spec §5.4 the Office builds on. */
 export const engineChecks: readonly Check[] = [
@@ -25,6 +26,7 @@ export const engineChecks: readonly Check[] = [
   decisionWaitCheck,
   resumeCacheCheck,
   rateLimitEventCheck,
+  usageWindowRefusalCheck,
   parallelSessionsCheck,
   leanOptionsCheck,
   autoMemoryCheck,

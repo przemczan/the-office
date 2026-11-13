@@ -11,6 +11,12 @@ export type Platform = "win32" | "linux";
 /** What a check saw, as facts that hold run to run: booleans and sorted names, never model text or token counts. */
 export type Observation = { [fact: string]: Json };
 
+/**
+ * Thrown by a check that can't observe what it is for on this account now, such as a refused turn
+ * while no usage window is used up; the run reports it skipped with the reason, and records nothing.
+ */
+export class CheckSkipped extends Error {}
+
 export interface CheckContext {
   readonly sandbox: Sandbox;
   /** Aborted when the check times out. */
