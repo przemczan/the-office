@@ -201,6 +201,10 @@ function applied(
 ): string | undefined {
   const words = stageChangeWords(stageChange, stageName);
   if (!row) {
+    const removed = rows.some(
+      ({ origin, stage }) => origin === "removed" && stage.key === stageChange.stageKey,
+    );
+    if (removed) return `${words}, which an earlier Stage change removes.`;
     return stageChange.stageName === undefined
       ? `${words}, which isn't among the Stages.`
       : `${words}, which ${baseName} no longer has.`;

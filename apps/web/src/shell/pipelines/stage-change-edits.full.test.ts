@@ -4,6 +4,7 @@ import {
   insertPlace,
   newStageAmong,
   stageChangesShown,
+  stageDrafted,
   withFieldSetBack,
   withOwnKey,
   withStageChangeAppliedTo,
@@ -226,7 +227,7 @@ describe("Stage changes made in the editor", () => {
     expect(insertPlace(rows, 0)).toEqual({ kind: "insert-before", stage: TESTS });
     const place = insertPlace(rows, 2);
     expect(place).toEqual({ kind: "insert-after", stage: REVIEW });
-    const gate = newStageAmong(rows, "gate");
+    const gate = newStageAmong(rows, "gate", []);
     expect(gate).toMatchObject({ kind: "gate", key: "gate", name: "Gate" });
     expect(place && withStageInserted([], place, gate)).toEqual([
       { kind: "insert-after", stageKey: "review", stageName: "Review & fix", stage: gate },
@@ -267,5 +268,68 @@ describe("Stage changes made in the editor", () => {
     expect(withoutStageChangeOf(stageChanges, removed)).toEqual([INSERT_LINUX, changeLinux]);
     expect(withoutStageChangeOf(stageChanges, inserted)).toEqual([remove]);
     expect(withoutStageChange(stageChanges, 1)).toEqual([INSERT_LINUX, changeLinux]);
+  });
+
+  it("undoes an insert with the whole chain of Stages inserted beside the Stages it brought", () => {
+    const smoke: Stage = { ...TESTS, key: "smoke", name: "Smoke" };
+    const insertSmoke: StageChange = {
+      kind: "insert-after",
+      stageKey: "verify-on-linux",
+      stageName: "Verify on Linux",
+      stage: smoke,
+    };
+    const changeSmoke: StageChange = {
+      kind: "change",
+      stageKey: "smoke",
+      stageName: "Smoke",
+      fields: { optional: true },
+    };
+    const remove: StageChange = { kind: "remove", stageKey: "tests", stageName: "Tests" };
+    const inserted: BuiltStage = {
+      stage: LINUX,
+      origin: "inserted",
+      stageChangeIndexes: [0],
+      baseStage: null,
+      changedFields: [],
+    };
+    expect(
+      withoutStageChangeOf([INSERT_LINUX, remove, insertSmoke, changeSmoke], inserted),
+    ).toEqual([remove]);
+  });
+
+  it("keys a new Stage apart from a Stage change's Stage that doesn't apply", () => {
+    const notApplying: StageChange = {
+      kind: "insert-after",
+      stageKey: "lint",
+      stageName: "Lint",
+      stage: { kind: "gate", key: "gate", name: "Gate", optional: false },
+    };
+    const gate = newStageAmong([fromBase(TESTS)], "gate", [notApplying]);
+    expect(gate.key).not.toBe("gate");
+  });
+});
+
+describe("the Stage the Stage form shows", () => {
+  it("is the base Stage with the Change being edited, before the check answers", () => {
+    const change: StageChange = {
+      kind: "change",
+      stageKey: "review",
+      stageName: "Review & fix",
+      fields: { name: "Review", onFailure: null },
+    };
+    const { onFailure: _cleared, ...withoutLoop } = REVIEW;
+    expect(stageDrafted([change], fromBase(REVIEW))).toEqual({ ...withoutLoop, name: "Review" });
+  });
+
+  it("is an inserted Stage's own Stage change's Stage", () => {
+    const edited = { ...LINUX, name: "Linux check" };
+    const row: BuiltStage = {
+      stage: LINUX,
+      origin: "inserted",
+      stageChangeIndexes: [0],
+      baseStage: null,
+      changedFields: [],
+    };
+    expect(stageDrafted([{ ...INSERT_LINUX, stage: edited }], row)).toEqual(edited);
   });
 });

@@ -151,9 +151,13 @@ describe("brokenBy", () => {
   it("names each Project Pipeline built from the base Pipeline that its new Stages break", () => {
     const fine = aProjectPipeline({ id: "fine", stageChanges: [] });
     const other = aProjectPipeline({ id: "other", basePipelineId: "elsewhere" });
+    const alreadyBroken = aProjectPipeline({
+      id: "already",
+      stageChanges: [{ kind: "remove", stageKey: "lint", stageName: "Lint" }],
+    });
     const withoutTests = { ...FULL, stages: [agentStage()] };
 
-    const broken = brokenBy(withoutTests, [aProjectPipeline(), fine, other]);
+    const broken = brokenBy(FULL, withoutTests, [aProjectPipeline(), fine, other, alreadyBroken]);
 
     expect(broken).toEqual([
       {

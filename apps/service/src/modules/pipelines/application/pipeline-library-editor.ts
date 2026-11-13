@@ -210,6 +210,7 @@ export class PipelineLibraryEditor {
   ): Promise<OfficeWidePipelineCheck> {
     const library = await this.repository.list();
     const others = library.filter(({ id }) => id !== pipelineId);
+    const saved = library.find(({ id }) => id === pipelineId);
     return {
       problems: [
         ...pipelineEditProblems(edit, others, await this.projectPipelineNames()),
@@ -217,10 +218,7 @@ export class PipelineLibraryEditor {
         ...(await this.missingCommandProblems(pipelineId, edit.name, edit.stages)),
       ],
       flags: await this.flagsOf(edit.stages),
-      breaks:
-        pipelineId === undefined
-          ? []
-          : await this.breaks({ ...edit, id: pipelineId, stages: edit.stages }),
+      breaks: saved ? await this.breaks(saved, { ...saved, ...edit }) : [],
     };
   }
 
@@ -231,7 +229,7 @@ export class PipelineLibraryEditor {
   async breaksOf(pipelineId: string, stages: readonly Stage[]): Promise<ProjectPipelineBreak[]> {
     const pipeline = await this.repository.find(pipelineId);
     if (!pipeline) throw new UnknownPipeline(pipelineId);
-    return this.breaks({ ...pipeline, stages });
+    return this.breaks(pipeline, { ...pipeline, stages });
   }
 
   async addProjectPipeline(
@@ -432,12 +430,12 @@ export class PipelineLibraryEditor {
     ];
   }
 
-  private async breaks(base: Pipeline): Promise<ProjectPipelineBreak[]> {
+  private async breaks(saved: Pipeline, edited: Pipeline): Promise<ProjectPipelineBreak[]> {
     const [builtFrom, projects] = await Promise.all([
-      this.projectPipelines.builtFrom(base.id),
+      this.projectPipelines.builtFrom(saved.id),
       this.projects.list(),
     ]);
-    return brokenBy(base, builtFrom).map(({ projectPipeline, reasons }) => ({
+    return brokenBy(saved, edited, builtFrom).map(({ projectPipeline, reasons }) => ({
       projectPipelineId: projectPipeline.id,
       name: projectPipeline.name,
       projectId: projectPipeline.projectId,

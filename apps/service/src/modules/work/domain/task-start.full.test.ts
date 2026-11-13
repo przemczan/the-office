@@ -72,7 +72,7 @@ describe("startReasons", () => {
 
   it("refuses a Pipeline the library doesn't have", () => {
     expect(startReasons(ready, { ...conditions, stages: undefined }, held([]))).toEqual(
-      refused(`There is no Pipeline "${ready.pipelineId}" in the library.`),
+      refused(`There is no Pipeline "${ready.pipelineId}" this Task's Project can follow.`),
     );
   });
 
@@ -81,7 +81,7 @@ describe("startReasons", () => {
     const noPipeline = { ...conditions, stages: undefined, officeWideLimit: 1 };
 
     expect(startReasons(ready, noPipeline, held([started("a")], blockers))).toEqual({
-      refusals: [`There is no Pipeline "${ready.pipelineId}" in the library.`],
+      refusals: [`There is no Pipeline "${ready.pipelineId}" this Task's Project can follow.`],
       waits: [
         'Blocked by "Queue schema", which must be Done first.',
         "The Office-wide limit is reached: the only desk is in use.",

@@ -120,7 +120,7 @@ export function startReasons(
       ...brokenPipelineRefusals(conditions),
       ...(conditions.stages
         ? personRefusals(stage, conditions.person)
-        : [`There is no Pipeline "${task.pipelineId}" in the library.`]),
+        : [`There is no Pipeline "${task.pipelineId}" this Task's Project can follow.`]),
       ...initiativeBranchRefusals(task, conditions),
     ],
     waits: [

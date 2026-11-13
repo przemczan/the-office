@@ -209,7 +209,7 @@
 - `pipeline-use-words.ts`: pipelineUseLine, projectPipelineUseLine
 - `pipeline-words.ts`: PUBLISH_TARGET_NAMES, AFTER_CONFLICT_NAMES, StageFieldChange, stageFieldChanges, stagesLine, whoWorks, stageDetailsLine, thousands, StageChange, stageChanges, stageChangeLine, sameStageChange
 - `remove-pipeline-dialog.tsx`: RemovePipelineDialog
-- `stage-change-edits.ts`: StageField, STAGE_FIELDS, StageChangeRow, NotApplyingFix, NotApplying, StageChangesShown, BuiltRows, stageChangesShown, stageChangeOf, withStageEdited, withFieldSetBack, fieldsDiffering, withoutStageChangeOf, withoutStageChange, InsertPlace, insertPlace, newStageAmong, withStageInserted, withStageReplaced, withStageRemoved, withStageChangeAppliedTo, withOwnKey, withInsertPlaced, insertPlaces
+- `stage-change-edits.ts`: StageField, STAGE_FIELDS, StageChangeRow, NotApplyingFix, NotApplying, StageChangesShown, BuiltRows, stageChangesShown, stageChangeOf, withStageEdited, stageDrafted, withFieldSetBack, fieldsDiffering, withoutStageChangeOf, withoutStageChange, InsertPlace, insertPlace, newStageAmong, withStageInserted, withStageReplaced, withStageRemoved, withStageChangeAppliedTo, withOwnKey, withInsertPlaced, insertPlaces
 - `stage-change-words.ts`: counted, STAGE_FIELD_LABELS, STAGE_CHANGE_KIND_NAMES, OriginWords, originWords, changedFieldsWords, undoWords, stageChangeLine, FieldWordsContext, fieldWords, getsLine, projectPipelineLine, builtOnByWords
 - `stage-changes-view.tsx`: StageChangesViewProps, StageChangesView
 - `stage-check-alerts.tsx`: StageCheckAlerts

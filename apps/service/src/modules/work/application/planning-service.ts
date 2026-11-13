@@ -281,8 +281,13 @@ export class PlanningService {
    * it by id only; Pipelines keeps a Task's own Stages, made when it starts or is edited for itself.
    */
   async confirmPipeline(taskId: string, pipelineId: string): Promise<Task> {
-    await this.refusePipelineFor(await this.read(taskId), pipelineId);
-    return this.update(taskId, (task) => confirmPipeline(task, pipelineId));
+    const task = await this.read(taskId);
+    // Keeping the Pipeline it follows declines a proposal of another, even when it has since become
+    // Broken: Start refuses it until it is fixed, but the user must still be able to answer.
+    const keeps =
+      pipelineId === task.pipelineId && task.proposedPipeline?.pipelineId !== pipelineId;
+    if (!keeps) await this.refusePipelineFor(task, pipelineId);
+    return this.update(taskId, (latest) => confirmPipeline(latest, pipelineId));
   }
 
   /**
@@ -369,7 +374,11 @@ export class PlanningService {
           pipeline?.projectId === undefined || pipeline.projectId === project.id
             ? undefined
             : (await this.projects.find(pipeline.projectId))?.name,
-        choices: pipeline ? [] : (await this.pipelines.listFor(project.id)).map(({ id }) => id),
+        choices: pipeline
+          ? []
+          : (await this.pipelines.listFor(project.id))
+              .filter(({ broken = [] }) => broken.length === 0)
+              .map(({ id }) => id),
       },
       project,
     );

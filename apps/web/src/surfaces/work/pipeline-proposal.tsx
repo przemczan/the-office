@@ -73,7 +73,8 @@ export function PipelineProposal({
         <Button
           size="sm"
           loading={choosing.isPending && choosing.variables === proposed.pipelineId}
-          disabled={brokenWhy !== undefined}
+          // Until the choices are read, whether the proposed Pipeline is Broken isn't known.
+          disabled={groups.length === 0 || brokenWhy !== undefined}
           title={brokenWhy}
           onClick={() => choosing.mutate(proposed.pipelineId)}
         >

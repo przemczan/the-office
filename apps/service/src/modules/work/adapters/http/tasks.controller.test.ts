@@ -546,6 +546,32 @@ describe("Start", () => {
     expect(edited.refusals).toEqual([]);
   });
 
+  it("lets the user keep a Task's Pipeline that has become Broken, declining a proposal of another", async () => {
+    const library = projectPipelinesForTests(work.app);
+    const base = await library.aBasePipeline();
+    const own = await library.aProjectPipeline(projectId, base);
+    const task = await proposedTask();
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: own.id });
+    await library.breakProjectPipelinesOf(base);
+    const planning = work.app.get(PlanningService);
+    await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
+
+    const kept = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: own.id });
+    const chosen = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, {
+      pipelineId: "full",
+    });
+    const choosingBroken = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, {
+      pipelineId: own.id,
+    });
+
+    expect(taskSchema.parse(await kept.json())).toMatchObject({
+      pipelineId: own.id,
+      proposedPipeline: null,
+    });
+    expect(chosen.status).toBe(200);
+    expect(choosingBroken.status).toBe(422);
+  });
+
   it("refuses a Task that isn't Ready", async () => {
     const task = await create();
 

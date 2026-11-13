@@ -181,7 +181,8 @@ export class PipelineOfficeTools implements OnModuleInit {
           ),
       }),
       run: async ({ project }) => {
-        const projectId = project?.trim();
+        // An empty id means every Project, as one left out does.
+        const projectId = project?.trim() || undefined;
         const projects = await this.projects.list();
         if (projectId !== undefined && !projects.some(({ id }) => id === projectId)) {
           return { text: `There is no Project "${projectId}".`, isError: true };

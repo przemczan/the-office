@@ -275,7 +275,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, OfficeLim
 - `pdf-text.ts`: pdfTextOf
 - `pipeline-commands.ts`: PipelineCommands, TaskPipelineChoice, TaskPipelineProject, taskPipelineProblems, brokenPipelineWords, missingCommands, missingCommandsWords, projectPipelineForInitiativeWords
 - `planning-changes.ts`: proposePlan, savePlan, confirmPlan, proposeDefinitionOfDone, saveDefinitionOfDone, confirmDefinitionOfDone, proposePipeline, confirmPipeline, markingPlannedProblems, markPlanned, acceptInAutoMode
-- `planning.ts`: PLANNER, THE_PLANNER, PLANNING_THREAD_TITLE, makeAPlanOpening, PLANNING_INSTRUCTIONS, PlanningProject, ProjectCommandsInBrief, PlanningPipeline, PlanningRecord, InitiativeBranchStart, planningBrief, planSections, attachmentsSection, ProjectPipelinesInBrief, pipelineGroups, pipelineLibraryLines, commandLines
+- `planning.ts`: PLANNER, THE_PLANNER, PLANNING_THREAD_TITLE, makeAPlanOpening, PLANNING_INSTRUCTIONS, PlanningProject, ProjectCommandsInBrief, PlanningPipeline, PlanningRecord, InitiativeBranchStart, planningBrief, planSections, attachmentsSection, defaultPipelineWords, ProjectPipelinesInBrief, pipelineGroups, pipelineLibraryLines, commandLines
 - `project-filter.ts`: ProjectFilter, isInProjectFilter
 - `publishing-task.ts`: PublishingProject, PublishingGrounds, PUBLISHING_TASK_NEVER_PLANNED, publishingTaskTitle, publishingModeWords, publishingTaskPlan, publishingTaskDefinitionOfDone, publishingTaskFiles, createPublishingTask, publishingCandidates, projectsToPublish, swapPublishingPipeline, lastPublishedBy, unfinishedPublishingTask, doneTasksIn
 - `queue-events.ts`: TaskQueued, LeavingQueue, TaskLeftQueue, TaskQueueReasonsChanged, TaskMovedUpInQueue

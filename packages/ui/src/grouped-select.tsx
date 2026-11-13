@@ -71,12 +71,11 @@ export function GroupedSelect({
     if (open) list.current?.focus();
   }, [open]);
 
-  const choosable = options.filter((option) => option.disabledWhy === undefined);
   const optionId = (optionValue: string): string => `${id}-option-${optionValue}`;
 
   const openList = (): void => {
-    const chosenIsChoosable = chosen !== undefined && chosen.disabledWhy === undefined;
-    setActive(chosenIsChoosable ? chosen.value : choosable[0]?.value);
+    const firstChoosable = options.find((option) => option.disabledWhy === undefined);
+    setActive((chosen ?? firstChoosable ?? options[0])?.value);
     setOpen(true);
   };
   const close = (): void => {
@@ -88,16 +87,17 @@ export function GroupedSelect({
     onChange(option.value);
     close();
   };
+  // A disabled option is reached too, so its reason is read out; choosing it does nothing.
   const moveActive = (step: number | "first" | "last"): void => {
-    if (choosable.length === 0) return;
-    const at = choosable.findIndex((option) => option.value === active);
+    if (options.length === 0) return;
+    const at = options.findIndex((option) => option.value === active);
     const index =
       step === "first"
         ? 0
         : step === "last"
-          ? choosable.length - 1
-          : Math.min(Math.max(at + step, 0), choosable.length - 1);
-    const next = choosable[index];
+          ? options.length - 1
+          : Math.min(Math.max(at + step, 0), options.length - 1);
+    const next = options[index];
     setActive(next?.value);
     if (next) document.getElementById(optionId(next.value))?.scrollIntoView?.({ block: "nearest" });
   };
@@ -181,9 +181,7 @@ export function GroupedSelect({
                     selected={option.value === value}
                     active={option.value === active}
                     onChoose={() => choose(option)}
-                    onHover={() => {
-                      if (option.disabledWhy === undefined) setActive(option.value);
-                    }}
+                    onHover={() => setActive(option.value)}
                   />
                 ))}
               </div>

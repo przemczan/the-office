@@ -6,6 +6,7 @@ import { InitiativePlanningStarted } from "./initiative-events.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import {
   commandLines,
+  defaultPipelineWords,
   pipelineGroups,
   THE_PLANNER,
   type PlanningPipeline,
@@ -298,7 +299,7 @@ export function initiativePlanningBrief({
     toPlanSection(tasks, projects),
     unfinishedSection(initiative, tasks),
     waitingSection(waiting, tasks),
-    projectsSection(projects),
+    projectsSection(projects, pipelines),
     [
       "## The Pipelines\n\nA Task has no Pipeline until one is chosen. Propose the one each Task's Definition of Done needs with propose_pipeline; a Project Pipeline only for its own Project's Tasks:",
       ...pipelineGroups(
@@ -369,10 +370,13 @@ function waitingSection(
   return `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n${lines.join("\n")}`;
 }
 
-function projectsSection(projects: readonly InitiativePlanningProject[]): string {
+function projectsSection(
+  projects: readonly InitiativePlanningProject[],
+  pipelines: readonly PlanningPipeline[],
+): string {
   const parts = projects.map(
     (project) =>
-      `### ${project.name} (${project.id})\n\nBase branch ${project.baseBranch}, checked out where The Projects below say; its default Pipeline is ${project.defaultPipeline}. Its commands:\n\n${commandLines(project).join("\n")}`,
+      `### ${project.name} (${project.id})\n\nBase branch ${project.baseBranch}, checked out where The Projects below say; its default Pipeline is ${defaultPipelineWords([...project.ownPipelines, ...pipelines], project.defaultPipeline)}. Its commands:\n\n${commandLines(project).join("\n")}`,
   );
   return `## The Projects it spans\n\n${parts.join("\n\n")}`;
 }

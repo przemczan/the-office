@@ -266,7 +266,12 @@ export class TaskStagesService implements OnModuleInit {
           },
         ]);
       case "unknown":
-        throw new Error(`There is no Pipeline "${pipelineId}" for Task ${taskId}.`);
+        // Neither the library nor the Task's Project has it, as with another Project's Pipeline.
+        throw new StagesEditRefused([
+          {
+            text: `There is no Pipeline "${pipelineId}" that Task ${taskId}'s Project can follow; choose another Pipeline.`,
+          },
+        ]);
     }
   }
 }

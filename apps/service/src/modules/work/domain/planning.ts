@@ -179,7 +179,7 @@ function pipelinesSection(
     : undefined;
   const current =
     task.pipelineId === undefined
-      ? `The Task has no Pipeline yet; the Project's default is ${nameOf(project.defaultPipeline)}${brokenDefaultWords(pipelines, project.defaultPipeline)}.`
+      ? `The Task has no Pipeline yet; the Project's default is ${defaultPipelineWords(pipelines, project.defaultPipeline)}.`
       : `The Task follows ${nameOf(task.pipelineId)} until the user confirms another.`;
   return [
     `## The Pipelines\n\n${current} Propose the one its Definition of Done needs with propose_pipeline:`,
@@ -194,6 +194,16 @@ function pipelinesSection(
 }
 
 /** A Broken default can't be proposed, so the Brief says so where it names it. */
+/** A Project's default Pipeline by name and id, with why it is Broken when it is. */
+export function defaultPipelineWords(
+  pipelines: readonly PlanningPipeline[],
+  defaultPipeline: string,
+): string {
+  const pipeline = pipelines.find(({ id }) => id === defaultPipeline);
+  const name = pipeline ? `${pipeline.name} (${defaultPipeline})` : defaultPipeline;
+  return `${name}${brokenDefaultWords(pipelines, defaultPipeline)}`;
+}
+
 function brokenDefaultWords(
   pipelines: readonly PlanningPipeline[],
   defaultPipeline: string,

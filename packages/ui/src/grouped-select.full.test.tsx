@@ -115,7 +115,7 @@ describe("GroupedSelect", () => {
     expect(list()).not.toBeNull();
   });
 
-  it("moves through the choosable options by the keyboard, skipping a disabled one", () => {
+  it("moves through the options by the keyboard, reaching a disabled one without choosing it", () => {
     const onChange = rendered("");
     press(trigger(), "ArrowDown");
     const listbox = list();
@@ -127,8 +127,12 @@ describe("GroupedSelect", () => {
     expect(activeLabel()).toBe("Full with Linux check");
 
     press(listbox, "ArrowUp");
-    expect(activeLabel()).toBe("Full with Linux check");
-    press(listbox, "ArrowDown");
+    expect(activeLabel()).toBe("Spec change");
+    press(listbox, "Enter");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(list()).not.toBeNull();
+
+    press(listbox, "End");
     expect(activeLabel()).toBe("Full");
     press(listbox, "Enter");
 

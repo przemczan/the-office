@@ -83,6 +83,22 @@ describe("buildStages, field by field", () => {
       "Removes nowhere, which isn't among the Stages.",
     ]);
   });
+
+  it("says a Stage an earlier Stage change removed is gone by that Stage change, not the base Pipeline", () => {
+    const built = buildStages(DOCUMENT, [
+      { kind: "remove", stageKey: "check", stageName: "Glossary check" },
+      {
+        kind: "change",
+        stageKey: "check",
+        stageName: "Glossary check",
+        fields: { brief: "Look." },
+      },
+    ]);
+
+    expect(built.broken.map(({ text }) => text)).toEqual([
+      expect.stringMatching(/, which an earlier Stage change removes\.$/),
+    ]);
+  });
 });
 
 describe("buildStages, the rules on the built Stages", () => {

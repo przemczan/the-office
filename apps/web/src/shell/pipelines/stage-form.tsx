@@ -217,6 +217,12 @@ function BudgetInput({
   readonly change: (stage: Stage) => void;
 }): ReactNode {
   const [typed, setTyped] = useState(String(thousands(stage.budget)));
+  const [shownBudget, setShownBudget] = useState(stage.budget);
+  // A budget set from outside, such as Set back, shows; one typed here stays as typed.
+  if (stage.budget !== shownBudget) {
+    setShownBudget(stage.budget);
+    setTyped(String(thousands(stage.budget)));
+  }
   return (
     <Input
       label="Budget"
@@ -228,7 +234,10 @@ function BudgetInput({
       onChange={(event) => {
         setTyped(event.target.value);
         const budget = Math.round(Number(event.target.value) * 1000);
-        if (event.target.value !== "" && budget > 0) change({ ...stage, budget });
+        if (event.target.value !== "" && budget > 0) {
+          setShownBudget(budget);
+          change({ ...stage, budget });
+        }
       }}
     />
   );

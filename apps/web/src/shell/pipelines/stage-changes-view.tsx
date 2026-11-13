@@ -26,6 +26,7 @@ import {
   insertPlaces,
   newStageAmong,
   stageChangesShown,
+  stageDrafted,
   withFieldSetBack,
   withInsertPlaced,
   withOwnKey,
@@ -140,7 +141,8 @@ export function StageChangesView(props: StageChangesViewProps): ReactNode {
       <ol className="stage-changes-list" aria-label={listName}>
         {shown.rows.map((row, at) => (
           <StageChangesRowItem
-            key={`${row.built.origin}-${row.built.stage.key}-${at}`}
+            // By the Stage's key alone, so a Stage keeps its open form as its origin or place changes.
+            key={`${row.built.origin === "removed" ? "removed-" : ""}${row.built.stage.key}`}
             {...props}
             row={row}
             at={at}
@@ -399,6 +401,7 @@ function StageEditFields(
 ): ReactNode {
   const { row, stages, stageChanges, onEdit, built, baseName, roles, options, commands } = props;
   const index = stages.findIndex(({ key }) => key === row.built.stage.key);
+  const drafted = index < 0 ? stages : stages.with(index, stageDrafted(stageChanges, row.built));
   const fromBase = row.built.origin === "base" || row.built.origin === "changed";
   return (
     <>
@@ -414,7 +417,7 @@ function StageEditFields(
         row.built.origin === "inserted" && <WhereItGoes {...props} />
       )}
       <StageForm
-        stages={stages}
+        stages={drafted}
         index={index}
         onChange={(edited) => {
           const stage = edited[index];
@@ -725,7 +728,7 @@ function InsertPoint({
           ...KINDS.map((kind): MenuItem => ({
             label: STAGE_KIND_NAMES[kind],
             icon: <Icon name={STAGE_KIND_ICONS[kind]} size={14} />,
-            onSelect: () => insert(newStageAmong(built.rows, kind)),
+            onSelect: () => insert(newStageAmong(built.rows, kind, stageChanges)),
           })),
           { divider: true },
           { heading: "From a template" },
@@ -733,7 +736,7 @@ function InsertPoint({
             ? listed.map((template): MenuItem => ({
                 label: template.stage.name,
                 icon: <Icon name={STAGE_KIND_ICONS[template.stage.kind]} size={14} />,
-                onSelect: () => insert(newStageAmong(built.rows, template)),
+                onSelect: () => insert(newStageAmong(built.rows, template, stageChanges)),
               }))
             : [
                 {

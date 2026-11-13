@@ -217,19 +217,21 @@ export function savedProjectPipeline(
 }
 
 /**
- * The Project Pipelines built from the base Pipeline that its new Stages would leave Broken, each
- * with every reason (spec §2.3): the warning before an office-wide Pipeline's save, which still
- * goes through.
+ * The Project Pipelines built from the base Pipeline that its edit would break, each with every
+ * reason (spec §2.3): the warning before an office-wide Pipeline's save, which still goes through.
+ * One already Broken with the saved Stages isn't the edit's doing, so it isn't warned of again.
  */
 export function brokenBy(
-  base: Pipeline,
+  saved: Pipeline,
+  edited: Pipeline,
   projectPipelines: readonly ProjectPipeline[],
 ): BrokenProjectPipeline[] {
   return projectPipelines
-    .filter(({ basePipelineId }) => basePipelineId === base.id)
+    .filter(({ basePipelineId }) => basePipelineId === saved.id)
+    .filter(({ stageChanges }) => buildStages(saved, stageChanges).broken.length === 0)
     .map((projectPipeline) => ({
       projectPipeline,
-      reasons: buildStages(base, projectPipeline.stageChanges).broken,
+      reasons: buildStages(edited, projectPipeline.stageChanges).broken,
     }))
     .filter(({ reasons }) => reasons.length > 0);
 }

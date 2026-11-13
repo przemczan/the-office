@@ -219,7 +219,7 @@ describe("the Initiative's planning Thread", () => {
     );
     expect(brief).not.toContain("task-c), in the Project");
     expect(brief).toContain("### Admin panel (admin-panel)\n\nBase branch main");
-    expect(brief).toContain("its default Pipeline is full.");
+    expect(brief).toContain("its default Pipeline is Full (full).");
     expect(brief).toContain(
       "- install (Install): `npm ci`\n- test (Test): `npm test`\n- lint (Lint): none",
     );

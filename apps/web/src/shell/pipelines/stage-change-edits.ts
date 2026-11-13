@@ -221,6 +221,30 @@ export function withStageEdited(
   return withChange(stageChanges, row.baseStage, fieldsDiffering(row.baseStage, edited));
 }
 
+/**
+ * The row's Stage as the Stage changes being edited give it, ahead of the check's answer, so an edit
+ * made before the check answers the last one builds on it: a Stage change's own Stage, or the base
+ * Pipeline's Stage with its Change's fields.
+ */
+export function stageDrafted(stageChanges: readonly StageChange[], row: BuiltStage): Stage {
+  if (row.origin === "inserted" || row.origin === "replaced") {
+    const stageChange = stageChangeOf(stageChanges, row);
+    return stageChange && bringsStage(stageChange) ? stageChange.stage : row.stage;
+  }
+  if (!row.baseStage) return row.stage;
+  const drafted: Record<string, unknown> = { ...row.baseStage };
+  for (const index of changeIndexes(stageChanges, row.baseStage.key)) {
+    const stageChange = stageChanges[index];
+    if (stageChange?.kind !== "change") continue;
+    for (const [field, value] of Object.entries(stageChange.fields)) {
+      if (value === null) delete drafted[field];
+      else if (value !== undefined) drafted[field] = value;
+    }
+  }
+  // A Change gives only fields of its Stage's kind (the service flags any other), so it stays that kind.
+  return drafted as unknown as Stage;
+}
+
 /** Set back: the field follows the base Pipeline's Stage again, dropped from its Change. */
 export function withFieldSetBack(
   stageChanges: readonly StageChange[],
@@ -296,19 +320,28 @@ function withoutIndexes(
   stageChanges: readonly StageChange[],
   indexes: readonly number[],
 ): StageChange[] {
-  const ownKeys = new Set(
-    indexes.flatMap((index) => {
-      const stageChange = stageChanges[index];
-      return stageChange &&
+  const dropped = new Set(indexes);
+  const ownKeys = new Set<string>();
+  // Follows the chain: a Stage inserted beside a dropped Stage goes too, and so on.
+  for (let grown = true; grown;) {
+    grown = false;
+    stageChanges.forEach((stageChange, index) => {
+      if (!dropped.has(index) && ownKeys.has(stageChange.stageKey)) {
+        dropped.add(index);
+        grown = true;
+      }
+      if (
+        dropped.has(index) &&
         bringsStage(stageChange) &&
-        stageChange.stage.key !== stageChange.stageKey
-        ? [stageChange.stage.key]
-        : [];
-    }),
-  );
-  return stageChanges.filter(
-    (stageChange, index) => !indexes.includes(index) && !ownKeys.has(stageChange.stageKey),
-  );
+        stageChange.stage.key !== stageChange.stageKey &&
+        !ownKeys.has(stageChange.stage.key)
+      ) {
+        ownKeys.add(stageChange.stage.key);
+        grown = true;
+      }
+    });
+  }
+  return stageChanges.filter((_stageChange, index) => !dropped.has(index));
 }
 
 /** What an insert point between two rows inserts beside: the Stage above it, or before the first. */
@@ -325,9 +358,19 @@ export function insertPlace(rows: readonly BuiltStage[], at: number): InsertPlac
   return below && { kind: "insert-before", stage: below.stage };
 }
 
-/** A new Stage of `kind`, or a copy of a template's, named and keyed apart from every row's. */
-export function newStageAmong(rows: readonly BuiltStage[], from: StageKind | StageTemplate): Stage {
-  const stages = rows.map(({ stage }) => stage);
+/**
+ * A new Stage of `kind`, or a copy of a template's, named and keyed apart from every row's and from
+ * the Stages of Stage changes that don't apply, which have no row.
+ */
+export function newStageAmong(
+  rows: readonly BuiltStage[],
+  from: StageKind | StageTemplate,
+  stageChanges: readonly StageChange[],
+): Stage {
+  const stages = [
+    ...rows.map(({ stage }) => stage),
+    ...stageChanges.filter(bringsStage).map(({ stage }) => stage),
+  ];
   const added =
     typeof from === "string" ? addStage(stages, from, 0) : addStageFrom(stages, from, 0);
   const stage = added.stages[added.index];
@@ -362,6 +405,7 @@ export function withStageReplaced(
     ...newStageAmong(
       rows.filter((other) => other !== row),
       kind,
+      stageChanges,
     ),
     key: baseStage.key,
   };
