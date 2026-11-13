@@ -1,20 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Project, QueuedTask, Task, TaskPlacement, TaskState } from "@the-office/contracts";
+import type { Task, TaskPlacement } from "@the-office/contracts";
 import { Alert, Icon } from "@the-office/ui";
-import { Link } from "@tanstack/react-router";
-import { Fragment, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useState, type DragEvent, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, placeTask, taskQueries } from "../../api/work.ts";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
-import { ProjectMark } from "../../shell/project-mark.tsx";
 import { useToast } from "../../shell/toasts.tsx";
-import { PriorityIcon, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
-import { UsageEstimateLine, useUsageEstimate } from "../../shell/work/usage-estimate-line.tsx";
 import { useCto } from "../../shell/work/use-cto.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
-import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { BoardCard } from "./board-card.tsx";
 import { cardsIn, COLUMNS, queuedEntryOf, type Column } from "./board-columns.ts";
 import { isOnBoard } from "./board-filters.ts";
 import { GroupedBoard } from "./board-group.tsx";
@@ -23,25 +20,8 @@ import { boardGroups, groupKeyOf, type BoardGroup } from "./board-groups.ts";
 import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
-import { PlanOnCardButton, planningNoteWords } from "./planning-actions.tsx";
-import { QueuedCardMark } from "./queue-parts.tsx";
-import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters, useBoardGrouping } from "./use-board-filters.ts";
-import {
-  stageWorkedNow,
-  useCurrentStage,
-  usePeopleWorking,
-  WorkingMark,
-  type PersonWorking,
-} from "./working-mark.tsx";
-
-const EDGES: Partial<Record<TaskState, string>> = {
-  "in-progress": "edge-running",
-  "waiting-on-you": "edge-decision",
-  paused: "edge-paused",
-  done: "edge-done",
-  dropped: "edge-failed",
-};
+import { stageWorkedNow, useCurrentStage, usePeopleWorking } from "./working-mark.tsx";
 
 /** Where a dragged card would land: before a card, or at the end of its list. */
 type DropTarget = { readonly before: string } | { readonly endOf: string };
@@ -121,6 +101,7 @@ export function Board(): ReactNode {
 
   const cardOf = (task: Task): ReactNode => {
     const peopleWorking = peopleWorkingOn(task.id);
+    const queued = queuedEntryOf(task, queue);
     return (
       <BoardCard
         key={task.id}
@@ -128,7 +109,8 @@ export function Board(): ReactNode {
         projects={projects.data}
         planner={planner}
         waiting={waitingOnYou(task)}
-        queued={queuedEntryOf(task, queue)}
+        queued={queued}
+        queuedBehind={tasksAmong(queued?.behind ?? [], tasks.data ?? [])}
         blockers={blockingTasksOf(task, tasks.data ?? [])}
         peopleWorking={peopleWorking}
         stageName={stageWorkedNow(peopleWorking, currentStageOf(task.id))}
@@ -276,150 +258,6 @@ function BoardColumns({
   );
 }
 
-function BoardCard({
-  task,
-  projects,
-  planner,
-  waiting,
-  queued,
-  blockers,
-  peopleWorking,
-  stageName,
-  dragging,
-  dropBefore,
-  onDragStart,
-  onDragEnd,
-}: {
-  readonly task: Task;
-  readonly projects: readonly Project[] | undefined;
-  /** The Planner's name; undefined while nobody is the Planner. */
-  readonly planner: string | undefined;
-  /** In Planning or Paused with a Decision open. */
-  readonly waiting: boolean;
-  /** Its place in the queue for Start; undefined while it isn't queued. */
-  readonly queued: QueuedTask | undefined;
-  /** The Tasks still holding it back. */
-  readonly blockers: readonly Task[];
-  /** The names of the people working on it now. */
-  readonly peopleWorking: readonly PersonWorking[];
-  /** The current Stage's name while one of them works it. */
-  readonly stageName: string | undefined;
-  readonly dragging: boolean;
-  readonly dropBefore: boolean;
-  readonly onDragStart: () => void;
-  readonly onDragEnd: () => void;
-}): ReactNode {
-  const project = projects?.find(({ id }) => id === task.projectId);
-  const movable = NOT_STARTED.includes(task.state) && !queued;
-  const foot = queued ? <QueuedCardMark queued={queued} /> : footOf(task, planner, waiting);
-  // Only Ready Tasks, queued ones too, have one.
-  const usageEstimate = useUsageEstimate(task.id);
-  const titleLink = useRef<HTMLAnchorElement>(null);
-  const someoneWorking = peopleWorking.length > 0;
-  const classes = [
-    "board-card",
-    waiting ? "edge-decision" : EDGES[task.state],
-    dragging && "dragging",
-    dropBefore && "drop-before",
-  ].filter(Boolean);
-  return (
-    <article
-      className={classes.join(" ")}
-      aria-label={task.title}
-      data-task-id={task.id}
-      draggable={movable}
-      onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", task.id);
-        onDragStart();
-      }}
-      onDragEnd={onDragEnd}
-    >
-      <div className="board-card-head">
-        <PriorityIcon priority={task.priority} />
-        <Link
-          ref={titleLink}
-          to="/tasks/$taskId"
-          params={{ taskId: task.id }}
-          className="board-card-title"
-          draggable={false}
-        >
-          {task.title}
-        </Link>
-        <TaskMenu task={task} />
-      </div>
-      <div className="board-card-meta">
-        {project ? <ProjectMark project={project} /> : task.projectId}
-      </div>
-      {blockers.length > 0 && <BlockedMark blockers={blockers} />}
-      {(foot || usageEstimate || someoneWorking) && (
-        <div className="board-card-foot">
-          {foot}
-          <UsageEstimateLine estimate={usageEstimate} />
-          {someoneWorking && (
-            // Above the title's stretched link for its tooltip, so a press is passed on to the link.
-            <span className="board-card-working" onClick={() => titleLink.current?.click()}>
-              <WorkingMark people={peopleWorking} stageName={stageName} />
-            </span>
-          )}
-        </div>
-      )}
-    </article>
-  );
-}
-
-/** "Blocked by" and the Tasks that must be Done first, each a link to its page. */
-function BlockedMark({ blockers }: { readonly blockers: readonly Task[] }): ReactNode {
-  return (
-    <div className="board-card-blocked">
-      <Icon name="lock" size={12} />
-      <span>
-        Blocked by{" "}
-        {blockers.map((blocker, index) => (
-          <Fragment key={blocker.id}>
-            {index > 0 && ", "}
-            <Link to="/tasks/$taskId" params={{ taskId: blocker.id }} draggable={false}>
-              {blocker.title}
-            </Link>
-          </Fragment>
-        ))}
-      </span>
-    </div>
-  );
-}
-
-/**
- * What a card says below its title: Plan in Backlog (Make a plan, so the board stays open while
- * the Planner plans), how planning stands, or a state the column doesn't name already; undefined
- * when there is nothing to say.
- */
-function footOf(task: Task, planner: string | undefined, waiting: boolean): ReactNode {
-  switch (task.state) {
-    case "backlog":
-      return planner && <PlanOnCardButton task={task} />;
-    case "planning":
-      return waiting ? (
-        <TaskStateBadge state="waiting-on-you" />
-      ) : (
-        <span className="board-card-note">{planningNoteWords(task, planner)}</span>
-      );
-    case "ready":
-    case "in-progress":
-    case "done":
-      return undefined;
-    // Held with a Decision its Agent opened before: Paused and Waiting on you at once (spec §2.4).
-    case "paused":
-      return (
-        <>
-          <TaskStateBadge state="paused" pausedBy={task.pausedBy} resumesAt={task.resumesAt} />
-          {waiting && <TaskStateBadge state="waiting-on-you" />}
-        </>
-      );
-    default:
-      return <TaskStateBadge state={task.state} />;
-  }
-}
-
 /** Moves the card where it was dropped at once, and lets the service settle its priority. */
 function usePlacing() {
   const queryClient = useQueryClient();
@@ -457,6 +295,11 @@ function moved(list: readonly Task[], task: Task, { above, below }: TaskPlacemen
       ? others.findIndex(({ id }) => id === below)
       : others.findIndex(({ id }) => id === above) + 1;
   return [...others.slice(0, at), task, ...others.slice(at)];
+}
+
+/** The Tasks of `ids` that are in `tasks`, in the order of `ids`. */
+function tasksAmong(ids: readonly string[], tasks: readonly Task[]): Task[] {
+  return ids.flatMap((id) => tasks.filter((task) => task.id === id));
 }
 
 /** The id of the card the pointer is over, if any. */

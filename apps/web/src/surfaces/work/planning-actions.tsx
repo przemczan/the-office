@@ -1,5 +1,5 @@
 import type { Task } from "@the-office/contracts";
-import { Button, Icon, Switch, Tooltip } from "@the-office/ui";
+import { Button, Icon, IconButton, Switch, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import {
@@ -58,8 +58,8 @@ export function MakeAPlan({ task }: { readonly task: Task }): ReactNode {
 }
 
 /**
- * The board card's Plan: as Make a plan, in the remembered auto mode, which its tooltip names, as
- * a card has no room for the switch.
+ * The board card's Plan, an icon: as Make a plan, in the remembered auto mode, which its tooltip
+ * names, as a card has no room for the switch.
  */
 export function PlanOnCardButton({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner();
@@ -70,19 +70,20 @@ export function PlanOnCardButton({ task }: { readonly task: Task }): ReactNode {
     <Tooltip
       content={
         autoMode
-          ? `${planner.card.name} makes a plan in auto mode: the Task is marked Ready without your Confirm.`
-          : `${planner.card.name} makes a plan for you to confirm. Auto mode is off.`
+          ? `Plan: ${planner.card.name} makes a plan in auto mode: the Task is marked Ready without your Confirm.`
+          : `Plan: ${planner.card.name} makes a plan for you to confirm. Auto mode is off.`
       }
     >
-      <Button
+      <IconButton
         variant="secondary"
-        size="sm"
-        iconLeft={<Icon name="map" size={14} />}
-        loading={making.isPending}
+        size="xs"
+        icon={<Icon name="map" size={13} />}
+        label="Plan"
+        // The tooltip names it, rather than the browser's own title.
+        title={undefined}
+        disabled={making.isPending}
         onClick={() => making.mutate({ task, autoMode })}
-      >
-        Plan
-      </Button>
+      />
     </Tooltip>
   );
 }

@@ -59,6 +59,21 @@ export function tooltipPlace(
   };
 }
 
+/**
+ * Where a popover goes: under its trigger with their left edges together, or over it when only that
+ * has the room, then shifted to stay within the window.
+ */
+export function popoverPlace(trigger: Box, popover: Size, view: Size): TooltipPlace {
+  const below = sideWithRoom(trigger, popover, "bottom", view) === "bottom";
+  const top = below
+    ? trigger.bottom + TRIGGER_GAP_PX
+    : trigger.top - TRIGGER_GAP_PX - popover.height;
+  return {
+    left: withinWindow(trigger.left, popover.width, view.width),
+    top: withinWindow(top, popover.height, view.height),
+  };
+}
+
 function sideWithRoom(trigger: Box, tooltip: Size, side: TooltipSide, view: Size): TooltipSide {
   const room: Record<TooltipSide, number> = {
     top: trigger.top,

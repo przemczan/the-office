@@ -155,12 +155,18 @@ test(
 
     await page.goto("/work");
     const card = page.getByRole("article", { name: "Queued sync of the inbox" });
-    // The card says why it waits, in short with the full reason on hover; its place is the Queued
-    // column's order.
-    await expect(card.locator(".queued-mark")).toHaveText(`Queued${ONLY_DESK_SHORT}`);
+    // The card's clock says why it waits, in short on hover, and in full with its place on a press;
+    // the card itself shows no place, which is the Queued column's order.
+    const clock = card.getByRole("button", { name: "Queued", exact: true });
     await expect(card).not.toContainText("Place");
-    await card.getByText(ONLY_DESK_SHORT).hover();
-    await expect(page.getByRole("tooltip")).toHaveText(ONLY_DESK);
+    await clock.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(`Queued: ${ONLY_DESK_SHORT}`);
+    await clock.click();
+    const popover = page.getByRole("dialog", { name: "Queued", exact: true });
+    await expect(popover).toContainText(ONLY_DESK);
+    await expect(popover).toContainText(/Queued, place \d+/);
+    await page.keyboard.press("Escape");
+    await expect(popover).toBeHidden();
 
     await page.goto("/now");
     const queue = page.getByRole("article", { name: /^Queued: / });
@@ -232,9 +238,16 @@ test(
     await expect(queuedColumn).toContainText("They start by themselves when their turn comes");
     await expect(ready).toContainText("Starting is your call");
     await expect(queuedColumn.getByRole("article")).toHaveText([
-      new RegExp(`${first.title}.*Queued${ONLY_DESK}`),
-      new RegExp(`${second.title}.*Queued${ONLY_DESK}`),
+      new RegExp(first.title),
+      new RegExp(second.title),
     ]);
+    for (const { title } of [first, second]) {
+      await expect(
+        queuedColumn
+          .getByRole("article", { name: title })
+          .getByRole("button", { name: "Queued", exact: true }),
+      ).toBeVisible();
+    }
     await expect(ready.getByRole("article")).toHaveText([new RegExp(notQueued.title)]);
     const left = taskSchema.parse(await (await page.request.get(`/api/tasks/${first.id}`)).json());
     expect(left.state).toBe("ready");
@@ -289,11 +302,16 @@ test(
     await showOnly(page, project);
     const card = (name: string) => column(page, name).getByRole("article", { name: task.title });
     // Blocked and not queued yet, it still waits for the user.
-    await expect(card("Ready")).toContainText(`Blocked by ${blocker.title}`);
+    await expect(card("Ready").getByRole("button", { name: "Blocked by 1 Task" })).toBeVisible();
 
     const start = await page.request.post(`/api/tasks/${task.id}/start`, { data: {} });
     expect(start.ok()).toBe(true);
-    await expect(card("Queued")).toContainText(`Blocked by ${blocker.title}`);
+    await card("Queued").getByRole("button", { name: "Blocked by 1 Task" }).click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "Blocked by 1 Task" })
+        .getByRole("link", { name: blocker.title }),
+    ).toBeVisible();
     await expect(card("Ready")).toBeHidden();
 
     expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).ok()).toBe(true);
@@ -325,14 +343,21 @@ test("Start queues a Task its Project limit holds, with the limit as the reason 
   await page.goto("/work");
   await showOnly(page, project);
   const card = (name: string) => column(page, name).getByRole("article", { name: task.title });
-  // The card says it in short, the full reason on hover, and Now in full.
-  await expect(card("Queued").locator(".queued-mark")).toHaveText(
-    "QueuedProject limit reached (1)",
-  );
-  await card("Queued").getByText("Project limit reached (1)").hover();
-  await expect(page.getByRole("tooltip")).toHaveText(projectLimit);
+  // The card's clock says it in short on hover, in full on a press, and Now in full.
+  const clock = card("Queued").getByRole("button", { name: "Queued", exact: true });
+  await clock.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Queued: Project limit reached (1)");
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-board-queued-short-reason.png"),
+  });
+  await clock.click();
+  await expect(page.getByRole("dialog", { name: "Queued", exact: true })).toContainText(
+    projectLimit,
+  );
+  // Its fade-in finished, so the picture shows the popover as it stays.
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-board-queued-full-reasons.png"),
+    animations: "disabled",
   });
   await page.goto("/now");
   await expect(page.getByRole("article", { name: `Queued: ${task.title}` })).toContainText(
@@ -480,15 +505,22 @@ test(
       "Expected: Claude Code: 60k tokens · 3% of the 5-hour window · $0.60; Local models: 40k tokens · no cost, from the Planner's estimate.";
 
     await page.goto("/work");
-    const estimateOn = (title: string) =>
-      page.getByRole("article", { name: title }).getByRole("note", { name: "Usage estimate" });
-    await expect(estimateOn(learned.title)).toHaveText(HISTORY_WORDS);
-    await expect(estimateOn(unknown.title)).toHaveText(
-      "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
-    );
+    // On a card the estimate is the gauge, named by its words, which show on hover.
+    const estimateOn = (title: string, words: string) =>
+      page.getByRole("article", { name: title }).getByRole("img", { name: words, exact: true });
+    await expect(estimateOn(learned.title, HISTORY_WORDS)).toBeVisible();
+    await estimateOn(learned.title, HISTORY_WORDS).hover();
+    await expect(page.getByRole("tooltip")).toHaveText(HISTORY_WORDS);
+    await expect(
+      estimateOn(
+        unknown.title,
+        "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
+      ),
+    ).toBeVisible();
     const queuedCard = page.getByRole("article", { name: planned.title });
-    await expect(queuedCard).toContainText(`Queued${CAP_WAIT_SHORT}`);
-    await expect(estimateOn(planned.title)).toHaveText(PLANNER_WORDS);
+    await queuedCard.getByRole("button", { name: "Queued", exact: true }).hover();
+    await expect(page.getByRole("tooltip")).toHaveText(`Queued: ${CAP_WAIT_SHORT}`);
+    await expect(estimateOn(planned.title, PLANNER_WORDS)).toBeVisible();
 
     await page.goto("/now");
     const queuedOnNow = page.getByRole("article", { name: `Queued: ${planned.title}` });
@@ -715,12 +747,27 @@ test(
     await expect(page.getByText(new RegExp(`^Place \\d+ · ${reason}$`))).toBeVisible();
 
     await page.goto("/work");
-    // The card names its blocker once, in its "Blocked by" line, and its Queued line no more.
+    // The card names its blocker once, under its lock, and its clock no more.
     const card = page.getByRole("article", { name: task.title });
-    await expect(card).toContainText(`Blocked by ${blocker.title}`);
-    await expect(card.getByRole("link", { name: blocker.title })).toHaveCount(1);
-    await expect(card).not.toContainText(reason);
-    await expect(card.locator(".queued-mark")).toHaveText("Queued");
+    await card.getByRole("button", { name: "Blocked by 1 Task" }).click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "Blocked by 1 Task" })
+        .getByRole("link", { name: blocker.title }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-board-blocked-popover.png"),
+      animations: "disabled",
+    });
+    await card.getByRole("button", { name: "Queued", exact: true }).click();
+    const queuedPopover = page.getByRole("dialog", { name: "Queued", exact: true });
+    await expect(queuedPopover).not.toContainText(reason);
+    await expect(queuedPopover).toContainText("And its 1 blocker, under the lock.");
+    // Closed, the clock shows its tooltip again.
+    await page.keyboard.press("Escape");
+    await expect(queuedPopover).toBeHidden();
+    await card.getByRole("button", { name: "Queued", exact: true }).hover();
+    await expect(page.getByRole("tooltip")).toHaveText("Queued");
     await page.goto("/now");
     const queuedOnNow = page.getByRole("article", { name: `Queued: ${task.title}` });
     await expect(queuedOnNow).toContainText(reason);

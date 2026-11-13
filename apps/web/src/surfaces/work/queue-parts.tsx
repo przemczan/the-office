@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QueuedTask } from "@the-office/contracts";
-import { Badge, Button, Icon, SplitButton, Tooltip } from "@the-office/ui";
+import type { QueuedTask, Task } from "@the-office/contracts";
+import { Badge, Button, Icon, Popover, SplitButton } from "@the-office/ui";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { moveToTopOfQueue, moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
+import { counted } from "../../shell/pipelines/stage-change-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { distinctShortReasons, reasonsBesideBlockers } from "./queue-reasons.ts";
 
@@ -26,31 +28,68 @@ export function QueuedMark({ queued }: { readonly queued: QueuedTask }): ReactNo
 }
 
 /**
- * A board card's short "Queued": the short reasons of the waits beside its blockers, which the card
- * names in its "Blocked by" line, with their full reasons on hover, and no place, which the Queued
- * column's order shows.
+ * A board card's Queued mark: the clock, its short reasons on hover, and on a press its place, the
+ * full reasons and the Tasks it is queued behind as links. The waits beside its blockers only, as the
+ * card's lock holds those.
  */
-export function QueuedCardMark({ queued }: { readonly queued: QueuedTask }): ReactNode {
+export function QueuedCardMark({
+  queued,
+  behind,
+  blockers,
+}: {
+  readonly queued: QueuedTask;
+  /** The Tasks it is queued behind for an Overlap. */
+  readonly behind: readonly Pick<Task, "id" | "title">[];
+  /** How many Tasks block it. */
+  readonly blockers: number;
+}): ReactNode {
   const reasons = reasonsBesideBlockers(queued);
+  const shortReasons = distinctShortReasons(reasons);
   return (
-    <span className="queued-mark">
-      <Badge tone="info" size="sm">
-        Queued
-      </Badge>
+    <Popover
+      label="Queued"
+      triggerClassName="card-mark card-mark-info"
+      trigger={<Icon name="clock" size={13} />}
+      tooltip={
+        shortReasons.length > 0 ? (
+          <span className="queued-short-reasons">Queued: {shortReasons.join(" · ")}</span>
+        ) : (
+          "Queued"
+        )
+      }
+    >
+      <p className="popover-head">
+        <Icon name="clock" size={13} />
+        Queued, place {queued.place}
+      </p>
+      <p className="popover-sub">
+        It starts by itself once nothing holds it.{reasons.length > 0 && " Waiting for:"}
+      </p>
       {reasons.length > 0 && (
-        <Tooltip
-          content={
-            <span className="queued-full-reasons">
-              {reasons.map(({ reason }) => (
-                <span key={reason}>{reason}</span>
-              ))}
-            </span>
-          }
-        >
-          <span className="queued-short-reasons">{distinctShortReasons(reasons).join(" · ")}</span>
-        </Tooltip>
+        <ul className="queued-full-reasons">
+          {reasons.map(({ reason }) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
       )}
-    </span>
+      {behind.length > 0 && (
+        <ul className="queued-behind">
+          {behind.map(({ id, title }) => (
+            <li key={id}>
+              <Icon name="arrow-right" size={13} />
+              <Link to="/tasks/$taskId" params={{ taskId: id }} draggable={false}>
+                {title}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {blockers > 0 && (
+        <p className="popover-foot">
+          And its {counted(blockers, "blocker", "blockers")}, under the lock.
+        </p>
+      )}
+    </Popover>
   );
 }
 

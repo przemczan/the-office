@@ -155,9 +155,8 @@
   z-index: 1;
 }
 
-/* A basis of 0 keeps the mark on the foot's line: it takes what is left at the right and cuts a long
-   Stage name short rather than wrapping. It never gets narrower than the mark's minimum width, its
-   avatars, live dot and "+N", so they stay inside the card. */
+/* A basis of 0 keeps the mark on the foot's line, at its right end, also when the row wraps. It never
+   gets narrower than the mark's avatars, live dot and "+N", so they stay inside the card. */
 .board-card-working {
   display: flex;
   flex: 1 1 0;
@@ -170,24 +169,10 @@
   display: flex;
 }
 
-/* A grid, so the Stage name's column counts nothing towards the mark's minimum width: only the name
-   gives way, down to nothing. */
 .working-mark {
-  display: inline-grid;
-  grid-auto-flow: column;
+  display: inline-flex;
   align-items: center;
   color: var(--fg-3);
-}
-
-.working-mark:has(> .working-mark-stage) {
-  grid-template-columns: minmax(0, auto);
-}
-
-.working-mark-stage {
-  margin-right: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Positioned, so the live dot's ring pulses under the avatars. */
@@ -218,24 +203,110 @@
   font: var(--type-caption);
 }
 
-.board-card-blocked {
+/* ---- A board card's row of marks (docs/design/task-card-icons.html, Foot row): the Project's mark,
+   then each mark in `cardMarks`' order, who works on it or Plan at the right end. */
+.board-card-marks {
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
   font: var(--type-caption);
-  line-height: 1.4;
-  color: var(--fg-2);
 }
 
-.board-card-blocked svg {
-  flex: none;
-  margin-top: 2px;
+.board-card-project {
+  margin-right: 2px;
   color: var(--fg-3);
 }
 
-.board-card-blocked a {
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
+.board-card-plan {
+  margin-left: auto;
+}
+
+/* One mark: an icon, a count for the blockers. Grey while quiet, tinted while it needs the user; one
+   that opens a popover is bordered, and ringed while its popover is open. */
+.card-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-3);
+  font: 600 11px / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.card-mark:hover {
+  color: var(--fg-1);
+}
+
+.card-mark-warning,
+.card-mark-warning:hover {
+  border-color: var(--warning-border);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+.card-mark-pressable {
+  padding: 0 6px 0 5px;
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--fg-2);
+}
+
+.card-mark-pressable:hover {
+  border-color: var(--fg-3);
+}
+
+.card-mark-info {
+  border-color: var(--info-border);
+  background: var(--info-subtle);
+  color: var(--info-fg);
+}
+
+.card-mark-info:hover {
+  border-color: var(--info);
+  color: var(--info-fg);
+}
+
+.card-mark[aria-expanded="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+/* The blockers' popover: each a link with its Project's mark and state; a long title wraps, as the
+   title is what the popover is for. */
+.blockers-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.blockers-list > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  margin: 0 -6px;
+  padding: 5px 6px;
+  border-radius: var(--radius-md);
+}
+
+.blockers-list > li:hover {
+  background: var(--control-hover);
+}
+
+.blockers-list a {
+  overflow-wrap: anywhere;
 }
 
 /* ---- The board's filters (prototypes/app/app.css `.work-filters`) */
@@ -2710,12 +2781,27 @@
   font-size: 12px;
 }
 
-/* The full reasons are whole sentences: they wrap, one wait to a line, instead of running wide. */
-.queued-full-reasons {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 320px;
+/* The queue's popover on a card: the full reasons are whole sentences, one wait to a line, then the
+   Tasks it is queued behind. */
+.queued-full-reasons,
+.queued-behind {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--fg-1);
+}
+
+.queued-behind > li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.queued-behind svg {
+  margin-top: 1px;
+  color: var(--fg-3);
 }
 
 .board-card-note {
