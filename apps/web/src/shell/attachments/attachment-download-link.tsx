@@ -1,7 +1,7 @@
 import type { Attachment } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { attachmentContentUrl } from "../../api/work.ts";
+import { useAttachmentContentUrl } from "./use-attachment-content-url.ts";
 
 /**
  * Saves a file Attachment under its own name. A same-origin `download` link saves it whatever
@@ -17,8 +17,9 @@ export function AttachmentDownloadLink({
   /** What the link shows; the download icon and "Download" when left out. */
   readonly children?: ReactNode;
 }): ReactNode {
+  const href = useAttachmentContentUrl(file.id);
   return (
-    <a className={className} href={attachmentContentUrl(file.id)} download={file.name}>
+    <a className={className} href={href} download={file.name}>
       {children ?? (
         <>
           <Icon name="download" size={14} />

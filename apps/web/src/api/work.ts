@@ -61,6 +61,7 @@ import {
   type UsageSettings,
   type WebEvent,
   type WorkWebEvent,
+  workWebEventSchema,
 } from "@the-office/contracts";
 import {
   deleteFromApi,
@@ -70,7 +71,8 @@ import {
   sendToApi,
   sendToApiWithNoAnswer,
 } from "./api-client.ts";
-import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { attachmentCopiesOf } from "./attachment-copies.ts";
+import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
 import { RUN_ENVIRONMENTS } from "./projects.ts";
 
 const IDEAS = ["ideas"] as const;
@@ -82,6 +84,7 @@ const ARCHIVE_PERIOD = ["settings", "archive-period"] as const;
 const USAGE_SETTINGS = ["settings", "usage"] as const;
 const AUTO_MODE = ["settings", "auto-mode"] as const;
 const SAVED_VIEWS = ["saved-views"] as const;
+const SEARCH = ["search"] as const;
 /** The fire alarm and the Threads it is lifted for. */
 export const FIRE_ALARM = ["fire-alarm"] as const;
 
@@ -224,7 +227,7 @@ export function removeView(id: string): Promise<void> {
  */
 export const searchQuery = (query: string, filter: ProjectFilter) =>
   queryOptions({
-    queryKey: ["search", query, filter],
+    queryKey: [...SEARCH, query, filter],
     queryFn: ({ signal }) => {
       const projects =
         filter === "all" ? [] : filter.map((id): [string, string] => ["project", id]);
@@ -309,7 +312,10 @@ export const attachmentQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${ownerPath(owner)}/attachments`, attachmentListSchema, signal),
     }),
-  /** A text file Attachment's text, up to `SHOWN_TEXT_LIMIT`; it never changes. */
+  /**
+   * A text file Attachment's text, up to `SHOWN_TEXT_LIMIT`; read again only when an Agent replaces
+   * it, as its Attachments' events make every key under ["attachments"] stale.
+   */
   text: (id: string) =>
     queryOptions({
       queryKey: [...ATTACHMENTS, id, "text"],
@@ -602,10 +608,12 @@ export function removeAttachment(id: string): Promise<void> {
 /**
  * Where a file Attachment's content is: images, Markdown, other text files as plain text and HTML
  * show inline, any other file downloads; a `download` link saves any of them
- * (`AttachmentDownloadLink`).
+ * (`AttachmentDownloadLink`). A replaced file's address names its copy (`AttachmentCopies`), so an
+ * open image or preview loads the new one.
  */
-export function attachmentContentUrl(id: string): string {
-  return `/api/attachments/${encodeURIComponent(id)}/content`;
+export function attachmentContentUrl(id: string, copy = 0): string {
+  const url = `/api/attachments/${encodeURIComponent(id)}/content`;
+  return copy === 0 ? url : `${url}?copy=${copy}`;
 }
 
 /**
@@ -613,7 +621,8 @@ export function attachmentContentUrl(id: string): string {
  * that line is all there is, as in a minified file.
  */
 async function readShownText(id: string, signal?: AbortSignal): Promise<ShownText> {
-  const response = await fetch(attachmentContentUrl(id), { signal });
+  // Asked of the service every time: an Agent's new copy keeps the address.
+  const response = await fetch(attachmentContentUrl(id), { signal, cache: "no-cache" });
   if (!response.ok || response.body === null) {
     throw new Error(`The file can't be read: ${response.statusText}.`);
   }
@@ -652,10 +661,11 @@ function taskConversationKeys(event: WebEvent): QueryKey[] {
 /**
  * Each Work event makes its kind stale: ["ideas"], ["initiatives"] and ["tasks"] cover the lists
  * and each record, ["attachments"] every owner's list. Shaping touches several, so each of its
- * events names what it changed; an Initiative spans its Tasks' Projects and is done with them.
+ * events names what it changed; an Initiative spans its Tasks' Projects and is done with them. An
+ * Attachment's events change what the top bar's search finds too, as it finds documents.
  */
 export const workEventInvalidations: Readonly<
-  Record<WorkWebEvent["type"], EventInvalidations[string]>
+  Record<Exclude<WorkWebEvent["type"], ReplacingEventType>, EventInvalidations[string]>
 > = {
   "idea.captured": () => [IDEAS],
   "idea.shaped": () => [IDEAS, TASKS],
@@ -710,10 +720,9 @@ export const workEventInvalidations: Readonly<
   "task.definition-of-done-confirmed": () => [TASKS],
   "task.pipeline-proposed": () => [TASKS],
   "task.pipeline-confirmed": () => [TASKS],
-  "attachment.added": () => [ATTACHMENTS],
-  "attachment.replaced": () => [ATTACHMENTS],
-  "attachment.moved": () => [ATTACHMENTS],
-  "attachment.removed": () => [ATTACHMENTS],
+  "attachment.added": () => [ATTACHMENTS, SEARCH],
+  "attachment.moved": () => [ATTACHMENTS, SEARCH],
+  "attachment.removed": () => [ATTACHMENTS, SEARCH],
   "saved-view.saved": () => [SAVED_VIEWS],
   "saved-view.removed": () => [SAVED_VIEWS],
   // Each Task's start check reads the limit too.
@@ -724,6 +733,25 @@ export const workEventInvalidations: Readonly<
   // Each Task's start check reads the alarm too.
   "fire-alarm.sounded": () => [FIRE_ALARM, TASKS],
   "fire-alarm.all-clear": () => [FIRE_ALARM, TASKS],
+};
+
+/** The Work events that change more than queries, which `workEventCacheUpdates` applies. */
+type ReplacingEventType = "attachment.replaced";
+
+/**
+ * A replaced Attachment keeps its id and address, so the page moves to its new copy
+ * (`AttachmentCopies`) besides reading the Attachments, their text and the search again.
+ */
+export const workEventCacheUpdates: Readonly<
+  Record<ReplacingEventType, EventCacheUpdates[string]>
+> = {
+  "attachment.replaced": (event, queryClient) => {
+    const replaced = workWebEventSchema.parse(event);
+    if (replaced.type !== "attachment.replaced") return;
+    attachmentCopiesOf(queryClient).replaced(replaced.attachmentId);
+    void queryClient.invalidateQueries({ queryKey: ATTACHMENTS });
+    void queryClient.invalidateQueries({ queryKey: SEARCH });
+  },
 };
 
 function ownerId(owner: AttachmentOwner): string {

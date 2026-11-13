@@ -1,8 +1,8 @@
 import type { Attachment } from "@the-office/contracts";
 import { Dialog, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { attachmentContentUrl } from "../../api/work.ts";
 import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
+import { useAttachmentContentUrl } from "./use-attachment-content-url.ts";
 
 /**
  * An HTML file, live in a frame. The service's Content-Security-Policy keeps it sandboxed wherever
@@ -15,7 +15,7 @@ export function HtmlPreviewDialog({
   readonly file: Pick<Attachment, "id" | "name">;
   readonly onClose: () => void;
 }): ReactNode {
-  const original = attachmentContentUrl(file.id);
+  const original = useAttachmentContentUrl(file.id);
   return (
     <Dialog
       size="extra-large"
@@ -33,7 +33,9 @@ export function HtmlPreviewDialog({
         </>
       }
     >
+      {/* A new frame for a new copy: moving a frame to another address adds to the page's history. */}
       <iframe
+        key={original}
         className="attachment-html-preview"
         src={original}
         sandbox="allow-scripts"
