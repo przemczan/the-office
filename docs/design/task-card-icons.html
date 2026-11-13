@@ -639,7 +639,7 @@
       .reference .wide {
         grid-column: 1 / -1;
       }
-      .recommended {
+      .chosen {
         padding: 14px 16px;
         border: 1px solid var(--border);
         border-left: 3px solid var(--accent);
@@ -1453,8 +1453,9 @@
       <p class="address" id="address"></p>
       <div class="frame-row"><div class="frame" id="frame"></div></div>
       <section class="reference" aria-label="What it proposes">
-        <div class="wide recommended">
-          <h2>Recommended: Foot row</h2>
+        <div class="wide chosen">
+          <h2>Chosen: Foot row</h2>
+          <p>The user chose Foot row at the Gate on 2026-11-13; the build follows it. Inline and Corner badges stay on this page as the layouts that were weighed.</p>
           <p>The title keeps the card's whole width on its own line, as today, and every other mark sits in <strong>one row under it, always in the same order</strong>: the Project, then what needs you (Failed, Waiting on you, Paused), then what holds it (Blocked, Queued), then the quiet ones (Planning, the Usage estimate), and at the right end who is working, or Plan in Backlog. Reading down a column, the same mark is always in the same place, so a red or amber mark or a lock count stands out at a glance. Its marks sit away from the title, so a press on a mark rarely lands on the title by mistake, and the foot already exists in <code>BoardCard</code>, so it is the smallest change. A card is two lines unless a long title wraps; only a card holding nearly every mark at once, in a 220px column, wraps its row, and who is working stays at the right end of the second line.</p>
           <p><strong>Inline</strong> is the densest, but its marks move with the title's last word, so nothing lines up from card to card, and small marks inside a line of link text are easy to miss with a finger. <strong>Corner badges</strong> reads urgency fastest, but its bubbles sit on the card's edge, over the gap between two cards: they need more space between cards, a bubble can be cut by the column's edge when the board scrolls, and several bubbles on a card in a 220px column crowd the menu.</p>
         </div>
@@ -1803,7 +1804,7 @@
       }
       const LAYOUTS = {
         today: { name: "Today", card: todayCard },
-        foot: { name: "Foot row", card: footCard, recommended: true },
+        foot: { name: "Foot row", card: footCard, chosen: true },
         inline: { name: "Inline", card: inlineCard },
         corner: { name: "Corner badges", card: cornerCard },
       };
@@ -1850,7 +1851,7 @@
 
       /* ---------- State and the switcher ---------- */
       const OPTIONS = {
-        layout: Object.entries(LAYOUTS).map(([key, { name, recommended }]) => [key, name, recommended]),
+        layout: Object.entries(LAYOUTS).map(([key, { name, chosen }]) => [key, name, chosen]),
         board: [
           ["full", "Full board"],
           ["everything", "Everything at once"],
@@ -1883,8 +1884,8 @@
           .map(
             ([key, options]) => `<div class="control"><span class="control-label">${LABELS[key]}</span><div class="segments" role="group" aria-label="${LABELS[key]}">${options
               .map(
-                ([value, label, recommended]) =>
-                  `<button type="button" data-set="${key}" data-value="${value}" aria-pressed="${state[key] === value}">${label}${recommended ? '<span class="star" title="Recommended">●</span>' : ""}</button>`,
+                ([value, label, chosen]) =>
+                  `<button type="button" data-set="${key}" data-value="${value}" aria-pressed="${state[key] === value}">${label}${chosen ? '<span class="star" title="Chosen at the Gate">●</span>' : ""}</button>`,
               )
               .join("")}</div></div>`,
           )
@@ -1894,7 +1895,7 @@
 
       const NOTES = {
         today: "<strong>Today</strong>: the card as <code>BoardCard</code> draws it: the priority, title and menu; the Project's mark; a “Blocked by” line naming every blocker; and a foot in words: Plan, the planning note, a state badge, Queued with its short reasons, the Usage estimate's whole sentence, and the Stage's name beside who works it.",
-        foot: "<strong>Foot row</strong> (recommended): the title alone on top, every other mark in one row under it, in the same order on every card, who works on it (or Plan) at the right end.",
+        foot: "<strong>Foot row</strong> (chosen at the Gate):the title alone on top, every other mark in one row under it, in the same order on every card, who works on it (or Plan) at the right end.",
         inline: "<strong>Inline</strong>: the Project's tile before the title and the marks straight after its last word, so a short title takes one line.",
         corner: "<strong>Corner badges</strong>: the Project's tile leads, with the priority as a pip on its corner; what needs you or holds the Task sits as bubbles on the card's top edge; the quiet marks and who works on it in the bottom-right corner.",
       };
