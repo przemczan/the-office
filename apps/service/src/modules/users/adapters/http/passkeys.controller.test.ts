@@ -106,6 +106,27 @@ describe("adding a passkey", () => {
     expect(options.excludeCredentials?.map(({ id }) => id)).toEqual([first.credentialId]);
   });
 
+  it("refuses a credential kept already, even for another user", async () => {
+    const authenticator = new SoftwareAuthenticator();
+    await addPasskey(office.port, localhost, myCookie, authenticator);
+    const someoneElse = await addUser(office.app);
+    const theirCookie = await signedInAt(office.port, localhost, someoneElse);
+    const options = await addingOptions(office.port, localhost, theirCookie);
+
+    const answer = await sendFrom(office.port, localhost, {
+      method: "POST",
+      path: "/api/account/passkeys",
+      cookie: theirCookie,
+      body: { name: "Copied", registration: authenticator.register(options, localhost.origin) },
+    });
+
+    expect(answer.status).toBe(422);
+    expect(userRefusalSchema.parse(answer.body).reasons).toEqual([
+      "The passkey wasn't added: start again.",
+    ]);
+    expect((await listAt(localhost, theirCookie)).passkeys).toEqual([]);
+  });
+
   it("adds at the public address over HTTPS for its hostname and origin", async () => {
     const publicAddress = atPublicAddress();
     const cookie = await signedInAt(office.port, publicAddress, me);

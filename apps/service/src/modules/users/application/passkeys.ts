@@ -102,7 +102,14 @@ export class Passkeys implements OnModuleInit {
       throw new UserRefused([NOT_ADDED]);
     }
     const credential = await this.ceremonies.checkAdding(answer, ceremony);
-    if (credential === undefined) throw new UserRefused([NOT_ADDED]);
+    // A credential kept already, by this user or another, is refused rather than left to the
+    // table's unique credential id.
+    if (
+      credential === undefined ||
+      (await this.passkeys.findByCredentialId(credential.credentialId)) !== undefined
+    ) {
+      throw new UserRefused([NOT_ADDED]);
+    }
     const passkey = passkeyOf(randomUUID(), userId, name, relyingParty.rpId, credential, now);
     await this.passkeys.add(passkey);
     await this.eventBus.publish(new PasskeyAdded(userId, passkey.id, now));
