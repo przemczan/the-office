@@ -1,6 +1,6 @@
 {
-  "id": "337c92b9-a754-4add-acae-dec9b5ec079f",
-  "prevId": "4a4d1f6d-7aba-4936-a020-542f5e1387d0",
+  "id": "4a4d1f6d-7aba-4936-a020-542f5e1387d0",
+  "prevId": "c3d381b8-0b5e-4e19-8dc0-13f52e210c4a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3584,134 +3584,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.passkeys": {
-      "name": "passkeys",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "credential_id": {
-          "name": "credential_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "public_key": {
-          "name": "public_key",
-          "type": "bytea",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "counter": {
-          "name": "counter",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "transports": {
-          "name": "transports",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rp_id": {
-          "name": "rp_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "device_type": {
-          "name": "device_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "backed_up": {
-          "name": "backed_up",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_used_at": {
-          "name": "last_used_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "passkeys_user": {
-          "name": "passkeys_user",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "passkeys_user_id_users_id_fk": {
-          "name": "passkeys_user_id_users_id_fk",
-          "tableFrom": "passkeys",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "passkeys_credential_id_unique": {
-          "name": "passkeys_credential_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "credential_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "passkeys_device_type": {
-          "name": "passkeys_device_type",
-          "value": "\"passkeys\".\"device_type\" IN ('single-device', 'multi-device')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.signed_in_devices": {
       "name": "signed_in_devices",
       "schema": "",
@@ -4298,6 +4170,12 @@
         "text": {
           "name": "text",
           "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_path": {
+          "name": "source_path",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

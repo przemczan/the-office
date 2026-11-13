@@ -8,6 +8,12 @@ export abstract class AttachmentRepository {
   /** Keeps `documentText` with it, for a document. */
   abstract add(attachment: Attachment, documentText?: string): Promise<void>;
 
+  /**
+   * Keeps a file's new copy over its record, its id's, with `documentText` in place of any text
+   * kept for the old copy.
+   */
+  abstract replace(file: StoredFileAttachment, documentText?: string): Promise<void>;
+
   abstract find(id: string): Promise<Attachment | undefined>;
 
   /** The owner's Attachments, in the order they were added. */

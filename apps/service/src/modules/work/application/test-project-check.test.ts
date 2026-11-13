@@ -43,6 +43,7 @@ import {
   UsageHistory,
   UsageHistoryModule,
   StageResultWords,
+  TaskGateRuns,
 } from "../../pipelines/index.js";
 import {
   BaseCheckouts,
@@ -145,6 +146,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 proposalDrafts: ProposalService,
                 usageHistory: UsageHistory,
                 stageResults: StageResultWords,
+                taskGates: TaskGateRuns,
                 modelPrices: ModelPrices,
                 accountWindows: UsageWindowState,
                 accountWindowRatios: UsageWindowSamples,

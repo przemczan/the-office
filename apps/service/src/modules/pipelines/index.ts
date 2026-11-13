@@ -2,6 +2,7 @@ export { AlarmResumes } from "./application/alarm-resumes.js";
 export { PipelineLibrary } from "./application/pipeline-library.js";
 export { StageTemplateLibrary } from "./application/stage-template-library.js";
 export { StageResultWords } from "./application/stage-result-words.js";
+export { TaskGateRuns } from "./application/task-gate-runs.js";
 export { TaskStagesService } from "./application/task-stages-service.js";
 export { UsageHistory } from "./application/usage-history.js";
 export type { StageUsage, StageUsages } from "./domain/usage-history.js";

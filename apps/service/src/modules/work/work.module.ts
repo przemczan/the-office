@@ -107,6 +107,7 @@ import { NewProjects } from "./ports/new-projects.js";
 import { ProjectInitiativeBranches } from "./ports/project-initiative-branches.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { StageResults } from "./ports/stage-results.js";
+import { TaskGates } from "./ports/task-gates.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { SavedViewRepository } from "./ports/saved-view-repository.js";
 import { SessionPeople } from "./ports/session-people.js";
@@ -148,6 +149,7 @@ export interface WorkModuleOptions {
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly usageHistory: Type<UsageHistory>;
   readonly stageResults: Type<StageResults>;
+  readonly taskGates: Type<TaskGates>;
   readonly modelPrices: Type<ModelPrices>;
   readonly accountWindows: Type<AccountWindows>;
   readonly accountWindowRatios: Type<AccountWindowRatios>;
@@ -180,6 +182,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     proposalDrafts,
     usageHistory,
     stageResults,
+    taskGates,
     modelPrices,
     accountWindows,
     accountWindowRatios,
@@ -236,6 +239,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: UsageHistory, useExisting: usageHistory },
         { provide: StageResults, useExisting: stageResults },
+        { provide: TaskGates, useExisting: taskGates },
         { provide: ModelPrices, useExisting: modelPrices },
         { provide: AccountWindows, useExisting: accountWindows },
         { provide: AccountWindowRatios, useExisting: accountWindowRatios },
