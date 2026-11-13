@@ -74,7 +74,7 @@ Users sign in with their GitHub account through the GitHub App registered for Si
 - **Public, for anyone but its owner.** The Office registers the App as private, and GitHub lets only a private App's owner (or the members of the organization owning it) authorize it. For other users to continue with GitHub, make it public in the App's settings under Advanced › Make public. The Office kept none of the App's private key, and only linked accounts sign in.
 - **Its authorization kept on the git identity's account.** Revoking the App's authorization on GitHub (Settings › Applications › Authorized GitHub Apps) from the account Sign in with GitHub uses ends that sign-in's token too.
 
-Not yet checked on real GitHub, only against the fake one: that GitHub takes a plain-HTTP callback URL on a local network IP, and whether a loopback callback (`localhost`, `127.0.0.1`) must match its port exactly.
+Not yet checked on real GitHub, only against the fake one: that GitHub takes a plain-HTTP callback URL on a local network IP; whether a loopback callback (`localhost`, `127.0.0.1`) must match its port exactly; and, as the App's user tokens expire, that revoking the access token also ends the refresh token GitHub hands out with it, so that repeated Continue with GitHub from the git identity's account never reaches GitHub's ten tokens per user and App, past which it revokes the oldest, Sign in with GitHub's among them.
 
 ## Setting a user's password on the host
 
