@@ -14,6 +14,7 @@ import {
 } from "./brief.js";
 import { aDecision } from "./decision.fixtures.js";
 import type { Message, MessageDraft } from "./message.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const PROJECTS: BriefProject[] = [
   {
@@ -30,7 +31,8 @@ function logged(draft: MessageDraft): Message {
   return { ...draft, id: `m-${position}`, threadId: "t", at: new Date(2026, 9, 25, 10, position) };
 }
 
-const say = (text: string): Message => logged({ kind: "user", text, delivery: "delivered" });
+const say = (text: string): Message =>
+  logged({ kind: "user", text, delivery: "delivered", writtenBy: ANN_LEE });
 const answer = (text: string): Message => logged({ kind: "person", roleKey: "planner", text });
 
 describe("a new chat Thread's Brief", () => {
@@ -131,7 +133,7 @@ describe("a chat Thread's Brief when it continues fresh", () => {
     expect(text).toContain("## Your Handover note\n\nDeploys explained; next: tests.");
     expect(text).not.toContain("Old note.");
     expect(text).toContain(
-      "## The latest exchanges\n\nThe user: Read the deploy workflow.\n\nYou: It deploys on every push to main.\n\nThe user: And the tests?",
+      "## The latest exchanges\n\nThe user Ann Lee: Read the deploy workflow.\n\nYou: It deploys on every push to main.\n\nThe user Ann Lee: And the tests?",
     );
     expect(text).not.toContain("deploy.yml");
     expect(text).toContain("## The Projects");
@@ -148,7 +150,7 @@ describe("a chat Thread's Brief when it continues fresh", () => {
       memory: NO_MEMORY,
     });
 
-    expect(text).toContain("The user: third");
+    expect(text).toContain("The user Ann Lee: third");
     expect(text).toContain("You: second");
     expect(text).not.toContain("first");
     expect(text).not.toContain("## The Thread");

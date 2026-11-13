@@ -10,9 +10,9 @@ import { randomUUID } from "node:crypto";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
-import { THE_USER } from "../../domain/author.js";
 import { ProjectWorktreesForTests, SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 /** A Stage's session on the test's Task, of the person the fixtures name "planner". */
 const SESSION = "stage-session";
@@ -26,7 +26,7 @@ async function startAttaching(
     .get(TaskService)
     .create(
       { title: "Show thumbnails", projectId: `project-${randomUUID()}`, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
   work.app.get(SessionTasksForTests).tasks.set(SESSION, task.id);
   const worktrees = work.app.get(ProjectWorktreesForTests);
@@ -107,7 +107,7 @@ describe("attach_file", () => {
         mediaType: "text/markdown",
         content: new TextEncoder().encode("# Mine"),
       },
-      THE_USER,
+      ANN_LEE,
     );
     await call(ATTACH_LINK, { url: "https://example.com/report.md", name: "report.md" });
     const other = await startAttaching(folder);

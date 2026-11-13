@@ -18,6 +18,7 @@ import {
 import { aRoleCard } from "../domain/role.fixtures.js";
 import type { RoleCard } from "../domain/role-card.js";
 import { RoleRefused } from "../domain/role-refused.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 import { PeopleModule } from "../people.module.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
 import { RoleService } from "./role-service.js";
@@ -78,11 +79,16 @@ function aHold(): { reached: Promise<void>; wait: () => Promise<void>; release: 
 
 describe("a Role override saved while an engine is removed", () => {
   it("is moved by the removal when the save started first, even though it is written after", async () => {
-    const { role } = await roles.hireFromScratch(aCardOfItsOwn(), []);
+    const { role } = await roles.hireFromScratch(aCardOfItsOwn(), [], ANN_LEE);
     const hold = aHold();
     app.get(RoleOverrideChecks).register(async () => (await hold.wait(), []));
 
-    const saving = roles.changeCard(role.key, { ...role.card, roleOverride: ON_RACING }, []);
+    const saving = roles.changeCard(
+      role.key,
+      { ...role.card, roleOverride: ON_RACING },
+      [],
+      ANN_LEE,
+    );
     await hold.reached;
     let removed = false;
     const removing = removeRacing().then(() => (removed = true));
@@ -99,14 +105,19 @@ describe("a Role override saved while an engine is removed", () => {
   });
 
   it("is refused when the removal started first, on the card and on a hire from scratch", async () => {
-    const { role } = await roles.hireFromScratch(aCardOfItsOwn(), []);
+    const { role } = await roles.hireFromScratch(aCardOfItsOwn(), [], ANN_LEE);
     const hold = aHold();
     app.get(EngineReferenceMoves).register({ movesOf: async () => [], move: hold.wait });
 
     const removing = removeRacing();
     await hold.reached;
-    const saving = roles.changeCard(role.key, { ...role.card, roleOverride: ON_RACING }, []);
-    const hiring = roles.hireFromScratch(aCardOfItsOwn({ roleOverride: ON_RACING }), []);
+    const saving = roles.changeCard(
+      role.key,
+      { ...role.card, roleOverride: ON_RACING },
+      [],
+      ANN_LEE,
+    );
+    const hiring = roles.hireFromScratch(aCardOfItsOwn({ roleOverride: ON_RACING }), [], ANN_LEE);
     // Settled from now: the saves are refused while the removal still announces itself.
     const saves = Promise.allSettled([saving, hiring]);
     hold.release();
@@ -120,7 +131,11 @@ describe("a Role override saved while an engine is removed", () => {
 
 describe("removing an engine a Role override names", () => {
   it("previews the move it then makes", async () => {
-    const { role } = await roles.hireFromScratch(aCardOfItsOwn({ roleOverride: ON_RACING }), []);
+    const { role } = await roles.hireFromScratch(
+      aCardOfItsOwn({ roleOverride: ON_RACING }),
+      [],
+      ANN_LEE,
+    );
     const settings = app.get(EngineSettingsService);
 
     const preview = await settings.removalPreview(RACING.id, FIRST_CLAUDE_CODE_ENGINE.id);

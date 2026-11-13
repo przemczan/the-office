@@ -132,16 +132,24 @@ export const usageWindowSchema = z.object({
   resetsAt: z.iso.datetime().nullable(),
 });
 
+/**
+ * Since you left for the user asking: where it begins, at the start of their own last absence,
+ * and each Task's latest outcome since then. Read again on each `now.changed`.
+ */
+export const sinceYouLeftSchema = z.object({
+  /** Null until the user is first seen. */
+  leftAt: z.iso.datetime().nullable(),
+  /** Latest first. */
+  finished: z.array(finishedTaskSchema),
+});
+export type SinceYouLeft = z.infer<typeof sinceYouLeftSchema>;
+
 /** Now and the status strip: what needs the user, what runs, and the Office's figures. */
 export const nowSchema = z.object({
   needsYou: z.array(needsYouItemSchema),
   running: z.array(runningTaskSchema),
   /** The queue for Start, first place first. */
   queue: z.array(queuedOnNowSchema),
-  /** Null until the user is first seen. */
-  leftAt: z.iso.datetime().nullable(),
-  /** Latest first. */
-  sinceYouLeft: z.array(finishedTaskSchema),
   tokensToday: tokenTotalsSchema,
   /** The Tasks with a Stage run today. */
   tasksTouched: z.number().int().nonnegative(),

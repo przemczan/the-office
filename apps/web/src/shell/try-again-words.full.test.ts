@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tryAgainWords } from "./sign-in-words.ts";
+import { tryAgainWords } from "./try-again-words.ts";
 
 const NOW = new Date(2026, 10, 13, 14, 0, 0);
 

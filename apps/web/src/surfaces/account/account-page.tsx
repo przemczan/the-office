@@ -6,6 +6,7 @@ import "./account.css";
 /** The account's sections, each a page of its own; later Tasks add theirs here. */
 const SECTIONS: readonly MenuSection[] = [
   { to: "/account/profile", icon: "user-round", label: "Profile" },
+  { to: "/account/authenticator", icon: "smartphone", label: "Authenticator" },
   { to: "/account/appearance", icon: "palette", label: "Appearance" },
   { to: "/account/passkeys", icon: "key-round", label: "Passkeys" },
   { to: "/account/linked-identities", icon: "link", label: "Linked identities" },
@@ -13,8 +14,8 @@ const SECTIONS: readonly MenuSection[] = [
 ];
 
 /**
- * The signed-in user's account (spec §2.10): their own profile, password, appearance, passkeys,
- * linked identities and signed-in devices, each a section beside the open one.
+ * The signed-in user's account (spec §2.10): their own profile, password, authenticator,
+ * appearance, passkeys, linked identities and signed-in devices, each a section beside the open one.
  */
 export function AccountPage(): ReactNode {
   return (

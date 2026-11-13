@@ -17,7 +17,7 @@ import {
   passkeyCeremonyCookie,
 } from "./passkey-ceremony-cookie.js";
 import { ceremonyAnswerOf } from "./passkey-messages.js";
-import { answered } from "./sign-in-answer.js";
+import { answerSignIn } from "./sign-in-answers.js";
 import { cookieValueOf } from "./sign-in-cookie.js";
 import { pageAddressOf, signInRequestOf } from "./sign-in-request.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
@@ -62,7 +62,7 @@ export class PasskeySignInController {
         page,
         signInRequestOf(request, this.officeAddresses.addressOf(request)),
       );
-      return answered(outcome, page.secure, response, [forgotten]);
+      return answerSignIn(outcome, page.secure, response, [forgotten]);
     } catch (error) {
       // The ceremony is taken whatever the outcome, so its cookie goes too.
       if (error instanceof SignInRefused) response.setHeader("Set-Cookie", forgotten);

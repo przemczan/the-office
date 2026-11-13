@@ -2,10 +2,14 @@ import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { engineIdSchema } from "./engines.js";
 import type { ProjectFilter } from "./project-filter.js";
+import { userRefSchema } from "./users.js";
 
-/** Who captured, created or attached something: the user, or a person by their Role's key. */
+/**
+ * Who captured, created or attached something: a user, or a person by their Role's key. `user` is
+ * null on a record from before users existed, not yet claimed by the first user.
+ */
 export const authorSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("user") }),
+  z.object({ kind: z.literal("user"), user: userRefSchema.nullable() }),
   z.object({ kind: z.literal("person"), roleKey: z.string() }),
 ]);
 export type Author = z.infer<typeof authorSchema>;

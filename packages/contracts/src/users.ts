@@ -96,15 +96,26 @@ export const passwordSignInSchema = z.object({
 export type PasswordSignIn = z.infer<typeof passwordSignInSchema>;
 
 /**
- * How a sign-in ended, its cookie set when signed in. A union on `outcome`, which a second step,
- * such as asking for an authenticator code, joins with its Task.
+ * How a sign-in ended: signed in, its cookie set; waiting for the user's authenticator code, a
+ * pending sign-in's own cookie set for `POST /sign-in/code`; or on to setting their own password.
  */
 export const signInOutcomeSchema = z.discriminatedUnion("outcome", [
   z.object({ outcome: z.literal("signed-in") }),
+  z.object({ outcome: z.literal("code-needed") }),
   /** A right one-time password: the user sets their own password next, still signed out. */
   z.object({ outcome: z.literal("set-password") }),
 ]);
 export type SignInOutcome = z.infer<typeof signInOutcomeSchema>;
+
+/**
+ * An authenticator code, or a recovery code standing in for one: `POST /sign-in/code` and
+ * `DELETE /account/authenticator`.
+ */
+export const codeAnswerSchema = z.union([
+  z.strictObject({ code: z.string() }),
+  z.strictObject({ recoveryCode: z.string() }),
+]);
+export type CodeAnswer = z.infer<typeof codeAnswerSchema>;
 
 /**
  * `POST /sign-in/set-password`: a user added by another sets their own password at their first
@@ -118,9 +129,9 @@ export const firstPasswordSchema = z.object({
 export type FirstPassword = z.infer<typeof firstPasswordSchema>;
 
 /**
- * A refused sign-in: a wrong email or password (422), a right one-time password past its days
- * (422), a passkey that signed nobody in (422, one answer for every reason), or a try not taken
- * (429) for the slow-down's wait or the lockout, with when to try again. An unknown email is
+ * A refused sign-in: a wrong email, password or code (422), a right one-time password past its
+ * days (422), a passkey that signed nobody in (422, one answer for every reason), or a try not
+ * taken (429) for the slow-down's wait or the lockout, with when to try again. An unknown email is
  * answered as a wrong password.
  */
 export const signInRefusalSchema = z.object({
@@ -138,6 +149,13 @@ export const userRefusalSchema = z.object({
   reasons: z.array(z.string()).min(1),
 });
 export type UserRefusal = z.infer<typeof userRefusalSchema>;
+
+/** Whether the user's authenticator is on, and how many unused recovery codes they have left. */
+export const authenticatorStateSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("off") }),
+  z.object({ state: z.literal("on"), recoveryCodesLeft: z.number().int().nonnegative() }),
+]);
+export type AuthenticatorState = z.infer<typeof authenticatorStateSchema>;
 
 /**
  * The palettes' and densities' ids (spec §4). `packages/ui` names each in `PALETTES` and
@@ -177,8 +195,29 @@ export const accountSchema = z.object({
   name: z.string(),
   email: z.string(),
   appearance: appearanceSchema,
+  authenticator: authenticatorStateSchema,
 });
 export type Account = z.infer<typeof accountSchema>;
+
+/**
+ * `POST /account/authenticator`: a new authenticator's `otpauth://` address, for the QR code, and
+ * its key, to type in by hand. Sent only while it is set up, never again.
+ */
+export const authenticatorSetupSchema = z.object({
+  keyUri: z.string(),
+  secret: z.string(),
+});
+export type AuthenticatorSetup = z.infer<typeof authenticatorSetupSchema>;
+
+/** `POST /account/authenticator/confirm` and `POST /account/recovery-codes`: a current code. */
+export const authenticatorCodeSchema = z.strictObject({ code: z.string() });
+export type AuthenticatorCode = z.infer<typeof authenticatorCodeSchema>;
+
+/** A new set of recovery codes, answered once; only their hashes are kept. */
+export const recoveryCodesSchema = z.object({
+  recoveryCodes: z.array(z.string()).min(1),
+});
+export type RecoveryCodes = z.infer<typeof recoveryCodesSchema>;
 
 /** `PATCH /account`: a new name, email or both. */
 export const profileChangeSchema = z
@@ -286,3 +325,13 @@ export const identityCallbackUrlsSchema = z.object({
   publicAddress: z.string().nullable(),
 });
 export type IdentityCallbackUrls = z.infer<typeof identityCallbackUrlsSchema>;
+
+/**
+ * The user who did something, as a record keeps them: their id and their name as it was then, so a
+ * record reads the same after a rename or the user's removal.
+ */
+export const userRefSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+});
+export type UserRef = z.infer<typeof userRefSchema>;

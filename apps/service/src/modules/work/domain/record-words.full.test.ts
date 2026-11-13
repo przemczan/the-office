@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import type { TaskLinks } from "./linked-records.js";
 import {
   ideaRecordText,
@@ -7,7 +6,9 @@ import {
   taskRecordText,
   type TaskRecordParts,
 } from "./record-words.js";
-import { anIdea, anInitiative, aTask } from "./work.fixtures.js";
+import { BY_THE_DAILY_RUN } from "./author.js";
+import { ANN_LEE, anIdea, anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
+import type { Task } from "./task.js";
 
 const NO_LINKS: TaskLinks = {
   waitsFor: [],
@@ -27,6 +28,13 @@ const NOTHING: TaskRecordParts = {
 const ARCHIVED_AT = new Date("2026-11-01T10:00:00.000Z");
 
 /** The lines of one part of a record, from its heading to the blank line after it. */
+/** The record's lines of its last Restore and its Archive. */
+function archiveLines(task: Task): string[] {
+  return taskRecordText(task, NOTHING)
+    .split("\n")
+    .filter((line) => line.startsWith("- Archived") || line.startsWith("- Restored"));
+}
+
 function part(record: string, heading: string): string[] {
   const lines = record.split("\n");
   const start = lines.indexOf(heading);
@@ -48,16 +56,46 @@ describe("taskRecordText", () => {
     const task = aTask({
       projectId: "shop",
       projectMoves: [
-        { from: "docs", to: "admin-panel", at: new Date("2026-11-01T10:00:00.000Z"), by: THE_USER },
-        { from: "admin-panel", to: "shop", at: new Date("2026-11-02T10:00:00.000Z"), by: THE_USER },
+        { from: "docs", to: "admin-panel", at: new Date("2026-11-01T10:00:00.000Z"), by: ANN_LEE },
+        { from: "admin-panel", to: "shop", at: new Date("2026-11-02T10:00:00.000Z"), by: BEN_ITO },
       ],
     });
 
     const lines = taskRecordText(task, NOTHING).split("\n");
 
     expect(lines.filter((line) => line.startsWith("- Moved"))).toEqual([
-      "- Moved from Project docs to Project admin-panel by the user on 2026-11-01T10:00:00.000Z",
-      "- Moved from Project admin-panel to Project shop by the user on 2026-11-02T10:00:00.000Z",
+      "- Moved from Project docs to Project admin-panel by the user Ann Lee on 2026-11-01T10:00:00.000Z",
+      "- Moved from Project admin-panel to Project shop by the user Ben Ito on 2026-11-02T10:00:00.000Z",
+    ]);
+  });
+
+  it("names the user who created it, and only says the user for a Task from before users", () => {
+    const createdAt = "2026-10-25T09:30:00.000Z";
+
+    expect(taskRecordText(aTask({ createdBy: BEN_ITO }), NOTHING)).toContain(
+      `- Created by the user Ben Ito on ${createdAt}`,
+    );
+    expect(taskRecordText(aTask({ createdBy: { kind: "user", user: null } }), NOTHING)).toContain(
+      `- Created by the user on ${createdAt}`,
+    );
+  });
+
+  it("names who archived it, the daily run as The Office, and who last restored it", () => {
+    const restored = { restoredAt: new Date("2026-11-20T09:00:00.000Z"), restoredBy: BEN_ITO };
+    const archivedAt = new Date("2026-11-29T09:00:00.000Z");
+    expect(
+      archiveLines(aTask({ state: "done", ...restored, archivedAt, archivedBy: ANN_LEE })),
+    ).toEqual([
+      "- Restored from the Archive by the user Ben Ito on 2026-11-20T09:00:00.000Z",
+      "- Archived by the user Ann Lee on 2026-11-29T09:00:00.000Z: off the board, its state as it was",
+    ]);
+    expect(
+      archiveLines(aTask({ state: "done", archivedAt, archivedBy: BY_THE_DAILY_RUN })),
+    ).toEqual([
+      "- Archived by The Office on 2026-11-29T09:00:00.000Z: off the board, its state as it was",
+    ]);
+    expect(archiveLines(aTask({ state: "done", archivedAt }))).toEqual([
+      "- Archived on 2026-11-29T09:00:00.000Z: off the board, its state as it was",
     ]);
   });
 

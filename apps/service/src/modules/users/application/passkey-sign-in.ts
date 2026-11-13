@@ -10,10 +10,12 @@ import {
 } from "../domain/pending-ceremony.js";
 import { relyingPartyAt, type RelyingParty } from "../domain/relying-party.js";
 import { SignInRefused } from "../domain/sign-in-refused.js";
+import { PASSKEY_WAY } from "../domain/sign-in-way.js";
 import type { SignInRequest } from "../domain/signed-in-device.js";
 import { PasskeyCeremonies, type CeremonyAnswer } from "../ports/passkey-ceremonies.js";
 import { PasskeyRepository } from "../ports/passkey-repository.js";
 import { PendingCeremonies } from "../ports/pending-ceremonies.js";
+import type { SecondStep } from "../ports/second-steps.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { newSignInToken } from "./sign-in-tokens.js";
 import { SignIns, type SignedInOutcome } from "./sign-ins.js";
@@ -66,7 +68,7 @@ export class PasskeySignIn {
     answer: CeremonyAnswer,
     page: PageAddress,
     request: SignInRequest,
-  ): Promise<SignedInOutcome> {
+  ): Promise<SignedInOutcome | SecondStep> {
     const relyingParty = relyingPartyOf(page);
     const ceremony = this.ceremonyFor(ceremonyKey, relyingParty);
     const passkey = await this.passkeys.findByCredentialId(answer.credentialId);
@@ -88,7 +90,7 @@ export class PasskeySignIn {
       throw SignInRefused.passkey();
     }
     await this.passkeys.save(usedAt(passkey, checked.counter, this.schedule.now()));
-    return this.signIns.finish(user, "passkey", request);
+    return this.signIns.finish(user, PASSKEY_WAY, request);
   }
 
   private ceremonyFor(

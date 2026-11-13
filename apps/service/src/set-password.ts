@@ -1,7 +1,12 @@
 import { stdin, stdout, stderr } from "node:process";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { CookieSignedInRequests, Passwords, UsersModule } from "./modules/users/index.js";
+import {
+  Authenticators,
+  CookieSignedInRequests,
+  Passwords,
+  UsersModule,
+} from "./modules/users/index.js";
 import { readDatabaseUrl } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
@@ -96,7 +101,10 @@ async function main(): Promise<number> {
     },
   );
   try {
-    return await setPasswordCommand(process.argv.slice(2), terminal, app.get(Passwords));
+    return await setPasswordCommand(process.argv.slice(2), terminal, {
+      passwords: app.get(Passwords),
+      authenticators: app.get(Authenticators),
+    });
   } finally {
     await app.close();
   }

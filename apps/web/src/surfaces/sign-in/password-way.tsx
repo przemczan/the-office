@@ -4,9 +4,8 @@ import { Alert, Button, Input } from "@the-office/ui";
 import { useState } from "react";
 import { RefusedAs } from "../../api/api-client.ts";
 import { signInWithPassword } from "../../api/users.ts";
-import { useClock } from "../../shell/use-clock.ts";
+import { useTryAgainWords } from "../../shell/try-again-words.ts";
 import { FirstPasswordForm } from "./first-password-form.tsx";
-import { tryAgainWords } from "./sign-in-words.ts";
 import type { SignInWayView } from "./sign-in-ways.tsx";
 import { useSignedIn } from "./use-signed-in.ts";
 
@@ -87,9 +86,3 @@ export const PasswordWay: SignInWayView<"password"> = () => {
     </form>
   );
 };
-
-/** When to try again, renewed every second while a wait runs; undefined with none. */
-function useTryAgainWords(tryAgainAt: string | undefined): string | undefined {
-  const now = useClock(1000);
-  return tryAgainAt === undefined ? undefined : tryAgainWords(tryAgainAt, now);
-}

@@ -44,9 +44,4 @@ export class SignInWays {
     }
     return { ways: offered, unavailable };
   }
-
-  /** Whether the way signs a user in alone, with no second step after it. */
-  isEnoughAlone(kind: SignInWayKind): boolean {
-    return this.ways.find((way) => way.kind === kind)?.enoughAlone ?? false;
-  }
 }

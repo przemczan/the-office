@@ -26,7 +26,7 @@ export class PostgresRoleSkillRepository extends RoleSkillRepository {
       // A change reads every assignment, so it holds them all; reads go on meanwhile.
       await transaction.execute(sql`lock table ${roleSkills} in exclusive mode`);
       const changed = change(await transaction.select().from(roleSkills));
-      for (const { roleKey, added, removed, changedAt } of changed.changes) {
+      for (const { roleKey, added, removed, changedAt, changedBy } of changed.changes) {
         if (removed.length > 0) {
           await transaction
             .delete(roleSkills)
@@ -41,7 +41,7 @@ export class PostgresRoleSkillRepository extends RoleSkillRepository {
         }
         await transaction
           .insert(roleSkillChanges)
-          .values({ roleKey, added: [...added], removed: [...removed], changedAt });
+          .values({ roleKey, added: [...added], removed: [...removed], changedAt, changedBy });
       }
       return changed;
     });
@@ -54,6 +54,7 @@ export class PostgresRoleSkillRepository extends RoleSkillRepository {
         added: roleSkillChanges.added,
         removed: roleSkillChanges.removed,
         changedAt: roleSkillChanges.changedAt,
+        changedBy: roleSkillChanges.changedBy,
       })
       .from(roleSkillChanges)
       .where(eq(roleSkillChanges.roleKey, roleKey))

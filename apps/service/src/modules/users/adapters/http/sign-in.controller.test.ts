@@ -139,7 +139,7 @@ describe("signing in with a password", () => {
 
     expect(atLocalhost.status).toBe(200);
     expect(atLocalhost.body).toEqual({ outcome: "signed-in" });
-    const cookies = [atLocalhost, atPublicHttps, atPublicHttp].map(setCookieOf);
+    const cookies = [atLocalhost, atPublicHttps, atPublicHttp].map((answer) => setCookieOf(answer));
     for (const { attributes } of cookies) {
       expect(attributes).toEqual(expect.arrayContaining(["HttpOnly", "SameSite=Lax", "Path=/"]));
     }

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import { TASK_STATES, type TaskState } from "./task.js";
 import { changeTaskState, markTaskReady } from "./task-changes.js";
 import { TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { aPlannedTask, aTask } from "./work.fixtures.js";
+import { ANN_LEE, aPlannedTask, aTask } from "./work.fixtures.js";
 
 /** Spec §2.1, written out here apart from the rules so that a change to either shows. */
 const ALLOWED: readonly string[] = [
@@ -40,7 +39,7 @@ describe("changeTaskState", () => {
   it.each(moves.filter(({ from, to }) => ALLOWED.includes(`${from} → ${to}`)))(
     "moves a Task from $from to $to",
     ({ from, to }) => {
-      const change = changeTaskState(aTaskIn(from), to, THE_USER);
+      const change = changeTaskState(aTaskIn(from), to, ANN_LEE);
 
       expect(change?.task.state).toBe(to);
       expect(change?.event).toBeInstanceOf(TaskStateChanged);
@@ -51,12 +50,12 @@ describe("changeTaskState", () => {
   it.each(moves.filter(({ from, to }) => !ALLOWED.includes(`${from} → ${to}`)))(
     "refuses to move a Task from $from to $to",
     ({ from, to }) => {
-      expect(() => changeTaskState(aTaskIn(from), to, THE_USER)).toThrow(TaskRefused);
+      expect(() => changeTaskState(aTaskIn(from), to, ANN_LEE)).toThrow(TaskRefused);
     },
   );
 
   it("refuses Ready without a Plan and a Definition of Done, with both reasons", () => {
-    expect(() => changeTaskState(aTask({ state: "planning" }), "ready", THE_USER)).toThrow(
+    expect(() => changeTaskState(aTask({ state: "planning" }), "ready", ANN_LEE)).toThrow(
       new TaskRefused([
         "A Task needs a Plan before it can be Ready.",
         "A Task needs a Definition of Done before it can be Ready.",
@@ -67,7 +66,7 @@ describe("changeTaskState", () => {
   it("marks a Task Ready from Backlog once the user wrote and confirmed both parts", () => {
     const written = aPlannedTask({ state: "backlog" });
 
-    const change = markTaskReady(written, 0);
+    const change = markTaskReady(written, 0, ANN_LEE);
 
     expect(change?.task.state).toBe("ready");
     expect(change?.event).toMatchObject({ from: "backlog", to: "ready" });
@@ -75,9 +74,9 @@ describe("changeTaskState", () => {
 
   it("refuses Mark Ready while the Task has no Pipeline", () => {
     for (const state of ["backlog", "planning"] as const) {
-      expect(() => markTaskReady(aPlannedTask({ state, pipelineId: undefined }), 0)).toThrow(
-        new TaskRefused(["Choose a Pipeline before the Task can be Ready."]),
-      );
+      expect(() =>
+        markTaskReady(aPlannedTask({ state, pipelineId: undefined }), 0, ANN_LEE),
+      ).toThrow(new TaskRefused(["Choose a Pipeline before the Task can be Ready."]));
     }
   });
 });

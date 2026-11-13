@@ -93,10 +93,10 @@ describe("PostgresRoleRepository", () => {
 
     await Promise.all([
       repository.update(role.key, (stored) =>
-        changeRoleCard(stored, { ...stored.card, taskLimit: 1 }, OFFERED_MODELS, savedAt),
+        changeRoleCard(stored, { ...stored.card, taskLimit: 1 }, OFFERED_MODELS, savedAt, null),
       ),
       repository.update(role.key, (stored) =>
-        changeRoleCard(stored, { ...stored.card, effort: "max" }, OFFERED_MODELS, savedAt),
+        changeRoleCard(stored, { ...stored.card, effort: "max" }, OFFERED_MODELS, savedAt, null),
       ),
     ]);
 
@@ -120,7 +120,7 @@ describe("PostgresRoleRepository", () => {
       changeAvatar(stored, avatar, new Date()),
     );
     await repository.update(role.key, (stored) =>
-      changeRoleCard(stored, { ...stored.card, title: "Tester" }, OFFERED_MODELS, new Date()),
+      changeRoleCard(stored, { ...stored.card, title: "Tester" }, OFFERED_MODELS, new Date(), null),
     );
 
     expect(event?.role.cardVersion).toBe(1);

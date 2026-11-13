@@ -4,24 +4,20 @@ import { oneTimePasswordAsTyped } from "../domain/one-time-password.js";
 import { SignInRefused } from "../domain/sign-in-refused.js";
 import { isWaitingForFirstSignIn, type User } from "../domain/user.js";
 import { UserIdNotFound, UserRefused } from "../domain/user-refused.js";
-import {
-  NO_WRONG_TRIES,
-  afterWrongTry,
-  tryRefusal,
-  wrongTryAnswer,
-} from "../domain/wrong-tries.js";
+import { tryRefusal, wrongTryAnswer } from "../domain/wrong-tries.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { UnknownEmailTries } from "./unknown-email-tries.js";
+import { UserWrongTries } from "./user-wrong-tries.js";
 
 /** Hashed against when the email is unknown, so the answer takes about as long as a wrong password. */
 const NOBODY_S_PASSWORD = "nobody's password, never matched";
 
 /**
  * Checking a user's password, their one-time password included, wherever one is asked for: slowed
- * down and locked after wrong tries (spec §2.10 Defaults). A try is counted wrong before the
- * password is checked and the count cleared once it matches, so tries sent at once can't slip past
- * the slow-down.
+ * down and locked after wrong tries (spec §2.10 Defaults), counted with the user's wrong codes. A
+ * right password undoes only its own try's count: the count is cleared once a sign-in ends, so a
+ * right password never resets the wrong codes before it.
  */
 @Injectable()
 export class PasswordChecks implements OnModuleInit {
@@ -29,6 +25,7 @@ export class PasswordChecks implements OnModuleInit {
 
   constructor(
     private readonly users: UserRepository,
+    private readonly wrongTries: UserWrongTries,
     private readonly passwordHashing: PasswordHashing,
     private readonly unknownEmailTries: UnknownEmailTries,
     private readonly schedule: Schedule,
@@ -39,9 +36,8 @@ export class PasswordChecks implements OnModuleInit {
   }
 
   /**
-   * The user with this email, once `password` is theirs, their wrong tries cleared. Throws
-   * `SignInRefused`: wrong, the slow-down's wait or the lockout. An unknown or removed user's email
-   * gets the same answers.
+   * The user with this email, once `password` is theirs. Throws `SignInRefused`: wrong, the
+   * slow-down's wait or the lockout. An unknown or removed user's email gets the same answers.
    */
   async userWith(email: string, password: string): Promise<User> {
     const user = await this.users.findByEmail(email);
@@ -54,14 +50,13 @@ export class PasswordChecks implements OnModuleInit {
    * user, or they were removed.
    */
   async userOf(userId: string, password: string): Promise<User | undefined> {
-    const counted = await this.users.update(userId, (stored) => this.takeTry(stored));
-    if (counted === undefined || counted.removedAt !== undefined) return undefined;
-    if (!(await this.matches(password, counted))) throw wrongTryAnswer(counted.wrongTries);
-    const cleared = await this.users.update(userId, (stored) => ({
-      ...stored,
-      wrongTries: NO_WRONG_TRIES,
-    }));
-    return cleared ?? counted;
+    const taken = await this.wrongTries.take(userId);
+    if (taken === undefined) return undefined;
+    if (!(await this.matches(password, taken.user))) {
+      throw wrongTryAnswer(taken.user.wrongTries, "password");
+    }
+    await this.wrongTries.undo(taken);
+    return { ...taken.user, wrongTries: taken.before };
   }
 
   /**
@@ -89,22 +84,13 @@ export class PasswordChecks implements OnModuleInit {
     return this.passwordHashing.matches(typed, user.passwordHash);
   }
 
-  /** The user with this try counted wrong; throws the refusal when no try is taken now. */
-  private takeTry(user: User): User | undefined {
-    if (user.removedAt !== undefined) return undefined;
-    const now = this.schedule.now();
-    const refusal = tryRefusal(user.wrongTries, now);
-    if (refusal !== undefined) throw refusal;
-    return { ...user, wrongTries: afterWrongTry(user.wrongTries, now) };
-  }
-
   private async refuseUnknownEmail(email: string, password: string): Promise<never> {
     const now = this.schedule.now();
     const refusal = tryRefusal(this.unknownEmailTries.of(email), now);
     if (refusal !== undefined) throw refusal;
     const tries = this.unknownEmailTries.countWrong(email, now);
     await this.passwordHashing.matches(password, await this.nobodysHashed());
-    throw wrongTryAnswer(tries);
+    throw wrongTryAnswer(tries, "password");
   }
 
   private nobodysHashed(): Promise<string> {

@@ -9,7 +9,7 @@ import { RequestAccessModule } from "./request-access.module.js";
 import { SignedIn, SignedInRequests } from "./signed-in-requests.js";
 
 const PUBLIC_ADDRESS = "https://office.example.com";
-const SIGNED_IN: SignedIn = { userId: "user-1", signedInDeviceId: "device-1" };
+const SIGNED_IN: SignedIn = { userId: "user-1", name: "Ann Lee", signedInDeviceId: "device-1" };
 /** The stand-in cookie a request signs in with. */
 const SIGNED_IN_COOKIE = "signed-in=yes";
 

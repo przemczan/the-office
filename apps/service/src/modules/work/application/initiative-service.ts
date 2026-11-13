@@ -312,8 +312,8 @@ export class InitiativeService implements OnModuleInit {
    * Makes it active, its Tasks in Shaping moving to Backlog, with its branch made in each Project
    * when it has a Pipeline (InitiativeBranching); done at once when its Tasks already are.
    */
-  async confirm(id: string): Promise<Initiative> {
-    const confirmed = await this.branching.confirm(id);
+  async confirm(id: string, by: Author): Promise<Initiative> {
+    const confirmed = await this.branching.confirm(id, by);
     return (await this.finishIfDone(id)) ?? confirmed;
   }
 
@@ -393,20 +393,20 @@ export class InitiativeService implements OnModuleInit {
    * TaskStateChanged is published as its own Drop's is, so the queue lets a queued one go and a
    * started one's run stops.
    */
-  async drop(id: string): Promise<Initiative> {
+  async drop(id: string, by: Author): Promise<Initiative> {
     return this.updateWithTasks(id, (initiative, tasks) =>
-      dropInitiative(initiative, tasks, new Date()),
+      dropInitiative(initiative, tasks, new Date(), by),
     );
   }
 
   /** Takes a Done or Dropped Initiative off the board into the Archive; its state stays. */
-  async archive(id: string): Promise<Initiative> {
-    return this.update(id, (initiative) => archiveInitiative(initiative, new Date()));
+  async archive(id: string, by: Author): Promise<Initiative> {
+    return this.update(id, (initiative) => archiveInitiative(initiative, new Date(), by));
   }
 
   /** Puts an archived Initiative back on the board, for a full Archive period from now. */
-  async restore(id: string): Promise<Initiative> {
-    return this.update(id, (initiative) => restoreInitiative(initiative, new Date()));
+  async restore(id: string, by: Author): Promise<Initiative> {
+    return this.update(id, (initiative) => restoreInitiative(initiative, new Date(), by));
   }
 
   /** A page of the Archive for `query`, filtered and counted as ArchiveSearch says. */

@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { THE_USER, type Author } from "./author.js";
+import type { Author } from "./author.js";
 import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js";
 import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task } from "./task.js";
 import {
@@ -19,6 +19,7 @@ import {
   BY_THE_FIRE_ALARM,
   BY_THE_PIPELINE,
   BY_THE_USAGE_WINDOW,
+  userBehind,
   type StateChange,
   type StateChangeCause,
 } from "./state-change.js";
@@ -113,7 +114,9 @@ export function createTask(
     createdBy: setting.createdBy,
     createdAt,
     archivedAt: undefined,
+    archivedBy: undefined,
     restoredAt: undefined,
+    restoredBy: undefined,
     endedAt: undefined,
   };
   return {
@@ -143,13 +146,13 @@ export function changeTaskState(
 }
 
 /**
- * Where a Task is planned: in a planning Thread of its own, moved there by the user, or in its
- * Initiative's planning Thread, moved there by the Planner as its turn comes (start_planning).
+ * Where a Task is planned: in a planning Thread of its own, moved there by the user who asked, or
+ * in its Initiative's planning Thread, moved there by the Planner as its turn comes
+ * (start_planning).
  */
 export type PlanningThread =
-  { readonly kind: "own" } | { readonly kind: "initiative"; readonly threadId: string };
-
-export const OWN_PLANNING_THREAD: PlanningThread = { kind: "own" };
+  | { readonly kind: "own"; readonly by: Author }
+  | { readonly kind: "initiative"; readonly threadId: string };
 
 /**
  * Backlog → Planning, in auto mode or not and in the Thread it is planned in, set in the same save
@@ -159,9 +162,9 @@ export const OWN_PLANNING_THREAD: PlanningThread = { kind: "own" };
 export function startPlanningTask(
   task: Task,
   autoMode: boolean,
-  thread: PlanningThread = OWN_PLANNING_THREAD,
+  thread: PlanningThread,
 ): TaskChange<TaskStateChanged> | undefined {
-  const by: StateChangeCause = thread.kind === "own" ? THE_USER : THE_PLANNER;
+  const by: StateChangeCause = thread.kind === "own" ? thread.by : THE_PLANNER;
   const change = changeTaskState(task, "planning", by);
   if (!change) return undefined;
   const initiativePlanningThreadId = thread.kind === "own" ? undefined : thread.threadId;
@@ -198,14 +201,14 @@ export function undoPlanningMove(task: Task): TaskChange<TaskStateChanged> | und
  * Shaping → Backlog, as the user confirms the Task's Initiative. Moved here rather than by
  * `changeTaskState`, as nobody may ask for this move on its own.
  */
-export function moveToBacklogOnConfirm(task: Task): TaskChange<TaskStateChanged> {
+export function moveToBacklogOnConfirm(task: Task, by: Author): TaskChange<TaskStateChanged> {
   return withStateChange(
     {
       task: { ...task, state: "backlog" },
       event: new TaskStateChanged(task.id, task.state, "backlog"),
     },
     task,
-    THE_USER,
+    by,
   );
 }
 
@@ -217,7 +220,7 @@ export function moveToBacklogOnConfirm(task: Task): TaskChange<TaskStateChanged>
 export function markTaskReady(
   task: Task,
   openDecisions: number,
-  by: StateChangeCause = THE_USER,
+  by: StateChangeCause,
 ): TaskChange<TaskStateChanged> | undefined {
   if (task.state === "ready") return undefined;
   const problems = [...stateChangeProblems(task, "ready"), ...openDecisionProblems(openDecisions)];
@@ -254,7 +257,7 @@ export function pauseTask(task: Task, by: StateChangeCause): TaskChange<TaskPaus
   return withStateChange(
     {
       task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
-      event: new TaskPaused(task.id, task.state),
+      event: new TaskPaused(task.id, task.state, "user", undefined, userBehind(by)),
     },
     task,
     by,
@@ -328,15 +331,15 @@ export function resumeTaskAtReset(
  * still be stopped, so its Stage doesn't run to its end. The Stop is the user's, even of a Task
  * the fire alarm paused.
  */
-export function stopTask(task: Task): TaskChange<TaskStopped> {
+export function stopTask(task: Task, by: Author): TaskChange<TaskStopped> {
   if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
   return withStateChange(
     {
       task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
-      event: new TaskStopped(task.id, task.state),
+      event: new TaskStopped(task.id, task.state, userBehind(by)),
     },
     task,
-    THE_USER,
+    by,
   );
 }
 
@@ -347,22 +350,22 @@ export function stopTask(task: Task): TaskChange<TaskStopped> {
  * resumes it; the usage window's reset is kept for Resume the Initiative. Undefined for any other:
  * a Task the user paused stays theirs.
  */
-export function pauseTaskForInitiative(task: Task): TaskChange<TaskPaused> | undefined {
+export function pauseTaskForInitiative(task: Task, by: Author): TaskChange<TaskPaused> | undefined {
   if (task.state === "paused") {
     if (task.pausedBy !== "alarm" && task.pausedBy !== "usage-window") return undefined;
     return {
       task: { ...task, pausedBy: "initiative" },
-      event: new TaskPaused(task.id, "paused", "initiative"),
+      event: new TaskPaused(task.id, "paused", "initiative", undefined, userBehind(by)),
     };
   }
   if (task.state !== "in-progress" && task.state !== "waiting-on-you") return undefined;
   return withStateChange(
     {
       task: { ...task, state: "paused", pausedBy: "initiative" },
-      event: new TaskPaused(task.id, task.state, "initiative"),
+      event: new TaskPaused(task.id, task.state, "initiative", undefined, userBehind(by)),
     },
     task,
-    THE_USER,
+    by,
   );
 }
 
@@ -375,6 +378,7 @@ export function pauseTaskForInitiative(task: Task): TaskChange<TaskPaused> | und
 export function resumeTaskForInitiative(
   task: Task,
   { fireAlarmOn, now }: { readonly fireAlarmOn: boolean; readonly now: Date },
+  by: Author,
 ): TaskChange<TaskResumed | TaskPaused> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "initiative") return undefined;
   if (task.resumesAt !== undefined && task.resumesAt > now) {
@@ -389,7 +393,7 @@ export function resumeTaskForInitiative(
       event: new TaskPaused(task.id, "paused", "alarm"),
     };
   }
-  return resumed(task);
+  return resumed(task, by);
 }
 
 /** Why a single Resume is refused while the Task's Initiative is paused. */
@@ -407,6 +411,7 @@ export function resumeTask(
     fireAlarmOn,
     initiativePaused,
   }: { readonly fireAlarmOn: boolean; readonly initiativePaused: boolean },
+  by: Author,
 ): TaskChange<TaskResumed | TaskPaused> {
   if (task.state !== "paused") {
     throw new TaskRefused([
@@ -414,7 +419,7 @@ export function resumeTask(
     ]);
   }
   if (initiativePaused) throw new TaskRefused([INITIATIVE_PAUSED_RESUME]);
-  if (!fireAlarmOn) return resumed(task);
+  if (!fireAlarmOn) return resumed(task, by);
   if (task.pausedBy === "alarm") {
     throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
   }
@@ -424,7 +429,7 @@ export function resumeTask(
   };
 }
 
-function resumed(task: Task, by: StateChangeCause = THE_USER): TaskChange<TaskResumed> {
+function resumed(task: Task, by: StateChangeCause): TaskChange<TaskResumed> {
   return withStateChange(
     {
       task: { ...task, state: "in-progress", pausedBy: undefined, resumesAt: undefined },
@@ -446,15 +451,16 @@ export type AllClearChoice = "resume" | "hold" | "drop";
 export function giveTaskAllClear(
   task: Task,
   choice: AllClearChoice,
+  by: Author,
 ): TaskChange<TaskResumed | TaskHeldAtAllClear | TaskStateChanged> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "alarm") return undefined;
   switch (choice) {
     case "resume":
-      return resumed(task);
+      return resumed(task, by);
     case "hold":
       return { task: { ...task, pausedBy: undefined }, event: new TaskHeldAtAllClear(task.id) };
     case "drop":
-      return changeTaskState(task, "dropped", THE_USER);
+      return changeTaskState(task, "dropped", by);
   }
 }
 

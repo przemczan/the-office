@@ -28,6 +28,7 @@ import { StageRoleEngines, type NewlyNamedStageRoles } from "./stage-role-engine
 import { StageThreadMessages, type StageRunThreadWindow } from "./stage-thread-messages.js";
 import {
   StartedTasks,
+  type ResumedOrDroppedBy,
   type StartedTask,
   type TaskBlocker,
   type UsageWindowRefusal,
@@ -228,7 +229,11 @@ export class StartedTasksForTests extends StartedTasks {
     return this.read(taskId);
   }
 
-  async drop(taskId: string): Promise<StartedTask> {
+  /** Each Drop, with who it is recorded by, in order. */
+  readonly drops: { readonly taskId: string; readonly by: ResumedOrDroppedBy }[] = [];
+
+  async drop(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask> {
+    this.drops.push({ taskId, by });
     const task = await this.read(taskId);
     this.put(taskId, { ...task, state: "dropped" });
     await this.announce(new TaskStateChanged(taskId, task.state as WalkTaskState, "dropped"));
@@ -253,6 +258,8 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
     attachmentLines: ["- mockup.png (image, image/png, 2048 bytes) · Attachment a-1"],
     linkedRecordsSection: undefined,
+    whoAskedSection:
+      "## Who asked\n\nThe Task was created by the user Ann Lee and started by the user Ben Ito.",
     project: {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Admin panel",

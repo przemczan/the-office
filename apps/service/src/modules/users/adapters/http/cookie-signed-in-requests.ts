@@ -2,6 +2,7 @@ import type { IncomingMessage } from "node:http";
 import { Injectable } from "@nestjs/common";
 import { EventBus, type Unsubscribe } from "../../../../platform/events/event-bus.js";
 import { SignedInRequests, type SignedIn } from "../../../../platform/http/signed-in-requests.js";
+import { Accounts } from "../../application/accounts.js";
 import { SignedInDevices } from "../../application/signed-in-devices.js";
 import { SignedOut } from "../../domain/user-events.js";
 import { signInTokenOf } from "./sign-in-cookie.js";
@@ -11,6 +12,7 @@ import { signInTokenOf } from "./sign-in-cookie.js";
 export class CookieSignedInRequests extends SignedInRequests {
   constructor(
     private readonly signedInDevices: SignedInDevices,
+    private readonly accounts: Accounts,
     private readonly eventBus: EventBus,
   ) {
     super();
@@ -20,7 +22,9 @@ export class CookieSignedInRequests extends SignedInRequests {
     const token = signInTokenOf(request.headers.cookie);
     if (token === undefined) return undefined;
     const device = await this.signedInDevices.signedInOf(token);
-    return device && { userId: device.userId, signedInDeviceId: device.id };
+    if (device === undefined) return undefined;
+    const user = await this.accounts.of(device.userId);
+    return user && { userId: user.id, name: user.name, signedInDeviceId: device.id };
   }
 
   onSignedOut(listener: (signedInDeviceIds: readonly string[]) => void): Unsubscribe {

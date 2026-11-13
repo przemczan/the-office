@@ -1,9 +1,15 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import { activitySchema, type Activity, type Now as NowResponse } from "@the-office/contracts";
+import {
+  activitySchema,
+  type Activity,
+  type Now as NowResponse,
+  type SinceYouLeft as SinceYouLeftResponse,
+} from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { NotificationService } from "../../application/notification-service.js";
 import { NowService } from "../../application/now-service.js";
-import { toNowResponse } from "./now-responses.js";
+import { toNowResponse, toSinceYouLeftResponse } from "./now-responses.js";
 
 @Controller()
 export class NowController {
@@ -18,14 +24,23 @@ export class NowController {
     return toNowResponse(await this.now.now());
   }
 
+  /** The requester's own Since you left, which the web reads again on each `now.changed`. */
+  @Get("now/since-you-left")
+  async readSinceYouLeft(@SignedIn() { userId }: SignedIn): Promise<SinceYouLeftResponse> {
+    return toSinceYouLeftResponse(await this.now.sinceYouLeft(userId));
+  }
+
   /**
-   * The web reports the user active, and on which page: activity tells Since you left where to
-   * begin, and opening what a Notification points to handles it.
+   * The web reports the signed-in user active, and on which page: activity tells their Since you
+   * left where to begin, and opening what a Notification points to handles it.
    */
   @Post("activity")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async recordActivity(@Body(new ContractPipe(activitySchema)) { page }: Activity): Promise<void> {
-    await this.now.recordActivity();
+  async recordActivity(
+    @SignedIn() { userId }: SignedIn,
+    @Body(new ContractPipe(activitySchema)) { page }: Activity,
+  ): Promise<void> {
+    await this.now.recordActivity(userId);
     await this.notifications.opened(page);
   }
 }

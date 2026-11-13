@@ -15,6 +15,7 @@ import {
   roleSchema,
   taskSchema,
   type Attachment,
+  type Idea,
   type Initiative,
   type InitiativeState,
   type NewProject,
@@ -25,6 +26,7 @@ import {
   type TaskStages,
 } from "@the-office/contracts";
 import { taskWorktreePath } from "./office-data.ts";
+import { E2E_USER } from "./e2e-user.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
 import {
   addTaskWorktree,
@@ -420,6 +422,41 @@ test("the user captures an Idea from Now in a few keystrokes", async ({ page }) 
   await expect(card.getByText("Office-wide")).toBeVisible();
   await expect(card.getByText(/You captured it/)).toBeVisible();
 });
+
+test(
+  "an Idea names the user who captured it: You on the user's own, another user by name",
+  { tag: "@full" },
+  async ({ page }) => {
+    const capture = async (title: string): Promise<Idea> => {
+      const captured = await page.request.post("/api/ideas", {
+        data: { title, notes: "", projectId: null },
+      });
+      expect(captured.status()).toBe(201);
+      return ideaSchema.parse(await captured.json());
+    };
+    const own = await capture("Ideas name their user");
+    expect(own.capturedBy).toEqual({
+      kind: "user",
+      user: { userId: expect.any(String), name: E2E_USER.name },
+    });
+    // A second user can't be added from the UI yet, so their Idea is written as theirs here.
+    const theirs = await capture("Ann's Idea about release notes");
+    await queryOfficeDatabase(`update ideas set captured_by = $2 where id = $1`, [
+      theirs.id,
+      JSON.stringify({ kind: "user", user: { userId: crypto.randomUUID(), name: "Ann Lee" } }),
+    ]);
+
+    await page.goto("/work/ideas");
+
+    const ownCard = page.getByRole("article", { name: "Ideas name their user" });
+    await expect(ownCard.getByText(/You captured it/)).toBeVisible();
+    await expect(ownCard.getByText(E2E_USER.name)).toHaveCount(0);
+    const theirCard = page.getByRole("article", { name: "Ann's Idea about release notes" });
+    await expect(theirCard.getByText(/Ann Lee captured it/)).toBeVisible();
+    await theirCard.scrollIntoViewIfNeeded();
+    await screenshotScenario(page, "ideas-captured-by-user");
+  },
+);
 
 test("an Idea's link opens Ideas at its card, marked", { tag: "@full" }, async ({ page }) => {
   const captured = await page.request.post("/api/ideas", {

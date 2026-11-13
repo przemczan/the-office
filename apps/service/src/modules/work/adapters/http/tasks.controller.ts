@@ -48,14 +48,15 @@ import {
   type TaskPlacement,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { SearchService } from "../../application/search-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { THE_USER } from "../../domain/author.js";
 import { reasonsOf } from "../../domain/wait.js";
 import { searchedQuery } from "./searched-query.js";
+import { authorOf } from "./signed-in-author.js";
 import { toQueueResponse, toTaskResponse, toUsageEstimateResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
@@ -71,8 +72,11 @@ export class TasksController {
   ) {}
 
   @Post()
-  async create(@Body(new ContractPipe(newTaskSchema)) given: NewTask): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.create(given, THE_USER));
+  async create(
+    @Body(new ContractPipe(newTaskSchema)) given: NewTask,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.create(given, authorOf(signedIn)));
   }
 
   /** The Tasks matching the query, every Task without one, in the board's order. */
@@ -149,8 +153,11 @@ export class TasksController {
    */
   @Post(":id/planning")
   @HttpCode(HttpStatus.OK)
-  async plan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.plan(id));
+  async plan(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.plan(id, authorOf(signedIn)));
   }
 
   /**
@@ -162,8 +169,9 @@ export class TasksController {
   async makeAPlan(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(makeAPlanSchema)) { autoMode }: MakeAPlan,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.makeAPlan(id, autoMode));
+    return toTaskResponse(await this.planning.makeAPlan(id, autoMode, authorOf(signedIn)));
   }
 
   /** Save: the user's Plan, unconfirmed once changed; a change moves a Ready Task to Backlog. */
@@ -171,8 +179,9 @@ export class TasksController {
   async savePlan(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(planChangeSchema)) change: PlanChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.savePlan(id, change));
+    return toTaskResponse(await this.planning.savePlan(id, change, authorOf(signedIn)));
   }
 
   /** Confirm: the Plan as it reads. */
@@ -188,8 +197,11 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(definitionOfDoneChangeSchema))
     { definitionOfDone }: DefinitionOfDoneChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.saveDefinitionOfDone(id, definitionOfDone));
+    return toTaskResponse(
+      await this.planning.saveDefinitionOfDone(id, definitionOfDone, authorOf(signedIn)),
+    );
   }
 
   /** Confirm: the Definition of Done as it reads. */
@@ -214,8 +226,11 @@ export class TasksController {
    */
   @Post(":id/ready")
   @HttpCode(HttpStatus.OK)
-  async markReady(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.markReady(id));
+  async markReady(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.markReady(id, authorOf(signedIn)));
   }
 
   /** The "Before Ready" checklist: what Mark Ready waits for, and what is met already. */
@@ -258,8 +273,9 @@ export class TasksController {
   async start(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(startRequestSchema)) { onOverlap }: StartRequest,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<StartAnswer> {
-    const starting = await this.starting.start(id, onOverlap);
+    const starting = await this.starting.start(id, onOverlap, authorOf(signedIn));
     if (starting.kind === "started") {
       return { task: toTaskResponse(starting.change.task), queued: null };
     }
@@ -270,42 +286,60 @@ export class TasksController {
   /** Pause: the Task is held, its running Stage once the Agent's current turn ends. */
   @Post(":id/pause")
   @HttpCode(HttpStatus.OK)
-  async pause(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.pause(id));
+  async pause(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.pause(id, authorOf(signedIn)));
   }
 
   /** Stop: the Stage running now is interrupted, its uncommitted edits discarded, the Task held. */
   @Post(":id/stop")
   @HttpCode(HttpStatus.OK)
-  async stop(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.stop(id));
+  async stop(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.stop(id, authorOf(signedIn)));
   }
 
   /** Resume: a Paused Task goes on through the Context policy. */
   @Post(":id/resume")
   @HttpCode(HttpStatus.OK)
-  async resume(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.resume(id));
+  async resume(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.resume(id, authorOf(signedIn)));
   }
 
   @Post(":id/drop")
   @HttpCode(HttpStatus.OK)
-  async drop(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.drop(id));
+  async drop(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.drop(id, authorOf(signedIn)));
   }
 
   /** Archive: a Done or Dropped Task leaves the board, its state as it was. */
   @Post(":id/archive")
   @HttpCode(HttpStatus.OK)
-  async archive(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.archive(id));
+  async archive(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.archive(id, authorOf(signedIn)));
   }
 
   /** Restore: an archived Task returns to the board in the state it had. */
   @Post(":id/restore")
   @HttpCode(HttpStatus.OK)
-  async restore(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.restore(id));
+  async restore(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.restore(id, authorOf(signedIn)));
   }
 
   /** Move's check: every reason the Task can't move to another Project now. */
@@ -323,7 +357,8 @@ export class TasksController {
   async move(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(taskMoveSchema)) { projectId }: TaskMove,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.move(id, projectId));
+    return toTaskResponse(await this.tasks.move(id, projectId, authorOf(signedIn)));
   }
 }

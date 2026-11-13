@@ -2,10 +2,20 @@ import type { IncomingMessage } from "node:http";
 import { createParamDecorator, UnauthorizedException, type ExecutionContext } from "@nestjs/common";
 import type { Unsubscribe } from "../events/event-bus.js";
 
-/** Who signed a request in: the user, and the signed-in device the request came from. */
-export interface SignedIn {
+/** A user as the records they make name them: their id, and their name as it is now. */
+export interface SignedInUser {
   readonly userId: string;
+  readonly name: string;
+}
+
+/** Who signed a request in: the user, and the signed-in device the request came from. */
+export interface SignedIn extends SignedInUser {
   readonly signedInDeviceId: string;
+}
+
+/** The user of a signed-in request alone, for a record to keep, without their device. */
+export function userOf({ userId, name }: SignedIn): SignedInUser {
+  return { userId, name };
 }
 
 /**

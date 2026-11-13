@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SCREENSHOT_SIZE_LIMIT } from "../domain/attachment.js";
-import { THE_USER } from "../domain/author.js";
 import type { Task } from "../domain/task.js";
 import { ProjectWorktreesForTests, TaskGatesForTests } from "../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../work-application.fixtures.js";
 import { AttachmentService } from "./attachment-service.js";
 import { StageScreenshots } from "./stage-screenshots.js";
 import { TaskService } from "./task-service.js";
+import { ANN_LEE } from "../domain/work.fixtures.js";
 
 const A_PNG = new Uint8Array([137, 80, 78, 71]);
 
@@ -35,7 +35,7 @@ beforeEach(async () => {
     .get(TaskService)
     .create(
       { title: "Show thumbnails", projectId: `project-${randomUUID()}`, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
   const worktrees = work.app.get(ProjectWorktreesForTests);
   worktrees.folder = join(folder, "worktrees");

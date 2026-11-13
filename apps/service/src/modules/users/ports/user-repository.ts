@@ -14,6 +14,14 @@ export abstract class UserRepository {
   /** Whether any user was ever made, removed ones included. */
   abstract anyExists(): Promise<boolean>;
 
+  /** The first user, the earliest created. */
+  abstract first(): Promise<User | undefined>;
+
+  /** Whether earlier records were given the first user (`EarlierRecordsClaims`). */
+  abstract earlierRecordsClaimed(): Promise<boolean>;
+
+  abstract markEarlierRecordsClaimed(at: Date): Promise<void>;
+
   /** The users not removed, by name. */
   abstract listActive(): Promise<readonly User[]>;
 

@@ -4,7 +4,7 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { User } from "../../domain/user.js";
 import { UserRefused } from "../../domain/user-refused.js";
 import { UserRepository } from "../../ports/user-repository.js";
-import { users } from "./users.schema.js";
+import { earlierRecordsClaimed, users } from "./users.schema.js";
 
 type UserRow = typeof users.$inferSelect;
 
@@ -40,6 +40,27 @@ export class PostgresUserRepository extends UserRepository {
   async anyExists(): Promise<boolean> {
     const [existing] = await this.database.select({ id: users.id }).from(users).limit(1);
     return existing !== undefined;
+  }
+
+  async first(): Promise<User | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(users)
+      .orderBy(asc(users.createdAt), asc(users.id))
+      .limit(1);
+    return row && toUser(row);
+  }
+
+  async earlierRecordsClaimed(): Promise<boolean> {
+    const [row] = await this.database.select().from(earlierRecordsClaimed).limit(1);
+    return row !== undefined;
+  }
+
+  async markEarlierRecordsClaimed(at: Date): Promise<void> {
+    await this.database
+      .insert(earlierRecordsClaimed)
+      .values({ claimedAt: at })
+      .onConflictDoNothing();
   }
 
   async listActive(): Promise<readonly User[]> {

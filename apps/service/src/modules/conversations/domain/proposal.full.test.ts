@@ -11,6 +11,7 @@ import { applyProposal, declineProposal } from "./proposal-changes.js";
 import { ProposalRefused } from "./proposal-refused.js";
 import { aThread } from "./thread.fixtures.js";
 import { draftProposal } from "./thread-changes.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const AT = new Date("2026-10-27T10:00:00.000Z");
 const thread = aThread({
@@ -115,21 +116,24 @@ describe("applying a Proposal", () => {
     );
   });
 
-  it("records it applied, as carried out", () => {
+  it("records it applied, as carried out, by the user who applied it", () => {
     const applied: ProposedChange = { ...hire, roleKey: "tester" };
 
-    const { proposal, event } = applyProposal(aProposal(), thread, applied, AT);
+    const { proposal, event } = applyProposal(aProposal(), thread, applied, AT, ANN_LEE);
 
-    expect(proposal).toMatchObject({ change: applied, status: { kind: "applied", at: AT } });
+    expect(proposal).toMatchObject({
+      change: applied,
+      status: { kind: "applied", at: AT, by: ANN_LEE },
+    });
     expect(event).toBeInstanceOf(ProposalApplied);
   });
 });
 
 describe("declining a Proposal", () => {
-  it("records it declined and changes nothing else", () => {
-    const { proposal, event } = declineProposal(aProposal(), thread, AT);
+  it("records it declined, by the user who declined it, and changes nothing else", () => {
+    const { proposal, event } = declineProposal(aProposal(), thread, AT, ANN_LEE);
 
-    expect(proposal).toEqual({ ...aProposal(), status: { kind: "declined", at: AT } });
+    expect(proposal).toEqual({ ...aProposal(), status: { kind: "declined", at: AT, by: ANN_LEE } });
     expect(event).toBeInstanceOf(ProposalDeclined);
   });
 });

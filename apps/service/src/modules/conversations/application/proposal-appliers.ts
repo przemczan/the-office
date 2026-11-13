@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { UserRef } from "../domain/user.js";
 import type {
   OfficeSetting,
   OfficeSettingValues,
@@ -15,10 +16,15 @@ export interface ProposalApplier<Kind extends ProposedChangeKind> {
   /** Every reason applying the change would be refused now, in words the drafter acts on. */
   problemsWith(change: ProposedChanges[Kind]): Promise<readonly string[]>;
   /**
-   * Carries the change out for the user, as proposed by the person `proposedBy` (their Role's
-   * key), and answers it as applied. Throws ProposalRefused, changing nothing, when it can't.
+   * Carries the change out for the user `appliedBy`, as proposed by the person `proposedBy` (their
+   * Role's key), and answers it as applied. Throws ProposalRefused, changing nothing, when it
+   * can't.
    */
-  apply(change: ProposedChanges[Kind], proposedBy: string): Promise<ProposedChanges[Kind]>;
+  apply(
+    change: ProposedChanges[Kind],
+    proposedBy: string,
+    appliedBy: UserRef,
+  ): Promise<ProposedChanges[Kind]>;
 }
 
 /** How the module that owns an Office setting sees to Proposals of it, and the value it has now. */
@@ -100,38 +106,38 @@ export class ProposalAppliers {
     }
   }
 
-  apply(change: ProposedChange, proposedBy: string): Promise<ProposedChange> {
+  apply(change: ProposedChange, proposedBy: string, appliedBy: UserRef): Promise<ProposedChange> {
     switch (change.kind) {
       case "hire":
-        return this.applierOf("hire").apply(change, proposedBy);
+        return this.applierOf("hire").apply(change, proposedBy, appliedBy);
       case "hire-from-preset":
-        return this.applierOf("hire-from-preset").apply(change, proposedBy);
+        return this.applierOf("hire-from-preset").apply(change, proposedBy, appliedBy);
       case "change":
-        return this.applierOf("change").apply(change, proposedBy);
+        return this.applierOf("change").apply(change, proposedBy, appliedBy);
       case "office-wide-limit":
-        return this.applierOf("office-wide-limit").apply(change, proposedBy);
+        return this.applierOf("office-wide-limit").apply(change, proposedBy, appliedBy);
       case "size-threshold":
-        return this.applierOf("size-threshold").apply(change, proposedBy);
+        return this.applierOf("size-threshold").apply(change, proposedBy, appliedBy);
       case "office-instructions":
-        return this.applierOf("office-instructions").apply(change, proposedBy);
+        return this.applierOf("office-instructions").apply(change, proposedBy, appliedBy);
       case "initiative":
-        return this.applierOf("initiative").apply(change, proposedBy);
+        return this.applierOf("initiative").apply(change, proposedBy, appliedBy);
       case "project-commands":
-        return this.applierOf("project-commands").apply(change, proposedBy);
+        return this.applierOf("project-commands").apply(change, proposedBy, appliedBy);
       case "pipeline":
-        return this.applierOf("pipeline").apply(change, proposedBy);
+        return this.applierOf("pipeline").apply(change, proposedBy, appliedBy);
       case "stage-template":
-        return this.applierOf("stage-template").apply(change, proposedBy);
+        return this.applierOf("stage-template").apply(change, proposedBy, appliedBy);
       case "project-pipeline":
-        return this.applierOf("project-pipeline").apply(change, proposedBy);
+        return this.applierOf("project-pipeline").apply(change, proposedBy, appliedBy);
       case "project":
-        return this.applierOf("project").apply(change, proposedBy);
+        return this.applierOf("project").apply(change, proposedBy, appliedBy);
       case "skill-install":
-        return this.applierOf("skill-install").apply(change, proposedBy);
+        return this.applierOf("skill-install").apply(change, proposedBy, appliedBy);
       case "skill-update":
-        return this.applierOf("skill-update").apply(change, proposedBy);
+        return this.applierOf("skill-update").apply(change, proposedBy, appliedBy);
       case "skill":
-        return this.applierOf("skill").apply(change, proposedBy);
+        return this.applierOf("skill").apply(change, proposedBy, appliedBy);
     }
   }
 

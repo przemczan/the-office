@@ -1,3 +1,4 @@
+import type { Author } from "../domain/author.js";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Initiative } from "../domain/initiative.js";
@@ -29,10 +30,10 @@ export class InitiativePause {
   ) {}
 
   /** Refused with the reason (InitiativeRefused) unless the Initiative is active and not paused. */
-  async pause(id: string): Promise<InitiativePauseOutcome> {
+  async pause(id: string, by: Author): Promise<InitiativePauseOutcome> {
     const { initiative, event, taskChanges } = await this.initiatives.updateWithTasks(
       id,
-      (held, tasks) => pauseInitiative(held, tasks, new Date()),
+      (held, tasks) => pauseInitiative(held, tasks, new Date(), by),
     );
     if (event) await this.events.publish(event);
     for (const { event: paused } of taskChanges) await this.events.publish(paused);
@@ -43,11 +44,11 @@ export class InitiativePause {
    * Refused with the reason unless the Initiative is paused. While the fire alarm is on, the Tasks
    * its Pause held are held by the alarm instead, which the all clear resumes.
    */
-  async resume(id: string): Promise<InitiativePauseOutcome> {
+  async resume(id: string, by: Author): Promise<InitiativePauseOutcome> {
     const fireAlarmOn = (await this.fireAlarm.read()).on;
     const { initiative, event, taskChanges } = await this.initiatives.updateWithTasks(
       id,
-      (held, tasks) => resumeInitiative(held, tasks, { fireAlarmOn }),
+      (held, tasks) => resumeInitiative(held, tasks, { fireAlarmOn }, by),
     );
     // Read again after the save, as a single Resume does: an alarm sounded meanwhile may have
     // passed the resumed Tasks by as Paused, so the alarm holds them instead.

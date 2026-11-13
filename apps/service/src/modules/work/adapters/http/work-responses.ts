@@ -206,7 +206,9 @@ export function toOwnerResponse(owner: AttachmentOwner): AttachmentOwnerResponse
 }
 
 function toAuthorResponse(author: Author): AuthorResponse {
-  return author.kind === "user" ? { kind: "user" } : { kind: "person", roleKey: author.roleKey };
+  return author.kind === "user"
+    ? { kind: "user", user: author.user && { userId: author.user.userId, name: author.user.name } }
+    : { kind: "person", roleKey: author.roleKey };
 }
 
 export function toSavedViewResponse(savedView: SavedView): SavedViewResponse {

@@ -15,6 +15,7 @@ import {
   type ProposalApplication,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import type { EditedHire } from "../../domain/proposal.js";
 import { toProposalResponse } from "./conversation-responses.js";
@@ -36,21 +37,27 @@ export class ProposalsController {
     return toProposalResponse(await this.proposals.read(id));
   }
 
-  /** The user applies it, a new Role as they edited it before hiring when they did. */
+  /** The signed-in user applies it, a new Role as they edited it before hiring when they did. */
   @Post(":id/apply")
   @HttpCode(HttpStatus.OK)
   async apply(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(proposalApplicationSchema)) application: ProposalApplication,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProposalResponse> {
-    return toProposalResponse(await this.proposals.apply(id, editedHire(application)));
+    return toProposalResponse(
+      await this.proposals.apply(id, userOf(signedIn), editedHire(application)),
+    );
   }
 
-  /** The user declines it ("Not now"): nothing changes. */
+  /** The signed-in user declines it ("Not now"): nothing changes. */
   @Post(":id/decline")
   @HttpCode(HttpStatus.OK)
-  async decline(@Param("id", ParseUUIDPipe) id: string): Promise<ProposalResponse> {
-    return toProposalResponse(await this.proposals.decline(id));
+  async decline(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ProposalResponse> {
+    return toProposalResponse(await this.proposals.decline(id, userOf(signedIn)));
   }
 }
 

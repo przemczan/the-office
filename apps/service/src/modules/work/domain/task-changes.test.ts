@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import {
   changeStartedTaskState,
   createTask,
@@ -21,14 +20,14 @@ import {
 } from "./task-events.js";
 import type { Task } from "./task.js";
 import { TaskRefused } from "./task-refused.js";
-import { aTask } from "./work.fixtures.js";
+import { ANN_LEE, aTask } from "./work.fixtures.js";
 
 const createdAt = new Date("2026-10-25T10:00:00.000Z");
 const setting = {
   order: "a3",
   originIdeaId: undefined,
   initiativeId: undefined,
-  createdBy: THE_USER,
+  createdBy: ANN_LEE,
 };
 
 describe("createTask", () => {
@@ -70,7 +69,7 @@ const moved = (from: Task, to: Task["state"]) =>
   withStateChange(
     { task: { ...from, state: to }, event: new TaskStateChanged(from.id, from.state, to) },
     from,
-    THE_USER,
+    ANN_LEE,
   );
 
 describe("withStateChange", () => {
@@ -113,8 +112,8 @@ describe("changeStartedTaskState", () => {
 describe("Pause, Stop and Resume", () => {
   it("holds a Task In progress or Waiting on you as Paused, and announces how", () => {
     for (const state of ["in-progress", "waiting-on-you"] as const) {
-      const paused = pauseTask(aTask({ state }), THE_USER);
-      const stopped = stopTask(aTask({ state }));
+      const paused = pauseTask(aTask({ state }), ANN_LEE);
+      const stopped = stopTask(aTask({ state }), ANN_LEE);
 
       expect(paused?.task).toEqual(aTask({ state: "paused" }));
       expect(paused?.event).toBeInstanceOf(TaskPaused);
@@ -126,10 +125,14 @@ describe("Pause, Stop and Resume", () => {
   });
 
   it("resumes a Paused Task In progress", () => {
-    const resumed = resumeTask(aTask({ state: "paused" }), {
-      fireAlarmOn: false,
-      initiativePaused: false,
-    });
+    const resumed = resumeTask(
+      aTask({ state: "paused" }),
+      {
+        fireAlarmOn: false,
+        initiativePaused: false,
+      },
+      ANN_LEE,
+    );
 
     expect(resumed.task).toEqual(aTask({ state: "in-progress" }));
     expect(resumed.event).toBeInstanceOf(TaskResumed);
@@ -150,59 +153,70 @@ describe("giveTaskAllClear", () => {
   const pausedByAlarm = aTask({ state: "paused", pausedBy: "alarm" });
 
   it("resumes a Task the alarm paused, In progress where its Pipeline was held", () => {
-    const change = giveTaskAllClear(pausedByAlarm, "resume");
+    const change = giveTaskAllClear(pausedByAlarm, "resume", ANN_LEE);
 
     expect(change?.task).toMatchObject({ state: "in-progress", pausedBy: undefined });
     expect(change?.event).toBeInstanceOf(TaskResumed);
   });
 
   it("leaves a Task the Initiative's Pause holds to Resume the Initiative", () => {
-    expect(giveTaskAllClear(aTask({ state: "paused", pausedBy: "initiative" }), "resume")).toBe(
-      undefined,
-    );
+    expect(
+      giveTaskAllClear(aTask({ state: "paused", pausedBy: "initiative" }), "resume", ANN_LEE),
+    ).toBe(undefined);
   });
 });
 
 describe("the Initiative's Pause, for one of its Tasks", () => {
   it("pauses a Task In progress or Waiting on you, its Stage held as by the user's Pause", () => {
     for (const state of ["in-progress", "waiting-on-you"] as const) {
-      const paused = pauseTaskForInitiative(aTask({ state }));
+      const paused = pauseTaskForInitiative(aTask({ state }), ANN_LEE);
 
       expect(paused?.task).toEqual(aTask({ state: "paused", pausedBy: "initiative" }));
       expect(paused?.event).toBeInstanceOf(TaskPaused);
       expect(paused?.event).toMatchObject({ taskId: "task-1", from: state, by: "initiative" });
-      expect(paused?.stateChange).toMatchObject({ from: state, to: "paused", by: THE_USER });
+      expect(paused?.stateChange).toMatchObject({ from: state, to: "paused", by: ANN_LEE });
     }
   });
 
   it("takes over a Task the fire alarm holds, leaving a Task the user paused theirs", () => {
-    const takenOver = pauseTaskForInitiative(aTask({ state: "paused", pausedBy: "alarm" }));
+    const takenOver = pauseTaskForInitiative(
+      aTask({ state: "paused", pausedBy: "alarm" }),
+      ANN_LEE,
+    );
 
     expect(takenOver?.task).toEqual(aTask({ state: "paused", pausedBy: "initiative" }));
     expect(takenOver?.event).toMatchObject({ from: "paused", by: "initiative" });
     expect(takenOver?.stateChange).toBeUndefined();
-    expect(pauseTaskForInitiative(aTask({ state: "paused" }))).toBeUndefined();
-    expect(pauseTaskForInitiative(aTask({ state: "ready" }))).toBeUndefined();
+    expect(pauseTaskForInitiative(aTask({ state: "paused" }), ANN_LEE)).toBeUndefined();
+    expect(pauseTaskForInitiative(aTask({ state: "ready" }), ANN_LEE)).toBeUndefined();
   });
 
   it("resumes only a Task its Pause held, which the alarm holds instead while it is on", () => {
     const held = aTask({ state: "paused", pausedBy: "initiative" });
-    const resumed = resumeTaskForInitiative(held, { fireAlarmOn: false, now: new Date() });
-    const forTheAlarm = resumeTaskForInitiative(held, { fireAlarmOn: true, now: new Date() });
+    const resumed = resumeTaskForInitiative(held, { fireAlarmOn: false, now: new Date() }, ANN_LEE);
+    const forTheAlarm = resumeTaskForInitiative(
+      held,
+      { fireAlarmOn: true, now: new Date() },
+      ANN_LEE,
+    );
 
     expect(resumed?.task).toEqual(aTask({ state: "in-progress" }));
     expect(resumed?.event).toBeInstanceOf(TaskResumed);
     expect(forTheAlarm?.task).toEqual(aTask({ state: "paused", pausedBy: "alarm" }));
     expect(forTheAlarm?.event).toMatchObject({ from: "paused", by: "alarm" });
     expect(
-      resumeTaskForInitiative(aTask({ state: "paused" }), { fireAlarmOn: false, now: new Date() }),
+      resumeTaskForInitiative(
+        aTask({ state: "paused" }),
+        { fireAlarmOn: false, now: new Date() },
+        ANN_LEE,
+      ),
     ).toBe(undefined);
   });
 
   it("refuses a single Resume while the Initiative is paused", () => {
     const held = aTask({ state: "paused", pausedBy: "initiative" });
 
-    expect(() => resumeTask(held, { fireAlarmOn: false, initiativePaused: true })).toThrow(
+    expect(() => resumeTask(held, { fireAlarmOn: false, initiativePaused: true }, ANN_LEE)).toThrow(
       new TaskRefused(["The Initiative is paused: resume it to go on."]),
     );
   });

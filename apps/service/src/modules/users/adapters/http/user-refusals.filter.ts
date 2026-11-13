@@ -14,6 +14,7 @@ import {
   FirstUserExists,
   LinkedIdentityNotFound,
   PasskeyNotFound,
+  PendingSignInEnded,
   SignedInDeviceNotFound,
   UserIdNotFound,
   UserRefused,
@@ -23,6 +24,7 @@ type UsersRefusal =
   | SignInRefused
   | UserRefused
   | FirstUserExists
+  | PendingSignInEnded
   | SignedInDeviceNotFound
   | UserIdNotFound
   | PasskeyNotFound
@@ -34,6 +36,7 @@ type UsersRefusal =
   SignInRefused,
   UserRefused,
   FirstUserExists,
+  PendingSignInEnded,
   SignedInDeviceNotFound,
   UserIdNotFound,
   PasskeyNotFound,
@@ -59,13 +62,28 @@ export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
       response.status(refusal.statusCode).json(refusal);
       return;
     }
-    // A first user made already, or a provider not set up or refusing to start, is a conflict.
-    const statusCode =
-      error instanceof FirstUserExists || error instanceof IdentityRefused
-        ? HttpStatus.CONFLICT
-        : HttpStatus.NOT_FOUND;
+    const statusCode = statusCodeOf(error);
     response.status(statusCode).json({ statusCode, message: error.message });
   }
+}
+
+function statusCodeOf(
+  error:
+    | FirstUserExists
+    | PendingSignInEnded
+    | SignedInDeviceNotFound
+    | UserIdNotFound
+    | PasskeyNotFound
+    | IdentityRefused
+    | LinkedIdentityNotFound,
+): HttpStatus {
+  // A first user made already, or a provider not set up or refusing to start, is a conflict.
+  if (error instanceof FirstUserExists || error instanceof IdentityRefused) {
+    return HttpStatus.CONFLICT;
+  }
+  // Not signed in after all: the code page sends the user back to sign in.
+  if (error instanceof PendingSignInEnded) return HttpStatus.UNAUTHORIZED;
+  return HttpStatus.NOT_FOUND;
 }
 
 /**

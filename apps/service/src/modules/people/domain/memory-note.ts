@@ -1,10 +1,14 @@
 import { RoleRefused } from "./role-refused.js";
+import type { UserRef } from "./user.js";
 
 export const MEMORY_NOTE_LENGTH = 600;
 
-/** Who wrote a Memory note: the user on the Memory tab, or an Agent in one of its Threads. */
+/**
+ * Who wrote a Memory note: a user on the Memory tab (`user` null on a note from before users
+ * existed, until the first user claims it), or an Agent in one of its Threads.
+ */
 export type MemoryNoteSource =
-  | { readonly kind: "user" }
+  | { readonly kind: "user"; readonly user: UserRef | null }
   | { readonly kind: "agent"; readonly threadId: string; readonly taskId: string | undefined };
 
 /** One entry in a person's Memory. Never edited: it is written once, then deleted or kept. */

@@ -1,8 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { desc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { UserActivity } from "../../domain/user-activity.js";
 import { UserActivityRepository } from "../../ports/user-activity-repository.js";
 import { userActivity } from "./notifications.schema.js";
+
+type Row = typeof userActivity.$inferSelect;
 
 @Injectable()
 export class PostgresUserActivityRepository extends UserActivityRepository {
@@ -10,24 +13,49 @@ export class PostgresUserActivityRepository extends UserActivityRepository {
     super();
   }
 
-  async find(): Promise<UserActivity | undefined> {
-    const [row] = await this.database.select().from(userActivity).limit(1);
-    return row && { lastActiveAt: row.lastActiveAt, leftAt: row.leftAt };
+  async find(userId: string): Promise<UserActivity | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(userActivity)
+      .where(eq(userActivity.userId, userId));
+    return row && activityOf(row);
+  }
+
+  async findLatest(): Promise<UserActivity | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(userActivity)
+      .orderBy(desc(userActivity.lastActiveAt))
+      .limit(1);
+    return row && activityOf(row);
   }
 
   /**
-   * Holds the row while the change is worked out. Before the user is first seen there is no row to
-   * hold; two first activities at once each keep the same first sight, so the later one may win.
+   * Holds the user's row while the change is worked out. Before the user is first seen there is no
+   * row to hold; two first activities at once each keep the same first sight, so the later one may
+   * win.
    */
-  async update(change: (known: UserActivity | undefined) => UserActivity): Promise<UserActivity> {
+  async update(
+    userId: string,
+    change: (known: UserActivity | undefined) => UserActivity,
+  ): Promise<{ readonly before: UserActivity | undefined; readonly after: UserActivity }> {
     return this.database.transaction(async (transaction) => {
-      const [row] = await transaction.select().from(userActivity).limit(1).for("update");
-      const changed = change(row && { lastActiveAt: row.lastActiveAt, leftAt: row.leftAt });
+      const [row] = await transaction
+        .select()
+        .from(userActivity)
+        .where(eq(userActivity.userId, userId))
+        .for("update");
+      const before = row && activityOf(row);
+      const after = change(before);
       await transaction
         .insert(userActivity)
-        .values(changed)
-        .onConflictDoUpdate({ target: userActivity.id, set: changed });
-      return changed;
+        .values({ userId, ...after })
+        .onConflictDoUpdate({ target: userActivity.userId, set: after });
+      return { before, after };
     });
   }
+}
+
+function activityOf({ lastActiveAt, leftAt }: Row): UserActivity {
+  return { lastActiveAt, leftAt };
 }

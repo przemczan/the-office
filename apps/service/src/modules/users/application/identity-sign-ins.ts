@@ -4,8 +4,11 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import { IdentityRefused } from "../domain/identity-refused.js";
 import type { IdentityTrip, TripPurpose } from "../domain/identity-trip.js";
 import { signedInWith, type IdentityProviderId } from "../domain/linked-identity.js";
+import type { SignInWay } from "../domain/sign-in-way.js";
 import type { SignInRequest } from "../domain/signed-in-device.js";
+import type { IdentityProvider } from "../ports/identity-provider.js";
 import { LinkedIdentityRepository } from "../ports/linked-identity-repository.js";
+import type { SecondStep } from "../ports/second-steps.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { IdentityProviders } from "./identity-providers.js";
 import { IdentityTrips } from "./identity-trips.js";
@@ -37,7 +40,11 @@ export interface ReturningBrowser {
  * purpose told when it was found.
  */
 export type IdentityReturnOutcome =
-  | { readonly kind: "signed-in"; readonly outcome: SignedInOutcome; readonly returnTo: string }
+  | {
+      readonly kind: "signed-in";
+      readonly outcome: SignedInOutcome | SecondStep;
+      readonly returnTo: string;
+    }
   | { readonly kind: "linked"; readonly returnTo: string }
   | {
       readonly kind: "refused";
@@ -66,14 +73,7 @@ export class IdentitySignIns implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    for (const bound of this.providers.all) {
-      this.signInWays.add({
-        kind: bound.provider,
-        enoughAlone: false,
-        unavailableAt: (page) => bound.unavailableAt(page),
-        isAvailable: () => bound.isAvailable(),
-      });
-    }
+    for (const bound of this.providers.all) this.signInWays.add(wayOf(bound));
   }
 
   /**
@@ -133,15 +133,25 @@ export class IdentitySignIns implements OnModuleInit {
     provider: IdentityProviderId,
     { subject, name }: { readonly subject: string; readonly name: string },
     request: SignInRequest,
-  ): Promise<SignedInOutcome> {
+  ): Promise<SignedInOutcome | SecondStep> {
     const linked = await this.linkedIdentities.findBySubject(provider, subject);
     const user = linked && (await this.users.find(linked.userId));
     if (linked === undefined || user === undefined || user.removedAt !== undefined) {
       throw IdentityRefused.notLinked(provider);
     }
     await this.linkedIdentities.save(signedInWith(linked, name, this.schedule.now()));
-    return this.signIns.finish(user, provider, request);
+    return this.signIns.finish(user, wayOf(this.providers.of(provider)), request);
   }
+}
+
+/** Continue with a provider, a way that asks for the authenticator code after it, as a password does. */
+function wayOf(bound: IdentityProvider): SignInWay {
+  return {
+    kind: bound.provider,
+    enoughAlone: false,
+    unavailableAt: (page) => bound.unavailableAt(page),
+    isAvailable: () => bound.isAvailable(),
+  };
 }
 
 /** A sign-in's trip back needs the nonce of its cookie; a link's, the signed-in device that started it. */

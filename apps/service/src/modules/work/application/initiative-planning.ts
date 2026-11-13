@@ -1,3 +1,4 @@
+import type { Author } from "../domain/author.js";
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -34,7 +35,7 @@ export class InitiativePlanning {
    * the reasons while nobody is the Planner, unless the Initiative is active with a Task in
    * Backlog, and while one of its Tasks is still being planned in an earlier planning Thread.
    */
-  async plan(initiativeId: string, autoMode: boolean): Promise<Initiative> {
+  async plan(initiativeId: string, autoMode: boolean, by: Author): Promise<Initiative> {
     if (!(await this.people.find(PLANNER))) {
       throw new InitiativeRefused([
         "Hire a Planner on People first: planning is a conversation with them.",
@@ -43,7 +44,7 @@ export class InitiativePlanning {
     // The Thread's id is kept first, so its first session's Brief and start_planning find it.
     const threadId = randomUUID();
     const { initiative, event } = await this.initiatives.update(initiativeId, (latest, tasks) =>
-      startInitiativePlanning(latest, tasks, threadId, autoMode),
+      startInitiativePlanning(latest, tasks, { threadId, autoMode, by }),
     );
     await this.settings.changeAutoMode(autoMode);
     await this.threads.startOnInitiative({

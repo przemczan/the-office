@@ -6,6 +6,7 @@
 
 **Traps:**
 
+- `ProjectService.add(given, answered?)`: only the user's add (`POST /projects`) answers the run environment question, with who answered (`RunEnvironmentAnswered`), which a Yes passes to Run environments' set-up; any other add, such as a Proposal's, leaves it Not decided yet.
 - A Project's command may be not set: install and the three starting commands may be blank when it was added (`newProjectProblems` checks only that a command given is one line, `commandLineProblem`), while a change (`PUT /projects/:id/install-command`, `PUT /projects/:id/commands/:key`, Devops' Proposals) and any command added later refuse a blank one (`commandProblem`, `commandFieldsProblems`), so a set command is never cleared. A new command's key passes `commandKeyProblems` (`install` and `publish` reserved); a key is never changed, since Pipelines name commands by it. Nothing runs a blank line: with no install command `Worktrees.installOnce` installs nothing and writes no record, so setting it installs at the next Stage; a Script Stage's `ScriptCommands.run`, given a key the Project lacks or a blank line, answers `could-not-run` naming the key, with how to set it and an empty `commandLine`, which `scriptStageOutcome` gives as the failure alone; `AgentCommands` answers `no-command`; the environment check starts it `skipped` and still passes (`isCommandSet`).
 - A Project's default Pipeline always runs there: `ProjectChecks` refuses a default that runs a key the Project lacks, and removing a command the default runs, by hand or by Devops' Proposal (`removedCommandKeys`). The default may be one of its own Project Pipelines, weighed by its built Stages; another Project's and a Broken one are refused (`defaultPipelineOwnerProblems`), and a new Project (Add a Project, onboarding) takes an office-wide one only. `KnownPipelines.commandsNamedBy` answers any Project's Project Pipeline with its Project, so `ProjectChecks` reads the owner's name from `ProjectRepository`. Removing a command another Pipeline runs isn't refused; its Stage fails could-not-run. Keys alone count, so a blank command passes.
 - The test handling (one re-run on failure, tracked files restored, written files moved out, the screenshots folder put back) goes by the command's kind, not its key: `ScriptCommands.run` gives it to every command of kind `test` (a `test-full` too) and none to build or lint kinds.
@@ -169,7 +170,7 @@ BaseCheckouts, BaseCheckout, CommittedFiles, InitiativeBranches, InitiativeBranc
 - `project-level-moves.ts`: ProjectLevelMoves
 - `project-records.ts`: ProjectRecords
 - `project-remotes.ts`: ProjectRemotes
-- `project-service.ts`: ProjectService
+- `project-service.ts`: RunEnvironmentAnswered, ProjectService
 - `projects-from-repositories.ts`: ProjectsFromRepositories
 - `publishing.ts`: Publishing
 - `repositories-by-url.ts`: RepositoryByUrl, RepositoriesByUrl

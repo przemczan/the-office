@@ -33,6 +33,7 @@ import {
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import {
   InitiativePause,
   type InitiativePauseOutcome,
@@ -40,13 +41,13 @@ import {
 import { InitiativePlanning } from "../../application/initiative-planning.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { InitiativeStart } from "../../application/initiative-start.js";
-import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
 import {
   toArchivedInitiativesPageResponse,
   toInitiativeResponse,
   toTaskResponse,
 } from "./work-responses.js";
+import { authorOf } from "./signed-in-author.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 /** An Initiative is made by shaping an Idea: POST /ideas/:id/initiative. */
@@ -98,8 +99,11 @@ export class InitiativesController {
   /** "Confirm the Initiative": active, or done at once when its Tasks already are. */
   @Post(":id/confirm")
   @HttpCode(HttpStatus.OK)
-  async confirm(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.confirm(id));
+  async confirm(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.confirm(id, authorOf(signedIn)));
   }
 
   /** The user's outcome; refused once the Initiative is no longer being shaped. */
@@ -138,22 +142,31 @@ export class InitiativesController {
   /** Its Tasks stay as they are, and so do its branches. */
   @Post(":id/drop")
   @HttpCode(HttpStatus.OK)
-  async drop(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.drop(id));
+  async drop(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.drop(id, authorOf(signedIn)));
   }
 
   /** Takes a Done or Dropped Initiative off the board into the Archive; its state stays. */
   @Post(":id/archive")
   @HttpCode(HttpStatus.OK)
-  async archive(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.archive(id));
+  async archive(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.archive(id, authorOf(signedIn)));
   }
 
   /** Puts an archived Initiative back on the board, in Done or Dropped as it was. */
   @Post(":id/restore")
   @HttpCode(HttpStatus.OK)
-  async restore(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.restore(id));
+  async restore(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.restore(id, authorOf(signedIn)));
   }
 
   /**
@@ -177,8 +190,9 @@ export class InitiativesController {
   async plan(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(initiativePlanningSchema)) { autoMode }: InitiativePlanningRequest,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<InitiativeResponse> {
-    return this.respond(await this.planning.plan(id, autoMode));
+    return this.respond(await this.planning.plan(id, autoMode, authorOf(signedIn)));
   }
 
   /**
@@ -187,8 +201,14 @@ export class InitiativesController {
    */
   @Post(":id/start")
   @HttpCode(HttpStatus.OK)
-  async startReadyTasks(@Param("id", ParseUUIDPipe) id: string): Promise<ReadyTasksStarted> {
-    const { started, queued, refused } = await this.starting.startReadyTasks(id);
+  async startReadyTasks(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ReadyTasksStarted> {
+    const { started, queued, refused } = await this.starting.startReadyTasks(
+      id,
+      authorOf(signedIn),
+    );
     return {
       started: started.map(({ id: taskId, title }) => ({ taskId, title })),
       queued: queued.map(({ task, place, reasons }) => ({
@@ -211,8 +231,11 @@ export class InitiativesController {
    */
   @Post(":id/pause")
   @HttpCode(HttpStatus.OK)
-  async pause(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativePauseAnswer> {
-    return this.respondToPause(await this.pausing.pause(id));
+  async pause(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativePauseAnswer> {
+    return this.respondToPause(await this.pausing.pause(id, authorOf(signedIn)));
   }
 
   /**
@@ -221,8 +244,11 @@ export class InitiativesController {
    */
   @Post(":id/resume")
   @HttpCode(HttpStatus.OK)
-  async resume(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativePauseAnswer> {
-    return this.respondToPause(await this.pausing.resume(id));
+  async resume(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativePauseAnswer> {
+    return this.respondToPause(await this.pausing.resume(id, authorOf(signedIn)));
   }
 
   /** A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it names. */
@@ -230,8 +256,9 @@ export class InitiativesController {
   async addTask(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(newInitiativeTaskSchema)) { blockedBy, ...given }: NewInitiativeTask,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.initiatives.addTask(id, given, blockedBy, THE_USER));
+    return toTaskResponse(await this.initiatives.addTask(id, given, blockedBy, authorOf(signedIn)));
   }
 
   private async respondToPause({

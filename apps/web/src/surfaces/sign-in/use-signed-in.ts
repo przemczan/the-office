@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import type { SignInOutcome } from "@the-office/contracts";
-import { returnPathOf, userQueries } from "../../api/users.ts";
+import { returnPathOf, SIGN_IN_CODE_PATH, userQueries } from "../../api/users.ts";
 import { adoptAccountAppearance } from "../../shell/account-appearance.tsx";
 
 /**
@@ -14,12 +14,13 @@ export type SignedInOutcome = Exclude<SignInOutcome, { readonly outcome: "set-pa
  * What a sign-in's outcome leads to. Signed in, the page reads the account first and shows its
  * appearance, so the shell's first paint is the user's own, then returns to where `?returnTo=` says
  * (a path of this app only, else home), with nothing kept from before, which may have been another
- * user's. A second step, such as an authenticator code, joins the switch with its Task.
+ * user's. Asked for the authenticator code, it goes to the code page, which returns there in turn.
  */
 export function useSignedIn(): (outcome: SignedInOutcome) => Promise<void> {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const returnTo = useSearch({ from: "/sign-in", select: (search) => search.returnTo });
+  // The sign-in page and the code page both carry it.
+  const returnTo = useSearch({ strict: false, select: (search) => search.returnTo });
   return async (outcome) => {
     switch (outcome.outcome) {
       case "signed-in": {
@@ -30,9 +31,16 @@ export function useSignedIn(): (outcome: SignedInOutcome) => Promise<void> {
         router.history.replace(returnPathOf(returnTo));
         return;
       }
+      case "code-needed":
+        await router.navigate({
+          to: SIGN_IN_CODE_PATH,
+          search: returnTo === undefined ? {} : { returnTo },
+          replace: true,
+        });
+        return;
       default: {
-        const unknown: never = outcome.outcome;
-        throw new Error(`The sign-in ended as nothing the page knows: ${String(unknown)}.`);
+        const unknown: never = outcome;
+        throw new Error(`The sign-in ended as nothing the page knows: ${JSON.stringify(unknown)}.`);
       }
     }
   };

@@ -7,6 +7,7 @@ import type {
   QueuedOnNow,
   Role,
   RunningTask,
+  SinceYouLeft,
 } from "@the-office/contracts";
 import { Badge } from "@the-office/ui";
 import { Fragment, type ReactNode } from "react";
@@ -49,6 +50,7 @@ import { TokenCount } from "../../shell/token-count.tsx";
  */
 export function NowPage(): ReactNode {
   const now = useQuery(nowQueries.now()).data;
+  const sinceYouLeft = useQuery(nowQueries.sinceYouLeft()).data;
   const needsYou = useNeedsYou();
   const projects = useQuery(projectQueries.list()).data;
   const roles = useQuery(roleQueries.list()).data;
@@ -86,9 +88,13 @@ export function NowPage(): ReactNode {
           <PanelHeading
             icon="moon"
             title="Since you left"
-            count={now && sinceWords(now.leftAt, clock)}
+            count={sinceYouLeft && sinceWords(sinceYouLeft.leftAt, clock)}
           />
-          <Feed>{now && <SinceYouLeftFeed now={now} projects={projects} clock={clock} />}</Feed>
+          <Feed>
+            {sinceYouLeft && (
+              <SinceYouLeftFeed sinceYouLeft={sinceYouLeft} projects={projects} clock={clock} />
+            )}
+          </Feed>
           {now && <TodaysTokens now={now} />}
         </Panel>
       </Desk>
@@ -223,15 +229,15 @@ function QueueFeed({
 }
 
 function SinceYouLeftFeed({
-  now,
+  sinceYouLeft,
   projects,
   clock,
 }: {
-  readonly now: Now;
+  readonly sinceYouLeft: SinceYouLeft;
   readonly projects: readonly Project[] | undefined;
   readonly clock: Date;
 }): ReactNode {
-  const { shown, elsewhere } = useNarrowedByProject(now.sinceYouLeft);
+  const { shown, elsewhere } = useNarrowedByProject(sinceYouLeft.finished);
   return (
     <>
       {shown.length === 0 && (

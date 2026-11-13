@@ -1,14 +1,14 @@
-import { SignInRefused } from "./sign-in-refused.js";
+import { SignInRefused, type TriedWith } from "./sign-in-refused.js";
 
 /**
- * A user's wrong tries in a row at their password (spec §2.10 Defaults, "Slow-down and lockout"),
- * kept with the user so a restart doesn't reset them.
+ * A user's wrong tries in a row at their password and codes, counted together (spec §2.10 Defaults,
+ * "Slow-down and lockout"), kept with the user so a restart doesn't reset them.
  */
 export interface WrongTries {
   readonly inARow: number;
   /** The slow-down: no try is taken before it. */
   readonly nextTryAt: Date | undefined;
-  /** The lockout: the password is refused until it. */
+  /** The lockout: the password and codes are refused until it. */
   readonly lockedUntil: Date | undefined;
 }
 
@@ -61,7 +61,7 @@ export function afterWrongTry(tries: WrongTries, now: Date): WrongTries {
 }
 
 /** The answer to a wrong try: wrong, with when to try again once the tries cost a wait. */
-export function wrongTryAnswer(tries: WrongTries): SignInRefused {
+export function wrongTryAnswer(tries: WrongTries, triedWith: TriedWith): SignInRefused {
   if (tries.lockedUntil !== undefined) return SignInRefused.locked(tries.lockedUntil);
-  return SignInRefused.wrong(tries.nextTryAt);
+  return SignInRefused.wrong(triedWith, tries.nextTryAt);
 }

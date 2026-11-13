@@ -33,7 +33,7 @@ export interface SignInWay {
   isAvailable(): Promise<boolean>;
 }
 
-/** A password works at every address. */
+/** A password works at every address, and asks for the authenticator code after it. */
 export const PASSWORD_WAY: SignInWay = {
   kind: "password",
   enoughAlone: false,

@@ -978,8 +978,50 @@
     {
       "idx": 139,
       "version": "7",
-      "when": 1794607971783,
-      "tag": "0139_linked_identities",
+      "when": 1794607702188,
+      "tag": "0139_authenticators_and_recovery_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1794607702189,
+      "tag": "0140_earlier_records_claimed",
+      "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1794607702190,
+      "tag": "0141_records_name_the_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1794607702191,
+      "tag": "0142_records_name_the_user_in_conversations",
+      "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1794607702192,
+      "tag": "0143_records_name_the_user_in_people_and_skills",
+      "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1794607702193,
+      "tag": "0144_since_you_left_per_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1794611121913,
+      "tag": "0145_linked_identities",
       "breakpoints": true
     }
   ]

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { SignInRefused } from "../domain/sign-in-refused.js";
 import type { SignInRequest } from "../domain/signed-in-device.js";
+import { PASSWORD_WAY } from "../domain/sign-in-way.js";
 import { isOneTimePasswordExpired, isWaitingForFirstSignIn } from "../domain/user.js";
 import { PasswordChecks } from "./password-checks.js";
 import { SignIns, type SignInOutcome } from "./sign-ins.js";
@@ -18,13 +19,16 @@ export class PasswordSignIn {
     private readonly schedule: Schedule,
   ) {}
 
-  /** Signs the user in, or throws `SignInRefused`: wrong, the slow-down's wait or the lockout. */
+  /**
+   * Signs the user in, or asks for their authenticator code, or throws `SignInRefused`: wrong, the
+   * slow-down's wait or the lockout.
+   */
   async signIn(email: string, password: string, request: SignInRequest): Promise<SignInOutcome> {
     const user = await this.passwordChecks.userWith(email, password);
     if (isWaitingForFirstSignIn(user)) {
       if (isOneTimePasswordExpired(user, this.schedule.now())) throw SignInRefused.expired();
       return { outcome: "set-password" };
     }
-    return this.signIns.finish(user, "password", request);
+    return this.signIns.finish(user, PASSWORD_WAY, request);
   }
 }

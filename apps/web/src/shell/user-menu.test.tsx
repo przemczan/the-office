@@ -9,6 +9,7 @@ const ADA: Account = {
   name: "Ada",
   email: "ada@x.io",
   appearance: { palette: null, density: null },
+  authenticator: { state: "off" },
 };
 
 async function openedMenu(): Promise<Awaited<ReturnType<typeof openPage>>> {

@@ -69,7 +69,7 @@ function setUp(initiative: Initiative, roleKey: string) {
     .of({ threadId: randomUUID(), initiativeId: initiative.id, roleKey });
 }
 
-/** An Initiative spanning `projectIds`, one Task in each, on the Pipeline `pipelineId`. */
+/** An Initiative spanning `projectIds`, one Task in each, on the Pipeline `pipelineId` in each. */
 async function anInitiativeOn(
   pipelineId: string | null,
   projectIds: readonly string[],
@@ -77,14 +77,18 @@ async function anInitiativeOn(
   const idea = ideaSchema.parse(
     await post("/ideas", { title: `Sync ${randomUUID().slice(0, 8)}`, notes: "", projectId: null }),
   );
-  const initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
+  let initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
   const tasks: Task[] = [];
   for (const projectId of projectIds) tasks.push(await aTaskIn(initiative, "Sync", projectId, []));
-  const response = await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
-    pipelineId,
-  });
-  expect(response.status).toBeLessThan(300);
-  return { initiative: initiativeSchema.parse(await response.json()), tasks };
+  for (const projectId of projectIds) {
+    const response = await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
+      projectId,
+      pipelineId,
+    });
+    expect(response.status).toBeLessThan(300);
+    initiative = initiativeSchema.parse(await response.json());
+  }
+  return { initiative, tasks };
 }
 
 describe("a shaping Thread's session", () => {
@@ -115,8 +119,9 @@ describe("a shaping Thread's session", () => {
         `Usage exports (Initiative ${initiative.id})`,
         `- shaping; spans the Project ${api}, the Project ${web}`,
         `- Shaped from: Usage exports (Idea ${idea.id}), Office-wide, shaped; read_idea reads it`,
-        `- Created by the user on ${initiative.createdAt}`,
-        "- Initiative's Pipeline: None, so each Task publishes on its own",
+        `- Created by the user Ann Lee on ${initiative.createdAt}`,
+        `- Initiative's Pipeline in the Project ${api}: None, so each of its Tasks publishes on its own`,
+        `- Initiative's Pipeline in the Project ${web}: None, so each of its Tasks publishes on its own`,
         "",
         "Outcome:",
         "Not written yet.",
@@ -128,9 +133,16 @@ describe("a shaping Thread's session", () => {
         "Attachments:",
         "None.",
         "",
+        "## Who asked",
+        "",
+        "The Initiative was shaped from its Idea by the user Ann Lee.",
+        "",
         "## The Pipelines",
         "",
-        "The Initiative's Pipeline is None, so each of its Tasks publishes on its own. Choose one with choose_pipeline, or None with null, when the user wants the whole change published together; whether it has one is fixed at Confirm.",
+        "Each Project the Initiative spans has a Pipeline of its own, or None. Choose one for a Project with choose_pipeline, or None with null, when the user wants that Project's whole change published together; whether each Project has one is fixed at Confirm.",
+        "",
+        `- The ${api} (${api}): None, so each of its Tasks publishes on its own.`,
+        `- The ${web} (${web}): None, so each of its Tasks publishes on its own.`,
         "",
         "- full: Full (Implement → Tests → Review & fix → Publish).",
       ].join("\n"),
@@ -167,7 +179,6 @@ describe("a shaping Thread's session", () => {
           `${name} (Initiative ${initiative.id})`,
           "- shaping; spans no Project yet",
           `- Created by the person in the Role cto on ${initiative.createdAt.toISOString()}`,
-          "- Initiative's Pipeline: None, so each Task publishes on its own",
           "",
           "Outcome:",
           "People sign in once.",
@@ -213,10 +224,11 @@ describe("what the Threads on an Initiative read", () => {
     ];
     const { initiative, tasks } = await anInitiativeOn("full", [api, web]);
     await post(`/initiatives/${initiative.id}/confirm`);
-    // Its only Task in web moves to app, where its branch is made: web keeps the branch made there.
+    // Its only Task in web moves to app, where the Initiative has None (no Pipeline was fixed for
+    // it at Confirm), so both web and app are read at their base branches.
     await post(`/tasks/${tasks[1]?.id ?? ""}/move`, { projectId: app });
 
-    expect((await setUp(initiative, "cto")).branchReads?.projectIds).toEqual([api, app]);
+    expect((await setUp(initiative, "cto")).branchReads?.projectIds).toEqual([api]);
   });
 
   it("is told to read each Project where The Projects in its Brief say, the same for every Initiative", () => {

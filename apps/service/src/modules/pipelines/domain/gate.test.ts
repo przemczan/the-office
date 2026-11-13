@@ -50,6 +50,7 @@ function aRun(stageKey: string, gateAction?: GateAction): StageRun {
     model: undefined,
     decisions: [],
     heldBy: undefined,
+    heldByUser: undefined,
     waitingSince: undefined,
     gateAction,
     outcome: GATE_REACHED,

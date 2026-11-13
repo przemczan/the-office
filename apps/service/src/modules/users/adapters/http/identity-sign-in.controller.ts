@@ -23,7 +23,8 @@ import {
   IDENTITY_TRIP_COOKIE,
   identityTripCookie,
 } from "./identity-trip-cookie.js";
-import { cookieValueOf, signInCookie } from "./sign-in-cookie.js";
+import { redirectSignIn } from "./sign-in-answers.js";
+import { cookieValueOf } from "./sign-in-cookie.js";
 import { pageAddressOf, signInRequestOf } from "./sign-in-request.js";
 import { textOrUndefined } from "../../../../platform/http/query-text.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
@@ -85,7 +86,7 @@ export class IdentitySignInController {
 
   /**
    * A page the browser navigates to, so every outcome redirects: signed in, to where the sign-in
-   * page was to return; linked, to the account; refused, to the sign-in page or the account with
+   * page was to return, or first to the code page when the authenticator code is needed; linked, to the account; refused, to the sign-in page or the account with
    * why. A link needs the signed-in device that started it, checked here as the guard skips this.
    */
   private async returned(
@@ -106,52 +107,36 @@ export class IdentitySignInController {
       { nonce: cookieValueOf(request.headers.cookie, IDENTITY_TRIP_COOKIE), signedIn },
       signInRequestOf(request, address),
     );
-    const cookies = [clearedIdentityTripCookie(address.secure)];
-    const location = locationOf(outcome, signedIn !== undefined, (token) =>
-      cookies.push(signInCookie(token, address.secure)),
-    );
-    response.setHeader("Set-Cookie", cookies);
-    response.redirect(302, location);
+    const tripCleared = clearedIdentityTripCookie(address.secure);
+    switch (outcome.kind) {
+      case "signed-in":
+        redirectSignIn(outcome.outcome, address.secure, outcome.returnTo, response, [tripCleared]);
+        return;
+      case "linked":
+        response.setHeader("Set-Cookie", tripCleared);
+        response.redirect(303, outcome.returnTo);
+        return;
+      case "refused":
+        response.setHeader("Set-Cookie", tripCleared);
+        response.redirect(303, refusedLocationOf(outcome, signedIn !== undefined));
+        return;
+      default: {
+        const unknown: never = outcome;
+        throw new Error(`Continue with a provider ended as nothing known: ${String(unknown)}.`);
+      }
+    }
   }
 }
 
-function locationOf(
-  outcome: IdentityReturnOutcome,
+/** Back where the trip started, with why: the sign-in page, or the account's linked identities. */
+function refusedLocationOf(
+  outcome: Extract<IdentityReturnOutcome, { readonly kind: "refused" }>,
   browserSignedIn: boolean,
-  setSignInCookie: (token: string) => void,
 ): string {
-  switch (outcome.kind) {
-    case "signed-in":
-      return signedInLocation(outcome, setSignInCookie);
-    case "linked":
-      return outcome.returnTo;
-    case "refused": {
-      // A trip not found tells no purpose: a signed-in browser was most likely linking.
-      const linking = (outcome.purpose ?? (browserSignedIn ? "link" : "sign-in")) === "link";
-      const [path, parameter] = linking
-        ? [LINKED_IDENTITIES_PATH, LINK_FAILED_PARAMETER]
-        : [SIGN_IN_PATH, SIGN_IN_FAILED_PARAMETER];
-      return `${path}?${new URLSearchParams({ [parameter]: outcome.reason })}`;
-    }
-    default: {
-      const unknown: never = outcome;
-      throw new Error(`Continue with a provider ended as nothing known: ${String(unknown)}.`);
-    }
-  }
-}
-
-/** Each outcome of `SignIns.finish`; a second step, such as an authenticator code, joins with its Task. */
-function signedInLocation(
-  { outcome, returnTo }: Extract<IdentityReturnOutcome, { readonly kind: "signed-in" }>,
-  setSignInCookie: (token: string) => void,
-): string {
-  switch (outcome.outcome) {
-    case "signed-in":
-      setSignInCookie(outcome.token);
-      return returnTo;
-    default: {
-      const unknown: never = outcome.outcome;
-      throw new Error(`The sign-in ended as nothing known: ${String(unknown)}.`);
-    }
-  }
+  // A trip not found tells no purpose: a signed-in browser was most likely linking.
+  const linking = (outcome.purpose ?? (browserSignedIn ? "link" : "sign-in")) === "link";
+  const [path, parameter] = linking
+    ? [LINKED_IDENTITIES_PATH, LINK_FAILED_PARAMETER]
+    : [SIGN_IN_PATH, SIGN_IN_FAILED_PARAMETER];
+  return `${path}?${new URLSearchParams({ [parameter]: outcome.reason })}`;
 }

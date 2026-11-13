@@ -1,3 +1,4 @@
+import type { Author } from "../domain/author.js";
 import { Injectable } from "@nestjs/common";
 import { readyTasksToStart } from "../domain/initiative-start.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
@@ -49,14 +50,14 @@ export class InitiativeStart {
    * Starts or queues each Ready Task; one refused is answered with its reasons and the rest go on.
    * Refused with the reason (InitiativeRefused) when the Initiative isn't active or has no Ready Task.
    */
-  async startReadyTasks(initiativeId: string): Promise<ReadyTasksStarted> {
+  async startReadyTasks(initiativeId: string, by: Author): Promise<ReadyTasksStarted> {
     const initiative = await this.initiatives.find(initiativeId);
     if (!initiative) throw new InitiativeNotFound(initiativeId);
     const toStart = readyTasksToStart(initiative, await this.tasks.list());
     const refused: RefusedInRun[] = [];
     for (const task of toStart) {
       try {
-        await this.starting.start(task.id, "queue-behind");
+        await this.starting.start(task.id, "queue-behind", by);
       } catch (error) {
         if (!(error instanceof TaskRefused)) throw error;
         refused.push({ task, reasons: error.reasons });

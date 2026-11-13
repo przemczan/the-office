@@ -22,22 +22,28 @@ import {
   signedInAt,
   type PageAt,
 } from "../../passkeys.fixtures.js";
-import { SecondSteps } from "../../ports/second-steps.js";
+import { SecondSteps, type SecondStep } from "../../ports/second-steps.js";
 import { PUBLIC_ADDRESS, startUsersApplication } from "../../users-application.fixtures.js";
-import { NoSecondSteps } from "../second-steps/no-second-steps.js";
 import { IDENTITY_TRIP_COOKIE } from "./identity-trip-cookie.js";
-import { SIGN_IN_COOKIE } from "./sign-in-cookie.js";
+import { PENDING_SIGN_IN_COOKIE, SIGN_IN_COOKIE } from "./sign-in-cookie.js";
 
 const NOW = new Date("2026-11-13T09:00:00.000Z");
 const MINUTE = 60 * 1000;
 
+/** Asks for no second step unless a test says otherwise. */
+class StubbedSecondSteps extends SecondSteps {
+  after(): Promise<SecondStep | undefined> {
+    return Promise.resolve(undefined);
+  }
+}
+
 let office: OfficeWithProvider;
-let secondSteps: NoSecondSteps;
+let secondSteps: StubbedSecondSteps;
 let me: UserForTests;
 let localhost: PageAt;
 
 beforeEach(async () => {
-  secondSteps = new NoSecondSteps();
+  secondSteps = new StubbedSecondSteps();
   office = await startWithFakeProvider({
     overrides: [{ provide: SecondSteps, useValue: secondSteps }],
   });
@@ -115,7 +121,7 @@ describe("Continue with GitHub", () => {
     const answer = await continueAt(office, localhost, "/board?tags=auth");
 
     expect(locationOf(answer).href).toBe("http://office.invalid/board?tags=auth");
-    expect(after).toHaveBeenCalledWith(expect.objectContaining({ id: me.id }), "github");
+    expect(after).toHaveBeenCalledWith(expect.objectContaining({ id: me.id }));
     const token = cookieNamed(answer, SIGN_IN_COOKIE);
     expect(token).toBeTruthy();
     expect(cookieNamed(answer, IDENTITY_TRIP_COOKIE)).toBe("");
@@ -124,6 +130,23 @@ describe("Continue with GitHub", () => {
       cookie: `${SIGN_IN_COOKIE}=${token}`,
     });
     expect(accountSchema.parse(account.body).id).toBe(me.id);
+  });
+
+  it("sends a user whose second step is needed to the code page, with a pending sign-in and no signed-in device", async () => {
+    await linkMe();
+    vi.spyOn(secondSteps, "after").mockResolvedValue({
+      outcome: "code-needed",
+      pendingToken: "pending-token",
+    });
+
+    const answer = await continueAt(office, localhost, "/board?tags=auth");
+
+    const location = locationOf(answer);
+    expect(location.pathname).toBe("/sign-in/code");
+    expect(location.searchParams.get("returnTo")).toBe("/board?tags=auth");
+    expect(cookieNamed(answer, PENDING_SIGN_IN_COOKIE)).toBe("pending-token");
+    expect(cookieNamed(answer, SIGN_IN_COOKIE)).toBeUndefined();
+    expect(cookieNamed(answer, IDENTITY_TRIP_COOKIE)).toBe("");
   });
 
   it("refuses an identity linked to no user, even named as a user is, back on the sign-in page with why", async () => {

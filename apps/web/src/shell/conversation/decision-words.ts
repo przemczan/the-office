@@ -1,4 +1,18 @@
-import type { Attachment, Decision, DecisionAnswer } from "@the-office/contracts";
+import type { Attachment, Decision, DecisionAnswer, UserRef } from "@the-office/contracts";
+import { isSignedInUser } from "../use-user-name.ts";
+
+/**
+ * Whose request a person answered a Decision at: "at your request" for the signed-in user, or on an
+ * answer from before users existed; "at Ann Lee's request" for another user.
+ */
+export function atUsersRequestWords(
+  user: UserRef | null,
+  signedInUserId: string | undefined,
+): string {
+  return user === null || isSignedInUser(user, signedInUserId)
+    ? "at your request"
+    : `at ${user.name}'s request`;
+}
 
 /** The answer in words: the option picked, or what the user wrote. */
 export function answerWords(answer: DecisionAnswer, { options }: Decision): string {

@@ -107,7 +107,7 @@ export class DevicesForTests extends SignedInRequests {
     const signedInDeviceId = /^device=(.+)$/.exec(request.headers.cookie ?? "")?.[1];
     return Promise.resolve(
       signedInDeviceId !== undefined && this.signedIn.has(signedInDeviceId)
-        ? { userId: "user", signedInDeviceId }
+        ? { userId: "user", name: "Ann Lee", signedInDeviceId }
         : undefined,
     );
   }

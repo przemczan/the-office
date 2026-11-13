@@ -15,9 +15,11 @@ import {
 } from "../domain/user.js";
 import { UserChanged, UserCreated, UserRemoved } from "../domain/user-events.js";
 import { UserIdNotFound, UserRefused } from "../domain/user-refused.js";
+import { AuthenticatorRepository } from "../ports/authenticator-repository.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { newOneTimePassword } from "./one-time-passwords.js";
+import { PendingSignIns } from "./pending-sign-ins.js";
 import { SignedInDevices } from "./signed-in-devices.js";
 
 /** A user just added, with their one-time password, which is shown this once and kept nowhere. */
@@ -28,7 +30,8 @@ export interface AddedUser {
 
 /**
  * The Office's users, as Settings › Users shows them (spec §2.10): any signed-in user adds one with
- * a one-time password, or removes one, which signs out all their devices.
+ * a one-time password, or removes one, which signs out all their devices and ends their
+ * authenticator, recovery codes and pending sign-ins.
  */
 @Injectable()
 export class Users {
@@ -36,6 +39,8 @@ export class Users {
     private readonly users: UserRepository,
     private readonly passwordHashing: PasswordHashing,
     private readonly signedInDevices: SignedInDevices,
+    private readonly pendingSignIns: PendingSignIns,
+    private readonly authenticators: AuthenticatorRepository,
     private readonly schedule: Schedule,
     private readonly eventBus: EventBus,
   ) {}
@@ -80,8 +85,9 @@ export class Users {
   }
 
   /**
-   * Removes the user, `by` the signed-in user: signs out all their devices and leaves their name on
-   * what they did. Throws UserRefused when `by` is the user, and UserIdNotFound for no such user.
+   * Removes the user, `by` the signed-in user: signs out all their devices, ends their pending
+   * sign-ins and removes their authenticator and recovery codes, and leaves their name on what
+   * they did. Throws UserRefused when `by` is the user, and UserIdNotFound for no such user.
    */
   async remove(userId: string, by: string): Promise<void> {
     const removedAt = this.schedule.now();
@@ -92,6 +98,8 @@ export class Users {
     });
     if (removedUser === undefined) throw new UserIdNotFound();
     await this.signedInDevices.signOutAll(userId);
+    await this.pendingSignIns.endAllOf(userId);
+    await this.authenticators.remove(userId);
     await this.eventBus.publish(new UserRemoved(userId, removedAt));
   }
 

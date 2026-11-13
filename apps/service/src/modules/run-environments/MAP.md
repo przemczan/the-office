@@ -6,6 +6,7 @@
 
 **Traps:**
 
+- A set-up Task is created by the user who asked (`SetUpTasks.add(projectId, by)`): Set up from the Project page, or the Yes to the question as the Project was added, which Projects' registry passes on (`RunEnvironmentSetUp(projectId, by)`).
 - No variable's value is ever in a command line or the script (spec 5.5, "Secret variables"): `exec` gets each `set` variable by its carrier name alone (`carrierOf`, `--env OFFICE_VARIABLE_<n>`), its value in the compose CLI's environment, and the script exports it back under its own name; the install's build gets every `set` variable as a BuildKit secret by the same carrier ids (`installSecrets`). A Project's own names never go into the CLI's environment, where `PATH` or `DOCKER_HOST` would change the CLI. The output file is masked as it streams (`Execution.mask`), and the scripted runtime masks as the real one does.
 
 - The Run environment routes live here, not in Projects or Work: this module imports Work's `index.ts` (for `TaskStateChanged`), and Work imports Projects', so neither could reach the definition's reading without an import cycle.
@@ -123,4 +124,4 @@ RunEnvironments, RunEnvironmentCommand, SlotOptions, DefinitionWriting, RunEnvir
 - `repository-files.ts`: RepositoryFiles
 - `run-environment-settings.fixtures.ts`: RunEnvironmentSettingsForTests
 - `run-environment-settings.ts`: RunEnvironmentSettings
-- `set-up-tasks.ts`: SetUpTask, SetUpTasks
+- `set-up-tasks.ts`: AskingUser, SetUpTask, SetUpTasks

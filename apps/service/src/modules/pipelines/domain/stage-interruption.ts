@@ -1,4 +1,4 @@
-import type { RefusedTurn, StageInterruption, StageOutcome } from "./stage-run.js";
+import type { HoldingUser, RefusedTurn, StageInterruption, StageOutcome } from "./stage-run.js";
 
 interface InterruptionRule {
   /**
@@ -76,7 +76,8 @@ export function notStartedOutcome(): StageOutcome {
 /**
  * How an interrupted run ends: failed, marked so the walk doesn't count a failure (spec §2.4,
  * §5.5). A Stop or a restart names what The Office discarded; a Pause or the fire alarm keeps the
- * worktree as the Agent left it, even once its turn was cut short.
+ * worktree as the Agent left it, even once its turn was cut short. A Pause or a Stop names the
+ * user who asked for it, `heldByUser`, when known.
  */
 export function interruptedOutcome(
   interruption: StageInterruption,
@@ -84,19 +85,26 @@ export function interruptedOutcome(
   {
     cutShortBy,
     refused,
-  }: { readonly cutShortBy?: CutShortBy; readonly refused?: RefusedTurn } = {},
+    heldByUser,
+  }: {
+    readonly cutShortBy?: CutShortBy;
+    readonly refused?: RefusedTurn;
+    readonly heldByUser?: HoldingUser | undefined;
+  } = {},
 ): StageOutcome {
+  const byUser = heldByUser && byTheUser(interruption) ? { heldByUser } : {};
   if (cutShortBy && waitsForTheTurn(interruption)) {
-    return cutShortOutcome(interruption, cutShortBy);
+    return cutShortOutcome(interruption, cutShortBy, byUser);
   }
   const error =
     interruption === "usage-window" && refused
       ? usedUpWords(refused)
-      : errorOf(interruption, discardedPaths);
+      : errorOf(interruption, discardedPaths, heldByUser);
   return {
     status: "failed",
     error,
     interrupted: interruption,
+    ...byUser,
     // Kept beside a stronger hold too, so the Stage is sent the refused message as it resumes.
     ...(refused && waitsForTheTurn(interruption) && { refused }),
   };
@@ -117,32 +125,52 @@ function resetTime(iso: string): string {
  * down or the alarm's hard stop: the run is held as asked, its edits kept (the user's answer of
  * 2026-10-26), so no Decision opens and the Stage goes on with them.
  */
-function cutShortOutcome(interruption: StageInterruption, cutShortBy: CutShortBy): StageOutcome {
+function cutShortOutcome(
+  interruption: StageInterruption,
+  cutShortBy: CutShortBy,
+  byUser: { readonly heldByUser?: HoldingUser },
+): StageOutcome {
   const cut =
     cutShortBy === "restart"
       ? "The Office restarted during the Agent's last turn and cut it short"
       : "Its hard stop cut the Agent's last turn short";
   return {
     status: "failed",
-    error: `${heldWords(interruption)} ${cut}: the Stage's uncommitted edits stay in the worktree, maybe half-done, for it to go on with.`,
+    error: `${heldWords(interruption, byUser.heldByUser)} ${cut}: the Stage's uncommitted edits stay in the worktree, maybe half-done, for it to go on with.`,
     interrupted: interruption,
     cutShort: true,
+    ...byUser,
   };
 }
 
-function heldWords(interruption: StageInterruption): string {
+function heldWords(interruption: StageInterruption, heldByUser: HoldingUser | undefined): string {
   if (interruption === "alarm") return "Held by the fire alarm.";
   return interruption === "usage-window"
     ? "Paused as the engine's usage window was used up."
-    : "Paused by the user.";
+    : `Paused by ${holdingUserWords(heldByUser)}.`;
 }
 
-function errorOf(interruption: StageInterruption, discardedPaths: readonly string[]): string {
+/** Whether the user holds a run held so: by their Pause or their Stop. */
+function byTheUser(interruption: StageInterruption): boolean {
+  return interruption === "pause" || interruption === "stop";
+}
+
+/** "the user Ann Lee", or "the user" for a run held before users existed. */
+export function holdingUserWords(heldByUser: HoldingUser | undefined): string {
+  return heldByUser ? `the user ${heldByUser.name}` : "the user";
+}
+
+function errorOf(
+  interruption: StageInterruption,
+  discardedPaths: readonly string[],
+  heldByUser: HoldingUser | undefined,
+): string {
+  const user = holdingUserWords(heldByUser);
   switch (interruption) {
     case "stop":
-      return `Stopped by the user. ${discardedWords(discardedPaths.length)}`;
+      return `Stopped by ${user}. ${discardedWords(discardedPaths.length)}`;
     case "pause":
-      return "Paused by the user. The Stage's uncommitted edits stay in the worktree for it to go on with.";
+      return `Paused by ${user}. The Stage's uncommitted edits stay in the worktree for it to go on with.`;
     case "alarm":
       return "Held by the fire alarm. The Stage's uncommitted edits stay in the worktree for it to go on with after the all clear.";
     case "restart":

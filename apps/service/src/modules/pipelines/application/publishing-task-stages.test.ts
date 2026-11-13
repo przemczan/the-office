@@ -181,7 +181,7 @@ describe("A Publishing Task's Stages", () => {
       madeFor: "publishing",
     });
 
-    await pipelines.tasks.drop(taskId);
+    await pipelines.tasks.drop(taskId, { kind: "user", user: null });
 
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
   });

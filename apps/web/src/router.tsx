@@ -16,6 +16,7 @@ import {
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
 import { AppearanceSection } from "./surfaces/account/appearance-section.tsx";
+import { AuthenticatorSection } from "./surfaces/account/authenticator-section.tsx";
 import { LinkedIdentitiesSection } from "./surfaces/account/linked-identities-section.tsx";
 import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
@@ -49,6 +50,7 @@ import { UsersSection } from "./surfaces/settings/users/users-section.tsx";
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
+import { CodePage } from "./surfaces/sign-in/code-page.tsx";
 import { SignInPage } from "./surfaces/sign-in/sign-in-page.tsx";
 import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
@@ -125,7 +127,18 @@ const signInRoute = createRoute({
   staticData: { title: "Sign in" },
 });
 
-// The signed-in user's own: their profile, password, appearance and signed-in devices.
+// After a sign-in that needs the authenticator code, outside the shell too (spec §2.10).
+const signInCodeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "sign-in/code",
+  component: CodePage,
+  validateSearch: (search: Record<string, unknown>): SignInSearch =>
+    typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {},
+  staticData: { title: "Authenticator code" },
+});
+
+// The signed-in user's own: their profile, password, authenticator, appearance and signed-in
+// devices.
 const accountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "account",
@@ -146,6 +159,13 @@ const accountProfileRoute = createRoute({
   getParentRoute: () => accountRoute,
   path: "profile",
   component: ProfileSection,
+  staticData: { title: "Account" },
+});
+
+const accountAuthenticatorRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "authenticator",
+  component: AuthenticatorSection,
   staticData: { title: "Account" },
 });
 
@@ -586,9 +606,11 @@ const settingsAppearanceRoute = createRoute({
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     signInRoute,
+    signInCodeRoute,
     accountRoute.addChildren([
       accountHomeRoute,
       accountProfileRoute,
+      accountAuthenticatorRoute,
       accountAppearanceRoute,
       accountPasskeysRoute,
       accountLinkedIdentitiesRoute,

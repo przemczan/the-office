@@ -31,6 +31,7 @@ import {
   type WrittenSkill,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { RoleSkills } from "../../application/role-skills.js";
 import { SkillLibrary } from "../../application/skill-library.js";
@@ -149,8 +150,9 @@ export class SkillsController {
   async assign(
     @Param("name") name: string,
     @Body(new ContractPipe(skillRolesChangeSchema)) { roles }: SkillRolesChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<SkillResponse> {
-    const assigned = await this.roleSkills.assignSkill(name, roles);
+    const assigned = await this.roleSkills.assignSkill(name, roles, userOf(signedIn));
     return this.response(await this.library.read(name), assigned);
   }
 

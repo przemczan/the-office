@@ -21,6 +21,14 @@ export class UserNotFound extends Error {
   }
 }
 
+/** A code sent without a pending sign-in, or with one used up or expired: sign in again. */
+export class PendingSignInEnded extends Error {
+  constructor() {
+    super("This sign-in has ended: sign in again.");
+    this.name = "PendingSignInEnded";
+  }
+}
+
 /** A user asked for by id that isn't one of The Office's users, or was removed. */
 export class UserIdNotFound extends Error {
   constructor() {

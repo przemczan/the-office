@@ -17,6 +17,7 @@ import { aRole, aRoleCard } from "../domain/role.fixtures.js";
 import { RoleCardVersionNotFound } from "../domain/role-card-version-not-found.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRepository } from "../ports/role-repository.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 import { RoleCards } from "./role-cards.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
 import { RoleService } from "./role-service.js";
@@ -63,7 +64,7 @@ describe("RoleCards", () => {
     await repository.add(role);
 
     const before = await roleCards.forNewSession(role.key);
-    await roles.changeCard(role.key, aRoleCard({ effort: "medium", taskLimit: 2 }), []);
+    await roles.changeCard(role.key, aRoleCard({ effort: "medium", taskLimit: 2 }), [], ANN_LEE);
     const after = await roleCards.forNewSession(role.key);
 
     expect(before).toEqual({ roleKey: role.key, cardVersion: 1, card: role.card });

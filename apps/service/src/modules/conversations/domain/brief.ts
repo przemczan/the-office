@@ -1,5 +1,6 @@
 import { answerWords, type Decision } from "./decision.js";
 import type { Message } from "./message.js";
+import { userWordsOpening } from "./user.js";
 
 /**
  * What a new session is given to pick up work (spec §2.5), assembled from the record with no model
@@ -288,13 +289,16 @@ function projectLine({ name, baseBranch, folder, initiativeBranch }: BriefProjec
     : `${base}; the Initiative's branch ${initiativeBranch.branch} is gone, so you read the base branch.`;
 }
 
-/** The user's messages and the person's, the newest that fit under the cap, oldest first. */
+/**
+ * The users' messages, each naming who wrote it, and the person's, the newest that fit under the
+ * cap, oldest first.
+ */
 function exchangesSection(log: readonly Message[]): string | undefined {
   const lines: string[] = [];
   let room = CHAT_EXCHANGES_TOKENS * CHARACTERS_PER_TOKEN;
   for (const message of log.toReversed()) {
     if (message.kind !== "user" && message.kind !== "person") continue;
-    const line = `${message.kind === "user" ? "The user" : "You"}: ${message.text}`;
+    const line = `${message.kind === "user" ? userWordsOpening(message.writtenBy) : "You"}: ${message.text}`;
     if (line.length > room) {
       // The newest message alone over the cap keeps its end, which the conversation went on from.
       if (lines.length === 0) lines.push(`…${line.slice(line.length - room + 1)}`);

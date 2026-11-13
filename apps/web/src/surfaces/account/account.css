@@ -51,6 +51,74 @@
   gap: 8px;
 }
 
+.account-words {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--fg-2);
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-card);
+}
+
+.account-actions > .account-words {
+  flex: 1 1 240px;
+}
+
+/* ---- setting up the authenticator: the QR code beside the key to type */
+.authenticator-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.authenticator-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-panel);
+}
+
+.authenticator-qr {
+  border-radius: var(--radius-sm);
+}
+
+.authenticator-typed-key {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.authenticator-typed-key code,
+.recovery-code-list {
+  font: var(--type-mono);
+  color: var(--fg-1);
+  user-select: all;
+}
+
+/* ---- the recovery codes, shown once */
+.recovery-codes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.recovery-code-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px 24px;
+  margin: 0;
+  padding: var(--pad-card);
+  list-style: none;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-sunken);
+}
+
 /* ---- Passkeys: a passkey's name over where it works, and its row's buttons */
 .account-passkey {
   display: flex;

@@ -77,6 +77,7 @@ describe("the sign-in page", () => {
       name: "Grace",
       email: "grace@example.com",
       appearance: { palette: "mocha", density: "compact" },
+      authenticator: { state: "off" },
     };
     const sent = stubService({
       "GET /api/sign-in": signInPage({

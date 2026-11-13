@@ -16,6 +16,7 @@ import {
   type Thread as ThreadResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { toDecisionResponse, toThreadResponse } from "./conversation-responses.js";
@@ -43,14 +44,21 @@ export class DecisionsController {
     return (await this.decisions.listUnansweredOn(taskId)).map(toDecisionResponse);
   }
 
-  /** The user's answer; the person who asked takes it in its Thread, which this answers with. */
+  /**
+   * The signed-in user's answer, to any Decision, as every user shares them; the person who asked
+   * takes it in its Thread, which this answers with.
+   */
   @Post("decisions/:id/answer")
   @HttpCode(HttpStatus.ACCEPTED)
   async answer(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(decisionAnswerSchema)) answer: DecisionAnswer,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ThreadResponse> {
-    const thread = await this.decisions.answer(id, answer);
+    const thread = await this.decisions.answer(id, answer, {
+      kind: "user",
+      user: userOf(signedIn),
+    });
     // A chat has no Decisions, so this Thread takes no part in the record of what was seen.
     return toThreadResponse(thread, await this.contexts.read(thread), undefined);
   }

@@ -8,7 +8,7 @@ import {
   type InitiativePipeline,
   type InitiativeState,
 } from "./initiative.js";
-import { THE_USER, type Author } from "./author.js";
+import type { Author } from "./author.js";
 import {
   InitiativeBranchMade,
   InitiativeCreated,
@@ -113,6 +113,7 @@ export function confirmInitiative(
   initiative: Initiative,
   tasks: readonly Task[],
   branched: ConfirmBranching | undefined,
+  by: Author,
 ): InitiativeTasksChange<InitiativeStateChanged> {
   if (initiative.state !== "shaping") {
     throw new InitiativeRefused([
@@ -123,7 +124,7 @@ export function confirmInitiative(
   return {
     ...confirmed,
     initiative: { ...confirmed.initiative, ...fixedPipelines(initiative, tasks, branched) },
-    taskChanges: inShaping(tasks).map(moveToBacklogOnConfirm),
+    taskChanges: inShaping(tasks).map((task) => moveToBacklogOnConfirm(task, by)),
   };
 }
 
@@ -260,19 +261,20 @@ export function addBranch(
 
 /**
  * Undefined when it is already dropped. Every one of its Tasks not yet Done or Dropped drops with
- * it, started ones and those its Pause held too, each as by the user's own Drop (spec 2.1, "An
- * Initiative is done"); a paused one is no longer paused.
+ * it, started ones and those its Pause held too, each as by the user's own Drop, by `by` (spec 2.1,
+ * "An Initiative is done"); a paused one is no longer paused.
  */
 export function dropInitiative(
   initiative: Initiative,
   tasks: readonly Task[],
   at: Date,
+  by: Author,
 ): InitiativeTasksChange<InitiativeStateChanged> | undefined {
   if (initiative.state === "dropped") return undefined;
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
   }
-  return { ...moveTo(initiative, "dropped", at), taskChanges: dropOpen(tasks, THE_USER) };
+  return { ...moveTo(initiative, "dropped", at), taskChanges: dropOpen(tasks, by) };
 }
 
 /**

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { assignmentsChange, skillsOfRole, withRoleSkills } from "../../domain/role-skills.js";
 import { aSkill } from "../../domain/skill.fixtures.js";
+import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
 import { PostgresRoleSkillRepository } from "./postgres-role-skill-repository.js";
 import { PostgresSkillRepository } from "./postgres-skill-repository.js";
 
@@ -38,6 +39,7 @@ function adding(roleKey: string, skillName: string, at: Date) {
       current,
       withRoleSkills(current, roleKey, [...skillsOfRole(current, roleKey), skillName]),
       at,
+      ANN_LEE,
     ),
   );
 }
@@ -51,13 +53,13 @@ describe("PostgresRoleSkillRepository", () => {
 
     await adding(roleKey, first, earlier);
     await repository.update((current) =>
-      assignmentsChange(current, withRoleSkills(current, roleKey, [second]), later),
+      assignmentsChange(current, withRoleSkills(current, roleKey, [second]), later, BEN_ITO),
     );
 
     expect(skillsOfRole(await repository.list(), roleKey)).toEqual([second]);
     await expect(repository.changes(roleKey)).resolves.toEqual([
-      { roleKey, added: [second], removed: [first], changedAt: later },
-      { roleKey, added: [first], removed: [], changedAt: earlier },
+      { roleKey, added: [second], removed: [first], changedAt: later, changedBy: BEN_ITO },
+      { roleKey, added: [first], removed: [], changedAt: earlier, changedBy: ANN_LEE },
     ]);
   });
 });

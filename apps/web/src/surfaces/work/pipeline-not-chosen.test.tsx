@@ -52,7 +52,7 @@ const TASK: Task = {
   initiativeId: null,
   madeFor: null,
   projectMoves: [],
-  createdBy: { kind: "user" },
+  createdBy: { kind: "user", user: null },
   createdAt: "2026-11-11T10:00:00.000Z",
   archivedAt: null,
   endedAt: null,

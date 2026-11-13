@@ -1,4 +1,5 @@
 import type { Skill } from "./skill.js";
+import type { UserRef } from "./user.js";
 
 /**
  * A library skill assigned to a Role, by the key People keeps the Role by. Skills takes the key as
@@ -15,6 +16,11 @@ export interface RoleSkillsChange {
   readonly added: readonly string[];
   readonly removed: readonly string[];
   readonly changedAt: Date;
+  /**
+   * The user who made the change; null when no user did, or for a change from before users
+   * existed, until the first user claims it.
+   */
+  readonly changedBy: UserRef | null;
 }
 
 /** The assignments after a change, with what each Role gained and lost; changes in key order. */
@@ -47,11 +53,15 @@ export function withSkillRoles(
   ];
 }
 
-/** From `before` to `after`, at `changedAt`; no change for a Role whose skills stay the same. */
+/**
+ * From `before` to `after`, at `changedAt` by the user `changedBy`; no change for a Role whose
+ * skills stay the same.
+ */
 export function assignmentsChange(
   before: readonly RoleSkillAssignment[],
   after: readonly RoleSkillAssignment[],
   changedAt: Date,
+  changedBy: UserRef | null,
 ): AssignmentsChange {
   const was = skillsByRole(before);
   const is = skillsByRole(after);
@@ -61,7 +71,9 @@ export function assignmentsChange(
     const to = is.get(roleKey) ?? new Set<string>();
     const added = [...to].filter((name) => !from.has(name)).toSorted();
     const removed = [...from].filter((name) => !to.has(name)).toSorted();
-    return added.length + removed.length === 0 ? [] : [{ roleKey, added, removed, changedAt }];
+    return added.length + removed.length === 0
+      ? []
+      : [{ roleKey, added, removed, changedAt, changedBy }];
   });
   return { assignments: after, changes };
 }

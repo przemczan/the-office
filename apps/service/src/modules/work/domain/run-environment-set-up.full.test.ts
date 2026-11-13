@@ -7,7 +7,7 @@ import {
 } from "./run-environment-set-up.js";
 import { TaskCreated } from "./task-events.js";
 import { readinessLines } from "./task-states.js";
-import { aTask } from "./work.fixtures.js";
+import { ANN_LEE, aTask } from "./work.fixtures.js";
 
 const createdAt = new Date("2026-11-08T10:00:00.000Z");
 
@@ -15,7 +15,7 @@ describe("createRunEnvironmentSetUpTask", () => {
   const { task, event, stateChange } = createRunEnvironmentSetUpTask(
     "task-1",
     { id: "billing", name: "Billing" },
-    { order: "a0", createdBy: { kind: "user" } },
+    { order: "a0", createdBy: ANN_LEE },
     createdAt,
   );
 
@@ -30,7 +30,7 @@ describe("createRunEnvironmentSetUpTask", () => {
       planConfirmed: true,
       definitionOfDone: RUN_ENVIRONMENT_SET_UP_DEFINITION_OF_DONE,
       definitionOfDoneConfirmed: true,
-      createdBy: { kind: "user" },
+      createdBy: ANN_LEE,
     });
     expect(task.plan).toContain("run environment definition of Billing");
     expect(event).toEqual(new TaskCreated(task));
@@ -38,7 +38,7 @@ describe("createRunEnvironmentSetUpTask", () => {
       from: undefined,
       to: "ready",
       at: createdAt,
-      by: { kind: "user" },
+      by: ANN_LEE,
     });
   });
 

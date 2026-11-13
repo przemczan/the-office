@@ -115,6 +115,6 @@ export async function continueAt(
 
 /** Where an answer redirects, as a path with its query. */
 export function locationOf(answer: Answer): URL {
-  expect(answer.status).toBe(302);
+  expect(answer.status).toBe(303);
   return new URL(String(answer.headers.location), "http://office.invalid");
 }

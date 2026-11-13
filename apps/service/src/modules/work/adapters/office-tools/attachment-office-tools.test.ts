@@ -15,8 +15,8 @@ import { randomUUID } from "node:crypto";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
-import { THE_USER } from "../../domain/author.js";
 import { AttachmentReplaced } from "../../domain/attachment-events.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 import {
   ProjectWorktreesForTests,
   SessionTasksForTests,
@@ -35,7 +35,7 @@ async function startAttaching(
     .get(TaskService)
     .create(
       { title: "Show thumbnails", projectId: `project-${randomUUID()}`, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
   work.app.get(SessionTasksForTests).tasks.set(SESSION, task.id);
   const worktrees = work.app.get(ProjectWorktreesForTests);

@@ -90,7 +90,7 @@ describe("/api/github/app", () => {
     expect(JSON.parse(form.manifest)).toEqual({
       url,
       redirect_url: `${url}/api/github/app/registered`,
-      callback_urls: [`${url}/api/github/sign-in/callback`],
+      callback_urls: [`${url}/api/github/sign-in/callback`, `${url}/api/sign-in/github/callback`],
       request_oauth_on_install: false,
       description: expect.any(String),
       public: false,

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import {
   addCtoTask,
   addDependencyOfItsTask,
@@ -20,7 +19,7 @@ import { InitiativeRefused } from "./initiative-refused.js";
 import { TASK_STATES } from "./task.js";
 import { TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { anInitiative, aTask } from "./work.fixtures.js";
+import { ANN_LEE, anInitiative, aTask } from "./work.fixtures.js";
 
 const at = new Date("2026-10-28T10:00:00.000Z");
 
@@ -31,7 +30,7 @@ function stateChange(from: string, to: string): object {
 
 describe("confirmInitiative", () => {
   it("makes an Initiative being shaped active, not ended", () => {
-    const change = confirmInitiative(anInitiative(), [], undefined);
+    const change = confirmInitiative(anInitiative(), [], undefined, ANN_LEE);
 
     expect(change.initiative).toEqual(anInitiative({ state: "active" }));
     expect(change.initiative.endedAt).toBeUndefined();
@@ -43,7 +42,12 @@ describe("confirmInitiative", () => {
     const shaping = aTask({ id: "task-1", state: "shaping" });
     const planning = aTask({ id: "task-2", state: "planning" });
 
-    const { taskChanges } = confirmInitiative(anInitiative(), [shaping, planning], undefined);
+    const { taskChanges } = confirmInitiative(
+      anInitiative(),
+      [shaping, planning],
+      undefined,
+      ANN_LEE,
+    );
 
     expect(taskChanges.map(({ task }) => [task.id, task.state])).toEqual([["task-1", "backlog"]]);
     expect(taskChanges[0]?.event).toBeInstanceOf(TaskStateChanged);
@@ -51,13 +55,13 @@ describe("confirmInitiative", () => {
     expect(taskChanges[0]?.stateChange).toMatchObject({
       from: "shaping",
       to: "backlog",
-      by: THE_USER,
+      by: ANN_LEE,
     });
   });
 
   it("refuses any other", () => {
     for (const state of ["active", "done", "dropped"] as const) {
-      expect(() => confirmInitiative(anInitiative({ state }), [], undefined)).toThrow(
+      expect(() => confirmInitiative(anInitiative({ state }), [], undefined, ANN_LEE)).toThrow(
         InitiativeRefused,
       );
     }
@@ -66,14 +70,14 @@ describe("confirmInitiative", () => {
 
 describe("dropInitiative", () => {
   it("drops one being shaped or active, ending it now, and changes nothing for a dropped one", () => {
-    expect(dropInitiative(anInitiative(), [], at)?.initiative).toMatchObject({
+    expect(dropInitiative(anInitiative(), [], at, ANN_LEE)?.initiative).toMatchObject({
       state: "dropped",
       endedAt: at,
     });
-    expect(dropInitiative(anInitiative({ state: "active" }), [], at)?.event).toMatchObject(
+    expect(dropInitiative(anInitiative({ state: "active" }), [], at, ANN_LEE)?.event).toMatchObject(
       stateChange("active", "dropped"),
     );
-    expect(dropInitiative(anInitiative({ state: "dropped" }), [], at)).toBeUndefined();
+    expect(dropInitiative(anInitiative({ state: "dropped" }), [], at, ANN_LEE)).toBeUndefined();
   });
 
   it.each(["shaping", "active"] as const)(
@@ -81,7 +85,7 @@ describe("dropInitiative", () => {
     (state) => {
       const tasks = TASK_STATES.map((taskState) => aTask({ id: taskState, state: taskState }));
 
-      const change = dropInitiative(anInitiative({ state }), tasks, at);
+      const change = dropInitiative(anInitiative({ state }), tasks, at, ANN_LEE);
 
       const open = TASK_STATES.filter(
         (taskState) => taskState !== "done" && taskState !== "dropped",
@@ -90,13 +94,13 @@ describe("dropInitiative", () => {
         open.map((taskState) => [taskState, "dropped"]),
       );
       expect(change?.taskChanges.map((taskChange) => taskChange.stateChange)).toEqual(
-        open.map((from) => expect.objectContaining({ from, to: "dropped", by: THE_USER })),
+        open.map((from) => expect.objectContaining({ from, to: "dropped", by: ANN_LEE })),
       );
     },
   );
 
   it("refuses a done one", () => {
-    expect(() => dropInitiative(anInitiative({ state: "done" }), [], at)).toThrow(
+    expect(() => dropInitiative(anInitiative({ state: "done" }), [], at, ANN_LEE)).toThrow(
       new InitiativeRefused(["A done Initiative can't be dropped."]),
     );
   });
@@ -157,7 +161,7 @@ describe("finishInitiative", () => {
 });
 
 describe("addTaskToInitiative", () => {
-  const setting = { order: "a3", createdBy: THE_USER };
+  const setting = { order: "a3", createdBy: ANN_LEE };
   const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
 
   it("makes a Task in Shaping that names an Initiative being shaped", () => {
@@ -259,7 +263,7 @@ describe("writeOutcome", () => {
 });
 
 describe("the CTO's Tasks and their dependencies", () => {
-  const setting = { order: "a3", createdBy: THE_USER };
+  const setting = { order: "a3", createdBy: ANN_LEE };
   const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
   const blocker = aTask({ id: "blocker", projectId: "web" });
   const its = aTask({ id: "its", initiativeId: "initiative-1" });

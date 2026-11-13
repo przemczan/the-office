@@ -72,6 +72,7 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -570,16 +571,21 @@ describe("barge-in", () => {
 
     const answering = await app
       .get(ThreadRunner)
-      .send(stageThread.threadId, "Rename it on the list too.");
+      .send(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
 
     expect(answering.state).toBe("answering");
     expect(await userMessages(stageThread.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list too.", delivery: "waiting" },
+      { kind: "user", text: "Rename it on the list too.", delivery: "waiting", writtenBy: ANN_LEE },
     ]);
     const turn = await stageThread.nextTurn();
     expect(turn.output).toEqual({ status: "done" });
     expect(await userMessages(stageThread.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "Rename it on the list too.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+      },
     ]);
     await stageThread.end({ handoverNote: undefined, closing: undefined });
     // One session took it, and no other start or resume: the scripted engine refuses a send of
@@ -633,7 +639,7 @@ describe("Stop", () => {
     const ada = aPerson("Ada");
     const since = new Date();
     const left = await stageThreads.open(aStage({ roleKey: ada }));
-    await stageThreads.bargeIn(left.threadId, "Rename it on the list instead.");
+    await stageThreads.bargeIn(left.threadId, "Rename it on the list instead.", ANN_LEE);
     const failure =
       "The Office restarted during this Stage. The Stage had left no uncommitted edits.";
 
@@ -644,7 +650,12 @@ describe("Stop", () => {
     );
 
     expect(await userMessages(left.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list instead.", delivery: "not-delivered" },
+      {
+        kind: "user",
+        text: "Rename it on the list instead.",
+        delivery: "not-delivered",
+        writtenBy: ANN_LEE,
+      },
     ]);
     expect(drafts(await repository.messages(left.threadId)).at(-1)).toEqual({
       kind: "failure",
@@ -692,7 +703,9 @@ describe("StageDecisions", () => {
       threadId: stageThread.threadId,
       draft,
     });
-    const thread = await app.get(DecisionService).answer(id, { kind: "option", option: 1 });
+    const thread = await app
+      .get(DecisionService)
+      .answer(id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
 
     expect(thread.openDecisions[0]).toBeUndefined();
     const log = drafts(await repository.messages(stageThread.threadId));
@@ -733,7 +746,7 @@ describe("Office tools on a Stage", () => {
     await stageThread.end({ handoverNote: "Waiting.", closing: undefined });
     const answered = answeredEvents();
 
-    await app.get(DecisionService).answer(id, { kind: "option", option: 0 });
+    await app.get(DecisionService).answer(id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
 
     expect(answered.map((event) => event.decision.id)).toEqual([id]);
     expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });

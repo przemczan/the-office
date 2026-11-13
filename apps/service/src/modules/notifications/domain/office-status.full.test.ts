@@ -9,8 +9,6 @@ function nowWith(parts: Pick<Now, "needsYou" | "running">): Now {
   return {
     ...parts,
     queue: [],
-    leftAt: undefined,
-    sinceYouLeft: [],
     tokensToday: NO_TOKENS,
     tasksTouched: 0,
     desks: { inUse: parts.running.length, limit: 3 },

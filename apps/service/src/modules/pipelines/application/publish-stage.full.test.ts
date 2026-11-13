@@ -120,7 +120,7 @@ describe("A Publish Stage", () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
     const taskId = await walkStages(pipelines, [implement, publish]);
 
-    await pipelines.tasks.drop(taskId);
+    await pipelines.tasks.drop(taskId, { kind: "user", user: null });
 
     expect(pipelines.publishing.resolveCalls).toEqual([]);
   });
