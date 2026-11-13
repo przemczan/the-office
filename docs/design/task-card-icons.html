@@ -430,10 +430,11 @@
         padding: 0;
         list-style: none;
       }
+      /* A blocker's title wraps rather than being cut: it is what the popover is for. */
       .popover-row {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr) auto;
-        align-items: center;
+        align-items: start;
         gap: 8px;
         margin: 0 -6px;
         padding: 5px 6px;
@@ -453,9 +454,7 @@
         text-decoration-color: currentColor;
       }
       .popover-row a {
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
+        overflow-wrap: anywhere;
       }
       .popover-waits {
         display: grid;
@@ -1190,8 +1189,9 @@
       .card-marks .mk.project {
         margin-right: 2px;
       }
-      .card-marks > .grow {
-        flex: 1 0 0;
+      /* Who works on it, or Plan, keeps the right end, also when a full row wraps to a second line. */
+      .card-marks > :is(.mk.working, .icon-button) {
+        margin-left: auto;
       }
 
       /* Inline: the marks follow the title's last word */
@@ -1412,12 +1412,6 @@
         font: var(--type-body-sm);
         color: var(--fg-2);
       }
-      .frame.w-390 .specimen .board-column {
-        width: 100% !important;
-      }
-      .frame.w-390 .specimen {
-        width: 100%;
-      }
 
       /* Toast */
       .toast {
@@ -1461,8 +1455,8 @@
       <section class="reference" aria-label="What it proposes">
         <div class="wide recommended">
           <h2>Recommended: Foot row</h2>
-          <p>The title keeps the card's whole width on its own line, as today, and every other mark sits in <strong>one row under it, always in the same order</strong>: the Project, then what needs you (Failed, Waiting on you, Paused), then what holds it (Blocked, Queued), then the quiet ones (Planning, the Usage estimate), and at the right end who is working, or Plan in Backlog. Reading down a column, the same mark is always in the same place, so a red or amber mark or a lock count stands out at a glance. Its marks sit away from the title, so a press on a mark rarely lands on the title by mistake, and the foot already exists in <code>BoardCard</code>, so it is the smallest change. A card is two lines at most, unless a long title wraps.</p>
-          <p><strong>Inline</strong> is the densest, but its marks move with the title's last word, so nothing lines up from card to card, and small marks inside a line of link text are easy to miss with a finger. <strong>Corner badges</strong> reads urgency fastest, but its bubbles sit on the card's edge, over the gap between two cards: they need more space between cards, a bubble can be cut by the column's edge when the board scrolls, and five bubbles on a 200px card already crowd the menu.</p>
+          <p>The title keeps the card's whole width on its own line, as today, and every other mark sits in <strong>one row under it, always in the same order</strong>: the Project, then what needs you (Failed, Waiting on you, Paused), then what holds it (Blocked, Queued), then the quiet ones (Planning, the Usage estimate), and at the right end who is working, or Plan in Backlog. Reading down a column, the same mark is always in the same place, so a red or amber mark or a lock count stands out at a glance. Its marks sit away from the title, so a press on a mark rarely lands on the title by mistake, and the foot already exists in <code>BoardCard</code>, so it is the smallest change. A card is two lines unless a long title wraps; only a card holding nearly every mark at once, in a 220px column, wraps its row, and who is working stays at the right end of the second line.</p>
+          <p><strong>Inline</strong> is the densest, but its marks move with the title's last word, so nothing lines up from card to card, and small marks inside a line of link text are easy to miss with a finger. <strong>Corner badges</strong> reads urgency fastest, but its bubbles sit on the card's edge, over the gap between two cards: they need more space between cards, a bubble can be cut by the column's edge when the board scrolls, and several bubbles on a card in a 220px column crowd the menu.</p>
         </div>
         <div class="wide">
           <h2>The marks</h2>
@@ -1470,7 +1464,7 @@
         </div>
         <div>
           <h2>Two kinds of hidden information</h2>
-          <p><strong>Plain information</strong> (the Usage estimate, what holds a Paused Task, a state, the Project, the priority, who is working): only the mark shows; its words show in <code>Tooltip</code> on hover and on keyboard focus. With the mouse, a press on such a mark opens the Task, as a press on the card does.</p>
+          <p><strong>Plain information</strong> (the Usage estimate, what holds a Paused Task, a state, Planning, the Project, the priority, who is working): only the mark shows; its words show in <code>Tooltip</code> on hover and on keyboard focus. With the mouse, a press on such a mark opens the Task, as a press on the card does.</p>
           <p><strong>Information with links</strong> (the blockers, each a link to its Task; the queue's waits and the Task it is queued behind): the mark is a button, bordered and with a count, and a press opens a <strong>popover</strong> anchored to it, with the full information and its links. Hovering it first shows a tooltip: "Blocked by 3 Tasks: press for them"; the clock's names its place and the queue's short reasons, as today's card shows them, and the press gives the full ones.</p>
         </div>
         <div>
@@ -1519,7 +1513,8 @@
         ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
         "mouse-pointer-click":
           '<path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>',
-        "message-square": '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        "mouse-pointer":
+          '<path d="M12.586 12.586 19 19"/><path d="M3.688 3.037a.497.497 0 0 0-.651.651l6.5 15.999a.501.501 0 0 0 .947-.062l1.569-6.083a2 2 0 0 1 1.448-1.479l6.124-1.579a.5.5 0 0 0 .063-.947z"/>',
         home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
         kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
         users:
@@ -1689,7 +1684,7 @@
             attention: true,
             count: `#${t.queued.place}`,
             words: `Queued, place ${t.queued.place}`,
-            hint: shortReasons(t) ? `${shortReasons(t)}. Press for the full reasons` : "press for why",
+            hint: shortReasons(t) ? `${shortReasons(t)}. Press for the full reasons.` : "press for why",
           });
         if (t.state === "planning" && !t.waiting) marks.push({ key: "planning", icon: "map", tone: "quiet", words: planningWords(t) });
         if (t.estimate) marks.push({ key: "estimate", icon: "gauge", tone: "quiet", words: ESTIMATES[t.estimate] });
@@ -1790,7 +1785,7 @@
         return `<div class="board-card-head">${priorityEl(t)}${titleEl(t)}${menuEl(t)}</div>
           <div class="card-marks">${projectEl(t)}${marksOf(t)
             .map((m) => markEl(t, m))
-            .join("")}<span class="grow"></span>${endOf(t)}</div>`;
+            .join("")}${endOf(t)}</div>`;
       }
       function inlineCard(t) {
         return `<div class="board-card-head">${priorityEl(t)}${projectEl(t)}<div class="inline-body">${titleEl(t)}${marksOf(t)
@@ -1876,7 +1871,8 @@
         ],
       };
       const LABELS = { layout: "Layout", board: "Board", width: "Width", palette: "Palette", input: "Input" };
-      const state = { layout: "foot", board: "full", width: "wide", palette: "light", input: "mouse" };
+      // A touch screen starts in Touch, as it has no hover; the address or the switcher can change it.
+      const state = { layout: "foot", board: "full", width: "wide", palette: "light", input: matchMedia("(hover: none)").matches ? "touch" : "mouse" };
       const folded = new Set();
       for (const [key, value] of new URLSearchParams(location.hash.slice(1))) {
         if (key in state && OPTIONS[key].some(([option]) => option === value)) state[key] = value;
@@ -1975,8 +1971,10 @@
         const specimen = (width, label) =>
           `<div class="specimen"><p class="specimen-label">${label}</p><section class="board-column" style="width:${width}px" aria-label="${label}"><h3>Queued <span class="board-count">2</span></h3>
             <div class="board-cards">${cardEl(EVERYTHING, { movable: false })}${cardEl(plain, { movable: false })}</div></section></div>`;
-        return `<div class="specimens">${specimen(220, "A column at its narrowest, 220px")}${specimen(320, "A wider column, 320px")}
-          <p class="specimen-note">Under it, an ordinary Ready card for comparison. The board's columns are 220px at their narrowest and the board scrolls sideways below that, so every window under about 1,500px shows its cards at 220px: the width every layout must hold.</p></div>`;
+        // At 390px the board's columns stay 220px and scroll sideways; a 320px column wouldn't fit.
+        const wider = state.width === "390" ? "" : specimen(320, "A wider column, 320px");
+        return `<div class="specimens">${specimen(220, "A column at its narrowest, 220px")}${wider}
+          <p class="specimen-note">Under it, an ordinary Ready card for comparison. The board's columns are 220px at their narrowest and the board scrolls sideways below that, so every window under about 1,500px, a phone's included, shows its cards at 220px: the width every layout must hold.</p></div>`;
       }
 
       /* The marks' legend, drawn with the layout's own marks so they work there too. */
@@ -2002,8 +2000,8 @@
           [menuEl(sample("b1")), "Task menu", "action", "As today."],
         ];
         const how = {
-          hover: `<span class="how">${icon("mouse-pointer-click", 13)}Hover or focus</span>`,
-          press: `<span class="how press">${icon("message-square", 13)}Press: popover</span>`,
+          hover: `<span class="how">${icon("mouse-pointer", 13)}Hover or focus</span>`,
+          press: `<span class="how press">${icon("mouse-pointer-click", 13)}Press: popover</span>`,
           action: `<span class="how">Press: acts</span>`,
         };
         const today = state.layout === "today" ? "<caption class=\"visually-hidden\">The proposed marks</caption>" : "";
