@@ -3,6 +3,7 @@ import type { DutyKey, RoleCard } from "../../people/index.js";
 import type { NewProject, ProposedCommands } from "../../projects/index.js";
 import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
+import type { UserRef } from "./user.js";
 
 /**
  * What a Proposal can change, by kind; the module that owns each kind applies it. A kind of change
@@ -289,11 +290,14 @@ export type PipelineStage = object;
 /** A Stage change of a Project Pipeline, as Pipelines keeps it; Conversations doesn't read it. */
 export type PipelineStageChange = object;
 
-/** Open until the user applies it or declines it; nothing changes before they apply it. */
+/**
+ * Open until a user applies it or declines it; nothing changes before they apply it. `by` is the
+ * user who did, null on a Proposal from before users existed.
+ */
 export type ProposalStatus =
   | { readonly kind: "open" }
-  | { readonly kind: "applied"; readonly at: Date }
-  | { readonly kind: "declined"; readonly at: Date };
+  | { readonly kind: "applied"; readonly at: Date; readonly by: UserRef | null }
+  | { readonly kind: "declined"; readonly at: Date; readonly by: UserRef | null };
 
 /**
  * A change a person drafts for the user to confirm with a click (spec §2.2), shown as a card in

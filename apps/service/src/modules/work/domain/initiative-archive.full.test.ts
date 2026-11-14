@@ -9,7 +9,7 @@ import {
 import { InitiativeArchived, InitiativeRestored } from "./initiative-events.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import { archiveCutoff, DEFAULT_ARCHIVE_PERIOD } from "./task-archive.js";
-import { anInitiative } from "./work.fixtures.js";
+import { ANN_LEE, anInitiative } from "./work.fixtures.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const now = new Date("2026-11-09T12:00:00.000Z");
@@ -22,7 +22,7 @@ function daysAgo(days: number): Date {
 describe("archiveInitiative", () => {
   it("marks a Done or Dropped Initiative archived, its state untouched", () => {
     for (const state of ["done", "dropped"] as const) {
-      const change = archiveInitiative(anInitiative({ state, endedAt: daysAgo(1) }), now);
+      const change = archiveInitiative(anInitiative({ state, endedAt: daysAgo(1) }), now, ANN_LEE);
 
       expect(change?.initiative).toMatchObject({ state, archivedAt: now });
       expect(change?.event).toBeInstanceOf(InitiativeArchived);
@@ -31,17 +31,17 @@ describe("archiveInitiative", () => {
   });
 
   it("refuses one being shaped or active, saying why", () => {
-    expect(() => archiveInitiative(anInitiative({ state: "active" }), now)).toThrow(
+    expect(() => archiveInitiative(anInitiative({ state: "active" }), now, ANN_LEE)).toThrow(
       new InitiativeRefused([
         "Only a Done or Dropped Initiative can be archived; this one is active.",
       ]),
     );
-    expect(() => archiveInitiative(anInitiative(), now)).toThrow(InitiativeRefused);
+    expect(() => archiveInitiative(anInitiative(), now, ANN_LEE)).toThrow(InitiativeRefused);
   });
 
   it("changes nothing for one already archived", () => {
     expect(
-      archiveInitiative(anInitiative({ state: "done", archivedAt: daysAgo(2) }), now),
+      archiveInitiative(anInitiative({ state: "done", archivedAt: daysAgo(2) }), now, ANN_LEE),
     ).toBeUndefined();
   });
 });
@@ -51,6 +51,7 @@ describe("restoreInitiative", () => {
     const change = restoreInitiative(
       anInitiative({ state: "dropped", archivedAt: daysAgo(3) }),
       now,
+      ANN_LEE,
     );
 
     expect(change?.initiative).toMatchObject({
@@ -62,7 +63,7 @@ describe("restoreInitiative", () => {
   });
 
   it("changes nothing for one on the board", () => {
-    expect(restoreInitiative(anInitiative({ state: "done" }), now)).toBeUndefined();
+    expect(restoreInitiative(anInitiative({ state: "done" }), now, ANN_LEE)).toBeUndefined();
   });
 });
 

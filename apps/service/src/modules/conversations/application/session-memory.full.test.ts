@@ -10,7 +10,7 @@ const NOTES: Memory["notes"] = [
     roleKey: "planner",
     projectId: undefined,
     text: "Prefers short answers.",
-    source: { kind: "user" },
+    source: { kind: "user", user: null },
     writtenAt: new Date("2026-10-10T09:00:00.000Z"),
   },
 ];

@@ -32,6 +32,8 @@ const task: BriefTask = {
   definitionOfDone: [],
   attachmentLines: [],
   linkedRecordsSection: undefined,
+  whoAskedSection:
+    "## Who asked\n\nThe Task was created by the user Ann Lee and started by the user Ben Ito.",
   projectName: "Admin panel",
   baseBranch: "main",
   worktree: {
@@ -77,6 +79,7 @@ describe("agentStageRecord", () => {
     expect(record).toBe(
       [
         "## The Task\n\nRename a device, in the Project Admin panel.",
+        task.whoAskedSection,
         "## What the user wants, in their own words\n\nLet me name my devices.",
         "## Where you work\n\nThe Task's worktree, at /worktrees/task on the branch office/task, which started from main.\n\nScreenshots go in .office/screenshots/ there: git ignores it, and The Office keeps it as you leave it across test runs.",
         "## Attachments\n\nNone.",

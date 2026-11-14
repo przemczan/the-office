@@ -7,6 +7,7 @@ import {
   withOpenPageRecord,
   type OpenPage,
 } from "./open-page.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const TASK: OpenPage = { kind: "task", taskId: "3b1f6f0e-0000-4000-8000-000000000001" };
 const PROJECT: OpenPage = { kind: "project", projectId: "admin-panel" };
@@ -21,7 +22,7 @@ function logged(...drafts: MessageDraft[]): Message[] {
 }
 
 function userMessage(openPage?: OpenPage): MessageDraft {
-  return { kind: "user", text: "Hello.", delivery: "delivered", openPage };
+  return { kind: "user", text: "Hello.", delivery: "delivered", writtenBy: ANN_LEE, openPage };
 }
 
 function contextLine(move: "resume" | "fresh" | "hand-off"): MessageDraft {

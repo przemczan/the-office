@@ -1,6 +1,6 @@
 # Running The Office
 
-How The Office runs on a Linux host, kept running by systemd, and how it updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Updating The Office").
+How The Office runs on a Linux host, kept running by systemd, how it is reached through a reverse proxy, how a user gets back in, and how it updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Updating The Office").
 
 ## `npm start` runs the launcher
 
@@ -41,6 +41,69 @@ WantedBy=multi-user.target
 ```
 
 Then `systemctl daemon-reload` and `systemctl enable --now the-office`. Put the user's own folders on `PATH` too when Agents need tools from them, such as `~/.local/bin`.
+
+## Behind a reverse proxy
+
+The Office is used at `localhost`, by IP on a trusted local network over plain HTTP (`OFFICE_HOST` set to the machine's IP address or `0.0.0.0`), or at its **public address**: HTTPS and a domain, through a reverse proxy the user sets up ([spec §5.1](spec/5.1-shape.md)). Setting up the proxy is the user's; what The Office needs from it:
+
+- **HTTPS to the browser.** The proxy ends TLS and passes requests on to The Office's own address and port (`http://127.0.0.1:4310`) over plain HTTP.
+- **The original `Host`.** The Office answers only requests addressed to `localhost`, `127.0.0.1`, the IP address it listens on, or the public address's name, so the proxy passes the browser's `Host` on unchanged (nginx: `proxy_set_header Host $host;`; Caddy does by default).
+- **`X-Forwarded-Proto: https`.** A request at the public address's name counts as HTTPS only with it, and only then does the sign-in cookie get `Secure` (nginx: `proxy_set_header X-Forwarded-Proto $scheme;`; Caddy sets it).
+- **WebSocket upgrades on `/api/events`.** The live updates come over a WebSocket there (nginx: `proxy_http_version 1.1;`, `proxy_set_header Upgrade $http_upgrade;` and `proxy_set_header Connection "upgrade";` in that location; Caddy passes them by default).
+
+Then give The Office its public address in `.env` and restart it:
+
+```ini
+OFFICE_PUBLIC_ADDRESS=https://office.example.com
+```
+
+It is an `https://` address with no path; an invalid one stops the start with a config problem. Left blank, The Office has no public address and refuses requests to any name but `localhost`. Pages at the public address get the ways to sign in that need HTTPS and a name ([spec §2.10](spec/2.10-users-and-signing-in.md)).
+
+### Passkeys
+
+A passkey is kept for one address, its relying party: `localhost`, or the public address's name. So passkeys need:
+
+- **A domain name.** The public address must be a name such as `office.example.com`, not an IP address, and reached over HTTPS (with `X-Forwarded-Proto: https`, as above). At `127.0.0.1`, on a local network IP over plain HTTP, or at the public address over plain HTTP, the sign-in page and the account hide passkeys and say where they work instead.
+- **The same address as when it was added.** A passkey added at `localhost` works only at `localhost` (at any port), and one added at the public address only there; a user who uses both adds one at each. Changing `OFFICE_PUBLIC_ADDRESS` to another name leaves the passkeys added at the old one useless: the account marks them as for an address no longer The Office's, to be removed, and new ones are added at the new address.
+
+### Continue with GitHub
+
+Users sign in with their GitHub account through the GitHub App registered for Sign in with GitHub, by its user authorization flow; there is nothing new to register. Each user links their GitHub account from their account (Account › Linked identities) first, and only a linked account signs in. It never changes Sign in with GitHub: The Office reads who the GitHub user is, revokes the token GitHub handed out at once and keeps nothing of it. What it needs of the App:
+
+- **A callback URL for each address users sign in at.** GitHub sends the browser back only to a URL the App lists: `/api/sign-in/github/callback` on each address, such as `http://localhost:4310/api/sign-in/github/callback`, `http://192.168.1.20:4310/api/sign-in/github/callback` and `https://office.example.com/api/sign-in/github/callback`. An App registered from The Office lists the one of the address it was registered from and of the public address; Settings › Office identity lists this address's and the public address's, to add on GitHub in the App's settings under General › Identifying and authorizing users (Add Callback URL). An App lists at most 10. Sign in with GitHub's own callback stays first: GitHub sends a callback URL it doesn't list to the first one, whose page then says to add it. A user not signed in gets only the guard's refusal there, since that page needs a signed-in device; adding the URL is the fix either way.
+- **Public, for anyone but its owner.** The Office registers the App as private, and GitHub lets only a private App's owner (or the members of the organization owning it) authorize it. For other users to continue with GitHub, make it public in the App's settings under Advanced › Make public. The Office kept none of the App's private key, and only linked accounts sign in.
+- **Its authorization kept on the git identity's account.** Revoking the App's authorization on GitHub (Settings › Applications › Authorized GitHub Apps) from the account Sign in with GitHub uses ends that sign-in's token too.
+
+Not yet checked on real GitHub, only against the fake one: that GitHub takes a plain-HTTP callback URL on a local network IP; whether a loopback callback (`localhost`, `127.0.0.1`) must match its port exactly; and, as the App's user tokens expire, that revoking the access token also ends the refresh token GitHub hands out with it, so that repeated Continue with GitHub from the git identity's account never reaches GitHub's ten tokens per user and App, past which it revokes the oldest, Sign in with GitHub's among them.
+
+### Continue with Google
+
+Users sign in with their Google account through a Google OAuth client one user registers in Google Cloud Console and enters in Settings › Signing in, one for every user. Each user links their Google account from their account (Account › Linked identities) first, and only a linked account signs in: The Office finds the user by Google's own id for the account (the ID token's `sub`), never by the email, which it keeps only to show. It asks only for `openid` and `email`, no offline access, and keeps none of Google's tokens. Registering the client:
+
+1. In Google Cloud Console, APIs & Services › Credentials, choose Create credentials › OAuth client ID, with the application type **Web application**.
+2. Under **Authorized redirect URIs**, add `/api/sign-in/google/callback` on each address users sign in at: `http://localhost:4310/api/sign-in/google/callback` (with The Office's port) and `https://office.example.com/api/sign-in/google/callback` for the public address. Google refuses an IP address and plain HTTP but on `localhost`, so never a local network IP (`192.168.1.20`) or `127.0.0.1`: Continue with Google isn't offered there, and the sign-in page and the account say to open The Office at `localhost` or the public address. Settings › Signing in lists both URIs, each with Copy. A URI the client doesn't list makes Google refuse with `redirect_uri_mismatch`.
+3. Copy the client ID and client secret into Settings › Signing in and save. The secret is kept as the GitHub App's is and never shown again; saving with the secret left empty keeps it, so only the client ID changes.
+4. On the **OAuth consent screen**, choose External, with the scopes `openid` and `email`. While the app is in Testing, Google lets only its test users sign in: add each user's Google account there. Or publish it: these scopes need no verification by Google.
+
+Removing the client in Settings › Signing in takes Continue with Google off the sign-in page and keeps the linked Google accounts, which sign in again once a client is saved, since Google's `sub` for an account doesn't depend on the client.
+
+Not yet checked on real Google, only with Google's endpoints stubbed and its authorize page caught in the e2e test.
+
+## Setting a user's password on the host
+
+A user who lost their password gets back in through a command on the host, in the checkout:
+
+```sh
+npm run set-password -- --email ada@example.com
+```
+
+It asks for the new password twice without showing it (or reads one line from standard input when that isn't a terminal), sets it, lifts the user's lockout and signs out all their signed-in devices. It reads `.env` as the service does, so it reaches the same database; the service may run meanwhile. An unknown email ends it with a message and a non-zero exit code.
+
+For a user who lost their authenticator and their recovery codes too, `--clear-authenticator` also removes both, so they sign in with the new password alone and can set up an authenticator again:
+
+```sh
+npm run set-password -- --email ada@example.com --clear-authenticator
+```
 
 ## How an Office update works
 

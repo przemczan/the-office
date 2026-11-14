@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { CARETAKER } from "../../people/index.js";
 import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
+import type { UserRef } from "../domain/user.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
@@ -12,7 +13,8 @@ const STOPPED_BY_SWITCHING_OFF = "Changes were switched off, so the answer stopp
 /**
  * Allow changes (spec §2.4): the user's switch, per Caretaker Thread, that lets the Caretaker reach
  * the whole workstation but secrets. Each switch ends the Thread's session, so the next message
- * starts one under the new rules, and is logged as a line. A new Thread starts with it off.
+ * starts one under the new rules, and is logged as a line naming the user who switched it. A new
+ * Thread starts with it off.
  */
 @Injectable()
 export class AllowChanges {
@@ -31,7 +33,7 @@ export class AllowChanges {
    * Allows changes in the Caretaker's Thread. Refused in any other Thread, and while the Caretaker
    * is answering, whose session runs under the rules it started with.
    */
-  async allow(threadId: string): Promise<Thread> {
+  async allow(threadId: string, by: UserRef): Promise<Thread> {
     const thread = await this.threads.read(threadId);
     if (!hasTheSwitch(thread)) {
       throw new ThreadRefused(["Only the Caretaker's chat has Allow changes."]);
@@ -42,7 +44,7 @@ export class AllowChanges {
     }
     await this.changesAllowed.allow(threadId, new Date());
     await this.runner.stopAnswering(threadId, STOPPED_BY_SWITCHING_OFF);
-    await this.threads.log(threadId, [{ kind: "changes-allowed", allowed: true }]);
+    await this.threads.log(threadId, [{ kind: "changes-allowed", allowed: true, by }]);
     return this.threads.read(threadId);
   }
 
@@ -50,11 +52,11 @@ export class AllowChanges {
    * Switches changes off in the Thread: its session ends at once, an answer under way too, and the
    * Caretaker only reads again. Nothing when they weren't allowed.
    */
-  async switchOff(threadId: string): Promise<Thread> {
+  async switchOff(threadId: string, by: UserRef): Promise<Thread> {
     const thread = await this.threads.read(threadId);
     if (!(await this.changesAllowed.switchOff(threadId))) return thread;
     await this.runner.stopAnswering(threadId, STOPPED_BY_SWITCHING_OFF);
-    await this.threads.log(threadId, [{ kind: "changes-allowed", allowed: false }]);
+    await this.threads.log(threadId, [{ kind: "changes-allowed", allowed: false, by }]);
     return this.threads.read(threadId);
   }
 }

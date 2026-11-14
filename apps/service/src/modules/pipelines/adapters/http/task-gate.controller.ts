@@ -16,6 +16,7 @@ import {
   type TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { GateService } from "../../application/gate-service.js";
 import { GateRefusalsFilter } from "./gate-refusals.filter.js";
 import { toTaskStagesResponse } from "./pipeline-responses.js";
@@ -35,8 +36,9 @@ export class TaskGateController {
   async continue(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(continueAtGateSchema.optional())) body: ContinueAtGate | undefined,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(await this.gates.continue(id, body?.feedback));
+    return toTaskStagesResponse(await this.gates.continue(id, userOf(signedIn), body?.feedback));
   }
 
   /** Send back: the chosen earlier Agent Stage runs again with the feedback, using no round. */
@@ -45,14 +47,20 @@ export class TaskGateController {
   async sendBack(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(sendBackSchema)) { stageKey, feedback }: SendBack,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(await this.gates.sendBack(id, stageKey, feedback));
+    return toTaskStagesResponse(
+      await this.gates.sendBack(id, userOf(signedIn), stageKey, feedback),
+    );
   }
 
   /** Drop: the Task is dropped at the Gate. */
   @Post("drop")
   @HttpCode(HttpStatus.OK)
-  async drop(@Param("id", ParseUUIDPipe) id: string): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(await this.gates.drop(id));
+  async drop(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskStagesResponse> {
+    return toTaskStagesResponse(await this.gates.drop(id, userOf(signedIn)));
   }
 }

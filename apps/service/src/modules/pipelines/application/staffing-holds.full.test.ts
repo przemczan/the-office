@@ -41,7 +41,13 @@ async function stateOf(taskId: string): Promise<string> {
   return (await pipelines.tasks.read(taskId)).state;
 }
 
-async function answering(taskId: string, option: number): Promise<void> {
+const ANN = { userId: "00000000-0000-4000-8000-0000000005e1", name: "Ann Lee" };
+
+async function answering(
+  taskId: string,
+  option: number,
+  givenBy: { readonly user?: typeof ANN; readonly answeredBy?: string } = { user: ANN },
+): Promise<void> {
   const asked = pipelines.decisions.on(taskId).at(-1);
   if (!asked) throw new Error("No Decision was asked.");
   await pipelines.app.get(EventBus).publish(
@@ -70,7 +76,7 @@ async function answering(taskId: string, option: number): Promise<void> {
         attachmentIds: [],
         askedAt: new Date(),
         passedOn: [],
-        answer: { kind: "option", option, answeredAt: new Date() },
+        answer: { kind: "option", option, ...givenBy, answeredAt: new Date() },
       },
       new Date(),
     ),
@@ -161,6 +167,17 @@ describe("a Task whose next Stage names a Role let go", () => {
     await answering(taskId, 1);
 
     expect(await stateOf(taskId)).toBe("dropped");
+    expect(pipelines.tasks.drops).toEqual([{ taskId, by: { kind: "user", user: ANN } }]);
+  });
+
+  it("records a Consultant's Drop answer as theirs, not a user's", async () => {
+    pipelines = await startWithDevops();
+    const taskId = await taskWaitingAtGate(deploy);
+    await lettingGo("devops");
+
+    await answering(taskId, 1, { answeredBy: "cto" });
+
+    expect(pipelines.tasks.drops).toEqual([{ taskId, by: { kind: "person", roleKey: "cto" } }]);
   });
 
   it("is flagged in the editor as let go, not as never hired", async () => {

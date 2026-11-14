@@ -13,7 +13,7 @@ import { InitiativeRefused } from "./initiative-refused.js";
 import { startPlanningTask } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
 import type { Task } from "./task.js";
-import { anInitiative, aTask } from "./work.fixtures.js";
+import { anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
 
 const THREAD = "thread-1";
 const planning = anInitiative({
@@ -62,16 +62,20 @@ describe("initiativePlanningProblems", () => {
     expect(initiativePlanningProblems(planning, [marked, second])).toEqual([]);
   });
 
-  it("keeps the new Thread and the auto mode on the Initiative it opens for", () => {
+  it("keeps the new Thread, the auto mode and who asked on the Initiative it opens for", () => {
+    const opening = { threadId: "thread-2", autoMode: false, by: BEN_ITO };
     const { initiative, event } = startInitiativePlanning(
       anInitiative({ state: "active" }),
       [first],
-      "thread-2",
-      false,
+      opening,
     );
-    expect(initiative).toMatchObject({ planningThreadId: "thread-2", planningAutoMode: false });
+    expect(initiative).toMatchObject({
+      planningThreadId: "thread-2",
+      planningAutoMode: false,
+      planningStartedBy: BEN_ITO,
+    });
     expect(event).toMatchObject({ threadId: "thread-2", autoMode: false });
-    expect(() => startInitiativePlanning(anInitiative(), [first], "thread-2", false)).toThrow(
+    expect(() => startInitiativePlanning(anInitiative(), [first], opening)).toThrow(
       InitiativeRefused,
     );
   });
@@ -143,10 +147,11 @@ describe("startPlanningInInitiative", () => {
 });
 
 describe("startPlanningTask", () => {
-  it("plans in the Task's own Thread by default, not marked planned whatever it was", () => {
+  it("plans in the Task's own Thread, moved by the user who asked, not marked planned whatever it was", () => {
     const change = startPlanningTask(
       aTask({ markedPlanned: true, initiativePlanningThreadId: THREAD }),
       false,
+      { kind: "own", by: BEN_ITO },
     );
     expect(change?.task).toMatchObject({
       state: "planning",
@@ -154,7 +159,7 @@ describe("startPlanningTask", () => {
       markedPlanned: false,
       hasPlanningThread: true,
     });
-    expect(change?.stateChange?.by).toEqual({ kind: "user" });
+    expect(change?.stateChange?.by).toEqual(BEN_ITO);
   });
 });
 

@@ -36,7 +36,14 @@ import {
   TaskStateChanged,
   TaskStopped,
 } from "../../work/index.js";
-import { nowOf, type Now, type StartedTask, type TaskResume } from "../domain/now.js";
+import {
+  nowOf,
+  sinceYouLeftOf,
+  type Now,
+  type SinceYouLeft,
+  type StartedTask,
+  type TaskResume,
+} from "../domain/now.js";
 import { NowChanged } from "../domain/now-events.js";
 import { addTokenKinds, officeDayOf } from "../domain/office-day.js";
 import type { TaskOutcomeKind } from "../domain/task-outcome.js";
@@ -78,14 +85,18 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
 
 /**
  * Now and the status strip, read from the modules that own each part and kept fresh from their
- * domain events (spec §5.3): what only events tell, the outcomes, the day's figures and the user's
- * activity, is kept here. Each change is announced as `NowChanged` once the reads settle.
+ * domain events (spec §5.3): what only events tell, the outcomes, the day's figures and each user's
+ * activity, is kept here. Each change is announced as `NowChanged` once the reads settle. Now is
+ * shared; Since you left is each user's own (`sinceYouLeft`), read again on each `NowChanged`, which
+ * is announced as well on a new outcome and when a user's Since you left moves.
  */
 @Injectable()
 export class NowService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NowService.name);
   private announcing: Promise<void> | undefined;
   private announceAgain = false;
+  /** Announces the next read even when Now is as announced: Since you left changed. */
+  private announceAnyway = false;
   private announced: Now | undefined;
 
   constructor(
@@ -124,7 +135,6 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       openDecisions,
       queued,
       tasks,
-      activity,
       tokensToday,
       tasksTouched,
       officeWideLimit,
@@ -134,7 +144,6 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       this.decisions.listOpen(),
       this.queue.list(),
       this.tasks.list(),
-      this.activity.find(),
       this.figures.tokensOn(day),
       this.figures.tasksTouchedOn(day),
       this.deskLimit.officeWideLimit(),
@@ -145,8 +154,6 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       openDecisions,
       queued,
       tasks,
-      leftAt: activity?.leftAt,
-      outcomes: activity ? await this.outcomes.since(activity.leftAt) : [],
       tokensToday,
       tasksTouched,
       officeWideLimit,
@@ -175,15 +182,27 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  /** The user was active just now; coming back after an absence moves where Since you left begins. */
-  async recordActivity(): Promise<UserActivity> {
-    const recorded = await this.activity.update((known) =>
+  /** The user's Since you left: from the start of their own last absence, with the outcomes since. */
+  async sinceYouLeft(userId: string): Promise<SinceYouLeft> {
+    const activity = await this.activity.find(userId);
+    if (!activity) return sinceYouLeftOf(undefined, [], []);
+    const [outcomes, tasks] = await Promise.all([
+      this.outcomes.since(activity.leftAt),
+      this.tasks.list(),
+    ]);
+    return sinceYouLeftOf(activity.leftAt, outcomes, tasks);
+  }
+
+  /**
+   * The user was active just now; their coming back after an absence moves where their Since you
+   * left begins, which `NowChanged` tells every web to read again.
+   */
+  async recordActivity(userId: string): Promise<UserActivity> {
+    const { before, after } = await this.activity.update(userId, (known) =>
       recordActivity(known, this.schedule.now()),
     );
-    if (this.announced?.leftAt?.getTime() !== recorded.leftAt.getTime()) {
-      this.announceInBackground();
-    }
-    return recorded;
+    if (before?.leftAt.getTime() !== after.leftAt.getTime()) this.announceInBackground(true);
+    return after;
   }
 
   private subscribeToOutcomes(): void {
@@ -235,7 +254,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     occurredAt: Date,
   ): Promise<void> {
     await this.outcomes.add({ taskId, outcome, occurredAt });
-    this.announceInBackground();
+    this.announceInBackground(true);
   }
 
   private async startedTasks(): Promise<StartedTask[]> {
@@ -251,9 +270,11 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   /**
    * Reads Now and announces it when it differs from what was last announced, returning at once
    * (`EventBus.publish` waits for its handlers). A burst of events while a read goes on makes one
-   * more read after it, not one each.
+   * more read after it, not one each. `anyway` announces it even when Now is unchanged, for Since
+   * you left, which each web reads again on it.
    */
-  private announceInBackground(): void {
+  private announceInBackground(anyway = false): void {
+    if (anyway) this.announceAnyway = true;
     if (this.announcing) {
       this.announceAgain = true;
       return;
@@ -270,8 +291,10 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   private async announceUntilSettled(): Promise<void> {
     do {
       this.announceAgain = false;
+      const anyway = this.announceAnyway;
+      this.announceAnyway = false;
       const now = await this.now();
-      if (isDeepStrictEqual(now, this.announced)) continue;
+      if (!anyway && isDeepStrictEqual(now, this.announced)) continue;
       this.announced = now;
       await this.events.publish(new NowChanged(now));
     } while (this.announceAgain);

@@ -165,7 +165,10 @@ export function toProposalResponse({
     ...proposal,
     draftedAt: draftedAt.toISOString(),
     change: toProposedChangeResponse(change),
-    status: status.kind === "open" ? status : { kind: status.kind, at: status.at.toISOString() },
+    status:
+      status.kind === "open"
+        ? status
+        : { kind: status.kind, at: status.at.toISOString(), by: status.by },
   };
 }
 
@@ -340,6 +343,7 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
     askedAt: askedAt.toISOString(),
     answer: answer ? toAnswerResponse(answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
+    answeredByUser: answer?.user ?? null,
     answeredBy: answer?.answeredBy ?? null,
     atUsersRequest: answer?.atUsersRequest ? { ...answer.atUsersRequest } : null,
     answeredByTheOffice: answer?.byTheOffice === true,

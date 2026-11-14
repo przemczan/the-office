@@ -5,6 +5,7 @@ import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { stageChangeSchema, stageSchema } from "./stages.js";
+import { userRefSchema } from "./users.js";
 import { prioritySchema } from "./work.js";
 
 /** Where a conversation lives: a person's chat, by the Role's key, a Task's or an Initiative's. */
@@ -264,9 +265,14 @@ export type DecisionAnswer = z.infer<typeof decisionAnswerSchema>;
 
 /**
  * The person who answered a Decision for the user, when the user asked them to: by the key of their
- * Role, and the Thread the user asked them in.
+ * Role, the Thread the user asked them in, and the user who wrote the latest message there, as the
+ * one who asked; `user` null when none is named (an answer from before users existed).
  */
-export const atUsersRequestSchema = z.object({ roleKey: z.string(), threadId: z.uuid() });
+export const atUsersRequestSchema = z.object({
+  roleKey: z.string(),
+  threadId: z.uuid(),
+  user: userRefSchema.nullable(),
+});
 export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 
 /**
@@ -319,6 +325,11 @@ export const decisionSchema = z.object({
   /** Null while it waits on the user or the Consultant. */
   answer: decisionAnswerSchema.nullable(),
   answeredAt: z.iso.datetime().nullable(),
+  /**
+   * The user who answered it themselves, any user, as Decisions are shared; null while it is open,
+   * when someone else answered, and on an answer from before users existed.
+   */
+  answeredByUser: userRefSchema.nullable(),
   /** The Consultant who answered, by the key of their Role; null when the user did. */
   answeredBy: z.string().nullable(),
   /** The person who answered for the user, at their request; null when nobody did. */
@@ -566,11 +577,14 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;
 
-/** Open until the user applies or declines it; nothing changes before they apply it. */
+/**
+ * Open until a user applies or declines it; nothing changes before they apply it. `by` is the user
+ * who did, null on a Proposal from before users existed.
+ */
 export const proposalStatusSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("open") }),
-  z.object({ kind: z.literal("applied"), at: z.iso.datetime() }),
-  z.object({ kind: z.literal("declined"), at: z.iso.datetime() }),
+  z.object({ kind: z.literal("applied"), at: z.iso.datetime(), by: userRefSchema.nullable() }),
+  z.object({ kind: z.literal("declined"), at: z.iso.datetime(), by: userRefSchema.nullable() }),
 ]);
 export type ProposalStatus = z.infer<typeof proposalStatusSchema>;
 
@@ -622,6 +636,8 @@ export const messageSchema = z.discriminatedUnion("kind", [
     kind: z.literal("user"),
     text: z.string(),
     delivery: messageDeliverySchema,
+    /** The user who wrote it; null on a message from before users existed. */
+    writtenBy: userRefSchema.nullable(),
     /** Who wrote the Handover note the user sent from a Link card, by their Role's key. */
     handoverNoteFrom: z.string().nullable(),
     /** The page open beside the chat drawer as the user sent it, if any. */
@@ -654,8 +670,16 @@ export const messageSchema = z.discriminatedUnion("kind", [
     /** The Brief the session started with, for the user to read; null when it had none. */
     brief: z.string().nullable(),
   }),
-  /** The user allowed changes in the Caretaker's Thread, or switched them off: The Office's line. */
-  z.object({ ...messageFields, kind: z.literal("changes-allowed"), allowed: z.boolean() }),
+  /**
+   * A user (`by`, null before users existed) allowed changes in the Caretaker's Thread, or switched
+   * them off: The Office's line.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("changes-allowed"),
+    allowed: z.boolean(),
+    by: userRefSchema.nullable(),
+  }),
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),
   /**

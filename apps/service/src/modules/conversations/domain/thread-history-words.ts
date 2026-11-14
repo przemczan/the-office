@@ -1,6 +1,7 @@
 import { answerWords, type Decision } from "./decision.js";
 import { usageWindowUsedUpWords, type Message } from "./message.js";
 import type { Proposal, ProposedChange } from "./proposal.js";
+import { userWords } from "./user.js";
 
 /** The most characters a `read_threads` answer holds, as `read_stage_history`'s does. */
 export const THREAD_HISTORY_READ_LIMIT = 60_000;
@@ -48,7 +49,6 @@ export interface ThreadMessagesRead {
   readonly after: string | undefined;
 }
 
-const THE_USER = "the user";
 const THE_OFFICE = "The Office";
 
 /** The message as `read_threads` gives it: tool activity as one line, cards as what they hold. */
@@ -63,7 +63,7 @@ function speakerAndText(
 ): { readonly speaker: string; readonly text: string } {
   switch (message.kind) {
     case "user":
-      return { speaker: THE_USER, text: message.text };
+      return { speaker: userWords(message.writtenBy), text: message.text };
     case "person":
       return { speaker: records.person(message.roleKey), text: message.text };
     case "handover-note":
@@ -89,12 +89,12 @@ function speakerAndText(
     }
     case "decision-answer": {
       const decision = records.decision(message.decisionId);
-      const answeredBy = decision?.answer?.answeredBy;
-      const speaker = decision?.answer?.byTheOffice
+      const answer = decision?.answer;
+      const speaker = answer?.byTheOffice
         ? THE_OFFICE
-        : answeredBy === undefined
-          ? THE_USER
-          : records.person(answeredBy);
+        : answer?.answeredBy === undefined
+          ? userWords(answer?.atUsersRequest?.user ?? answer?.user ?? null)
+          : records.person(answer.answeredBy);
       return {
         speaker,
         text:
@@ -126,7 +126,7 @@ function speakerAndText(
       };
     case "changes-allowed":
       return {
-        speaker: THE_USER,
+        speaker: userWords(message.by),
         text: message.allowed ? "Allowed changes." : "Switched changes off.",
       };
     case "failure":

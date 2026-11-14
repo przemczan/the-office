@@ -1,6 +1,7 @@
 import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import { CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Answerer, type Decision, type DecisionAnswer } from "./decision.js";
+import { sameUser, userWords, userWordsOpening, type UserRef } from "./user.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
 interface SessionPersonCard {
@@ -404,9 +405,37 @@ export function sessionOfficeTools(
 export const HANDOVER_REQUEST =
   "Your context is nearly full, so this session ends after your next answer and the Thread continues in a fresh one. Write your Handover note for it now, in a few lines: where you are, what is left, and what to watch. Reply with the note alone.";
 
-/** The first message of a session started with a Brief: the Brief, then the user's message. */
-export function briefedMessage(brief: string, said: string): string {
-  return `${brief}\n\n## The user's message\n\n${said}`;
+/**
+ * The first message of a session started with a Brief: the Brief, then the message, under a heading
+ * naming the user who wrote it; The Office's message of answered Decisions (`writtenBy` undefined)
+ * names who answered in its words.
+ */
+export function briefedMessage(
+  brief: string,
+  said: string,
+  writtenBy: UserRef | undefined,
+): string {
+  const heading = writtenBy ? userMessageHeading(writtenBy) : "## The user's message";
+  return `${brief}\n\n${heading}\n\n${said}`;
+}
+
+/**
+ * A user's message into a running or resumed session: as written after one from the same user, or
+ * under a heading naming them when another user wrote the one before it, or nobody did, so the
+ * person knows who writes now. `previous` is who wrote the Thread's user message before it.
+ */
+export function messageFromUser(
+  said: string,
+  writtenBy: UserRef,
+  previous: UserRef | null | undefined,
+): string {
+  return previous !== undefined && sameUser(previous, writtenBy)
+    ? said
+    : `${userMessageHeading(writtenBy)}\n\n${said}`;
+}
+
+function userMessageHeading(writtenBy: UserRef): string {
+  return `## The message from ${userWords(writtenBy)}`;
 }
 
 /** One of the Role's MCP servers a session doesn't get, with why, in the brief's words. */
@@ -435,31 +464,37 @@ export function openingMessage(brief: string, opening: string): string {
 
 /**
  * What the asking session is sent as its next message when its Decision is answered: the question,
- * with the chosen option or the answerer's own words, so a fresh session knows what was asked.
- * `answerer` is the Consultant who answered, or the person who answered for the user at their
- * request; undefined when the user did.
+ * with the chosen option or the answerer's own words, so a fresh session knows what was asked, and
+ * who answered: the user by name, the Consultant, the person who answered for the user at their
+ * request, or The Office.
  */
 export function decisionAnswerMessage(
   decision: Decision,
   answer: DecisionAnswer,
-  answerer?: Answerer,
+  answerer: Answerer,
 ): string {
   const words = answerWords(decision, answer);
   const asked =
     decision.kind === "request"
       ? `your request "${decision.question}"`
       : `your Decision "${decision.question}"`;
-  const answered =
-    answerer === undefined
-      ? `The user answered ${asked}`
-      : answerer.kind === "consultant"
-        ? `${answerer.name} answered ${asked}`
-        : answerer.kind === "the-office"
-          ? `The Office answered ${asked}`
-          : `${answerer.name} answered ${asked} for the user, at their request,`;
+  const answered = answeredWords(answerer, asked);
   return answer.kind === "option"
     ? `${answered} with the option "${words}".`
     : `${answered} in their own words:\n\n${words}`;
+}
+
+function answeredWords(answerer: Answerer, asked: string): string {
+  switch (answerer.kind) {
+    case "user":
+      return `${userWordsOpening(answerer.user)} answered ${asked}`;
+    case "consultant":
+      return `${answerer.name} answered ${asked}`;
+    case "the-office":
+      return `The Office answered ${asked}`;
+    case "at-users-request":
+      return `${answerer.name} answered ${asked} for ${userWords(answerer.user)}, at their request,`;
+  }
 }
 
 /** A Decision answered in an Initiative's planning Thread, with the title of the Task it is on. */
@@ -468,8 +503,8 @@ export interface AnsweredOnTask {
   readonly answer: DecisionAnswer;
   /** Undefined for a Task no longer found, named by its id alone. */
   readonly taskTitle: string | undefined;
-  /** The person who answered for the user, at their request; undefined when the user did. */
-  readonly answerer?: Answerer | undefined;
+  /** Who answered: the user, or the person who answered for them at their request. */
+  readonly answerer: Answerer;
 }
 
 /**

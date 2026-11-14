@@ -15,12 +15,11 @@ import {
   AttachmentReplaced,
 } from "./attachment-events.js";
 import { AttachmentRefused } from "./attachment-refused.js";
-import { THE_USER } from "./author.js";
-import { aLink } from "./work.fixtures.js";
+import { ANN_LEE, aLink } from "./work.fixtures.js";
 
 const adding = {
   owner: { kind: "idea", ideaId: "idea-1" },
-  addedBy: THE_USER,
+  addedBy: ANN_LEE,
   addedAt: new Date("2026-10-25T09:05:00.000Z"),
 } as const;
 
@@ -187,7 +186,7 @@ describe("attachmentToReplace", () => {
     const linked = { ...aLink({ owner }), addedBy: developer };
     expect(
       attachmentToReplace(
-        [{ ...design, addedBy: THE_USER }, linked],
+        [{ ...design, addedBy: ANN_LEE }, linked],
         agentAdding,
         "docs/design.html",
         undefined,
@@ -196,7 +195,7 @@ describe("attachmentToReplace", () => {
     expect(
       attachmentToReplace(
         [design],
-        { ...agentAdding, addedBy: THE_USER },
+        { ...agentAdding, addedBy: ANN_LEE },
         "docs/design.html",
         undefined,
       ),

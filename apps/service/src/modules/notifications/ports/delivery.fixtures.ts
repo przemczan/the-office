@@ -23,19 +23,34 @@ export class NotificationTimingForTests extends NotificationTimingRepository {
 }
 
 /**
- * The user's activity kept by one test alone: the stored row is one for every test file, and
- * keeps only the latest activity, so a test on a clock of its own couldn't move it.
+ * The users' activity kept by one test alone: the stored rows are shared by every test file, and
+ * keep only each user's latest activity, so a test on a clock of its own couldn't move it.
  */
 export class UserActivityForTests extends UserActivityRepository {
-  activity: UserActivity | undefined;
+  readonly activities = new Map<string, UserActivity>();
 
-  async find(): Promise<UserActivity | undefined> {
-    return this.activity;
+  async find(userId: string): Promise<UserActivity | undefined> {
+    return this.activities.get(userId);
   }
 
-  async update(change: (known: UserActivity | undefined) => UserActivity): Promise<UserActivity> {
-    this.activity = change(this.activity);
-    return this.activity;
+  async findLatest(): Promise<UserActivity | undefined> {
+    return [...this.activities.values()].reduce<UserActivity | undefined>(
+      (latest, activity) =>
+        latest && latest.lastActiveAt.getTime() >= activity.lastActiveAt.getTime()
+          ? latest
+          : activity,
+      undefined,
+    );
+  }
+
+  async update(
+    userId: string,
+    change: (known: UserActivity | undefined) => UserActivity,
+  ): Promise<{ readonly before: UserActivity | undefined; readonly after: UserActivity }> {
+    const before = this.activities.get(userId);
+    const after = change(before);
+    this.activities.set(userId, after);
+    return { before, after };
   }
 }
 

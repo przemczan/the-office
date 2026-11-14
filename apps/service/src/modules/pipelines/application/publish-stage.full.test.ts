@@ -9,9 +9,13 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/resolve-stages.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
+import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { implement, publish, reviewedPublish, PULL_REQUEST } from "../publish-stage.fixtures.js";
+
+const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
 let pipelines: PipelinesApplication;
 
@@ -73,7 +77,7 @@ describe("A Publish Stage", () => {
 
     await pipelines.app
       .get(GateService)
-      .sendBack(taskId, RESOLVE_KEY, "Keep the longer of the two names.");
+      .sendBack(taskId, ANN, RESOLVE_KEY, "Keep the longer of the two names.");
     await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
 
     const runs = await runsOf(pipelines, taskId);
@@ -120,7 +124,7 @@ describe("A Publish Stage", () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
     const taskId = await walkStages(pipelines, [implement, publish]);
 
-    await pipelines.tasks.drop(taskId);
+    await pipelines.tasks.drop(taskId, { kind: "user", user: null });
 
     expect(pipelines.publishing.resolveCalls).toEqual([]);
   });

@@ -9,8 +9,10 @@ import {
   type Stage,
   type StageKind,
 } from "./stage.js";
+import { holdingUserWords } from "./stage-interruption.js";
 import type {
   CarriedFailure,
+  HoldingUser,
   RefusedTurn,
   SentBack,
   StageInterruption,
@@ -36,6 +38,8 @@ export interface BriefTask {
   readonly attachmentLines: readonly string[];
   /** The records the Task is linked to, worded as a section by Work; none when it has none. */
   readonly linkedRecordsSection: string | undefined;
+  /** Who created the Task and who started or queued it, worded as a section by Work. */
+  readonly whoAskedSection: string;
   readonly projectName: string;
   readonly baseBranch: string;
   /** The Initiative's branch the Task starts from and publishes into, when it has one. */
@@ -74,8 +78,8 @@ export interface AgentStageRecord {
 }
 
 /**
- * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title,
- * Description, Plan and Definition of Done, where the session works, the earlier Stages' results
+ * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title, who created
+ * and who started or queued it, its Description, Plan and Definition of Done, where the session works, the earlier Stages' results
  * with their Handover notes, the diff so far, the records the Task is linked to, the Attachments,
  * the commands the Agent may run and the Hard switches it follows. Conversations adds the answered
  * Decisions; transcripts are never handed over.
@@ -89,6 +93,7 @@ export function agentStageRecord({
 }: AgentStageRecord): string {
   return sections([
     `## The Task\n\n${task.title}, in the Project ${task.projectName}.`,
+    task.whoAskedSection,
     task.descriptionSection,
     `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, ${startedFrom(task)}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
     task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
@@ -157,6 +162,8 @@ export interface StagePipeline {
  */
 export interface HeldRun {
   readonly by: StageInterruption;
+  /** The user whose Pause or Stop held it, when known. */
+  readonly byUser?: HoldingUser;
   /** Set when The Office recorded it without starting it, having restarted between Stages. */
   readonly notStarted?: true;
   /**
@@ -252,13 +259,17 @@ function laterStageDoes(laterStage: Stage, commands: StagePipeline["commands"]):
   }
 }
 
-const HELD_SECTIONS: Readonly<Record<StageInterruption, string>> = {
-  stop: `## Stopped by the user
+/** The section for a run the user held, "the user Ann Lee" as `who` names them. */
+const USER_HELD_SECTIONS: Readonly<Record<"stop" | "pause", (who: string) => string>> = {
+  stop: (who) => `## Stopped by ${who}
 
-The user stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
-  pause: `## Paused by the user
+${capitalized(who)} stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
+  pause: (who) => `## Paused by ${who}
 
-The user paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
+${capitalized(who)} paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
+};
+
+const HELD_SECTIONS: Readonly<Record<Exclude<StageInterruption, "stop" | "pause">, string>> = {
   alarm: `## Held by the fire alarm
 
 The user sounded the fire alarm while this Stage ran, which held it after your last turn, and has given the all clear. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
@@ -282,7 +293,14 @@ const CUT_SHORT: Readonly<Partial<Record<StageInterruption, string>>> = {
 const REFUSED_HALF_DONE =
   "The engine may have refused your turn after some of its tool calls, so some of your edits may be half-done: check them before you go on.";
 
-function heldSection({ by, notStarted, cutShort, guidance, refused }: HeldRun): string | undefined {
+function heldSection({
+  by,
+  byUser,
+  notStarted,
+  cutShort,
+  guidance,
+  refused,
+}: HeldRun): string | undefined {
   if (notStarted) {
     return guidance === undefined ? undefined : `## The user's words for this Stage\n\n${guidance}`;
   }
@@ -290,7 +308,15 @@ function heldSection({ by, notStarted, cutShort, guidance, refused }: HeldRun): 
   const cutWords = refused ? REFUSED_HALF_DONE : cutShort ? CUT_SHORT[by] : undefined;
   const cut = cutWords === undefined ? "" : `\n\n${cutWords}`;
   const resent = refused ? `\n\n${refusedMessageWords(refused)}` : "";
-  return `${HELD_SECTIONS[by]}${cut}${resent}${words}`;
+  const section =
+    by === "stop" || by === "pause"
+      ? USER_HELD_SECTIONS[by](holdingUserWords(byUser))
+      : HELD_SECTIONS[by];
+  return `${section}${cut}${resent}${words}`;
+}
+
+function capitalized(words: string): string {
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }
 
 /** The message the engine refused, sent again: the Stage's work, or the correction of its result. */

@@ -16,6 +16,7 @@ import {
   type ProjectPipelineFields,
   type Proposal,
   type ProposalApplication,
+  type ProposalStatus,
   type ProposedChange,
   type Role,
   type RoleCard,
@@ -66,6 +67,7 @@ import { pinnedVersionLabel } from "../skill-words.ts";
 import { momentWords } from "../time.ts";
 import { PRIORITY_NAMES } from "../work/work-words.ts";
 import { useToast } from "../toasts.tsx";
+import { useUserName } from "../use-user-name.ts";
 import { tokensShort } from "./context-words.ts";
 import {
   commandWords,
@@ -770,7 +772,7 @@ function HireFoot({
       {status.kind === "applied" && (
         <>
           <Badge tone="success">Hired</Badge>
-          <span className="proposal-note">by you · {momentWords(status.at)}</span>
+          <AnsweredNote status={status} />
           {change.roleKey !== null && (
             <Link
               className="proposal-link"
@@ -782,7 +784,12 @@ function HireFoot({
           )}
         </>
       )}
-      {status.kind === "declined" && <Badge tone="neutral">Not hired</Badge>}
+      {status.kind === "declined" && (
+        <>
+          <Badge tone="neutral">Not hired</Badge>
+          <AnsweredNote status={status} />
+        </>
+      )}
       {status.kind === "open" && (
         <>
           <Button
@@ -846,7 +853,7 @@ function PresetHireFoot({
       {status.kind === "applied" && (
         <>
           <Badge tone="success">Hired</Badge>
-          <span className="proposal-note">by you · {momentWords(status.at)}</span>
+          <AnsweredNote status={status} />
           <Link
             className="proposal-link"
             to="/people/$roleKey"
@@ -856,7 +863,12 @@ function PresetHireFoot({
           </Link>
         </>
       )}
-      {status.kind === "declined" && <Badge tone="neutral">Not hired</Badge>}
+      {status.kind === "declined" && (
+        <>
+          <Badge tone="neutral">Not hired</Badge>
+          <AnsweredNote status={status} />
+        </>
+      )}
       {status.kind === "open" && (
         <>
           {editedName !== undefined && (
@@ -982,13 +994,15 @@ function AnswerFoot({
       {status.kind === "applied" && (
         <>
           <Badge tone="success">Applied</Badge>
-          <span className="proposal-note">
-            by you · {momentWords(status.at)}
-            {appliedNote && ` · ${appliedNote}`}
-          </span>
+          <AnsweredNote status={status} more={appliedNote} />
         </>
       )}
-      {status.kind === "declined" && <Badge tone="neutral">Not applied</Badge>}
+      {status.kind === "declined" && (
+        <>
+          <Badge tone="neutral">Not applied</Badge>
+          <AnsweredNote status={status} />
+        </>
+      )}
       {status.kind === "open" && (
         <>
           <Button
@@ -1024,6 +1038,23 @@ interface ProposalAnswering {
   /** Either is on its way, so neither can be clicked. */
   readonly busy: boolean;
   readonly error: Error | null;
+}
+
+/** Who applied or declined it, "by you" or "by Ann Lee", and when; then `more`, if any. */
+function AnsweredNote({
+  status,
+  more,
+}: {
+  readonly status: Extract<ProposalStatus, { kind: "applied" | "declined" }>;
+  readonly more?: string | undefined;
+}): ReactNode {
+  const nameOfUser = useUserName();
+  return (
+    <span className="proposal-note">
+      by {nameOfUser(status.by, "you")} · {momentWords(status.at)}
+      {more && ` · ${more}`}
+    </span>
+  );
 }
 
 /**

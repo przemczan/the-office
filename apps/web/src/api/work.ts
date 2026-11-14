@@ -71,6 +71,7 @@ import {
   sendFileToApi,
   sendToApi,
   sendToApiWithNoAnswer,
+  SignedOut,
 } from "./api-client.ts";
 import { attachmentCopiesOf } from "./attachment-copies.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
@@ -629,6 +630,7 @@ export function attachmentContentUrl(id: string, copy = 0): string {
 async function readShownText(id: string, signal?: AbortSignal): Promise<ShownText> {
   // Asked of the service every time: an Agent's new copy keeps the address.
   const response = await fetch(attachmentContentUrl(id), { signal, cache: "no-cache" });
+  if (response.status === 401) throw new SignedOut();
   if (!response.ok || response.body === null) {
     throw new Error(`The file can't be read: ${response.statusText}.`);
   }

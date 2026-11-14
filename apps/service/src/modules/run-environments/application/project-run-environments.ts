@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
 import { TaskStateChanged } from "../../work/index.js";
 import {
   definitionProblemsOf,
@@ -75,14 +76,14 @@ export class ProjectRunEnvironments implements OnModuleInit {
 
   /**
    * On at once when the base branch, fetched now, has a valid definition; else the Project's open
-   * set-up Task, added when it has none.
+   * set-up Task, added as `by` asked when it has none.
    */
-  async setUp(projectId: string): Promise<ProjectRunEnvironment> {
+  async setUp(projectId: string, by: SignedInUser): Promise<ProjectRunEnvironment> {
     await this.settingOf(projectId);
     if ((await this.freshDefinition(projectId)).state === "valid") {
       await this.settings.change(projectId, "on", []);
     } else {
-      await this.setUpTasks.add(projectId);
+      await this.setUpTasks.add(projectId, by);
     }
     return this.read(projectId);
   }

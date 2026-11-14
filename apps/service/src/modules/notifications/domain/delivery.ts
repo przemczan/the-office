@@ -137,7 +137,8 @@ export type PhoneDelivery =
 /**
  * The phone at `at`: inside quiet hours it is held; while the user is at the desk it waits, and it
  * goes once the hold since their last activity and then the away delay have passed (the away delay
- * counts from when the hold ends, spec §2.7 Defaults).
+ * counts from when the hold ends, spec §2.7 Defaults). `activity` is the user active last's, so it
+ * goes only once every user is away.
  */
 export function phoneDeliveryOf(
   notification: Notification,

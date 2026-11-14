@@ -1,3 +1,4 @@
+import type { Role, RoleChange } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   changeLine,
@@ -5,10 +6,13 @@ import {
   hardSwitchValueLabel,
   missingCapabilitiesWords,
   proposedFieldChanges,
+  roleChangeByLine,
   skillsChangeLine,
   taskLimitShort,
   worksWithText,
 } from "./role-card-words.ts";
+import { userName } from "./use-user-name.ts";
+import { BY_ANN, BY_YOU, SIGNED_IN } from "./user.fixtures.ts";
 
 const roleTitles = new Map([
   ["devops", "Devops"],
@@ -161,7 +165,64 @@ describe("the Role card's words", () => {
         at: "2026-10-25T10:00:00.000Z",
         added: ["release-notes"],
         removed: ["tdd", "lint"],
+        changedBy: null,
       }),
     ).toBe("Skills gained release-notes; lost tdd, lint");
+  });
+});
+
+function nameOfUser(user: Parameters<typeof userName>[0], you?: "You" | "you"): string {
+  return userName(user, SIGNED_IN.id, you);
+}
+
+describe("roleChangeByLine", () => {
+  const roles = [{ key: "cto", card: { name: "Grace" } }] as unknown as Role[];
+  const at = "2026-10-25T10:00:00.000Z";
+
+  it("names the user who hired or saved a change: you, or another user", () => {
+    const hired: RoleChange = { kind: "hired", at, proposedBy: null, savedBy: BY_YOU };
+    expect(roleChangeByLine(hired, roles, nameOfUser)).toBe("by you");
+    expect(roleChangeByLine({ ...hired, savedBy: BY_ANN }, roles, nameOfUser)).toBe("by Ann Lee");
+  });
+
+  it("names who proposed a change and the user who applied it", () => {
+    const changed: RoleChange = {
+      kind: "card-changed",
+      at,
+      cardVersion: 2,
+      changes: [],
+      proposedBy: "cto",
+      savedBy: BY_ANN,
+    };
+    expect(roleChangeByLine(changed, roles, nameOfUser)).toBe(
+      "proposed by Grace, applied by Ann Lee",
+    );
+    expect(roleChangeByLine({ ...changed, savedBy: BY_YOU }, roles, nameOfUser)).toBe(
+      "proposed by Grace, applied by you",
+    );
+  });
+
+  it("names the person alone on their own change, which no user saved", () => {
+    const own: RoleChange = {
+      kind: "card-changed",
+      at,
+      cardVersion: 3,
+      changes: [],
+      proposedBy: "cto",
+      savedBy: null,
+    };
+    expect(roleChangeByLine(own, roles, nameOfUser)).toBe("by Grace");
+  });
+
+  it("names the user who changed the skills, and nobody when no user did", () => {
+    const skills: RoleChange = {
+      kind: "skills-changed",
+      at,
+      added: ["tdd"],
+      removed: [],
+      changedBy: BY_ANN,
+    };
+    expect(roleChangeByLine(skills, roles, nameOfUser)).toBe("by Ann Lee");
+    expect(roleChangeByLine({ ...skills, changedBy: null }, roles, nameOfUser)).toBeUndefined();
   });
 });

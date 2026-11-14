@@ -39,6 +39,7 @@ import {
   type UseProjectSkillsChange,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProjectSkills } from "../../../skills/index.js";
 import type { RemoteNeeds } from "../../../../platform/git-identity/remote-needs.js";
 import { ProjectRemotes } from "../../application/project-remotes.js";
@@ -58,8 +59,14 @@ export class ProjectsController {
   @Post()
   async add(
     @Body(new ContractPipe(addProjectSchema)) { runEnvironmentAnswer, ...newProject }: AddProject,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.add(newProject, runEnvironmentAnswer));
+    return toProjectResponse(
+      await this.projects.add(
+        newProject,
+        runEnvironmentAnswer && { answer: runEnvironmentAnswer, by: userOf(signedIn) },
+      ),
+    );
   }
 
   @Get()

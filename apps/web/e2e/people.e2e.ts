@@ -45,6 +45,7 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
+import { E2E_STORAGE_STATE } from "./e2e-user.ts";
 import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
@@ -1956,7 +1957,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await decision.getByRole("button", { name: "Keep the query string" }).click();
   await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
   await expect(decision).toHaveCount(0);
-  await expect(inThread).toContainText("Answered: Keep the query string");
+  await expect(inThread).toContainText("Answered by you: Keep the query string");
   await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
   await expect(readinessLine("No Decision open")).toHaveClass(/task-checklist-met/);
 
@@ -2354,7 +2355,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(
     history.getByText("Signing in now returns to the page it started from."),
   ).toBeVisible();
-  await expect(history.getByText("Answered: The page it started from")).toBeVisible();
+  await expect(history.getByText("Answered by you: The page it started from")).toBeVisible();
   await expect(conversation.getByText("Signing in now returns")).toHaveCount(0);
   await expect(history.getByRole("group", { name: "Details" })).toBeVisible();
   await expect(newestRun.getByRole("note")).toHaveText(
@@ -3324,7 +3325,7 @@ test(
       await decision.getByRole("button", { name: CONSULTATION_OPTION }).click();
       await expect(decision).toHaveCount(0);
       await expect(needsYou).toContainText("Ready: start it when you want");
-      await expect(inThread).toContainText(`Answered: ${CONSULTATION_OPTION}`);
+      await expect(inThread).toContainText(`Answered by you: ${CONSULTATION_OPTION}`);
       await expect(conversation.getByText("Then the migration goes first.")).toBeVisible();
       await expect(adamTab).toHaveCount(0);
 
@@ -5601,7 +5602,10 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     const otherTab = await page.context().newPage();
     await otherTab.goto("/work");
     await expect(chatButton(otherTab)).toHaveAccessibleName("Chat: nothing new");
-    const elsewhere = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const elsewhere = await browser.newContext({
+      baseURL: new URL(page.url()).origin,
+      storageState: E2E_STORAGE_STATE,
+    });
     const otherBrowser = await elsewhere.newPage();
     await otherBrowser.goto("/now");
     await chatButton(otherBrowser).click();

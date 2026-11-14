@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   currentStageOf,
   nowOf,
+  sinceYouLeftOf,
   waitingGateOf,
   type NowParts,
   type OfficeTask,
@@ -36,8 +37,6 @@ const PARTS: NowParts = {
   openDecisions: [],
   queued: [],
   tasks: [],
-  leftAt: undefined,
-  outcomes: [],
   tokensToday: NO_TOKENS,
   tasksTouched: 0,
   officeWideLimit: 3,
@@ -169,19 +168,19 @@ describe("nowOf", () => {
 
   it("shows each Task's latest outcome since the user left, latest first", () => {
     const other = { ...TASK, id: "t2", title: "Fix the header", state: "done" };
-    const now = nowOf({
-      ...PARTS,
-      tasks: [TASK, other],
-      leftAt: at(0),
-      outcomes: [
+    const since = sinceYouLeftOf(
+      at(0),
+      [
         { taskId: "t1", outcome: "paused", occurredAt: at(2) },
         { taskId: "t2", outcome: "done", occurredAt: at(3) },
         { taskId: "t1", outcome: "failed", occurredAt: at(5) },
         { taskId: "gone", outcome: "done", occurredAt: at(6) },
       ],
-    });
+      [TASK, other],
+    );
 
-    expect(now.sinceYouLeft).toEqual([
+    expect(since.leftAt).toEqual(at(0));
+    expect(since.finished).toEqual([
       {
         taskId: "t1",
         title: "Add a filter",

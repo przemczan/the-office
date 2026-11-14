@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readOfficeConfig } from "./office-config.js";
+import { InvalidOfficeConfigError } from "./invalid-office-config-error.js";
+import { readDatabaseUrl, readOfficeConfig } from "./office-config.js";
 import {
   port,
   databaseUrl,
@@ -24,6 +25,40 @@ describe("readOfficeConfig", () => {
     });
   });
 
+  it("reads the public address as its origin", () => {
+    const config = readOfficeConfig(
+      {
+        OFFICE_PORT: port,
+        DATABASE_URL: databaseUrl,
+        OFFICE_PUBLIC_ADDRESS: "https://Office.Example.com/",
+      },
+      platformDefaults(),
+    );
+
+    expect(config.publicAddress).toBe("https://office.example.com");
+  });
+
+  it.each([
+    "http://office.example.com",
+    "https://office.example.com/office",
+    "https://office.example.com?x=1",
+    "https://user@office.example.com",
+    "office.example.com",
+  ])("refuses %s as the public address", (address) => {
+    const error = readProblems({
+      OFFICE_PORT: port,
+      DATABASE_URL: databaseUrl,
+      OFFICE_PUBLIC_ADDRESS: address,
+    });
+
+    expect(error.problems).toEqual([
+      {
+        variable: "OFFICE_PUBLIC_ADDRESS",
+        problem: "must be an https:// address with no path, such as https://office.example.com",
+      },
+    ]);
+  });
+
   it("keeps variable values, such as the database password, out of the error", () => {
     const error = readProblems({
       OFFICE_PORT: port,
@@ -31,5 +66,15 @@ describe("readOfficeConfig", () => {
     });
 
     expect(error.message).not.toContain("secret-password");
+  });
+});
+
+describe("readDatabaseUrl", () => {
+  it("reads the database URL alone, needing nothing the service listens with", () => {
+    expect(readDatabaseUrl({ DATABASE_URL: databaseUrl })).toBe(databaseUrl);
+  });
+
+  it("refuses a missing database URL", () => {
+    expect(() => readDatabaseUrl({ OFFICE_PORT: port })).toThrow(InvalidOfficeConfigError);
   });
 });

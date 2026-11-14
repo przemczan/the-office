@@ -32,8 +32,8 @@ function ThemeChoice({ name, chosen }: { readonly name: string; readonly chosen:
 }
 
 /**
- * The palette and the density, chosen from the rail as in Settings › Appearance; until a palette
- * is chosen the system's light or dark is shown.
+ * The palette and the density, chosen from the rail as in Account › Appearance and saved to the
+ * account (`AccountAppearance`); until a palette is chosen the system's light or dark is shown.
  */
 export function ThemeMenu(): ReactNode {
   const { palette, choosePalette, density, chooseDensity } = useAppearance();

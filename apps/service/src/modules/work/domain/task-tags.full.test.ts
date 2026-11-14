@@ -3,8 +3,7 @@ import { createTask } from "./task-changes.js";
 import { TaskTagsChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { changeTags, normalizedTags, tagsProblems } from "./task-tags.js";
-import { THE_USER } from "./author.js";
-import { aTask } from "./work.fixtures.js";
+import { ANN_LEE, aTask } from "./work.fixtures.js";
 
 describe("normalizedTags", () => {
   it("keeps each Tag once, lower-case, spaces made hyphens, in the order given", () => {
@@ -51,7 +50,7 @@ describe("a new Task's Tags", () => {
     order: "a0",
     originIdeaId: undefined,
     initiativeId: undefined,
-    createdBy: THE_USER,
+    createdBy: ANN_LEE,
   };
 
   it("are none when none are given, and normalized when they are", () => {

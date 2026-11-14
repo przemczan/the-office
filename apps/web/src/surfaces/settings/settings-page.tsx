@@ -10,12 +10,13 @@ const SECTIONS: readonly MenuSection[] = [
   { to: "/settings/skills", icon: "sparkles", label: "Skills" },
   { to: "/settings/mcp-servers", icon: "plug", label: "MCP servers" },
   { to: "/settings/engines", icon: "cpu", label: "Engines" },
+  { to: "/settings/users", icon: "users", label: "Users" },
+  { to: "/settings/signing-in", icon: "log-in", label: "Signing in" },
   { to: "/settings/office-identity", icon: "fingerprint", label: "Office identity" },
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
   { to: "/settings/office-instructions", icon: "scroll-text", label: "Office instructions" },
   { to: "/settings/notifications", icon: "bell", label: "Notifications" },
   { to: "/settings/updates", icon: "refresh-cw", label: "Updates" },
-  { to: "/settings/appearance", icon: "palette", label: "Appearance" },
 ];
 
 /** Settings (prototypes/app/settings.js): its sections beside the open one. */

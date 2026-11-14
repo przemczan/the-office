@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
-import { notificationsWebEventSchema, nowSchema, type Now } from "@the-office/contracts";
+import {
+  notificationsWebEventSchema,
+  nowSchema,
+  sinceYouLeftSchema,
+  type Now,
+} from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -95,7 +100,7 @@ describe("NowService", () => {
     return announced.at(-1);
   }
 
-  it("keeps a Task done after the user was seen, and announces it in Since you left", async () => {
+  it("keeps a Task done after the user was seen, announces it, and shows it in their Since you left", async () => {
     const activity = await fetch(`${url}/api/activity`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -114,14 +119,14 @@ describe("NowService", () => {
       },
     ];
 
+    const seen = announced.length;
+
     await events.publish(new TaskStateChanged(taskId, "in-progress", "done"));
 
-    await vi.waitFor(() => {
-      expect(lastAnnounced()?.now.sinceYouLeft).toContainEqual(
-        expect.objectContaining({ taskId, outcome: "done" }),
-      );
-    });
-    expect((await readNow()).sinceYouLeft).toContainEqual(
+    await vi.waitFor(() => expect(announced.length).toBeGreaterThan(seen));
+    const since = await fetch(`${url}/api/now/since-you-left`);
+    expect(since.status).toBe(200);
+    expect(sinceYouLeftSchema.parse(await since.json()).finished).toContainEqual(
       expect.objectContaining({ taskId, outcome: "done" }),
     );
   });

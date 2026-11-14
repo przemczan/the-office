@@ -1,3 +1,4 @@
+import type { Author } from "./author.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeTasksChange } from "./initiative-changes.js";
 import { InitiativePaused, InitiativeResumed } from "./initiative-events.js";
@@ -25,6 +26,7 @@ export function pauseInitiative(
   initiative: Initiative,
   tasks: readonly Task[],
   at: Date,
+  by: Author,
 ): InitiativeTasksChange<InitiativePaused> {
   if (initiative.state !== "active") {
     throw new InitiativeRefused([
@@ -37,7 +39,7 @@ export function pauseInitiative(
   return {
     initiative: { ...initiative, pausedAt: at },
     event: new InitiativePaused(initiative.id, at),
-    taskChanges: tasks.flatMap((task) => pauseTaskForInitiative(task) ?? []),
+    taskChanges: tasks.flatMap((task) => pauseTaskForInitiative(task, by) ?? []),
   };
 }
 
@@ -51,6 +53,7 @@ export function resumeInitiative(
   initiative: Initiative,
   tasks: readonly Task[],
   { fireAlarmOn, now = new Date() }: { readonly fireAlarmOn: boolean; readonly now?: Date },
+  by: Author,
 ): InitiativeTasksChange<InitiativeResumed> {
   if (!isInitiativePaused(initiative)) {
     throw new InitiativeRefused([
@@ -60,6 +63,8 @@ export function resumeInitiative(
   return {
     initiative: { ...initiative, pausedAt: undefined },
     event: new InitiativeResumed(initiative.id),
-    taskChanges: tasks.flatMap((task) => resumeTaskForInitiative(task, { fireAlarmOn, now }) ?? []),
+    taskChanges: tasks.flatMap(
+      (task) => resumeTaskForInitiative(task, { fireAlarmOn, now }, by) ?? [],
+    ),
   };
 }

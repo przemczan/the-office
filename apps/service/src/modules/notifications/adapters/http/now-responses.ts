@@ -1,10 +1,16 @@
-import { taskHolderSchema, taskStateSchema, type Now as NowResponse } from "@the-office/contracts";
+import {
+  taskHolderSchema,
+  taskStateSchema,
+  type Now as NowResponse,
+  type SinceYouLeft as SinceYouLeftResponse,
+} from "@the-office/contracts";
 import type {
   CurrentStage,
   FireAlarmOnNow,
   Now,
   NeedsYouItem,
   RunningTask,
+  SinceYouLeft,
   UsageWindow,
 } from "../../domain/now.js";
 
@@ -13,11 +19,6 @@ export function toNowResponse(now: Now): NowResponse {
     needsYou: now.needsYou.map(toNeedsYouResponse),
     running: now.running.map(toRunningResponse),
     queue: now.queue.map(({ reasons, ...queued }) => ({ ...queued, reasons: [...reasons] })),
-    leftAt: now.leftAt?.toISOString() ?? null,
-    sinceYouLeft: now.sinceYouLeft.map(({ occurredAt, ...finished }) => ({
-      ...finished,
-      occurredAt: occurredAt.toISOString(),
-    })),
     tokensToday: now.tokensToday,
     tasksTouched: now.tasksTouched,
     desks: now.desks,
@@ -27,6 +28,16 @@ export function toNowResponse(now: Now): NowResponse {
       sevenDay: toUsageWindowResponse(sevenDay),
     })),
     fireAlarm: now.fireAlarm ? toFireAlarmResponse(now.fireAlarm) : null,
+  };
+}
+
+export function toSinceYouLeftResponse({ leftAt, finished }: SinceYouLeft): SinceYouLeftResponse {
+  return {
+    leftAt: leftAt?.toISOString() ?? null,
+    finished: finished.map(({ occurredAt, ...task }) => ({
+      ...task,
+      occurredAt: occurredAt.toISOString(),
+    })),
   };
 }
 

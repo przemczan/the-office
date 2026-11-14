@@ -16,6 +16,7 @@ import {
   type MemoryNoteDraft as MemoryNoteDraftRequest,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { MemoryService } from "../../application/memory-service.js";
 import type { MemoryNote } from "../../domain/memory-note.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
@@ -35,12 +36,13 @@ export class MemoryController {
   async write(
     @Param("key") key: string,
     @Body(new ContractPipe(memoryNoteDraftSchema)) { text, projectId }: MemoryNoteDraftRequest,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<MemoryNoteResponse> {
     const note = await this.memory.write({
       roleKey: key,
       projectId,
       text,
-      source: { kind: "user" },
+      source: { kind: "user", user: userOf(signedIn) },
     });
     return toNoteResponse(note);
   }
@@ -65,7 +67,7 @@ function toNoteResponse(note: MemoryNote): MemoryNoteResponse {
     text: note.text,
     source:
       note.source.kind === "user"
-        ? note.source
+        ? { kind: "user", user: note.source.user && { ...note.source.user } }
         : { kind: "agent", threadId: note.source.threadId, taskId: note.source.taskId },
     writtenAt: note.writtenAt.toISOString(),
   };

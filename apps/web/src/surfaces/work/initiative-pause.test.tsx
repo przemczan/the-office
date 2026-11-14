@@ -23,7 +23,7 @@ const ACTIVE: Initiative = {
   state: "active",
   originIdeaId: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
   projectIds: [],
-  createdBy: { kind: "user" },
+  createdBy: { kind: "user", user: null },
   createdAt: "2026-11-10T09:00:00.000Z",
   endedAt: null,
   archivedAt: null,

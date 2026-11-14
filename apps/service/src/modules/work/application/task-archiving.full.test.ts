@@ -9,7 +9,7 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { PostgresTaskRepository } from "../adapters/postgres/postgres-task-repository.js";
 import { tasks } from "../adapters/postgres/work.schema.js";
-import { THE_USER } from "../domain/author.js";
+import { BY_THE_DAILY_RUN } from "../domain/author.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { TaskArchived, TaskStateChanged } from "../domain/task-events.js";
 import type { Task } from "../domain/task.js";
@@ -25,6 +25,7 @@ import {
 import { OnboardingService } from "./onboarding-service.js";
 import { TASK_ARCHIVING, TaskArchiving } from "./task-archiving.js";
 import { TaskService } from "./task-service.js";
+import { ANN_LEE } from "../domain/work.fixtures.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -88,7 +89,7 @@ function daysAgo(days: number): Date {
 async function created(createdDaysAgo = 0): Promise<Task> {
   const task = await work.app
     .get(TaskService)
-    .create({ title: "Fix the login redirect", projectId, priority: "normal" }, THE_USER);
+    .create({ title: "Fix the login redirect", projectId, priority: "normal" }, ANN_LEE);
   await theDatabase()
     .update(tasks)
     .set({ createdAt: daysAgo(createdDaysAgo) })
@@ -113,7 +114,7 @@ async function finish(
   await work.app.get(TaskRepository).update(taskId, (task) => ({
     task: { ...task, state, endedAt },
     event: new TaskStateChanged(task.id, task.state, state),
-    stateChange: { from: task.state, to: state, at, by: THE_USER },
+    stateChange: { from: task.state, to: state, at, by: ANN_LEE },
   }));
 }
 
@@ -150,7 +151,7 @@ describe("The daily archiving of finished Tasks", () => {
     );
     expect(work.published).toHaveLength(2);
     const stored = await work.app.get(TaskService).read(done.id);
-    expect(stored).toMatchObject({ state: "done", archivedAt: now });
+    expect(stored).toMatchObject({ state: "done", archivedAt: now, archivedBy: BY_THE_DAILY_RUN });
   });
 
   it("never archives a Task in any other state, however old", async () => {
@@ -170,7 +171,7 @@ describe("The daily archiving of finished Tasks", () => {
     const task = await finished("done", 2 * DEFAULT_ARCHIVE_PERIOD);
     await runAt(now);
     expect(await isArchived(task.id)).toBe(true);
-    await work.app.get(TaskService).restore(task.id);
+    await work.app.get(TaskService).restore(task.id, ANN_LEE);
     const { restoredAt } = await work.app.get(TaskService).read(task.id);
     if (!restoredAt) throw new Error("The Restore kept no moment.");
     const daysAfterRestore = (days: number) => new Date(restoredAt.getTime() + days * DAY_MS);
@@ -232,7 +233,7 @@ describe("The daily archiving of finished Tasks", () => {
 
   it("leaves a Project whose Onboard Task is archived reading as onboarded", async () => {
     const onboarding = work.app.get(OnboardingService);
-    const task = await onboarding.addOnboardTask(projectId, THE_USER);
+    const task = await onboarding.addOnboardTask(projectId, ANN_LEE);
     await finish(task.id, "done", DEFAULT_ARCHIVE_PERIOD + 1);
 
     await runAt(now);

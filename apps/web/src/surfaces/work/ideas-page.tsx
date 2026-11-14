@@ -28,6 +28,7 @@ import { useProjectFilter } from "../../shell/project-filter/use-project-filter.
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { useSignedInUserId } from "../../shell/use-user-name.ts";
 import { EditIdeaDialog } from "../../shell/work/edit-idea-dialog.tsx";
 import { ShapeIdeaDialog } from "../../shell/work/shape-idea-dialog.tsx";
 import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
@@ -160,6 +161,7 @@ function IdeaCard({
   const shaping = useShaping(idea);
   const planning = useIdeaPlanning(idea);
   const cto = useCto();
+  const signedInUserId = useSignedInUserId();
   const shapingIntoInitiative = useShapingIntoInitiative(idea);
   const actions: Readonly<Record<IdeaAction, IdeaActionWords>> = {
     shape: { label: "Shape into a Task", icon: "list-checks", mutation: shaping },
@@ -226,7 +228,7 @@ function IdeaCard({
       <div className="idea-card-sub">
         <ProjectChip projectId={idea.projectId} projects={projects} />
         <span>
-          · {capturedBy(idea, roles)} · {dayAndClockOf(idea.capturedAt)}
+          · {capturedBy(idea, roles, signedInUserId)} · {dayAndClockOf(idea.capturedAt)}
         </span>
       </div>
       {idea.notes !== "" && <p className="idea-card-notes">{idea.notes}</p>}
@@ -374,6 +376,10 @@ function DroppedIdeas({
   );
 }
 
-function capturedBy(idea: Idea, roles: readonly Role[] | undefined): string {
-  return `${authorName(idea.capturedBy, roles)} captured it`;
+function capturedBy(
+  idea: Idea,
+  roles: readonly Role[] | undefined,
+  signedInUserId: string | undefined,
+): string {
+  return `${authorName(idea.capturedBy, roles, signedInUserId)} captured it`;
 }

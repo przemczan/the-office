@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { ProjectSkillName, SessionSkill } from "../../domain/session-skills.js";
 import type { SkillSource, SkillState } from "../../domain/skill.js";
+import type { UserRef } from "../../domain/user.js";
 
 /**
  * Each skill in the library, at its current version; an installed one with its Source, and the
@@ -122,6 +123,11 @@ export const roleSkillChanges = pgTable(
     added: text("added").array().notNull(),
     removed: text("removed").array().notNull(),
     changedAt: timestamp("changed_at", { withTimezone: true }).notNull(),
+    /**
+     * The user who made the change. SQL null when no user did; jsonb null on a change from before
+     * users existed, until the first user claims it (`SkillsEarlierRecords`).
+     */
+    changedBy: jsonb("changed_by").$type<UserRef | null>(),
   },
   (table) => [index("role_skill_changes_role_key").on(table.roleKey)],
 );

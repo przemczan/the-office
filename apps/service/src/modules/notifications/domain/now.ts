@@ -173,10 +173,6 @@ export interface Now {
   readonly running: readonly RunningTask[];
   /** The queue for Start, first place first (spec §2.1, "A queue for Start"). */
   readonly queue: readonly QueuedTask[];
-  /** Undefined until the user is first seen. */
-  readonly leftAt: Date | undefined;
-  /** Each Task's latest outcome since the user left, latest first. */
-  readonly sinceYouLeft: readonly FinishedTask[];
   readonly tokensToday: TokenKinds;
   /** The Tasks with a Stage run today (the user's answer of 2026-10-27). */
   readonly tasksTouched: number;
@@ -185,6 +181,26 @@ export interface Now {
   readonly usageWindows: readonly EngineUsageWindows[];
   /** Undefined while the fire alarm is off. */
   readonly fireAlarm: FireAlarmOnNow | undefined;
+}
+
+/**
+ * Since you left for one user (spec §4): where it begins, at the start of their own last absence,
+ * and each Task's latest outcome since then. Now is shared by every user; this is each one's own.
+ */
+export interface SinceYouLeft {
+  /** Undefined until the user is first seen. */
+  readonly leftAt: Date | undefined;
+  /** Each Task's latest outcome since the user left, latest first. */
+  readonly finished: readonly FinishedTask[];
+}
+
+/** Since you left from where it begins and the outcomes since then, of the Tasks Work knows. */
+export function sinceYouLeftOf(
+  leftAt: Date | undefined,
+  outcomes: readonly TaskOutcome[],
+  tasks: readonly OfficeTask[],
+): SinceYouLeft {
+  return { leftAt, finished: finishedTasksOf(outcomes, tasks) };
 }
 
 export interface StartedTask {
@@ -200,9 +216,6 @@ export interface NowParts {
   /** First place first. */
   readonly queued: readonly QueuedOnNow[];
   readonly tasks: readonly OfficeTask[];
-  readonly leftAt: Date | undefined;
-  /** The outcomes since the user left. */
-  readonly outcomes: readonly TaskOutcome[];
   readonly tokensToday: TokenKinds;
   readonly tasksTouched: number;
   readonly officeWideLimit: number;
@@ -230,8 +243,6 @@ export function nowOf(parts: NowParts): Now {
     needsYou: needsYouOf(parts.openDecisions, gates, parts.tasks),
     running,
     queue: queueOf(parts.queued, parts.tasks),
-    leftAt: parts.leftAt,
-    sinceYouLeft: finishedTasksOf(parts.outcomes, parts.tasks),
     tokensToday: parts.tokensToday,
     tasksTouched: parts.tasksTouched,
     desks: { inUse: parts.started.length, limit: parts.officeWideLimit },

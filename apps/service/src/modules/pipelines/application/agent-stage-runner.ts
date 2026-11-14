@@ -294,7 +294,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const after = await this.stageGit.checkHead(run, task, expected);
     if (after) return changedGitItself(after, undefined);
     const discarded = await this.stageGit.settleInterrupted(run, task, expected, held);
-    return interruptedOutcome(held, discarded, { cutShortBy: interruption.cutShortBy, refused });
+    return interruptedOutcome(held, discarded, {
+      cutShortBy: interruption.cutShortBy,
+      refused,
+      heldByUser: interruption.heldByUser,
+    });
   }
 
   private async open(
@@ -408,6 +412,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         definitionOfDone: task.definitionOfDone,
         attachmentLines: task.attachmentLines,
         linkedRecordsSection: task.linkedRecordsSection,
+        whoAskedSection: task.whoAskedSection,
         projectName: task.project.name,
         baseBranch: task.project.baseBranch,
         initiativeBranch: task.initiativeBranch,
@@ -568,7 +573,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   ): Promise<ResultReading> {
     if (interruption.requested === undefined) {
       interruption.request("usage-window");
-      await this.runs.saveHeldBy(run.id, "usage-window");
+      await this.runs.saveHeldBy(run.id, "usage-window", undefined);
       await this.startedTasks.pauseForUsageWindow(run.taskId, {
         engineId: thread.engine,
         engineName,
@@ -697,6 +702,7 @@ function heldRunOf({ outcome, decisions }: StageRun): HeldRun | undefined {
   const guidance = answer?.kind === "one-more-round" ? answer.guidance : undefined;
   return {
     by: outcome.interrupted,
+    ...(outcome.heldByUser && { byUser: outcome.heldByUser }),
     ...(outcome.notStarted && { notStarted: true }),
     ...(outcome.cutShort && { cutShort: true }),
     ...(guidance !== undefined && { guidance }),

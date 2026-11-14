@@ -12,6 +12,7 @@ import { QueueRepository, type HeldForRelease } from "../../ports/queue-reposito
 import { queue } from "./queue.schema.js";
 import { initiatives, tasks } from "./work.schema.js";
 import {
+  authorOf,
   heldTask,
   holdStarts,
   keepStateChange,
@@ -188,9 +189,10 @@ function toQueuedTask({
   taskId,
   place,
   queuedAt,
+  queuedBy,
   reasons,
   shortReasons,
   behind,
 }: QueueRow): QueuedTask {
-  return { taskId, place, queuedAt, reasons, shortReasons, behind };
+  return { taskId, place, queuedAt, queuedBy: authorOf(queuedBy), reasons, shortReasons, behind };
 }

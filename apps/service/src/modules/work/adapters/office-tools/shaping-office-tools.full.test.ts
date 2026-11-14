@@ -8,7 +8,6 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
 import {
@@ -32,6 +31,7 @@ import {
   WRITE_TASK_TITLE,
 } from "./shaping-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -55,8 +55,8 @@ beforeEach(async () => {
   work = await startWorkApplication(officeData);
   const idea = await work.app
     .get(IdeaService)
-    .capture({ title: "Offline sync", notes: "", projectId: undefined }, THE_USER);
-  initiative = await work.app.get(InitiativeService).shape(idea.id, THE_USER);
+    .capture({ title: "Offline sync", notes: "", projectId: undefined }, ANN_LEE);
+  initiative = await work.app.get(InitiativeService).shape(idea.id, ANN_LEE);
   work.app.get(SessionInitiativesForTests).initiatives.set(SESSION, initiative.id);
 });
 
@@ -83,13 +83,13 @@ function current(): Promise<Initiative> {
 async function aTaskOutside(title: string): Promise<Task> {
   return work.app
     .get(TaskService)
-    .create({ title, projectId: aProjectId(), priority: "normal" }, THE_USER);
+    .create({ title, projectId: aProjectId(), priority: "normal" }, ANN_LEE);
 }
 
 async function anInitiativeTask(title: string): Promise<Task> {
   return work.app
     .get(InitiativeService)
-    .addTask(initiative.id, { title, projectId: aProjectId(), priority: "normal" }, [], THE_USER);
+    .addTask(initiative.id, { title, projectId: aProjectId(), priority: "normal" }, [], ANN_LEE);
 }
 
 it("gives a shaping session every reading tool", () => {
@@ -297,7 +297,7 @@ describe("once the Initiative is active", () => {
   it("each tool drafts a Proposal of the change in the session's Thread, changing nothing yet", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
     const schema = await aTaskOutside("Queue schema");
-    await work.app.get(InitiativeService).confirm(initiative.id);
+    await work.app.get(InitiativeService).confirm(initiative.id, ANN_LEE);
     const projectId = aProjectId();
 
     const answers = [
@@ -342,7 +342,7 @@ describe("once the Initiative is active", () => {
 
   it("drafts no change that is wrong, or that changes nothing", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
-    await work.app.get(InitiativeService).confirm(initiative.id);
+    await work.app.get(InitiativeService).confirm(initiative.id, ANN_LEE);
 
     expect(await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: queue.id })).toMatchObject({
       isError: true,
@@ -368,8 +368,8 @@ describe("once the Initiative is active", () => {
   it("drafts no change of a Task past Start, or of another Initiative's", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
     const outside = await aTaskOutside("Billing schema");
-    await work.app.get(InitiativeService).confirm(initiative.id);
-    await work.app.get(TaskService).drop(queue.id);
+    await work.app.get(InitiativeService).confirm(initiative.id, ANN_LEE);
+    await work.app.get(TaskService).drop(queue.id, ANN_LEE);
 
     expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep it" })).toEqual({
       text: "A Task keeps its title once it has started.",
@@ -389,7 +389,7 @@ describe("once the Initiative is active", () => {
 
 describe("once the Initiative is dropped", () => {
   it("each tool is refused and drafts nothing", async () => {
-    await work.app.get(InitiativeService).drop(initiative.id);
+    await work.app.get(InitiativeService).drop(initiative.id, ANN_LEE);
 
     expect(await call(WRITE_OUTCOME, { outcome: "Sync works." })).toEqual({
       text: "The Initiative is dropped: its outcome is written only while it is being shaped.",
@@ -400,8 +400,8 @@ describe("once the Initiative is dropped", () => {
 
   it("refuses the title and Description of its Tasks, dropped with it, keeping them", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
-    await work.app.get(InitiativeService).confirm(initiative.id);
-    await work.app.get(InitiativeService).drop(initiative.id);
+    await work.app.get(InitiativeService).confirm(initiative.id, ANN_LEE);
+    await work.app.get(InitiativeService).drop(initiative.id, ANN_LEE);
 
     expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep it" })).toEqual({
       text: "A Task keeps its title once it has started.",

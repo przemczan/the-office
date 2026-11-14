@@ -11,9 +11,13 @@ import {
 } from "../pipelines-application.fixtures.js";
 import { aTaskRecord, PLANNED_COMMIT, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
 import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/resolve-stages.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
+import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { implement, publish, reviewedPublish, PULL_REQUEST } from "../publish-stage.fixtures.js";
+
+const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
 let pipelines: PipelinesApplication;
 
@@ -148,7 +152,7 @@ describe("A Publish Stage", () => {
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
     expect(pipelines.git.removedWorktrees).toEqual([]);
 
-    const after = await pipelines.app.get(GateService).continue(taskId);
+    const after = await pipelines.app.get(GateService).continue(taskId, ANN);
     await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
 
     expect(after?.stages.map(({ stage }) => stage.name)).toEqual([
@@ -218,7 +222,7 @@ describe("A Publish Stage", () => {
       "The Task's branch conflicts with main as it now is",
     );
 
-    await pipelines.app.get(GateService).continue(taskId);
+    await pipelines.app.get(GateService).continue(taskId, ANN);
     await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
 
     expect((await runsOf(pipelines, taskId)).at(-1)).toMatchObject({

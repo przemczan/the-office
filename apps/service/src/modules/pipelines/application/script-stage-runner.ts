@@ -127,7 +127,10 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     const moved = await this.stageGit.checkHead(run, task, expected);
     if (moved) return commandChangedGit(moved);
     const discarded = await this.stageGit.settleInterrupted(run, task, expected, stoppedBy);
-    return interruptedOutcome(stoppedBy, discarded, { cutShortBy: interruption.cutShortBy });
+    return interruptedOutcome(stoppedBy, discarded, {
+      cutShortBy: interruption.cutShortBy,
+      heldByUser: interruption.heldByUser,
+    });
   }
 }
 

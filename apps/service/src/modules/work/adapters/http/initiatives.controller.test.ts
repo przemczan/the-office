@@ -19,7 +19,6 @@ import {
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PipelineLibrary } from "../../../pipelines/index.js";
 import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
-import { THE_USER } from "../../domain/author.js";
 import { TaskService } from "../../application/task-service.js";
 import { FIRE_ALARM_ON } from "../../domain/fire-alarm.js";
 import { INITIATIVE_PAUSED } from "../../domain/initiative-pause.js";
@@ -44,6 +43,7 @@ import {
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
 import { blockedBy, MY_PLAN, tasksHttp } from "../../tasks.controller.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -158,7 +158,7 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
     expect((await work.app.get(TaskRepository).stateChangesOf(first.id)).at(-1)).toMatchObject({
       from: "shaping",
       to: "backlog",
-      by: THE_USER,
+      by: ANN_LEE,
     });
   });
 });

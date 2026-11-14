@@ -13,6 +13,7 @@ import { ProjectFilterMenu } from "./project-filter/project-filter-menu.tsx";
 import { useProjectFilter } from "./project-filter/use-project-filter.ts";
 import { TopBarSearch } from "./search/top-bar-search.tsx";
 import { CaptureIdeaDialog } from "./work/capture-idea-dialog.tsx";
+import { UserMenu } from "./user-menu.tsx";
 import { NewTaskDialog } from "./work/new-task-dialog.tsx";
 
 /** What Create in the top bar makes, each in its own dialog. */
@@ -20,8 +21,8 @@ type Creating = "task" | "idea";
 
 /**
  * The page's title with its crumb, the Project filter, the search, "Create", which adds a Task or
- * captures an Idea from any page, the fire alarm, and the Chat button at the end, above where the
- * drawer opens.
+ * captures an Idea from any page, the fire alarm, the user menu (Account, Sign out), and the Chat
+ * button at the end, above where the drawer opens.
  */
 export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNode {
   const [creating, setCreating] = useState<Creating>();
@@ -72,6 +73,7 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
         ]}
       />
       <AlarmButton />
+      <UserMenu />
       <ChatButton />
       {creating === "task" && (
         <NewTaskDialog projectId={startingProjectId} onClose={stopCreating} />

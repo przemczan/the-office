@@ -5,10 +5,10 @@ import { releaseQueue, startOrQueue, type QueuedTask } from "./queue.js";
 import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
 import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
-import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { ANN_LEE, aTask, BEN_ITO, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
-const NO_CHOICE = { now: NOW, onOverlap: undefined };
+const NO_CHOICE = { now: NOW, onOverlap: undefined, by: ANN_LEE };
 
 /** A Project limit high enough that only the tests about it reach it. */
 const ROOMY_PROJECT = { name: "Admin panel", projectLimit: 12 };
@@ -44,6 +44,7 @@ function queued(
     taskId,
     place,
     queuedAt: NOW,
+    queuedBy: ANN_LEE,
     reasons: reasonsOf(waits),
     shortReasons: shortReasonsOf(waits),
     behind,
@@ -67,10 +68,11 @@ describe("startOrQueue", () => {
       developer,
       { startedTasks: [], blockers: [], fireAlarmOn: false, initiativePaused: false },
       [],
-      NO_CHOICE,
+      { ...NO_CHOICE, by: BEN_ITO },
     );
 
     expect(starting.kind).toBe("started");
+    expect(starting.kind === "started" && starting.change.stateChange?.by).toEqual(BEN_ITO);
   });
 
   it("queues a Task only waits hold, last in the queue, and announces it", () => {
@@ -146,6 +148,7 @@ describe("releaseQueue", () => {
     );
 
     expect(release.started.map(({ task }) => task.id)).toEqual(["a"]);
+    expect(release.started[0]?.stateChange?.by).toEqual({ kind: "queue", queuedBy: ANN_LEE });
     expect(release.waiting).toEqual([queued("b", 2, [AT_TASK_LIMIT])]);
     expect(release.refused).toEqual([]);
   });

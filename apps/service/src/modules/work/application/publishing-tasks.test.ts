@@ -12,7 +12,6 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { THE_USER } from "../domain/author.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import { initiativesHttp, aProjectId } from "../initiatives.controller.fixtures.js";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
@@ -31,6 +30,7 @@ import {
 } from "../work-application.fixtures.js";
 import { InitiativeService } from "./initiative-service.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
+import { ANN_LEE } from "../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -227,7 +227,7 @@ describe("Publishing Tasks", () => {
     await initiatives.applyProposal(
       initiative.id,
       { kind: "pipeline", projectId, pipelineId: "full" },
-      THE_USER,
+      ANN_LEE,
     );
 
     expect((await taskOf(swapped)).pipelineId).toBe("full");
@@ -240,7 +240,7 @@ describe("Publishing Tasks", () => {
     await initiatives.applyProposal(
       initiative.id,
       { kind: "pipeline", projectId: otherProjectId, pipelineId: "full" },
-      THE_USER,
+      ANN_LEE,
     );
     expect((await taskOf(edited)).pipelineId).toBe("quick-fix");
 
@@ -252,7 +252,7 @@ describe("Publishing Tasks", () => {
       initiatives.applyProposal(
         initiative.id,
         { kind: "pipeline", projectId, pipelineId: "quick-fix" },
-        THE_USER,
+        ANN_LEE,
       ),
     ).rejects.toThrow(
       `The Initiative's Pipeline in The ${projectId} started in ${swapped.title}, so it can't change.`,
@@ -261,7 +261,7 @@ describe("Publishing Tasks", () => {
     await initiatives.applyProposal(
       initiative.id,
       { kind: "pipeline", projectId: otherProjectId, pipelineId: "quick-fix" },
-      THE_USER,
+      ANN_LEE,
     );
     expect((await read(initiative)).pipelines).toEqual([
       { projectId, pipelineId: "full" },
@@ -357,7 +357,7 @@ describe("Publishing Tasks", () => {
     await initiatives.applyProposal(
       initiative.id,
       { kind: "pipeline", projectId: otherProjectId, pipelineId: "full" },
-      THE_USER,
+      ANN_LEE,
     );
 
     const given = await read(initiative);
@@ -380,7 +380,7 @@ describe("Publishing Tasks", () => {
       initiatives.applyProposal(
         initiative.id,
         { kind: "pipeline", projectId: otherProjectId, pipelineId: "full" },
-        THE_USER,
+        ANN_LEE,
       ),
     ).rejects.toThrow(reason);
 

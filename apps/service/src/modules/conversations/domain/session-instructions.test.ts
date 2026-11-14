@@ -25,6 +25,7 @@ import {
   workThreadInstructions,
   WRITING_FOR_THE_USER_RULE,
 } from "./session-instructions.js";
+import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "./user.fixtures.js";
 
 describe("the Office instructions in a session's standing instructions", () => {
   const card = {
@@ -134,11 +135,11 @@ describe("answer_decision", () => {
 describe("the message an answered Decision is sent with", () => {
   const decision = aDecision();
   const option = { kind: "option", option: 1 } as const;
-  const atUsersRequest = { roleKey: "cto", threadId: "chat", name: "Ada" } as const;
+  const atUsersRequest = { roleKey: "cto", threadId: "chat", name: "Ada", user: ANN_LEE } as const;
 
   it("names who answered: the user, the Consultant, or a person at the user's request", () => {
-    expect(decisionAnswerMessage(decision, option)).toBe(
-      `The user answered your Decision "${decision.question}" with the option "Every Project".`,
+    expect(decisionAnswerMessage(decision, option, ANSWERED_BY_ANN_LEE)).toBe(
+      `The user Ann Lee answered your Decision "${decision.question}" with the option "Every Project".`,
     );
     expect(
       decisionAnswerMessage(decision, option, { kind: "consultant", roleKey: "cto", name: "Ada" }),
@@ -150,7 +151,7 @@ describe("the message an answered Decision is sent with", () => {
         { kind: "at-users-request", ...atUsersRequest },
       ),
     ).toBe(
-      `Ada answered your Decision "${decision.question}" for the user, at their request, in their own words:\n\nActive ones.`,
+      `Ada answered your Decision "${decision.question}" for the user Ann Lee, at their request, in their own words:\n\nActive ones.`,
     );
   });
 
@@ -165,7 +166,7 @@ describe("the message an answered Decision is sent with", () => {
         },
       ]),
     ).toBe(
-      `On the Task "Export" (${decision.taskId}): Ada answered your Decision "${decision.question}" for the user, at their request, with the option "Every Project".`,
+      `On the Task "Export" (${decision.taskId}): Ada answered your Decision "${decision.question}" for the user Ann Lee, at their request, with the option "Every Project".`,
     );
   });
 });

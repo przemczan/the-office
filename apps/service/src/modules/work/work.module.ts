@@ -53,6 +53,7 @@ import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initi
 import { PostgresSavedViewRepository } from "./adapters/postgres/postgres-saved-view-repository.js";
 import { PostgresQueueRepository } from "./adapters/postgres/postgres-queue-repository.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
+import { WorkEarlierRecords } from "./adapters/postgres/work-earlier-records.js";
 import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
@@ -289,6 +290,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         ProjectProposals,
         FireAlarmForThreads,
         ProjectsTaskBaseRegistration,
+        WorkEarlierRecords,
       ],
       exports: [
         FireAlarmService,

@@ -14,6 +14,7 @@ import {
 import { RoleSkillsChanged } from "../domain/skill-events.js";
 import { SkillNotFound } from "../domain/skill-not-found.js";
 import { SkillRefused } from "../domain/skill-refused.js";
+import type { UserRef } from "../domain/user.js";
 import { RoleSkillRepository } from "../ports/role-skill-repository.js";
 import { SkillRepository } from "../ports/skill-repository.js";
 
@@ -52,21 +53,34 @@ export class RoleSkills {
     return assignedSkillsProblems(skillNames, await this.skills.list());
   }
 
-  /** Gives the Role exactly these skills; refuses with every reason for one the library lacks. */
-  async assignToRole(roleKey: string, skillNames: readonly string[]): Promise<string[]> {
+  /**
+   * Gives the Role exactly these skills, as the user `changedBy` did, or nobody named; refuses with
+   * every reason for one the library lacks.
+   */
+  async assignToRole(
+    roleKey: string,
+    skillNames: readonly string[],
+    changedBy: UserRef | null,
+  ): Promise<string[]> {
     const problems = await this.problemsWith(skillNames);
     if (problems.length > 0) throw new SkillRefused(problems);
-    const { assignments } = await this.update((current) =>
-      withRoleSkills(current, roleKey, skillNames),
+    const { assignments } = await this.update(
+      (current) => withRoleSkills(current, roleKey, skillNames),
+      changedBy,
     );
     return skillsOfRole(assignments, roleKey);
   }
 
-  /** Gives the skill to exactly these Roles. */
-  async assignSkill(skillName: string, roleKeys: readonly string[]): Promise<string[]> {
+  /** Gives the skill to exactly these Roles, as the user `changedBy` did. */
+  async assignSkill(
+    skillName: string,
+    roleKeys: readonly string[],
+    changedBy: UserRef,
+  ): Promise<string[]> {
     if (!(await this.skills.find(skillName))) throw new SkillNotFound(skillName);
-    const { assignments } = await this.update((current) =>
-      withSkillRoles(current, skillName, roleKeys),
+    const { assignments } = await this.update(
+      (current) => withSkillRoles(current, skillName, roleKeys),
+      changedBy,
     );
     return rolesOfSkill(assignments, skillName);
   }
@@ -78,10 +92,11 @@ export class RoleSkills {
 
   private async update(
     next: (current: readonly RoleSkillAssignment[]) => readonly RoleSkillAssignment[],
+    changedBy: UserRef | null,
   ): Promise<AssignmentsChange> {
     const changedAt = new Date();
     const changed = await this.repository.update((current) =>
-      assignmentsChange(current, next(current), changedAt),
+      assignmentsChange(current, next(current), changedAt, changedBy),
     );
     for (const change of changed.changes) await this.events.publish(new RoleSkillsChanged(change));
     return changed;

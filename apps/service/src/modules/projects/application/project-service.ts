@@ -2,6 +2,7 @@ import { isAbsolute, resolve } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
 import { EngineReferenceLock, type EngineModel } from "../../engine/index.js";
 import {
   projectIdFor,
@@ -61,6 +62,12 @@ import { RunEnvironmentSetUpRegistry } from "./run-environment-set-up-registry.j
  * The Projects use cases. Each change is saved first and its event published after, so nothing
  * hears of a change that wasn't kept.
  */
+/** The user's answer to the run environment question as they added a Project. */
+export interface RunEnvironmentAnswered {
+  readonly answer: RunEnvironmentAnswer;
+  readonly by: SignedInUser;
+}
+
 @Injectable()
 export class ProjectService {
   private readonly logger = new Logger(ProjectService.name);
@@ -80,10 +87,7 @@ export class ProjectService {
    * environment question is applied once the Project is added: a Project to onboard is added with
    * none, so it is asked at its first Start.
    */
-  async add(
-    given: NewProject,
-    runEnvironmentAnswer: RunEnvironmentAnswer = "decide-later",
-  ): Promise<Project> {
+  async add(given: NewProject, answered?: RunEnvironmentAnswered): Promise<Project> {
     const newProject = withResolvedPath(trimmedNewProject(given));
     await this.checks.checkNewProject(newProject);
     await this.trackBaseBranchOfClone(newProject);
@@ -95,7 +99,7 @@ export class ProjectService {
     );
     await this.repository.add(project);
     await this.events.publish(event);
-    return this.answerRunEnvironment(project, runEnvironmentAnswer);
+    return answered ? this.answerRunEnvironment(project, answered) : project;
   }
 
   /**
@@ -104,12 +108,12 @@ export class ProjectService {
    */
   private async answerRunEnvironment(
     project: Project,
-    answer: RunEnvironmentAnswer,
+    { answer, by }: RunEnvironmentAnswered,
   ): Promise<Project> {
     try {
       if (answer === "no") return await this.changeRunEnvironment(project.id, "off", []);
       if (answer === "yes") {
-        await this.runEnvironmentSetUp.setUp(project.id);
+        await this.runEnvironmentSetUp.setUp(project.id, by);
         return await this.read(project.id);
       }
     } catch (error) {

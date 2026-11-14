@@ -1,4 +1,5 @@
 import type { OfficeInstructionsVersion } from "../domain/office-instructions.js";
+import type { UserRef } from "../domain/user.js";
 
 /** Every version of the Office instructions, kept for the sessions that started with it. */
 export abstract class OfficeInstructionsRepository {
@@ -8,11 +9,13 @@ export abstract class OfficeInstructionsRepository {
   abstract version(version: number): Promise<OfficeInstructionsVersion | undefined>;
 
   /**
-   * Saves the version `change` makes of the current one, with no other save between the two, and
-   * answers it; `change` returning undefined saves nothing and answers the current one.
+   * Saves the version `change` makes of the current one, with no other save between the two, as
+   * saved by the user `savedBy`, and answers it; `change` returning undefined saves nothing and
+   * answers the current one.
    */
   abstract update(
     change: (current: OfficeInstructionsVersion) => OfficeInstructionsVersion | undefined,
     savedAt: Date,
+    savedBy: UserRef,
   ): Promise<OfficeInstructionsVersion>;
 }

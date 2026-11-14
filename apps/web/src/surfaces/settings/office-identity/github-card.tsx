@@ -14,6 +14,8 @@ import {
   signOutOfGitHub,
   startGitHubSignIn,
 } from "../../../api/github.ts";
+import { linkedIdentityQueries } from "../../../api/linked-identities.ts";
+import { useCopyText } from "../../../shell/copy-text.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 
@@ -90,6 +92,7 @@ function GitHubStateView({ state }: { readonly state: GitHubState }): ReactNode 
               Install the App on repositories
             </InstallLink>
           </div>
+          <ContinueWithGitHubSetup app={state.app} />
         </>
       );
     case "signed-in":
@@ -109,6 +112,7 @@ function GitHubStateView({ state }: { readonly state: GitHubState }): ReactNode 
           <InstallLink installUrl={state.app.installUrl}>
             Install the App on more repositories
           </InstallLink>
+          <ContinueWithGitHubSetup app={state.app} />
         </>
       );
   }
@@ -199,6 +203,69 @@ function SignOutButton(): ReactNode {
       </Button>
       {signingOut.error && <RefusalAlert title="You weren't signed out" error={signingOut.error} />}
     </>
+  );
+}
+
+type RegisteredApp = Extract<GitHubState, { readonly app: unknown }>["app"];
+
+/**
+ * What users' Continue with GitHub needs of the App: GitHub sends the browser back only to a
+ * callback URL the App lists, so the URLs to add for this address and the public address; the App
+ * is private, so only its owner can sign in with it until it is made public; and the git
+ * identity's account must keep its authorization of the App.
+ */
+function ContinueWithGitHubSetup({ app }: { readonly app: RegisteredApp }): ReactNode {
+  const urls = useQuery(linkedIdentityQueries.callbackUrls("github"));
+  const callbackUrls = urls.data && [
+    ...new Set([urls.data.thisAddress, urls.data.publicAddress].filter((url) => url !== null)),
+  ];
+  return (
+    <section className="office-identity-continue" aria-label="Continue with GitHub">
+      <h3 className="office-identity-subtitle">Continue with GitHub</h3>
+      <p className="settings-note">
+        Users sign in to The Office with their linked GitHub account through this App. GitHub sends
+        them back only to a callback URL the App lists: in the App&apos;s settings on GitHub, under
+        General › Identifying and authorizing users, add each of these with Add Callback URL. An App
+        lists at most 10.
+      </p>
+      {callbackUrls && (
+        <ul className="office-identity-callbacks">
+          {callbackUrls.map((url) => (
+            <CallbackUrl key={url} url={url} />
+          ))}
+        </ul>
+      )}
+      <SettingsProblem title="The callback URLs can't be read" error={urls.error} />
+      <Alert tone="info" title="Only the App's owner can continue with GitHub until it is public">
+        The App is private, so GitHub lets only {app.owner} (or the members of that organization)
+        authorize it. For others to continue with GitHub, make it public in the App&apos;s settings
+        on GitHub, under Advanced › Make public. The Office kept none of the App&apos;s private key,
+        and signs in only GitHub accounts linked to its users.
+      </Alert>
+      <Alert tone="warning" title="Keep the App authorized on the git identity's account">
+        Don&apos;t revoke the App&apos;s authorization on GitHub from the account Sign in with
+        GitHub uses (Settings › Applications › Authorized GitHub Apps): that ends its token, and The
+        Office&apos;s git signs out.
+      </Alert>
+    </section>
+  );
+}
+
+function CallbackUrl({ url }: { readonly url: string }): ReactNode {
+  const copyText = useCopyText();
+  return (
+    <li className="office-identity-callback">
+      <code>{url}</code>
+      <Button
+        variant="secondary"
+        size="sm"
+        iconLeft={<Icon name="copy" size={14} />}
+        aria-label={`Copy ${url}`}
+        onClick={() => copyText(url)}
+      >
+        Copy
+      </Button>
+    </li>
   );
 }
 

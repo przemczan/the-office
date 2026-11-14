@@ -16,6 +16,11 @@ export interface OfficeConfig {
    * (docs/running-the-office.md); absent when the service runs without it, as under `npm run dev`.
    */
   readonly officeUpdateFolder?: string;
+  /**
+   * The public address, as an origin (`https://office.example.com`), at which The Office is reached
+   * through the user's reverse proxy (spec §5.1 Defaults); absent when it has none.
+   */
+  readonly publicAddress?: string;
 }
 
 /** Values that depend on the operating system, supplied by the platform layer. */
@@ -29,8 +34,25 @@ const REQUIRED = "is required";
 const PORT_RANGE = "must be a port number from 1 to 65535";
 const HOST_ADDRESS = "must be an IP address, such as 127.0.0.1 or 0.0.0.0";
 const WEB_ADDRESS = "must be an http:// or https:// URL";
+const PUBLIC_ADDRESS =
+  "must be an https:// address with no path, such as https://office.example.com";
 // Loopback unless the user opens The Office to the LAN (spec §5.1).
 const DEFAULT_HOST = "127.0.0.1";
+
+/** An https:// origin alone, a trailing slash allowed: no user, path, query or fragment. */
+function isHttpsOrigin(value: string): boolean {
+  const url = URL.parse(value);
+  return (
+    url !== null &&
+    url.protocol === "https:" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.pathname === "/" &&
+    url.search === "" &&
+    url.hash === "" &&
+    !/[?#]$/.test(value)
+  );
+}
 
 // An env file copied with a value left blank yields "", which means "not set", not "invalid".
 function blankAsUnset(value: unknown): unknown {
@@ -74,6 +96,14 @@ const environmentSchema = z.object({
     blankAsUnset,
     z.url({ protocol: /^https?$/, error: WEB_ADDRESS }).default(GITHUB_SITE.apiUrl),
   ),
+  OFFICE_PUBLIC_ADDRESS: z.preprocess(
+    blankAsUnset,
+    z
+      .string()
+      .refine(isHttpsOrigin, PUBLIC_ADDRESS)
+      .transform((address) => new URL(address).origin)
+      .optional(),
+  ),
 });
 
 /**
@@ -97,7 +127,21 @@ export function readOfficeConfig(
     ...(result.data.OFFICE_UPDATE_FOLDER && {
       officeUpdateFolder: result.data.OFFICE_UPDATE_FOLDER,
     }),
+    ...(result.data.OFFICE_PUBLIC_ADDRESS && { publicAddress: result.data.OFFICE_PUBLIC_ADDRESS }),
   };
+}
+
+/**
+ * Reads only DATABASE_URL, for a host command such as `npm run set-password` that needs the
+ * database and nothing the service listens with.
+ * Throws InvalidOfficeConfigError when it is missing or invalid.
+ */
+export function readDatabaseUrl(environment: EnvironmentVariables): string {
+  const result = environmentSchema.pick({ DATABASE_URL: true }).safeParse(environment);
+  if (!result.success) {
+    throw new InvalidOfficeConfigError(result.error.issues.map(toConfigProblem));
+  }
+  return result.data.DATABASE_URL;
 }
 
 /** Set in `.env` beside The Office's own config: the compose stack's and telemetry's. */

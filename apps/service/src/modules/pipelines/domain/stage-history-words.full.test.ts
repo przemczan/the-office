@@ -163,6 +163,26 @@ describe("stageHistoryWords", () => {
     expect(words).toContain("Outcome: none yet, as the run is still going on.");
   });
 
+  it("names the user who paused or stopped a run", () => {
+    const user = { userId: "00000000-0000-4000-8000-0000000005e1", name: "Ann Lee" };
+    const words = stageHistoryWords(
+      stages,
+      [
+        aStageRun({
+          outcome: { status: "failed", error: "Paused.", interrupted: "pause", heldByUser: user },
+        }),
+        aStageRun({
+          number: 2,
+          outcome: { status: "failed", error: "Stopped.", interrupted: "stop", heldByUser: user },
+        }),
+      ],
+      NO_THREADS,
+    );
+
+    expect(words).toContain("Outcome: failed (paused by the user Ann Lee).");
+    expect(words).toContain("Outcome: failed (stopped by the user Ann Lee).");
+  });
+
   it("names a test run's moved files by their worktree paths alone, never the folder they went to", () => {
     const folder = "/var/lib/the-office/test-output/task/1";
     const words = stageHistoryWords(

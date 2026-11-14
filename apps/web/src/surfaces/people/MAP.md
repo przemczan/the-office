@@ -38,4 +38,4 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `role-mcp-servers.ts`: assignedMcpServersOf, mcpServerAssignments, sessionToolsOf, mcpToolSettingOf, withMcpToolSetting, withoutServerToolSettings
 - `session-skills.ts`: sessionSkillsOf
 - `work-tab.tsx`: WorkTab
-- Tests: memory-groups.full.test.ts, people-order.full.test.ts, person-tasks.full.test.ts, role-mcp-servers.full.test.ts
+- Tests: memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, person-tasks.full.test.ts, role-mcp-servers.full.test.ts

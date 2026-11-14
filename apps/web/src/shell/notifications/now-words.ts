@@ -1,5 +1,5 @@
 import type { BadgeProps } from "@the-office/ui";
-import type { CurrentStage, Engine, Now, TaskOutcome } from "@the-office/contracts";
+import type { CurrentStage, Engine, Now, SinceYouLeft, TaskOutcome } from "@the-office/contracts";
 import type { CardEdge } from "../item-card.tsx";
 import { clockOf, durationWords, momentWords } from "../time.ts";
 
@@ -55,8 +55,8 @@ export function resetMomentWords(
 }
 
 /** How many of the outcomes since the user left are Done. */
-export function doneSinceYouLeft({ sinceYouLeft }: Pick<Now, "sinceYouLeft">): number {
-  return sinceYouLeft.filter(({ outcome }) => outcome === "done").length;
+export function doneSinceYouLeft({ finished }: Pick<SinceYouLeft, "finished">): number {
+  return finished.filter(({ outcome }) => outcome === "done").length;
 }
 
 export type UsageWindows = Now["usageWindows"][number];
