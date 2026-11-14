@@ -18,6 +18,7 @@ import {
   decisionAnswersOnTasksMessage,
   PERSON_READING_OFFICE_TOOLS,
   PROPOSE_OFFICE_SETTING_TOOL,
+  PROPOSE_OFFICE_SETUP_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
@@ -98,6 +99,32 @@ describe("the Office instructions in a session's standing instructions", () => {
   });
 });
 
+describe("the Caretaker's chat instructions", () => {
+  const person = {
+    card: {
+      name: "Cara",
+      title: "Caretaker",
+      responsibilities: "Looks after the workstation.",
+      instructions: "Diagnose first.",
+    },
+    officeInstructions: "",
+  };
+
+  it("offer setting The Office up while nobody is hired, the same whether changes are allowed or not", () => {
+    const reading = caretakerChatInstructions(person, false);
+    const changing = caretakerChatInstructions(person, true);
+    const setUp = /Setting up The Office:[^\n]*/.exec(reading)?.[0];
+
+    expect(setUp).toContain(
+      "when list_people shows nobody hired but you, offer to set The Office up",
+    );
+    expect(setUp).toContain("Ask what the user works on");
+    expect(setUp).toContain(PROPOSE_OFFICE_SETUP_TOOL);
+    expect(setUp).toContain("assign a duty only to give it to a Role other than its preset's");
+    expect(changing).toContain(setUp);
+  });
+});
+
 describe("chatOfficeTools", () => {
   it("gives the Office Manager drafting Roles and Office settings as Proposals, never changing one", () => {
     const tools = chatOfficeTools(OFFICE_MANAGER);
@@ -109,6 +136,19 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_ROLE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
+  });
+
+  it("gives the Caretaker drafting the set-up of The Office, and no other Proposal of a Role", () => {
+    const tools = chatOfficeTools(CARETAKER);
+
+    expect(tools).toContain(PROPOSE_OFFICE_SETUP_TOOL);
+    expect(tools).toContain(CONSULT_TOOL);
+    expect(tools).not.toContain(PROPOSE_ROLE_TOOL);
+    expect(tools).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
+    expect(tools).not.toContain(CHANGE_ROLE_TOOL);
+    for (const roleKey of ["planner", DEVOPS, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(roleKey)).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
+    }
   });
 
   it("gives every chat and every Consultation reading the Threads, which no Agent Stage reads with", () => {

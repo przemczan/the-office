@@ -78,6 +78,7 @@ import {
   ProposedStageChanges,
   ProposedStageFieldChanges,
 } from "./devops-proposal-changes.tsx";
+import { officeSetupApplyLabel, ProposedOfficeSetup } from "./office-setup-changes.tsx";
 import "./conversation.css";
 
 type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
@@ -121,7 +122,8 @@ const OFFICE_LIMITS: Record<
  * A Proposal as a card in the drafting person's chat (spec §2.4): a new Role to hire, from scratch
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
- * an Initiative, or Devops' change to a Project's commands, a library Pipeline's Stages, a Project
+ * an Initiative, the Caretaker's set-up of The Office (hires and duties together), or Devops'
+ * change to a Project's commands, a library Pipeline's Stages, a Project
  * Pipeline (new or changed) or a Stage template's Stage, a Project to onboard, a skill to install from a Source or its update, or a
  * written skill drafted in a chat. Nothing changes until the user applies it; "Not now" declines it.
  */
@@ -190,6 +192,19 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             changes={[dutyQueries.list().queryKey]}
             appliedToast="Duties changed."
             openNote={`Applies to what starts after it. ${STALE_NOTE}`}
+          />
+        </ProposalFrame>
+      );
+    case "office-setup":
+      return (
+        <ProposalFrame title="Set up The Office">
+          <ProposedOfficeSetup change={change} presets={presets} roles={roles} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[roleQueries.list().queryKey, dutyQueries.list().queryKey]}
+            appliedToast="The Office is set up."
+            openNote="Hires everyone and assigns the duties together, or nothing"
+            applyLabel={officeSetupApplyLabel(change)}
           />
         </ProposalFrame>
       );

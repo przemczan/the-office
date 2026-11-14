@@ -15,7 +15,7 @@ import { Duties } from "../../application/duties.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import type { RoleHistoryEntry } from "../../application/role-history.js";
 import { RoleService } from "../../application/role-service.js";
-import type { Preset } from "../../domain/presets.js";
+import { dutiesSuitedTo, type Preset } from "../../domain/presets.js";
 import type { UserRef } from "../../domain/user.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
 import { roleResponseContext, toRoleResponse, type RoleResponseContext } from "./role-responses.js";
@@ -113,7 +113,12 @@ function cardAndSkills({ skills, ...card }: RoleCard): [Omit<RoleCard, "skills">
 }
 
 function toPresetResponse(preset: Preset): PresetResponse {
-  return { roleKey: preset.roleKey, suggestedName: preset.suggestedName, card: preset.card };
+  return {
+    roleKey: preset.roleKey,
+    suggestedName: preset.suggestedName,
+    card: preset.card,
+    duties: dutiesSuitedTo(preset),
+  };
 }
 
 function toChangeResponse(entry: RoleHistoryEntry): RoleChangeResponse {

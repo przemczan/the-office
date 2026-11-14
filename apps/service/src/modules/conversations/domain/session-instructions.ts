@@ -1,5 +1,5 @@
 import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
-import { CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
+import { CARETAKER, CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Answerer, type Decision, type DecisionAnswer } from "./decision.js";
 import { sameUser, userWords, userWordsOpening, type UserRef } from "./user.js";
 
@@ -54,6 +54,19 @@ export const ALLOW_CHANGES_ADVICE =
   "Say what you would change and why, and ask the user to Allow changes in this Thread.";
 
 /**
+ * The Office tool the Caretaker drafts the set-up of The Office with: its hires and duties as one
+ * Proposal (spec §2.2); the contracts name it too, for the web to hide its activity line, and a
+ * test keeps the two the same.
+ */
+export const PROPOSE_OFFICE_SETUP_TOOL = "propose_office_setup";
+
+/**
+ * How the Caretaker sets up The Office (spec §2.2, "Setting up an Office with nobody hired"). The
+ * same whether changes are allowed or not, so the cached prefix stays.
+ */
+const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows nobody hired but you, offer to set The Office up. Ask what the user works on, then recommend whom to hire: presets, saying the duties and capabilities each brings, or Roles from scratch for what no preset covers. Draft them with ${PROPOSE_OFFICE_SETUP_TOOL}, as one Proposal the user applies with a click. A hired preset holds its own duties with no assignment: assign a duty only to give it to a Role other than its preset's, such as a Role from scratch. You may draft a set-up at any time the user asks, and you never hire anyone or change a duty yourself.`;
+
+/**
  * The standing instructions of the Caretaker's chat (spec §2.4): it reads as any chat does until
  * the user allows changes in the Thread; then it reaches the whole workstation but secrets.
  */
@@ -63,6 +76,7 @@ export function caretakerChatInstructions(person: SessionPerson, changesAllowed:
     changesAllowed
       ? "The user allowed changes in this Thread: you work in their home folder, and you may read and edit any file and run any command on the workstation, The Office's data folder and every git command included. Their secrets stay refused: SSH keys, the Claude, GitHub CLI and AWS credentials, browser profiles, the Office identity and the database credentials. Say what you are about to change before you change it, and prefer what can be undone. The engine's own Edit and Write may still refuse .git, .claude and .mcp.json: change those with a command."
       : `This Thread only reads until the user allows changes: you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and read The Office's records with its tools. Diagnose first; to change a file or run a command that changes something, ${lowerFirst(ALLOW_CHANGES_ADVICE)}`,
+    OFFICE_SETUP_RULE,
     CALLING_RULE,
   ].join("\n\n");
 }
@@ -265,7 +279,7 @@ export const CREATE_INITIATIVE_TOOL = "create_initiative";
  * user to whoever is responsible with a Link card, and shows the Office status (ticket 06); they
  * redirect with a Link card and never relay, so they call no one. Anyone else calls a person when
  * the user asks (spec §2.2) and has their Role's own tools besides: the CTO creates an Initiative
- * too, in their chat only.
+ * too, in their chat only, and the Caretaker drafts the set-up of The Office, but no other Role.
  */
 export function chatOfficeTools(roleKey: string): readonly string[] {
   return roleKey === OFFICE_MANAGER
@@ -282,6 +296,7 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
         ...CHAT_OFFICE_TOOLS,
         ...draftingOfficeTools(roleKey),
         ...(roleKey === CTO ? [CREATE_INITIATIVE_TOOL] : []),
+        ...(roleKey === CARETAKER ? [PROPOSE_OFFICE_SETUP_TOOL] : []),
         CONSULT_TOOL,
       ];
 }

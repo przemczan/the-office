@@ -18,6 +18,7 @@ import {
   type HardSwitchValue,
 } from "../domain/hard-switches.js";
 import { mcpToolDefault } from "../domain/duties.js";
+import type { SetUpHire } from "../domain/office-setup.js";
 import {
   consultableRoleKeys,
   PRESETS,
@@ -230,6 +231,21 @@ export class RoleService {
     return refusingAlso(problems, () =>
       hireFromScratch(roleKey, card, context, filledBy, hiredAt, savedBy, proposedBy),
     );
+  }
+
+  /**
+   * The Role `setUpHire` would add, from a preset or from scratch, judged as hiring it alone is; saves
+   * nothing, and throws RoleRefused with every reason. An Office set-up keeps several together.
+   */
+  hiring(
+    setUpHire: SetUpHire,
+    hiredAt: Date,
+    savedBy: UserRef | null,
+    proposedBy?: string,
+  ): Promise<RoleChange<RoleHired>> {
+    return setUpHire.kind === "hire-from-preset"
+      ? this.hiringFromPreset(setUpHire.roleKey, setUpHire.name, hiredAt, savedBy, proposedBy)
+      : this.hiringFromScratch(setUpHire.card, setUpHire.skills, hiredAt, savedBy, proposedBy);
   }
 
   presets(): readonly Preset[] {

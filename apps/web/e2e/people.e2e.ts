@@ -197,13 +197,89 @@ function imageIdOf(address: string): string {
   return address.split("/").at(-2) ?? "";
 }
 
-test("the user hires the Planner, a Developer, a Reviewer, the CTO and the Office Manager from the presets", async ({
+test("on a fresh Office, People shows what to hire and the Caretaker's set-up hires the Planner and a Developer", async ({
   page,
 }) => {
-  await hireFromPreset(page, "Planner", "Jan");
-  await expect(page).toHaveURL(/\/people\/planner$/);
-  await hireFromPreset(page, "Developer", "Ada");
+  // Only the Caretaker is there: People says which preset brings which duties and how to fill them.
+  await page.goto("/people");
+  await expect(page.getByText("1 person")).toBeVisible();
+  const hint = page.getByRole("region", { name: "Nobody is hired yet" });
+  const lines = hint.getByRole("listitem");
+  await expect(lines).toHaveCount(6);
+  await expect(lines.nth(0)).toContainText("Planner");
+  await expect(lines.nth(0)).toContainText("Plans");
+  await expect(lines.nth(0)).toContainText("Up to 2 Tasks");
+  await expect(lines.nth(3)).toContainText(
+    "Shapes Initiatives, Asked first when a Stage runs out of tries",
+  );
+  await expect(lines.nth(5)).toContainText("Default person to talk to");
+  await expect(lines.nth(5)).toContainText("Talks only");
+  await expect(hint).toContainText(
+    "While nobody holds a duty, you do it yourself, except Default person to talk to, which goes to Sam",
+  );
+  await screenshotScenario(page, "people-office-setup", { fullPage: true });
+
+  // The Hire dialog says the duties each preset suits.
+  await hint.getByRole("button", { name: "Hire a Role" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Suits: Plans.");
+  await expect(dialog).toContainText(
+    "Suits: Onboards and repairs Projects, Default Consultant for MCP tool hard switches.",
+  );
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+
+  // Setting up with Sam opens a new Thread in their chat with a draft; nothing is sent, so no session opens.
+  await hint.getByRole("button", { name: "Set up The Office with Sam" }).click();
+  const sam = chatWith(page, "Sam");
+  await expect(sam.getByRole("textbox", { name: "Message" })).toHaveValue(
+    "Help me set up The Office. I work on ",
+  );
+  const threadId = await chatThreadShown(page);
+  expect(threadId).not.toBe("");
+
+  // Sam's set-up, as their session would draft it, hires Jan and Ada, who hold their presets' duties.
+  await seedProposal(
+    threadId,
+    {
+      kind: "office-setup",
+      hires: [
+        { kind: "hire-from-preset", roleKey: "planner", name: "Jan" },
+        { kind: "hire-from-preset", roleKey: "developer", name: "Ada" },
+      ],
+      duties: [],
+    },
+    "caretaker",
+  );
+  await page.goto(`/people?chat=caretaker&thread=${threadId}`);
+  const setUp = sam.getByRole("region", { name: "Proposal: Set up The Office" });
+  await expect(setUp).toContainText("Jan · Planner");
+  await expect(setUp).toContainText("Ada · Developer");
+  await expect(setUp).toContainText("from the preset");
+  await expect(setUp.getByRole("row", { name: /^Plans/ })).toContainText("Jan · Planner");
+  await expect(setUp.getByRole("row", { name: /^Implements/ })).toContainText("Ada · Developer");
+  await screenshotScenario(page, "office-setup-proposal-card");
+  await setUp.getByRole("button", { name: "Hire 2 and assign duties" }).click();
+  await expect(setUp).toContainText("Applied");
+  await expect(setUp.getByRole("link", { name: "Jan · Planner" })).toBeVisible();
+
+  await page.goto("/people");
+  await expect(page.getByText("3 people")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Nobody is hired yet" })).toHaveCount(0);
+  for (const [name, duty] of [
+    ["Jan", "Plans"],
+    ["Ada", "Implements"],
+  ] as const) {
+    const tile = page.locator(".person-card").filter({ has: page.getByRole("heading", { name }) });
+    await expect(tile.getByLabel(`1 duty: ${duty}`)).toBeVisible();
+  }
+});
+
+test("the user hires a Reviewer, the CTO and the Office Manager from the presets", async ({
+  page,
+}) => {
   await hireFromPreset(page, "Reviewer", "Ola");
+  await expect(page).toHaveURL(/\/people\/reviewer$/);
   await hireFromPreset(page, "CTO", "Bob");
   await hireFromPreset(page, "Office Manager", "Marta");
 

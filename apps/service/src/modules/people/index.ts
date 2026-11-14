@@ -3,6 +3,9 @@ export { RoleService } from "./application/role-service.js";
 export { PersonRecords } from "./application/person-records.js";
 export { Duties, type DutyChange, type DutyWithHolder } from "./application/duties.js";
 export { DutyRefused } from "./domain/duty-refused.js";
+export { OfficeSetup } from "./application/office-setup.js";
+export { hiredKeyOf, type SetUpDuty, type SetUpHire } from "./domain/office-setup.js";
+export { dutiesSuitedTo } from "./domain/presets.js";
 export {
   DutyChangeChecks,
   type DutyChangeCheck,

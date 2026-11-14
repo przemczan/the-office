@@ -1,11 +1,12 @@
 import {
   PROPOSE_OFFICE_SETTING_TOOL as CONTRACT_PROPOSE_OFFICE_SETTING_TOOL,
+  PROPOSE_OFFICE_SETUP_TOOL as CONTRACT_PROPOSE_OFFICE_SETUP_TOOL,
   PROPOSE_ROLE_TOOL as CONTRACT_PROPOSE_ROLE_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { RoleNotFound, type RoleService } from "../../../people/index.js";
+import { RoleNotFound, type Duties, type RoleService } from "../../../people/index.js";
 import type { OfficeInstructions } from "../../application/office-instructions.js";
 import type { ProposalService } from "../../application/proposal-service.js";
 import type { ProposedChange, ProposedSettingValue } from "../../domain/proposal.js";
@@ -13,6 +14,7 @@ import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import { ProposalRefused } from "../../domain/proposal-refused.js";
 import {
   PROPOSE_OFFICE_SETTING_TOOL,
+  PROPOSE_OFFICE_SETUP_TOOL,
   PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
 } from "../../domain/session-instructions.js";
@@ -47,8 +49,16 @@ function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL, instructionsNo
   const officeInstructions = {
     current: () => Promise.resolve({ version: 2, text: instructionsNow }),
   } as unknown as OfficeInstructions;
+  // As on a fresh Office: every duty at its default Role key, Implements set to another Role.
+  const duties = {
+    list: () =>
+      Promise.resolve([
+        { duty: "plans", roleKey: "planner" },
+        { duty: "implements", roleKey: "lead" },
+      ]),
+  } as unknown as Duties;
   const registry = new OfficeToolRegistry();
-  new ProposalOfficeTools(registry, proposals, roles, officeInstructions).onModuleInit();
+  new ProposalOfficeTools(registry, proposals, roles, officeInstructions, duties).onModuleInit();
   const [tool] = registry.named([name]);
   if (!tool) throw new Error(`${name} is not registered.`);
   return { tool, drafted };
@@ -313,6 +323,85 @@ describe("the propose_office_setting tool", () => {
 
     await expect(tool.run({ setting: "office-wide-limit", value: 3 }, session)).resolves.toEqual({
       text: "The Office-wide limit is 3 already.",
+      isError: true,
+    });
+  });
+});
+
+describe("the propose_office_setup tool", () => {
+  it("is named as the contracts name it", () => {
+    expect(PROPOSE_OFFICE_SETUP_TOOL).toBe(CONTRACT_PROPOSE_OFFICE_SETUP_TOOL);
+  });
+
+  it("names each preset with its title and duties, and each duty with its label", () => {
+    const { tool } = toolDrafting(undefined, PROPOSE_OFFICE_SETUP_TOOL);
+
+    expect(tool.description).toContain("developer (Developer; implements)");
+    expect(tool.description).toContain("planner (Planner; plans)");
+    expect(tool.description).toContain("reviews (Reviews)");
+  });
+
+  it("drafts the hires and the duties, each duty from the Role it names now", async () => {
+    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETUP_TOOL);
+
+    const result = await tool.run(
+      {
+        hires: [
+          { preset: " planner ", name: "Jan" },
+          { card: aProposedCard({ name: "Max", title: "Builder" }), skills: ["playwright"] },
+        ],
+        duties: [{ duty: " implements ", holder: " builder " }],
+      },
+      session,
+    );
+
+    expect(result.isError).toBe(false);
+    expect(drafted).toEqual([
+      {
+        kind: "office-setup",
+        hires: [
+          { kind: "hire-from-preset", roleKey: "planner", name: "Jan" },
+          {
+            kind: "hire",
+            card: { ...aProposedCard({ name: "Max", title: "Builder" }), roleOverride: null },
+            skills: ["playwright"],
+          },
+        ],
+        duties: [{ duty: "implements", from: "lead", to: "builder" }],
+        hiredKeys: undefined,
+      },
+    ]);
+  });
+
+  it("refuses a hire or a duty given wrong, drafting nothing", async () => {
+    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETUP_TOOL);
+
+    await expect(
+      tool.run({ hires: [{ preset: "developer", name: "Developer" }], duties: [] }, session),
+    ).resolves.toEqual(namedByTheTitle("Developer"));
+    await expect(
+      tool.run(
+        { hires: [{ preset: "developer", name: "Ada", card: { effort: "high" } }], duties: [] },
+        session,
+      ),
+    ).resolves.toMatchObject({ isError: true });
+    await expect(
+      tool.run({ hires: [{ card: { name: "Max" } }], duties: [] }, session),
+    ).resolves.toMatchObject({
+      text: expect.stringContaining("A new Role needs its whole Role card"),
+      isError: true,
+    });
+    await expect(
+      tool.run({ hires: [], duties: [{ duty: "sweeps", holder: "planner" }] }, session),
+    ).resolves.toMatchObject({ text: expect.stringContaining('no duty "sweeps"'), isError: true });
+    expect(drafted).toEqual([]);
+  });
+
+  it("gives the Agent the owner's reasons a set-up is refused", async () => {
+    const { tool } = toolDrafting("Nothing to set up.", PROPOSE_OFFICE_SETUP_TOOL);
+
+    await expect(tool.run({ hires: [], duties: [] }, session)).resolves.toEqual({
+      text: "Nothing to set up.",
       isError: true,
     });
   });

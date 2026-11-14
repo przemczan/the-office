@@ -37,6 +37,7 @@ import {
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
   CONSULT_TOOL,
+  PROPOSE_OFFICE_SETUP_TOOL,
   HANDOVER_REQUEST,
 } from "../domain/session-instructions.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
@@ -316,8 +317,12 @@ async function startOn(
       ...(api === undefined ? [] : [listing(api)]),
     ],
   }));
-  // As the Projects and People modules register theirs; DecisionOfficeTools registers its own.
-  for (const name of CHAT_OFFICE_TOOLS.filter((tool) => tool !== ANSWER_DECISION_TOOL)) {
+  // As the Projects and People modules register theirs, and ProposalOfficeTools the Caretaker's
+  // set-up; DecisionOfficeTools registers its own.
+  for (const name of [
+    ...CHAT_OFFICE_TOOLS.filter((tool) => tool !== ANSWER_DECISION_TOOL),
+    PROPOSE_OFFICE_SETUP_TOOL,
+  ]) {
     app.get(OfficeToolRegistry).register({
       name,
       description: `Reads ${name}.`,

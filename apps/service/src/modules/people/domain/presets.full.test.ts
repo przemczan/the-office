@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
-import { PRESETS, presetFor } from "./presets.js";
+import { DUTIES } from "./duties.js";
+import { dutiesSuitedTo, PRESETS, presetFor } from "./presets.js";
 import { CARD_CONTEXT } from "./role.fixtures.js";
 import { roleCardProblems } from "./role-card.js";
 
@@ -77,5 +78,26 @@ describe("PRESETS", () => {
 
   it.each(PRESETS)("run on the Office default, with no Role override ($roleKey)", (preset) => {
     expect(preset.card.roleOverride).toBeNull();
+  });
+});
+
+describe("dutiesSuitedTo", () => {
+  it("gives each preset the duties its key holds by default", () => {
+    expect(
+      Object.fromEntries(PRESETS.map((preset) => [preset.roleKey, dutiesSuitedTo(preset)])),
+    ).toEqual({
+      planner: ["plans"],
+      developer: ["implements"],
+      reviewer: ["reviews"],
+      cto: ["shapes-initiatives", "asked-first-when-out-of-tries"],
+      devops: ["onboards-projects", "mcp-tool-consultant"],
+      "office-manager": ["default-person-to-talk-to"],
+    });
+  });
+
+  it("suits every duty to exactly one preset, as the duties' defaults name them", () => {
+    const suited = PRESETS.flatMap(dutiesSuitedTo);
+
+    expect(suited.toSorted()).toEqual(DUTIES.map((duty) => duty.key).toSorted());
   });
 });

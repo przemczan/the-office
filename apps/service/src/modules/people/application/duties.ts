@@ -51,7 +51,7 @@ interface DutiesNow {
 }
 
 /** What a set of changes would save, and why it can't be. */
-interface WeighedChanges {
+export interface WeighedDutyChanges {
   readonly problems: readonly string[];
   readonly saves: readonly DutyHolderSave[];
 }
@@ -119,6 +119,18 @@ export class Duties {
   }
 
   /**
+   * What `changes` would save with the Roles keyed `hiring` hired too, as an Office set-up hires
+   * them in the same go, and every reason they would be refused; saving nothing.
+   */
+  async weighedWithHires(
+    changes: readonly DutyChange[],
+    hiring: readonly string[],
+  ): Promise<WeighedDutyChanges> {
+    const now = await this.now();
+    return this.weighed(changes, { ...now, hiredKeys: new Set([...now.hiredKeys, ...hiring]) });
+  }
+
+  /**
    * Sets `duty` to the Role keyed `roleKey`, or to none. Throws DutyNotFound for a key no duty has,
    * and DutyRefused with every reason, saving nothing, when the change breaks a rule or a
    * registered check.
@@ -147,7 +159,10 @@ export class Duties {
     }
   }
 
-  private async weighed(changes: readonly DutyChange[], now: DutiesNow): Promise<WeighedChanges> {
+  private async weighed(
+    changes: readonly DutyChange[],
+    now: DutiesNow,
+  ): Promise<WeighedDutyChanges> {
     const problems: string[] = [];
     const saves: DutyHolderSave[] = [];
     const seen = new Set<string>();

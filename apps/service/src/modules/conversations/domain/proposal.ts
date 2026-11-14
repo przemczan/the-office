@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { DutyKey, RoleCard } from "../../people/index.js";
+import type { DutyKey, RoleCard, SetUpDuty, SetUpHire } from "../../people/index.js";
 import type { NewProject, ProposedCommands } from "../../projects/index.js";
 import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
@@ -17,6 +17,7 @@ export interface ProposedChanges {
   readonly "size-threshold": ProposedSettingChange<"size-threshold">;
   readonly "office-instructions": ProposedSettingChange<"office-instructions">;
   readonly duties: ProposedSettingChange<"duties">;
+  readonly "office-setup": ProposedOfficeSetup;
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
   readonly pipeline: ProposedPipelineChange;
@@ -64,6 +65,20 @@ export interface ProposedRoleChange {
   readonly roleKey: string;
   readonly from: RoleCardFields;
   readonly to: RoleCardFields;
+}
+
+/**
+ * The Caretaker's set-up of The Office (spec §2.2, "Setting up an Office with nobody hired"): people
+ * to hire, from presets or from scratch, and the duties that go to another Role than their default,
+ * each with the Role key it named when drafted (`from`). A duty may name a Role a hire of the same
+ * Proposal fills. People applies it all or none.
+ */
+export interface ProposedOfficeSetup {
+  readonly kind: "office-setup";
+  readonly hires: readonly SetUpHire[];
+  readonly duties: readonly SetUpDuty[];
+  /** The keys of the Roles hired, in the order of `hires`, once the user applied it; undefined before. */
+  readonly hiredKeys: readonly string[] | undefined;
 }
 
 /** The value each Office setting holds. */

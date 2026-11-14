@@ -14,8 +14,8 @@ Every built-in job that today belongs to a fixed Role key becomes a duty, held b
 - [x] The duty model and its Office setting, each duty held by its default Role key until set, with the rules of "Who holds a duty". Check: service tests.
 - [ ] Built-in behaviour (the chat tools, calls, Consultations on failures, MCP tool hard switches, notifications, planning, shaping, onboarding, Skill installs) follows duties instead of Role keys. Check: service tests on the scripted engine adapter.
 - [ ] The built-in Pipelines and Stage templates name duties, each Stage resolved to the duty's holder when it starts; a duty nobody holds flags its Pipelines and refuses Start. Check: service tests.
-- [ ] Settings › Duties, and the duties held on the Role card and People; buttons and tabs name the holder or the fallback. Check: web tests and an e2e test.
-- [ ] On an Office with nobody hired, People's empty state and the preset list show each preset's duties and capabilities, and the Caretaker drafts the hires and duty assignments as Proposals. Check: service and e2e tests.
+- [x] Settings › Duties, and the duties held on the Role card and People; buttons and tabs name the holder or the fallback. Check: web tests and an e2e test.
+- [x] On an Office with nobody hired, People's empty state and the preset list show each preset's duties and capabilities, and the Caretaker drafts the hires and duty assignments as Proposals. Check: service and e2e tests.
 - [ ] `npm run verify` passes. Check: the closing Task's run.
 
 ## Read first
@@ -43,23 +43,23 @@ Every built-in job that today belongs to a fixed Role key becomes a duty, held b
       Read: `apps/service/src/modules/pipelines/MAP.md`, [spec 2.3](../spec/2.3-pipelines.md#defaults) "A Stage names a Role or a duty", [spec 5.4](../spec/5.4-the-engine.md#defaults).
 - [x] 5. Settings › Duties, and the duties on the Role card and People (Task a3b96a29).
       Read: `apps/web/src/surfaces/settings/MAP.md`, `apps/web/src/surfaces/people/MAP.md`, [UI rules](../spec/4.1-ui-rules.md), [spec 4](../spec/4-ux-direction.md) "Settings › Duties" and "Duties on screen".
-- [ ] 6. The Caretaker guides setting up an Office with nobody hired, and the close: `npm run verify`, the Progress log to the archive, the task set to done here and in the README (Task 4507fb56).
+- [x] 6. The Caretaker guides setting up an Office with nobody hired, and the close: `npm run verify`, the Progress log to the archive, the task set to done here and in the README (Task 4507fb56).
       Read: `apps/web/src/surfaces/people/MAP.md`, [spec 2.2](../spec/2.2-people.md#defaults) "Setting up an Office with nobody hired".
 
 ## State
 
-Steps 1, 2 and 5 are done: the spec describes duties, People has them, and the user sees and sets them; steps 3 and 4 (built-in behaviour and Pipelines following duties) run as their own Tasks.
+Steps 1, 2, 5 and 6 are done on the Initiative's branch; steps 3 and 4 (built-in behaviour and Pipelines following duties) run as their own Tasks, still in progress. The close (the Progress log to `archive/56-duties.md`, done here and in the README) waits for them and for `npm run verify` on the whole: whoever lands the last of steps 3, 4 and 6 does it.
 
-- People: `domain/duties.ts` (`DUTIES`, `dutyHolding`, `dutiesHeldBy`, `dutyChangeProblems`, `mcpToolDefault`), table `duty_assignments` (migration `0148_duties.sql`, a row only for a duty set), `Duties` (list, `holderOf`, `heldBy`, `changeProblems`, `change`, `changeAll` with `from`), the `DutyChangeChecks` registry, `DutyHolderChanged` → web `duty.changed`, `GET`/`PUT /api/settings/duties[/:duty]`.
-- `holderOf(duty)` is on the `KnownPeople` ports of work, pipelines and notifications (bound to `RoleCards`); their test stand-ins keep `holders` by duty key. Register a check with `DutyChangeChecks` (step 4's engine check).
-- Web: Settings › Duties (`surfaces/settings/duties/`), the Role card's Duties value and People's "N duties" mark; the shared words in `shell/duty-words.ts` (description and fallback per duty key, `holderOptions`, `dutiesHeldBy`). Steps 3 and 4 link their "Settings › Duties" pointers to `/settings/duties` themselves; none was on this branch.
-- Conversations: a `duties` Proposal of an Office setting (`DutyProposals`, `propose_office_setting` with `duties: { duty, holder }[]`), applied all or none through `Duties.changeAll`, refused once a named duty changed since the draft; the contracts' `dutyHoldersSchema`.
-- Still keyed: `CTO`, `DEVOPS`, `OFFICE_MANAGER` stay exported from `people/index.ts` for step 3 and `built-in-pipelines.ts`.
-- Trap: `DutyHolderChanged` is only for the user's changes; hires and let-gos change holders in effect without it. Service tests use `DutyRepositoryForTests`; the e2e test restores `duty_assignments` in the records, since no API unsets a duty. Never leave Implements or Reviews unheld in e2e.
-- Trap: the passing over of a holder whose Consultant is off is built only for the MCP duty; step 3 does it for Asked first when a Stage runs out of tries (Settings › Duties already says so for both).
+- People: `domain/duties.ts` (`DUTIES`, `dutyHolding`, `dutiesHeldBy`, `dutyChangeProblems`, `mcpToolDefault`), table `duty_assignments` (migration `0148_duties.sql`), `Duties` (list, `holderOf`, `heldBy`, `changeProblems`, `change`, `changeAll` with `from`, `weighedWithHires`), the `DutyChangeChecks` registry, `DutyHolderChanged` → web `duty.changed`, `GET`/`PUT /api/settings/duties[/:duty]`. Presets answer `duties` (`dutiesSuitedTo`).
+- Set-up (step 6): People's `OfficeSetup` (hires from presets or scratch and duty changes, all or none in one transaction through `OfficeSetupRepository`); Conversations' `office-setup` Proposal, drafted only by the Caretaker's `propose_office_setup` (its chat has no `propose_role` or `change_role`; `OFFICE_SETUP_RULE` in its instructions). Web: People's set-up hint while nobody is hired (`office-setup-hint.tsx`), "Suits:" in the Hire dialog, the card in `shell/conversation/office-setup-changes.tsx`.
+- `holderOf(duty)` is on the `KnownPeople` ports of work, pipelines and notifications (bound to `RoleCards`); their test stand-ins keep `holders` by duty key.
+- Web: Settings › Duties (`surfaces/settings/duties/`), the Role card's Duties value and People's "N duties" mark; the shared words in `shell/duty-words.ts`.
+- Still keyed until step 3 lands: `CTO`, `DEVOPS`, `OFFICE_MANAGER` exported from `people/index.ts`; `chatOfficeTools` gives `propose_role`/`propose_office_setting` to the `office-manager` key.
+- Trap: `DutyHolderChanged` is only for the user's changes (a set-up applied is one); hires and let-gos change holders in effect without it. Service tests use `DutyRepositoryForTests` and, for a set-up, `OfficeSetupRepositoryForTests`; never leave a duty away from its default in e2e.
 
 ## Progress
 
 - 2026-11-14 · step 1: spec 2.1–2.4, 2.6, 2.7, 3, 4, 5.4, 6, 8, the README index and the glossary describe duties; this file added; next, step 2: the duty model and setting in People.
 - 2026-11-14 · step 2: People owns the eight duties, `duty_assignments` and `Duties` with its API, check registry and `duty.changed`; the MCP default, Hard switch consults and `list_people` follow them; next, step 3: built-in behaviour follows duties.
 - 2026-11-14 · step 5: Settings › Duties, the duties on the Role card and People, and the Office Manager's `duties` Proposal applied all or none; next, steps 3 and 4, then step 6.
+- 2026-11-14 · step 6: People's set-up hint and the Hire dialog's duties, the Caretaker's `propose_office_setup` and the `office-setup` Proposal applied all or none; next, steps 3 and 4, then the close (`npm run verify`, the log to the archive, done).

@@ -69,7 +69,7 @@
 - `copy-text.ts`: CopyWords, useCopyText
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
 - `duty-words.fixtures.ts`: roleFor, CARETAKER, PLANNER, DEVOPS, DEVELOPER_LET_GO, dutyOf
-- `duty-words.ts`: NOBODY, dutyDescription, fallbackWords, holderOptions, dutiesHeldBy, holderName, holderNameOf, letGoHolderWords, passedOverWords, dutyCountWords
+- `duty-words.ts`: NOBODY, dutyDescription, fallbackWords, holderOptions, dutiesHeldBy, holderName, holderNameOf, letGoHolderWords, passedOverWords, dutyLabels, suitsWords, dutyCountWords
 - `engine-model-fields.tsx`: OfferedEngine, EngineModelFields
 - `engine-words.ts`: EFFORT_LABELS, modelLabel
 - `floating-menu.tsx`: FloatingMenu
@@ -188,6 +188,7 @@
 - `message-groups.ts`: TurnMessage, ToolCall, MessageGroup, LogLine, LogPiece, withLogLines, withDayLines, groupedMessages
 - `message-list.tsx`: HandoverNoteReader, MessageList
 - `message-visibility.ts`: visibleMessages, onlyDetailsWouldShow, latestToolCall
+- `office-setup-changes.tsx`: ProposedOfficeSetupChange, officeSetupApplyLabel, ProposedOfficeSetup
 - `office-status-card.tsx`: OfficeStatusCard
 - `office-status-words.ts`: waitingWords, pausedWords
 - `proposal-card.tsx`: ProposalCard

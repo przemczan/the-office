@@ -134,11 +134,28 @@ export type HireFromScratch = z.infer<typeof hireFromScratchSchema>;
 export const hireSchema = z.union([hireFromPresetSchema, hireFromScratchSchema]);
 export type Hire = z.infer<typeof hireSchema>;
 
-/** GET /presets: what hiring starts from; a hired Role starts with no skills of its own. */
+/** Spec §2.2's duties, by key, in its order. */
+export const dutyKeySchema = z.enum([
+  "default-person-to-talk-to",
+  "shapes-initiatives",
+  "asked-first-when-out-of-tries",
+  "onboards-projects",
+  "mcp-tool-consultant",
+  "plans",
+  "implements",
+  "reviews",
+]);
+export type DutyKey = z.infer<typeof dutyKeySchema>;
+
+/**
+ * GET /presets: what hiring starts from; a hired Role starts with no skills of its own. `duties` are
+ * the duties held by the preset's key by default, which hiring it brings while none is set elsewhere.
+ */
 export const presetSchema = z.object({
   roleKey: z.string(),
   suggestedName: z.string(),
   card: roleCardSchema.omit({ name: true, skills: true }),
+  duties: z.array(dutyKeySchema),
 });
 export type Preset = z.infer<typeof presetSchema>;
 
@@ -316,19 +333,6 @@ export const memoryNoteDraftSchema = z.object({
   projectId: z.string().optional(),
 });
 export type MemoryNoteDraft = z.infer<typeof memoryNoteDraftSchema>;
-
-/** Spec §2.2's duties, by key, in its order. */
-export const dutyKeySchema = z.enum([
-  "default-person-to-talk-to",
-  "shapes-initiatives",
-  "asked-first-when-out-of-tries",
-  "onboards-projects",
-  "mcp-tool-consultant",
-  "plans",
-  "implements",
-  "reviews",
-]);
-export type DutyKey = z.infer<typeof dutyKeySchema>;
 
 /** What applies while nobody holds a duty: the user, the Caretaker, or the Pipelines unstaffed. */
 export const dutyFallbackSchema = z.enum(["user", "caretaker", "unstaffed"]);

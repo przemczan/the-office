@@ -116,6 +116,20 @@ describe("applying a Proposal", () => {
     );
   });
 
+  it("applies the set-up of The Office as drafted, refusing an edit of its hires", () => {
+    const change: ProposedChange = {
+      kind: "office-setup",
+      hires: [{ kind: "hire-from-preset", roleKey: "planner", name: "Jan" }],
+      duties: [{ duty: "reviews", from: "reviewer", to: "planner" }],
+      hiredKeys: undefined,
+    };
+
+    expect(changeToApply(aProposal({ change }), undefined)).toBe(change);
+    expect(() =>
+      changeToApply(aProposal({ change }), { kind: "hire-from-preset", name: "Ola" }),
+    ).toThrow("Only a new Role is edited before hiring, as it was proposed.");
+  });
+
   it("records it applied, as carried out, by the user who applied it", () => {
     const applied: ProposedChange = { ...hire, roleKey: "tester" };
 

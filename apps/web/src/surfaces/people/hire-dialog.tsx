@@ -1,15 +1,19 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { Preset } from "@the-office/contracts";
 import { Button, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
-import { hire, roleQueries } from "../../api/people.ts";
+import { dutyQueries, hire, roleQueries } from "../../api/people.ts";
+import { suitsWords } from "../../shell/duty-words.ts";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { taskLimitShort } from "../../shell/role-card-words.ts";
 
-/** Hiring: a preset, and the person's name; the preset sets the rest of the Role card. */
+/**
+ * Hiring: a preset, and the person's name; the preset sets the rest of the Role card. Each preset
+ * says the duties it suits, those its Role holds by default.
+ */
 export function HireDialog({
   presets,
   onClose,
@@ -24,6 +28,7 @@ export function HireDialog({
   // The name follows the chosen preset's suggestion until the user writes one of their own.
   const [typedName, setTypedName] = useState<string>();
   const name = typedName ?? preset?.suggestedName ?? "";
+  const duties = useQuery(dutyQueries.list());
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -65,10 +70,16 @@ export function HireDialog({
         <Field label="Preset">
           <RadioGroup
             value={roleKey}
-            options={presets.map(({ roleKey: key, card }) => ({
+            options={presets.map(({ roleKey: key, card, duties: suited }) => ({
               value: key,
               label: card.title,
-              description: `${card.responsibilities} ${taskLimitShort(card.taskLimit)}.`,
+              description: [
+                card.responsibilities,
+                duties.data ? suitsWords(suited, duties.data) : "",
+                `${taskLimitShort(card.taskLimit)}.`,
+              ]
+                .filter((words) => words !== "")
+                .join(" "),
             }))}
             onChange={setRoleKey}
           />

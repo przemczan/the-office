@@ -8,7 +8,8 @@ import { useChat } from "../../shell/chat/use-chat.tsx";
 import { dutiesHeldBy, dutyCountWords } from "../../shell/duty-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
-import { inGridOrder } from "./people-order.ts";
+import { OfficeSetupHint } from "./office-setup-hint.tsx";
+import { inGridOrder, isNobodyHired } from "./people-order.ts";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { CAPABILITIES, taskLimitShort } from "../../shell/role-card-words.ts";
 import "./people.css";
@@ -22,10 +23,12 @@ export function PeoplePage(): ReactNode {
   const navigate = useNavigate();
   usePageHeading({ title: "People", crumb: roles.data && countOf(roles.data) });
   const unfilled = presetsToHire(presets.data, roles.data);
+  const settingUp = roles.data !== undefined && isNobodyHired(roles.data);
+  const startFromScratch = () => void navigate({ to: "/hire" });
   return (
     <div className="people-page">
       {roles.error && <Alert tone="danger" title={roles.error.message} />}
-      <div className="people-grid">
+      <div className={settingUp ? "people-grid people-grid-setting-up" : "people-grid"}>
         {roles.data &&
           inGridOrder(roles.data).map((role) => (
             <PersonCard
@@ -34,36 +37,64 @@ export function PeoplePage(): ReactNode {
               duties={dutiesHeldBy(duties.data ?? [], role.key)}
             />
           ))}
-        <article className="person-tile hire-tile">
-          <div className="person-tile-head">
-            <span className="hire-icon">
-              <Icon name="user-plus" size={16} />
-            </span>
-            <div>
-              <h2 className="person-tile-name">Hire a Role</h2>
-              <div className="person-tile-title">From a preset or from scratch</div>
-            </div>
-          </div>
-          <p className="person-tile-text">
-            {unfilled.length > 0
-              ? `${unfilled.map(({ card }) => card.title).join(", ")} to fill. `
-              : ""}
-            Every setting can change later on the Role card.
-          </p>
-          <div className="hire-tile-actions">
-            {unfilled.length > 0 && (
-              <Button variant="secondary" onClick={() => setHiring(true)}>
-                Hire a Role
-              </Button>
-            )}
-            <Button variant="secondary" onClick={() => void navigate({ to: "/hire" })}>
-              Start from scratch
-            </Button>
-          </div>
-        </article>
+        {settingUp ? (
+          <OfficeSetupHint
+            presets={presets.data ?? []}
+            duties={duties.data ?? []}
+            caretaker={roles.data?.find(({ builtIn }) => builtIn)}
+            onHire={unfilled.length > 0 ? () => setHiring(true) : undefined}
+            onStartFromScratch={startFromScratch}
+          />
+        ) : (
+          <HireTile
+            unfilled={unfilled}
+            onHire={() => setHiring(true)}
+            onStartFromScratch={startFromScratch}
+          />
+        )}
       </div>
       {hiring && <HireDialog presets={unfilled} onClose={() => setHiring(false)} />}
     </div>
+  );
+}
+
+function HireTile({
+  unfilled,
+  onHire,
+  onStartFromScratch,
+}: {
+  readonly unfilled: readonly Preset[];
+  readonly onHire: () => void;
+  readonly onStartFromScratch: () => void;
+}): ReactNode {
+  return (
+    <article className="person-tile hire-tile">
+      <div className="person-tile-head">
+        <span className="hire-icon">
+          <Icon name="user-plus" size={16} />
+        </span>
+        <div>
+          <h2 className="person-tile-name">Hire a Role</h2>
+          <div className="person-tile-title">From a preset or from scratch</div>
+        </div>
+      </div>
+      <p className="person-tile-text">
+        {unfilled.length > 0
+          ? `${unfilled.map(({ card }) => card.title).join(", ")} to fill. `
+          : ""}
+        Every setting can change later on the Role card.
+      </p>
+      <div className="hire-tile-actions">
+        {unfilled.length > 0 && (
+          <Button variant="secondary" onClick={onHire}>
+            Hire a Role
+          </Button>
+        )}
+        <Button variant="secondary" onClick={onStartFromScratch}>
+          Start from scratch
+        </Button>
+      </div>
+    </article>
   );
 }
 

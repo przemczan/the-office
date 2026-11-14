@@ -14,11 +14,13 @@ import { PeopleOfficeTools } from "./adapters/office-tools/people-office-tools.j
 import { PostgresDutyRepository } from "./adapters/postgres/postgres-duty-repository.js";
 import { PeopleEarlierRecords } from "./adapters/postgres/people-earlier-records.js";
 import { PostgresMemoryRepository } from "./adapters/postgres/postgres-memory-repository.js";
+import { PostgresOfficeSetupRepository } from "./adapters/postgres/postgres-office-setup-repository.js";
 import { PostgresRoleRepository } from "./adapters/postgres/postgres-role-repository.js";
 import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
 import { Duties } from "./application/duties.js";
 import { DutyChangeChecks } from "./application/duty-change-checks.js";
 import { MemoryService } from "./application/memory-service.js";
+import { OfficeSetup } from "./application/office-setup.js";
 import { PersonAvatars } from "./application/person-avatars.js";
 import { RoleCards } from "./application/role-cards.js";
 import { RoleOverrideChecks } from "./application/role-override-checks.js";
@@ -28,6 +30,7 @@ import { RoleService } from "./application/role-service.js";
 import { AvatarFiles } from "./ports/avatar-files.js";
 import { DutyRepository } from "./ports/duty-repository.js";
 import { MemoryRepository } from "./ports/memory-repository.js";
+import { OfficeSetupRepository } from "./ports/office-setup-repository.js";
 import { RoleRepository } from "./ports/role-repository.js";
 
 @Module({
@@ -39,6 +42,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     { provide: RoleRepository, useClass: PostgresRoleRepository },
     { provide: MemoryRepository, useClass: PostgresMemoryRepository },
     { provide: DutyRepository, useClass: PostgresDutyRepository },
+    { provide: OfficeSetupRepository, useClass: PostgresOfficeSetupRepository },
     {
       provide: AvatarFiles,
       inject: [OfficeDataDirectory],
@@ -48,6 +52,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleService,
     Duties,
     DutyChangeChecks,
+    OfficeSetup,
     PersonAvatars,
     RoleOverrideChecks,
     RoleOverrideMoves,
@@ -67,6 +72,8 @@ import { RoleRepository } from "./ports/role-repository.js";
     Duties,
     DutyRepository,
     DutyChangeChecks,
+    OfficeSetup,
+    OfficeSetupRepository,
   ],
 })
 export class PeopleModule implements NestModule {

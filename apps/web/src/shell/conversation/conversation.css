@@ -960,6 +960,85 @@
   margin: 0 0 4px;
 }
 
+/* The Caretaker's set-up: each person it hires, then every duty's holder after it. */
+.proposal-setup-hires {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 12px;
+  list-style: none;
+}
+
+.proposal-setup-hire {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.proposal-setup-hire:last-child {
+  border-bottom: 0;
+}
+
+.proposal-setup-hire-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.proposal-setup-name {
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.proposal-setup-capabilities {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--fg-2);
+}
+
+.proposal-setup-text {
+  margin: 4px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.proposal-setup-duties {
+  width: calc(100% - 24px);
+  margin: 4px 12px 10px;
+  border-collapse: collapse;
+  font: var(--type-caption);
+}
+
+.proposal-setup-duties th,
+.proposal-setup-duties td {
+  padding: 5px 8px 5px 0;
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.proposal-setup-duties thead th {
+  border-top: 0;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.proposal-setup-duties tbody th {
+  width: 45%;
+  font-weight: 500;
+  color: var(--fg-2);
+}
+
+.proposal-setup-duties td {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
 .proposal-foot {
   display: flex;
   flex-wrap: wrap;

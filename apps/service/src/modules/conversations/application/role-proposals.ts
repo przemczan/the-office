@@ -1,6 +1,11 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { RoleNotFound, RoleRefused, RoleService } from "../../people/index.js";
-import type { ProposedHire, ProposedPresetHire, ProposedRoleChange } from "../domain/proposal.js";
+import { OfficeSetup, RoleNotFound, RoleRefused, RoleService } from "../../people/index.js";
+import type {
+  ProposedHire,
+  ProposedOfficeSetup,
+  ProposedPresetHire,
+  ProposedRoleChange,
+} from "../domain/proposal.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
 import type { UserRef } from "../domain/user.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
@@ -8,14 +13,16 @@ import { ProposalAppliers } from "./proposal-appliers.js";
 /**
  * Proposals of Roles, which People applies: a new Role is hired from scratch or from a preset, and
  * a change rewrites the fields it names on the card as it is when applied, keeping the Role's
- * skills. People's hiring and card rules judge each, so a refused one changes nothing and gives
- * People's reasons. Each is saved by the user who applied it, as proposed by its drafter.
+ * skills; an Office set-up hires several and assigns duties, all or none. People's hiring, card and
+ * duty rules judge each, so a refused one changes nothing and gives People's reasons. Each is saved
+ * by the user who applied it, as proposed by its drafter.
  */
 @Injectable()
 export class RoleProposals implements OnModuleInit {
   constructor(
     private readonly appliers: ProposalAppliers,
     private readonly roles: RoleService,
+    private readonly officeSetup: OfficeSetup,
   ) {}
 
   onModuleInit(): void {
@@ -26,6 +33,10 @@ export class RoleProposals implements OnModuleInit {
     this.appliers.register("hire-from-preset", {
       problemsWith: ({ roleKey, name }) => this.roles.presetHiringProblems(roleKey, name),
       apply: (hire, proposedBy, appliedBy) => this.hireFromPreset(hire, proposedBy, appliedBy),
+    });
+    this.appliers.register("office-setup", {
+      problemsWith: ({ hires, duties }) => this.officeSetup.problems(hires, duties),
+      apply: (setUp, proposedBy, appliedBy) => this.setUp(setUp, proposedBy, appliedBy),
     });
     this.appliers.register("change", {
       problemsWith: (change) => this.changeProblems(change),
@@ -53,6 +64,17 @@ export class RoleProposals implements OnModuleInit {
       this.roles.hire(hire.roleKey, hire.name, appliedBy, proposedBy),
     );
     return { ...hire, name: role.card.name };
+  }
+
+  private async setUp(
+    setUp: ProposedOfficeSetup,
+    proposedBy: string,
+    appliedBy: UserRef,
+  ): Promise<ProposedOfficeSetup> {
+    const hired = await refusedAsProposal(() =>
+      this.officeSetup.setUp(setUp.hires, setUp.duties, appliedBy, proposedBy),
+    );
+    return { ...setUp, hiredKeys: hired.map((role) => role.key) };
   }
 
   private async changeProblems({ roleKey, to }: ProposedRoleChange): Promise<readonly string[]> {

@@ -171,6 +171,19 @@ describe("GET /api/presets", () => {
     ]);
     expect(presets[1]?.card).toMatchObject({ title: "Developer", taskLimit: 3 });
   });
+
+  it("gives each preset the duties it holds by default", async () => {
+    const presets = presetListSchema.parse(await get("/presets"));
+
+    expect(presets.map(({ roleKey, duties }) => [roleKey, duties])).toEqual([
+      ["planner", ["plans"]],
+      ["developer", ["implements"]],
+      ["reviewer", ["reviews"]],
+      ["cto", ["shapes-initiatives", "asked-first-when-out-of-tries"]],
+      ["devops", ["onboards-projects", "mcp-tool-consultant"]],
+      ["office-manager", ["default-person-to-talk-to"]],
+    ]);
+  });
 });
 
 describe("GET /api/role-card-options", () => {

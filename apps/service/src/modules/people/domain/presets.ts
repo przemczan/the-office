@@ -1,4 +1,5 @@
 import { isBuiltIn } from "./caretaker.js";
+import { DUTIES, type DutyKey } from "./duties.js";
 import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { CTO, DEVELOPER, DEVOPS, OFFICE_MANAGER, PLANNER, REVIEWER } from "./known-roles.js";
 import type { RoleCard } from "./role-card.js";
@@ -204,6 +205,14 @@ export function consultableRoleKeys(roleKeys: Iterable<string>): ReadonlySet<str
   const consultable = new Set(PRESETS.map((preset) => preset.roleKey));
   for (const key of roleKeys) if (!isBuiltIn(key)) consultable.add(key);
   return consultable;
+}
+
+/**
+ * The duties the preset suits: those held by its key by default (spec §2.2, "Duties"), so hiring it
+ * brings them while none is set to another Role. In `DUTIES` order.
+ */
+export function dutiesSuitedTo(preset: Preset): DutyKey[] {
+  return DUTIES.filter((duty) => duty.defaultRoleKey === preset.roleKey).map((duty) => duty.key);
 }
 
 /** The title of the preset keyed `roleKey`, undefined for a key no preset has. */

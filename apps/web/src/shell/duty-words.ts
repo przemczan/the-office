@@ -107,6 +107,16 @@ export function passedOverWords(duty: Duty, roles: readonly Role[]): string | un
   return `${role.card.name}'s Consultant is off, so they are passed over and you are asked.`;
 }
 
+/** The labels of the duties keyed `keys`, as listed in `duties`; a key not listed stands for itself. */
+export function dutyLabels(keys: readonly DutyKey[], duties: readonly Duty[]): string[] {
+  return keys.map((key) => duties.find((duty) => duty.key === key)?.label ?? key);
+}
+
+/** "Suits: Shapes Initiatives, Plans.": the duties a preset suits; empty when it suits none. */
+export function suitsWords(keys: readonly DutyKey[], duties: readonly Duty[]): string {
+  return keys.length === 0 ? "" : `Suits: ${dutyLabels(keys, duties).join(", ")}.`;
+}
+
 /** "1 duty", "3 duties": a count for a mark that names each duty on hover. */
 export function dutyCountWords(count: number): string {
   return count === 1 ? "1 duty" : `${count} duties`;
