@@ -353,7 +353,8 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
  * they may create an Initiative, for whoever shapes Initiatives to shape into Tasks; they draft
  * Roles and Office settings as Proposals the user applies, point the user to whoever is
  * responsible with a Link card, and show the Office status (ticket 06); they redirect with a Link
- * card and never relay, calling a person only when the user asks, as anyone else does (spec §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
+ * card and never relay, calling a person only when the user asks, as anyone else does (spec
+ * §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
  * Initiative too, in their chat only. The Caretaker holds no duty, so has only the chat's own and
  * `caretakerChatOfficeTools`' set-up.
  */

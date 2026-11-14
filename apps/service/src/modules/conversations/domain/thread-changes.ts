@@ -397,8 +397,8 @@ export interface DecisionOpening extends DecisionDraft {
  * user answers. In a Thread on a Task it is on that Task, and refused while another Decision waits.
  * In an Initiative's planning Thread it names one of the Initiative's Tasks, several may be open,
  * and it is refused while another waits on the same Task. In a chat, which only talks, only a call
- * put to a person opens one, on no Task, as does a call from an Initiative's Thread naming none. Refused with every problem of what is asked, in words the
- * person acts on.
+ * put to a person opens one, on no Task, as does a call from an Initiative's Thread naming none.
+ * Refused with every problem of what is asked, in words the person acts on.
  */
 export function openDecision(
   thread: Thread,

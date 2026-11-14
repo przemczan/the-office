@@ -2988,6 +2988,19 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     expect(toolsOf(1)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
   });
 
+  it("give a person's Thread on a Task the Office actions' tools their duties cover, and a Stage's Thread none", async () => {
+    duties.set("plans", roleKey);
+    await startWith();
+    actionStandIn("add_dependency", ["shapes-initiatives", "plans"]);
+    const places = app.get(SessionPlaces);
+
+    const persons = await places.of(await storedThreadOnATask());
+    const stages = await places.of(await storedThreadOnATask({ stageThread: true }));
+
+    expect(persons.officeTools).toContain("add_dependency");
+    expect(stages.officeTools).not.toContain("add_dependency");
+  });
+
   it("give a Role holding no duty the plain chat's tools, its key the default holder's or not", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const thread = await threads.startInChat(roleKey);
