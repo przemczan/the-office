@@ -37,15 +37,15 @@ import { FireAlarmRepositoryForTests } from "../ports/work-ports.fixtures.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 27's check on the Test Project: a Task whose
- * only Stage is Quick fix's Implement, worked by the Developer on Haiku. The user sounds the alarm
- * at the Agent's first tool call; Now shows it stopping, the turn ends at its safe point (before the
- * hard stop) and the run is held by the alarm; the all clear's plan says the Stage continues warm,
- * and after the all clear the Stage goes on in the same session. The alarm is the check's own, never
- * the stored one. Live, so it runs only when asked: OFFICE_ENGINE_TESTS=live and
- * OFFICE_TEST_PROJECT=<the Test Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep what it
- * saw; OFFICE_CHECK_PAGE_HOLD_MS keeps the service up that long while the alarm is on, to look at
- * Now's plan. It hires the Planner and the Developer from their presets, so it runs alone.
+ * Task 27's check on the Test Project: a Task whose only Stage is Quick fix's Implement, worked by
+ * the Developer on Haiku. The user sounds the alarm at the Agent's first tool call; Now shows it
+ * stopping, the turn ends at its safe point (before the hard stop) and the run is held by the
+ * alarm; the all clear's plan says the Stage continues warm, and after the all clear the Stage goes
+ * on in the same session. The alarm is the check's own, never the stored one. Live, so it runs only
+ * when asked: OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>, with
+ * OFFICE_CHECK_REPORT=<a file> to keep what it saw; OFFICE_CHECK_PAGE_HOLD_MS keeps the service up
+ * that long while the alarm is on, to look at Now's plan. It hires the Planner and the Developer
+ * from their presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

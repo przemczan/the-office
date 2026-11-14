@@ -34,11 +34,10 @@ import { RecordingEngine } from "../scripted/recording-engine.js";
 import { AgentSdkEngine } from "./agent-sdk-engine.js";
 
 /**
- * Task 06's check on the Test Project: a read-only session in a worktree
- * of it reads a file, is refused a git commit and an ~/.ssh read, and reports its usage, with its
- * engine call traced to otel-lgtm. A live session, so it runs only when asked:
- * OFFICE_ENGINE_TESTS=live (or record, which also writes recordings/test-project.jsonl) and
- * OFFICE_TEST_PROJECT=<the Test Project's folder>.
+ * Task 06's check on the Test Project: a read-only session in a worktree of it reads a file, is
+ * refused a git commit and an ~/.ssh read, and reports its usage, with its engine call traced to
+ * otel-lgtm. A live session, so it runs only when asked: OFFICE_ENGINE_TESTS=live (or record, which
+ * also writes recordings/test-project.jsonl) and OFFICE_TEST_PROJECT=<the Test Project's folder>.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

@@ -45,17 +45,17 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 26's check on the Test Project: two
- * Tasks planned by the Planner on Haiku, each appending its own line at the end of README.md. With
- * the Developer's Task limit at 1, the second Start warns of the Overlap, is started anyway and
- * queues; raising the limit releases it. Both wait at a Gate before Publish; the first publishes by
- * merge, the second's Publish conflicts, the Developer resolves it in Resolve, "Test after Resolve"
- * passes, "Review the resolved conflict" waits, and Publish fast-forwards the base to the merge
- * commit. Merge mode moves the base on the remote, so the base is a throwaway branch made from
- * origin's main and deleted in the end, never main. Live and publishing, so it runs only when asked
- * for both: OFFICE_ENGINE_TESTS=live, OFFICE_PUBLISH_CHECK=merge and OFFICE_TEST_PROJECT=<the Test
- * Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires the Planner
- * and the Developer from their presets, so it runs alone.
+ * Task 26's check on the Test Project: two Tasks planned by the Planner on Haiku, each appending
+ * its own line at the end of README.md. With the Developer's Task limit at 1, the second Start
+ * warns of the Overlap, is started anyway and queues; raising the limit releases it. Both wait at a
+ * Gate before Publish; the first publishes by merge, the second's Publish conflicts, the Developer
+ * resolves it in Resolve, "Test after Resolve" passes, "Review the resolved conflict" waits, and
+ * Publish fast-forwards the base to the merge commit. Merge mode moves the base on the remote, so
+ * the base is a throwaway branch made from origin's main and deleted in the end, never main. Live
+ * and publishing, so it runs only when asked for both: OFFICE_ENGINE_TESTS=live,
+ * OFFICE_PUBLISH_CHECK=merge and OFFICE_TEST_PROJECT=<the Test Project's folder>, with
+ * OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires the Planner and the Developer from
+ * their presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const PUBLISH_CHECK = process.env["OFFICE_PUBLISH_CHECK"];

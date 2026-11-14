@@ -85,15 +85,15 @@ interface KeptPair {
 }
 
 /**
- * Task 37's check on the Test Project: two
- * one-line Tasks on Quick fix edited down to Implement, on the Agent SDK engine and Haiku. The first
- * runs to Done; the usage query's raw answers and the pairs of readings the Engine judged show how
- * the Office-wide window ratio is learnt. Then the Claude Code engines' 5-hour cap is lowered below the use, so the
- * second Task's Start waits in the queue with the cap's words, and raised again, which releases it
- * to run to Done. No Planner session runs: the user writes each Plan. Nothing is published: the
- * Pipeline has no Publish, and the base is a local branch with no upstream. Live, so it runs only
- * with OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>, with
- * OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires from the presets, so it runs alone.
+ * Task 37's check on the Test Project: two one-line Tasks on Quick fix edited down to Implement, on
+ * the Agent SDK engine and Haiku. The first runs to Done; the usage query's raw answers and the
+ * pairs of readings the Engine judged show how the Office-wide window ratio is learnt. Then the
+ * Claude Code engines' 5-hour cap is lowered below the use, so the second Task's Start waits in the
+ * queue with the cap's words, and raised again, which releases it to run to Done. No Planner
+ * session runs: the user writes each Plan. Nothing is published: the Pipeline has no Publish, and
+ * the base is a local branch with no upstream. Live, so it runs only with OFFICE_ENGINE_TESTS=live
+ * and OFFICE_TEST_PROJECT=<the Test Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep
+ * what it saw. It hires from the presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

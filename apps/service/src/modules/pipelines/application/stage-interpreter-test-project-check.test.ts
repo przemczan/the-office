@@ -42,15 +42,15 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 12's check on the Test Project: a small real change,
- * planned as in task 11's check, is started on Quick fix without its Publish Stage (Publish is task
- * 14), seeded into the Task as its own Stages; the Developer works it on Haiku and the Tests Stage
- * runs the Project's tests. The Task's branch and worktree are discarded after. Live, so it runs
- * only when asked: OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>,
- * with OFFICE_CHECK_REPORT=<a file> to keep what it saw. The trace is looked up in Grafana unless
+ * Task 12's check on the Test Project: a small real change, planned as in task 11's check, is
+ * started on Quick fix without its Publish Stage (Publish is task 14), seeded into the Task as its
+ * own Stages; the Developer works it on Haiku and the Tests Stage runs the Project's tests. The
+ * Task's branch and worktree are discarded after. Live, so it runs only when asked:
+ * OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>, with
+ * OFFICE_CHECK_REPORT=<a file> to keep what it saw. The trace is looked up in Grafana unless
  * OFFICE_CHECK_GRAFANA=off (a machine without otel-lgtm); OFFICE_CHECK_PAGE_HOLD_MS keeps the
- * service up that long after the run, its address in the report, to look at the Task page. It
- * hires the Planner and the Developer from their presets, so it runs alone.
+ * service up that long after the run, its address in the report, to look at the Task page. It hires
+ * the Planner and the Developer from their presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

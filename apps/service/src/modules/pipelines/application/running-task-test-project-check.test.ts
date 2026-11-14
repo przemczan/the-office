@@ -41,15 +41,15 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 13's check on the Test Project: a Task on Quick fix without
- * Publish, worked by the Developer on Haiku, which the user steers while it runs. They barge in
- * once, asking for a Decision, and answer it the moment it opens; Stop the run that follows at its
- * first edit and resume it in a fresh session; Pause that run and Resume it. Throughout, the Stage
- * Thread's tokens are read every second, to see them move mid-turn. The Task's branch and worktree
- * are discarded after. Live, so it runs only when asked: OFFICE_ENGINE_TESTS=live and
- * OFFICE_TEST_PROJECT=<the Test Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep what
- * it saw; OFFICE_CHECK_PAGE_HOLD_MS keeps the service up that long after, to look at the Task page.
- * It hires the Planner and the Developer from their presets, so it runs alone.
+ * Task 13's check on the Test Project: a Task on Quick fix without Publish, worked by the Developer
+ * on Haiku, which the user steers while it runs. They barge in once, asking for a Decision, and
+ * answer it the moment it opens; Stop the run that follows at its first edit and resume it in a
+ * fresh session; Pause that run and Resume it. Throughout, the Stage Thread's tokens are read every
+ * second, to see them move mid-turn. The Task's branch and worktree are discarded after. Live, so
+ * it runs only when asked: OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's
+ * folder>, with OFFICE_CHECK_REPORT=<a file> to keep what it saw; OFFICE_CHECK_PAGE_HOLD_MS keeps
+ * the service up that long after, to look at the Task page. It hires the Planner and the Developer
+ * from their presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

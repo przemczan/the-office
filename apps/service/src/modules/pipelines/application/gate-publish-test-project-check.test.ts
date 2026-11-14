@@ -35,16 +35,16 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 14's check on the Test Project: a Task on Quick fix
- * with a Gate before Publish, worked by the Developer on Haiku, waits on the user at the Gate, is
- * continued, and Publish pushes its branch and opens a real pull request. Publishing leaves the
- * workstation, so the check keeps to what the user allowed: it pushes a throwaway base branch made
- * from origin's main, publishes in push + PR mode only, so the pull request goes into that branch,
- * never main, and in the end closes the pull request and deletes both remote branches and every
- * local ref it left. Live and publishing, so it runs only when asked for both:
- * OFFICE_ENGINE_TESTS=live, OFFICE_PUBLISH_CHECK=push-and-pull-request and
- * OFFICE_TEST_PROJECT=<the Test Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep what
- * it saw. It hires the Planner and the Developer from their presets, so it runs alone.
+ * Task 14's check on the Test Project: a Task on Quick fix with a Gate before Publish, worked by
+ * the Developer on Haiku, waits on the user at the Gate, is continued, and Publish pushes its
+ * branch and opens a real pull request. Publishing leaves the workstation, so the check keeps to
+ * what the user allowed: it pushes a throwaway base branch made from origin's main, publishes in
+ * push + PR mode only, so the pull request goes into that branch, never main, and in the end closes
+ * the pull request and deletes both remote branches and every local ref it left. Live and
+ * publishing, so it runs only when asked for both: OFFICE_ENGINE_TESTS=live,
+ * OFFICE_PUBLISH_CHECK=push-and-pull-request and OFFICE_TEST_PROJECT=<the Test Project's folder>,
+ * with OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires the Planner and the Developer
+ * from their presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const PUBLISH_CHECK = process.env["OFFICE_PUBLISH_CHECK"];

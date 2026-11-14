@@ -33,15 +33,15 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 15's check on the Test Project: a Ready Task on
- * Quick fix is edited for the Task through the API, as the Stage editor saves it: a Gate before
- * Publish, and Implement on low effort. The walk must run the edited copy, Implement's session on
- * the Stage's effort (its model the engine cascade's), and wait at the Gate; the library's
- * Quick fix stays as it was. The Task is dropped at the Gate, so nothing is published, and its base
- * is a local branch that tracks no remote, so Publish could not leave the workstation anyway.
- * Live, so it runs only with OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's
- * folder>, with OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires the Planner and the
- * Developer from their presets, so it runs alone.
+ * Task 15's check on the Test Project: a Ready Task on Quick fix is edited for the Task through the
+ * API, as the Stage editor saves it: a Gate before Publish, and Implement on low effort. The walk
+ * must run the edited copy, Implement's session on the Stage's effort (its model the engine
+ * cascade's), and wait at the Gate; the library's Quick fix stays as it was. The Task is dropped at
+ * the Gate, so nothing is published, and its base is a local branch that tracks no remote, so
+ * Publish could not leave the workstation anyway. Live, so it runs only with
+ * OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>, with
+ * OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires the Planner and the Developer from
+ * their presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

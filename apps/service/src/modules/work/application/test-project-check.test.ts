@@ -60,13 +60,12 @@ import { WorkModule } from "../work.module.js";
 import { GitHubModule } from "../../github/index.js";
 
 /**
- * Task 10's check on the Test Project: through the API, as the web does,
- * an Idea is captured and shaped into a Task, a document is attached, the board is reordered, and
- * the Planner, on Haiku, reads that Task, captures an Idea and creates a Task in a real chat
- * session. Live, so it runs only when asked: OFFICE_ENGINE_TESTS=live and
- * OFFICE_TEST_PROJECT=<the Test Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep what
- * it saw. It hires the Planner from its preset, so it runs alone, never beside
- * roles.controller.test.ts.
+ * Task 10's check on the Test Project: through the API, as the web does, an Idea is captured and
+ * shaped into a Task, a document is attached, the board is reordered, and the Planner, on Haiku,
+ * reads that Task, captures an Idea and creates a Task in a real chat session. Live, so it runs
+ * only when asked: OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>,
+ * with OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires the Planner from its preset, so
+ * it runs alone, never beside roles.controller.test.ts.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

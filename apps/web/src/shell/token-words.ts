@@ -17,8 +17,7 @@ export function sumTokens(totals: readonly TokenTotals[]): TokenTotals {
 
 /**
  * What a token count holds, kind by kind, and what each costs against input's price, for its info
- * icon. The ratios are the engine's
- * prices for every Claude model.
+ * icon. The ratios are the engine's prices for every Claude model.
  */
 export function tokenKindLines(tokens: TokenTotals): string[] {
   return [

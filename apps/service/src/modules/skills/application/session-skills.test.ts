@@ -377,11 +377,11 @@ describe("SessionSkills", () => {
 });
 
 /**
- * Task 07's check on the Test Project: a skill written, reviewed, turned
- * on and given to everyone; a session in a worktree of the Test Project, with a Project skill of
- * its own, that lists exactly those two; the context the listing costs; and an edit that the next
- * session gets while the first keeps its version. Live sessions, so it runs only when asked:
- * OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>.
+ * Task 07's check on the Test Project: a skill written, reviewed, turned on and given to everyone;
+ * a session in a worktree of the Test Project, with a Project skill of its own, that lists exactly
+ * those two; the context the listing costs; and an edit that the next session gets while the first
+ * keeps its version. Live sessions, so it runs only when asked: OFFICE_ENGINE_TESTS=live and
+ * OFFICE_TEST_PROJECT=<the Test Project's folder>.
  *
  * A skill on and for everyone reaches every session prepared on the shared database, so this check
  * sits in this file, whose tests run one at a time, and keeps its skill on only while a session
