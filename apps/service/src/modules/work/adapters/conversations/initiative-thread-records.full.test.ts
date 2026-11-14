@@ -14,7 +14,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InitiativeThreadSetups } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { INITIATIVE_PLANNING_INSTRUCTIONS } from "../../domain/initiative-planning.js";
-import { PLANNER } from "../../domain/planning.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
 import {
   sendJson,
@@ -22,6 +21,12 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { SHAPING_OFFICE_TOOLS } from "./initiative-thread-records.js";
+
+/**
+ * The Role holding Plans: its Threads on an Initiative are shaping ones unless Plan the Initiative
+ * opened them.
+ */
+const PLANNER = "planner";
 
 let officeData: string;
 let work: WorkApplication;
@@ -144,9 +149,23 @@ describe("a shaping Thread's session", () => {
         `- The ${api} (${api}): None, so each of its Tasks publishes on its own.`,
         `- The ${web} (${web}): None, so each of its Tasks publishes on its own.`,
         "",
-        "- full: Full (Implement → Tests → Review & fix → Publish).",
+        "- full: Full (Implement → Tests → Review & fix → Publish). For a change that needs a careful look: implement, test, review in a fresh session, publish.",
       ].join("\n"),
     );
+  });
+
+  it("is any Thread Plan the Initiative didn't open, whoever it is with, the Planner's too", async () => {
+    const idea = ideaSchema.parse(
+      await post("/ideas", { title: "Usage alerts", notes: "", projectId: null }),
+    );
+    const initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
+
+    for (const roleKey of [PLANNER, "architect"]) {
+      expect(await setUp(initiative, roleKey)).toMatchObject({
+        instructions: SHAPING_INSTRUCTIONS,
+        officeTools: SHAPING_OFFICE_TOOLS,
+      });
+    }
   });
 
   it("is refused once the Initiative is dropped", async () => {

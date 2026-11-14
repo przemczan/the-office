@@ -141,10 +141,11 @@ export function pipelinesFootWords(
   if (state === "done") return undefined;
   const added = withPipeline.flatMap(({ publishingTask }) => publishingTask ?? []);
   if (added.length === 0) {
-    return "Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project with a Pipeline whose branch holds work, to publish its whole change; you start it, or Start Ready Tasks does. Another Pipeline for a Project comes by the CTO's Proposal.";
+    return "Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project with a Pipeline whose branch holds work, to publish its whole change; you start it, or Start Ready Tasks does. Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.";
   }
   const started = added.filter(({ state: taskState }) => hasStarted(taskState)).length;
-  if (started === 0) return "Another Pipeline for a Project comes by the CTO's Proposal.";
+  if (started === 0)
+    return "Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.";
   return started === withPipeline.length
     ? "Their Publishing Tasks have started, so these Pipelines no longer change."
     : "A Project's Pipeline no longer changes once its Publishing Task has started.";

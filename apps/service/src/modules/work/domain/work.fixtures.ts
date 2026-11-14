@@ -42,6 +42,7 @@ export function anInitiative(fields: Partial<Initiative> = {}): Initiative {
     originIdeaId: "idea-1",
     createdBy: ANN_LEE,
     createdAt: new Date("2026-10-25T09:10:00.000Z"),
+    planningThreadIds: [],
     planningAutoMode: false,
     pipelines: [],
     branches: [],

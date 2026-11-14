@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 import type { Role } from "@the-office/contracts";
 import { AskInChatButton, useAskInChat, type AskInChat } from "./chat/ask-in-chat.tsx";
-import { useHired } from "./use-hired.ts";
+import { DutyUnheldNote } from "./duty-unheld-note.tsx";
+import { useDutyHolder } from "./use-duty-holder.ts";
 
 /**
- * Devops' Role, by the preset's fixed key: they onboard Projects, propose Project commands,
- * library Pipelines and Stage templates, and install skills from a Source.
+ * Asks whoever holds Onboards and repairs Projects from a page, with `draft` waiting in a new
+ * Thread of their chat (spec §2.3): they onboard Projects, propose Project commands, library
+ * Pipelines and Stage templates, and install skills from a Source. While nobody holds it, the page
+ * says so.
  */
-const DEVOPS = "devops";
-
-/** Asks Devops from a page, with `draft` waiting in a new Thread of their chat (spec §2.3). */
 export function AskDevopsButton({
   label,
   draft,
@@ -17,15 +17,20 @@ export function AskDevopsButton({
   readonly label: (name: string) => string;
   readonly draft: string;
 }): ReactNode {
-  return <AskInChatButton roleKey={DEVOPS} label={label} draft={draft} />;
+  const holder = useDevops();
+  if (holder) return <AskInChatButton roleKey={holder.key} label={label} draft={draft} />;
+  return <DutyUnheldNote duty="onboards-projects" />;
 }
 
-/** Whoever fills Devops' Role now; undefined while nobody does. */
+/** Whoever holds Onboards and repairs Projects now; undefined while nobody does. */
 export function useDevops(): Role | undefined {
-  return useHired(DEVOPS);
+  return useDutyHolder("onboards-projects").holder;
 }
 
-/** Asking Devops from a page, for a button of the page's own; `onAsked` runs as their chat opens. */
+/**
+ * Asking whoever holds Onboards and repairs Projects from a page, for a button of the page's own;
+ * `onAsked` runs as their chat opens.
+ */
 export function useAskDevops(onAsked?: () => void): AskInChat {
-  return useAskInChat(DEVOPS, onAsked);
+  return useAskInChat(useDevops()?.key, onAsked);
 }

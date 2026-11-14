@@ -88,12 +88,13 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
 }
 
 /**
- * Whether The Office puts what the walk asks to the CTO before the user (spec §2.3): a Stage
- * failing with no retries left, unless the CTO already sent that Stage back once in this walk; and
+ * Whether The Office puts what the walk asks to a Consultant before the user, whoever holds Asked
+ * first when a Stage runs out of tries (spec §2.3): a Stage failing with no retries left, unless a
+ * Consultant already sent that Stage back once in this walk; and
  * a Publish's after publishing line failing, the first time only, so a second failure reaches the
  * user. Every other question, budget limits included, is the user's.
  */
-export function asksTheCtoFirst(question: WalkQuestion, runs: readonly StageRun[]): boolean {
+export function asksAConsultantFirst(question: WalkQuestion, runs: readonly StageRun[]): boolean {
   if (question.kind === "after-publishing-failed") {
     return !runs.some(
       ({ stageKey, decisions }) =>

@@ -27,7 +27,7 @@ export function useIdeaPlanning(idea: Idea): UseMutationResult<Task, Error, stri
 export function useOnPlanned(): (task: Task) => Promise<void> {
   const showToast = useToast();
   const navigate = useNavigate();
-  const planner = usePlanner()?.card.name ?? "the Planner";
+  const planner = usePlanner()?.card.name ?? "whoever holds Plans";
   return async (task) => {
     showToast(
       `${task.title} is in Planning: message ${planner} to start, or write the Plan yourself.`,

@@ -20,7 +20,7 @@ import { EmptyCard } from "../../shell/item-card.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { dayOf } from "../../shell/time.ts";
-import { useCto } from "../../shell/work/use-cto.ts";
+import { useShaper } from "../../shell/work/use-shaper.ts";
 import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { isArchived } from "../../shell/work/work-words.ts";
 import { useDroppedFold } from "./dropped-fold.ts";
@@ -58,7 +58,7 @@ interface BoardReading {
   readonly tasks: readonly Task[];
   readonly projects: readonly Project[] | undefined;
   /** Who shapes, as a Shaping card says it. */
-  readonly cto: string | undefined;
+  readonly shaper: string | undefined;
   readonly waitsOnYou: (task: Task) => boolean;
   readonly peopleWorkingOn: (taskId: string) => readonly PersonWorking[];
 }
@@ -73,7 +73,7 @@ export function InitiativesBoard(): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const projects = useQuery(projectQueries.list());
   const period = useQuery(archivePeriodQuery());
-  const cto = useCto()?.card.name;
+  const shaper = useShaper()?.card.name;
   const projectFilter = useProjectFilter();
   const { filters, change, matchesSearch } = useInitiativesFilters();
   const waitsOnYou = useWaitingOnYou();
@@ -89,7 +89,7 @@ export function InitiativesBoard(): ReactNode {
   const reading: BoardReading = {
     tasks: tasks.data,
     projects: projects.data,
-    cto,
+    shaper,
     waitsOnYou,
     peopleWorkingOn,
   };
@@ -141,7 +141,9 @@ export function InitiativesBoard(): ReactNode {
                 {column.label}{" "}
                 <span className="board-count">{cards.length.toLocaleString("en-US")}</span>
               </h3>
-              <div className="board-hint">{column.hint(cto ?? "the CTO", archivePeriod)}</div>
+              <div className="board-hint">
+                {column.hint(shaper ?? "whoever shapes Initiatives", archivePeriod)}
+              </div>
               <div className="board-cards">
                 {cards.length > 0 ? (
                   cards.map((initiative) => (
@@ -314,7 +316,7 @@ function ShapingCard({
       </div>
       <Outcome initiative={initiative} />
       <div className="board-card-foot">
-        <span className="board-card-note">{initiativeStateName("shaping", reading.cto)}</span>
+        <span className="board-card-note">{initiativeStateName("shaping", reading.shaper)}</span>
         <span aria-hidden="true">·</span>
         <span>{tasksSoFarWords(count)}</span>
       </div>

@@ -120,10 +120,11 @@ const OFFICE_LIMITS: Record<
 /**
  * A Proposal as a card in the drafting person's chat (spec §2.4): a new Role to hire, from scratch
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
- * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
- * an Initiative, or Devops' change to a Project's commands, a library Pipeline's Stages, a Project
- * Pipeline (new or changed) or a Stage template's Stage, a Project to onboard, a skill to install from a Source or its update, or a
- * written skill drafted in a chat. Nothing changes until the user applies it; "Not now" declines it.
+ * the user gives), a change to a Role's card, a new value for an Office setting, a change to an
+ * Initiative by whoever shapes Initiatives, or by whoever onboards Projects a change to a Project's
+ * commands, a library Pipeline's Stages, a Project Pipeline (new or changed) or a Stage template's
+ * Stage, a Project to onboard, a skill to install from a Source or its update, or a written skill
+ * drafted in a chat. Nothing changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
@@ -619,7 +620,10 @@ const INITIATIVE_EDIT_TITLES: Readonly<Record<InitiativeEdit["kind"], string>> =
   pipeline: "Another Pipeline for the Initiative",
 };
 
-/** The CTO's change to the Initiative, its Tasks and Projects by name. */
+/**
+ * The change to the Initiative proposed by whoever shapes Initiatives, its Tasks and Projects by
+ * name.
+ */
 function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): ReactNode {
   const tasks = useQuery(taskQueries.list()).data;
   const projects = useQuery(projectQueries.list()).data;
@@ -843,8 +847,8 @@ function HireFoot({
 }
 
 /**
- * Hiring into a preset's Role: under the proposed name, or one the user gives first. A preset's Role
- * is hired on its preset's card, so the name is all there is to edit.
+ * Hiring into a preset's Role: under the proposed name, or one the user gives first. A preset's
+ * Role is hired on its preset's card, so the name is all there is to edit.
  */
 function PresetHireFoot({
   proposal,

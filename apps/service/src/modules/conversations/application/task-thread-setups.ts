@@ -59,8 +59,10 @@ export interface TaskThreadSetup {
 
 /** Sets up the sessions of Threads on Tasks. */
 export interface TaskThreadSource {
-  /** The Role that plans Tasks, whose tab comes first, by its key. */
-  readonly planner: string;
+  /**
+   * Whoever holds Plans, whose tab comes first, by their Role's key; undefined while nobody does.
+   */
+  planner(): Promise<string | undefined>;
   setUp(thread: TaskThreadRequest): Promise<TaskThreadSetup>;
   /**
    * Readies the Task for a person's Thread to open on it, its worktree above all; why it can't
@@ -93,8 +95,8 @@ export class TaskThreadSetups {
     return this.registered().setUp(thread);
   }
 
-  planner(): string {
-    return this.registered().planner;
+  planner(): Promise<string | undefined> {
+    return this.registered().planner();
   }
 
   readyForPersonsThread(taskId: string): Promise<string | undefined> {

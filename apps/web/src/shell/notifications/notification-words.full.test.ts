@@ -1,4 +1,4 @@
-import type { Project, Role } from "@the-office/contracts";
+import type { Duty, Project, Role } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   aboutLine,
@@ -25,30 +25,56 @@ describe("targetOf", () => {
     expect(targetOf({ pointsTo: { kind: "office" }, roleKey: null })).toEqual({ to: "/now" });
   });
 
-  it("opens the Office Manager's chat over Now when they speak an Office kind", () => {
-    expect(targetOf({ pointsTo: { kind: "office" }, roleKey: "office-manager" })).toEqual({
+  it("opens the chat of whoever speaks an Office kind over Now", () => {
+    expect(targetOf({ pointsTo: { kind: "office" }, roleKey: "receptionist" })).toEqual({
       to: "/now",
-      search: { chat: "office-manager" },
+      search: { chat: "receptionist" },
     });
   });
 });
 
-function officeManager(letGoAt: string | null): Role[] {
-  return [{ key: "office-manager", letGoAt, card: { name: "Marta" } }] as unknown as Role[];
+const ROLES = [
+  { key: "caretaker", builtIn: true, letGoAt: null, card: { name: "Toby" } },
+  { key: "receptionist", builtIn: false, letGoAt: null, card: { name: "Marta" } },
+] as unknown as Role[];
+
+/** Default person to talk to, held by the Role keyed `holder` or by nobody. */
+function defaultPerson(holder: string | null): Duty[] {
+  return [
+    {
+      key: "default-person-to-talk-to",
+      label: "Default person to talk to",
+      defaultRoleKey: "office-manager",
+      set: true,
+      roleKey: holder,
+      holder: holder === null ? null : { roleKey: holder, name: "Marta", title: "Receptionist" },
+      fallback: holder === null ? "caretaker" : null,
+    },
+  ];
 }
 
 describe("serviceDown", () => {
-  it("comes from the Office Manager while one is hired, and in the UI's voice otherwise", () => {
-    expect(serviceDown(officeManager(null), undefined)).toMatchObject({
-      roleKey: "office-manager",
+  it("comes from whoever holds Default person to talk to, whatever their Role's key", () => {
+    expect(serviceDown(defaultPerson("receptionist"), ROLES, undefined)).toMatchObject({
+      roleKey: "receptionist",
       line: "I lost touch with the service and am reconnecting.",
       channels: ["in-app", "desktop"],
     });
-    expect(serviceDown(officeManager("2026-10-27T09:00:00.000Z"), undefined)).toMatchObject({
+  });
+
+  it("comes from the Caretaker while nobody holds it", () => {
+    expect(serviceDown(defaultPerson(null), ROLES, undefined)).toMatchObject({
+      roleKey: "caretaker",
+      line: "I lost touch with the service and am reconnecting.",
+    });
+  });
+
+  it("is in the UI's voice until the duties and the Roles were read", () => {
+    expect(serviceDown(undefined, ROLES, undefined)).toMatchObject({
       roleKey: null,
       line: "The Office lost its service and is reconnecting.",
     });
-    expect(serviceDown(undefined, undefined).roleKey).toBeNull();
+    expect(serviceDown(defaultPerson("receptionist"), undefined, undefined).roleKey).toBeNull();
   });
 
   it("goes to the browser's channels the user's routing gives it, never the phone", () => {
@@ -56,7 +82,7 @@ describe("serviceDown", () => {
     const on = { on: true, from: "office.down.service" };
     const routing = { "office.down.service": { "in-app": on, desktop: off, phone: on } };
 
-    expect(serviceDown(undefined, routing).channels).toEqual(["in-app"]);
+    expect(serviceDown(undefined, undefined, routing).channels).toEqual(["in-app"]);
   });
 });
 

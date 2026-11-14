@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, Consultant, SessionRole, RoleService, PersonRecords, Duties, DutyChange, DutyWithHolder, DutyRefused, DutyChangeChecks, DutyChangeCheck, DutyHolderSave, DUTIES, DutyHolding, DutyKey, DutyHolderChanged, EngineCascade, PipelineRoleCapabilityChecks, NewlyNamedRoles, PipelineRoleSources, PipelineRoleSource, PipelineRolesNamed, EngineCascadeLevel, EngineInCascade, ProjectCascadeLevels, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CARETAKER, CTO, DEVOPS, OFFICE_MANAGER, mcpToolSettingsFor, narrowedMcpToolSetting, McpToolSettings, narrowedPermissionProfile, permissionNarrowingProblems, PermissionNarrowing, RoleCard, RoleNotFound, RoleRefused, PeopleModule, EngineCascadeModule
+RoleCards, Consultant, SessionRole, RoleService, PersonRecords, Duties, DutyChange, DutyWithHolder, DutyRefused, DutyChangeChecks, DutyChangeCheck, DutyHolderSave, DUTIES, DutyHolding, DutyKey, DutyHolderChanged, EngineCascade, PipelineRoleCapabilityChecks, NewlyNamedRoles, PipelineRoleSources, PipelineRoleSource, PipelineRolesNamed, EngineCascadeLevel, EngineInCascade, ProjectCascadeLevels, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CARETAKER, mcpToolSettingsFor, narrowedMcpToolSetting, McpToolSettings, narrowedPermissionProfile, permissionNarrowingProblems, PermissionNarrowing, RoleCard, RoleNotFound, RoleRefused, PeopleModule, EngineCascadeModule
 
 ## Domain events
 

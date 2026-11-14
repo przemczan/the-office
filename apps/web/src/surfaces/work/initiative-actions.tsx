@@ -126,7 +126,7 @@ export function PlanTheInitiative({
     (planned) => {
       queryClient.setQueryData(autoModeQuery().queryKey, { autoMode: planned.planningAutoMode });
       void queryClient.invalidateQueries(threadQueries.onInitiative(initiative.id));
-      showToast(plannedWords(planner ?? "The Planner", planned.planningAutoMode));
+      showToast(plannedWords(planner ?? "Whoever holds Plans", planned.planningAutoMode));
     },
   );
   if (!planner || !canPlanInitiative(initiative, initiativeTasks)) return null;

@@ -15,18 +15,16 @@ import {
 } from "@the-office/contracts";
 import { vi } from "vitest";
 import type { ScriptedEngine, SessionScript } from "../../../engine/index.js";
-import {
-  DEVOPS,
-  DUTIES,
-  type DutyKey,
-  type RoleCards,
-  type SessionRole,
-} from "../../../people/index.js";
+import { DUTIES, type DutyKey, type RoleCards, type SessionRole } from "../../../people/index.js";
+import { dutiesProvider } from "../../application/duties.fixtures.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { ANN_LEE } from "../../domain/user.fixtures.js";
+
+/** The Role holding Onboards and repairs Projects by default. */
+const DEVOPS = "devops";
 
 type Step = SessionScript[number];
 
@@ -61,6 +59,12 @@ export const NINA_ROLE_CARDS: Partial<RoleCards> = {
 function devopsDuty(duty: DutyKey): boolean {
   return DUTIES.some(({ key, defaultRoleKey }) => key === duty && defaultRoleKey === DEVOPS);
 }
+
+/**
+ * People's Duties with each duty held by its default Role, so Nina, under Devops' key, onboards
+ * Projects: People's own reads the Roles hired, and Devops' fixed key is never hired here.
+ */
+export const NINA_DUTIES = dutiesProvider();
 
 /** A skill name of the test's own, since every test file shares the database. */
 export function aSkillName(): string {

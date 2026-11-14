@@ -3,8 +3,9 @@ import type { Pipeline, Project, ProjectPipeline, Role } from "@the-office/contr
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { roleQueries } from "../../../api/people.ts";
+import { dutyQueries, roleQueries } from "../../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../../api/pipelines.ts";
+import { aDuty } from "../../../shell/duties.fixtures.ts";
 import { ToastProvider } from "../../../shell/toasts.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 
@@ -68,6 +69,7 @@ function block(project: Project): HTMLElement {
     SPEC_CHANGE,
   ]);
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
+  queryClient.setQueryData(dutyQueries.list().queryKey, [aDuty("plans", "planner")]);
   const page = document.createElement("div");
   document.body.append(page);
   act(() =>

@@ -90,7 +90,7 @@ export function PlanOnCardButton({ task }: { readonly task: Task }): ReactNode {
 
 /** "Planning with Angela", and "in auto mode" when the Task won't wait for the user's Confirm. */
 export function planningNoteWords(task: Task, planner: string | undefined): string {
-  const planning = `Planning with ${planner ?? "the Planner"}`;
+  const planning = `Planning with ${planner ?? "whoever holds Plans"}`;
   return task.autoMode ? `${planning}, in auto mode` : planning;
 }
 

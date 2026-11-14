@@ -40,7 +40,7 @@ export interface MakingAPlan {
 export function useMakingAPlan(): UseMutationResult<Task, Error, MakingAPlan> {
   const queryClient = useQueryClient();
   const showToast = useToast();
-  const planner = usePlanner()?.card.name ?? "The Planner";
+  const planner = usePlanner()?.card.name ?? "Whoever holds Plans";
   return useMutation({
     mutationFn: ({ task, autoMode }: MakingAPlan) => makeAPlan(task.id, autoMode),
     onSuccess: (planning, { autoMode }) => {

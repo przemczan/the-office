@@ -55,6 +55,7 @@ export const contextReasonSchema = z.enum([
   "context-full",
   "engine-changed",
   "changes-switched",
+  "duties-changed",
 ]);
 export type ContextReason = z.infer<typeof contextReasonSchema>;
 
@@ -441,7 +442,7 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
    * drafted; both name only the duties that change. Applying changes them all or none.
    */
   z.object({ kind: z.literal("duties"), from: dutyHoldersSchema, to: dutyHoldersSchema }),
-  /** A change the CTO wants to an active Initiative; Work applies it. */
+  /** A change whoever shapes Initiatives wants to an active Initiative; Work applies it. */
   z.object({
     kind: z.literal("initiative"),
     initiativeId: z.uuid(),

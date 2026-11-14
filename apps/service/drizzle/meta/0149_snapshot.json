@@ -1,5 +1,5 @@
 {
-  "id": "d53a4460-0d02-4543-ac68-ae3b8b855662",
+  "id": "2d212f39-7f60-4a78-bb5f-aa5fbbc024dd",
   "prevId": "73aaa42f-ba55-44cc-91f7-2ceaeb236c3d",
   "version": "7",
   "dialect": "postgresql",
@@ -2694,12 +2694,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "role_key": {
-          "name": "role_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -5100,6 +5094,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "planning_thread_ids": {
+          "name": "planning_thread_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
         },
         "planning_started_by": {
           "name": "planning_started_by",

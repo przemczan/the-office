@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { RESOLVE_KEY } from "./resolve-stages.js";
 import type { Stage } from "./stage.js";
 import { type StageOutcome, type StageRunDecision } from "./stage-run.js";
-import { acceptedIssues, asksTheCtoFirst, walkAnswerOf, walkDecision } from "./walk-decisions.js";
+import {
+  acceptedIssues,
+  asksAConsultantFirst,
+  walkAnswerOf,
+  walkDecision,
+} from "./walk-decisions.js";
 import { implement, tests, aRun, failed, sentBack } from "./walk-decisions.fixtures.js";
 
 describe("walkDecision", () => {
@@ -112,7 +117,7 @@ describe("walkAnswerOf", () => {
     });
   });
 
-  it("keeps whose words the guidance is when the CTO answered in the user's place", () => {
+  it("keeps whose words the guidance is when a Consultant answered in the user's place", () => {
     expect(
       walkAnswerOf(noRetries, { kind: "free-answer", text: "Mock the clock.", answeredBy: "cto" }),
     ).toEqual({ kind: "one-more-round", guidance: "Mock the clock.", guidedBy: "cto" });
@@ -186,8 +191,8 @@ describe("the branch-moved Decision", () => {
   const run = aRun("implement", { status: "failed", error, branchMoved: true });
   const question = { kind: "branch-moved", stage: implement, error } as const;
 
-  it("is the user's, not the CTO's", () => {
-    expect(asksTheCtoFirst(question, [run])).toBe(false);
+  it("is the user's, not a Consultant's", () => {
+    expect(asksAConsultantFirst(question, [run])).toBe(false);
   });
 
   it("keeps the branch on words of the user's own, guided by them", () => {
@@ -227,7 +232,7 @@ describe("the base-moved Decision", () => {
     expect(decision.draft.context).toContain(error);
     expect(decision.draft.options).toEqual(["I resolved it in the worktree", "Drop the Task"]);
     expect(decision.options).toEqual([{ kind: "resolved-in-worktree" }, { kind: "drop" }]);
-    expect(asksTheCtoFirst({ kind: "base-moved", stage: resolve, error }, [run])).toBe(false);
+    expect(asksAConsultantFirst({ kind: "base-moved", stage: resolve, error }, [run])).toBe(false);
   });
 });
 
@@ -270,32 +275,32 @@ describe("the budget Decision", () => {
   });
 });
 
-describe("asksTheCtoFirst", () => {
+describe("asksAConsultantFirst", () => {
   const noRetriesLeft = { kind: "no-retries-left", stage: tests, error: "2 tests fail." } as const;
 
-  it("asks the user once the CTO sent that Stage back in this walk", () => {
+  it("asks the user once a Consultant sent that Stage back in this walk", () => {
     const runs = [aRun("tests", failed, [sentBack("cto")]), aRun("tests", failed)];
 
-    expect(asksTheCtoFirst(noRetriesLeft, runs)).toBe(false);
+    expect(asksAConsultantFirst(noRetriesLeft, runs)).toBe(false);
   });
 
-  it("asks the CTO again after a round the user gave", () => {
+  it("asks a Consultant again after a round the user gave", () => {
     const runs = [aRun("tests", failed, [sentBack()]), aRun("tests", failed)];
 
-    expect(asksTheCtoFirst(noRetriesLeft, runs)).toBe(true);
+    expect(asksAConsultantFirst(noRetriesLeft, runs)).toBe(true);
   });
 
   it("leaves budget limits and the Definition of Done to the user", () => {
     const run = aRun("implement", failed);
 
     expect(
-      asksTheCtoFirst(
+      asksAConsultantFirst(
         { kind: "budget", stage: implement, reached: { used: 120_000, budget: 100_000 } },
         [run],
       ),
     ).toBe(false);
     expect(
-      asksTheCtoFirst(
+      asksAConsultantFirst(
         { kind: "definition-of-done", unmet: ["It exports."], outOfReach: [], again: implement },
         [run],
       ),

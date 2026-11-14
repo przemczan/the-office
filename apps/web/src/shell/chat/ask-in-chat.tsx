@@ -19,23 +19,24 @@ export interface AskInChat {
 }
 
 /** Asks the person who fills the Role from a page, as the click-through's "Ask Nina" does. */
-export function useAskInChat(roleKey: string, onAsked?: () => void): AskInChat {
+export function useAskInChat(roleKey: string | undefined, onAsked?: () => void): AskInChat {
   const hired = useHired(roleKey);
+  const person = hired?.card.capabilities.chat ? hired : undefined;
   const chat = useChat();
   const drafts = useThreadDrafts();
   const queryClient = useQueryClient();
   const opening = useMutation({
-    mutationFn: (_draft: string) => startChatThread(roleKey),
+    mutationFn: (_draft: string) => startChatThread(asked(person)),
     onSuccess: async (thread, draft) => {
       drafts.leave(thread.id, draft);
       queryClient.setQueryData(threadQueries.one(thread.id).queryKey, thread);
-      await queryClient.invalidateQueries(threadQueries.inChat(roleKey));
+      await queryClient.invalidateQueries(threadQueries.inChat(thread.roleKey));
       onAsked?.();
-      chat.open(roleKey, thread.id);
+      chat.open(thread.roleKey, thread.id);
     },
   });
   return {
-    person: hired?.card.capabilities.chat ? hired : undefined,
+    person,
     ask: (draft) => opening.mutate(draft),
     asking: opening.isPending,
     error: opening.error,
@@ -72,4 +73,10 @@ export function AskInChatButton({
       {error && <RefusalAlert title="No new Thread" error={error} />}
     </>
   );
+}
+
+/** The key of the person asked; asking is offered only while someone with a chat fills the Role. */
+function asked(person: Role | undefined): string {
+  if (!person) throw new Error("Nobody with a chat fills this Role.");
+  return person.key;
 }

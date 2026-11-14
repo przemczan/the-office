@@ -47,6 +47,8 @@ export interface ThreadSessionRow {
   readonly changesAllowed?: boolean;
   /** Absent on sessions saved before the Office instructions: they resume with none. */
   readonly officeInstructionsVersion?: number;
+  /** Absent on sessions saved before duties, which they never decided. */
+  readonly heldDuties?: readonly string[];
 }
 
 /**

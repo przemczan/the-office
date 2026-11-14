@@ -124,7 +124,7 @@ export interface AnsweredQuestion {
 
 /**
  * A carried failure as the Brief words it: with the failed Stage's name, and who gave the guidance,
- * such as "Bob (CTO)", when a Consultant did.
+ * such as "Bob (Architect)", when a Consultant did.
  */
 export type CarriedRound = CarriedFailure & {
   readonly stageName: string;
@@ -133,7 +133,7 @@ export type CarriedRound = CarriedFailure & {
 
 /** Why the Stage runs now, beside its brief; each is left out when it doesn't apply. */
 export interface StageWorkReasons {
-  /** The failure an on-failure loop, or a round the user or the CTO gave, went back with. */
+  /** The failure an on-failure loop, or a round the user or a Consultant gave, went back with. */
   readonly carried?: CarriedRound;
   /** The user's feedback from a Gate, when they sent the work back to this Stage. */
   readonly sentBack?: SentBack & { readonly gateName: string };
@@ -182,11 +182,12 @@ export interface HeldRun {
 }
 
 /**
- * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again
- * after its Agent's question; the Stages after it in the Pipeline; when an on-failure loop went back to it, the failure it went back
- * with; when the user sent the work back to it from a Gate, their feedback; when the user held its last run, how, and so where its edits stand; and when the install
- * before it failed, why, as the Agent's commands may fail for it. A new session gets it after the
- * Brief, a continued one alone.
+ * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again after
+ * its Agent's question; the Stages after it in the Pipeline; when an on-failure loop went back to
+ * it, the failure it went back with; when the user sent the work back to it from a Gate, their
+ * feedback; when the user held its last run, how, and so where its edits stand; and when the
+ * install before it failed, why, as the Agent's commands may fail for it. A new session gets it
+ * after the Brief, a continued one alone.
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "key" | "name" | "brief">,
@@ -299,7 +300,9 @@ const CUT_SHORT: Readonly<Partial<Record<StageInterruption, string>>> = {
     "The Office cut your last turn short, so some of your edits may be half-done: check them before you go on.",
 };
 
-/** A refused turn may have been cut off after some of its tool calls, as CUT_SHORT says of others. */
+/**
+ * A refused turn may have been cut off after some of its tool calls, as CUT_SHORT says of others.
+ */
 const REFUSED_HALF_DONE =
   "The engine may have refused your turn after some of its tool calls, so some of your edits may be half-done: check them before you go on.";
 
@@ -329,7 +332,9 @@ function capitalized(words: string): string {
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }
 
-/** The message the engine refused, sent again: the Stage's work, or the correction of its result. */
+/**
+ * The message the engine refused, sent again: the Stage's work, or the correction of its result.
+ */
 function refusedMessageWords({ message, problems }: NonNullable<HeldRun["refused"]>): string {
   if (message === "work") {
     return "The message the engine refused was this Stage's work, above: do it now, and end with its result.";
@@ -338,8 +343,9 @@ function refusedMessageWords({ message, problems }: NonNullable<HeldRun["refused
 }
 
 /**
- * Why the Stage runs again: a later Stage's loop went back to it, or the user, or the CTO asked
- * first, gave it one more round itself; with what they said to do differently, when they said it.
+ * Why the Stage runs again: a later Stage's loop went back to it, or the user, or the Consultant
+ * asked first, gave it one more round itself; with what they said to do differently, when they said
+ * it.
  */
 function whyAgain(stage: Pick<AgentStage, "key">, carried: CarriedRound): string {
   const chosen =

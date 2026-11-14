@@ -38,8 +38,8 @@ export type MessageDraft =
   | StageWorkClosing;
 
 /**
- * What the user did themselves, which leaves them nothing new to read: anything else in a chat comes
- * from the person, or from The Office about their turn.
+ * What the user did themselves, which leaves them nothing new to read: anything else in a chat
+ * comes from the person, or from The Office about their turn.
  */
 export const USERS_OWN_MESSAGE_KINDS = [
   "user",
@@ -168,7 +168,9 @@ interface Refusal {
   readonly reason: string;
 }
 
-/** One of the session's MCP servers didn't start: The Office's line, with why when the engine said. */
+/**
+ * One of the session's MCP servers didn't start: The Office's line, with why when the engine said.
+ */
 interface McpServerNotStarted {
   readonly kind: "mcp-server-not-started";
   /** The MCP server's name. */
@@ -204,7 +206,10 @@ interface DecisionAnswerLine {
   readonly delivery?: MessageDelivery;
 }
 
-/** A Proposal the person drafted, shown as its card; the Proposal holds what it changes and its status. */
+/**
+ * A Proposal the person drafted, shown as its card; the Proposal holds what it changes and its
+ * status.
+ */
 interface ProposalCard {
   readonly kind: "proposal";
   readonly roleKey: string;
@@ -212,9 +217,9 @@ interface ProposalCard {
 }
 
 /**
- * The Office Manager points the user to whoever is responsible (spec §2.2): a person to open a
- * chat Thread with, about a Task when it names one, with a Handover note the user sends themselves.
- * The person's state is read when the card is shown, never kept on it.
+ * The Default person to talk to points the user to whoever is responsible (spec §2.2): a person to
+ * open a chat Thread with, about a Task when it names one, with a Handover note the user sends
+ * themselves. The person's state is read when the card is shown, never kept on it.
  */
 interface LinkCard {
   readonly kind: "link-card";
@@ -235,8 +240,8 @@ export interface IdeaCard {
 }
 
 /**
- * The Office Manager shows the Office status (spec §2.2): who is on what and what waits on the
- * user, Office-wide, read from Now whenever the card is shown, never kept on it.
+ * The Default person to talk to shows the Office status (spec §2.2): who is on what and what waits
+ * on the user, Office-wide, read from Now whenever the card is shown, never kept on it.
  */
 export interface OfficeStatusCard {
   readonly kind: "office-status";

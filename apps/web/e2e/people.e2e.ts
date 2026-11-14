@@ -1033,8 +1033,12 @@ test(
     await page.getByRole("button", { name: "Add a skill" }).click();
     const dialog = page.getByRole("dialog");
 
-    await expect(dialog).toContainText("Installing needs someone with the Devops Role");
-    await expect(dialog.getByRole("link", { name: "Hire one on the People page." })).toBeVisible();
+    await expect(dialog).toContainText(
+      "Installing needs whoever holds Onboards and repairs Projects",
+    );
+    await expect(
+      dialog.getByRole("link", { name: "hire someone on the People page." }),
+    ).toBeVisible();
     await expect(dialog.getByRole("button", { name: /to install it$/ })).toHaveCount(0);
   },
 );

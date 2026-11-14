@@ -102,7 +102,7 @@ async function aTaskOnFull(transaction: Transaction): Promise<string> {
 
 async function applyMigration(transaction: Transaction): Promise<void> {
   const migration = await readFile(
-    new URL("../../../../../drizzle/0149_stage_duties.sql", import.meta.url),
+    new URL("../../../../../drizzle/0150_stage_duties.sql", import.meta.url),
     "utf8",
   );
   // The column exists already: only the data statements run again.
@@ -111,7 +111,7 @@ async function applyMigration(transaction: Transaction): Promise<void> {
   }
 }
 
-describe("migration 0149", () => {
+describe("migration 0150", () => {
   it("moves the built-in Pipelines and Stage templates from Roles to duties", async () => {
     const after = await rolledBack(async (transaction) => {
       await keepAsBefore(transaction);
