@@ -128,7 +128,8 @@ export class PublishStage {
   /**
    * Runs the before publishing line, committing what it changed, which is then what Publish
    * ships: HEAD is expected at that commit from here on. Its failure is the Stage's, as any
-   * Script Stage's command's, with nothing published.
+   * Script Stage's command's, with nothing published; what a failed line changed is committed
+   * still, as a failed build-kind command's is, for the Stage it goes back to.
    */
   private async beforePublishing(
     work: StageWork<"script">,
@@ -141,21 +142,16 @@ export class PublishStage {
     const { run, stage } = work;
     const ran: StageCommandRunWithOutput[] = [];
     const end = await this.runLine(work, task, "beforePublishingCommand", {}, ran);
-    switch (end.kind) {
-      case "stopped":
-        return { outcome: await this.stopped(work, task, expected, end.outcome) };
-      case "failed":
-        await this.stageGit.leaveAt(run, expected);
-        return {
-          outcome: {
-            status: "failed",
-            error: `The before publishing line failed, so nothing was published: ${end.error}`,
-          },
-        };
-      case "passed":
-        break;
+    if (end.kind === "stopped") {
+      return { outcome: await this.stopped(work, task, expected, end.outcome) };
     }
-    if (!end.ran) return { expected, ran };
+    const lineRuns = ran.filter(({ purpose }) => purpose === "before-publishing");
+    // A blank line, or an install that failed before it, changed nothing to commit.
+    if (lineRuns.length === 0) {
+      if (end.kind === "passed") return { expected, ran };
+      await this.stageGit.leaveAt(run, expected);
+      return { outcome: beforePublishingFailed(end.error) };
+    }
     const moved = await this.stageGit.checkHead(run, task, expected);
     if (moved) {
       return {
@@ -165,15 +161,15 @@ export class PublishStage {
         },
       };
     }
-    const lineOutcome = scriptStageOutcome(ran.filter(({ purpose }) => purpose !== "install"));
     const message = stageCommitMessage(
       stage.name,
       task.title,
-      lineOutcome,
+      scriptStageOutcome(lineRuns),
       acceptedIssues(work.stages, work.earlierRuns),
     );
     // A Publishing Task's branch failing to push now is no failure: its Publish pushes it again.
     await this.stageGit.commit(run, task, expected, message);
+    if (end.kind === "failed") return { outcome: beforePublishingFailed(end.error) };
     const head = await this.git.head(task.project.id, run.taskId);
     return { expected: { ...expected, commit: head.commit }, ran };
   }
@@ -347,6 +343,13 @@ function shipsByPublishingMode({ stage }: StageWork<"script">, task: TaskRecord)
     target === "publishing-mode" &&
     (task.publishingTask === true || task.initiativeBranch === undefined)
   );
+}
+
+function beforePublishingFailed(error: string): StageOutcome {
+  return {
+    status: "failed",
+    error: `The before publishing line failed, so nothing was published: ${error}`,
+  };
 }
 
 /** A publishing line's run as the Stage run records it. */

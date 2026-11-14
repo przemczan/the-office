@@ -80,6 +80,11 @@ describe("A Publish Stage's before publishing line", () => {
       /^The before publishing line failed, so nothing was published: `npx changeset version` failed with exit code 1\./,
     );
     expect(runs[2]?.carriedFailure?.stageKey).toBe("publish");
+    const failedLineCommit = pipelines.git.commits.find(({ message }) =>
+      message.includes(`\`${BEFORE}\` failed`),
+    );
+    expect(failedLineCommit).toBeDefined();
+    expect(runs[1]?.headCommit).toBe(failedLineCommit?.commit);
     expect(pipelines.publishing.published).toHaveLength(1);
     expect(pipelines.commands.publishingLinesRan.map(({ line }) => line)).toEqual([
       "beforePublishingCommand",
