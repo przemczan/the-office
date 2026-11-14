@@ -255,7 +255,7 @@ export type RoleChange = z.infer<typeof roleChangeSchema>;
 
 export const roleChangeListSchema = z.array(roleChangeSchema);
 
-/** What a refused hire or card change answers: every reason, also joined into Nest's `message`. */
+/** What a refused hire, card change or duty change answers: every reason, also joined into Nest's `message`. */
 export const roleRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),
@@ -297,7 +297,46 @@ export const memoryNoteDraftSchema = z.object({
 });
 export type MemoryNoteDraft = z.infer<typeof memoryNoteDraftSchema>;
 
-/** The People events the web receives; each names the Role, so its queries refresh. */
+/** Spec §2.2's duties, by key, in its order. */
+export const dutyKeySchema = z.enum([
+  "default-person-to-talk-to",
+  "shapes-initiatives",
+  "asked-first-when-out-of-tries",
+  "onboards-projects",
+  "mcp-tool-consultant",
+  "plans",
+  "implements",
+  "reviews",
+]);
+export type DutyKey = z.infer<typeof dutyKeySchema>;
+
+/** What applies while nobody holds a duty: the user, the Caretaker, or the Pipelines unstaffed. */
+export const dutyFallbackSchema = z.enum(["user", "caretaker", "unstaffed"]);
+export type DutyFallback = z.infer<typeof dutyFallbackSchema>;
+
+/**
+ * A duty and who holds it. `roleKey` is the Role it names, hired or not: the default while never
+ * `set`, `null` when set to none. `holder` is that Role's person while hired; `fallback` applies
+ * while there is none.
+ */
+export const dutySchema = z.object({
+  key: dutyKeySchema,
+  label: z.string(),
+  defaultRoleKey: z.string(),
+  set: z.boolean(),
+  roleKey: z.string().nullable(),
+  holder: z.object({ roleKey: z.string(), name: z.string(), title: z.string() }).nullable(),
+  fallback: dutyFallbackSchema.nullable(),
+});
+export type Duty = z.infer<typeof dutySchema>;
+
+export const dutyListSchema = z.array(dutySchema);
+
+/** What the user sets a duty to: a hired Role's key, or `null` for none. */
+export const dutyChangeSchema = z.object({ roleKey: z.string().min(1).nullable() });
+export type DutyChange = z.infer<typeof dutyChangeSchema>;
+
+/** The People events the web receives; each names the Role or the duty, so its queries refresh. */
 export const roleWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("role.hired"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.let-go"), roleKey: z.string() }),
@@ -305,5 +344,6 @@ export const roleWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("role.card-changed"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.avatar-changed"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.memory-changed"), roleKey: z.string() }),
+  webEventSchema.extend({ type: z.literal("duty.changed"), duty: dutyKeySchema }),
 ]);
 export type RoleWebEvent = z.infer<typeof roleWebEventSchema>;

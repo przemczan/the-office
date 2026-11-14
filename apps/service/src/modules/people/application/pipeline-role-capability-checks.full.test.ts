@@ -17,6 +17,7 @@ import { PipelineRoleCapabilityChecks } from "./pipeline-role-capability-checks.
 import { PipelineRoleSources } from "./pipeline-role-sources.js";
 import { RoleCards, type SessionRole } from "./role-cards.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../index.fixtures.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const local = { engineId: "local", model: "gpt-oss" };
@@ -73,6 +74,7 @@ beforeEach(async () => {
         : {
             roleKey,
             cardVersion: 1,
+            mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
             card: aRoleCard({ roleOverride: roleOverrides[roleKey] ?? null }),
           },
     roleTitle: (roleKey) => roleKey.charAt(0).toUpperCase() + roleKey.slice(1),

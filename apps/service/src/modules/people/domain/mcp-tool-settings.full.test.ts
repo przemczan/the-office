@@ -1,29 +1,45 @@
 import { describe, expect, it } from "vitest";
 import { ALLOWED, ASK_ME, consult, NEVER, type HardSwitchValue } from "./hard-switches.js";
+import { mcpToolDefault } from "./duties.js";
 import {
-  MCP_TOOL_DEFAULT,
   mcpToolSetting,
   mcpToolSettingsFor,
   mcpToolSettingsProblems,
   narrowedMcpToolSetting,
   noWiderThan,
 } from "./mcp-tool-settings.js";
+import { consultableRoleKeys } from "./presets.js";
+
+/** The presets' Roles, and a Role hired from scratch under `ops`. */
+const CONSULTABLE = consultableRoleKeys(["ops"]);
 
 describe("an MCP tool's setting", () => {
-  it("starts at Consult Devops until the user sets it", () => {
-    expect(MCP_TOOL_DEFAULT).toEqual(consult("devops"));
-    expect(mcpToolSetting({ "github/merge": NEVER }, "github", "list_issues")).toEqual(
+  it("starts at the default it is given until the user sets it", () => {
+    const toolDefault = mcpToolDefault("devops");
+
+    expect(mcpToolSetting({ "github/merge": NEVER }, "github", "list_issues", toolDefault)).toEqual(
       consult("devops"),
     );
-    expect(mcpToolSetting({ "github/merge": NEVER }, "github", "merge")).toEqual(NEVER);
+    expect(mcpToolSetting({ "github/merge": NEVER }, "github", "merge", toolDefault)).toEqual(
+      NEVER,
+    );
+  });
+
+  it("follows the holder of Default Consultant for MCP tool hard switches, else asks the user", () => {
+    expect(mcpToolSetting({}, "github", "merge", mcpToolDefault("ops"))).toEqual(consult("ops"));
+    expect(mcpToolSetting({}, "github", "merge", mcpToolDefault(undefined))).toEqual(ASK_ME);
   });
 
   it("is given for every tool of a session's servers, the default included", () => {
     expect(
-      mcpToolSettingsFor({ "github/merge": ALLOWED }, [
-        { name: "github", tools: [{ name: "merge" }, { name: "list_issues" }] },
-        { name: "brave-search", tools: [{ name: "search" }] },
-      ]),
+      mcpToolSettingsFor(
+        { "github/merge": ALLOWED },
+        [
+          { name: "github", tools: [{ name: "merge" }, { name: "list_issues" }] },
+          { name: "brave-search", tools: [{ name: "search" }] },
+        ],
+        consult("devops"),
+      ),
     ).toEqual({
       "github/merge": ALLOWED,
       "github/list_issues": consult("devops"),
@@ -35,22 +51,33 @@ describe("an MCP tool's setting", () => {
 describe("mcpToolSettingsProblems", () => {
   it("takes each setting of a tool named server/tool", () => {
     expect(
-      mcpToolSettingsProblems("developer", {
-        "github/merge": ALLOWED,
-        "github/create_issue": consult("cto"),
-        "github/list_issues": ASK_ME,
-        "github/delete_repo": NEVER,
-      }),
+      mcpToolSettingsProblems(
+        "developer",
+        {
+          "github/merge": ALLOWED,
+          "github/create_issue": consult("cto"),
+          "github/list_issues": ASK_ME,
+          "github/delete_repo": NEVER,
+          "github/close_issue": consult("ops"),
+        },
+        CONSULTABLE,
+        "devops",
+      ),
     ).toEqual([]);
   });
 
   it("refuses a key that names no tool, a Role it doesn't know and the Role itself", () => {
     expect(
-      mcpToolSettingsProblems("developer", {
-        merge: ALLOWED,
-        "github/create_issue": consult("janitor"),
-        "github/merge": consult("developer"),
-      }),
+      mcpToolSettingsProblems(
+        "developer",
+        {
+          merge: ALLOWED,
+          "github/create_issue": consult("janitor"),
+          "github/merge": consult("developer"),
+        },
+        CONSULTABLE,
+        "devops",
+      ),
     ).toEqual([
       '"merge" doesn\'t name an MCP tool as server/tool.',
       "The MCP tool github/create_issue consults a Role The Office doesn't know.",
@@ -58,8 +85,13 @@ describe("mcpToolSettingsProblems", () => {
     ]);
   });
 
-  it("lets Devops's own card keep the default, whose consult goes to the user", () => {
-    expect(mcpToolSettingsProblems("devops", { "github/merge": consult("devops") })).toEqual([]);
+  it("lets the holder's own card keep the default, whose consult goes to the user", () => {
+    const merge = { "github/merge": consult("ops") };
+
+    expect(mcpToolSettingsProblems("ops", merge, CONSULTABLE, "ops")).toEqual([]);
+    expect(mcpToolSettingsProblems("ops", merge, CONSULTABLE, "devops")).toEqual([
+      "The MCP tool github/merge can't consult the Role itself.",
+    ]);
   });
 });
 

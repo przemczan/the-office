@@ -83,6 +83,7 @@ import { ProjectOutputMasksForTests } from "../../ports/project-output-masks.fix
 import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -106,7 +107,7 @@ function aPerson(name: string, chat: boolean): string {
     name,
     capabilities: { sharedMemory: false, chat, consultant: true, runEnvironment: false },
   });
-  people.set(roleKey, { roleKey, cardVersion: 1, card });
+  people.set(roleKey, { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN });
   return roleKey;
 }
 
@@ -428,6 +429,7 @@ describe("a Thread", () => {
     people.set(roleKey, {
       roleKey,
       cardVersion: 2,
+      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
       card: aPlannerCard({
         capabilities: { sharedMemory: false, chat: false, consultant: true, runEnvironment: false },
       }),
@@ -614,6 +616,7 @@ describe("Allow changes", () => {
     people.set(CARETAKER, {
       roleKey: CARETAKER,
       cardVersion: 1,
+      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
       card: aPlannerCard({ name: "Sam", title: "Caretaker" }),
     });
     const thread = threadSchema.parse(

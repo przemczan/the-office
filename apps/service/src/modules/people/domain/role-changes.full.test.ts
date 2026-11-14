@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { presetFor } from "./presets.js";
-import { aRole, aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
+import { aRole, aRoleCard, CARD_CONTEXT } from "./role.fixtures.js";
 import {
   changeAvatar,
   changeRoleCard,
@@ -60,7 +60,7 @@ describe("hireFromScratch", () => {
   const card = aRoleCard({ name: " Mia ", title: "Data Analyst" });
 
   it("fills a new Role, keyed from its title, with the whole card at version 1", () => {
-    const { role, event } = hireFromScratch("data-analyst", card, OFFERED_MODELS, undefined, at);
+    const { role, event } = hireFromScratch("data-analyst", card, CARD_CONTEXT, undefined, at);
 
     expect(role).toEqual({
       key: "data-analyst",
@@ -77,7 +77,7 @@ describe("hireFromScratch", () => {
     const { role } = hireFromScratch(
       "data-analyst",
       card,
-      OFFERED_MODELS,
+      CARD_CONTEXT,
       undefined,
       at,
       "office-manager",
@@ -85,11 +85,10 @@ describe("hireFromScratch", () => {
 
     expect(role.cardProposedBy).toBe("office-manager");
     expect(
-      changeRoleCard(role, { ...role.card, effort: "low" }, OFFERED_MODELS, at)?.role
-        .cardProposedBy,
+      changeRoleCard(role, { ...role.card, effort: "low" }, CARD_CONTEXT, at)?.role.cardProposedBy,
     ).toBe(undefined);
     expect(
-      changeRoleCard(role, { ...role.card, effort: "low" }, OFFERED_MODELS, at, "office-manager")
+      changeRoleCard(role, { ...role.card, effort: "low" }, CARD_CONTEXT, at, "office-manager")
         ?.role.cardProposedBy,
     ).toBe("office-manager");
   });
@@ -99,7 +98,7 @@ describe("hireFromScratch", () => {
       hireFromScratch(
         "data-analyst",
         aRoleCard({ ...card, name: "", taskLimit: 0 }),
-        OFFERED_MODELS,
+        CARD_CONTEXT,
         undefined,
         at,
       ),
@@ -113,7 +112,7 @@ describe("hireFromScratch", () => {
 
   it("refuses a title that makes no key", () => {
     expect(() =>
-      hireFromScratch("", aRoleCard({ title: "!!!" }), OFFERED_MODELS, undefined, at),
+      hireFromScratch("", aRoleCard({ title: "!!!" }), CARD_CONTEXT, undefined, at),
     ).toThrow(new RoleRefused(["Give the Role a title with letters or digits."]));
   });
 
@@ -122,7 +121,7 @@ describe("hireFromScratch", () => {
       hireFromScratch(
         "office-manager",
         aRoleCard({ title: "Office Manager" }),
-        OFFERED_MODELS,
+        CARD_CONTEXT,
         undefined,
         at,
       ),
@@ -132,7 +131,7 @@ describe("hireFromScratch", () => {
   it("refuses a Role someone already fills", () => {
     const filledBy = aRole({ key: "data-analyst", card: aRoleCard({ title: "Data Analyst" }) });
 
-    expect(() => hireFromScratch("data-analyst", card, OFFERED_MODELS, filledBy, at)).toThrow(
+    expect(() => hireFromScratch("data-analyst", card, CARD_CONTEXT, filledBy, at)).toThrow(
       new RoleRefused(["Ada already fills the Data Analyst Role."]),
     );
   });
@@ -144,7 +143,7 @@ describe("changeRoleCard", () => {
     const change = changeRoleCard(
       role,
       aRoleCard({ name: " Adele ", taskLimit: 2 }),
-      OFFERED_MODELS,
+      CARD_CONTEXT,
       at,
     );
 
@@ -170,21 +169,19 @@ describe("changeRoleCard", () => {
       web: true,
       mcpTools: {},
     } as const;
-    const change = changeRoleCard(aRole(), aRoleCard({ permissionProfile }), OFFERED_MODELS, at);
+    const change = changeRoleCard(aRole(), aRoleCard({ permissionProfile }), CARD_CONTEXT, at);
 
     expect(change?.role.card.permissionProfile).toEqual(permissionProfile);
     expect(change?.event.changes.map(({ field }) => field)).toEqual(["permissionProfile"]);
   });
 
   it("changes nothing when the card is the same", () => {
-    expect(
-      changeRoleCard(aRole(), aRoleCard({ name: "Ada " }), OFFERED_MODELS, at),
-    ).toBeUndefined();
+    expect(changeRoleCard(aRole(), aRoleCard({ name: "Ada " }), CARD_CONTEXT, at)).toBeUndefined();
   });
 
   it("refuses with every reason", () => {
     expect(() =>
-      changeRoleCard(aRole(), aRoleCard({ title: "", taskLimit: 0 }), OFFERED_MODELS, at),
+      changeRoleCard(aRole(), aRoleCard({ title: "", taskLimit: 0 }), CARD_CONTEXT, at),
     ).toThrow(
       new RoleRefused(["Give the Role a title.", "A Task limit is 1 to 6 Tasks at once, or none."]),
     );
@@ -290,7 +287,7 @@ describe("a Role whose person was let go", () => {
       hireFromScratch(
         "developer-2",
         aRoleCard({ title: "Developer 2" }),
-        OFFERED_MODELS,
+        CARD_CONTEXT,
         letGoRole,
         at,
       ),
@@ -298,9 +295,7 @@ describe("a Role whose person was let go", () => {
   });
 
   it("refuses a change to its card", () => {
-    expect(() =>
-      changeRoleCard(letGoRole, aRoleCard({ name: "Adele" }), OFFERED_MODELS, at),
-    ).toThrow(
+    expect(() => changeRoleCard(letGoRole, aRoleCard({ name: "Adele" }), CARD_CONTEXT, at)).toThrow(
       new RoleRefused([
         "Ada was let go from the Developer Role; hire Ada back to change the Role card.",
       ]),

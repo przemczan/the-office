@@ -299,11 +299,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
 
   private async open(
     { stage, run, stages, earlierRuns }: StageWork<"agent">,
-    { card }: KnownPerson,
+    { card, mcpToolDefault }: KnownPerson,
     task: TaskRecord,
     installProblem: string | undefined,
   ): Promise<StageThread> {
-    const profile = narrowedPermissionProfile(card.permissionProfile, stage.permissions);
+    const profile = narrowedPermissionProfile(
+      card.permissionProfile,
+      stage.permissions,
+      mcpToolDefault,
+    );
     const commands = allowedCommands(
       profile.run,
       task.project.commands,
@@ -362,7 +366,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const person = await this.people.find(stage.role);
     if (!person || (await this.noEngineListed())) return undefined;
     const task = await this.records.read(taskId);
-    const { run } = narrowedPermissionProfile(person.card.permissionProfile, stage.permissions);
+    const { run } = narrowedPermissionProfile(
+      person.card.permissionProfile,
+      stage.permissions,
+      person.mcpToolDefault,
+    );
     const commands = allowedCommands(
       run,
       task.project.commands,

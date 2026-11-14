@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { consult } from "./hard-switches.js";
-import { aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
+import { aRoleCard, CARD_CONTEXT, OFFERED_MODELS } from "./role.fixtures.js";
 import { roleCardProblems, trimmedRoleCard } from "./role-card.js";
 
 /** The fixture engines, and a local one offering one model of its own. */
-function withLocalEngine(engineId: string): readonly string[] {
-  return engineId === "local" ? ["qwen3-coder"] : OFFERED_MODELS(engineId);
-}
+const WITH_LOCAL_ENGINE = {
+  ...CARD_CONTEXT,
+  modelsOffered: (engineId: string): readonly string[] =>
+    engineId === "local" ? ["qwen3-coder"] : OFFERED_MODELS(engineId),
+};
 
 describe("trimmedRoleCard", () => {
   it("keeps the texts without their surrounding spaces", () => {
@@ -18,7 +20,7 @@ describe("trimmedRoleCard", () => {
 
 describe("roleCardProblems", () => {
   it("accepts a preset's card", () => {
-    expect(roleCardProblems("developer", aRoleCard(), OFFERED_MODELS)).toEqual([]);
+    expect(roleCardProblems("developer", aRoleCard(), CARD_CONTEXT)).toEqual([]);
   });
 
   it("refuses with every reason", () => {
@@ -37,7 +39,7 @@ describe("roleCardProblems", () => {
       },
     });
 
-    expect(roleCardProblems("developer", card, OFFERED_MODELS)).toEqual([
+    expect(roleCardProblems("developer", card, CARD_CONTEXT)).toEqual([
       "Give the person a name.",
       "Give the Role a title.",
       "Give the Role's responsibilities in one paragraph.",
@@ -57,7 +59,7 @@ describe("roleCardProblems", () => {
       instructions: "I".repeat(8_001),
     });
 
-    expect(roleCardProblems("developer", card, OFFERED_MODELS)).toEqual([
+    expect(roleCardProblems("developer", card, CARD_CONTEXT)).toEqual([
       "A person's name may be at most 40 characters.",
       "A Role's title may be at most 40 characters.",
       "The instructions may be at most 8000 characters.",
@@ -66,7 +68,7 @@ describe("roleCardProblems", () => {
   });
 
   it("accepts a Task limit of none", () => {
-    expect(roleCardProblems("developer", aRoleCard({ taskLimit: "none" }), OFFERED_MODELS)).toEqual(
+    expect(roleCardProblems("developer", aRoleCard({ taskLimit: "none" }), CARD_CONTEXT)).toEqual(
       [],
     );
   });
@@ -74,7 +76,7 @@ describe("roleCardProblems", () => {
   it("accepts a Role override on a listed engine, with a model it offers", () => {
     const card = aRoleCard({ roleOverride: { engineId: "local", model: "qwen3-coder" } });
 
-    expect(roleCardProblems("developer", card, withLocalEngine)).toEqual([]);
+    expect(roleCardProblems("developer", card, WITH_LOCAL_ENGINE)).toEqual([]);
   });
 
   it("refuses a Role override on an engine not listed, or with a model it doesn't offer", () => {
@@ -84,14 +86,14 @@ describe("roleCardProblems", () => {
       roleCardProblems(
         "developer",
         aRoleCard({ roleOverride: { engineId: "removed", model: "qwen3-coder" } }),
-        withLocalEngine,
+        WITH_LOCAL_ENGINE,
       ),
     ).toEqual(refusal);
     expect(
       roleCardProblems(
         "developer",
         aRoleCard({ roleOverride: { engineId: "local", model: "claude-opus-5-5" } }),
-        withLocalEngine,
+        WITH_LOCAL_ENGINE,
       ),
     ).toEqual(refusal);
   });

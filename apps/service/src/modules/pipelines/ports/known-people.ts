@@ -1,6 +1,6 @@
 import type { RunPermission } from "../domain/allowed-commands.js";
 import type { FollowedHardSwitches } from "../domain/followed-hard-switches.js";
-import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
+import type { HardSwitchOnCard, StagePermissions } from "../domain/stage-permissions.js";
 
 /** A person who fills a Role, as an Agent Stage needs them. */
 export interface KnownPerson {
@@ -17,6 +17,8 @@ export interface KnownPerson {
     };
     readonly hardSwitches: Readonly<Record<keyof FollowedHardSwitches, HardSwitchOnCard>>;
   };
+  /** Where an MCP tool the card leaves unset stands, as read now. */
+  readonly mcpToolDefault: HardSwitchOnCard;
 }
 
 /** The people who work Agent Stages, whom the People module keeps; the composition root binds it. */
@@ -29,4 +31,16 @@ export abstract class KnownPeople {
 
   /** The Role's title, such as Devops, whether or not anyone fills it. */
   abstract roleTitle(roleKey: string): string;
+
+  /** The key of the hired Role holding the duty keyed `duty`; undefined while nobody does. */
+  abstract holderOf(duty: string): Promise<string | undefined>;
+
+  /**
+   * Why a Stage's narrowing of the Role's profile can't stand, in the UI's words; empty when it
+   * can, or when nobody fills the Role.
+   */
+  abstract permissionNarrowingProblems(
+    roleKey: string,
+    narrowing: StagePermissions,
+  ): Promise<string[]>;
 }

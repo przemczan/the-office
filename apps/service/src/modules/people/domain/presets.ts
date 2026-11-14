@@ -1,5 +1,6 @@
+import { isBuiltIn } from "./caretaker.js";
 import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
-import { CTO, DEVOPS, OFFICE_MANAGER } from "./known-roles.js";
+import { CTO, DEVELOPER, DEVOPS, OFFICE_MANAGER, PLANNER, REVIEWER } from "./known-roles.js";
 import type { RoleCard } from "./role-card.js";
 
 /**
@@ -15,7 +16,7 @@ export interface Preset {
 }
 
 const planner: Preset = {
-  roleKey: "planner",
+  roleKey: PLANNER,
   suggestedName: "Jan",
   card: {
     title: "Planner",
@@ -32,7 +33,7 @@ const planner: Preset = {
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
-      runInstalls: consult("devops"),
+      runInstalls: consult(DEVOPS),
       publishOutsideThePipeline: NEVER,
       changeRoles: NEVER,
     },
@@ -42,7 +43,7 @@ const planner: Preset = {
 };
 
 const developer: Preset = {
-  roleKey: "developer",
+  roleKey: DEVELOPER,
   suggestedName: "Ada",
   card: {
     title: "Developer",
@@ -60,8 +61,8 @@ const developer: Preset = {
     capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: true },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
-      runInstalls: consult("devops"),
-      publishOutsideThePipeline: consult("cto"),
+      runInstalls: consult(DEVOPS),
+      publishOutsideThePipeline: consult(CTO),
       changeRoles: NEVER,
     },
     taskLimit: 3,
@@ -70,7 +71,7 @@ const developer: Preset = {
 };
 
 const reviewer: Preset = {
-  roleKey: "reviewer",
+  roleKey: REVIEWER,
   suggestedName: "Ola",
   card: {
     title: "Reviewer",
@@ -87,7 +88,7 @@ const reviewer: Preset = {
     capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: false },
     permissionProfile: { edit: false, run: "project-commands", web: true, mcpTools: {} },
     hardSwitches: {
-      runInstalls: consult("devops"),
+      runInstalls: consult(DEVOPS),
       publishOutsideThePipeline: NEVER,
       changeRoles: NEVER,
     },
@@ -115,7 +116,7 @@ const cto: Preset = {
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
-      runInstalls: consult("devops"),
+      runInstalls: consult(DEVOPS),
       publishOutsideThePipeline: ASK_ME,
       changeRoles: NEVER,
     },
@@ -192,4 +193,20 @@ export const PRESETS: readonly Preset[] = [
 
 export function presetFor(roleKey: string): Preset | undefined {
   return PRESETS.find((preset) => preset.roleKey === roleKey);
+}
+
+/**
+ * The Roles a Hard switch or an MCP tool may consult (spec §2.2, "Who holds a duty"): every preset's
+ * key, hired or not, and each of `roleKeys` but the Caretaker's. Consulting one nobody fills asks
+ * the user until someone is hired (`hardSwitchInEffect`).
+ */
+export function consultableRoleKeys(roleKeys: Iterable<string>): ReadonlySet<string> {
+  const consultable = new Set(PRESETS.map((preset) => preset.roleKey));
+  for (const key of roleKeys) if (!isBuiltIn(key)) consultable.add(key);
+  return consultable;
+}
+
+/** The title of the preset keyed `roleKey`, undefined for a key no preset has. */
+export function presetTitle(roleKey: string): string | undefined {
+  return presetFor(roleKey)?.card.title;
 }

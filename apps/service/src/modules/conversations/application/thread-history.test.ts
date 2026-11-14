@@ -14,6 +14,7 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 import { StageThreadMessages } from "./stage-thread-messages.js";
 import { ThreadHistory } from "./thread-history.js";
 import { WorkRecords } from "./work-records.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 
 // Every test file shares the database: this one's Roles, Tasks and Project are its own, and its
 // messages are logged on a day nobody else's are.
@@ -46,6 +47,7 @@ beforeAll(async () => {
                 ? {
                     roleKey,
                     cardVersion: 1,
+                    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
                     card: aProposedCard({ name: "Jim", title: "Developer" }),
                   }
                 : undefined,

@@ -41,6 +41,7 @@ import { PLANNER } from "../../domain/planning.js";
 import { WorkSettingsForTests } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
 
 const run = promisify(execFile);
 
@@ -357,6 +358,7 @@ function roleCardsOf(developerKey: string, taskLimit: number): Partial<RoleCards
   const roleOf = (key: string): SessionRole => ({
     roleKey: key,
     cardVersion: 1,
+    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
     card:
       key === developerKey
         ? { ...DEVELOPER_CARD, taskLimit }

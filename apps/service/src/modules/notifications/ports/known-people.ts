@@ -5,4 +5,7 @@
 export abstract class KnownPeople {
   /** The keys of the Roles someone fills now. */
   abstract hiredKeys(): Promise<ReadonlySet<string>>;
+
+  /** The key of the hired Role holding the duty keyed `duty`; undefined while nobody does. */
+  abstract holderOf(duty: string): Promise<string | undefined>;
 }

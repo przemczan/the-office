@@ -86,6 +86,7 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -101,6 +102,7 @@ const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 const OFFICE_MANAGER_ROLE: SessionRole = {
   roleKey: OFFICE_MANAGER,
   cardVersion: 1,
+  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
   card: aPlannerCard({ name: "Marta", title: "Office Manager" }),
 };
 

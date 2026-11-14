@@ -80,6 +80,13 @@ export class KnownPeopleForTests extends KnownPeople {
   async hiredKeys(): Promise<ReadonlySet<string>> {
     return this.hired;
   }
+
+  /** The holders of duties, by duty key: none until a test sets one. */
+  readonly holders = new Map<string, string>();
+
+  async holderOf(duty: string): Promise<string | undefined> {
+    return this.holders.get(duty);
+  }
 }
 
 export class AccountUsageForTests extends AccountUsage {

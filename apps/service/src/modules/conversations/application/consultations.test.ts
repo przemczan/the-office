@@ -71,6 +71,7 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 
 // What consultations.test.ts and consultations.full.test.ts share.
 
@@ -127,7 +128,7 @@ function roleOf(roleKey: string): SessionRole {
               },
             },
   );
-  return { roleKey, cardVersion: 1, card };
+  return { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN };
 }
 
 /** Boots the conversations on a scripted engine that replays `scripts`, one per session opened. */

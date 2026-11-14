@@ -683,7 +683,7 @@ export class ThreadRunner implements OnModuleDestroy {
     thread: Thread,
     { id, engineId }: ThreadSession,
     {
-      role: { roleKey, card },
+      role: { roleKey, card, mcpToolDefault },
       officeInstructions,
       model,
     }: Pick<Answer, "role" | "officeInstructions" | "model">,
@@ -711,7 +711,7 @@ export class ThreadRunner implements OnModuleDestroy {
         edit: place.workstation,
         run: { kind: place.workstation ? "anything" : "read-only-git" },
         web: place.workstation || card.permissionProfile.web,
-        mcpTools: mcpToolSettingsFor(card.permissionProfile.mcpTools, mcpServers),
+        mcpTools: mcpToolSettingsFor(card.permissionProfile.mcpTools, mcpServers, mcpToolDefault),
       },
       workstation: place.workstation,
       refusalAdvice: place.refusalAdvice,

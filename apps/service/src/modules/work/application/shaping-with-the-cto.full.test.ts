@@ -57,6 +57,7 @@ import { WorkModule } from "../work.module.js";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import { IdeaService } from "./idea-service.js";
 import { InitiativeService } from "./initiative-service.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 
 type Step = SessionScript[number];
 
@@ -68,6 +69,7 @@ const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 const CTO_ROLE: SessionRole = {
   roleKey: CTO,
   cardVersion: 1,
+  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
   card: {
     name: "Bob",
     title: "CTO",

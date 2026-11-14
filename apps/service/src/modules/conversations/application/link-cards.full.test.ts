@@ -64,6 +64,7 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 
 const outputMasks = new ProjectOutputMasksForTests();
 
@@ -111,7 +112,9 @@ function roleOf(roleKey: string): SessionRole | undefined {
     }),
   };
   const card = cards[roleKey];
-  return card && !letGo.has(roleKey) ? { roleKey, cardVersion: 1, card } : undefined;
+  return card && !letGo.has(roleKey)
+    ? { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN }
+    : undefined;
 }
 
 /** Boots the conversations on a scripted engine that replays `scripts`, one per session opened. */

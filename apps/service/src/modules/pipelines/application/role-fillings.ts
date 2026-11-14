@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { permissionNarrowingProblems } from "../../people/index.js";
 import { problemOnStage, type StageProblem } from "../domain/pipeline.js";
 import type { Stage } from "../domain/stage.js";
 import type { RoleFilling } from "../domain/stage-staffing.js";
@@ -55,12 +54,6 @@ export class RoleFillings {
   /** `permissionProblems` of one Stage, worded without saying which Stage it is. */
   async stagePermissionProblems(stage: Stage): Promise<string[]> {
     if (stage.kind !== "agent" || !stage.permissions) return [];
-    const person = await this.people.find(stage.role);
-    if (!person) return [];
-    return permissionNarrowingProblems(
-      stage.role,
-      person.card.permissionProfile,
-      stage.permissions,
-    );
+    return this.people.permissionNarrowingProblems(stage.role, stage.permissions);
   }
 }

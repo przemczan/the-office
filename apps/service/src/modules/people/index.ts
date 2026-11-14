@@ -1,6 +1,14 @@
 export { RoleCards, type Consultant, type SessionRole } from "./application/role-cards.js";
 export { RoleService } from "./application/role-service.js";
 export { PersonRecords } from "./application/person-records.js";
+export { Duties, type DutyWithHolder } from "./application/duties.js";
+export {
+  DutyChangeChecks,
+  type DutyChangeCheck,
+  type DutyHolderSave,
+} from "./application/duty-change-checks.js";
+export { DUTIES, type DutyHolding, type DutyKey } from "./domain/duties.js";
+export { DutyHolderChanged } from "./domain/duty-events.js";
 export { EngineCascade } from "./application/engine-cascade.js";
 export {
   PipelineRoleCapabilityChecks,

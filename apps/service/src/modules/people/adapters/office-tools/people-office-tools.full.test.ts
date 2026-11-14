@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
+import type { Duties } from "../../application/duties.js";
 import { PersonRecords } from "../../application/person-records.js";
 import type { RoleService } from "../../application/role-service.js";
 import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
@@ -12,9 +13,19 @@ describe("list_people", () => {
     const result = await toolsOver([]).listPeople().run({}, anOfficeToolCall("s-1"));
 
     expect(result.text).toMatch(
-      /^Nobody is hired yet\.\n\nNobody fills Planner, Developer, Reviewer/,
+      /^Nobody is hired yet\.\n\nNobody holds Default person to talk to: the Caretaker stands in\.\n/,
     );
   });
+});
+
+/** Devops, who holds Default Consultant for MCP tool hard switches while no duty is set. */
+const NINA = aRole({
+  key: "devops",
+  card: aRoleCard({
+    name: "Nina",
+    title: "Devops",
+    capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: true },
+  }),
 });
 
 describe("read_role", () => {
@@ -52,6 +63,7 @@ describe("read_role", () => {
           { name: "linear", on: false, tools: [] },
         ],
       },
+      { role: NINA, skills: [], mcpServers: [] },
     ]).readRole();
 
     const result = await tool.run({ role: " developer " }, anOfficeToolCall("s-1"));
@@ -76,6 +88,17 @@ describe("read_role", () => {
         ].join("\n"),
       ].join("\n\n"),
     });
+  });
+
+  it("gives an MCP tool never set as Ask me while nobody holds the MCP duty", async () => {
+    const ada = aRole();
+    const tool = toolsOver([
+      { role: ada, skills: [], mcpServers: [{ name: "github", on: true, tools: ["merge"] }] },
+    ]).readRole();
+
+    const result = await tool.run({ role: "developer" }, anOfficeToolCall("s-1"));
+
+    expect(result.text).toContain("MCP servers: github (on): merge Ask me");
   });
 
   it("says when the Role runs on the Office default, with no Skills or MCP servers", async () => {
@@ -115,7 +138,12 @@ describe("People's Office tools", () => {
   it("are registered as the module starts", () => {
     const registry = new OfficeToolRegistry();
 
-    new PeopleOfficeTools(registry, {} as RoleService, {} as PersonRecords).onModuleInit();
+    new PeopleOfficeTools(
+      registry,
+      {} as RoleService,
+      {} as PersonRecords,
+      {} as Duties,
+    ).onModuleInit();
 
     expect(registry.named([LIST_PEOPLE, READ_ROLE]).map(({ name }) => name)).toEqual([
       LIST_PEOPLE,

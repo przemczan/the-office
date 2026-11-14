@@ -33,6 +33,7 @@ const TOOL_ANSWER_TIMEOUT_MS = 25_000;
 const NINA: SessionRole = {
   roleKey: DEVOPS,
   cardVersion: 1,
+  mcpToolDefault: { kind: "consult", role: "devops" },
   card: aPlannerCard({ name: "Nina", title: "Devops" }),
 };
 

@@ -62,7 +62,10 @@ describe("Edit for this Task", () => {
   });
 
   it("refuses a Role whose person only talks, with the reason", async () => {
-    pipelines.people.people.set("developer", { card: { ...aPerson().card, taskLimit: "none" } });
+    pipelines.people.people.set("developer", {
+      ...aPerson(),
+      card: { ...aPerson().card, taskLimit: "none" },
+    });
 
     expect(await refusalOf(service.edit(aTask(), quickFix))).toEqual([
       "Stage 1 · Implement: Ada's Task limit is none, so developer only talks and can't work a Stage.",

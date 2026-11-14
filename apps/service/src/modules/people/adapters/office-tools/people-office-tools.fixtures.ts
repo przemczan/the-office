@@ -1,4 +1,5 @@
 import { OfficeToolRegistry } from "../../../engine/index.js";
+import { dutiesOver } from "../../application/duties.fixtures.js";
 import { PersonRecords } from "../../application/person-records.js";
 import type { RoleService, RoleWithAssignments } from "../../application/role-service.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
@@ -13,9 +14,11 @@ export function toolsOver(roles: RoleWithAssignments[]): PeopleOfficeTools {
     },
   };
   const roleService = service as RoleService;
+  const duties = dutiesOver(roles.map(({ role }) => role));
   return new PeopleOfficeTools(
     new OfficeToolRegistry(),
     roleService,
-    new PersonRecords(roleService),
+    new PersonRecords(roleService, duties),
+    duties,
   );
 }

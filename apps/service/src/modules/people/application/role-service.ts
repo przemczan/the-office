@@ -17,11 +17,21 @@ import {
   type HardSwitchKey,
   type HardSwitchValue,
 } from "../domain/hard-switches.js";
-import { KNOWN_ROLES } from "../domain/known-roles.js";
-import { MCP_TOOL_DEFAULT } from "../domain/mcp-tool-settings.js";
-import { PRESETS, presetFor, type Preset } from "../domain/presets.js";
+import { mcpToolDefault } from "../domain/duties.js";
+import {
+  consultableRoleKeys,
+  PRESETS,
+  presetFor,
+  presetTitle,
+  type Preset,
+} from "../domain/presets.js";
 import type { Role } from "../domain/role.js";
-import { roleCardProblems, trimmedRoleCard, type RoleCard } from "../domain/role-card.js";
+import {
+  roleCardProblems,
+  trimmedRoleCard,
+  type RoleCard,
+  type RoleCardContext,
+} from "../domain/role-card.js";
 import {
   changeRoleCard,
   hire,
@@ -36,6 +46,7 @@ import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRefused } from "../domain/role-refused.js";
 import { HIGHEST_TASK_LIMIT, LOWEST_TASK_LIMIT } from "../domain/task-limit.js";
 import { RoleRepository, type RoleUpdate } from "../ports/role-repository.js";
+import { Duties } from "./duties.js";
 import { roleHistory, type RoleHistoryEntry } from "./role-history.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
 
@@ -59,13 +70,16 @@ export interface RoleCardOptions {
     /** What the engine declares it can't do. */
     readonly missingCapabilities: readonly EngineCapability[];
   }[];
-  /** Every Role a Consult value may name, hired or not. */
+  /** Every Role a Consult value may name: the presets', hired or not, and those hired from scratch. */
   readonly knownRoles: readonly { readonly key: string; readonly title: string }[];
   readonly hardSwitches: readonly {
     readonly key: HardSwitchKey;
     readonly enforcement: HardSwitchEnforcement;
   }[];
-  /** Where an MCP tool's setting starts, until the user sets it. */
+  /**
+   * Where an MCP tool's setting starts, until the user sets it: consulting the holder of Default
+   * Consultant for MCP tool hard switches, or Ask me while nobody holds it.
+   */
   readonly mcpToolDefault: HardSwitchValue;
   readonly taskLimits: { readonly lowest: number; readonly highest: number };
 }
@@ -108,6 +122,7 @@ export class RoleService {
     private readonly events: EventBus,
     private readonly roleOverrideChecks: RoleOverrideChecks,
     private readonly engineReferences: EngineReferenceLock,
+    private readonly duties: Duties,
   ) {}
 
   /**
@@ -163,8 +178,8 @@ export class RoleService {
       const { key } = hiring.role;
       if (!(await this.repository.add(hiring.role))) {
         // Someone was hired into the Role meanwhile: refuse as if they had been there before.
-        const offered = await this.engineModels.modelsOffered();
-        hireFromScratch(key, card, offered, await this.repository.find(key), hiredAt);
+        const context = await this.cardContext();
+        hireFromScratch(key, card, context, await this.repository.find(key), hiredAt);
         throw new Error(`The Role "${key}" was filled and emptied again while hiring.`);
       }
       return hiring;
@@ -189,14 +204,14 @@ export class RoleService {
     proposedBy?: string,
   ): Promise<RoleChange<RoleHired>> {
     const roleKey = roleKeyFor(card.title);
-    const offered = await this.engineModels.modelsOffered();
+    const context = await this.cardContext();
     const filledBy = await this.repository.find(roleKey);
     const problems = [
       ...(await this.roleSkills.problemsWith(skills)),
       ...(await this.roleOverrideProblems(roleKey, filledBy, card)),
     ];
     return refusingAlso(problems, () =>
-      hireFromScratch(roleKey, card, offered, filledBy, hiredAt, proposedBy),
+      hireFromScratch(roleKey, card, context, filledBy, hiredAt, proposedBy),
     );
   }
 
@@ -206,6 +221,8 @@ export class RoleService {
 
   async cardOptions(): Promise<RoleCardOptions> {
     const engines = await this.engineModels.engines();
+    const roles = await this.repository.list();
+    const { consultable, mcpConsultant } = await this.cardContext();
     return {
       engines: engines.map((engine) => ({
         engine: engine.id,
@@ -213,12 +230,12 @@ export class RoleService {
         defaultModel: engine.defaultModel,
         missingCapabilities: this.engineSessions.missingCapabilitiesOf(engine),
       })),
-      knownRoles: [...KNOWN_ROLES].map(([key, title]) => ({ key, title })),
+      knownRoles: [...consultable].map((key) => ({ key, title: consultableTitle(key, roles) })),
       hardSwitches: HARD_SWITCH_KEYS.map((key) => ({
         key,
         enforcement: HARD_SWITCH_ENFORCEMENT[key],
       })),
-      mcpToolDefault: MCP_TOOL_DEFAULT,
+      mcpToolDefault: mcpToolDefault(mcpConsultant),
       taskLimits: { lowest: LOWEST_TASK_LIMIT, highest: HIGHEST_TASK_LIMIT },
     };
   }
@@ -273,17 +290,17 @@ export class RoleService {
     skills: readonly string[],
     proposedBy?: string,
   ): Promise<RoleUpdate> {
-    const offered = await this.engineModels.modelsOffered();
+    const context = await this.cardContext();
     const filledBy = await this.repository.find(key);
     const problems = [
-      ...roleCardProblems(key, trimmedRoleCard(edit), offered),
+      ...roleCardProblems(key, trimmedRoleCard(edit), context),
       ...(await this.roleSkills.problemsWith(skills)),
       // Nobody filling the Role is refused as RoleNotFound by the update below.
       ...(filledBy ? await this.roleOverrideProblems(key, filledBy, edit) : []),
     ];
     if (problems.length > 0) throw new RoleRefused(problems);
     return this.repository.update(key, (stored) =>
-      changeRoleCard(stored, edit, offered, new Date(), proposedBy),
+      changeRoleCard(stored, edit, context, new Date(), proposedBy),
     );
   }
 
@@ -306,11 +323,28 @@ export class RoleService {
    */
   async cardChangeProblems(key: string, edit: RoleCard): Promise<readonly string[]> {
     const { role } = await this.read(key);
-    const offered = await this.engineModels.modelsOffered();
+    const context = await this.cardContext();
     const reasons = await refusalReasons(() =>
-      Promise.resolve(changeRoleCard(role, edit, offered, new Date())),
+      Promise.resolve(changeRoleCard(role, edit, context, new Date())),
     );
     return [...new Set([...reasons, ...(await this.roleOverrideProblems(key, role, edit))])];
+  }
+
+  /**
+   * What a card is checked against now: the models offered, the Roles a switch may consult, and who
+   * holds Default Consultant for MCP tool hard switches.
+   */
+  private async cardContext(): Promise<RoleCardContext> {
+    const [modelsOffered, roles, mcpConsultant] = await Promise.all([
+      this.engineModels.modelsOffered(),
+      this.repository.list(),
+      this.duties.mcpConsultant(),
+    ]);
+    return {
+      modelsOffered,
+      consultable: consultableRoleKeys(roles.map((role) => role.key)),
+      mcpConsultant,
+    };
   }
 
   /**
@@ -390,4 +424,9 @@ export class RoleService {
       await this.roleSkills.changes(key),
     );
   }
+}
+
+/** A preset's title, else the title on the card of the Role hired from scratch under `key`. */
+function consultableTitle(key: string, roles: readonly Role[]): string {
+  return presetTitle(key) ?? roles.find((role) => role.key === key)?.card.title ?? key;
 }

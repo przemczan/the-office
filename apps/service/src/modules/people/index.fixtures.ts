@@ -1,6 +1,14 @@
 import { FIRST_CLAUDE_CODE_ENGINE, NoEngineListed, type EngineModel } from "../engine/index.js";
 import type { EngineCascade } from "./application/engine-cascade.js";
 import type { EngineInCascade } from "./domain/engine-cascade.js";
+import { consult, type HardSwitchValue } from "./domain/hard-switches.js";
+import { DEVOPS } from "./domain/known-roles.js";
+
+/**
+ * Where an MCP tool the card leaves unset stands, for tests that stand in for People's `SessionRole`:
+ * as with no duty set and Devops hired.
+ */
+export const MCP_TOOL_DEFAULT_STAND_IN: HardSwitchValue = consult(DEVOPS);
 
 /**
  * The engine cascade as a test sets it, for tests that stand in for People: every Role runs on

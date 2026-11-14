@@ -144,6 +144,7 @@ describe("POST /api/stage-templates/check", () => {
   it("answers what a save would be refused for, apart from the Role flags it saves anyway", async () => {
     const roleKey = `reviewer-${randomUUID()}`;
     pipelines.people.people.set(roleKey, {
+      ...aPerson("Grace"),
       card: { ...aPerson("Grace").card, taskLimit: "none" },
     });
 

@@ -10,16 +10,20 @@ import {
   type RoleChange as RoleChangeResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { Duties } from "../../application/duties.js";
 import type { RoleHistoryEntry } from "../../application/role-history.js";
 import { RoleService } from "../../application/role-service.js";
 import type { Preset } from "../../domain/presets.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
-import { filledKeys, toRoleResponse } from "./role-responses.js";
+import { roleResponseContext, toRoleResponse, type RoleResponseContext } from "./role-responses.js";
 
 @Controller()
 @UseFilters(RoleRefusalsFilter)
 export class RolesController {
-  constructor(private readonly roles: RoleService) {}
+  constructor(
+    private readonly roles: RoleService,
+    private readonly duties: Duties,
+  ) {}
 
   @Get("presets")
   presets(): PresetResponse[] {
@@ -49,19 +53,19 @@ export class RolesController {
       "card" in hiring
         ? await this.roles.hireFromScratch(...cardAndSkills(hiring.card))
         : await this.roles.hire(hiring.roleKey, hiring.name);
-    return toRoleResponse(role, await this.filledRoleKeys());
+    return toRoleResponse(role, await this.responseContext());
   }
 
   @Get("roles")
   async list(): Promise<RoleResponse[]> {
     const roles = await this.roles.list();
-    const filled = filledKeys(roles);
-    return roles.map((role) => toRoleResponse(role, filled));
+    const context = await roleResponseContext(this.roles, this.duties, roles);
+    return roles.map((role) => toRoleResponse(role, context));
   }
 
   @Get("roles/:key")
   async read(@Param("key") key: string): Promise<RoleResponse> {
-    return toRoleResponse(await this.roles.read(key), await this.filledRoleKeys());
+    return toRoleResponse(await this.roles.read(key), await this.responseContext());
   }
 
   @Put("roles/:key/card")
@@ -70,19 +74,19 @@ export class RolesController {
     @Body(new ContractPipe(roleCardSchema)) card: RoleCard,
   ): Promise<RoleResponse> {
     const role = await this.roles.changeCard(key, ...cardAndSkills(card));
-    return toRoleResponse(role, await this.filledRoleKeys());
+    return toRoleResponse(role, await this.responseContext());
   }
 
   @Post("roles/:key/let-go")
   async letGo(@Param("key") key: string): Promise<RoleResponse> {
     const role = await this.roles.letGo(key);
-    return toRoleResponse(role, await this.filledRoleKeys());
+    return toRoleResponse(role, await this.responseContext());
   }
 
   @Post("roles/:key/hire-back")
   async hireBack(@Param("key") key: string): Promise<RoleResponse> {
     const role = await this.roles.hireBack(key);
-    return toRoleResponse(role, await this.filledRoleKeys());
+    return toRoleResponse(role, await this.responseContext());
   }
 
   @Get("roles/:key/changes")
@@ -90,9 +94,8 @@ export class RolesController {
     return (await this.roles.history(key)).map(toChangeResponse);
   }
 
-  /** The Roles someone fills: a person let go fills none. */
-  private async filledRoleKeys(): Promise<ReadonlySet<string>> {
-    return filledKeys(await this.roles.list());
+  private responseContext(): Promise<RoleResponseContext> {
+    return roleResponseContext(this.roles, this.duties);
   }
 }
 

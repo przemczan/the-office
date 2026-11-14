@@ -1,5 +1,3 @@
-import { KNOWN_ROLES } from "./known-roles.js";
-
 /** The actions that need someone's say whatever the Agent thinks (spec §2.2, §6). */
 export const HARD_SWITCH_KEYS = [
   "runInstalls",
@@ -43,13 +41,20 @@ export function consult(role: string): HardSwitchValue {
   return { kind: "consult", role };
 }
 
-/** Why a Role's Hard switches can't be saved, in the UI's words; empty when they can. */
-export function hardSwitchesProblems(roleKey: string, switches: HardSwitches): string[] {
+/**
+ * Why a Role's Hard switches can't be saved, in the UI's words; empty when they can. A switch may
+ * consult only the Roles `consultable` names (`consultableRoleKeys`).
+ */
+export function hardSwitchesProblems(
+  roleKey: string,
+  switches: HardSwitches,
+  consultable: ReadonlySet<string>,
+): string[] {
   const problems: string[] = [];
   for (const key of HARD_SWITCH_KEYS) {
     const value = switches[key];
     const label = HARD_SWITCH_LABELS[key];
-    if (value.kind === "consult" && !KNOWN_ROLES.has(value.role)) {
+    if (value.kind === "consult" && !consultable.has(value.role)) {
       problems.push(`${label} consults a Role The Office doesn't know.`);
     } else if (value.kind === "consult" && value.role === roleKey) {
       problems.push(`${label} can't consult the Role itself.`);

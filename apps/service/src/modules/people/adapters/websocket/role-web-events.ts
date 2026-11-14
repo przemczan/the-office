@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import type { RoleWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { DutyHolderChanged } from "../../domain/duty-events.js";
 import {
   RoleAvatarChanged,
   RoleCardChanged,
@@ -15,7 +16,9 @@ type WebEventOf<Type extends RoleWebEvent["type"]> = Omit<
   "occurredAt"
 >;
 
-/** Every People event reaches the web, naming the Role, so an open page refetches it. */
+/**
+ * Every People event reaches the web, naming the Role, or the duty, so an open page refetches it.
+ */
 @Injectable()
 export class RoleWebEvents implements OnModuleInit {
   constructor(private readonly forwarding: WebEventForwarding) {}
@@ -44,6 +47,10 @@ export class RoleWebEvents implements OnModuleInit {
     this.forwarding.forward(RoleMemoryChanged, (event): WebEventOf<"role.memory-changed"> => ({
       type: "role.memory-changed",
       roleKey: event.roleKey,
+    }));
+    this.forwarding.forward(DutyHolderChanged, (event): WebEventOf<"duty.changed"> => ({
+      type: "duty.changed",
+      duty: event.duty,
     }));
   }
 }

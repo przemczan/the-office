@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
+import { Duties } from "../../application/duties.js";
 import { PersonRecords } from "../../application/person-records.js";
 import { RoleService, type RoleWithAssignments } from "../../application/role-service.js";
 import type { HardSwitchValue } from "../../domain/hard-switches.js";
@@ -21,6 +22,7 @@ export class PeopleOfficeTools implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly roles: RoleService,
     private readonly personRecords: PersonRecords,
+    private readonly duties: Duties,
   ) {}
 
   onModuleInit(): void {
@@ -31,7 +33,7 @@ export class PeopleOfficeTools implements OnModuleInit {
   listPeople(): OfficeTool {
     return {
       name: LIST_PEOPLE,
-      description: `Lists the people of The Office: each one's Role, responsibilities, capabilities and Task limit, and the Roles nobody fills yet. ${READ_ROLE} gives a Role's whole card.`,
+      description: `Lists the people of The Office: each one's Role, responsibilities, capabilities, Task limit and the duties they hold, and the duties nobody holds with who stands in. ${READ_ROLE} gives a Role's whole card.`,
       input: z.object({}),
       run: async () => ({ text: await this.personRecords.everyone(), isError: false }),
     };
@@ -45,7 +47,11 @@ export class PeopleOfficeTools implements OnModuleInit {
       input: READ_ROLE_INPUT,
       run: async ({ role }) => {
         try {
-          return { text: wholeCard(await this.roles.read(role.trim())), isError: false };
+          const whole = wholeCard(
+            await this.roles.read(role.trim()),
+            await this.duties.mcpToolDefault(),
+          );
+          return { text: whole, isError: false };
         } catch (error) {
           if (error instanceof RoleNotFound) {
             return {
@@ -61,7 +67,10 @@ export class PeopleOfficeTools implements OnModuleInit {
 }
 
 /** Each field under the name `propose_role` takes it by, so a change can start from it whole. */
-function wholeCard({ role, skills, mcpServers }: RoleWithAssignments): string {
+function wholeCard(
+  { role, skills, mcpServers }: RoleWithAssignments,
+  mcpToolDefault: HardSwitchValue,
+): string {
   const { card } = role;
   return [
     `${card.name} · ${card.title} (Role ${role.key}), card version ${role.cardVersion}, saved ${role.cardSavedAt.toISOString()}.`,
@@ -81,7 +90,7 @@ function wholeCard({ role, skills, mcpServers }: RoleWithAssignments): string {
       `taskLimit: ${card.taskLimit}`,
       `sessionDefault: ${card.sessionDefault}`,
       `Skills: ${skills.length > 0 ? skills.join(", ") : "none besides the skills for everyone"}`,
-      `MCP servers: ${mcpServers.length > 0 ? mcpServers.map((server) => mcpServerRecord(server, card.permissionProfile.mcpTools)).join("; ") : "none"}`,
+      `MCP servers: ${mcpServers.length > 0 ? mcpServers.map((server) => mcpServerRecord(server, card.permissionProfile.mcpTools, mcpToolDefault)).join("; ") : "none"}`,
     ].join("\n"),
   ].join("\n\n");
 }
@@ -89,9 +98,11 @@ function wholeCard({ role, skills, mcpServers }: RoleWithAssignments): string {
 function mcpServerRecord(
   server: RoleWithAssignments["mcpServers"][number],
   settings: McpToolSettings,
+  mcpToolDefault: HardSwitchValue,
 ): string {
   const tools = server.tools.map(
-    (tool) => `${tool} ${settingInWords(mcpToolSetting(settings, server.name, tool))}`,
+    (tool) =>
+      `${tool} ${settingInWords(mcpToolSetting(settings, server.name, tool, mcpToolDefault))}`,
   );
   return `${server.name} (${server.on ? "on" : "off"})${tools.length > 0 ? `: ${tools.join(", ")}` : ""}`;
 }

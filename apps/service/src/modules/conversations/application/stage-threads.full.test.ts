@@ -81,6 +81,7 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -216,6 +217,7 @@ function aPerson(name: string): string {
   people.set(roleKey, {
     roleKey,
     cardVersion: 1,
+    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
     card: aPlannerCard({ name, title: "Developer", sessionDefault: "always-start-fresh" }),
   });
   return roleKey;
@@ -563,6 +565,7 @@ describe("StageThreads", () => {
     people.set(DEVOPS, {
       roleKey: DEVOPS,
       cardVersion: 1,
+      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
       card: aPlannerCard({ name: "Nina", title: "Devops", sessionDefault: "always-start-fresh" }),
     });
     // Pipelines and Projects register these in the service.

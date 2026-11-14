@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CARETAKER_FIXED_PARTS } from "./caretaker.js";
 import { ASK_ME } from "./hard-switches.js";
 import { CARETAKER } from "./known-roles.js";
-import { aRole, aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
+import { aRole, aRoleCard, CARD_CONTEXT } from "./role.fixtures.js";
 import { changeRoleCard, hireFromScratch, letGo } from "./role-changes.js";
 import { RoleRefused } from "./role-refused.js";
 
@@ -44,7 +44,7 @@ describe("the Caretaker's card", () => {
           mcpTools: { "github/list_issues": { kind: "allowed" } },
         },
       },
-      OFFERED_MODELS,
+      CARD_CONTEXT,
       at,
     );
 
@@ -63,12 +63,12 @@ describe("the Caretaker's card", () => {
     ["Task limit", { taskLimit: 2 }],
   ])("refuses a change to its %s", (part, fields) => {
     expect(
-      refusal(() => changeRoleCard(caretaker, { ...caretakerCard, ...fields }, OFFERED_MODELS, at)),
+      refusal(() => changeRoleCard(caretaker, { ...caretakerCard, ...fields }, CARD_CONTEXT, at)),
     ).toEqual([expect.stringContaining(`The Caretaker's ${part}`)]);
   });
 
   it("leaves every other Role's card free", () => {
-    const changed = changeRoleCard(aRole(), aRoleCard({ taskLimit: "none" }), OFFERED_MODELS, at);
+    const changed = changeRoleCard(aRole(), aRoleCard({ taskLimit: "none" }), CARD_CONTEXT, at);
 
     expect(changed?.role.card.taskLimit).toBe("none");
   });
@@ -83,7 +83,7 @@ describe("the Caretaker's Role", () => {
 
   it("takes nobody hired from scratch into its key", () => {
     expect(
-      refusal(() => hireFromScratch(CARETAKER, caretakerCard, OFFERED_MODELS, undefined, at)),
+      refusal(() => hireFromScratch(CARETAKER, caretakerCard, CARD_CONTEXT, undefined, at)),
     ).toContain("The Caretaker is built in: nobody else is hired into their Role.");
   });
 });

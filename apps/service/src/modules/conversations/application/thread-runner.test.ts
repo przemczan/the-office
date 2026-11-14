@@ -104,6 +104,7 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 
 const outputMasks = new ProjectOutputMasksForTests();
 
@@ -404,7 +405,7 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
 function sessionRole(version: number): SessionRole {
   const card = versions[version - 1];
   if (!card) throw new Error(`The Planner's card has no version ${version}.`);
-  return { roleKey, cardVersion: version, card };
+  return { roleKey, cardVersion: version, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN };
 }
 
 /** A session's turn: what the person writes, then its end, with the context it leaves. */

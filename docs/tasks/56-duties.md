@@ -11,7 +11,7 @@ Every built-in job that today belongs to a fixed Role key becomes a duty, held b
 ## Definition of Done
 
 - [x] Spec 2.1–2.4, 2.6, 2.7, 3, 4, 5.4, 6 and 8 and the glossary describe duties. Check: the Gate of the Initiative's first Task.
-- [ ] The duty model and its Office setting, each duty held by its default Role key until set, with the rules of "Who holds a duty". Check: service tests.
+- [x] The duty model and its Office setting, each duty held by its default Role key until set, with the rules of "Who holds a duty". Check: service tests.
 - [ ] Built-in behaviour (the chat tools, calls, Consultations on failures, MCP tool hard switches, notifications, planning, shaping, onboarding, Skill installs) follows duties instead of Role keys. Check: service tests on the scripted engine adapter.
 - [ ] The built-in Pipelines and Stage templates name duties, each Stage resolved to the duty's holder when it starts; a duty nobody holds flags its Pipelines and refuses Start. Check: service tests.
 - [ ] Settings › Duties, and the duties held on the Role card and People; buttons and tabs name the holder or the fallback. Check: web tests and an e2e test.
@@ -35,7 +35,7 @@ Every built-in job that today belongs to a fixed Role key becomes a duty, held b
 ## Steps
 
 - [x] 1. The spec, the glossary and this file (Task 70a243f5).
-- [ ] 2. Duties in People: the model, the stored Office setting and its API, with today's Roles as defaults (Task 3658c88a).
+- [x] 2. Duties in People: the model, the stored Office setting and its API, with today's Roles as defaults (Task 3658c88a).
       Read: `apps/service/src/modules/people/MAP.md`, `apps/service/src/modules/people/domain/known-roles.ts`, [spec 2.2](../spec/2.2-people.md#defaults) "Who holds a duty".
 - [ ] 3. Built-in behaviour follows duties instead of Role keys (Task e48c3213).
       Read: `apps/service/src/modules/conversations/MAP.md`, `apps/service/src/modules/notifications/MAP.md`, `apps/service/src/modules/work/MAP.md`.
@@ -48,12 +48,16 @@ Every built-in job that today belongs to a fixed Role key becomes a duty, held b
 
 ## State
 
-Step 1 is done: the spec and glossary describe duties; nothing is built yet.
+Steps 1 and 2 are done: the spec describes duties, and People has them; nothing outside People follows them yet.
 
-- Eight duties, each with a key and a default Role key ([spec 2.2](../spec/2.2-people.md#defaults), "Duties"). One holder or none per duty, stored as an Office setting; a duty never set is held by its default key; a holder not hired counts as nobody; the Caretaker can't hold one.
-- Settled with the Plan of Task 70a243f5 (the Planner's details, standing unless the user changes them): the chat tools tied to a key follow the matching duty; the Caretaker may draft hires and duty assignments at any time; a holder with Consultant off is passed over for the two Consultant duties; a change reaches only what starts after it; a Hard switch or MCP tool may consult any hired Role; a "continue" Stage whose person differs runs fresh; only the seeded built-in Pipelines and Stage templates move from `developer`/`devops` to Implements/Onboards and repairs Projects; Office notifications come from the holder of Default person to talk to, or the Caretaker; a holder change is engine-checked as a rehire.
-- Trap: the key checks live in `known-roles.ts`, `session-instructions.ts` (`chatOfficeTools`, `CALLING_RULE`), `notification-service.ts`, `built-in-pipelines.ts`, `planning.ts`, `use-cto.ts` and `notification-words.ts`; each must go through the duty's holder, not a Role key.
+- People: `domain/duties.ts` (`DUTIES`, `dutyHolding`, `dutiesHeldBy`, `dutyChangeProblems`, `mcpToolDefault`), table `duty_assignments` (migration `0137_duties.sql`, a row only for a duty set), `Duties` (list, `holderOf`, `heldBy`, `changeProblems`, `change`, `changeAll` with `from`), the `DutyChangeChecks` registry, `DutyHolderChanged` → web `duty.changed`, `GET`/`PUT /api/settings/duties[/:duty]` (refusals 422 with reasons, as `RoleRefused`; 404 for an unknown duty).
+- For the next steps: `holderOf(duty)` is on the `KnownPeople` ports of work, pipelines and notifications (bound to `RoleCards`), and their test stand-ins keep `holders` by duty key; `apps/web/src/api/people.ts` has `dutyQueries.list()`, `changeDuty` and the `DUTIES` key, refreshed on `duty.changed` and on hires and let-gos. Register a check with `DutyChangeChecks` (step 4's engine check).
+- The MCP tool default follows the holder of `mcp-tool-consultant` (Ask me while unheld or the holder's Consultant is off), passed to sessions as `SessionRole.mcpToolDefault`; a Hard switch or MCP tool may consult any preset key or Role hired from scratch (`consultableRoleKeys`). `known-roles.ts` holds only the preset keys and `CARETAKER`.
+- Still keyed: `CTO`, `DEVOPS`, `OFFICE_MANAGER` stay exported from `people/index.ts` for step 3 and `built-in-pipelines.ts`.
+- Trap: `DutyHolderChanged` is only for the user's changes; hires and let-gos change holders in effect without it. Every test file shares `duty_assignments`: tests use `DutyRepositoryForTests`. Sibling steps add migrations too: check the number and the journal when merging.
+- Trap: the passing over of a holder whose Consultant is off is built only for the MCP duty; step 3 does it for Asked first when a Stage runs out of tries.
 
 ## Progress
 
 - 2026-11-14 · step 1: spec 2.1–2.4, 2.6, 2.7, 3, 4, 5.4, 6, 8, the README index and the glossary describe duties; this file added; next, step 2: the duty model and setting in People.
+- 2026-11-14 · step 2: People owns the eight duties, `duty_assignments` and `Duties` with its API, check registry and `duty.changed`; the MCP default, Hard switch consults and `list_people` follow them; next, step 3: built-in behaviour follows duties.

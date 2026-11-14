@@ -550,7 +550,12 @@ export class StageThreads {
     threadId: string,
     { id, engineId }: ThreadSession,
     request: StageThreadRequest,
-    { roleKey, card, officeInstructions }: SessionRole & Pick<SessionPerson, "officeInstructions">,
+    {
+      roleKey,
+      card,
+      mcpToolDefault,
+      officeInstructions,
+    }: SessionRole & Pick<SessionPerson, "officeInstructions">,
     applying: EngineModel,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
     mcpServers: SessionSettings["mcpServers"],
@@ -573,7 +578,7 @@ export class StageThreads {
       },
       profile: {
         ...request.session.profile,
-        mcpTools: mcpToolSettingsFor(request.session.profile.mcpTools, mcpServers),
+        mcpTools: mcpToolSettingsFor(request.session.profile.mcpTools, mcpServers, mcpToolDefault),
       },
       officeTools: sessionOfficeTools(
         [

@@ -260,6 +260,13 @@ export class KnownPeopleForTests extends KnownPeople {
       },
     };
   }
+
+  /** The holders of duties, by duty key: none until a test sets one. */
+  readonly holders = new Map<string, string>();
+
+  async holderOf(duty: string): Promise<string | undefined> {
+    return this.holders.get(duty);
+  }
 }
 
 /**

@@ -5,6 +5,11 @@ import {
   permissionNarrowingProblems,
   type PermissionProfile,
 } from "./permission-profile.js";
+import { consultableRoleKeys } from "./presets.js";
+
+const DEVOPS_DEFAULT = consult("devops");
+/** As with no duty set: Devops holds Default Consultant for MCP tool hard switches. */
+const CONTEXT = { consultable: consultableRoleKeys([]), mcpConsultant: "devops" };
 
 const CARD: PermissionProfile = {
   edit: true,
@@ -15,31 +20,41 @@ const CARD: PermissionProfile = {
 
 describe("a Stage's narrowing of the Role card's profile", () => {
   it("leaves the card's profile when the Stage states nothing", () => {
-    expect(narrowedPermissionProfile(CARD, undefined)).toEqual(CARD);
-    expect(narrowedPermissionProfile(CARD, {})).toEqual(CARD);
+    expect(narrowedPermissionProfile(CARD, undefined, DEVOPS_DEFAULT)).toEqual(CARD);
+    expect(narrowedPermissionProfile(CARD, {}, DEVOPS_DEFAULT)).toEqual(CARD);
   });
 
   it("takes away editing and the web", () => {
-    expect(narrowedPermissionProfile(CARD, { edit: false, web: false })).toMatchObject({
+    expect(
+      narrowedPermissionProfile(CARD, { edit: false, web: false }, DEVOPS_DEFAULT),
+    ).toMatchObject({
       edit: false,
       web: false,
     });
   });
 
   it("narrows the run permission, never widens it", () => {
-    expect(narrowedPermissionProfile(CARD, { run: "read-only-git" }).run).toBe("read-only-git");
-    expect(narrowedPermissionProfile(CARD, { run: "anything" }).run).toBe("project-commands");
+    expect(narrowedPermissionProfile(CARD, { run: "read-only-git" }, DEVOPS_DEFAULT).run).toBe(
+      "read-only-git",
+    );
+    expect(narrowedPermissionProfile(CARD, { run: "anything" }, DEVOPS_DEFAULT).run).toBe(
+      "project-commands",
+    );
   });
 
-  it("narrows each MCP tool against the card's setting, an unset one at Consult Devops", () => {
-    const narrowed = narrowedPermissionProfile(CARD, {
-      mcpTools: {
-        "github/merge": consult("reviewer"),
-        "github/close_issue": ALLOWED,
-        "github/list_issues": NEVER,
-        "brave-search/search": ALLOWED,
+  it("narrows each MCP tool against the card's setting, an unset one at the default", () => {
+    const narrowed = narrowedPermissionProfile(
+      CARD,
+      {
+        mcpTools: {
+          "github/merge": consult("reviewer"),
+          "github/close_issue": ALLOWED,
+          "github/list_issues": NEVER,
+          "brave-search/search": ALLOWED,
+        },
       },
-    });
+      DEVOPS_DEFAULT,
+    );
     expect(narrowed.mcpTools).toEqual({
       "github/merge": consult("reviewer"),
       "github/close_issue": ASK_ME,
@@ -52,6 +67,7 @@ describe("a Stage's narrowing of the Role card's profile", () => {
     const narrowed = narrowedPermissionProfile(
       { ...CARD, mcpTools: { "github/merge": consult("reviewer") } },
       { mcpTools: { "github/merge": consult("devops") } },
+      DEVOPS_DEFAULT,
     );
     expect(narrowed.mcpTools).toEqual({ "github/merge": consult("reviewer") });
   });
@@ -60,20 +76,30 @@ describe("a Stage's narrowing of the Role card's profile", () => {
 describe("why a Stage's narrowing can't stand", () => {
   it("has no problem when everything narrows or matches the card", () => {
     expect(
-      permissionNarrowingProblems("developer", CARD, {
-        edit: false,
-        run: "project-commands",
-        mcpTools: { "github/merge": consult("reviewer"), "github/list_issues": ASK_ME },
-      }),
+      permissionNarrowingProblems(
+        "developer",
+        CARD,
+        {
+          edit: false,
+          run: "project-commands",
+          mcpTools: { "github/merge": consult("reviewer"), "github/list_issues": ASK_ME },
+        },
+        CONTEXT,
+      ),
     ).toEqual([]);
   });
 
   it("names a run permission and an MCP tool set wider than the card", () => {
     expect(
-      permissionNarrowingProblems("developer", CARD, {
-        run: "anything",
-        mcpTools: { "github/close_issue": consult("reviewer"), "github/list_issues": ALLOWED },
-      }),
+      permissionNarrowingProblems(
+        "developer",
+        CARD,
+        {
+          run: "anything",
+          mcpTools: { "github/close_issue": consult("reviewer"), "github/list_issues": ALLOWED },
+        },
+        CONTEXT,
+      ),
     ).toEqual([
       "the run permission can only be narrowed from the Role card's.",
       "the MCP tool github/close_issue can only be narrowed from the Role card's setting.",
@@ -83,9 +109,27 @@ describe("why a Stage's narrowing can't stand", () => {
 
   it("keeps the card's rules for an MCP tool's setting", () => {
     expect(
-      permissionNarrowingProblems("developer", CARD, {
-        mcpTools: { "github/merge": consult("developer") },
-      }),
+      permissionNarrowingProblems(
+        "developer",
+        CARD,
+        {
+          mcpTools: { "github/merge": consult("developer") },
+        },
+        CONTEXT,
+      ),
     ).toEqual(["The MCP tool github/merge can't consult the Role itself."]);
+  });
+
+  it("weighs an unset tool against Ask me while nobody holds the MCP duty", () => {
+    expect(
+      permissionNarrowingProblems(
+        "developer",
+        CARD,
+        { mcpTools: { "github/list_issues": consult("devops") } },
+        { ...CONTEXT, mcpConsultant: undefined },
+      ),
+    ).toEqual([
+      "the MCP tool github/list_issues can only be narrowed from the Role card's setting.",
+    ]);
   });
 });

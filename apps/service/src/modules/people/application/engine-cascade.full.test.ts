@@ -8,6 +8,7 @@ import { RoleNotFound } from "../domain/role-not-found.js";
 import { KnownProjectLevels } from "../ports/known-project-levels.js";
 import { EngineCascade } from "./engine-cascade.js";
 import { RoleCards, type SessionRole } from "./role-cards.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../index.fixtures.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const projectDefault = { engineId: "claude-code", model: "claude-haiku-5-5" };
@@ -19,7 +20,12 @@ async function cascadeWith(
   const roleCards: Pick<RoleCards, "forNewSession"> = {
     forNewSession: async (roleKey): Promise<SessionRole> => {
       if (roleKey !== "developer") throw new RoleNotFound(roleKey);
-      return { roleKey, cardVersion: 1, card: aRoleCard({ roleOverride }) };
+      return {
+        roleKey,
+        cardVersion: 1,
+        card: aRoleCard({ roleOverride }),
+        mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
+      };
     },
   };
   const forcedProject: ProjectCascadeLevels = {
