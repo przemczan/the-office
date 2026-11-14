@@ -74,11 +74,11 @@ export function hireFromScratch(
 ): RoleChange<RoleHired> {
   const card = trimmedRoleCard(edit);
   const problems = roleCardProblems(roleKey, card, context);
-  const presetsTitle = presetTitle(roleKey);
+  const presetsOwnTitle = presetTitle(roleKey);
   if (roleKey === "" && card.title !== "") {
     problems.push("Give the Role a title with letters or digits.");
-  } else if (presetsTitle) {
-    problems.push(`Hire the ${presetsTitle} Role from its preset.`);
+  } else if (presetsOwnTitle) {
+    problems.push(`Hire the ${presetsOwnTitle} Role from its preset.`);
   } else if (isBuiltIn(roleKey)) {
     problems.push("The Caretaker is built in: nobody else is hired into their Role.");
   } else if (filledBy) {

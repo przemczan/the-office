@@ -255,7 +255,10 @@ export type RoleChange = z.infer<typeof roleChangeSchema>;
 
 export const roleChangeListSchema = z.array(roleChangeSchema);
 
-/** What a refused hire, card change or duty change answers: every reason, also joined into Nest's `message`. */
+/**
+ * What a refused hire, card change or duty change answers: every reason, also joined into Nest's
+ * `message`.
+ */
 export const roleRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),

@@ -26,7 +26,7 @@ export class PersonRecords {
   async everyone(): Promise<string> {
     const roles = await this.roles.list();
     const duties = await this.duties.list();
-    const unheld = duties.filter((duty) => duty.holder === null);
+    const unheld = duties.filter((duty): duty is UnheldDuty => duty.fallback !== null);
     return [
       ...(roles.length > 0
         ? roles.map((role) => personRecord(role, duties))
@@ -49,8 +49,11 @@ export class PersonRecords {
   }
 }
 
-function unheldDutyLine({ label, fallback }: DutyWithHolder): string {
-  return `Nobody holds ${label}: ${fallback ? FALLBACK_WORDS[fallback] : "nobody stands in"}.`;
+/** A duty nobody holds, so its fallback applies. */
+type UnheldDuty = DutyWithHolder & { readonly fallback: DutyFallback };
+
+function unheldDutyLine({ label, fallback }: UnheldDuty): string {
+  return `Nobody holds ${label}: ${FALLBACK_WORDS[fallback]}.`;
 }
 
 function personRecord(
