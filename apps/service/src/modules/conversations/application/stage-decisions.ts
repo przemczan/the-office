@@ -27,7 +27,8 @@ export interface OpenedStageDecision {
  * The Decisions a Task's Pipeline opens (spec §2.3), The Office's own: about limits, the
  * Definition of Done and a restart. An Agent asks its own with an Office tool. Each is a card in a
  * Thread on the Task, as every Decision is (spec §9); its answer goes back to the Pipeline through
- * DecisionAnswered. One put to a Consultant first, as a failure is to the CTO, opens their
+ * DecisionAnswered. One put to a Consultant first, as a failure is to whoever holds Asked first
+ * when a Stage runs out of tries, opens their
  * Consultation at once: no Agent's turn is left to end before it.
  */
 @Injectable()

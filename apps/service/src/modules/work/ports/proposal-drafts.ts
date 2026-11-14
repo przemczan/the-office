@@ -1,7 +1,7 @@
 import type { NewProject } from "../../projects/index.js";
 import type { InitiativeEdit } from "../domain/initiative-edit.js";
 
-/** A change the CTO wants to an active Initiative, as a Proposal carries it. */
+/** A change whoever shapes Initiatives wants to an active Initiative, as a Proposal carries it. */
 export interface ProposedInitiativeChange {
   readonly kind: "initiative";
   readonly initiativeId: string;

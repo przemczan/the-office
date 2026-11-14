@@ -566,6 +566,7 @@ export class ThreadRunner implements OnModuleDestroy {
         override: thread.override,
         briefTokens: place.brief.tokens,
         changesAllowed: place.workstation,
+        heldDuties: place.heldDuties,
       },
       await this.settings.current(),
     );
@@ -585,6 +586,7 @@ export class ThreadRunner implements OnModuleDestroy {
             officeInstructionsVersion: office.version,
             engineId: applying.engineId,
             changesAllowed: place.workstation,
+            heldDuties: place.heldDuties,
           },
           now,
         );

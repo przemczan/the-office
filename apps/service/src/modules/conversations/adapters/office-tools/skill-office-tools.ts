@@ -31,7 +31,7 @@ const SOURCE = z
 
 /**
  * The Office tools skills are drafted with as Proposals (spec §2.6): anyone in a chat drafts a
- * written skill; Devops installs and updates skills from a Source, reading what a Source holds and
+ * written skill; whoever onboards Projects installs and updates skills from a Source, reading what a Source holds and
  * what an update changes, and drafting one Proposal per skill. The Office adds or fetches the skill
  * only when the user applies it, since chats only read (spec §6); each returns once it is drafted.
  */

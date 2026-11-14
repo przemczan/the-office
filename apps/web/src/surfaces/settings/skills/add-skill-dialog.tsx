@@ -21,7 +21,7 @@ const TABS = [
 const BLANK: WrittenSkill = { name: "", description: "", instructions: "" };
 
 /**
- * "Add a skill": ask Devops to install it from a source, upload one or write it in place; however
+ * "Add a skill": ask whoever onboards Projects to install it from a source, upload one or write it in place; however
  * it comes, it arrives off until reviewed (spec §2.6).
  */
 export function AddSkillDialog({
@@ -108,9 +108,9 @@ export function AddSkillDialog({
               autoFocus
             />
           ) : (
-            <Alert tone="info" title="Installing needs someone with the Devops Role">
-              They fetch a skill from its source at a pinned version, and you confirm it.{" "}
-              <Link to="/people">Hire one on the People page.</Link>
+            <Alert tone="info" title="Installing needs whoever holds Onboards and repairs Projects">
+              They fetch a skill from its source at a pinned version, and you confirm it. Choose who
+              in Settings › Duties, or <Link to="/people">hire someone on the People page.</Link>
             </Alert>
           ))}
         {by === "upload" && (

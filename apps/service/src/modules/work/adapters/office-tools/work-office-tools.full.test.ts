@@ -13,11 +13,7 @@ import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import type { AttachmentOwner } from "../../domain/attachment.js";
 import { THE_USER } from "../../domain/author.js";
-import {
-  CREATED_INITIATIVE_SHAPING_OPENING,
-  CTO,
-  SHAPING_THREAD_TITLE,
-} from "../../domain/shaping.js";
+import { CREATED_INITIATIVE_SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../../domain/shaping.js";
 import {
   IdeaCardsForTests,
   InitiativeThreadsForTests,
@@ -52,6 +48,9 @@ import {
   READ_TASK,
 } from "./work-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+
+/** The Role holding Shapes Initiatives unless a test moves it. */
+const CTO = "cto";
 
 let officeData: string;
 let work: WorkApplication;
@@ -319,7 +318,7 @@ describe("create_initiative", () => {
       createdBy: { kind: "person", roleKey: "planner" },
     });
     expect(result).toEqual({
-      text: `Created the Initiative "${name}" (Initiative ${initiative?.id}), being shaped: it waits for the user's Confirm on its page. Its shaping Thread with the CTO is open, where its Tasks are agreed.`,
+      text: `Created the Initiative "${name}" (Initiative ${initiative?.id}), being shaped: it waits for the user's Confirm on its page. Its shaping Thread with The cto is open, where its Tasks are agreed.`,
       isError: false,
     });
   });
@@ -346,7 +345,7 @@ describe("create_initiative", () => {
     const result = await call(CREATE_INITIATIVE, { title: name, outcome: "Every page has one." });
 
     expect(result.text).toContain(
-      "Its shaping Thread with the CTO didn't open: the user starts it on its page once a CTO is hired.",
+      "Nobody holds Shapes Initiatives, so its shaping Thread waits: the user chooses who in Settings › Duties, then starts it on its page.",
     );
     const initiative = await created(name);
     expect(initiative?.state).toBe("shaping");
@@ -357,6 +356,42 @@ describe("create_initiative", () => {
     expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
       expect.objectContaining({ opening: CREATED_INITIATIVE_SHAPING_OPENING }),
     ]);
+  });
+
+  it("opens its shaping Thread with whoever holds Shapes Initiatives, naming them", async () => {
+    work.app.get(KnownPeopleForTests).hold("shapes-initiatives", "architect");
+    const name = ownTitle("Audit trail");
+    const result = await call(CREATE_INITIATIVE, { title: name, outcome: "Every change is kept." });
+
+    const initiative = await created(name);
+    expect(result.text).toContain(
+      "Its shaping Thread with The architect is open, where its Tasks are agreed.",
+    );
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
+      expect.objectContaining({ initiativeId: initiative?.id, roleKey: "architect" }),
+    ]);
+  });
+
+  it("says nobody holds Shapes Initiatives while it is unheld, even with a CTO hired", async () => {
+    work.app.get(KnownPeopleForTests).hold("shapes-initiatives", undefined);
+    const name = ownTitle("Price list");
+    const result = await call(CREATE_INITIATIVE, { title: name, outcome: "Prices in one place." });
+
+    expect(result).toMatchObject({ isError: false });
+    expect(result.text).toContain("Nobody holds Shapes Initiatives");
+    expect((await created(name))?.state).toBe("shaping");
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([]);
+  });
+
+  it("says its shaping Thread didn't open when the holder's Thread fails", async () => {
+    work.app.get(InitiativeThreadsForTests).failure = new Error("The engine is down.");
+    const name = ownTitle("Export queue");
+    const result = await call(CREATE_INITIATIVE, { title: name, outcome: "Exports queue up." });
+
+    expect(result.text).toContain(
+      "Its shaping Thread with The cto didn't open: the user starts it on its page.",
+    );
+    expect((await created(name))?.state).toBe("shaping");
   });
 
   it("refuses a blank title or outcome with every reason, and creates nothing", async () => {

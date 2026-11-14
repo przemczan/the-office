@@ -247,7 +247,7 @@ test.describe.serial("Sign in with GitHub", () => {
           .click();
         await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
         await expect(dialog).toContainText(
-          "Optional. Leave any you don't know yet: set them later on the Project's page, or ask Devops.",
+          "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.",
         );
         // A name is enough: the commands are left for later.
         await dialog.getByLabel("Name").fill("Picked notes");

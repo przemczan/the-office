@@ -126,6 +126,7 @@ export function shapeIdeaIntoInitiative(
     originIdeaId: idea.id,
     createdBy: shapedBy,
     createdAt: at,
+    planningThreadIds: [],
     planningAutoMode: false,
     pipelines: [],
     branches: [],

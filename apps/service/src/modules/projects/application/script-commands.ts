@@ -65,13 +65,13 @@ export class ScriptCommands {
     if (!command)
       return [
         couldNotRun(
-          `The Project has no ${key} command. Add it on the Project's page, or ask Devops.`,
+          `The Project has no ${key} command. Add it on the Project's page, or ask whoever onboards Projects.`,
         ),
       ];
     if (!isCommandSet(command.commandLine)) {
       return [
         couldNotRun(
-          `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask Devops.`,
+          `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask whoever onboards Projects.`,
         ),
       ];
     }

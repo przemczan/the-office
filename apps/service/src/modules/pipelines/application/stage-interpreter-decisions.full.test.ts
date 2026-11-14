@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { DecisionAnswered } from "../../conversations/index.js";
-import { CTO } from "../../people/index.js";
 import {
   A_WAITING_RESULT,
   aDoneResult,
@@ -31,7 +30,8 @@ import {
   onWaiting,
   answerFirstOption,
   statesOf,
-  hireTheCto,
+  ARCHITECT,
+  hireTheArchitect,
   failuresPutTo,
 } from "../stage-interpreter-decisions.fixtures.js";
 
@@ -192,12 +192,12 @@ describe("StageInterpreter's Decisions", () => {
     });
   });
 
-  describe("the CTO first", () => {
+  describe("whoever holds Asked first when a Stage runs out of tries", () => {
     const measure = scriptStage("measure", { goBackTo: "draft", rounds: 1 });
 
-    it("asks the user when the Stage the CTO sent back fails again", async () => {
+    it("asks the user when the Stage its holder sent back fails again", async () => {
       await startWith(agentDone, agentDone, agentDone);
-      hireTheCto();
+      hireTheArchitect();
       const failures = failuresPutTo();
       failing("2 tests fail.", "Still 2.", "Still 2 after the clock.");
       const taskId = await walkStages(pipelines, [draft, measure]);
@@ -205,18 +205,31 @@ describe("StageInterpreter's Decisions", () => {
       await answerLastDecision(pipelines, taskId, {
         kind: "free-answer",
         text: "Mock the clock.",
-        answeredBy: CTO,
+        answeredBy: ARCHITECT,
       });
 
-      const [toTheCto, toTheUser] = pipelines.decisions.on(taskId);
-      expect(toTheCto?.putTo).toBe(CTO);
+      const [toTheHolder, toTheUser] = pipelines.decisions.on(taskId);
+      expect(toTheHolder?.putTo).toBe(ARCHITECT);
       expect(toTheUser?.putTo).toBeUndefined();
-      expect(failures).toEqual([CTO, undefined]);
+      expect(failures).toEqual([ARCHITECT, undefined]);
       expect(statesOf(taskId).at(-1)).toBe("waiting-on-you");
     });
 
-    it("asks the user when no CTO who can be consulted is hired", async () => {
+    it("asks the user while nobody holds it", async () => {
       await startWith(agentDone, agentDone);
+      hireTheArchitect({ holdsAskedFirst: false });
+      const failures = failuresPutTo();
+      failing("2 tests fail.", "Still 2.");
+
+      const taskId = await walkStages(pipelines, [draft, measure]);
+
+      expect(pipelines.decisions.on(taskId)[0]?.putTo).toBeUndefined();
+      expect(failures).toEqual([undefined]);
+    });
+
+    it("asks the user when its holder can't be consulted", async () => {
+      await startWith(agentDone, agentDone);
+      pipelines.people.holders.set("asked-first-when-out-of-tries", ARCHITECT);
       const failures = failuresPutTo();
       failing("2 tests fail.", "Still 2.");
 

@@ -192,6 +192,7 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
     restoredAt: initiative.restoredAt ?? null,
     pausedAt: initiative.pausedAt ?? null,
     planningThreadId: initiative.planningThreadId ?? null,
+    planningThreadIds: [...initiative.planningThreadIds],
     pipelines: initiative.pipelines.map(({ projectId, pipelineId }) => ({
       projectId,
       pipelineId: pipelineId ?? null,

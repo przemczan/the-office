@@ -199,6 +199,57 @@ describe("a session whose context filled up", () => {
     });
   });
 
+  describe("the duties the person holds", () => {
+    const base = aContinuation(5, 40_000);
+    function startedHolding(
+      started: readonly string[] | undefined,
+      now: readonly string[] | undefined,
+    ): Continuation {
+      return {
+        ...base,
+        session: base.session && { ...base.session, heldDuties: started },
+        heldDuties: now,
+      };
+    }
+
+    it("start fresh once they differ from the session's, whatever would resume", () => {
+      for (const continuation of [
+        startedHolding(["plans"], ["plans", "onboards-projects"]),
+        startedHolding(["plans", "onboards-projects"], ["plans"]),
+        startedHolding(["plans"], []),
+        startedHolding([], ["default-person-to-talk-to"]),
+        startedHolding(["plans"], ["shapes-initiatives"]),
+        {
+          ...startedHolding(["plans"], ["shapes-initiatives"]),
+          override: "continue-anyway" as const,
+        },
+      ]) {
+        expect(decideContext(continuation)).toEqual({
+          move: "fresh",
+          reason: "duties-changed",
+          cacheWarm: false,
+          contextTokens: 40_000,
+          briefTokens: 3_000,
+          alternatives: [],
+        });
+      }
+    });
+
+    it("resume as before when they are the same, in any order, or either side is unknown", () => {
+      for (const continuation of [
+        startedHolding(["plans", "reviews"], ["reviews", "plans"]),
+        startedHolding([], []),
+        startedHolding(undefined, ["plans"]),
+        startedHolding(["plans"], undefined),
+      ]) {
+        expect(decideContext(continuation)).toMatchObject({
+          move: "resume",
+          reason: "cache-warm",
+        });
+      }
+    });
+  });
+
   it("leaves the engine out when nobody fills the Role any more", () => {
     expect(decideContext(aContinuation(5, 40_000, { engineId: undefined }))).toMatchObject({
       move: "resume",

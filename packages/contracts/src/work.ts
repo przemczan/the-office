@@ -66,8 +66,8 @@ export const initiativePipelineSchema = z.object({
 export type InitiativePipeline = z.infer<typeof initiativePipelineSchema>;
 
 /**
- * POST /ideas/:id/initiative makes one, being shaped, as does create_initiative in a CTO's or the
- * Office Manager's chat; its Tasks name it.
+ * POST /ideas/:id/initiative makes one, being shaped, as does create_initiative in the chat of
+ * whoever shapes Initiatives or is the Default person to talk to; its Tasks name it.
  */
 export const initiativeSchema = z.object({
   id: z.uuid(),

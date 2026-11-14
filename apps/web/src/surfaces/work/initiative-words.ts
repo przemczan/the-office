@@ -13,11 +13,14 @@ export const INITIATIVE_STATE_TONES: Readonly<
   dropped: "danger",
 };
 
-/** The state as its badge says it; shaping names the CTO it is shaped with, when one is hired. */
-export function initiativeStateName(state: InitiativeState, ctoName: string | undefined): string {
+/** The state as its badge says it; shaping names whoever shapes Initiatives, while someone does. */
+export function initiativeStateName(
+  state: InitiativeState,
+  shaperName: string | undefined,
+): string {
   switch (state) {
     case "shaping":
-      return ctoName === undefined ? "Shaping" : `Shaping with ${ctoName}`;
+      return shaperName === undefined ? "Shaping" : `Shaping with ${shaperName}`;
     case "active":
       return "Active";
     case "done":

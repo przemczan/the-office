@@ -39,7 +39,8 @@ export interface Notification {
   readonly kind: NotificationKind | GatheringKind;
   /**
    * Who speaks, by their Role's key; undefined when The Office does, in the UI's own voice: a Task
-   * with nobody on it, or an Office kind while no Office Manager is hired (spec §2.7 Defaults).
+   * with nobody on it, or an Initiative done while nobody holds Shapes Initiatives (spec §2.7
+   * Defaults).
    */
   readonly roleKey: string | undefined;
   /** In the person's first person, or the UI's own voice when nobody speaks. */
@@ -210,12 +211,18 @@ function taskOutcome(
   };
 }
 
-/** Every Task of an Initiative is Done: from the CTO while one is hired, who shapes them. */
-export function initiativeDone(initiativeId: string, cto: string | undefined): NotificationDraft {
+/**
+ * Every Task of an Initiative is Done: from whoever holds Shapes Initiatives, or in the UI's own
+ * voice while nobody does.
+ */
+export function initiativeDone(
+  initiativeId: string,
+  shaper: string | undefined,
+): NotificationDraft {
   return {
     kind: "outcomes.initiative-done",
-    roleKey: cto,
-    line: cto
+    roleKey: shaper,
+    line: shaper
       ? "Our Initiative is done: every one of its Tasks is Done."
       : "The Initiative is done.",
     pointsTo: { kind: "initiative", initiativeId },
@@ -223,19 +230,20 @@ export function initiativeDone(initiativeId: string, cto: string | undefined): N
 }
 
 /**
- * Office kinds come from the Office Manager, by their Role's key, or in the UI's own voice while
- * nobody fills the Role (spec §2.7 and its Defaults).
+ * Office kinds come from `defaultPerson`, by their Role's key: whoever holds Default person to talk
+ * to, or the Caretaker while nobody does (spec §2.7 and its Defaults); in the UI's own voice
+ * without one.
  */
 export function windowNearlyUsed(
   engine: NamedEngine,
   percentUsed: number,
-  officeManager: string | undefined,
+  defaultPerson: string | undefined,
 ): NotificationDraft {
   const percent = Math.round(percentUsed);
   return engineKind(
     engine,
     "office.window.nearly-used",
-    officeManager,
+    defaultPerson,
     `We've used ${percent}% of ${engine.name}'s 5-hour window.`,
     `${percent}% of ${engine.name}'s 5-hour window is used.`,
   );
@@ -243,12 +251,12 @@ export function windowNearlyUsed(
 
 export function windowReset(
   engine: NamedEngine,
-  officeManager: string | undefined,
+  defaultPerson: string | undefined,
 ): NotificationDraft {
   return engineKind(
     engine,
     "office.window.reset",
-    officeManager,
+    defaultPerson,
     `${engine.name}'s 5-hour window reset, so we have all of it again.`,
     `${engine.name}'s 5-hour window reset.`,
   );
@@ -258,14 +266,14 @@ export function windowReset(
 export function windowUsedUp(
   engine: NamedEngine,
   { window, resetsAt }: Pick<UsedUpWindowWords, "window" | "resetsAt">,
-  officeManager: string | undefined,
+  defaultPerson: string | undefined,
   now: Date,
 ): NotificationDraft {
   const until = clockWords(resetsAt, now);
   return engineKind(
     engine,
     "office.window.used-up",
-    officeManager,
+    defaultPerson,
     `${engine.name}'s ${window} is used up until ${until}. I've paused the Tasks on it, and the rest wait.`,
     `${engine.name}'s ${window} is used up until ${until}. Tasks on it are paused and wait.`,
   );
@@ -274,23 +282,23 @@ export function windowUsedUp(
 export function engineDown(
   engine: NamedEngine,
   reason: string,
-  officeManager: string | undefined,
+  defaultPerson: string | undefined,
 ): NotificationDraft {
   return engineKind(
     engine,
     "office.down.engine",
-    officeManager,
+    defaultPerson,
     `I can't reach ${engine.name}: ${reason}`,
     `${engine.name} is down: ${reason}`,
   );
 }
 
 /** The launcher updated The Office to `to` (spec §5.1 Defaults, "Updating The Office"). */
-export function officeUpdated(to: string, officeManager: string | undefined): NotificationDraft {
+export function officeUpdated(to: string, defaultPerson: string | undefined): NotificationDraft {
   return {
     ...officeKind(
       "office.update.done",
-      officeManager,
+      defaultPerson,
       `I updated The Office to ${to}.`,
       `The Office updated to ${to}.`,
     ),
@@ -302,12 +310,12 @@ export function officeUpdated(to: string, officeManager: string | undefined): No
 export function officeUpdateFailed(
   step: string,
   from: string,
-  officeManager: string | undefined,
+  defaultPerson: string | undefined,
 ): NotificationDraft {
   return {
     ...officeKind(
       "office.update.failed",
-      officeManager,
+      defaultPerson,
       `The Office's update failed at ${step}, so I took it back to ${from}. The log is in Settings › Updates.`,
       `The Office's update failed at ${step}; it is back on ${from}. The log is in Settings › Updates.`,
     ),
@@ -324,26 +332,26 @@ interface NamedEngine {
 function engineKind(
   engine: NamedEngine,
   kind: NotificationKind,
-  officeManager: string | undefined,
+  defaultPerson: string | undefined,
   firstPerson: string,
   officeVoice: string,
 ): NotificationDraft {
   return {
-    ...officeKind(kind, officeManager, firstPerson, officeVoice),
+    ...officeKind(kind, defaultPerson, firstPerson, officeVoice),
     pointsTo: { kind: "office", engineId: engine.id },
   };
 }
 
 function officeKind(
   kind: NotificationKind,
-  officeManager: string | undefined,
+  defaultPerson: string | undefined,
   firstPerson: string,
   officeVoice: string,
 ): NotificationDraft {
   return {
     kind,
-    roleKey: officeManager,
-    line: officeManager ? firstPerson : officeVoice,
+    roleKey: defaultPerson,
+    line: defaultPerson ? firstPerson : officeVoice,
     pointsTo: { kind: "office" },
   };
 }

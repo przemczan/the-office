@@ -12,6 +12,7 @@ import {
   type NewIdea,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { NOBODY_PLANS } from "../../domain/duties.js";
 import {
   KnownPeopleForTests,
   TaskThreadsForTests,
@@ -158,7 +159,21 @@ describe("POST /api/ideas/:id/plan", () => {
     ]);
   });
 
-  it("leaves the Idea unshaped while nobody is the Planner", async () => {
+  it("plans it with whoever holds Plans", async () => {
+    work.app.get(KnownPeopleForTests).hold("plans", "lead");
+    const idea = await capture();
+
+    const response = await sendJson(work, "POST", `/ideas/${idea.id}/plan`, {
+      projectId: aProjectId(),
+    });
+
+    expect(response.status).toBe(201);
+    expect(work.app.get(TaskThreadsForTests).opened).toEqual([
+      expect.objectContaining({ roleKey: "lead" }),
+    ]);
+  });
+
+  it("leaves the Idea unshaped while nobody holds Plans", async () => {
     const idea = await capture();
     work.app.get(KnownPeopleForTests).vacant.add("planner");
 
@@ -167,6 +182,7 @@ describe("POST /api/ideas/:id/plan", () => {
     });
 
     expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([NOBODY_PLANS]);
     const after = ideaSchema.parse(await (await sendJson(work, "GET", `/ideas/${idea.id}`)).json());
     expect(after.state).toBe("new");
   });

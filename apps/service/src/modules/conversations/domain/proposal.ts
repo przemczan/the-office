@@ -98,7 +98,7 @@ export type ProposedSettingValue = {
 }[OfficeSetting];
 
 /**
- * A change the CTO wants to an active Initiative (spec §2.1 Defaults), which Work applies under the
+ * A change whoever shapes Initiatives wants to an active Initiative (spec §2.1 Defaults), which Work applies under the
  * Initiative's hold, refusing it once the Initiative is done or dropped.
  */
 export interface ProposedInitiativeChange {
@@ -137,7 +137,7 @@ export type InitiativeEdit =
     };
 
 /**
- * Devops' change to a Project's install command, install inputs and commands (spec §2.3): each
+ * A change, by whoever onboards Projects, to a Project's install command, install inputs and commands (spec §2.3): each
  * field as the Project had it when drafted, and as proposed. Projects refuses to apply it once one
  * of them changed.
  */
@@ -148,7 +148,7 @@ export interface ProposedProjectCommands {
 }
 
 /**
- * Devops' new Stages for a library Pipeline (spec §2.3), and its Stages when drafted (`from`);
+ * New Stages, by whoever onboards Projects, for a library Pipeline (spec §2.3), and its Stages when drafted (`from`);
  * Pipelines refuses to apply it once they changed. Conversations keeps the Stages as Pipelines
  * gave them, without reading them, since Pipelines calls Conversations.
  */
@@ -160,7 +160,7 @@ export interface ProposedPipelineChange {
 }
 
 /**
- * Devops' new Stage for a Stage template (spec §2.3), and its Stage when drafted (`from`);
+ * A new Stage, by whoever onboards Projects, for a Stage template (spec §2.3), and its Stage when drafted (`from`);
  * Pipelines refuses to apply it once it changed. Kept unread, as a Pipeline's Stages are.
  */
 export interface ProposedStageTemplateChange {
@@ -171,7 +171,7 @@ export interface ProposedStageTemplateChange {
 }
 
 /**
- * Devops' new Project Pipeline, or its change to one (spec §2.3): the fields as the Project Pipeline
+ * A new Project Pipeline by whoever onboards Projects, or their change to one (spec §2.3): the fields as the Project Pipeline
  * had them when drafted (`from`, null for a new one), and as proposed (`to`). Pipelines refuses to
  * apply it once one of them changed; a Proposal never removes one or sets a Project's default.
  */
@@ -193,7 +193,7 @@ export interface ProjectPipelineFields {
 }
 
 /**
- * A Project Devops drafted to onboard (spec §2.1 Defaults): applying it adds the Project and its
+ * A Project whoever onboards Projects drafted to onboard (spec §2.1 Defaults): applying it adds the Project and its
  * Onboard Task, Ready on the Onboard Pipeline.
  */
 export interface ProposedProject {
@@ -206,7 +206,7 @@ export interface ProposedProject {
 }
 
 /**
- * A skill Devops drafted to install from a Source (spec §2.6): the one in `folder` of `repository`
+ * A skill whoever onboards Projects drafted to install from a Source (spec §2.6): the one in `folder` of `repository`
  * at its pinned version, as it was read when drafted. Applying fetches it into the library, off
  * until reviewed, refused once the name is taken or the Source's files changed.
  */
@@ -225,7 +225,7 @@ export interface ProposedSkillInstall {
 }
 
 /**
- * An installed skill's update Devops drafted with notes (spec §2.6): from the pinned version the
+ * An installed skill's update whoever onboards Projects drafted with notes (spec §2.6): from the pinned version the
  * skill had (`from`) to its Source's newer one (`to`), with its files there as read when drafted.
  * Applying is its review: the skill is pinned at `to`, on or off as it was; refused once it moved
  * off `from` or the Source's files changed.
@@ -237,7 +237,7 @@ export interface ProposedSkillUpdate {
   readonly folder: string;
   readonly from: PinnedVersion;
   readonly to: PinnedVersion;
-  /** Devops' words on what the update changes. */
+  /** Its drafter's words on what the update changes. */
   readonly notes: string;
   /** Its files' paths at `to`, in its folder. */
   readonly files: readonly string[];

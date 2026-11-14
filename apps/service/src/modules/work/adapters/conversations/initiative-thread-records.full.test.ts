@@ -14,7 +14,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InitiativeThreadSetups } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { INITIATIVE_PLANNING_INSTRUCTIONS } from "../../domain/initiative-planning.js";
-import { PLANNER } from "../../domain/planning.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
 import {
   sendJson,
@@ -22,6 +21,9 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { SHAPING_OFFICE_TOOLS } from "./initiative-thread-records.js";
+
+/** The Role holding Plans: its Threads on an Initiative are shaping ones unless Plan the Initiative opened them. */
+const PLANNER = "planner";
 
 let officeData: string;
 let work: WorkApplication;
@@ -80,11 +82,16 @@ async function anInitiativeOn(
   const initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
   const tasks: Task[] = [];
   for (const projectId of projectIds) tasks.push(await aTaskIn(initiative, "Sync", projectId, []));
-  const response = await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
-    pipelineId,
-  });
-  expect(response.status).toBeLessThan(300);
-  return { initiative: initiativeSchema.parse(await response.json()), tasks };
+  let chosen = initiative;
+  for (const projectId of projectIds) {
+    const response = await sendJson(work, "PUT", `/initiatives/${initiative.id}/pipeline`, {
+      projectId,
+      pipelineId,
+    });
+    expect(response.status).toBeLessThan(300);
+    chosen = initiativeSchema.parse(await response.json());
+  }
+  return { initiative: chosen, tasks };
 }
 
 describe("a shaping Thread's session", () => {
@@ -116,7 +123,8 @@ describe("a shaping Thread's session", () => {
         `- shaping; spans the Project ${api}, the Project ${web}`,
         `- Shaped from: Usage exports (Idea ${idea.id}), Office-wide, shaped; read_idea reads it`,
         `- Created by the user on ${initiative.createdAt}`,
-        "- Initiative's Pipeline: None, so each Task publishes on its own",
+        `- Initiative's Pipeline in the Project ${api}: None, so each of its Tasks publishes on its own`,
+        `- Initiative's Pipeline in the Project ${web}: None, so each of its Tasks publishes on its own`,
         "",
         "Outcome:",
         "Not written yet.",
@@ -130,11 +138,28 @@ describe("a shaping Thread's session", () => {
         "",
         "## The Pipelines",
         "",
-        "The Initiative's Pipeline is None, so each of its Tasks publishes on its own. Choose one with choose_pipeline, or None with null, when the user wants the whole change published together; whether it has one is fixed at Confirm.",
+        "Each Project the Initiative spans has a Pipeline of its own, or None. Choose one for a Project with choose_pipeline, or None with null, when the user wants that Project's whole change published together; whether each Project has one is fixed at Confirm.",
         "",
-        "- full: Full (Implement → Tests → Review & fix → Publish).",
+        `- The ${api} (${api}): None, so each of its Tasks publishes on its own.`,
+        `- The ${web} (${web}): None, so each of its Tasks publishes on its own.`,
+        "",
+        "- full: Full (Implement → Tests → Review & fix → Publish). For a change that needs a careful look: implement, test, review in a fresh session, publish.",
       ].join("\n"),
     );
+  });
+
+  it("is any Thread Plan the Initiative didn't open, whoever it is with, the Planner's too", async () => {
+    const idea = ideaSchema.parse(
+      await post("/ideas", { title: "Usage alerts", notes: "", projectId: null }),
+    );
+    const initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
+
+    for (const roleKey of [PLANNER, "architect"]) {
+      expect(await setUp(initiative, roleKey)).toMatchObject({
+        instructions: SHAPING_INSTRUCTIONS,
+        officeTools: SHAPING_OFFICE_TOOLS,
+      });
+    }
   });
 
   it("is refused once the Initiative is dropped", async () => {
@@ -167,7 +192,6 @@ describe("a shaping Thread's session", () => {
           `${name} (Initiative ${initiative.id})`,
           "- shaping; spans no Project yet",
           `- Created by the person in the Role cto on ${initiative.createdAt.toISOString()}`,
-          "- Initiative's Pipeline: None, so each Task publishes on its own",
           "",
           "Outcome:",
           "People sign in once.",
@@ -213,10 +237,11 @@ describe("what the Threads on an Initiative read", () => {
     ];
     const { initiative, tasks } = await anInitiativeOn("full", [api, web]);
     await post(`/initiatives/${initiative.id}/confirm`);
-    // Its only Task in web moves to app, where its branch is made: web keeps the branch made there.
+    // Its only Task in web moves to app, spanned after Confirm so on None: web keeps the branch made
+    // there, and both are read at their base.
     await post(`/tasks/${tasks[1]?.id ?? ""}/move`, { projectId: app });
 
-    expect((await setUp(initiative, "cto")).branchReads?.projectIds).toEqual([api, app]);
+    expect((await setUp(initiative, "cto")).branchReads?.projectIds).toEqual([api]);
   });
 
   it("is told to read each Project where The Projects in its Brief say, the same for every Initiative", () => {

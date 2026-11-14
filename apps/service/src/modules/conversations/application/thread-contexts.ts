@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { EngineCascade, RoleCards } from "../../people/index.js";
+import { Duties, EngineCascade, RoleCards } from "../../people/index.js";
 import type { Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Thread } from "../domain/thread.js";
@@ -35,6 +35,7 @@ export class ThreadContexts {
     private readonly taskThreads: TaskThreadSetups,
     private readonly settings: ContextPolicySettingsService,
     private readonly allowChanges: AllowChanges,
+    private readonly duties: Duties,
   ) {}
 
   /** The Thread's context, and whether changes are allowed in it. */
@@ -48,11 +49,12 @@ export class ThreadContexts {
     now: Date = new Date(),
     changesAllowed?: boolean,
   ): Promise<ContextDecision> {
-    const [role, { brief, projectId }, settings, allowed] = await Promise.all([
+    const [role, { brief, projectId }, settings, allowed, heldDuties] = await Promise.all([
       this.roleCards.find(thread.roleKey),
       this.briefOf(thread),
       this.settings.current(),
       changesAllowed ?? this.allowChanges.inThread(thread),
+      this.duties.heldBy(thread.roleKey),
     ]);
     // Nobody fills the Role any more, or no engine is listed: its Threads stay readable, and
     // nobody answers.
@@ -67,6 +69,7 @@ export class ThreadContexts {
         override: thread.override,
         briefTokens: brief.tokens,
         changesAllowed: allowed,
+        heldDuties,
       },
       settings,
     );

@@ -30,16 +30,19 @@ import {
   INITIATIVE_PLANNING_OPENING,
   INITIATIVE_PLANNING_THREAD_TITLE,
 } from "../domain/initiative-planning.js";
+import { NOBODY_PLANS } from "../domain/duties.js";
 import { SHAPING_INSTRUCTIONS } from "../domain/shaping.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import {
   InitiativeThreadsForTests,
   KnownPeopleForTests,
   SessionInitiativesForTests,
+  SessionPeopleForTests,
   SessionTasksForTests,
   TaskDecisionsForTests,
   WorkSettingsForTests,
 } from "../ports/work-ports.fixtures.js";
+import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSettings } from "../ports/work-settings.js";
 import {
@@ -162,7 +165,7 @@ describe("Plan the Initiative", () => {
     expect(await settings.autoMode()).toBe(true);
   });
 
-  it("is refused with the reason unless the Initiative is active, a Planner is hired and a Task is in Backlog", async () => {
+  it("is refused with the reason unless the Initiative is active, someone holds Plans and a Task is in Backlog", async () => {
     const shaping = await anInitiativeWithTwoTasks();
     const notActive = await post(`/initiatives/${shaping.initiative.id}/planning`, {
       autoMode: false,
@@ -177,9 +180,7 @@ describe("Plan the Initiative", () => {
     const { initiative } = await anActiveInitiative();
     work.app.get(KnownPeopleForTests).vacant.add("planner");
     const noPlanner = await post(`/initiatives/${initiative.id}/planning`, { autoMode: false });
-    expect(await noPlanner.json()).toMatchObject({
-      reasons: ["Hire a Planner on People first: planning is a conversation with them."],
-    });
+    expect(await noPlanner.json()).toMatchObject({ reasons: [NOBODY_PLANS] });
     work.app.get(KnownPeopleForTests).vacant.delete("planner");
     const opened = work.app.get(InitiativeThreadsForTests).opened;
     expect(opened.filter(({ roleKey }) => roleKey === "planner")).toEqual([]);
@@ -514,3 +515,88 @@ async function readInitiative(id: string): Promise<Initiative> {
   const response = await sendJson(work, "GET", `/initiatives/${id}`);
   return initiativeSchema.parse(await response.json());
 }
+
+describe("planning with whoever holds Plans", () => {
+  it("opens the planning Thread with the lead holding Plans, and records the lead's moves", async () => {
+    work.app.get(KnownPeopleForTests).hold("plans", "lead");
+    work.app.get(SessionPeopleForTests).people.set(SESSION, "lead");
+    const byTheLead = { kind: "person", roleKey: "lead" };
+    const { initiative, first, second } = await anActiveInitiative();
+
+    const planning = await planned(initiative.id, true);
+
+    expect(work.app.get(InitiativeThreadsForTests).opened.at(-1)).toMatchObject({
+      threadId: planning.planningThreadId,
+      roleKey: "lead",
+    });
+    await call(START_PLANNING, { taskId: first.id });
+    const tasks = work.app.get(TaskRepository);
+    expect((await tasks.stateChangesOf(first.id)).at(-1)).toMatchObject({
+      from: "backlog",
+      to: "planning",
+      by: byTheLead,
+    });
+    await planTask(first.id);
+    await call(START_PLANNING, { taskId: second.id });
+    await planTask(second.id);
+    expect(await read(first.id)).toMatchObject({ state: "ready" });
+
+    await call(WRITE_PLAN, { taskId: first.id, plan: "Add the endpoint, CSV only." });
+    expect((await tasks.stateChangesOf(first.id)).at(-1)).toMatchObject({
+      from: "ready",
+      to: "planning",
+      by: byTheLead,
+    });
+  });
+
+  it("is refused while nobody holds Plans, pointing to Settings › Duties, opening nothing", async () => {
+    work.app.get(KnownPeopleForTests).hold("plans", undefined);
+    const { initiative } = await anActiveInitiative();
+
+    const refused = await post(`/initiatives/${initiative.id}/planning`, { autoMode: false });
+
+    expect(refused.status).toBe(422);
+    const { reasons } = (await refused.json()) as { reasons: string[] };
+    expect(reasons).toEqual([NOBODY_PLANS]);
+    expect(reasons[0]).toContain("Settings › Duties");
+    expect((await readInitiative(initiative.id)).planningThreadId).toBeNull();
+    expect(work.app.get(InitiativeThreadsForTests).opened.map(({ roleKey }) => roleKey)).toEqual([
+      "cto",
+    ]);
+  });
+});
+
+describe("one Role holding both Shapes Initiatives and Plans", () => {
+  it("has a shaping Thread and a planning Thread on the Initiative, each set up as what it is", async () => {
+    const people = work.app.get(KnownPeopleForTests);
+    people.hold("shapes-initiatives", "architect");
+    people.hold("plans", "architect");
+    const { initiative } = await anActiveInitiative();
+    const planning = await planned(initiative.id, false);
+    const planningThreadId = planning.planningThreadId ?? "";
+    const opened = work.app.get(InitiativeThreadsForTests).opened;
+    const shapingThreadId = randomUUID();
+
+    expect(opened.map(({ roleKey, title }) => [roleKey, title])).toEqual([
+      ["architect", "Shaping"],
+      ["architect", INITIATIVE_PLANNING_THREAD_TITLE],
+    ]);
+    const kept = await work.app.get(InitiativeRepository).find(initiative.id);
+    expect(kept?.planningThreadIds).toEqual([planningThreadId]);
+    const setups = work.app.get(InitiativeThreadSetups);
+    const of = (threadId: string) =>
+      setups.of({ threadId, initiativeId: initiative.id, roleKey: "architect" });
+    expect(await of(shapingThreadId)).toMatchObject({ instructions: SHAPING_INSTRUCTIONS });
+    expect(await of(planningThreadId)).toMatchObject({
+      instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
+      officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
+    });
+
+    people.hold("plans", "lead");
+
+    expect(await of(planningThreadId)).toMatchObject({
+      instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
+    });
+    expect(await of(shapingThreadId)).toMatchObject({ instructions: SHAPING_INSTRUCTIONS });
+  });
+});

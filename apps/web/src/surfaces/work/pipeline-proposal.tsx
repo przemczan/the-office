@@ -30,7 +30,7 @@ export function PipelineProposal({
   /** The Pipeline the Task follows now. */
   readonly pipeline: Pipeline | undefined;
 }): ReactNode {
-  const planner = usePlanner()?.card.name ?? "The Planner";
+  const planner = usePlanner()?.card.name ?? "Whoever holds Plans";
   const project = useQuery(projectQueries.one(task.projectId)).data;
   const choices = useProjectPipelineChoices(task.projectId);
   const everyPipeline = useEveryPipeline();

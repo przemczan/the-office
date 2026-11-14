@@ -113,7 +113,7 @@ export class InitiativesController {
 
   /**
    * The user's choice of the Initiative's Pipeline in one Project it spans, null for None; refused
-   * once the Initiative is no longer being shaped, where only the CTO's Proposal changes it.
+   * once the Initiative is no longer being shaped, where only a Proposal of whoever shapes Initiatives changes it.
    */
   @Put(":id/pipeline")
   async choosePipeline(
@@ -157,7 +157,7 @@ export class InitiativesController {
   }
 
   /**
-   * A new shaping Thread with the CTO, who starts on it at once; its Threads are listed by
+   * A new shaping Thread with whoever shapes Initiatives, who starts on it at once; its Threads are listed by
    * GET /initiatives/:id/threads.
    */
   @Post(":id/shaping")

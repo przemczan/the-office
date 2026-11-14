@@ -14,7 +14,6 @@ import {
   type UsageWindowRefusal,
 } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
-import { THE_PLANNER } from "./planning.js";
 import {
   BY_THE_FIRE_ALARM,
   BY_THE_PIPELINE,
@@ -144,10 +143,12 @@ export function changeTaskState(
 
 /**
  * Where a Task is planned: in a planning Thread of its own, moved there by the user, or in its
- * Initiative's planning Thread, moved there by the Planner as its turn comes (start_planning).
+ * Initiative's planning Thread, moved there `by` the person planning it as its turn comes
+ * (start_planning).
  */
 export type PlanningThread =
-  { readonly kind: "own" } | { readonly kind: "initiative"; readonly threadId: string };
+  | { readonly kind: "own" }
+  | { readonly kind: "initiative"; readonly threadId: string; readonly by: Author };
 
 export const OWN_PLANNING_THREAD: PlanningThread = { kind: "own" };
 
@@ -161,7 +162,7 @@ export function startPlanningTask(
   autoMode: boolean,
   thread: PlanningThread = OWN_PLANNING_THREAD,
 ): TaskChange<TaskStateChanged> | undefined {
-  const by: StateChangeCause = thread.kind === "own" ? THE_USER : THE_PLANNER;
+  const by: StateChangeCause = thread.kind === "own" ? THE_USER : thread.by;
   const change = changeTaskState(task, "planning", by);
   if (!change) return undefined;
   const initiativePlanningThreadId = thread.kind === "own" ? undefined : thread.threadId;

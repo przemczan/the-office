@@ -349,23 +349,23 @@ export function shapeIdea(id: string, projectId: string): Promise<Task> {
   return sendToApi("POST", `${ideaPath(id)}/shape`, { projectId }, taskSchema);
 }
 
-/** Plan as a Task with the Planner: the Task the Idea became, in Planning with its Thread. */
+/** Plan as a Task with whoever holds Plans: the Task the Idea became, in Planning with its Thread. */
 export function planIdea(id: string, projectId: string): Promise<Task> {
   return sendToApi("POST", `${ideaPath(id)}/plan`, { projectId }, taskSchema);
 }
 
-/** The Initiative the Idea became, being shaped; with the CTO in its Thread when one is hired. */
+/** The Initiative the Idea became, being shaped; with whoever shapes Initiatives in its Thread while someone does. */
 export function shapeIntoInitiative(id: string): Promise<Initiative> {
   return sendToApi("POST", `${ideaPath(id)}/initiative`, {}, initiativeSchema);
 }
 
-/** A new shaping Thread with the CTO, who starts on it at once. */
+/** A new shaping Thread with whoever shapes Initiatives, who starts on it at once. */
 export function startShapingThread(id: string): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/shaping`, {}, initiativeSchema);
 }
 
 /**
- * Plan the Initiative: a new planning Thread with the Planner, who plans its Backlog Tasks at once,
+ * Plan the Initiative: a new planning Thread with whoever holds Plans, who plans its Backlog Tasks at once,
  * in auto mode or not. The choice becomes the remembered default.
  */
 export function planInitiative(id: string, autoMode: boolean): Promise<Initiative> {
@@ -471,13 +471,13 @@ export function changeDescription(id: string, description: string): Promise<Task
   return sendToApi("PUT", `${taskPath(id)}/description`, { description }, taskSchema);
 }
 
-/** Plan with the Planner: the Task moves to Planning, and its planning Thread opens. */
+/** Plan with whoever holds Plans: the Task moves to Planning, and its planning Thread opens. */
 export function planTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/planning`, {}, taskSchema);
 }
 
 /**
- * Make a plan: the Task moves to Planning, in auto mode or not, and the Planner starts at once
+ * Make a plan: the Task moves to Planning, in auto mode or not, and whoever holds Plans starts at once
  * from its record. The choice becomes the remembered default.
  */
 export function makeAPlan(id: string, autoMode: boolean): Promise<Task> {
@@ -692,7 +692,7 @@ export const workEventInvalidations: Readonly<
   "initiative.resumed": () => [INITIATIVES, TASKS],
   "initiative.planning-started": () => [INITIATIVES],
   "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
-  // A move to Planning in its Initiative's planning Thread changes the Planner's tab too.
+  // A move to Planning in its Initiative's planning Thread changes the planning tab too.
   "task.state-changed": (event) => [
     TASKS,
     INITIATIVES,

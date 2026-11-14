@@ -140,7 +140,7 @@ describe("the Pipelines card's folded line", () => {
 describe("the Pipelines card's foot line", () => {
   it("says what comes, then why the Pipelines no longer change", () => {
     expect(pipelinesFootWords("active", [SHIPPING, STRAIGHT])).toContain(
-      "Another Pipeline for a Project comes by the CTO's Proposal.",
+      "Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.",
     );
     expect(
       pipelinesFootWords("active", [

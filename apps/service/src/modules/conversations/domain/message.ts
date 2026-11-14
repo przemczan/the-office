@@ -198,7 +198,7 @@ interface ProposalCard {
 }
 
 /**
- * The Office Manager points the user to whoever is responsible (spec §2.2): a person to open a
+ * The Default person to talk to points the user to whoever is responsible (spec §2.2): a person to open a
  * chat Thread with, about a Task when it names one, with a Handover note the user sends themselves.
  * The person's state is read when the card is shown, never kept on it.
  */
@@ -221,7 +221,7 @@ export interface IdeaCard {
 }
 
 /**
- * The Office Manager shows the Office status (spec §2.2): who is on what and what waits on the
+ * The Default person to talk to shows the Office status (spec §2.2): who is on what and what waits on the
  * user, Office-wide, read from Now whenever the card is shown, never kept on it.
  */
 export interface OfficeStatusCard {

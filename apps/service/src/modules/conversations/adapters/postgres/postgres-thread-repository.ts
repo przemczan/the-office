@@ -410,6 +410,7 @@ function toSessionRow(session: ThreadSession): ThreadSessionRow {
     startedAt: session.startedAt.toISOString(),
     lastCallAt: session.lastCallAt?.toISOString() ?? null,
     startContextTokens: session.startContextTokens ?? null,
+    heldDuties: session.heldDuties,
   };
 }
 
@@ -421,6 +422,7 @@ function toSession(row: ThreadSessionRow): ThreadSession {
     startContextTokens: row.startContextTokens ?? undefined,
     changesAllowed: row.changesAllowed ?? false,
     officeInstructionsVersion: row.officeInstructionsVersion ?? NO_OFFICE_INSTRUCTIONS.version,
+    heldDuties: row.heldDuties,
   };
 }
 

@@ -1,6 +1,5 @@
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 import { attachmentLines, HOW_TO_READ_ATTACHMENTS, type Attachment } from "./attachment.js";
-import type { Author } from "./author.js";
 import type { Idea } from "./idea.js";
 import { initiativeSection } from "./initiative-section.js";
 import { linkedRecordsSection, type TaskLinks } from "./linked-records.js";
@@ -8,13 +7,6 @@ import type { InitiativeRecord } from "./record-words.js";
 import type { Task } from "./task.js";
 import { descriptionSection } from "./task-description.js";
 import { confirmationWords, planWithFilesToChange } from "./written-parts.js";
-
-/** The Role that plans Tasks, by the key a hired Planner keeps (spec §2.2). */
-
-export const PLANNER = "planner";
-
-/** The Planner as the Author of what they write and the moves they make. */
-export const THE_PLANNER: Author = { kind: "person", roleKey: PLANNER };
 
 export const PLANNING_THREAD_TITLE = "Planning";
 

@@ -11,7 +11,7 @@ import {
 import { OfficeInstructionsRepository } from "../ports/office-instructions-repository.js";
 
 const CHANGED_SINCE_THE_DRAFT =
-  "The Office instructions changed after this was drafted, and applying it would overwrite that. Ask the Office Manager for a new draft.";
+  "The Office instructions changed after this was drafted, and applying it would overwrite that. Ask for a new draft.";
 
 /**
  * The Office instructions for the session starts (spec §2.2): as with a Role card, a new session

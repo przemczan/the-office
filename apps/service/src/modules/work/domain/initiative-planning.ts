@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import type { Author } from "./author.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
 import { InitiativePlanningStarted } from "./initiative-events.js";
@@ -8,7 +9,6 @@ import {
   commandLines,
   defaultPipelineWords,
   pipelineGroups,
-  THE_PLANNER,
   type PlanningPipeline,
   type PlanningProject,
 } from "./planning.js";
@@ -96,7 +96,12 @@ export function startInitiativePlanning(
   const problems = initiativePlanningProblems(initiative, tasks);
   if (problems.length > 0) throw new InitiativeRefused(problems);
   return {
-    initiative: { ...initiative, planningThreadId: threadId, planningAutoMode: autoMode },
+    initiative: {
+      ...initiative,
+      planningThreadId: threadId,
+      planningThreadIds: [...initiative.planningThreadIds, threadId],
+      planningAutoMode: autoMode,
+    },
     event: new InitiativePlanningStarted(initiative.id, threadId, autoMode),
   };
 }
@@ -113,13 +118,15 @@ function isBeingPlannedInItsInitiative(task: Task): boolean {
 /**
  * start_planning in the Initiative's planning Thread `threadId`: Backlog → Planning for one of its
  * Tasks whose blockers inside the Initiative are planned, in the Initiative's auto mode, the Task
- * then planned in that Thread. Refused with every reason; undefined when it is in Planning there.
+ * then planned in that Thread, moved `by` the person planning it. Refused with every reason;
+ * undefined when it is in Planning there.
  */
 export function startPlanningInInitiative(
   initiative: Initiative,
   task: Task,
   tasks: readonly Task[],
   threadId: string,
+  by: Author,
 ): TaskChange<TaskStateChanged> | undefined {
   if (initiative.planningThreadId !== threadId) {
     throw new InitiativeRefused([
@@ -143,7 +150,7 @@ export function startPlanningInInitiative(
     ),
   ];
   if (problems.length > 0) throw new TaskRefused(problems);
-  return startPlanningTask(task, initiative.planningAutoMode, { kind: "initiative", threadId });
+  return startPlanningTask(task, initiative.planningAutoMode, { kind: "initiative", threadId, by });
 }
 
 /** The Initiative's planning Thread a part is rewritten from, and the Thread that is its latest. */
@@ -191,7 +198,7 @@ export function rewritingProblems(
 /**
  * The Planner rewrites a part of an already planned Task from the Initiative's latest planning
  * Thread `threadId` (spec §2.1), in one save with `write`, the part's own change: a Ready Task goes
- * back to Planning in this Thread, in one move of the Planner's; a Task in Planning from an earlier
+ * back to Planning in this Thread, in one move `by` the person planning it; a Task in Planning from an earlier
  * planning Thread is planned in this one. Either
  * is no longer marked planned, in the Initiative's auto mode, so mark_planned accepts it again.
  * Undefined when `write` changes nothing, which moves nothing. Refused with the reasons of
@@ -201,6 +208,7 @@ export function rewriteInInitiative<Event extends DomainEvent>(
   initiative: Initiative,
   task: Task,
   threadId: string,
+  by: Author,
   write: (task: Task) => TaskChange<Event> | undefined,
 ): TaskChange<TaskRewrittenInInitiative> | undefined {
   if (initiative.planningThreadId !== threadId) {
@@ -234,7 +242,7 @@ export function rewriteInInitiative<Event extends DomainEvent>(
       ]),
     },
     task,
-    THE_PLANNER,
+    by,
   );
 }
 

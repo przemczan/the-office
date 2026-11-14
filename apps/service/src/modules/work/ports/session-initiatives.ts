@@ -5,7 +5,7 @@ export interface SessionInitiativeThread {
 }
 
 /**
- * Which Initiative an engine session works on, for the Office tools the CTO shapes it with and the
+ * Which Initiative an engine session works on, for the Office tools it is shaped with and the
  * Planner plans its Tasks with. Conversations keeps the sessions of Threads on Initiatives; the
  * composition root binds it.
  */

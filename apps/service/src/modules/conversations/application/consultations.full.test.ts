@@ -43,6 +43,7 @@ import { DecisionService } from "./decision-service.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { DutiesStandIn, dutiesProvider } from "./duties.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
 import { StageThreads } from "./stage-threads.js";
@@ -72,6 +73,9 @@ import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 // What consultations.test.ts and consultations.full.test.ts share.
 
 const outputMasks = new ProjectOutputMasksForTests();
+
+/** Who holds each duty: their default Roles, so none of the Roles here, under keys of their own. */
+const duties = new DutiesStandIn();
 
 type Step = SessionScript[number];
 
@@ -175,6 +179,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ThreadService,
       Briefs,
       sessionMemoryProvider(),
+      dutiesProvider(duties),
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
@@ -204,7 +209,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     ],
   }));
   // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
-  for (const name of consultationOfficeTools(consultantKey, true).filter(
+  for (const name of consultationOfficeTools(await duties.heldBy(consultantKey), true).filter(
     (tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL,
   )) {
     app.get(OfficeToolRegistry).register({
@@ -215,7 +220,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     });
   }
   app.get(TaskThreadSetups).provide({
-    planner: "planner",
+    planner: () => Promise.resolve("planner"),
     readyForPersonsThread: () => Promise.resolve(undefined),
     planningThreadElsewhere: () => Promise.resolve(undefined),
     setUp: ({ taskId }) =>

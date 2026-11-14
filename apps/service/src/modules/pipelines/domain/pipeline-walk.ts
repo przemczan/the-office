@@ -412,7 +412,7 @@ function afterBaseMoved(
 
 /**
  * Publish shipped the work, but its after publishing line failed (spec §2.3 Loops): the user is
- * asked straight away, through the CTO first, using no round, as going back can't unship it. Retry
+ * asked straight away, through a Consultant first, using no round, as going back can't unship it. Retry
  * and Continue both stay at the Publish Stage: its next run finds the publication kept and runs
  * only the after line, or, after Continue, ends done with the failure noted.
  */
@@ -472,7 +472,7 @@ function afterBranchMoved(
 
 /**
  * Resolve gave up, or left a conflict that came back too often to the user, who is asked
- * directly, not the CTO (spec §2.3): once they resolved it in the worktree Resolve runs again to
+ * directly, not a Consultant first (spec §2.3): once they resolved it in the worktree Resolve runs again to
  * commit it, words of their own guide one more round of Resolve, or they drop the Task.
  */
 function afterResolveGaveUp(

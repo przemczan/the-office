@@ -14,7 +14,7 @@ import { decisionQueries } from "../../api/conversations.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
-import { useCto } from "../../shell/work/use-cto.ts";
+import { useShaper } from "../../shell/work/use-shaper.ts";
 import { ArchivedBadge, RestoreInitiativeButton } from "./archive-parts.tsx";
 import { InitiativeAttachments } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
@@ -52,7 +52,7 @@ export function InitiativePage(): ReactNode {
   const projects = useQuery(projectQueries.list());
   // What waits on the user, for the planning steps; the Decisions' events keep it current.
   const openDecisions = useQuery(decisionQueries.open()).data ?? NO_DECISIONS;
-  const cto = useCto();
+  const shaper = useShaper();
   const [readyTasksStarted, setReadyTasksStarted] = useState<{
     readonly initiativeId: string;
     readonly started: ReadyTasksStarted;
@@ -74,7 +74,7 @@ export function InitiativePage(): ReactNode {
         tasks={tasks.data}
         openDecisions={openDecisions}
         projects={projects.data}
-        cto={cto}
+        shaper={shaper}
         onStartedReadyTasks={(started) => setReadyTasksStarted({ initiativeId, started })}
       />
       {readyTasksStarted?.initiativeId === initiativeId && (
@@ -89,12 +89,12 @@ export function InitiativePage(): ReactNode {
         tasks={tasks.data}
         openDecisions={openDecisions}
         projects={projects.data}
-        cto={cto}
+        shaper={shaper}
       />
       <ConversationDrawerProvider key={record.id}>
         <div className="task-columns">
           <section className="task-record" aria-label="Record">
-            {record.state === "shaping" && <ShapingNote cto={cto} />}
+            {record.state === "shaping" && <ShapingNote shaper={shaper} />}
             <InitiativePipelineBlock
               initiative={record}
               tasks={tasks.data}
@@ -120,7 +120,7 @@ function InitiativeHead({
   tasks,
   openDecisions,
   projects,
-  cto,
+  shaper,
   onStartedReadyTasks,
 }: {
   readonly initiative: Initiative;
@@ -128,7 +128,7 @@ function InitiativeHead({
   readonly tasks: readonly Task[];
   readonly openDecisions: readonly Decision[];
   readonly projects: readonly Project[] | undefined;
-  readonly cto: Role | undefined;
+  readonly shaper: Role | undefined;
   readonly onStartedReadyTasks: (started: ReadyTasksStarted) => void;
 }): ReactNode {
   const planningProgress = planningProgressWords(initiative, initiativeTasks, openDecisions);
@@ -138,7 +138,7 @@ function InitiativeHead({
         <h2>{initiative.name}</h2>
         <div className="task-head-meta">
           <span className="task-head-badges">
-            <InitiativeStateBadge initiative={initiative} cto={cto} />
+            <InitiativeStateBadge initiative={initiative} shaper={shaper} />
             <InitiativePausedBadge initiative={initiative} />
             <ArchivedBadge record={initiative} />
           </span>
@@ -165,14 +165,14 @@ function TasksBlock({
   tasks,
   openDecisions,
   projects,
-  cto,
+  shaper,
 }: {
   readonly initiative: Initiative;
   readonly initiativeTasks: readonly Task[];
   readonly tasks: readonly Task[];
   readonly openDecisions: readonly Decision[];
   readonly projects: readonly Project[] | undefined;
-  readonly cto: Role | undefined;
+  readonly shaper: Role | undefined;
 }): ReactNode {
   const fold = useFold({ kind: "initiative", id: initiative.id }, "tasks", true);
   const initiatives = useQuery(initiativeQueries.list());
@@ -186,9 +186,9 @@ function TasksBlock({
       {initiativeTasks.length === 0 ? (
         <p className="task-quiet">
           No Tasks yet.
-          {cto &&
+          {shaper &&
             initiative.state === "shaping" &&
-            ` ${cto.card.name} drafts them with you in the conversation, straight onto this page.`}
+            ` ${shaper.card.name} drafts them with you in the conversation, straight onto this page.`}
         </p>
       ) : (
         <TaskGraph
@@ -203,11 +203,11 @@ function TasksBlock({
   );
 }
 
-function ShapingNote({ cto }: { readonly cto: Role | undefined }): ReactNode {
+function ShapingNote({ shaper }: { readonly shaper: Role | undefined }): ReactNode {
   return (
     <Alert tone="info">
-      {cto
-        ? `${cto.card.name} drafts the outcome and the Tasks with you in the conversation, straight onto this page. Once you confirm the Initiative, each change ${cto.card.name} wants is a Proposal you apply.`
+      {shaper
+        ? `${shaper.card.name} drafts the outcome and the Tasks with you in the conversation, straight onto this page. Once you confirm the Initiative, each change ${shaper.card.name} wants is a Proposal you apply.`
         : "Write the outcome and add the Tasks, then confirm the Initiative to make it active."}
     </Alert>
   );

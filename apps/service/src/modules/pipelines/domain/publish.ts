@@ -219,7 +219,7 @@ export interface UnfinishedPublication {
   readonly published: PublishedWork;
   /** Why the latest run failed, when it did. */
   readonly error: string | undefined;
-  /** Whether the user, or the CTO, chose Continue on the latest run's failure. */
+  /** Whether the user, or the Consultant asked first, chose Continue on the latest run's failure. */
   readonly continued: boolean;
 }
 

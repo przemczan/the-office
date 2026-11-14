@@ -19,7 +19,6 @@ import {
   initiativePlanningBrief,
   type InitiativePlanningProject,
 } from "../../domain/initiative-planning.js";
-import { PLANNER } from "../../domain/planning.js";
 import { initiativeRecordText } from "../../domain/record-words.js";
 import { SHAPING_INSTRUCTIONS, shapingBrief, type ShapingProject } from "../../domain/shaping.js";
 import { initiativeBranchOf } from "../../domain/short-name.js";
@@ -83,8 +82,9 @@ export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
 
 /**
  * Sets up the sessions of Threads on Initiatives for Conversations, from the Initiative's record:
- * the Planner's Threads plan its Tasks (Plan the Initiative), every other one shapes it with the
- * CTO. Told apart by the person, so an earlier planning Thread stays a planning one.
+ * the Threads Plan the Initiative opened plan its Tasks, every other one shapes it. Told apart by
+ * the Initiative's own list of them, never by the person, so a planning Thread stays one when
+ * Plans moves, and one Role holding both Shapes Initiatives and Plans has both kinds.
  */
 @Injectable()
 export class InitiativeThreadRecords implements InitiativeThreadSource, OnModuleInit {
@@ -100,17 +100,13 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     this.setups.provide(this);
   }
 
-  async setUp({
-    threadId,
-    initiativeId,
-    roleKey,
-  }: InitiativeThreadRequest): Promise<InitiativeThreadSetup> {
+  async setUp({ threadId, initiativeId }: InitiativeThreadRequest): Promise<InitiativeThreadSetup> {
     const initiativeRecord = await this.initiatives.record(initiativeId);
     const { initiative, idea, tasks } = initiativeRecord;
     const record = initiativeRecordText(initiativeRecord);
     const sessionRefusal = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
     const branchReads = initiativeBranchReads(initiative, tasks);
-    if (roleKey !== PLANNER) {
+    if (!initiative.planningThreadIds.includes(threadId)) {
       return {
         instructions: SHAPING_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,

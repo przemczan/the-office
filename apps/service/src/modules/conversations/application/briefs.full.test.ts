@@ -88,7 +88,7 @@ beforeAll(async () => {
       }),
   });
   app.get(TaskThreadSetups).provide({
-    planner: "planner",
+    planner: () => Promise.resolve("planner"),
     readyForPersonsThread: () => Promise.resolve(undefined),
     planningThreadElsewhere: () => Promise.resolve(undefined),
     setUp: ({ taskId }: TaskThreadRequest) =>

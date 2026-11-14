@@ -118,7 +118,7 @@ export interface AnsweredQuestion {
 
 /**
  * A carried failure as the Brief words it: with the failed Stage's name, and who gave the guidance,
- * such as "Bob (CTO)", when a Consultant did.
+ * such as "Bob (Architect)", when a Consultant did.
  */
 export type CarriedRound = CarriedFailure & {
   readonly stageName: string;
@@ -127,7 +127,7 @@ export type CarriedRound = CarriedFailure & {
 
 /** Why the Stage runs now, beside its brief; each is left out when it doesn't apply. */
 export interface StageWorkReasons {
-  /** The failure an on-failure loop, or a round the user or the CTO gave, went back with. */
+  /** The failure an on-failure loop, or a round the user or a Consultant gave, went back with. */
   readonly carried?: CarriedRound;
   /** The user's feedback from a Gate, when they sent the work back to this Stage. */
   readonly sentBack?: SentBack & { readonly gateName: string };
@@ -302,8 +302,8 @@ function refusedMessageWords({ message, problems }: NonNullable<HeldRun["refused
 }
 
 /**
- * Why the Stage runs again: a later Stage's loop went back to it, or the user, or the CTO asked
- * first, gave it one more round itself; with what they said to do differently, when they said it.
+ * Why the Stage runs again: a later Stage's loop went back to it, or the user, or the Consultant
+ * asked first, gave it one more round itself; with what they said to do differently, when they said it.
  */
 function whyAgain(stage: Pick<AgentStage, "key">, carried: CarriedRound): string {
   const chosen =

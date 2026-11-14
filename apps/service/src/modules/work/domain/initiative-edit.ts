@@ -15,7 +15,7 @@ import { TaskNotFound } from "./task-not-found.js";
 import { TaskRefused } from "./task-refused.js";
 
 /**
- * A change of the CTO's to an Initiative (spec §2.1 Defaults): its outcome, a new Task, the
+ * A change by whoever shapes Initiatives to an Initiative (spec §2.1 Defaults): its outcome, a new Task, the
  * title, Description or a dependency of one of its Tasks, or the Initiative's Pipeline in one
  * Project (null for None). Written straight onto it while it is being shaped; once it is
  * active, a Proposal carries it, which Conversations keeps as drafted and Work applies.
@@ -54,19 +54,19 @@ export function newTaskOf(edit: Extract<InitiativeEdit, { kind: "add-task" }>): 
   };
 }
 
-/** What the CTO hears when a title they write is the one the Task has. */
+/** What whoever shapes Initiatives hears when a title they write is the one the Task has. */
 export function sameTitleWords(task: Pick<Task, "title">): string {
   return `The title of "${task.title}" says so already.`;
 }
 
-/** What the CTO hears when a Description they write is the one the Task has. */
+/** What whoever shapes Initiatives hears when a Description they write is the one the Task has. */
 export function sameDescriptionWords(task: Pick<Task, "title">): string {
   return `The Description of "${task.title}" says so already.`;
 }
 
 /**
  * Every reason applying the edit to the Initiative as it is now would be refused, judged as applying
- * it judges, in words the CTO acts on; an edit that changes nothing is refused too. `board` is
+ * it judges, in words whoever shapes Initiatives acts on; an edit that changes nothing is refused too. `board` is
  * every Task, and `names` those of the Project and the Pipeline a `pipeline` edit names, their ids
  * when left out. Whether that Project, or that Pipeline, is known is the caller's to judge.
  */

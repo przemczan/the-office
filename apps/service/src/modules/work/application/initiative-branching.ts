@@ -158,7 +158,7 @@ export class InitiativeBranching {
         }
         if (chosen.shortName !== shortName) {
           throw new InitiativeRefused([
-            `Another Initiative took the Short name ${shortName} meanwhile, so the branch made for it was removed; ask the CTO to propose the Pipeline again.`,
+            `Another Initiative took the Short name ${shortName} meanwhile, so the branch made for it was removed; ask whoever shapes Initiatives to propose the Pipeline again.`,
           ]);
         }
         const { event } = await this.repository.update(initiativeId, (held) =>

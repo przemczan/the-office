@@ -1,7 +1,7 @@
 import type { Author } from "./author.js";
 
 /**
- * Shaping with the CTO → active on "Confirm the Initiative" → done once its Tasks are, with
+ * Shaping with whoever shapes Initiatives → active on "Confirm the Initiative" → done once its Tasks are, with
  * dropped as the exit (spec §2.1); the moves are in initiative-changes.ts.
  */
 export const INITIATIVE_STATES = ["shaping", "active", "done", "dropped"] as const;
@@ -36,17 +36,22 @@ export interface Initiative {
    */
   readonly pausedAt?: Date;
   /**
-   * Its latest planning Thread with the Planner, opened by Plan the Initiative; undefined until it
-   * is first planned. Only this Thread may move its Tasks to Planning (start_planning).
+   * Its latest planning Thread, opened by Plan the Initiative; undefined until it is first planned.
+   * Only this Thread may move its Tasks to Planning (start_planning).
    */
   readonly planningThreadId?: string;
+  /**
+   * Every planning Thread it opened, oldest first: a Thread on it is a planning Thread by being
+   * here, whoever holds Plans or Shapes Initiatives now; every other one is a shaping Thread.
+   */
+  readonly planningThreadIds: readonly string[];
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   readonly planningAutoMode: boolean;
   /**
    * The Initiative's Pipeline in each Project it was given one for (spec 2.1). While shaping, the
    * Projects a Pipeline was chosen for; from Confirm, every Project it spanned then, None included,
    * as Confirm fixed it. A Project with no entry has None: every Project starts there, and one it
-   * comes to span once active is still open to the CTO's Proposal, as nothing was fixed for it.
+   * comes to span once active is still open to a shaping Proposal, as nothing was fixed for it.
    */
   readonly pipelines: readonly InitiativePipeline[];
   /** What its branches are named by (short-name.ts); undefined while no Project has a Pipeline. */

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { CTO } from "../../people/index.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -209,8 +208,9 @@ describe("A Publish Stage's after publishing line", () => {
     });
   });
 
-  it("failing, keeps the worktree and asks the CTO straight away, never going back", async () => {
+  it("failing, keeps the worktree and asks whoever holds Asked first straight away, never going back", async () => {
     pipelines = await withLines();
+    pipelines.people.holders.set("asked-first-when-out-of-tries", "architect");
     pipelines.commands.publishingLineRuns.push(
       aCommandRun(BEFORE, "passed"),
       aCommandRun(AFTER, "failed", "HTTP 401"),
@@ -230,7 +230,7 @@ describe("A Publish Stage's after publishing line", () => {
     );
     expect(pipelines.git.removedWorktrees).toEqual([]);
     const asked = pipelines.decisions.on(taskId).at(-1);
-    expect(asked?.putTo).toBe(CTO);
+    expect(asked?.putTo).toBe("architect");
     expect(asked?.draft.options).toEqual(["Retry the after publishing line", "Continue"]);
   });
 

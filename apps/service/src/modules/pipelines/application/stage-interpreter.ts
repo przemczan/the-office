@@ -12,7 +12,6 @@ import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
 import { OfficeUpdateCancelled, OfficeUpdateHold } from "../../office-updates/index.js";
-import { CTO } from "../../people/index.js";
 import {
   AlarmSounded,
   STARTED_STATES,
@@ -50,11 +49,12 @@ import {
 } from "../domain/stage-run-events.js";
 import {
   agentDecision,
-  asksTheCtoFirst,
+  asksAConsultantFirst,
   walkAnswerOf,
   walkDecision,
   type DecisionAnswer,
 } from "../domain/walk-decisions.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageThreads } from "../ports/stage-threads.js";
@@ -141,6 +141,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly schedule: Schedule,
     private readonly updateHold: OfficeUpdateHold,
     private readonly branchStages: InitiativeBranchStages,
+    private readonly people: KnownPeople,
   ) {}
 
   onModuleInit(): void {
@@ -644,7 +645,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * Opens The Office's Decision on the run, in the Thread of the Task's last Agent Stage run: put
-   * to the CTO first when the question is theirs (spec §2.3), otherwise to the user.
+   * first to whoever holds Asked first when a Stage runs out of tries when the question is a
+   * Consultant's (spec §2.3), otherwise, or while nobody holds it, to the user.
    */
   private async ask(
     taskId: string,
@@ -653,11 +655,14 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   ): Promise<void> {
     const decision = walkDecision(run, question);
     const threadId = runs.findLast((each) => each.threadId !== undefined)?.threadId;
+    const consultant = asksAConsultantFirst(question, runs)
+      ? await this.people.holderOf("asked-first-when-out-of-tries")
+      : undefined;
     const { id, putTo } = await this.decisions.open({
       taskId,
       threadId,
       draft: decision.draft,
-      ...(asksTheCtoFirst(question, runs) && { putTo: CTO }),
+      ...(consultant !== undefined && { putTo: consultant }),
     });
     await this.runs.saveDecisions(run.id, [
       ...run.decisions,

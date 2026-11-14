@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
+import { THE_USER, type Author } from "./author.js";
 import {
   acceptInAutoMode,
   markingPlannedProblems,
@@ -27,11 +27,18 @@ import { changeTaskState } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
 import { aPlannedTask, aTask } from "./work.fixtures.js";
 
+/** Whoever holds Plans in these tests; the writes are theirs, whatever their Role key. */
+const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
+
 const PLANNING = aTask({ state: "planning" });
 
 describe("proposePlan", () => {
   it("writes the Plan as proposed, also over a confirmed one", () => {
-    const change = proposePlan(aPlannedTask(), { plan: "  Keep the path in the sign-in link.  " });
+    const change = proposePlan(
+      aPlannedTask(),
+      { plan: "  Keep the path in the sign-in link.  " },
+      THE_PLANNER,
+    );
 
     expect(change?.task).toMatchObject({
       plan: "Keep the path in the sign-in link.",
@@ -44,24 +51,33 @@ describe("proposePlan", () => {
   it("changes nothing for the same words, so a confirmed Plan stays confirmed", () => {
     const task = aPlannedTask();
 
-    expect(proposePlan(task, { plan: task.plan })).toBeUndefined();
+    expect(proposePlan(task, { plan: task.plan }, THE_PLANNER)).toBeUndefined();
   });
 
   it("writes the files to change with the Plan, normalized, and keeps them when none are given", () => {
-    const change = proposePlan(aPlannedTask(), {
-      plan: "Keep the path.",
-      filesToChange: [" ./src/auth/ ", "src\\login.ts", "", "src/auth"],
-    });
+    const change = proposePlan(
+      aPlannedTask(),
+      {
+        plan: "Keep the path.",
+        filesToChange: [" ./src/auth/ ", "src\\login.ts", "", "src/auth"],
+      },
+      THE_PLANNER,
+    );
 
     expect(change?.task.filesToChange).toEqual(["src/auth", "src/login.ts"]);
-    const kept = change && proposePlan(change.task, { plan: "Keep the path, and test it." });
+    const kept =
+      change && proposePlan(change.task, { plan: "Keep the path, and test it." }, THE_PLANNER);
     expect(kept?.task.filesToChange).toEqual(["src/auth", "src/login.ts"]);
   });
 
   it("proposes the Plan again when only its files to change change", () => {
     const task = aPlannedTask();
 
-    const change = proposePlan(task, { plan: task.plan, filesToChange: ["src/login.ts"] });
+    const change = proposePlan(
+      task,
+      { plan: task.plan, filesToChange: ["src/login.ts"] },
+      THE_PLANNER,
+    );
 
     expect(change?.task).toMatchObject({ filesToChange: ["src/login.ts"], planConfirmed: false });
   });
@@ -69,26 +85,27 @@ describe("proposePlan", () => {
   it("writes the token estimate with the Plan, keeps it when none is given and proposes again when only it changes", () => {
     const task = aPlannedTask();
 
-    const change = proposePlan(task, { plan: task.plan, estimatedTokens: 120_000 });
-    const kept = change && proposePlan(change.task, { plan: "Keep the path, and test it." });
+    const change = proposePlan(task, { plan: task.plan, estimatedTokens: 120_000 }, THE_PLANNER);
+    const kept =
+      change && proposePlan(change.task, { plan: "Keep the path, and test it." }, THE_PLANNER);
 
     expect(change?.task).toMatchObject({ estimatedTokens: 120_000, planConfirmed: false });
     expect(kept?.task.estimatedTokens).toBe(120_000);
-    expect(change && proposePlan(change.task, { plan: task.plan })).toBeUndefined();
+    expect(change && proposePlan(change.task, { plan: task.plan }, THE_PLANNER)).toBeUndefined();
   });
 
   it("refuses a token estimate that isn't a whole number above 0", () => {
     const task = aPlannedTask();
 
     for (const estimatedTokens of [0, -5, 1.5]) {
-      expect(() => proposePlan(task, { plan: task.plan, estimatedTokens })).toThrow(
+      expect(() => proposePlan(task, { plan: task.plan, estimatedTokens }, THE_PLANNER)).toThrow(
         new TaskRefused(["The token estimate must be a whole number above 0."]),
       );
     }
   });
 
   it("refuses outside Planning and Ready and an empty Plan, with every reason", () => {
-    expect(() => proposePlan(aTask({ state: "backlog" }), { plan: " " })).toThrow(
+    expect(() => proposePlan(aTask({ state: "backlog" }), { plan: " " }, THE_PLANNER)).toThrow(
       new TaskRefused([
         "The Plan is proposed while the Task is in Planning or Ready, before it starts; this one is in Backlog.",
         "The Plan can't be empty.",
@@ -107,7 +124,7 @@ describe("the Planner's writes on a Ready Task", () => {
   });
 
   it("takes it back to Planning in the same save, moved by the Planner, the Plan Not confirmed", () => {
-    const change = proposePlan(ready, { plan: "A Plan the user asked to change." });
+    const change = proposePlan(ready, { plan: "A Plan the user asked to change." }, THE_PLANNER);
 
     expect(change?.task).toMatchObject({
       state: "planning",
@@ -129,8 +146,16 @@ describe("the Planner's writes on a Ready Task", () => {
   });
 
   it("does the same for the Definition of Done and a Pipeline", () => {
-    const definitionOfDone = proposeDefinitionOfDone(ready, ["A statement the user asked for."]);
-    const pipeline = proposePipeline(ready, { pipelineId: "quick-fix", reason: "One change." });
+    const definitionOfDone = proposeDefinitionOfDone(
+      ready,
+      ["A statement the user asked for."],
+      THE_PLANNER,
+    );
+    const pipeline = proposePipeline(
+      ready,
+      { pipelineId: "quick-fix", reason: "One change." },
+      THE_PLANNER,
+    );
 
     expect(definitionOfDone?.task).toMatchObject({
       state: "planning",
@@ -145,13 +170,33 @@ describe("the Planner's writes on a Ready Task", () => {
     expect(pipeline?.stateChange).toMatchObject({ to: "planning", by: byThePlanner });
   });
 
+  it("records the move as the person who wrote, whatever Role holds Plans", () => {
+    const byTheLead: Author = { kind: "person", roleKey: "lead" };
+
+    const plan = proposePlan(ready, { plan: "A Plan the lead rewrote." }, byTheLead);
+    const pipeline = proposePipeline(
+      ready,
+      { pipelineId: "quick-fix", reason: "One change." },
+      byTheLead,
+    );
+
+    expect(plan?.stateChange).toMatchObject({ from: "ready", to: "planning", by: byTheLead });
+    expect(pipeline?.stateChange).toMatchObject({ to: "planning", by: byTheLead });
+  });
+
   it("moves nothing when the write changes nothing", () => {
-    expect(proposePlan(ready, { plan: ready.plan })).toBeUndefined();
-    expect(proposeDefinitionOfDone(ready, [...ready.definitionOfDone])).toBeUndefined();
+    expect(proposePlan(ready, { plan: ready.plan }, THE_PLANNER)).toBeUndefined();
+    expect(
+      proposeDefinitionOfDone(ready, [...ready.definitionOfDone], THE_PLANNER),
+    ).toBeUndefined();
   });
 
   it("leaves a Task in Planning in Planning, publishing no move", () => {
-    const change = proposePlan(aPlannedTask({ markedPlanned: true }), { plan: "Changed." });
+    const change = proposePlan(
+      aPlannedTask({ markedPlanned: true }),
+      { plan: "Changed." },
+      THE_PLANNER,
+    );
 
     expect(change?.task).toMatchObject({ state: "planning", markedPlanned: false });
     expect(change?.event.leftReady).toBeUndefined();
@@ -160,14 +205,18 @@ describe("the Planner's writes on a Ready Task", () => {
 
   it("refuses a Task that has started, is Done or is Dropped, with the reason", () => {
     for (const state of ["in-progress", "done", "dropped"] as const) {
-      expect(() => proposePlan(aPlannedTask({ state }), { plan: "Changed." })).toThrow(
+      expect(() => proposePlan(aPlannedTask({ state }), { plan: "Changed." }, THE_PLANNER)).toThrow(
         /^The Plan is proposed while the Task is in Planning or Ready, before it starts; this one is in /,
       );
-      expect(() => proposeDefinitionOfDone(aPlannedTask({ state }), ["Changed."])).toThrow(
-        TaskRefused,
-      );
       expect(() =>
-        proposePipeline(aPlannedTask({ state }), { pipelineId: "full", reason: "Fits." }),
+        proposeDefinitionOfDone(aPlannedTask({ state }), ["Changed."], THE_PLANNER),
+      ).toThrow(TaskRefused);
+      expect(() =>
+        proposePipeline(
+          aPlannedTask({ state }),
+          { pipelineId: "full", reason: "Fits." },
+          THE_PLANNER,
+        ),
       ).toThrow(TaskRefused);
     }
   });
@@ -294,7 +343,11 @@ describe("confirmPlan", () => {
 
 describe("proposeDefinitionOfDone", () => {
   it("writes the statements, trimmed, as proposed", () => {
-    const change = proposeDefinitionOfDone(PLANNING, [" Signing in returns to the page. "]);
+    const change = proposeDefinitionOfDone(
+      PLANNING,
+      [" Signing in returns to the page. "],
+      THE_PLANNER,
+    );
 
     expect(change?.task).toMatchObject({
       definitionOfDone: ["Signing in returns to the page."],
@@ -307,20 +360,20 @@ describe("proposeDefinitionOfDone", () => {
   it("changes nothing for the same statements", () => {
     const task = aPlannedTask();
 
-    expect(proposeDefinitionOfDone(task, [...task.definitionOfDone])).toBeUndefined();
+    expect(proposeDefinitionOfDone(task, [...task.definitionOfDone], THE_PLANNER)).toBeUndefined();
   });
 
   it("refuses no statements and an empty one", () => {
-    expect(() => proposeDefinitionOfDone(PLANNING, [])).toThrow(
+    expect(() => proposeDefinitionOfDone(PLANNING, [], THE_PLANNER)).toThrow(
       new TaskRefused(["A Definition of Done needs at least one statement."]),
     );
-    expect(() => proposeDefinitionOfDone(PLANNING, ["One.", " "])).toThrow(
+    expect(() => proposeDefinitionOfDone(PLANNING, ["One.", " "], THE_PLANNER)).toThrow(
       new TaskRefused(["A statement of the Definition of Done can't be empty."]),
     );
   });
 
   it("refuses outside Planning and Ready", () => {
-    expect(() => proposeDefinitionOfDone(aTask(), ["One."])).toThrow(
+    expect(() => proposeDefinitionOfDone(aTask(), ["One."], THE_PLANNER)).toThrow(
       new TaskRefused([
         "The Definition of Done is proposed while the Task is in Planning or Ready, before it starts; this one is in Backlog.",
       ]),
@@ -409,10 +462,14 @@ describe("confirmDefinitionOfDone", () => {
 
 describe("proposePipeline", () => {
   it("keeps the proposal beside the Task's Pipeline, which stays until confirmed", () => {
-    const change = proposePipeline(PLANNING, {
-      pipelineId: "quick-fix",
-      reason: " One small change, tested. ",
-    });
+    const change = proposePipeline(
+      PLANNING,
+      {
+        pipelineId: "quick-fix",
+        reason: " One small change, tested. ",
+      },
+      THE_PLANNER,
+    );
 
     expect(change?.task).toMatchObject({
       pipelineId: "full",
@@ -428,12 +485,12 @@ describe("proposePipeline", () => {
       proposedPipeline: { pipelineId: "document", reason: "A report." },
     });
 
-    expect(proposePipeline(proposed, { pipelineId: "document", reason: "A report." })).toBe(
-      undefined,
-    );
-    expect(() => proposePipeline(proposed, { pipelineId: "full", reason: "" })).toThrow(
-      new TaskRefused(["Say why the Pipeline fits the Definition of Done."]),
-    );
+    expect(
+      proposePipeline(proposed, { pipelineId: "document", reason: "A report." }, THE_PLANNER),
+    ).toBe(undefined);
+    expect(() =>
+      proposePipeline(proposed, { pipelineId: "full", reason: "" }, THE_PLANNER),
+    ).toThrow(new TaskRefused(["Say why the Pipeline fits the Definition of Done."]));
   });
 });
 

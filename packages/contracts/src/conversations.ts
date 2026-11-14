@@ -54,6 +54,7 @@ export const contextReasonSchema = z.enum([
   "context-full",
   "engine-changed",
   "changes-switched",
+  "duties-changed",
 ]);
 export type ContextReason = z.infer<typeof contextReasonSchema>;
 
@@ -421,7 +422,7 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("size-threshold"), from: z.number(), to: z.number() }),
   /** New Office instructions, whole, and the text when drafted; `to` empty would empty them. */
   z.object({ kind: z.literal("office-instructions"), from: z.string(), to: z.string() }),
-  /** A change the CTO wants to an active Initiative; Work applies it. */
+  /** A change whoever shapes Initiatives wants to an active Initiative; Work applies it. */
   z.object({
     kind: z.literal("initiative"),
     initiativeId: z.uuid(),

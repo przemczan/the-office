@@ -96,6 +96,7 @@ export function createInitiative(
     originIdeaId: undefined,
     createdBy,
     createdAt: at,
+    planningThreadIds: [],
     planningAutoMode: false,
     pipelines: [],
     branches: [],
@@ -171,7 +172,7 @@ function sameProjects(first: readonly string[], second: readonly string[]): bool
 
 /**
  * The Initiative's Pipeline in one Project (spec 2.1), undefined for None: chosen straight while
- * shaping, by the CTO's Proposal once active. Confirm fixed whether each Project it spanned then
+ * shaping, by a Proposal of whoever shapes Initiatives once active. Confirm fixed whether each Project it spanned then
  * has one, so a Proposal only swaps one Pipeline for another there; a Project it came to span
  * since has None until a Proposal gives it one. The first Pipeline chosen in any Project derives
  * the Short name from the title, past those `taken`; None everywhere leaves it none. Undefined when
@@ -388,12 +389,12 @@ export function addTaskToInitiative(
 
 /**
  * How a change reaches an Initiative (spec §2.1 Defaults): straight onto it, only while it is being
- * shaped, or by a Proposal of the CTO's the user applies, while it is shaping or active.
+ * shaped, or by a Proposal of whoever shapes Initiatives, which the user applies, while it is shaping or active.
  */
 export type InitiativeChangeRoute = "straight" | "by-proposal";
 
 /**
- * What must be true once it is done, written by the CTO or the user; undefined when it says so
+ * What must be true once it is done, written by whoever shapes Initiatives or the user; undefined when it says so
  * already. Each change below judges what it asks before the Initiative's state, so a request that
  * is wrong or changes nothing is answered as such, never turned into a Proposal.
  */
@@ -414,7 +415,7 @@ export function writeOutcome(
   };
 }
 
-/** The CTO's new Task in the Initiative; the user adds one with addTaskToInitiative. */
+/** A new Task by whoever shapes Initiatives in the Initiative; the user adds one with addTaskToInitiative. */
 export function addCtoTask(
   initiative: Initiative,
   route: InitiativeChangeRoute,
@@ -428,7 +429,7 @@ export function addCtoTask(
 }
 
 /**
- * Refuses the CTO's new Task as addCtoTask would, without making it, together with
+ * Refuses a new Task by whoever shapes Initiatives as addCtoTask would, without making it, together with
  * `blockerProblems`, the reasons it couldn't wait for the Tasks it asks to.
  */
 export function requireCtoTaskAllowed(
@@ -439,11 +440,11 @@ export function requireCtoTaskAllowed(
 ): void {
   const problems = [...newTaskProblems(trimmedNewTask(given)), ...blockerProblems];
   if (problems.length > 0) throw new TaskRefused(problems);
-  requireOpenTo(initiative, route, CTO_CHANGES);
+  requireOpenTo(initiative, route, SHAPING_CHANGES);
 }
 
 /**
- * The CTO makes one of the Initiative's Tasks wait for `blockerId`, any Task anywhere; the rules
+ * Whoever shapes Initiatives makes one of the Initiative's Tasks wait for `blockerId`, any Task anywhere; the rules
  * are addDependency's.
  */
 export function addDependencyOfItsTask(
@@ -465,7 +466,7 @@ export function removeDependencyOfItsTask(
   return changeItsTask(initiative, route, task, () => removeDependency(task, blockerId));
 }
 
-/** The CTO rewrites the title of one of the Initiative's Tasks; the rules are changeTitle's. */
+/** Whoever shapes Initiatives rewrites the title of one of the Initiative's Tasks; the rules are changeTitle's. */
 export function changeTitleOfItsTask(
   initiative: Initiative,
   route: InitiativeChangeRoute,
@@ -475,7 +476,7 @@ export function changeTitleOfItsTask(
   return changeItsTask(initiative, route, task, () => changeTitle(task, title));
 }
 
-/** The CTO rewrites the Description of one of its Tasks; the rules are changeDescription's. */
+/** Whoever shapes Initiatives rewrites the Description of one of its Tasks; the rules are changeDescription's. */
 export function changeDescriptionOfItsTask(
   initiative: Initiative,
   route: InitiativeChangeRoute,
@@ -493,11 +494,11 @@ function changeItsTask<Event extends DomainEvent>(
 ): TaskChange<Event> | undefined {
   requireItsTask(initiative, task);
   const changed = change();
-  if (changed) requireOpenTo(initiative, route, CTO_CHANGES);
+  if (changed) requireOpenTo(initiative, route, SHAPING_CHANGES);
   return changed;
 }
 
-const CTO_CHANGES = "its Tasks and their dependencies change straight onto it";
+const SHAPING_CHANGES = "its Tasks and their dependencies change straight onto it";
 
 function requireOpenTo(initiative: Initiative, route: InitiativeChangeRoute, change: string): void {
   const { state } = initiative;

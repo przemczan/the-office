@@ -11,7 +11,7 @@ import { TaskNotFound } from "../../domain/task-not-found.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 
 /**
- * Proposals of the CTO's changes to an active Initiative (spec §2.1 Defaults), which Work judges
+ * Proposals of the changes of whoever shapes Initiatives to an active Initiative (spec §2.1 Defaults), which Work judges
  * and applies under the Initiative's hold. Work fills Conversations' registry itself, since Work
  * calls Conversations.
  */

@@ -40,6 +40,7 @@ import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { dutiesProvider } from "./duties.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
@@ -172,6 +173,7 @@ async function startOn(
       ContextPolicySettingsService,
       Briefs,
       sessionMemoryProvider(),
+      dutiesProvider(),
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,

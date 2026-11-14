@@ -1,7 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { THE_USER } from "./author.js";
+import { THE_USER, type Author } from "./author.js";
 import { normalizedFilesToChange } from "./files-to-change.js";
-import { THE_PLANNER } from "./planning.js";
 import type { ProposedPipeline, Task } from "./task.js";
 import type { AutoModeConfirmation, StateChangeCause } from "./state-change.js";
 import { markTaskReady, withStateChange, type TaskChange } from "./task-changes.js";
@@ -42,6 +41,7 @@ import {
 export function proposePlan(
   task: Task,
   writing: PlanWriting,
+  by: Author,
 ): TaskChange<TaskPlanProposed> | undefined {
   const written = writtenPlan(task, writing);
   refuseWith([...proposingProblems(task, "The Plan"), ...writtenPlanProblems(written)]);
@@ -50,6 +50,7 @@ export function proposePlan(
     task,
     { ...task, ...written, planConfirmed: false },
     (leftReady) => new TaskPlanProposed(task.id, leftReady),
+    by,
   );
 }
 
@@ -97,6 +98,7 @@ function samePlan(task: Task, written: WrittenPlan): boolean {
 export function proposeDefinitionOfDone(
   task: Task,
   statements: readonly string[],
+  by: Author,
 ): TaskChange<TaskDefinitionOfDoneProposed> | undefined {
   const trimmed = trimmedStatements(statements);
   refuseWith([
@@ -108,6 +110,7 @@ export function proposeDefinitionOfDone(
     task,
     { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: false },
     (leftReady) => new TaskDefinitionOfDoneProposed(task.id, leftReady),
+    by,
   );
 }
 
@@ -168,14 +171,15 @@ function savedPart<Event extends DomainEvent>(
 
 /**
  * The Planner's change to a part, unconfirmed by now and no longer marked planned. A Ready Task
- * goes back to Planning in the same save, moved by the Planner, as the user's Save takes it. The
- * Planner writes here in the Task's own planning Thread (an Initiative's rewrites go through
+ * goes back to Planning in the same save, moved `by` the person planning it, as the user's Save
+ * takes it. The Planner writes here in the Task's own planning Thread (an Initiative's rewrites go through
  * `rewriteInInitiative`), so from then on the Task is planned in that Thread.
  */
 function proposedPart<Event extends DomainEvent>(
   task: Task,
   proposed: Task,
   announced: (leftReady: TaskStateChanged | undefined) => Event,
+  by: Author,
 ): TaskChange<Event> {
   const unmarked: Task = { ...proposed, markedPlanned: false };
   if (task.state !== "ready") return { task: unmarked, event: announced(undefined) };
@@ -184,7 +188,7 @@ function proposedPart<Event extends DomainEvent>(
     initiativePlanningThreadId: undefined,
     hasPlanningThread: true,
   };
-  return outOfReady(task, inOwnThread, "planning", THE_PLANNER, announced);
+  return outOfReady(task, inOwnThread, "planning", by, announced);
 }
 
 function outOfReady<Event extends DomainEvent>(
@@ -208,6 +212,7 @@ function outOfReady<Event extends DomainEvent>(
 export function proposePipeline(
   task: Task,
   proposal: ProposedPipeline,
+  by: Author,
 ): TaskChange<TaskPipelineProposed> | undefined {
   const reason = proposal.reason.trim();
   const problems = proposingProblems(task, "A Pipeline");
@@ -219,6 +224,7 @@ export function proposePipeline(
     task,
     { ...task, proposedPipeline: { pipelineId: proposal.pipelineId, reason } },
     (leftReady) => new TaskPipelineProposed(task.id, proposal.pipelineId, leftReady),
+    by,
   );
 }
 

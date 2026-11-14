@@ -1,7 +1,6 @@
 import { EventBus } from "../../platform/events/event-bus.js";
 import { DecisionAnswered } from "../conversations/index.js";
 import type { SessionScript } from "../engine/index.js";
-import { CTO } from "../people/index.js";
 import type { OnFailure, Stage } from "./domain/stage.js";
 import { NoRetriesLeft } from "./domain/stage-run-events.js";
 import {
@@ -100,10 +99,15 @@ export function statesOf(taskId: string): string[] {
     .map(({ state }) => state);
 }
 
-export function hireTheCto(): void {
-  pipelines.decisions.consultants.add(CTO);
-  pipelines.people.people.set(CTO, aPerson("Bob"));
-  pipelines.people.titles.set(CTO, "CTO");
+/** A Consultant under a key no preset has, so nothing follows the Role key itself. */
+export const ARCHITECT = "architect";
+
+/** Hires Bob as the Architect, who can be consulted, holding Asked first unless `holdsAskedFirst` is false. */
+export function hireTheArchitect({ holdsAskedFirst = true } = {}): void {
+  pipelines.decisions.consultants.add(ARCHITECT);
+  pipelines.people.people.set(ARCHITECT, aPerson("Bob"));
+  pipelines.people.titles.set(ARCHITECT, "Architect");
+  if (holdsAskedFirst) pipelines.people.holders.set("asked-first-when-out-of-tries", ARCHITECT);
 }
 
 export function failuresPutTo(): (string | undefined)[] {
