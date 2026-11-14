@@ -314,7 +314,7 @@ A named, ordered set of Stages that a Task's work follows; a Publishing Task fol
 _Avoid_: Workflow, flow, process (a Process is a session's background command)
 
 **Pipeline library**:
-The office-wide Pipelines and, beside them, the Stage templates, edited in Settings › Pipelines or changed by Devops' Proposals. Project Pipelines are not in it: each is edited on its Project's page.
+The office-wide Pipelines and, beside them, the Stage templates, edited in Settings › Pipelines or changed by the Proposals of the holder of Onboards and repairs Projects (Devops by default). Project Pipelines are not in it: each is edited on its Project's page.
 _Avoid_: Pipeline catalog, Pipeline templates
 
 **Project Pipeline**:
@@ -338,7 +338,7 @@ Said of a Project Pipeline whose Stage changes no longer apply to its base Pipel
 _Avoid_: Invalid, stale, out of date
 
 **Onboarding**:
-Making a Project build and test in a fresh worktree on the workstation, done by Devops in the Project's Onboard Task.
+Making a Project build and test in a fresh worktree on the workstation, done by the holder of Onboards and repairs Projects (Devops by default) in the Project's Onboard Task.
 _Avoid_: Setup, initialization, provisioning
 
 **Run environment**:
@@ -354,7 +354,7 @@ How many run environments may be running together across The Office, 2 by defaul
 _Avoid_: run environment slots, concurrency limit
 
 **Stage**:
-One step of a Pipeline: work by an Agent in a Role, a Project command run without an Agent, or a Gate.
+One step of a Pipeline: work by an Agent in a Role, or in the Role holding a Duty, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)
 
 **Stage template**:
@@ -394,6 +394,10 @@ _Avoid_: Persona, profile, agent type
 **Role card**:
 Everything that defines a Role: its person's name and title, responsibilities, instructions, effort, Role override, capabilities (shared memory, chat, Consultant, Run environment: in an Agent Stage, writing a Project's run environment definition through The Office's `write_run_environment_definition`), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
+
+**Duty**:
+A built-in job The Office gives to whichever hired Role holds it, set in Settings › Duties: Default person to talk to, Shapes Initiatives, Asked first when a Stage runs out of tries, Onboards and repairs Projects, Default Consultant for MCP tool hard switches, Plans, Implements and Reviews. A Role **holds** a duty and is its **holder**; each duty has one holder or none, and falls back while nobody holds it. Where the spec names the Planner, the CTO, Devops or the Office Manager for a duty's job, it means that duty's holder.
+_Avoid_: Responsibility (the Role card has responsibilities), assignment, function
 
 **Avatar**:
 A person's own picture, uploaded on their Overview tab, which shows in place of their initials wherever they are drawn. It is not part of the Role card: changing it adds no card version, and Agents never see it.
@@ -476,7 +480,7 @@ The release of its Source an installed Skill is held at: the Source's newest tag
 _Avoid_: Latest, tracked version
 
 **Update**:
-A newer pinned version than an installed Skill's, found by The Office's daily check of its Source and shown as "Update available". Devops drafts it as a Proposal; applying it saves the Skill's next version, as an edit or an upload does, and pins it there. Not an Office update.
+A newer pinned version than an installed Skill's, found by The Office's daily check of its Source and shown as "Update available". The holder of Onboards and repairs Projects drafts it as a Proposal; applying it saves the Skill's next version, as an edit or an upload does, and pins it there. Not an Office update.
 _Avoid_: Upgrade, new release
 
 **MCP server**:
@@ -496,23 +500,23 @@ A variable in a Project's environment whose value is never shown again once it i
 _Avoid_: Secret, credential, hidden variable, masked variable
 
 **Office Manager**:
-The person the user goes to by default: it drafts Roles for the user to confirm, captures Ideas, answers for the state of The Office and redirects the user to whoever is responsible.
+The preset that holds Default person to talk to by default, the person the user goes to: it drafts Roles for the user to confirm, captures Ideas, answers for the state of The Office and redirects the user to whoever is responsible.
 _Avoid_: Receptionist, HR, router
 
 **Link card**:
-What the Office Manager posts in a chat to point the user to whoever is responsible: that person (or the Task) with a Handover note the user can edit or drop before opening the thread. It never relays.
+What the default person to talk to posts in a chat to point the user to whoever is responsible: that person (or the Task) with a Handover note the user can edit or drop before opening the thread. It never relays.
 _Avoid_: Redirect message, referral, forward
 
 **Office status**:
-The Office Manager's read-only, Office-wide view in a chat: who is on what, what waits on the user and what is paused.
+The default person to talk to's read-only, Office-wide view in a chat: who is on what, what waits on the user and what is paused.
 _Avoid_: Dashboard, report, overview
 
 **Proposal**:
-A new or changed Role card or Office setting drafted by the Office Manager, which takes effect only when the user confirms it.
+A new or changed Role card or Office setting drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
 
 **Caretaker**:
-The built-in person who looks after the workstation and The Office: always present, never hired or let go, with a chat only.
+The built-in person who looks after the workstation and The Office: always present, never hired or let go, with a chat only. It never holds a Duty, and is the default person to talk to while nobody holds that duty.
 _Avoid_: Admin, sysadmin, system agent
 
 **Allow changes**:

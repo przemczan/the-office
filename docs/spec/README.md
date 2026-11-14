@@ -13,7 +13,7 @@ The spec is one file per section, so a session reads only the sections its task 
 ### 2. Domain model
 
 - [2.1 Work](2.1-work.md): Project, Idea, Initiative, Task and its states, Attachment.
-- [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, the Office Manager, limits.
+- [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, duties, the Office Manager, limits.
 - [2.3 Pipelines](2.3-pipelines.md): Stage kinds, loops, Gates, built-in Pipelines, Publish, the library.
 - [2.4 Conversations](2.4-conversations.md): Threads, Decisions, barge-in, consultation, mentions, chats only read.
 - [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides.
@@ -104,5 +104,11 @@ Where each default lives (the old §9):
 - Project Pipelines: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - A Broken Project Pipeline: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The Initiative's branch: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
+- Duties: [2.2 People](2.2-people.md#defaults)
+- Who holds a duty: [2.2 People](2.2-people.md#defaults)
+- Duties on screen: [2.2 People](2.2-people.md#defaults)
+- Setting up an Office with nobody hired: [2.2 People](2.2-people.md#defaults)
+- A Stage names a Role or a duty: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- The holder of Asked first on failures (formerly "The CTO first on failures"): [2.3 Pipelines](2.3-pipelines.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.
