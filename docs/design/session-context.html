@@ -1567,6 +1567,14 @@
         border-radius: var(--radius-md);
         background: var(--surface-sunken);
       }
+      /* An ended run's row sits on its closed note, as one foot. */
+      .run-thread-foot.ended {
+        padding-bottom: 0;
+      }
+      .run-thread-foot.ended + .run-closed {
+        padding-top: 4px;
+        border-top: 0;
+      }
       .run-closed {
         display: flex;
         flex-wrap: wrap;
@@ -1756,13 +1764,27 @@
 
       /* ---------- The reading: what the row above the message input shows ---------- */
       /*
-       * kind: none | tokens | handover | fresh-next | unreported | hidden.
+       * kind: none | tokens | handover | fresh-next | unreported.
        * A Stage Thread has no Handover mark: The Office doesn't start a Stage's session fresh mid-run.
        */
+      const runEnded = () => state.place === "stage" && state.run === "ended";
+      /* An ended run has no turn running: the State switch's "A turn running" shows its last reading. */
+      const turnRunning = () => state.state === "running" && !runEnded();
+
+      /* An ended run's reading: as its session stood when the run ended, kept with the run. */
+      function endedRunReading() {
+        const { window } = thread();
+        const s = state.state;
+        if (s === "none") return { kind: "none", stageThread: true, ended: true };
+        if (s === "unreported") return { kind: "unreported", ended: true };
+        const share = { small: SHARES.small, large: SHARES.large, near: SHARES.near, running: SHARES.runningTo, fresh: SHARES.handover }[s];
+        return { kind: "tokens", tokens: at(share) + (s === "small" ? 1234 : 0), window, stageThread: true, ended: true };
+      }
+
       function readingNow() {
         const { window, stageThread } = thread();
         const s = state.state;
-        if (state.place === "stage" && state.run === "ended") return { kind: "hidden" };
+        if (runEnded()) return endedRunReading();
         // A Stage's run starts its session at once: nothing is read until the model's first answer.
         if (s === "none") return { kind: "none", stageThread };
         if (s === "unreported") return { kind: "unreported" };
@@ -1791,10 +1813,12 @@
         const markAt = tokensShort(Math.round(r.window * HAND_OVER_AT_SHARE));
         switch (r.kind) {
           case "none":
+            if (r.ended) return `The run ended before ${person.name}'s first answer, so its session's size was never read.`;
             return r.stageThread
               ? `${person.name}'s session started with the run, from its Brief of about 6k tokens. Its size shows after the model's first answer.`
               : `No session yet: it starts with your first message, with a Brief of about 3k tokens. The size shows as soon as ${person.name} starts answering.`;
           case "unreported":
+            if (r.ended) return `${engine} doesn't report how full ${person.name}'s session is, so the run kept no size.`;
             return `${engine} doesn't report how full ${person.name}'s session is, so the size can't show here, and The Office can't start a fresh session before the context fills.`;
           case "handover":
             return `${person.name}'s last turn ended at ${tokensWhole(r.tokens)} tokens, past the ${markAt} mark (80% of ${tokensShort(r.window)}). The Office asked ${person.name} for a Handover note; the next message starts a fresh session with it.`;
@@ -1802,6 +1826,9 @@
             return `The session ended at ${tokensShort(r.was)} with ${person.name}'s Handover note. Your next message starts a fresh session, briefed with it.`;
           default: {
             const share = Math.round((r.tokens / r.window) * 100);
+            if (r.ended) {
+              return `${tokensWhole(r.tokens)} of ${tokensWhole(r.window)} tokens (${share}%), read after ${person.name}'s last turn of the run, 14:31. It stays as the run left it: a later run that continues this session shows its own reading.`;
+            }
             const when = r.live ? `read as ${person.name} works, 14:07` : `read after ${person.name}'s last turn, 14:06`;
             const first = `${tokensWhole(r.tokens)} of ${tokensWhole(r.window)} tokens (${share}%), ${when}.`;
             const fresh = r.afterFresh
@@ -1825,13 +1852,12 @@
 
       /* The reading's look; `figureClass` lets the live reading flash as it moves. */
       function readingHtml(r, { figureClass = "" } = {}) {
-        if (r.kind === "hidden") return "";
         const tip = esc(readingTip(r));
         const open = (css, label) =>
           `<span class="reading ${css}" tabindex="0" role="img" aria-label="${esc(label)}" data-tip="${tip}">`;
         switch (r.kind) {
           case "none": {
-            const words = r.stageThread ? "Not read yet" : "No session yet";
+            const words = r.ended ? "Not read" : r.stageThread ? "Not read yet" : "No session yet";
             return `${open("quiet", `Context: ${words.toLowerCase()}`)}<span>${words}</span>${meter({ window: 1, stageThread: r.stageThread }, { empty: true })}</span>`;
           }
           case "unreported":
@@ -1845,8 +1871,12 @@
             const markAt = tokensShort(Math.round(r.window * HAND_OVER_AT_SHARE));
             const extraWords = isPastMark(r) ? "Handover note at this turn's end" : `starts fresh at ${markAt}`;
             const extra = near && !r.stageThread ? `<span class="wide-words"> · ${extraWords}</span>` : "";
-            const label = `Context: ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`;
-            return `${open(near ? "near" : "", label)}<span><strong class="figure ${figureClass}">${tokensShort(r.tokens)}</strong> of ${tokensShort(r.window)}<span class="wide-words"> context</span>${extra}</span>${meter(r)}</span>`;
+            const label = r.ended
+              ? `Context when the run ended: ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`
+              : `Context: ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`;
+            // On a phone the run's closed note right under it already says the run ended.
+            const endedWords = r.ended ? '<span class="narrow-hide">Ended at </span>' : "";
+            return `${open(near ? "near" : "", label)}<span>${endedWords}<strong class="figure ${figureClass}">${tokensShort(r.tokens)}</strong> of ${tokensShort(r.window)}<span class="wide-words"> context</span>${extra}</span>${meter(r)}</span>`;
           }
         }
       }
@@ -1901,10 +1931,11 @@
       function aboveInput() {
         const r = readingNow();
         const marked = (change) => (state.marks === "on" ? ` changed" data-change="${change}` : "");
-        if (state.view === "today" || r.kind === "hidden") return sapLine();
+        if (state.view === "today") return sapLine();
         if (state.view === "proposed") {
-          const figureClass = state.state === "running" ? "ticked" : "";
-          return `<div class="session-row${marked("New: the reading")}">${sapLine()}<span class="reading-slot">${readingHtml(r, { figureClass })}</span></div>`;
+          const figureClass = turnRunning() ? "ticked" : "";
+          const change = runEnded() ? "New: the run's last reading" : "New: the reading";
+          return `<div class="session-row${marked(change)}">${sapLine()}<span class="reading-slot">${readingHtml(r, { figureClass })}</span></div>`;
         }
         // Alternative: a context line of its own, above the Sub-agents and processes line.
         return `<div class="context-line${r.kind === "tokens" && isNear(r) ? " near" : ""}${r.kind === "handover" ? " near" : ""}${marked("New: the context line")}">${contextLine(r)}</div>${sapLine()}`;
@@ -1952,7 +1983,10 @@
         const { person } = thread();
         const you = PEOPLE.you;
         if (state.state === "none" && thread().stageThread) {
-          return `<div class="log">${officeLine("layers", "Implement started · Fresh · as the Stage declares · brief ~6k")}${msg(person, "14:21", "Reading the Plan.", typing)}</div>`;
+          const started = officeLine("layers", "Implement started · Fresh · as the Stage declares · brief ~6k");
+          return runEnded()
+            ? `<div class="log">${started}${officeLine("x", `Stopped by you at 14:22, before ${person.name}'s first answer.`)}</div>`
+            : `<div class="log">${started}${msg(person, "14:21", "Reading the Plan.", typing)}</div>`;
         }
         if (state.state === "none") {
           return `<div class="log"><div class="empty-thread">${
@@ -1990,7 +2024,7 @@
           stage: "The controller answers GET /threads/search with the hits and their Stage names.",
         }[state.place];
 
-        if (state.state === "running") {
+        if (turnRunning()) {
           lines.push(msg(person, "14:06", state.place === "stage" ? "Running the module's tests." : "Looking into it.", typing));
           lines.push(`<div class="tool-line">${icon("terminal", 12)}${state.place === "drawer" ? "read_tasks · the-office · published since 2026-11-09" : "npm run test -- thread-search"}</div>`);
         } else if (state.state === "fresh" && !thread().stageThread) {
@@ -2014,6 +2048,7 @@
         } else {
           lines.push(msg(person, "14:06", answer));
         }
+        if (runEnded()) lines.push(officeLine("check", "Implement done at 14:31."));
         return `<div class="log">${lines.join("")}</div>`;
       }
 
@@ -2162,9 +2197,10 @@
       function stageWindow() {
         const { person } = thread();
         const ended = state.run === "ended";
+        const stopped = ended && state.state === "none";
         const strip = [
           ["Plan", "done"],
-          ["Implement", ended ? "done" : "running"],
+          ["Implement", ended ? (stopped ? "" : "done") : "running"],
           ["Review & fix", ""],
           ["Your review", ""],
           ["Publish", ""],
@@ -2175,15 +2211,18 @@
           .slice(0, state.subs === "on" ? 3 : 2)
           .map((tab) => `<span class="convo-tab${tab === "Thread" ? " on" : ""}">${tab}</span>`)
           .join("");
+        const endedAt = stopped ? "14:22" : "14:31";
+        // An ended run keeps the row above where its input was: the Sub-agents and processes line and the run's last reading.
+        const endedRow = aboveInput();
         const foot = ended
-          ? `${state.subs === "on" ? `<div class="run-thread-foot" style="padding-bottom:0;border-top:1px solid var(--border-subtle)">${sapLine()}</div>` : ""}
-             <div class="run-closed">${icon("lock", 14)}<span>This run ended at 14:31. To write to ${person.name}, use the Task's conversation.</span><a>Open ${person.name}'s Thread</a></div>`
+          ? `${endedRow ? `<div class="run-thread-foot ended">${endedRow}</div>` : ""}
+             <div class="run-closed">${icon("lock", 14)}<span>This run ended at ${endedAt}. To write to ${person.name}, use the Task's conversation.</span><a>Open ${person.name}'s Thread</a></div>`
           : `<div class="run-thread-foot"><div class="timeline-to"><span>To</span><span class="avatar xs ${person.css}">${person.initials}</span><strong>${person.name}</strong><span class="place" style="margin-left:0">, in Implement: lands at the next safe point</span></div>
                ${aboveInput()}${composer(`Write to ${person.name} while the Stage runs…`)}</div>`;
         return `<div class="window-scrim"><section class="window" role="dialog" aria-label="Stage history">
           <div class="window-head"><h3>Stage history</h3><span class="icon-button">${icon("x", 16)}</span></div>
           <div class="stage-strip">${strip}</div>
-          <div class="run-head"><strong>Implement · run 1</strong><span>${person.name} · ${ended ? "Done · 39 min" : "Running · 14 min"}</span></div>
+          <div class="run-head"><strong>Implement · run 1</strong><span>${person.name} · ${ended ? (stopped ? "Stopped · 1 min" : "Done · 39 min") : "Running · 14 min"}</span></div>
           <div class="run-tabs">${tabs}</div>
           <div class="run-thread">${log()}${foot}</div>
         </section></div>`;
@@ -2238,10 +2277,10 @@
         drawer: "In the chat drawer the Context bar sits under the Thread's head; the row above the input is new.",
         task: "On the Task page, in the person's tab of the conversation (its drawer on a narrow page): the row sits between the To line and the input, the Context bar under it.",
         initiative: "On an Initiative's page, in its conversation (its drawer on a narrow page); Michael's model has a 1M window, so the figures read in hundreds of k.",
-        stage: "In the Stage history's Thread tab of a run. While the run is running its Thread takes a message, so it has the row; a Stage's session has no 80% mark. Once the run ended, the tab shows no reading.",
+        stage: "In the Stage history's Thread tab of a run. While the run is running its Thread takes a message, so it has the row; a Stage's session has no 80% mark. Once the run ended, the tab keeps the run's last reading. Switch Run to see both.",
       };
       const VIEW_NOTES = {
-        today: "<strong>Today.</strong> The size shows only inside the Context bar's words; the Stage history shows none.",
+        today: "<strong>Today.</strong> The size shows only inside the Context bar's words; the Stage history shows none, running or ended.",
         proposed: "<strong>Proposed.</strong> The reading sits at the right end of the row above the message input, beside the Sub-agents and processes line; the size leaves the Context bar's words.",
         alternative: "<strong>Alternative: its own line.</strong> A context line of its own, full width, above the Sub-agents and processes line: a longer meter, at the cost of a row in every Thread.",
       };
@@ -2255,12 +2294,27 @@
             .map((step, index) => `<button type="button" class="pill" data-step="${index}" aria-pressed="${index === state.step}">${index + 1}. ${step}</button>`)
             .join("")}<button type="button" class="pill" data-action="replay">Replay</button></span>`;
         }
-        if (state.state === "running") actions = '<span class="note-actions"><button type="button" class="pill" data-action="replay">Replay the turn</button></span>';
+        if (turnRunning()) actions = '<span class="note-actions"><button type="button" class="pill" data-action="replay">Replay the turn</button></span>';
         const STAGE_NOTES = {
           none: " A Stage's run starts its session at once, from its Brief, so here the reading says \"Not read yet\" until the model's first answer.",
           fresh: " A Stage Thread is never handed over mid-run (stage-threads.ts sets handingOver false), so here it reads past 80% in amber, with no mark.",
         };
-        const stageNote = state.place === "stage" ? (STAGE_NOTES[state.state] ?? "") : "";
+        const ENDED_STAGE_NOTES = {
+          none: " This run was stopped before the model's first answer, so it kept no size: \"Not read\", over an empty meter.",
+          running: " An ended run has no turn running: it shows the reading its last turn left.",
+          fresh: " It ended past 80%, so its last reading stays amber.",
+          unreported: " Its engine reported no size, so the run kept none.",
+        };
+        const ENDED_NOTE =
+          " The ended run keeps its last reading, \"Ended at …\", at the right end of the row above its closed note: the size its session had when the run ended. It is kept with the run, so a later run continuing the same session doesn't change it.";
+        const stageNote =
+          state.place !== "stage"
+            ? ""
+            : runEnded()
+              ? state.view === "today"
+                ? ""
+                : ENDED_NOTE + (ENDED_STAGE_NOTES[state.state] ?? "")
+              : (STAGE_NOTES[state.state] ?? "");
         const note = STATE_NOTES[state.state];
         document.getElementById("note").innerHTML = `<span>${VIEW_NOTES[state.view]} <strong>${label}.</strong> ${typeof note === "function" ? note() : note}${stageNote} ${PLACE_NOTES[state.place]}</span>${actions}`;
       }
@@ -2269,7 +2323,8 @@
       function renderLooks() {
         const keep = state.place;
         const looks = [];
-        const add = (label, r, size = "") => looks.push({ label, r, size });
+        // Drawn as added, so each Tooltip names the person of the place set at that moment.
+        const add = (label, r, size = "") => looks.push({ label, html: readingHtml(r), size });
         state.place = "drawer";
         add("<b>No session yet</b>: nothing read; the Context bar says the Brief", { kind: "none" });
         add("<b>Small</b>: grey", { kind: "tokens", tokens: 13234, window: 200000 });
@@ -2280,15 +2335,19 @@
         add("<b>Fresh session next</b>: the session ended with its note", { kind: "fresh-next", was: 171000, window: 200000 });
         add("<b>After a fresh start</b>: the size dropped", { kind: "tokens", tokens: 9312, window: 200000, afterFresh: 171000 });
         add("<b>A 1M window</b>: the same rule, in hundreds of k", { kind: "tokens", tokens: 312000, window: 1000000 });
+        // A Stage's looks, in Jim's words.
+        state.place = "stage";
         add("<b>A Stage's Thread</b>: no 80% mark, amber from 80%", { kind: "tokens", tokens: 172000, window: 200000, stageThread: true });
         add("<b>A Stage's run, just started</b>: its session not read yet", { kind: "none", stageThread: true });
+        add("<b>A Stage's run, ended</b>: its last reading, kept with the run", { kind: "tokens", tokens: 132000, window: 200000, stageThread: true, ended: true });
+        state.place = "drawer";
         add("<b>Engine can't report</b>: no meter, the reason in the Tooltip", { kind: "unreported" });
         add("<b>Writing a Handover note, on a phone</b> (under 400px): shorter words", { kind: "handover", tokens: 171000, window: 200000 }, "phone");
         add("<b>Near, on a wide row</b> (520px and up): the words grow", { kind: "tokens", tokens: 152000, window: 200000 }, "wide");
         document.getElementById("looks").innerHTML = looks
           .map(
-            ({ label, r, size }) =>
-              `<div class="look${size ? ` look-${size}` : ""}"><span class="look-label">${label}</span><div class="look-box"><div class="session-row"><span class="reading-slot">${readingHtml(r)}</span></div></div></div>`,
+            ({ label, html, size }) =>
+              `<div class="look${size ? ` look-${size}` : ""}"><span class="look-label">${label}</span><div class="look-box"><div class="session-row"><span class="reading-slot">${html}</span></div></div></div>`,
           )
           .join("");
         state.place = keep;
@@ -2303,7 +2362,8 @@
               <li><b>The reading</b>: the session's current context size against its model's window, as "41k of 200k" with a small meter, in the caption type, the figure in the strong weight. On a row 520px wide or more it says "41k of 200k context"; under 400px, on a phone, a state's extra words after "·" go and "Writing a Handover note" becomes "Handing over" (the Tooltip keeps them whole), so the Sub-agents and processes line keeps its room; there the line's words may take a second line beside the reading, which never wraps. The meter is 44 × 4px, its fill grey; a 2px mark stands at 80%, where The Office asks for a Handover note (<code>handOverAtShare</code>).</li>
               <li><b>Its colour</b>: grey under 70% of the window; <b>amber from 70%</b>, adding "· starts fresh at 160k" where the row is wide. No red: a fresh start is the Context policy working, not a failure. A Stage's Thread has no mark and turns amber from 80%.</li>
               <li><b>Where: the row right above the message input</b>, in every Thread that takes a message: a chat Thread in the chat drawer, a person's tab of the Task page's conversation, an Initiative's conversation, and a running run's Thread tab in the Stage history. The reading keeps the row's <b>right end at its own width</b>; the Sub-agents and processes line (adopted) fills the rest from the left. So the line coming or going never moves the reading, and the reading's words changing never move the line; a hairline divides them. With no line, the reading sits alone at the right.</li>
-              <li><b>Where not</b>: a Thread that takes no message (a Done Task's, an ended Initiative's, a run that ended): nothing more goes into its session. An <b>ended run's Thread tab</b> shows no reading: the reading belongs to the Thread's current session, which a later run may have moved on, and the run's Summary already has its tokens.</li>
+              <li><b>An ended run's Thread tab keeps its last reading</b>: "Ended at 132k of 200k" at the right end of the row above the run's closed note, beside the Sub-agents and processes line, as the session stood after the run's last turn; under 400px "132k of 200k", as the closed note under it says the run ended. It is <b>kept with the run</b>, not read from the Thread: a later run that resumes the same session (a loop back, a Gate sending the work back) moves the Thread's reading on, and each run's tab keeps its own. Its colour follows a Stage's rule (amber from 80%); a run stopped before the model's first answer says "Not read", and one whose engine can't report says so.</li>
+              <li><b>Where not</b>: a Thread that takes no message and has no run behind it (a Done Task's person's Thread, an ended Initiative's): the row above the read-only note stays as today.</li>
               <li><b>The Tooltip</b> (on hover and keyboard focus, a focus stop named "Context: 41k of 200k") says it whole: "41,234 of 200,000 tokens (21%), read after Pam's last turn, 14:06. At 160k (80%), The Office asks Pam for a Handover note and the next message starts a fresh session." The reading is no button: it asks nothing.</li>
               <li><b>Live while a turn runs</b>: the reading moves as the person works, read after each of the model's answers in the turn, its figure flashing softly as it changes. The Handover note is still asked for only at a turn's end, as today.</li>
               <li><b>The Context bar's words lose the size</b>, so it shows once: "Continues · cache warm, 41 min left · 41k context" becomes "Continues · cache warm, 41 min left". The log's context lines keep theirs ("Continuing · cache warm · 41k context"): they record the moment, not the session now.</li>
@@ -2319,6 +2379,7 @@
               <tbody>
                 <tr><td>No session yet</td><td>"No session yet", an empty dashed meter</td><td>"Starts a session with a Brief ~3k tokens", as today</td></tr>
                 <tr><td>A Stage's run, just started</td><td>"Not read yet", an empty dashed meter with no mark, until the model's first answer</td><td>none: the Stage history has no Context bar</td></tr>
+                <tr><td>A Stage's run, ended</td><td>"Ended at 132k of 200k", the run's last reading, no mark; "Not read" when stopped before the first answer</td><td>none</td></tr>
                 <tr><td>Small</td><td>"13k of 200k", grey</td><td>"Continues · cache warm, 52 min left"</td></tr>
                 <tr><td>Large</td><td>"118k of 200k", grey</td><td>"Continues · cache warm, 38 min left"</td></tr>
                 <tr><td>Near the fresh start</td><td>"152k of 200k", amber; wide: "· starts fresh at 160k"</td><td>"Continues · cache warm, 44 min left"</td></tr>
@@ -2352,12 +2413,13 @@
               <li><b>The context window, kept with the session</b>: <code>ThreadSession.contextWindow</code> beside <code>contextTokens</code>, from <code>readContextUsage().window</code> at each turn's end (<code>thread-runner.ts</code> <code>turnEnded</code>, <code>stage-threads.ts</code>), a nullable column and its migration; null before the first reading.</li>
               <li><b>Sent with the Thread</b>: <code>ThreadContext.contextWindow: number | null</code> in <code>packages/contracts/src/conversations.ts</code>. And <code>ThreadContext.contextReported: boolean</code>, from the session's engine having the <code>contextUsage</code> capability. The reading's states come from these: no session (<code>reason</code> new-thread or another-person); a reading (<code>contextWindow</code> set); not read yet (a session whose engine reports, nothing read: a Stage's run or a first turn before the model's first answer); not reported (<code>contextReported</code> false). A session with nothing read and an engine that can't report look alike without the flag, so it can't be left out. A session read before this change has tokens but no window until its next turn: it shows "41k context" with no meter, never "not reported".</li>
               <li><b>The live reading</b>: a session event <code>context-read</code> (<code>{ tokens, window }</code>) on the Engine's port, from each of the model's answers within a turn: Claude Code's assistant message <code>usage</code> (input, cache read and cache creation tokens, as <code>readContextUsage</code> counts them), the API engine's per-request prompt tokens (its estimate when the server counts none). Conversations keeps it on the session and sends a web event <b><code>thread.context-read</code></b> with <code>{ contextTokens, contextWindow }</code>, at most one every two seconds, as <code>thread.tokens-counted</code> is. <code>readContextUsage()</code> at the turn's end stays the reading the Context policy decides on, and <code>thread.turn-ended</code> re-reads the Thread as today.</li>
+              <li><b>A run's last reading, kept with the run</b>: <code>StageTurn</code> gains <code>context: { tokens, window } | null</code> from the same <code>readContextUsage()</code> in <code>stage-threads.ts</code> <code>turnEnded</code> (null with no <code>contextUsage</code> capability); Pipelines keeps the latest on the run where it adds up the run's <code>tokens</code> (<code>agent-stage-runner.ts</code>, beside <code>addTokens</code>), two nullable columns and their migration; and <code>stageRunSchema</code> in <code>packages/contracts/src/pipelines.ts</code> gains <code>context: { contextTokens, contextWindow, contextReported } | null</code>, null for a run that opened no session. It can't be read from the Thread: a resumed run continues the earlier run's Thread and session (<code>StageThreads.open</code>, <code>continueIn</code>), so the Thread's reading is the latest run's. Runs that ended before this change have none and show no reading.</li>
               <li><b>An engine that can't report</b>: the runners read the context only with the <code>contextUsage</code> capability (today <code>readContextUsage</code> would throw <code>CapabilityMissing</code> at the turn's end) and leave <code>contextWindow</code> null.</li>
             </ul>
             <h3>In the web app</h3>
             <ul>
               <li>A part of its own, <code>ContextReading</code> (<code>apps/web/src/shell/conversation/context-reading.tsx</code>), its words a pure function in <code>context-words.ts</code> (<code>contextReadingWords</code>) with unit tests; the meter in CSS beside the Sub-agents and processes line's.</li>
-              <li><code>ThreadComposer</code> draws the row: the Sub-agents and processes line and the reading, so every place a Thread takes a message gets it; not above the read-only note. <code>run-details.tsx</code>'s running run gets it through <code>ThreadComposer</code>; its ended run doesn't.</li>
+              <li><code>ThreadComposer</code> draws the row: the Sub-agents and processes line and the reading, so every place a Thread takes a message gets it; not above a Done Task's or an ended Initiative's read-only note. <code>run-details.tsx</code>'s running run gets it through <code>ThreadComposer</code>; its ended run draws the same row over its closed note, the reading from <code>StageRun.context</code> with the "Ended at" words (<code>contextReadingWords</code> takes whether the run ended).</li>
               <li><code>contextChoiceWords</code> and the bar's no-choice label drop the size; <code>contextLabel</code> keeps it for the log's lines.</li>
               <li><code>apps/web/src/api/</code>: <code>thread.context-read</code> sets the Thread's <code>context</code> in its query, as <code>thread.tokens-counted</code> sets its tokens.</li>
               <li><b>Tests that move</b>: <code>context-words.full.test.ts</code> (the bar's words, lines 116–140); <code>people.e2e.ts</code> lines 1121–1173, 3490, 3571 and 3579 read the size in the bar's words. New: the reading's words and colours, the row with and without the line, and an e2e test that a turn's end updates the reading.</li>
@@ -2365,7 +2427,7 @@
             <h3>The spec lines that would change</h3>
             <ul>
               <li><b>Spec 2.5</b>, "Shown": "on every Thread under the composer, in words with what and why ('Continues · cache warm, 41 min left')…; above the message input, the session's context size against its model's window, with a meter marking where The Office asks for a Handover note, amber from 70%, live while a turn runs." "No automatic compaction" gains: "In a Stage's session, The Office doesn't ask: the Stage's Handover note ends it" (see the open question).</li>
-              <li><b>Spec 4</b>, the conversation's foot: the row above the message input holds the Sub-agents and processes line and, at its right end, the context reading.</li>
+              <li><b>Spec 4</b>, the conversation's foot: the row above the message input holds the Sub-agents and processes line and, at its right end, the context reading. The Stage history's Agent run: "…and an ended one's is read-only with 'Ask &lt;name&gt; about it', the row above it keeping the run's last context reading ('Ended at 132k of 200k')."</li>
               <li><b>Spec 4.1</b>, Components: "A figure against a limit reads as '41k of 200k' with a small meter; it turns amber as it nears the limit, and red only for a failure." And the row: "Above the message input, one row: the Sub-agents and processes line from the left, the context reading at the right end, at its own width."</li>
               <li><b>Spec 2.9</b>'s line paragraph: it shares its row with the context reading.</li>
             </ul>
@@ -2450,7 +2512,7 @@
           if (key === "state" || key === "place" || key === "view") state.step = 3;
           if (state.state === "running") state.liveTokens = at(SHARES.runningFrom);
           render();
-          if (state.state === "running") startRunning();
+          if (turnRunning()) startRunning();
           return;
         }
         const step = event.target.closest("[data-step]");
