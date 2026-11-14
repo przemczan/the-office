@@ -21,8 +21,6 @@ import {
 export const READ_INITIATIVE = "read_initiative";
 export const WRITE_OUTCOME = "write_outcome";
 export const ADD_TASK = "add_task";
-export const ADD_DEPENDENCY = "add_dependency";
-export const REMOVE_DEPENDENCY = "remove_dependency";
 export const WRITE_TASK_TITLE = "write_task_title";
 export const WRITE_TASK_DESCRIPTION = "write_task_description";
 export const CHOOSE_PIPELINE = "choose_pipeline";
@@ -43,7 +41,8 @@ const PROPOSED =
  * The Office tools an Initiative is shaped with, in a Thread on it (spec §2.1 Defaults): each
  * writes straight onto the session's own Initiative while it is being shaped, and drafts a Proposal
  * of the change once it is active. `read_initiative` reads any Initiative by its id, so every chat
- * has it too.
+ * has it too. Its Tasks' dependencies and which Tasks it has are Office actions instead
+ * (WorkOfficeActions), straight onto it in either state.
  */
 @Injectable()
 export class ShapingOfficeTools implements OnModuleInit {
@@ -60,8 +59,6 @@ export class ShapingOfficeTools implements OnModuleInit {
     this.registerReadInitiative();
     this.registerWriteOutcome();
     this.registerAddTask();
-    this.registerAddDependency();
-    this.registerRemoveDependency();
     this.registerWriteTaskTitle();
     this.registerWriteTaskDescription();
     this.registerChoosePipeline();
@@ -141,41 +138,6 @@ export class ShapingOfficeTools implements OnModuleInit {
             return `Added the Task "${task.title}" (Task ${task.id}) in ${TASK_STATE_NAMES[task.state]} in ${task.projectId}${waiting && `, waiting for ${waiting}`}, on the Initiative's page.`;
           },
         ),
-    });
-  }
-
-  private registerAddDependency(): void {
-    this.registry.register({
-      name: ADD_DEPENDENCY,
-      description: `Makes one of this Initiative's Tasks wait for another Task to be Done before it can start. The Task it waits for can be any Task, in any Project or Initiative; a Task can't wait for itself or close a cycle. ${WHERE_IT_GOES}`,
-      input: z.object({
-        taskId: z.string().describe("The id of this Initiative's Task that must wait."),
-        blockerId: z.string().describe("The id of the Task that must be Done first."),
-      }),
-      run: ({ taskId, blockerId }, { sessionId }) =>
-        this.change(sessionId, { kind: "add-dependency", taskId, blockerId }, async () => {
-          const [task, blocker] = await Promise.all([
-            this.tasks.read(taskId),
-            this.tasks.read(blockerId),
-          ]);
-          return `"${task.title}" now waits for "${blocker.title}" to be Done, on the Initiative's page.`;
-        }),
-    });
-  }
-
-  private registerRemoveDependency(): void {
-    this.registry.register({
-      name: REMOVE_DEPENDENCY,
-      description: `Lets one of this Initiative's Tasks stop waiting for a Task it waits for. ${WHERE_IT_GOES}`,
-      input: z.object({
-        taskId: z.string().describe("The id of this Initiative's Task that waits."),
-        blockerId: z.string().describe("The id of the Task it waits for."),
-      }),
-      run: ({ taskId, blockerId }, { sessionId }) =>
-        this.change(sessionId, { kind: "remove-dependency", taskId, blockerId }, async () => {
-          const task = await this.tasks.read(taskId);
-          return `"${task.title}" no longer waits for the Task ${blockerId}, on the Initiative's page.`;
-        }),
     });
   }
 

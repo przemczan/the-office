@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { engineIdSchema } from "./engines.js";
+import { officeAction } from "./office-actions.js";
 import type { ProjectFilter } from "./project-filter.js";
 import { userRefSchema } from "./users.js";
 
@@ -436,9 +437,79 @@ export const taskPlacementSchema = z.object({
 });
 export type TaskPlacement = z.infer<typeof taskPlacementSchema>;
 
-/** POST /tasks/:id/dependencies: the Task waits for this one; DELETE /tasks/:id/dependencies/:blockerId ends it. */
-export const newDependencySchema = z.object({ blockerId: z.uuid() });
-export type NewDependency = z.infer<typeof newDependencySchema>;
+/**
+ * The duties covering what is done on an Initiative's Tasks: whoever shapes Initiatives, and whoever
+ * plans the Tasks.
+ */
+const SHAPES_OR_PLANS = ["shapes-initiatives", "plans"] as const;
+
+/** Office action: the Task waits for another to be Done before it can start. */
+export const ADD_DEPENDENCY_ACTION = officeAction({
+  name: "add_dependency",
+  record: "task",
+  description:
+    "Makes a Task wait for another Task to be Done before it can start: any Task, in any Project or Initiative. Refused once the Task has started, for a Task that is dropped or archived, for the Task itself, and for a wait that would close a cycle.",
+  input: z.object({
+    taskId: z.uuid().describe("The id of the Task that must wait."),
+    blockerId: z.uuid().describe("The id of the Task that must be Done first."),
+  }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/dependencies" },
+  duties: SHAPES_OR_PLANS,
+});
+
+/** Office action: the Task no longer waits for one it waits for. */
+export const REMOVE_DEPENDENCY_ACTION = officeAction({
+  name: "remove_dependency",
+  record: "task",
+  description:
+    "Lets a Task stop waiting for a Task it waits for, before it starts; its other dependencies stay.",
+  input: z.object({
+    taskId: z.uuid().describe("The id of the Task that waits."),
+    blockerId: z.uuid().describe("The id of the Task it waits for."),
+  }),
+  answer: taskSchema,
+  route: { method: "DELETE", path: "/tasks/:taskId/dependencies/:blockerId" },
+  duties: SHAPES_OR_PLANS,
+});
+
+/** Office action: an existing Task joins an Initiative. */
+export const ADD_TO_INITIATIVE_ACTION = officeAction({
+  name: "add_to_initiative",
+  record: "initiative",
+  description:
+    "Adds an existing Task to an Initiative, straight away whether it is being shaped or active. A Task is in at most one Initiative and joins before it starts; one The Office made (an Onboard, a run environment set-up or a Publishing Task) never joins; only a Task in Backlog joins an Initiative being shaped, and moves to Shaping with it; a done or dropped Initiative takes none.",
+  input: z.object({
+    initiativeId: z.uuid().describe("The id of the Initiative, being shaped or active."),
+    taskId: z.uuid().describe("The id of the Task to add, in no Initiative."),
+  }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/initiatives/:initiativeId/tasks/:taskId" },
+  duties: SHAPES_OR_PLANS,
+});
+
+/** Office action: the Task leaves its Initiative. */
+export const TAKE_OUT_OF_INITIATIVE_ACTION = officeAction({
+  name: "take_out_of_initiative",
+  record: "initiative",
+  description:
+    "Takes a Task out of its Initiative, straight away whether it is being shaped or active, before the Task starts; never a Publishing Task. A Task in Shaping goes to Backlog, and one planned in the Initiative's planning Thread loses it: from Planning it goes to Backlog, and a Ready one stays Ready. The Initiative's Publishing Task stops waiting for it; its other dependencies stay.",
+  input: z.object({
+    initiativeId: z.uuid().describe("The id of the Initiative the Task is in."),
+    taskId: z.uuid().describe("The id of the Task to take out."),
+  }),
+  answer: taskSchema,
+  route: { method: "DELETE", path: "/initiatives/:initiativeId/tasks/:taskId" },
+  duties: SHAPES_OR_PLANS,
+});
+
+/** Work's Office actions, each declared above. */
+export const WORK_OFFICE_ACTIONS = [
+  ADD_DEPENDENCY_ACTION,
+  REMOVE_DEPENDENCY_ACTION,
+  ADD_TO_INITIATIVE_ACTION,
+  TAKE_OUT_OF_INITIATIVE_ACTION,
+] as const;
 
 /** A started Task in the same Project whose Plan expects to change some of the same files. */
 export const overlapSchema = z.object({
@@ -926,6 +997,16 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("task.dependency-removed"),
     taskId: z.uuid(),
     blockerId: z.uuid(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("task.added-to-initiative"),
+    taskId: z.uuid(),
+    initiativeId: z.uuid(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("task.taken-out-of-initiative"),
+    taskId: z.uuid(),
+    initiativeId: z.uuid(),
   }),
   webEventSchema.extend({
     type: z.literal("task.moved-to-project"),

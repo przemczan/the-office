@@ -50,5 +50,11 @@ export interface OfficeTool<Input extends z.ZodObject = z.ZodObject> {
   /** What the Agent reads to decide when to call it. */
   readonly description: string;
   readonly input: Input;
+  /**
+   * For an Office action's tool, the duties that cover it: a person holding one gets it in every
+   * Thread the user talks to them in (`OfficeToolRegistry.coveredBy`). Undefined for any other tool,
+   * which a session gets only by name.
+   */
+  readonly coveredBy?: readonly string[];
   run(input: z.output<Input>, call: OfficeToolCall): Promise<OfficeToolResult>;
 }

@@ -8,9 +8,14 @@ import type {
   InitiativeTasksChange,
 } from "../domain/initiative-changes.js";
 import type { InitiativeCreated } from "../domain/initiative-events.js";
+import type { InitiativeMembershipChange } from "../domain/initiative-membership.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
-import type { TaskStateChanged } from "../domain/task-events.js";
+import type {
+  TaskAddedToInitiative,
+  TaskStateChanged,
+  TaskTakenOutOfInitiative,
+} from "../domain/task-events.js";
 import type { TaskUpdate } from "./task-repository.js";
 
 /** The Initiative after an update, with the change's event, or undefined when nothing changed. */
@@ -131,6 +136,25 @@ export abstract class InitiativeRepository {
       tasks: readonly Task[],
     ) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>>;
+
+  /**
+   * Applies `change`, a Task joining or leaving the Initiative, holding the Initiative, every change
+   * of dependencies, the Initiative's Tasks and the Task's row, in that order, so its state, its
+   * Initiative and the Publishing Task it waits in are read as they stay; `change` is given every
+   * Task and may read what else it needs, such as the worktree, in the hold. Saves the Task and the
+   * Publishing Task's change in one transaction, every move kept in the Task's record, and nothing
+   * when `change` answers undefined. Throws InitiativeNotFound as `update` does, and TaskNotFound
+   * when there is no such Task.
+   */
+  abstract changeMembership<Event extends TaskAddedToInitiative | TaskTakenOutOfInitiative>(
+    id: string,
+    taskId: string,
+    change: (
+      initiative: Initiative,
+      task: Task,
+      tasks: readonly Task[],
+    ) => Promise<InitiativeMembershipChange<Event> | undefined>,
+  ): Promise<InitiativeMembershipChange<Event> | undefined>;
 
   /**
    * Applies `change` to one Task as stored, holding the Initiative first and then the Task's row,

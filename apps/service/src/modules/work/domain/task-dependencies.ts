@@ -1,4 +1,5 @@
 import { isPublishingTask, type Task } from "./task.js";
+import { isArchived } from "./task-archive.js";
 import type { TaskChange } from "./task-changes.js";
 import { TaskDependencyAdded, TaskDependencyRemoved, type TaskCreated } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
@@ -119,12 +120,13 @@ function dependencyProblems(task: Task, blockerId: string, tasks: readonly Task[
   ];
 }
 
-/** Why no Task could wait for `blockerId`: it isn't there, or was dropped. */
+/** Why no Task could wait for `blockerId`: it isn't there, was dropped or is archived. */
 function blockerProblems(blockerId: string, tasks: readonly Task[]): string[] {
   const blocker = tasks.find(({ id }) => id === blockerId);
   if (!blocker) return [`There is no Task "${blockerId}".`];
   if (blocker.state === "dropped")
     return [`"${blocker.title}" was dropped, so nothing waits for it.`];
+  if (isArchived(blocker)) return [`"${blocker.title}" is archived, so nothing waits for it.`];
   return [];
 }
 

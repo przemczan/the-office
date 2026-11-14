@@ -8,7 +8,7 @@ import {
   type Role,
   type Task,
 } from "@the-office/contracts";
-import { Alert } from "@the-office/ui";
+import { Alert, Button } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -20,6 +20,8 @@ import { InitiativeAttachments } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
 import { InitiativeConversation } from "./initiative-conversation.tsx";
+import { TakeOutDialog } from "./initiative-membership.tsx";
+import { tasksToTakeOut } from "./initiative-membership-words.ts";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { InitiativePausedBadge } from "./initiative-pause.tsx";
 import { InitiativePipelineBlock } from "./initiative-pipeline-block.tsx";
@@ -157,7 +159,8 @@ function InitiativeHead({
 
 /**
  * The Initiative's own Tasks as a graph, in a fold remembered per Initiative in this browser; its
- * line says what the graph holds and what moves.
+ * line says what the graph holds and what moves. Take out a Task, while one hasn't started, asks
+ * which and says what happens to its state.
  */
 function TasksBlock({
   initiative,
@@ -176,13 +179,30 @@ function TasksBlock({
 }): ReactNode {
   const fold = useFold({ kind: "initiative", id: initiative.id }, "tasks", true);
   const initiatives = useQuery(initiativeQueries.list());
+  const [takingOut, setTakingOut] = useState(false);
+  const toTakeOut = tasksToTakeOut(initiative, initiativeTasks);
   return (
     <RecordFold
       fold={fold}
       icon="git-fork"
       title="Tasks"
       summary={tasksFoldSummary(initiative, initiativeTasks)}
+      side={
+        toTakeOut.length > 0 ? (
+          <Button size="sm" variant="secondary" onClick={() => setTakingOut(true)}>
+            Take out a Task
+          </Button>
+        ) : undefined
+      }
     >
+      {takingOut && (
+        <TakeOutDialog
+          initiative={initiative}
+          candidates={toTakeOut}
+          projects={projects}
+          onClose={() => setTakingOut(false)}
+        />
+      )}
       {initiativeTasks.length === 0 ? (
         <p className="task-quiet">
           No Tasks yet.

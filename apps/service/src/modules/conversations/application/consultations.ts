@@ -87,7 +87,11 @@ export class Consultations implements OnModuleInit {
    * you: the caller asks the user in their answer. Returns the Consultant, undefined when the user
    * is asked.
    */
-  async put(sessionId: string, consult: Consult): Promise<ConsultantPerson | undefined> {
+  async put(
+    sessionId: string,
+    consult: Consult,
+    taskId?: string,
+  ): Promise<ConsultantPerson | undefined> {
     const asker = await this.repository.findBySession(sessionId);
     if (!asker) throw new ThreadRefused(["The Office doesn't know this session's Thread."]);
     const consultant = consultantNamed(
@@ -98,8 +102,8 @@ export class Consultations implements OnModuleInit {
     if (consultant) {
       const problems = callProblems(await this.chains.ofCaller(asker), consultant);
       if (problems.length > 0) throw new ThreadRefused(problems);
-    } else if (asker.home.kind === "chat" && consult.person?.trim()) {
-      // Naming nobody, it asks the user directly, which a chat refuses as it opens no Decision.
+    } else if (callsOnNoTask(asker, taskId) && consult.person?.trim()) {
+      // Naming nobody, it asks the user directly, which a call on no Task refuses: it has no Needs you.
       throw new ThreadRefused([
         "Nobody who can be called fills that Role: ask the user in your answer instead.",
       ]);
@@ -108,7 +112,7 @@ export class Consultations implements OnModuleInit {
       consult,
       consultant ? { kind: "consultant", roleKey: consultant.roleKey } : { kind: "user" },
     );
-    await this.decisions.open(sessionId, draft, { putTo: consultant?.roleKey });
+    await this.decisions.open(sessionId, draft, { putTo: consultant?.roleKey, taskId });
     return consultant;
   }
 
@@ -280,8 +284,7 @@ export class Consultations implements OnModuleInit {
 
   /** The Consultation opened for the Decision with the Consultant it is put to now, if any. */
   private async consultationOf(asker: Thread, decision: Decision): Promise<Thread | undefined> {
-    const home = consultationHome(asker, decision.putTo ?? "");
-    if (!home) return undefined;
+    const home = consultationHome(asker, decision, decision.putTo ?? "");
     const threads = await this.repository.listIn(home);
     return threads.find(
       ({ consultation, roleKey }) =>
@@ -290,8 +293,7 @@ export class Consultations implements OnModuleInit {
   }
 
   private async start(asker: Thread, decision: Decision, consultantKey: string): Promise<void> {
-    const home = consultationHome(asker, consultantKey);
-    if (!home) return;
+    const home = consultationHome(asker, decision, consultantKey);
     const [askerName, consultant, opening] = await Promise.all([
       this.askerNameOf(decision),
       this.roleCards.find(consultantKey),
@@ -395,13 +397,15 @@ function putToAConsultant({ openDecisions }: Thread): Decision | undefined {
 
 /**
  * Where the Consultation of a Decision asked in `asker` opens (spec §2.4): on the asker's Task, or
- * in the Consultant's own chat for a call made from a chat or a Consultation there. An Initiative's
- * Threads call no one yet.
+ * in the Consultant's own chat for a call made from a chat or a Consultation there. A call from an
+ * Initiative's Thread opens on the Task it names, as a planning Thread's Decisions are, else in the
+ * Consultant's own chat, as a chat's call does.
  */
 function consultationHome(
   asker: Thread,
+  decision: Decision,
   consultantKey: string,
-): ConsultationThreadStart["home"] | undefined {
+): ConsultationThreadStart["home"] {
   const { home } = asker;
   switch (home.kind) {
     case "task":
@@ -409,6 +413,13 @@ function consultationHome(
     case "chat":
       return { kind: "chat", roleKey: consultantKey };
     case "initiative":
-      return undefined;
+      return decision.taskId === undefined
+        ? { kind: "chat", roleKey: consultantKey }
+        : { kind: "task", taskId: decision.taskId };
   }
+}
+
+/** Whether a call from `asker` naming `taskId` is on no Task: from a chat, or an Initiative's Thread naming none. */
+function callsOnNoTask({ home }: Thread, taskId: string | undefined): boolean {
+  return home.kind === "chat" || (home.kind === "initiative" && taskId === undefined);
 }

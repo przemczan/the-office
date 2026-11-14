@@ -20,7 +20,7 @@ import {
   startWorkApplication,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
-import { SHAPING_OFFICE_TOOLS } from "./initiative-thread-records.js";
+import { SHAPING_OFFICE_TOOLS, SHAPING_THREAD_INSTRUCTIONS } from "./initiative-thread-records.js";
 
 /**
  * The Role holding Plans: its Threads on an Initiative are shaping ones unless Plan the Initiative
@@ -112,7 +112,7 @@ describe("a shaping Thread's session", () => {
       .of({ threadId: randomUUID(), initiativeId: initiative.id, roleKey: "cto" });
 
     expect(setup).toEqual({
-      instructions: SHAPING_INSTRUCTIONS,
+      instructions: SHAPING_THREAD_INSTRUCTIONS,
       officeTools: SHAPING_OFFICE_TOOLS,
       record: expect.any(String),
       sessionRefusal: undefined,
@@ -162,7 +162,7 @@ describe("a shaping Thread's session", () => {
 
     for (const roleKey of [PLANNER, "architect"]) {
       expect(await setUp(initiative, roleKey)).toMatchObject({
-        instructions: SHAPING_INSTRUCTIONS,
+        instructions: SHAPING_THREAD_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,
       });
     }

@@ -34,8 +34,9 @@ export function dependenciesSummary(blockers: readonly Task[], waiting: readonly
 }
 
 /**
- * The Tasks this one could wait for: any in any Project that can still hold it back, leaving out
- * itself, its blockers already, and every Task that waits for it, which would close a cycle.
+ * The Tasks this one could wait for: any in any Project that can still hold it back and isn't
+ * archived, leaving out itself, its blockers already, and every Task that waits for it, which
+ * would close a cycle; the service refuses the same.
  */
 export function blockerCandidates(task: Task, tasks: readonly Task[]): Task[] {
   const waitingOnIt = waitingForTransitively(task.id, tasks);
@@ -43,6 +44,7 @@ export function blockerCandidates(task: Task, tasks: readonly Task[]): Task[] {
     (each) =>
       each.id !== task.id &&
       canHoldBack(each) &&
+      each.archivedAt === null &&
       !task.blockedBy.includes(each.id) &&
       !waitingOnIt.has(each.id),
   );

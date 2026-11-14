@@ -1,10 +1,12 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   ANSWER_DECISION_TOOL,
+  CONSULT_TOOL,
   ENDED_INITIATIVE_CONVERSATION_WORDS,
   OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import {
+  CALLING_RULE,
   InitiativeThreadSetups,
   type InitiativeBranchReads,
   type InitiativeThreadRequest,
@@ -35,10 +37,8 @@ import {
   WRITE_TAGS,
 } from "../office-tools/planning-office-tools.js";
 import {
-  ADD_DEPENDENCY,
   ADD_TASK,
   CHOOSE_PIPELINE,
-  REMOVE_DEPENDENCY,
   WRITE_OUTCOME,
   WRITE_TASK_DESCRIPTION,
   WRITE_TASK_TITLE,
@@ -47,26 +47,33 @@ import {
 /**
  * The Office tools of a shaping session: it reads every record and Attachment and changes its own
  * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left
- * out, since a Task made there would be no part of it. It answers a Decision for the user when they
- * ask, as every Thread the user talks in does.
+ * out, since a Task made there would be no part of it. Its Tasks' dependencies and which Tasks it
+ * has are Office actions, which the session gets by its person's duties (spec 5.4). It answers a
+ * Decision for the user when they ask, as every Thread the user talks in does, and calls a person
+ * when the user asks (`CALLING_RULE`), on no Task, as a chat calls.
  */
 export const SHAPING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
   WRITE_OUTCOME,
   ADD_TASK,
-  ADD_DEPENDENCY,
-  REMOVE_DEPENDENCY,
   WRITE_TASK_TITLE,
   WRITE_TASK_DESCRIPTION,
   CHOOSE_PIPELINE,
   ANSWER_DECISION_TOOL,
+  CONSULT_TOOL,
 ] as const;
+
+/** A shaping Thread's instructions, ending with when it calls a person. */
+export const SHAPING_THREAD_INSTRUCTIONS = `${SHAPING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
+
+/** An Initiative's planning Thread's instructions, ending with when it calls a person. */
+export const INITIATIVE_PLANNING_THREAD_INSTRUCTIONS = `${INITIATIVE_PLANNING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
 
 /**
  * The Office tools of an Initiative's planning session: it reads every record and Attachment, moves
  * the Initiative's Tasks to Planning as their turn comes, writes each one's parts by its Task id,
  * opens a Decision on a Task that needs the user's answer, and answers one for the user when they
- * ask.
+ * ask; it calls a person when the user asks, on the Task its call names, or on none.
  */
 export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
@@ -78,6 +85,7 @@ export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
   WRITE_TAGS,
   MARK_PLANNED,
   ANSWER_DECISION_TOOL,
+  CONSULT_TOOL,
 ] as const;
 
 /**
@@ -108,7 +116,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     const branchReads = initiativeBranchReads(initiative, tasks);
     if (!initiative.planningThreadIds.includes(threadId)) {
       return {
-        instructions: SHAPING_INSTRUCTIONS,
+        instructions: SHAPING_THREAD_INSTRUCTIONS,
         officeTools: SHAPING_OFFICE_TOOLS,
         record: await this.shapingBrief(initiative, idea?.projectId, record, tasks),
         sessionRefusal,
@@ -116,7 +124,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       };
     }
     return {
-      instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
+      instructions: INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
       officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
       record: await this.planningBrief(initiative, record, tasks, threadId),
       sessionRefusal,

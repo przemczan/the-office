@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
+import { OfficeToolRegistry } from "../../engine/index.js";
 import { CARETAKER, Duties } from "../../people/index.js";
 import type { Brief } from "../domain/brief.js";
 import { canCall } from "../domain/consult.js";
@@ -102,11 +103,20 @@ export class SessionPlaces {
     private readonly masks: ProjectOutputMasks,
     private readonly chains: CallChains,
     private readonly duties: Duties,
+    private readonly tools: OfficeToolRegistry,
   ) {}
 
+  /**
+   * Every Thread the user talks to a person in also gets the Office actions' tools their held
+   * duties cover (spec 5.4); a Stage's Thread does its Stage's work only, so gets none.
+   */
   async of(thread: Thread): Promise<SessionPlace> {
     const held = await this.duties.heldBy(thread.roleKey);
-    return { ...(await this.homePlace(thread, held)), heldDuties: held };
+    const home = await this.homePlace(thread, held);
+    const actionTools = thread.stageThread
+      ? []
+      : this.tools.coveredBy(held).filter((name) => !home.officeTools.includes(name));
+    return { ...home, officeTools: [...home.officeTools, ...actionTools], heldDuties: held };
   }
 
   private async homePlace(thread: Thread, held: HeldDuties): Promise<HomePlace> {

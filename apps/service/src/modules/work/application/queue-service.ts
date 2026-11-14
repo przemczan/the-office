@@ -24,9 +24,11 @@ import {
 } from "../domain/queue-events.js";
 import type { StartConditions } from "../domain/task-start.js";
 import {
+  TaskAddedToInitiative,
   TaskDependencyAdded,
   TaskDependencyRemoved,
   TaskStateChanged,
+  TaskTakenOutOfInitiative,
 } from "../domain/task-events.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { QueueRepository } from "../ports/queue-repository.js";
@@ -65,6 +67,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.events.subscribe(TaskDependencyRemoved, () => this.release());
     // Or held by one more, which its reasons name.
     this.events.subscribe(TaskDependencyAdded, () => this.release());
+    // A queued Task may leave a paused Initiative, or join one, which its reasons name.
+    this.events.subscribe(TaskAddedToInitiative, () => this.release());
+    this.events.subscribe(TaskTakenOutOfInitiative, () => this.release());
     this.events.subscribe(OfficeWideLimitChanged, () => this.release());
     // A Project's limit may have been raised.
     this.events.subscribe(ProjectLimitChanged, () => this.release());

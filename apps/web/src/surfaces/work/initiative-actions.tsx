@@ -20,6 +20,8 @@ import { canHoldBack } from "./dependency-words.ts";
 import { InitiativePauseButton } from "./initiative-pause.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
 import { DropInitiativeDialog } from "./drop-initiative-dialog.tsx";
+import { AddExistingTaskDialog } from "./initiative-membership.tsx";
+import { tasksToAdd } from "./initiative-membership-words.ts";
 import { tasksOfInitiative } from "./initiative-words.ts";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
@@ -32,7 +34,8 @@ import { useRememberedAutoMode } from "./use-planning.ts";
  * link to its planning Thread once it has one, Start Ready Tasks while it is active with a Ready
  * Task, its answer going to `onStartedReadyTasks`, Pause the Initiative while it is active and
  * Resume the Initiative while it is paused, "Add a Task" while it is open (in the Project of
- * the Idea it was shaped from, if any, until it has Tasks), and its menu with
+ * the Idea it was shaped from, if any, until it has Tasks) and "Add an existing Task" beside it,
+ * one in no Initiative, and its menu with
  * Drop until it has ended, asking first in DropInitiativeDialog, Archive once it has.
  */
 export function InitiativeActions({
@@ -42,7 +45,7 @@ export function InitiativeActions({
   readonly initiative: Initiative;
   readonly onStartedReadyTasks: (started: ReadyTasksStarted) => void;
 }): ReactNode {
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<"new" | "existing">();
   const tasks = useQuery(taskQueries.list());
   const originIdea = useQuery({
     ...ideaQueries.one(initiative.originIdeaId ?? ""),
@@ -62,21 +65,33 @@ export function InitiativeActions({
       />
       <InitiativePauseButton initiative={initiative} />
       {open && (
-        <Button
-          variant="secondary"
-          iconLeft={<Icon name="plus" size={14} />}
-          onClick={() => setAdding(true)}
-        >
-          Add a Task
-        </Button>
+        <>
+          <Button
+            variant="secondary"
+            iconLeft={<Icon name="plus" size={14} />}
+            onClick={() => setAdding("new")}
+          >
+            Add a Task
+          </Button>
+          <Button variant="secondary" onClick={() => setAdding("existing")}>
+            Add an existing Task
+          </Button>
+        </>
       )}
       <InitiativeMenu initiative={initiative} initiativeTasks={initiativeTasks} />
-      {adding && (
+      {adding === "new" && (
         <NewTaskDialog
           initiative={initiative}
           projectId={originIdea.data?.projectId}
           canWaitFor={initiativeTasks.filter(canHoldBack)}
-          onClose={() => setAdding(false)}
+          onClose={() => setAdding(undefined)}
+        />
+      )}
+      {adding === "existing" && (
+        <AddExistingTaskDialog
+          initiative={initiative}
+          candidates={tasksToAdd(initiative, tasks.data ?? [])}
+          onClose={() => setAdding(undefined)}
         />
       )}
     </>

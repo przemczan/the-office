@@ -397,7 +397,7 @@ export interface DecisionOpening extends DecisionDraft {
  * user answers. In a Thread on a Task it is on that Task, and refused while another Decision waits.
  * In an Initiative's planning Thread it names one of the Initiative's Tasks, several may be open,
  * and it is refused while another waits on the same Task. In a chat, which only talks, only a call
- * put to a person opens one, on no Task. Refused with every problem of what is asked, in words the
+ * put to a person opens one, on no Task, as does a call from an Initiative's Thread naming none. Refused with every problem of what is asked, in words the
  * person acts on.
  */
 export function openDecision(
@@ -489,11 +489,7 @@ function decisionTaskOf(
       return home.taskId;
     }
     case "initiative": {
-      if (named === undefined) {
-        throw new ThreadRefused([
-          "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks.",
-        ]);
-      }
+      if (named === undefined) return callOnNoTask(openDecisions, putTo);
       const waiting = openDecisions.find((decision) => decision.taskId === named);
       if (waiting) {
         throw new ThreadRefused([
@@ -503,6 +499,25 @@ function decisionTaskOf(
       return named;
     }
   }
+}
+
+/**
+ * A call from an Initiative's Thread naming no Task (spec §2.4): put to a person, on no Task, as a
+ * chat's call is, and one at a time; anything else there names the Task it is on.
+ */
+function callOnNoTask(openDecisions: readonly Decision[], putTo: string | undefined): undefined {
+  if (putTo === undefined) {
+    throw new ThreadRefused([
+      "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks. Only a call to a person may name none.",
+    ]);
+  }
+  const waiting = openDecisions.find((decision) => decision.taskId === undefined);
+  if (waiting) {
+    throw new ThreadRefused([
+      `Your call "${waiting.question}" still waits on its answer. End your turn: it comes as your next message.`,
+    ]);
+  }
+  return undefined;
 }
 
 /** The Thread's open Decision `decisionId`, if it is one. */

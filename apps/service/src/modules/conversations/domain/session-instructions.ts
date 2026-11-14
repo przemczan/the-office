@@ -37,7 +37,8 @@ export function chatInstructions(person: SessionPerson, held: HeldDuties): strin
   return [
     ...personInstructions(person),
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title. When you and the user already know how it will be done and what must be true when it is, give it a Plan and a Definition of Done too, both or neither, for the user to confirm on the Task page.`,
-    ...(held.includes("default-person-to-talk-to") ? [] : [CALLING_RULE]),
+    ...(held.includes("default-person-to-talk-to") ? [DEFAULT_PERSON_CALLING_RULE] : []),
+    CALLING_RULE,
     // Devops reached for Grep on the repository it onboarded, refused outside its folders (task
     // 33's run).
     ...(held.includes("onboards-projects") ? [READ_REPOSITORY_RULE] : []),
@@ -56,6 +57,13 @@ export const CONSULT_TOOL = "consult";
  * say the same.
  */
 export const CALLING_RULE = `Call another person of The Office with the ${CONSULT_TOOL} tool only when the user asks you to, such as "ask a colleague to set that up", or your authority says to consult them first. A request asks them to do what you can't; they work with their own tools and permissions, never yours, and answer in their own words. End your turn once you called: their answer comes as your next message, and you tell the user.`;
+
+/**
+ * The Default person to talk to calls someone only when the user asks (spec §2.2): otherwise they
+ * still point the user to whoever is responsible rather than relay the work.
+ */
+const DEFAULT_PERSON_CALLING_RULE =
+  "You point the user to whoever is responsible with a Link card rather than relay their work or answer for someone else; call a person yourself only when the user asks you to.";
 
 /**
  * What a refusal tells the Caretaker while their Thread only reads (spec §2.4): allowing changes
@@ -345,8 +353,7 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
  * they may create an Initiative, for whoever shapes Initiatives to shape into Tasks; they draft
  * Roles and Office settings as Proposals the user applies, point the user to whoever is
  * responsible with a Link card, and show the Office status (ticket 06); they redirect with a Link
- * card and never relay, so they call no one. Anyone else calls a person when the user asks
- * (spec §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
+ * card and never relay, calling a person only when the user asks, as anyone else does (spec §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
  * Initiative too, in their chat only. The Caretaker holds no duty, so has only the chat's own and
  * `caretakerChatOfficeTools`' set-up.
  */
@@ -358,7 +365,8 @@ export function chatOfficeTools(held: HeldDuties): readonly string[] {
       : CHAT_OFFICE_TOOLS),
     ...draftingOfficeTools(held),
     ...(defaultPerson || held.includes("shapes-initiatives") ? [CREATE_INITIATIVE_TOOL] : []),
-    ...(defaultPerson ? DEFAULT_PERSON_OFFICE_TOOLS : [CONSULT_TOOL]),
+    ...(defaultPerson ? DEFAULT_PERSON_OFFICE_TOOLS : []),
+    CONSULT_TOOL,
   ];
 }
 

@@ -44,8 +44,10 @@ import { SavedViewRemoved, SavedViewSaved } from "../../domain/saved-view-events
 import {
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
+  TaskAddedToInitiative,
   TaskDependencyAdded,
   TaskDependencyRemoved,
+  TaskTakenOutOfInitiative,
   TaskDefinitionOfDoneProposed,
   TaskDefinitionOfDoneSaved,
   TaskHeldAtAllClear,
@@ -286,6 +288,22 @@ export class WorkWebEvents implements OnModuleInit {
         type: "task.dependency-removed",
         taskId: event.taskId,
         blockerId: event.blockerId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskAddedToInitiative,
+      (event): WebEventOf<"task.added-to-initiative"> => ({
+        type: "task.added-to-initiative",
+        taskId: event.taskId,
+        initiativeId: event.initiativeId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskTakenOutOfInitiative,
+      (event): WebEventOf<"task.taken-out-of-initiative"> => ({
+        type: "task.taken-out-of-initiative",
+        taskId: event.taskId,
+        initiativeId: event.initiativeId,
       }),
     );
   }

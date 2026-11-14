@@ -230,7 +230,9 @@ describe("Decisions in an Initiative's planning Thread", () => {
   it("is refused naming no Task, and a Thread on a Task keeps one at a time on its own Task", () => {
     expect(
       refusalOf(() => openDecision(planning, { ...DRAFT, id: "decision-a", askedAt: AT })),
-    ).toEqual(["Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks."]);
+    ).toEqual([
+      "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks. Only a call to a person may name none.",
+    ]);
     const onTask = aThread({ home: TASK_HOME, session: SESSION, state: "answering" });
     expect(
       refusalOf(() =>

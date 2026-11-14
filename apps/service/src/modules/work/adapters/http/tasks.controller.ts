@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -16,7 +15,6 @@ import {
   definitionOfDoneChangeSchema,
   descriptionChangeSchema,
   makeAPlanSchema,
-  newDependencySchema,
   newTaskSchema,
   pipelineChangeSchema,
   planChangeSchema,
@@ -29,7 +27,6 @@ import {
   type DefinitionOfDoneChange,
   type DescriptionChange,
   type MakeAPlan,
-  type NewDependency,
   type NewTask,
   type PipelineChange,
   type PlanChange,
@@ -127,24 +124,6 @@ export class TasksController {
       below: below ?? undefined,
     });
     return toTaskResponse(task);
-  }
-
-  /** The Task waits for another to be Done before it can start, in any Project. */
-  @Post(":id/dependencies")
-  @HttpCode(HttpStatus.OK)
-  async addDependency(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(newDependencySchema)) { blockerId }: NewDependency,
-  ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.addDependency(id, blockerId));
-  }
-
-  @Delete(":id/dependencies/:blockerId")
-  async removeDependency(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Param("blockerId", ParseUUIDPipe) blockerId: string,
-  ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.removeDependency(id, blockerId));
   }
 
   /**

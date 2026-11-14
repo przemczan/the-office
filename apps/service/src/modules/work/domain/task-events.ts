@@ -306,6 +306,34 @@ export class TaskDependencyRemoved extends DomainEvent {
   }
 }
 
+/**
+ * An existing Task joined the Initiative; a Backlog Task joining one being shaped moved to Shaping
+ * in the same save, as `stateChanged` says.
+ */
+export class TaskAddedToInitiative extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly initiativeId: string,
+    readonly stateChanged: TaskStateChanged | undefined,
+  ) {
+    super();
+  }
+}
+
+/**
+ * The Task left the Initiative; one in Shaping, or planned in the Initiative's planning Thread,
+ * moved to Backlog in the same save, as `stateChanged` says.
+ */
+export class TaskTakenOutOfInitiative extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly initiativeId: string,
+    readonly stateChanged: TaskStateChanged | undefined,
+  ) {
+    super();
+  }
+}
+
 /** Ready → In progress: the user started the Task, following its Pipeline. */
 export class TaskStarted extends DomainEvent {
   constructor(

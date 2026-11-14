@@ -12,6 +12,7 @@ src/modules/work/
   application/       the use cases, as application services
   adapters/
     http/            controllers, mapping to and from @the-office/contracts
+    office-actions/  the one handler of each Office action the module declares
     postgres/        the module's tables (*.schema.ts) and the repositories implementing its ports
     websocket/       which of the module's events reach the web, and as what
 ```
@@ -58,6 +59,7 @@ Projects (`src/modules/projects/`) is the first; later modules copy its shape.
 - **A repository's `update(id, change)`** applies the change inside a transaction that holds the row (`SELECT … FOR UPDATE`), so two changes at once never lose one.
 - **A rule that needs another module** goes through that module's application service, unless the other module will need this one: then this module declares a port of its own and the composition root binds it. Projects asks `KnownPipelines`, which `AppModule` binds to Pipelines' `PipelineLibrary`, because Pipelines' Stage interpreter will call Projects. The modules that read the library import `PipelineLibraryModule`, never `PipelinesModule`, which reacts to Work's `TaskStarted` and moves started Tasks through its `StartedTasks` port, bound to Work's `TaskService`.
 - **A module called back by one that calls it** offers a registry the caller fills as it starts: Work, which opens Threads through Conversations, gives Conversations what a Thread on a Task works with through `TaskThreadSetups`, as modules give the Engine their Office tools through `OfficeToolRegistry`. A port bound by the composition root would make the two Nest modules import each other.
+- **Every new action on a record is an Office action** ([spec 5.4](../../../docs/spec/5.4-the-engine.md)): declared once in `packages/contracts` beside its record's contract (`officeAction` in `office-actions.ts`: name, record, description, input, answer, route and the duties that cover it) and listed in `OFFICE_ACTIONS`, never as a hand-written route plus a hand-written Office tool. The owning module writes its one handler, in `adapters/office-actions/` (Work's `WorkOfficeActions`: `handle(input, author)`, the route's `response` and the tool's `words`), registers each action's tool with `officeActionTool` from the Engine's `index.ts`, and derives the routes in its own `adapters/http` by extending `officeActionRoutes(actions)` from `src/platform/http/` under its `@Controller()` and refusal filter. Whether the action is allowed is the handler's domain rules, the same for the user and the Agent; the duties decide only who gets the tool, which Conversations adds to every Thread the user talks to a person in. The web calls it with `callOfficeAction`. `app.module.test.ts` fails for a declared action without a route, a tool or a covering duty. An existing route and tool move over when a later Task touches them.
 - **Fixtures** (`*.fixtures.ts`) are test data beside the code they describe, shared by its tests and left out of the build. Fixtures other modules' tests need, such as a fake of a server the module's adapters talk to, are exported from `index.fixtures.ts`.
 
 ## Adding a module

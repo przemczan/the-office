@@ -92,7 +92,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
-      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask a question; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, ask the user in your answer instead. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
+      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask a question; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat or from an Initiative's Thread on no Task. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, ask the user in your answer instead. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
           .string()
@@ -128,11 +128,17 @@ export class DecisionOfficeTools implements OnModuleInit {
           .describe(
             "For a question, why you recommend it; for an approval or a request, why you need it.",
           ),
+        taskId: z
+          .string()
+          .optional()
+          .describe(
+            "In an Initiative's planning Thread, the Task the call is about, by its id, so it is on that Task as its Decisions are; leave it out for a call on no Task, answered in the person's own chat. Leave it out in a Thread on a Task, where it is on that Task.",
+          ),
       }),
       run: async (input, { sessionId }) => {
         const consult = consultOf(input);
         try {
-          const consultant = await this.consultations.put(sessionId, consult);
+          const consultant = await this.consultations.put(sessionId, consult, input.taskId);
           const person = input.person?.trim();
           const putTo = consultant
             ? `${consultant.name}, in a Consultation`

@@ -250,6 +250,28 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         sessionRefusal: undefined,
       }),
   });
+  // As the Work module sets up its Initiatives' Threads, each with consult (spec §2.4).
+  app.get(InitiativeThreadSetups).provide({
+    setUp: ({ initiativeId }) =>
+      Promise.resolve({
+        instructions: "On this Initiative you shape.",
+        officeTools: [CONSULT_TOOL],
+        record: `You are shaping the Initiative ${initiativeId}.`,
+        sessionRefusal: undefined,
+        branchReads: undefined,
+      }),
+  });
+  // As the Work module gives its records: every Task is any Initiative's here.
+  app.get(WorkRecords).provide({
+    taskRecord: () => Promise.resolve(undefined),
+    taskTitle: () => Promise.resolve("Build the export"),
+    taskAttachmentIds: () => Promise.resolve([]),
+    initiativeTaskAttachmentIds: () => Promise.resolve([]),
+    initiativeRecord: () => Promise.resolve(undefined),
+    initiativeName: () => Promise.resolve(undefined),
+    projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
+    ideaRecord: () => Promise.resolve(undefined),
+  });
   threads = app.get(ThreadService);
   decisions = app.get(DecisionService);
   consultations = app.get(Consultations);
@@ -646,6 +668,77 @@ describe("a call from a chat", () => {
     expect(answer?.step === "send" && answer.message.text).toContain(
       "Riley passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
     );
+  });
+});
+
+/** The asker's shaping Thread on a new Initiative, where they start on the user's ask at once. */
+function onAnInitiative(): Promise<Thread> {
+  return threads.startOnInitiative({
+    initiativeId: randomUUID(),
+    roleKey: askerKey,
+    title: "Shaping",
+    opening: "Ask Devops to set that up.",
+  });
+}
+
+describe("a call from an Initiative's Thread", () => {
+  it("opens the callee's Consultation in their own chat when it names no Task", async () => {
+    await startWith(started(...requests("Devops")), started(...aTurn("brief", "Looking.")));
+    const caller = await onAnInitiative();
+
+    const consultation = await consultationInChatOf(devopsKey);
+    await settled(caller.id);
+
+    expect(consultation).toMatchObject({
+      home: { kind: "chat", roleKey: devopsKey },
+      consultation: { askerThreadId: caller.id },
+    });
+    expect((await threads.read(caller.id)).openDecisions).toMatchObject([
+      { taskId: undefined, putTo: devopsKey },
+    ]);
+  });
+
+  it("opens it on the Task a planning Thread's call names, as its Decisions are", async () => {
+    const taskId = randomUUID();
+    await startWith(
+      started(
+        ...usesTool("c-1", CONSULT_TOOL, {
+          person: "Devops",
+          kind: "request",
+          question: "Set up the Project's commands.",
+          context: "The Task needs them.",
+          why: "I can't draft Project commands.",
+          taskId,
+        }),
+        ...aTurn("brief", "I asked them."),
+      ),
+      started(...aTurn("brief", "Looking.")),
+    );
+    const caller = await onAnInitiative();
+
+    const consultation = await vi.waitFor(
+      async () => {
+        const found = (await threads.listOnTask(taskId)).find((thread) => thread.consultation);
+        if (!found) throw new Error("No Consultation yet.");
+        return found;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    await settled(caller.id);
+
+    expect(consultation).toMatchObject({ home: { kind: "task", taskId }, roleKey: devopsKey });
+  });
+
+  it("refuses one naming nobody who can be called and no Task, as a chat's call", async () => {
+    await startWith(started(...requests("Janitor"), ...aTurn("brief", "I'll ask the user.")));
+    const caller = await onAnInitiative();
+
+    await settled(caller.id);
+
+    expect(toolResultOf(engine.sessions[0], "c-1")).toMatchObject({
+      isError: true,
+      text: "Nobody who can be called fills that Role: ask the user in your answer instead.",
+    });
   });
 });
 

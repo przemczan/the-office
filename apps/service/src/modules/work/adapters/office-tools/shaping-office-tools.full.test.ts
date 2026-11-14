@@ -22,10 +22,8 @@ import {
 } from "../../work-application.fixtures.js";
 import { SHAPING_OFFICE_TOOLS } from "../conversations/initiative-thread-records.js";
 import {
-  ADD_DEPENDENCY,
   ADD_TASK,
   READ_INITIATIVE,
-  REMOVE_DEPENDENCY,
   WRITE_OUTCOME,
   WRITE_TASK_DESCRIPTION,
   WRITE_TASK_TITLE,
@@ -102,8 +100,6 @@ it("are among a shaping session's Office tools", () => {
       READ_INITIATIVE,
       WRITE_OUTCOME,
       ADD_TASK,
-      ADD_DEPENDENCY,
-      REMOVE_DEPENDENCY,
       WRITE_TASK_TITLE,
       WRITE_TASK_DESCRIPTION,
     ]),
@@ -194,42 +190,6 @@ describe("add_task", () => {
   });
 });
 
-describe("add_dependency and remove_dependency", () => {
-  it("make one of its Tasks wait for any Task, and stop waiting", async () => {
-    const queue = await anInitiativeTask("Store the queue on flash");
-    const schema = await aTaskOutside("Queue schema");
-
-    const added = await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: schema.id });
-    const waiting = await work.app.get(TaskService).read(queue.id);
-    const removed = await call(REMOVE_DEPENDENCY, { taskId: queue.id, blockerId: schema.id });
-
-    expect(added).toEqual({
-      text: `"Store the queue on flash" now waits for "Queue schema" to be Done, on the Initiative's page.`,
-      isError: false,
-    });
-    expect(waiting.blockedBy).toEqual([schema.id]);
-    expect(removed.isError).toBe(false);
-    expect((await work.app.get(TaskService).read(queue.id)).blockedBy).toEqual([]);
-  });
-
-  it("refuse a Task that isn't the Initiative's, and a cycle", async () => {
-    const outside = await aTaskOutside("Billing schema");
-    const queue = await anInitiativeTask("Store the queue on flash");
-    const protocol = await anInitiativeTask("Sync protocol messages");
-    await call(ADD_DEPENDENCY, { taskId: protocol.id, blockerId: queue.id });
-
-    const notIts = await call(ADD_DEPENDENCY, { taskId: outside.id, blockerId: queue.id });
-    const cycle = await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: protocol.id });
-
-    expect(notIts).toEqual({
-      text: `The Task "Billing schema" isn't one of this Initiative's.`,
-      isError: true,
-    });
-    expect(cycle.isError).toBe(true);
-    expect((await work.app.get(TaskService).read(outside.id)).blockedBy).toEqual([]);
-  });
-});
-
 describe("write_task_title and write_task_description", () => {
   it("rewrite one of its Tasks straight away, and announce it", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
@@ -308,12 +268,11 @@ describe("once the Initiative is active", () => {
         description: "Writes try again.",
         blockedBy: [schema.id],
       }),
-      await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: schema.id }),
       await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep the queue" }),
       await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "It survives." }),
     ];
 
-    expect(answers).toEqual(Array.from({ length: 5 }, () => ({ text: PROPOSED, isError: false })));
+    expect(answers).toEqual(Array.from({ length: 4 }, () => ({ text: PROPOSED, isError: false })));
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual(
       [
         { kind: "outcome", outcome: "Sync works." },
@@ -326,7 +285,6 @@ describe("once the Initiative is active", () => {
           blockedBy: [schema.id],
           taskId: undefined,
         },
-        { kind: "add-dependency", taskId: queue.id, blockerId: schema.id },
         { kind: "task-title", taskId: queue.id, title: "Keep the queue" },
         { kind: "task-description", taskId: queue.id, description: "It survives." },
       ].map((edit) => ({
@@ -344,13 +302,6 @@ describe("once the Initiative is active", () => {
     const queue = await anInitiativeTask("Store the queue on flash");
     await work.app.get(InitiativeService).confirm(initiative.id, ANN_LEE);
 
-    expect(await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: queue.id })).toMatchObject({
-      isError: true,
-    });
-    expect(await call(REMOVE_DEPENDENCY, { taskId: queue.id, blockerId: queue.id })).toEqual({
-      text: `"Store the queue on flash" no longer waits for the Task ${queue.id}, on the Initiative's page.`,
-      isError: false,
-    });
     expect(await call(ADD_TASK, { title: "Retry", projectId: UNKNOWN_PROJECT })).toMatchObject({
       isError: true,
     });

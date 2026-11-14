@@ -1,3 +1,4 @@
+import { officeActionBody, officeActionPath, type OfficeAction } from "@the-office/contracts";
 import type { z } from "zod";
 
 /** Where the service answers, on the page's own origin. */
@@ -95,6 +96,26 @@ export async function deleteFromApiReturning<Schema extends z.ZodType>(
     headers: { Accept: "application/json" },
   });
   return answerOf(response, schema);
+}
+
+/**
+ * Carries out an Office action through its route, its method, path and body all from its
+ * declaration, the same one its Office tool comes from, and checks the answer as getFromApi does.
+ */
+export async function callOfficeAction<Input extends z.ZodObject, Answer extends z.ZodType>(
+  action: OfficeAction<Input, Answer>,
+  input: z.input<Input>,
+): Promise<z.infer<Answer>> {
+  const body = officeActionBody(action, input);
+  const response = await fetch(`${API_PATH}${officeActionPath(action, input)}`, {
+    method: action.route.method,
+    headers: {
+      Accept: "application/json",
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  return answerOf(response, action.answer);
 }
 
 /**

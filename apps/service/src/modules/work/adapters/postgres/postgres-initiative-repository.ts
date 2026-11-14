@@ -29,10 +29,15 @@ import type {
   InitiativeTasksChange,
 } from "../../domain/initiative-changes.js";
 import type { InitiativeCreated } from "../../domain/initiative-events.js";
+import type { InitiativeMembershipChange } from "../../domain/initiative-membership.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
-import type { TaskStateChanged } from "../../domain/task-events.js";
+import type {
+  TaskAddedToInitiative,
+  TaskStateChanged,
+  TaskTakenOutOfInitiative,
+} from "../../domain/task-events.js";
 import {
   InitiativeRepository,
   type InitiativeTasksUpdate,
@@ -268,6 +273,31 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       return changeDependenciesHeld(transaction, taskId, (task, everyTask) =>
         change(initiative, task, everyTask),
       );
+    });
+  }
+
+  async changeMembership<Event extends TaskAddedToInitiative | TaskTakenOutOfInitiative>(
+    id: string,
+    taskId: string,
+    change: (
+      initiative: Initiative,
+      task: Task,
+      tasks: readonly Task[],
+    ) => Promise<InitiativeMembershipChange<Event> | undefined>,
+  ): Promise<InitiativeMembershipChange<Event> | undefined> {
+    return this.database.transaction(async (transaction) => {
+      // The Initiative, the dependencies, its Tasks, then the Task: the order every other hold takes.
+      const initiative = await heldInitiative(transaction, id);
+      const everyTask = await everyTaskHoldingDependencies(transaction);
+      const held = await heldTasksOf(transaction, id);
+      const task = held.find((each) => each.id === taskId) ?? (await heldTask(transaction, taskId));
+      const changed = await change(initiative, task, withHeld(everyTask, [...held, task]));
+      if (!changed) return undefined;
+      await saveTask(transaction, task, changed.task);
+      if (changed.publishing) {
+        await saveTask(transaction, changed.publishing.task, changed.publishing);
+      }
+      return changed;
     });
   }
 

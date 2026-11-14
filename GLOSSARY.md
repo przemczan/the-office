@@ -399,6 +399,10 @@ _Avoid_: Role config, definition, settings
 A built-in job The Office gives to whichever hired Role holds it, set in Settings › Duties: Default person to talk to, Shapes Initiatives, Asked first when a Stage runs out of tries, Onboards and repairs Projects, Default Consultant for MCP tool hard switches, Plans, Implements and Reviews. A Role **holds** a duty and is its **holder**; each duty has one holder or none, and falls back while nobody holds it. Where the spec names the Planner, the CTO, Devops or the Office Manager for a duty's job, it means that duty's holder.
 _Avoid_: Responsibility (the Role card has responsibilities), assignment, function
 
+**Office action**:
+One thing the user can do on a record, such as adding a Task to an Initiative, declared once with the duties that cover it; its route on the record's page and its Office tool for Agents both come from that declaration. A person gets the tool when they hold a duty that covers it, in every Thread the user talks to them in; their Role's authority still says when they may use it without a Decision.
+_Avoid_: Command, operation, endpoint (in the UI), capability (a Role card's capabilities are another thing)
+
 **Avatar**:
 A person's own picture, uploaded on their Overview tab, which shows in place of their initials wherever they are drawn. It is not part of the Role card: changing it adds no card version, and Agents never see it.
 _Avoid_: Profile picture, photo

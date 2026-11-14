@@ -32,4 +32,11 @@ export class OfficeToolRegistry {
     }
     return names.map((name) => this.tools.get(name) as OfficeTool);
   }
+
+  /** The names of the Office actions' tools any of `duties` covers, in the order registered. */
+  coveredBy(duties: readonly string[]): string[] {
+    return [...this.tools.values()]
+      .filter(({ coveredBy }) => coveredBy?.some((duty) => duties.includes(duty)))
+      .map(({ name }) => name);
+  }
 }

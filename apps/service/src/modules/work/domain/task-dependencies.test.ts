@@ -29,6 +29,16 @@ describe("addDependency", () => {
   });
 });
 
+describe("addDependency on an archived Task", () => {
+  it("refuses it, as nothing waits for a Task in the Archive", () => {
+    const archived = { ...schema, state: "done" as const, archivedAt: new Date() };
+
+    expect(() => addDependency(client, "schema", [archived, client])).toThrow(
+      new TaskRefused(['"Queue schema" is archived, so nothing waits for it.']),
+    );
+  });
+});
+
 describe("removeDependency", () => {
   it("lets the Task go without the blocker, and announces it", () => {
     const { task, event } =

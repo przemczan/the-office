@@ -15,7 +15,9 @@ import { anOfficeToolCall } from "../../engine/index.fixtures.js";
 import { InitiativeThreadSetups, TaskThreadSetups } from "../../conversations/index.js";
 import {
   INITIATIVE_PLANNING_OFFICE_TOOLS,
+  INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
   SHAPING_OFFICE_TOOLS,
+  SHAPING_THREAD_INSTRUCTIONS,
 } from "../adapters/conversations/initiative-thread-records.js";
 import {
   MARK_PLANNED,
@@ -26,12 +28,10 @@ import {
   WRITE_TAGS,
 } from "../adapters/office-tools/planning-office-tools.js";
 import {
-  INITIATIVE_PLANNING_INSTRUCTIONS,
   INITIATIVE_PLANNING_OPENING,
   INITIATIVE_PLANNING_THREAD_TITLE,
 } from "../domain/initiative-planning.js";
 import { NOBODY_PLANS } from "../domain/duties.js";
-import { SHAPING_INSTRUCTIONS } from "../domain/shaping.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import {
   InitiativeThreadsForTests,
@@ -478,7 +478,7 @@ describe("a Thread on an Initiative's session", () => {
       roleKey: "cto",
     });
     expect(shaping).toMatchObject({
-      instructions: SHAPING_INSTRUCTIONS,
+      instructions: SHAPING_THREAD_INSTRUCTIONS,
       officeTools: SHAPING_OFFICE_TOOLS,
     });
 
@@ -488,7 +488,7 @@ describe("a Thread on an Initiative's session", () => {
       roleKey: "planner",
     });
     expect(planningSetup).toMatchObject({
-      instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
+      instructions: INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
       officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
       sessionRefusal: undefined,
     });
@@ -586,17 +586,17 @@ describe("one Role holding both Shapes Initiatives and Plans", () => {
     const setups = work.app.get(InitiativeThreadSetups);
     const of = (threadId: string) =>
       setups.of({ threadId, initiativeId: initiative.id, roleKey: "architect" });
-    expect(await of(shapingThreadId)).toMatchObject({ instructions: SHAPING_INSTRUCTIONS });
+    expect(await of(shapingThreadId)).toMatchObject({ instructions: SHAPING_THREAD_INSTRUCTIONS });
     expect(await of(planningThreadId)).toMatchObject({
-      instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
+      instructions: INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
       officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
     });
 
     people.hold("plans", "lead");
 
     expect(await of(planningThreadId)).toMatchObject({
-      instructions: INITIATIVE_PLANNING_INSTRUCTIONS,
+      instructions: INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
     });
-    expect(await of(shapingThreadId)).toMatchObject({ instructions: SHAPING_INSTRUCTIONS });
+    expect(await of(shapingThreadId)).toMatchObject({ instructions: SHAPING_THREAD_INSTRUCTIONS });
   });
 });

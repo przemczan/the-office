@@ -2898,13 +2898,24 @@ function standInsFor(names: readonly string[]): void {
   }
 }
 
+/** Registers a stand-in for an Office action's tool, covered by `coveredBy`. */
+function actionStandIn(name: string, coveredBy: readonly string[]): void {
+  app.get(OfficeToolRegistry).register({
+    name,
+    description: `Stands in for ${name}.`,
+    input: z.object({}),
+    coveredBy,
+    run: () => Promise.resolve({ text: "Nothing.", isError: false }),
+  });
+}
+
 /** The Office tools of the Thread's `index`th session, by name. */
 function toolsOf(index: number): readonly string[] | undefined {
   return engine.sessions[index]?.options.officeTools.map(({ name }) => name);
 }
 
 describe("a chat's built-in tools, by the duties its person holds", () => {
-  it("give a Role under another key holding Default person to talk to the drafting and pointing tools, and no calling", async () => {
+  it("give a Role under another key holding Default person to talk to the drafting and pointing tools, and calling", async () => {
     duties.set("default-person-to-talk-to", roleKey);
     await startWith(started(...aTurn("brief", "Hello.")));
     standInsFor(chatOfficeTools(["default-person-to-talk-to"]));
@@ -2915,9 +2926,9 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
 
     expect(toolsOf(0)).toEqual(chatOfficeTools(["default-person-to-talk-to"]));
     expect(toolsOf(0)).toContain(POST_LINK_CARD_TOOL);
-    expect(toolsOf(0)).not.toContain(CONSULT_TOOL);
+    expect(toolsOf(0)).toContain(CONSULT_TOOL);
     expect(toolsOf(0)).not.toContain("create_task");
-    expect(engine.sessions[0]?.options.instructions).not.toContain(CALLING_RULE);
+    expect(engine.sessions[0]?.options.instructions).toContain(CALLING_RULE);
     expect((await threads.read(thread.id)).session?.heldDuties).toEqual([
       "default-person-to-talk-to",
     ]);
@@ -2951,6 +2962,30 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     await answered(thread.id, 3);
 
     expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CREATE_INITIATIVE_TOOL, CONSULT_TOOL]);
+  });
+
+  it("give a person the Office actions' tools their held duties cover, after the chat's own, and nobody else", async () => {
+    duties.set("shapes-initiatives", roleKey);
+    await startWith(started(...aTurn("brief", "Hello.")), started(...aTurn("brief", "Hello.")));
+    standInsFor([CREATE_INITIATIVE_TOOL]);
+    actionStandIn("take_out_of_initiative", ["shapes-initiatives", "plans"]);
+    actionStandIn("onboard_the_project", ["onboards-projects"]);
+    const shaper = await threads.startInChat(roleKey);
+    await runner.send(shaper.id, "Take the banner out of the sync.", ANN_LEE);
+    await answered(shaper.id, 3);
+
+    duties.set("shapes-initiatives", undefined);
+    const noLongerShaping = await threads.startInChat(roleKey);
+    await runner.send(noLongerShaping.id, "Take the banner out of the sync.", ANN_LEE);
+    await answered(noLongerShaping.id, 3);
+
+    expect(toolsOf(0)).toEqual([
+      ...CHAT_OFFICE_TOOLS,
+      CREATE_INITIATIVE_TOOL,
+      CONSULT_TOOL,
+      "take_out_of_initiative",
+    ]);
+    expect(toolsOf(1)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
   });
 
   it("give a Role holding no duty the plain chat's tools, its key the default holder's or not", async () => {

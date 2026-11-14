@@ -136,7 +136,10 @@ export interface Task {
   readonly blockedBy: readonly string[];
   /** The Idea it was shaped from, if it was. */
   readonly originIdeaId: string | undefined;
-  /** The Initiative it is part of, if any; it stays there for good. */
+  /**
+   * The Initiative it is part of, if any: at most one; it joins and leaves one only before it
+   * starts (initiative-membership.ts).
+   */
   readonly initiativeId: string | undefined;
   /** Each Move to another Project, oldest first (task-move.ts). */
   readonly projectMoves: readonly ProjectMove[];

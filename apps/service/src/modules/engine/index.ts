@@ -1,6 +1,10 @@
 export { EngineSessions } from "./application/engine-sessions.js";
 export type { EngineCapability } from "./ports/agent-engine.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
+export {
+  FOLLOW_YOUR_AUTHORITY,
+  officeActionTool,
+} from "./adapters/office-tools/office-action-tool.js";
 export type {
   CommandJudgement,
   OfficeTool,

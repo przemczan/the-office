@@ -43,6 +43,8 @@ import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office
 import { OnboardingOfficeTools } from "./adapters/office-tools/onboarding-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { ShapingOfficeTools } from "./adapters/office-tools/shaping-office-tools.js";
+import { WorkOfficeActions } from "./adapters/office-actions/work-office-actions.js";
+import { WorkOfficeActionsController } from "./adapters/http/work-office-actions.controller.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
@@ -63,6 +65,7 @@ import { IdeaRecords } from "./application/idea-records.js";
 import { IdeaService } from "./application/idea-service.js";
 import { InitiativePlanning } from "./application/initiative-planning.js";
 import { InitiativePause } from "./application/initiative-pause.js";
+import { InitiativeMembership } from "./application/initiative-membership.js";
 import { InitiativeStart } from "./application/initiative-start.js";
 import { InitiativeBranching } from "./application/initiative-branching.js";
 import { InitiativeService } from "./application/initiative-service.js";
@@ -210,6 +213,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         UsageEstimatesController,
         UsageSettingsController,
         FireAlarmController,
+        WorkOfficeActionsController,
       ],
       providers: [
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
@@ -266,6 +270,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativePlanning,
         InitiativeStart,
         InitiativePause,
+        InitiativeMembership,
         StartConditionsReader,
         DailyCaps,
         StartsSinceReading,
@@ -282,6 +287,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         WorkOfficeTools,
         PlanningOfficeTools,
         ShapingOfficeTools,
+        WorkOfficeActions,
         AttachmentOfficeTools,
         OnboardingOfficeTools,
         TaskThreadRecords,

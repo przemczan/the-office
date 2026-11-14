@@ -1074,6 +1074,70 @@ test(
   },
 );
 
+test("the user adds a Task to an Initiative and takes it out, on the Task's page and on the Initiative's", async ({
+  page,
+}) => {
+  const word = aWordOfItsOwn();
+  const name = `Joining sync ${word}`;
+  const project = await addedProject(page, `Joining work ${word}`, "JW");
+  const initiativeId = await seedActiveInitiative(page, name, "2026-11-14T10:00:00.000Z");
+  const banner = await createdTask(page, project, `Joining banner ${word}`);
+  const retry = await createdTask(page, project, `Joining retry ${word}`);
+  const dialog = page.getByRole("dialog");
+
+  // On the Task's page: added to the Initiative, then taken out again.
+  await page.goto(`/tasks/${banner.id}`);
+  const section = page
+    .getByRole("region", { name: "Description" })
+    .getByRole("region", { name: "Initiative" });
+  await expect(section).toContainText("In no Initiative.");
+  await section.getByRole("button", { name: "Add to an Initiative" }).click();
+  const picker = dialog.getByRole("combobox", { name: "Initiative" });
+  await picker.fill(word);
+  await page
+    .getByRole("listbox", { name: "Initiative" })
+    .getByRole("option", { name, exact: true })
+    .click();
+  await expect(dialog).toContainText("It stays in Backlog.");
+  await dialog.getByRole("button", { name: "Add to the Initiative" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(section.getByRole("link", { name })).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-task-in-an-initiative.png") });
+
+  await section.getByRole("button", { name: "Take out" }).click();
+  await expect(dialog).toContainText(`Take ${banner.title} out of ${name}?`);
+  await expect(dialog).toContainText("It stays in Backlog. What it waits for stays.");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-take-a-task-out.png") });
+  await dialog.getByRole("button", { name: "Take out", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(section.getByRole("button", { name: "Add to an Initiative" })).toBeVisible();
+  expect(
+    taskSchema.parse(await (await page.request.get(`/api/tasks/${banner.id}`)).json()),
+  ).toMatchObject({
+    initiativeId: null,
+    state: "backlog",
+  });
+
+  // On the Initiative's page: an existing Task added, then taken out.
+  await page.goto(`/work/initiatives/${initiativeId}`);
+  await page.getByRole("button", { name: "Add an existing Task" }).click();
+  await dialog.getByRole("textbox", { name: "Find a Task" }).fill(retry.title);
+  await dialog.getByText(retry.title).click();
+  await expect(dialog).toContainText("It stays in Backlog.");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-add-an-existing-task.png") });
+  await dialog.getByRole("button", { name: "Add the Task" }).click();
+  await expect(dialog).toBeHidden();
+  const graph = page.getByRole("group", { name: "Task graph" });
+  await expect(graph.getByText(retry.title)).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-initiative-take-out-a-task.png") });
+
+  await page.getByRole("button", { name: "Take out a Task" }).click();
+  await expect(dialog).toContainText(`Take ${retry.title} out of ${name}?`);
+  await dialog.getByRole("button", { name: "Take out", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("No Tasks yet.")).toBeVisible();
+});
+
 async function archiveInitiative(page: Page, initiativeId: string): Promise<void> {
   expect((await page.request.post(`/api/initiatives/${initiativeId}/archive`)).ok()).toBe(true);
 }

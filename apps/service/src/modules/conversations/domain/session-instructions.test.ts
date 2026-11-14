@@ -238,11 +238,10 @@ describe("the message an answered Decision is sent with", () => {
 });
 
 describe("calling a person", () => {
-  it("is in every chat but the Office Manager's, who redirects and never relays", () => {
-    for (const held of [PLANNER, DEVOPS, CARETAKER]) {
+  it("is in every chat, the Office Manager's too, who calls only when the user asks", () => {
+    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
       expect(chatOfficeTools(held)).toContain(CONSULT_TOOL);
     }
-    expect(chatOfficeTools(OFFICE_MANAGER)).not.toContain(CONSULT_TOOL);
     expect(CONSULT_TOOL).toBe(CONTRACT_CONSULT_TOOL);
   });
 
@@ -266,7 +265,7 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
     officeInstructions: "",
   };
 
-  it("give whoever holds Default person to talk to the drafting and pointing tools, and no calling", () => {
+  it("give whoever holds Default person to talk to the drafting and pointing tools, and calling when the user asks", () => {
     const tools = chatOfficeTools(["default-person-to-talk-to"]);
 
     expect(tools).toEqual(
@@ -280,8 +279,13 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
       ]),
     );
     expect(tools).not.toContain("create_task");
-    expect(tools).not.toContain(CONSULT_TOOL);
-    expect(chatInstructions(person, ["default-person-to-talk-to"])).not.toContain(CALLING_RULE);
+    expect(tools).toContain(CONSULT_TOOL);
+    const instructions = chatInstructions(person, ["default-person-to-talk-to"]);
+    expect(instructions).toContain(CALLING_RULE);
+    expect(instructions).toContain(
+      "You point the user to whoever is responsible with a Link card rather than relay their work",
+    );
+    expect(chatInstructions(person, [])).not.toContain("rather than relay");
   });
 
   it("give whoever holds Onboards Projects the Project tools and reading a repository, with its rule", () => {

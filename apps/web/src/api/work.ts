@@ -1,5 +1,9 @@
 import { queryOptions, type QueryKey } from "@tanstack/react-query";
 import {
+  ADD_DEPENDENCY_ACTION,
+  ADD_TO_INITIATIVE_ACTION,
+  REMOVE_DEPENDENCY_ACTION,
+  TAKE_OUT_OF_INITIATIVE_ACTION,
   archivedInitiativesPageSchema,
   autoModeSettingSchema,
   attachmentListSchema,
@@ -65,8 +69,8 @@ import {
   workWebEventSchema,
 } from "@the-office/contracts";
 import {
+  callOfficeAction,
   deleteFromApi,
-  deleteFromApiReturning,
   getFromApi,
   sendFileToApi,
   sendToApi,
@@ -541,14 +545,21 @@ export function setPipeline(id: string, pipelineId: string): Promise<Task> {
 
 /** The Task waits for `blockerId` to be Done before it can start; refused with every reason. */
 export function addDependency(id: string, blockerId: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/dependencies`, { blockerId }, taskSchema);
+  return callOfficeAction(ADD_DEPENDENCY_ACTION, { taskId: id, blockerId });
 }
 
 export function removeDependency(id: string, blockerId: string): Promise<Task> {
-  return deleteFromApiReturning(
-    `${taskPath(id)}/dependencies/${encodeURIComponent(blockerId)}`,
-    taskSchema,
-  );
+  return callOfficeAction(REMOVE_DEPENDENCY_ACTION, { taskId: id, blockerId });
+}
+
+/** The Task joins the Initiative; refused with every reason. */
+export function addToInitiative(initiativeId: string, taskId: string): Promise<Task> {
+  return callOfficeAction(ADD_TO_INITIATIVE_ACTION, { initiativeId, taskId });
+}
+
+/** The Task leaves the Initiative; refused with every reason. */
+export function takeOutOfInitiative(initiativeId: string, taskId: string): Promise<Task> {
+  return callOfficeAction(TAKE_OUT_OF_INITIATIVE_ACTION, { initiativeId, taskId });
 }
 
 /** Refused with the reasons until the Plan and the Definition of Done are confirmed. */
@@ -736,6 +747,9 @@ export const workEventInvalidations: Readonly<
   "task.reordered": () => [TASKS],
   "task.dependency-added": () => [TASKS],
   "task.dependency-removed": () => [TASKS],
+  // An Initiative's Tasks and Projects are its Tasks'.
+  "task.added-to-initiative": () => [TASKS, INITIATIVES],
+  "task.taken-out-of-initiative": () => [TASKS, INITIATIVES],
   // An Initiative's Projects are its Tasks'.
   "task.moved-to-project": () => [TASKS, INITIATIVES],
   "task.plan-proposed": () => [TASKS],

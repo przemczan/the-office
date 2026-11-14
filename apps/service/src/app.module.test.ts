@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { request as httpRequest } from "node:http";
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { EVENTS_PATH } from "@the-office/contracts";
+import { EVENTS_PATH, OFFICE_ACTIONS } from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../test/test-application.js";
@@ -14,7 +14,12 @@ import {
   StageDecisions as ConversationsStageDecisions,
   TaskTokens,
 } from "./modules/conversations/index.js";
-import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "./modules/engine/index.js";
+import {
+  EngineModule,
+  OfficeToolRegistry,
+  ScriptedEngine,
+  ScriptedEngineModule,
+} from "./modules/engine/index.js";
 import { GitHubAccess } from "./modules/github/index.js";
 import { StageDecisions, TaskCommands, TaskGit, TaskUsage } from "./modules/pipelines/index.js";
 import { ownProjectsStartedTasks } from "./modules/pipelines/index.fixtures.js";
@@ -224,6 +229,21 @@ describe("the whole app, signed out", () => {
         signInFirst: !isOpen(path),
       })),
     );
+  });
+
+  it("derives a route and an Office tool from every declared Office action, each covered by a duty", () => {
+    const routes = routesOf(served);
+    const tools = served.get(OfficeToolRegistry, { strict: false });
+
+    for (const { name, route, duties } of OFFICE_ACTIONS) {
+      expect(duties.length, `${name} names no duty that covers it`).toBeGreaterThan(0);
+      expect(routes, `${name} has no route`).toContainEqual({
+        method: route.method,
+        path: `/api${route.path}`.replaceAll(/:\w+/g, "x"),
+      });
+      // A module registers an action's tool only from its handler, so no handler, no tool.
+      expect(tools.coveredBy(duties), `${name} has no Office tool`).toContain(name);
+    }
   });
 
   it("refuses the event stream's WebSocket on localhost", async () => {
