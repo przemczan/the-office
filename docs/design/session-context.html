@@ -1,0 +1,2453 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Session context · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, as docs/design/chat-drawer.html copied them on 2026-11-06) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-100: #ffe0d4;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-500: #c8102e;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-inverse: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --border-focus: var(--ember-500);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+        --overlay: color-mix(in oklab, var(--gray-950) 45%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+      }
+      [data-theme="dark"] {
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --overlay: color-mix(in oklab, #000 65%, transparent);
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      :is(button, textarea, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      svg.i {
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      @keyframes live {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 55%, transparent);
+        }
+        60% {
+          box-shadow: 0 0 0 4px color-mix(in oklab, var(--success) 0%, transparent);
+        }
+      }
+      @keyframes typing {
+        0%,
+        80%,
+        100% {
+          opacity: 0.25;
+        }
+        40% {
+          opacity: 1;
+        }
+      }
+      @keyframes tick {
+        from {
+          color: var(--fg-1);
+          background: color-mix(in oklab, var(--success) 18%, transparent);
+        }
+        to {
+          background: transparent;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+
+      /* ---------- The page's bar ---------- */
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button:hover {
+        background: #262624;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+
+      .stage {
+        display: grid;
+        gap: 14px;
+        padding: 16px 24px 48px;
+      }
+      .scenario-note {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        max-width: 140ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .note-actions {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .pill {
+        padding: 3px 9px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .pill:hover {
+        color: var(--fg-1);
+      }
+      .pill[aria-pressed="true"] {
+        border-color: var(--fg-2);
+        background: var(--control-press);
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(660px, calc(100vh - 250px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: 1600px;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(660px, min(844px, calc(100vh - 250px)));
+      }
+
+      /* ---------- Under the frame ---------- */
+      .section-title {
+        margin: 18px 0 0;
+        font: var(--type-section-title);
+        color: var(--fg-1);
+      }
+      .section-lede {
+        max-width: 120ch;
+        margin: -6px 0 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .looks {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 410px), 1fr));
+        gap: 14px 18px;
+        max-width: 1600px;
+      }
+      .look {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+      }
+      .look-label {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .look-label b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .look-box {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .look-box .session-row {
+        border-top: 0;
+      }
+      .look-wide {
+        grid-column: 1 / -1;
+        max-width: 760px;
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 22px 32px;
+        max-width: 1600px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 8px;
+        font: var(--type-section-title);
+        color: var(--fg-1);
+      }
+      .reference h3 {
+        margin: 14px 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p,
+      .reference ol,
+      .reference ul {
+        margin: 0 0 8px;
+      }
+      .reference ol,
+      .reference ul {
+        padding-left: 18px;
+      }
+      .reference li + li {
+        margin-top: 5px;
+      }
+      .reference b {
+        color: var(--fg-1);
+      }
+      .reference code {
+        font: 400 11.5px/1.5 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .reference table {
+        width: 100%;
+        margin: 4px 0 10px;
+        border-collapse: collapse;
+      }
+      .reference th,
+      .reference td {
+        padding: 5px 10px 5px 0;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      .reference th {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .reference del {
+        color: var(--fg-3);
+      }
+      .reference .wide-block {
+        grid-column: 1 / -1;
+      }
+
+      /* ---------- The app shell (Shell A3 · Desk, as the earlier pages draw it) ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .app.w-phone {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .w-phone .rail {
+        display: none;
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        background: var(--fg-1);
+        color: var(--surface);
+        font: 700 14px/1 var(--font-sans);
+      }
+      .rail-item {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-md);
+        color: var(--fg-3);
+      }
+      .rail-item.on {
+        background: var(--control-press);
+        color: var(--fg-1);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .crumb {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .top h1 {
+        overflow: hidden;
+        margin: 0;
+        font: var(--type-card-title);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .grow {
+        flex: 1;
+      }
+      .top-button {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .top-button.on {
+        border-color: var(--fg-2);
+        background: var(--control-press);
+        color: var(--fg-1);
+      }
+      .w-phone .top-button span {
+        display: none;
+      }
+      .main {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .page {
+        height: 100%;
+        overflow: auto;
+        padding: 20px 24px;
+      }
+      .w-phone .page {
+        padding: 14px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-card-title);
+      }
+      .card-head .i {
+        color: var(--fg-3);
+      }
+      .card-body {
+        padding: 12px 16px 14px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .card-body p {
+        margin: 0 0 8px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 1px 7px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        font: 500 11px/18px var(--font-sans);
+        color: var(--neutral-fg);
+        white-space: nowrap;
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge.success {
+        border-color: color-mix(in oklab, var(--success) 30%, transparent);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .skel {
+        height: 9px;
+        margin: 9px 0;
+        border-radius: 4px;
+        background: var(--border-subtle);
+      }
+
+      /* ---------- Now, behind the chat drawer ---------- */
+      .now-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 14px;
+      }
+      .now-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-body-sm);
+      }
+      .now-item:last-child {
+        border-bottom: 0;
+      }
+      .now-item .grow {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ---------- Avatars, messages ---------- */
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        color: #fff;
+        font: 600 11px/1 var(--font-sans);
+      }
+      .avatar.xs {
+        width: 18px;
+        height: 18px;
+        font-size: 9px;
+      }
+      .av-pam {
+        background: #c2410c;
+      }
+      .av-jim {
+        background: var(--blue-500);
+      }
+      .av-michael {
+        background: var(--violet-500);
+      }
+      .av-you {
+        background: var(--gray-600);
+      }
+      .log {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 14px 16px 10px;
+      }
+      .msg {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 10px;
+        padding: 8px 0;
+      }
+      .msg-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .msg-head strong {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .msg-text {
+        margin: 2px 0 0;
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .office-line {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 6px 0 6px 38px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .office-line .i {
+        margin-top: 1px;
+      }
+      .tool-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 2px 0 2px 38px;
+        padding: 5px 8px;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+        font: 400 11.5px/1.4 var(--font-mono);
+        color: var(--fg-2);
+      }
+      .handover-card {
+        margin: 6px 0 6px 38px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .handover-card strong {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        font: 600 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .typing {
+        display: inline-flex;
+        gap: 3px;
+        margin-top: 6px;
+      }
+      .typing i {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--fg-3);
+        animation: typing 1.2s infinite;
+      }
+      .typing i:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .typing i:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .empty-thread {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        padding: 24px;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        text-align: center;
+      }
+      .live-dot {
+        display: inline-block;
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+        animation: live 1.6s infinite;
+      }
+
+      /* ---------- The composer and the Context bar (conversation.css) ---------- */
+      .composer {
+        display: flex;
+        flex: none;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface);
+      }
+      .composer-field {
+        flex: 1;
+        min-width: 0;
+        height: 56px;
+        padding: 8px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .composer-send {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md);
+        background: var(--primary);
+        color: var(--primary-fg);
+        opacity: 0.4;
+      }
+      .context-bar {
+        display: flex;
+        flex: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .context-choice {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .seg {
+        display: inline-flex;
+        padding: 2px;
+        border-radius: var(--radius-md);
+        background: var(--control-press);
+      }
+      .seg span {
+        padding: 1px 7px;
+        border-radius: 4px;
+        font: 500 11px/18px var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .seg span.on {
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+      }
+      .context-tokens {
+        color: var(--fg-3);
+      }
+      .today-callout {
+        padding: 1px 6px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        color: var(--fg-3);
+      }
+      .read-only {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 0;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+
+      /* ---------- The Sub-agents and processes line (sub-agents-and-processes.css, adopted) ---------- */
+      .sap-line {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        padding: 7px 16px;
+        border: 0;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-2);
+        text-align: left;
+        cursor: pointer;
+      }
+      .sap-line:hover {
+        background: var(--control-hover);
+      }
+      .sap-mark {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 16px;
+      }
+      .sap-text {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .sap-text .counted {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .sap-show {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 4px;
+        font-weight: 500;
+      }
+
+      /* ---------- Proposed: the session row, and the reading at its right end ---------- */
+      /* One row right above the message input: the Sub-agents and processes line fills its left, the
+         reading keeps its right end, at its own width, so neither moves the other. */
+      .session-row {
+        display: flex;
+        flex: none;
+        align-items: stretch;
+        min-width: 0;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        container: session-row / inline-size;
+      }
+      .session-row > .sap-line {
+        flex: 1;
+        width: auto;
+        border-top: 0;
+        padding-right: 12px;
+      }
+      .reading-slot {
+        display: flex;
+        flex: none;
+        align-items: center;
+        min-height: 31px;
+        margin-left: auto;
+        padding: 0 16px 0 12px;
+      }
+      .sap-line + .reading-slot {
+        border-left: 1px solid var(--border-subtle);
+      }
+      .reading {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: -3px -5px;
+        padding: 3px 5px;
+        border-radius: var(--radius-sm);
+        font: var(--type-caption);
+        font-variant-numeric: tabular-nums;
+        color: var(--fg-2);
+        white-space: nowrap;
+        cursor: default;
+      }
+      .reading:hover {
+        background: var(--control-hover);
+      }
+      .reading .figure {
+        border-radius: 3px;
+      }
+      .reading .figure.ticked {
+        animation: tick 900ms var(--ease-out);
+      }
+      .reading strong {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .reading .wide-words {
+        display: none;
+      }
+      @container session-row (min-width: 520px) {
+        .reading .wide-words {
+          display: inline;
+        }
+      }
+      .reading .narrow-only {
+        display: none;
+      }
+      /* A phone's row leaves the Sub-agents and processes line its room: the reading drops its extra words. */
+      @container session-row (max-width: 400px) {
+        .reading .narrow-hide {
+          display: none;
+        }
+        .reading .narrow-only {
+          display: inline;
+        }
+      }
+      .reading.quiet {
+        color: var(--fg-3);
+      }
+      .reading.near,
+      .reading.near strong {
+        color: var(--warning-fg);
+      }
+      .reading.near strong {
+        font-weight: 600;
+      }
+      .meter {
+        position: relative;
+        flex: none;
+        width: 44px;
+        height: 4px;
+        border-radius: var(--radius-full);
+        background: var(--border-strong);
+      }
+      .meter-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        min-width: 3px;
+        border-radius: inherit;
+        background: var(--fg-3);
+        transition:
+          width 700ms var(--ease-out),
+          background var(--duration-base) var(--ease-out);
+      }
+      .reading.near .meter-fill {
+        background: var(--warning);
+      }
+      .meter-mark {
+        position: absolute;
+        top: -3px;
+        bottom: -3px;
+        left: 80%;
+        width: 2px;
+        margin-left: -1px;
+        border-radius: 1px;
+        background: var(--fg-2);
+        box-shadow: 0 0 0 1px var(--surface);
+      }
+      .reading.near .meter-mark {
+        background: var(--warning-fg);
+      }
+      .meter.empty {
+        background: none;
+        outline: 1px dashed var(--border-strong);
+        outline-offset: 0;
+      }
+      .meter.empty .meter-mark {
+        background: var(--border-strong);
+      }
+
+      /* In a page's conversation foot the row is quieter: no rule, the line a rounded hover, as
+         work.css draws the Sub-agents and processes line there. */
+      .timeline-foot .session-row {
+        margin: 0 0 6px;
+        border-top: 0;
+      }
+      .timeline-foot .session-row > .sap-line {
+        padding: 6px 8px;
+        border-radius: var(--radius-md);
+      }
+      .timeline-foot .reading-slot {
+        min-height: 29px;
+        padding: 0 4px 0 10px;
+      }
+      .timeline-foot > .sap-line {
+        margin: 0 0 6px;
+        padding: 6px 8px;
+        border-top: 0;
+        border-radius: var(--radius-md);
+      }
+
+      /* ---------- Alternative: the context line, a row of its own ---------- */
+      .context-line {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 7px 16px;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        container: context-line / inline-size;
+      }
+      .context-line .overline {
+        flex: none;
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .context-line .meter {
+        flex: 1;
+        width: auto;
+        min-width: 60px;
+        height: 6px;
+      }
+      .context-line .meter-mark {
+        top: -3px;
+        bottom: -3px;
+      }
+      .context-line .reading {
+        margin: 0;
+        padding: 0;
+      }
+      .context-line .reading:hover {
+        background: none;
+      }
+      .context-line .reading .wide-words {
+        display: inline;
+      }
+      .context-line.near .meter-fill {
+        background: var(--warning);
+      }
+      .context-line.near .meter-mark {
+        background: var(--warning-fg);
+      }
+      .timeline-foot .context-line {
+        margin: 0 0 6px;
+        padding: 4px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+
+      /* ---------- What changes, when marked ---------- */
+      .marks .changed {
+        position: relative;
+        outline: 1.5px dashed var(--accent);
+        outline-offset: -1.5px;
+      }
+      .marks .changed::after {
+        content: attr(data-change);
+        position: absolute;
+        top: -9px;
+        left: 10px;
+        z-index: 2;
+        padding: 0 5px;
+        border-radius: 3px;
+        background: var(--accent);
+        color: #fff;
+        font: 600 9.5px/16px var(--font-sans);
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      /* ---------- The chat drawer ---------- */
+      .drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        width: 420px;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+      }
+      .w-phone .drawer {
+        width: 100%;
+        border-left: 0;
+      }
+      .drawer-head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px 10px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .drawer-head-main {
+        display: grid;
+        flex: 1;
+        min-width: 0;
+      }
+      .drawer-title {
+        overflow: hidden;
+        font: var(--type-card-title);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .drawer-sub {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .icon-button {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-md);
+        color: var(--fg-3);
+      }
+      .switch-mini {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .switch-mini i {
+        position: relative;
+        width: 24px;
+        height: 14px;
+        border-radius: 7px;
+        background: var(--border-strong);
+      }
+      .switch-mini i::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--surface);
+      }
+
+      /* ---------- A Task's or Initiative's page ---------- */
+      .record-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        margin-bottom: 14px;
+      }
+      .record-head h2 {
+        margin: 0;
+        font: 600 20px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .w-phone .record-head h2 {
+        font-size: 17px;
+      }
+      .rail-strip {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 14px;
+        padding: 14px 18px;
+        overflow: hidden;
+      }
+      .rail-stage {
+        display: grid;
+        flex: 1;
+        justify-items: center;
+        gap: 6px;
+        min-width: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+        text-align: center;
+      }
+      .rail-stage b {
+        overflow: hidden;
+        max-width: 100%;
+        font-weight: 500;
+        color: var(--fg-2);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .stage-dot {
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+      }
+      .stage-dot.done {
+        border-color: var(--success);
+        background: var(--success);
+        color: #fff;
+      }
+      .stage-dot.running {
+        border-color: var(--blue-500);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--blue-500) 20%, transparent);
+      }
+      .rail-link {
+        flex: 0.6;
+        height: 2px;
+        margin-bottom: 22px;
+        background: var(--border-strong);
+      }
+      .rail-link.done {
+        background: var(--success);
+      }
+      .columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
+        gap: 16px;
+        align-items: start;
+        height: calc(100% - 128px);
+      }
+      .record-col {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+      .convo {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 420px;
+        overflow: hidden;
+      }
+      .convo-tabs {
+        display: flex;
+        flex: none;
+        gap: 2px;
+        padding: 6px 8px 0;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .convo-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px 8px;
+        border-bottom: 2px solid transparent;
+        font: 500 var(--text-sm) / 1.2 var(--font-sans);
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .convo-tab.on {
+        border-color: var(--fg-1);
+        color: var(--fg-1);
+      }
+      .convo-tabs .grow + .switch-mini {
+        margin: 0 4px 6px 0;
+      }
+      .as-drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 4;
+        width: min(460px, 100%);
+        height: auto;
+        min-height: 0;
+        border-radius: 0;
+        border-width: 0 0 0 1px;
+        box-shadow: var(--shadow-3);
+      }
+      .w-phone .as-drawer {
+        width: 100%;
+        border-left: 0;
+      }
+      .drawer-scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        background: color-mix(in oklab, var(--overlay) 40%, transparent);
+      }
+      .timeline-foot {
+        flex: none;
+        padding: 10px 16px 12px;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface);
+      }
+      .timeline-to {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .timeline-to strong {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .timeline-to .place {
+        overflow: hidden;
+        margin-left: -6px;
+        text-overflow: ellipsis;
+      }
+      .cache-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        font: 500 11px/1 var(--font-mono);
+        color: var(--warning-fg);
+      }
+      .timeline-foot .composer {
+        padding: 0;
+        border-top: 0;
+      }
+      .timeline-foot .context-bar {
+        gap: 6px;
+        padding: 6px 0 0;
+        border-bottom: 0;
+        background: none;
+        font-size: 11px;
+        color: var(--fg-3);
+      }
+      .graph {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 44px;
+        padding: 4px 0;
+      }
+      .graph-task {
+        display: grid;
+        gap: 4px;
+        width: 180px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .graph-task b {
+        font: 500 var(--text-xs) / 1.35 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .graph-task.done {
+        border-left-color: var(--success);
+      }
+      .graph-task.running {
+        border-left-color: var(--blue-500);
+      }
+
+      /* ---------- The Stage history window ---------- */
+      .window-scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 6;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--overlay);
+      }
+      .w-phone .window-scrim,
+      .w-900 .window-scrim {
+        padding: 12px;
+      }
+      .w-phone .window-scrim {
+        padding: 0;
+      }
+      .window {
+        display: flex;
+        flex-direction: column;
+        width: min(980px, 100%);
+        height: 100%;
+        max-height: 760px;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+      }
+      .w-phone .window {
+        max-height: none;
+        border-radius: 0;
+      }
+      .window-head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px 12px 18px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .window-head h3 {
+        flex: 1;
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .stage-strip {
+        display: flex;
+        flex: none;
+        gap: 6px;
+        padding: 10px 18px;
+        overflow: hidden;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .strip-stage {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        font: 500 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .strip-stage.on {
+        border-color: var(--fg-2);
+        background: var(--control-press);
+        color: var(--fg-1);
+      }
+      .strip-stage .stage-dot {
+        width: 12px;
+        height: 12px;
+        border-width: 2px;
+      }
+      .run-head {
+        display: flex;
+        flex: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        padding: 10px 18px 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .run-head strong {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .run-tabs {
+        display: flex;
+        flex: none;
+        gap: 2px;
+        padding: 6px 12px 0;
+        overflow: hidden;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .run-thread {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .run-thread-foot {
+        flex: none;
+        padding: 10px 16px 12px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .run-thread-foot .composer {
+        padding: 0;
+        border-top: 0;
+      }
+      .run-thread-foot .session-row {
+        margin: 0 0 6px;
+        border-top: 0;
+      }
+      .run-thread-foot .session-row > .sap-line {
+        padding: 6px 8px;
+        border-radius: var(--radius-md);
+      }
+      .run-thread-foot .reading-slot {
+        min-height: 29px;
+        padding: 0 4px 0 10px;
+      }
+      .run-thread-foot > .sap-line {
+        margin: 0 0 6px;
+        padding: 6px 8px;
+        border-top: 0;
+        border-radius: var(--radius-md);
+      }
+      .run-thread-foot .context-line {
+        margin: 0 0 6px;
+        padding: 4px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .run-closed {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 12px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border-subtle);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .run-closed a {
+        color: var(--fg-1);
+        font-weight: 500;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      /* ---------- The Tooltip (packages/ui overlays: inverse, 300px reading width) ---------- */
+      .tip {
+        position: fixed;
+        z-index: 100;
+        max-width: 300px;
+        padding: 7px 9px;
+        border-radius: var(--radius-md);
+        background: var(--surface-inverse);
+        box-shadow: var(--shadow-2);
+        color: var(--fg-inverse);
+        font: var(--type-caption);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(2px);
+        transition:
+          opacity var(--duration-fast) var(--ease-out),
+          transform var(--duration-fast) var(--ease-out);
+      }
+      .tip.shown {
+        opacity: 1;
+        transform: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+
+      <h2 class="section-title">The reading, in each of its looks</h2>
+      <p class="section-lede">
+        Proposed, at the right end of the row above the message input, as a row under 520px draws it (a chat drawer's,
+        a page's conversation); under 400px, on a phone, the extra words after "·" go. The last one is at a wide row's
+        width (520px and up), where the words grow.
+        Hover or focus a reading for its Tooltip.
+      </p>
+      <div class="looks" id="looks"></div>
+
+      <section class="reference" id="reference" aria-label="What it proposes and what the build needs"></section>
+    </main>
+    <div class="tip" id="tip" role="tooltip"></div>
+
+    <script>
+      /* ---------- Icons (Lucide, as packages/ui's Icon draws them) ---------- */
+      const ICONS = {
+        house:
+          '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+        grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+        users:
+          '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder:
+          '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        sliders:
+          '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+        chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+        chevronRight: '<path d="m9 18 6-6-6-6"/>',
+        chevronDown: '<path d="m6 9 6 6 6-6"/>',
+        chevronLeft: '<path d="m15 18-6-6 6-6"/>',
+        lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        send: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+        flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+        note: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+        fresh: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+        help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+        flame:
+          '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+        layers:
+          '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+        target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+        fork: '<circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"/><path d="M12 12v3"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+      const esc = (text) =>
+        String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+      /* ---------- The words: tokensShort as context-words.ts has it ---------- */
+      function tokensShort(tokens) {
+        const oneDecimal = (value) => value.toFixed(1).replace(/\.0$/, "");
+        if (tokens < 1000) return String(tokens);
+        if (tokens < 10000) return `${oneDecimal(tokens / 1000)}k`;
+        if (tokens < 1000000) return `${Math.round(tokens / 1000)}k`;
+        return `${oneDecimal(tokens / 1000000)}M`;
+      }
+      const tokensWhole = (tokens) => tokens.toLocaleString("en-US");
+
+      /* ---------- The page's controls ---------- */
+      const VIEWS = [
+        { key: "today", label: "Today" },
+        { key: "proposed", label: "Proposed" },
+        { key: "alternative", label: "Alternative: its own line" },
+      ];
+      const PLACES = [
+        { key: "drawer", label: "Chat drawer" },
+        { key: "task", label: "Task page" },
+        { key: "initiative", label: "Initiative page" },
+        { key: "stage", label: "Stage history" },
+      ];
+      const STATES = [
+        { key: "none", label: "No session yet" },
+        { key: "small", label: "Small" },
+        { key: "large", label: "Large" },
+        { key: "near", label: "Near the fresh start" },
+        { key: "fresh", label: "Handed over, started fresh" },
+        { key: "running", label: "A turn running" },
+        { key: "unreported", label: "Engine can't report" },
+      ];
+      const RUNS = [
+        { key: "running", label: "Running" },
+        { key: "ended", label: "Ended" },
+      ];
+      const SUBS = [
+        { key: "off", label: "None" },
+        { key: "on", label: "Running" },
+      ];
+      const WIDTHS = [
+        { key: "wide", label: "Wide" },
+        { key: "900", label: "900px" },
+        { key: "390", label: "390px" },
+      ];
+      const PALETTES = [
+        { key: "light", label: "Light" },
+        { key: "dark", label: "Dark" },
+      ];
+      const MARKS = [
+        { key: "off", label: "Off" },
+        { key: "on", label: "On" },
+      ];
+
+      const state = {
+        view: "proposed",
+        place: "drawer",
+        state: "near",
+        run: "running",
+        subs: "on",
+        width: "wide",
+        palette: "light",
+        marks: "off",
+        /* The hand-off's steps, 0 to 3; the scenario opens on its last. */
+        step: 3,
+        /* A turn running: the live reading climbs from where the last turn left it. */
+        liveTokens: 0,
+      };
+
+      /* ---------- The places and their people ---------- */
+      const PEOPLE = {
+        pam: { name: "Pam", label: "Pam, Office Manager", initials: "P", css: "av-pam" },
+        jim: { name: "Jim", label: "Jim, Developer", initials: "J", css: "av-jim" },
+        michael: { name: "Michael", label: "Michael, CTO", initials: "M", css: "av-michael" },
+        you: { name: "Przemysław", initials: "PT", css: "av-you" },
+      };
+      /* Each place's Thread: its person, its model's context window and its engine. */
+      const THREADS = {
+        drawer: { person: PEOPLE.pam, window: 200000, engine: "Claude Max", title: "Release notes for 0.9" },
+        task: { person: PEOPLE.jim, window: 200000, engine: "Claude Max", title: "this Thread" },
+        initiative: { person: PEOPLE.michael, window: 1000000, engine: "Claude Max", title: "Planning" },
+        stage: { person: PEOPLE.jim, window: 200000, engine: "Claude Max", title: "Implement", stageThread: true },
+      };
+      const thread = () => THREADS[state.place];
+      const HAND_OVER_AT_SHARE = 0.8;
+      /* From this share the reading turns amber: close enough to the fresh start to plan for it. */
+      const NEAR_SHARE = 0.7;
+      const SHARES = { small: 0.06, large: 0.59, near: 0.76, runningFrom: 0.59, runningTo: 0.66, handover: 0.855, after: 0.045 };
+      const at = (share) => Math.round(thread().window * share);
+
+      /* ---------- The reading: what the row above the message input shows ---------- */
+      /*
+       * kind: none | tokens | handover | fresh-next | unreported | hidden.
+       * A Stage Thread has no Handover mark: The Office doesn't start a Stage's session fresh mid-run.
+       */
+      function readingNow() {
+        const { window, stageThread } = thread();
+        const s = state.state;
+        if (state.place === "stage" && state.run === "ended") return { kind: "hidden" };
+        if (s === "none") return { kind: "none" };
+        if (s === "unreported") return { kind: "unreported" };
+        if (s === "small") return { kind: "tokens", tokens: at(SHARES.small) + 1234, window, stageThread };
+        if (s === "large") return { kind: "tokens", tokens: at(SHARES.large), window, stageThread };
+        if (s === "near") return { kind: "tokens", tokens: at(SHARES.near), window, stageThread };
+        if (s === "running") return { kind: "tokens", tokens: state.liveTokens, window, stageThread, live: true };
+        // Handed over: before, writing the note, fresh next, after.
+        if (stageThread) return { kind: "tokens", tokens: at(SHARES.handover), window, stageThread };
+        if (state.step === 0) return { kind: "tokens", tokens: at(0.815), window, live: true };
+        if (state.step === 1) return { kind: "handover", tokens: at(SHARES.handover), window };
+        if (state.step === 2) return { kind: "fresh-next", was: at(SHARES.handover), window };
+        return { kind: "tokens", tokens: at(SHARES.after) + 312, window, afterFresh: at(SHARES.handover) };
+      }
+
+      function isNear({ tokens, window, stageThread }) {
+        return tokens / window >= (stageThread ? HAND_OVER_AT_SHARE : NEAR_SHARE);
+      }
+
+      function readingTip(r) {
+        const { person, engine } = thread();
+        const markAt = tokensShort(Math.round(r.window * HAND_OVER_AT_SHARE));
+        switch (r.kind) {
+          case "none":
+            return `No session yet: it starts with your first message, with a Brief of about 3k tokens. The size shows once ${person.name} has answered.`;
+          case "unreported":
+            return `${engine} doesn't report how full ${person.name}'s session is, so the size can't show here, and The Office can't start a fresh session before the context fills.`;
+          case "handover":
+            return `${person.name}'s last turn ended at ${tokensWhole(r.tokens)} tokens, past the ${markAt} mark (80% of ${tokensShort(r.window)}). The Office asked ${person.name} for a Handover note; the next message starts a fresh session with it.`;
+          case "fresh-next":
+            return `The session ended at ${tokensShort(r.was)} with ${person.name}'s Handover note. Your next message starts a fresh session, briefed with it.`;
+          default: {
+            const share = Math.round((r.tokens / r.window) * 100);
+            const when = r.live ? `read as ${person.name} works, 14:07` : `read after ${person.name}'s last turn, 14:06`;
+            const first = `${tokensWhole(r.tokens)} of ${tokensWhole(r.window)} tokens (${share}%), ${when}.`;
+            const fresh = r.afterFresh
+              ? ` A fresh session since 14:12, started with ${person.name}'s Handover note; the last one reached ${tokensShort(r.afterFresh)}.`
+              : "";
+            const mark = r.stageThread
+              ? " A Stage's session isn't started fresh mid-run, so there is no mark: the engine handles a full context its own way."
+              : ` At ${markAt} (80%), The Office asks ${person.name} for a Handover note and the next message starts a fresh session.`;
+            return first + fresh + mark;
+          }
+        }
+      }
+
+      function meter(r, { empty = false } = {}) {
+        const fill = empty ? "" : `<span class="meter-fill" style="width:${Math.min(100, (r.tokens / r.window) * 100).toFixed(1)}%"></span>`;
+        const mark = r.stageThread ? "" : '<span class="meter-mark"></span>';
+        return `<span class="meter${empty ? " empty" : ""}" aria-hidden="true">${fill}${mark}</span>`;
+      }
+
+      /* The reading's look; `figureClass` lets the live reading flash as it moves. */
+      function readingHtml(r, { figureClass = "" } = {}) {
+        if (r.kind === "hidden") return "";
+        const tip = esc(readingTip(r));
+        const open = (css, label) =>
+          `<span class="reading ${css}" tabindex="0" role="img" aria-label="${esc(label)}" data-tip="${tip}">`;
+        switch (r.kind) {
+          case "none":
+            return `${open("quiet", "Context: no session yet")}<span>No session yet</span>${meter({ window: 1 }, { empty: true })}</span>`;
+          case "unreported":
+            return `${open("quiet", "Context size not reported")}${icon("help", 13)}<span><span class="narrow-hide">Context size not reported</span><span class="narrow-only">Size not reported</span></span></span>`;
+          case "handover":
+            return `${open("near", `Writing a Handover note at ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`)}<span>Writing a Handover note<span class="narrow-hide"> · <strong>${tokensShort(r.tokens)}</strong></span></span>${meter(r)}</span>`;
+          case "fresh-next":
+            return `${open("quiet", `Fresh session next, the last one was ${tokensShort(r.was)}`)}${icon("fresh", 12)}<span>Fresh session next<span class="narrow-hide"> · was ${tokensShort(r.was)}</span></span>${meter({ window: r.window, stageThread: r.stageThread }, { empty: true })}</span>`;
+          default: {
+            const near = isNear(r);
+            const markAt = tokensShort(Math.round(r.window * HAND_OVER_AT_SHARE));
+            const extra = near && !r.stageThread ? `<span class="wide-words"> · starts fresh at ${markAt}</span>` : "";
+            const label = `Context: ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`;
+            return `${open(near ? "near" : "", label)}<span><strong class="figure ${figureClass}">${tokensShort(r.tokens)}</strong> of ${tokensShort(r.window)}<span class="wide-words"> context</span>${extra}</span>${meter(r)}</span>`;
+          }
+        }
+      }
+
+      /* ---------- The Context bar's words, Today and Proposed (context-words.ts) ---------- */
+      function contextBarWords() {
+        const s = state.state;
+        const size = (tokens) => ` · ${tokensShort(tokens)} context`;
+        const today = state.view === "today";
+        if (s === "none") return { choice: false, words: "Starts a session with a Brief ~3k tokens" };
+        // From the turn that passed 80%, the session is full: the Context policy decides fresh (context-policy.ts).
+        if (s === "fresh" && (state.step === 1 || state.step === 2))
+          return { choice: false, words: "Fresh · context full, Handover note written · brief ~3k" };
+        if (s === "unreported")
+          return today
+            ? { choice: true, words: "Continues · cache warm, 41 min left", callout: "Today: no such state" }
+            : { choice: true, words: "Continues · cache warm, 41 min left" };
+        const minutes = { small: 52, large: 38, near: 44, running: 59, fresh: 59 }[s];
+        const tokens =
+          s === "running"
+            ? at(SHARES.runningFrom)
+            : s === "fresh"
+              ? state.step === 0
+                ? at(0.79)
+                : at(SHARES.after) + 312
+              : readingNow().tokens;
+        const base = `Continues · cache warm, ${minutes} min left`;
+        return { choice: true, words: today ? base + size(tokens) : base, sizeDropped: !today };
+      }
+
+      function contextBar() {
+        const w = contextBarWords();
+        const choice = w.choice ? '<span class="seg" aria-hidden="true"><span class="on">Auto</span><span>Continue</span><span>Start fresh</span></span>' : "";
+        const callout = w.callout ? ` <span class="today-callout">${w.callout}</span>` : "";
+        const changed = w.sizeDropped && state.marks === "on" ? ` changed" data-change="Size leaves the words` : "";
+        const tokens = state.state === "none" ? "" : `<span class="context-tokens">· 486k tokens in this Thread</span>`;
+        return `<div class="context-bar${changed}"><div class="context-choice">${choice}<span class="context-label">${esc(w.words)}${callout}</span></div>${tokens}</div>`;
+      }
+
+      /* ---------- The Sub-agents and processes line (adopted) ---------- */
+      function sapLine() {
+        if (state.subs !== "on") return "";
+        const phone = state.width === "390";
+        return `<button class="sap-line" type="button" aria-label="1 sub-agent, 1 process running · 2 ended. Show them.">
+          <span class="sap-mark" aria-hidden="true"><span class="live-dot"></span></span>
+          <span class="sap-text" aria-hidden="true"><span class="counted">1 sub-agent, 1 process running</span> · 2 ended</span>
+          <span class="sap-show" aria-hidden="true">${phone ? "" : "Show"}${icon("chevronRight", 12)}</span>
+        </button>`;
+      }
+
+      /* ---------- What sits right above the message input, by view ---------- */
+      function aboveInput() {
+        const r = readingNow();
+        const marked = (change) => (state.marks === "on" ? ` changed" data-change="${change}` : "");
+        if (state.view === "today" || r.kind === "hidden") return sapLine();
+        if (state.view === "proposed") {
+          const figureClass = state.state === "running" ? "ticked" : "";
+          return `<div class="session-row${marked("New: the reading")}">${sapLine()}<span class="reading-slot">${readingHtml(r, { figureClass })}</span></div>`;
+        }
+        // Alternative: a context line of its own, above the Sub-agents and processes line.
+        return `<div class="context-line${r.kind === "tokens" && isNear(r) ? " near" : ""}${r.kind === "handover" ? " near" : ""}${marked("New: the context line")}">${contextLine(r)}</div>${sapLine()}`;
+      }
+
+      function contextLine(r) {
+        const words = readingHtml(r).replace('<span class="meter', '<span hidden class="meter');
+        let bar;
+        if (r.kind === "tokens" || r.kind === "handover") bar = meter(r);
+        else if (r.kind === "fresh-next") bar = meter({ window: r.window }, { empty: true });
+        else if (r.kind === "none") bar = meter({ window: 1, stageThread: thread().stageThread }, { empty: true });
+        else bar = "";
+        return `<span class="overline">Context</span>${bar || '<span class="grow"></span>'}${words}`;
+      }
+
+      function composer(placeholder) {
+        return `<div class="composer"><div class="composer-field">${esc(placeholder)}</div><span class="composer-send" aria-hidden="true">${icon("send", 16)}</span></div>`;
+      }
+
+      /* ---------- The logs ---------- */
+      const msg = (who, time, text, extra = "") =>
+        `<div class="msg"><span class="avatar ${who.css}">${who.initials}</span><div><div class="msg-head"><strong>${esc(who.name)}</strong><span>${time}</span></div><p class="msg-text">${text}</p>${extra}</div></div>`;
+      const officeLine = (iconName, text) => `<div class="office-line">${icon(iconName, 13)}<span>${text}</span></div>`;
+      const typing = '<span class="typing" aria-label="Answering"><i></i><i></i><i></i></span>';
+
+      function log() {
+        const { person } = thread();
+        const you = PEOPLE.you;
+        if (state.state === "none") {
+          return `<div class="log"><div class="empty-thread">${
+            state.place === "drawer" ? "A new Thread with Pam. Write to start it." : `No Thread with ${person.name} yet. Your first message opens it.`
+          }</div></div>`;
+        }
+        const lines = {
+          drawer: [
+            msg(you, "13:58", "Can you gather what changed in the-office since Monday, for the release notes?"),
+            msg(person, "13:59", "Published since Monday: the status strip, Task card icons and Initiative blocks on the Work board. I grouped them by surface. Shall I capture them as an Idea for Stanley to word?"),
+            msg(you, "14:05", "Yes, capture it."),
+          ],
+          task: [
+            msg(you, "13:52", "Does the search read Stage Threads too, or only chats?"),
+            msg(person, "13:54", "Both: the index takes every Thread's messages, a Stage Thread's included, masked as they are stored. I'm adding the Stage's name to each hit."),
+            msg(you, "14:05", "Good. Show the Stage's name under the hit's title, not beside it."),
+          ],
+          initiative: [
+            msg(you, "13:40", "Split the conflict screen into a Task of its own."),
+            msg(person, "13:43", "Done: <b>Conflict resolution screen</b> waits for <b>Sync queue</b>. Both are in Backlog for Angela to plan."),
+            msg(you, "14:05", "And keep the sync settings out of this Initiative for now."),
+          ],
+          stage: [
+            officeLine("layers", "Implement started · Fresh · as the Stage declares · brief ~6k"),
+            msg(person, "13:52", "Reading the Plan. The index lives in the Conversations module; I'm adding the search table and its migration first."),
+            `<div class="tool-line">${icon("terminal", 12)}npm run test -- thread-search · exit 0</div>`,
+            msg(person, "14:04", "Migration and repository are in. Wiring the controller next."),
+          ],
+        }[state.place];
+
+        const answer = {
+          drawer: "Captured: <b>Release notes for 0.9</b>, Office-wide, for Stanley.",
+          task: "Moved it under the title, in the caption type. The hit's Thread and time stay on the right.",
+          initiative: "Left out: the sync settings stay with the Project for now. The graph has five Tasks.",
+          stage: "The controller answers GET /threads/search with the hits and their Stage names.",
+        }[state.place];
+
+        if (state.state === "running") {
+          lines.push(msg(person, "14:06", state.place === "stage" ? "Running the module's tests." : "Looking into it.", typing));
+          lines.push(`<div class="tool-line">${icon("terminal", 12)}${state.place === "drawer" ? "read_tasks · the-office · published since 2026-11-09" : "npm run test -- thread-search"}</div>`);
+        } else if (state.state === "fresh" && !thread().stageThread) {
+          if (state.step === 0) {
+            lines.push(msg(person, "14:06", "Working on it.", typing));
+          } else {
+            lines.push(msg(person, "14:06", answer));
+            lines.push(officeLine("note", `Context at ${tokensShort(at(SHARES.handover))} of ${tokensShort(thread().window)}: The Office asked ${person.name} for a Handover note.`));
+            if (state.step === 1) {
+              lines.push(msg(person, "14:07", "Writing the Handover note.", typing));
+            } else {
+              lines.push(`<div class="handover-card"><strong>${icon("note", 13)}${person.name}'s Handover note</strong>Where I am: the release notes are an Idea, grouped by surface. What is left: Stanley words them. What to watch: the Task card icons changed the board's tests.</div>`);
+            }
+            if (state.step === 3) {
+              lines.push(officeLine("fresh", "Fresh · context full, Handover note written · brief ~3k"));
+              lines.push(msg(you, "14:12", "Add the board's Saved views fix too."));
+              lines.push(msg(person, "14:12", "Added to the Idea, under the Work board."));
+            }
+          }
+        } else {
+          lines.push(msg(person, "14:06", answer));
+        }
+        return `<div class="log">${lines.join("")}</div>`;
+      }
+
+      /* ---------- The places ---------- */
+      function shell(active, crumb, title, mainHtml, { chatOn = false } = {}) {
+        const phone = state.width === "390";
+        const items = [
+          ["house", "now"],
+          ["grid", "work"],
+          ["users", "people"],
+          ["folder", "projects"],
+          ["sliders", "settings"],
+        ];
+        return `<div class="app${phone ? " w-phone" : ""}">
+          <nav class="rail" aria-label="Surfaces"><span class="rail-mark">O</span>${items
+            .map(([name, key]) => `<span class="rail-item${key === active ? " on" : ""}">${icon(name, 18)}</span>`)
+            .join("")}</nav>
+          <header class="top">${phone ? "" : `<span class="crumb">${esc(crumb)}</span>`}<h1>${esc(title)}</h1><span class="grow"></span>
+            <span class="top-button${chatOn ? " on" : ""}">${icon("chat", 15)}<span>Chat</span></span></header>
+          <main class="main">${mainHtml}</main>
+        </div>`;
+      }
+
+      function nowPage() {
+        const row = (text, badge) => `<div class="now-item"><span class="grow">${text}</span>${badge}</div>`;
+        return `<div class="page"><div class="now-grid">
+          <section class="card"><div class="card-head">Needs you</div><div class="card-body">
+            ${row("Session context: Review Design", '<span class="badge info">Gate</span>')}
+            ${row("Search across Threads: a Decision", '<span class="badge info">Decision</span>')}
+          </div></section>
+          <section class="card"><div class="card-head">In progress</div><div class="card-body">
+            ${row("Search across Threads · Implement", '<span class="badge">Jim</span>')}
+            ${row("Offline sync · Sync queue", '<span class="badge">Jim</span>')}
+            ${row("Conflict resolution screen", '<span class="badge">Angela</span>')}
+          </div></section>
+          <section class="card"><div class="card-head">Since you left</div><div class="card-body">
+            <div class="skel" style="width:82%"></div><div class="skel" style="width:64%"></div><div class="skel" style="width:74%"></div>
+          </div></section>
+        </div></div>`;
+      }
+
+      function chatDrawer() {
+        const { person, title } = thread();
+        const isNew = state.state === "none";
+        const drawer = `<aside class="drawer" aria-label="Chat">
+          <div class="drawer-head"><span class="icon-button">${icon("chevronLeft", 16)}</span>
+            <span class="avatar ${person.css}">${person.initials}</span>
+            <div class="drawer-head-main"><span class="drawer-title">${isNew ? "New Thread" : esc(title)}</span><span class="drawer-sub">${esc(person.label)}</span></div>
+            <span class="switch-mini"><i></i>Details</span><span class="icon-button">${icon("x", 16)}</span></div>
+          ${contextBar()}
+          ${log()}
+          ${aboveInput()}
+          ${composer(`Write to ${person.name}…`)}
+        </aside>`;
+        return shell("now", "Now", "Now", nowPage() + drawer, { chatOn: true });
+      }
+
+      function timelineFoot() {
+        const { person, title } = thread();
+        const answering = state.state === "running" || (state.state === "fresh" && state.step < 2);
+        const to = `<div class="timeline-to"><span>To</span>${
+          state.state === "none" ? "" : `<span class="cache-mark">${icon("flame", 12)}${state.state === "fresh" ? 59 : 41}m</span>`
+        }<span class="avatar xs ${person.css}">${person.initials}</span><strong>${esc(person.label)}</strong><span class="place">, in ${esc(title)}</span></div>`;
+        const placeholder = answering
+          ? `${person.name} is still answering. Send it once they finish.`
+          : state.place === "task"
+            ? `Ask ${person.name} anything about this Task…`
+            : `Write to ${person.name}…`;
+        return `<div class="timeline-foot">${to}${aboveInput()}${composer(placeholder)}${contextBar()}</div>`;
+      }
+
+      function conversationCard(tabs) {
+        const narrow = state.width !== "wide";
+        const tabsHtml = tabs
+          .map((tab, index) => `<span class="convo-tab${index === 0 ? " on" : ""}">${tab}</span>`)
+          .join("");
+        const close = narrow ? `<span class="icon-button">${icon("x", 15)}</span>` : "";
+        return `<section class="card convo${narrow ? " as-drawer" : ""}" aria-label="Conversation">
+          <div class="convo-tabs">${tabsHtml}<span class="grow"></span><span class="switch-mini"><i></i>Details</span>${close}</div>
+          ${log()}
+          ${timelineFoot()}
+        </section>`;
+      }
+
+      function stageRail() {
+        const stages = [
+          ["Plan", "done"],
+          ["Implement", "running"],
+          ["Review & fix", ""],
+          ["Your review", ""],
+          ["Publish", ""],
+        ];
+        return `<section class="card rail-strip" aria-label="Pipeline">${stages
+          .map(
+            ([name, kind], index) =>
+              `${index ? `<span class="rail-link${kind === "running" || kind === "done" ? " done" : ""}"></span>` : ""}<span class="rail-stage"><span class="stage-dot ${kind}">${kind === "done" ? icon("check", 10) : ""}</span><b>${name}</b></span>`,
+          )
+          .join("")}</section>`;
+      }
+
+      function taskPage({ withWindow = false } = {}) {
+        const narrow = state.width !== "wide";
+        const record = `<div class="record-col">
+          <section class="card"><div class="card-head">${icon("note", 15)}Overview</div><div class="card-body">
+            <p>Search every Thread's messages from the top bar, a Stage Thread's included, with each hit's Thread, Stage and time.</p>
+            <div class="skel" style="width:88%"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:78%"></div>
+          </div></section>
+          <section class="card"><div class="card-head">${icon("target", 15)}Definition of Done</div><div class="card-body">
+            <div class="skel" style="width:76%"></div><div class="skel" style="width:58%"></div>
+          </div></section>
+        </div>`;
+        const convo = conversationCard([
+          `<span class="avatar xs av-jim">J</span>Jim`,
+          `<span class="avatar xs" style="background:var(--teal-500)">A</span>Angela`,
+        ]);
+        const body = narrow
+          ? `<div class="page">${recordHead()}${stageRail()}${record}</div>${withWindow ? "" : `<div class="drawer-scrim"></div>${convo}`}`
+          : `<div class="page">${recordHead()}${stageRail()}<div class="columns">${record}${withWindow ? '<section class="card convo"></section>' : convo}</div></div>`;
+        return body;
+      }
+
+      function recordHead() {
+        return `<div class="record-head"><span class="badge">the-office</span><h2>Search across Threads</h2><span class="badge info">In progress · Implement</span></div>`;
+      }
+
+      function initiativePage() {
+        const narrow = state.width !== "wide";
+        const task = (title, kind, words) => `<span class="graph-task ${kind}"><b>${title}</b>${words}</span>`;
+        const record = `<div class="record-col">
+          <section class="card"><div class="card-head">${icon("target", 15)}Outcome</div><div class="card-body">
+            <p>Notes edited offline sync once the device is back, and a conflict is settled on a screen of its own.</p>
+          </div></section>
+          <section class="card"><div class="card-head">${icon("fork", 15)}Tasks</div><div class="card-body"><div class="graph">
+            ${task("Sync queue", "running", "In progress · Jim")}
+            ${task("Conflict resolution screen", "", "Backlog")}
+            ${task("Offline badge", "done", "Done")}
+          </div></div></section>
+        </div>`;
+        const head = `<div class="record-head">${icon("flag", 16)}<h2>Offline sync</h2><span class="badge success">Active</span><span class="badge">not-astray</span></div>`;
+        const convo = conversationCard([`<span class="avatar xs av-michael">M</span>Michael`]);
+        return narrow
+          ? `<div class="page">${head}${record}</div><div class="drawer-scrim"></div>${convo}`
+          : `<div class="page">${head}<div class="columns" style="height:calc(100% - 52px)">${record}${convo}</div></div>`;
+      }
+
+      function stageWindow() {
+        const { person } = thread();
+        const ended = state.run === "ended";
+        const strip = [
+          ["Plan", "done"],
+          ["Implement", ended ? "done" : "running"],
+          ["Review & fix", ""],
+          ["Your review", ""],
+          ["Publish", ""],
+        ]
+          .map(([name, kind]) => `<span class="strip-stage${name === "Implement" ? " on" : ""}"><span class="stage-dot ${kind}"></span>${name}</span>`)
+          .join("");
+        const tabs = ["Summary", "Thread", "Sub-agents and processes · 3"]
+          .slice(0, state.subs === "on" ? 3 : 2)
+          .map((tab) => `<span class="convo-tab${tab === "Thread" ? " on" : ""}">${tab}</span>`)
+          .join("");
+        const foot = ended
+          ? `${state.subs === "on" ? `<div class="run-thread-foot" style="padding-bottom:0;border-top:1px solid var(--border-subtle)">${sapLine()}</div>` : ""}
+             <div class="run-closed">${icon("lock", 14)}<span>This run ended at 14:31. To write to ${person.name}, use the Task's conversation.</span><a>Open ${person.name}'s Thread</a></div>`
+          : `<div class="run-thread-foot"><div class="timeline-to"><span>To</span><span class="avatar xs ${person.css}">${person.initials}</span><strong>${person.name}</strong><span class="place" style="margin-left:0">, in Implement: lands at the next safe point</span></div>
+               ${aboveInput()}${composer(`Write to ${person.name} while the Stage runs…`)}</div>`;
+        return `<div class="window-scrim"><section class="window" role="dialog" aria-label="Stage history">
+          <div class="window-head"><h3>Stage history</h3><span class="icon-button">${icon("x", 16)}</span></div>
+          <div class="stage-strip">${strip}</div>
+          <div class="run-head"><strong>Implement · run 1</strong><span>${person.name} · ${ended ? "Done · 39 min" : "Running · 14 min"}</span></div>
+          <div class="run-tabs">${tabs}</div>
+          <div class="run-thread">${log()}${foot}</div>
+        </section></div>`;
+      }
+
+      function renderFrame() {
+        const frame = document.getElementById("frame");
+        frame.className = `frame w-${state.width}${state.marks === "on" ? " marks" : ""}`;
+        let html;
+        if (state.place === "drawer") html = chatDrawer();
+        else if (state.place === "task") html = shell("work", "Work › Tasks", "Search across Threads", taskPage());
+        else if (state.place === "initiative") html = shell("work", "Work › Initiatives", "Offline sync", initiativePage());
+        else html = shell("work", "Work › Tasks", "Search across Threads", taskPage({ withWindow: true }) + stageWindow());
+        frame.innerHTML = html;
+        frame.querySelectorAll(".log").forEach((el) => (el.scrollTop = el.scrollHeight));
+      }
+
+      /* ---------- The bar and the note ---------- */
+      function segments(name, key, options, current) {
+        return `<div class="control"><span class="control-label">${name}</span><div class="segments">${options
+          .map((o) => `<button type="button" data-set="${key}" data-value="${o.key}" aria-pressed="${o.key === current}">${o.label}</button>`)
+          .join("")}</div></div>`;
+      }
+      function renderBar() {
+        document.getElementById("bar").innerHTML = `
+          <span class="bar-title">Session context</span><span class="bar-tag">PROPOSAL</span>
+          ${segments("View", "view", VIEWS, state.view)}
+          ${segments("Place", "place", PLACES, state.place)}
+          ${state.place === "stage" ? segments("Run", "run", RUNS, state.run) : ""}
+          <span class="bar-break"></span>
+          ${segments("State", "state", STATES, state.state)}
+          ${segments("Sub-agents", "subs", SUBS, state.subs)}
+          <span class="bar-break"></span>
+          ${segments("Width", "width", WIDTHS, state.width)}
+          ${segments("Palette", "palette", PALETTES, state.palette)}
+          ${segments("Mark what changes", "marks", MARKS, state.marks)}`;
+      }
+
+      const STATE_NOTES = {
+        none: "A Thread with no session yet: nothing has been read. The Context bar already says what the first message starts (\"Starts a session with a Brief ~3k tokens\"), so the reading says only \"No session yet\", over an empty meter, and keeps its place.",
+        small: "A small context: 13k of a 200k window (6%). Grey, as nothing is near.",
+        large: "A large one: 118k of 200k (59%). Still grey: the hand-off is a while off.",
+        near: "Near the fresh start: from 70% the reading turns amber, and on a wide row says where it starts fresh. The mark on the meter is the 80% where The Office asks for a Handover note.",
+        fresh: "Past 80% at a turn's end, The Office asks for a Handover note, the session ends, and the next message starts fresh with a Brief: the size drops. Step through it, or replay it.",
+        running: "While a turn runs, the reading moves as the person works (read after each of the model's answers in the turn), not only at the turn's end. Today the size in the Context bar waits for the turn to end.",
+        unreported: "An engine that can't report its context (no contextUsage capability). Every engine built today reports it; the state is for an engine that doesn't, or a reading that failed.",
+      };
+      const PLACE_NOTES = {
+        drawer: "In the chat drawer the Context bar sits under the Thread's head; the row above the input is new.",
+        task: "On the Task page, in the person's tab of the conversation (its drawer on a narrow page): the row sits between the To line and the input, the Context bar under it.",
+        initiative: "On an Initiative's page, in its conversation (its drawer on a narrow page); Michael's model has a 1M window, so the figures read in hundreds of k.",
+        stage: "In the Stage history's Thread tab of a run. While the run is running its Thread takes a message, so it has the row; a Stage's session has no 80% mark. Once the run ended, the tab shows no reading.",
+      };
+      const VIEW_NOTES = {
+        today: "<strong>Today.</strong> The size shows only inside the Context bar's words; the Stage history shows none.",
+        proposed: "<strong>Proposed.</strong> The reading sits at the right end of the row above the message input, beside the Sub-agents and processes line; the size leaves the Context bar's words.",
+        alternative: "<strong>Alternative: its own line.</strong> A context line of its own, full width, above the Sub-agents and processes line: a longer meter, at the cost of a row in every Thread.",
+      };
+
+      function renderNote() {
+        const label = STATES.find((s) => s.key === state.state).label;
+        let actions = "";
+        if (state.state === "fresh" && !thread().stageThread) {
+          const steps = ["Before", "Handover note", "Fresh session next", "After"];
+          actions = `<span class="note-actions">${steps
+            .map((step, index) => `<button type="button" class="pill" data-step="${index}" aria-pressed="${index === state.step}">${index + 1}. ${step}</button>`)
+            .join("")}<button type="button" class="pill" data-action="replay">Replay</button></span>`;
+        }
+        if (state.state === "running") actions = '<span class="note-actions"><button type="button" class="pill" data-action="replay">Replay the turn</button></span>';
+        const stageNote =
+          state.place === "stage" && state.state === "fresh"
+            ? " A Stage Thread is never handed over mid-run (stage-threads.ts sets handingOver false), so here it reads past 80% in amber, with no mark."
+            : "";
+        document.getElementById("note").innerHTML = `<span>${VIEW_NOTES[state.view]} <strong>${label}.</strong> ${STATE_NOTES[state.state]}${stageNote} ${PLACE_NOTES[state.place]}</span>${actions}`;
+      }
+
+      /* ---------- The looks under the frame ---------- */
+      function renderLooks() {
+        const keep = state.place;
+        const looks = [];
+        const add = (label, r, wide = false) => looks.push({ label, r, wide });
+        state.place = "drawer";
+        add("<b>No session yet</b>: nothing read; the Context bar says the Brief", { kind: "none" });
+        add("<b>Small</b>: grey", { kind: "tokens", tokens: 13234, window: 200000 });
+        add("<b>Large</b>: still grey under 70%", { kind: "tokens", tokens: 118000, window: 200000 });
+        add("<b>Near the fresh start</b>: amber from 70%", { kind: "tokens", tokens: 152000, window: 200000 });
+        add("<b>Writing a Handover note</b>: past 80% at the turn's end", { kind: "handover", tokens: 171000, window: 200000 });
+        add("<b>Fresh session next</b>: the session ended with its note", { kind: "fresh-next", was: 171000, window: 200000 });
+        add("<b>After a fresh start</b>: the size dropped", { kind: "tokens", tokens: 9312, window: 200000, afterFresh: 171000 });
+        add("<b>A 1M window</b>: the same rule, in hundreds of k", { kind: "tokens", tokens: 312000, window: 1000000 });
+        add("<b>A Stage's Thread</b>: no 80% mark, amber from 80%", { kind: "tokens", tokens: 172000, window: 200000, stageThread: true });
+        add("<b>Engine can't report</b>: no meter, the reason in the Tooltip", { kind: "unreported" });
+        add("<b>Near, on a wide row</b> (520px and up): the words grow", { kind: "tokens", tokens: 152000, window: 200000 }, true);
+        document.getElementById("looks").innerHTML = looks
+          .map(
+            ({ label, r, wide }) =>
+              `<div class="look${wide ? " look-wide" : ""}"><span class="look-label">${label}</span><div class="look-box"><div class="session-row"><span class="reading-slot">${readingHtml(r)}</span></div></div></div>`,
+          )
+          .join("");
+        state.place = keep;
+      }
+
+      /* ---------- What it proposes, what the build needs ---------- */
+      function renderReference() {
+        document.getElementById("reference").innerHTML = `
+          <div>
+            <h2>What it proposes</h2>
+            <ol>
+              <li><b>The reading</b>: the session's current context size against its model's window, as "41k of 200k" with a small meter, in the caption type, the figure in the strong weight. On a row 520px wide or more it says "41k of 200k context"; under 400px, on a phone, a state's extra words after "·" go (the Tooltip keeps them), so the Sub-agents and processes line keeps its room. The meter is 44 × 4px, its fill grey; a 2px mark stands at 80%, where The Office asks for a Handover note (<code>handOverAtShare</code>).</li>
+              <li><b>Its colour</b>: grey under 70% of the window; <b>amber from 70%</b>, adding "· starts fresh at 160k" where the row is wide. No red: a fresh start is the Context policy working, not a failure. A Stage's Thread has no mark and turns amber from 80%.</li>
+              <li><b>Where: the row right above the message input</b>, in every Thread that takes a message: a chat Thread in the chat drawer, a person's tab of the Task page's conversation, an Initiative's conversation, and a running run's Thread tab in the Stage history. The reading keeps the row's <b>right end at its own width</b>; the Sub-agents and processes line (adopted) fills the rest from the left. So the line coming or going never moves the reading, and the reading's words changing never move the line; a hairline divides them. With no line, the reading sits alone at the right.</li>
+              <li><b>Where not</b>: a Thread that takes no message (a Done Task's, an ended Initiative's, a run that ended): nothing more goes into its session. An <b>ended run's Thread tab</b> shows no reading: the reading belongs to the Thread's current session, which a later run may have moved on, and the run's Summary already has its tokens.</li>
+              <li><b>The Tooltip</b> (on hover and keyboard focus, a focus stop named "Context: 41k of 200k") says it whole: "41,234 of 200,000 tokens (21%), read after Pam's last turn, 14:06. At 160k (80%), The Office asks Pam for a Handover note and the next message starts a fresh session." The reading is no button: it asks nothing.</li>
+              <li><b>Live while a turn runs</b>: the reading moves as the person works, read after each of the model's answers in the turn, its figure flashing softly as it changes. The Handover note is still asked for only at a turn's end, as today.</li>
+              <li><b>The Context bar's words lose the size</b>, so it shows once: "Continues · cache warm, 41 min left · 41k context" becomes "Continues · cache warm, 41 min left". The log's context lines keep theirs ("Continuing · cache warm · 41k context"): they record the moment, not the session now.</li>
+            </ol>
+            <h3>Today, Proposed, Alternative</h3>
+            <p><b>Proposed</b> costs one row only where the Sub-agents and processes line didn't already draw one, and keeps every Thread's foot alike. <b>The Alternative</b>, a context line of its own over the whole width, gives the meter room to read at a glance from afar, but adds a second row whenever the Sub-agents and processes line shows, about 30px in a 390px chat drawer where the log already has little; its longer meter says no more than the short one, as the figure carries the meaning. A third place was weighed: the right end of the To line, which the Task and Initiative pages have, but the chat drawer and a chat Thread have no To line, so the reading would sit in two places.</p>
+          </div>
+
+          <div>
+            <h2>The states</h2>
+            <table>
+              <thead><tr><th>State</th><th>The reading</th><th>The Context bar</th></tr></thead>
+              <tbody>
+                <tr><td>No session yet</td><td>"No session yet", an empty dashed meter</td><td>"Starts a session with a Brief ~3k tokens", as today</td></tr>
+                <tr><td>Small</td><td>"13k of 200k", grey</td><td>"Continues · cache warm, 52 min left"</td></tr>
+                <tr><td>Large</td><td>"118k of 200k", grey</td><td>"Continues · cache warm, 38 min left"</td></tr>
+                <tr><td>Near the fresh start</td><td>"152k of 200k", amber; wide: "· starts fresh at 160k"</td><td>"Continues · cache warm, 44 min left"</td></tr>
+                <tr><td>Past 80%, at the turn's end</td><td>"Writing a Handover note · 171k", amber</td><td>no choice while the note is written</td></tr>
+                <tr><td>Handed over</td><td>"Fresh session next · was 171k", an empty meter</td><td>"Fresh · context full, Handover note written · brief ~3k", as today</td></tr>
+                <tr><td>Started fresh</td><td>"9.3k of 200k", the Tooltip naming the last session's 171k</td><td>"Continues · cache warm, 59 min left"</td></tr>
+                <tr><td>A turn running</td><td>moves live: 118k, 120k … 131k</td><td>unchanged until the turn ends</td></tr>
+                <tr><td>Engine can't report</td><td>"Context size not reported", no meter</td><td>its words, with no size</td></tr>
+              </tbody>
+            </table>
+            <h3>The Context bar's words</h3>
+            <table>
+              <thead><tr><th>Today</th><th>Proposed</th></tr></thead>
+              <tbody>
+                <tr><td>Continues · cache warm, 41 min left <del>· 41k context</del></td><td>Continues · cache warm, 41 min left</td></tr>
+                <tr><td>Continues · Pam's session default <del>· 41k context</del></td><td>Continues · Pam's session default</td></tr>
+                <tr><td>Continues · cache cold, but only 12k context</td><td>Continues · cache cold, but the context is small</td></tr>
+                <tr><td>Continues anyway · cache cold, so the 48k context is read again in full</td><td>Continues anyway · cache cold, so the whole context is read again</td></tr>
+                <tr><td>Starts fresh · cache cold, 48k context · Brief ~3k tokens</td><td>Starts fresh · cache cold, context large · Brief ~3k tokens</td></tr>
+                <tr><td>Continuing · cache warm · 41k context (no choice offered)</td><td>Continuing · cache warm</td></tr>
+              </tbody>
+            </table>
+            <p>Each choice's Tooltip on Auto, Continue and Start fresh takes the same words. The log's context lines and the fire alarm's resume words ("The Stage runs again in its Thread: Continuing · cache warm · 41k context.") keep the size: they aren't beside a reading.</p>
+          </div>
+
+          <div>
+            <h2>What the build needs</h2>
+            <h3>New data</h3>
+            <ul>
+              <li><b>The context window, kept with the session</b>: <code>ThreadSession.contextWindow</code> beside <code>contextTokens</code>, from <code>readContextUsage().window</code> at each turn's end (<code>thread-runner.ts</code> <code>turnEnded</code>, <code>stage-threads.ts</code>), a nullable column and its migration; null before the first reading.</li>
+              <li><b>Sent with the Thread</b>: <code>ThreadContext.contextWindow: number | null</code> in <code>packages/contracts/src/conversations.ts</code>. The reading's states come from what is there already: no session (<code>reason</code> new-thread or another-person), a reading (<code>contextWindow</code> set), not reported (a session, <code>contextWindow</code> null and <code>contextTokens</code> 0). A session read before this change has tokens but no window until its next turn: it shows "41k context" with no meter, never "not reported".</li>
+              <li><b>The live reading</b>: a session event <code>context-read</code> (<code>{ tokens, window }</code>) on the Engine's port, from each of the model's answers within a turn: Claude Code's assistant message <code>usage</code> (input, cache read and cache creation tokens, as <code>readContextUsage</code> counts them), the API engine's per-request prompt tokens (its estimate when the server counts none). Conversations keeps it on the session and sends a web event <b><code>thread.context-read</code></b> with <code>{ contextTokens, contextWindow }</code>, at most one every two seconds, as <code>thread.tokens-counted</code> is. <code>readContextUsage()</code> at the turn's end stays the reading the Context policy decides on, and <code>thread.turn-ended</code> re-reads the Thread as today.</li>
+              <li><b>An engine that can't report</b>: the runners read the context only with the <code>contextUsage</code> capability (today <code>readContextUsage</code> would throw <code>CapabilityMissing</code> at the turn's end) and leave <code>contextWindow</code> null.</li>
+            </ul>
+            <h3>In the web app</h3>
+            <ul>
+              <li>A part of its own, <code>ContextReading</code> (<code>apps/web/src/shell/conversation/context-reading.tsx</code>), its words a pure function in <code>context-words.ts</code> (<code>contextReadingWords</code>) with unit tests; the meter in CSS beside the Sub-agents and processes line's.</li>
+              <li><code>ThreadComposer</code> draws the row: the Sub-agents and processes line and the reading, so every place a Thread takes a message gets it; not above the read-only note. <code>run-details.tsx</code>'s running run gets it through <code>ThreadComposer</code>; its ended run doesn't.</li>
+              <li><code>contextChoiceWords</code> and the bar's no-choice label drop the size; <code>contextLabel</code> keeps it for the log's lines.</li>
+              <li><code>apps/web/src/api/</code>: <code>thread.context-read</code> sets the Thread's <code>context</code> in its query, as <code>thread.tokens-counted</code> sets its tokens.</li>
+              <li><b>Tests that move</b>: <code>context-words.full.test.ts</code> (the bar's words, lines 116–140); <code>people.e2e.ts</code> lines 1121–1173, 3490, 3571 and 3579 read the size in the bar's words. New: the reading's words and colours, the row with and without the line, and an e2e test that a turn's end updates the reading.</li>
+            </ul>
+            <h3>The spec lines that would change</h3>
+            <ul>
+              <li><b>Spec 2.5</b>, "Shown": "on every Thread under the composer, in words with what and why ('Continues · cache warm, 41 min left')…; above the message input, the session's context size against its model's window, with a meter marking where The Office asks for a Handover note, amber from 70%, live while a turn runs." "No automatic compaction" gains: "In a Stage's session, The Office doesn't ask: the Stage's Handover note ends it" (see the open question).</li>
+              <li><b>Spec 4</b>, the conversation's foot: the row above the message input holds the Sub-agents and processes line and, at its right end, the context reading.</li>
+              <li><b>Spec 4.1</b>, Components: "A figure against a limit reads as '41k of 200k' with a small meter; it turns amber as it nears the limit, and red only for a failure." And the row: "Above the message input, one row: the Sub-agents and processes line from the left, the context reading at the right end, at its own width."</li>
+              <li><b>Spec 2.9</b>'s line paragraph: it shares its row with the context reading.</li>
+            </ul>
+            <h3>Open question for the Gate</h3>
+            <p>A Stage's session is never handed over mid-run (<code>stage-threads.ts</code> sets <code>handingOver</code> to false), while spec 2.5 says near the limit The Office asks for the note. The design shows a Stage Thread without the mark, as the code behaves; whether a Stage's session should hand over too is a Context policy question of its own.</p>
+          </div>
+
+          <div>
+            <h2>About the mock</h2>
+            <ul>
+              <li>The same states in the four places: Pam's chat in the chat drawer over Now, Jim's tab on the Task "Search across Threads", Michael's conversation on the Initiative "Offline sync" (a 1M window), and Jim's Implement run in the Stage history.</li>
+              <li>The Context bar is the app's: in the chat drawer under the Thread's head, on a page under the input. The Sub-agents and processes line is the adopted one; "Sub-agents" switches it on and off, to show the reading doesn't move.</li>
+              <li>Handed over, started fresh steps through the turn past 80%, the Handover note, the fresh session next and the first answer after it. A turn running climbs from 118k to 131k; Replay starts it again.</li>
+              <li>Mark what changes outlines what is new and what loses its words. Like the other pages, it uses the Geist fonts only where they are installed, and makes no network requests.</li>
+              <li><b>This design's names</b>, not glossary terms: the reading, the meter and its mark, the row (above the message input), the context line (the Alternative), and the scenarios. Thread, session, Brief, Handover note, Context policy, Stage and Sub-agent are the glossary's.</li>
+            </ul>
+          </div>`;
+      }
+
+      /* ---------- Motion: the live reading, the hand-off's replay ---------- */
+      let timer = null;
+      function stopMotion() {
+        if (timer) clearInterval(timer);
+        timer = null;
+      }
+      function startRunning() {
+        stopMotion();
+        state.liveTokens = at(SHARES.runningFrom);
+        const end = at(SHARES.runningTo);
+        timer = setInterval(() => {
+          state.liveTokens = Math.min(end, state.liveTokens + Math.round(thread().window * (0.006 + Math.random() * 0.008)));
+          updateReadingOnly();
+          if (state.liveTokens >= end) stopMotion();
+        }, 1300);
+      }
+      /* Only the reading changes, so the meter's fill eases to its new width. */
+      function updateReadingOnly() {
+        const r = readingNow();
+        const frame = document.getElementById("frame");
+        const reading = frame.querySelector(".reading");
+        // Today has no reading: its Context bar keeps the last turn's size until the turn ends.
+        if (!reading) return;
+        const fill = reading.closest(".session-row, .context-line")?.querySelector(".meter-fill");
+        const figure = reading.querySelector(".figure");
+        if (figure) {
+          figure.textContent = tokensShort(r.tokens);
+          figure.classList.remove("ticked");
+          void figure.offsetWidth;
+          figure.classList.add("ticked");
+        }
+        if (fill) fill.style.width = `${((r.tokens / r.window) * 100).toFixed(1)}%`;
+        reading.setAttribute("data-tip", readingTip(r));
+        reading.setAttribute("aria-label", `Context: ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`);
+        reading.classList.toggle("near", isNear(r));
+      }
+      function replayHandOver() {
+        stopMotion();
+        state.step = 0;
+        render();
+        timer = setInterval(() => {
+          state.step += 1;
+          render({ keepMotion: true });
+          if (state.step >= 3) stopMotion();
+        }, 1800);
+      }
+
+      /* ---------- Rendering, and the page's own controls ---------- */
+      function render({ keepMotion = false } = {}) {
+        document.documentElement.dataset.palette = state.palette;
+        document.documentElement.dataset.theme = state.palette;
+        if (!keepMotion) stopMotion();
+        renderBar();
+        renderNote();
+        renderFrame();
+      }
+
+      document.addEventListener("click", (event) => {
+        const set = event.target.closest("[data-set]");
+        if (set) {
+          const key = set.dataset.set;
+          state[key] = set.dataset.value;
+          if (key === "state" || key === "place" || key === "view") state.step = 3;
+          if (state.state === "running") state.liveTokens = at(SHARES.runningFrom);
+          render();
+          if (state.state === "running") startRunning();
+          return;
+        }
+        const step = event.target.closest("[data-step]");
+        if (step) {
+          state.step = Number(step.dataset.step);
+          render();
+          return;
+        }
+        if (event.target.closest('[data-action="replay"]')) {
+          if (state.state === "running") {
+            render();
+            startRunning();
+          } else replayHandOver();
+        }
+      });
+
+      /* The Tooltip: on hover and keyboard focus, above its trigger, kept inside the window. */
+      const tip = document.getElementById("tip");
+      function showTip(trigger) {
+        tip.textContent = trigger.getAttribute("data-tip");
+        tip.classList.add("shown");
+        const box = trigger.getBoundingClientRect();
+        const tipBox = tip.getBoundingClientRect();
+        const left = Math.min(Math.max(8, box.left + box.width / 2 - tipBox.width / 2), window.innerWidth - tipBox.width - 8);
+        const above = box.top - tipBox.height - 8;
+        tip.style.left = `${left}px`;
+        tip.style.top = `${above > 8 ? above : box.bottom + 8}px`;
+      }
+      const hideTip = () => tip.classList.remove("shown");
+      document.addEventListener("mouseover", (event) => {
+        const trigger = event.target.closest("[data-tip]");
+        if (trigger) showTip(trigger);
+        else hideTip();
+      });
+      document.addEventListener("focusin", (event) => {
+        const trigger = event.target.closest("[data-tip]");
+        if (trigger) showTip(trigger);
+      });
+      document.addEventListener("focusout", hideTip);
+      document.addEventListener("scroll", hideTip, true);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hideTip();
+      });
+
+      state.liveTokens = at(SHARES.runningFrom);
+      render();
+      renderLooks();
+      renderReference();
+    </script>
+  </body>
+</html>
