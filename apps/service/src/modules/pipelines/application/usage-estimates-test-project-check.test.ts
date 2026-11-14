@@ -85,7 +85,7 @@ interface KeptPair {
 }
 
 /**
- * Task 37's check on the Test Project (docs/tasks/37-usage-estimates.md, steps 7 to 7c): two
+ * Task 37's check on the Test Project: two
  * one-line Tasks on Quick fix edited down to Implement, on the Agent SDK engine and Haiku. The first
  * runs to Done; the usage query's raw answers and the pairs of readings the Engine judged show how
  * the Office-wide window ratio is learnt. Then the Claude Code engines' 5-hour cap is lowered below the use, so the

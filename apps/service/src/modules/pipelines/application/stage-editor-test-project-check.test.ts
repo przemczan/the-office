@@ -33,7 +33,7 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 15's check on the Test Project (docs/tasks/15-stage-editor.md, step 4): a Ready Task on
+ * Task 15's check on the Test Project: a Ready Task on
  * Quick fix is edited for the Task through the API, as the Stage editor saves it: a Gate before
  * Publish, and Implement on low effort. The walk must run the edited copy, Implement's session on
  * the Stage's effort (its model the engine cascade's), and wait at the Gate; the library's

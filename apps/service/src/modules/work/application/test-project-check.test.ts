@@ -60,7 +60,7 @@ import { WorkModule } from "../work.module.js";
 import { GitHubModule } from "../../github/index.js";
 
 /**
- * Task 10's check on the Test Project (docs/tasks/10-work.md): through the API, as the web does,
+ * Task 10's check on the Test Project: through the API, as the web does,
  * an Idea is captured and shaped into a Task, a document is attached, the board is reordered, and
  * the Planner, on Haiku, reads that Task, captures an Idea and creates a Task in a real chat
  * session. Live, so it runs only when asked: OFFICE_ENGINE_TESTS=live and

@@ -37,7 +37,7 @@ import { FireAlarmRepositoryForTests } from "../ports/work-ports.fixtures.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 27's check on the Test Project (docs/tasks/27-notifications-and-fire-alarm.md): a Task whose
+ * Task 27's check on the Test Project: a Task whose
  * only Stage is Quick fix's Implement, worked by the Developer on Haiku. The user sounds the alarm
  * at the Agent's first tool call; Now shows it stopping, the turn ends at its safe point (before the
  * hard stop) and the run is held by the alarm; the all clear's plan says the Stage continues warm,

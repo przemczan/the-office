@@ -143,7 +143,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 
 - **Run:** a session under the Office's options on a workstation with user-scope installed plugins, user skills, synced skills and synced plugins.
 - **Observed:** none of them loads. `~/.claude/commands` is absent on the Windows workstation, so that part proves nothing there. On the Linux container none of them is present, so the Linux run proves nothing here; the Windows run is the evidence. No variant with sync on was run, since it could write into `~/.claude`.
-- **Meaning:** `settingSources: ['project']` with the sync settings off keeps the user's own Claude Code setup out of Office sessions; no per-session `CLAUDE_CONFIG_DIR` is needed. From task 47 each Claude Code engine runs with its own folder as `CLAUDE_CONFIG_DIR` ([5.4](spec/5.4-the-engine.md#defaults)); this check has not been re-run under one (the user dropped it from task 47's live check on 2026-11-03, their live run covering it). The engine check strips `CLAUDE_CONFIG_DIR` from its sessions and reads only `~/.claude`, so a re-run needs a `--config-dir` option; it is on the [tasks' after-tier-3 list](tasks/README.md).
+- **Meaning:** `settingSources: ['project']` with the sync settings off keeps the user's own Claude Code setup out of Office sessions; no per-session `CLAUDE_CONFIG_DIR` is needed. From task 47 each Claude Code engine runs with its own folder as `CLAUDE_CONFIG_DIR` ([5.4](spec/5.4-the-engine.md#defaults)); this check has not been re-run under one (the user dropped it from task 47's live check on 2026-11-03, their live run covering it). The engine check strips `CLAUDE_CONFIG_DIR` from its sessions and reads only `~/.claude`, so a re-run needs a `--config-dir` option, which is still to be added.
 
 ### skills.plugin-folder-reads
 
@@ -270,7 +270,7 @@ Slow: 11 minutes each (`ENGINE_CHECK_LONG_TOOL_MINUTES`); run only with `--inclu
 
 ### engine.usage-window-refusal
 
-Added 2026-11-13 (Task 3de35a58). **Not run live yet:** no window of the account ran out while the Task ran, and an Agent's session has no signed-in engine to run it with. The live run is listed in the after-tier-3 fixes ([docs/tasks/README.md](tasks/README.md)).
+Added 2026-11-13 (Task 3de35a58). **Not run live yet:** no window of the account ran out while the Task ran, and an Agent's session has no signed-in engine to run it with. The live run is still pending.
 
 - **Run:** the usage query first, which makes no model call. While no window it reports (`five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet`, `seven_day_oauth_apps`, each `model_scoped` window) is at 100%, the check is **skipped** with that reason and spends no turn. Otherwise one turn, recording which message kinds arrive, the `rate_limit_event`'s statuses and fields, the assistant messages' `error` and whether their text is a usage limit, whether a tool call was made, and the result's `subtype`, `is_error`, `terminal_reason`, `api_error_status` and whether its text is a usage limit. The texts and reset times stay in the report, as they vary by account and hour.
 - **Evidence so far** (no recorded trace of a real refused turn could be found: the Stage histories of 2026-11-12/13 show none, and the engine's transcripts are out of an Agent's reach; read instead from the pinned SDK's typings and the pinned binary's code, 0.3.310):

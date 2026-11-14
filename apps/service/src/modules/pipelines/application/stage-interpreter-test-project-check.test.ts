@@ -42,7 +42,7 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 12's check on the Test Project (docs/tasks/12-stage-interpreter.md): a small real change,
+ * Task 12's check on the Test Project: a small real change,
  * planned as in task 11's check, is started on Quick fix without its Publish Stage (Publish is task
  * 14), seeded into the Task as its own Stages; the Developer works it on Haiku and the Tests Stage
  * runs the Project's tests. The Task's branch and worktree are discarded after. Live, so it runs

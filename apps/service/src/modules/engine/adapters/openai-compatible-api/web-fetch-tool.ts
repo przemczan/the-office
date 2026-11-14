@@ -26,7 +26,7 @@ const webFetchInput = z.object({
 /**
  * Claude Code's WebFetch, under its name and input. Claude Code answers `prompt` with a small
  * model; this loop has only the session's own model, so the page itself is the answer, cut to a
- * length, with the prompt for the model to answer from it (docs/tasks/35-api-based-engine.md).
+ * length, with the prompt for the model to answer from it.
  */
 export function webFetchTool(limits: WebPageLimits = DEFAULT_WEB_PAGE_LIMITS): BuiltInTool {
   return builtInTool({

@@ -41,7 +41,7 @@ function moduleViolation({ importerPath, importerWorkspace, target }: Import): s
     : undefined;
 }
 
-/** Keeps the web app's areas apart: api, shell and each surface (Build defaults). */
+/** Keeps the web app's areas apart: api, shell and each surface (AGENTS.md, Project layout and defaults). */
 const webLayers: Rule = {
   meta: { type: "problem", docs: { description: "Keep the web app's areas apart." } },
   create: (context) =>

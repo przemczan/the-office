@@ -377,7 +377,7 @@ describe("SessionSkills", () => {
 });
 
 /**
- * Task 07's check on the Test Project (docs/tasks/07-skills.md): a skill written, reviewed, turned
+ * Task 07's check on the Test Project: a skill written, reviewed, turned
  * on and given to everyone; a session in a worktree of the Test Project, with a Project skill of
  * its own, that lists exactly those two; the context the listing costs; and an edit that the next
  * session gets while the first keeps its version. Live sessions, so it runs only when asked:

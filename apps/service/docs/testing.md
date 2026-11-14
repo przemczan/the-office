@@ -20,6 +20,10 @@ Tests sit beside their code as `*.test.ts`; the support they share is in `test/`
 - **A file's tests run one after another, and the run lasts as long as its slowest file,** so a file of many real git commands (git's process start is most of each test on Windows, about 2.5 times slower in a full run) is split by area into files of a few seconds each, as `projects/adapters/git/command-line-git-*.test.ts` and `projects/application/publishing-*.test.ts` are, each building its one repository in `beforeAll` (`WorktreeMaker`, `PublishingTestbed`). Measure a full run's per-file times with vitest's JSON reporter before and after.
 - **`startTestApplication({ ...metadata, database })`** boots Nest providers, controllers and modules with HTTP configured as in production, on `127.0.0.1` and a free port; `database: true` adds `DatabaseModule` on the test database. Close its `app` in `afterEach`.
 
+## The Test Project
+
+The real Project the live checks run on (`OFFICE_TEST_PROJECT`): `notnullsoft-admin` at `D:\Projects\notnullsoft-admin`, chosen by the user. Base branch `main`, remote `https://github.com/przemczan/notnullsoft-admin.git`; an npm workspace on Node 22 with `npm install`, `npm run build`, `npm run lint` and `npm test`. A push to its `main` deploys production (`.github/workflows/deploy-production.yml`), so a Publish check publishes into a throwaway base branch made from origin's `main` and deleted afterwards (push + PR, or merge), never into `main`. It is never this repository or `D:\Projects\software-factory`.
+
 ## The default run and the full run
 
 `npm run test` (and `npm run verify`) runs the **default run**: only the critical and the smoke tests. Every other test is in the **full run**, run on demand with `npm run test:full` (`npm run verify:full` runs every check on it), for example before a large refactor or when a full-run test's area changes.

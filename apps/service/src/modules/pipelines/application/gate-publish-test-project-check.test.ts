@@ -35,7 +35,7 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 14's check on the Test Project (docs/tasks/14-gates-publish.md, step 5): a Task on Quick fix
+ * Task 14's check on the Test Project: a Task on Quick fix
  * with a Gate before Publish, worked by the Developer on Haiku, waits on the user at the Gate, is
  * continued, and Publish pushes its branch and opens a real pull request. Publishing leaves the
  * workstation, so the check keeps to what the user allowed: it pushes a throwaway base branch made

@@ -360,7 +360,7 @@ function isInsideTheRepository(input: string): boolean {
 
 /**
  * An id for a Project named `name`, unlike every id in `taken`: the name in lowercase ASCII words
- * joined by dashes, short enough to name a folder in a worktree path (Build defaults).
+ * joined by dashes, short enough to name a folder in a worktree path (AGENTS.md, Project layout and defaults).
  */
 export function projectIdFor(name: string, taken: ReadonlySet<string>): string {
   const base =

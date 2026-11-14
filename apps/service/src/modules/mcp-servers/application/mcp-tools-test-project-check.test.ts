@@ -36,7 +36,7 @@ import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 36's check on the Test Project (docs/tasks/36-mcp-servers.md, step 8): the fake local MCP
+ * Task 36's check on the Test Project: the fake local MCP
  * server, run by Node, added to the library, reviewed, turned on and given to the Developer on Haiku,
  * with a secret Server value set Office-wide and overridden on the Project's page. Implement, the
  * only Agent Stage, calls one tool the card sets to Allowed and one left at Consult Devops, which

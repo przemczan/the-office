@@ -34,7 +34,7 @@ import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 35's check on the Test Project (docs/tasks/35-api-based-engine.md, step 9): an API endpoint
+ * Task 35's check on the Test Project: an API endpoint
  * set in Settings › Engines and the Developer's Role card on one of its models. In the Developer's
  * chat, a question only reading the Test Project answers, replied to in one message; then a Task
  * the user plans (the Planner never runs) runs Implement on that model, as Quick fix edited with a Gate before

@@ -38,7 +38,7 @@ import { NowChanged } from "../domain/now-events.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 16's check on the Test Project (docs/tasks/16-now-notifications.md, step 6): a day's loop
+ * Task 16's check on the Test Project: a day's loop
  * seen from Now and as Notifications. The Planner plans a Task (answering its Decisions), the Task
  * runs Quick fix edited for it, with Implement's budget at what planning used, so The Office asks
  * to raise it, and a Gate in place of Publish; the user answers and continues from what waits,

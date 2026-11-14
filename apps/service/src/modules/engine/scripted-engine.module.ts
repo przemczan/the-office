@@ -20,7 +20,7 @@ import { AgentEngine } from "./ports/agent-engine.js";
 
 /**
  * EngineModule's services on scripted engines, for other modules' tests: sessions replay
- * scripts, so they run without model calls (docs/tasks/build-defaults.md).
+ * scripts, so they run without model calls (AGENTS.md, Project layout and defaults).
  */
 @Module({})
 export class ScriptedEngineModule {

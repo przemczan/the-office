@@ -41,7 +41,7 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 13's check on the Test Project (docs/tasks/13-running-task.md): a Task on Quick fix without
+ * Task 13's check on the Test Project: a Task on Quick fix without
  * Publish, worked by the Developer on Haiku, which the user steers while it runs. They barge in
  * once, asking for a Decision, and answer it the moment it opens; Stop the run that follows at its
  * first edit and resume it in a fresh session; Pause that run and Resume it. Throughout, the Stage

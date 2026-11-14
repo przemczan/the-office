@@ -45,7 +45,7 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 26's check on the Test Project (docs/tasks/26-parallel-work-and-start-queue.md, step 8): two
+ * Task 26's check on the Test Project: two
  * Tasks planned by the Planner on Haiku, each appending its own line at the end of README.md. With
  * the Developer's Task limit at 1, the second Start warns of the Overlap, is started anyway and
  * queues; raising the limit releases it. Both wait at a Gate before Publish; the first publishes by

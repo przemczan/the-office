@@ -68,7 +68,7 @@ import { WorkModule } from "../work.module.js";
 import { GitHubModule } from "../../github/index.js";
 
 /**
- * Task 11's check on the Test Project (docs/tasks/11-planning.md): through the API, as the web
+ * Task 11's check on the Test Project: through the API, as the web
  * does, a small real change is planned with the Planner, on Haiku, to Ready, with a Decision
  * answered on the way. Live, so it runs only when asked: OFFICE_ENGINE_TESTS=live and
  * OFFICE_TEST_PROJECT=<the Test Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep what
