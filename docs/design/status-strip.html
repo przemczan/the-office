@@ -332,6 +332,7 @@
         white-space: nowrap;
       }
       .anatomy {
+        position: relative;
         margin: 12px 0 8px;
         padding: 18px;
         border: 1px solid var(--border);
@@ -785,6 +786,10 @@
         align-items: center;
         gap: 16px;
       }
+      .figs.right {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
       .fig {
         position: relative;
         display: inline-flex;
@@ -806,6 +811,13 @@
       }
       .fig:hover {
         background: var(--surface-sunken);
+      }
+      /* Desks and tokens open nothing, so they don't light up as if they would. */
+      .fig.static {
+        cursor: default;
+      }
+      .fig.static:hover {
+        background: transparent;
       }
       .fig-label {
         display: flex;
@@ -911,18 +923,21 @@
       }
 
       /* The Office's own messages: one slot of a fixed width, always at the strip's right end. */
+      /* Fixed at --slot-width; it gives way (to 168px) only where the figures and an alarm
+         would otherwise not fit, so a figure is never pushed out. */
       .slot {
         display: grid;
-        flex: none;
+        flex: 0 1 auto;
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
         column-gap: 9px;
         width: var(--slot-width, 300px);
+        min-width: 168px;
         height: 40px;
         padding: 0 8px 0 12px;
         border: 1px solid var(--border);
         border-radius: var(--radius-md);
-        background: var(--bg);
+        background: var(--surface);
         box-shadow: inset 3px 0 0 var(--tone);
         color: var(--fg-1);
         text-align: left;
@@ -1042,7 +1057,9 @@
           padding-top: 0;
           padding-bottom: 6px;
         }
-        .ps-row.first .right {
+        /* The first row keeps the four figures alone; the alarm moves to the second. */
+        .ps-row.first .right,
+        .ps-row.first .alarm {
           display: none;
         }
         .ps-row.first .grow {
@@ -1156,6 +1173,9 @@
         }
       }
       @container alt (max-width: 599px) {
+        .as {
+          gap: 10px;
+        }
         .as .slot,
         .as .elsewhere-count {
           display: none;
@@ -1318,8 +1338,8 @@
           <li><strong>5-hour window</strong>, the engines' usage: the %, a meter that turns amber from 90% and red when used up, the 7-day window and the reset time. Opens Usage by engine.</li>
           <li><strong>Desks in use</strong> against the Office-wide limit, its dot green while a Task runs.</li>
           <li><strong>Tokens today</strong>, with the info icon giving each kind, as every token count has.</li>
-          <li><strong>Workstation</strong>: CPU now and the logical cores; opens its panel.</li>
-          <li><strong>The Office's messages</strong>: one slot, 300px wide, at the right end: the newest with who says it and when, "+3" for the rest, a press listing them all.</li>
+          <li><strong>Workstation</strong>: CPU now, and the logical cores where the strip has room (here it hasn't); opens its panel.</li>
+          <li><strong>The Office's messages</strong>: one slot of a fixed width (300px on a wide strip, 260px here) at the right end: the newest with who says it and when, "+3" for the rest, a press listing them all.</li>
         </ol>
       </div>
 
@@ -1368,7 +1388,7 @@
         <li><strong>Its left edge and icon take the message's tone</strong>, as every block's left edge does in the app: amber for nearly used and reconnecting, red for used up, an engine down and a failed update, green for a reset, a lifted alarm and an update done, blue for an update scheduled, grey for the desktop ask.</li>
         <li><strong>Which shows:</strong> Reconnecting first, then the newest Office Notification, then Update scheduled, then the desktop ask. "+3" counts the rest.</li>
         <li><strong>A press opens a popover</strong> anchored to the slot's right edge, "Office Notifications · 4": every message newest first, its full line, who and when, and its action where it has one (Open Settings › Updates; Turn on desktop notifications). It closes as a popover does: a press elsewhere, Esc or a second press.</li>
-        <li><strong>Fixed width, 300px</strong> (260px and 216px on a narrower strip, section 4), so a long message never moves a figure: it is cut with an ellipsis on the slot and whole in the list. With nothing to say the slot is gone, and nothing on the left moves.</li>
+        <li><strong>Fixed width, 300px</strong> (260px and 216px on a narrower strip, section 4), so a long message never moves a figure: it is cut with an ellipsis on the slot and whole in the list. With nothing to say the slot is gone, and nothing on the left moves. Only where the figures would otherwise not fit (three engines and the alarm on a strip just over 600px) does the slot give way, down to 168px, so a figure is never pushed out.</li>
       </ul>
 
       <h3>The Alternative: one line, 48px</h3>
@@ -1385,7 +1405,7 @@
         <li><strong><code>usage-figure.tsx</code></strong>: <code>OneEngine</code> opens the list too; the meter's tone from a pure function beside <code>usageFigureWords</code> (<code>usageTone(window)</code>: calm, nearly used from 90%, used up), with unit tests.</li>
         <li><strong><code>shell.css</code></strong>: the strip's row 52px (<code>grid-template-rows: 56px auto</code>, the strip 52px, or 94px under 600px), <code>container-type: inline-size</code> on the strip and the widths of section 4 as container queries in place of the 720px media query; <code>chat.css</code>'s drawer <code>top: 104px</code> becomes the top bar and the strip's heights (a custom property the shell sets, so the two can't drift).</li>
         <li><strong>The read model:</strong> <code>Now.tasksTouched</code> and its counting go from the Notifications module and the contract; <code>doneSinceYouLeft</code> goes from <code>now-words.ts</code>; the Since you left read stays for Now.</li>
-        <li><strong><a href="../spec/4-ux-direction.md">Spec 4</a>, with the user's agreement:</strong> the Shell's status strip becomes "a fixed <strong>status strip</strong>, each figure a label over its value: needs you, the 5-hour window (…as now…), desks in use and tokens today on the left, never hidden; on the right the Workstation figure, the fire alarm while it is on, and one slot of a fixed width for what The Office tells the user (its Notifications, reconnecting, a scheduled update, the desktop notifications ask), its newest by a short line, the rest in a list". Tasks touched and done since you left go. <a href="../spec/2.7-notifications.md">Spec 2.7</a>'s Today's figures loses "Tasks touched are the Tasks with a Stage run today"; <a href="../spec/3-capabilities-by-tier.md">spec 3</a>'s Shell line stays. <a href="../spec/4.1-ui-rules.md">Spec 4.1</a>'s chat drawer "sits below the top bar and the status strip" stays true.</li>
+        <li><strong><a href="../spec/4-ux-direction.md">Spec 4</a>, with the user's agreement:</strong> the Shell's status strip becomes "a fixed <strong>status strip</strong>, each figure a label over its value: needs you, the 5-hour window (…as now…), desks in use and tokens today on the left, never hidden, the fire alarm after them while it is on; on the right the Workstation figure and one slot of a fixed width for what The Office tells the user (its Notifications, reconnecting, a scheduled update, the desktop notifications ask), its newest by a short line, the rest in a list". Tasks touched and done since you left go. <a href="../spec/2.7-notifications.md">Spec 2.7</a>'s Today's figures loses "Tasks touched are the Tasks with a Stage run today"; <a href="../spec/3-capabilities-by-tier.md">spec 3</a>'s Shell line stays. <a href="../spec/4.1-ui-rules.md">Spec 4.1</a>'s chat drawer "sits below the top bar and the status strip" stays true.</li>
         <li><strong>Tests that move</strong> (<code>apps/web/e2e/</code>, each finds the strip as <code>getByRole("status", { name: "Status strip" })</code>, which stays): <code>people.e2e.ts:2921</code> reads "done since you left", which goes; <code>shell.e2e.ts</code> 468–600 read the meter (<code>.shell-strip-meter</code>) and the Workstation's detail at a narrow width, whose classes and widths change; <code>shell.e2e.ts:721</code> reads "tokens today", which becomes the label "Tokens today"; <code>updates.e2e.ts:50</code> reads "Update scheduled", now in the slot. Unit tests: <code>now-words.full.test.ts</code> (<code>doneSinceYouLeft</code>), <code>now-page.test.tsx</code>'s <code>tasksTouched</code>. New: the slot's order and count, <code>usageTone</code>, and an e2e test that the four figures stay whole at 390px.</li>
       </ul>
 
@@ -1816,13 +1836,13 @@
       }
       function desksFigure(d) {
         const inUse = d.alarm ? 0 : d.desks.inUse;
-        return `<span class="fig" style="cursor:default" title="${inUse} of ${d.desks.limit} desks in use">
+        return `<span class="fig static" title="${inUse} of ${d.desks.limit} desks in use">
           <span class="fig-label"><span class="label-long">Desks in use</span><span class="label-short">Desks</span></span>
           <span class="fig-value"><span class="dot ${inUse > 0 ? "running" : ""}"></span><b>${inUse}</b><span class="faint">/ ${d.desks.limit}</span></span>
         </span>`;
       }
       function tokensFigure(d) {
-        return `<span class="fig" style="cursor:default">
+        return `<span class="fig static">
           <span class="fig-label"><span class="label-long">Tokens today</span><span class="label-short">Tokens</span></span>
           <span class="fig-value"><b>${d.tokens.counted}</b><span class="info-icon" title="${esc(d.tokens.words)}" tabindex="0" aria-label="${esc(d.tokens.words)}">${icon("info", 12)}</span></span>
         </span>`;
@@ -1856,7 +1876,7 @@
       function proposedStrip(d) {
         const figs = `<span class="figs">${needsFigure(d)}<span class="fig-sep"></span>${usageFigure(d)}<span class="fig-sep"></span>${desksFigure(d)}<span class="fig-sep"></span>${tokensFigure(d)}${d.alarm ? `<span class="fig-sep"></span>${alarmFigure(d)}` : ""}</span>`;
         const right = `${workstationFigure(d)}${slot(d, "a")}`;
-        const rightPhone = `${workstationFigure(d)}${slot(d, "b")}`;
+        const rightPhone = `${workstationFigure(d)}${alarmFigure(d)}${slot(d, "b")}`;
         return `<div class="ps" role="status" aria-label="Status strip">
           <div class="ps-row first">${figs}<span class="grow"></span><span class="figs right">${right}</span></div>
           <div class="ps-row second">${rightPhone}</div>
@@ -1927,7 +1947,8 @@
         const d = scenarioData();
         state.scenario = saved;
         const host = document.getElementById("anatomy");
-        host.innerHTML = `<div class="app" style="display:block">${proposedStrip({ ...d, needsYou: 3, elsewhere: 2, engines: [engine("Claude Max", 91, 41)], update: null, permission: false, notices: d.notices.slice(0, 4) })}</div>`;
+        const notices = [NOTICE.nearlyUsed("Claude Max", 91, "13:05"), NOTICE.updated("1.8.0", "09:02")];
+        host.innerHTML = `<div class="app" style="display:block">${proposedStrip({ ...d, needsYou: 3, elsewhere: 2, engines: [engine("Claude Max", 91, 41)], notices })}</div>`;
         // A picture of the parts: its presses point to the frame above, whose scenario they would read.
         host.querySelectorAll("[data-popover], [data-toast]").forEach((el) => {
           el.removeAttribute("data-popover");
@@ -1935,12 +1956,13 @@
         });
         requestAnimationFrame(() => placePins(host));
       }
+      /* The pins sit on the anatomy box, not the strip, whose rounded frame would clip them. */
       function placePins(host) {
-        host.style.position = "relative";
-        host.querySelectorAll(".pin").forEach((pin) => pin.remove());
+        const layer = host.closest(".anatomy");
+        layer.querySelectorAll(".pin").forEach((pin) => pin.remove());
         const row = host.querySelector(".ps-row.first");
         const targets = [...row.querySelectorAll(".fig, .slot")].filter((el) => el.offsetParent);
-        const base = host.getBoundingClientRect();
+        const base = layer.getBoundingClientRect();
         targets.forEach((el, index) => {
           const box = el.getBoundingClientRect();
           const pin = document.createElement("span");
@@ -1948,7 +1970,7 @@
           pin.textContent = index + 1;
           pin.style.left = `${box.left - base.left - 6}px`;
           pin.style.top = `${box.top - base.top - 6}px`;
-          host.append(pin);
+          layer.append(pin);
         });
       }
 
